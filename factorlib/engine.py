@@ -56,11 +56,24 @@ def cross_sectional_zscore(
     date_col: str,
     factor_col: str,
 ) -> pl.DataFrame:
-    """MAD-robust z-score within each cross-section (date)."""
+    """MAD-robust z-score within each cross-section (date).
+
+    Uses median for centering and MAD (Median Absolute Deviation) for scaling,
+    both resistant to outliers. The consistency constant 1.4826 makes MAD an
+    unbiased estimator of std for normally distributed data.
+
+    z = (x - median(x)) / (1.4826 * MAD(x))
+    """
+    _CONSISTENCY_CONSTANT = 1.4826
+
+    median_expr = pl.col(factor_col).median().over(date_col)
+    deviation = (pl.col(factor_col) - median_expr).abs()
+    mad_expr = deviation.median().over(date_col)
+
     return df.with_columns(
         (
-            (pl.col(factor_col) - pl.col(factor_col).median().over(date_col))
-            / pl.col(factor_col).std().over(date_col)
+            (pl.col(factor_col) - median_expr)
+            / (mad_expr * _CONSISTENCY_CONSTANT)
         )
         .fill_nan(0.0)
         .fill_null(0.0)

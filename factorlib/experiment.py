@@ -3,7 +3,6 @@ Layer 4: Experiment Tracking — MLflow integration.
 Logs scoring results, IC series, and NAV curves as structured experiments.
 """
 
-import json
 import tempfile
 from pathlib import Path
 
@@ -75,16 +74,25 @@ class FactorTracker:
         return flat
 
 
-def build_ic_artifact(prepared_data: pl.DataFrame) -> pl.DataFrame:
-    """Build IC time series artifact from prepared factor data."""
+def build_ic_artifact(prepared_data: pl.DataFrame, min_assets: int = 10) -> pl.DataFrame:
+    """Build IC time series artifact from prepared factor data.
+
+    Uses method='average' for Spearman rank and filters dates with fewer than
+    min_assets stocks, consistent with the scoring IC computation in registry.py.
+    """
     ranked = prepared_data.with_columns(
-        pl.col("factor").rank().over("date").alias("rank_factor"),
-        pl.col("forward_return").rank().over("date").alias("rank_return"),
+        pl.col("factor").rank(method="average").over("date").alias("rank_factor"),
+        pl.col("forward_return").rank(method="average").over("date").alias("rank_return"),
     )
     ic_df = (
         ranked.group_by("date")
-        .agg(pl.corr("rank_factor", "rank_return").alias("ic"))
+        .agg(
+            pl.corr("rank_factor", "rank_return").alias("ic"),
+            pl.len().alias("n"),
+        )
+        .filter(pl.col("n") >= min_assets)
         .sort("date")
+        .select("date", "ic")
     )
     return ic_df.with_columns(pl.col("ic").cum_sum().alias("cum_ic"))
 
@@ -93,14 +101,18 @@ def build_nav_artifact(
     prepared_data: pl.DataFrame,
     step: int = 5,
 ) -> pl.DataFrame:
-    """Build Long-Only Q1 vs Universe NAV curves (non-overlapping)."""
+    """Build Long-Only Q1 vs Universe NAV curves (non-overlapping).
+
+    Uses method='average' for rank consistency with scoring metrics.
+    Drops nulls before computing NAV to guarantee aligned lengths.
+    """
     dates = prepared_data["date"].unique().sort()
     sampled = dates.gather_every(step)
     filtered = prepared_data.filter(pl.col("date").is_in(sampled.implode()))
 
     returns_df = (
         filtered.with_columns(
-            (pl.col("factor").rank().over("date") / pl.len().over("date"))
+            (pl.col("factor").rank(method="average").over("date") / pl.len().over("date"))
             .alias("pct_rank")
         )
         .group_by("date")
@@ -114,10 +126,11 @@ def build_nav_artifact(
         .sort("date")
     )
 
-    # Compound NAV
-    q1_nav = np.cumprod(1 + returns_df["q1_return"].drop_nulls().to_numpy())
-    univ_nav = np.cumprod(1 + returns_df["universe_return"].drop_nulls().to_numpy())
+    # Drop nulls FIRST, then compute NAV from the same clean DataFrame
     valid = returns_df.drop_nulls()
+
+    q1_nav = np.cumprod(1 + valid["q1_return"].to_numpy())
+    univ_nav = np.cumprod(1 + valid["universe_return"].to_numpy())
 
     return pl.DataFrame({
         "date": valid["date"],

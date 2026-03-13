@@ -21,11 +21,11 @@ def validate_factor_data(df: pl.DataFrame) -> pl.DataFrame:
     """Validate DataFrame against FactorSchema, plus NaN/Inf checks."""
     validated = FactorSchema.validate(df)
 
-    nan_count = df.select(pl.col("factor").is_nan().sum()).item()
+    nan_count = validated.select(pl.col("factor").is_nan().sum()).item()
     if nan_count > 0:
         raise ValueError(f"factor contains {nan_count} NaN values")
 
-    inf_count = df.select(pl.col("factor").is_infinite().sum()).item()
+    inf_count = validated.select(pl.col("factor").is_infinite().sum()).item()
     if inf_count > 0:
         raise ValueError(f"factor contains {inf_count} Inf values")
 
