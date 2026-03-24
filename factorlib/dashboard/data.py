@@ -11,9 +11,23 @@ logger = logging.getLogger(__name__)
 
 
 @st.cache_data(ttl=30)
-def fetch_leaderboard(experiment_name: str = "Factor_Zoo") -> pd.DataFrame:
+def fetch_experiment_names() -> list[str]:
+    """Return all non-default MLflow experiment names, most recent first."""
     try:
-        runs = mlflow.search_runs(experiment_names=[experiment_name])
+        experiments = mlflow.search_experiments()
+        return [
+            e.name for e in experiments
+            if e.name != "Default" and e.lifecycle_stage == "active"
+        ]
+    except Exception as e:
+        logger.warning("Failed to fetch experiments: %s", e)
+        return []
+
+
+@st.cache_data(ttl=30)
+def fetch_leaderboard(experiment_names: tuple[str, ...] = ("Factor_Zoo",)) -> pd.DataFrame:
+    try:
+        runs = mlflow.search_runs(experiment_names=list(experiment_names))
     except Exception as e:
         logger.warning("Failed to fetch leaderboard: %s", e)
         return pd.DataFrame()
@@ -23,13 +37,15 @@ def fetch_leaderboard(experiment_name: str = "Factor_Zoo") -> pd.DataFrame:
 
     display_cols = {
         "tags.mlflow.runName": "Factor",
-        "tags.factor_type": "Type",
         "tags.status": "Status",
         "metrics.Total_Score": "Total",
-        "metrics.Signal_Score": "Signal",
-        "metrics.Performance_Score": "Performance",
+        "metrics.Predictability_Score": "Predictability",
+        "metrics.Profitability_Score": "Profitability",
         "metrics.Robustness_Score": "Robustness",
-        "metrics.Efficiency_Score": "Efficiency",
+        "metrics.Tradability_Score": "Tradability",
+        "tags.factor_type": "Type",
+        "tags.sample_period": "Sample Period",
+        "tags.asset_pool": "Asset Pool",
     }
 
     # WHY: Keep only the most recent run per factor name — historical runs may
@@ -61,12 +77,12 @@ def fetch_artifact(run_id: str, artifact_name: str) -> pl.DataFrame | None:
         return None
 
 
-def fetch_run_metrics(run_id: str) -> dict:
-    """Fetch all metric values for a run."""
+def fetch_run_data(run_id: str) -> tuple[dict, dict]:
+    """Fetch all metrics and params for a run."""
     try:
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(run_id)
-        return run.data.metrics
+        return run.data.metrics, run.data.params
     except Exception as e:
-        logger.warning("Failed to fetch metrics for run %s: %s", run_id, e)
-        return {}
+        logger.warning("Failed to fetch data for run %s: %s", run_id, e)
+        return {}, {}

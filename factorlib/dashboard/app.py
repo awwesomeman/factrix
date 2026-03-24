@@ -4,7 +4,12 @@ import streamlit as st
 import pandas as pd
 
 from factorlib.scoring.config import DIMENSIONS
-from factorlib.dashboard.data import fetch_leaderboard, fetch_artifact, fetch_run_metrics
+from factorlib.dashboard.data import (
+    fetch_experiment_names,
+    fetch_leaderboard,
+    fetch_artifact,
+    fetch_run_data,
+)
 from factorlib.dashboard.charts import (
     radar_chart,
     ic_chart,
@@ -17,6 +22,10 @@ from factorlib.dashboard.charts import (
 
 DIMENSION_LABELS = [d.capitalize() for d in DIMENSIONS]
 DIMENSION_KEYS = [f"{label}_Score" for label in DIMENSION_LABELS]
+
+_LEADING_COLS = ["Factor", "Status"]
+_TRAILING_COLS = ["Type", "Sample Period", "Asset Pool"]
+_NON_SCORE_COLS = set(_LEADING_COLS + _TRAILING_COLS)
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +51,7 @@ def style_leaderboard(df: pd.DataFrame):
             return "background-color: rgba(220, 53, 69, 0.10)"
         return ""
 
-    score_cols = [c for c in df.columns if c not in ("Factor", "Status", "Type")]
+    score_cols = [c for c in df.columns if c not in _NON_SCORE_COLS]
     styler = df.style
     if "Status" in df.columns:
         styler = styler.map(color_status, subset=["Status"])
@@ -56,14 +65,14 @@ def style_leaderboard(df: pd.DataFrame):
 # ---------------------------------------------------------------------------
 
 DISPLAY_GROUPS = {
-    "Signal": ["IC_IR", "Monotonicity",
-               "Event_CAAR", "Event_KS", "Event_CAR_Dispersion"],
-    "Performance": ["Long_Alpha", "MDD",
-                    "Profit_Factor", "Event_Skewness"],
+    "Predictability": ["IC_IR", "Monotonicity",
+                       "Event_CAAR", "Event_KS", "Event_CAR_Dispersion"],
+    "Profitability": ["Long_Alpha", "MDD",
+                      "Profit_Factor", "Event_Skewness"],
     "Robustness": ["OOS_Decay", "IC_Stability", "Hit_Rate",
                    "Cross_Consistency",
                    "Event_Decay", "Event_Stability", "Event_Hit_Rate"],
-    "Efficiency": ["Turnover", "Capacity", "Slippage"],
+    "Tradability": ["Turnover", "Capacity", "Slippage"],
 }
 
 _RAW_FORMAT: dict[str, str] = {
@@ -93,22 +102,38 @@ def _fmt_raw(metric: str, value: float | None) -> str | None:
     return format(value, fmt)
 
 
-def build_metric_table(metrics: dict) -> pd.DataFrame:
+def _extract_min_thresholds(params: dict) -> dict[str, float]:
+    """Extract min_threshold values from MLflow params like 'signal.Event_CAAR.min_threshold'."""
+    thresholds = {}
+    for k, v in params.items():
+        if k.endswith(".min_threshold"):
+            metric_name = k.rsplit(".", 2)[-2]
+            try:
+                thresholds[metric_name] = float(v)
+            except ValueError:
+                pass
+    return thresholds
+
+
+def build_metric_table(metrics: dict, params: dict | None = None) -> pd.DataFrame:
     """Build a single detail table for all dimensions with a Metric Type column."""
+    thresholds = _extract_min_thresholds(params) if params else {}
     rows = []
     for dim, metric_names in DISPLAY_GROUPS.items():
         for m in metric_names:
             if m not in metrics:
                 continue
             raw_val = metrics.get(f"{m}_raw")
-            rows.append({
+            row = {
                 "Metric Type": dim,
                 "Metric": m,
                 "Raw": _fmt_raw(m, raw_val),
                 "Score": metrics.get(m, 0),
+                "Threshold": thresholds.get(m),
                 "t-stat": metrics.get(f"{m}_t_stat"),
                 "Adaptive W": metrics.get(f"{m}_adaptive_w"),
-            })
+            }
+            rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -121,20 +146,39 @@ def main():
     st.title("Factor Lab")
     st.caption("Quantitative Factor Evaluation Dashboard")
 
+    # --- Sidebar: Experiment Selector ---
+    st.sidebar.header("Experiment")
+    all_experiments = fetch_experiment_names()
+    if not all_experiments:
+        st.warning("No experiments found. Run `python main.py` first.")
+        return
+    selected_experiments = st.sidebar.multiselect(
+        "Experiments", all_experiments, default=all_experiments,
+    )
+    if not selected_experiments:
+        st.warning("Select at least one experiment.")
+        return
+
     # --- Leaderboard ---
-    df = fetch_leaderboard()
+    df = fetch_leaderboard(tuple(selected_experiments))
 
     if df.empty:
-        st.warning("No experiment runs found. Run `python main.py` first.")
+        st.warning("No runs found in selected experiments.")
         return
 
     # --- Sidebar Filters ---
     st.sidebar.header("Filters")
-    if "Type" in df.columns:
-        df["Type"] = df["Type"].fillna("N/A")
-        all_types = sorted(df["Type"].unique().tolist())
-        selected_types = st.sidebar.multiselect("Factor Type", all_types, default=all_types)
-        df = df[df["Type"].isin(selected_types)]
+
+    for col_name, label in [
+        ("Type", "Factor Type"),
+        ("Sample Period", "Sample Period"),
+        ("Asset Pool", "Asset Pool"),
+    ]:
+        if col_name in df.columns:
+            filled = df[col_name].fillna("N/A")
+            options = sorted(filled.unique().tolist())
+            selected = st.sidebar.multiselect(label, options, default=options)
+            df = df[filled.isin(selected)]
 
     # --- Factor Selection in Sidebar ---
     factor_names = df["Factor"].tolist() if "Factor" in df.columns else []
@@ -148,6 +192,9 @@ def main():
     st.subheader("Leaderboard")
 
     display_df = df.drop(columns=["run_id"])
+    score_order = [c for c in display_df.columns if c not in _NON_SCORE_COLS]
+    ordered = [c for c in _LEADING_COLS + score_order + _TRAILING_COLS if c in display_df.columns]
+    display_df = display_df[ordered]
     st.dataframe(
         style_leaderboard(display_df),
         use_container_width=True,
@@ -160,9 +207,9 @@ def main():
     selected_row = df[df["Factor"] == selected].iloc[0]
     run_id = selected_row["run_id"]
 
-    metrics = fetch_run_metrics(run_id)
+    metrics, params = fetch_run_data(run_id)
 
-    # --- Top-level scores ---
+    # --- Top-level scores with dimension weights ---
     total = selected_row.get("Total", 0)
     status = selected_row.get("Status", "N/A")
     delta_color = "normal" if status == "PASS" else "inverse"
@@ -173,7 +220,9 @@ def main():
     for i, dim in enumerate(DIMENSION_LABELS):
         with cols[i + 1]:
             val = selected_row.get(dim)
-            st.metric(dim, f"{val:.1f}" if pd.notna(val) else "-")
+            w = params.get(f"routing.{dim.lower()}")
+            label = f"{dim} ({float(w):.0%})" if w else dim
+            st.metric(label, f"{val:.1f}" if pd.notna(val) else "-")
 
     # --- Drill-down: Radar + Metric Tables ---
     col1, col2 = st.columns([1, 1])
@@ -187,11 +236,12 @@ def main():
 
     with col2:
         st.subheader("Metric Scorecard")
-        tbl = build_metric_table(metrics)
+        tbl = build_metric_table(metrics, params)
         if not tbl.empty:
             st.dataframe(
                 tbl.style.format({
                     "Score": "{:.1f}",
+                    "Threshold": "{:.0f}",
                     "t-stat": "{:.2f}",
                     "Adaptive W": "{:.3f}",
                 }, na_rep="-"),

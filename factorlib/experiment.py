@@ -25,6 +25,8 @@ class FactorTracker:
         event_temporal: pl.DataFrame | None = None,
         logic_desc: str = "",
         factor_type: str = "individual_stock",
+        sample_period: str = "",
+        asset_pool: str = "",
     ) -> str:
         """
         Log a complete factor evaluation run to MLflow.
@@ -35,7 +37,7 @@ class FactorTracker:
             has_veto = len(scoring_results.get("penalties", [])) > 0
             mlflow.set_tag("status", "VETOED" if has_veto else "PASS")
             mlflow.set_tag("logic_description", logic_desc)
-            mlflow.set_tag("factor_type", factor_type)
+            self._set_context_tags(factor_type, sample_period, asset_pool)
             if scoring_results["penalties"]:
                 mlflow.set_tag("veto_reasons", "; ".join(scoring_results["penalties"]))
 
@@ -90,6 +92,8 @@ class FactorTracker:
         factor_name: str,
         error: str,
         factor_type: str = "individual_stock",
+        sample_period: str = "",
+        asset_pool: str = "",
     ) -> str:
         """Log a failed factor evaluation run to MLflow.
 
@@ -98,10 +102,18 @@ class FactorTracker:
         """
         with mlflow.start_run(run_name=factor_name) as run:
             mlflow.set_tag("status", "FAILED")
-            mlflow.set_tag("factor_type", factor_type)
+            self._set_context_tags(factor_type, sample_period, asset_pool)
             mlflow.set_tag("error", error[:250])
             mlflow.log_metric("Total_Score", 0.0)
             return run.info.run_id
+
+    @staticmethod
+    def _set_context_tags(factor_type: str, sample_period: str, asset_pool: str) -> None:
+        mlflow.set_tag("factor_type", factor_type)
+        if sample_period:
+            mlflow.set_tag("sample_period", sample_period)
+        if asset_pool:
+            mlflow.set_tag("asset_pool", asset_pool)
 
     @staticmethod
     def _flatten_config(config: dict, prefix: str = "") -> dict[str, str]:
