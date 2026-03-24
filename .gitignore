@@ -1,18 +1,35 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
 .venv/
 venv/
 
-# MLflow runtime artifacts
+# MLflow
 mlflow.db
 mlruns/
+mlartifacts/
 
 # IDE
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Node (not used in this project)
+node_modules/
+package-lock.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Lock files (managed by uv)
+# uv.lock is committed for reproducibility

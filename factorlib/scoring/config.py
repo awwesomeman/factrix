@@ -1,36 +1,115 @@
-"""Scoring configuration — dimension weights and metric parameters."""
+"""Per-factor-type scoring configuration (4-dimension model).
 
-# ---------------------------------------------------------------------------
-# Individual Stock Factor Config (Selection-facet, serializable string keys)
-# ---------------------------------------------------------------------------
+Each factor type defines:
+- routing: dimension weight split (signal/performance/robustness/efficiency)
+- per-dimension metric list with optional params
 
-SCORING_CONFIG = {
-    "Alpha": {
-        "weight": 0.30,
-        "metrics": {
-            "Rank_IC": {"weight": 0.4},
-            "IC_IR": {"weight": 0.2},
-            "Long_Only_Alpha": {"weight": 0.4, "q_top": 0.2},
+Metric params (q_top, oos_ratio, min_threshold) are per-metric config,
+not importance weights — adaptive_weight handles weighting via t-stat.
+
+# WHY: 從五維度（alpha/persistence/efficiency/risk/orthogonality）重構為四維度：
+# 1. Signal：純截面預測力（IC_IR 已包含 Rank_IC 的資訊，移除冗餘）
+# 2. Performance：組合層面 P&L 品質（Long_Alpha + MDD 同屬一條 NAV 曲線的正反面）
+# 3. Robustness：穩健性（OOS_Decay + IC_Stability + Hit_Rate，後者從 Alpha 移入）
+# 4. Efficiency：可交易性（Turnover，未來可加 Capacity）
+# 砍掉 Orthogonality — 無 factor zoo 時為死權重，等有了再作為 post-filter 加回
+
+# TODO: 待實證調校 — routing 權重為合理預設值，後續根據實證資料優化
+"""
+
+# WHY: adaptive_weight sigmoid 參數預設值；tau=2.0 對應傳統 t>2 顯著性門檻，
+# k=2.0 控制 sigmoid 斜率。Harvey et al. (2016) 建議 K 未知時提高至 tau=3.0。
+DEFAULT_ADAPTIVE_TAU: float = 2.0
+DEFAULT_ADAPTIVE_K: float = 2.0
+
+# WHY: 被 VETO 的因子仍保留此比例的原始分數供橫向排名，
+# 而非直接歸零，避免微小 VETO 導致排名斷崖
+DEFAULT_VETO_PENALTY: float = 0.2
+
+DIMENSIONS = ("signal", "performance", "robustness", "efficiency")
+
+FACTOR_CONFIGS = {
+    "individual_stock": {
+        "routing": {
+            "signal": 0.40, "performance": 0.25,
+            "robustness": 0.25, "efficiency": 0.10,
+        },
+        "signal": {
+            "IC_IR": {},
+            "Monotonicity": {"n_groups": 5},
+        },
+        "performance": {
+            "Long_Alpha": {"q_top": 0.2},
+            "MDD": {},
+        },
+        "robustness": {
+            "OOS_Decay": {"oos_ratio": 0.2},
+            "IC_Stability": {},
+            "Hit_Rate": {},
+        },
+        "efficiency": {
+            "Turnover": {"min_threshold": 20},
         },
     },
-    "Robustness": {
-        "weight": 0.35,
-        "metrics": {
-            "Internal_OOS_Decay": {"weight": 0.6, "oos_ratio": 0.2},
-            "IC_Stability": {"weight": 0.4},
+    "group_region": {
+        "routing": {
+            "signal": 0.35, "performance": 0.25,
+            "robustness": 0.25, "efficiency": 0.15,
+        },
+        "signal": {
+            "IC_IR": {},
+        },
+        "performance": {
+            "MDD": {},
+        },
+        "robustness": {
+            "Hit_Rate": {},
+            "Cross_Consistency": {},
+        },
+        "efficiency": {
+            "Turnover": {"min_threshold": 20},
         },
     },
-    "Risk": {
-        "weight": 0.25,
-        "metrics": {
-            "Turnover": {"weight": 0.5, "min_threshold": 20},
-            "MDD": {"weight": 0.5},
+    "global_macro": {
+        "routing": {
+            "signal": 0.35, "performance": 0.30,
+            "robustness": 0.20, "efficiency": 0.15,
+        },
+        "signal": {
+            "IC_IR": {},
+        },
+        "performance": {
+            "MDD": {},
+            "Profit_Factor": {},
+        },
+        "robustness": {
+            "Hit_Rate": {},
+        },
+        "efficiency": {
+            "Turnover": {"min_threshold": 20},
         },
     },
-    "Novelty": {
-        "weight": 0.10,
-        "metrics": {
-            "Orthogonality": {"weight": 1.0},
+    "event_signal": {
+        # WHY: 事件訊號無 z-score factor 欄位，Turnover/MDD/OOS_Decay 不適用。
+        # 改用純事件指標評估，efficiency 預留但暫無指標。
+        "routing": {
+            "signal": 0.50, "performance": 0.20,
+            "robustness": 0.25, "efficiency": 0.05,
         },
+        "signal": {
+            "Event_CAAR": {"min_threshold": 20},
+            "Event_KS": {},
+            "Event_CAR_Dispersion": {},
+        },
+        "performance": {
+            "Profit_Factor": {},
+            "Event_Skewness": {},
+        },
+        "robustness": {
+            "Event_Decay": {},
+            "Event_Stability": {},
+            "Event_Hit_Rate": {},
+        },
+        "efficiency": {},
     },
 }
