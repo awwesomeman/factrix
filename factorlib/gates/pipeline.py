@@ -51,7 +51,7 @@ def evaluate_factor(
     Returns:
         EvaluationResult with overall status, per-gate details, and profile.
     """
-    artifacts = _build_artifacts(df, config)
+    artifacts = build_artifacts(df, config)
 
     gate_results: list[GateResult] = []
     for gate_fn in gates:
@@ -78,7 +78,7 @@ def evaluate_factor(
     )
 
 
-def _build_artifacts(df: pl.DataFrame, config: PipelineConfig) -> Artifacts:
+def build_artifacts(df: pl.DataFrame, config: PipelineConfig) -> Artifacts:
     """Pre-compute shared intermediate results.
 
     Called once before any gate runs. All gates and profile read from

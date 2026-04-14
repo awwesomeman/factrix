@@ -18,7 +18,7 @@ from factorlib.gates.config import PipelineConfig, MARKET_DEFAULTS
 from factorlib.gates.significance import significance_gate
 from factorlib.gates.oos_persistence import oos_persistence_gate
 from factorlib.gates.profile import compute_profile
-from factorlib.gates.pipeline import evaluate_factor, _build_artifacts
+from factorlib.gates.pipeline import evaluate_factor, build_artifacts
 from factorlib.gates.presets import CROSS_SECTIONAL_GATES
 
 
@@ -86,12 +86,12 @@ def noise_panel() -> pl.DataFrame:
 
 @pytest.fixture
 def strong_artifacts(strong_panel) -> Artifacts:
-    return _build_artifacts(strong_panel, PipelineConfig())
+    return build_artifacts(strong_panel, PipelineConfig())
 
 
 @pytest.fixture
 def noise_artifacts(noise_panel) -> Artifacts:
-    return _build_artifacts(noise_panel, PipelineConfig())
+    return build_artifacts(noise_panel, PipelineConfig())
 
 
 # ---------------------------------------------------------------------------
