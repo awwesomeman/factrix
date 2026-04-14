@@ -1,0 +1,149 @@
+"""Tradability metrics: Turnover, Breakeven Cost, Net Spread.
+
+These are implementation-feasibility indicators, not factor quality
+measures — they belong in Profile, not in Gates.
+
+Input for Turnover: DataFrame with ``date, asset_id, factor``.
+Input for Breakeven/Net Spread: pre-computed spread and turnover values.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import polars as pl
+
+from factorlib.tools._typing import CALENDAR_DAYS_PER_YEAR, DDOF, EPSILON, MetricOutput
+from factorlib.tools.series.significance import significance_marker
+
+
+def compute_turnover(
+    df: pl.DataFrame,
+    factor_col: str = "factor",
+) -> MetricOutput:
+    """Factor turnover via rank autocorrelation.
+
+    ``turnover = 1 - mean(rank_autocorrelation)``
+
+    High rank autocorrelation = low turnover = lower rebalance cost.
+
+    Args:
+        df: Panel with ``date, asset_id, factor``.
+
+    Returns:
+        MetricOutput with value = turnover estimate (0-1).
+    """
+    dates = df["date"].unique().sort()
+    if len(dates) < 2:
+        return MetricOutput(name="Turnover", value=0.0)
+
+    date_map = pl.DataFrame({
+        "date": dates[1:],
+        "prev_date": dates[:-1],
+    })
+
+    ranked = df.select(
+        "date", "asset_id",
+        pl.col(factor_col).rank(method="average").over("date").alias("factor_rank"),
+    )
+
+    paired = (
+        ranked.rename({"factor_rank": "rank_curr"})
+        .join(date_map, on="date")
+        .join(
+            ranked.rename({"date": "prev_date", "factor_rank": "rank_prev"}),
+            on=["prev_date", "asset_id"],
+        )
+    )
+
+    rc_per_date = (
+        paired.group_by("date")
+        .agg(pl.corr("rank_curr", "rank_prev").alias("rc"))
+        .filter(pl.col("rc").is_not_null() & pl.col("rc").is_not_nan())
+        .sort("date")
+    )
+
+    if rc_per_date.is_empty():
+        return MetricOutput(name="Turnover", value=0.0)
+
+    rc_arr = rc_per_date["rc"].to_numpy()
+    mean_rc = float(np.mean(rc_arr))
+    turnover = 1.0 - mean_rc
+
+    return MetricOutput(
+        name="Turnover",
+        value=turnover,
+        metadata={"mean_rank_autocorrelation": mean_rc, "n_dates": len(rc_arr)},
+    )
+
+
+def breakeven_cost(
+    gross_alpha_ann: float,
+    turnover: float,
+) -> MetricOutput:
+    """Breakeven single-leg trading cost in bps.
+
+    ``Breakeven = Gross_Alpha / (2 × Turnover)``
+
+    If the actual trading cost is below this, the factor's alpha survives.
+
+    Args:
+        gross_alpha_ann: Annualized Q1-Q5 spread.
+        turnover: Factor turnover estimate (0-1).
+
+    Returns:
+        MetricOutput with value = breakeven cost in bps.
+
+    References:
+        Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
+    """
+    if turnover < EPSILON:
+        # WHY: 零 turnover 代表靜態因子，breakeven 趨近無窮
+        return MetricOutput(
+            name="Breakeven_Cost",
+            value=float("inf"),
+            metadata={"gross_alpha_ann": gross_alpha_ann, "turnover": turnover},
+        )
+
+    # WHY: ×2 因為 long-short 雙邊交易；×10000 轉 bps
+    be_bps = (gross_alpha_ann / (2 * turnover)) * 10000
+
+    return MetricOutput(
+        name="Breakeven_Cost",
+        value=be_bps,
+        metadata={"gross_alpha_ann": gross_alpha_ann, "turnover": turnover},
+    )
+
+
+def net_spread(
+    gross_alpha_ann: float,
+    turnover: float,
+    estimated_cost_bps: float = 30.0,
+) -> MetricOutput:
+    """Net spread after estimated trading costs.
+
+    ``Net = Gross_Alpha - 2 × cost_bps × Turnover``
+
+    Args:
+        gross_alpha_ann: Annualized Q1-Q5 spread.
+        turnover: Factor turnover estimate.
+        estimated_cost_bps: Estimated single-leg trading cost in bps.
+
+    Returns:
+        MetricOutput with value = net spread (annualized).
+
+    References:
+        DeMiguel, Martin-Utrera & Nogales (2020).
+    """
+    cost_drag = 2 * (estimated_cost_bps / 10000) * turnover
+    net = gross_alpha_ann - cost_drag
+
+    return MetricOutput(
+        name="Net_Spread",
+        value=net,
+        metadata={
+            "gross_alpha_ann": gross_alpha_ann,
+            "cost_drag": cost_drag,
+            "estimated_cost_bps": estimated_cost_bps,
+            "turnover": turnover,
+        },
+    )
