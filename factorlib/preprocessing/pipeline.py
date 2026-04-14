@@ -1,7 +1,7 @@
 """Preprocessing orchestration: chain Step 1-5 into a single call.
 
 Each step is independently importable from ``returns`` and ``normalize``.
-This module only provides the convenience ``run_preprocessing()`` wrapper.
+This module only provides the convenience ``preprocess_cs_factor()`` wrapper.
 """
 
 import polars as pl
@@ -17,7 +17,7 @@ from factorlib.preprocessing.normalize import (
 )
 
 
-def run_preprocessing(
+def preprocess_cs_factor(
     df: pl.DataFrame,
     *,
     date_col: str = "datetime",
@@ -62,6 +62,7 @@ def run_preprocessing(
     out = cross_sectional_zscore(out, date_col, factor_col)
 
     # WHY: 輸出統一欄位名稱，下游工具不需知道上游的原始欄位命名
+    # WHY: pass-through price 供 multi_horizon_ic 等需要原始價格的工具使用
     return out.select(
         pl.col(date_col).cast(pl.Datetime("ms")).alias("date"),
         pl.col(asset_col).alias("asset_id"),
@@ -69,4 +70,5 @@ def run_preprocessing(
         pl.col("factor_zscore").alias("factor"),
         pl.col("forward_return"),
         pl.col("abnormal_return"),
+        pl.col(price_col).alias("price"),
     )

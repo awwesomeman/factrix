@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.preprocessing.pipeline import run_preprocessing
+from factorlib.preprocessing.pipeline import preprocess_cs_factor
 
 
 def _make_raw_data(n_dates: int = 30, n_assets: int = 10):
@@ -26,32 +26,32 @@ def _make_raw_data(n_dates: int = 30, n_assets: int = 10):
 class TestRunPreprocessing:
     def test_output_schema(self):
         raw = _make_raw_data()
-        result = run_preprocessing(raw, forward_periods=5)
+        result = preprocess_cs_factor(raw, forward_periods=5)
         assert result.columns == [
             "date", "asset_id", "factor_raw", "factor",
-            "forward_return", "abnormal_return",
+            "forward_return", "abnormal_return", "price",
         ]
 
     def test_output_dtypes(self):
         raw = _make_raw_data()
-        result = run_preprocessing(raw, forward_periods=5)
+        result = preprocess_cs_factor(raw, forward_periods=5)
         assert result["date"].dtype == pl.Datetime("ms")
         assert result["asset_id"].dtype == pl.String
 
     def test_no_nulls(self):
         raw = _make_raw_data()
-        result = run_preprocessing(raw, forward_periods=5)
+        result = preprocess_cs_factor(raw, forward_periods=5)
         for col in ["factor", "forward_return", "abnormal_return"]:
             assert result[col].null_count() == 0
 
     def test_no_nans(self):
         raw = _make_raw_data()
-        result = run_preprocessing(raw, forward_periods=5)
+        result = preprocess_cs_factor(raw, forward_periods=5)
         nan_count = result["factor"].is_nan().sum()
         assert nan_count == 0
 
     def test_factor_raw_preserved(self):
         raw = _make_raw_data()
-        result = run_preprocessing(raw, forward_periods=5)
+        result = preprocess_cs_factor(raw, forward_periods=5)
         # factor_raw should exist and not be all zeros
         assert result["factor_raw"].std() > 0

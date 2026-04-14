@@ -201,19 +201,16 @@ def regime_ic(
 
 def multi_horizon_ic(
     df: pl.DataFrame,
-    asset_col: str = "asset_id",
-    price_col: str = "close",
+    price_col: str = "price",
     factor_col: str = "factor",
     periods: list[int] | None = None,
 ) -> MetricOutput:
     """Compute mean IC at multiple forward horizons.
 
-    Reuses ``compute_forward_return`` from preprocessing to ensure
-    consistent return calculation across the codebase.
-
     Args:
-        df: Raw panel with ``date``, ``asset_col``, ``price_col``, ``factor_col``.
-            Must contain price data (not preprocessed forward_return).
+        df: Preprocessed panel with ``date``, ``asset_id``, ``close``,
+            and ``factor`` columns. Output of ``preprocess_cs_factor``.
+        price_col: Price column for computing forward returns.
         periods: List of forward periods (default [1, 5, 10, 20]).
 
     Returns:
@@ -225,11 +222,10 @@ def multi_horizon_ic(
 
     horizon_ics: dict[int, float] = {}
 
-    # WHY: 一次算所有 horizon 的 forward return，避免重複排序
-    sorted_df = df.sort([asset_col, "date"])
+    sorted_df = df.sort(["asset_id", "date"])
     all_returns = sorted_df.with_columns([
         (
-            pl.col(price_col).shift(-p).over(asset_col)
+            pl.col(price_col).shift(-p).over("asset_id")
             / pl.col(price_col)
             - 1
         ).alias(f"_fwd_ret_{p}")

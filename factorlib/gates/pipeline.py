@@ -42,7 +42,7 @@ def evaluate_factor(
 
     Args:
         df: Preprocessed panel with ``date, asset_id, factor, forward_return``.
-            Should already have been through ``run_preprocessing``
+            Should already have been through ``preprocess_cs_factor``
             (and optionally ``orthogonalize_factor``).
         factor_name: Identifier for the factor being evaluated.
         gates: Ordered list of gate functions. Use presets or compose your own.
