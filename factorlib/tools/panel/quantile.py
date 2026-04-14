@@ -73,13 +73,17 @@ def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
+    _precomputed_series: pl.DataFrame | None = None,
 ) -> MetricOutput:
     """Q1-Q5 spread (annualized).
+
+    Args:
+        _precomputed_series: If provided, skip recomputing ``quantile_spread_series``.
 
     Returns:
         MetricOutput with annualized spread, t-stat from non-overlapping periods.
     """
-    series = quantile_spread_series(df, forward_periods, n_groups)
+    series = _precomputed_series if _precomputed_series is not None else quantile_spread_series(df, forward_periods, n_groups)
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
