@@ -174,6 +174,7 @@ def regime_ic(
         t = calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
         per_regime[row["regime"]] = {
             "mean_ic": row["mean_ic"],
+            "std_ic": row["std_ic"],
             "t_stat": t,
             "significance": significance_marker(t),
             "n_periods": row["n"],
