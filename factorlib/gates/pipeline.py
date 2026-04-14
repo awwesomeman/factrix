@@ -28,6 +28,7 @@ from factorlib.gates._protocol import (
 )
 from factorlib.gates.config import PipelineConfig
 from factorlib.gates.profile import compute_profile
+from factorlib.tools._helpers import median_universe_size
 from factorlib.tools.panel.ic import compute_ic
 from factorlib.tools.panel.quantile import quantile_spread_series
 
@@ -84,6 +85,14 @@ def build_artifacts(df: pl.DataFrame, config: PipelineConfig) -> Artifacts:
     Called once before any gate runs. All gates and profile read from
     the same Artifacts instance.
     """
+    required = {"date", "asset_id", "factor", "forward_return"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"build_artifacts: missing required columns {missing}. "
+            f"Available: {df.columns}"
+        )
+
     ic_series = compute_ic(df)
     ic_values = ic_series.rename({"ic": "value"})
     spread_series = quantile_spread_series(
@@ -124,12 +133,8 @@ def _check_caution(
         )
 
     # 2. Universe too small
-    n_per_date = (
-        artifacts.prepared.group_by("date")
-        .agg(pl.col("asset_id").n_unique().alias("n"))
-    )
-    median_n = n_per_date["n"].median()
-    if median_n is not None and median_n < 200:
+    median_n = median_universe_size(artifacts.prepared)
+    if median_n < 200:
         reasons.append(
             f"Median universe size = {median_n:.0f} (< 200)"
             " — quantile analysis may be unstable"
@@ -152,6 +157,18 @@ def _check_caution(
             ci_excludes_zero = metric.metadata.get("ci_excludes_zero", False)
             if metric.value < 0 and ci_excludes_zero:
                 reasons.append("IC trend shows significant decay")
+            break
+
+    # 5. Q1 too concentrated
+    for metric in profile.profitability:
+        if metric.name == "Q1_Concentration":
+            # WHY: eff_n / n_q1 < 0.5 means >50% of Q1 weight is in a few stocks
+            ratio = metric.metadata.get("ratio_eff_to_total", 1.0)
+            if ratio < 0.5:
+                reasons.append(
+                    f"Q1 concentration too high (effective N / total = {ratio:.2f})"
+                    " — alpha may be driven by a few stocks"
+                )
             break
 
     return reasons

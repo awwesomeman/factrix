@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import EPSILON, MIN_OOS_PERIODS
@@ -127,8 +128,7 @@ def multi_split_oos_decay(
         return OOSResult(decay_ratio=0.0, sign_flipped=False, status="VETOED")
 
     # WHY: 取中位數而非均值，對單一 regime change 落在某 split 點更穩健
-    decay_ratios = sorted(d.decay_ratio for d in split_details)
-    median_decay = decay_ratios[len(decay_ratios) // 2]
+    median_decay = float(np.median([d.decay_ratio for d in split_details]))
 
     # WHY: sign flip 任一 split 發生即 VETOED — IC 翻轉代表因子在 OOS 預測反了
     if any_sign_flip:

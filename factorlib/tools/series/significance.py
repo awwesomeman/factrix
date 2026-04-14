@@ -75,6 +75,7 @@ def significance_marker(t_stat: float | None) -> str:
 def bhy_threshold(
     t_stats: np.ndarray,
     fdr: float = 0.05,
+    min_obs: int = 60,
 ) -> float:
     """Benjamini-Hochberg-Yekutieli adjusted significance threshold.
 
@@ -82,9 +83,17 @@ def bhy_threshold(
     across a set of simultaneous tests. Factors with |t| >= threshold
     are significant after controlling for multiple testing.
 
+    Uses normal approximation for p-values. This is valid when each
+    t-stat comes from a regression with >= ``min_obs`` observations
+    (t distribution → N(0,1) as dof → inf). If any input t-stat comes
+    from a low-N regression, the threshold will be too permissive.
+
     Args:
         t_stats: 1-D array of t-statistics from multiple factor tests.
         fdr: Target false discovery rate (default 0.05).
+        min_obs: Minimum observations per test for normal approximation
+            to be valid. Used only for documentation/logging — caller
+            is responsible for ensuring adequate sample sizes.
 
     Returns:
         Adjusted t-stat threshold. If no test passes, returns inf.
@@ -98,9 +107,9 @@ def bhy_threshold(
     if n == 0:
         return float("inf")
 
-    # WHY: use normal instead of t-distribution because the input t-stats come
-    # from different regressions with varying (unknown) dof. With typical factor
-    # analysis sample sizes (>60 observations), t → N(0,1) is a safe assumption.
+    # WHY: normal approximation is valid when all underlying t-stats have
+    # dof >= ~30. With typical factor analysis (>60 obs), t → N(0,1).
+    # Caller must ensure adequate sample sizes; this function cannot verify.
     pvals = 2 * sp_stats.norm.sf(np.abs(t_stats))
 
     # BHY correction: accounts for arbitrary dependence between tests

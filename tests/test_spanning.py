@@ -7,10 +7,11 @@ import polars as pl
 import pytest
 
 from factorlib.tools.regression.spanning import (
+    spanning_test,
     greedy_forward_selection,
     ForwardSelectionResult,
     SpanningResult,
-    _spanning_regression,
+    _ols_alpha,
 )
 
 
@@ -23,12 +24,43 @@ def _make_spread_series(n_dates: int, mean: float, std: float, seed: int) -> pl.
     }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
-class TestSpanningRegression:
+class TestSpanningTest:
+    def test_significant_alpha(self):
+        factor = _make_spread_series(100, 0.02, 0.005, 42)
+        result = spanning_test(factor)
+        assert result.name == "Spanning_Alpha"
+        assert result.value != 0.0
+        assert abs(result.t_stat) > 2.0
+
+    def test_spanned_factor_no_alpha(self):
+        base = _make_spread_series(200, 0.01, 0.01, 42)
+        dates = base["date"].to_list()
+        # candidate ≈ 2*base → alpha ≈ 0 after controlling for base
+        spanned_vals = 2 * base["spread"].to_numpy() + np.random.default_rng(99).normal(0, 0.001, 200)
+        candidate = pl.DataFrame({
+            "date": dates, "spread": spanned_vals,
+        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = spanning_test(candidate, base_spreads={"base": base})
+        assert abs(result.t_stat) < 2.0
+
+    def test_no_base(self):
+        factor = _make_spread_series(100, 0.02, 0.005, 42)
+        result = spanning_test(factor, base_spreads=None)
+        assert result.metadata["n_base_factors"] == 0
+
+    def test_returns_metric_output(self):
+        from factorlib.tools._typing import MetricOutput
+        factor = _make_spread_series(100, 0.02, 0.005, 42)
+        result = spanning_test(factor)
+        assert isinstance(result, MetricOutput)
+
+
+class TestOLSAlpha:
     def test_alpha_with_empty_base(self):
         rng = np.random.default_rng(42)
         candidate = rng.normal(0.01, 0.005, 100)
         base = np.empty((100, 0))
-        alpha, t = _spanning_regression(candidate, base)
+        alpha, t = _ols_alpha(candidate, base)
         assert alpha == pytest.approx(0.01, abs=0.005)
         assert abs(t) > 1.0
 
@@ -38,12 +70,12 @@ class TestSpanningRegression:
         # Candidate = 2 * base + noise → alpha ≈ 0 after regression
         candidate = 2 * base_col + rng.normal(0, 0.001, 200)
         base = base_col.reshape(-1, 1)
-        alpha, t = _spanning_regression(candidate, base)
+        alpha, t = _ols_alpha(candidate, base)
         assert abs(alpha) < 0.005
         assert abs(t) < 2.0
 
     def test_insufficient_data(self):
-        alpha, t = _spanning_regression(np.array([0.01, 0.02]), np.empty((2, 0)))
+        alpha, t = _ols_alpha(np.array([0.01, 0.02]), np.empty((2, 0)))
         assert alpha == 0.0 and t == 0.0
 
 

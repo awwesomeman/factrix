@@ -101,11 +101,22 @@ def orthogonalize_factor(
         .drop("_residual")
     )
 
+    n_total = len(factor_df)
+    n_ortho = len(residuals_df)
     n_dates = len(dates)
     n_base = len(base_cols)
+    drop_pct = (n_total - n_ortho) / max(n_total, 1) * 100
+
+    if drop_pct > 5:
+        logger.warning(
+            "orthogonalize_factor: %.1f%% of rows (%d/%d) not orthogonalized "
+            "(base factor coverage gap — original values kept for those rows)",
+            drop_pct, n_total - n_ortho, n_total,
+        )
+
     logger.info(
-        "orthogonalize_factor: processed %d dates, %d base factors",
-        n_dates, n_base,
+        "orthogonalize_factor: processed %d dates, %d base factors, %.1f%% coverage",
+        n_dates, n_base, 100 - drop_pct,
     )
 
     return result
