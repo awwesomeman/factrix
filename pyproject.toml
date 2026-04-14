@@ -17,5 +17,12 @@ dependencies = [
 [project.scripts]
 factor-lab = "factorlib.dashboard.app:main"
 
+[project.optional-dependencies]
+dev = ["pytest>=9.0", "pytest-cov>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
 [tool.setuptools.packages.find]
 include = ["factorlib*"]
