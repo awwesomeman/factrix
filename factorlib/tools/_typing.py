@@ -52,7 +52,7 @@ class MetricOutput:
         name: Metric identifier (e.g. "IC_IR", "OOS_Decay").
         value: Raw metric value — never mapped to 0-100.
         t_stat: t-statistic, when applicable.
-        significance: "★" (t ≥ 3.0) / "●" (t ≥ 2.0) / "○" (t < 2.0).
+        significance: "***" (|t| >= 3.0) / "**" (|t| >= 2.0) / "*" (|t| >= 1.65) / "" (ns).
         metadata: Tool-specific context (e.g. per-split details, via path).
     """
 

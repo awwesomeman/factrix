@@ -44,7 +44,7 @@ def theil_sen_slope(
 
     if n < 10:
         return MetricOutput(
-            name="IC_Trend", value=0.0, t_stat=0.0, significance="○",
+            name="IC_Trend", value=0.0, t_stat=0.0, significance="",
             metadata={"n_periods": n, "reason": "insufficient_data"},
         )
 

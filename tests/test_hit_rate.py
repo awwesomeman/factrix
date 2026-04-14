@@ -38,4 +38,4 @@ class TestComputeHitRate:
         series = _make_series([0.01] * 5)  # < MIN_IC_PERIODS=10
         result = compute_hit_rate(series, forward_periods=1)
         assert result.value == 0.0
-        assert result.significance == "○"
+        assert result.significance == ""

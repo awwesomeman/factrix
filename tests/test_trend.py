@@ -30,7 +30,7 @@ class TestTheilSenSlope:
         values = [0.01] * 5  # < 10
         result = theil_sen_slope(_make_series(values))
         assert result.value == 0.0
-        assert result.significance == "○"
+        assert result.significance == ""
 
     def test_negative_slope(self):
         values = [0.10 - 0.005 * i for i in range(20)]

@@ -38,4 +38,4 @@ class TestComputeMonotonicity:
         result = compute_monotonicity(df, forward_periods=1, n_groups=5)
         # Only 1 date < MIN_MONOTONICITY_PERIODS=5
         assert result.value == 0.0
-        assert result.significance == "○"
+        assert result.significance == ""

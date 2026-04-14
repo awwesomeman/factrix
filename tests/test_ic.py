@@ -72,4 +72,4 @@ class TestICIR:
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic_ir(df, forward_periods=1)
         assert result.value == 0.0
-        assert result.significance == "○"
+        assert result.significance == ""

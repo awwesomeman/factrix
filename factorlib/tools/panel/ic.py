@@ -96,13 +96,13 @@ def ic_ir(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="IC_IR", value=0.0, t_stat=0.0, significance="○")
+        return MetricOutput(name="IC_IR", value=0.0, t_stat=0.0, significance="")
 
     mean_ic = float(ic_vals.mean())
     std_ic = float(ic_vals.std())
 
     if std_ic < EPSILON:
-        return MetricOutput(name="IC_IR", value=0.0, t_stat=0.0, significance="○")
+        return MetricOutput(name="IC_IR", value=0.0, t_stat=0.0, significance="")
 
     ratio = abs(mean_ic) / std_ic
     t = non_overlapping_ic_tstat(ic_df, forward_periods)
@@ -113,6 +113,89 @@ def ic_ir(
         t_stat=t,
         significance=significance_marker(t),
         metadata={"mean_ic": mean_ic, "std_ic": std_ic, "n_periods": n},
+    )
+
+
+def regime_ic(
+    ic_df: pl.DataFrame,
+    regime_labels: pl.DataFrame | None = None,
+) -> MetricOutput:
+    """IC conditioned on regime labels.
+
+    Answers "is the factor stable across market environments?"
+    unlike OOS decay which tests overfitting.
+
+    Args:
+        ic_df: Output of ``compute_ic()`` (``date, ic``).
+        regime_labels: DataFrame with ``date, regime`` (string labels).
+            If None, falls back to time bisection (first half / second half).
+
+    Returns:
+        MetricOutput with value = min regime mean IC (conservative),
+        metadata containing per-regime IC stats.
+
+    References:
+        Chen & Zimmermann (2022): report sub-period t-stats separately.
+    """
+    if len(ic_df) < MIN_IC_PERIODS:
+        return MetricOutput(name="Regime_IC", value=0.0, significance="")
+
+    if regime_labels is not None:
+        merged = ic_df.join(regime_labels.select("date", "regime"), on="date", how="inner")
+    else:
+        # Fallback: time bisection
+        sorted_ic = ic_df.sort("date")
+        mid = len(sorted_ic) // 2
+        merged = sorted_ic.with_row_index("_idx").with_columns(
+            pl.when(pl.col("_idx") < mid)
+            .then(pl.lit("first_half"))
+            .otherwise(pl.lit("second_half"))
+            .alias("regime")
+        ).drop("_idx")
+
+    # Single-pass group_by instead of per-regime Python loop
+    regime_stats = (
+        merged.drop_nulls("ic")
+        .group_by("regime")
+        .agg(
+            pl.col("ic").mean().alias("mean_ic"),
+            pl.col("ic").std().alias("std_ic"),
+            pl.col("ic").count().alias("n"),
+        )
+        .filter(pl.col("n") >= 2)
+        .sort("regime")
+    )
+
+    if regime_stats.is_empty():
+        return MetricOutput(name="Regime_IC", value=0.0, significance="")
+
+    per_regime: dict[str, dict[str, object]] = {}
+    for row in regime_stats.iter_rows(named=True):
+        t = calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
+        per_regime[row["regime"]] = {
+            "mean_ic": row["mean_ic"],
+            "t_stat": t,
+            "significance": significance_marker(t),
+            "n_periods": row["n"],
+        }
+
+    min_mean = min(d["mean_ic"] for d in per_regime.values())
+
+    # WHY: filter near-zero means before checking direction consistency —
+    # a regime with IC ≈ 0 has no signal, not a "consistent direction"
+    nonzero = [d["mean_ic"] for d in per_regime.values() if abs(d["mean_ic"]) > EPSILON]
+    if nonzero:
+        consistent = all(v > 0 for v in nonzero) or all(v < 0 for v in nonzero)
+    else:
+        consistent = False
+
+    return MetricOutput(
+        name="Regime_IC",
+        value=min_mean,
+        metadata={
+            "per_regime": per_regime,
+            "direction_consistent": consistent,
+        },
     )
 
 

@@ -66,7 +66,7 @@ def compute_monotonicity(
 
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
         return MetricOutput(
-            name="Monotonicity", value=0.0, t_stat=0.0, significance="○",
+            name="Monotonicity", value=0.0, t_stat=0.0, significance="",
             metadata={"n_valid_periods": len(mono_df), "n_groups": n_groups},
         )
 

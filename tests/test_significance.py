@@ -45,10 +45,11 @@ class TestTStatFromArray:
 
 class TestSignificanceMarker:
     @pytest.mark.parametrize("t, expected", [
-        (3.0, "★"), (5.0, "★"), (-3.5, "★"),
-        (2.0, "●"), (2.99, "●"), (-2.5, "●"),
-        (1.99, "○"), (0.0, "○"), (-1.0, "○"),
-        (None, "○"),
+        (3.0, "***"), (5.0, "***"), (-3.5, "***"),
+        (2.0, "**"), (2.99, "**"), (-2.5, "**"),
+        (1.65, "*"), (1.8, "*"),
+        (1.64, ""), (0.0, ""), (-1.0, ""),
+        (None, ""),
     ])
     def test_markers(self, t, expected):
         assert significance_marker(t) == expected
