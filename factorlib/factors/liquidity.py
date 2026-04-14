@@ -9,16 +9,16 @@ def generate_amihud(df: pl.DataFrame, lookback: int = 20) -> pl.DataFrame:
     # WHY: 台股成交金額 = 收盤價 x 成交量（張），用於標準化截面可比性
     """
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("close").shift(1).over("ticker") - 1)
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1)
             .alias("_ret")
         )
         .with_columns(
             (
-                (pl.col("_ret").abs() / (pl.col("close") * pl.col("volume")))
+                (pl.col("_ret").abs() / (pl.col("price") * pl.col("volume")))
                 .rolling_mean(window_size=lookback)
-                .over("ticker")
+                .over("asset_id")
                 * (-1e8)  # 縮放到合理數量級，負號 = 流動性溢酬
             ).alias("factor")
         )

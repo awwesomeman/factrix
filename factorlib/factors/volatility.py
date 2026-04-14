@@ -10,13 +10,13 @@ def generate_volatility(df: pl.DataFrame, lookback: int = 20) -> pl.DataFrame:
     低波動異常 (Ang et al., 2006)。
     """
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("close").shift(1).over("ticker") - 1)
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1)
             .alias("daily_ret")
         )
         .with_columns(
-            (-pl.col("daily_ret").rolling_std(window_size=lookback).over("ticker"))
+            (-pl.col("daily_ret").rolling_std(window_size=lookback).over("asset_id"))
             .alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())
@@ -33,12 +33,12 @@ def generate_idiosyncratic_vol(df: pl.DataFrame, lookback: int = 20) -> pl.DataF
     market = compute_market_return(df)
 
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("close").shift(1).over("ticker") - 1)
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1)
             .alias("_ret")
         )
-        .join(market, on="datetime", how="left")
+        .join(market, on="date", how="left")
         .with_columns(
             (pl.col("_ret") - pl.col("mkt_ret")).alias("_resid")
         )
@@ -46,7 +46,7 @@ def generate_idiosyncratic_vol(df: pl.DataFrame, lookback: int = 20) -> pl.DataF
             (
                 -pl.col("_resid")
                 .rolling_std(window_size=lookback)
-                .over("ticker")
+                .over("asset_id")
             ).alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())

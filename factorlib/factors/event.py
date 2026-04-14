@@ -8,7 +8,7 @@ def generate_event_signal_mock(df: pl.DataFrame) -> pl.DataFrame:
     """事件訊號因子 (Mock)：隨機標記 2% 買入與 2% 賣出訊號。"""
     rng = np.random.default_rng(42)
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
             pl.Series("rand", rng.uniform(0, 1, len(df)))
         )

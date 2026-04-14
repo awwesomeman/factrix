@@ -3,8 +3,7 @@
 Step 4 — MAD Winsorize: per-date robust outlier clipping
 Step 5 — Cross-sectional Z-score: MAD-based robust standardization
 
-All functions are stateless: DataFrame in → DataFrame out.
-Each function is independently importable.
+All functions expect canonical column names (date, asset_id).
 """
 
 import polars as pl
@@ -12,32 +11,27 @@ import polars as pl
 from factorlib.tools._typing import MAD_CONSISTENCY_CONSTANT
 
 
-def _mad_expressions(
-    factor_col: str,
-    date_col: str,
-) -> tuple[pl.Expr, pl.Expr]:
+def _mad_expressions(factor_col: str) -> tuple[pl.Expr, pl.Expr]:
     """Compute median and MAD expressions for a factor column.
 
     Returns:
         (median_expr, mad_expr) — both are per-date window expressions.
     """
-    median_expr = pl.col(factor_col).median().over(date_col)
+    median_expr = pl.col(factor_col).median().over("date")
     deviation = (pl.col(factor_col) - median_expr).abs()
-    mad_expr = deviation.median().over(date_col)
+    mad_expr = deviation.median().over("date")
     return median_expr, mad_expr
 
 
 def mad_winsorize(
     df: pl.DataFrame,
-    date_col: str = "datetime",
     factor_col: str = "factor",
     n_mad: float = 3.0,
 ) -> pl.DataFrame:
     """Step 4: Per-date MAD-based winsorization on factor values.
 
     Clips factor values to ``[median ± n_mad × 1.4826 × MAD]`` within each
-    cross-section.  Applied before z-score so that extreme factor values
-    do not distort the standardization.
+    cross-section.
 
     Args:
         n_mad: Number of MAD units for clipping (default 3.0).
@@ -49,7 +43,7 @@ def mad_winsorize(
     if n_mad <= 0:
         return df
 
-    median_expr, mad_expr = _mad_expressions(factor_col, date_col)
+    median_expr, mad_expr = _mad_expressions(factor_col)
     half_width = mad_expr * MAD_CONSISTENCY_CONSTANT * n_mad
 
     return df.with_columns(
@@ -61,21 +55,16 @@ def mad_winsorize(
 
 def cross_sectional_zscore(
     df: pl.DataFrame,
-    date_col: str = "datetime",
     factor_col: str = "factor",
 ) -> pl.DataFrame:
     """Step 5: MAD-robust z-score within each cross-section (date).
 
     ``z = (x - median(x)) / (1.4826 × MAD(x))``
 
-    Uses median for centering and MAD for scaling — both resistant to
-    outliers.  The consistency constant 1.4826 makes MAD an unbiased
-    estimator of σ for normally distributed data.
-
     Returns:
         DataFrame with ``factor_zscore`` column appended.
     """
-    median_expr, mad_expr = _mad_expressions(factor_col, date_col)
+    median_expr, mad_expr = _mad_expressions(factor_col)
 
     return df.with_columns(
         (

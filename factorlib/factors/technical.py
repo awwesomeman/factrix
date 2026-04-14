@@ -8,9 +8,9 @@ from factorlib.factors._helpers import compute_market_return
 def generate_mean_reversion(df: pl.DataFrame, lookback: int = 5) -> pl.DataFrame:
     """短期反轉因子：負的短期報酬率。跌深反彈邏輯。"""
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (-(pl.col("close") / pl.col("close").shift(lookback).over("ticker") - 1))
+            (-(pl.col("price") / pl.col("price").shift(lookback).over("asset_id") - 1))
             .alias("factor")
         )
         .filter(pl.col("factor").is_not_null())
@@ -22,9 +22,9 @@ def generate_52w_high_ratio(df: pl.DataFrame) -> pl.DataFrame:
     接近歷史高點的股票傾向續漲 (George & Hwang, 2004)。
     """
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("high").rolling_max(window_size=252).over("ticker"))
+            (pl.col("price") / pl.col("high").rolling_max(window_size=252).over("asset_id"))
             .alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())
@@ -34,9 +34,9 @@ def generate_52w_high_ratio(df: pl.DataFrame) -> pl.DataFrame:
 def generate_overnight_return(df: pl.DataFrame) -> pl.DataFrame:
     """隔夜收益因子：開盤價 / 前日收盤 - 1。反映盤後資訊流入方向。"""
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("open") / pl.col("close").shift(1).over("ticker") - 1)
+            (pl.col("open") / pl.col("price").shift(1).over("asset_id") - 1)
             .alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())
@@ -48,12 +48,12 @@ def generate_intraday_range(df: pl.DataFrame, lookback: int = 20) -> pl.DataFram
     高振幅 = 高不確定性 = 負溢酬。
     """
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
             (
-                -((pl.col("high") - pl.col("low")) / pl.col("close"))
+                -((pl.col("high") - pl.col("low")) / pl.col("price"))
                 .rolling_mean(window_size=lookback)
-                .over("ticker")
+                .over("asset_id")
             ).alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())
@@ -63,17 +63,17 @@ def generate_intraday_range(df: pl.DataFrame, lookback: int = 20) -> pl.DataFram
 def generate_rsi(df: pl.DataFrame, period: int = 14) -> pl.DataFrame:
     """RSI 反轉因子：負的 RSI 值。超買超賣均值回歸。"""
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") - pl.col("close").shift(1).over("ticker")).alias("change")
+            (pl.col("price") - pl.col("price").shift(1).over("asset_id")).alias("change")
         )
         .with_columns(
             pl.when(pl.col("change") > 0).then(pl.col("change")).otherwise(0.0).alias("gain"),
             pl.when(pl.col("change") < 0).then(-pl.col("change")).otherwise(0.0).alias("loss"),
         )
         .with_columns(
-            pl.col("gain").rolling_mean(window_size=period).over("ticker").alias("avg_gain"),
-            pl.col("loss").rolling_mean(window_size=period).over("ticker").alias("avg_loss"),
+            pl.col("gain").rolling_mean(window_size=period).over("asset_id").alias("avg_gain"),
+            pl.col("loss").rolling_mean(window_size=period).over("asset_id").alias("avg_loss"),
         )
         .with_columns(
             pl.when(pl.col("avg_loss") > 1e-10)
@@ -90,15 +90,15 @@ def generate_volume_price_trend(df: pl.DataFrame, lookback: int = 20) -> pl.Data
     量增價漲 = 趨勢確認。
     """
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("close").shift(1).over("ticker") - 1).alias("ret"),
-            (pl.col("volume") / pl.col("volume").rolling_mean(window_size=lookback).over("ticker")).alias("vol_ratio"),
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1).alias("ret"),
+            (pl.col("volume") / pl.col("volume").rolling_mean(window_size=lookback).over("asset_id")).alias("vol_ratio"),
         )
         .with_columns(
             (pl.col("ret") * pl.col("vol_ratio"))
             .rolling_sum(window_size=lookback)
-            .over("ticker")
+            .over("asset_id")
             .alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())
@@ -113,14 +113,14 @@ def generate_market_beta(df: pl.DataFrame, lookback: int = 60) -> pl.DataFrame:
     market = compute_market_return(df)
 
     with_ret = (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("close").shift(1).over("ticker") - 1)
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1)
             .alias("_ret")
         )
     )
 
-    joined = with_ret.join(market, on="datetime", how="left")
+    joined = with_ret.join(market, on="date", how="left")
 
     # 滾動計算 cov(r_i, r_m) 和 var(r_m)
     # cov = E[r_i * r_m] - E[r_i] * E[r_m]
@@ -132,10 +132,10 @@ def generate_market_beta(df: pl.DataFrame, lookback: int = 60) -> pl.DataFrame:
             (pl.col("mkt_ret") ** 2).alias("_mkt_sq"),
         )
         .with_columns(
-            pl.col("_ret_mkt").rolling_mean(window_size=lookback).over("ticker").alias("_mean_cross"),
-            pl.col("_ret").rolling_mean(window_size=lookback).over("ticker").alias("_mean_ret"),
-            pl.col("mkt_ret").rolling_mean(window_size=lookback).over("ticker").alias("_mean_mkt"),
-            pl.col("_mkt_sq").rolling_mean(window_size=lookback).over("ticker").alias("_mean_mkt_sq"),
+            pl.col("_ret_mkt").rolling_mean(window_size=lookback).over("asset_id").alias("_mean_cross"),
+            pl.col("_ret").rolling_mean(window_size=lookback).over("asset_id").alias("_mean_ret"),
+            pl.col("mkt_ret").rolling_mean(window_size=lookback).over("asset_id").alias("_mean_mkt"),
+            pl.col("_mkt_sq").rolling_mean(window_size=lookback).over("asset_id").alias("_mean_mkt_sq"),
         )
         .with_columns(
             (pl.col("_mean_cross") - pl.col("_mean_ret") * pl.col("_mean_mkt")).alias("_cov"),
@@ -158,16 +158,16 @@ def generate_max_effect(df: pl.DataFrame, lookback: int = 20) -> pl.DataFrame:
     # WHY: MAX 取負值使得低 MAX（穩健）的股票得高分，符合買穩健方向
     """
     return (
-        df.sort(["ticker", "datetime"])
+        df.sort(["asset_id", "date"])
         .with_columns(
-            (pl.col("close") / pl.col("close").shift(1).over("ticker") - 1)
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1)
             .alias("_ret")
         )
         .with_columns(
             (
                 -pl.col("_ret")
                 .rolling_max(window_size=lookback)
-                .over("ticker")
+                .over("asset_id")
             ).alias("factor")
         )
         .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())

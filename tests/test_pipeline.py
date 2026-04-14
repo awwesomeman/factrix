@@ -15,12 +15,12 @@ def _make_raw_data(n_dates: int = 30, n_assets: int = 10):
     for d in dates:
         for i in range(n_assets):
             rows.append({
-                "datetime": d,
-                "ticker": f"T{i}",
-                "close": 100.0 + rng.standard_normal() * 10,
+                "date": d,
+                "asset_id": f"T{i}",
+                "price": 100.0 + rng.standard_normal() * 10,
                 "factor": rng.standard_normal(),
             })
-    return pl.DataFrame(rows).with_columns(pl.col("datetime").cast(pl.Datetime("ms")))
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
 class TestRunPreprocessing:
