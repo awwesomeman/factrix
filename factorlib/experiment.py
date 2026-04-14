@@ -3,11 +3,15 @@ Layer 4: Experiment Tracking — MLflow integration.
 Logs scoring results, IC series, and NAV curves as structured experiments.
 """
 
+from __future__ import annotations
+
 import tempfile
 from pathlib import Path
 
 import mlflow
 import polars as pl
+
+from factorlib.gates._protocol import EvaluationResult
 
 
 class FactorTracker:
@@ -86,6 +90,61 @@ class FactorTracker:
                     mlflow.log_artifact(str(et_path))
 
             return run.info.run_id
+
+    def log_evaluation(
+        self,
+        result: EvaluationResult,
+        config: dict | None = None,
+        factor_type: str = "individual_stock",
+        sample_period: str = "",
+        asset_pool: str = "",
+    ) -> str:
+        """Log a gate-based factor evaluation to MLflow.
+
+        Args:
+            result: Output of ``evaluate_factor()``.
+            config: Optional config snapshot to log as params.
+            factor_type: Factor category tag.
+            sample_period: Date range tag.
+            asset_pool: Universe tag.
+
+        Returns:
+            MLflow run_id.
+        """
+        with mlflow.start_run(run_name=result.factor_name) as run:
+            mlflow.set_tag("status", result.status)
+            self._set_context_tags(factor_type, sample_period, asset_pool)
+
+            if result.caution_reasons:
+                mlflow.set_tag(
+                    "caution_reasons", "; ".join(result.caution_reasons),
+                )
+
+            if config:
+                mlflow.log_params(self._flatten_config(config))
+
+            # Per-gate results
+            for gr in result.gate_results:
+                mlflow.set_tag(f"gate.{gr.name}.status", gr.status)
+                for k, v in gr.detail.items():
+                    if isinstance(v, (int, float)):
+                        mlflow.log_metric(f"gate.{gr.name}.{k}", v)
+
+            # Profile metrics
+            if result.profile:
+                self._log_metrics(result.profile.reliability)
+                self._log_metrics(result.profile.profitability)
+
+            return run.info.run_id
+
+    @staticmethod
+    def _log_metrics(metrics: list) -> None:
+        for metric in metrics:
+            mlflow.log_metric(metric.name, metric.value)
+            if metric.t_stat is not None:
+                mlflow.log_metric(f"{metric.name}_t_stat", metric.t_stat)
+            if metric.significance:
+                mlflow.set_tag(f"{metric.name}_sig", metric.significance)
 
     def log_failed_run(
         self,
