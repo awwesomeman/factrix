@@ -74,11 +74,20 @@ def q1_concentration(
         )
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()
+    n_q1_arr = hhi_per_date["n_q1"].to_numpy()
     mean_eff_n = float(np.mean(eff_n_arr))
-    std_eff_n = float(np.std(eff_n_arr, ddof=DDOF))
-    t = calc_t_stat(mean_eff_n, std_eff_n, len(eff_n_arr))
+    mean_n_q1 = float(np.mean(n_q1_arr))
+    ratio = mean_eff_n / max(mean_n_q1, 1)
 
-    mean_n_q1 = float(hhi_per_date["n_q1"].mean())
+    # WHY: t-stat tests H₀: ratio ≥ 0.5 (well-diversified).
+    # Per-date ratio = eff_n / n_q1; if mean ratio < 0.5 with significant t,
+    # alpha is concentrated in a few stocks.
+    ratio_arr = eff_n_arr / np.maximum(n_q1_arr, 1)
+    n = len(ratio_arr)
+    mean_ratio = float(np.mean(ratio_arr))
+    std_ratio = float(np.std(ratio_arr, ddof=DDOF))
+    # Test H₀: ratio ≥ 0.5 → shift by 0.5 then use standard t-test
+    t = calc_t_stat(mean_ratio - 0.5, std_ratio, n)
 
     return MetricOutput(
         name="Q1_Concentration",
@@ -87,6 +96,6 @@ def q1_concentration(
         significance=significance_marker(t),
         metadata={
             "mean_n_q1": mean_n_q1,
-            "ratio_eff_to_total": mean_eff_n / max(mean_n_q1, 1),
+            "ratio_eff_to_total": ratio,
         },
     )

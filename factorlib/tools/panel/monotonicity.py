@@ -26,6 +26,12 @@ def compute_monotonicity(
 ) -> MetricOutput:
     """Quantile return monotonicity (Spearman correlation).
 
+    ``value`` = mean |Spearman| — magnitude of monotonicity (always ≥ 0).
+    ``t_stat`` = t-test on signed Spearman — whether direction is consistent.
+
+    A high ``value`` with insignificant ``t_stat`` means the factor has
+    strong monotonicity but the direction flips across dates.
+
     Args:
         df: Panel with ``date, asset_id, factor, forward_return``.
         n_groups: Number of quantile groups (default 10 for Taiwan ~2000 stocks).
