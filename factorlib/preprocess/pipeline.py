@@ -9,12 +9,12 @@ Use ``adapt()`` to rename before calling.
 
 import polars as pl
 
-from factorlib.preprocessing.returns import (
+from factorlib.preprocess.returns import (
     compute_abnormal_return,
     compute_forward_return,
     winsorize_forward_return,
 )
-from factorlib.preprocessing.normalize import (
+from factorlib.preprocess.normalize import (
     cross_sectional_zscore,
     mad_winsorize,
 )

@@ -1,10 +1,10 @@
-"""Tests for factorlib.preprocessing.pipeline."""
+"""Tests for factorlib.preprocess.pipeline."""
 
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.preprocessing.pipeline import preprocess_cs_factor
+from factorlib.preprocess.pipeline import preprocess_cs_factor
 
 
 def _make_raw_data(n_dates: int = 30, n_assets: int = 10):
