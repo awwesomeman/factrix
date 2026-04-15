@@ -199,13 +199,13 @@ class TestComputeProfile:
     def test_returns_factor_profile(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
         assert isinstance(profile, FactorProfile)
-        assert len(profile.reliability) == 4
+        assert len(profile.reliability) == 6
         assert len(profile.profitability) == 6
 
     def test_reliability_metric_names(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
         names = {m.name for m in profile.reliability}
-        assert names == {"IC_IR", "Hit_Rate", "IC_Trend", "Monotonicity"}
+        assert names == {"IC", "IC_IR", "Hit_Rate", "IC_Trend", "Monotonicity", "OOS_Decay"}
 
     def test_profitability_metric_names(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)

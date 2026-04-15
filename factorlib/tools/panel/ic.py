@@ -14,6 +14,7 @@ from factorlib.tools._typing import (
     MIN_IC_PERIODS,
     MetricOutput,
 )
+from factorlib.tools._helpers import sample_non_overlapping
 from factorlib.tools.series.significance import calc_t_stat, significance_marker
 
 
@@ -47,27 +48,16 @@ def compute_ic(
     )
 
 
-def non_overlapping_ic_tstat(
+def _non_overlapping_ic_tstat(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> float:
-    """T-stat from non-overlapping IC samples.
+    """T-stat from non-overlapping IC samples (internal helper).
 
     Samples every ``forward_periods``-th date to eliminate autocorrelation
     from overlapping forward returns.
-
-    Args:
-        ic_df: Output of ``compute_ic()`` (``date, ic``), already sorted by date.
-        forward_periods: Sampling interval.
-
-    Returns:
-        t-statistic of the mean IC, or 0.0 if insufficient data.
     """
-    # WHY: ic_df is already sorted by compute_ic(), no need to re-sort
-    sampled_dates = ic_df["date"].gather_every(forward_periods)
-    sampled_ic = ic_df.filter(
-        pl.col("date").is_in(sampled_dates.implode())
-    )["ic"].drop_nulls()
+    sampled_ic = sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
 
     n = len(sampled_ic)
     if n < 2:
@@ -79,39 +69,76 @@ def non_overlapping_ic_tstat(
     )
 
 
-def ic_ir(
+def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> MetricOutput:
-    """IC_IR = |mean(IC)| / std(IC).
+    """IC mean significance: is mean IC significantly different from zero?
 
-    Uses all IC periods for the ratio; t-stat uses non-overlapping samples.
+    Uses non-overlapping sampling (every ``forward_periods``-th date) to
+    eliminate autocorrelation from overlapping forward returns.
+
+    Statistical method: t = mean / (std / √n) on non-overlapping samples.
+    H₀: mean IC = 0.
+
+    Args:
+        ic_df: Output of ``compute_ic()``.
+        forward_periods: Sampling interval for non-overlapping dates.
+
+    Returns:
+        MetricOutput with value=mean IC, t_stat from non-overlapping sampling.
+    """
+    ic_vals = ic_df["ic"].drop_nulls()
+    n = len(ic_vals)
+    if n < MIN_IC_PERIODS:
+        return MetricOutput(name="IC", value=0.0, t_stat=0.0, significance="")
+
+    mean_ic = float(ic_vals.mean())
+    t = _non_overlapping_ic_tstat(ic_df, forward_periods)
+
+    return MetricOutput(
+        name="IC",
+        value=mean_ic,
+        t_stat=t,
+        significance=significance_marker(t),
+        metadata={"n_periods": n},
+    )
+
+
+def ic_ir(
+    ic_df: pl.DataFrame,
+) -> MetricOutput:
+    """IC_IR = mean(IC) / std(IC).
+
+    Signed ratio — positive when IC is consistently positive, negative
+    when consistently negative.  Analogous to a Sharpe ratio for the
+    factor signal.
+
+    This is a **descriptive statistic**, not a hypothesis test (t_stat=None).
+    For significance testing, use ``ic()``.
 
     Args:
         ic_df: Output of ``compute_ic()``.
 
     Returns:
-        MetricOutput with value=IC_IR, t_stat from non-overlapping sampling.
+        MetricOutput with value=IC_IR (signed), t_stat=None.
     """
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="IC_IR", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="IC_IR", value=0.0)
 
     mean_ic = float(ic_vals.mean())
     std_ic = float(ic_vals.std())
 
     if std_ic < EPSILON:
-        return MetricOutput(name="IC_IR", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="IC_IR", value=0.0)
 
-    ratio = abs(mean_ic) / std_ic
-    t = non_overlapping_ic_tstat(ic_df, forward_periods)
+    ratio = mean_ic / std_ic
 
     return MetricOutput(
         name="IC_IR",
         value=ratio,
-        t_stat=t,
-        significance=significance_marker(t),
         metadata={"mean_ic": mean_ic, "std_ic": std_ic, "n_periods": n},
     )
 
@@ -124,6 +151,13 @@ def regime_ic(
 
     Answers "is the factor stable across market environments?"
     unlike OOS decay which tests overfitting.
+
+    Each regime's t-stat is an independent test (H₀: mean IC = 0 within
+    that regime).  This is **not** a joint test across all regimes.
+    Strictly, testing "all regimes significant" would require a multiple
+    comparison correction (e.g. Bonferroni: threshold = t_{α/2k} for k
+    regimes).  In practice, with only 2-3 regimes the correction is
+    small (2.0 → ~2.2 for k=2) and rarely applied in factor research.
 
     Args:
         ic_df: Output of ``compute_ic()`` (``date, ic``).

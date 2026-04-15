@@ -66,7 +66,7 @@ class FactorProfile:
 
     Attributes:
         reliability: Metrics measuring signal quality
-            (IC_IR, Hit_Rate, IC_Trend, Monotonicity).
+            (IC, IC_IR, Hit_Rate, IC_Trend, Monotonicity, OOS_Decay).
         profitability: Metrics measuring economic significance
             (Q1-Q5 Spread, Long/Short Alpha, Turnover, Breakeven Cost,
             Net Spread, Q1 Concentration).

@@ -65,7 +65,7 @@ def style_leaderboard(df: pd.DataFrame):
 # ---------------------------------------------------------------------------
 
 DISPLAY_GROUPS = {
-    "Predictability": ["IC_IR", "Monotonicity",
+    "Predictability": ["IC", "IC_IR", "Monotonicity",
                        "Event_CAAR", "Event_KS", "Event_CAR_Dispersion"],
     "Profitability": ["Long_Alpha", "MDD",
                       "Profit_Factor", "Event_Skewness"],
@@ -76,6 +76,7 @@ DISPLAY_GROUPS = {
 }
 
 _RAW_FORMAT: dict[str, str] = {
+    "IC":                  ".4f",
     "IC_IR":               ".3f",
     "Long_Alpha":          ".1%",
     "Monotonicity":        ".3f",

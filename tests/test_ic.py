@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.tools.panel.ic import compute_ic, ic_ir, non_overlapping_ic_tstat
+from factorlib.tools.panel.ic import compute_ic, ic, ic_ir
 
 
 class TestComputeIC:
@@ -41,28 +41,31 @@ class TestComputeIC:
         assert result["date"].dtype == pl.Datetime("ms")
 
 
-class TestNonOverlappingICTStat:
+class TestIC:
     def test_positive_ic(self, noisy_panel):
         ic_df = compute_ic(noisy_panel)
-        t = non_overlapping_ic_tstat(ic_df, forward_periods=1)
-        # noisy_panel has positive IC → t should be positive
-        assert t > 0
+        result = ic(ic_df, forward_periods=1)
+        assert result.name == "IC"
+        assert result.value > 0  # noisy_panel has positive IC
+        assert result.t_stat > 0
+        assert result.significance != ""
 
-    def test_insufficient_dates(self):
-        # Only 1 date → < 2 sampled → 0.0
+    def test_insufficient_periods(self):
         df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)],
-            "ic": [0.05],
+            "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(3)],
+            "ic": [0.05, 0.03, 0.04],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        assert non_overlapping_ic_tstat(df, forward_periods=1) == 0.0
+        result = ic(df, forward_periods=1)
+        assert result.value == 0.0
 
 
 class TestICIR:
     def test_positive_ir(self, noisy_panel):
         ic_df = compute_ic(noisy_panel)
-        result = ic_ir(ic_df, forward_periods=1)
+        result = ic_ir(ic_df)
         assert result.value > 0
         assert result.name == "IC_IR"
+        assert result.t_stat is None
         assert "mean_ic" in result.metadata
 
     def test_insufficient_periods(self):
@@ -70,6 +73,5 @@ class TestICIR:
             "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(3)],
             "ic": [0.05, 0.03, 0.04],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = ic_ir(df, forward_periods=1)
+        result = ic_ir(df)
         assert result.value == 0.0
-        assert result.significance == ""
