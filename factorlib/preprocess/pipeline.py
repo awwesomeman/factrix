@@ -7,6 +7,10 @@ Expects canonical column names (date, asset_id, price, factor).
 Use ``adapt()`` to rename before calling.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import polars as pl
 
 from factorlib.preprocess.returns import (
@@ -19,10 +23,14 @@ from factorlib.preprocess.normalize import (
     mad_winsorize,
 )
 
+if TYPE_CHECKING:
+    from factorlib.gates.config import PipelineConfig
+
 
 def preprocess_cs_factor(
     df: pl.DataFrame,
     *,
+    config: PipelineConfig | None = None,
     forward_periods: int = 5,
     return_clip_pct: tuple[float, float] = (0.01, 0.99),
     mad_n: float = 3.0,
@@ -39,6 +47,9 @@ def preprocess_cs_factor(
     Args:
         df: Data with canonical columns ``date``, ``asset_id``, ``price``,
             ``factor``. Use ``adapt()`` to rename if needed.
+        config: If provided, ``forward_periods``, ``return_clip_pct``, and
+            ``mad_n`` are taken from *config* (keyword args are ignored).
+            This ensures a single source of truth with downstream tools.
         forward_periods: Number of periods for forward return (default 5).
         return_clip_pct: (lower, upper) quantile bounds for return clipping.
         mad_n: Number of MAD units for factor winsorization (0 to disable).
@@ -47,6 +58,11 @@ def preprocess_cs_factor(
         DataFrame with columns:
         ``date, asset_id, factor_raw, factor, forward_return, abnormal_return, price``.
     """
+    if config is not None:
+        forward_periods = config.forward_periods
+        return_clip_pct = config.return_clip_pct
+        mad_n = config.mad_n
+
     out = compute_forward_return(df, forward_periods)
     out = winsorize_forward_return(out, lower=return_clip_pct[0], upper=return_clip_pct[1])
     out = compute_abnormal_return(out)
@@ -58,7 +74,7 @@ def preprocess_cs_factor(
     out = cross_sectional_zscore(out)
 
     return out.select(
-        pl.col("date").cast(pl.Datetime("ms")),
+        pl.col("date"),
         pl.col("asset_id"),
         pl.col("factor_raw"),
         pl.col("factor_zscore").alias("factor"),

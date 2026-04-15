@@ -35,7 +35,7 @@ class TestRunPreprocessing:
     def test_output_dtypes(self):
         raw = _make_raw_data()
         result = preprocess_cs_factor(raw, forward_periods=5)
-        assert result["date"].dtype == pl.Datetime("ms")
+        assert result["date"].dtype == raw["date"].dtype
         assert result["asset_id"].dtype == pl.String
 
     def test_no_nulls(self):
@@ -55,3 +55,12 @@ class TestRunPreprocessing:
         result = preprocess_cs_factor(raw, forward_periods=5)
         # factor_raw should exist and not be all zeros
         assert result["factor_raw"].std() > 0
+
+    def test_config_overrides_kwargs(self):
+        from factorlib.gates.config import PipelineConfig
+        raw = _make_raw_data()
+        config = PipelineConfig(forward_periods=3, mad_n=5.0)
+        result_cfg = preprocess_cs_factor(raw, config=config)
+        result_kw = preprocess_cs_factor(raw, forward_periods=3, mad_n=5.0)
+        # config path and keyword path should produce identical results
+        assert result_cfg.equals(result_kw)
