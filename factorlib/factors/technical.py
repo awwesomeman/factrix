@@ -152,6 +152,40 @@ def generate_market_beta(df: pl.DataFrame, lookback: int = 60) -> pl.DataFrame:
     return result
 
 
+def generate_price_intention(df: pl.DataFrame, lookback: int = 60) -> pl.DataFrame:
+    """價格意圖因子：N 日累計報酬 / N 日內每日絕對報酬加總。
+
+    衡量價格走勢的方向一致性：
+    - 值 ≈ +1：一路上漲（每天都漲，無回撤）
+    - 值 ≈ -1：一路下跌
+    - 值 ≈ 0：漲跌互抵，無明確方向
+
+    買方向一致的股票，賣方向混亂的股票。
+    """
+    return (
+        df.sort(["asset_id", "date"])
+        .with_columns(
+            pl.col("price").pct_change(1).over("asset_id").alias("_daily_ret"),
+            pl.col("price").pct_change(lookback).over("asset_id").alias("_cum_ret"),
+        )
+        .with_columns(
+            pl.col("_daily_ret").abs()
+            .rolling_sum(window_size=lookback)
+            .over("asset_id")
+            .alias("_abs_ret_sum"),
+        )
+        .with_columns(
+            # WHY: 分母為零代表 N 日內完全無波動，視為 null 而非 inf
+            pl.when(pl.col("_abs_ret_sum") > 1e-10)
+            .then(pl.col("_cum_ret") / pl.col("_abs_ret_sum"))
+            .otherwise(None)
+            .alias("factor")
+        )
+        .drop("_daily_ret", "_cum_ret", "_abs_ret_sum")
+        .filter(pl.col("factor").is_not_null() & pl.col("factor").is_not_nan())
+    )
+
+
 def generate_max_effect(df: pl.DataFrame, lookback: int = 20) -> pl.DataFrame:
     """MAX 效應因子（Bali et al., 2011）：過去 N 日最大單日報酬率的負值。
     投資人偏愛彩票型股票（有機會暴漲），導致這類股票被高估、預期報酬偏低。
