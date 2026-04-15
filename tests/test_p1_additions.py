@@ -90,6 +90,13 @@ class TestRegimeIC:
         result = regime_ic(ic_df)
         assert result.metadata["direction_consistent"] is True
 
+    def test_summary_uses_mean_value_min_stat(self):
+        ic_df = self._make_ic_series(30, mean=0.05)
+        result = regime_ic(ic_df)
+        assert result.metadata["aggregation"] == "mean_value_min_stat"
+        assert result.stat is not None
+        assert result.significance != ""
+
     def test_insufficient_data(self):
         ic_df = self._make_ic_series(5)
         result = regime_ic(ic_df)

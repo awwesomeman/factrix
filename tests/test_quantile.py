@@ -54,5 +54,6 @@ class TestQuantileSpread:
         if result.value != 0.0:
             assert "long_alpha" in result.metadata
             assert "short_alpha" in result.metadata
-            assert "long_t_stat" in result.metadata
-            assert "short_t_stat" in result.metadata
+            assert "long_stat" in result.metadata
+            assert "short_stat" in result.metadata
+            assert "p_value" in result.metadata

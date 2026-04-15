@@ -14,7 +14,7 @@ import polars as pl
 from scipy import stats as sp_stats
 
 from factorlib.tools._typing import MetricOutput
-from factorlib.tools.series.significance import _significance_marker
+from factorlib.tools.series.significance import _p_value_from_t, _significance_marker
 
 
 def ic_trend(
@@ -44,7 +44,7 @@ def ic_trend(
 
     if n < 10:
         return MetricOutput(
-            name="ic_trend", value=0.0, t_stat=0.0, significance="",
+            name="ic_trend", value=0.0, stat=0.0, significance="",
             metadata={"n_periods": n, "reason": "insufficient_data"},
         )
 
@@ -68,12 +68,17 @@ def ic_trend(
     else:
         approx_t = 0.0
 
+    p = _p_value_from_t(approx_t, n)
     return MetricOutput(
         name="ic_trend",
         value=slope,
-        t_stat=approx_t,
-        significance=_significance_marker(approx_t),
+        stat=approx_t,
+        significance=_significance_marker(p),
         metadata={
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "slope=0",
+            "method": "theil-sen CI approximation",
             "n_periods": n,
             "ci_low": low_slope,
             "ci_high": high_slope,

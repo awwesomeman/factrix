@@ -13,7 +13,7 @@ import polars as pl
 
 from factorlib.tools._typing import DDOF, EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
 from factorlib.tools._helpers import _sample_non_overlapping
-from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
+from factorlib.tools.series.significance import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
 def q1_concentration(
@@ -70,7 +70,7 @@ def q1_concentration(
 
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="q1_concentration", value=0.0, t_stat=0.0, significance="",
+            name="q1_concentration", value=0.0, stat=0.0, significance="",
         )
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()
@@ -89,12 +89,18 @@ def q1_concentration(
     # Test H₀: ratio ≥ 0.5 → shift by 0.5 then use standard t-test
     t = _calc_t_stat(mean_ratio - 0.5, std_ratio, n)
 
+    # WHY: one-sided test → p = P(T < t), not two-sided
+    p = _p_value_from_t(t, n, alternative="less")
     return MetricOutput(
         name="q1_concentration",
         value=mean_eff_n,
-        t_stat=t,
-        significance=_significance_marker(t),
+        stat=t,
+        significance=_significance_marker(p),
         metadata={
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "ratio>=0.5",
+            "method": "one-sided t-test on ratio",
             "mean_n_q1": mean_n_q1,
             "ratio_eff_to_total": ratio,
         },

@@ -12,7 +12,7 @@ import polars as pl
 
 from factorlib.tools._typing import MIN_IC_PERIODS, MetricOutput
 from factorlib.tools._helpers import _sample_non_overlapping
-from factorlib.tools.series.significance import _significance_marker
+from factorlib.tools.series.significance import _p_value_from_z, _significance_marker
 
 
 def hit_rate(
@@ -37,7 +37,7 @@ def hit_rate(
 
     n = len(vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="hit_rate", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="hit_rate", value=0.0, stat=0.0, significance="")
 
     hits = int((vals > 0).sum())
     rate = hits / n
@@ -46,10 +46,18 @@ def hit_rate(
     # (rate - 0.5) / sqrt(0.25/n) = (rate - 0.5) * sqrt(n) / 0.5
     t = float((rate - 0.5) * np.sqrt(n) / 0.5)
 
+    p = _p_value_from_z(t)
     return MetricOutput(
         name="hit_rate",
         value=rate,
-        t_stat=t,
-        significance=_significance_marker(t),
-        metadata={"n_hits": hits, "n_total": n},
+        stat=t,
+        significance=_significance_marker(p),
+        metadata={
+            "n_hits": hits,
+            "n_total": n,
+            "p_value": p,
+            "stat_type": "z",
+            "h0": "p=0.5",
+            "method": "binomial score test",
+        },
     )

@@ -51,13 +51,27 @@ class MetricOutput:
     Args:
         name: Metric identifier (e.g. "ic_ir", "oos_decay").
         value: Raw metric value — never mapped to 0-100.
-        t_stat: t-statistic, when applicable.
-        significance: "***" (|t| >= 3.0) / "**" (|t| >= 2.0) / "*" (|t| >= 1.65) / "" (ns).
-        metadata: Tool-specific context (e.g. per-split details, via path).
+        stat: Test statistic (t, z, W, chi2, ...), when applicable.
+        significance: "***" (p < 0.01) / "**" (p < 0.05) / "*" (p < 0.10) / "" (ns).
+            Derived from ``metadata["p_value"]`` when available.
+        metadata: Tool-specific context. Standard keys:
+            - ``p_value`` (float): p-value for significance determination.
+            - ``stat_type`` (str): "t" | "z" | "wilcoxon" | "bootstrap" | ...
+            - ``h0`` (str): null hypothesis, e.g. "mu=0", "p=0.5".
+            - ``method`` (str): e.g. "non-overlapping t-test", "binomial score".
     """
 
     name: str
     value: float
-    t_stat: float | None = None
+    stat: float | None = None
     significance: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def t_stat(self) -> float | None:
+        """Backward-compatible alias for ``stat``."""
+        return self.stat
+
+    @t_stat.setter
+    def t_stat(self, value: float | None) -> None:
+        self.stat = value

@@ -21,7 +21,7 @@ from factorlib.tools._helpers import (
     _assign_quantile_groups,
     _sample_non_overlapping,
 )
-from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
+from factorlib.tools.series.significance import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
 def compute_spread_series(
@@ -86,12 +86,14 @@ def quantile_spread(
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="q1_q5_spread", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="q1_q5_spread", value=0.0, stat=0.0, significance="")
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
     std_spread = float(np.std(arr, ddof=DDOF))
     t = _calc_t_stat(mean_spread, std_spread, n)
+
+    p = _p_value_from_t(t, n)
 
     # Long/short decomposition (spread = long_alpha + short_alpha)
     long_excess = (series["q1_return"] - series["universe_return"]).drop_nulls()
@@ -103,23 +105,31 @@ def quantile_spread(
     mean_long = float(np.mean(long_arr))
     std_long = float(np.std(long_arr, ddof=DDOF))
     t_long = _calc_t_stat(mean_long, std_long, len(long_arr))
+    p_long = _p_value_from_t(t_long, len(long_arr))
 
     mean_short = float(np.mean(short_arr))
     std_short = float(np.std(short_arr, ddof=DDOF))
     t_short = _calc_t_stat(mean_short, std_short, len(short_arr))
+    p_short = _p_value_from_t(t_short, len(short_arr))
 
     return MetricOutput(
         name="q1_q5_spread",
         value=mean_spread,
-        t_stat=t,
-        significance=_significance_marker(t),
+        stat=t,
+        significance=_significance_marker(p),
         metadata={
             "n_periods": n,
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mu=0",
+            "method": "non-overlapping t-test",
             "long_alpha": mean_long,
             "short_alpha": mean_short,
-            "long_t_stat": t_long,
-            "short_t_stat": t_short,
-            "short_significance": _significance_marker(t_short),
+            "long_stat": t_long,
+            "long_p_value": p_long,
+            "short_stat": t_short,
+            "short_p_value": p_short,
+            "short_significance": _significance_marker(p_short),
         },
     )
 
@@ -149,7 +159,7 @@ def quantile_spread_vw(
     """
     if weight_col not in df.columns:
         return MetricOutput(
-            name="q1_q5_spread_vw", value=0.0, t_stat=0.0, significance="",
+            name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="",
             metadata={"reason": f"missing column: {weight_col}"},
         )
 
@@ -184,19 +194,20 @@ def quantile_spread_vw(
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="q1_q5_spread_vw", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="")
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
     std_spread = float(np.std(arr, ddof=DDOF))
     t = _calc_t_stat(mean_spread, std_spread, n)
 
+    p = _p_value_from_t(t, n)
     return MetricOutput(
         name="q1_q5_spread_vw",
         value=mean_spread,
-        t_stat=t,
-        significance=_significance_marker(t),
-        metadata={"n_periods": n},
+        stat=t,
+        significance=_significance_marker(p),
+        metadata={"n_periods": n, "p_value": p, "stat_type": "t", "h0": "mu=0"},
     )
 
 

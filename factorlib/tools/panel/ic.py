@@ -7,6 +7,8 @@ any ``series/`` tool (oos, trend, significance, hit_rate).
 
 from __future__ import annotations
 
+import math
+
 import polars as pl
 
 from factorlib.tools._typing import (
@@ -15,7 +17,11 @@ from factorlib.tools._typing import (
     MetricOutput,
 )
 from factorlib.tools._helpers import _sample_non_overlapping
-from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
+from factorlib.tools.series.significance import (
+    _calc_t_stat,
+    _p_value_from_t,
+    _significance_marker,
+)
 
 
 def compute_ic(
@@ -48,26 +54,6 @@ def compute_ic(
     )
 
 
-def _non_overlapping_ic_tstat(
-    ic_df: pl.DataFrame,
-    forward_periods: int = 5,
-) -> float:
-    """T-stat from non-overlapping IC samples (internal helper).
-
-    Samples every ``forward_periods``-th date to eliminate autocorrelation
-    from overlapping forward returns.
-    """
-    sampled_ic = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
-
-    n = len(sampled_ic)
-    if n < 2:
-        return 0.0
-    return _calc_t_stat(
-        float(sampled_ic.mean()),
-        float(sampled_ic.std()),
-        n,
-    )
-
 
 def ic(
     ic_df: pl.DataFrame,
@@ -91,17 +77,26 @@ def ic(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="ic", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="ic", value=0.0, stat=0.0, significance="")
 
     mean_ic = float(ic_vals.mean())
-    t = _non_overlapping_ic_tstat(ic_df, forward_periods)
+    sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
+    n_sampled = len(sampled)
+    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled) if n_sampled >= 2 else 0.0
+    p = _p_value_from_t(t, n_sampled)
 
     return MetricOutput(
         name="ic",
         value=mean_ic,
-        t_stat=t,
-        significance=_significance_marker(t),
-        metadata={"n_periods": n},
+        stat=t,
+        significance=_significance_marker(p),
+        metadata={
+            "n_periods": n,
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mu=0",
+            "method": "non-overlapping t-test",
+        },
     )
 
 
@@ -165,8 +160,9 @@ def regime_ic(
             If None, falls back to time bisection (first half / second half).
 
     Returns:
-        MetricOutput with value = min regime mean IC (conservative),
-        metadata containing per-regime IC stats.
+        MetricOutput with value = mean IC across regimes,
+        stat = min |t| across regimes (conservative: if weakest passes, all pass).
+        Per-regime details in metadata.
 
     References:
         Chen & Zimmermann (2022): report sub-period t-stats separately.
@@ -206,15 +202,23 @@ def regime_ic(
     per_regime: dict[str, dict[str, object]] = {}
     for row in regime_stats.iter_rows(named=True):
         t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
+        p = _p_value_from_t(t, row["n"])
         per_regime[row["regime"]] = {
             "mean_ic": row["mean_ic"],
             "std_ic": row["std_ic"],
-            "t_stat": t,
-            "significance": _significance_marker(t),
+            "stat": t,
+            "p_value": p,
+            "significance": _significance_marker(p),
             "n_periods": row["n"],
         }
 
-    min_mean = min(d["mean_ic"] for d in per_regime.values())
+    mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
+
+    # WHY: min |t| across regimes — if the weakest regime is significant,
+    # all regimes are significant. Conservative summary statistic.
+    min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))
+    min_t = min_abs_t_regime["stat"]
+    min_p = min_abs_t_regime["p_value"]
 
     # WHY: filter near-zero means before checking direction consistency —
     # a regime with IC ≈ 0 has no signal, not a "consistent direction"
@@ -226,8 +230,14 @@ def regime_ic(
 
     return MetricOutput(
         name="regime_ic",
-        value=min_mean,
+        value=mean_all,
+        stat=min_t,
+        significance=_significance_marker(min_p),
         metadata={
+            "p_value": min_p,
+            "stat_type": "t",
+            "h0": "mu=0 (per regime)",
+            "aggregation": "mean_value_min_stat",
             "per_regime": per_regime,
             "direction_consistent": consistent,
         },
@@ -249,13 +259,14 @@ def multi_horizon_ic(
         periods: List of forward periods (default [1, 5, 10, 20]).
 
     Returns:
-        MetricOutput with value=mean IC at the default horizon,
-        metadata containing per-horizon IC values.
+        MetricOutput with value = mean IC across horizons,
+        stat = min |t| across horizons.
+        Per-horizon details in metadata.
     """
     if periods is None:
         periods = [1, 5, 10, 20]
 
-    horizon_ics: dict[int, float] = {}
+    per_horizon: dict[int, dict[str, object]] = {}
 
     sorted_df = df.sort(["asset_id", "date"])
     all_returns = sorted_df.with_columns([
@@ -273,15 +284,58 @@ def multi_horizon_ic(
 
         ic_series = compute_ic(valid, factor_col=factor_col, return_col=ret_col)
         ic_vals = ic_series["ic"].drop_nulls()
+        n_ic = len(ic_vals)
 
-        if len(ic_vals) >= MIN_IC_PERIODS:
-            horizon_ics[p] = float(ic_vals.mean())
+        if n_ic >= MIN_IC_PERIODS:
+            mean_ic = float(ic_vals.mean())
+            # WHY: use non-overlapping sampling for t-stat to avoid
+            # autocorrelation inflation from overlapping forward returns
+            sampled = _sample_non_overlapping(ic_series, p)["ic"].drop_nulls()
+            n_sampled = len(sampled)
+            if n_sampled >= 2:
+                t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
+            else:
+                t = 0.0
+            p_val = _p_value_from_t(t, n_sampled)
+            per_horizon[p] = {
+                "mean_ic": mean_ic,
+                "stat": t,
+                "p_value": p_val,
+                "n_periods": n_ic,
+            }
         else:
-            horizon_ics[p] = float("nan")
+            per_horizon[p] = {
+                "mean_ic": float("nan"),
+                "stat": 0.0,
+                "p_value": 1.0,
+                "n_periods": n_ic,
+            }
 
-    primary = horizon_ics.get(periods[0], float("nan"))
+    valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
+    if not valid_horizons:
+        return MetricOutput(name="multi_horizon_ic", value=0.0, stat=0.0, significance="")
+
+    mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))
+
+    # WHY: min |t| across horizons — conservative summary
+    weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))
+    min_t = weakest["stat"]
+    min_p = weakest["p_value"]
+
+    # backward-compatible horizon_ics dict
+    horizon_ics = {p: h["mean_ic"] for p, h in per_horizon.items()}
+
     return MetricOutput(
         name="multi_horizon_ic",
-        value=primary,
-        metadata={"horizon_ics": horizon_ics},
+        value=mean_all,
+        stat=min_t,
+        significance=_significance_marker(min_p),
+        metadata={
+            "p_value": min_p,
+            "stat_type": "t",
+            "h0": "mu=0 (per horizon)",
+            "aggregation": "mean_value_min_stat",
+            "per_horizon": per_horizon,
+            "horizon_ics": horizon_ics,
+        },
     )

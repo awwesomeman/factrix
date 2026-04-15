@@ -14,7 +14,7 @@ import polars as pl
 
 from factorlib.tools._typing import DDOF, MIN_MONOTONICITY_PERIODS, MetricOutput
 from factorlib.tools._helpers import _assign_quantile_groups, _sample_non_overlapping
-from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
+from factorlib.tools.series.significance import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
 def monotonicity(
@@ -72,7 +72,7 @@ def monotonicity(
 
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
         return MetricOutput(
-            name="monotonicity", value=0.0, t_stat=0.0, significance="",
+            name="monotonicity", value=0.0, stat=0.0, significance="",
             metadata={"n_valid_periods": len(mono_df), "n_groups": n_groups},
         )
 
@@ -82,12 +82,16 @@ def monotonicity(
     std_mono = float(np.std(mono_arr, ddof=DDOF))
     t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
 
+    p = _p_value_from_t(t, len(mono_arr))
     return MetricOutput(
         name="monotonicity",
         value=avg_mono,
-        t_stat=t,
-        significance=_significance_marker(t),
+        stat=t,
+        significance=_significance_marker(p),
         metadata={
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mu=0",
             "mean_signed": mean_mono,
             "n_valid_periods": len(mono_arr),
             "n_groups": n_groups,

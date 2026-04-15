@@ -22,7 +22,7 @@ import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import EPSILON, MetricOutput
-from factorlib.tools.series.significance import _significance_marker
+from factorlib.tools.series.significance import _p_value_from_t, _significance_marker
 
 logger = logging.getLogger(__name__)
 
@@ -187,7 +187,7 @@ def spanning_alpha(
         common_dates, arrays = _align_spread_series(all_series)
         if "_candidate_" not in arrays:
             return MetricOutput(
-                name="spanning_alpha", value=0.0, t_stat=0.0, significance="",
+                name="spanning_alpha", value=0.0, stat=0.0, significance="",
             )
         candidate_arr = arrays.pop("_candidate_")
         base_arrays = arrays
@@ -196,7 +196,7 @@ def spanning_alpha(
         vals = factor_spread["spread"].drop_nulls()
         if len(vals) < 10:
             return MetricOutput(
-                name="spanning_alpha", value=0.0, t_stat=0.0, significance="",
+                name="spanning_alpha", value=0.0, stat=0.0, significance="",
             )
         candidate_arr = vals.to_numpy()
         base_arrays = {}
@@ -206,14 +206,20 @@ def spanning_alpha(
 
     base_names = list(base_arrays.keys())
     beta_dict = dict(zip(base_names, ols.betas)) if base_names else {}
+    n_obs = len(candidate_arr)
+    p = _p_value_from_t(ols.alpha_t, n_obs)
 
     return MetricOutput(
         name="spanning_alpha",
         value=ols.alpha,
-        t_stat=ols.alpha_t,
-        significance=_significance_marker(ols.alpha_t),
+        stat=ols.alpha_t,
+        significance=_significance_marker(p),
         metadata={
-            "n_obs": len(candidate_arr),
+            "n_obs": n_obs,
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "alpha=0",
+            "method": "OLS spanning regression",
             "n_base_factors": base_matrix.shape[1],
             "base_factors": base_names,
             "betas": beta_dict,

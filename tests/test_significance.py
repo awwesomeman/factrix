@@ -44,12 +44,12 @@ class TestTStatFromArray:
 
 
 class TestSignificanceMarker:
-    @pytest.mark.parametrize("t, expected", [
-        (3.0, "***"), (5.0, "***"), (-3.5, "***"),
-        (2.0, "**"), (2.99, "**"), (-2.5, "**"),
-        (1.65, "*"), (1.8, "*"),
-        (1.64, ""), (0.0, ""), (-1.0, ""),
+    @pytest.mark.parametrize("p, expected", [
+        (0.001, "***"), (0.005, "***"), (0.009, "***"),
+        (0.01, "**"), (0.03, "**"), (0.049, "**"),
+        (0.05, "*"), (0.08, "*"), (0.099, "*"),
+        (0.10, ""), (0.5, ""), (1.0, ""),
         (None, ""),
     ])
-    def test_markers(self, t, expected):
-        assert _significance_marker(t) == expected
+    def test_markers(self, p, expected):
+        assert _significance_marker(p) == expected

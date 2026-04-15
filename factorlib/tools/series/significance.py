@@ -47,27 +47,60 @@ def _t_stat_from_array(values: np.ndarray) -> float:
     )
 
 
-def _significance_marker(t_stat: float | None) -> str:
-    """Map t-stat to academic significance marker.
+def _p_value_from_t(
+    t_stat: float,
+    n: int,
+    alternative: str = "two-sided",
+) -> float:
+    """P-value from t-statistic using t-distribution.
 
-    | Marker | Condition     | Meaning                            |
-    |:------:|---------------|------------------------------------|
-    | ``***``| |t| >= 3.0    | Highly significant (Harvey-strict) |
-    | ``**`` | |t| >= 2.0    | Significant (p < 0.05)             |
-    | ``*``  | |t| >= 1.65   | Weakly significant (p < 0.10)      |
-    |        | |t| < 1.65    | Not significant                    |
+    Args:
+        alternative: "two-sided" (default), "less" (left-tail), "greater" (right-tail).
+    """
+    if n <= 1:
+        return 1.0
+    dof = n - 1
+    if alternative == "less":
+        return float(sp_stats.t.cdf(t_stat, dof))
+    if alternative == "greater":
+        return float(sp_stats.t.sf(t_stat, dof))
+    return float(2 * sp_stats.t.sf(abs(t_stat), dof))
+
+
+def _p_value_from_z(z: float) -> float:
+    """Two-sided p-value from z-statistic using normal distribution."""
+    return float(2 * sp_stats.norm.sf(abs(z)))
+
+
+def _t_test_summary(
+    mean: float, std: float, n: int,
+) -> tuple[float, float, str]:
+    """Compute t-stat, p-value, and significance marker in one call."""
+    t = _calc_t_stat(mean, std, n)
+    p = _p_value_from_t(t, n)
+    return t, p, _significance_marker(p)
+
+
+def _significance_marker(p_value: float | None) -> str:
+    """Map p-value to academic significance marker.
+
+    | Marker | Condition   | Meaning              |
+    |:------:|-------------|----------------------|
+    | ``***``| p < 0.01    | Highly significant   |
+    | ``**`` | p < 0.05    | Significant          |
+    | ``*``  | p < 0.10    | Weakly significant   |
+    |        | p >= 0.10   | Not significant      |
 
     Returns:
         One of ``"***"``, ``"**"``, ``"*"``, ``""``.
     """
-    if t_stat is None:
+    if p_value is None:
         return ""
-    abs_t = abs(t_stat)
-    if abs_t >= 3.0:
+    if p_value < 0.01:
         return "***"
-    if abs_t >= 2.0:
+    if p_value < 0.05:
         return "**"
-    if abs_t >= 1.65:
+    if p_value < 0.10:
         return "*"
     return ""
 
