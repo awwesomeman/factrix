@@ -2,12 +2,10 @@
 
 from datetime import datetime, timedelta
 
-import numpy as np
 import polars as pl
 import pytest
 
 from factorlib.tools._helpers import (
-    _annualize_return,
     _assign_quantile_groups,
     _sample_non_overlapping,
 )
@@ -50,26 +48,3 @@ class TestAssignQuantileGroups:
         for dt in result["date"].unique():
             chunk = result.filter(pl.col("date") == dt)
             assert set(chunk["_group"].to_list()) == {0, 1, 2, 3, 4}
-
-
-class TestAnnualizeReturn:
-    def test_one_year(self):
-        n = 252
-        arr = np.full(n, 0.001)  # 0.1% per period
-        dates = pl.Series([datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)])
-        result = _annualize_return(arr, dates)
-        assert result is not None
-        assert result > 0
-
-    def test_short_range_returns_none(self):
-        arr = np.array([0.01, 0.02])
-        dates = pl.Series([datetime(2024, 1, 1), datetime(2024, 1, 2)])
-        assert _annualize_return(arr, dates) is None
-
-    def test_negative_returns(self):
-        n = 100
-        arr = np.full(n, -0.001)
-        dates = pl.Series([datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)])
-        result = _annualize_return(arr, dates)
-        assert result is not None
-        assert result < 0

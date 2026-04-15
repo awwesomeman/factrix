@@ -18,7 +18,6 @@ from factorlib.tools._typing import (
     MetricOutput,
 )
 from factorlib.tools._helpers import (
-    _annualize_return,
     _assign_quantile_groups,
     _sample_non_overlapping,
 )
@@ -75,13 +74,13 @@ def quantile_spread(
     n_groups: int = 5,
     _precomputed_series: pl.DataFrame | None = None,
 ) -> MetricOutput:
-    """Q1-Q5 spread (annualized).
+    """Q1-Q5 spread (per-period mean).
 
     Args:
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
 
     Returns:
-        MetricOutput with annualized spread, t-stat from non-overlapping periods.
+        MetricOutput with per-period mean spread, t-stat from non-overlapping periods.
     """
     series = _precomputed_series if _precomputed_series is not None else compute_spread_series(df, forward_periods, n_groups)
     spread_vals = series["spread"].drop_nulls()
@@ -94,41 +93,7 @@ def quantile_spread(
     std_spread = float(np.std(arr, ddof=DDOF))
     t = _calc_t_stat(mean_spread, std_spread, n)
 
-    ann = _annualize_return(arr, series["date"])
-    if ann is None:
-        return MetricOutput(name="q1_q5_spread", value=0.0, t_stat=0.0, significance="")
-
-    return MetricOutput(
-        name="q1_q5_spread",
-        value=ann,
-        t_stat=t,
-        significance=_significance_marker(t),
-        metadata={"mean_per_period": mean_spread, "n_periods": n},
-    )
-
-
-def long_short_alpha(
-    df: pl.DataFrame,
-    forward_periods: int = 5,
-    n_groups: int = 5,
-    _precomputed_series: pl.DataFrame | None = None,
-) -> MetricOutput:
-    """Long Alpha (Q1 - Universe) and Short Alpha (Universe - Q5), annualized.
-
-    Args:
-        _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
-            Caller can pass the same series used for ``quantile_spread`` to avoid
-            duplicate work.
-
-    Returns:
-        MetricOutput with value=Long_Alpha (annualized),
-        metadata containing short_alpha and per-period details.
-    """
-    series = _precomputed_series if _precomputed_series is not None else compute_spread_series(df, forward_periods, n_groups)
-    n = len(series)
-    if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="long_short_alpha", value=0.0, t_stat=0.0, significance="")
-
+    # Long/short decomposition (spread = long_alpha + short_alpha)
     long_excess = (series["q1_return"] - series["universe_return"]).drop_nulls()
     short_excess = (series["universe_return"] - series["q5_return"]).drop_nulls()
 
@@ -143,19 +108,15 @@ def long_short_alpha(
     std_short = float(np.std(short_arr, ddof=DDOF))
     t_short = _calc_t_stat(mean_short, std_short, len(short_arr))
 
-    ann_long = _annualize_return(long_arr, series["date"])
-    ann_short = _annualize_return(short_arr, series["date"])
-    if ann_long is None:
-        return MetricOutput(name="long_short_alpha", value=0.0, t_stat=0.0, significance="")
-
     return MetricOutput(
-        name="long_short_alpha",
-        value=ann_long,
-        t_stat=t_long,
-        significance=_significance_marker(t_long),
+        name="q1_q5_spread",
+        value=mean_spread,
+        t_stat=t,
+        significance=_significance_marker(t),
         metadata={
-            "long_alpha_ann": ann_long,
-            "short_alpha_ann": ann_short or 0.0,
+            "n_periods": n,
+            "long_alpha": mean_long,
+            "short_alpha": mean_short,
             "long_t_stat": t_long,
             "short_t_stat": t_short,
             "short_significance": _significance_marker(t_short),
@@ -171,7 +132,7 @@ def quantile_spread_vw(
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
 ) -> MetricOutput:
-    """Value-weighted Q1-Q5 spread (annualized).
+    """Value-weighted Q1-Q5 spread (per-period mean).
 
     Compares with equal-weighted spread to detect small-cap concentration.
     If VW spread << EW spread, alpha is driven by small stocks.
@@ -181,7 +142,7 @@ def quantile_spread_vw(
         weight_col: Column for value weighting (default ``market_cap``).
 
     Returns:
-        MetricOutput with annualized VW spread.
+        MetricOutput with per-period mean VW spread.
 
     References:
         Hou, Xue & Zhang (2020): ~65% of factors disappear under VW.
@@ -230,16 +191,12 @@ def quantile_spread_vw(
     std_spread = float(np.std(arr, ddof=DDOF))
     t = _calc_t_stat(mean_spread, std_spread, n)
 
-    ann = _annualize_return(arr, vw_series["date"])
-    if ann is None:
-        return MetricOutput(name="q1_q5_spread_vw", value=0.0, t_stat=0.0, significance="")
-
     return MetricOutput(
         name="q1_q5_spread_vw",
-        value=ann,
+        value=mean_spread,
         t_stat=t,
         significance=_significance_marker(t),
-        metadata={"mean_per_period": mean_spread, "n_periods": n},
+        metadata={"n_periods": n},
     )
 
 

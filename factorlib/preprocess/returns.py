@@ -1,6 +1,6 @@
 """Preprocessing Step 1-3: forward return computation and adjustment.
 
-Step 1 — Forward Return: price[t+N] / price[t] - 1
+Step 1 — Forward Return: (price[t+N] / price[t] - 1) / N
 Step 2 — Winsorize Forward Return: per-date percentile clip
 Step 3 — Abnormal Return: forward_return - cross-sectional mean
 
@@ -15,7 +15,13 @@ def compute_forward_return(
     df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> pl.DataFrame:
-    """Step 1: Compute N-period forward return per asset.
+    """Step 1: Compute per-period forward return per asset.
+
+    ``forward_return = (price[t+N] / price[t] - 1) / N``
+
+    Dividing by N (Alphalens convention) normalizes returns to a
+    per-period basis, making different forward_periods directly comparable
+    without requiring the user to specify data frequency.
 
     Args:
         df: Must contain ``date``, ``asset_id``, ``price``.
@@ -29,9 +35,12 @@ def compute_forward_return(
         df.sort(["asset_id", "date"])
         .with_columns(
             (
-                pl.col("price").shift(-forward_periods).over("asset_id")
-                / pl.col("price")
-                - 1
+                (
+                    pl.col("price").shift(-forward_periods).over("asset_id")
+                    / pl.col("price")
+                    - 1
+                )
+                / forward_periods
             ).alias("forward_return")
         )
         .filter(pl.col("forward_return").is_not_null())

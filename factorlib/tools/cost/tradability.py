@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factorlib.tools._typing import CALENDAR_DAYS_PER_YEAR, DDOF, EPSILON, MetricOutput
+from factorlib.tools._typing import DDOF, EPSILON, MetricOutput
 from factorlib.tools.series.significance import _significance_marker
 
 
@@ -77,17 +77,17 @@ def turnover(
 
 
 def breakeven_cost(
-    gross_alpha_ann: float,
+    gross_spread: float,
     turnover: float,
 ) -> MetricOutput:
     """Breakeven single-leg trading cost in bps.
 
-    ``Breakeven = Gross_Alpha / (2 × Turnover)``
+    ``Breakeven = Gross_Spread / (2 × Turnover)``
 
     If the actual trading cost is below this, the factor's alpha survives.
 
     Args:
-        gross_alpha_ann: Annualized Q1-Q5 spread.
+        gross_spread: Per-period mean Q1-Q5 spread.
         turnover: Factor turnover estimate (0-1).
 
     Returns:
@@ -97,51 +97,50 @@ def breakeven_cost(
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
     """
     if turnover < EPSILON:
-        # WHY: 零 turnover 代表靜態因子，breakeven 趨近無窮
         return MetricOutput(
             name="breakeven_cost",
             value=float("inf"),
-            metadata={"gross_alpha_ann": gross_alpha_ann, "turnover": turnover},
+            metadata={"gross_spread": gross_spread, "turnover": turnover},
         )
 
     # WHY: ×2 因為 long-short 雙邊交易；×10000 轉 bps
-    be_bps = (gross_alpha_ann / (2 * turnover)) * 10000
+    be_bps = (gross_spread / (2 * turnover)) * 10000
 
     return MetricOutput(
         name="breakeven_cost",
         value=be_bps,
-        metadata={"gross_alpha_ann": gross_alpha_ann, "turnover": turnover},
+        metadata={"gross_spread": gross_spread, "turnover": turnover},
     )
 
 
 def net_spread(
-    gross_alpha_ann: float,
+    gross_spread: float,
     turnover: float,
     estimated_cost_bps: float = 30.0,
 ) -> MetricOutput:
-    """Net spread after estimated trading costs.
+    """Net spread after estimated trading costs (per-period).
 
-    ``Net = Gross_Alpha - 2 × cost_bps × Turnover``
+    ``Net = Gross_Spread - 2 × cost_bps × Turnover``
 
     Args:
-        gross_alpha_ann: Annualized Q1-Q5 spread.
+        gross_spread: Per-period mean Q1-Q5 spread.
         turnover: Factor turnover estimate.
         estimated_cost_bps: Estimated single-leg trading cost in bps.
 
     Returns:
-        MetricOutput with value = net spread (annualized).
+        MetricOutput with value = net spread (per-period).
 
     References:
         DeMiguel, Martin-Utrera & Nogales (2020).
     """
     cost_drag = 2 * (estimated_cost_bps / 10000) * turnover
-    net = gross_alpha_ann - cost_drag
+    net = gross_spread - cost_drag
 
     return MetricOutput(
         name="net_spread",
         value=net,
         metadata={
-            "gross_alpha_ann": gross_alpha_ann,
+            "gross_spread": gross_spread,
             "cost_drag": cost_drag,
             "estimated_cost_bps": estimated_cost_bps,
             "turnover": turnover,

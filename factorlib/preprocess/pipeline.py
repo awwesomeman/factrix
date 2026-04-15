@@ -38,7 +38,7 @@ def preprocess_cs_factor(
     """Run the full Step 1-5 preprocessing pipeline for cross-sectional factors.
 
     Steps:
-        1. Forward return (``price[t+N] / price[t] - 1``).
+        1. Forward return (``(price[t+N] / price[t] - 1) / N``, per-period).
         2. Forward return percentile winsorization.
         3. Abnormal return (cross-sectional de-mean).
         4. Factor MAD winsorization.

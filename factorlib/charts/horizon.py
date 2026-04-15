@@ -13,7 +13,7 @@ def multi_horizon_ic_chart(horizon_ics: dict[int, float]) -> go.Figure:
             Typically from ``multi_horizon_ic().metadata["horizon_ics"]``.
     """
     periods = sorted(horizon_ics.keys())
-    labels = [f"{p}D" for p in periods]
+    labels = [str(p) for p in periods]
     values = [horizon_ics[p] for p in periods]
 
     colors = ["#EF553B" if v < 0 else "#636EFA" for v in values]

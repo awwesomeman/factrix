@@ -200,7 +200,7 @@ class TestComputeProfile:
         profile = compute_profile(strong_artifacts)
         assert isinstance(profile, FactorProfile)
         assert len(profile.reliability) == 6
-        assert len(profile.profitability) == 6
+        assert len(profile.profitability) == 5
 
     def test_reliability_metric_names(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
@@ -211,7 +211,7 @@ class TestComputeProfile:
         profile = compute_profile(strong_artifacts)
         names = {m.name for m in profile.profitability}
         assert names == {
-            "q1_q5_spread", "long_short_alpha", "turnover",
+            "q1_q5_spread", "turnover",
             "breakeven_cost", "net_spread", "q1_concentration",
         }
 

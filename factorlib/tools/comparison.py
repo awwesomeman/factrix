@@ -2,6 +2,9 @@
 
 Splits a DataFrame by arbitrary filter conditions and adjusts PipelineConfig
 (n_groups) based on each group's universe size.
+
+When ``unify_n_groups=True`` (default), all groups use the same n_groups
+(the minimum across groups), ensuring apple-to-apple quantile comparisons.
 """
 
 from __future__ import annotations
@@ -36,23 +39,27 @@ def split_by_group(
     definitions: dict[str, pl.Expr],
     base_config: PipelineConfig,
     auto_n_groups: bool = True,
+    unify_n_groups: bool = True,
 ) -> dict[str, tuple[pl.DataFrame, PipelineConfig]]:
     """Split DataFrame by filter conditions with N-aware config adjustment.
 
     Args:
         df: Preprocessed panel with ``date, asset_id, ...``.
         definitions: Mapping of group name → Polars filter expression.
-            Supports arbitrary combinations, e.g.
-            ``(pl.col("market") == "上市") & (pl.col("industry") == "半導體")``.
-        base_config: Base pipeline configuration. ``n_groups`` may be adjusted
-            per group based on universe size.
-        auto_n_groups: If True (default), automatically adjust ``n_groups``
-            based on median assets per date. If False, use base_config as-is.
+        base_config: Base pipeline configuration.
+        auto_n_groups: If True (default), adjust ``n_groups`` per group
+            based on median assets per date.
+        unify_n_groups: If True (default), all groups use the same n_groups
+            (the minimum recommended across all groups). This ensures
+            quantile comparisons are apple-to-apple. Set to False to let
+            each group use its own optimal n_groups independently.
 
     Returns:
         Mapping of group name → (filtered DataFrame, adjusted PipelineConfig).
     """
-    result: dict[str, tuple[pl.DataFrame, PipelineConfig]] = {}
+    # WHY: first pass collects per-group data and recommended n_groups;
+    # second pass applies the unified minimum (if unify_n_groups=True).
+    per_group: dict[str, tuple[pl.DataFrame, int, int]] = {}
 
     for name, expr in definitions.items():
         filtered = df.filter(expr)
@@ -62,19 +69,50 @@ def split_by_group(
             continue
 
         median_n = _median_universe_size(filtered)
-
-        config = base_config
         recommended = _recommend_n_groups(median_n)
+        per_group[name] = (filtered, median_n, recommended)
 
-        if auto_n_groups:
-            if recommended != base_config.n_groups:
-                logger.info(
-                    "split_by_group: group '%s' median N=%d, "
-                    "adjusting n_groups %d → %d",
-                    name, median_n, base_config.n_groups, recommended,
+    if not per_group:
+        return {}
+
+    # Determine the n_groups each group will use
+    if auto_n_groups:
+        if unify_n_groups:
+            per_group_rec = {n: rec for n, (_, _, rec) in per_group.items()}
+            unified = min(per_group_rec.values())
+            if unified != base_config.n_groups:
+                bottleneck = [n for n, r in per_group_rec.items() if r == unified]
+                logger.warning(
+                    "split_by_group: n_groups reduced %d → %d to unify "
+                    "across groups (bottleneck: %s, per-group recommended: %s). "
+                    "Pass unify_n_groups=False to keep independent n_groups.",
+                    base_config.n_groups, unified,
+                    bottleneck, per_group_rec,
                 )
-                config = replace(base_config, n_groups=recommended)
         else:
+            unified = None  # each group uses its own
+    else:
+        unified = None
+
+    # Warn about groups too small for stable quantile analysis
+    for name, (_, median_n, _) in per_group.items():
+        if median_n < 50:
+            logger.warning(
+                "split_by_group: group '%s' has median N=%d (< 50) "
+                "— quantile results may be unstable",
+                name, median_n,
+            )
+
+    result: dict[str, tuple[pl.DataFrame, PipelineConfig]] = {}
+    for name, (filtered, median_n, recommended) in per_group.items():
+        if auto_n_groups:
+            target = unified if unified is not None else recommended
+            if target != base_config.n_groups:
+                config = replace(base_config, n_groups=target)
+            else:
+                config = base_config
+        else:
+            config = base_config
             if base_config.n_groups > recommended:
                 logger.warning(
                     "split_by_group: group '%s' median N=%d, "

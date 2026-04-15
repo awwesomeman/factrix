@@ -3,7 +3,6 @@
 import pytest
 
 from factorlib.tools.panel.quantile import (
-    long_short_alpha,
     quantile_spread,
     compute_spread_series,
 )
@@ -24,10 +23,6 @@ class TestQuantileSpreadSeries:
 
 class TestQuantileSpread:
     def test_noisy_panel(self, noisy_panel):
-        # WHY: noisy_panel has 20 dates, forward_periods=1 keeps all → enough for annualization
-        # but date range = 20 days < 0.1 years → annualize_return returns None → value=0.
-        # Use forward_periods=1 and verify the metric at least runs.
-        # The real check is that compute_spread_series produces valid spreads.
         series = compute_spread_series(noisy_panel, forward_periods=1, n_groups=5)
         assert len(series) >= 5
         assert series["spread"].null_count() == 0
@@ -46,17 +41,18 @@ class TestQuantileSpread:
         result = quantile_spread(df, forward_periods=1, n_groups=5)
         assert result.value == 0.0
 
-
-class TestLongShortAlpha:
-    def test_decomposition_sums_to_spread(self, tiny_panel):
+    def test_decomposition_in_metadata(self, tiny_panel):
+        """spread = long_alpha + short_alpha (per-period)."""
         series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
         for row in series.iter_rows(named=True):
             long = row["q1_return"] - row["universe_return"]
             short = row["universe_return"] - row["q5_return"]
             assert long + short == pytest.approx(row["spread"])
 
-    def test_precomputed_series(self, noisy_panel):
-        series = compute_spread_series(noisy_panel, forward_periods=1)
-        r1 = long_short_alpha(noisy_panel, forward_periods=1)
-        r2 = long_short_alpha(noisy_panel, forward_periods=1, _precomputed_series=series)
-        assert r1.value == pytest.approx(r2.value)
+    def test_metadata_has_long_short(self, noisy_panel):
+        result = quantile_spread(noisy_panel, forward_periods=1, n_groups=5)
+        if result.value != 0.0:
+            assert "long_alpha" in result.metadata
+            assert "short_alpha" in result.metadata
+            assert "long_t_stat" in result.metadata
+            assert "short_t_stat" in result.metadata

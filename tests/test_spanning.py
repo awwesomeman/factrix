@@ -60,9 +60,10 @@ class TestOLSAlpha:
         rng = np.random.default_rng(42)
         candidate = rng.normal(0.01, 0.005, 100)
         base = np.empty((100, 0))
-        alpha, t = _ols_alpha(candidate, base)
-        assert alpha == pytest.approx(0.01, abs=0.005)
-        assert abs(t) > 1.0
+        ols = _ols_alpha(candidate, base)
+        assert ols.alpha == pytest.approx(0.01, abs=0.005)
+        assert abs(ols.alpha_t) > 1.0
+        assert ols.betas == []
 
     def test_spanned_factor_has_zero_alpha(self):
         rng = np.random.default_rng(42)
@@ -70,13 +71,16 @@ class TestOLSAlpha:
         # Candidate = 2 * base + noise → alpha ≈ 0 after regression
         candidate = 2 * base_col + rng.normal(0, 0.001, 200)
         base = base_col.reshape(-1, 1)
-        alpha, t = _ols_alpha(candidate, base)
-        assert abs(alpha) < 0.005
-        assert abs(t) < 2.0
+        ols = _ols_alpha(candidate, base)
+        assert abs(ols.alpha) < 0.005
+        assert abs(ols.alpha_t) < 2.0
+        assert len(ols.betas) == 1
+        assert ols.betas[0] == pytest.approx(2.0, abs=0.1)
+        assert ols.r_squared > 0.95
 
     def test_insufficient_data(self):
-        alpha, t = _ols_alpha(np.array([0.01, 0.02]), np.empty((2, 0)))
-        assert alpha == 0.0 and t == 0.0
+        ols = _ols_alpha(np.array([0.01, 0.02]), np.empty((2, 0)))
+        assert ols.alpha == 0.0 and ols.alpha_t == 0.0
 
 
 class TestGreedyForwardSelection:

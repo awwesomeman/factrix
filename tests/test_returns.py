@@ -41,6 +41,15 @@ class TestComputeForwardReturn:
         assert a_ret > 0
         assert b_ret < 0
 
+    def test_divided_by_periods(self):
+        """forward_return = (price[t+N]/price[t] - 1) / N."""
+        df = _make_price_data()
+        # Asset A: price 100 → 121 over 2 periods → raw return 0.21
+        # Per-period: 0.21 / 2 = 0.105
+        result = compute_forward_return(df, forward_periods=2)
+        a_ret = result.filter(pl.col("asset_id") == "A")["forward_return"][0]
+        assert a_ret == pytest.approx(0.21 / 2)
+
 
 class TestWinsorizeForwardReturn:
     def test_noop(self):

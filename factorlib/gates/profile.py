@@ -4,8 +4,8 @@ After all gates pass, ``compute_profile`` runs the full suite of
 Phase 1 tools to produce raw metric outputs — no scores, no mapping.
 
 Reliability: IC, IC_IR, Hit_Rate, IC_Trend, Monotonicity, OOS_Decay.
-Profitability: Q1-Q5 Spread, Long/Short Alpha, Turnover, Breakeven Cost,
-    Net Spread, Q1 Concentration.
+Profitability: Q1-Q5 Spread (with long/short decomposition in metadata),
+    Turnover, Breakeven Cost, Net Spread, Q1 Concentration.
 """
 
 from __future__ import annotations
@@ -63,12 +63,6 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
         n_groups=cfg.n_groups,
         _precomputed_series=artifacts.spread_series,
     )
-    ls_alpha = quantile.long_short_alpha(
-        artifacts.prepared,
-        forward_periods=fp,
-        n_groups=cfg.n_groups,
-        _precomputed_series=artifacts.spread_series,
-    )
     turn = tradability.turnover(artifacts.prepared)
     be = tradability.breakeven_cost(spread.value, turn.value)
     ns = tradability.net_spread(
@@ -78,6 +72,6 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
         artifacts.prepared, forward_periods=fp, q_top=cfg.q_top,
     )
 
-    profitability = [spread, ls_alpha, turn, be, ns, conc]
+    profitability = [spread, turn, be, ns, conc]
 
     return FactorProfile(reliability=reliability, profitability=profitability)
