@@ -31,7 +31,9 @@ package-lock.json
 # Jupyter
 .ipynb_checkpoints/
 
+# Data
+*.parquet
+
 # Project
-experiments/
 # Lock files (managed by uv)
 # uv.lock is committed for reproducibility
