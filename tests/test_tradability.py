@@ -4,7 +4,7 @@ import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.tools.cost.tradability import breakeven_cost, compute_turnover, net_spread
+from factorlib.tools.cost.tradability import breakeven_cost, turnover, net_spread
 
 
 class TestComputeTurnover:
@@ -16,7 +16,7 @@ class TestComputeTurnover:
             for i, a in enumerate(["A", "B", "C"]):
                 rows.append({"date": d, "asset_id": a, "factor": float(i + 1)})
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = compute_turnover(df)
+        result = turnover(df)
         assert result.value == pytest.approx(0.0, abs=0.01)
 
     def test_single_date(self):
@@ -25,7 +25,7 @@ class TestComputeTurnover:
             "asset_id": ["A", "B", "C"],
             "factor": [1.0, 2.0, 3.0],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = compute_turnover(df)
+        result = turnover(df)
         assert result.value == 0.0
 
 

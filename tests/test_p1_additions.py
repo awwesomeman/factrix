@@ -36,7 +36,7 @@ class TestQuantileSpreadVW:
     def test_basic(self):
         df = self._make_panel_with_cap()
         result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
-        assert result.name == "Q1_Q5_Spread_VW"
+        assert result.name == "q1_q5_spread_vw"
         # With signal, VW spread should be nonzero
         assert result.value != 0.0 or result.metadata.get("reason")
 
@@ -68,7 +68,7 @@ class TestRegimeIC:
     def test_time_bisection_fallback(self):
         ic_df = self._make_ic_series(30)
         result = regime_ic(ic_df)
-        assert result.name == "Regime_IC"
+        assert result.name == "regime_ic"
         assert "per_regime" in result.metadata
         assert "first_half" in result.metadata["per_regime"]
         assert "second_half" in result.metadata["per_regime"]

@@ -14,8 +14,8 @@ from factorlib.tools._typing import (
     MIN_IC_PERIODS,
     MetricOutput,
 )
-from factorlib.tools._helpers import sample_non_overlapping
-from factorlib.tools.series.significance import calc_t_stat, significance_marker
+from factorlib.tools._helpers import _sample_non_overlapping
+from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
 
 
 def compute_ic(
@@ -57,12 +57,12 @@ def _non_overlapping_ic_tstat(
     Samples every ``forward_periods``-th date to eliminate autocorrelation
     from overlapping forward returns.
     """
-    sampled_ic = sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
+    sampled_ic = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
 
     n = len(sampled_ic)
     if n < 2:
         return 0.0
-    return calc_t_stat(
+    return _calc_t_stat(
         float(sampled_ic.mean()),
         float(sampled_ic.std()),
         n,
@@ -91,16 +91,16 @@ def ic(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="IC", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="ic", value=0.0, t_stat=0.0, significance="")
 
     mean_ic = float(ic_vals.mean())
     t = _non_overlapping_ic_tstat(ic_df, forward_periods)
 
     return MetricOutput(
-        name="IC",
+        name="ic",
         value=mean_ic,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={"n_periods": n},
     )
 
@@ -126,18 +126,18 @@ def ic_ir(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="IC_IR", value=0.0)
+        return MetricOutput(name="ic_ir", value=0.0)
 
     mean_ic = float(ic_vals.mean())
     std_ic = float(ic_vals.std())
 
     if std_ic < EPSILON:
-        return MetricOutput(name="IC_IR", value=0.0)
+        return MetricOutput(name="ic_ir", value=0.0)
 
     ratio = mean_ic / std_ic
 
     return MetricOutput(
-        name="IC_IR",
+        name="ic_ir",
         value=ratio,
         metadata={"mean_ic": mean_ic, "std_ic": std_ic, "n_periods": n},
     )
@@ -172,7 +172,7 @@ def regime_ic(
         Chen & Zimmermann (2022): report sub-period t-stats separately.
     """
     if len(ic_df) < MIN_IC_PERIODS:
-        return MetricOutput(name="Regime_IC", value=0.0, significance="")
+        return MetricOutput(name="regime_ic", value=0.0, significance="")
 
     if regime_labels is not None:
         merged = ic_df.join(regime_labels.select("date", "regime"), on="date", how="inner")
@@ -201,16 +201,16 @@ def regime_ic(
     )
 
     if regime_stats.is_empty():
-        return MetricOutput(name="Regime_IC", value=0.0, significance="")
+        return MetricOutput(name="regime_ic", value=0.0, significance="")
 
     per_regime: dict[str, dict[str, object]] = {}
     for row in regime_stats.iter_rows(named=True):
-        t = calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
+        t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
         per_regime[row["regime"]] = {
             "mean_ic": row["mean_ic"],
             "std_ic": row["std_ic"],
             "t_stat": t,
-            "significance": significance_marker(t),
+            "significance": _significance_marker(t),
             "n_periods": row["n"],
         }
 
@@ -225,7 +225,7 @@ def regime_ic(
         consistent = False
 
     return MetricOutput(
-        name="Regime_IC",
+        name="regime_ic",
         value=min_mean,
         metadata={
             "per_regime": per_regime,
@@ -281,7 +281,7 @@ def multi_horizon_ic(
 
     primary = horizon_ics.get(periods[0], float("nan"))
     return MetricOutput(
-        name="Multi_Horizon_IC",
+        name="multi_horizon_ic",
         value=primary,
         metadata={"horizon_ics": horizon_ics},
     )

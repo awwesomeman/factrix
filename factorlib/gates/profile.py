@@ -32,15 +32,15 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
     # --- Reliability ---
     ic_sig = ic.ic(artifacts.ic_series, forward_periods=fp)
     ic_ir = ic.ic_ir(artifacts.ic_series)
-    hit = hit_rate.compute_hit_rate(artifacts.ic_values, forward_periods=fp)
-    ic_trend = trend.theil_sen_slope(artifacts.ic_values)
-    mono = monotonicity.compute_monotonicity(
+    hit = hit_rate.hit_rate(artifacts.ic_values, forward_periods=fp)
+    ic_trend = trend.ic_trend(artifacts.ic_values)
+    mono = monotonicity.monotonicity(
         artifacts.prepared, forward_periods=fp, n_groups=cfg.n_groups,
     )
 
     oos_result = oos.multi_split_oos_decay(artifacts.ic_values)
     oos_metric = MetricOutput(
-        name="OOS_Decay",
+        name="oos_decay",
         value=oos_result.decay_ratio,
         metadata={
             "sign_flipped": oos_result.sign_flipped,
@@ -69,7 +69,7 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
         n_groups=cfg.n_groups,
         _precomputed_series=artifacts.spread_series,
     )
-    turn = tradability.compute_turnover(artifacts.prepared)
+    turn = tradability.turnover(artifacts.prepared)
     be = tradability.breakeven_cost(spread.value, turn.value)
     ns = tradability.net_spread(
         spread.value, turn.value, cfg.estimated_cost_bps,

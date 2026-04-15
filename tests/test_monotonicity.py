@@ -2,7 +2,7 @@
 
 import pytest
 
-from factorlib.tools.panel.monotonicity import compute_monotonicity
+from factorlib.tools.panel.monotonicity import monotonicity
 
 
 class TestComputeMonotonicity:
@@ -13,7 +13,7 @@ class TestComputeMonotonicity:
         perfect = noisy_panel.with_columns(
             pl.col("factor").rank(method="average").over("date").alias("forward_return")
         )
-        result = compute_monotonicity(perfect, forward_periods=1, n_groups=5)
+        result = monotonicity(perfect, forward_periods=1, n_groups=5)
         assert result.value == pytest.approx(1.0)
 
     def test_inverse_monotonic(self, noisy_panel):
@@ -21,7 +21,7 @@ class TestComputeMonotonicity:
         inverted = noisy_panel.with_columns(
             (-pl.col("factor").rank(method="average").over("date")).alias("forward_return")
         )
-        result = compute_monotonicity(inverted, forward_periods=1, n_groups=5)
+        result = monotonicity(inverted, forward_periods=1, n_groups=5)
         assert result.value == pytest.approx(1.0)
         assert result.metadata["mean_signed"] == pytest.approx(-1.0)
 
@@ -35,7 +35,7 @@ class TestComputeMonotonicity:
             "factor": [1.0, 2.0, 3.0, 4.0, 5.0],
             "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = compute_monotonicity(df, forward_periods=1, n_groups=5)
+        result = monotonicity(df, forward_periods=1, n_groups=5)
         # Only 1 date < MIN_MONOTONICITY_PERIODS=5
         assert result.value == 0.0
         assert result.significance == ""

@@ -18,14 +18,14 @@ from factorlib.tools._typing import (
     MetricOutput,
 )
 from factorlib.tools._helpers import (
-    annualize_return,
-    assign_quantile_groups,
-    sample_non_overlapping,
+    _annualize_return,
+    _assign_quantile_groups,
+    _sample_non_overlapping,
 )
-from factorlib.tools.series.significance import calc_t_stat, significance_marker
+from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
 
 
-def quantile_spread_series(
+def compute_spread_series(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
@@ -43,8 +43,8 @@ def quantile_spread_series(
     Returns:
         DataFrame with ``date, spread, q1_return, q5_return, universe_return``.
     """
-    sampled = sample_non_overlapping(df, forward_periods)
-    grouped = assign_quantile_groups(sampled, factor_col, n_groups)
+    sampled = _sample_non_overlapping(df, forward_periods)
+    grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
 
     top_group = n_groups - 1
     bottom_group = 0
@@ -78,31 +78,31 @@ def quantile_spread(
     """Q1-Q5 spread (annualized).
 
     Args:
-        _precomputed_series: If provided, skip recomputing ``quantile_spread_series``.
+        _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
 
     Returns:
         MetricOutput with annualized spread, t-stat from non-overlapping periods.
     """
-    series = _precomputed_series if _precomputed_series is not None else quantile_spread_series(df, forward_periods, n_groups)
+    series = _precomputed_series if _precomputed_series is not None else compute_spread_series(df, forward_periods, n_groups)
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="Q1_Q5_Spread", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="q1_q5_spread", value=0.0, t_stat=0.0, significance="")
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
     std_spread = float(np.std(arr, ddof=DDOF))
-    t = calc_t_stat(mean_spread, std_spread, n)
+    t = _calc_t_stat(mean_spread, std_spread, n)
 
-    ann = annualize_return(arr, series["date"])
+    ann = _annualize_return(arr, series["date"])
     if ann is None:
-        return MetricOutput(name="Q1_Q5_Spread", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="q1_q5_spread", value=0.0, t_stat=0.0, significance="")
 
     return MetricOutput(
-        name="Q1_Q5_Spread",
+        name="q1_q5_spread",
         value=ann,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={"mean_per_period": mean_spread, "n_periods": n},
     )
 
@@ -116,7 +116,7 @@ def long_short_alpha(
     """Long Alpha (Q1 - Universe) and Short Alpha (Universe - Q5), annualized.
 
     Args:
-        _precomputed_series: If provided, skip recomputing ``quantile_spread_series``.
+        _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
             Caller can pass the same series used for ``quantile_spread`` to avoid
             duplicate work.
 
@@ -124,10 +124,10 @@ def long_short_alpha(
         MetricOutput with value=Long_Alpha (annualized),
         metadata containing short_alpha and per-period details.
     """
-    series = _precomputed_series if _precomputed_series is not None else quantile_spread_series(df, forward_periods, n_groups)
+    series = _precomputed_series if _precomputed_series is not None else compute_spread_series(df, forward_periods, n_groups)
     n = len(series)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="Long_Short_Alpha", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="long_short_alpha", value=0.0, t_stat=0.0, significance="")
 
     long_excess = (series["q1_return"] - series["universe_return"]).drop_nulls()
     short_excess = (series["universe_return"] - series["q5_return"]).drop_nulls()
@@ -137,28 +137,28 @@ def long_short_alpha(
 
     mean_long = float(np.mean(long_arr))
     std_long = float(np.std(long_arr, ddof=DDOF))
-    t_long = calc_t_stat(mean_long, std_long, len(long_arr))
+    t_long = _calc_t_stat(mean_long, std_long, len(long_arr))
 
     mean_short = float(np.mean(short_arr))
     std_short = float(np.std(short_arr, ddof=DDOF))
-    t_short = calc_t_stat(mean_short, std_short, len(short_arr))
+    t_short = _calc_t_stat(mean_short, std_short, len(short_arr))
 
-    ann_long = annualize_return(long_arr, series["date"])
-    ann_short = annualize_return(short_arr, series["date"])
+    ann_long = _annualize_return(long_arr, series["date"])
+    ann_short = _annualize_return(short_arr, series["date"])
     if ann_long is None:
-        return MetricOutput(name="Long_Short_Alpha", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="long_short_alpha", value=0.0, t_stat=0.0, significance="")
 
     return MetricOutput(
-        name="Long_Short_Alpha",
+        name="long_short_alpha",
         value=ann_long,
         t_stat=t_long,
-        significance=significance_marker(t_long),
+        significance=_significance_marker(t_long),
         metadata={
             "long_alpha_ann": ann_long,
             "short_alpha_ann": ann_short or 0.0,
             "long_t_stat": t_long,
             "short_t_stat": t_short,
-            "short_significance": significance_marker(t_short),
+            "short_significance": _significance_marker(t_short),
         },
     )
 
@@ -188,12 +188,12 @@ def quantile_spread_vw(
     """
     if weight_col not in df.columns:
         return MetricOutput(
-            name="Q1_Q5_Spread_VW", value=0.0, t_stat=0.0, significance="",
+            name="q1_q5_spread_vw", value=0.0, t_stat=0.0, significance="",
             metadata={"reason": f"missing column: {weight_col}"},
         )
 
-    sampled = sample_non_overlapping(df, forward_periods)
-    grouped = assign_quantile_groups(sampled, factor_col, n_groups)
+    sampled = _sample_non_overlapping(df, forward_periods)
+    grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
 
     top_group = n_groups - 1
     bottom_group = 0
@@ -223,27 +223,27 @@ def quantile_spread_vw(
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="Q1_Q5_Spread_VW", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="q1_q5_spread_vw", value=0.0, t_stat=0.0, significance="")
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
     std_spread = float(np.std(arr, ddof=DDOF))
-    t = calc_t_stat(mean_spread, std_spread, n)
+    t = _calc_t_stat(mean_spread, std_spread, n)
 
-    ann = annualize_return(arr, vw_series["date"])
+    ann = _annualize_return(arr, vw_series["date"])
     if ann is None:
-        return MetricOutput(name="Q1_Q5_Spread_VW", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="q1_q5_spread_vw", value=0.0, t_stat=0.0, significance="")
 
     return MetricOutput(
-        name="Q1_Q5_Spread_VW",
+        name="q1_q5_spread_vw",
         value=ann,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={"mean_per_period": mean_spread, "n_periods": n},
     )
 
 
-def quantile_group_returns(
+def compute_group_returns(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
@@ -255,8 +255,8 @@ def quantile_group_returns(
     Returns:
         DataFrame with ``group, mean_return`` averaged across non-overlapping dates.
     """
-    sampled = sample_non_overlapping(df, forward_periods)
-    grouped = assign_quantile_groups(sampled, factor_col, n_groups)
+    sampled = _sample_non_overlapping(df, forward_periods)
+    grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
 
     return (
         grouped.group_by("_group")

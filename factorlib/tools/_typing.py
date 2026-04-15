@@ -49,7 +49,7 @@ class MetricOutput:
     fields are mandatory; everything else is optional context.
 
     Args:
-        name: Metric identifier (e.g. "IC_IR", "OOS_Decay").
+        name: Metric identifier (e.g. "ic_ir", "oos_decay").
         value: Raw metric value — never mapped to 0-100.
         t_stat: t-statistic, when applicable.
         significance: "***" (|t| >= 3.0) / "**" (|t| >= 2.0) / "*" (|t| >= 1.65) / "" (ns).

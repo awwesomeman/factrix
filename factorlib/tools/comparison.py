@@ -12,7 +12,7 @@ from dataclasses import replace
 import polars as pl
 
 from factorlib.gates.config import PipelineConfig
-from factorlib.tools._helpers import median_universe_size
+from factorlib.tools._helpers import _median_universe_size
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def split_by_group(
             logger.warning("split_by_group: group '%s' is empty after filtering", name)
             continue
 
-        median_n = median_universe_size(filtered)
+        median_n = _median_universe_size(filtered)
 
         config = base_config
         recommended = _recommend_n_groups(median_n)

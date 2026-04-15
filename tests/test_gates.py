@@ -205,14 +205,14 @@ class TestComputeProfile:
     def test_reliability_metric_names(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
         names = {m.name for m in profile.reliability}
-        assert names == {"IC", "IC_IR", "Hit_Rate", "IC_Trend", "Monotonicity", "OOS_Decay"}
+        assert names == {"ic", "ic_ir", "hit_rate", "ic_trend", "monotonicity", "oos_decay"}
 
     def test_profitability_metric_names(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
         names = {m.name for m in profile.profitability}
         assert names == {
-            "Q1_Q5_Spread", "Long_Short_Alpha", "Turnover",
-            "Breakeven_Cost", "Net_Spread", "Q1_Concentration",
+            "q1_q5_spread", "long_short_alpha", "turnover",
+            "breakeven_cost", "net_spread", "q1_concentration",
         }
 
 

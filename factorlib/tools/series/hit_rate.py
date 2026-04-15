@@ -11,11 +11,11 @@ import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import MIN_IC_PERIODS, MetricOutput
-from factorlib.tools._helpers import sample_non_overlapping
-from factorlib.tools.series.significance import significance_marker
+from factorlib.tools._helpers import _sample_non_overlapping
+from factorlib.tools.series.significance import _significance_marker
 
 
-def compute_hit_rate(
+def hit_rate(
     series: pl.DataFrame,
     value_col: str = "value",
     forward_periods: int = 5,
@@ -32,12 +32,12 @@ def compute_hit_rate(
     Returns:
         MetricOutput with value = hit rate (0.0-1.0).
     """
-    sampled = sample_non_overlapping(series, forward_periods)
+    sampled = _sample_non_overlapping(series, forward_periods)
     vals = sampled[value_col].drop_nulls()
 
     n = len(vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="Hit_Rate", value=0.0, t_stat=0.0, significance="")
+        return MetricOutput(name="hit_rate", value=0.0, t_stat=0.0, significance="")
 
     hits = int((vals > 0).sum())
     rate = hits / n
@@ -47,9 +47,9 @@ def compute_hit_rate(
     t = float((rate - 0.5) * np.sqrt(n) / 0.5)
 
     return MetricOutput(
-        name="Hit_Rate",
+        name="hit_rate",
         value=rate,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={"n_hits": hits, "n_total": n},
     )

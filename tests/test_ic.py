@@ -45,7 +45,7 @@ class TestIC:
     def test_positive_ic(self, noisy_panel):
         ic_df = compute_ic(noisy_panel)
         result = ic(ic_df, forward_periods=1)
-        assert result.name == "IC"
+        assert result.name == "ic"
         assert result.value > 0  # noisy_panel has positive IC
         assert result.t_stat > 0
         assert result.significance != ""
@@ -64,7 +64,7 @@ class TestICIR:
         ic_df = compute_ic(noisy_panel)
         result = ic_ir(ic_df)
         assert result.value > 0
-        assert result.name == "IC_IR"
+        assert result.name == "ic_ir"
         assert result.t_stat is None
         assert "mean_ic" in result.metadata
 

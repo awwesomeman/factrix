@@ -3,7 +3,7 @@
 import polars as pl
 
 
-def generate_size_factor(
+def generate_size(
     df: pl.DataFrame,
     market_cap_col: str = "market_cap",
 ) -> pl.DataFrame:

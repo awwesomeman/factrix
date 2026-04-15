@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from factorlib.gates._protocol import Artifacts, GateResult
 from factorlib.tools.panel.ic import ic as ic_metric
-from factorlib.tools.series.significance import t_stat_from_array
+from factorlib.tools.series.significance import _t_stat_from_array
 
 
 def significance_gate(
@@ -36,7 +36,7 @@ def significance_gate(
     ic_result = ic_metric(artifacts.ic_series, artifacts.config.forward_periods)
     ic_tstat = ic_result.t_stat or 0.0
     spread_arr = artifacts.spread_series["spread"].drop_nulls().to_numpy()
-    spread_tstat = t_stat_from_array(spread_arr)
+    spread_tstat = _t_stat_from_array(spread_arr)
 
     via: list[str] = []
     if abs(ic_tstat) >= threshold:

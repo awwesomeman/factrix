@@ -11,7 +11,7 @@ import polars as pl
 from factorlib.tools._typing import CALENDAR_DAYS_PER_YEAR
 
 
-def sample_non_overlapping(
+def _sample_non_overlapping(
     df: pl.DataFrame,
     forward_periods: int,
 ) -> pl.DataFrame:
@@ -28,7 +28,7 @@ def sample_non_overlapping(
     return df.filter(pl.col("date").is_in(sampled.implode()))
 
 
-def assign_quantile_groups(
+def _assign_quantile_groups(
     df: pl.DataFrame,
     factor_col: str = "factor",
     n_groups: int = 5,
@@ -60,7 +60,7 @@ def assign_quantile_groups(
     )
 
 
-def median_universe_size(df: pl.DataFrame) -> int:
+def _median_universe_size(df: pl.DataFrame) -> int:
     """Median number of unique assets per date."""
     return int(
         df.group_by("date")
@@ -69,7 +69,7 @@ def median_universe_size(df: pl.DataFrame) -> int:
     )
 
 
-def annualize_return(arr: np.ndarray, dates: pl.Series) -> float | None:
+def _annualize_return(arr: np.ndarray, dates: pl.Series) -> float | None:
     """Compound and annualize a per-period return series.
 
     Args:

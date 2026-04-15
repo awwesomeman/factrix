@@ -48,7 +48,7 @@ class Artifacts:
         prepared: Preprocessed panel (date, asset_id, factor, forward_return, ...).
         ic_series: Output of ``compute_ic()`` — columns ``date, ic``.
         ic_values: IC series with ``ic`` renamed to ``value`` for series tools.
-        spread_series: Output of ``quantile_spread_series()``
+        spread_series: Output of ``compute_spread_series()``
             — columns ``date, spread, q1_return, q5_return, universe_return``.
         config: Pipeline configuration.
     """

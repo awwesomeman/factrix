@@ -12,8 +12,8 @@ import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import DDOF, EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
-from factorlib.tools._helpers import sample_non_overlapping
-from factorlib.tools.series.significance import calc_t_stat, significance_marker
+from factorlib.tools._helpers import _sample_non_overlapping
+from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
 
 
 def q1_concentration(
@@ -36,7 +36,7 @@ def q1_concentration(
         MetricOutput with value = mean(1/HHI) across dates.
         Higher = more diversified Q1.
     """
-    filtered = sample_non_overlapping(df, forward_periods)
+    filtered = _sample_non_overlapping(df, forward_periods)
 
     q1 = (
         filtered.with_columns(
@@ -70,7 +70,7 @@ def q1_concentration(
 
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="Q1_Concentration", value=0.0, t_stat=0.0, significance="",
+            name="q1_concentration", value=0.0, t_stat=0.0, significance="",
         )
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()
@@ -87,13 +87,13 @@ def q1_concentration(
     mean_ratio = float(np.mean(ratio_arr))
     std_ratio = float(np.std(ratio_arr, ddof=DDOF))
     # Test H₀: ratio ≥ 0.5 → shift by 0.5 then use standard t-test
-    t = calc_t_stat(mean_ratio - 0.5, std_ratio, n)
+    t = _calc_t_stat(mean_ratio - 0.5, std_ratio, n)
 
     return MetricOutput(
-        name="Q1_Concentration",
+        name="q1_concentration",
         value=mean_eff_n,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={
             "mean_n_q1": mean_n_q1,
             "ratio_eff_to_total": ratio,

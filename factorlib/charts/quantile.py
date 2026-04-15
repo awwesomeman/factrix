@@ -10,7 +10,7 @@ def quantile_return_chart(group_returns: pl.DataFrame) -> go.Figure:
     """Bar chart of mean return per quantile group.
 
     Args:
-        group_returns: Output of ``quantile_group_returns()``
+        group_returns: Output of ``compute_group_returns()``
             — columns ``group, mean_return``.
     """
     df = group_returns.sort("group")
@@ -40,7 +40,7 @@ def spread_time_series_chart(spread_series: pl.DataFrame) -> go.Figure:
     """Q1-Q5 spread over time with Q1/Q5 returns.
 
     Args:
-        spread_series: Output of ``quantile_spread_series()``
+        spread_series: Output of ``compute_spread_series()``
             — columns ``date, spread, q1_return, q5_return, universe_return``.
     """
     df = spread_series.sort("date")

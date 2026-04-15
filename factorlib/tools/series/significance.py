@@ -13,7 +13,7 @@ from scipy import stats as sp_stats
 from factorlib.tools._typing import EPSILON, DDOF
 
 
-def calc_t_stat(mean: float, std: float, n: int) -> float:
+def _calc_t_stat(mean: float, std: float, n: int) -> float:
     """Compute t-statistic with EPSILON guard against near-zero std.
 
     Args:
@@ -29,7 +29,7 @@ def calc_t_stat(mean: float, std: float, n: int) -> float:
     return 0.0
 
 
-def t_stat_from_array(values: np.ndarray) -> float:
+def _t_stat_from_array(values: np.ndarray) -> float:
     """Convenience: compute t-stat directly from a 1-D array.
 
     Args:
@@ -40,14 +40,14 @@ def t_stat_from_array(values: np.ndarray) -> float:
     """
     if len(values) < 2:
         return 0.0
-    return calc_t_stat(
+    return _calc_t_stat(
         float(np.mean(values)),
         float(np.std(values, ddof=DDOF)),
         len(values),
     )
 
 
-def significance_marker(t_stat: float | None) -> str:
+def _significance_marker(t_stat: float | None) -> str:
     """Map t-stat to academic significance marker.
 
     | Marker | Condition     | Meaning                            |

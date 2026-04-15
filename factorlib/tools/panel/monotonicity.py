@@ -13,11 +13,11 @@ import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import DDOF, MIN_MONOTONICITY_PERIODS, MetricOutput
-from factorlib.tools._helpers import assign_quantile_groups, sample_non_overlapping
-from factorlib.tools.series.significance import calc_t_stat, significance_marker
+from factorlib.tools._helpers import _assign_quantile_groups, _sample_non_overlapping
+from factorlib.tools.series.significance import _calc_t_stat, _significance_marker
 
 
-def compute_monotonicity(
+def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 10,
@@ -40,8 +40,8 @@ def compute_monotonicity(
     Returns:
         MetricOutput with value = mean |Spearman(group_idx, group_return)|.
     """
-    filtered = sample_non_overlapping(df, forward_periods)
-    grouped = assign_quantile_groups(filtered, factor_col, n_groups)
+    filtered = _sample_non_overlapping(df, forward_periods)
+    grouped = _assign_quantile_groups(filtered, factor_col, n_groups)
 
     # Mean return per group per date
     group_returns = (
@@ -72,7 +72,7 @@ def compute_monotonicity(
 
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
         return MetricOutput(
-            name="Monotonicity", value=0.0, t_stat=0.0, significance="",
+            name="monotonicity", value=0.0, t_stat=0.0, significance="",
             metadata={"n_valid_periods": len(mono_df), "n_groups": n_groups},
         )
 
@@ -80,13 +80,13 @@ def compute_monotonicity(
     avg_mono = float(np.mean(np.abs(mono_arr)))
     mean_mono = float(np.mean(mono_arr))
     std_mono = float(np.std(mono_arr, ddof=DDOF))
-    t = calc_t_stat(mean_mono, std_mono, len(mono_arr))
+    t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
 
     return MetricOutput(
-        name="Monotonicity",
+        name="monotonicity",
         value=avg_mono,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={
             "mean_signed": mean_mono,
             "n_valid_periods": len(mono_arr),

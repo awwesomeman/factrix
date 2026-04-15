@@ -28,9 +28,9 @@ from factorlib.gates._protocol import (
 )
 from factorlib.gates.config import PipelineConfig
 from factorlib.gates.profile import compute_profile
-from factorlib.tools._helpers import median_universe_size
+from factorlib.tools._helpers import _median_universe_size
 from factorlib.tools.panel.ic import compute_ic
-from factorlib.tools.panel.quantile import quantile_spread_series
+from factorlib.tools.panel.quantile import compute_spread_series
 
 
 def evaluate_factor(
@@ -95,7 +95,7 @@ def build_artifacts(df: pl.DataFrame, config: PipelineConfig) -> Artifacts:
 
     ic_series = compute_ic(df)
     ic_values = ic_series.rename({"ic": "value"})
-    spread_series = quantile_spread_series(
+    spread_series = compute_spread_series(
         df, config.forward_periods, config.n_groups,
     )
     return Artifacts(
@@ -133,7 +133,7 @@ def _check_caution(
         )
 
     # 2. Universe too small
-    median_n = median_universe_size(artifacts.prepared)
+    median_n = _median_universe_size(artifacts.prepared)
     if median_n < 200:
         reasons.append(
             f"Median universe size = {median_n:.0f} (< 200)"
@@ -153,7 +153,7 @@ def _check_caution(
 
     # 4. IC trend shows significant decay
     for metric in profile.reliability:
-        if metric.name == "IC_Trend":
+        if metric.name == "ic_trend":
             ci_excludes_zero = metric.metadata.get("ci_excludes_zero", False)
             if metric.value < 0 and ci_excludes_zero:
                 reasons.append("IC trend shows significant decay")
@@ -161,7 +161,7 @@ def _check_caution(
 
     # 5. Q1 too concentrated
     for metric in profile.profitability:
-        if metric.name == "Q1_Concentration":
+        if metric.name == "q1_concentration":
             # WHY: eff_n / n_q1 < 0.5 means >50% of Q1 weight is in a few stocks
             ratio = metric.metadata.get("ratio_eff_to_total", 1.0)
             if ratio < 0.5:

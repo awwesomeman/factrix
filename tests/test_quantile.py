@@ -5,13 +5,13 @@ import pytest
 from factorlib.tools.panel.quantile import (
     long_short_alpha,
     quantile_spread,
-    quantile_spread_series,
+    compute_spread_series,
 )
 
 
 class TestQuantileSpreadSeries:
     def test_perfect_panel(self, tiny_panel):
-        series = quantile_spread_series(tiny_panel, forward_periods=1, n_groups=5)
+        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
         assert "spread" in series.columns
         assert "q1_return" in series.columns
         assert "q5_return" in series.columns
@@ -27,8 +27,8 @@ class TestQuantileSpread:
         # WHY: noisy_panel has 20 dates, forward_periods=1 keeps all → enough for annualization
         # but date range = 20 days < 0.1 years → annualize_return returns None → value=0.
         # Use forward_periods=1 and verify the metric at least runs.
-        # The real check is that quantile_spread_series produces valid spreads.
-        series = quantile_spread_series(noisy_panel, forward_periods=1, n_groups=5)
+        # The real check is that compute_spread_series produces valid spreads.
+        series = compute_spread_series(noisy_panel, forward_periods=1, n_groups=5)
         assert len(series) >= 5
         assert series["spread"].null_count() == 0
 
@@ -49,14 +49,14 @@ class TestQuantileSpread:
 
 class TestLongShortAlpha:
     def test_decomposition_sums_to_spread(self, tiny_panel):
-        series = quantile_spread_series(tiny_panel, forward_periods=1, n_groups=5)
+        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
         for row in series.iter_rows(named=True):
             long = row["q1_return"] - row["universe_return"]
             short = row["universe_return"] - row["q5_return"]
             assert long + short == pytest.approx(row["spread"])
 
     def test_precomputed_series(self, noisy_panel):
-        series = quantile_spread_series(noisy_panel, forward_periods=1)
+        series = compute_spread_series(noisy_panel, forward_periods=1)
         r1 = long_short_alpha(noisy_panel, forward_periods=1)
         r2 = long_short_alpha(noisy_panel, forward_periods=1, _precomputed_series=series)
         assert r1.value == pytest.approx(r2.value)

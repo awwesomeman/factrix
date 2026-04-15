@@ -13,10 +13,10 @@ import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import CALENDAR_DAYS_PER_YEAR, DDOF, EPSILON, MetricOutput
-from factorlib.tools.series.significance import significance_marker
+from factorlib.tools.series.significance import _significance_marker
 
 
-def compute_turnover(
+def turnover(
     df: pl.DataFrame,
     factor_col: str = "factor",
 ) -> MetricOutput:
@@ -34,7 +34,7 @@ def compute_turnover(
     """
     dates = df["date"].unique().sort()
     if len(dates) < 2:
-        return MetricOutput(name="Turnover", value=0.0)
+        return MetricOutput(name="turnover", value=0.0)
 
     date_map = pl.DataFrame({
         "date": dates[1:],
@@ -63,14 +63,14 @@ def compute_turnover(
     )
 
     if rc_per_date.is_empty():
-        return MetricOutput(name="Turnover", value=0.0)
+        return MetricOutput(name="turnover", value=0.0)
 
     rc_arr = rc_per_date["rc"].to_numpy()
     mean_rc = float(np.mean(rc_arr))
     turnover = 1.0 - mean_rc
 
     return MetricOutput(
-        name="Turnover",
+        name="turnover",
         value=turnover,
         metadata={"mean_rank_autocorrelation": mean_rc, "n_dates": len(rc_arr)},
     )
@@ -99,7 +99,7 @@ def breakeven_cost(
     if turnover < EPSILON:
         # WHY: 零 turnover 代表靜態因子，breakeven 趨近無窮
         return MetricOutput(
-            name="Breakeven_Cost",
+            name="breakeven_cost",
             value=float("inf"),
             metadata={"gross_alpha_ann": gross_alpha_ann, "turnover": turnover},
         )
@@ -108,7 +108,7 @@ def breakeven_cost(
     be_bps = (gross_alpha_ann / (2 * turnover)) * 10000
 
     return MetricOutput(
-        name="Breakeven_Cost",
+        name="breakeven_cost",
         value=be_bps,
         metadata={"gross_alpha_ann": gross_alpha_ann, "turnover": turnover},
     )
@@ -138,7 +138,7 @@ def net_spread(
     net = gross_alpha_ann - cost_drag
 
     return MetricOutput(
-        name="Net_Spread",
+        name="net_spread",
         value=net,
         metadata={
             "gross_alpha_ann": gross_alpha_ann,

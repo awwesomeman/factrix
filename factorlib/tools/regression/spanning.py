@@ -1,6 +1,6 @@
 """Spanning regression — single-factor test and multi-factor selection.
 
-``spanning_test``: does a single factor have alpha after controlling for
+``spanning_alpha``: does a single factor have alpha after controlling for
 base factors? Standard factor research tool (Barillas & Shanken 2017).
 
 ``greedy_forward_selection``: given a pool of PASS factors, iteratively
@@ -22,7 +22,7 @@ import numpy as np
 import polars as pl
 
 from factorlib.tools._typing import EPSILON, MetricOutput
-from factorlib.tools.series.significance import significance_marker
+from factorlib.tools.series.significance import _significance_marker
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ def _align_spread_series(
 # Public API: single-factor spanning test
 # ---------------------------------------------------------------------------
 
-def spanning_test(
+def spanning_alpha(
     factor_spread: pl.DataFrame,
     base_spreads: dict[str, pl.DataFrame] | None = None,
 ) -> MetricOutput:
@@ -165,7 +165,7 @@ def spanning_test(
         common_dates, arrays = _align_spread_series(all_series)
         if "_candidate_" not in arrays:
             return MetricOutput(
-                name="Spanning_Alpha", value=0.0, t_stat=0.0, significance="",
+                name="spanning_alpha", value=0.0, t_stat=0.0, significance="",
             )
         candidate_arr = arrays.pop("_candidate_")
         base_arrays = arrays
@@ -174,7 +174,7 @@ def spanning_test(
         vals = factor_spread["spread"].drop_nulls()
         if len(vals) < 10:
             return MetricOutput(
-                name="Spanning_Alpha", value=0.0, t_stat=0.0, significance="",
+                name="spanning_alpha", value=0.0, t_stat=0.0, significance="",
             )
         candidate_arr = vals.to_numpy()
         base_arrays = {}
@@ -183,10 +183,10 @@ def spanning_test(
     alpha, t = _ols_alpha(candidate_arr, base_matrix)
 
     return MetricOutput(
-        name="Spanning_Alpha",
+        name="spanning_alpha",
         value=alpha,
         t_stat=t,
-        significance=significance_marker(t),
+        significance=_significance_marker(t),
         metadata={
             "n_obs": len(candidate_arr),
             "n_base_factors": base_matrix.shape[1],
