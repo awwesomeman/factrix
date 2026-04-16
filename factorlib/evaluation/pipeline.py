@@ -118,7 +118,12 @@ def _build_cs_artifacts(
     if missing:
         raise ValueError(
             f"cross_sectional requires columns {required}. "
-            f"Missing: {missing}. "
+            f"Missing: {missing}.\n\n"
+            f"Expected DataFrame schema:\n"
+            f"  date           Datetime[ms]   — 交易日期\n"
+            f"  asset_id       String         — 資產代碼\n"
+            f"  factor         Float64        — 因子值（z-scored）\n"
+            f"  forward_return Float64        — N 期前瞻報酬\n\n"
             f"Hint: call fl.preprocess(df) first, or set preprocess=True."
         )
 
