@@ -31,7 +31,9 @@ class TestComputeForwardReturn:
         df = _make_price_data()
         result = compute_forward_return(df, forward_periods=1)
         assert result["forward_return"].null_count() == 0
-        assert len(result) == 8
+        # 5 dates per asset, forward_periods=1, t+1 entry:
+        # need price[t+1] (entry) and price[t+2] (exit) → 3 valid rows per asset
+        assert len(result) == 6
 
     def test_per_asset_independent(self):
         df = _make_price_data()
@@ -42,7 +44,7 @@ class TestComputeForwardReturn:
         assert b_ret < 0
 
     def test_divided_by_periods(self):
-        """forward_return = (price[t+N]/price[t] - 1) / N."""
+        """forward_return = (price[t+1+N]/price[t+1] - 1) / N."""
         df = _make_price_data()
         # Asset A: price 100 → 121 over 2 periods → raw return 0.21
         # Per-period: 0.21 / 2 = 0.105

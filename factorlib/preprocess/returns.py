@@ -1,6 +1,6 @@
 """Preprocessing Step 1-3: forward return computation and adjustment.
 
-Step 1 — Forward Return: (price[t+N] / price[t] - 1) / N
+Step 1 — Forward Return: (price[t+1+N] / price[t+1] - 1) / N
 Step 2 — Winsorize Forward Return: per-date percentile clip
 Step 3 — Abnormal Return: forward_return - cross-sectional mean
 
@@ -17,15 +17,26 @@ def compute_forward_return(
 ) -> pl.DataFrame:
     """Step 1: Compute per-period forward return per asset.
 
-    ``forward_return = (price[t+N] / price[t] - 1) / N``
+    ``forward_return = (price[t+1+N] / price[t+1] - 1) / N``
 
-    Dividing by N (Alphalens convention) normalizes returns to a
-    per-period basis, making different forward_periods directly comparable
-    without requiring the user to specify data frequency.
+    Entry at t+1 (next bar after signal), exit at t+1+N.
+
+    WHY t+1 entry: The signal at t is computed using data up to and
+    including price[t]. Using price[t] as both signal input and entry
+    price assumes you can trade at the same price used to generate the
+    signal — unrealistic in practice. Entry at t+1 enforces a strict
+    causal boundary: signal → wait → trade → measure.
+
+    This also keeps the return window cleanly separated from the
+    estimation window in event studies (BMP test), eliminating the
+    need for ad-hoc shift corrections.
+
+    Dividing by N normalizes returns to a per-period basis, making
+    different forward_periods directly comparable.
 
     Args:
         df: Must contain ``date``, ``asset_id``, ``price``.
-        forward_periods: Number of periods ahead (default 5).
+        forward_periods: Number of holding periods (default 5).
 
     Returns:
         Input DataFrame with ``forward_return`` column appended.
@@ -36,8 +47,8 @@ def compute_forward_return(
         .with_columns(
             (
                 (
-                    pl.col("price").shift(-forward_periods).over("asset_id")
-                    / pl.col("price")
+                    pl.col("price").shift(-(forward_periods + 1)).over("asset_id")
+                    / pl.col("price").shift(-1).over("asset_id")
                     - 1
                 )
                 / forward_periods
