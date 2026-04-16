@@ -1,4 +1,4 @@
-"""Tests for factorlib.tools.regression.spanning."""
+"""Tests for factorlib.metrics.spanning."""
 
 from datetime import datetime, timedelta
 
@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.tools.regression.spanning import (
+from factorlib.metrics.spanning import (
     spanning_alpha,
     greedy_forward_selection,
     ForwardSelectionResult,
@@ -30,7 +30,7 @@ class TestSpanningTest:
         result = spanning_alpha(factor)
         assert result.name == "spanning_alpha"
         assert result.value != 0.0
-        assert abs(result.t_stat) > 2.0
+        assert abs(result.stat) > 2.0
 
     def test_spanned_factor_no_alpha(self):
         base = _make_spread_series(200, 0.01, 0.01, 42)
@@ -41,7 +41,7 @@ class TestSpanningTest:
             "date": dates, "spread": spanned_vals,
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = spanning_alpha(candidate, base_spreads={"base": base})
-        assert abs(result.t_stat) < 2.0
+        assert abs(result.stat) < 2.0
 
     def test_no_base(self):
         factor = _make_spread_series(100, 0.02, 0.005, 42)
@@ -49,7 +49,7 @@ class TestSpanningTest:
         assert result.metadata["n_base_factors"] == 0
 
     def test_returns_metric_output(self):
-        from factorlib.tools._typing import MetricOutput
+        from factorlib._types import MetricOutput
         factor = _make_spread_series(100, 0.02, 0.005, 42)
         result = spanning_alpha(factor)
         assert isinstance(result, MetricOutput)

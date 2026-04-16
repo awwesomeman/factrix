@@ -1,9 +1,9 @@
-"""Tests for factorlib.tools.series.significance."""
+"""Tests for factorlib._stats."""
 
 import numpy as np
 import pytest
 
-from factorlib.tools.series.significance import (
+from factorlib._stats import (
     _calc_t_stat,
     _significance_marker,
     _t_stat_from_array,

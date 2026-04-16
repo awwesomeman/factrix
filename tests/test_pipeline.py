@@ -57,9 +57,9 @@ class TestRunPreprocessing:
         assert result["factor_raw"].std() > 0
 
     def test_config_overrides_kwargs(self):
-        from factorlib.gates.config import PipelineConfig
+        from factorlib.config import CrossSectionalConfig
         raw = _make_raw_data()
-        config = PipelineConfig(forward_periods=3, mad_n=5.0)
+        config = CrossSectionalConfig(forward_periods=3, mad_n=5.0)
         result_cfg = preprocess_cs_factor(raw, config=config)
         result_kw = preprocess_cs_factor(raw, forward_periods=3, mad_n=5.0)
         # config path and keyword path should produce identical results
