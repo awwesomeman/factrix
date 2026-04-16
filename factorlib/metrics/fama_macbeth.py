@@ -1,0 +1,340 @@
+"""Fama-MacBeth regression and macro panel metrics.
+
+``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
+``fama_macbeth``: Newey-West t-test on the beta series.
+``pooled_ols``: pooled OLS with clustered SE by date.
+``beta_sign_consistency``: fraction of periods with correct beta sign.
+``long_short_tercile``: top 1/3 − bottom 1/3 portfolio return.
+
+References:
+    Fama & MacBeth (1973), "Risk, Return, and Equilibrium."
+    Newey & West (1987), "HAC Covariance Matrix."
+    Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."
+"""
+
+from __future__ import annotations
+
+import math
+
+import numpy as np
+import polars as pl
+
+from factorlib._types import DDOF, EPSILON, MetricOutput
+from factorlib._stats import (
+    _newey_west_t_test,
+    _p_value_from_t,
+    _significance_marker,
+)
+from factorlib.metrics._helpers import _sample_non_overlapping
+
+MIN_FM_PERIODS: int = 20
+
+
+# ---------------------------------------------------------------------------
+# Raw computation (parallel to compute_ic)
+# ---------------------------------------------------------------------------
+
+def compute_fm_betas(
+    df: pl.DataFrame,
+    *,
+    factor_col: str = "factor",
+    return_col: str = "forward_return",
+) -> pl.DataFrame:
+    """Per-date cross-sectional OLS: R_i = α + β · Signal_i + ε.
+
+    Returns DataFrame with columns ``date, beta``.
+    """
+    dates = df["date"].unique().sort()
+    rows: list[dict] = []
+
+    for dt in dates:
+        chunk = df.filter(pl.col("date") == dt)
+        y = chunk[return_col].to_numpy().astype(np.float64)
+        x = chunk[factor_col].to_numpy().astype(np.float64)
+
+        if len(y) < 3:
+            continue
+
+        x_with_const = np.column_stack([np.ones(len(x)), x])
+        try:
+            beta, _, _, _ = np.linalg.lstsq(x_with_const, y, rcond=None)
+        except np.linalg.LinAlgError:
+            continue
+
+        rows.append({"date": dt, "beta": float(beta[1])})
+
+    if not rows:
+        return pl.DataFrame({"date": pl.Series([], dtype=pl.Datetime("ms")),
+                             "beta": pl.Series([], dtype=pl.Float64)})
+
+    return pl.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Fama-MacBeth significance (parallel to ic())
+# ---------------------------------------------------------------------------
+
+def fama_macbeth(
+    beta_df: pl.DataFrame,
+    *,
+    newey_west_lags: int | None = None,
+) -> MetricOutput:
+    """Newey-West t-test on FM beta series. H₀: mean(β) = 0.
+
+    Args:
+        beta_df: DataFrame with ``date, beta`` columns (from compute_fm_betas).
+        newey_west_lags: Number of NW lags. Defaults to floor(T^(1/3)).
+    """
+    betas = beta_df["beta"].drop_nulls().to_numpy()
+    n = len(betas)
+
+    if n < MIN_FM_PERIODS:
+        return MetricOutput(
+            name="fm_beta", value=0.0, stat=0.0, significance="",
+            metadata={"n_periods": n, "reason": f"insufficient periods ({n} < {MIN_FM_PERIODS})"},
+        )
+
+    mean_beta = float(np.mean(betas))
+    t, p, sig = _newey_west_t_test(betas, lags=newey_west_lags)
+    actual_lags = newey_west_lags if newey_west_lags is not None else int(np.floor(n ** (1 / 3)))
+
+    return MetricOutput(
+        name="fm_beta",
+        value=mean_beta,
+        stat=t,
+        significance=sig,
+        metadata={
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mean(β)=0",
+            "method": "Fama-MacBeth + Newey-West",
+            "n_periods": n,
+            "newey_west_lags": actual_lags,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pooled OLS with clustered SE
+# ---------------------------------------------------------------------------
+
+def pooled_ols(
+    df: pl.DataFrame,
+    *,
+    factor_col: str = "factor",
+    return_col: str = "forward_return",
+    cluster_col: str = "date",
+) -> MetricOutput:
+    """Pooled OLS: R = α + β · Signal + ε, with SE clustered by date.
+
+    Clustering accounts for within-date cross-sectional correlation.
+    """
+    y = df[return_col].to_numpy().astype(np.float64)
+    x = df[factor_col].to_numpy().astype(np.float64)
+    n_obs = len(y)
+
+    if n_obs < 10:
+        return MetricOutput(
+            name="pooled_beta", value=0.0, stat=0.0, significance="",
+            metadata={"n_obs": n_obs, "reason": "insufficient observations"},
+        )
+
+    X = np.column_stack([np.ones(n_obs), x])
+    try:
+        beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
+    except np.linalg.LinAlgError:
+        return MetricOutput(
+            name="pooled_beta", value=0.0, stat=0.0, significance="",
+        )
+
+    slope = float(beta[1])
+    resid = y - X @ beta
+
+    # Clustered SE by date
+    clusters = df[cluster_col].to_numpy()
+    unique_clusters = np.unique(clusters)
+    n_clusters = len(unique_clusters)
+
+    if n_clusters < 3:
+        return MetricOutput(
+            name="pooled_beta", value=slope, stat=0.0, significance="",
+            metadata={"n_obs": n_obs, "n_clusters": n_clusters, "reason": "too few clusters"},
+        )
+
+    # B = Σ_g (X_g' e_g)(X_g' e_g)' — the "meat" of the sandwich
+    k = X.shape[1]
+    meat = np.zeros((k, k))
+    for c in unique_clusters:
+        mask = clusters == c
+        X_g = X[mask]
+        e_g = resid[mask]
+        score = X_g.T @ e_g
+        meat += np.outer(score, score)
+
+    try:
+        xtx_inv = np.linalg.inv(X.T @ X)
+    except np.linalg.LinAlgError:
+        return MetricOutput(
+            name="pooled_beta", value=slope, stat=0.0, significance="",
+        )
+
+    # WHY: finite-sample correction factor = G/(G-1) * (N-1)/(N-K)
+    correction = (n_clusters / (n_clusters - 1)) * ((n_obs - 1) / (n_obs - k))
+    V = correction * xtx_inv @ meat @ xtx_inv
+    se_slope = float(np.sqrt(max(V[1, 1], 0.0)))
+
+    if se_slope < EPSILON:
+        t_stat = 0.0
+    else:
+        t_stat = slope / se_slope
+
+    p = _p_value_from_t(t_stat, n_clusters)
+
+    return MetricOutput(
+        name="pooled_beta",
+        value=slope,
+        stat=t_stat,
+        significance=_significance_marker(p),
+        metadata={
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "β=0",
+            "method": "Pooled OLS + clustered SE (by date)",
+            "n_obs": n_obs,
+            "n_clusters": n_clusters,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Beta sign consistency (parallel to hit_rate)
+# ---------------------------------------------------------------------------
+
+def beta_sign_consistency(
+    beta_df: pl.DataFrame,
+    *,
+    expected_sign: int = 1,
+) -> MetricOutput:
+    """Fraction of periods where FM β has the expected sign.
+
+    Args:
+        beta_df: DataFrame with ``date, beta``.
+        expected_sign: +1 (positive beta expected) or -1 (negative).
+    """
+    betas = beta_df["beta"].drop_nulls().to_numpy()
+    n = len(betas)
+    if n == 0:
+        return MetricOutput(name="beta_sign_consistency", value=0.0)
+
+    if expected_sign >= 0:
+        consistent = float(np.mean(betas > 0))
+    else:
+        consistent = float(np.mean(betas < 0))
+
+    return MetricOutput(
+        name="beta_sign_consistency",
+        value=consistent,
+        metadata={
+            "expected_sign": expected_sign,
+            "n_periods": n,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Long-short tercile portfolio
+# ---------------------------------------------------------------------------
+
+def compute_tercile_series(
+    df: pl.DataFrame,
+    *,
+    forward_periods: int = 1,
+    factor_col: str = "factor",
+    return_col: str = "forward_return",
+) -> pl.DataFrame:
+    """Per-date top 1/3 − bottom 1/3 return series.
+
+    Returns DataFrame with ``date, spread, long_return, short_return``.
+    """
+    df_sampled = _sample_non_overlapping(df, forward_periods)
+    sampled_dates = df_sampled["date"].unique().sort()
+
+    rows: list[dict] = []
+    for dt in sampled_dates:
+        chunk = df_sampled.filter(pl.col("date") == dt)
+        n = len(chunk)
+        if n < 3:
+            continue
+
+        third = max(n // 3, 1)
+        sorted_chunk = chunk.sort(factor_col)
+
+        bottom = sorted_chunk.head(third)[return_col].mean()
+        top = sorted_chunk.tail(third)[return_col].mean()
+
+        rows.append({
+            "date": dt,
+            "spread": float(top - bottom),
+            "long_return": float(top),
+            "short_return": float(bottom),
+        })
+
+    if not rows:
+        return pl.DataFrame({
+            "date": pl.Series([], dtype=pl.Datetime("ms")),
+            "spread": pl.Series([], dtype=pl.Float64),
+            "long_return": pl.Series([], dtype=pl.Float64),
+            "short_return": pl.Series([], dtype=pl.Float64),
+        })
+
+    return pl.DataFrame(rows)
+
+
+def long_short_tercile(
+    tercile_df: pl.DataFrame,
+    *,
+    periods_per_year: float = 252.0,
+) -> MetricOutput:
+    """Significance test on tercile L/S spread series.
+
+    Args:
+        tercile_df: DataFrame with ``date, spread, long_return, short_return``
+            (from compute_tercile_series).
+        periods_per_year: For annualization.
+    """
+    spreads = tercile_df["spread"].drop_nulls().to_numpy()
+    n = len(spreads)
+
+    if n < 5:
+        return MetricOutput(
+            name="long_short_tercile", value=0.0, stat=0.0, significance="",
+            metadata={"n_periods": n, "reason": "insufficient periods"},
+        )
+
+    mean_spread = float(np.mean(spreads))
+    std_spread = float(np.std(spreads, ddof=DDOF))
+
+    t, p, sig = _newey_west_t_test(spreads)
+
+    ann_return = mean_spread * periods_per_year
+    ann_vol = std_spread * np.sqrt(periods_per_year) if std_spread > EPSILON else 0.0
+    sharpe = ann_return / ann_vol if ann_vol > EPSILON else 0.0
+
+    return MetricOutput(
+        name="long_short_tercile",
+        value=mean_spread,
+        stat=t,
+        significance=sig,
+        metadata={
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mean(spread)=0",
+            "method": "Tercile L/S + Newey-West",
+            "n_periods": n,
+            "long_mean": float(tercile_df["long_return"].mean()),
+            "short_mean": float(tercile_df["short_return"].mean()),
+            "annualized_return": ann_return,
+            "annualized_vol": ann_vol,
+            "sharpe": sharpe,
+        },
+    )

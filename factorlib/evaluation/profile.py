@@ -2,15 +2,13 @@
 
 After all gates pass, ``compute_profile`` runs the full suite of
 metrics to produce raw MetricOutput values — no scores, no mapping.
-
-Cross-sectional metrics:
-    IC, IC_IR, Hit_Rate, IC_Trend, Monotonicity, OOS_Decay,
-    Q1-Q5 Spread, Turnover, Breakeven Cost, Net Spread, Q1 Concentration.
 """
 
 from __future__ import annotations
 
-from factorlib.config import BaseConfig, CrossSectionalConfig
+import polars as pl
+
+from factorlib.config import BaseConfig, CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
 from factorlib.evaluation._protocol import Artifacts, FactorProfile
 from factorlib._types import MetricOutput
 from factorlib.metrics.ic import ic as ic_metric, ic_ir as ic_ir_metric
@@ -28,12 +26,50 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
     match artifacts.config:
         case CrossSectionalConfig():
             return _cs_profile(artifacts, artifacts.config)
+        case MacroPanelConfig():
+            return _macro_panel_profile(artifacts, artifacts.config)
+        case MacroCommonConfig():
+            return _macro_common_profile(artifacts, artifacts.config)
         case _:
             ft = type(artifacts.config).factor_type
             raise NotImplementedError(
                 f"compute_profile not yet implemented for {ft}"
             )
 
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+def _oos_decay_metric(values_df: pl.DataFrame) -> MetricOutput:
+    oos = multi_split_oos_decay(values_df)
+    return MetricOutput(
+        name="oos_decay",
+        value=oos.decay_ratio,
+        metadata={
+            "sign_flipped": oos.sign_flipped,
+            "status": oos.status,
+            "per_split": [
+                {"is_ratio": s.is_ratio, "mean_is": s.mean_is,
+                 "mean_oos": s.mean_oos, "decay_ratio": s.decay_ratio}
+                for s in oos.per_split
+            ],
+        },
+    )
+
+
+def _beta_trend_metric(values_df: pl.DataFrame) -> MetricOutput:
+    trn = ic_trend(values_df)
+    return MetricOutput(
+        name="beta_trend", value=trn.value,
+        stat=trn.stat, significance=trn.significance,
+        metadata=trn.metadata,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cross-sectional profile
+# ---------------------------------------------------------------------------
 
 def _cs_profile(
     artifacts: Artifacts, config: CrossSectionalConfig,
@@ -50,21 +86,7 @@ def _cs_profile(
     mono = monotonicity(
         artifacts.prepared, forward_periods=fp, n_groups=config.n_groups,
     )
-
-    oos_result = multi_split_oos_decay(ic_values)
-    oos_metric = MetricOutput(
-        name="oos_decay",
-        value=oos_result.decay_ratio,
-        metadata={
-            "sign_flipped": oos_result.sign_flipped,
-            "status": oos_result.status,
-            "per_split": [
-                {"is_ratio": s.is_ratio, "mean_is": s.mean_is,
-                 "mean_oos": s.mean_oos, "decay_ratio": s.decay_ratio}
-                for s in oos_result.per_split
-            ],
-        },
-    )
+    oos = _oos_decay_metric(ic_values)
 
     spread = quantile_spread(
         artifacts.prepared,
@@ -82,6 +104,59 @@ def _cs_profile(
     )
 
     return FactorProfile(
-        metrics=[ic_sig, ic_ir, hit, ic_trn, mono, oos_metric,
+        metrics=[ic_sig, ic_ir, hit, ic_trn, mono, oos,
                  spread, turn, be, ns, conc],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Macro panel profile
+# ---------------------------------------------------------------------------
+
+def _macro_panel_profile(
+    artifacts: Artifacts, config: MacroPanelConfig,
+) -> FactorProfile:
+    from factorlib.metrics.fama_macbeth import (
+        fama_macbeth, pooled_ols, beta_sign_consistency, long_short_tercile,
+    )
+
+    beta_series = artifacts.get("beta_series")
+    beta_values = artifacts.get("beta_values")
+    tercile_series = artifacts.get("tercile_series")
+
+    fm = fama_macbeth(beta_series)
+    pooled = pooled_ols(artifacts.prepared)
+    sign_cons = beta_sign_consistency(beta_series)
+    oos = _oos_decay_metric(beta_values)
+    beta_trn = _beta_trend_metric(beta_values)
+    ls = long_short_tercile(tercile_series)
+    turn = turnover(artifacts.prepared)
+
+    return FactorProfile(
+        metrics=[fm, pooled, sign_cons, oos, beta_trn, ls, turn],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Macro common profile
+# ---------------------------------------------------------------------------
+
+def _macro_common_profile(
+    artifacts: Artifacts, config: MacroCommonConfig,
+) -> FactorProfile:
+    from factorlib.metrics.ts_beta import (
+        ts_beta, mean_r_squared, ts_beta_sign_consistency,
+    )
+
+    ts_betas_df = artifacts.get("ts_betas")
+    beta_values = artifacts.get("beta_values")
+
+    beta_metric = ts_beta(ts_betas_df)
+    r2 = mean_r_squared(ts_betas_df)
+    sign_cons = ts_beta_sign_consistency(ts_betas_df)
+    oos = _oos_decay_metric(beta_values)
+    beta_trn = _beta_trend_metric(beta_values)
+
+    return FactorProfile(
+        metrics=[beta_metric, r2, sign_cons, oos, beta_trn],
     )

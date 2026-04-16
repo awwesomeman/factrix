@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlib.config import BaseConfig, CrossSectionalConfig
+from factorlib.config import BaseConfig, CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
 from factorlib.evaluation._caution import check_caution, warn_small_n
 from factorlib.evaluation._protocol import (
     Artifacts,
@@ -98,6 +98,10 @@ def build_artifacts(df: pl.DataFrame, config: BaseConfig) -> Artifacts:
     match config:
         case CrossSectionalConfig():
             return _build_cs_artifacts(df, config)
+        case MacroPanelConfig():
+            return _build_macro_panel_artifacts(df, config)
+        case MacroCommonConfig():
+            return _build_macro_common_artifacts(df, config)
         case _:
             ft = type(config).factor_type
             raise NotImplementedError(
@@ -110,22 +114,31 @@ def _preprocess(df: pl.DataFrame, config: BaseConfig) -> pl.DataFrame:
     return preprocess(df, config=config)
 
 
+_REQUIRED_COLUMNS = {"date", "asset_id", "factor", "forward_return"}
+
+_SCHEMA_HINT = (
+    "Expected DataFrame schema:\n"
+    "  date           Datetime[ms]   — 交易日期\n"
+    "  asset_id       String         — 資產代碼\n"
+    "  factor         Float64        — 因子值\n"
+    "  forward_return Float64        — N 期前瞻報酬"
+)
+
+
+def _validate_columns(df: pl.DataFrame, factor_type: str) -> None:
+    missing = _REQUIRED_COLUMNS - set(df.columns)
+    if missing:
+        raise ValueError(
+            f"{factor_type} requires columns {_REQUIRED_COLUMNS}. "
+            f"Missing: {missing}.\n\n{_SCHEMA_HINT}\n\n"
+            f"Hint: call fl.preprocess(df) first, or set preprocess=True."
+        )
+
+
 def _build_cs_artifacts(
     df: pl.DataFrame, config: CrossSectionalConfig,
 ) -> Artifacts:
-    required = {"date", "asset_id", "factor", "forward_return"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(
-            f"cross_sectional requires columns {required}. "
-            f"Missing: {missing}.\n\n"
-            f"Expected DataFrame schema:\n"
-            f"  date           Datetime[ms]   — 交易日期\n"
-            f"  asset_id       String         — 資產代碼\n"
-            f"  factor         Float64        — 因子值（z-scored）\n"
-            f"  forward_return Float64        — N 期前瞻報酬\n\n"
-            f"Hint: call fl.preprocess(df) first, or set preprocess=True."
-        )
+    _validate_columns(df, "cross_sectional")
 
     ic_series = compute_ic(df)
     ic_values = ic_series.rename({"ic": "value"})
@@ -139,5 +152,49 @@ def _build_cs_artifacts(
             "ic_series": ic_series,
             "ic_values": ic_values,
             "spread_series": spread_series,
+        },
+    )
+
+
+def _build_macro_panel_artifacts(
+    df: pl.DataFrame, config: MacroPanelConfig,
+) -> Artifacts:
+    _validate_columns(df, "macro_panel")
+
+    from factorlib.metrics.fama_macbeth import compute_fm_betas, compute_tercile_series
+
+    beta_series = compute_fm_betas(df)
+    beta_values = beta_series.rename({"beta": "value"})
+    tercile_series = compute_tercile_series(
+        df, forward_periods=config.forward_periods,
+    )
+
+    return Artifacts(
+        prepared=df,
+        config=config,
+        intermediates={
+            "beta_series": beta_series,
+            "beta_values": beta_values,
+            "tercile_series": tercile_series,
+        },
+    )
+
+
+def _build_macro_common_artifacts(
+    df: pl.DataFrame, config: MacroCommonConfig,
+) -> Artifacts:
+    _validate_columns(df, "macro_common")
+
+    from factorlib.metrics.ts_beta import compute_ts_betas, compute_rolling_mean_beta
+
+    ts_betas = compute_ts_betas(df)
+    rolling = compute_rolling_mean_beta(df, window=config.ts_window)
+
+    return Artifacts(
+        prepared=df,
+        config=config,
+        intermediates={
+            "ts_betas": ts_betas,
+            "beta_values": rolling,
         },
     )

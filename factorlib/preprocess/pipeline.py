@@ -36,7 +36,7 @@ def preprocess(
     Dispatches to the appropriate type-specific preprocessor.
     Defaults to cross-sectional preprocessing.
     """
-    from factorlib.config import CrossSectionalConfig
+    from factorlib.config import CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
 
     if config is None:
         config = CrossSectionalConfig()
@@ -44,6 +44,10 @@ def preprocess(
     match config:
         case CrossSectionalConfig():
             return preprocess_cs_factor(df, config=config)
+        case MacroPanelConfig():
+            return preprocess_macro_panel(df, config=config)
+        case MacroCommonConfig():
+            return preprocess_macro_common(df, config=config)
         case _:
             ft = type(config).factor_type
             raise NotImplementedError(
@@ -106,3 +110,71 @@ def preprocess_cs_factor(
         pl.col("abnormal_return"),
         pl.col("price"),
     )
+
+
+def preprocess_macro_panel(
+    df: pl.DataFrame,
+    *,
+    config: MacroPanelConfig,
+) -> pl.DataFrame:
+    """Preprocess macro panel data.
+
+    Steps:
+        1. Forward return.
+        2. Return percentile winsorization.
+        3. Optional: cross-section demean signal.
+        4. Factor z-score (per-date, no MAD — unstable at small N).
+    """
+    out = compute_forward_return(df, config.forward_periods)
+    out = winsorize_forward_return(out)
+
+    out = out.with_columns(pl.col("factor").alias("factor_raw"))
+
+    if config is not None and config.demean_cross_section:
+        out = out.with_columns(
+            (pl.col("factor") - pl.col("factor").mean().over("date"))
+            .alias("factor")
+        )
+
+    out = cross_sectional_zscore(out)
+
+    cols = ["date", "asset_id", "factor_raw",
+            pl.col("factor_zscore").alias("factor"), "forward_return"]
+    if "price" in out.columns:
+        cols.append("price")
+
+    return out.select(cols)
+
+
+def preprocess_macro_common(
+    df: pl.DataFrame,
+    *,
+    config: MacroCommonConfig,
+) -> pl.DataFrame:
+    """Preprocess macro common factor data.
+
+    Steps:
+        1. Forward return.
+        2. Return percentile winsorization.
+        3. Time-series z-score of factor (not cross-sectional,
+           since the factor value is the same for all assets).
+    """
+    out = compute_forward_return(df, config.forward_periods)
+    out = winsorize_forward_return(out)
+
+    out = out.with_columns(pl.col("factor").alias("factor_raw"))
+
+    # WHY: time-series z-score, not cross-sectional — common factor is
+    # the same for all assets at each date, so cross-sectional std = 0.
+    factor_mean = out["factor"].mean()
+    factor_std = out["factor"].std()
+    if factor_std is not None and factor_std > 1e-9:
+        out = out.with_columns(
+            ((pl.col("factor") - factor_mean) / factor_std).alias("factor")
+        )
+
+    cols = ["date", "asset_id", "factor_raw", "factor", "forward_return"]
+    if "price" in out.columns:
+        cols.append("price")
+
+    return out.select(cols)

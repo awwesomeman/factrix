@@ -2,13 +2,14 @@
 
 All metrics return MetricOutput and can be used standalone.
 
-Signal Quality:
+Cross-Sectional:
     compute_ic, ic, ic_ir, hit_rate, ic_trend,
-    multi_split_oos_decay
+    multi_split_oos_decay, quantile_spread, monotonicity,
+    q1_concentration, turnover, breakeven_cost, net_spread
 
-Portfolio Performance:
-    quantile_spread, monotonicity, q1_concentration,
-    turnover, breakeven_cost, net_spread
+Macro Panel:
+    compute_fm_betas, fama_macbeth, pooled_ols,
+    beta_sign_consistency, long_short_tercile
 
 Factor Attribution:
     spanning_alpha, greedy_forward_selection
@@ -34,6 +35,21 @@ from factorlib.metrics.monotonicity import monotonicity
 from factorlib.metrics.concentration import q1_concentration
 from factorlib.metrics.tradability import turnover, breakeven_cost, net_spread
 from factorlib.metrics.spanning import spanning_alpha, greedy_forward_selection
+from factorlib.metrics.fama_macbeth import (
+    compute_fm_betas,
+    fama_macbeth,
+    pooled_ols,
+    beta_sign_consistency,
+    compute_tercile_series,
+    long_short_tercile,
+)
+from factorlib.metrics.ts_beta import (
+    compute_ts_betas,
+    ts_beta,
+    mean_r_squared,
+    compute_rolling_mean_beta,
+    ts_beta_sign_consistency,
+)
 
 __all__ = [
     "compute_ic", "ic", "ic_ir", "regime_ic", "multi_horizon_ic",
@@ -42,4 +58,8 @@ __all__ = [
     "compute_group_returns", "monotonicity", "q1_concentration",
     "turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
+    "compute_fm_betas", "fama_macbeth", "pooled_ols",
+    "beta_sign_consistency", "compute_tercile_series", "long_short_tercile",
+    "compute_ts_betas", "ts_beta", "mean_r_squared",
+    "compute_rolling_mean_beta", "ts_beta_sign_consistency",
 ]

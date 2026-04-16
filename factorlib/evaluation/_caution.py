@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from factorlib.config import BaseConfig, CrossSectionalConfig
+from factorlib.config import BaseConfig, CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
 from factorlib.evaluation._protocol import (
     Artifacts,
     FactorProfile,
@@ -22,6 +22,10 @@ def check_caution(
     match artifacts.config:
         case CrossSectionalConfig():
             return _cs_caution(artifacts, gate_results, profile)
+        case MacroPanelConfig():
+            return _macro_panel_caution(artifacts, profile)
+        case MacroCommonConfig():
+            return _macro_common_caution(artifacts, profile)
         case _:
             return []
 
@@ -101,3 +105,66 @@ def _cs_caution(
             )
 
     return reasons
+
+
+def _macro_panel_caution(
+    artifacts: Artifacts,
+    profile: FactorProfile,
+) -> list[str]:
+    reasons: list[str] = []
+    cfg = artifacts.config
+
+    if isinstance(cfg, MacroPanelConfig):
+        median_n = _median_universe_size(artifacts.prepared)
+        if median_n < cfg.min_cross_section:
+            reasons.append(
+                f"Median cross-section N = {median_n} (< {cfg.min_cross_section})"
+                " — FM β estimates may be unreliable"
+            )
+
+    fm = profile.get("fm_beta")
+    pooled = profile.get("pooled_beta")
+    if fm is not None and pooled is not None:
+        if fm.value * pooled.value < 0:
+            reasons.append(
+                "FM β and Pooled β have opposite signs"
+                " — robustness check failed"
+            )
+
+    reasons.extend(_check_beta_trend(profile))
+
+    return reasons
+
+
+def _macro_common_caution(
+    artifacts: Artifacts,
+    profile: FactorProfile,
+) -> list[str]:
+    reasons: list[str] = []
+
+    r2 = profile.get("mean_r_squared")
+    if r2 is not None and r2.value < 0.01:
+        reasons.append(
+            f"Mean R² = {r2.value:.4f} — common factor explains very little"
+            " return variation across assets"
+        )
+
+    sign_cons = profile.get("ts_beta_sign_consistency")
+    if sign_cons is not None and sign_cons.value < 0.6:
+        reasons.append(
+            f"β sign consistency = {sign_cons.value:.0%}"
+            " — assets disagree on exposure direction"
+        )
+
+    reasons.extend(_check_beta_trend(profile))
+
+    return reasons
+
+
+def _check_beta_trend(profile: FactorProfile) -> list[str]:
+    beta_trn = profile.get("beta_trend")
+    if beta_trn is not None:
+        ci_excludes_zero = beta_trn.metadata.get("ci_excludes_zero", False)
+        if beta_trn.value < 0 and ci_excludes_zero:
+            return ["β trend shows significant decay"]
+    return []
