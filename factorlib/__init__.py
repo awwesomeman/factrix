@@ -10,10 +10,10 @@ Public API:
 
 from factorlib.adapt import adapt
 from factorlib.preprocess.pipeline import preprocess_cs_factor
-from factorlib.gates.pipeline import evaluate_factor
-from factorlib.gates.config import PipelineConfig, MARKET_DEFAULTS
-from factorlib.gates.presets import CROSS_SECTIONAL_GATES
-from factorlib.experiment import FactorTracker
+from factorlib.evaluation.pipeline import evaluate_factor
+from factorlib.config import PipelineConfig, MARKET_DEFAULTS
+from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
+from factorlib.integrations.mlflow import FactorTracker
 from factorlib.validation import validate_factor_data
 
 __all__ = [

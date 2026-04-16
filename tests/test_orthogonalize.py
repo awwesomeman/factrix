@@ -1,11 +1,11 @@
-"""Tests for factorlib.tools.regression.orthogonalize."""
+"""Tests for factorlib.preprocess.orthogonalize."""
 
 import numpy as np
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.tools.regression.orthogonalize import orthogonalize_factor
+from factorlib.preprocess.orthogonalize import orthogonalize_factor
 
 
 def _make_ortho_data(n_dates: int = 10, n_assets: int = 20, seed: int = 42):

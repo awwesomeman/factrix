@@ -24,7 +24,7 @@ from factorlib.preprocess.normalize import (
 )
 
 if TYPE_CHECKING:
-    from factorlib.gates.config import PipelineConfig
+    from factorlib.config import PipelineConfig
 
 
 def preprocess_cs_factor(

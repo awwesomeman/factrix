@@ -8,7 +8,7 @@ All functions expect canonical column names (date, asset_id).
 
 import polars as pl
 
-from factorlib.tools._typing import MAD_CONSISTENCY_CONSTANT
+from factorlib._types import MAD_CONSISTENCY_CONSTANT
 
 
 def _mad_expressions(factor_col: str) -> tuple[pl.Expr, pl.Expr]:

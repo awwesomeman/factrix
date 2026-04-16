@@ -6,9 +6,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.tools.panel.quantile import quantile_spread_vw
-from factorlib.tools.panel.ic import compute_ic, regime_ic
-from factorlib.tools.series.significance import bhy_threshold
+from factorlib.metrics.quantile import quantile_spread_vw
+from factorlib.metrics.ic import compute_ic, regime_ic
+from factorlib._stats import bhy_threshold
 
 
 # ---------------------------------------------------------------------------

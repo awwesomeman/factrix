@@ -1,8 +1,8 @@
-"""Tests for factorlib.tools.panel.quantile."""
+"""Tests for factorlib.metrics.quantile."""
 
 import pytest
 
-from factorlib.tools.panel.quantile import (
+from factorlib.metrics.quantile import (
     quantile_spread,
     compute_spread_series,
 )

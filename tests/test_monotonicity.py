@@ -1,8 +1,8 @@
-"""Tests for factorlib.tools.panel.monotonicity."""
+"""Tests for factorlib.metrics.monotonicity."""
 
 import pytest
 
-from factorlib.tools.panel.monotonicity import monotonicity
+from factorlib.metrics.monotonicity import monotonicity
 
 
 class TestComputeMonotonicity:

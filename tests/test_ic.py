@@ -1,10 +1,10 @@
-"""Tests for factorlib.tools.panel.ic."""
+"""Tests for factorlib.metrics.ic."""
 
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.tools.panel.ic import compute_ic, ic, ic_ir
+from factorlib.metrics.ic import compute_ic, ic, ic_ir
 
 
 class TestComputeIC:
@@ -47,7 +47,7 @@ class TestIC:
         result = ic(ic_df, forward_periods=1)
         assert result.name == "ic"
         assert result.value > 0  # noisy_panel has positive IC
-        assert result.t_stat > 0
+        assert result.stat > 0
         assert result.significance != ""
 
     def test_insufficient_periods(self):
@@ -65,7 +65,7 @@ class TestICIR:
         result = ic_ir(ic_df)
         assert result.value > 0
         assert result.name == "ic_ir"
-        assert result.t_stat is None
+        assert result.stat is None
         assert "mean_ic" in result.metadata
 
     def test_insufficient_periods(self):

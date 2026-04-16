@@ -1,8 +1,8 @@
-"""Tests for factorlib.tools.series.oos."""
+"""Tests for factorlib.metrics.oos."""
 
 import pytest
 
-from factorlib.tools.series.oos import SplitDetail, multi_split_oos_decay
+from factorlib.metrics.oos import SplitDetail, multi_split_oos_decay
 
 
 class TestMultiSplitOOSDecay:

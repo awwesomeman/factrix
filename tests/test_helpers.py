@@ -1,11 +1,11 @@
-"""Tests for factorlib.tools._helpers."""
+"""Tests for factorlib.metrics._helpers."""
 
 from datetime import datetime, timedelta
 
 import polars as pl
 import pytest
 
-from factorlib.tools._helpers import (
+from factorlib.metrics._helpers import (
     _assign_quantile_groups,
     _sample_non_overlapping,
 )

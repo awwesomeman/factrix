@@ -7,19 +7,19 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.gates._protocol import (
+from factorlib.evaluation._protocol import (
     Artifacts,
     EvaluationResult,
     FactorProfile,
     GateFn,
     GateResult,
 )
-from factorlib.gates.config import PipelineConfig, MARKET_DEFAULTS
-from factorlib.gates.significance import significance_gate
-from factorlib.gates.oos_persistence import oos_persistence_gate
-from factorlib.gates.profile import compute_profile
-from factorlib.gates.pipeline import evaluate_factor, build_artifacts
-from factorlib.gates.presets import CROSS_SECTIONAL_GATES
+from factorlib.config import PipelineConfig, MARKET_DEFAULTS
+from factorlib.evaluation.gates.significance import significance_gate
+from factorlib.evaluation.gates.oos_persistence import oos_persistence_gate
+from factorlib.evaluation.profile import compute_profile
+from factorlib.evaluation.pipeline import evaluate_factor, build_artifacts
+from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
 
 
 # ---------------------------------------------------------------------------

@@ -5,16 +5,16 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 
-def multi_horizon_ic_chart(horizon_ics: dict[int, float]) -> go.Figure:
+def multi_horizon_ic_chart(per_horizon: dict[int, dict]) -> go.Figure:
     """Bar chart of mean IC at each forward horizon.
 
     Args:
-        horizon_ics: Mapping of period → mean IC.
-            Typically from ``multi_horizon_ic().metadata["horizon_ics"]``.
+        per_horizon: Mapping of period → detail dict (with ``mean_ic`` key).
+            Typically from ``multi_horizon_ic().metadata["per_horizon"]``.
     """
-    periods = sorted(horizon_ics.keys())
+    periods = sorted(per_horizon.keys())
     labels = [str(p) for p in periods]
-    values = [horizon_ics[p] for p in periods]
+    values = [per_horizon[p]["mean_ic"] for p in periods]
 
     colors = ["#EF553B" if v < 0 else "#636EFA" for v in values]
 
