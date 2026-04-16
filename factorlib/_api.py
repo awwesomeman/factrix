@@ -183,8 +183,22 @@ def compare(
     Returns:
         DataFrame with one row per factor, columns for each metric.
     """
+    import warnings
+
     if isinstance(results, list):
         results = {r.factor_name: r for r in results}
+
+    factor_types = set()
+    for r in results.values():
+        if r.artifacts is not None:
+            factor_types.add(type(r.artifacts.config).factor_type)
+    if len(factor_types) > 1:
+        warnings.warn(
+            f"Comparing results across different factor types: {factor_types}. "
+            f"Missing metrics will be filled with None.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     rows: list[dict[str, Any]] = []
     for name, result in results.items():

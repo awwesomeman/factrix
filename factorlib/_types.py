@@ -83,3 +83,11 @@ class MetricOutput:
     stat: float | None = None
     significance: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
+
+    def __repr__(self) -> str:
+        parts = [f"{self.name}={self.value:.4f}"]
+        if self.stat is not None:
+            parts.append(f"stat={self.stat:.2f}")
+        if self.significance:
+            parts.append(f"sig={self.significance}")
+        return f"MetricOutput({', '.join(parts)})"

@@ -16,21 +16,22 @@ def oos_persistence_gate(
     artifacts: Artifacts,
     *,
     decay_threshold: float = 0.5,
+    value_key: str = "ic_values",
 ) -> GateResult:
     """Gate 2: multi-split OOS decay >= threshold, no sign flip.
-
-    Uses the IC series as the input for OOS analysis. The IC series
-    column ``ic`` is renamed to ``value`` for the OOS tool.
 
     Args:
         artifacts: Pre-computed pipeline artifacts.
         decay_threshold: Minimum median decay ratio for PASS (default 0.5).
+        value_key: Artifacts key for the (date, value) series to test.
+            Defaults to "ic_values" (cross-sectional).
+            Use "beta_values" for macro_panel.
 
     Returns:
         GateResult with PASS or VETOED status.
     """
     oos_result = multi_split_oos_decay(
-        artifacts.get("ic_values"), decay_threshold=decay_threshold,
+        artifacts.get(value_key), decay_threshold=decay_threshold,
     )
 
     return GateResult(

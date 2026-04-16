@@ -29,6 +29,14 @@ class BaseConfig:
         default_factory=lambda: [1, 5, 10, 20],
     )
 
+    def __post_init__(self) -> None:
+        if type(self) is BaseConfig:
+            raise TypeError(
+                "BaseConfig cannot be used directly. "
+                "Use a concrete subclass: CrossSectionalConfig(), "
+                "EventConfig(), MacroPanelConfig(), MacroCommonConfig()."
+            )
+
 
 @dataclass(kw_only=True)
 class CrossSectionalConfig(BaseConfig):

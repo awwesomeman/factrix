@@ -1,6 +1,6 @@
-"""
-Layer 4: Experiment Tracking — MLflow integration.
-Logs scoring results, IC series, and NAV curves as structured experiments.
+"""MLflow experiment tracking integration.
+
+Requires: ``pip install factorlib[mlflow]``
 """
 
 from __future__ import annotations
@@ -8,7 +8,14 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import mlflow
+try:
+    import mlflow
+except ImportError:
+    raise ImportError(
+        "MLflow tracking requires mlflow. "
+        "Install with: pip install factorlib[mlflow]"
+    ) from None
+
 import polars as pl
 
 from factorlib.evaluation._protocol import EvaluationResult

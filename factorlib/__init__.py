@@ -22,6 +22,13 @@ from factorlib.config import (
     MacroCommonConfig,
     MARKET_DEFAULTS,
 )
+from factorlib._types import FactorType, MetricOutput
+from factorlib.evaluation._protocol import (
+    EvaluationResult,
+    FactorProfile,
+    Artifacts,
+    GateResult,
+)
 from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
 from factorlib.validation import validate_factor_data
 from factorlib._api import (
@@ -43,6 +50,10 @@ __all__ = [
     "MacroPanelConfig", "MacroCommonConfig",
     "FACTOR_TYPES", "describe_factor_types",
     "MARKET_DEFAULTS",
+    # Types (for type hints and isinstance checks)
+    "FactorType", "MetricOutput",
+    "EvaluationResult", "FactorProfile",
+    "Artifacts", "GateResult",
     # Artifacts (advanced)
     "build_artifacts",
     # Presets
