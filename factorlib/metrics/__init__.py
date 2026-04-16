@@ -8,7 +8,7 @@ Cross-Sectional:
     q1_concentration, turnover, breakeven_cost, net_spread
 
 Event Signal:
-    compute_caar, caar, bmp_test, event_hit_rate,
+    compute_caar, caar, bmp_test, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
     clustering_diagnostic, corrado_rank_test
 
@@ -45,6 +45,7 @@ from factorlib.metrics.caar import (
     caar,
     bmp_test,
     event_hit_rate,
+    event_ic,
 )
 from factorlib.metrics.mfe_mae import (
     compute_mfe_mae,
@@ -75,7 +76,7 @@ __all__ = [
     "compute_group_returns", "monotonicity", "q1_concentration",
     "turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
-    "compute_caar", "caar", "bmp_test", "event_hit_rate",
+    "compute_caar", "caar", "bmp_test", "event_hit_rate", "event_ic",
     "compute_mfe_mae", "mfe_mae_summary", "profit_factor", "event_skewness",
     "clustering_diagnostic", "corrado_rank_test",
     "compute_fm_betas", "fama_macbeth", "pooled_ols",

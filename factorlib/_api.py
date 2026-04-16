@@ -58,7 +58,8 @@ _PROFILE_METRICS: dict[FactorType, list[str]] = {
     ],
     FactorType.EVENT_SIGNAL: [
         "caar", "bmp_sar", "event_hit_rate", "oos_decay", "caar_trend",
-        "profit_factor", "event_skewness", "mfe_mae", "clustering_hhi",
+        "profit_factor", "event_skewness", "mfe_mae", "event_ic",
+        "clustering_hhi",
     ],
     FactorType.MACRO_PANEL: [
         "fm_beta", "pooled_beta", "beta_sign_consistency", "oos_decay",

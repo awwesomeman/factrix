@@ -232,6 +232,43 @@ class TestHighClustering:
 
 
 # ---------------------------------------------------------------------------
+# Continuous signal (event_ic auto-appears)
+# ---------------------------------------------------------------------------
+
+class TestContinuousSignal:
+    def test_event_ic_appears_for_continuous(self):
+        """When factor has magnitude variance, event_ic appears in profile."""
+        rng = np.random.default_rng(42)
+        n_assets, n_dates = 30, 300
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        assets = [f"a_{i}" for i in range(n_assets)]
+        rows = []
+        for a in assets:
+            price = 100.0
+            for d in dates:
+                is_event = rng.random() < 0.03
+                if is_event:
+                    mag = rng.uniform(0.5, 5.0)
+                    direction = rng.choice([-1.0, 1.0])
+                    factor_val = direction * mag
+                    daily_ret = 0.005 * mag * direction + rng.normal(0, 0.015)
+                else:
+                    factor_val = 0.0
+                    daily_ret = rng.normal(0, 0.015)
+                price *= (1 + daily_ret)
+                rows.append({"date": d, "asset_id": a, "factor": factor_val,
+                             "forward_return": daily_ret, "price": price})
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = evaluate(df, "continuous", config=EventConfig(), gates=[])
+        assert result.profile.get("event_ic") is not None
+
+    def test_event_ic_absent_for_discrete(self, strong_event):
+        """When factor is {-1, 0, +1}, event_ic is skipped."""
+        result = evaluate(strong_event, "discrete", config=EventConfig(), gates=[])
+        assert result.profile.get("event_ic") is None
+
+
+# ---------------------------------------------------------------------------
 # Standalone metrics
 # ---------------------------------------------------------------------------
 

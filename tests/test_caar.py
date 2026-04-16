@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.caar — CAAR, BMP, event_hit_rate."""
+"""Tests for factorlib.metrics.caar — CAAR, BMP, event_hit_rate, event_ic."""
 
 from datetime import datetime, timedelta
 
@@ -11,8 +11,9 @@ from factorlib.metrics.caar import (
     caar,
     bmp_test,
     event_hit_rate,
-    MIN_EVENTS,
+    event_ic,
 )
+from factorlib._types import MIN_EVENTS
 
 
 # ---------------------------------------------------------------------------
@@ -201,3 +202,71 @@ class TestEventHitRate:
         })
         result = event_hit_rate(df)
         assert result.value == 0.0
+
+
+# ---------------------------------------------------------------------------
+# event_ic
+# ---------------------------------------------------------------------------
+
+def _make_continuous_signal(
+    n_assets: int = 50,
+    n_dates: int = 500,
+    event_prob: float = 0.02,
+    seed: int = 42,
+) -> pl.DataFrame:
+    """Synthetic continuous event signal: stronger |signal| → larger return."""
+    rng = np.random.default_rng(seed)
+    dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+    assets = [f"asset_{i}" for i in range(n_assets)]
+
+    rows = []
+    for d in dates:
+        for a in assets:
+            is_event = rng.random() < event_prob
+            if is_event:
+                magnitude = rng.uniform(0.5, 5.0)
+                direction = rng.choice([-1.0, 1.0])
+                signal = direction * magnitude
+                # Stronger signal → larger directional return
+                ret = 0.005 * magnitude * direction + rng.normal(0, 0.02)
+            else:
+                signal = 0.0
+                ret = rng.normal(0, 0.02)
+
+            rows.append({
+                "date": d, "asset_id": a,
+                "factor": signal, "forward_return": ret,
+            })
+
+    return pl.DataFrame(rows).with_columns(
+        pl.col("date").cast(pl.Datetime("ms")),
+    )
+
+
+class TestEventIc:
+    def test_continuous_signal_positive_ic(self):
+        df = _make_continuous_signal()
+        result = event_ic(df)
+        assert result.name == "event_ic"
+        assert result.value > 0
+        assert result.metadata["method"] == "Spearman rank correlation (|signal| vs signed_car)"
+
+    def test_discrete_signal_skipped(self, strong_signal):
+        """All ±1 values → |factor| constant → IC = 0 (no variance)."""
+        result = event_ic(strong_signal)
+        assert result.value == 0.0
+        assert result.stat == 0.0
+
+    def test_insufficient_events(self):
+        df = pl.DataFrame({
+            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+            "asset_id": ["A"],
+            "factor": [2.5],
+            "forward_return": [0.01],
+        })
+        result = event_ic(df)
+        assert result.value == 0.0
+
+    def test_standalone_import(self):
+        from factorlib.metrics import event_ic as eic
+        assert callable(eic)

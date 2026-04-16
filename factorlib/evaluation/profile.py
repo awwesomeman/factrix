@@ -79,7 +79,7 @@ def _event_signal_profile(
     artifacts: Artifacts, config: EventConfig,
 ) -> FactorProfile:
     # WHY: lazy import — avoid loading event modules when only CS is used
-    from factorlib.metrics.caar import caar as caar_metric, bmp_test, event_hit_rate
+    from factorlib.metrics.caar import caar as caar_metric, bmp_test, event_hit_rate, event_ic
     from factorlib.metrics.mfe_mae import mfe_mae_summary, profit_factor, event_skewness
     from factorlib.metrics.clustering import clustering_diagnostic
 
@@ -109,6 +109,11 @@ def _event_signal_profile(
         mfe_summary = mfe_mae_summary(artifacts.get("mfe_mae"))
         if mfe_summary is not None:
             metrics.append(mfe_summary)
+
+    # Signal magnitude IC: only when signal values have magnitude variance
+    events = artifacts.prepared.filter(pl.col("factor") != 0)
+    if events["factor"].abs().n_unique() > 1:
+        metrics.append(event_ic(artifacts.prepared, return_col=ret_col))
 
     n_assets = artifacts.prepared["asset_id"].n_unique()
     if n_assets > 1:
