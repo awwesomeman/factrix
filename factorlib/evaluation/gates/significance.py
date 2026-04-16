@@ -1,4 +1,4 @@
-"""Gate 1: Statistical significance.
+"""Statistical significance gate (cross-sectional).
 
 Passes if IC t-stat OR Q1-Q5 spread t-stat >= threshold.
 Default threshold = 2.0 (95% confidence).

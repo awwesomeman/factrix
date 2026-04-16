@@ -4,7 +4,6 @@
 ``fama_macbeth``: Newey-West t-test on the beta series.
 ``pooled_ols``: pooled OLS with clustered SE by date.
 ``beta_sign_consistency``: fraction of periods with correct beta sign.
-``long_short_tercile``: top 1/3 − bottom 1/3 portfolio return.
 
 References:
     Fama & MacBeth (1973), "Risk, Return, and Equilibrium."
@@ -25,7 +24,6 @@ from factorlib._stats import (
     _p_value_from_t,
     _significance_marker,
 )
-from factorlib.metrics._helpers import _sample_non_overlapping
 
 MIN_FM_PERIODS: int = 20
 
@@ -241,100 +239,3 @@ def beta_sign_consistency(
     )
 
 
-# ---------------------------------------------------------------------------
-# Long-short tercile portfolio
-# ---------------------------------------------------------------------------
-
-def compute_tercile_series(
-    df: pl.DataFrame,
-    *,
-    forward_periods: int = 1,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> pl.DataFrame:
-    """Per-date top 1/3 − bottom 1/3 return series.
-
-    Returns DataFrame with ``date, spread, long_return, short_return``.
-    """
-    df_sampled = _sample_non_overlapping(df, forward_periods)
-    sampled_dates = df_sampled["date"].unique().sort()
-
-    rows: list[dict] = []
-    for dt in sampled_dates:
-        chunk = df_sampled.filter(pl.col("date") == dt)
-        n = len(chunk)
-        if n < 3:
-            continue
-
-        third = max(n // 3, 1)
-        sorted_chunk = chunk.sort(factor_col)
-
-        bottom = sorted_chunk.head(third)[return_col].mean()
-        top = sorted_chunk.tail(third)[return_col].mean()
-
-        rows.append({
-            "date": dt,
-            "spread": float(top - bottom),
-            "long_return": float(top),
-            "short_return": float(bottom),
-        })
-
-    if not rows:
-        return pl.DataFrame({
-            "date": pl.Series([], dtype=pl.Datetime("ms")),
-            "spread": pl.Series([], dtype=pl.Float64),
-            "long_return": pl.Series([], dtype=pl.Float64),
-            "short_return": pl.Series([], dtype=pl.Float64),
-        })
-
-    return pl.DataFrame(rows)
-
-
-def long_short_tercile(
-    tercile_df: pl.DataFrame,
-    *,
-    periods_per_year: float = 252.0,
-) -> MetricOutput:
-    """Significance test on tercile L/S spread series.
-
-    Args:
-        tercile_df: DataFrame with ``date, spread, long_return, short_return``
-            (from compute_tercile_series).
-        periods_per_year: For annualization.
-    """
-    spreads = tercile_df["spread"].drop_nulls().to_numpy()
-    n = len(spreads)
-
-    if n < 5:
-        return MetricOutput(
-            name="long_short_tercile", value=0.0, stat=0.0, significance="",
-            metadata={"n_periods": n, "reason": "insufficient periods"},
-        )
-
-    mean_spread = float(np.mean(spreads))
-    std_spread = float(np.std(spreads, ddof=DDOF))
-
-    t, p, sig = _newey_west_t_test(spreads)
-
-    ann_return = mean_spread * periods_per_year
-    ann_vol = std_spread * np.sqrt(periods_per_year) if std_spread > EPSILON else 0.0
-    sharpe = ann_return / ann_vol if ann_vol > EPSILON else 0.0
-
-    return MetricOutput(
-        name="long_short_tercile",
-        value=mean_spread,
-        stat=t,
-        significance=sig,
-        metadata={
-            "p_value": p,
-            "stat_type": "t",
-            "h0": "mean(spread)=0",
-            "method": "Tercile L/S + Newey-West",
-            "n_periods": n,
-            "long_mean": float(tercile_df["long_return"].mean()),
-            "short_mean": float(tercile_df["short_return"].mean()),
-            "annualized_return": ann_return,
-            "annualized_vol": ann_vol,
-            "sharpe": sharpe,
-        },
-    )

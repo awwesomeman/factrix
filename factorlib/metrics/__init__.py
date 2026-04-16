@@ -9,7 +9,7 @@ Cross-Sectional:
 
 Macro Panel:
     compute_fm_betas, fama_macbeth, pooled_ols,
-    beta_sign_consistency, long_short_tercile
+    beta_sign_consistency
 
 Factor Attribution:
     spanning_alpha, greedy_forward_selection
@@ -40,8 +40,6 @@ from factorlib.metrics.fama_macbeth import (
     fama_macbeth,
     pooled_ols,
     beta_sign_consistency,
-    compute_tercile_series,
-    long_short_tercile,
 )
 from factorlib.metrics.ts_beta import (
     compute_ts_betas,
@@ -59,7 +57,7 @@ __all__ = [
     "turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
     "compute_fm_betas", "fama_macbeth", "pooled_ols",
-    "beta_sign_consistency", "compute_tercile_series", "long_short_tercile",
+    "beta_sign_consistency",
     "compute_ts_betas", "ts_beta", "mean_r_squared",
     "compute_rolling_mean_beta", "ts_beta_sign_consistency",
 ]

@@ -116,24 +116,36 @@ def _cs_profile(
 def _macro_panel_profile(
     artifacts: Artifacts, config: MacroPanelConfig,
 ) -> FactorProfile:
+    # WHY: lazy import — avoid loading FM/TS modules when only CS is used
     from factorlib.metrics.fama_macbeth import (
-        fama_macbeth, pooled_ols, beta_sign_consistency, long_short_tercile,
+        fama_macbeth, pooled_ols, beta_sign_consistency,
     )
 
+    fp = config.forward_periods
     beta_series = artifacts.get("beta_series")
     beta_values = artifacts.get("beta_values")
-    tercile_series = artifacts.get("tercile_series")
+    spread_series = artifacts.get("spread_series")
 
     fm = fama_macbeth(beta_series)
     pooled = pooled_ols(artifacts.prepared)
     sign_cons = beta_sign_consistency(beta_series)
     oos = _oos_decay_metric(beta_values)
     beta_trn = _beta_trend_metric(beta_values)
-    ls = long_short_tercile(tercile_series)
+    # WHY: uses simple t-test (not NW) — non-overlapping sampling already
+    # eliminates return overlap autocorrelation; NW is reserved for FM β
+    # where the β series itself has time-series persistence.
+    spread = quantile_spread(
+        artifacts.prepared,
+        forward_periods=fp,
+        n_groups=config.n_groups,
+        _precomputed_series=spread_series,
+    )
     turn = turnover(artifacts.prepared)
+    be = breakeven_cost(spread.value, turn.value)
+    ns = net_spread(spread.value, turn.value, config.estimated_cost_bps)
 
     return FactorProfile(
-        metrics=[fm, pooled, sign_cons, oos, beta_trn, ls, turn],
+        metrics=[fm, pooled, sign_cons, oos, beta_trn, spread, turn, be, ns],
     )
 
 
@@ -144,11 +156,12 @@ def _macro_panel_profile(
 def _macro_common_profile(
     artifacts: Artifacts, config: MacroCommonConfig,
 ) -> FactorProfile:
+    # WHY: lazy import — avoid loading FM/TS modules when only CS is used
     from factorlib.metrics.ts_beta import (
         ts_beta, mean_r_squared, ts_beta_sign_consistency,
     )
 
-    ts_betas_df = artifacts.get("ts_betas")
+    ts_betas_df = artifacts.get("beta_series")
     beta_values = artifacts.get("beta_values")
 
     beta_metric = ts_beta(ts_betas_df)

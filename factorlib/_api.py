@@ -50,10 +50,66 @@ _DESCRIPTIONS: dict[FactorType, str] = {
 }
 
 
+_PROFILE_METRICS: dict[FactorType, list[str]] = {
+    FactorType.CROSS_SECTIONAL: [
+        "ic", "ic_ir", "hit_rate", "ic_trend", "monotonicity", "oos_decay",
+        "q1_q5_spread", "turnover", "breakeven_cost", "net_spread",
+        "q1_concentration",
+    ],
+    FactorType.MACRO_PANEL: [
+        "fm_beta", "pooled_beta", "beta_sign_consistency", "oos_decay",
+        "beta_trend", "q1_q5_spread", "turnover", "breakeven_cost",
+        "net_spread",
+    ],
+    FactorType.MACRO_COMMON: [
+        "ts_beta", "mean_r_squared", "ts_beta_sign_consistency",
+        "oos_decay", "beta_trend",
+    ],
+}
+
+_STANDALONE_METRICS: dict[FactorType, list[str]] = {
+    FactorType.CROSS_SECTIONAL: [
+        "regime_ic", "multi_horizon_ic", "quantile_spread_vw",
+        "spanning_alpha", "greedy_forward_selection",
+    ],
+    FactorType.MACRO_PANEL: [
+        "spanning_alpha",
+    ],
+    FactorType.MACRO_COMMON: [
+        "compute_rolling_mean_beta",
+    ],
+}
+
+
 def describe_factor_types() -> None:
     """Print supported factor types with descriptions."""
     for ft, desc in _DESCRIPTIONS.items():
         print(f"  {ft.value:<20s}: {desc}")
+
+
+def describe_profile(
+    factor_type: str | FactorType = "cross_sectional",
+) -> None:
+    """Print the default profile metrics for a factor type.
+
+    Also lists standalone metrics available via ``from factorlib.metrics import ...``.
+    """
+    if isinstance(factor_type, str):
+        factor_type = FactorType(factor_type)
+
+    profile = _PROFILE_METRICS.get(factor_type, [])
+    standalone = _STANDALONE_METRICS.get(factor_type, [])
+
+    print(f"\n  {factor_type.value} — default profile metrics:")
+    print(f"  {'─' * 40}")
+    for name in profile:
+        print(f"    {name}")
+
+    if standalone:
+        print(f"\n  Standalone (use via factorlib.metrics):")
+        for name in standalone:
+            print(f"    {name}")
+    print()
 
 
 def _config_for_type(

@@ -29,7 +29,11 @@ from factorlib.evaluation._protocol import (
     Artifacts,
     GateResult,
 )
-from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
+from factorlib.evaluation.presets import (
+    CROSS_SECTIONAL_GATES,
+    MACRO_PANEL_GATES,
+    MACRO_COMMON_GATES,
+)
 from factorlib.validation import validate_factor_data
 from factorlib._api import (
     quick_check,
@@ -38,6 +42,7 @@ from factorlib._api import (
     split_by_group,
     FACTOR_TYPES,
     describe_factor_types,
+    describe_profile,
 )
 
 __all__ = [
@@ -48,7 +53,7 @@ __all__ = [
     # Configuration
     "CrossSectionalConfig", "EventConfig",
     "MacroPanelConfig", "MacroCommonConfig",
-    "FACTOR_TYPES", "describe_factor_types",
+    "FACTOR_TYPES", "describe_factor_types", "describe_profile",
     "MARKET_DEFAULTS",
     # Types (for type hints and isinstance checks)
     "FactorType", "MetricOutput",
@@ -58,6 +63,8 @@ __all__ = [
     "build_artifacts",
     # Presets
     "CROSS_SECTIONAL_GATES",
+    "MACRO_PANEL_GATES",
+    "MACRO_COMMON_GATES",
     # Validation
     "validate_factor_data",
     # Legacy (will be removed)

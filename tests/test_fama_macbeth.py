@@ -13,9 +13,8 @@ from factorlib.metrics.fama_macbeth import (
     fama_macbeth,
     pooled_ols,
     beta_sign_consistency,
-    compute_tercile_series,
-    long_short_tercile,
 )
+from factorlib.metrics.quantile import quantile_spread, compute_spread_series
 from factorlib.evaluation.pipeline import evaluate, build_artifacts
 from factorlib.evaluation.profile import compute_profile
 
@@ -140,16 +139,14 @@ class TestBetaSignConsistency:
 
 
 # ---------------------------------------------------------------------------
-# long_short_tercile
+# quantile_spread with small N (macro_panel uses n_groups=3)
 # ---------------------------------------------------------------------------
 
-class TestLongShortTercile:
+class TestQuantileSpreadSmallN:
     def test_strong_signal_positive_spread(self, strong_macro):
-        series = compute_tercile_series(strong_macro, forward_periods=1)
-        result = long_short_tercile(series)
-        assert result.name == "long_short_tercile"
+        result = quantile_spread(strong_macro, forward_periods=1, n_groups=3)
+        assert result.name == "q1_q5_spread"
         assert result.value > 0
-        assert "sharpe" in result.metadata
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +172,7 @@ class TestMacroPanelPipeline:
         assert result.profile.get("fm_beta") is not None
         assert result.profile.get("pooled_beta") is not None
         assert result.profile.get("beta_sign_consistency") is not None
-        assert result.profile.get("long_short_tercile") is not None
+        assert result.profile.get("q1_q5_spread") is not None
         assert result.profile.get("oos_decay") is not None
         assert result.profile.get("beta_trend") is not None
 
@@ -224,4 +221,4 @@ class TestMacroPanelPipeline:
         artifacts = build_artifacts(strong_macro, MacroPanelConfig())
         assert "beta_series" in artifacts.intermediates
         assert "beta_values" in artifacts.intermediates
-        assert "tercile_series" in artifacts.intermediates
+        assert "spread_series" in artifacts.intermediates

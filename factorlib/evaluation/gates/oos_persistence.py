@@ -1,4 +1,4 @@
-"""Gate 2: Out-of-sample persistence.
+"""Out-of-sample persistence gate (shared across types).
 
 Passes if multi-split OOS decay ratio >= threshold and no sign flip.
 Default threshold = 0.5 (McLean & Pontiff 2016 average ~32%, so 50% is strict).

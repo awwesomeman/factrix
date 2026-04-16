@@ -9,6 +9,8 @@ into any ``series/`` tool.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import polars as pl
 
@@ -19,6 +21,7 @@ from factorlib._types import (
 )
 from factorlib.metrics._helpers import (
     _assign_quantile_groups,
+    _median_universe_size,
     _sample_non_overlapping,
 )
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
@@ -43,6 +46,18 @@ def compute_spread_series(
         DataFrame with ``date, spread, q1_return, q5_return, universe_return``.
     """
     sampled = _sample_non_overlapping(df, forward_periods)
+
+    median_n = _median_universe_size(sampled)
+    per_group = median_n // n_groups if n_groups > 0 else 0
+    if per_group < 5:
+        warnings.warn(
+            f"Median {per_group} assets per group (N={median_n}, "
+            f"n_groups={n_groups}). Spread may be dominated by "
+            f"individual assets. Consider reducing n_groups.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
 
     top_group = n_groups - 1

@@ -161,12 +161,12 @@ def _build_macro_panel_artifacts(
 ) -> Artifacts:
     _validate_columns(df, "macro_panel")
 
-    from factorlib.metrics.fama_macbeth import compute_fm_betas, compute_tercile_series
+    from factorlib.metrics.fama_macbeth import compute_fm_betas
 
     beta_series = compute_fm_betas(df)
     beta_values = beta_series.rename({"beta": "value"})
-    tercile_series = compute_tercile_series(
-        df, forward_periods=config.forward_periods,
+    spread_series = compute_spread_series(
+        df, config.forward_periods, config.n_groups,
     )
 
     return Artifacts(
@@ -175,7 +175,7 @@ def _build_macro_panel_artifacts(
         intermediates={
             "beta_series": beta_series,
             "beta_values": beta_values,
-            "tercile_series": tercile_series,
+            "spread_series": spread_series,
         },
     )
 
@@ -194,7 +194,7 @@ def _build_macro_common_artifacts(
         prepared=df,
         config=config,
         intermediates={
-            "ts_betas": ts_betas,
+            "beta_series": ts_betas,
             "beta_values": rolling,
         },
     )

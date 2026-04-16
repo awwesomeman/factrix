@@ -148,5 +148,5 @@ class TestMacroCommonPipeline:
 
     def test_artifacts_keys(self, strong_common):
         artifacts = build_artifacts(strong_common, MacroCommonConfig(ts_window=60))
-        assert "ts_betas" in artifacts.intermediates
+        assert "beta_series" in artifacts.intermediates
         assert "beta_values" in artifacts.intermediates

@@ -16,7 +16,7 @@ def ts_significance_gate(
     Tests whether assets, on average, have significant exposure
     to the common factor.
     """
-    ts_betas_df = artifacts.get("ts_betas")
+    ts_betas_df = artifacts.get("beta_series")
     result = ts_beta(ts_betas_df)
     t = result.stat or 0.0
 

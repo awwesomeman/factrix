@@ -32,6 +32,8 @@ _SCHEMAS: dict[FactorType, pa.DataFrameSchema] = {
         }
     ),
 }
+# WHY: macro_common uses the same minimal schema as macro_panel
+_SCHEMAS[FactorType.MACRO_COMMON] = _SCHEMAS[FactorType.MACRO_PANEL]
 
 FACTOR_SCHEMA = _SCHEMAS[FactorType.CROSS_SECTIONAL]
 

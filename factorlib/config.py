@@ -24,6 +24,7 @@ class BaseConfig:
     """
 
     forward_periods: int = 5
+    n_groups: int = 5
     estimated_cost_bps: float = 30.0
     multi_horizon_periods: list[int] = field(
         default_factory=lambda: [1, 5, 10, 20],
@@ -44,7 +45,7 @@ class CrossSectionalConfig(BaseConfig):
 
     factor_type: ClassVar[FactorType] = FactorType.CROSS_SECTIONAL
 
-    n_groups: int = 10
+    n_groups: int = 10  # override BaseConfig default
     q_top: float = 0.2
     orthogonalize: bool = False
     mad_n: float = 3.0
@@ -71,6 +72,7 @@ class MacroPanelConfig(BaseConfig):
 
     factor_type: ClassVar[FactorType] = FactorType.MACRO_PANEL
 
+    n_groups: int = 3  # override: small N needs fewer groups
     demean_cross_section: bool = False
     min_cross_section: int = 10
 
