@@ -1,13 +1,9 @@
-"""CAAR (Cumulative Average Abnormal Return) metrics for event signals.
+"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
-Input: DataFrame with ``date, asset_id, factor, forward_return``.
-``factor`` is discrete {-1, 0, +1} — events only on non-zero rows.
-
-Core metrics:
+Tests H₀: event abnormal return = 0, using two complementary methods:
     compute_caar — per-event-date signed abnormal return series
-    caar         — CAAR t-test (H₀: mean = 0)
-    bmp_test     — Boehmer-Musumeci-Poulsen standardized AR test
-    event_hit_rate — fraction of events where signed_car > 0
+    caar         — CAAR t-test (parametric, non-overlapping sampling)
+    bmp_test     — BMP standardized AR test (robust to event-induced variance)
 
 References:
     MacKinlay (1997), "Event Studies in Economics and Finance"
@@ -27,7 +23,7 @@ from factorlib._stats import (
     _p_value_from_z,
     _significance_marker,
 )
-from factorlib.metrics._helpers import _sample_non_overlapping, _signed_car
+from factorlib.metrics._helpers import _sample_non_overlapping
 
 
 def compute_caar(
@@ -225,118 +221,5 @@ def bmp_test(
             "stat_type": "z",
             "h0": "mu_SAR=0",
             "method": "BMP standardized cross-sectional test",
-        },
-    )
-
-
-def event_hit_rate(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> MetricOutput:
-    """Fraction of events where signed abnormal return > 0.
-
-    Uses binomial score test: H₀: p = 0.5 (random direction).
-    z = (hits - n*p0) / sqrt(n*p0*(1-p0))
-
-    Args:
-        df: Panel with event signal and forward return.
-
-    Returns:
-        MetricOutput with value=hit_rate, stat=z from binomial test.
-    """
-    events = df.filter(pl.col(factor_col) != 0)
-
-    n = len(events)
-    if n < MIN_EVENTS:
-        return MetricOutput(
-            name="event_hit_rate", value=0.0, stat=0.0, significance="",
-        )
-
-    signed = _signed_car(events, factor_col, return_col)
-    hits = int(np.sum(signed > 0))
-    rate = hits / n
-
-    z = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
-    p = _p_value_from_z(z)
-
-    return MetricOutput(
-        name="event_hit_rate",
-        value=rate,
-        stat=z,
-        significance=_significance_marker(p),
-        metadata={
-            "n_events": n,
-            "n_hits": hits,
-            "p_value": p,
-            "stat_type": "z",
-            "h0": "p=0.5",
-            "method": "binomial score test",
-        },
-    )
-
-
-def event_ic(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> MetricOutput:
-    """Signal strength → directional return correlation among events.
-
-    Spearman correlation between ``|factor|`` and ``signed_car``
-    (``return × sign(factor)``), computed only on event rows.
-
-    Unlike standard IC (full cross-section per date), this measures
-    whether signal **magnitude** predicts return magnitude among
-    triggered events. Direction is already accounted for via sign().
-
-    Only meaningful when signal values have magnitude variance
-    (not all ±1). Profile auto-skips when variance is absent.
-
-    Args:
-        df: Panel with event signal and forward return.
-
-    Returns:
-        MetricOutput with value=Spearman rho, stat=t from Fisher transform.
-    """
-    from scipy import stats as sp_stats
-
-    events = df.filter(pl.col(factor_col) != 0)
-    n = len(events)
-
-    if n < MIN_EVENTS:
-        return MetricOutput(name="event_ic", value=0.0, stat=0.0, significance="")
-
-    abs_signal = np.abs(events[factor_col].to_numpy())
-
-    # Constant |signal| (e.g., all ±1) → no magnitude variance → IC undefined
-    if np.ptp(abs_signal) < EPSILON:
-        return MetricOutput(name="event_ic", value=0.0, stat=0.0, significance="")
-
-    signed = _signed_car(events, factor_col, return_col)
-
-    rho, p = sp_stats.spearmanr(abs_signal, signed)
-    rho = float(rho)
-    p = float(p)
-
-    # Fisher z-transform for t-stat
-    if abs(rho) < 1.0 - 1e-10 and n > 3:
-        z = np.arctanh(rho) * np.sqrt(n - 3)
-    else:
-        z = 0.0
-
-    return MetricOutput(
-        name="event_ic",
-        value=rho,
-        stat=z,
-        significance=_significance_marker(p),
-        metadata={
-            "n_events": n,
-            "p_value": p,
-            "stat_type": "z",
-            "h0": "rho=0",
-            "method": "Spearman rank correlation (|signal| vs signed_car)",
         },
     )

@@ -44,14 +44,16 @@ from factorlib.metrics.caar import (
     compute_caar,
     caar,
     bmp_test,
+)
+from factorlib.metrics.event_quality import (
     event_hit_rate,
     event_ic,
+    profit_factor,
+    event_skewness,
 )
 from factorlib.metrics.mfe_mae import (
     compute_mfe_mae,
     mfe_mae_summary,
-    profit_factor,
-    event_skewness,
 )
 from factorlib.metrics.clustering import clustering_diagnostic
 from factorlib.metrics.corrado import corrado_rank_test

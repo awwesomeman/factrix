@@ -10,9 +10,8 @@ from factorlib.metrics.caar import (
     compute_caar,
     caar,
     bmp_test,
-    event_hit_rate,
-    event_ic,
 )
+from factorlib.metrics.event_quality import event_hit_rate, event_ic
 from factorlib._types import MIN_EVENTS
 
 

@@ -79,8 +79,9 @@ def _event_signal_profile(
     artifacts: Artifacts, config: EventConfig,
 ) -> FactorProfile:
     # WHY: lazy import — avoid loading event modules when only CS is used
-    from factorlib.metrics.caar import caar as caar_metric, bmp_test, event_hit_rate, event_ic
-    from factorlib.metrics.mfe_mae import mfe_mae_summary, profit_factor, event_skewness
+    from factorlib.metrics.caar import caar as caar_metric, bmp_test
+    from factorlib.metrics.event_quality import event_hit_rate, event_ic, profit_factor, event_skewness
+    from factorlib.metrics.mfe_mae import mfe_mae_summary
     from factorlib.metrics.clustering import clustering_diagnostic
 
     caar_series = artifacts.get("caar_series")

@@ -12,7 +12,8 @@ Customize via ``functools.partial(event_significance_gate, threshold=3.0)``.
 from __future__ import annotations
 
 from factorlib.evaluation._protocol import Artifacts, GateResult
-from factorlib.metrics.caar import caar as caar_metric, bmp_test, event_hit_rate
+from factorlib.metrics.caar import caar as caar_metric, bmp_test
+from factorlib.metrics.event_quality import event_hit_rate
 
 
 def event_significance_gate(

@@ -175,8 +175,9 @@ factorlib/
 │
 ├── metrics/                 # Independent, composable metric tools
 │   ├── ic.py                # IC, IC_IR, regime_ic, multi_horizon_ic
-│   ├── caar.py              # CAAR, BMP standardized AR, event hit rate
-│   ├── mfe_mae.py           # MFE/MAE path quality, profit factor, skewness
+│   ├── caar.py              # CAAR significance tests, BMP standardized AR
+│   ├── event_quality.py     # Per-event descriptive: hit rate, IC, profit factor, skewness
+│   ├── mfe_mae.py           # MFE/MAE path excursion
 │   ├── clustering.py        # Event clustering HHI diagnostic
 │   ├── corrado.py           # Corrado (1989) nonparametric rank test
 │   ├── quantile.py          # Quantile spread, group returns

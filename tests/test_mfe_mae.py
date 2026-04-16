@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.mfe_mae — MFE/MAE, profit_factor, event_skewness."""
+"""Tests for factorlib.metrics.mfe_mae and factorlib.metrics.event_quality."""
 
 from datetime import datetime, timedelta
 
@@ -9,6 +9,8 @@ import pytest
 from factorlib.metrics.mfe_mae import (
     compute_mfe_mae,
     mfe_mae_summary,
+)
+from factorlib.metrics.event_quality import (
     profit_factor,
     event_skewness,
 )
