@@ -148,8 +148,17 @@ GateFn = Callable[[Artifacts], GateResult]
 def _format_result(r: EvaluationResult) -> str:
     lines = [f"Factor: {r.factor_name} | Status: {r.status}"]
 
+    if r.gate_results:
+        lines.append("")
+        lines.append("Gates:")
+        for g in r.gate_results:
+            via = g.detail.get("via")
+            via_str = f" (via {', '.join(via)})" if via else ""
+            lines.append(f"  {g.name}: {g.status}{via_str}")
+
     if r.profile:
         if r.profile.metrics:
+            lines.append("")
             lines.append(_format_metric_table(r.profile.metrics))
         if r.profile.attribution:
             lines.append("")
