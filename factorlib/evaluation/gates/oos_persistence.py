@@ -30,7 +30,7 @@ def oos_persistence_gate(
         GateResult with PASS or VETOED status.
     """
     oos_result = multi_split_oos_decay(
-        artifacts.ic_values, decay_threshold=decay_threshold,
+        artifacts.get("ic_values"), decay_threshold=decay_threshold,
     )
 
     return GateResult(

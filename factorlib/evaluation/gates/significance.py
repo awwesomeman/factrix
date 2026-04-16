@@ -33,9 +33,9 @@ def significance_gate(
     Returns:
         GateResult with detail containing both t-stats and which path(s) passed.
     """
-    ic_result = ic_metric(artifacts.ic_series, artifacts.config.forward_periods)
+    ic_result = ic_metric(artifacts.get("ic_series"), artifacts.config.forward_periods)
     ic_tstat = ic_result.stat or 0.0
-    spread_arr = artifacts.spread_series["spread"].drop_nulls().to_numpy()
+    spread_arr = artifacts.get("spread_series")["spread"].drop_nulls().to_numpy()
     spread_tstat = _t_stat_from_array(spread_arr)
 
     via: list[str] = []

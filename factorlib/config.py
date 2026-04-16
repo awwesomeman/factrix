@@ -1,44 +1,80 @@
-"""Pipeline configuration and market presets.
+"""Per-type pipeline configuration.
 
 Gate thresholds (significance_threshold, oos_decay_threshold) are NOT here.
 They live on the gate functions and are bound via ``functools.partial``.
 This keeps per-gate tuning separate from data/pipeline settings.
+
+Users should instantiate one of the concrete subclasses
+(CrossSectionalConfig, EventConfig, ...), never BaseConfig directly.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import ClassVar, Literal
 
-import polars as pl
+from factorlib._types import FactorType
 
 
-@dataclass
-class PipelineConfig:
-    """Settings for ``evaluate_factor``.
+@dataclass(kw_only=True)
+class BaseConfig:
+    """Shared settings across all factor types.
 
-    Attributes:
-        forward_periods: Forward return horizon (default 5).
-        return_clip_pct: Percentile bounds for return winsorization.
-        mad_n: Number of MADs for factor winsorization (0 = disabled).
-        orthogonalize: Whether Step 6 (factor orthogonalization) was applied.
-        base_factors: Base factor panel for orthogonalization (if applicable).
-        n_groups: Number of quantile groups for spread / monotonicity.
-        q_top: Fraction of stocks in Q1 for concentration.
-        multi_horizon_periods: Forward horizons for multi-horizon IC.
-        estimated_cost_bps: Estimated single-leg trading cost in bps.
+    Not user-facing — use a concrete subclass.
     """
 
     forward_periods: int = 5
-    return_clip_pct: tuple[float, float] = (0.01, 0.99)
-    mad_n: float = 3.0
-    orthogonalize: bool = False
-    base_factors: pl.DataFrame | None = None
-    n_groups: int = 10
-    q_top: float = 0.2
+    estimated_cost_bps: float = 30.0
     multi_horizon_periods: list[int] = field(
         default_factory=lambda: [1, 5, 10, 20],
     )
-    estimated_cost_bps: float = 30.0
+
+
+@dataclass(kw_only=True)
+class CrossSectionalConfig(BaseConfig):
+    """Config for cross-sectional factors (individual stock selection)."""
+
+    factor_type: ClassVar[FactorType] = FactorType.CROSS_SECTIONAL
+
+    n_groups: int = 10
+    q_top: float = 0.2
+    orthogonalize: bool = False
+    mad_n: float = 3.0
+    return_clip_pct: tuple[float, float] = (0.01, 0.99)
+
+
+@dataclass(kw_only=True)
+class EventConfig(BaseConfig):
+    """Config for event signal factors (event-driven trading)."""
+
+    factor_type: ClassVar[FactorType] = FactorType.EVENT_SIGNAL
+
+    event_window_pre: int = 5
+    event_window_post: int = 20
+    cluster_window: int = 3
+    adjust_clustering: Literal[
+        "none", "calendar_block_bootstrap", "kolari_pynnonen"
+    ] = "none"
+
+
+@dataclass(kw_only=True)
+class MacroPanelConfig(BaseConfig):
+    """Config for macro panel factors (cross-country allocation)."""
+
+    factor_type: ClassVar[FactorType] = FactorType.MACRO_PANEL
+
+    demean_cross_section: bool = False
+    min_cross_section: int = 10
+
+
+@dataclass(kw_only=True)
+class MacroCommonConfig(BaseConfig):
+    """Config for macro common factors (risk attribution)."""
+
+    factor_type: ClassVar[FactorType] = FactorType.MACRO_COMMON
+
+    ts_window: int = 60
+    tradable: bool = False
 
 
 MARKET_DEFAULTS: dict[str, dict[str, object]] = {

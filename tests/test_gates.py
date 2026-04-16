@@ -1,4 +1,4 @@
-"""Tests for factorlib.gates — Gate Pipeline (Phase 2)."""
+"""Tests for factorlib.evaluation — Gate Pipeline."""
 
 from datetime import datetime, timedelta
 from functools import partial
@@ -14,7 +14,7 @@ from factorlib.evaluation._protocol import (
     GateFn,
     GateResult,
 )
-from factorlib.config import PipelineConfig, MARKET_DEFAULTS
+from factorlib.config import CrossSectionalConfig, MARKET_DEFAULTS
 from factorlib.evaluation.gates.significance import significance_gate
 from factorlib.evaluation.gates.oos_persistence import oos_persistence_gate
 from factorlib.evaluation.profile import compute_profile
@@ -28,10 +28,7 @@ from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
 
 @pytest.fixture
 def strong_panel() -> pl.DataFrame:
-    """60 dates × 50 assets, strong factor-return alignment.
-
-    Enough data for OOS analysis (60 > MIN_OOS_PERIODS * 2 after IC computation).
-    """
+    """60 dates × 50 assets, strong factor-return alignment."""
     rng = np.random.default_rng(42)
     n_dates, n_assets = 60, 50
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -40,7 +37,6 @@ def strong_panel() -> pl.DataFrame:
     rows = []
     for d in dates:
         f = rng.standard_normal(n_assets)
-        # Strong signal: return = 0.6 * factor + 0.4 * noise
         noise = rng.standard_normal(n_assets)
         r = 0.6 * f + 0.4 * noise
         for i, a in enumerate(assets):
@@ -58,10 +54,7 @@ def strong_panel() -> pl.DataFrame:
 
 @pytest.fixture
 def noise_panel() -> pl.DataFrame:
-    """60 dates × 50 assets, pure noise (no signal).
-
-    Factor and return are independent → IC ≈ 0, should fail significance.
-    """
+    """60 dates × 50 assets, pure noise (no signal)."""
     rng = np.random.default_rng(99)
     n_dates, n_assets = 60, 50
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -70,7 +63,7 @@ def noise_panel() -> pl.DataFrame:
     rows = []
     for d in dates:
         f = rng.standard_normal(n_assets)
-        r = rng.standard_normal(n_assets)  # independent
+        r = rng.standard_normal(n_assets)
         for i, a in enumerate(assets):
             rows.append({
                 "date": d,
@@ -86,12 +79,12 @@ def noise_panel() -> pl.DataFrame:
 
 @pytest.fixture
 def strong_artifacts(strong_panel) -> Artifacts:
-    return build_artifacts(strong_panel, PipelineConfig())
+    return build_artifacts(strong_panel, CrossSectionalConfig())
 
 
 @pytest.fixture
 def noise_artifacts(noise_panel) -> Artifacts:
-    return build_artifacts(noise_panel, PipelineConfig())
+    return build_artifacts(noise_panel, CrossSectionalConfig())
 
 
 # ---------------------------------------------------------------------------
@@ -113,12 +106,52 @@ class TestProtocol:
         er = EvaluationResult(factor_name="X", status="PASS")
         assert er.gate_results == []
         assert er.profile is None
+        assert er.artifacts is None
         assert er.caution_reasons == []
 
     def test_factor_profile_defaults(self):
         fp = FactorProfile()
-        assert fp.reliability == []
-        assert fp.profitability == []
+        assert fp.metrics == []
+        assert fp.attribution == []
+
+    def test_factor_profile_get(self):
+        from factorlib._types import MetricOutput
+        fp = FactorProfile(metrics=[MetricOutput(name="ic", value=0.05)])
+        assert fp.get("ic") is not None
+        assert fp.get("ic").value == 0.05
+        assert fp.get("nonexistent") is None
+
+    def test_artifacts_get(self, strong_artifacts):
+        ic = strong_artifacts.get("ic_series")
+        assert "date" in ic.columns
+        with pytest.raises(KeyError, match="Artifacts has no"):
+            strong_artifacts.get("nonexistent")
+
+    def test_evaluation_result_repr(self, strong_panel):
+        result = evaluate_factor(
+            strong_panel, "test", [], CrossSectionalConfig(),
+        )
+        text = repr(result)
+        assert "Factor: test" in text
+        assert "Status:" in text
+
+    def test_evaluation_result_to_dict(self, strong_panel):
+        result = evaluate_factor(
+            strong_panel, "test", [], CrossSectionalConfig(),
+        )
+        d = result.to_dict()
+        assert d["factor_name"] == "test"
+        assert "metrics" in d
+        assert isinstance(d["metrics"], list)
+
+    def test_evaluation_result_to_dataframe(self, strong_panel):
+        result = evaluate_factor(
+            strong_panel, "test", [], CrossSectionalConfig(),
+        )
+        df = result.to_dataframe()
+        assert "metric" in df.columns
+        assert "value" in df.columns
+        assert len(df) > 0
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +160,7 @@ class TestProtocol:
 
 class TestConfig:
     def test_defaults(self):
-        cfg = PipelineConfig()
+        cfg = CrossSectionalConfig()
         assert cfg.forward_periods == 5
         assert cfg.n_groups == 10
         assert cfg.estimated_cost_bps == 30.0
@@ -137,6 +170,10 @@ class TestConfig:
         assert "tw" in MARKET_DEFAULTS
         assert "us" in MARKET_DEFAULTS
         assert MARKET_DEFAULTS["tw"]["estimated_cost_bps"] == 30
+
+    def test_factor_type_classvar(self):
+        from factorlib._types import FactorType
+        assert CrossSectionalConfig.factor_type == FactorType.CROSS_SECTIONAL
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +213,6 @@ class TestSignificanceGate:
 class TestOOSPersistenceGate:
     def test_strong_signal(self, strong_artifacts):
         result = oos_persistence_gate(strong_artifacts)
-        # Strong signal should at least not sign-flip
         assert result.detail["sign_flipped"] is False
         assert result.name == "oos_persistence"
 
@@ -199,18 +235,13 @@ class TestComputeProfile:
     def test_returns_factor_profile(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
         assert isinstance(profile, FactorProfile)
-        assert len(profile.reliability) == 6
-        assert len(profile.profitability) == 5
+        assert len(profile.metrics) == 11
 
-    def test_reliability_metric_names(self, strong_artifacts):
+    def test_metric_names(self, strong_artifacts):
         profile = compute_profile(strong_artifacts)
-        names = {m.name for m in profile.reliability}
-        assert names == {"ic", "ic_ir", "hit_rate", "ic_trend", "monotonicity", "oos_decay"}
-
-    def test_profitability_metric_names(self, strong_artifacts):
-        profile = compute_profile(strong_artifacts)
-        names = {m.name for m in profile.profitability}
+        names = {m.name for m in profile.metrics}
         assert names == {
+            "ic", "ic_ir", "hit_rate", "ic_trend", "monotonicity", "oos_decay",
             "q1_q5_spread", "turnover",
             "breakeven_cost", "net_spread", "q1_concentration",
         }
@@ -224,77 +255,68 @@ class TestEvaluateFactor:
     def test_strong_signal_passes_all_gates(self, strong_panel):
         result = evaluate_factor(
             strong_panel, "strong_factor",
-            CROSS_SECTIONAL_GATES, PipelineConfig(),
+            CROSS_SECTIONAL_GATES, CrossSectionalConfig(),
         )
         assert result.factor_name == "strong_factor"
-        # Strong signal should pass significance; OOS may vary
         assert result.status in ("PASS", "CAUTION", "VETOED")
         assert len(result.gate_results) >= 1
 
     def test_noise_fails_at_significance(self, noise_panel):
         result = evaluate_factor(
             noise_panel, "noise_factor",
-            CROSS_SECTIONAL_GATES, PipelineConfig(),
+            CROSS_SECTIONAL_GATES, CrossSectionalConfig(),
         )
         assert result.status == "FAILED"
         assert result.gate_results[0].name == "significance"
         assert result.gate_results[0].passed is False
-        # Short-circuit: no profile computed
         assert result.profile is None
 
     def test_short_circuit_skips_later_gates(self, noise_panel):
         result = evaluate_factor(
             noise_panel, "noise",
-            CROSS_SECTIONAL_GATES, PipelineConfig(),
+            CROSS_SECTIONAL_GATES, CrossSectionalConfig(),
         )
-        # Only 1 gate result because first gate failed → short-circuit
         assert len(result.gate_results) == 1
 
     def test_custom_gate_list(self, strong_panel):
-        """User can compose any list of gate functions."""
         def always_pass(artifacts: Artifacts) -> GateResult:
             return GateResult(name="always_pass", status="PASS")
 
         result = evaluate_factor(
             strong_panel, "test",
-            [always_pass], PipelineConfig(),
+            [always_pass], CrossSectionalConfig(),
         )
         assert result.gate_results[0].name == "always_pass"
-        # Profile should be computed since all gates passed
         assert result.profile is not None
 
     def test_custom_gate_veto(self, strong_panel):
-        """Custom gate can VETO."""
         def always_veto(artifacts: Artifacts) -> GateResult:
             return GateResult(name="always_veto", status="VETOED")
 
         result = evaluate_factor(
             strong_panel, "test",
-            [always_veto], PipelineConfig(),
+            [always_veto], CrossSectionalConfig(),
         )
         assert result.status == "VETOED"
         assert result.profile is None
 
     def test_empty_gates_produces_profile(self, strong_panel):
-        """No gates = all pass → profile computed."""
         result = evaluate_factor(
-            strong_panel, "test", [], PipelineConfig(),
+            strong_panel, "test", [], CrossSectionalConfig(),
         )
         assert result.profile is not None
         assert result.status in ("PASS", "CAUTION")
 
     def test_caution_when_not_orthogonalized(self, strong_panel):
-        """orthogonalize=False → CAUTION reason present."""
         result = evaluate_factor(
-            strong_panel, "test", [], PipelineConfig(orthogonalize=False),
+            strong_panel, "test", [], CrossSectionalConfig(orthogonalize=False),
         )
         if result.status == "CAUTION":
             assert any("orthogonalize" in r for r in result.caution_reasons)
 
     def test_caution_small_universe(self):
-        """Universe < 200 → CAUTION."""
         rng = np.random.default_rng(42)
-        n_dates, n_assets = 60, 10  # small universe
+        n_dates, n_assets = 60, 10
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
         rows = []
         for d in dates:
@@ -307,8 +329,15 @@ class TestEvaluateFactor:
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
-        result = evaluate_factor(df, "small_uni", [], PipelineConfig())
+        result = evaluate_factor(df, "small_uni", [], CrossSectionalConfig())
         assert any("universe size" in r.lower() for r in result.caution_reasons)
+
+    def test_artifacts_attached(self, strong_panel):
+        result = evaluate_factor(
+            strong_panel, "test", [], CrossSectionalConfig(),
+        )
+        assert result.artifacts is not None
+        assert result.artifacts.get("ic_series") is not None
 
 
 # ---------------------------------------------------------------------------

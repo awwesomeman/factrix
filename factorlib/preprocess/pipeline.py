@@ -24,13 +24,13 @@ from factorlib.preprocess.normalize import (
 )
 
 if TYPE_CHECKING:
-    from factorlib.config import PipelineConfig
+    from factorlib.config import CrossSectionalConfig
 
 
 def preprocess_cs_factor(
     df: pl.DataFrame,
     *,
-    config: PipelineConfig | None = None,
+    config: CrossSectionalConfig | None = None,
     forward_periods: int = 5,
     return_clip_pct: tuple[float, float] = (0.01, 0.99),
     mad_n: float = 3.0,

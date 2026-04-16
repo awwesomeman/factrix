@@ -132,8 +132,8 @@ class FactorTracker:
 
             # Profile metrics
             if result.profile:
-                self._log_metrics(result.profile.reliability)
-                self._log_metrics(result.profile.profitability)
+                self._log_metrics(result.profile.metrics)
+                self._log_metrics(result.profile.attribution)
 
             return run.info.run_id
 

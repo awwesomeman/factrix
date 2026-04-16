@@ -1,15 +1,16 @@
 """Factor profile computation.
 
 After all gates pass, ``compute_profile`` runs the full suite of
-Phase 1 tools to produce raw metric outputs — no scores, no mapping.
+metrics to produce raw MetricOutput values — no scores, no mapping.
 
-Reliability: IC, IC_IR, Hit_Rate, IC_Trend, Monotonicity, OOS_Decay.
-Profitability: Q1-Q5 Spread (with long/short decomposition in metadata),
-    Turnover, Breakeven Cost, Net Spread, Q1 Concentration.
+Cross-sectional metrics:
+    IC, IC_IR, Hit_Rate, IC_Trend, Monotonicity, OOS_Decay,
+    Q1-Q5 Spread, Turnover, Breakeven Cost, Net Spread, Q1 Concentration.
 """
 
 from __future__ import annotations
 
+from factorlib.config import BaseConfig, CrossSectionalConfig
 from factorlib.evaluation._protocol import Artifacts, FactorProfile
 from factorlib._types import MetricOutput
 from factorlib.metrics.ic import ic as ic_metric, ic_ir as ic_ir_metric
@@ -23,27 +24,34 @@ from factorlib.metrics.tradability import turnover, breakeven_cost, net_spread
 
 
 def compute_profile(artifacts: Artifacts) -> FactorProfile:
-    """Compute the full factor profile from pre-built artifacts.
+    """Compute the full factor profile from pre-built artifacts."""
+    match artifacts.config:
+        case CrossSectionalConfig():
+            return _cs_profile(artifacts, artifacts.config)
+        case _:
+            ft = type(artifacts.config).factor_type
+            raise NotImplementedError(
+                f"compute_profile not yet implemented for {ft}"
+            )
 
-    Args:
-        artifacts: Pre-computed pipeline artifacts (ic_series, spread_series, etc.).
 
-    Returns:
-        FactorProfile with reliability and profitability metric lists.
-    """
-    cfg = artifacts.config
-    fp = cfg.forward_periods
+def _cs_profile(
+    artifacts: Artifacts, config: CrossSectionalConfig,
+) -> FactorProfile:
+    fp = config.forward_periods
+    ic_series = artifacts.get("ic_series")
+    ic_values = artifacts.get("ic_values")
+    spread_series = artifacts.get("spread_series")
 
-    # --- Reliability ---
-    ic_sig = ic_metric(artifacts.ic_series, forward_periods=fp)
-    ic_ir = ic_ir_metric(artifacts.ic_series)
-    hit = hit_rate(artifacts.ic_values, forward_periods=fp)
-    ic_trn = ic_trend(artifacts.ic_values)
+    ic_sig = ic_metric(ic_series, forward_periods=fp)
+    ic_ir = ic_ir_metric(ic_series)
+    hit = hit_rate(ic_values, forward_periods=fp)
+    ic_trn = ic_trend(ic_values)
     mono = monotonicity(
-        artifacts.prepared, forward_periods=fp, n_groups=cfg.n_groups,
+        artifacts.prepared, forward_periods=fp, n_groups=config.n_groups,
     )
 
-    oos_result = multi_split_oos_decay(artifacts.ic_values)
+    oos_result = multi_split_oos_decay(ic_values)
     oos_metric = MetricOutput(
         name="oos_decay",
         value=oos_result.decay_ratio,
@@ -58,24 +66,22 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
         },
     )
 
-    reliability = [ic_sig, ic_ir, hit, ic_trn, mono, oos_metric]
-
-    # --- Profitability ---
     spread = quantile_spread(
         artifacts.prepared,
         forward_periods=fp,
-        n_groups=cfg.n_groups,
-        _precomputed_series=artifacts.spread_series,
+        n_groups=config.n_groups,
+        _precomputed_series=spread_series,
     )
     turn = turnover(artifacts.prepared)
     be = breakeven_cost(spread.value, turn.value)
     ns = net_spread(
-        spread.value, turn.value, cfg.estimated_cost_bps,
+        spread.value, turn.value, config.estimated_cost_bps,
     )
     conc = q1_concentration(
-        artifacts.prepared, forward_periods=fp, q_top=cfg.q_top,
+        artifacts.prepared, forward_periods=fp, q_top=config.q_top,
     )
 
-    profitability = [spread, turn, be, ns, conc]
-
-    return FactorProfile(reliability=reliability, profitability=profitability)
+    return FactorProfile(
+        metrics=[ic_sig, ic_ir, hit, ic_trn, mono, oos_metric,
+                 spread, turn, be, ns, conc],
+    )

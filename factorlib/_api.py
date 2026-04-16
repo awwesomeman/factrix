@@ -1,6 +1,6 @@
 """Group splitting utility for sub-universe / time-period / factor comparison.
 
-Splits a DataFrame by arbitrary filter conditions and adjusts PipelineConfig
+Splits a DataFrame by arbitrary filter conditions and adjusts CrossSectionalConfig
 (n_groups) based on each group's universe size.
 
 When ``unify_n_groups=True`` (default), all groups use the same n_groups
@@ -14,7 +14,7 @@ from dataclasses import replace
 
 import polars as pl
 
-from factorlib.config import PipelineConfig
+from factorlib.config import CrossSectionalConfig
 from factorlib.metrics._helpers import _median_universe_size
 
 logger = logging.getLogger(__name__)
@@ -37,10 +37,10 @@ def _recommend_n_groups(median_n: int) -> int:
 def split_by_group(
     df: pl.DataFrame,
     definitions: dict[str, pl.Expr],
-    base_config: PipelineConfig,
+    base_config: CrossSectionalConfig,
     auto_n_groups: bool = True,
     unify_n_groups: bool = True,
-) -> dict[str, tuple[pl.DataFrame, PipelineConfig]]:
+) -> dict[str, tuple[pl.DataFrame, CrossSectionalConfig]]:
     """Split DataFrame by filter conditions with N-aware config adjustment.
 
     Args:
@@ -55,7 +55,7 @@ def split_by_group(
             each group use its own optimal n_groups independently.
 
     Returns:
-        Mapping of group name → (filtered DataFrame, adjusted PipelineConfig).
+        Mapping of group name → (filtered DataFrame, adjusted CrossSectionalConfig).
     """
     # WHY: first pass collects per-group data and recommended n_groups;
     # second pass applies the unified minimum (if unify_n_groups=True).
@@ -103,7 +103,7 @@ def split_by_group(
                 name, median_n,
             )
 
-    result: dict[str, tuple[pl.DataFrame, PipelineConfig]] = {}
+    result: dict[str, tuple[pl.DataFrame, CrossSectionalConfig]] = {}
     for name, (filtered, median_n, recommended) in per_group.items():
         if auto_n_groups:
             target = unified if unified is not None else recommended

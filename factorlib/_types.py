@@ -6,7 +6,24 @@ numerical constants. This module is the single source of truth.
 
 from __future__ import annotations
 
+import enum
 from dataclasses import dataclass, field
+
+
+# ---------------------------------------------------------------------------
+# Factor type taxonomy
+# ---------------------------------------------------------------------------
+
+class FactorType(enum.StrEnum):
+    """Supported factor type categories.
+
+    Determines which metrics, gates, and profile logic apply.
+    """
+
+    CROSS_SECTIONAL = "cross_sectional"
+    EVENT_SIGNAL = "event_signal"
+    MACRO_PANEL = "macro_panel"
+    MACRO_COMMON = "macro_common"
 
 
 # ---------------------------------------------------------------------------

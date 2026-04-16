@@ -1,11 +1,11 @@
-"""Core types for the Gate Pipeline.
+"""Core types for the evaluation pipeline.
 
 GateFn = Callable[[Artifacts], GateResult]
 
 Each gate is a plain function. Use ``functools.partial`` to bind
 custom thresholds — no Protocol classes needed.
 
-Artifacts is a typed, read-only container of pre-computed intermediate
+Artifacts is a read-only container of pre-computed intermediate
 results. All gates share the same Artifacts instance; none may mutate it.
 """
 
@@ -13,11 +13,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from itertools import chain
 from typing import Any, Literal
 
 import polars as pl
 
-from factorlib.config import PipelineConfig
+from factorlib.config import BaseConfig
 from factorlib._types import MetricOutput
 
 GateStatus = Literal["PASS", "FAILED", "VETOED"]
@@ -41,58 +42,153 @@ class GateResult:
 class Artifacts:
     """Pre-computed intermediate results shared across all gates.
 
-    Built once by ``_build_artifacts`` before any gate runs.
+    Built once by ``build_artifacts`` before any gate runs.
     Gates read from this; none may write to it.
 
-    Attributes:
-        prepared: Preprocessed panel (date, asset_id, factor, forward_return, ...).
-        ic_series: Output of ``compute_ic()`` — columns ``date, ic``.
-        ic_values: IC series with ``ic`` renamed to ``value`` for series tools.
-        spread_series: Output of ``compute_spread_series()``
-            — columns ``date, spread, q1_return, q5_return, universe_return``.
-        config: Pipeline configuration.
+    ``intermediates`` holds type-specific DataFrames (e.g. ic_series,
+    spread_series for cross-sectional). Use ``.get(key)`` for access
+    with a helpful KeyError on missing keys.
     """
 
     prepared: pl.DataFrame
-    ic_series: pl.DataFrame
-    ic_values: pl.DataFrame
-    spread_series: pl.DataFrame
-    config: PipelineConfig
+    config: BaseConfig
+    intermediates: dict[str, pl.DataFrame] = field(default_factory=dict)
+
+    def get(self, key: str) -> pl.DataFrame:
+        if key not in self.intermediates:
+            ft = type(self.config).factor_type
+            raise KeyError(
+                f"Artifacts has no '{key}'. "
+                f"Available for {ft}: {list(self.intermediates.keys())}"
+            )
+        return self.intermediates[key]
 
 
 @dataclass
 class FactorProfile:
-    """Factor profile containing raw metric outputs.
+    """Factor profile — flat list of metric outputs.
 
-    Attributes:
-        reliability: Metrics measuring signal quality
-            (IC, IC_IR, Hit_Rate, IC_Trend, Monotonicity, OOS_Decay).
-        profitability: Metrics measuring economic significance
-            (Q1-Q5 Spread, Long/Short Alpha, Turnover, Breakeven Cost,
-            Net Spread, Q1 Concentration).
+    ``metrics``: all reliability + profitability metrics.
+    ``attribution``: spanning alpha and related metrics (optional).
     """
 
-    reliability: list[MetricOutput] = field(default_factory=list)
-    profitability: list[MetricOutput] = field(default_factory=list)
+    metrics: list[MetricOutput] = field(default_factory=list)
+    attribution: list[MetricOutput] = field(default_factory=list)
+
+    def get(self, name: str) -> MetricOutput | None:
+        for m in chain(self.metrics, self.attribution):
+            if m.name == name:
+                return m
+        return None
 
 
 @dataclass
 class EvaluationResult:
-    """Complete evaluation output for a single factor.
-
-    Attributes:
-        factor_name: Factor identifier.
-        status: Overall status.
-        gate_results: Per-gate results (in evaluation order).
-        profile: Factor profile (None if a gate failed/vetoed before profiling).
-        caution_reasons: Human-readable reasons for CAUTION status.
-    """
+    """Complete evaluation output for a single factor."""
 
     factor_name: str
     status: EvaluationStatus
     gate_results: list[GateResult] = field(default_factory=list)
     profile: FactorProfile | None = None
+    artifacts: Artifacts | None = None
     caution_reasons: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "factor_name": self.factor_name,
+            "status": self.status,
+            "caution_reasons": self.caution_reasons,
+            "gate_results": [
+                {"name": g.name, "status": g.status, "detail": g.detail}
+                for g in self.gate_results
+            ],
+        }
+        if self.profile:
+            d["metrics"] = [
+                {
+                    "name": m.name, "value": m.value,
+                    "stat": m.stat, "significance": m.significance,
+                }
+                for m in self.profile.metrics
+            ]
+            d["attribution"] = [
+                {
+                    "name": m.name, "value": m.value,
+                    "stat": m.stat, "significance": m.significance,
+                }
+                for m in self.profile.attribution
+            ]
+        return d
+
+    def to_dataframe(self) -> pl.DataFrame:
+        if not self.profile:
+            return pl.DataFrame()
+        rows = []
+        for m in self.profile.metrics + self.profile.attribution:
+            rows.append({
+                "factor": self.factor_name,
+                "metric": m.name,
+                "value": m.value,
+                "stat": m.stat,
+                "significance": m.significance or "",
+            })
+        return pl.DataFrame(rows)
+
+    def __repr__(self) -> str:
+        return _format_result(self)
 
 
 GateFn = Callable[[Artifacts], GateResult]
+
+
+# ---------------------------------------------------------------------------
+# __repr__ helper
+# ---------------------------------------------------------------------------
+
+def _format_result(r: EvaluationResult) -> str:
+    lines = [f"Factor: {r.factor_name} | Status: {r.status}"]
+
+    if r.profile:
+        if r.profile.metrics:
+            lines.append(_format_metric_table(r.profile.metrics))
+        if r.profile.attribution:
+            lines.append("")
+            lines.append("Attribution:")
+            lines.append(_format_metric_table(r.profile.attribution))
+
+    if r.caution_reasons:
+        lines.append("")
+        lines.append("Caution:")
+        for reason in r.caution_reasons:
+            lines.append(f"  - {reason}")
+
+    return "\n".join(lines)
+
+
+def _format_metric_table(metrics: list[MetricOutput]) -> str:
+    col_m = max(len(m.name) for m in metrics)
+    col_m = max(col_m, 6)  # minimum width for "metric"
+    col_v = 8
+    col_t = 8
+    col_s = 5
+
+    def row(m_val: str, v_val: str, t_val: str, s_val: str) -> str:
+        return (
+            f"│ {m_val:<{col_m}} "
+            f"│ {v_val:>{col_v}} "
+            f"│ {t_val:>{col_t}} "
+            f"│ {s_val:>{col_s}} │"
+        )
+
+    sep_top = f"┌{'─' * (col_m + 2)}┬{'─' * (col_v + 2)}┬{'─' * (col_t + 2)}┬{'─' * (col_s + 2)}┐"
+    sep_mid = f"├{'─' * (col_m + 2)}┼{'─' * (col_v + 2)}┼{'─' * (col_t + 2)}┼{'─' * (col_s + 2)}┤"
+    sep_bot = f"└{'─' * (col_m + 2)}┴{'─' * (col_v + 2)}┴{'─' * (col_t + 2)}┴{'─' * (col_s + 2)}┘"
+
+    lines = [sep_top, row("metric", "value", "stat", "sig"), sep_mid]
+    for m in metrics:
+        v_str = f"{m.value:.4f}" if abs(m.value) < 100 else f"{m.value:.2f}"
+        t_str = f"{m.stat:.2f}" if m.stat is not None else ""
+        s_str = m.significance or ""
+        lines.append(row(m.name, v_str, t_str, s_str))
+    lines.append(sep_bot)
+    return "\n".join(lines)
