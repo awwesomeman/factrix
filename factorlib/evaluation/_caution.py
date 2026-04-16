@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-from factorlib.config import BaseConfig, CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
+from factorlib.config import BaseConfig, CrossSectionalConfig, EventConfig, MacroCommonConfig, MacroPanelConfig
 from factorlib.evaluation._protocol import (
     Artifacts,
     FactorProfile,
@@ -22,6 +22,8 @@ def check_caution(
     match artifacts.config:
         case CrossSectionalConfig():
             return _cs_caution(artifacts, gate_results, profile)
+        case EventConfig():
+            return _event_signal_caution(artifacts, gate_results, profile)
         case MacroPanelConfig():
             return _macro_panel_caution(artifacts, profile)
         case MacroCommonConfig():
@@ -107,6 +109,66 @@ def _cs_caution(
     return reasons
 
 
+def _event_signal_caution(
+    artifacts: Artifacts,
+    gate_results: list[GateResult],
+    profile: FactorProfile,
+) -> list[str]:
+    reasons: list[str] = []
+    cfg: EventConfig = artifacts.config  # type: ignore[assignment]
+
+    bmp_m = profile.get("bmp_sar")
+    n_events = bmp_m.metadata.get("n_events", 0) if bmp_m else 0
+    if n_events < 30:
+        reasons.append(
+            f"Only {n_events} events (< 30) — statistical power is low"
+        )
+
+    for gr in gate_results:
+        if gr.name == "event_significance":
+            via = gr.detail.get("via", [])
+            if via and via == ["hit_rate"]:
+                reasons.append(
+                    "Significance passed only via hit_rate, not CAAR or BMP"
+                    " — direction is correct but economic magnitude may be weak"
+                )
+            break
+
+    caar_m = profile.get("caar")
+    if caar_m is not None and bmp_m is not None:
+        # WHY: if CAAR and BMP disagree on direction, CAAR may be
+        # spuriously inflated by event-induced variance.
+        if (caar_m.value * bmp_m.value) < 0 and abs(bmp_m.value) > 1e-9:
+            reasons.append(
+                "CAAR and BMP have opposite signs"
+                " — CAAR may be inflated by event-induced variance"
+            )
+        # WHY: if CAAR is significant but BMP fails to confirm,
+        # event-induced variance may be inflating the CAAR t-stat.
+        caar_t = abs(caar_m.stat or 0.0)
+        bmp_z = abs(bmp_m.stat or 0.0)
+        if caar_t >= 2.0 and bmp_z < 1.5:
+            reasons.append(
+                "CAAR is significant but BMP does not confirm"
+                " — CAAR t-stat may be inflated by event-induced variance"
+            )
+
+    n_assets = artifacts.prepared["asset_id"].n_unique()
+    clust = profile.get("clustering_hhi")
+    if clust is not None and n_assets > 1:
+        hhi_norm = clust.metadata.get("hhi_normalized", 0.0)
+        if hhi_norm > 0.3 and cfg.adjust_clustering == "none":
+            reasons.append(
+                f"Event clustering HHI_normalized = {hhi_norm:.2f} (> 0.30)"
+                " — independence assumption may be violated."
+                " Consider setting adjust_clustering='kolari_pynnonen'"
+            )
+
+    reasons.extend(_check_trend_decay(profile, "caar_trend", "CAAR"))
+
+    return reasons
+
+
 def _macro_panel_caution(
     artifacts: Artifacts,
     profile: FactorProfile,
@@ -131,7 +193,7 @@ def _macro_panel_caution(
                 " — robustness check failed"
             )
 
-    reasons.extend(_check_beta_trend(profile))
+    reasons.extend(_check_trend_decay(profile))
 
     return reasons
 
@@ -156,15 +218,19 @@ def _macro_common_caution(
             " — assets disagree on exposure direction"
         )
 
-    reasons.extend(_check_beta_trend(profile))
+    reasons.extend(_check_trend_decay(profile))
 
     return reasons
 
 
-def _check_beta_trend(profile: FactorProfile) -> list[str]:
-    beta_trn = profile.get("beta_trend")
-    if beta_trn is not None:
-        ci_excludes_zero = beta_trn.metadata.get("ci_excludes_zero", False)
-        if beta_trn.value < 0 and ci_excludes_zero:
-            return ["β trend shows significant decay"]
+def _check_trend_decay(
+    profile: FactorProfile,
+    key: str = "beta_trend",
+    label: str = "β",
+) -> list[str]:
+    trn = profile.get(key)
+    if trn is not None:
+        ci_excludes_zero = trn.metadata.get("ci_excludes_zero", False)
+        if trn.value < 0 and ci_excludes_zero:
+            return [f"{label} trend shows significant decay"]
     return []

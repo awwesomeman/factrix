@@ -49,6 +49,7 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # ---------------------------------------------------------------------------
 
 MIN_IC_PERIODS: int = 10
+MIN_EVENTS: int = 10
 MIN_OOS_PERIODS: int = 5
 MIN_PORTFOLIO_PERIODS: int = 5
 MIN_MONOTONICITY_PERIODS: int = 5

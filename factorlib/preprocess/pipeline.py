@@ -36,7 +36,9 @@ def preprocess(
     Dispatches to the appropriate type-specific preprocessor.
     Defaults to cross-sectional preprocessing.
     """
-    from factorlib.config import CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
+    from factorlib.config import (
+        CrossSectionalConfig, EventConfig, MacroCommonConfig, MacroPanelConfig,
+    )
 
     if config is None:
         config = CrossSectionalConfig()
@@ -44,6 +46,8 @@ def preprocess(
     match config:
         case CrossSectionalConfig():
             return preprocess_cs_factor(df, config=config)
+        case EventConfig():
+            return preprocess_event_signal(df, config=config)
         case MacroPanelConfig():
             return preprocess_macro_panel(df, config=config)
         case MacroCommonConfig():
@@ -140,6 +144,50 @@ def preprocess_macro_panel(
 
     cols = ["date", "asset_id", "factor_raw",
             pl.col("factor_zscore").alias("factor"), "forward_return"]
+    if "price" in out.columns:
+        cols.append("price")
+
+    return out.select(cols)
+
+
+def preprocess_event_signal(
+    df: pl.DataFrame,
+    *,
+    config: EventConfig,
+) -> pl.DataFrame:
+    """Preprocess event signal data.
+
+    Steps:
+        1. Forward return (reuse ``compute_forward_return``).
+        2. Return winsorize (per-date percentile clip).
+        3. Abnormal return (cross-sectional de-mean, multi-asset only).
+
+    Does NOT apply: MAD winsorize, z-score — factor values are already
+    discrete {-1, 0, +1}, normalization would destroy the signal.
+    Preserves ``factor`` as-is (no factor_raw/factor_zscore split).
+
+    Args:
+        df: Data with ``date, asset_id, price, factor``.
+
+    Returns:
+        DataFrame with columns:
+        ``date, asset_id, factor, forward_return, abnormal_return, price``.
+        ``abnormal_return`` equals ``forward_return`` when N=1
+        (no cross-section to de-mean against).
+    """
+    out = compute_forward_return(df, config.forward_periods)
+    out = winsorize_forward_return(out)
+
+    n_assets = out["asset_id"].n_unique()
+    if n_assets > 1:
+        out = compute_abnormal_return(out)
+    else:
+        # N=1: no cross-section to de-mean; AR = raw return
+        out = out.with_columns(
+            pl.col("forward_return").alias("abnormal_return")
+        )
+
+    cols = ["date", "asset_id", "factor", "forward_return", "abnormal_return"]
     if "price" in out.columns:
         cols.append("price")
 

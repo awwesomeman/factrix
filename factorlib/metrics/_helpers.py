@@ -67,3 +67,21 @@ def _median_universe_size(df: pl.DataFrame) -> int:
     )
 
 
+def _signed_car(
+    df: pl.DataFrame,
+    factor_col: str = "factor",
+    return_col: str = "forward_return",
+) -> np.ndarray:
+    """Compute signed CAR for event rows (factor ≠ 0).
+
+    ``signed_car = return × sign(factor)``
+
+    Args:
+        df: Event-filtered DataFrame (factor ≠ 0 rows only).
+
+    Returns:
+        1-D numpy array of signed abnormal returns.
+    """
+    return df[return_col].to_numpy() * np.sign(df[factor_col].to_numpy())
+
+

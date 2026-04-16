@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from factorlib.config import BaseConfig, CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
+from factorlib.config import BaseConfig, CrossSectionalConfig, EventConfig, MacroCommonConfig, MacroPanelConfig
 from factorlib.evaluation._caution import check_caution, warn_small_n
 from factorlib.evaluation._protocol import (
     Artifacts,
@@ -98,6 +98,8 @@ def build_artifacts(df: pl.DataFrame, config: BaseConfig) -> Artifacts:
     match config:
         case CrossSectionalConfig():
             return _build_cs_artifacts(df, config)
+        case EventConfig():
+            return _build_event_artifacts(df, config)
         case MacroPanelConfig():
             return _build_macro_panel_artifacts(df, config)
         case MacroCommonConfig():
@@ -133,6 +135,41 @@ def _validate_columns(df: pl.DataFrame, factor_type: str) -> None:
             f"Missing: {missing}.\n\n{_SCHEMA_HINT}\n\n"
             f"Hint: call fl.preprocess(df) first, or set preprocess=True."
         )
+
+
+def _build_event_artifacts(
+    df: pl.DataFrame, config: EventConfig,
+) -> Artifacts:
+    """Build event signal artifacts: CAAR series and optional MFE/MAE."""
+    _validate_columns(df, "event_signal")
+
+    from factorlib.metrics.caar import compute_caar
+    from factorlib.metrics.mfe_mae import compute_mfe_mae
+
+    # WHY: use abnormal_return (market-adjusted) when available;
+    # fall back to forward_return for non-preprocessed data.
+    ret_col = (
+        "abnormal_return" if "abnormal_return" in df.columns
+        else "forward_return"
+    )
+
+    caar_series = compute_caar(df, return_col=ret_col)
+    caar_values = caar_series.rename({"caar": "value"})
+
+    mfe_mae_df = compute_mfe_mae(df, window=config.event_window_post)
+
+    intermediates: dict[str, pl.DataFrame] = {
+        "caar_series": caar_series,
+        "caar_values": caar_values,
+    }
+    if not mfe_mae_df.is_empty():
+        intermediates["mfe_mae"] = mfe_mae_df
+
+    return Artifacts(
+        prepared=df,
+        config=config,
+        intermediates=intermediates,
+    )
 
 
 def _build_cs_artifacts(

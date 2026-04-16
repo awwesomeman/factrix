@@ -6,9 +6,11 @@ metrics to produce raw MetricOutput values — no scores, no mapping.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import polars as pl
 
-from factorlib.config import BaseConfig, CrossSectionalConfig, MacroCommonConfig, MacroPanelConfig
+from factorlib.config import BaseConfig, CrossSectionalConfig, EventConfig, MacroCommonConfig, MacroPanelConfig
 from factorlib.evaluation._protocol import Artifacts, FactorProfile
 from factorlib._types import MetricOutput
 from factorlib.metrics.ic import ic as ic_metric, ic_ir as ic_ir_metric
@@ -26,6 +28,8 @@ def compute_profile(artifacts: Artifacts) -> FactorProfile:
     match artifacts.config:
         case CrossSectionalConfig():
             return _cs_profile(artifacts, artifacts.config)
+        case EventConfig():
+            return _event_signal_profile(artifacts, artifacts.config)
         case MacroPanelConfig():
             return _macro_panel_profile(artifacts, artifacts.config)
         case MacroCommonConfig():
@@ -65,6 +69,55 @@ def _beta_trend_metric(values_df: pl.DataFrame) -> MetricOutput:
         stat=trn.stat, significance=trn.significance,
         metadata=trn.metadata,
     )
+
+
+# ---------------------------------------------------------------------------
+# Event signal profile
+# ---------------------------------------------------------------------------
+
+def _event_signal_profile(
+    artifacts: Artifacts, config: EventConfig,
+) -> FactorProfile:
+    # WHY: lazy import — avoid loading event modules when only CS is used
+    from factorlib.metrics.caar import caar as caar_metric, bmp_test, event_hit_rate
+    from factorlib.metrics.mfe_mae import mfe_mae_summary, profit_factor, event_skewness
+    from factorlib.metrics.clustering import clustering_diagnostic
+
+    caar_series = artifacts.get("caar_series")
+    caar_values = artifacts.get("caar_values")
+
+    ret_col = (
+        "abnormal_return" if "abnormal_return" in artifacts.prepared.columns
+        else "forward_return"
+    )
+
+    caar_m = caar_metric(caar_series, forward_periods=config.forward_periods)
+    bmp_m = bmp_test(
+        artifacts.prepared, return_col=ret_col,
+        forward_periods=config.forward_periods,
+    )
+    hit_m = event_hit_rate(artifacts.prepared, return_col=ret_col)
+    oos = _oos_decay_metric(caar_values)
+    caar_trn = replace(_beta_trend_metric(caar_values), name="caar_trend")
+
+    pf = profit_factor(artifacts.prepared, return_col=ret_col)
+    skew = event_skewness(artifacts.prepared, return_col=ret_col)
+
+    metrics: list[MetricOutput] = [caar_m, bmp_m, hit_m, oos, caar_trn, pf, skew]
+
+    if "mfe_mae" in artifacts.intermediates:
+        mfe_summary = mfe_mae_summary(artifacts.get("mfe_mae"))
+        if mfe_summary is not None:
+            metrics.append(mfe_summary)
+
+    n_assets = artifacts.prepared["asset_id"].n_unique()
+    if n_assets > 1:
+        clust = clustering_diagnostic(
+            artifacts.prepared, cluster_window=config.cluster_window,
+        )
+        metrics.append(clust)
+
+    return FactorProfile(metrics=metrics)
 
 
 # ---------------------------------------------------------------------------
@@ -163,8 +216,23 @@ def _macro_common_profile(
 
     ts_betas_df = artifacts.get("beta_series")
     beta_values = artifacts.get("beta_values")
+    n_assets = len(ts_betas_df)
 
-    beta_metric = ts_beta(ts_betas_df)
+    # N-awareness: cross-sectional t-test degenerates at N=1
+    # (can't compute std from 1 observation). Report per-asset stats directly.
+    if n_assets == 1:
+        beta_metric = MetricOutput(
+            name="ts_beta",
+            value=float(ts_betas_df["beta"][0]),
+            stat=float(ts_betas_df["t_stat"][0]),
+            metadata={
+                "n_assets": 1,
+                "method": "single-asset TS regression (no cross-asset aggregation)",
+            },
+        )
+    else:
+        beta_metric = ts_beta(ts_betas_df)
+
     r2 = mean_r_squared(ts_betas_df)
     sign_cons = ts_beta_sign_consistency(ts_betas_df)
     oos = _oos_decay_metric(beta_values)

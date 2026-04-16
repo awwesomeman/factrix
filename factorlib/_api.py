@@ -56,6 +56,10 @@ _PROFILE_METRICS: dict[FactorType, list[str]] = {
         "q1_q5_spread", "turnover", "breakeven_cost", "net_spread",
         "q1_concentration",
     ],
+    FactorType.EVENT_SIGNAL: [
+        "caar", "bmp_sar", "event_hit_rate", "oos_decay", "caar_trend",
+        "profit_factor", "event_skewness", "mfe_mae", "clustering_hhi",
+    ],
     FactorType.MACRO_PANEL: [
         "fm_beta", "pooled_beta", "beta_sign_consistency", "oos_decay",
         "beta_trend", "q1_q5_spread", "turnover", "breakeven_cost",
@@ -71,6 +75,9 @@ _STANDALONE_METRICS: dict[FactorType, list[str]] = {
     FactorType.CROSS_SECTIONAL: [
         "regime_ic", "multi_horizon_ic", "quantile_spread_vw",
         "spanning_alpha", "greedy_forward_selection",
+    ],
+    FactorType.EVENT_SIGNAL: [
+        "corrado_rank_test", "compute_mfe_mae",
     ],
     FactorType.MACRO_PANEL: [
         "spanning_alpha",

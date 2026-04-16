@@ -7,6 +7,11 @@ Cross-Sectional:
     multi_split_oos_decay, quantile_spread, monotonicity,
     q1_concentration, turnover, breakeven_cost, net_spread
 
+Event Signal:
+    compute_caar, caar, bmp_test, event_hit_rate,
+    compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
+    clustering_diagnostic, corrado_rank_test
+
 Macro Panel:
     compute_fm_betas, fama_macbeth, pooled_ols,
     beta_sign_consistency
@@ -35,6 +40,20 @@ from factorlib.metrics.monotonicity import monotonicity
 from factorlib.metrics.concentration import q1_concentration
 from factorlib.metrics.tradability import turnover, breakeven_cost, net_spread
 from factorlib.metrics.spanning import spanning_alpha, greedy_forward_selection
+from factorlib.metrics.caar import (
+    compute_caar,
+    caar,
+    bmp_test,
+    event_hit_rate,
+)
+from factorlib.metrics.mfe_mae import (
+    compute_mfe_mae,
+    mfe_mae_summary,
+    profit_factor,
+    event_skewness,
+)
+from factorlib.metrics.clustering import clustering_diagnostic
+from factorlib.metrics.corrado import corrado_rank_test
 from factorlib.metrics.fama_macbeth import (
     compute_fm_betas,
     fama_macbeth,
@@ -56,6 +75,9 @@ __all__ = [
     "compute_group_returns", "monotonicity", "q1_concentration",
     "turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
+    "compute_caar", "caar", "bmp_test", "event_hit_rate",
+    "compute_mfe_mae", "mfe_mae_summary", "profit_factor", "event_skewness",
+    "clustering_diagnostic", "corrado_rank_test",
     "compute_fm_betas", "fama_macbeth", "pooled_ols",
     "beta_sign_consistency",
     "compute_ts_betas", "ts_beta", "mean_r_squared",

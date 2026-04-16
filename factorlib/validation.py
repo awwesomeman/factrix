@@ -32,6 +32,9 @@ _SCHEMAS: dict[FactorType, pa.DataFrameSchema] = {
         }
     ),
 }
+# WHY: event_signal uses the same minimal schema as macro_panel —
+# factor is {-1, 0, +1} (Float64), forward_return is standard.
+_SCHEMAS[FactorType.EVENT_SIGNAL] = _SCHEMAS[FactorType.MACRO_PANEL]
 # WHY: macro_common uses the same minimal schema as macro_panel
 _SCHEMAS[FactorType.MACRO_COMMON] = _SCHEMAS[FactorType.MACRO_PANEL]
 
