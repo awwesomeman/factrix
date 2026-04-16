@@ -1,19 +1,18 @@
-"""Factor evaluation pipeline — the main runner.
+"""Factor evaluation pipeline.
 
-``evaluate_factor`` is the single entry point:
+``evaluate`` is the main entry point:
 
-1. Build ``Artifacts`` (intermediates computed once, shared).
-2. Run gates sequentially — short-circuit on FAILED/VETOED.
-3. If all gates pass → compute profile + check CAUTION conditions.
+1. (Optional) Preprocess raw data.
+2. Build ``Artifacts`` (intermediates computed once, shared).
+3. Run gates sequentially — short-circuit on FAILED/VETOED.
+4. If all gates pass → compute profile + check CAUTION conditions.
 
 Usage::
 
-    from factorlib.evaluation.pipeline import evaluate_factor
-    from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
-    from factorlib.config import CrossSectionalConfig
+    import factorlib as fl
 
-    result = evaluate_factor(df, "Mom_20D", CROSS_SECTIONAL_GATES,
-                             CrossSectionalConfig())
+    result = fl.evaluate(prepared, "Mom_20D",
+                         config=fl.CrossSectionalConfig())
 """
 
 from __future__ import annotations
@@ -21,37 +20,52 @@ from __future__ import annotations
 import polars as pl
 
 from factorlib.config import BaseConfig, CrossSectionalConfig
+from factorlib.evaluation._caution import check_caution, warn_small_n
 from factorlib.evaluation._protocol import (
     Artifacts,
     EvaluationResult,
-    FactorProfile,
     GateFn,
     GateResult,
 )
+from factorlib.evaluation.presets import default_gates_for
 from factorlib.evaluation.profile import compute_profile
-from factorlib.metrics._helpers import _median_universe_size
 from factorlib.metrics.ic import compute_ic
 from factorlib.metrics.quantile import compute_spread_series
 
 
-def evaluate_factor(
+def evaluate(
     df: pl.DataFrame,
     factor_name: str,
-    gates: list[GateFn],
-    config: BaseConfig,
+    *,
+    config: BaseConfig | None = None,
+    gates: list[GateFn] | None = None,
+    preprocess: bool = False,
 ) -> EvaluationResult:
     """Run gate-based factor evaluation.
 
     Args:
-        df: Preprocessed panel with ``date, asset_id, factor, forward_return``.
+        df: Panel data. If ``preprocess=False`` (default), must already
+            contain ``forward_return``. If ``preprocess=True``, must
+            contain ``price``.
         factor_name: Identifier for the factor being evaluated.
-        gates: Ordered list of gate functions. Use presets or compose your own.
-        config: Pipeline configuration (use a concrete subclass).
+        config: Pipeline configuration. Defaults to CrossSectionalConfig().
+        gates: Gate functions. Defaults to type-appropriate preset.
+        preprocess: If True, run preprocessing before evaluation.
 
     Returns:
-        EvaluationResult with overall status, per-gate details, profile,
-        and artifacts.
+        EvaluationResult with status, gate details, profile, and artifacts.
     """
+    if config is None:
+        config = CrossSectionalConfig()
+
+    if preprocess:
+        df = _preprocess(df, config)
+
+    if gates is None:
+        gates = default_gates_for(config)
+
+    warn_small_n(df, config)
+
     artifacts = build_artifacts(df, config)
 
     gate_results: list[GateResult] = []
@@ -67,7 +81,7 @@ def evaluate_factor(
             )
 
     profile = compute_profile(artifacts)
-    caution_reasons = _check_caution(artifacts, gate_results, profile)
+    caution_reasons = check_caution(artifacts, gate_results, profile)
 
     return EvaluationResult(
         factor_name=factor_name,
@@ -80,11 +94,7 @@ def evaluate_factor(
 
 
 def build_artifacts(df: pl.DataFrame, config: BaseConfig) -> Artifacts:
-    """Pre-compute shared intermediate results.
-
-    Called once before any gate runs. All gates and profile read from
-    the same Artifacts instance.
-    """
+    """Pre-compute shared intermediate results."""
     match config:
         case CrossSectionalConfig():
             return _build_cs_artifacts(df, config)
@@ -93,6 +103,11 @@ def build_artifacts(df: pl.DataFrame, config: BaseConfig) -> Artifacts:
             raise NotImplementedError(
                 f"build_artifacts not yet implemented for {ft}"
             )
+
+
+def _preprocess(df: pl.DataFrame, config: BaseConfig) -> pl.DataFrame:
+    from factorlib.preprocess.pipeline import preprocess
+    return preprocess(df, config=config)
 
 
 def _build_cs_artifacts(
@@ -121,53 +136,3 @@ def _build_cs_artifacts(
             "spread_series": spread_series,
         },
     )
-
-
-def _check_caution(
-    artifacts: Artifacts,
-    gate_results: list[GateResult],
-    profile: FactorProfile,
-) -> list[str]:
-    """Check CAUTION conditions."""
-    reasons: list[str] = []
-    cfg = artifacts.config
-
-    if isinstance(cfg, CrossSectionalConfig) and not cfg.orthogonalize:
-        reasons.append(
-            "Step 6 (orthogonalize) not applied"
-            " — factor exposures may overlap known risk factors"
-        )
-
-    median_n = _median_universe_size(artifacts.prepared)
-    if median_n < 200:
-        reasons.append(
-            f"Median universe size = {median_n:.0f} (< 200)"
-            " — quantile analysis may be unstable"
-        )
-
-    for gr in gate_results:
-        if gr.name == "significance":
-            via = gr.detail.get("via", [])
-            if via == ["Q1-Q5_spread"]:
-                reasons.append(
-                    "Significance passed only via Q1-Q5 spread, not IC"
-                    " — may be driven by outlier stocks"
-                )
-            break
-
-    ic_trend = profile.get("ic_trend")
-    if ic_trend is not None:
-        ci_excludes_zero = ic_trend.metadata.get("ci_excludes_zero", False)
-        if ic_trend.value < 0 and ci_excludes_zero:
-            reasons.append("IC trend shows significant decay")
-
-    q1_conc = profile.get("q1_concentration")
-    if q1_conc is not None:
-        ratio = q1_conc.metadata.get("ratio_eff_to_total", 1.0)
-        if ratio < 0.5:
-            reasons.append(
-                f"Q1 concentration too high (effective N / total = {ratio:.2f})"
-                " — alpha may be driven by a few stocks"
-            )
-
-    return reasons

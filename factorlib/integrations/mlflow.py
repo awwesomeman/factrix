@@ -102,7 +102,7 @@ class FactorTracker:
         """Log a gate-based factor evaluation to MLflow.
 
         Args:
-            result: Output of ``evaluate_factor()``.
+            result: Output of ``evaluate()``.
             config: Optional config snapshot to log as params.
             factor_type: Factor category tag.
             sample_period: Date range tag.

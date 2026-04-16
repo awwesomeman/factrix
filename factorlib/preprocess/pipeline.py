@@ -1,7 +1,6 @@
-"""Preprocessing orchestration: chain Step 1-5 into a single call.
+"""Preprocessing orchestration.
 
 Each step is independently importable from ``returns`` and ``normalize``.
-This module only provides the convenience ``preprocess_cs_factor()`` wrapper.
 
 Expects canonical column names (date, asset_id, price, factor).
 Use ``adapt()`` to rename before calling.
@@ -24,7 +23,32 @@ from factorlib.preprocess.normalize import (
 )
 
 if TYPE_CHECKING:
+    from factorlib.config import BaseConfig
+
+
+def preprocess(
+    df: pl.DataFrame,
+    *,
+    config: BaseConfig | None = None,
+) -> pl.DataFrame:
+    """Preprocess factor data based on config type.
+
+    Dispatches to the appropriate type-specific preprocessor.
+    Defaults to cross-sectional preprocessing.
+    """
     from factorlib.config import CrossSectionalConfig
+
+    if config is None:
+        config = CrossSectionalConfig()
+
+    match config:
+        case CrossSectionalConfig():
+            return preprocess_cs_factor(df, config=config)
+        case _:
+            ft = type(config).factor_type
+            raise NotImplementedError(
+                f"preprocess not yet implemented for {ft}"
+            )
 
 
 def preprocess_cs_factor(

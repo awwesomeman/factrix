@@ -18,7 +18,7 @@ from factorlib.config import CrossSectionalConfig, MARKET_DEFAULTS
 from factorlib.evaluation.gates.significance import significance_gate
 from factorlib.evaluation.gates.oos_persistence import oos_persistence_gate
 from factorlib.evaluation.profile import compute_profile
-from factorlib.evaluation.pipeline import evaluate_factor, build_artifacts
+from factorlib.evaluation.pipeline import evaluate, build_artifacts
 from factorlib.evaluation.presets import CROSS_SECTIONAL_GATES
 
 
@@ -128,16 +128,16 @@ class TestProtocol:
             strong_artifacts.get("nonexistent")
 
     def test_evaluation_result_repr(self, strong_panel):
-        result = evaluate_factor(
-            strong_panel, "test", [], CrossSectionalConfig(),
+        result = evaluate(
+            strong_panel, "test", config=CrossSectionalConfig(), gates=[],
         )
         text = repr(result)
         assert "Factor: test" in text
         assert "Status:" in text
 
     def test_evaluation_result_to_dict(self, strong_panel):
-        result = evaluate_factor(
-            strong_panel, "test", [], CrossSectionalConfig(),
+        result = evaluate(
+            strong_panel, "test", config=CrossSectionalConfig(), gates=[],
         )
         d = result.to_dict()
         assert d["factor_name"] == "test"
@@ -145,8 +145,8 @@ class TestProtocol:
         assert isinstance(d["metrics"], list)
 
     def test_evaluation_result_to_dataframe(self, strong_panel):
-        result = evaluate_factor(
-            strong_panel, "test", [], CrossSectionalConfig(),
+        result = evaluate(
+            strong_panel, "test", config=CrossSectionalConfig(), gates=[],
         )
         df = result.to_dataframe()
         assert "metric" in df.columns
@@ -248,23 +248,23 @@ class TestComputeProfile:
 
 
 # ---------------------------------------------------------------------------
-# pipeline.py — evaluate_factor
+# pipeline.py — evaluate
 # ---------------------------------------------------------------------------
 
 class TestEvaluateFactor:
     def test_strong_signal_passes_all_gates(self, strong_panel):
-        result = evaluate_factor(
+        result = evaluate(
             strong_panel, "strong_factor",
-            CROSS_SECTIONAL_GATES, CrossSectionalConfig(),
+            gates=CROSS_SECTIONAL_GATES, config=CrossSectionalConfig(),
         )
         assert result.factor_name == "strong_factor"
         assert result.status in ("PASS", "CAUTION", "VETOED")
         assert len(result.gate_results) >= 1
 
     def test_noise_fails_at_significance(self, noise_panel):
-        result = evaluate_factor(
+        result = evaluate(
             noise_panel, "noise_factor",
-            CROSS_SECTIONAL_GATES, CrossSectionalConfig(),
+            gates=CROSS_SECTIONAL_GATES, config=CrossSectionalConfig(),
         )
         assert result.status == "FAILED"
         assert result.gate_results[0].name == "significance"
@@ -272,9 +272,9 @@ class TestEvaluateFactor:
         assert result.profile is None
 
     def test_short_circuit_skips_later_gates(self, noise_panel):
-        result = evaluate_factor(
+        result = evaluate(
             noise_panel, "noise",
-            CROSS_SECTIONAL_GATES, CrossSectionalConfig(),
+            gates=CROSS_SECTIONAL_GATES, config=CrossSectionalConfig(),
         )
         assert len(result.gate_results) == 1
 
@@ -282,9 +282,9 @@ class TestEvaluateFactor:
         def always_pass(artifacts: Artifacts) -> GateResult:
             return GateResult(name="always_pass", status="PASS")
 
-        result = evaluate_factor(
+        result = evaluate(
             strong_panel, "test",
-            [always_pass], CrossSectionalConfig(),
+            gates=[always_pass], config=CrossSectionalConfig(),
         )
         assert result.gate_results[0].name == "always_pass"
         assert result.profile is not None
@@ -293,23 +293,24 @@ class TestEvaluateFactor:
         def always_veto(artifacts: Artifacts) -> GateResult:
             return GateResult(name="always_veto", status="VETOED")
 
-        result = evaluate_factor(
+        result = evaluate(
             strong_panel, "test",
-            [always_veto], CrossSectionalConfig(),
+            gates=[always_veto], config=CrossSectionalConfig(),
         )
         assert result.status == "VETOED"
         assert result.profile is None
 
     def test_empty_gates_produces_profile(self, strong_panel):
-        result = evaluate_factor(
-            strong_panel, "test", [], CrossSectionalConfig(),
+        result = evaluate(
+            strong_panel, "test", config=CrossSectionalConfig(), gates=[],
         )
         assert result.profile is not None
         assert result.status in ("PASS", "CAUTION")
 
     def test_caution_when_not_orthogonalized(self, strong_panel):
-        result = evaluate_factor(
-            strong_panel, "test", [], CrossSectionalConfig(orthogonalize=False),
+        result = evaluate(
+            strong_panel, "test",
+            config=CrossSectionalConfig(orthogonalize=False), gates=[],
         )
         if result.status == "CAUTION":
             assert any("orthogonalize" in r for r in result.caution_reasons)
@@ -329,12 +330,12 @@ class TestEvaluateFactor:
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
-        result = evaluate_factor(df, "small_uni", [], CrossSectionalConfig())
+        result = evaluate(df, "small_uni", config=CrossSectionalConfig(), gates=[])
         assert any("universe size" in r.lower() for r in result.caution_reasons)
 
     def test_artifacts_attached(self, strong_panel):
-        result = evaluate_factor(
-            strong_panel, "test", [], CrossSectionalConfig(),
+        result = evaluate(
+            strong_panel, "test", config=CrossSectionalConfig(), gates=[],
         )
         assert result.artifacts is not None
         assert result.artifacts.get("ic_series") is not None
