@@ -69,10 +69,11 @@ class ProfileSet(Generic[P]):
             inferred_cls = type(plist[0])
             bad = {type(p).__name__ for p in plist if type(p) is not inferred_cls}
             if bad:
+                observed = {inferred_cls.__name__, *bad}
                 raise TypeError(
-                    f"ProfileSet is single-type; got mix of "
-                    f"{ {inferred_cls.__name__} | bad}. Run one ProfileSet "
-                    f"per factor type (BHY requires a same-test-family batch)."
+                    f"ProfileSet is single-type; got mix of {observed}. "
+                    f"Run one ProfileSet per factor type (BHY requires a "
+                    f"same-test-family batch)."
                 )
             if profile_cls is not None and profile_cls is not inferred_cls:
                 raise TypeError(
@@ -305,18 +306,28 @@ def _profiles_to_df(
     profiles: tuple[P, ...],
     profile_cls: type[P],
 ) -> pl.DataFrame:
-    """Build the polars view from a tuple of profile dataclasses."""
+    """Build the polars view from a tuple of profile dataclasses.
+
+    Column-wise construction: we pull each field across the whole
+    tuple at once. This avoids the per-row dict allocations and
+    dataclasses.asdict's recursive deep-copy that would otherwise
+    scale poorly to hundreds of profiles.
+    """
+    field_list = dataclasses.fields(profile_cls)
+
     if not profiles:
-        # Construct an empty DataFrame with the expected schema so
-        # downstream code can still filter / rank_by without TypeErrors.
-        fields = dataclasses.fields(profile_cls)
+        # Empty: build schema-only frame so downstream filter / rank_by
+        # keep working without special-casing for len-0 sets.
         return pl.DataFrame(
             {f.name: pl.Series(f.name, [], dtype=_polars_dtype_for(f.type))
-             for f in fields}
+             for f in field_list}
         )
 
-    rows = [dataclasses.asdict(p) for p in profiles]
-    df = pl.DataFrame(rows)
+    columns = {
+        f.name: [getattr(p, f.name) for p in profiles]
+        for f in field_list
+    }
+    df = pl.DataFrame(columns)
 
     # Expose canonical_p as a convenience column (not on the dataclass).
     canonical_field = profile_cls.CANONICAL_P_FIELD
