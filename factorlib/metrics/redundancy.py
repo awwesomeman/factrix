@@ -6,7 +6,8 @@ Two methods answer slightly different questions:
     Per date, rank assets by each factor, take Spearman correlation
     between the two rank vectors, then average across dates. This is
     the closest to "these factors would pick the same stocks". Only
-    available when prepared panels are present (keep_artifacts=True).
+    available when prepared panels are present (Artifacts built
+    without compact=True).
 
 ``value_series`` — do two factors' *performance* move together?
     Align each factor's value-of-interest time series (IC, CAAR, β)
@@ -68,7 +69,8 @@ def redundancy_matrix(
         ``factor_rank`` auto-downgrades to ``value_series`` with a
         UserWarning if any Artifacts has been compacted (prepared
         dropped). Caller can force an error by setting
-        method='factor_rank' and ensuring keep_artifacts=True upstream.
+        method='factor_rank' and ensuring the upstream Artifacts were
+        built without compact=True.
     """
     from factorlib.evaluation._protocol import _CompactedPrepared
 
@@ -76,8 +78,9 @@ def redundancy_matrix(
         raise ValueError(
             "redundancy_matrix requires artifacts= (mapping of "
             "factor_name -> Artifacts). Profile dataclasses do not hold "
-            "intermediate series; pass the artifacts dict returned by "
-            "evaluate_batch(..., keep_artifacts=True)."
+            "intermediate series; build and retain the Artifacts "
+            "yourself (e.g. loop fl.evaluate per factor) and pass the "
+            "mapping here."
         )
 
     names = [p.factor_name for p in profiles.iter_profiles()]
@@ -100,8 +103,8 @@ def redundancy_matrix(
             warnings.warn(
                 f"redundancy_matrix(method='factor_rank'): auto-downgrading to "
                 f"'value_series' because these factors' artifacts are compact: "
-                f"{compact_names}. Re-run with keep_artifacts=True to use "
-                f"factor_rank.",
+                f"{compact_names}. Build the Artifacts without compact=True "
+                f"if you need factor_rank.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -175,7 +178,11 @@ def _factor_rank_matrix(
             if joined.is_empty():
                 rho = 0.0
             else:
-                # Per-date Spearman; average across dates, take abs.
+                # Per-date Spearman, then mean of |rho| across dates.
+                # Taking mean(|rho|) rather than |mean(rho)| so that
+                # two factors whose per-date rhos flip sign (still
+                # obviously redundant for selection after sign-flip)
+                # register as high, not near zero.
                 per_date = (
                     joined.with_columns(
                         pl.col(ni).rank().over("date").alias("_ri"),
@@ -185,9 +192,12 @@ def _factor_rank_matrix(
                     .agg(pl.corr("_ri", "_rj").alias("rho"))
                 )
                 rho_vals = per_date["rho"].drop_nulls().to_numpy()
-                rho = float(np.mean(rho_vals)) if len(rho_vals) else 0.0
-            matrix[i, j] = abs(rho)
-            matrix[j, i] = abs(rho)
+                rho = (
+                    float(np.mean(np.abs(rho_vals)))
+                    if len(rho_vals) else 0.0
+                )
+            matrix[i, j] = rho
+            matrix[j, i] = rho
     return _matrix_to_df(matrix, names)
 
 

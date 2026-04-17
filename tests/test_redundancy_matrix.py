@@ -49,6 +49,60 @@ class TestMethods:
             vals = m.drop("factor")[n_i].to_numpy()
             assert ((vals >= 0.0) & (vals <= 1.0 + 1e-9)).all()
 
+    def test_factor_rank_uses_mean_abs_not_abs_mean(self):
+        """Two factors whose per-date rank correlation flips sign across
+        dates are still redundant for stock selection (same mechanism,
+        sign flip). mean(|rho|) reports high redundancy; |mean(rho)|
+        would wrongly report near zero."""
+        import numpy as np
+        import polars as pl
+        from datetime import datetime, timedelta
+        from factorlib.config import CrossSectionalConfig
+        from factorlib.evaluation.pipeline import build_artifacts
+        from factorlib.evaluation.profiles import CrossSectionalProfile
+
+        # Build two factors: factor B equals factor A on odd dates and
+        # -factor A on even dates. Per-date Spearman alternates +1/-1,
+        # averaging to zero; but |rho| is always 1 → mean |rho| = 1.
+        rng = np.random.default_rng(777)
+        n_dates, n_assets = 40, 20
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+
+        rows_a, rows_b = [], []
+        for d_i, d in enumerate(dates):
+            f = rng.standard_normal(n_assets)
+            r = 0.4 * f + 0.6 * rng.standard_normal(n_assets)
+            sign = 1.0 if d_i % 2 == 0 else -1.0
+            for i in range(n_assets):
+                rows_a.append({"date": d, "asset_id": f"a{i}",
+                               "factor": float(f[i]),
+                               "forward_return": float(r[i])})
+                rows_b.append({"date": d, "asset_id": f"a{i}",
+                               "factor": float(sign * f[i]),
+                               "forward_return": float(r[i])})
+        df_a = pl.DataFrame(rows_a).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df_b = pl.DataFrame(rows_b).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        cfg = CrossSectionalConfig()
+        art_a = build_artifacts(df_a, cfg); art_a.factor_name = "A"
+        art_b = build_artifacts(df_b, cfg); art_b.factor_name = "B"
+        profiles = [
+            CrossSectionalProfile.from_artifacts(art_a),
+            CrossSectionalProfile.from_artifacts(art_b),
+        ]
+        ps = ProfileSet(profiles)
+
+        m = redundancy_matrix(
+            ps, method="factor_rank", artifacts={"A": art_a, "B": art_b},
+        )
+        rho_ab = m.filter(pl.col("factor") == "A")["B"].item()
+        # mean(|rho|) should be near 1 (per-date rhos are +/-1).
+        # |mean(rho)| would give ~0 which would be the bug.
+        assert rho_ab > 0.9, (
+            f"Expected mean|rho| ~ 1.0 for sign-flipping factors; "
+            f"got {rho_ab:.4f} -- suggests |mean(rho)| aggregation bug."
+        )
+
 
 class TestAutoDowngrade:
     def test_compact_artifact_triggers_warning(self, cs_profiles_and_artifacts):
