@@ -48,11 +48,16 @@ class Artifacts:
     ``intermediates`` holds type-specific DataFrames (e.g. ic_series,
     spread_series for cross-sectional). Use ``.get(key)`` for access
     with a helpful KeyError on missing keys.
+
+    ``factor_name`` identifies which factor this instance represents —
+    consumed by per-type Profile ``from_artifacts`` classmethods and by
+    downstream plotting / reporting that needs to label outputs.
     """
 
     prepared: pl.DataFrame
     config: BaseConfig
     intermediates: dict[str, pl.DataFrame] = field(default_factory=dict)
+    factor_name: str = ""
 
     def get(self, key: str) -> pl.DataFrame:
         if key not in self.intermediates:

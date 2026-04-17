@@ -11,10 +11,38 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, Protocol, Self, runtime_checkable
 
-from factorlib._types import Diagnostic, FactorType, PValue, Verdict
+from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
 
 if TYPE_CHECKING:
     from factorlib.evaluation._protocol import Artifacts
+
+
+def _pv(m: MetricOutput) -> PValue:
+    """Extract a p-value from a ``MetricOutput``.
+
+    Metric functions store p-values under ``metadata["p_value"]``; when
+    the metric is purely descriptive (e.g. ``ic_ir``) or short-circuits
+    on insufficient data, no p-value is present. We default to 1.0 — the
+    most conservative "definitely not significant" — so downstream BHY
+    treats data-starved factors as rejected rather than crashing.
+    """
+    return PValue(float(m.metadata.get("p_value", 1.0)))
+
+
+def _verdict_from_p(p: PValue, threshold: float) -> Verdict:
+    """Binary PASS/FAILED using a z-based normal-approximation threshold.
+
+    ``threshold`` is in t-stat/z-stat units (familiar to quants via
+    Harvey 2016's t > 3.0 recommendation). Converted to a two-sided
+    p-value via the standard normal tail. The approximation is exact
+    under large samples; for small n this over-rejects slightly, but
+    verdict() is a heuristic — rigorous inference goes through
+    ProfileSet.multiple_testing_correct (BHY).
+    """
+    # Lazy import to keep base module import light.
+    from factorlib._stats import _p_value_from_z
+    p_threshold = _p_value_from_z(threshold)
+    return "PASS" if p <= p_threshold else "FAILED"
 
 
 @runtime_checkable

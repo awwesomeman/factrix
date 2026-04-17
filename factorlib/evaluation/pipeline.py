@@ -67,6 +67,7 @@ def evaluate(
     warn_small_n(df, config)
 
     artifacts = build_artifacts(df, config)
+    artifacts.factor_name = factor_name
 
     gate_results: list[GateResult] = []
     for gate_fn in gates:

@@ -11,16 +11,20 @@ from factorlib.evaluation.profiles._base import (
     register_profile,
 )
 
-# Concrete Profile classes import themselves side-effect-style; adding new
-# factor types means adding one line here. (Populated in Commit 2.)
-# from factorlib.evaluation.profiles.cross_sectional import CrossSectionalProfile  # noqa: F401
-# from factorlib.evaluation.profiles.event import EventProfile  # noqa: F401
-# from factorlib.evaluation.profiles.macro_panel import MacroPanelProfile  # noqa: F401
-# from factorlib.evaluation.profiles.macro_common import MacroCommonProfile  # noqa: F401
+# Importing the concrete classes is what fires @register_profile. Adding
+# a new factor type here is the single place to touch for dispatch wiring.
+from factorlib.evaluation.profiles.cross_sectional import CrossSectionalProfile
+from factorlib.evaluation.profiles.event import EventProfile
+from factorlib.evaluation.profiles.macro_panel import MacroPanelProfile
+from factorlib.evaluation.profiles.macro_common import MacroCommonProfile
 
 __all__ = [
     "FactorProfile",
     "_PROFILE_REGISTRY",
     "get_profile_class",
     "register_profile",
+    "CrossSectionalProfile",
+    "EventProfile",
+    "MacroPanelProfile",
+    "MacroCommonProfile",
 ]
