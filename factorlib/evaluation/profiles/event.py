@@ -41,6 +41,7 @@ class EventProfile:
     # Identity
     factor_name: str
     n_periods: int
+    n_events: int
 
     # CAAR family
     caar_mean: float
@@ -69,6 +70,7 @@ class EventProfile:
     # Event-level diagnostics
     signal_density: float
     clustering_hhi: float | None
+    clustering_hhi_normalized: float | None
     event_ic: float | None
     event_ic_p: PValue | None
 
@@ -89,7 +91,8 @@ class EventProfile:
         return _verdict_from_p(self.canonical_p, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
-        return []
+        from factorlib.evaluation.diagnostics import diagnose_profile
+        return diagnose_profile(self)
 
     @classmethod
     def from_artifacts(cls, artifacts: "Artifacts") -> Self:
@@ -138,13 +141,19 @@ class EventProfile:
         # Clustering is only meaningful with multiple assets.
         n_assets = artifacts.prepared["asset_id"].n_unique()
         clustering_hhi: float | None
+        clustering_hhi_normalized: float | None
         if n_assets > 1:
             clust_m = clustering_diagnostic(
                 artifacts.prepared, cluster_window=config.cluster_window,
             )
             clustering_hhi = float(clust_m.value)
+            norm = clust_m.metadata.get("hhi_normalized")
+            clustering_hhi_normalized = (
+                float(norm) if norm is not None else None
+            )
         else:
             clustering_hhi = None
+            clustering_hhi_normalized = None
 
         # Event IC only makes sense when signal magnitude varies.
         events = artifacts.prepared.filter(pl.col("factor") != 0)
@@ -158,9 +167,14 @@ class EventProfile:
             event_ic_val = None
             event_ic_p_val = None
 
+        n_events = int(
+            artifacts.prepared.filter(pl.col("factor") != 0).height
+        )
+
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=int(caar_m.metadata.get("n_event_dates", len(caar_series))),
+            n_events=n_events,
             caar_mean=float(caar_m.value),
             caar_tstat=float(caar_m.stat or 0.0),
             caar_p=_pv(caar_m),
@@ -177,6 +191,7 @@ class EventProfile:
             caar_trend_p=_pv(trend_m),
             signal_density=float(density_m.value),
             clustering_hhi=clustering_hhi,
+            clustering_hhi_normalized=clustering_hhi_normalized,
             event_ic=event_ic_val,
             event_ic_p=event_ic_p_val,
         )

@@ -59,10 +59,14 @@ class CrossSectionalProfile:
 
     # Concentration
     q1_concentration: float
+    q1_concentration_eff_ratio: float
 
     # OOS stability
     oos_decay: float
     oos_sign_flipped: bool
+
+    # Data quality context (for diagnose)
+    median_universe_n: int
 
     # Implementation
     turnover: float
@@ -82,9 +86,8 @@ class CrossSectionalProfile:
         return _verdict_from_p(self.canonical_p, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
-        # Populated once diagnostics._rules is in place; empty stub keeps
-        # Commit 2 self-contained without a forward-import dance.
-        return []
+        from factorlib.evaluation.diagnostics import diagnose_profile
+        return diagnose_profile(self)
 
     @classmethod
     def from_artifacts(cls, artifacts: "Artifacts") -> Self:
@@ -98,6 +101,7 @@ class CrossSectionalProfile:
         from factorlib.metrics.hit_rate import hit_rate
         from factorlib.metrics.trend import ic_trend
         from factorlib.metrics.oos import multi_split_oos_decay
+        from factorlib.metrics._helpers import _median_universe_size
         from factorlib.metrics.tradability import (
             breakeven_cost, net_spread, turnover,
         )
@@ -153,8 +157,12 @@ class CrossSectionalProfile:
             spread_tstat=float(spread_m.stat or 0.0),
             spread_p=_pv(spread_m),
             q1_concentration=float(conc_m.value),
+            q1_concentration_eff_ratio=float(
+                conc_m.metadata.get("ratio_eff_to_total", 1.0)
+            ),
             oos_decay=float(oos.decay_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
+            median_universe_n=int(_median_universe_size(artifacts.prepared)),
             turnover=float(turn_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),

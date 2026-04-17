@@ -72,7 +72,8 @@ class MacroCommonProfile:
         return _verdict_from_p(self.canonical_p, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
-        return []
+        from factorlib.evaluation.diagnostics import diagnose_profile
+        return diagnose_profile(self)
 
     @classmethod
     def from_artifacts(cls, artifacts: "Artifacts") -> Self:

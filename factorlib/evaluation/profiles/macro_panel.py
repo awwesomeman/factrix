@@ -38,6 +38,7 @@ class MacroPanelProfile:
     # Identity
     factor_name: str
     n_periods: int
+    median_cross_section_n: int
 
     # Fama-MacBeth (canonical)
     fm_beta_mean: float
@@ -80,11 +81,13 @@ class MacroPanelProfile:
         return _verdict_from_p(self.canonical_p, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
-        return []
+        from factorlib.evaluation.diagnostics import diagnose_profile
+        return diagnose_profile(self)
 
     @classmethod
     def from_artifacts(cls, artifacts: "Artifacts") -> Self:
         from factorlib.config import MacroPanelConfig
+        from factorlib.metrics._helpers import _median_universe_size
         from factorlib.metrics.fama_macbeth import (
             beta_sign_consistency,
             fama_macbeth,
@@ -129,6 +132,7 @@ class MacroPanelProfile:
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=int(fm_m.metadata.get("n_periods", len(beta_series))),
+            median_cross_section_n=int(_median_universe_size(artifacts.prepared)),
             fm_beta_mean=float(fm_m.value),
             fm_beta_tstat=float(fm_m.stat or 0.0),
             fm_beta_p=_pv(fm_m),

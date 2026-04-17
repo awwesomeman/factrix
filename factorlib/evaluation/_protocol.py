@@ -38,6 +38,31 @@ class GateResult:
         return self.status == "PASS"
 
 
+class _CompactedPrepared:
+    """Placeholder substituted for ``Artifacts.prepared`` in compact mode.
+
+    Any attribute access raises a targeted ``RuntimeError`` naming the
+    attribute that was attempted. This is deliberately fail-loud so that
+    silent-None-like behaviour can't mask a wrong-mode bug in downstream
+    code (profile.diagnose rules, plot deep-dives, redundancy_matrix).
+    """
+
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> object:
+        raise RuntimeError(
+            f"Cannot access 'prepared.{name}': Artifacts is in compact mode "
+            f"(prepared DataFrame was dropped to save memory). "
+            f"Re-run with keep_artifacts=True to retain the prepared panel."
+        )
+
+    def __repr__(self) -> str:
+        return "<CompactedPrepared: prepared DataFrame dropped>"
+
+
+_COMPACTED_PREPARED = _CompactedPrepared()
+
+
 @dataclass
 class Artifacts:
     """Pre-computed intermediate results shared across all gates.
@@ -52,12 +77,25 @@ class Artifacts:
     ``factor_name`` identifies which factor this instance represents —
     consumed by per-type Profile ``from_artifacts`` classmethods and by
     downstream plotting / reporting that needs to label outputs.
+
+    ``compact`` toggles memory-saving mode: when True, ``prepared`` is
+    replaced with a sentinel that raises on any attribute access. Use
+    for 1000-factor batches where the prepared panel (~MB per factor)
+    would exhaust memory. Intermediates (small DataFrames) are kept
+    because metrics and diagnose() need them.
     """
 
     prepared: pl.DataFrame
     config: BaseConfig
     intermediates: dict[str, pl.DataFrame] = field(default_factory=dict)
     factor_name: str = ""
+    compact: bool = False
+
+    def __post_init__(self) -> None:
+        if self.compact:
+            # WHY: object.__setattr__ bypasses any dataclass frozen-machinery
+            # (we're not frozen today, but keeps the intent explicit).
+            object.__setattr__(self, "prepared", _COMPACTED_PREPARED)
 
     def get(self, key: str) -> pl.DataFrame:
         if key not in self.intermediates:
