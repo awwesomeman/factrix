@@ -41,20 +41,42 @@ class GateResult:
 class _CompactedPrepared:
     """Placeholder substituted for ``Artifacts.prepared`` in compact mode.
 
-    Any attribute access raises a targeted ``RuntimeError`` naming the
-    attribute that was attempted. This is deliberately fail-loud so that
-    silent-None-like behaviour can't mask a wrong-mode bug in downstream
-    code (profile.diagnose rules, plot deep-dives, redundancy_matrix).
+    Any access -- attribute, indexing, truth-testing, iteration -- raises
+    a targeted ``RuntimeError``. Slot-based dunders bypass ``__getattr__``
+    so each must be listed explicitly; otherwise ``bool(prepared)`` would
+    silently return True and ``if art.prepared:`` would give the wrong
+    answer.
     """
 
     __slots__ = ()
 
+    _MSG = (
+        "Cannot use 'Artifacts.prepared': Artifacts is in compact mode "
+        "(prepared DataFrame was dropped to save memory). Rebuild the "
+        "Artifacts without compact=True if you need the prepared panel."
+    )
+
     def __getattr__(self, name: str) -> object:
         raise RuntimeError(
             f"Cannot access 'prepared.{name}': Artifacts is in compact mode "
-            f"(prepared DataFrame was dropped to save memory). "
-            f"Re-run with keep_artifacts=True to retain the prepared panel."
+            f"(prepared DataFrame was dropped to save memory). Rebuild the "
+            f"Artifacts without compact=True if you need the prepared panel."
         )
+
+    def __bool__(self) -> bool:
+        raise RuntimeError(self._MSG)
+
+    def __len__(self) -> int:
+        raise RuntimeError(self._MSG)
+
+    def __iter__(self):
+        raise RuntimeError(self._MSG)
+
+    def __getitem__(self, key):
+        raise RuntimeError(self._MSG)
+
+    def __contains__(self, item) -> bool:
+        raise RuntimeError(self._MSG)
 
     def __repr__(self) -> str:
         return "<CompactedPrepared: prepared DataFrame dropped>"
