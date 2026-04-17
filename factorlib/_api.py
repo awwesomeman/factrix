@@ -59,46 +59,6 @@ _DESCRIPTIONS: dict[FactorType, str] = {
 }
 
 
-_PROFILE_METRICS: dict[FactorType, list[str]] = {
-    FactorType.CROSS_SECTIONAL: [
-        "ic", "ic_ir", "hit_rate", "ic_trend", "monotonicity", "oos_decay",
-        "q1_q5_spread", "turnover", "breakeven_cost", "net_spread",
-        "q1_concentration",
-    ],
-    FactorType.EVENT_SIGNAL: [
-        "caar", "bmp_sar", "event_hit_rate", "oos_decay", "caar_trend",
-        "profit_factor", "event_skewness", "mfe_mae", "event_ic",
-        "event_around_return", "multi_horizon_hit_rate", "signal_density",
-        "clustering_hhi",
-    ],
-    FactorType.MACRO_PANEL: [
-        "fm_beta", "pooled_beta", "beta_sign_consistency", "oos_decay",
-        "beta_trend", "q1_q5_spread", "turnover", "breakeven_cost",
-        "net_spread",
-    ],
-    FactorType.MACRO_COMMON: [
-        "ts_beta", "mean_r_squared", "ts_beta_sign_consistency",
-        "oos_decay", "beta_trend",
-    ],
-}
-
-_STANDALONE_METRICS: dict[FactorType, list[str]] = {
-    FactorType.CROSS_SECTIONAL: [
-        "regime_ic", "multi_horizon_ic", "quantile_spread_vw",
-        "spanning_alpha", "greedy_forward_selection",
-    ],
-    FactorType.EVENT_SIGNAL: [
-        "corrado_rank_test", "compute_mfe_mae", "compute_event_returns",
-    ],
-    FactorType.MACRO_PANEL: [
-        "spanning_alpha",
-    ],
-    FactorType.MACRO_COMMON: [
-        "compute_rolling_mean_beta",
-    ],
-}
-
-
 def describe_factor_types() -> None:
     """Print supported factor types with descriptions."""
     for ft, desc in _DESCRIPTIONS.items():
@@ -117,9 +77,7 @@ def describe_profile(
 
     Reflects the registered Profile dataclass's field annotations and
     ClassVar metadata, plus a short help text pointing at key methods.
-    The old ``_PROFILE_METRICS`` / ``_STANDALONE_METRICS`` dicts are
-    still present during Phase A but no longer consulted here; the
-    dataclass is the single source of truth.
+    The dataclass is the single source of truth.
     """
     # Lazy imports: profiles package triggers all 4 @register_profile
     # decorators on first access.
@@ -502,7 +460,6 @@ def evaluate_batch(
     factor_type: str | FactorType = "cross_sectional",
     config: BaseConfig | None = None,
     preprocess: bool = True,
-    keep_artifacts: bool = True,
     stop_on_error: bool = False,
     on_result: Callable[[str, object], None] | None = None,
     on_error: Callable[[str, BaseException], None] | None = None,
@@ -516,10 +473,6 @@ def evaluate_batch(
             ``config`` supplied).
         config: Shared config (overrides ``factor_type``).
         preprocess: Whether to preprocess each factor.
-        keep_artifacts: When False, the per-factor Artifacts are dropped
-            to save memory (profile itself is retained). Set False when
-            you only need the ProfileSet for BHY / filter / rank and do
-            not plan to run deep-dives or factor_rank redundancy.
         stop_on_error: Raise on first failure (True) or log+skip (False).
         on_result: Optional callback ``(name, profile)`` after each ok.
         on_error: Optional callback ``(name, exception)`` on each failure;
@@ -529,6 +482,13 @@ def evaluate_batch(
         A ``ProfileSet`` homogeneous in the profile class matching
         ``factor_type``. Factors that raised are absent from the set
         when ``stop_on_error=False``.
+
+    Note: the per-factor intermediate ``Artifacts`` are not retained
+    on the returned ``ProfileSet``. If you need them (e.g. for
+    ``redundancy_matrix(method="factor_rank")``), call ``fl.evaluate``
+    directly in a loop and keep the Artifacts yourself. A future
+    helper will surface an ``(profiles, artifacts)`` pair from this
+    function; its design is captured in Phase B work.
     """
     from factorlib.evaluation.profile_set import ProfileSet
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
@@ -569,14 +529,6 @@ def evaluate_batch(
         profiles.append(p)
         if on_result is not None:
             on_result(name, p)
-
-    # Note: keep_artifacts only affects whether the caller has access to
-    # the underlying Artifacts instances separately (via a different
-    # entry point). The ProfileSet itself does not hold Artifacts. We
-    # accept the flag for API forward-compatibility; a future commit
-    # will wire it to an Artifacts-returning variant when needed by
-    # redundancy_matrix(method="factor_rank").
-    del keep_artifacts  # explicitly noted unused for this commit
 
     return ProfileSet(profiles, profile_cls=profile_cls)
 
