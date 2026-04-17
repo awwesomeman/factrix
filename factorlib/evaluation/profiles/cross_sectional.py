@@ -16,6 +16,7 @@ from typing import ClassVar, Self, TYPE_CHECKING
 
 from factorlib._types import Diagnostic, FactorType, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
+    _diagnose,
     _pv,
     _verdict_from_p,
     register_profile,
@@ -83,11 +84,10 @@ class CrossSectionalProfile:
         return getattr(self, self.CANONICAL_P_FIELD)
 
     def verdict(self, threshold: float = 2.0) -> Verdict:
-        return _verdict_from_p(self.canonical_p, threshold)
+        return _verdict_from_p(self.canonical_p, threshold, self.n_periods)
 
     def diagnose(self) -> list[Diagnostic]:
-        from factorlib.evaluation.diagnostics import diagnose_profile
-        return diagnose_profile(self)
+        return _diagnose(self)
 
     @classmethod
     def from_artifacts(cls, artifacts: "Artifacts") -> Self:

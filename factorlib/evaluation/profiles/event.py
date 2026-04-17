@@ -15,10 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Self, TYPE_CHECKING
 
-import polars as pl
-
 from factorlib._types import Diagnostic, FactorType, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
+    _diagnose,
     _pv,
     _verdict_from_p,
     register_profile,
@@ -88,14 +87,14 @@ class EventProfile:
         return getattr(self, self.CANONICAL_P_FIELD)
 
     def verdict(self, threshold: float = 2.0) -> Verdict:
-        return _verdict_from_p(self.canonical_p, threshold)
+        return _verdict_from_p(self.canonical_p, threshold, self.n_periods)
 
     def diagnose(self) -> list[Diagnostic]:
-        from factorlib.evaluation.diagnostics import diagnose_profile
-        return diagnose_profile(self)
+        return _diagnose(self)
 
     @classmethod
     def from_artifacts(cls, artifacts: "Artifacts") -> Self:
+        import polars as pl
         from factorlib.config import EventConfig
         from factorlib.metrics.caar import bmp_test, caar as caar_metric
         from factorlib.metrics.clustering import clustering_diagnostic
@@ -157,6 +156,7 @@ class EventProfile:
 
         # Event IC only makes sense when signal magnitude varies.
         events = artifacts.prepared.filter(pl.col("factor") != 0)
+        n_events = int(events.height)
         event_ic_val: float | None
         event_ic_p_val: PValue | None
         if events["factor"].abs().n_unique() > 1:
@@ -166,10 +166,6 @@ class EventProfile:
         else:
             event_ic_val = None
             event_ic_p_val = None
-
-        n_events = int(
-            artifacts.prepared.filter(pl.col("factor") != 0).height
-        )
 
         return cls(
             factor_name=artifacts.factor_name,

@@ -29,19 +29,33 @@ def _pv(m: MetricOutput) -> PValue:
     return PValue(float(m.metadata.get("p_value", 1.0)))
 
 
-def _verdict_from_p(p: PValue, threshold: float) -> Verdict:
-    """Binary PASS/FAILED using a z-based normal-approximation threshold.
+def _diagnose(profile: object) -> list[Diagnostic]:
+    """Run the rule list registered for ``profile``'s concrete type.
 
-    ``threshold`` is in t-stat/z-stat units (familiar to quants via
-    Harvey 2016's t > 3.0 recommendation). Converted to a two-sided
-    p-value via the standard normal tail. The approximation is exact
-    under large samples; for small n this over-rejects slightly, but
-    verdict() is a heuristic — rigorous inference goes through
+    Thin delegator so every Profile class shares the identical method
+    body rather than duplicating the import + call four times.
+    """
+    # Lazy import avoids a circular: diagnostics imports profiles
+    # which imports _base during package init.
+    from factorlib.evaluation.diagnostics import diagnose_profile
+    return diagnose_profile(profile)
+
+
+def _verdict_from_p(p: PValue, threshold: float, n_periods: int) -> Verdict:
+    """Binary PASS/FAILED using a t-distribution threshold.
+
+    ``threshold`` is in t-stat units (familiar to quants via Harvey
+    2016's t > 3.0 recommendation). All four canonical p-values are
+    derived from t-distributions (IC, CAAR, FM lambda, TS beta), so
+    the verdict threshold is translated through the *same* t CDF at
+    ``n_periods`` degrees of freedom rather than the normal
+    approximation -- which would *under*-reject for small n.
+    verdict() is still a heuristic; rigorous inference goes through
     ProfileSet.multiple_testing_correct (BHY).
     """
     # Lazy import to keep base module import light.
-    from factorlib._stats import _p_value_from_z
-    p_threshold = _p_value_from_z(threshold)
+    from factorlib._stats import _p_value_from_t
+    p_threshold = _p_value_from_t(threshold, n_periods)
     return "PASS" if p <= p_threshold else "FAILED"
 
 
