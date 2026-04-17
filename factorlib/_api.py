@@ -59,6 +59,7 @@ _PROFILE_METRICS: dict[FactorType, list[str]] = {
     FactorType.EVENT_SIGNAL: [
         "caar", "bmp_sar", "event_hit_rate", "oos_decay", "caar_trend",
         "profit_factor", "event_skewness", "mfe_mae", "event_ic",
+        "event_around_return", "multi_horizon_hit_rate", "signal_density",
         "clustering_hhi",
     ],
     FactorType.MACRO_PANEL: [
@@ -78,7 +79,7 @@ _STANDALONE_METRICS: dict[FactorType, list[str]] = {
         "spanning_alpha", "greedy_forward_selection",
     ],
     FactorType.EVENT_SIGNAL: [
-        "corrado_rank_test", "compute_mfe_mae",
+        "corrado_rank_test", "compute_mfe_mae", "compute_event_returns",
     ],
     FactorType.MACRO_PANEL: [
         "spanning_alpha",

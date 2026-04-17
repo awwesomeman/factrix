@@ -126,20 +126,111 @@ fl.describe_profile("macro_panel")
 fl.describe_profile("macro_common")
 ```
 
-**cross_sectional:**
-ic, ic_ir, hit_rate, ic_trend, monotonicity, oos_decay,
-q1_q5_spread, turnover, breakeven_cost, net_spread, q1_concentration
+---
 
-**event_signal:**
-caar, bmp_sar, event_hit_rate, oos_decay, caar_trend,
-profit_factor, event_skewness, mfe_mae, clustering_hhi
+### Metric Reference
 
-**macro_panel:**
-fm_beta, pooled_beta, beta_sign_consistency, oos_decay, beta_trend,
-q1_q5_spread, turnover, breakeven_cost, net_spread
+#### Type-Specific Metrics
 
-**macro_common:**
-ts_beta, mean_r_squared, ts_beta_sign_consistency, oos_decay, beta_trend
+**cross_sectional (ic.py, quantile.py, ...)**
+
+| Metric | Calculation | Interpretation |
+|--------|-------------|----------------|
+| `ic` | Per-date Spearman rank corr(factor, return), non-overlapping t-test | Mean IC > 0 = factor ranks predict return ranks. `***` = significant |
+| `ic_ir` | mean(IC) / std(IC) | IC stability. > 0.3 is strong |
+| `monotonicity` | Spearman rho across quantile group mean returns | 1.0 = perfect Q1>Q2>...>Q5 ordering. Non-monotonic = unstable |
+| `q1_q5_spread` | mean(Q1 return - Q5 return), t-test | Long-short spread in per-period units |
+| `q1_concentration` | Effective N / Total N in top quantile (HHI-based) | < 0.5 = alpha driven by few stocks |
+
+**event_signal (caar.py, event_quality.py, event_horizon.py, mfe_mae.py, ...)**
+
+| Metric | Calculation | Interpretation |
+|--------|-------------|----------------|
+| `caar` | mean(signed_car), non-overlapping t-test. signed_car = return x sign(factor) | Mean abnormal return per event. `***` = events have real directional effect |
+| `bmp_sar` | Standardize each event's AR by pre-event vol (σ_i), then z-test on SARs | Same hypothesis as CAAR, but robust to event-induced variance inflation |
+| `event_hit_rate` | fraction(signed_car > 0), binomial z-test H₀: p=0.5 | Direction correct rate. > 55% with significance = useful signal |
+| `event_ic` | Spearman corr(\|factor\|, signed_car) among event rows only | Signal strength → return. > 0 = stronger signal works better. Auto-skips for discrete {±1} signals |
+| `profit_factor` | sum(positive signed_car) / sum(negative signed_car) | Gross P&L ratio. > 1 = gains exceed losses across events |
+| `event_skewness` | Fisher skewness of signed_car, D'Agostino test | Positive = occasional big wins, frequent small losses (desirable) |
+| `mfe_mae` | MFE p50 / \|MAE p75\| from per-event price path | Path quality. > 2 = favorable excursion dominates adverse. Requires `price` column |
+| `event_around_return` | Per-offset return profile at T-6..T+24 relative to event | value = mean \|pre-event return\|. High = potential information leakage. Requires `price` column |
+| `multi_horizon_hit_rate` | Win rate at horizons [1, 6, 12, 24] bars | Shows optimal holding period. Increasing = slow alpha (needs patience) |
+| `signal_density` | mean(total_bars / n_events) per asset | Signal frequency. High = selective signal (sparse). Low = fires often |
+| `clustering_hhi` | HHI = sum(event_share_per_date²) | Event date concentration. High = independence assumption violated. N>1 only |
+
+**macro_panel (fama_macbeth.py)**
+
+| Metric | Calculation | Interpretation |
+|--------|-------------|----------------|
+| `fm_beta` | Per-date cross-sectional OLS: return ~ factor → β series, Newey-West t-test | Factor premium across countries/assets. `***` = significant premium |
+| `pooled_beta` | Single pooled OLS on all observations, clustered SE | Robustness check. FM and Pooled should agree on sign |
+| `beta_sign_consistency` | fraction(per-date β > 0) or (< 0) | > 0.6 = factor direction is stable across dates |
+
+**macro_common (ts_beta.py)**
+
+| Metric | Calculation | Interpretation |
+|--------|-------------|----------------|
+| `ts_beta` | Per-asset time-series OLS: return ~ factor → β per asset, cross-asset t-test | Mean exposure to common factor. `***` = assets respond consistently |
+| `mean_r_squared` | mean(per-asset R²) | < 0.01 = common factor explains very little variation |
+| `ts_beta_sign_consistency` | fraction(per-asset β > 0) or (< 0) | > 0.6 = assets agree on exposure direction |
+
+#### Shared Metrics (cross-type)
+
+These metrics are reused across multiple factor types. Each type feeds a
+different intermediate series, but the statistical computation is identical.
+
+**`oos_decay`** (oos.py) — used by: CS, ES, MP, MC
+
+Multi-split IS/OOS persistence test. Splits the value series chronologically
+at 60/40, 70/30, 80/20, computes `decay = |mean_OOS| / |mean_IS|`.
+
+| Factor type | Input series | What it measures |
+|-------------|-------------|------------------|
+| cross_sectional | IC series (date, ic → value) | IC persistence out of sample |
+| event_signal | CAAR series (date, caar → value) | Event effect persistence |
+| macro_panel | FM β series (date, beta → value) | Factor premium persistence |
+| macro_common | Rolling mean β (date, value) | Exposure stability over time |
+
+Interpretation: decay ≥ 0.5 = acceptable (McLean & Pontiff 2016 average ~0.68).
+Sign flip in any split → VETOED (signal reversed direction OOS).
+
+**`trend`** (trend.py, shown as `ic_trend` / `caar_trend` / `beta_trend`) — used by: CS, ES, MP, MC
+
+Theil-Sen robust slope on the value series. Detects systematic decay or
+improvement over time.
+
+| Factor type | Profile name | Input series |
+|-------------|-------------|--------------|
+| cross_sectional | `ic_trend` | IC series |
+| event_signal | `caar_trend` | CAAR series |
+| macro_panel | `beta_trend` | FM β series |
+| macro_common | `beta_trend` | Rolling mean β |
+
+Interpretation: slope < 0 with CI excluding zero → significant decay → CAUTION.
+
+**`hit_rate`** (hit_rate.py) — used by: CS, ES
+
+| Factor type | Input | What "hit" means |
+|-------------|-------|-------------------|
+| cross_sectional | IC series | IC > 0 on that date (factor ranked correctly) |
+| event_signal | signed_car per event | Event return in predicted direction |
+
+Note: CS `hit_rate` uses non-overlapping sampling; ES `event_hit_rate`
+does not (events are already sparse).
+
+**`quantile_spread`** (quantile.py) — used by: CS, MP
+
+| Factor type | n_groups | Interpretation |
+|-------------|----------|----------------|
+| cross_sectional | 10 (default) | Fine-grained sort, large N supports it |
+| macro_panel | 3 (default) | Coarse sort, small N can't support 10 groups |
+
+**`turnover` / `breakeven_cost` / `net_spread`** (tradability.py) — used by: CS, MP
+
+Same calculation: fraction of portfolio that changes per rebalance.
+Not applicable to event_signal (no portfolio) or macro_common (no rebalance).
+
+---
 
 ## Architecture
 
@@ -176,7 +267,8 @@ factorlib/
 ├── metrics/                 # Independent, composable metric tools
 │   ├── ic.py                # IC, IC_IR, regime_ic, multi_horizon_ic
 │   ├── caar.py              # CAAR significance tests, BMP standardized AR
-│   ├── event_quality.py     # Per-event descriptive: hit rate, IC, profit factor, skewness
+│   ├── event_quality.py     # Per-event descriptive: hit rate, IC, profit factor, skewness, density
+│   ├── event_horizon.py     # Multi-horizon: event-around return profile, horizon hit rate
 │   ├── mfe_mae.py           # MFE/MAE path excursion
 │   ├── clustering.py        # Event clustering HHI diagnostic
 │   ├── corrado.py           # Corrado (1989) nonparametric rank test
@@ -300,6 +392,59 @@ pip install factorlib[mlflow]      # + mlflow tracking
 pip install factorlib[all]         # Everything
 ```
 
+## Metrics Organization
+
+### File = One Statistical Question
+
+Each `metrics/` file answers one question. Don't group by factor type.
+
+```
+ic.py           — "rank correlation between signal and return?"
+caar.py         — "event abnormal return significantly different from zero?"
+event_quality.py — "per-event quality: hit rate, strength, P&L shape?"
+mfe_mae.py      — "what does the price path look like after events?"
+fama_macbeth.py — "cross-sectional regression coefficient significant?"
+ts_beta.py      — "time-series exposure stable across assets?"
+quantile.py     — "top/bottom groups have different returns?"
+tradability.py  — "trading cost eats the alpha?"
+```
+
+### Cross-Type Sharing
+
+Some metrics are shared across multiple factor types:
+
+| Metric | CS | ES | MP | MC |
+|--------|:--:|:--:|:--:|:--:|
+| `oos_decay` (oos.py) | x | x | x | x |
+| `trend` (trend.py) | x | x | x | x |
+| `hit_rate` (hit_rate.py) | x | x | | |
+| `quantile_spread` (quantile.py) | x | | x | |
+| `turnover` (tradability.py) | x | | x | |
+
+Shared metrics operate on a generic `(date, value)` series — the profile
+renames type-specific intermediates (ic_values, caar_values, beta_values)
+to this schema before passing to shared functions.
+
+### Adding a New Metric
+
+```
+1. Create metrics/<question>.py with function(s) returning MetricOutput
+2. metrics/__init__.py: add re-export
+3. _api.py: add to _PROFILE_METRICS or _STANDALONE_METRICS
+4. evaluation/profile.py: call from the relevant _xxx_profile() function
+5. tests/: add test file
+```
+
+Principles:
+- One file per statistical question (not per factor type)
+- If a metric can serve multiple factor types, keep it in its own file
+  and call it from each profile function (like oos.py, trend.py)
+- Return `MetricOutput` — never raw floats
+- Use `MIN_EVENTS` / `MIN_IC_PERIODS` guards for small samples
+- Profile auto-skips metrics that are mathematically undefined for the
+  current data (e.g., `event_ic` when signal has no magnitude variance,
+  `clustering_hhi` when N=1)
+
 ## Adding a New Factor Type
 
 ```
@@ -313,7 +458,7 @@ pip install factorlib[all]         # Everything
 8.  evaluation/profile.py: add case branch in compute_profile()
 9.  evaluation/_caution.py: add case branch in check_caution()
 10. evaluation/presets.py: add gate list + update _DEFAULT_GATES
-11. metrics/: add metric module
+11. metrics/: add metric module(s) — one per statistical question
 12. metrics/__init__.py: add re-exports
 13. tests/: add tests
 ```

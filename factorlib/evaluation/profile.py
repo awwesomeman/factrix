@@ -80,7 +80,10 @@ def _event_signal_profile(
 ) -> FactorProfile:
     # WHY: lazy import — avoid loading event modules when only CS is used
     from factorlib.metrics.caar import caar as caar_metric, bmp_test
-    from factorlib.metrics.event_quality import event_hit_rate, event_ic, profit_factor, event_skewness
+    from factorlib.metrics.event_quality import (
+        event_hit_rate, event_ic, profit_factor, event_skewness, signal_density,
+    )
+    from factorlib.metrics.event_horizon import event_around_return, multi_horizon_hit_rate
     from factorlib.metrics.mfe_mae import mfe_mae_summary
     from factorlib.metrics.clustering import clustering_diagnostic
 
@@ -115,6 +118,17 @@ def _event_signal_profile(
     events = artifacts.prepared.filter(pl.col("factor") != 0)
     if events["factor"].abs().n_unique() > 1:
         metrics.append(event_ic(artifacts.prepared, return_col=ret_col))
+
+    # Multi-horizon analysis (requires price)
+    ear = event_around_return(artifacts.prepared)
+    if ear is not None:
+        metrics.append(ear)
+    mhhr = multi_horizon_hit_rate(artifacts.prepared)
+    if mhhr is not None:
+        metrics.append(mhhr)
+
+    # Signal frequency
+    metrics.append(signal_density(artifacts.prepared))
 
     n_assets = artifacts.prepared["asset_id"].n_unique()
     if n_assets > 1:

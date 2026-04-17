@@ -8,6 +8,7 @@ analysis (mfe_mae.py).
 Metrics:
     event_hit_rate — fraction of correct-direction events (binomial test)
     event_ic       — signal strength → return correlation (Spearman)
+    signal_density — average time gap between events
     profit_factor  — sum(gains) / sum(losses)
     event_skewness — skewness of signed_car distribution
 """
@@ -228,5 +229,74 @@ def event_skewness(
             "n_events": n,
             **({"p_value": p, "stat_type": "z", "h0": "skew=0",
                 "method": "D'Agostino skew test"} if p is not None else {}),
+        },
+    )
+
+
+def signal_density(
+    df: pl.DataFrame,
+    *,
+    factor_col: str = "factor",
+) -> MetricOutput:
+    """Average time gap (in bars) between consecutive events.
+
+    Answers: "how frequently does this signal fire?"
+
+    Computed per-asset, then averaged across assets. Low density
+    (large gaps) means the signal is selective; high density (small
+    gaps) means the signal fires often — capacity is higher but
+    independence may be weaker.
+
+    Args:
+        df: Panel with ``date, asset_id, factor``.
+
+    Returns:
+        MetricOutput with value = mean bars between events.
+    """
+    events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
+    n_events = len(events)
+
+    if n_events < 2:
+        return MetricOutput(name="signal_density", value=0.0,
+                            metadata={"n_events": n_events})
+
+    # Per-asset: count events and date span
+    per_asset = (
+        events.group_by("asset_id")
+        .agg(
+            pl.col("date").count().alias("n"),
+            pl.col("date").min().alias("first"),
+            pl.col("date").max().alias("last"),
+        )
+        .filter(pl.col("n") >= 2)
+    )
+
+    if per_asset.is_empty():
+        return MetricOutput(name="signal_density", value=0.0,
+                            metadata={"n_events": n_events})
+
+    # Total bars per asset (from full panel, not just events)
+    bars_per_asset = (
+        df.group_by("asset_id")
+        .agg(pl.col("date").count().alias("total_bars"))
+    )
+    per_asset = per_asset.join(bars_per_asset, on="asset_id", how="left")
+
+    # Mean gap = total_bars / n_events per asset, then average
+    per_asset = per_asset.with_columns(
+        (pl.col("total_bars") / pl.col("n")).alias("bars_per_event")
+    )
+
+    mean_gap = float(per_asset["bars_per_event"].mean())
+    events_per_asset = float(per_asset["n"].mean())
+
+    return MetricOutput(
+        name="signal_density",
+        value=mean_gap,
+        metadata={
+            "n_events_total": n_events,
+            "n_assets_with_events": len(per_asset),
+            "mean_events_per_asset": events_per_asset,
+            "mean_bars_between_events": mean_gap,
         },
     )
