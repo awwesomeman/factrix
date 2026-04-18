@@ -349,7 +349,6 @@ fl.CrossSectionalConfig(
     forward_periods=5,                # Forward return horizon
     n_groups=10,                      # Quantile groups
     q_top=0.2,                        # Q1 fraction for concentration
-    orthogonalize=False,              # Factor orthogonalization applied?
     mad_n=3.0,                        # MAD winsorization
     return_clip_pct=(0.01, 0.99),     # Forward-return percentile winsorize
     estimated_cost_bps=30,            # Trading cost estimate

@@ -130,7 +130,6 @@ CELLS: list[dict] = [
         "    forward_periods=10,            # 10 日 forward return\n"
         "    n_groups=5,                    # 5 組 quantile\n"
         "    q_top=0.2,                     # Q1 取前 20%\n"
-        "    orthogonalize=False,\n"
         "    mad_n=3.0,\n"
         "    return_clip_pct=(0.01, 0.99),\n"
         "    estimated_cost_bps=30,\n"

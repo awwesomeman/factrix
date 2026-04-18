@@ -97,21 +97,6 @@ CROSS_TYPE_RULES: list[Rule] = [
 # ---------------------------------------------------------------------------
 
 CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
-    # TODO: replace with a measured residual-exposure diagnostic (e.g.
-    # FM beta of the factor against size / value / momentum) once that
-    # metric lands. Today this rule fires on every factor with the default
-    # orthogonalize=False, which is why severity is 'info'.
-    Rule(
-        code="cs.orthogonalize_not_applied",
-        severity="info",
-        message=(
-            "orthogonalize=False — factor exposures were not regressed "
-            "against the market's standard risk factors (size / value / "
-            "momentum / industry). Any alpha observed here may be a "
-            "repackaging of a known risk premium."
-        ),
-        predicate=lambda p: not p.orthogonalize_applied,
-    ),
     Rule(
         code="cs.ic_weak_spread_strong",
         severity="warn",

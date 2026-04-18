@@ -69,7 +69,6 @@ class CrossSectionalProfile:
 
     # Data quality context (for diagnose)
     median_universe_n: int
-    orthogonalize_applied: bool
 
     # Implementation
     turnover: float
@@ -177,7 +176,6 @@ class CrossSectionalProfile:
             oos_survival_ratio=float(oos.survival_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
             median_universe_n=int(_median_universe_size(artifacts.prepared)),
-            orthogonalize_applied=bool(config.orthogonalize),
             turnover=float(turn_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),

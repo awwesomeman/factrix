@@ -51,7 +51,6 @@ class CrossSectionalConfig(BaseConfig):
 
     n_groups: int = 10  # override BaseConfig default
     q_top: float = 0.2
-    orthogonalize: bool = False
     mad_n: float = 3.0
     return_clip_pct: tuple[float, float] = (0.01, 0.99)
 
