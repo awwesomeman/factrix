@@ -49,13 +49,13 @@ def _oos_decay_metric(values_df: pl.DataFrame) -> MetricOutput:
     oos = multi_split_oos_decay(values_df)
     return MetricOutput(
         name="oos_decay",
-        value=oos.decay_ratio,
+        value=oos.survival_ratio,
         metadata={
             "sign_flipped": oos.sign_flipped,
             "status": oos.status,
             "per_split": [
                 {"is_ratio": s.is_ratio, "mean_is": s.mean_is,
-                 "mean_oos": s.mean_oos, "decay_ratio": s.decay_ratio}
+                 "mean_oos": s.mean_oos, "survival_ratio": s.survival_ratio}
                 for s in oos.per_split
             ],
         },

@@ -63,7 +63,7 @@ class CrossSectionalProfile:
     q1_concentration_eff_ratio: float
 
     # OOS stability
-    oos_decay: float
+    oos_survival_ratio: float
     oos_sign_flipped: bool
 
     # Data quality context (for diagnose)
@@ -161,7 +161,7 @@ class CrossSectionalProfile:
             q1_concentration_eff_ratio=float(
                 conc_m.metadata.get("ratio_eff_to_total", 1.0)
             ),
-            oos_decay=float(oos.decay_ratio),
+            oos_survival_ratio=float(oos.survival_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
             median_universe_n=int(_median_universe_size(artifacts.prepared)),
             orthogonalize_applied=bool(config.orthogonalize),

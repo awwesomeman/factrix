@@ -128,13 +128,16 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
         predicate=lambda p: p.oos_sign_flipped,
     ),
     Rule(
-        code="cs.oos_decay_large",
+        code="cs.oos_survival_low",
         severity="warn",
         message=(
-            "OOS decay > 50% (|mean_OOS| / |mean_IS| < 0.5) — half "
-            "or more of the signal did not survive the out-of-sample split."
+            "OOS survival ratio < 0.5 (|mean_OOS| / |mean_IS| < 0.5) — "
+            "half or more of the signal did not carry over to the "
+            "out-of-sample split."
         ),
-        predicate=lambda p: p.oos_decay < 0.5 and not p.oos_sign_flipped,
+        predicate=lambda p: (
+            p.oos_survival_ratio < 0.5 and not p.oos_sign_flipped
+        ),
     ),
     Rule(
         code="cs.high_turnover",

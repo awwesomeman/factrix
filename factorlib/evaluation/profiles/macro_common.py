@@ -55,7 +55,7 @@ class MacroCommonProfile:
     ts_beta_sign_consistency: float
 
     # Stability
-    oos_decay: float
+    oos_survival_ratio: float
     oos_sign_flipped: bool
     beta_trend: float
     beta_trend_p: PValue
@@ -130,7 +130,7 @@ class MacroCommonProfile:
             ts_beta_p=_pv(ts_beta_m),
             mean_r_squared=float(r2_m.value),
             ts_beta_sign_consistency=float(sign_m.value),
-            oos_decay=float(oos.decay_ratio),
+            oos_survival_ratio=float(oos.survival_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
             beta_trend=float(trend_m.value),
             beta_trend_p=_pv(trend_m),

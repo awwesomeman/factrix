@@ -73,7 +73,7 @@ class EventProfile:
     event_skewness: float
 
     # Stability
-    oos_decay: float
+    oos_survival_ratio: float
     oos_sign_flipped: bool
     caar_trend: float
     caar_trend_p: PValue
@@ -194,7 +194,7 @@ class EventProfile:
             event_hit_rate_p=_pv(hit_m),
             profit_factor=float(pf_m.value),
             event_skewness=float(skew_m.value),
-            oos_decay=float(oos.decay_ratio),
+            oos_survival_ratio=float(oos.survival_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
             caar_trend=float(trend_m.value),
             caar_trend_p=_pv(trend_m),

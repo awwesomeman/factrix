@@ -222,9 +222,9 @@ class TestOOSPersistenceGate:
         assert len(result.detail["per_split"]) > 0
 
     def test_custom_threshold(self, strong_artifacts):
-        lenient = partial(oos_persistence_gate, decay_threshold=0.01)
+        lenient = partial(oos_persistence_gate, survival_threshold=0.01)
         result = lenient(strong_artifacts)
-        assert result.detail["decay_threshold"] == 0.01
+        assert result.detail["survival_threshold"] == 0.01
 
 
 # ---------------------------------------------------------------------------

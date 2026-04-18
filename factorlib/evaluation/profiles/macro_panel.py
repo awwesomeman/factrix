@@ -57,7 +57,7 @@ class MacroPanelProfile:
     beta_sign_consistency: float
 
     # Stability
-    oos_decay: float
+    oos_survival_ratio: float
     oos_sign_flipped: bool
     beta_trend: float
     beta_trend_p: PValue
@@ -144,7 +144,7 @@ class MacroPanelProfile:
             pooled_beta_tstat=float(pooled_m.stat or 0.0),
             pooled_beta_p=_pv(pooled_m),
             beta_sign_consistency=float(sign_m.value),
-            oos_decay=float(oos.decay_ratio),
+            oos_survival_ratio=float(oos.survival_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
             beta_trend=float(trend_m.value),
             beta_trend_p=_pv(trend_m),
