@@ -225,6 +225,57 @@ def split_by_group(
 # Profile-era API
 # ---------------------------------------------------------------------------
 
+def _evaluate_one(
+    df: pl.DataFrame,
+    factor_name: str,
+    config: BaseConfig,
+    *,
+    preprocess: bool,
+    profile_cls: type | None = None,
+) -> tuple[Any, Any]:
+    """Single-factor pipeline shared by evaluate() and evaluate_batch().
+
+    Extracting the preprocess → build_artifacts → from_artifacts
+    sequence here keeps both entry points in lockstep when the pipeline
+    gains new steps (e.g. pre-eval validation, cache lookup). Callers
+    handle the surrounding concerns (error policy, artifact retention,
+    callback hooks, compact mode) themselves.
+
+    Args:
+        df: Raw panel (or already preprocessed when ``preprocess=False``).
+        factor_name: Written onto the returned ``Artifacts`` and profile.
+        config: Pipeline config; its ``factor_type`` picks the Profile
+            class if ``profile_cls`` is not supplied.
+        preprocess: Run ``preprocess(df, config=config)`` first.
+        profile_cls: Optional pre-resolved Profile class. Passing it
+            avoids a registry lookup per call when the caller already
+            resolved it (e.g. evaluate_batch hoists it out of the loop).
+
+    Returns:
+        ``(profile, artifacts)`` — callers that don't need artifacts
+        should discard the second element.
+    """
+    from factorlib.evaluation.pipeline import build_artifacts
+    from factorlib.evaluation.profiles import _PROFILE_REGISTRY
+
+    if preprocess:
+        from factorlib.preprocess.pipeline import preprocess as _prep
+        df = _prep(df, config=config)
+
+    artifacts = build_artifacts(df, config)
+    artifacts.factor_name = factor_name
+
+    if profile_cls is None:
+        profile_cls = _PROFILE_REGISTRY.get(type(config).factor_type)
+        if profile_cls is None:
+            raise KeyError(
+                f"No profile registered for factor_type "
+                f"{type(config).factor_type!r}."
+            )
+
+    profile = profile_cls.from_artifacts(artifacts)
+    return profile, artifacts
+
 @overload
 def evaluate(
     df: pl.DataFrame,
@@ -287,9 +338,6 @@ def evaluate(
         By default a per-type FactorProfile. When ``return_artifacts``
         is True, returns ``(profile, artifacts)``.
     """
-    from factorlib.evaluation.pipeline import build_artifacts
-    from factorlib.evaluation.profiles import _PROFILE_REGISTRY
-
     if config is None:
         config = _config_for_type(factor_type, **config_overrides)
     elif config_overrides:
@@ -298,20 +346,9 @@ def evaluate(
             f"({list(config_overrides)}). Pick one."
         )
 
-    if preprocess:
-        from factorlib.preprocess.pipeline import preprocess as _prep
-        df = _prep(df, config=config)
-
-    artifacts = build_artifacts(df, config)
-    artifacts.factor_name = factor_name
-
-    cls = _PROFILE_REGISTRY.get(type(config).factor_type)
-    if cls is None:
-        raise KeyError(
-            f"No profile registered for factor_type "
-            f"{type(config).factor_type!r}."
-        )
-    profile = cls.from_artifacts(artifacts)
+    profile, artifacts = _evaluate_one(
+        df, factor_name, config, preprocess=preprocess,
+    )
     if return_artifacts:
         return profile, artifacts
     return profile
@@ -395,7 +432,6 @@ def evaluate_batch(
         absent from both when ``stop_on_error=False``.
     """
     from factorlib.evaluation._protocol import _COMPACTED_PREPARED
-    from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profile_set import ProfileSet
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
@@ -423,19 +459,15 @@ def evaluate_batch(
             f"{type(config).factor_type!r}."
         )
 
-    if preprocess:
-        from factorlib.preprocess.pipeline import preprocess as _prep
-    else:
-        _prep = None
-
     profiles = []
     artifacts_map: dict[str, Any] = {}
     for name, factor_df in factors:
         try:
-            prepared = _prep(factor_df, config=config) if _prep else factor_df
-            artifacts = build_artifacts(prepared, config)
-            artifacts.factor_name = name
-            p = profile_cls.from_artifacts(artifacts)
+            p, artifacts = _evaluate_one(
+                factor_df, name, config,
+                preprocess=preprocess,
+                profile_cls=profile_cls,
+            )
         except Exception as exc:
             if stop_on_error:
                 raise
