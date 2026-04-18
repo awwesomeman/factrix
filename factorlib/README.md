@@ -52,7 +52,13 @@ profile = fl.evaluate(prepared, "Mom_20D", config=config, preprocess=False)
 
 ### Level 2 — Individual Metrics
 
+Two kinds of Level 2 tools:
+
+1. **Metrics consumed by `evaluate()`** — if you want just one stat without the full Profile, call them directly (same computation, same `MetricOutput` return).
+2. **Library-only metrics** — implemented and tested, but **not** auto-called by `evaluate()`. Use them when you need a dimension the default Profile doesn't cover.
+
 ```python
+# (1) Profile-level metrics accessible standalone
 from factorlib.metrics import compute_ic, ic, ic_ir, quantile_spread
 
 ic_series = compute_ic(prepared)
@@ -66,6 +72,26 @@ caar_series = compute_caar(event_prepared)
 print(caar(caar_series, forward_periods=5))
 print(bmp_test(event_prepared, forward_periods=5))
 print(corrado_rank_test(event_prepared))  # standalone non-parametric test
+```
+
+```python
+# (2) Library-only metrics — NOT part of evaluate()'s Profile
+from factorlib.metrics import regime_ic, multi_horizon_ic, spanning_alpha
+from factorlib.preprocess.orthogonalize import orthogonalize_factor
+
+# IC split by user-supplied regime labels (e.g. bull/bear, high/low vol)
+reg = regime_ic(ic_series, regime_labels={...})
+
+# Mean IC across multiple forward horizons; min |t| as conservative stat
+mh = multi_horizon_ic(prepared, periods=[1, 5, 10, 20])
+
+# Spanning alpha: does a candidate factor have alpha after controlling
+# for a base set of factors?
+span = spanning_alpha(candidate_returns, base_returns)
+
+# Orthogonalize a factor against base exposures before fl.preprocess
+ortho = orthogonalize_factor(df, base_df, base_cols=["size", "momentum"])
+profile = fl.evaluate(ortho.df, "Mom_orth", factor_type="cross_sectional")
 ```
 
 ### Level 3 — Batch + multiple-testing (BHY) + ranking
@@ -298,7 +324,7 @@ factorlib/
 │       └── _rules.py        # Per-type Rule list feeding profile.diagnose()
 │
 ├── metrics/                 # Independent, composable metric tools
-│   ├── ic.py                # IC, IC_IR, regime_ic, multi_horizon_ic
+│   ├── ic.py                # IC family: compute_ic/ic/ic_ir (Profile); regime_ic/multi_horizon_ic (Level 2)
 │   ├── caar.py              # CAAR significance tests, BMP standardized AR
 │   ├── event_quality.py     # Per-event descriptive: hit rate, IC, profit factor, skewness, density
 │   ├── event_horizon.py     # Multi-horizon: event-around return profile, horizon hit rate
@@ -352,7 +378,6 @@ fl.CrossSectionalConfig(
     mad_n=3.0,                        # MAD winsorization
     return_clip_pct=(0.01, 0.99),     # Forward-return percentile winsorize
     estimated_cost_bps=30,            # Trading cost estimate
-    multi_horizon_periods=[1, 5, 10, 20],  # Horizons for multi_horizon_ic
 )
 
 # Event signal
