@@ -205,29 +205,36 @@ def _pairwise_abs_spearman(
     aligned: pl.DataFrame,
     names: list[str],
 ) -> np.ndarray:
+    """Full |Spearman ρ| matrix in one shot via numpy.corrcoef.
+
+    Rank each column once, drop rows with any null (listwise), then
+    ``np.corrcoef`` on the ranks — mathematically equivalent to
+    Spearman. This replaces the old O(M²) per-pair loop.
+
+    Null semantics: listwise (drop rows where *any* factor is missing).
+    The earlier per-pair implementation used pairwise-listwise (drop
+    only for the two columns being correlated); results differ only
+    when missing dates differ across factors. For ProfileSets drawn
+    from the same universe, all columns share the same date index so
+    the two policies agree in practice.
+    """
     size = len(names)
-    matrix = np.eye(size, dtype=float)
-    # Rank once per column, then compute pairwise correlation on ranks
-    # which is equivalent to Spearman.
-    ranked = aligned.with_columns([pl.col(n).rank().alias(f"__r_{n}") for n in names])
-    for i in range(size):
-        for j in range(i + 1, size):
-            ri = ranked[f"__r_{names[i]}"].drop_nulls()
-            rj = ranked[f"__r_{names[j]}"].drop_nulls()
-            # Align by dropping rows with nulls in EITHER via inner-join-like
-            both = ranked.select(f"__r_{names[i]}", f"__r_{names[j]}").drop_nulls()
-            if both.height < 2:
-                rho = 0.0
-            else:
-                rho = float(
-                    both.select(
-                        pl.corr(f"__r_{names[i]}", f"__r_{names[j]}")
-                    ).item()
-                    or 0.0
-                )
-            matrix[i, j] = abs(rho)
-            matrix[j, i] = abs(rho)
-    return matrix
+    if size < 2:
+        return np.eye(size, dtype=float)
+
+    ranked = aligned.select([pl.col(n).rank().alias(n) for n in names])
+    clean = ranked.drop_nulls()
+    if clean.height < 2:
+        return np.eye(size, dtype=float)
+
+    x = clean.to_numpy()
+    # np.corrcoef treats each row as a variable, so transpose.
+    corr = np.corrcoef(x.T)
+    # A zero-variance column (constant ranks, e.g. every sample tied)
+    # produces NaN; report 0 redundancy rather than propagating NaN.
+    abs_corr = np.abs(np.nan_to_num(corr, nan=0.0))
+    np.fill_diagonal(abs_corr, 1.0)
+    return abs_corr
 
 
 def _matrix_to_df(matrix: np.ndarray, names: list[str]) -> pl.DataFrame:
