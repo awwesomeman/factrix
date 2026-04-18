@@ -169,6 +169,37 @@ class TestEvaluateBatch:
         )
         assert set(seen) == {"a", "b"}
 
+    def test_on_result_false_stops_early(self):
+        # 3 factors, stop after 2 — 3rd must not appear.
+        factors = {
+            name: _panel_with_price(60, 30, 0.3, 240 + k)
+            for k, name in enumerate(["a", "b", "c"])
+        }
+        seen: list[str] = []
+
+        def cb(name: str, _p: object) -> bool:
+            seen.append(name)
+            return len(seen) < 2
+
+        ps = fl.evaluate_batch(
+            factors, factor_type="cross_sectional", on_result=cb,
+        )
+        assert seen == ["a", "b"]
+        assert len(ps) == 2  # third was never evaluated
+
+    def test_on_result_true_continues(self):
+        factors = {
+            "a": _panel_with_price(60, 30, 0.3, 243),
+            "b": _panel_with_price(60, 30, 0.3, 244),
+        }
+        seen: list[str] = []
+        fl.evaluate_batch(
+            factors,
+            factor_type="cross_sectional",
+            on_result=lambda name, _: seen.append(name) or True,
+        )
+        assert set(seen) == {"a", "b"}
+
 
 class TestDescribeProfile:
     def test_runs_without_raising(self, capsys):

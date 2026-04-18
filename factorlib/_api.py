@@ -388,6 +388,10 @@ def evaluate_batch(
         preprocess: Whether to preprocess each factor.
         stop_on_error: Raise on first failure (True) or log+skip (False).
         on_result: Optional callback ``(name, profile)`` after each ok.
+            May return ``bool | None``; returning ``False`` stops the
+            batch loop (logged at INFO level). ``None`` and ``True``
+            both continue, so a plain side-effect lambda (e.g.
+            ``lambda n, _: print(n)``) keeps working unchanged.
         on_error: Optional callback ``(name, exception)`` on each failure;
             only consulted when ``stop_on_error=False``.
         keep_artifacts: If True, return
@@ -466,7 +470,14 @@ def evaluate_batch(
 
         profiles.append(p)
         if on_result is not None:
-            on_result(name, p)
+            signal = on_result(name, p)
+            if signal is False:
+                logger.info(
+                    "evaluate_batch: on_result returned False after %r, "
+                    "stopping early",
+                    name,
+                )
+                break
 
     profile_set = ProfileSet(profiles, profile_cls=profile_cls)
     if keep_artifacts:
