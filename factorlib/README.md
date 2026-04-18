@@ -147,16 +147,27 @@ profiles, arts = fl.evaluate_batch(
     factors, factor_type="cross_sectional", keep_artifacts=True,
 )
 redund = fl.redundancy_matrix(profiles, method="value_series", artifacts=arts)
+```
 
-# For large batches, drop the prepared panel to save memory.
-# (factor_rank needs prepared; value_series only needs intermediates.)
+**Memory tip**: for batches over ~50 factors on wide panels, set
+``compact=True``. Each retained ``Artifacts`` drops its ``prepared``
+DataFrame (replaced with a sentinel that raises on access) while
+keeping the small intermediates that ``redundancy_matrix(method="value_series")``
+and custom metrics on ``intermediates`` still need.
+
+```python
+# Dogfood (full TW panel × 30 CS factors): retained footprint drops
+# from 5.5 GB to 2.5 MB — compact is effectively required past a
+# few hundred factors. See experiments/benchmark_compact.py.
 profiles, arts = fl.evaluate_batch(
     factors,
     factor_type="cross_sectional",
     keep_artifacts=True,
-    compact=True,   # drop prepared from each Artifacts
+    compact=True,
 )
 redund = fl.redundancy_matrix(profiles, method="value_series", artifacts=arts)
+# redundancy_matrix(method="factor_rank") needs prepared; do NOT pair
+# it with compact=True.
 ```
 
 ### Level 5 — Charts
