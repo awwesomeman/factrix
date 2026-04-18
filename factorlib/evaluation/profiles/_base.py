@@ -54,6 +54,11 @@ def _verdict_from_p(p: PValue, threshold: float, n_periods: int) -> Verdict:
     ``_p_value_from_t``), not the Z approximation — the Z form would
     *under*-reject for small n because t tails are fatter.
 
+    Two-sided: ``_p_value_from_t`` is symmetric in the sign of the
+    input, so ``verdict(-t)`` and ``verdict(+t)`` return the same
+    result. A caller who accidentally passes a negative threshold
+    gets the well-defined answer they meant, not a crash.
+
     ``verdict()`` is still a heuristic (one factor at a time); rigorous
     inference across a batch goes through
     ``ProfileSet.multiple_testing_correct`` (BHY).

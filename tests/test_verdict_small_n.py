@@ -92,15 +92,18 @@ class TestThresholdIsTDistribution:
 
     def test_large_n_threshold_close_to_z(self, large_n_profile):
         # IC is non-overlap-sampled every forward_periods=5 days, so
-        # n_dates=250 yields ~50 samples → df≈49. At df=49 the t tail is
-        # still slightly wider than Z (~1e-3 difference). We just lock
-        # that the gap shrinks well below the small-N gap.
+        # n_dates=250 yields ~50 samples → df ≈ 49. At that df the
+        # t-dist p-value at t=2 sits within ~1.1e-3 of the Z limit.
+        # Lock the absolute gap directly so a failure message tells
+        # the reader which side (implementation vs fixture size) drifted.
         p_z = _p_value_from_t(2.0, n=10_000)
         p_t_large = _p_value_from_t(2.0, n=large_n_profile.n_periods)
-        p_t_small = _p_value_from_t(2.0, n=5)
-        assert abs(p_t_large - p_z) < abs(p_t_small - p_z) / 10, (
-            "Large-N gap to Z should be an order of magnitude smaller "
-            "than the small-N gap."
+        gap = abs(p_t_large - p_z)
+        assert gap < 2e-3, (
+            f"At df={large_n_profile.n_periods - 1} "
+            f"(n_periods={large_n_profile.n_periods}), t-to-Z p-value "
+            f"gap should be <2e-3; got {gap:.2e}. Likely either "
+            f"_p_value_from_t drifted or the fixture is too small."
         )
 
 
