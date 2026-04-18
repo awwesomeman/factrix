@@ -104,6 +104,113 @@ class TestMethods:
         )
 
 
+class TestDegenerateInputs:
+    def test_zero_variance_factor_warns_and_maxes_redundancy(self):
+        """A constant factor (every rank tied) is upstream-broken. Report
+        it as maximally redundant with others so downstream filters drop
+        it, rather than silently reporting 0 redundancy (orthogonal)."""
+        import numpy as np
+        import polars as pl
+        from datetime import datetime, timedelta
+        from factorlib.config import CrossSectionalConfig
+        from factorlib.evaluation.pipeline import build_artifacts
+        from factorlib.evaluation.profiles import CrossSectionalProfile
+
+        rng = np.random.default_rng(4242)
+        n_dates, n_assets = 40, 20
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+
+        rows_good, rows_const = [], []
+        for d in dates:
+            f_good = rng.standard_normal(n_assets)
+            r = 0.4 * f_good + 0.6 * rng.standard_normal(n_assets)
+            for i in range(n_assets):
+                rows_good.append({"date": d, "asset_id": f"a{i}",
+                                  "factor": float(f_good[i]),
+                                  "forward_return": float(r[i])})
+                rows_const.append({"date": d, "asset_id": f"a{i}",
+                                   "factor": 1.0,
+                                   "forward_return": float(r[i])})
+
+        df_good = pl.DataFrame(rows_good).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        df_const = pl.DataFrame(rows_const).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+
+        cfg = CrossSectionalConfig()
+        art_good = build_artifacts(df_good, cfg); art_good.factor_name = "good"
+        art_const = build_artifacts(df_const, cfg); art_const.factor_name = "const"
+        profiles = [
+            CrossSectionalProfile.from_artifacts(art_good),
+            CrossSectionalProfile.from_artifacts(art_const),
+        ]
+        ps = ProfileSet(profiles)
+        with pytest.warns(UserWarning, match="zero-variance"):
+            m = redundancy_matrix(
+                ps,
+                method="value_series",
+                artifacts={"good": art_good, "const": art_const},
+            )
+        # Off-diagonal is 1.0 (maximally redundant → surfaces the bug).
+        rho = m.filter(pl.col("factor") == "good")["const"].item()
+        assert rho == pytest.approx(1.0), (
+            f"Zero-variance factor should be marked |ρ|=1 to force "
+            f"downstream deduplication; got {rho}"
+        )
+
+    def test_staggered_history_warns(self):
+        """Factors with differently-sized value series trigger the
+        intersection warning so users aren't blindsided by the tighter
+        effective window."""
+        import numpy as np
+        import polars as pl
+        from datetime import datetime, timedelta
+        from factorlib.config import CrossSectionalConfig
+        from factorlib.evaluation.pipeline import build_artifacts
+        from factorlib.evaluation.profiles import CrossSectionalProfile
+
+        rng = np.random.default_rng(5151)
+        n_assets = 20
+
+        def _panel(n_dates: int, start_offset: int, seed_salt: int) -> pl.DataFrame:
+            dates = [
+                datetime(2024, 1, 1) + timedelta(days=i + start_offset)
+                for i in range(n_dates)
+            ]
+            rng_local = np.random.default_rng(5151 + seed_salt)
+            rows = []
+            for d in dates:
+                f = rng_local.standard_normal(n_assets)
+                r = 0.4 * f + 0.6 * rng_local.standard_normal(n_assets)
+                for i in range(n_assets):
+                    rows.append({"date": d, "asset_id": f"a{i}",
+                                 "factor": float(f[i]),
+                                 "forward_return": float(r[i])})
+            return pl.DataFrame(rows).with_columns(
+                pl.col("date").cast(pl.Datetime("ms"))
+            )
+
+        df_full = _panel(n_dates=60, start_offset=0, seed_salt=1)
+        df_short = _panel(n_dates=30, start_offset=30, seed_salt=2)
+
+        cfg = CrossSectionalConfig()
+        art_full = build_artifacts(df_full, cfg); art_full.factor_name = "full"
+        art_short = build_artifacts(df_short, cfg); art_short.factor_name = "short"
+        profiles = [
+            CrossSectionalProfile.from_artifacts(art_full),
+            CrossSectionalProfile.from_artifacts(art_short),
+        ]
+        ps = ProfileSet(profiles)
+        with pytest.warns(UserWarning, match="missing dates"):
+            redundancy_matrix(
+                ps,
+                method="value_series",
+                artifacts={"full": art_full, "short": art_short},
+            )
+
+
 class TestAutoDowngrade:
     def test_compact_artifact_triggers_warning(self, cs_profiles_and_artifacts):
         profiles, artifacts = cs_profiles_and_artifacts

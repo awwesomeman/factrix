@@ -209,30 +209,67 @@ def _pairwise_abs_spearman(
 
     Rank each column once, drop rows with any null (listwise), then
     ``np.corrcoef`` on the ranks — mathematically equivalent to
-    Spearman. This replaces the old O(M²) per-pair loop.
+    Spearman. Recommended for M ≤ 1000; beyond that the M×M matrix
+    memory (8 MB at M=1000, 800 MB at M=10k) starts to bite.
 
     Null semantics: listwise (drop rows where *any* factor is missing).
-    The earlier per-pair implementation used pairwise-listwise (drop
-    only for the two columns being correlated); results differ only
-    when missing dates differ across factors. For ProfileSets drawn
-    from the same universe, all columns share the same date index so
-    the two policies agree in practice.
+    The earlier per-pair implementation used pairwise-listwise. These
+    agree when every factor shares the same date index. When histories
+    are staggered (e.g. a factor onboarded mid-sample) the sample used
+    here shrinks to the intersection of all factors' coverage; we emit
+    a UserWarning so the caller can decide whether to drop the short-
+    history factor or accept the tighter window.
+
+    Zero-variance columns (every date tied — a constant / degenerate
+    factor) correlate to NaN. We surface them via UserWarning and fill
+    the off-diagonal with 1.0, i.e. treat them as maximally redundant
+    with everything so downstream filters drop them, rather than
+    silently reporting 0 (which a caller would read as "orthogonal,
+    keep").
     """
     size = len(names)
     if size < 2:
         return np.eye(size, dtype=float)
 
     ranked = aligned.select([pl.col(n).rank().alias(n) for n in names])
+    null_counts = ranked.null_count().row(0)
+    staggered = [n for n, c in zip(names, null_counts) if c > 0]
+    if staggered:
+        warnings.warn(
+            f"redundancy_matrix: factors {staggered} have missing dates "
+            f"that other factors cover; correlation is computed on the "
+            f"intersection. If that shrinks the window unacceptably, "
+            f"drop the short-history factors from the ProfileSet.",
+            UserWarning,
+            stacklevel=3,
+        )
+
     clean = ranked.drop_nulls()
     if clean.height < 2:
         return np.eye(size, dtype=float)
 
     x = clean.to_numpy()
-    # np.corrcoef treats each row as a variable, so transpose.
-    corr = np.corrcoef(x.T)
-    # A zero-variance column (constant ranks, e.g. every sample tied)
-    # produces NaN; report 0 redundancy rather than propagating NaN.
-    abs_corr = np.abs(np.nan_to_num(corr, nan=0.0))
+    zero_var_cols = [
+        n for n, col in zip(names, x.T) if np.std(col) == 0.0
+    ]
+
+    # Silence numpy's divide-by-zero RuntimeWarning on zero-variance
+    # columns — we already detect them and surface a targeted
+    # UserWarning below.
+    with np.errstate(invalid="ignore"):
+        corr = np.corrcoef(x.T)
+    fill = 0.0
+    if zero_var_cols:
+        warnings.warn(
+            f"redundancy_matrix: zero-variance columns {zero_var_cols} "
+            f"(every rank tied — likely a constant / single-value "
+            f"factor). Reporting |ρ|=1 vs other factors to surface the "
+            f"degeneracy; inspect the factor upstream.",
+            UserWarning,
+            stacklevel=3,
+        )
+        fill = 1.0
+    abs_corr = np.abs(np.nan_to_num(corr, nan=fill, copy=False))
     np.fill_diagonal(abs_corr, 1.0)
     return abs_corr
 
