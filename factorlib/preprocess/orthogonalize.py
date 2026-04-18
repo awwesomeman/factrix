@@ -75,13 +75,21 @@ def orthogonalize_factor(
         how="inner",
     )
 
-    dates = merged["date"].unique().sort()
+    # WHY: partition_by yields per-date chunks in one pass (O(D × N)).
+    # The previous implementation looped over unique dates and re-filtered
+    # the merged DataFrame each time, which is O(D² × N) — measurable on
+    # full-market panels with thousands of dates.
     residuals_list: list[pl.DataFrame] = []
     all_betas: list[np.ndarray] = []
     all_r2: list[float] = []
 
-    for dt in dates:
-        chunk = merged.filter(pl.col("date") == dt)
+    # partition_by groups rows by date value; no pre-sort needed (the
+    # earlier `.sort("date")` was dead weight at O(D×N log N)).
+    # Per-date OLS is order-invariant; mean_betas / mean_r2 are sums.
+    chunks = merged.partition_by("date", maintain_order=True)
+    n_dates = len(chunks)
+
+    for chunk in chunks:
         y = chunk[factor_col].to_numpy().astype(np.float64)
         X = chunk.select(base_cols).to_numpy().astype(np.float64)
 
@@ -99,6 +107,7 @@ def orthogonalize_factor(
             ss_tot = float(np.dot(centered, centered))
             all_r2.append(1.0 - ss_res / ss_tot if ss_tot > EPSILON else 0.0)
         except np.linalg.LinAlgError:
+            dt = chunk["date"][0]
             logger.warning("orthogonalize: lstsq failed for date %s, keeping original", dt)
             residual = y
 
@@ -127,7 +136,6 @@ def orthogonalize_factor(
 
     n_total = len(factor_df)
     n_ortho = len(residuals_df)
-    n_dates = len(dates)
     n_base = len(base_cols)
     drop_pct = (n_total - n_ortho) / max(n_total, 1) * 100
 
