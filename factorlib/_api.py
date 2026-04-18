@@ -14,11 +14,14 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
 from factorlib._types import FactorType
+
+if TYPE_CHECKING:
+    from factorlib.evaluation._protocol import Artifacts
 from factorlib.config import (
     BaseConfig,
     CrossSectionalConfig,
@@ -238,6 +241,32 @@ def split_by_group(
 # Profile-era API
 # ---------------------------------------------------------------------------
 
+@overload
+def evaluate(
+    df: pl.DataFrame,
+    factor_name: str,
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    return_artifacts: Literal[False] = ...,
+    **config_overrides: Any,
+) -> Any: ...
+
+
+@overload
+def evaluate(
+    df: pl.DataFrame,
+    factor_name: str,
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    return_artifacts: Literal[True],
+    **config_overrides: Any,
+) -> tuple[Any, "Artifacts"]: ...
+
+
 def evaluate(
     df: pl.DataFrame,
     factor_name: str,
@@ -245,6 +274,7 @@ def evaluate(
     factor_type: str | FactorType = "cross_sectional",
     config: BaseConfig | None = None,
     preprocess: bool = True,
+    return_artifacts: bool = False,
     **config_overrides: Any,
 ):
     """Evaluate a single factor and return a typed ``FactorProfile``.
@@ -262,11 +292,16 @@ def evaluate(
             ``config`` is supplied.
         config: Explicit config instance; overrides ``factor_type``.
         preprocess: Run preprocessing before evaluation (default True).
+        return_artifacts: If True, return ``(profile, artifacts)`` where
+            ``artifacts`` exposes ``prepared`` + ``intermediates`` for
+            user-defined metrics (MI, dCor, regime splits, etc.) without
+            re-running ``build_artifacts``.
         **config_overrides: Forwarded to the config constructor when
             ``config`` is None.
 
     Returns:
-        A per-type FactorProfile (e.g. ``CrossSectionalProfile``).
+        By default a per-type FactorProfile. When ``return_artifacts``
+        is True, returns ``(profile, artifacts)``.
     """
     from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
@@ -292,7 +327,10 @@ def evaluate(
             f"No profile registered for factor_type "
             f"{type(config).factor_type!r}."
         )
-    return cls.from_artifacts(artifacts)
+    profile = cls.from_artifacts(artifacts)
+    if return_artifacts:
+        return profile, artifacts
+    return profile
 
 
 def evaluate_batch(

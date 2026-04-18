@@ -70,6 +70,20 @@ class TestEvaluate:
         with pytest.raises(TypeError, match="Pick one"):
             fl.evaluate(df, "x", config=cfg, n_groups=5)
 
+    def test_return_artifacts_returns_tuple(self):
+        from factorlib.evaluation._protocol import Artifacts
+
+        df = _panel_with_price(60, 30, 0.3, 104)
+        result = fl.evaluate(
+            df, "x", factor_type="cross_sectional", return_artifacts=True,
+        )
+        assert isinstance(result, tuple) and len(result) == 2
+        profile, artifacts = result
+        assert isinstance(profile, CrossSectionalProfile)
+        assert isinstance(artifacts, Artifacts)
+        assert "factor" in artifacts.prepared.columns
+        assert artifacts.factor_name == "x"
+
 
 class TestEvaluateBatch:
     def test_returns_profile_set(self):
