@@ -34,6 +34,18 @@ class TestConstruction:
         assert "factor_name" in df.columns
         assert "ic_p" in df.columns
 
+    def test_empty_schema_uses_typed_dtypes(self):
+        # Empty-set dtype resolution goes through get_type_hints +
+        # _polars_dtype_for; lock the three non-trivial cases:
+        # PValue (NewType), float | None, and tuple[str, ...].
+        from factorlib.evaluation.profiles import EventProfile
+        ps = ProfileSet([], profile_cls=EventProfile)
+        df = ps.to_polars()
+        assert df.schema["caar_p"] == pl.Float64                # PValue → float
+        assert df.schema["clustering_hhi"] == pl.Float64        # float | None
+        assert df.schema["insufficient_metrics"] == pl.List(pl.Utf8)
+        assert df.schema["oos_sign_flipped"] == pl.Boolean
+
     def test_rejects_mixed_types(
         self, cs_profile_strong, event_profile_strong=None
     ):

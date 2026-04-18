@@ -17,6 +17,8 @@ row-count invariant) are rejected with a targeted error.
 from __future__ import annotations
 
 import dataclasses
+import types
+import typing
 from typing import TYPE_CHECKING, Callable, Generic, Iterable, Iterator, Literal, TypeVar
 
 import numpy as np
@@ -335,8 +337,9 @@ def _profiles_to_df(
     if not profiles:
         # Empty: build schema-only frame so downstream filter / rank_by
         # keep working without special-casing for len-0 sets.
+        hints = typing.get_type_hints(profile_cls, include_extras=False)
         return pl.DataFrame(
-            {f.name: pl.Series(f.name, [], dtype=_polars_dtype_for(f.type))
+            {f.name: pl.Series(f.name, [], dtype=_polars_dtype_for(hints[f.name]))
              for f in field_list}
         )
 
@@ -354,19 +357,56 @@ def _profiles_to_df(
     return df
 
 
-def _polars_dtype_for(annotation: object) -> pl.DataType:
-    """Best-effort dtype mapping for empty-ProfileSet schema building.
+_SCALAR_DTYPES: dict[type, pl.DataType] = {
+    bool: pl.Boolean,  # bool is a subclass of int — must come first
+    int: pl.Int64,
+    float: pl.Float64,
+    str: pl.Utf8,
+}
 
-    For rare edge cases (empty set's DataFrame); non-empty sets infer
-    from data. Conservative default: Object.
+
+def _polars_dtype_for(annotation: object) -> pl.DataType:
+    """Resolve a Profile dataclass annotation to a polars dtype.
+
+    Only consulted for empty ProfileSets (non-empty sets let polars
+    infer from data). Handles:
+      - scalars (int / float / bool / str);
+      - ``PValue`` (NewType over float);
+      - ``T | None`` unions by stripping ``None``;
+      - ``tuple[T, ...]`` / ``list[T]`` → ``pl.List(scalar dtype of T)``;
+      - ``Literal[...]`` / unknown → ``pl.Object``.
     """
-    s = str(annotation)
-    if "int" in s.lower():
-        return pl.Int64
-    if "float" in s.lower() or "PValue" in s:
-        return pl.Float64
-    if "bool" in s.lower():
-        return pl.Boolean
-    if "str" in s.lower():
-        return pl.Utf8
+    # Strip Optional / T | None down to the non-None arg.
+    origin = typing.get_origin(annotation)
+    args = typing.get_args(annotation)
+    if origin in (typing.Union, types.UnionType):
+        non_none = [a for a in args if a is not type(None)]
+        if len(non_none) == 1:
+            return _polars_dtype_for(non_none[0])
+        return pl.Object
+
+    if origin in (tuple, list):
+        if args:
+            # tuple[T, ...] → args == (T, Ellipsis); list[T] → args == (T,)
+            elem = args[0]
+            inner = _polars_dtype_for(elem)
+            # Polars nested lists need a concrete inner dtype; fall back
+            # to Utf8 for Object to keep empty-set roundtrips valid.
+            return pl.List(inner if inner != pl.Object else pl.Utf8)
+        return pl.List(pl.Utf8)
+
+    if isinstance(annotation, type):
+        if annotation in _SCALAR_DTYPES:
+            return _SCALAR_DTYPES[annotation]
+        # PValue is a NewType; typing.get_type_hints resolves NewType to
+        # its supertype on modern Python, but guard for the raw callable
+        # form just in case.
+        if issubclass(annotation, float):
+            return pl.Float64
+
+    # NewType wrappers expose __supertype__.
+    supertype = getattr(annotation, "__supertype__", None)
+    if supertype is not None:
+        return _polars_dtype_for(supertype)
+
     return pl.Object
