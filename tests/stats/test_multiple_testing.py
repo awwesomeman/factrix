@@ -60,6 +60,13 @@ class TestBhyAdjust:
         n_high = int(bhy_adjust(p, fdr=0.25).sum())
         assert n_high >= n_low
 
+    def test_single_element_below_fdr_rejects(self):
+        # n=1: c(1) = 1, critical = 1/(1*1)*fdr = fdr. Any p <= fdr passes.
+        assert bhy_adjust(np.array([0.01]), fdr=0.05).tolist() == [True]
+
+    def test_single_element_above_fdr_does_not_reject(self):
+        assert bhy_adjust(np.array([0.20]), fdr=0.05).tolist() == [False]
+
 
 class TestBhyAdjustedP:
     def test_empty_input(self):

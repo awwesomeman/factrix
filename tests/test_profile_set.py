@@ -144,6 +144,51 @@ class TestRankTop:
             ProfileSet(profiles).top(-1)
 
 
+class TestProfileDfOrderingInvariant:
+    """iter_profiles() and to_polars() must stay in lockstep.
+
+    The class exposes two views of the same sequence (typed profiles
+    and a polars DataFrame). A bug where one view reorders but not the
+    other would silently misalign BHY inputs / filter masks. These tests
+    lock the invariant after each reshaping operation.
+    """
+
+    def _assert_aligned(self, ps):
+        names_from_iter = [p.factor_name for p in ps.iter_profiles()]
+        names_from_df = ps.to_polars()["factor_name"].to_list()
+        assert names_from_iter == names_from_df
+
+    def test_filter_expr_preserves_alignment(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).filter(pl.col("ic_tstat") > 0)
+        self._assert_aligned(ps)
+
+    def test_filter_callable_preserves_alignment(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).filter(lambda p: p.ic_mean > 0)
+        self._assert_aligned(ps)
+
+    def test_rank_by_preserves_alignment(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).rank_by("ic_ir")
+        self._assert_aligned(ps)
+
+    def test_top_preserves_alignment(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).rank_by("ic_p", descending=False).top(2)
+        self._assert_aligned(ps)
+
+    def test_chain_preserves_alignment(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = (
+            ProfileSet(profiles)
+            .filter(pl.col("ic_p") <= 1.0)
+            .rank_by("ic_ir")
+            .top(3)
+        )
+        self._assert_aligned(ps)
+
+
 class TestMultipleTestingCorrect:
     def test_default_p_source_is_canonical(self, cs_profiles_and_artifacts):
         profiles, _ = cs_profiles_and_artifacts
@@ -190,6 +235,18 @@ class TestMultipleTestingCorrect:
         # strong_profile (signal_coef=0.5) should definitely survive
         names = [p.factor_name for p in strong.iter_profiles()]
         assert "strong" in names
+
+    def test_whitelist_member_accepted(self, cs_profiles_and_artifacts):
+        """p_source can name any whitelisted field, not just canonical_p."""
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).multiple_testing_correct(
+            p_source="spread_p", fdr=0.10,
+        )
+        df = ps.to_polars()
+        assert df["mt_p_source"].unique().to_list() == ["spread_p"]
+        # Adjusted p must line up with the spread_p input (same row order).
+        adj = df["p_adjusted"].to_list()
+        assert len(adj) == len(profiles)
 
     def test_rejects_post_registration_invariant_break(
         self, cs_profiles_and_artifacts,

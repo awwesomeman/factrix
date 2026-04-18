@@ -92,6 +92,20 @@ class TestVerdict:
             if p.verdict(threshold=3.0) == "PASS":
                 assert p.verdict(threshold=t) == "PASS"
 
+    def test_threshold_zero_accepts_any_positive_p(self, cs_profile_weak):
+        # threshold=0 → t-critical=0 → p-cut = 1.0 → any valid p passes.
+        # The signal is weak, but at zero threshold FAILED would be a bug.
+        assert cs_profile_weak.verdict(threshold=0.0) == "PASS"
+
+    def test_negative_threshold_symmetric(self, cs_profile_strong):
+        # Two-sided p is symmetric in the sign of the t-stat cutoff, so
+        # verdict(-t) must match verdict(+t). No crash, no asymmetric
+        # behaviour that would punish negative thresholds a caller might
+        # plug in by mistake.
+        p = cs_profile_strong
+        for t in (1.0, 2.0, 3.0):
+            assert p.verdict(threshold=-t) == p.verdict(threshold=t)
+
 
 class TestDiagnose:
     def test_returns_list(self, cs_profile_strong):
