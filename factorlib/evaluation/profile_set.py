@@ -248,6 +248,20 @@ class ProfileSet(Generic[P]):
         The underlying profile dataclasses are unchanged.
         """
         whitelist = self._profile_cls.P_VALUE_FIELDS
+        canonical_field = self._profile_cls.CANONICAL_P_FIELD
+        # Re-check invariants at runtime: @register_profile validates these
+        # at decoration time, but setattr on the class after registration
+        # (e.g. an ill-advised monkey-patch in a notebook) could silently
+        # put the profile class back into an invalid shape. A frozenset
+        # membership test is essentially free.
+        if canonical_field not in whitelist:
+            raise RuntimeError(
+                f"{self._profile_cls.__name__}.CANONICAL_P_FIELD="
+                f"{canonical_field!r} is not in P_VALUE_FIELDS="
+                f"{sorted(whitelist)}. The invariant was set at "
+                f"registration time; it must have been mutated since. "
+                f"Restore it before running BHY."
+            )
         if p_source != "canonical_p" and p_source not in whitelist:
             raise ValueError(
                 f"p_source={p_source!r} is not a valid p-value source for "

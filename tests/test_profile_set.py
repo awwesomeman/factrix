@@ -190,3 +190,19 @@ class TestMultipleTestingCorrect:
         # strong_profile (signal_coef=0.5) should definitely survive
         names = [p.factor_name for p in strong.iter_profiles()]
         assert "strong" in names
+
+    def test_rejects_post_registration_invariant_break(
+        self, cs_profiles_and_artifacts,
+    ):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles)
+        original = CrossSectionalProfile.CANONICAL_P_FIELD
+        try:
+            # Simulate a downstream monkey-patch that silently puts the
+            # class back into an invalid shape. BHY must refuse rather
+            # than feed the caller a meaningless correction.
+            CrossSectionalProfile.CANONICAL_P_FIELD = "not_a_real_field"
+            with pytest.raises(RuntimeError, match="must have been mutated"):
+                ps.multiple_testing_correct(fdr=0.05)
+        finally:
+            CrossSectionalProfile.CANONICAL_P_FIELD = original
