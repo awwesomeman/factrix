@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import plotly.graph_objects as go
-    from factorlib.evaluation._protocol import EvaluationResult
+    from factorlib.evaluation._protocol import Artifacts
 
 
 def _require_plotly() -> None:
@@ -24,11 +24,18 @@ def _require_plotly() -> None:
         ) from None
 
 
-def report_charts(result: EvaluationResult) -> dict[str, go.Figure]:
-    """Generate standard charts from an evaluation result.
+def report_charts(artifacts: Artifacts) -> dict[str, go.Figure]:
+    """Generate standard charts from evaluation ``Artifacts``.
+
+    The profile-era API separates the numeric profile (`FactorProfile`)
+    from the plotting intermediates (`Artifacts`). Obtain the latter by
+    calling ``build_artifacts(df, config)`` directly, or by calling
+    ``fl.evaluate`` and then rebuilding (profiles do not carry
+    DataFrames by design).
 
     Args:
-        result: Output of ``evaluate()`` — must have ``artifacts``.
+        artifacts: Output of ``build_artifacts`` (or recovered alongside
+            ``fl.evaluate`` when you call it in a loop).
 
     Returns:
         Mapping of chart name → plotly Figure.
@@ -42,17 +49,11 @@ def report_charts(result: EvaluationResult) -> dict[str, go.Figure]:
     )
     from factorlib.metrics.quantile import compute_group_returns
 
-    if result.artifacts is None:
-        raise ValueError(
-            "result.artifacts is None — cannot generate charts. "
-            "Use fl.evaluate() which attaches artifacts."
-        )
-
     figs: dict[str, go.Figure] = {}
 
-    ic_series = result.artifacts.get("ic_series")
-    spread_series = result.artifacts.get("spread_series")
-    config = result.artifacts.config
+    ic_series = artifacts.get("ic_series")
+    spread_series = artifacts.get("spread_series")
+    config = artifacts.config
 
     figs["cumulative_ic"] = cumulative_ic_chart(ic_series)
     figs["ic_distribution"] = ic_distribution_chart(ic_series)
@@ -61,7 +62,7 @@ def report_charts(result: EvaluationResult) -> dict[str, go.Figure]:
     from factorlib.config import CrossSectionalConfig
     if isinstance(config, CrossSectionalConfig):
         group_returns = compute_group_returns(
-            result.artifacts.prepared,
+            artifacts.prepared,
             forward_periods=config.forward_periods,
             n_groups=config.n_groups,
         )

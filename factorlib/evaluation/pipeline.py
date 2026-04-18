@@ -1,97 +1,25 @@
-"""Factor evaluation pipeline.
+"""Artifact construction for the profile-era evaluation flow.
 
-``evaluate`` is the main entry point:
-
-1. (Optional) Preprocess raw data.
-2. Build ``Artifacts`` (intermediates computed once, shared).
-3. Run gates sequentially — short-circuit on FAILED/VETOED.
-4. If all gates pass → compute profile + check CAUTION conditions.
-
-Usage::
-
-    import factorlib as fl
-
-    result = fl.evaluate(prepared, "Mom_20D",
-                         config=fl.CrossSectionalConfig())
+``build_artifacts`` pre-computes the per-type intermediates shared by
+every Profile classmethod. The top-level orchestration lives in
+``factorlib._api.evaluate`` / ``evaluate_batch``; this module is the
+lower-level plumbing.
 """
 
 from __future__ import annotations
 
 import polars as pl
 
-from factorlib.config import BaseConfig, CrossSectionalConfig, EventConfig, MacroCommonConfig, MacroPanelConfig
-from factorlib.evaluation._caution import check_caution, warn_small_n
-from factorlib.evaluation._protocol import (
-    Artifacts,
-    EvaluationResult,
-    GateFn,
-    GateResult,
+from factorlib.config import (
+    BaseConfig,
+    CrossSectionalConfig,
+    EventConfig,
+    MacroCommonConfig,
+    MacroPanelConfig,
 )
-from factorlib.evaluation.presets import default_gates_for
-from factorlib.evaluation.profile import compute_profile
+from factorlib.evaluation._protocol import Artifacts
 from factorlib.metrics.ic import compute_ic
 from factorlib.metrics.quantile import compute_spread_series
-
-
-def evaluate(
-    df: pl.DataFrame,
-    factor_name: str,
-    *,
-    config: BaseConfig | None = None,
-    gates: list[GateFn] | None = None,
-    preprocess: bool = False,
-) -> EvaluationResult:
-    """Run gate-based factor evaluation.
-
-    Args:
-        df: Panel data. If ``preprocess=False`` (default), must already
-            contain ``forward_return``. If ``preprocess=True``, must
-            contain ``price``.
-        factor_name: Identifier for the factor being evaluated.
-        config: Pipeline configuration. Defaults to CrossSectionalConfig().
-        gates: Gate functions. Defaults to type-appropriate preset.
-        preprocess: If True, run preprocessing before evaluation.
-
-    Returns:
-        EvaluationResult with status, gate details, profile, and artifacts.
-    """
-    if config is None:
-        config = CrossSectionalConfig()
-
-    if preprocess:
-        df = _preprocess(df, config)
-
-    if gates is None:
-        gates = default_gates_for(config)
-
-    warn_small_n(df, config)
-
-    artifacts = build_artifacts(df, config)
-    artifacts.factor_name = factor_name
-
-    gate_results: list[GateResult] = []
-    for gate_fn in gates:
-        result = gate_fn(artifacts)
-        gate_results.append(result)
-        if not result.passed:
-            return EvaluationResult(
-                factor_name=factor_name,
-                status=result.status,
-                gate_results=gate_results,
-                artifacts=artifacts,
-            )
-
-    profile = compute_profile(artifacts)
-    caution_reasons = check_caution(artifacts, gate_results, profile)
-
-    return EvaluationResult(
-        factor_name=factor_name,
-        status="CAUTION" if caution_reasons else "PASS",
-        gate_results=gate_results,
-        profile=profile,
-        artifacts=artifacts,
-        caution_reasons=caution_reasons,
-    )
 
 
 def build_artifacts(df: pl.DataFrame, config: BaseConfig) -> Artifacts:
@@ -112,11 +40,6 @@ def build_artifacts(df: pl.DataFrame, config: BaseConfig) -> Artifacts:
             )
 
 
-def _preprocess(df: pl.DataFrame, config: BaseConfig) -> pl.DataFrame:
-    from factorlib.preprocess.pipeline import preprocess
-    return preprocess(df, config=config)
-
-
 _REQUIRED_COLUMNS = {"date", "asset_id", "factor", "forward_return"}
 
 _SCHEMA_HINT = (
@@ -134,7 +57,8 @@ def _validate_columns(df: pl.DataFrame, factor_type: str) -> None:
         raise ValueError(
             f"{factor_type} requires columns {_REQUIRED_COLUMNS}. "
             f"Missing: {missing}.\n\n{_SCHEMA_HINT}\n\n"
-            f"Hint: call fl.preprocess(df) first, or set preprocess=True."
+            f"Hint: call fl.preprocess(df) first, or pass preprocess=True "
+            f"to fl.evaluate()."
         )
 
 

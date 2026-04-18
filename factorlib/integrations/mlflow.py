@@ -18,7 +18,7 @@ except ImportError:
 
 import polars as pl
 
-from factorlib.evaluation._protocol import EvaluationResult
+from factorlib.evaluation.profiles._base import FactorProfile
 
 
 class FactorTracker:
@@ -98,18 +98,18 @@ class FactorTracker:
 
             return run.info.run_id
 
-    def log_evaluation(
+    def log_profile(
         self,
-        result: EvaluationResult,
+        profile: FactorProfile,
         config: dict | None = None,
         factor_type: str = "individual_stock",
         sample_period: str = "",
         asset_pool: str = "",
     ) -> str:
-        """Log a gate-based factor evaluation to MLflow.
+        """Log a profile-era factor evaluation to MLflow.
 
         Args:
-            result: Output of ``evaluate()``.
+            profile: Output of ``fl.evaluate()`` — a typed FactorProfile.
             config: Optional config snapshot to log as params.
             factor_type: Factor category tag.
             sample_period: Date range tag.
@@ -118,40 +118,52 @@ class FactorTracker:
         Returns:
             MLflow run_id.
         """
-        with mlflow.start_run(run_name=result.factor_name) as run:
-            mlflow.set_tag("status", result.status)
+        import dataclasses as _dc
+
+        with mlflow.start_run(run_name=profile.factor_name) as run:
+            mlflow.set_tag("verdict", profile.verdict())
+            mlflow.set_tag(
+                "canonical_p_field", profile.CANONICAL_P_FIELD,
+            )
             self._set_context_tags(factor_type, sample_period, asset_pool)
 
-            if result.caution_reasons:
+            diagnostics = profile.diagnose()
+            if diagnostics:
                 mlflow.set_tag(
-                    "caution_reasons", "; ".join(result.caution_reasons),
+                    "diagnose_codes",
+                    "; ".join(f"{d.severity}:{d.code}" for d in diagnostics),
+                )
+                mlflow.set_tag(
+                    "diagnose_messages",
+                    " | ".join(d.message for d in diagnostics),
                 )
 
             if config:
                 mlflow.log_params(self._flatten_config(config))
 
-            # Per-gate results
-            for gr in result.gate_results:
-                mlflow.set_tag(f"gate.{gr.name}.status", gr.status)
-                for k, v in gr.detail.items():
-                    if isinstance(v, (int, float)):
-                        mlflow.log_metric(f"gate.{gr.name}.{k}", v)
+            # WHY: log every numeric / boolean field as a metric so the
+            # MLflow UI can slice any field without the caller listing
+            # them. p-values and flags land as metrics too (0.0/1.0 for
+            # bool). String scalars become tags; sequences are joined as
+            # tags (e.g. insufficient_metrics).
+            for f in _dc.fields(profile):
+                if f.name == "factor_name":
+                    continue  # already in run_name
+                value = getattr(profile, f.name)
+                if value is None:
+                    continue
+                if isinstance(value, bool):
+                    mlflow.log_metric(f.name, 1.0 if value else 0.0)
+                elif isinstance(value, (int, float)):
+                    mlflow.log_metric(f.name, float(value))
+                elif isinstance(value, str):
+                    mlflow.set_tag(f.name, value)
+                elif isinstance(value, (tuple, list)):
+                    mlflow.set_tag(f.name, ",".join(str(v) for v in value))
 
-            # Profile metrics
-            if result.profile:
-                self._log_metrics(result.profile.metrics)
-                self._log_metrics(result.profile.attribution)
+            mlflow.log_metric("canonical_p", float(profile.canonical_p))
 
             return run.info.run_id
-
-    @staticmethod
-    def _log_metrics(metrics: list) -> None:
-        for metric in metrics:
-            mlflow.log_metric(metric.name, metric.value)
-            if metric.stat is not None:
-                mlflow.log_metric(f"{metric.name}_t_stat", metric.stat)
-            if metric.significance:
-                mlflow.set_tag(f"{metric.name}_sig", metric.significance)
 
     def log_failed_run(
         self,

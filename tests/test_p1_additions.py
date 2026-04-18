@@ -8,7 +8,6 @@ import pytest
 
 from factorlib.metrics.quantile import quantile_spread_vw
 from factorlib.metrics.ic import compute_ic, regime_ic
-from factorlib._stats import bhy_threshold
 
 
 # ---------------------------------------------------------------------------
@@ -103,26 +102,4 @@ class TestRegimeIC:
         assert result.value == 0.0
 
 
-# ---------------------------------------------------------------------------
-# BHY Correction
-# ---------------------------------------------------------------------------
-
-class TestBHYThreshold:
-    def test_empty_returns_inf(self):
-        assert bhy_threshold(np.array([])) == float("inf")
-
-    def test_no_significant_returns_inf(self):
-        t = bhy_threshold(np.array([0.5, 0.3, 0.1]))
-        assert t == float("inf")
-
-    def test_very_strong_signals(self):
-        t = bhy_threshold(np.array([10.0, 8.0, 6.0]))
-        assert t < float("inf")
-        assert t > 0
-
-    def test_returns_finite_with_many_strong(self):
-        # Many strong tests → BHY should find a finite threshold
-        t_stats = np.array([10.0, 9.0, 8.0, 7.0, 6.0, 5.0])
-        t = bhy_threshold(t_stats)
-        assert t < float("inf")
-        assert t > 0
+# BHY tests moved to tests/stats/test_multiple_testing.py (p-value based).

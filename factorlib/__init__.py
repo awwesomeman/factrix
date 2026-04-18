@@ -1,10 +1,19 @@
-"""factorlib — Modular factor evaluation toolkit.
+"""factorlib — Modular factor evaluation toolkit (profile-era API).
 
-Profile-era (new, Phase A):
+Single-factor usage::
 
     import factorlib as fl
 
-    profile  = fl.evaluate(df, "Mom_20D", factor_type="cross_sectional")
+    profile = fl.evaluate(df, "Mom_20D", factor_type="cross_sectional")
+    print(profile.verdict(), profile.canonical_p)
+    for d in profile.diagnose():
+        print(d.severity, d.code, d.message)
+
+Batch + BHY multiple-testing::
+
+    import polars as pl
+    import factorlib as fl
+
     profiles = fl.evaluate_batch(candidates, factor_type="cross_sectional")
 
     top = (
@@ -15,10 +24,10 @@ Profile-era (new, Phase A):
         .top(10)
     )
 
-Gate-era (legacy, kept during Phase A; removed in Phase B):
+Schema reflection::
 
-    fl.quick_check / fl.batch_evaluate / fl.compare
-    fl.EvaluationResult, fl.GateResult, fl.CROSS_SECTIONAL_GATES, ...
+    fl.describe_factor_types()
+    fl.describe_profile("event_signal")
 """
 
 # ---------------------------------------------------------------------------
@@ -45,7 +54,7 @@ from factorlib._types import (
 from factorlib.validation import validate_factor_data
 
 # ---------------------------------------------------------------------------
-# Profile-era API (new)
+# Profile-era API
 # ---------------------------------------------------------------------------
 
 from factorlib.evaluation._protocol import Artifacts
@@ -69,29 +78,9 @@ from factorlib._api import (
     describe_profile,
 )
 
-# ---------------------------------------------------------------------------
-# Gate-era API (legacy; kept for dual-export during Phase A)
-# ---------------------------------------------------------------------------
-
-from factorlib.evaluation._protocol import (
-    EvaluationResult,
-    GateResult,
-)
-from factorlib.evaluation._protocol import FactorProfile as _LegacyFactorProfile  # noqa: F401
-from factorlib.evaluation.presets import (
-    CROSS_SECTIONAL_GATES,
-    MACRO_PANEL_GATES,
-    MACRO_COMMON_GATES,
-)
-from factorlib._api import (
-    quick_check,
-    batch_evaluate,
-    compare,
-)
-
 
 __all__ = [
-    # Profile-era (new)
+    # Top-level API
     "evaluate", "evaluate_batch", "list_factor_types",
     "ProfileSet", "redundancy_matrix",
     "FactorProfile",
@@ -100,7 +89,7 @@ __all__ = [
     "bhy_adjust", "bhy_adjusted_p",
     "Diagnostic", "PValue", "Verdict",
     # Shared core
-    "adapt", "preprocess", "build_artifacts",
+    "adapt", "preprocess", "preprocess_cs_factor", "build_artifacts",
     "CrossSectionalConfig", "EventConfig",
     "MacroPanelConfig", "MacroCommonConfig",
     "FACTOR_TYPES", "describe_factor_types", "describe_profile",
@@ -108,9 +97,4 @@ __all__ = [
     "FactorType", "MetricOutput", "Artifacts",
     "split_by_group",
     "validate_factor_data",
-    # Gate-era (legacy; drops in Phase B)
-    "quick_check", "batch_evaluate", "compare",
-    "EvaluationResult", "GateResult",
-    "CROSS_SECTIONAL_GATES", "MACRO_PANEL_GATES", "MACRO_COMMON_GATES",
-    "preprocess_cs_factor",
 ]

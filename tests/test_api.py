@@ -134,8 +134,3 @@ class TestDescribeProfile:
         fl.describe_profile(fl.FactorType.EVENT_SIGNAL)
 
 
-class TestBackwardsCompat:
-    def test_old_quick_check_still_works(self):
-        df = _panel_with_price(60, 30, 0.3, 230)
-        res = fl.quick_check(df, "mom", factor_type="cross_sectional")
-        assert type(res).__name__ == "EvaluationResult"

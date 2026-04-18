@@ -14,8 +14,9 @@ from factorlib.metrics.ts_beta import (
     compute_rolling_mean_beta,
     ts_beta_sign_consistency,
 )
-from factorlib.evaluation.pipeline import evaluate, build_artifacts
-from factorlib.evaluation.profile import compute_profile
+import factorlib as fl
+from factorlib.evaluation.pipeline import build_artifacts
+from factorlib.evaluation.profiles import MacroCommonProfile
 
 
 def _make_macro_common(
@@ -102,49 +103,27 @@ class TestTsBetaSignConsistency:
 
 
 class TestMacroCommonPipeline:
-    def test_evaluate_returns_result(self, strong_common):
-        result = evaluate(
+    def test_evaluate_returns_profile(self, strong_common):
+        profile = fl.evaluate(
             strong_common, "VIX",
-            config=MacroCommonConfig(ts_window=60),
+            config=MacroCommonConfig(ts_window=60), preprocess=False,
         )
-        assert result.factor_name == "VIX"
-        assert result.status in ("PASS", "CAUTION", "FAILED", "VETOED")
-        assert result.artifacts is not None
+        assert isinstance(profile, MacroCommonProfile)
+        assert profile.factor_name == "VIX"
 
-    def test_profile_has_ts_metrics(self, strong_common):
-        result = evaluate(
+    def test_strong_signal_passes_verdict(self, strong_common):
+        profile = fl.evaluate(
             strong_common, "VIX",
-            config=MacroCommonConfig(ts_window=60), gates=[],
+            config=MacroCommonConfig(ts_window=60), preprocess=False,
         )
-        assert result.profile is not None
-        assert result.profile.get("ts_beta") is not None
-        assert result.profile.get("mean_r_squared") is not None
-        assert result.profile.get("ts_beta_sign_consistency") is not None
-        assert result.profile.get("oos_decay") is not None
-        assert result.profile.get("beta_trend") is not None
+        assert profile.verdict() == "PASS"
 
-    def test_no_ic_metrics(self, strong_common):
-        result = evaluate(
-            strong_common, "VIX",
-            config=MacroCommonConfig(ts_window=60), gates=[],
-        )
-        assert result.profile.get("ic") is None
-        assert result.profile.get("fm_beta") is None
-
-    def test_repr_works(self, strong_common):
-        result = evaluate(
-            strong_common, "VIX",
-            config=MacroCommonConfig(ts_window=60), gates=[],
-        )
-        text = repr(result)
-        assert "Factor: VIX" in text
-
-    def test_noise_fails_gate(self, noise_common):
-        result = evaluate(
+    def test_noise_fails_verdict(self, noise_common):
+        profile = fl.evaluate(
             noise_common, "noise",
-            config=MacroCommonConfig(ts_window=60),
+            config=MacroCommonConfig(ts_window=60), preprocess=False,
         )
-        assert result.status == "FAILED"
+        assert profile.verdict() == "FAILED"
 
     def test_artifacts_keys(self, strong_common):
         artifacts = build_artifacts(strong_common, MacroCommonConfig(ts_window=60))

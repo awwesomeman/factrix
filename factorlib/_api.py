@@ -1,20 +1,12 @@
-"""High-level convenience API.
+"""High-level convenience API (profile-era).
 
-Profile-era (new):
     evaluate         — single factor → FactorProfile
     evaluate_batch   — multiple factors → ProfileSet
     list_factor_types — programmatic enumeration
-
-Gate-era (kept during Phase A dual-export; removed in Phase B):
-    quick_check      — one-call gate evaluation (returns EvaluationResult)
-    batch_evaluate   — batch gate evaluation
-    compare          — tabular comparison
-
-Shared:
-    split_by_group   — sub-universe splitting with N-aware config
-    describe_factor_types — print supported factor types
     describe_profile — reflect per-type profile schema
-    FACTOR_TYPES     — mapping of FactorType → Config class
+    describe_factor_types — print supported factor types
+    split_by_group   — sub-universe splitting with N-aware config
+    redundancy_matrix — pairwise |ρ| across a ProfileSet
 """
 
 from __future__ import annotations
@@ -34,7 +26,6 @@ from factorlib.config import (
     MacroCommonConfig,
     MacroPanelConfig,
 )
-from factorlib.evaluation._protocol import EvaluationResult, GateFn
 from factorlib.metrics._helpers import _median_universe_size
 
 logger = logging.getLogger(__name__)
@@ -143,154 +134,6 @@ def _config_for_type(
 
 
 # ---------------------------------------------------------------------------
-# quick_check
-# ---------------------------------------------------------------------------
-
-def quick_check(
-    df: pl.DataFrame,
-    factor_name: str,
-    *,
-    factor_type: str | FactorType = "cross_sectional",
-    config: BaseConfig | None = None,
-    **config_overrides: Any,
-) -> EvaluationResult:
-    """One-call factor screening: preprocess + evaluate.
-
-    Args:
-        df: Raw data with ``date, asset_id, price, factor``.
-        factor_name: Factor identifier.
-        factor_type: Factor type string or FactorType enum.
-        config: Explicit config (overrides factor_type).
-        **config_overrides: Passed to the config constructor.
-
-    Returns:
-        EvaluationResult with profile and artifacts.
-    """
-    from factorlib.evaluation.pipeline import evaluate
-
-    if config is None:
-        config = _config_for_type(factor_type, **config_overrides)
-
-    return evaluate(df, factor_name, config=config, preprocess=True)
-
-
-# ---------------------------------------------------------------------------
-# batch_evaluate
-# ---------------------------------------------------------------------------
-
-def batch_evaluate(
-    factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
-    *,
-    factor_type: str | FactorType = "cross_sectional",
-    config: BaseConfig | None = None,
-    gates: list[GateFn] | None = None,
-    preprocess: bool = True,
-    on_result: Callable[[str, EvaluationResult], None] | None = None,
-    stop_on_error: bool = False,
-    **config_overrides: Any,
-) -> dict[str, EvaluationResult]:
-    """Evaluate multiple factors.
-
-    Args:
-        factors: Mapping or list of (name, DataFrame) pairs.
-        factor_type: Default factor type for all factors.
-        config: Shared config (overrides factor_type).
-        gates: Gate functions (None = type default).
-        preprocess: Whether to preprocess each factor.
-        on_result: Callback after each evaluation, e.g. ``tracker.log``.
-        stop_on_error: If True, raise on first error. If False, log and skip.
-        **config_overrides: Passed to config constructor.
-
-    Returns:
-        Mapping of factor name → EvaluationResult.
-    """
-    from factorlib.evaluation.pipeline import evaluate
-
-    if isinstance(factors, dict):
-        factors = list(factors.items())
-
-    if config is None:
-        config = _config_for_type(factor_type, **config_overrides)
-
-    results: dict[str, EvaluationResult] = {}
-    for name, df in factors:
-        try:
-            result = evaluate(
-                df, name, config=config, gates=gates, preprocess=preprocess,
-            )
-        except Exception:
-            if stop_on_error:
-                raise
-            logger.exception("batch_evaluate: failed on '%s'", name)
-            continue
-
-        results[name] = result
-        if on_result is not None:
-            on_result(name, result)
-
-    return results
-
-
-# ---------------------------------------------------------------------------
-# compare
-# ---------------------------------------------------------------------------
-
-def compare(
-    results: dict[str, EvaluationResult] | list[EvaluationResult],
-    *,
-    sort_by: str = "ic",
-    ascending: bool = False,
-) -> pl.DataFrame:
-    """Create comparison table from multiple evaluation results.
-
-    Args:
-        results: Dict or list of EvaluationResult.
-        sort_by: Metric name to sort by.
-        ascending: Sort direction.
-
-    Returns:
-        DataFrame with one row per factor, columns for each metric.
-    """
-    import warnings
-
-    if isinstance(results, list):
-        results = {r.factor_name: r for r in results}
-
-    factor_types = set()
-    for r in results.values():
-        if r.artifacts is not None:
-            factor_types.add(type(r.artifacts.config).factor_type)
-    if len(factor_types) > 1:
-        warnings.warn(
-            f"Comparing results across different factor types: {factor_types}. "
-            f"Missing metrics will be filled with None.",
-            UserWarning,
-            stacklevel=2,
-        )
-
-    rows: list[dict[str, Any]] = []
-    for name, result in results.items():
-        row: dict[str, Any] = {
-            "factor": name,
-            "status": result.status,
-        }
-        if result.profile:
-            for m in result.profile.metrics:
-                row[m.name] = m.value
-                if m.stat is not None:
-                    row[f"{m.name}_stat"] = m.stat
-        rows.append(row)
-
-    if not rows:
-        return pl.DataFrame()
-
-    df = pl.DataFrame(rows)
-    if sort_by in df.columns:
-        df = df.sort(sort_by, descending=not ascending)
-    return df
-
-
-# ---------------------------------------------------------------------------
 # split_by_group
 # ---------------------------------------------------------------------------
 
@@ -392,7 +235,7 @@ def split_by_group(
 
 
 # ---------------------------------------------------------------------------
-# Profile-era API (new in Phase A)
+# Profile-era API
 # ---------------------------------------------------------------------------
 
 def evaluate(
@@ -407,7 +250,6 @@ def evaluate(
     """Evaluate a single factor and return a typed ``FactorProfile``.
 
     Dispatches to the per-type Profile class via ``_PROFILE_REGISTRY``.
-    Replaces the gate-era ``quick_check`` + ``pipeline.evaluate`` pair.
 
     Args:
         df: Raw panel. If ``preprocess=True`` (default), must contain
@@ -426,7 +268,6 @@ def evaluate(
     Returns:
         A per-type FactorProfile (e.g. ``CrossSectionalProfile``).
     """
-    # Lazy imports keep top-level factorlib import light.
     from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
@@ -486,9 +327,7 @@ def evaluate_batch(
     Note: the per-factor intermediate ``Artifacts`` are not retained
     on the returned ``ProfileSet``. If you need them (e.g. for
     ``redundancy_matrix(method="factor_rank")``), call ``fl.evaluate``
-    directly in a loop and keep the Artifacts yourself. A future
-    helper will surface an ``(profiles, artifacts)`` pair from this
-    function; its design is captured in Phase B work.
+    directly in a loop and keep the Artifacts yourself.
     """
     from factorlib.evaluation.profile_set import ProfileSet
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
@@ -533,8 +372,6 @@ def evaluate_batch(
     return ProfileSet(profiles, profile_cls=profile_cls)
 
 
-# Expose redundancy_matrix from this module so fl.redundancy_matrix
-# works without users importing the submodule path.
 def redundancy_matrix(
     profiles,
     method: str = "factor_rank",

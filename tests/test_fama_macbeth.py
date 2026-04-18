@@ -15,8 +15,9 @@ from factorlib.metrics.fama_macbeth import (
     beta_sign_consistency,
 )
 from factorlib.metrics.quantile import quantile_spread, compute_spread_series
-from factorlib.evaluation.pipeline import evaluate, build_artifacts
-from factorlib.evaluation.profile import compute_profile
+import factorlib as fl
+from factorlib.evaluation.pipeline import build_artifacts
+from factorlib.evaluation.profiles import MacroPanelProfile
 
 
 # ---------------------------------------------------------------------------
@@ -154,68 +155,36 @@ class TestQuantileSpreadSmallN:
 # ---------------------------------------------------------------------------
 
 class TestMacroPanelPipeline:
-    def test_evaluate_returns_result(self, strong_macro):
-        result = evaluate(
+    def test_evaluate_returns_profile(self, strong_macro):
+        profile = fl.evaluate(
             strong_macro, "test_macro",
-            config=MacroPanelConfig(),
+            config=MacroPanelConfig(), preprocess=False,
         )
-        assert result.factor_name == "test_macro"
-        assert result.status in ("PASS", "CAUTION", "FAILED", "VETOED")
-        assert result.artifacts is not None
+        assert isinstance(profile, MacroPanelProfile)
+        assert profile.factor_name == "test_macro"
 
-    def test_profile_has_fm_metrics(self, strong_macro):
-        result = evaluate(
+    def test_strong_signal_passes(self, strong_macro):
+        profile = fl.evaluate(
             strong_macro, "test_macro",
-            config=MacroPanelConfig(), gates=[],
+            config=MacroPanelConfig(), preprocess=False,
         )
-        assert result.profile is not None
-        assert result.profile.get("fm_beta") is not None
-        assert result.profile.get("pooled_beta") is not None
-        assert result.profile.get("beta_sign_consistency") is not None
-        assert result.profile.get("q1_q5_spread") is not None
-        assert result.profile.get("oos_decay") is not None
-        assert result.profile.get("beta_trend") is not None
+        assert profile.verdict() == "PASS"
+        assert profile.fm_beta_p < 0.05
 
-    def test_no_ic_metrics_in_profile(self, strong_macro):
-        result = evaluate(
-            strong_macro, "test_macro",
-            config=MacroPanelConfig(), gates=[],
-        )
-        assert result.profile.get("ic") is None
-        assert result.profile.get("ic_ir") is None
-        assert result.profile.get("hit_rate") is None
-
-    def test_repr_works(self, strong_macro):
-        result = evaluate(
-            strong_macro, "test_macro",
-            config=MacroPanelConfig(), gates=[],
-        )
-        text = repr(result)
-        assert "Factor: test_macro" in text
-        assert "fm_beta" in text
-
-    def test_to_dataframe(self, strong_macro):
-        result = evaluate(
-            strong_macro, "test_macro",
-            config=MacroPanelConfig(), gates=[],
-        )
-        df = result.to_dataframe()
-        assert len(df) > 0
-        assert "fm_beta" in df["metric"].to_list()
-
-    def test_noise_fails_gate(self, noise_macro):
-        result = evaluate(
+    def test_noise_fails(self, noise_macro):
+        profile = fl.evaluate(
             noise_macro, "noise_macro",
-            config=MacroPanelConfig(),
+            config=MacroPanelConfig(), preprocess=False,
         )
-        assert result.status == "FAILED"
+        assert profile.verdict() == "FAILED"
 
-    def test_tiny_n_caution(self, tiny_macro):
-        result = evaluate(
+    def test_tiny_n_diagnoses(self, tiny_macro):
+        profile = fl.evaluate(
             tiny_macro, "tiny_macro",
-            config=MacroPanelConfig(min_cross_section=10), gates=[],
+            config=MacroPanelConfig(min_cross_section=10), preprocess=False,
         )
-        assert any("cross-section" in r.lower() for r in result.caution_reasons)
+        codes = {d.code for d in profile.diagnose()}
+        assert any("cross_section" in c or "cross-section" in c for c in codes)
 
     def test_artifacts_keys(self, strong_macro):
         artifacts = build_artifacts(strong_macro, MacroPanelConfig())
