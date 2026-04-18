@@ -45,7 +45,11 @@ def ic_trend(
     if n < 10:
         return MetricOutput(
             name="ic_trend", value=0.0, stat=0.0, significance="",
-            metadata={"n_periods": n, "reason": "insufficient_data"},
+            metadata={
+                "reason": "insufficient_trend_periods",
+                "n_observed": n,
+                "min_required": 10,
+            },
         )
 
     # WHY: 使用序號而非日期差，因為非重疊取樣後日期間距可能不均

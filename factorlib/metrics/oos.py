@@ -22,12 +22,16 @@ GateStatus = Literal["PASS", "VETOED"]
 
 @dataclass
 class SplitDetail:
-    """Detail for a single IS/OOS split."""
+    """Detail for a single IS/OOS split.
+
+    ``survival_ratio = |mean_OOS| / |mean_IS|`` — 1.0 = OOS matches IS,
+    0.0 = signal vanished out of sample. Higher is better.
+    """
 
     is_ratio: float
     mean_is: float
     mean_oos: float
-    decay_ratio: float
+    survival_ratio: float
     sign_flipped: bool
 
     @property
@@ -40,13 +44,15 @@ class OOSResult:
     """Aggregated multi-split OOS analysis result.
 
     Attributes:
-        decay_ratio: Median of per-split decay ratios.
+        survival_ratio: Median of per-split survival ratios
+            (``|mean_OOS| / |mean_IS|``). Higher is better — 1.0 means
+            OOS signal is as strong as IS.
         sign_flipped: True if any split has sign flip → VETOED.
         per_split: Per-split details.
         status: "PASS" or "VETOED".
     """
 
-    decay_ratio: float
+    survival_ratio: float
     sign_flipped: bool
     per_split: list[SplitDetail] = field(default_factory=list)
     status: GateStatus = "PASS"
@@ -56,19 +62,19 @@ def multi_split_oos_decay(
     series: pl.DataFrame,
     value_col: str = "value",
     splits: list[tuple[float, float]] | None = None,
-    decay_threshold: float = 0.5,
+    survival_threshold: float = 0.5,
 ) -> OOSResult:
-    """Multi-split OOS decay analysis with sign flip detection.
+    """Multi-split OOS survival analysis with sign-flip detection.
 
     For each split point, divides the series into IS and OOS portions,
-    computes ``|mean_OOS| / |mean_IS|``, and checks for sign flips.
-    The final decay ratio is the **median** across splits.
+    computes ``|mean_OOS| / |mean_IS|`` (the survival ratio), and checks
+    for sign flips. The reported ratio is the **median** across splits.
 
     Args:
         series: DataFrame with ``date`` and ``value_col``, sorted by date.
         splits: List of (IS_fraction, OOS_fraction) tuples.
             Default: ``[(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]``.
-        decay_threshold: Minimum decay ratio for PASS (default 0.5).
+        survival_threshold: Minimum survival ratio for PASS (default 0.5).
 
     Returns:
         OOSResult with aggregated status.
@@ -86,7 +92,7 @@ def multi_split_oos_decay(
 
     if n < MIN_OOS_PERIODS * 2:
         return OOSResult(
-            decay_ratio=0.0,
+            survival_ratio=0.0,
             sign_flipped=False,
             status="VETOED",
         )
@@ -105,41 +111,39 @@ def multi_split_oos_decay(
         mean_is = float(is_vals.mean())
         mean_oos = float(oos_vals.mean())
 
-        # Sign flip detection
         sign_flip = (mean_is > 0 and mean_oos < 0) or (mean_is < 0 and mean_oos > 0)
         if sign_flip:
             any_sign_flip = True
 
-        # Decay ratio
         if abs(mean_is) < EPSILON:
-            decay = 0.0
+            survival = 0.0
         else:
-            decay = abs(mean_oos) / abs(mean_is)
+            survival = abs(mean_oos) / abs(mean_is)
 
         split_details.append(SplitDetail(
             is_ratio=is_frac,
             mean_is=mean_is,
             mean_oos=mean_oos,
-            decay_ratio=decay,
+            survival_ratio=survival,
             sign_flipped=sign_flip,
         ))
 
     if not split_details:
-        return OOSResult(decay_ratio=0.0, sign_flipped=False, status="VETOED")
+        return OOSResult(survival_ratio=0.0, sign_flipped=False, status="VETOED")
 
     # WHY: 取中位數而非均值，對單一 regime change 落在某 split 點更穩健
-    median_decay = float(np.median([d.decay_ratio for d in split_details]))
+    median_survival = float(np.median([d.survival_ratio for d in split_details]))
 
     # WHY: sign flip 任一 split 發生即 VETOED — IC 翻轉代表因子在 OOS 預測反了
     if any_sign_flip:
         status = "VETOED"
-    elif median_decay >= decay_threshold:
+    elif median_survival >= survival_threshold:
         status = "PASS"
     else:
         status = "VETOED"
 
     return OOSResult(
-        decay_ratio=median_decay,
+        survival_ratio=median_survival,
         sign_flipped=any_sign_flip,
         per_split=split_details,
         status=status,

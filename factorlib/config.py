@@ -15,6 +15,10 @@ from typing import ClassVar, Literal
 
 from factorlib._types import FactorType
 
+ClusteringAdjustment = Literal[
+    "none", "calendar_block_bootstrap", "kolari_pynnonen"
+]
+
 
 @dataclass(kw_only=True)
 class BaseConfig:
@@ -61,9 +65,7 @@ class EventConfig(BaseConfig):
     event_window_pre: int = 5
     event_window_post: int = 20
     cluster_window: int = 3
-    adjust_clustering: Literal[
-        "none", "calendar_block_bootstrap", "kolari_pynnonen"
-    ] = "none"
+    adjust_clustering: ClusteringAdjustment = "none"
 
 
 @dataclass(kw_only=True)

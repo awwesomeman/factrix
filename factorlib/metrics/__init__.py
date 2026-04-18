@@ -8,9 +8,10 @@ Cross-Sectional:
     q1_concentration, turnover, breakeven_cost, net_spread
 
 Event Signal:
-    compute_caar, caar, bmp_test, event_hit_rate,
+    compute_caar, caar, bmp_test, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
-    clustering_diagnostic, corrado_rank_test
+    compute_event_returns, event_around_return, multi_horizon_hit_rate,
+    signal_density, clustering_diagnostic, corrado_rank_test
 
 Macro Panel:
     compute_fm_betas, fama_macbeth, pooled_ols,
@@ -44,13 +45,22 @@ from factorlib.metrics.caar import (
     compute_caar,
     caar,
     bmp_test,
+)
+from factorlib.metrics.event_quality import (
     event_hit_rate,
+    event_ic,
+    profit_factor,
+    event_skewness,
+    signal_density,
+)
+from factorlib.metrics.event_horizon import (
+    compute_event_returns,
+    event_around_return,
+    multi_horizon_hit_rate,
 )
 from factorlib.metrics.mfe_mae import (
     compute_mfe_mae,
     mfe_mae_summary,
-    profit_factor,
-    event_skewness,
 )
 from factorlib.metrics.clustering import clustering_diagnostic
 from factorlib.metrics.corrado import corrado_rank_test
@@ -75,9 +85,10 @@ __all__ = [
     "compute_group_returns", "monotonicity", "q1_concentration",
     "turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
-    "compute_caar", "caar", "bmp_test", "event_hit_rate",
+    "compute_caar", "caar", "bmp_test", "event_hit_rate", "event_ic",
     "compute_mfe_mae", "mfe_mae_summary", "profit_factor", "event_skewness",
-    "clustering_diagnostic", "corrado_rank_test",
+    "compute_event_returns", "event_around_return", "multi_horizon_hit_rate",
+    "signal_density", "clustering_diagnostic", "corrado_rank_test",
     "compute_fm_betas", "fama_macbeth", "pooled_ols",
     "beta_sign_consistency",
     "compute_ts_betas", "ts_beta", "mean_r_squared",

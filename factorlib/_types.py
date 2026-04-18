@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
+from typing import Literal, NewType
 
 
 # ---------------------------------------------------------------------------
@@ -92,3 +93,41 @@ class MetricOutput:
         if self.significance:
             parts.append(f"sig={self.significance}")
         return f"MetricOutput({', '.join(parts)})"
+
+
+# ---------------------------------------------------------------------------
+# Profile architecture types (new in v4 — see docs/gate_redesign_v2.md)
+# ---------------------------------------------------------------------------
+
+# WHY: PValue is structurally a float, but the NewType makes intent explicit
+# and lets the whitelist in multiple_testing_correct() reject non-p fields
+# (e.g. ic_ir, oos_decay) programmatically via field annotation inspection.
+PValue = NewType("PValue", float)
+
+# WHY: Verdict is a binary decision on the canonical test only. "CAUTION" is
+# intentionally absent — all shades of "significant but with caveats" belong
+# in Diagnostic, not in verdict (see ADR §4).
+Verdict = Literal["PASS", "FAILED"]
+
+# WHY: Severity is three-valued for practical triage. "info" is observation,
+# "warn" suggests caution without blocking, "veto" is a deal-breaker that
+# should override a PASS verdict in downstream filtering if the user opts in.
+DiagnosticSeverity = Literal["info", "warn", "veto"]
+
+
+@dataclass(frozen=True, slots=True)
+class Diagnostic:
+    """Contextual hint produced by ``Profile.diagnose()``.
+
+    ``severity`` drives filtering; ``code`` is a stable machine-readable
+    identifier for programmatic handling (e.g. AI agent triage).
+    """
+
+    severity: DiagnosticSeverity
+    message: str
+    code: str | None = None
+
+    def __repr__(self) -> str:
+        tag = f"[{self.severity}]"
+        code_part = f" ({self.code})" if self.code else ""
+        return f"Diagnostic{tag}{code_part} {self.message}"

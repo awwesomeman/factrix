@@ -46,7 +46,11 @@ def clustering_diagnostic(
     if n_events < MIN_EVENTS:
         return MetricOutput(
             name="clustering_hhi", value=0.0,
-            metadata={"n_events": n_events, "reason": "insufficient events"},
+            metadata={
+                "reason": "insufficient_events",
+                "n_observed": n_events,
+                "min_required": MIN_EVENTS,
+            },
         )
 
     # Count events per date

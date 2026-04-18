@@ -6,6 +6,10 @@ import numpy as np
 import polars as pl
 import pytest
 
+from factorlib.config import CrossSectionalConfig
+from factorlib.evaluation.pipeline import build_artifacts
+from factorlib.evaluation.profiles import CrossSectionalProfile
+
 
 @pytest.fixture
 def tiny_panel() -> pl.DataFrame:
@@ -83,3 +87,84 @@ def ic_series_sign_flip() -> pl.DataFrame:
         "date": dates,
         "value": values,
     }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+# ---------------------------------------------------------------------------
+# Profile-era fixtures (Phase A)
+# ---------------------------------------------------------------------------
+
+def _cs_panel(n_dates: int, n_assets: int, signal_coef: float, seed: int) -> pl.DataFrame:
+    """Build a cross-sectional panel with a tunable signal-to-noise mix."""
+    rng = np.random.default_rng(seed)
+    dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+    rows = []
+    for d in dates:
+        f = rng.standard_normal(n_assets)
+        noise = rng.standard_normal(n_assets)
+        # Keep total variance bounded regardless of signal_coef.
+        r = signal_coef * f + (1 - abs(signal_coef)) * noise
+        for i in range(n_assets):
+            rows.append({
+                "date": d, "asset_id": f"a{i}",
+                "factor": float(f[i]), "forward_return": float(r[i]),
+            })
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+def make_macro_panel(
+    n_dates: int, n_countries: int, signal: float, seed: int,
+) -> pl.DataFrame:
+    """Macro-panel factor panel (public — shared by profile/parity tests)."""
+    rng = np.random.default_rng(seed)
+    dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+    rows = []
+    for d in dates:
+        fvals = rng.standard_normal(n_countries)
+        for i in range(n_countries):
+            r = signal * fvals[i] + (1 - abs(signal)) * rng.standard_normal()
+            rows.append({
+                "date": d, "asset_id": f"c{i}",
+                "factor": float(fvals[i]), "forward_return": float(r),
+            })
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+@pytest.fixture
+def cs_profile_strong() -> CrossSectionalProfile:
+    """A cross-sectional profile with genuine positive IC signal."""
+    df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.5, seed=101)
+    art = build_artifacts(df, CrossSectionalConfig())
+    art.factor_name = "cs_strong"
+    return CrossSectionalProfile.from_artifacts(art)
+
+
+@pytest.fixture
+def cs_profile_weak() -> CrossSectionalProfile:
+    """A cross-sectional profile with near-zero IC (should FAIL verdict)."""
+    df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.02, seed=202)
+    art = build_artifacts(df, CrossSectionalConfig())
+    art.factor_name = "cs_weak"
+    return CrossSectionalProfile.from_artifacts(art)
+
+
+@pytest.fixture
+def cs_profiles_and_artifacts() -> tuple[
+    list[CrossSectionalProfile], dict[str, object]
+]:
+    """Four CS profiles ranging from strong to pure noise, plus their
+    artifacts (keyed by factor_name) for redundancy_matrix tests."""
+    specs = [
+        ("strong", 0.5, 301),
+        ("good", 0.3, 302),
+        ("marginal", 0.1, 303),
+        ("noise", 0.01, 304),
+    ]
+    profiles = []
+    artifacts_map = {}
+    for name, coef, seed in specs:
+        df = _cs_panel(n_dates=60, n_assets=25, signal_coef=coef, seed=seed)
+        art = build_artifacts(df, CrossSectionalConfig())
+        art.factor_name = name
+        profiles.append(CrossSectionalProfile.from_artifacts(art))
+        artifacts_map[name] = art
+    return profiles, artifacts_map

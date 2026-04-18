@@ -37,7 +37,14 @@ def hit_rate(
 
     n = len(vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="hit_rate", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="hit_rate", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_hit_rate_samples",
+                "n_observed": n,
+                "min_required": MIN_IC_PERIODS,
+            },
+        )
 
     hits = int((vals > 0).sum())
     rate = hits / n

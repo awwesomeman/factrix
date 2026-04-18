@@ -1,13 +1,9 @@
-"""CAAR (Cumulative Average Abnormal Return) metrics for event signals.
+"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
-Input: DataFrame with ``date, asset_id, factor, forward_return``.
-``factor`` is discrete {-1, 0, +1} — events only on non-zero rows.
-
-Core metrics:
+Tests H₀: event abnormal return = 0, using two complementary methods:
     compute_caar — per-event-date signed abnormal return series
-    caar         — CAAR t-test (H₀: mean = 0)
-    bmp_test     — Boehmer-Musumeci-Poulsen standardized AR test
-    event_hit_rate — fraction of events where signed_car > 0
+    caar         — CAAR t-test (parametric, non-overlapping sampling)
+    bmp_test     — BMP standardized AR test (robust to event-induced variance)
 
 References:
     MacKinlay (1997), "Event Studies in Economics and Finance"
@@ -27,7 +23,7 @@ from factorlib._stats import (
     _p_value_from_z,
     _significance_marker,
 )
-from factorlib.metrics._helpers import _sample_non_overlapping, _signed_car
+from factorlib.metrics._helpers import _sample_non_overlapping
 
 
 def compute_caar(
@@ -89,7 +85,14 @@ def caar(
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
     if n < MIN_EVENTS:
-        return MetricOutput(name="caar", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="caar", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_event_dates",
+                "n_observed": n,
+                "min_required": MIN_EVENTS,
+            },
+        )
 
     mean_caar = float(vals.mean())
     sampled = _sample_non_overlapping(caar_df, forward_periods)["caar"].drop_nulls()
@@ -187,6 +190,11 @@ def bmp_test(
     if len(events) == 0:
         return MetricOutput(
             name="bmp_sar", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "no_events",
+                "n_observed": 0,
+                "min_required": 1,
+            },
         )
 
     events = events.with_columns(
@@ -201,7 +209,11 @@ def bmp_test(
     if n_valid < MIN_EVENTS:
         return MetricOutput(
             name="bmp_sar", value=0.0, stat=0.0, significance="",
-            metadata={"n_events": n_valid, "reason": "insufficient estimation data"},
+            metadata={
+                "reason": "insufficient_estimation_window",
+                "n_observed": n_valid,
+                "min_required": MIN_EVENTS,
+            },
         )
 
     sar = (valid["_signed_ar"] / valid["_est_vol"]).to_numpy()
@@ -225,53 +237,5 @@ def bmp_test(
             "stat_type": "z",
             "h0": "mu_SAR=0",
             "method": "BMP standardized cross-sectional test",
-        },
-    )
-
-
-def event_hit_rate(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> MetricOutput:
-    """Fraction of events where signed abnormal return > 0.
-
-    Uses binomial score test: H₀: p = 0.5 (random direction).
-    z = (hits - n*p0) / sqrt(n*p0*(1-p0))
-
-    Args:
-        df: Panel with event signal and forward return.
-
-    Returns:
-        MetricOutput with value=hit_rate, stat=z from binomial test.
-    """
-    events = df.filter(pl.col(factor_col) != 0)
-
-    n = len(events)
-    if n < MIN_EVENTS:
-        return MetricOutput(
-            name="event_hit_rate", value=0.0, stat=0.0, significance="",
-        )
-
-    signed = _signed_car(events, factor_col, return_col)
-    hits = int(np.sum(signed > 0))
-    rate = hits / n
-
-    z = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
-    p = _p_value_from_z(z)
-
-    return MetricOutput(
-        name="event_hit_rate",
-        value=rate,
-        stat=z,
-        significance=_significance_marker(p),
-        metadata={
-            "n_events": n,
-            "n_hits": hits,
-            "p_value": p,
-            "stat_type": "z",
-            "h0": "p=0.5",
-            "method": "binomial score test",
         },
     )

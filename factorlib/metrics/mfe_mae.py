@@ -1,25 +1,22 @@
-"""MFE/MAE and per-event path quality metrics for event signals.
+"""MFE/MAE — per-event price path excursion analysis.
 
-Per-event path analysis — requires bar-by-bar ``price`` data within the
-event window. If ``price`` is not available, ``compute_mfe_mae`` returns
-an empty DataFrame and downstream metrics return None gracefully.
+Answers: "what does the price path look like after events?"
+
+Requires bar-by-bar ``price`` data within the event window.
+If ``price`` is not available, ``compute_mfe_mae`` returns an empty
+DataFrame and downstream metrics return None gracefully.
 
 Metrics:
     compute_mfe_mae   — per-event MFE/MAE/Bars_to_MFE/Bars_to_MAE
     mfe_mae_summary   — aggregate summary (p50, p75, ratio)
-    profit_factor     — sum(gains) / sum(losses) per event
-    event_skewness    — skewness of signed_car distribution
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
-from scipy import stats as sp_stats
 
 from factorlib._types import EPSILON, MIN_EVENTS, MetricOutput
-from factorlib._stats import _significance_marker
-from factorlib.metrics._helpers import _signed_car
 
 _EMPTY_MFE_MAE_SCHEMA = {
     "date": pl.Datetime("ms"), "asset_id": pl.String,
@@ -37,7 +34,7 @@ def compute_mfe_mae(
 ) -> pl.DataFrame:
     """Per-event Maximum Favorable/Adverse Excursion.
 
-    For each event (factor ≠ 0), examines the ``window`` subsequent bars
+    For each event (factor != 0), examines the ``window`` subsequent bars
     to find the peak gain (MFE) and peak loss (MAE) relative to event
     entry price, adjusted for signal direction.
 
@@ -61,7 +58,6 @@ def compute_mfe_mae(
     if len(events) == 0:
         return pl.DataFrame(schema=_EMPTY_MFE_MAE_SCHEMA)
 
-    # Build per-asset price arrays and date→index lookup for event assets only
     event_assets = set(events["asset_id"].unique().to_list())
     asset_groups: dict[str, tuple[dict, np.ndarray]] = {}
     for asset_id in event_assets:
@@ -156,99 +152,5 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput | None:
             "bars_to_mfe_mean": bars_to_mfe_mean,
             "bars_to_mae_mean": bars_to_mae_mean,
             "n_events": n,
-        },
-    )
-
-
-def profit_factor(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> MetricOutput:
-    """sum(positive signed_car) / sum(negative signed_car).
-
-    Per-event aggregate — no strategy assumptions. A profit factor > 1
-    means gross gains exceed gross losses across all events.
-
-    Args:
-        df: Panel with event signal and forward return.
-
-    Returns:
-        MetricOutput with value=profit_factor.
-    """
-    events = df.filter(pl.col(factor_col) != 0)
-    n = len(events)
-
-    if n < MIN_EVENTS:
-        return MetricOutput(name="profit_factor", value=0.0)
-
-    signed = _signed_car(events, factor_col, return_col)
-
-    gains = float(np.sum(signed[signed > 0]))
-    losses = float(np.abs(np.sum(signed[signed < 0])))
-
-    pf = gains / losses if losses > EPSILON else 0.0
-
-    return MetricOutput(
-        name="profit_factor",
-        value=pf,
-        metadata={
-            "total_gains": gains,
-            "total_losses": losses,
-            "n_events": n,
-            "n_wins": int(np.sum(signed > 0)),
-            "n_losses": int(np.sum(signed < 0)),
-        },
-    )
-
-
-def event_skewness(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> MetricOutput:
-    """Skewness of signed_car distribution.
-
-    Positive skew = occasional large gains, frequent small losses
-    (desirable for event strategies). Uses scipy's Fisher skewness
-    (bias-corrected).
-
-    Also tests H₀: skewness = 0 via D'Agostino's skew test.
-
-    Args:
-        df: Panel with event signal and forward return.
-
-    Returns:
-        MetricOutput with value=skewness, stat=z from D'Agostino test.
-    """
-    events = df.filter(pl.col(factor_col) != 0)
-    n = len(events)
-
-    if n < MIN_EVENTS:
-        return MetricOutput(name="event_skewness", value=0.0)
-
-    signed = _signed_car(events, factor_col, return_col)
-
-    skew = float(sp_stats.skew(signed, bias=False))
-
-    if n >= 20:
-        z, p = sp_stats.skewtest(signed)
-        z = float(z)
-        p = float(p)
-    else:
-        z = None
-        p = None
-
-    return MetricOutput(
-        name="event_skewness",
-        value=skew,
-        stat=z,
-        significance=_significance_marker(p) if p is not None else None,
-        metadata={
-            "n_events": n,
-            **({"p_value": p, "stat_type": "z", "h0": "skew=0",
-                "method": "D'Agostino skew test"} if p is not None else {}),
         },
     )

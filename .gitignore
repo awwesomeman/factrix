@@ -37,3 +37,6 @@ package-lock.json
 # Project
 # Lock files (managed by uv)
 # uv.lock is committed for reproducibility
+
+# Claude Code local settings
+.claude/

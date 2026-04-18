@@ -73,7 +73,12 @@ def monotonicity(
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
         return MetricOutput(
             name="monotonicity", value=0.0, stat=0.0, significance="",
-            metadata={"n_valid_periods": len(mono_df), "n_groups": n_groups},
+            metadata={
+                "reason": "insufficient_monotonicity_periods",
+                "n_observed": len(mono_df),
+                "min_required": MIN_MONOTONICITY_PERIODS,
+                "n_groups": n_groups,
+            },
         )
 
     mono_arr = mono_df["mono"].to_numpy()
