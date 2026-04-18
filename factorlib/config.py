@@ -67,6 +67,24 @@ class CrossSectionalConfig(BaseConfig):
     # disables the gate (not recommended).
     orthogonalize_min_coverage: float = 0.95
 
+    # --- Level 2 metric inputs (T3.S2, opt-in) ---
+    # Consumed by _build_cs_artifacts; None leaves the corresponding
+    # Profile fields as None. See docs/spike_level2_profile_integration.md.
+    #
+    # regime_labels: DataFrame with (date, regime). Set this explicitly
+    # (e.g. labels for {bull, bear, high_vol}) to populate
+    # regime_ic_min_tstat / regime_ic_consistent. None = skip;
+    # regime_ic's own time-bisection fallback is Level 2 escape only.
+    regime_labels: "pl.DataFrame | None" = None
+    # multi_horizon_periods: horizons passed to multi_horizon_ic.
+    # None = skip (opt-in). Pass an explicit list (e.g. [1, 5, 10, 20])
+    # to populate multi_horizon_ic_retention / _monotonic on Profile.
+    # Cost: one full IC pass per horizon — not free on large panels.
+    multi_horizon_periods: list[int] | None = None
+    # spanning_base_spreads: {name -> DataFrame(date, spread)} for the
+    # base factor set. None = skip spanning regression.
+    spanning_base_spreads: "dict[str, pl.DataFrame] | None" = None
+
 
 @dataclass(kw_only=True)
 class EventConfig(BaseConfig):

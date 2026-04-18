@@ -118,11 +118,87 @@ def _build_cs_artifacts(
     }
     if ortho_info is not None:
         intermediates["ortho_stats"] = ortho_info
+
+    _augment_level2_intermediates(
+        intermediates, df, ic_series, spread_series, config,
+    )
+
     return Artifacts(
         prepared=df,
         config=config,
         intermediates=intermediates,
     )
+
+
+def _augment_level2_intermediates(
+    intermediates: dict[str, pl.DataFrame],
+    df: pl.DataFrame,
+    ic_series: pl.DataFrame,
+    spread_series: pl.DataFrame,
+    config: "CrossSectionalConfig",
+) -> None:
+    """Populate intermediates with regime / multi-horizon / spanning
+    summaries when the corresponding config inputs are supplied.
+
+    Each metric is opt-in; skipped when the relevant config field is
+    None. multi-horizon is the exception — always computed because it
+    is cheap and uses a sensible default [1, 5, 10, 20].
+    """
+    import math
+
+    from factorlib.metrics.ic import multi_horizon_ic, regime_ic
+    from factorlib.metrics.spanning import spanning_alpha
+
+    if config.regime_labels is not None:
+        reg = regime_ic(ic_series, regime_labels=config.regime_labels)
+        per_regime = reg.metadata.get("per_regime") or {}
+        if per_regime:
+            min_t = float(min(
+                (float(d["stat"]) for d in per_regime.values()),
+                key=abs,
+            ))
+            consistent = bool(reg.metadata.get("direction_consistent", False))
+            intermediates["regime_stats"] = pl.DataFrame({
+                "min_tstat": [min_t],
+                "consistent": [consistent],
+            })
+
+    # multi_horizon_ic is opt-in (None = skip). Needs price to recompute
+    # forward returns across horizons; skip if absent.
+    if config.multi_horizon_periods is not None and "price" in df.columns:
+        mh = multi_horizon_ic(df, periods=config.multi_horizon_periods)
+        per_horizon = mh.metadata.get("per_horizon") or {}
+        valid = {
+            h: d for h, d in per_horizon.items()
+            if not math.isnan(d.get("mean_ic", float("nan")))
+        }
+        if valid:
+            horizons = sorted(valid)
+            ic_short = float(valid[horizons[0]]["mean_ic"])
+            ic_long = float(valid[horizons[-1]]["mean_ic"])
+            # WHY: |ic_short| < 1e-4 → no signal at the shortest horizon;
+            # retention is ill-defined, None is the honest answer.
+            retention = ic_long / ic_short if abs(ic_short) >= 1e-4 else None
+            abs_ics = [abs(float(valid[h]["mean_ic"])) for h in horizons]
+            monotonic = all(
+                abs_ics[i] >= abs_ics[i + 1]
+                for i in range(len(abs_ics) - 1)
+            )
+            intermediates["multi_horizon_stats"] = pl.DataFrame({
+                "retention": [retention],
+                "monotonic": [monotonic],
+            })
+
+    if config.spanning_base_spreads:
+        sp = spanning_alpha(
+            factor_spread=spread_series,
+            base_spreads=config.spanning_base_spreads,
+        )
+        if sp.stat is not None:
+            intermediates["spanning_stats"] = pl.DataFrame({
+                "t": [float(sp.stat)],
+                "p": [float(sp.metadata.get("p_value", 1.0))],
+            })
 
 
 def _apply_orthogonalize(

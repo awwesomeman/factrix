@@ -124,6 +124,42 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
         ),
     ),
     Rule(
+        code="cs.regime_ic_inconsistent",
+        severity="warn",
+        message=(
+            "IC direction flips across regimes — factor is "
+            "regime-dependent; behaviour in bull may reverse in bear."
+        ),
+        predicate=lambda p: p.regime_ic_consistent is False,
+    ),
+    Rule(
+        code="cs.multi_horizon_decay_fast",
+        severity="warn",
+        message=(
+            "|IC| retains <30% from shortest to longest horizon — signal "
+            "is short-lived, likely overfitting to the shortest horizon."
+        ),
+        # WHY: abs() — sign-flip (retention < 0) is a separate pathology
+        # reported by multi_horizon_ic_monotonic=False; this rule is
+        # about magnitude decay only, so we compare the absolute ratio.
+        predicate=lambda p: (
+            p.multi_horizon_ic_retention is not None
+            and abs(p.multi_horizon_ic_retention) < 0.3
+        ),
+    ),
+    Rule(
+        code="cs.spanning_alpha_absorbed",
+        severity="warn",
+        message=(
+            "Spanning alpha not significant (p > 0.10) — the factor may "
+            "be a repackaging of supplied base factors rather than a "
+            "new source of alpha."
+        ),
+        predicate=lambda p: (
+            p.spanning_alpha_p is not None and p.spanning_alpha_p > 0.10
+        ),
+    ),
+    Rule(
         code="cs.ic_weak_spread_strong",
         severity="warn",
         message=(
