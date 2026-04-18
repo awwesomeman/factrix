@@ -18,10 +18,12 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
-from factorlib._types import FactorType
+from factorlib._types import FactorType, coerce_factor_type
 
 if TYPE_CHECKING:
     from factorlib.evaluation._protocol import Artifacts
+    from factorlib.evaluation.profile_set import ProfileSet
+    from factorlib.evaluation.profiles._base import FactorProfile
 from factorlib.config import (
     BaseConfig,
     CrossSectionalConfig,
@@ -78,15 +80,7 @@ def describe_profile(
     import dataclasses as _dc
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
-    if isinstance(factor_type, str):
-        try:
-            factor_type = FactorType(factor_type)
-        except ValueError:
-            valid = ", ".join(list_factor_types())
-            raise ValueError(
-                f"Unknown factor_type {factor_type!r}. Valid: {valid}."
-            ) from None
-
+    factor_type = coerce_factor_type(factor_type)
     cls = _PROFILE_REGISTRY.get(factor_type)
     if cls is None:
         raise KeyError(
@@ -122,17 +116,7 @@ def _config_for_type(
     factor_type: str | FactorType,
     **overrides: Any,
 ) -> BaseConfig:
-    if isinstance(factor_type, str):
-        try:
-            factor_type = FactorType(factor_type)
-        except ValueError:
-            raise ValueError(
-                f"Unknown factor_type '{factor_type}'. "
-                f"Supported: {', '.join(ft.value for ft in FactorType)}. "
-                f"Use fl.describe_factor_types() for details."
-            ) from None
-
-    config_cls = FACTOR_TYPES[factor_type]
+    config_cls = FACTOR_TYPES[coerce_factor_type(factor_type)]
     return config_cls(**overrides)
 
 
@@ -251,7 +235,7 @@ def evaluate(
     preprocess: bool = ...,
     return_artifacts: Literal[False] = ...,
     **config_overrides: Any,
-) -> Any: ...
+) -> "FactorProfile": ...
 
 
 @overload
@@ -264,7 +248,7 @@ def evaluate(
     preprocess: bool = ...,
     return_artifacts: Literal[True],
     **config_overrides: Any,
-) -> tuple[Any, "Artifacts"]: ...
+) -> tuple["FactorProfile", "Artifacts"]: ...
 
 
 def evaluate(
@@ -341,12 +325,12 @@ def evaluate_batch(
     config: BaseConfig | None = ...,
     preprocess: bool = ...,
     stop_on_error: bool = ...,
-    on_result: Callable[[str, object], object] | None = ...,
+    on_result: Callable[[str, "FactorProfile"], bool | None] | None = ...,
     on_error: Callable[[str, BaseException], None] | None = ...,
     keep_artifacts: Literal[False] = ...,
     compact: bool = ...,
     **config_overrides: Any,
-) -> Any: ...
+) -> "ProfileSet": ...
 
 
 @overload
@@ -357,12 +341,12 @@ def evaluate_batch(
     config: BaseConfig | None = ...,
     preprocess: bool = ...,
     stop_on_error: bool = ...,
-    on_result: Callable[[str, object], object] | None = ...,
+    on_result: Callable[[str, "FactorProfile"], bool | None] | None = ...,
     on_error: Callable[[str, BaseException], None] | None = ...,
     keep_artifacts: Literal[True],
     compact: bool = ...,
     **config_overrides: Any,
-) -> tuple[Any, dict[str, "Artifacts"]]: ...
+) -> tuple["ProfileSet", dict[str, "Artifacts"]]: ...
 
 
 def evaluate_batch(
@@ -372,7 +356,7 @@ def evaluate_batch(
     config: BaseConfig | None = None,
     preprocess: bool = True,
     stop_on_error: bool = False,
-    on_result: Callable[[str, object], object] | None = None,
+    on_result: Callable[[str, "FactorProfile"], bool | None] | None = None,
     on_error: Callable[[str, BaseException], None] | None = None,
     keep_artifacts: bool = False,
     compact: bool = False,

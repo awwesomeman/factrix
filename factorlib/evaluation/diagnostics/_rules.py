@@ -24,7 +24,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
-from factorlib._types import Diagnostic, DiagnosticSeverity, FactorType
+from factorlib._types import (
+    Diagnostic,
+    DiagnosticSeverity,
+    FactorType,
+    coerce_factor_type,
+)
 
 if TYPE_CHECKING:
     from factorlib.evaluation.profiles.cross_sectional import (
@@ -350,19 +355,13 @@ MACRO_COMMON_RULES: list[Rule["MacroCommonProfile"]] = [
 # ---------------------------------------------------------------------------
 
 # Keyed by FactorType, appended after built-ins at dispatch time.
+#
+# Thread-safety: this registry is a plain dict without locking. factorlib
+# today is single-threaded end-to-end (Polars handles its own parallelism
+# inside vectorized ops; our Python control flow is linear). If batch
+# evaluation ever spawns worker processes/threads, each worker should
+# register its own rules in isolation, or a lock must be added here.
 _CUSTOM_RULES: dict[FactorType, list[Rule]] = {}
-
-
-def _coerce_factor_type(factor_type: FactorType | str) -> FactorType:
-    if isinstance(factor_type, FactorType):
-        return factor_type
-    try:
-        return FactorType(factor_type)
-    except ValueError:
-        valid = ", ".join(ft.value for ft in FactorType)
-        raise ValueError(
-            f"Unknown factor_type {factor_type!r}. Valid: {valid}."
-        ) from None
 
 
 def register_rule(factor_type: FactorType | str, rule: Rule) -> None:
@@ -380,8 +379,7 @@ def register_rule(factor_type: FactorType | str, rule: Rule) -> None:
         rule: A ``Rule`` instance. Its predicate receives the matching
             Profile dataclass; it must be pure.
     """
-    ft = _coerce_factor_type(factor_type)
-    _CUSTOM_RULES.setdefault(ft, []).append(rule)
+    _CUSTOM_RULES.setdefault(coerce_factor_type(factor_type), []).append(rule)
 
 
 def clear_custom_rules(factor_type: FactorType | str | None = None) -> None:
@@ -395,7 +393,7 @@ def clear_custom_rules(factor_type: FactorType | str | None = None) -> None:
     if factor_type is None:
         _CUSTOM_RULES.clear()
     else:
-        _CUSTOM_RULES.pop(_coerce_factor_type(factor_type), None)
+        _CUSTOM_RULES.pop(coerce_factor_type(factor_type), None)
 
 
 # ---------------------------------------------------------------------------
