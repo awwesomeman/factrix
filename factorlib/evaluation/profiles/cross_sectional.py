@@ -76,6 +76,30 @@ class CrossSectionalProfile:
     orthogonalize_r2_mean: float | None
     orthogonalize_n_base: int
 
+    # Regime IC (T3.S2, opt-in; None when config.regime_labels is None)
+    # min_tstat is the |t| of the weakest regime (conservative: if even
+    # the weakest regime shows signal, all regimes do). consistent is
+    # True when IC direction agrees across regimes.
+    regime_ic_min_tstat: float | None
+    regime_ic_consistent: bool | None
+
+    # Multi-horizon IC (T3.S2, opt-in via config.multi_horizon_periods)
+    # retention = IC(longest_horizon) / IC(shortest_horizon); None when
+    # |IC(shortest)| < 1e-4 (no signal at the shortest horizon to
+    # retain) or when the metric is not enabled. monotonic = |IC|
+    # non-increasing as horizon grows. See docs/spike_level2_profile_integration.md
+    # §3.4.2 — a single decay ratio can't distinguish sign-flip from
+    # monotonic decay, so both shape and magnitude are needed.
+    multi_horizon_ic_retention: float | None
+    multi_horizon_ic_monotonic: bool | None
+
+    # Spanning alpha (T3.S2, opt-in; None when config.spanning_base_spreads is None)
+    # Tests whether the factor's per-date Q1-Q5 spread has alpha after
+    # controlling for a user-supplied set of base-factor spreads. p is
+    # NOT added to P_VALUE_FIELDS — canonical_p must remain singular.
+    spanning_alpha_t: float | None
+    spanning_alpha_p: PValue | None
+
     # Implementation
     turnover: float
     breakeven_cost: float
@@ -158,6 +182,31 @@ class CrossSectionalProfile:
             ortho_r2 = None
             ortho_n_base = 0
 
+        regime_stats = artifacts.intermediates.get("regime_stats")
+        if regime_stats is not None:
+            regime_min_t = float(regime_stats["min_tstat"][0])
+            regime_consistent = bool(regime_stats["consistent"][0])
+        else:
+            regime_min_t = None
+            regime_consistent = None
+
+        mh_stats = artifacts.intermediates.get("multi_horizon_stats")
+        if mh_stats is not None:
+            retention_val = mh_stats["retention"][0]
+            mh_retention = float(retention_val) if retention_val is not None else None
+            mh_monotonic = bool(mh_stats["monotonic"][0])
+        else:
+            mh_retention = None
+            mh_monotonic = None
+
+        sp_stats = artifacts.intermediates.get("spanning_stats")
+        if sp_stats is not None:
+            spanning_t = float(sp_stats["t"][0])
+            spanning_p: "PValue | None" = float(sp_stats["p"][0])
+        else:
+            spanning_t = None
+            spanning_p = None
+
         insufficient = _insufficient_metrics({
             "ic_mean": ic_m,
             "ic_ir": ic_ir_m,
@@ -192,6 +241,12 @@ class CrossSectionalProfile:
             median_universe_n=int(_median_universe_size(artifacts.prepared)),
             orthogonalize_r2_mean=ortho_r2,
             orthogonalize_n_base=ortho_n_base,
+            regime_ic_min_tstat=regime_min_t,
+            regime_ic_consistent=regime_consistent,
+            multi_horizon_ic_retention=mh_retention,
+            multi_horizon_ic_monotonic=mh_monotonic,
+            spanning_alpha_t=spanning_t,
+            spanning_alpha_p=spanning_p,
             turnover=float(turn_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),

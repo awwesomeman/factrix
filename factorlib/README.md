@@ -75,19 +75,46 @@ print(corrado_rank_test(event_prepared))  # standalone non-parametric test
 ```
 
 ```python
-# (2) Library-only metrics — NOT part of evaluate()'s Profile
+# (2) Library-level helpers (still callable standalone for raw output)
 from factorlib.metrics import regime_ic, multi_horizon_ic, spanning_alpha
 
-# IC split by user-supplied regime labels (e.g. bull/bear, high/low vol)
-reg = regime_ic(ic_series, regime_labels={...})
-
-# Mean IC across multiple forward horizons; min |t| as conservative stat
+# Use the standalone form when you want the full MetricOutput
+# (per-regime / per-horizon detail dict). For a scalar on Profile,
+# prefer the pipeline-integrated path below.
+reg = regime_ic(ic_series, regime_labels=...)
 mh = multi_horizon_ic(prepared, periods=[1, 5, 10, 20])
-
-# Spanning alpha: does a candidate factor have alpha after controlling
-# for a base set of factors?
-span = spanning_alpha(candidate_returns, base_returns)
+span = spanning_alpha(candidate_spread, base_spreads={...})
 ```
+
+**Pipeline-integrated (Profile fields, T3.S2)** — pass inputs on the
+config and the CS pipeline surfaces scalar summaries on Profile
+alongside the default metrics:
+
+```python
+regimes = pl.DataFrame({"date": [...], "regime": ["bull", "bear", ...]})
+base_spreads = {"size": size_spread_df, "mom": mom_spread_df}
+
+cfg = fl.CrossSectionalConfig(
+    regime_labels=regimes,                     # None -> skip regime_ic
+    multi_horizon_periods=[1, 5, 10, 20],      # None -> metric default
+    spanning_base_spreads=base_spreads,        # None -> skip spanning
+)
+p = fl.evaluate(factor_df, "Mom_20D", config=cfg)
+
+p.regime_ic_min_tstat           # weakest regime |t| (conservative)
+p.regime_ic_consistent          # IC direction agrees across regimes?
+
+p.multi_horizon_ic_retention    # IC(longest) / IC(shortest); None if no day-1 signal
+p.multi_horizon_ic_monotonic    # |IC| non-increasing with horizon?
+
+p.spanning_alpha_t              # alpha t-stat vs supplied base spreads
+p.spanning_alpha_p              # NOT in P_VALUE_FIELDS — canonical_p stays singular
+```
+
+Per-regime / per-horizon / spanning beta detail lives in
+``artifacts.intermediates`` (via ``return_artifacts=True`` or
+``keep_artifacts=True``). Profile fields are for rank/filter/BHY;
+the full structure is for ad-hoc deep dives.
 
 **Orthogonalization (pipeline-integrated)** — pass a basis DataFrame on
 the config and the CS pipeline runs per-date residualization as Step 6,
