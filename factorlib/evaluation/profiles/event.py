@@ -2,12 +2,23 @@
 
 Canonical test: CAAR non-overlapping t-test (``caar_p``).
 
-Canonical rationale: Cumulative Average Abnormal Return is the
-established event-study significance test (MacKinlay 1997). The BMP SAR
-test (Boehmer et al. 1991) is robust to event-induced variance but the
-codebase exposes both; BMP lives in the profile and in diagnose() as a
-secondary confirmation signal — when CAAR-significant but BMP
-non-confirmatory, diagnose flags the event-variance inflation risk.
+Canonical construction: per-event-date signed abnormal return series,
+sampled every ``EventConfig.forward_periods`` days to eliminate
+autocorrelation from overlapping forward returns, then a one-sample
+t-test against H0: mean(CAAR) = 0 (MacKinlay 1997).
+
+Note on ``event_window_post``: that config field drives MFE/MAE
+observation windows, NOT the canonical CAR test. An earlier ADR draft
+proposed a CAR-at-``event_window_post`` canonical; it was retired
+because (a) the field was never wired to any CAR significance test and
+(b) keeping the canonical sampled at ``forward_periods`` mirrors the
+cross-sectional profile's ``ic_p`` and avoids overloading
+``event_window_post`` with two jobs.
+
+BMP SAR (Boehmer et al. 1991) is robust to event-induced variance but
+belongs in ``diagnose()`` as secondary evidence — when CAAR is
+significant but BMP does not confirm, diagnose flags the variance-
+inflation risk rather than promoting BMP to canonical.
 """
 
 from __future__ import annotations
