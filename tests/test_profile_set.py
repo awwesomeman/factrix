@@ -259,7 +259,7 @@ class TestMultipleTestingCorrect:
             # class back into an invalid shape. BHY must refuse rather
             # than feed the caller a meaningless correction.
             CrossSectionalProfile.CANONICAL_P_FIELD = "not_a_real_field"
-            with pytest.raises(RuntimeError, match="must have been mutated"):
+            with pytest.raises(RuntimeError, match="@register_profile"):
                 ps.multiple_testing_correct(fdr=0.05)
         finally:
             CrossSectionalProfile.CANONICAL_P_FIELD = original

@@ -256,11 +256,14 @@ class ProfileSet(Generic[P]):
         # membership test is essentially free.
         if canonical_field not in whitelist:
             raise RuntimeError(
-                f"{self._profile_cls.__name__}.CANONICAL_P_FIELD="
-                f"{canonical_field!r} is not in P_VALUE_FIELDS="
-                f"{sorted(whitelist)}. The invariant was set at "
-                f"registration time; it must have been mutated since. "
-                f"Restore it before running BHY."
+                f"{self._profile_cls.__name__}.CANONICAL_P_FIELD was set "
+                f"to {canonical_field!r}, which is not in P_VALUE_FIELDS="
+                f"{sorted(whitelist)}. The @register_profile decorator "
+                f"locked a valid value at class-definition time; this "
+                f"mismatch means the ClassVar was overwritten later "
+                f"(search your session for 'CANONICAL_P_FIELD =' / "
+                f"setattr on {self._profile_cls.__name__}). Restore the "
+                f"original value before calling multiple_testing_correct."
             )
         if p_source != "canonical_p" and p_source not in whitelist:
             raise ValueError(
