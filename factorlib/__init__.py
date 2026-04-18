@@ -42,6 +42,7 @@ from factorlib.config import (
     EventConfig,
     MacroPanelConfig,
     MacroCommonConfig,
+    OrthoConfig,
     MARKET_DEFAULTS,
 )
 from factorlib._types import (
@@ -98,6 +99,7 @@ __all__ = [
     "adapt", "preprocess", "preprocess_cs_factor", "build_artifacts",
     "CrossSectionalConfig", "EventConfig",
     "MacroPanelConfig", "MacroCommonConfig",
+    "OrthoConfig",
     "FACTOR_TYPES", "describe_factor_types", "describe_profile",
     "MARKET_DEFAULTS",
     "FactorType", "MetricOutput", "Artifacts",

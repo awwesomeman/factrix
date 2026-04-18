@@ -44,6 +44,35 @@ class BaseConfig:
 
 
 @dataclass(kw_only=True)
+class OrthoConfig:
+    """Orthogonalization inputs for CrossSectionalConfig (Step 6, opt-in).
+
+    When attached to a ``CrossSectionalConfig.ortho``, the z-scored factor
+    is regressed per-date against ``base_factors[cols]`` and replaced by
+    the (MAD-winsorized, re-z-scored) residual. See
+    ``docs/spike_orthogonalize.md`` for the full policy rationale.
+
+    Usage: for the common case (residualize against a basis, defaults
+    for everything else), pass the DataFrame directly as
+    ``CrossSectionalConfig(ortho=basis_df)`` — ``CrossSectionalConfig``
+    normalizes it into ``OrthoConfig(base_factors=basis_df)`` in
+    ``__post_init__``. Construct ``OrthoConfig`` explicitly when you
+    need to tune ``cols`` or ``min_coverage``.
+    """
+
+    # DataFrame with (date, asset_id, *cols). Required — the whole point
+    # of constructing an OrthoConfig is to supply these.
+    base_factors: "pl.DataFrame"
+    # Column subset to regress against; None = all non-key columns.
+    cols: list[str] | None = None
+    # Fraction of factor rows that must have basis coverage after the
+    # inner join; below this, the pipeline raises rather than silently
+    # mixing residuals with originals. 1.0 = require every row; 0.0
+    # disables the gate (not recommended).
+    min_coverage: float = 0.95
+
+
+@dataclass(kw_only=True)
 class CrossSectionalConfig(BaseConfig):
     """Config for cross-sectional factors (individual stock selection)."""
 
@@ -54,36 +83,34 @@ class CrossSectionalConfig(BaseConfig):
     mad_n: float = 3.0
     return_clip_pct: tuple[float, float] = (0.01, 0.99)
 
-    # --- Orthogonalization (Step 6, opt-in) ---
-    # Pass a DataFrame with (date, asset_id, *base_cols). When supplied,
-    # the z-scored factor is regressed per-date against base_cols and
-    # replaced by the (MAD-winsorized, re-z-scored) residual. See
-    # docs/spike_orthogonalize.md for the full policy rationale.
-    orthogonalize: "pl.DataFrame | None" = None
-    orthogonalize_cols: list[str] | None = None
-    # Fraction of factor rows that must have basis coverage after the
-    # inner join; below this, the pipeline raises rather than silently
-    # mixing residuals with originals. 1.0 = require every row; 0.0
-    # disables the gate (not recommended).
-    orthogonalize_min_coverage: float = 0.95
+    # See OrthoConfig. Accepts the DataFrame shortcut; __post_init__
+    # normalizes so downstream pipeline code sees only OrthoConfig.
+    ortho: "OrthoConfig | pl.DataFrame | None" = None
 
-    # --- Level 2 metric inputs (T3.S2, opt-in) ---
-    # Consumed by _build_cs_artifacts; None leaves the corresponding
-    # Profile fields as None. See docs/spike_level2_profile_integration.md.
-    #
-    # regime_labels: DataFrame with (date, regime). Set this explicitly
-    # (e.g. labels for {bull, bear, high_vol}) to populate
-    # regime_ic_min_tstat / regime_ic_consistent. None = skip;
-    # regime_ic's own time-bisection fallback is Level 2 escape only.
+    # Level 2 metrics (T3.S2, opt-in). Each is independently enabled by
+    # supplying its input; None leaves the corresponding Profile fields
+    # as None. Flat because these three are mutually independent and
+    # the sweep pattern ``dataclasses.replace(cfg, regime_labels=…)`` is
+    # common — nesting them would force double-``replace`` gymnastics.
     regime_labels: "pl.DataFrame | None" = None
-    # multi_horizon_periods: horizons passed to multi_horizon_ic.
-    # None = skip (opt-in). Pass an explicit list (e.g. [1, 5, 10, 20])
-    # to populate multi_horizon_ic_retention / _monotonic on Profile.
-    # Cost: one full IC pass per horizon — not free on large panels.
     multi_horizon_periods: list[int] | None = None
-    # spanning_base_spreads: {name -> DataFrame(date, spread)} for the
-    # base factor set. None = skip spanning regression.
     spanning_base_spreads: "dict[str, pl.DataFrame] | None" = None
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.ortho is None or isinstance(self.ortho, OrthoConfig):
+            return
+        # Local import — avoids paying polars at module-import time while
+        # still giving a type-safe DataFrame check here (by the time any
+        # Config is constructed, polars is loaded anyway).
+        import polars as pl
+        if isinstance(self.ortho, pl.DataFrame):
+            self.ortho = OrthoConfig(base_factors=self.ortho)
+        else:
+            raise TypeError(
+                f"CrossSectionalConfig.ortho expects OrthoConfig, "
+                f"pl.DataFrame, or None; got {type(self.ortho).__name__}."
+            )
 
 
 @dataclass(kw_only=True)

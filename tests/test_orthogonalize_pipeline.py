@@ -1,9 +1,10 @@
 """Integration tests for Step 6 orthogonalization wired into evaluate().
 
 Covers the T3.S1 Spike surface:
-  - config.orthogonalize=None (default) produces the same Profile as before
-  - config.orthogonalize=base_df residualizes the factor and populates
-    orthogonalize_r2_mean / orthogonalize_n_base
+  - config.ortho=None (default) produces the same Profile as before
+  - config.ortho=base_df (DataFrame shortcut) residualizes the factor
+    and populates orthogonalize_r2_mean / orthogonalize_n_base
+  - config.ortho=OrthoConfig(...) form equivalent to the shortcut
   - coverage below the gate raises ValueError
   - the new diagnose rule fires when R² > 0.7
 """
@@ -82,6 +83,16 @@ class TestDefaultOff:
         assert p.orthogonalize_n_base == 0
 
 
+class TestOrthoInputValidation:
+    def test_non_dataframe_non_orthoconfig_raises(self):
+        # `ortho` accepts OrthoConfig | pl.DataFrame | None; anything
+        # else must raise at construction time, not deep in the pipeline.
+        with pytest.raises(TypeError, match="expects OrthoConfig"):
+            fl.CrossSectionalConfig(ortho="not_a_frame")  # type: ignore[arg-type]
+        with pytest.raises(TypeError, match="expects OrthoConfig"):
+            fl.CrossSectionalConfig(ortho={"base_factors": 1})  # type: ignore[arg-type]
+
+
 class TestBasicIntegration:
     def test_residualization_shifts_ic(self):
         # Strong loading on size → IC without residualization reflects
@@ -90,7 +101,8 @@ class TestBasicIntegration:
         factor_df, basis_df = _panel_with_base(basis_weight=0.7, seed=7)
 
         raw = fl.evaluate(factor_df, "raw", factor_type="cross_sectional")
-        cfg = fl.CrossSectionalConfig(orthogonalize=basis_df)
+        # DataFrame shortcut — covered for the common case.
+        cfg = fl.CrossSectionalConfig(ortho=basis_df)
         orth = fl.evaluate(factor_df, "orth", config=cfg)
 
         # r2 populated, n_base=1, mean is a real number
@@ -108,11 +120,33 @@ class TestBasicIntegration:
         factor_df, basis_df = _panel_with_base(basis_weight=0.0, seed=123)
 
         raw = fl.evaluate(factor_df, "raw", factor_type="cross_sectional")
-        cfg = fl.CrossSectionalConfig(orthogonalize=basis_df)
+        cfg = fl.CrossSectionalConfig(ortho=basis_df)
         orth = fl.evaluate(factor_df, "orth", config=cfg)
 
         assert orth.orthogonalize_r2_mean < 0.2
         assert orth.ic_mean == pytest.approx(raw.ic_mean, abs=0.03)
+
+    def test_shortcut_and_explicit_forms_equivalent(self):
+        # CrossSectionalConfig(ortho=df) and
+        # CrossSectionalConfig(ortho=OrthoConfig(base_factors=df)) must
+        # produce identical Profiles — the shortcut is pure sugar. Use
+        # asdict equality so any future Profile field is covered without
+        # updating this test.
+        import dataclasses
+
+        factor_df, basis_df = _panel_with_base(basis_weight=0.5, seed=42)
+
+        shortcut = fl.evaluate(
+            factor_df, "x",
+            config=fl.CrossSectionalConfig(ortho=basis_df),
+        )
+        explicit = fl.evaluate(
+            factor_df, "x",
+            config=fl.CrossSectionalConfig(
+                ortho=fl.OrthoConfig(base_factors=basis_df),
+            ),
+        )
+        assert dataclasses.asdict(shortcut) == dataclasses.asdict(explicit)
 
 
 class TestCoverageGate:
@@ -121,7 +155,7 @@ class TestCoverageGate:
         # Knock out 20% of basis rows — coverage drops below default 0.95
         small_basis = basis_df.head(int(basis_df.height * 0.80))
 
-        cfg = fl.CrossSectionalConfig(orthogonalize=small_basis)
+        cfg = fl.CrossSectionalConfig(ortho=small_basis)
         with pytest.raises(ValueError, match="coverage"):
             fl.evaluate(factor_df, "x", config=cfg)
 
@@ -130,8 +164,7 @@ class TestCoverageGate:
         small_basis = basis_df.head(int(basis_df.height * 0.80))
 
         cfg = fl.CrossSectionalConfig(
-            orthogonalize=small_basis,
-            orthogonalize_min_coverage=0.5,
+            ortho=fl.OrthoConfig(base_factors=small_basis, min_coverage=0.5),
         )
         p = fl.evaluate(factor_df, "x", config=cfg)
         assert p.orthogonalize_n_base == 1
@@ -141,7 +174,7 @@ class TestDiagnoseRule:
     def test_absorbed_most_fires_when_r2_high(self):
         # basis_weight=0.95 → R² very high
         factor_df, basis_df = _panel_with_base(basis_weight=0.95, seed=11)
-        cfg = fl.CrossSectionalConfig(orthogonalize=basis_df)
+        cfg = fl.CrossSectionalConfig(ortho=basis_df)
         p = fl.evaluate(factor_df, "x", config=cfg)
 
         codes = [d.code for d in p.diagnose()]
