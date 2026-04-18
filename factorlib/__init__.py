@@ -66,6 +66,11 @@ from factorlib.evaluation.profiles import (
     MacroCommonProfile,
 )
 from factorlib.evaluation.profile_set import ProfileSet
+from factorlib.evaluation.diagnostics import (
+    Rule,
+    clear_custom_rules,
+    register_rule,
+)
 from factorlib.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
 from factorlib._api import (
     evaluate,
@@ -88,6 +93,7 @@ __all__ = [
     "MacroPanelProfile", "MacroCommonProfile",
     "bhy_adjust", "bhy_adjusted_p",
     "Diagnostic", "PValue", "Verdict",
+    "Rule", "register_rule", "clear_custom_rules",
     # Shared core
     "adapt", "preprocess", "preprocess_cs_factor", "build_artifacts",
     "CrossSectionalConfig", "EventConfig",
