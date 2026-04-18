@@ -177,6 +177,11 @@ EVENT_RULES: list[Rule["EventProfile"]] = [
             (p.caar_mean * p.bmp_sar_mean) < 0 and abs(p.bmp_sar_mean) > 1e-9
         ),
     ),
+    # Thresholds: |t|≥2 is the CAAR 95% single-test boundary; |z|<1.5
+    # for BMP is looser than its own 95% cut so that "BMP barely fails
+    # to confirm" still fires the diagnose. A |z|<2 gate would miss
+    # the grey zone where BMP is at 0.075-ish — exactly the cases the
+    # event-induced-variance warning is built for.
     Rule(
         code="event.caar_sig_bmp_not_confirm",
         severity="veto",

@@ -44,14 +44,19 @@ def _diagnose(profile: object) -> list[Diagnostic]:
 def _verdict_from_p(p: PValue, threshold: float, n_periods: int) -> Verdict:
     """Binary PASS/FAILED using a t-distribution threshold.
 
-    ``threshold`` is in t-stat units (familiar to quants via Harvey
-    2016's t > 3.0 recommendation). All four canonical p-values are
-    derived from t-distributions (IC, CAAR, FM lambda, TS beta), so
-    the verdict threshold is translated through the *same* t CDF at
-    ``n_periods`` degrees of freedom rather than the normal
-    approximation -- which would *under*-reject for small n.
-    verdict() is still a heuristic; rigorous inference goes through
-    ProfileSet.multiple_testing_correct (BHY).
+    ``threshold`` is in t-stat units (familiar to quants via Harvey,
+    Liu & Zhu 2016's t > 3.0 recommendation for single-factor tests
+    under multi-testing pressure — default 2.0 here is the classical
+    single-test 95% boundary). All four canonical p-values are
+    derived from t-distributions (IC / CAAR / FM lambda / TS beta),
+    so the verdict threshold is translated through the *same* t CDF
+    at ``n_periods - 1`` degrees of freedom (implemented inside
+    ``_p_value_from_t``), not the Z approximation — the Z form would
+    *under*-reject for small n because t tails are fatter.
+
+    ``verdict()`` is still a heuristic (one factor at a time); rigorous
+    inference across a batch goes through
+    ``ProfileSet.multiple_testing_correct`` (BHY).
     """
     # Lazy import to keep base module import light.
     from factorlib._stats import _p_value_from_t
@@ -70,9 +75,15 @@ class FactorProfile(Protocol):
     Required class-level metadata:
         CANONICAL_P_FIELD: name of the p-value field used for BHY and the
             default ``verdict()`` decision. Must be one of P_VALUE_FIELDS.
-        P_VALUE_FIELDS: frozenset of field names that hold genuine p-values.
-            Whitelisted by ``ProfileSet.multiple_testing_correct`` to prevent
-            composed-p abuse (e.g. ``min(ic_p, spread_p)`` being fed to BHY).
+        P_VALUE_FIELDS: frozenset of field names that hold genuine p-values
+            from the *same test family* across a batch of factors (IC
+            across all CS factors, CAAR across all event factors, ...).
+            Whitelisted by ``ProfileSet.multiple_testing_correct`` so BHY
+            sees a coherent hypothesis family. The whitelist is NOT a
+            within-factor list of interchangeable p-values: feeding BHY a
+            mix of ``ic_p`` for some factors and ``spread_p`` for others
+            would violate the same-test-family assumption and under-state
+            FDR.
 
     Required members:
         canonical_p: property returning the canonical test p-value (single
