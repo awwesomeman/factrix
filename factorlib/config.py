@@ -120,16 +120,6 @@ class MacroCommonConfig(BaseConfig):
 
 
 MARKET_DEFAULTS: dict[str, dict[str, object]] = {
-    "tw": {
-        "estimated_cost_bps": 30,
-        "ortho_factors": [
-            "size", "value", "momentum", "industry_tse30",
-        ],
-    },
-    "us": {
-        "estimated_cost_bps": 5,
-        "ortho_factors": [
-            "size", "value", "momentum", "industry_gics",
-        ],
-    },
+    "tw": {"estimated_cost_bps": 30},
+    "us": {"estimated_cost_bps": 5},
 }
