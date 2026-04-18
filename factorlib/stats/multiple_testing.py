@@ -21,10 +21,17 @@ References:
 
 from __future__ import annotations
 
+import functools
+
 import numpy as np
 import numpy.typing as npt
 
 
+# WHY: lru_cache — multiple_testing_correct() calls bhy_adjust() and
+# bhy_adjusted_p() back-to-back with the same n; without memoization the
+# harmonic sum is recomputed. Cache is keyed by int m (small integer set),
+# so memory is bounded.
+@functools.lru_cache(maxsize=128)
 def _bhy_correction_factor(m: int) -> float:
     """c(m) = sum_{i=1..m} 1/i — conservative dependence adjustment."""
     return float(np.sum(1.0 / np.arange(1, m + 1)))
