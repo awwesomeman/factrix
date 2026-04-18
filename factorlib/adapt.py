@@ -5,25 +5,26 @@ Canonical names used throughout factorlib:
     - ``asset_id``: asset identifier (ticker, permno, symbol, etc.)
     - ``price``: price column (close, adj close, VWAP, etc.)
 
-Optional columns (not renamed — user keeps their own names):
-    market, market_cap, volume, industry, etc.
+Optional OHLCV canonicals (renamed when a source column is provided):
+    ``open``, ``high``, ``low``, ``volume`` — required by some factor
+    generators (``factors.technical``, ``factors.liquidity``).
+
+Other columns (market_cap, industry, etc.) pass through unchanged;
+factorlib does not prescribe names for those.
 
 Usage::
 
     from factorlib import adapt
 
+    # Minimal: just price panel
+    raw = adapt(df, date="date", asset_id="ticker", price="close_adj")
+
+    # Full OHLCV — unlocks technical / liquidity factor generators
     raw = adapt(
-        pl.read_parquet("data.parquet"),
-        date="date",
-        asset_id="ticker",
-        price="close_adj",
+        df,
+        date="date", asset_id="ticker", price="close_adj",
+        open="open_adj", high="high_adj", low="low_adj", volume="volume",
     )
-
-    # pandas DataFrame also accepted — automatically converted to polars
-    raw = adapt(pd_df, date="Date", asset_id="symbol", price="close")
-
-    # forward-fill NaN/null in numeric columns per asset
-    raw = adapt(df, price="close_adj", fill_forward=True)
 """
 
 from __future__ import annotations
@@ -54,6 +55,10 @@ def adapt(
     date: str = "date",
     asset_id: str = "asset_id",
     price: str = "close",
+    open: str | None = None,
+    high: str | None = None,
+    low: str | None = None,
+    volume: str | None = None,
     fill_forward: bool = False,
 ) -> pl.DataFrame:
     """Rename user columns to factorlib canonical names.
@@ -67,6 +72,14 @@ def adapt(
         date: User's date column name.
         asset_id: User's asset identifier column name.
         price: User's price column name.
+        open: User's open column name. If set, renamed to ``open``.
+            Required by ``factors.technical.generate_overnight_return``.
+        high: User's high column name. Renamed to ``high``. Required
+            by ``generate_52w_high_ratio`` / ``generate_intraday_range``.
+        low: User's low column name. Renamed to ``low``. Required by
+            ``generate_intraday_range``.
+        volume: User's volume column name. Renamed to ``volume``.
+            Required by ``generate_amihud`` / ``generate_volume_price_trend``.
         fill_forward: If True, replace NaN with null then forward-fill
             all numeric columns per asset.  Useful for raw OHLCV data
             that may contain sporadic missing values.
@@ -80,21 +93,31 @@ def adapt(
     """
     df = _to_polars(df)
 
+    renames: list[tuple[str, str | None]] = [
+        ("date", date),
+        ("asset_id", asset_id),
+        ("price", price),
+        ("open", open),
+        ("high", high),
+        ("low", low),
+        ("volume", volume),
+    ]
     mapping = {}
-    for canonical, source in [("date", date), ("asset_id", asset_id), ("price", price)]:
-        if source != canonical:
-            if source not in df.columns:
-                raise ValueError(
-                    f"adapt: column '{source}' not found. "
-                    f"Available: {df.columns}"
-                )
-            if canonical in df.columns:
-                raise ValueError(
-                    f"adapt: cannot rename '{source}' → '{canonical}' "
-                    f"because '{canonical}' already exists in the DataFrame. "
-                    f"Drop or rename the existing '{canonical}' column first."
-                )
-            mapping[source] = canonical
+    for canonical, source in renames:
+        if source is None or source == canonical:
+            continue
+        if source not in df.columns:
+            raise ValueError(
+                f"adapt: column '{source}' not found. "
+                f"Available: {df.columns}"
+            )
+        if canonical in df.columns:
+            raise ValueError(
+                f"adapt: cannot rename '{source}' → '{canonical}' "
+                f"because '{canonical}' already exists in the DataFrame. "
+                f"Drop or rename the existing '{canonical}' column first."
+            )
+        mapping[source] = canonical
 
     if mapping:
         df = df.rename(mapping)
