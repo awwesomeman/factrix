@@ -117,7 +117,11 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     if n < 3:
         return MetricOutput(
             name="ts_beta", value=0.0, stat=0.0, significance="",
-            metadata={"n_assets": n, "reason": "insufficient assets"},
+            metadata={
+                "reason": "insufficient_assets",
+                "n_observed": n,
+                "min_required": 3,
+            },
         )
 
     mean_b = float(np.mean(betas))
@@ -152,7 +156,14 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     n = len(r2_vals)
 
     if n == 0:
-        return MetricOutput(name="mean_r_squared", value=0.0)
+        return MetricOutput(
+            name="mean_r_squared", value=0.0,
+            metadata={
+                "reason": "no_asset_r_squared_observations",
+                "n_observed": 0,
+                "min_required": 1,
+            },
+        )
 
     return MetricOutput(
         name="mean_r_squared",
@@ -235,7 +246,14 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
     if n == 0:
-        return MetricOutput(name="ts_beta_sign_consistency", value=0.0)
+        return MetricOutput(
+            name="ts_beta_sign_consistency", value=0.0,
+            metadata={
+                "reason": "no_beta_observations",
+                "n_observed": 0,
+                "min_required": 1,
+            },
+        )
 
     positive = float(np.mean(betas > 0))
     consistency = max(positive, 1.0 - positive)

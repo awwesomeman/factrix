@@ -89,7 +89,11 @@ def fama_macbeth(
     if n < MIN_FM_PERIODS:
         return MetricOutput(
             name="fm_beta", value=0.0, stat=0.0, significance="",
-            metadata={"n_periods": n, "reason": f"insufficient periods ({n} < {MIN_FM_PERIODS})"},
+            metadata={
+                "reason": "insufficient_fm_periods",
+                "n_observed": n,
+                "min_required": MIN_FM_PERIODS,
+            },
         )
 
     mean_beta = float(np.mean(betas))
@@ -134,7 +138,11 @@ def pooled_ols(
     if n_obs < 10:
         return MetricOutput(
             name="pooled_beta", value=0.0, stat=0.0, significance="",
-            metadata={"n_obs": n_obs, "reason": "insufficient observations"},
+            metadata={
+                "reason": "insufficient_pooled_observations",
+                "n_observed": n_obs,
+                "min_required": 10,
+            },
         )
 
     X = np.column_stack([np.ones(n_obs), x])
@@ -143,6 +151,10 @@ def pooled_ols(
     except np.linalg.LinAlgError:
         return MetricOutput(
             name="pooled_beta", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "singular_pooled_design_matrix",
+                "n_observed": n_obs,
+            },
         )
 
     slope = float(beta[1])
@@ -156,7 +168,12 @@ def pooled_ols(
     if n_clusters < 3:
         return MetricOutput(
             name="pooled_beta", value=slope, stat=0.0, significance="",
-            metadata={"n_obs": n_obs, "n_clusters": n_clusters, "reason": "too few clusters"},
+            metadata={
+                "reason": "insufficient_clusters",
+                "n_observed": n_clusters,
+                "min_required": 3,
+                "n_obs": n_obs,
+            },
         )
 
     # B = Σ_g (X_g' e_g)(X_g' e_g)' — the "meat" of the sandwich
@@ -222,7 +239,14 @@ def beta_sign_consistency(
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
     if n == 0:
-        return MetricOutput(name="beta_sign_consistency", value=0.0)
+        return MetricOutput(
+            name="beta_sign_consistency", value=0.0,
+            metadata={
+                "reason": "no_beta_observations",
+                "n_observed": 0,
+                "min_required": 1,
+            },
+        )
 
     if expected_sign >= 0:
         consistent = float(np.mean(betas > 0))

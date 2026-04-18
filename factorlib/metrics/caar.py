@@ -85,7 +85,14 @@ def caar(
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
     if n < MIN_EVENTS:
-        return MetricOutput(name="caar", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="caar", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_event_dates",
+                "n_observed": n,
+                "min_required": MIN_EVENTS,
+            },
+        )
 
     mean_caar = float(vals.mean())
     sampled = _sample_non_overlapping(caar_df, forward_periods)["caar"].drop_nulls()
@@ -183,6 +190,11 @@ def bmp_test(
     if len(events) == 0:
         return MetricOutput(
             name="bmp_sar", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "no_events",
+                "n_observed": 0,
+                "min_required": 1,
+            },
         )
 
     events = events.with_columns(
@@ -197,7 +209,11 @@ def bmp_test(
     if n_valid < MIN_EVENTS:
         return MetricOutput(
             name="bmp_sar", value=0.0, stat=0.0, significance="",
-            metadata={"n_events": n_valid, "reason": "insufficient estimation data"},
+            metadata={
+                "reason": "insufficient_estimation_window",
+                "n_observed": n_valid,
+                "min_required": MIN_EVENTS,
+            },
         )
 
     sar = (valid["_signed_ar"] / valid["_est_vol"]).to_numpy()

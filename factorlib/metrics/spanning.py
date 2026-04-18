@@ -118,6 +118,10 @@ def spanning_alpha(
         if "_candidate_" not in arrays:
             return MetricOutput(
                 name="spanning_alpha", value=0.0, stat=0.0, significance="",
+                metadata={
+                    "reason": "no_overlapping_dates_with_candidate",
+                    "n_observed": 0,
+                },
             )
         candidate_arr = arrays.pop("_candidate_")
         base_arrays = arrays
@@ -127,6 +131,11 @@ def spanning_alpha(
         if len(vals) < 10:
             return MetricOutput(
                 name="spanning_alpha", value=0.0, stat=0.0, significance="",
+                metadata={
+                    "reason": "insufficient_spread_observations",
+                    "n_observed": len(vals),
+                    "min_required": 10,
+                },
             )
         candidate_arr = vals.to_numpy()
         base_arrays = {}

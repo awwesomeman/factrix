@@ -71,6 +71,11 @@ def q1_concentration(
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
             name="q1_concentration", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_portfolio_periods",
+                "n_observed": len(hhi_per_date),
+                "min_required": MIN_PORTFOLIO_PERIODS,
+            },
         )
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()

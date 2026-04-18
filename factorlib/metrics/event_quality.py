@@ -49,6 +49,11 @@ def event_hit_rate(
     if n < MIN_EVENTS:
         return MetricOutput(
             name="event_hit_rate", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_events",
+                "n_observed": n,
+                "min_required": MIN_EVENTS,
+            },
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -104,12 +109,28 @@ def event_ic(
     n = len(events)
 
     if n < MIN_EVENTS:
-        return MetricOutput(name="event_ic", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="event_ic", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_events",
+                "n_observed": n,
+                "min_required": MIN_EVENTS,
+            },
+        )
 
     abs_signal = np.abs(events[factor_col].to_numpy())
 
     if np.ptp(abs_signal) < EPSILON:
-        return MetricOutput(name="event_ic", value=0.0, stat=0.0, significance="")
+        # Signal is discrete {±1}: event_ic is not defined (no magnitude variance).
+        # Flagged as "not_applicable" rather than "insufficient" — this is by
+        # design, not a shortfall; profiles suppress the field (→ None).
+        return MetricOutput(
+            name="event_ic", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "not_applicable_discrete_signal",
+                "n_events": n,
+            },
+        )
 
     signed = _signed_car(events, factor_col, return_col)
 
@@ -158,7 +179,14 @@ def profit_factor(
     n = len(events)
 
     if n < MIN_EVENTS:
-        return MetricOutput(name="profit_factor", value=0.0)
+        return MetricOutput(
+            name="profit_factor", value=0.0,
+            metadata={
+                "reason": "insufficient_events",
+                "n_observed": n,
+                "min_required": MIN_EVENTS,
+            },
+        )
 
     signed = _signed_car(events, factor_col, return_col)
 
@@ -206,7 +234,14 @@ def event_skewness(
     n = len(events)
 
     if n < MIN_EVENTS:
-        return MetricOutput(name="event_skewness", value=0.0)
+        return MetricOutput(
+            name="event_skewness", value=0.0,
+            metadata={
+                "reason": "insufficient_events",
+                "n_observed": n,
+                "min_required": MIN_EVENTS,
+            },
+        )
 
     signed = _signed_car(events, factor_col, return_col)
 
@@ -257,8 +292,14 @@ def signal_density(
     n_events = len(events)
 
     if n_events < 2:
-        return MetricOutput(name="signal_density", value=0.0,
-                            metadata={"n_events": n_events})
+        return MetricOutput(
+            name="signal_density", value=0.0,
+            metadata={
+                "reason": "insufficient_events",
+                "n_observed": n_events,
+                "min_required": 2,
+            },
+        )
 
     # Per-asset: count events and date span
     per_asset = (
@@ -272,8 +313,14 @@ def signal_density(
     )
 
     if per_asset.is_empty():
-        return MetricOutput(name="signal_density", value=0.0,
-                            metadata={"n_events": n_events})
+        return MetricOutput(
+            name="signal_density", value=0.0,
+            metadata={
+                "reason": "no_asset_has_min_two_events",
+                "n_observed": n_events,
+                "min_required_per_asset": 2,
+            },
+        )
 
     # Total bars per asset (from full panel, not just events)
     bars_per_asset = (

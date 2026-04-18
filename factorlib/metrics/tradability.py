@@ -34,7 +34,14 @@ def turnover(
     """
     dates = df["date"].unique().sort()
     if len(dates) < 2:
-        return MetricOutput(name="turnover", value=0.0)
+        return MetricOutput(
+            name="turnover", value=0.0,
+            metadata={
+                "reason": "insufficient_dates",
+                "n_observed": len(dates),
+                "min_required": 2,
+            },
+        )
 
     date_map = pl.DataFrame({
         "date": dates[1:],
@@ -63,7 +70,13 @@ def turnover(
     )
 
     if rc_per_date.is_empty():
-        return MetricOutput(name="turnover", value=0.0)
+        return MetricOutput(
+            name="turnover", value=0.0,
+            metadata={
+                "reason": "no_valid_rank_autocorrelation",
+                "n_observed": 0,
+            },
+        )
 
     rc_arr = rc_per_date["rc"].to_numpy()
     mean_rc = float(np.mean(rc_arr))

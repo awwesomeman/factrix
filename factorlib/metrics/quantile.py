@@ -101,7 +101,14 @@ def quantile_spread(
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="q1_q5_spread", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="q1_q5_spread", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_portfolio_periods",
+                "n_observed": n,
+                "min_required": MIN_PORTFOLIO_PERIODS,
+            },
+        )
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
@@ -175,7 +182,10 @@ def quantile_spread_vw(
     if weight_col not in df.columns:
         return MetricOutput(
             name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="",
-            metadata={"reason": f"missing column: {weight_col}"},
+            metadata={
+                "reason": "missing_weight_column",
+                "missing_column": weight_col,
+            },
         )
 
     sampled = _sample_non_overlapping(df, forward_periods)
@@ -209,7 +219,14 @@ def quantile_spread_vw(
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_portfolio_periods",
+                "n_observed": n,
+                "min_required": MIN_PORTFOLIO_PERIODS,
+            },
+        )
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))

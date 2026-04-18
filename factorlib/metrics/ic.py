@@ -77,7 +77,14 @@ def ic(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="ic", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="ic", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "insufficient_ic_periods",
+                "n_observed": n,
+                "min_required": MIN_IC_PERIODS,
+            },
+        )
 
     mean_ic = float(ic_vals.mean())
     sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
@@ -121,13 +128,26 @@ def ic_ir(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(name="ic_ir", value=0.0)
+        return MetricOutput(
+            name="ic_ir", value=0.0,
+            metadata={
+                "reason": "insufficient_ic_periods",
+                "n_observed": n,
+                "min_required": MIN_IC_PERIODS,
+            },
+        )
 
     mean_ic = float(ic_vals.mean())
     std_ic = float(ic_vals.std())
 
     if std_ic < EPSILON:
-        return MetricOutput(name="ic_ir", value=0.0)
+        return MetricOutput(
+            name="ic_ir", value=0.0,
+            metadata={
+                "reason": "degenerate_ic_variance",
+                "std_ic": std_ic,
+            },
+        )
 
     ratio = mean_ic / std_ic
 
@@ -168,7 +188,14 @@ def regime_ic(
         Chen & Zimmermann (2022): report sub-period t-stats separately.
     """
     if len(ic_df) < MIN_IC_PERIODS:
-        return MetricOutput(name="regime_ic", value=0.0, significance="")
+        return MetricOutput(
+            name="regime_ic", value=0.0, significance="",
+            metadata={
+                "reason": "insufficient_ic_periods",
+                "n_observed": len(ic_df),
+                "min_required": MIN_IC_PERIODS,
+            },
+        )
 
     if regime_labels is not None:
         merged = ic_df.join(regime_labels.select("date", "regime"), on="date", how="inner")
@@ -197,7 +224,13 @@ def regime_ic(
     )
 
     if regime_stats.is_empty():
-        return MetricOutput(name="regime_ic", value=0.0, significance="")
+        return MetricOutput(
+            name="regime_ic", value=0.0, significance="",
+            metadata={
+                "reason": "no_regime_has_enough_observations",
+                "min_required_per_regime": 2,
+            },
+        )
 
     per_regime: dict[str, dict[str, object]] = {}
     for row in regime_stats.iter_rows(named=True):
@@ -313,7 +346,13 @@ def multi_horizon_ic(
 
     valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
     if not valid_horizons:
-        return MetricOutput(name="multi_horizon_ic", value=0.0, stat=0.0, significance="")
+        return MetricOutput(
+            name="multi_horizon_ic", value=0.0, stat=0.0, significance="",
+            metadata={
+                "reason": "no_horizon_has_enough_observations",
+                "min_required": MIN_IC_PERIODS,
+            },
+        )
 
     mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))
 

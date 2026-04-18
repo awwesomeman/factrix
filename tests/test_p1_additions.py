@@ -48,7 +48,8 @@ class TestQuantileSpreadVW:
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
         assert result.value == 0.0
-        assert "missing column" in result.metadata.get("reason", "")
+        assert result.metadata.get("reason") == "missing_weight_column"
+        assert result.metadata.get("missing_column") == "market_cap"
 
 
 # ---------------------------------------------------------------------------
