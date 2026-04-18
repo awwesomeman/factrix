@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import fields as dc_fields
-from datetime import datetime, timedelta
 
-import numpy as np
 import polars as pl
 import pytest
 
@@ -15,25 +13,12 @@ from factorlib.evaluation.pipeline import build_artifacts
 from factorlib.evaluation.profiles import MacroPanelProfile
 from factorlib.evaluation.profiles._base import _PROFILE_REGISTRY
 
-
-def _macro_panel(n_dates: int, n_countries: int, signal: float, seed: int) -> pl.DataFrame:
-    rng = np.random.default_rng(seed)
-    dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
-    rows = []
-    for d in dates:
-        fvals = rng.standard_normal(n_countries)
-        for i in range(n_countries):
-            r = signal * fvals[i] + (1 - abs(signal)) * rng.standard_normal()
-            rows.append({
-                "date": d, "asset_id": f"c{i}",
-                "factor": float(fvals[i]), "forward_return": float(r),
-            })
-    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+from tests.conftest import make_macro_panel
 
 
 @pytest.fixture
 def macro_panel_strong() -> MacroPanelProfile:
-    df = _macro_panel(n_dates=60, n_countries=12, signal=0.5, seed=601)
+    df = make_macro_panel(n_dates=60, n_countries=12, signal=0.5, seed=601)
     art = build_artifacts(df, MacroPanelConfig())
     art.factor_name = "mp_strong"
     return MacroPanelProfile.from_artifacts(art)
