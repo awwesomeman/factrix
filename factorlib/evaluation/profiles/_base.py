@@ -29,6 +29,32 @@ def _pv(m: MetricOutput) -> PValue:
     return PValue(float(m.metadata.get("p_value", 1.0)))
 
 
+def _insufficient_metrics(metrics: "dict[str, MetricOutput]") -> tuple[str, ...]:
+    """Return the names of metrics that short-circuited on insufficient data.
+
+    A metric signals short-circuit by writing ``metadata["reason"]`` whose
+    value starts with ``insufficient_`` or ``no_`` (the vocabulary agreed
+    across ``factorlib/metrics/*``). Reasons like
+    ``not_applicable_discrete_signal`` or ``degenerate_ic_variance`` are
+    *intentional* skips, not data shortages, and are excluded so they
+    don't trigger the ``data.insufficient`` diagnose rule.
+
+    Accepts a ``{public_name: MetricOutput}`` map so the caller chooses
+    which profile field name to expose — MetricOutput.name is the generic
+    statistic identifier (``"ic"``, ``"caar"``), but the profile wants
+    the user-facing field it populates.
+    """
+    _INSUFFICIENT_PREFIXES = ("insufficient_", "no_")
+    hits: list[str] = []
+    for public_name, m in metrics.items():
+        reason = m.metadata.get("reason")
+        if not isinstance(reason, str):
+            continue
+        if reason.startswith(_INSUFFICIENT_PREFIXES):
+            hits.append(public_name)
+    return tuple(hits)
+
+
 def _diagnose(profile: object) -> list[Diagnostic]:
     """Run the rule list registered for ``profile``'s concrete type.
 
@@ -59,10 +85,19 @@ def _verdict_from_p(p: PValue, threshold: float, n_periods: int) -> Verdict:
     result. A caller who accidentally passes a negative threshold
     gets the well-defined answer they meant, not a crash.
 
+    Degenerate case: when ``n_periods < 2`` the t-distribution has
+    df ≤ 0 and is undefined; ``_p_value_from_t`` returns 1.0 as a
+    fallback, which would cause ``p <= 1.0`` to always pass. We
+    short-circuit to FAILED here so underpowered or empty inputs
+    never masquerade as significant. Callers see the corroborating
+    ``data.insufficient`` diagnose rule for context.
+
     ``verdict()`` is still a heuristic (one factor at a time); rigorous
     inference across a batch goes through
     ``ProfileSet.multiple_testing_correct`` (BHY).
     """
+    if n_periods < 2:
+        return "FAILED"
     # Lazy import to keep base module import light.
     from factorlib._stats import _p_value_from_t
     p_threshold = _p_value_from_t(threshold, n_periods)

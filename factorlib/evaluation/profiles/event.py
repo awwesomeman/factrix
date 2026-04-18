@@ -30,6 +30,7 @@ from factorlib._types import Diagnostic, FactorType, PValue, Verdict
 from factorlib.config import ClusteringAdjustment
 from factorlib.evaluation.profiles._base import (
     _diagnose,
+    _insufficient_metrics,
     _pv,
     _verdict_from_p,
     register_profile,
@@ -85,6 +86,8 @@ class EventProfile:
     clustering_adjustment: ClusteringAdjustment
     event_ic: float | None
     event_ic_p: PValue | None
+
+    insufficient_metrics: tuple[str, ...]  # see _base._insufficient_metrics
 
     CANONICAL_P_FIELD: ClassVar[str] = "caar_p"
     # event_ic_p is deliberately excluded: the event_ic test is only run
@@ -180,6 +183,17 @@ class EventProfile:
             event_ic_val = None
             event_ic_p_val = None
 
+        insufficient_src = {
+            "caar_mean": caar_m,
+            "bmp_sar_mean": bmp_m,
+            "event_hit_rate": hit_m,
+            "profit_factor": pf_m,
+            "event_skewness": skew_m,
+            "caar_trend": trend_m,
+            "signal_density": density_m,
+        }
+        insufficient = _insufficient_metrics(insufficient_src)
+
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=int(caar_m.metadata.get("n_event_dates", len(caar_series))),
@@ -204,4 +218,5 @@ class EventProfile:
             clustering_adjustment=config.adjust_clustering,
             event_ic=event_ic_val,
             event_ic_p=event_ic_p_val,
+            insufficient_metrics=insufficient,
         )

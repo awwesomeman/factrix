@@ -18,6 +18,7 @@ from typing import ClassVar, Self, TYPE_CHECKING
 from factorlib._types import Diagnostic, FactorType, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
     _diagnose,
+    _insufficient_metrics,
     _pv,
     _verdict_from_p,
     register_profile,
@@ -69,6 +70,8 @@ class MacroPanelProfile:
     turnover: float
     breakeven_cost: float
     net_spread: float
+
+    insufficient_metrics: tuple[str, ...]  # see _base._insufficient_metrics
 
     CANONICAL_P_FIELD: ClassVar[str] = "fm_beta_p"
     P_VALUE_FIELDS: ClassVar[frozenset[str]] = frozenset({
@@ -131,6 +134,15 @@ class MacroPanelProfile:
             spread_m.value, turn_m.value, config.estimated_cost_bps,
         )
 
+        insufficient = _insufficient_metrics({
+            "fm_beta_mean": fm_m,
+            "pooled_beta": pooled_m,
+            "beta_sign_consistency": sign_m,
+            "beta_trend": trend_m,
+            "q1_q5_spread": spread_m,
+            "turnover": turn_m,
+        })
+
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=int(fm_m.metadata.get("n_periods", len(beta_series))),
@@ -154,4 +166,5 @@ class MacroPanelProfile:
             turnover=float(turn_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),
+            insufficient_metrics=insufficient,
         )

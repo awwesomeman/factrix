@@ -17,6 +17,7 @@ from typing import ClassVar, Self, TYPE_CHECKING
 from factorlib._types import Diagnostic, FactorType, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
     _diagnose,
+    _insufficient_metrics,
     _pv,
     _verdict_from_p,
     register_profile,
@@ -74,6 +75,8 @@ class CrossSectionalProfile:
     turnover: float
     breakeven_cost: float
     net_spread: float
+
+    insufficient_metrics: tuple[str, ...]  # see _base._insufficient_metrics
 
     CANONICAL_P_FIELD: ClassVar[str] = "ic_p"
     P_VALUE_FIELDS: ClassVar[frozenset[str]] = frozenset({
@@ -142,6 +145,16 @@ class CrossSectionalProfile:
             artifacts.prepared, forward_periods=fp, q_top=config.q_top,
         )
 
+        insufficient = _insufficient_metrics({
+            "ic_mean": ic_m,
+            "ic_ir": ic_ir_m,
+            "hit_rate": hit_m,
+            "ic_trend": trend_m,
+            "monotonicity": mono_m,
+            "q1_q5_spread": spread_m,
+            "q1_concentration": conc_m,
+            "turnover": turn_m,
+        })
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=int(ic_m.metadata.get("n_periods", len(ic_series))),
@@ -168,4 +181,5 @@ class CrossSectionalProfile:
             turnover=float(turn_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),
+            insufficient_metrics=insufficient,
         )

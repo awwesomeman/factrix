@@ -42,26 +42,54 @@ class Rule(Generic[P]):
     Args:
         code: Stable machine-readable id (for AI / programmatic triage).
         severity: One of ``info``, ``warn``, ``veto``.
-        message: Human-readable explanation of the condition.
+        message: Human-readable explanation of the condition. May be
+            either a plain string or a ``Callable[[profile], str]`` when
+            the message depends on runtime state (e.g. listing which
+            metrics short-circuited).
         predicate: Called with the profile; when True, the rule emits a
             Diagnostic. Must be pure (no IO, no mutation).
     """
 
     code: str
     severity: DiagnosticSeverity
-    message: str
+    message: "str | Callable[[P], str]"
     predicate: Callable[[P], bool]
 
     def evaluate(self, profile: P) -> Diagnostic | None:
-        return (
-            Diagnostic(
-                severity=self.severity,
-                message=self.message,
-                code=self.code,
-            )
-            if self.predicate(profile)
-            else None
+        if not self.predicate(profile):
+            return None
+        msg = self.message(profile) if callable(self.message) else self.message
+        return Diagnostic(
+            severity=self.severity,
+            message=msg,
+            code=self.code,
         )
+
+
+# ---------------------------------------------------------------------------
+# Cross-type rules (apply to every profile regardless of factor type)
+# ---------------------------------------------------------------------------
+
+def _insufficient_message(profile: object) -> str:
+    names = getattr(profile, "insufficient_metrics", ())
+    joined = ", ".join(names) if names else "?"
+    return (
+        f"One or more metrics short-circuited due to insufficient data "
+        f"({joined}). The verdict and canonical p-value are technically "
+        f"computable but may not be trustworthy — collect more data or "
+        f"re-scope the factor. See the metric's metadata['reason'] for "
+        f"the exact threshold it missed."
+    )
+
+
+CROSS_TYPE_RULES: list[Rule] = [
+    Rule(
+        code="data.insufficient",
+        severity="warn",
+        message=_insufficient_message,
+        predicate=lambda p: bool(getattr(p, "insufficient_metrics", ())),
+    ),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -364,6 +392,13 @@ def diagnose_profile(profile: object) -> list[Diagnostic]:
         )
 
     out: list[Diagnostic] = []
+    # Cross-type rules fire first — data-quality signals should precede
+    # factor-type-specific diagnostics so the reader sees the warning
+    # about trustworthiness before the interpretation notes.
+    for rule in CROSS_TYPE_RULES:
+        hit = rule.evaluate(profile)
+        if hit is not None:
+            out.append(hit)
     for rule in rules:
         hit = rule.evaluate(profile)
         if hit is not None:

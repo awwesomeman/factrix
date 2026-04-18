@@ -24,6 +24,7 @@ import pytest
 from factorlib.config import CrossSectionalConfig
 from factorlib.evaluation.pipeline import build_artifacts
 from factorlib.evaluation.profiles import CrossSectionalProfile
+from factorlib.evaluation.profiles._base import _verdict_from_p
 from factorlib._stats import _p_value_from_t
 
 
@@ -105,6 +106,27 @@ class TestThresholdIsTDistribution:
             f"gap should be <2e-3; got {gap:.2e}. Likely either "
             f"_p_value_from_t drifted or the fixture is too small."
         )
+
+
+class TestDegenerateN:
+    """n_periods < 2 is statistically undefined and must not accidentally pass."""
+
+    def test_zero_n_is_failed(self):
+        assert _verdict_from_p(1.0, threshold=2.0, n_periods=0) == "FAILED"
+
+    def test_one_n_is_failed(self):
+        assert _verdict_from_p(1.0, threshold=2.0, n_periods=1) == "FAILED"
+
+    def test_zero_n_failed_even_at_any_p(self):
+        # Even a "perfect" p=0.0 cannot PASS with no samples — there is
+        # nothing to test against.
+        assert _verdict_from_p(0.0, threshold=2.0, n_periods=0) == "FAILED"
+
+    def test_n_two_is_well_defined(self):
+        # At n=2 (df=1) the t-distribution is defined (if exotic); the
+        # threshold degenerates toward a very large p_cut (~0.295), so a
+        # strong observed p still passes.
+        assert _verdict_from_p(0.01, threshold=2.0, n_periods=2) == "PASS"
 
 
 class TestSmallNVerdictIsMoreConservative:

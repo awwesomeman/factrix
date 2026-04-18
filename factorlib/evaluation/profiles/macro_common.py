@@ -19,6 +19,7 @@ from typing import ClassVar, Self, TYPE_CHECKING
 from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
     _diagnose,
+    _insufficient_metrics,
     _pv,
     _verdict_from_p,
     register_profile,
@@ -59,6 +60,8 @@ class MacroCommonProfile:
     oos_sign_flipped: bool
     beta_trend: float
     beta_trend_p: PValue
+
+    insufficient_metrics: tuple[str, ...]  # see _base._insufficient_metrics
 
     CANONICAL_P_FIELD: ClassVar[str] = "ts_beta_p"
     P_VALUE_FIELDS: ClassVar[frozenset[str]] = frozenset({
@@ -121,6 +124,13 @@ class MacroCommonProfile:
         oos = multi_split_oos_decay(beta_values)
         trend_m = ic_trend(beta_values)
 
+        insufficient = _insufficient_metrics({
+            "ts_beta_mean": ts_beta_m,
+            "mean_r_squared": r2_m,
+            "ts_beta_sign_consistency": sign_m,
+            "beta_trend": trend_m,
+        })
+
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=n_periods,
@@ -134,4 +144,5 @@ class MacroCommonProfile:
             oos_sign_flipped=bool(oos.sign_flipped),
             beta_trend=float(trend_m.value),
             beta_trend_p=_pv(trend_m),
+            insufficient_metrics=insufficient,
         )
