@@ -31,6 +31,14 @@ if TYPE_CHECKING:
 
 P = TypeVar("P")
 
+# Column names multiple_testing_correct writes onto the DataFrame view.
+# `_MT_METHOD_COL` doubles as the "already corrected" marker — presence
+# of this column is what the double-apply guard keys on.
+_MT_METHOD_COL = "mt_method"
+_MT_P_SOURCE_COL = "mt_p_source"
+_MT_FDR_COL = "mt_fdr"
+_MT_N_TOTAL_COL = "mt_n_total"
+
 
 class ProfileSet(Generic[P]):
     """Type-homogeneous collection of factor profiles.
@@ -297,6 +305,8 @@ class ProfileSet(Generic[P]):
         p_source: str = "canonical_p",
         method: Literal["bhy"] = "bhy",
         fdr: float = 0.05,
+        *,
+        n_total: int | None = None,
     ) -> "ProfileSet[P]":
         """Apply a multiple-testing correction across the set.
 
@@ -305,13 +315,63 @@ class ProfileSet(Generic[P]):
         ``min(ic_p, spread_p)``) are rejected because feeding them to
         BHY violates the same-test-family assumption.
 
+        Args:
+            p_source: Which p-value column to correct. Defaults to the
+                profile's canonical p. Must be in ``P_VALUE_FIELDS``.
+            method: Correction method. Only ``"bhy"`` is currently
+                supported.
+            fdr: Target false discovery rate (default 0.05).
+            n_total: Full candidate family size for two-stage screening.
+                Use this when the ProfileSet contains only survivors of
+                a pre-screen over a larger candidate pool (e.g.
+                ``len(self) = 50``, but you originally screened 1000):
+                pass ``n_total=1000`` so BHY uses the correct denominator.
+                Must be ``>= len(self)``. ``None`` (default) uses
+                ``len(self)``, i.e. single-stage BHY.
+
         Returns a new ProfileSet whose DataFrame view gains:
             - ``p_adjusted`` (float) — BHY adjusted per-factor p-value
             - ``bhy_significant`` (bool) — rejection mask at the given fdr
             - ``mt_p_source`` (str) — which source was used
             - ``mt_method`` / ``mt_fdr`` — run metadata
+            - ``mt_n_total`` (int) — BHY denominator m used
         The underlying profile dataclasses are unchanged.
+
+        Note on two-stage screening:
+            When ``n_total > len(self)``, BHY with ``m = n_total``
+            controls the *marginal* FDR over the full candidate family
+            on the assumption that the screening criterion is
+            **independent** of the p-value being corrected. If the
+            screen uses the same statistic family (e.g. screen on
+            ``ic_p``, correct on ``ic_p``), you are conditioning on
+            significance — the reported FDR is a lower bound on the
+            true conditional FDR. Prefer orthogonal pre-filters (IC
+            magnitude, turnover, coverage) to keep the marginal
+            interpretation honest.
+
+        Re-applying correction to an already-adjusted ProfileSet raises
+        ``RuntimeError`` — chaining BHY on adjusted p-values is
+        statistically meaningless.
         """
+        if _MT_METHOD_COL in self._df.columns:
+            # mt_method and mt_n_total are always written together, so
+            # their presence is equivalent once len(self) > 0.
+            if len(self):
+                prev_method = self._df[_MT_METHOD_COL][0]
+                prev_n_total = self._df[_MT_N_TOTAL_COL][0]
+            else:
+                prev_method = "?"
+                prev_n_total = "?"
+            raise RuntimeError(
+                f"ProfileSet already has multiple-testing correction "
+                f"applied (mt_method={prev_method!r}, "
+                f"mt_n_total={prev_n_total}). Re-applying BHY to "
+                f"already-adjusted p-values is statistically meaningless "
+                f"(the first correction is the authoritative one). Build "
+                f"a fresh ProfileSet from the raw profiles if you need "
+                f"to redo the correction with different parameters."
+            )
+
         whitelist = self._profile_cls.P_VALUE_FIELDS
         canonical_field = self._profile_cls.CANONICAL_P_FIELD
         # Re-check invariants at runtime: @register_profile validates these
@@ -345,15 +405,21 @@ class ProfileSet(Generic[P]):
                 f"Unknown multiple-testing method {method!r}. Supported: 'bhy'."
             )
 
+        effective_n_total = int(n_total) if n_total is not None else len(self)
+        meta_cols = [
+            pl.lit(p_source).alias(_MT_P_SOURCE_COL),
+            pl.lit(method).alias(_MT_METHOD_COL),
+            pl.lit(float(fdr)).alias(_MT_FDR_COL),
+            pl.lit(effective_n_total).alias(_MT_N_TOTAL_COL),
+        ]
+
         if not self._profiles:
             # Empty set: no adjustment to apply; still add the columns so
             # downstream filtering code does not need to special-case.
             new_df = self._df.with_columns([
                 pl.Series("p_adjusted", [], dtype=pl.Float64),
                 pl.Series("bhy_significant", [], dtype=pl.Boolean),
-                pl.lit(p_source).alias("mt_p_source"),
-                pl.lit(method).alias("mt_method"),
-                pl.lit(float(fdr)).alias("mt_fdr"),
+                *meta_cols,
             ])
             return ProfileSet._with_df(self._profiles, new_df, self._profile_cls)
 
@@ -367,15 +433,13 @@ class ProfileSet(Generic[P]):
                 dtype=float,
             )
 
-        significant = bhy_adjust(p_values, fdr=fdr)
-        adjusted = bhy_adjusted_p(p_values)
+        significant = bhy_adjust(p_values, fdr=fdr, n_total=n_total)
+        adjusted = bhy_adjusted_p(p_values, n_total=n_total)
 
         new_df = self._df.with_columns([
             pl.Series("p_adjusted", adjusted),
             pl.Series("bhy_significant", significant),
-            pl.lit(p_source).alias("mt_p_source"),
-            pl.lit(method).alias("mt_method"),
-            pl.lit(float(fdr)).alias("mt_fdr"),
+            *meta_cols,
         ])
         return ProfileSet._with_df(self._profiles, new_df, self._profile_cls)
 

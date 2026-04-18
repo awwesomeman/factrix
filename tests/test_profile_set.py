@@ -380,3 +380,54 @@ class TestMultipleTestingCorrect:
                 ps.multiple_testing_correct(fdr=0.05)
         finally:
             CrossSectionalProfile.CANONICAL_P_FIELD = original
+
+    def test_n_total_propagates_to_bhy_and_column(
+        self, cs_profiles_and_artifacts,
+    ):
+        """`n_total` must flow into BHY and surface as mt_n_total."""
+        from factorlib.stats.multiple_testing import bhy_adjusted_p
+
+        profiles, _ = cs_profiles_and_artifacts
+        n_total = 100
+        ps = ProfileSet(profiles).multiple_testing_correct(
+            fdr=0.05, n_total=n_total,
+        )
+        df = ps.to_polars()
+
+        # Column recorded correctly.
+        assert "mt_n_total" in df.columns
+        assert df["mt_n_total"].unique().to_list() == [n_total]
+
+        # Adjusted p-values match direct bhy_adjusted_p(..., n_total=100).
+        p_values = np.array([float(p.canonical_p) for p in profiles])
+        expected = bhy_adjusted_p(p_values, n_total=n_total)
+        np.testing.assert_allclose(df["p_adjusted"].to_numpy(), expected)
+
+    def test_rejects_double_application(self, cs_profiles_and_artifacts):
+        """Running BHY twice on the same ProfileSet raises — chaining
+        corrections on already-adjusted p-values is statistically
+        meaningless."""
+        profiles, _ = cs_profiles_and_artifacts
+        adjusted = ProfileSet(profiles).multiple_testing_correct(fdr=0.05)
+        with pytest.raises(RuntimeError, match="already has"):
+            adjusted.multiple_testing_correct(fdr=0.10)
+
+    def test_n_total_default_equals_len(self, cs_profiles_and_artifacts):
+        """n_total=None path stays byte-equivalent to explicit n_total=len(self)."""
+        profiles, _ = cs_profiles_and_artifacts
+        default = ProfileSet(profiles).multiple_testing_correct(fdr=0.05)
+        explicit = ProfileSet(profiles).multiple_testing_correct(
+            fdr=0.05, n_total=len(profiles),
+        )
+        np.testing.assert_array_equal(
+            default.to_polars()["p_adjusted"].to_numpy(),
+            explicit.to_polars()["p_adjusted"].to_numpy(),
+        )
+        np.testing.assert_array_equal(
+            default.to_polars()["bhy_significant"].to_numpy(),
+            explicit.to_polars()["bhy_significant"].to_numpy(),
+        )
+        assert (
+            default.to_polars()["mt_n_total"].unique().to_list()
+            == [len(profiles)]
+        )
