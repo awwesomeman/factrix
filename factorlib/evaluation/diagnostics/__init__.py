@@ -10,9 +10,18 @@ filtered programmatically (e.g. an AI agent suppressing 'info'-level
 hints while acting on 'veto').
 """
 
+from factorlib._types import DiagnosticSeverity
 from factorlib.evaluation.diagnostics._rules import (
     Rule,
+    clear_custom_rules,
     diagnose_profile,
+    register_rule,
 )
 
-__all__ = ["Rule", "diagnose_profile"]
+__all__ = [
+    "Rule",
+    "DiagnosticSeverity",
+    "diagnose_profile",
+    "register_rule",
+    "clear_custom_rules",
+]

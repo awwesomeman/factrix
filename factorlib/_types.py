@@ -27,6 +27,27 @@ class FactorType(enum.StrEnum):
     MACRO_COMMON = "macro_common"
 
 
+def coerce_factor_type(factor_type: "FactorType | str") -> "FactorType":
+    """Accept a FactorType enum or its string value and return the enum.
+
+    Centralizes the string→enum coercion used by public API entry points
+    (``evaluate``, ``evaluate_batch``, ``describe_profile``,
+    ``register_rule``). Surfaces the same error message regardless of
+    call site so users can pattern-match it reliably.
+    """
+    if isinstance(factor_type, FactorType):
+        return factor_type
+    try:
+        return FactorType(factor_type)
+    except ValueError:
+        valid = ", ".join(ft.value for ft in FactorType)
+        raise ValueError(
+            f"Unknown factor_type {factor_type!r}. "
+            f"Supported: {valid}. "
+            f"Use fl.describe_factor_types() for details."
+        ) from None
+
+
 # ---------------------------------------------------------------------------
 # Numerical constants
 # ---------------------------------------------------------------------------

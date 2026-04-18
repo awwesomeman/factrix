@@ -14,11 +14,16 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import replace
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
-from factorlib._types import FactorType
+from factorlib._types import FactorType, coerce_factor_type
+
+if TYPE_CHECKING:
+    from factorlib.evaluation._protocol import Artifacts
+    from factorlib.evaluation.profile_set import ProfileSet
+    from factorlib.evaluation.profiles._base import FactorProfile
 from factorlib.config import (
     BaseConfig,
     CrossSectionalConfig,
@@ -75,15 +80,7 @@ def describe_profile(
     import dataclasses as _dc
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
-    if isinstance(factor_type, str):
-        try:
-            factor_type = FactorType(factor_type)
-        except ValueError:
-            valid = ", ".join(list_factor_types())
-            raise ValueError(
-                f"Unknown factor_type {factor_type!r}. Valid: {valid}."
-            ) from None
-
+    factor_type = coerce_factor_type(factor_type)
     cls = _PROFILE_REGISTRY.get(factor_type)
     if cls is None:
         raise KeyError(
@@ -119,17 +116,7 @@ def _config_for_type(
     factor_type: str | FactorType,
     **overrides: Any,
 ) -> BaseConfig:
-    if isinstance(factor_type, str):
-        try:
-            factor_type = FactorType(factor_type)
-        except ValueError:
-            raise ValueError(
-                f"Unknown factor_type '{factor_type}'. "
-                f"Supported: {', '.join(ft.value for ft in FactorType)}. "
-                f"Use fl.describe_factor_types() for details."
-            ) from None
-
-    config_cls = FACTOR_TYPES[factor_type]
+    config_cls = FACTOR_TYPES[coerce_factor_type(factor_type)]
     return config_cls(**overrides)
 
 
@@ -238,6 +225,32 @@ def split_by_group(
 # Profile-era API
 # ---------------------------------------------------------------------------
 
+@overload
+def evaluate(
+    df: pl.DataFrame,
+    factor_name: str,
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    return_artifacts: Literal[False] = ...,
+    **config_overrides: Any,
+) -> "FactorProfile": ...
+
+
+@overload
+def evaluate(
+    df: pl.DataFrame,
+    factor_name: str,
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    return_artifacts: Literal[True],
+    **config_overrides: Any,
+) -> tuple["FactorProfile", "Artifacts"]: ...
+
+
 def evaluate(
     df: pl.DataFrame,
     factor_name: str,
@@ -245,6 +258,7 @@ def evaluate(
     factor_type: str | FactorType = "cross_sectional",
     config: BaseConfig | None = None,
     preprocess: bool = True,
+    return_artifacts: bool = False,
     **config_overrides: Any,
 ):
     """Evaluate a single factor and return a typed ``FactorProfile``.
@@ -262,11 +276,16 @@ def evaluate(
             ``config`` is supplied.
         config: Explicit config instance; overrides ``factor_type``.
         preprocess: Run preprocessing before evaluation (default True).
+        return_artifacts: If True, return ``(profile, artifacts)`` where
+            ``artifacts`` exposes ``prepared`` + ``intermediates`` for
+            user-defined metrics (MI, dCor, regime splits, etc.) without
+            re-running ``build_artifacts``.
         **config_overrides: Forwarded to the config constructor when
             ``config`` is None.
 
     Returns:
-        A per-type FactorProfile (e.g. ``CrossSectionalProfile``).
+        By default a per-type FactorProfile. When ``return_artifacts``
+        is True, returns ``(profile, artifacts)``.
     """
     from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
@@ -292,7 +311,42 @@ def evaluate(
             f"No profile registered for factor_type "
             f"{type(config).factor_type!r}."
         )
-    return cls.from_artifacts(artifacts)
+    profile = cls.from_artifacts(artifacts)
+    if return_artifacts:
+        return profile, artifacts
+    return profile
+
+
+@overload
+def evaluate_batch(
+    factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    stop_on_error: bool = ...,
+    on_result: Callable[[str, "FactorProfile"], bool | None] | None = ...,
+    on_error: Callable[[str, BaseException], None] | None = ...,
+    keep_artifacts: Literal[False] = ...,
+    compact: bool = ...,
+    **config_overrides: Any,
+) -> "ProfileSet": ...
+
+
+@overload
+def evaluate_batch(
+    factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    stop_on_error: bool = ...,
+    on_result: Callable[[str, "FactorProfile"], bool | None] | None = ...,
+    on_error: Callable[[str, BaseException], None] | None = ...,
+    keep_artifacts: Literal[True],
+    compact: bool = ...,
+    **config_overrides: Any,
+) -> tuple["ProfileSet", dict[str, "Artifacts"]]: ...
 
 
 def evaluate_batch(
@@ -302,8 +356,10 @@ def evaluate_batch(
     config: BaseConfig | None = None,
     preprocess: bool = True,
     stop_on_error: bool = False,
-    on_result: Callable[[str, object], None] | None = None,
+    on_result: Callable[[str, "FactorProfile"], bool | None] | None = None,
     on_error: Callable[[str, BaseException], None] | None = None,
+    keep_artifacts: bool = False,
+    compact: bool = False,
     **config_overrides: Any,
 ):
     """Evaluate many factors and return a ``ProfileSet``.
@@ -316,21 +372,38 @@ def evaluate_batch(
         preprocess: Whether to preprocess each factor.
         stop_on_error: Raise on first failure (True) or log+skip (False).
         on_result: Optional callback ``(name, profile)`` after each ok.
+            May return ``bool | None``; returning ``False`` stops the
+            batch loop (logged at INFO level). ``None`` and ``True``
+            both continue, so a plain side-effect lambda (e.g.
+            ``lambda n, _: print(n)``) keeps working unchanged.
         on_error: Optional callback ``(name, exception)`` on each failure;
             only consulted when ``stop_on_error=False``.
+        keep_artifacts: If True, return
+            ``(ProfileSet, dict[name -> Artifacts])`` so callers can run
+            ``redundancy_matrix(method="factor_rank")`` or user-defined
+            metrics without a manual for-loop.
+        compact: When ``keep_artifacts=True``, drop each retained
+            Artifacts' ``prepared`` panel (replaced with a sentinel) to
+            save memory on large-batch runs. ``compact=True`` without
+            ``keep_artifacts=True`` raises ``ValueError`` — compact on a
+            discarded artifact is a no-op indicating caller confusion.
 
     Returns:
-        A ``ProfileSet`` homogeneous in the profile class matching
-        ``factor_type``. Factors that raised are absent from the set
-        when ``stop_on_error=False``.
-
-    Note: the per-factor intermediate ``Artifacts`` are not retained
-    on the returned ``ProfileSet``. If you need them (e.g. for
-    ``redundancy_matrix(method="factor_rank")``), call ``fl.evaluate``
-    directly in a loop and keep the Artifacts yourself.
+        By default a ``ProfileSet`` homogeneous in the profile class
+        matching ``factor_type``. When ``keep_artifacts=True``, returns
+        ``(ProfileSet, dict[str, Artifacts])``. Factors that raised are
+        absent from both when ``stop_on_error=False``.
     """
+    from factorlib.evaluation._protocol import _COMPACTED_PREPARED
+    from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profile_set import ProfileSet
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
+
+    if compact and not keep_artifacts:
+        raise ValueError(
+            "evaluate_batch: compact=True requires keep_artifacts=True "
+            "(compact is a no-op when artifacts are discarded)."
+        )
 
     if isinstance(factors, dict):
         factors = list(factors.items())
@@ -350,13 +423,19 @@ def evaluate_batch(
             f"{type(config).factor_type!r}."
         )
 
+    if preprocess:
+        from factorlib.preprocess.pipeline import preprocess as _prep
+    else:
+        _prep = None
+
     profiles = []
+    artifacts_map: dict[str, Any] = {}
     for name, factor_df in factors:
         try:
-            p = evaluate(
-                factor_df, name,
-                config=config, preprocess=preprocess,
-            )
+            prepared = _prep(factor_df, config=config) if _prep else factor_df
+            artifacts = build_artifacts(prepared, config)
+            artifacts.factor_name = name
+            p = profile_cls.from_artifacts(artifacts)
         except Exception as exc:
             if stop_on_error:
                 raise
@@ -365,11 +444,29 @@ def evaluate_batch(
                 on_error(name, exc)
             continue
 
+        if compact:
+            # WHY: from_artifacts already read prepared; drop it now
+            # to free memory before the next iteration.
+            artifacts.prepared = _COMPACTED_PREPARED
+            artifacts.compact = True
+        if keep_artifacts:
+            artifacts_map[name] = artifacts
+
         profiles.append(p)
         if on_result is not None:
-            on_result(name, p)
+            signal = on_result(name, p)
+            if signal is False:
+                logger.info(
+                    "evaluate_batch: on_result returned False after %r, "
+                    "stopping early",
+                    name,
+                )
+                break
 
-    return ProfileSet(profiles, profile_cls=profile_cls)
+    profile_set = ProfileSet(profiles, profile_cls=profile_cls)
+    if keep_artifacts:
+        return profile_set, artifacts_map
+    return profile_set
 
 
 def redundancy_matrix(

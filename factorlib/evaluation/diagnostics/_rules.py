@@ -14,6 +14,9 @@ Design notes:
   documenting.
 - Rules intentionally use plain lambdas instead of a Protocol/ABC.
   They are trivial enough that the indirection would cost readability.
+- User-defined rules join via ``register_rule(factor_type, Rule)``.
+  They append to the per-type built-in list so built-ins stay
+  authoritative; custom rules run after them in order of registration.
 """
 
 from __future__ import annotations
@@ -21,7 +24,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
-from factorlib._types import Diagnostic, DiagnosticSeverity
+from factorlib._types import (
+    Diagnostic,
+    DiagnosticSeverity,
+    FactorType,
+    coerce_factor_type,
+)
 
 if TYPE_CHECKING:
     from factorlib.evaluation.profiles.cross_sectional import (
@@ -97,21 +105,6 @@ CROSS_TYPE_RULES: list[Rule] = [
 # ---------------------------------------------------------------------------
 
 CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
-    # TODO: replace with a measured residual-exposure diagnostic (e.g.
-    # FM beta of the factor against size / value / momentum) once that
-    # metric lands. Today this rule fires on every factor with the default
-    # orthogonalize=False, which is why severity is 'info'.
-    Rule(
-        code="cs.orthogonalize_not_applied",
-        severity="info",
-        message=(
-            "orthogonalize=False — factor exposures were not regressed "
-            "against the market's standard risk factors (size / value / "
-            "momentum / industry). Any alpha observed here may be a "
-            "repackaging of a known risk premium."
-        ),
-        predicate=lambda p: not p.orthogonalize_applied,
-    ),
     Rule(
         code="cs.ic_weak_spread_strong",
         severity="warn",
@@ -358,6 +351,52 @@ MACRO_COMMON_RULES: list[Rule["MacroCommonProfile"]] = [
 
 
 # ---------------------------------------------------------------------------
+# Custom (user-registered) rules
+# ---------------------------------------------------------------------------
+
+# Keyed by FactorType, appended after built-ins at dispatch time.
+#
+# Thread-safety: this registry is a plain dict without locking. factorlib
+# today is single-threaded end-to-end (Polars handles its own parallelism
+# inside vectorized ops; our Python control flow is linear). If batch
+# evaluation ever spawns worker processes/threads, each worker should
+# register its own rules in isolation, or a lock must be added here.
+_CUSTOM_RULES: dict[FactorType, list[Rule]] = {}
+
+
+def register_rule(factor_type: FactorType | str, rule: Rule) -> None:
+    """Register a user-defined diagnostic rule for a factor type.
+
+    The rule runs after built-in rules on every ``profile.diagnose()``
+    call whose profile matches ``factor_type``. Use this to plug in
+    domain-specific checks (earnings-window sensitivity, liquidity
+    filters, custom regime signals) without forking factorlib.
+
+    Args:
+        factor_type: Which factor type the rule applies to. Accepts
+            either a ``FactorType`` enum or its string value
+            (``"cross_sectional"`` etc.).
+        rule: A ``Rule`` instance. Its predicate receives the matching
+            Profile dataclass; it must be pure.
+    """
+    _CUSTOM_RULES.setdefault(coerce_factor_type(factor_type), []).append(rule)
+
+
+def clear_custom_rules(factor_type: FactorType | str | None = None) -> None:
+    """Remove registered custom rules.
+
+    Args:
+        factor_type: If given, clear only that factor type. If ``None``
+            (default), clear every registered custom rule. Useful as a
+            test fixture — never call from production code paths.
+    """
+    if factor_type is None:
+        _CUSTOM_RULES.clear()
+    else:
+        _CUSTOM_RULES.pop(coerce_factor_type(factor_type), None)
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -378,12 +417,16 @@ def diagnose_profile(profile: object) -> list[Diagnostic]:
 
     if isinstance(profile, CrossSectionalProfile):
         rules = CROSS_SECTIONAL_RULES
+        factor_type = FactorType.CROSS_SECTIONAL
     elif isinstance(profile, EventProfile):
         rules = EVENT_RULES
+        factor_type = FactorType.EVENT_SIGNAL
     elif isinstance(profile, MacroPanelProfile):
         rules = MACRO_PANEL_RULES
+        factor_type = FactorType.MACRO_PANEL
     elif isinstance(profile, MacroCommonProfile):
         rules = MACRO_COMMON_RULES
+        factor_type = FactorType.MACRO_COMMON
     else:
         raise TypeError(
             f"No diagnostic rule set for profile type {type(profile).__name__}. "
@@ -400,6 +443,12 @@ def diagnose_profile(profile: object) -> list[Diagnostic]:
         if hit is not None:
             out.append(hit)
     for rule in rules:
+        hit = rule.evaluate(profile)
+        if hit is not None:
+            out.append(hit)
+    # User-registered rules run last so they can reference cross-type
+    # diagnostics without reordering built-ins.
+    for rule in _CUSTOM_RULES.get(factor_type, ()):
         hit = rule.evaluate(profile)
         if hit is not None:
             out.append(hit)

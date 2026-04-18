@@ -10,7 +10,7 @@ Users should instantiate one of the concrete subclasses
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import ClassVar, Literal
 
 from factorlib._types import FactorType
@@ -30,9 +30,6 @@ class BaseConfig:
     forward_periods: int = 5
     n_groups: int = 5
     estimated_cost_bps: float = 30.0
-    multi_horizon_periods: list[int] = field(
-        default_factory=lambda: [1, 5, 10, 20],
-    )
 
     def __post_init__(self) -> None:
         if type(self) is BaseConfig:
@@ -51,7 +48,6 @@ class CrossSectionalConfig(BaseConfig):
 
     n_groups: int = 10  # override BaseConfig default
     q_top: float = 0.2
-    orthogonalize: bool = False
     mad_n: float = 3.0
     return_clip_pct: tuple[float, float] = (0.01, 0.99)
 

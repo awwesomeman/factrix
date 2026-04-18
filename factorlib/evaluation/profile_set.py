@@ -226,6 +226,69 @@ class ProfileSet(Generic[P]):
         return ProfileSet._with_df(new_profiles, new_df, self._profile_cls)
 
     # ------------------------------------------------------------------
+    # Extensibility
+    # ------------------------------------------------------------------
+
+    def with_extra_columns(
+        self,
+        columns: "dict[str, Iterable] | pl.DataFrame",
+    ) -> "ProfileSet[P]":
+        """Append user-computed columns to the polars view.
+
+        The dataclass tuples are not modified — extras live only on the
+        DataFrame, which is how ``filter(pl.Expr)``, ``rank_by``,
+        ``top``, ``multiple_testing_correct``, and ``to_polars`` all
+        see them.
+
+        Alignment is strictly **positional**: the i-th row of the input
+        attaches to ``self._profiles[i]``. If your data is keyed by
+        factor name, sort or join to ``self.to_polars()['factor_name']``
+        order before passing it here — the ProfileSet deliberately does
+        no name-based reindexing so it can never silently drop or
+        reorder rows.
+
+        Args:
+            columns: Either a ``{col_name: values}`` dict (values must
+                be an iterable of length ``len(self)``) or a polars
+                ``DataFrame`` with the same number of rows as the
+                ProfileSet.
+
+        Returns:
+            A new ``ProfileSet`` whose DataFrame view gains the
+            requested columns.
+
+        Raises:
+            ValueError: row-count mismatch, or any column name already
+                present in the internal DataFrame (dataclass fields,
+                ``canonical_p``, MT output columns). Drop them from
+                the input first if you intend to replace.
+        """
+        if isinstance(columns, pl.DataFrame):
+            extra = columns
+        else:
+            extra = pl.DataFrame({k: list(v) for k, v in columns.items()})
+
+        if extra.height != len(self):
+            raise ValueError(
+                f"with_extra_columns: row-count mismatch. "
+                f"ProfileSet has {len(self)} rows; extras have {extra.height}. "
+                f"Align to self.to_polars()['factor_name'] order before "
+                f"passing — no name-based reindexing is performed."
+            )
+
+        overlap = set(extra.columns) & set(self._df.columns)
+        if overlap:
+            raise ValueError(
+                f"with_extra_columns: column names already exist in "
+                f"ProfileSet: {sorted(overlap)}. Drop them from the input "
+                f"first if you want to replace (ProfileSet refuses silent "
+                f"overwrites of schema-derived columns)."
+            )
+
+        new_df = self._df.hstack(extra)
+        return ProfileSet._with_df(self._profiles, new_df, self._profile_cls)
+
+    # ------------------------------------------------------------------
     # Multiple testing
     # ------------------------------------------------------------------
 
