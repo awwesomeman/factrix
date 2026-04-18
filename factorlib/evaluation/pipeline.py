@@ -16,6 +16,7 @@ from factorlib.config import (
     EventConfig,
     MacroCommonConfig,
     MacroPanelConfig,
+    OrthoConfig,
 )
 from factorlib.evaluation._protocol import Artifacts
 from factorlib.metrics.ic import compute_ic
@@ -103,8 +104,8 @@ def _build_cs_artifacts(
     _validate_columns(df, "cross_sectional")
 
     ortho_info: pl.DataFrame | None = None
-    if config.orthogonalize is not None:
-        df, ortho_info = _apply_orthogonalize(df, config)
+    if config.ortho is not None:
+        df, ortho_info = _apply_orthogonalize(df, config.ortho, config.mad_n)
 
     ic_series = compute_ic(df)
     ic_values = ic_series.rename({"ic": "value"})
@@ -140,9 +141,9 @@ def _augment_level2_intermediates(
     """Populate intermediates with regime / multi-horizon / spanning
     summaries when the corresponding config inputs are supplied.
 
-    Each metric is opt-in; skipped when the relevant config field is
-    None. multi-horizon is the exception — always computed because it
-    is cheap and uses a sensible default [1, 5, 10, 20].
+    Each metric is independently opt-in: leave the corresponding config
+    field as ``None`` to skip. See
+    ``docs/spike_level2_profile_integration.md``.
     """
     import math
 
@@ -202,20 +203,20 @@ def _augment_level2_intermediates(
 
 
 def _apply_orthogonalize(
-    df: pl.DataFrame, config: CrossSectionalConfig,
+    df: pl.DataFrame, ortho: OrthoConfig, mad_n: float,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Replace df['factor'] with the per-date residual against config.orthogonalize.
+    """Replace df['factor'] with the per-date residual against ortho.base_factors.
 
     Residuals are MAD-winsorized then re-z-scored to preserve the same
     Step 4-5 invariant the rest of the pipeline enforces ("factor is
     MAD-clipped and unit-variance per-date") — OLS residuals can be
     fat-tailed, so skipping winsorize would let outliers drag IC.
 
-    Coverage below ``config.orthogonalize_min_coverage`` fails loud —
-    half-orthogonalized data was the silent-bug path we refactored
-    away in Phase 1 T1.1. The standalone helper's own ``factor_pre_ortho``
-    column is dropped here; pipeline callers get a clean schema, and
-    one-off comparisons should use ``orthogonalize_factor`` directly.
+    Coverage below ``ortho.min_coverage`` fails loud — half-orthogonalized
+    data was the silent-bug path we refactored away in Phase 1 T1.1. The
+    standalone helper's own ``factor_pre_ortho`` column is dropped here;
+    pipeline callers get a clean schema, and one-off comparisons should
+    use ``orthogonalize_factor`` directly.
 
     Returns ``(df_with_residualized_factor, stats_df)`` where stats_df
     is a 1-row DataFrame carrying ``r2_mean`` / ``n_base`` / ``coverage``
@@ -229,15 +230,15 @@ def _apply_orthogonalize(
 
     result = orthogonalize_factor(
         df,
-        config.orthogonalize,
+        ortho.base_factors,
         factor_col="factor",
-        base_cols=config.orthogonalize_cols,
+        base_cols=ortho.cols,
     )
 
-    if result.coverage < config.orthogonalize_min_coverage:
+    if result.coverage < ortho.min_coverage:
         raise ValueError(
             f"orthogonalize: coverage {result.coverage:.3f} is below "
-            f"orthogonalize_min_coverage={config.orthogonalize_min_coverage:.3f}. "
+            f"ortho.min_coverage={ortho.min_coverage:.3f}. "
             f"Either lower the threshold explicitly (accepting partial "
             f"residualization), extend base_factors to cover more rows, or "
             f"trim the factor panel to rows with base-factor coverage."
@@ -245,7 +246,7 @@ def _apply_orthogonalize(
 
     residualized = result.df.drop("factor_pre_ortho")
     residualized = mad_winsorize(
-        residualized, factor_col="factor", n_mad=config.mad_n,
+        residualized, factor_col="factor", n_mad=mad_n,
     )
     residualized = cross_sectional_zscore(residualized, factor_col="factor")
     residualized = residualized.with_columns(

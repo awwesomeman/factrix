@@ -95,9 +95,9 @@ regimes = pl.DataFrame({"date": [...], "regime": ["bull", "bear", ...]})
 base_spreads = {"size": size_spread_df, "mom": mom_spread_df}
 
 cfg = fl.CrossSectionalConfig(
-    regime_labels=regimes,                     # None -> skip regime_ic
-    multi_horizon_periods=[1, 5, 10, 20],      # None -> metric default
-    spanning_base_spreads=base_spreads,        # None -> skip spanning
+    regime_labels=regimes,                 # None -> skip regime_ic
+    multi_horizon_periods=[1, 5, 10, 20],  # None -> skip multi-horizon
+    spanning_base_spreads=base_spreads,    # None -> skip spanning
 )
 p = fl.evaluate(factor_df, "Mom_20D", config=cfg)
 
@@ -122,16 +122,24 @@ re-z-scores, and surfaces R² on the Profile:
 
 ```python
 base_df = ...  # (date, asset_id, size, mom_60d, industry_*...)
-cfg = fl.CrossSectionalConfig(
-    orthogonalize=base_df,                 # None to skip (default)
-    orthogonalize_cols=["size", "mom_60d"],  # None -> all non-key cols
-    orthogonalize_min_coverage=0.95,       # hard fail below this
-)
+
+# DataFrame shortcut: all non-key cols + default coverage.
+cfg = fl.CrossSectionalConfig(ortho=base_df)
+
+# Or, tune cols / min_coverage via an explicit OrthoConfig:
+#   cfg = fl.CrossSectionalConfig(
+#       ortho=fl.OrthoConfig(
+#           base_factors=base_df,
+#           cols=["size", "mom_60d"],       # None -> all non-key cols
+#           min_coverage=0.95,              # hard fail below this
+#       ),
+#   )
+
 p = fl.evaluate(factor_df, "Mom_orth", config=cfg)
 p.orthogonalize_r2_mean                    # e.g. 0.28 — share explained by basis
 p.orthogonalize_n_base                     # number of basis factors used
 
-# If coverage falls below orthogonalize_min_coverage (default 0.95) the
+# If coverage falls below ortho.min_coverage (default 0.95) the
 # pipeline raises ValueError rather than silently mixing residuals with
 # originals. Lower the threshold explicitly when you accept the gap.
 #
@@ -209,7 +217,7 @@ stage1: list[dict] = []
 for name, factor_df in candidates.items():
     prep = fl.preprocess(factor_df, config=config)
     ic_m = ic_metric(compute_ic(prep), forward_periods=config.forward_periods)
-    stage1.append({"name": name, "ic_p": float(ic_m.p_value)})
+    stage1.append({"name": name, "ic_p": float(ic_m.metadata['p_value'])})
 
 top_k = pl.DataFrame(stage1).sort("ic_p").head(50)
 
