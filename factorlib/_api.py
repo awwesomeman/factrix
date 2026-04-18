@@ -333,6 +333,38 @@ def evaluate(
     return profile
 
 
+@overload
+def evaluate_batch(
+    factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    stop_on_error: bool = ...,
+    on_result: Callable[[str, object], object] | None = ...,
+    on_error: Callable[[str, BaseException], None] | None = ...,
+    keep_artifacts: Literal[False] = ...,
+    compact: bool = ...,
+    **config_overrides: Any,
+) -> Any: ...
+
+
+@overload
+def evaluate_batch(
+    factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
+    *,
+    factor_type: str | FactorType = ...,
+    config: BaseConfig | None = ...,
+    preprocess: bool = ...,
+    stop_on_error: bool = ...,
+    on_result: Callable[[str, object], object] | None = ...,
+    on_error: Callable[[str, BaseException], None] | None = ...,
+    keep_artifacts: Literal[True],
+    compact: bool = ...,
+    **config_overrides: Any,
+) -> tuple[Any, dict[str, "Artifacts"]]: ...
+
+
 def evaluate_batch(
     factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
     *,
@@ -340,8 +372,10 @@ def evaluate_batch(
     config: BaseConfig | None = None,
     preprocess: bool = True,
     stop_on_error: bool = False,
-    on_result: Callable[[str, object], None] | None = None,
+    on_result: Callable[[str, object], object] | None = None,
     on_error: Callable[[str, BaseException], None] | None = None,
+    keep_artifacts: bool = False,
+    compact: bool = False,
     **config_overrides: Any,
 ):
     """Evaluate many factors and return a ``ProfileSet``.
@@ -356,19 +390,32 @@ def evaluate_batch(
         on_result: Optional callback ``(name, profile)`` after each ok.
         on_error: Optional callback ``(name, exception)`` on each failure;
             only consulted when ``stop_on_error=False``.
+        keep_artifacts: If True, return
+            ``(ProfileSet, dict[name -> Artifacts])`` so callers can run
+            ``redundancy_matrix(method="factor_rank")`` or user-defined
+            metrics without a manual for-loop.
+        compact: When ``keep_artifacts=True``, drop each retained
+            Artifacts' ``prepared`` panel (replaced with a sentinel) to
+            save memory on large-batch runs. ``compact=True`` without
+            ``keep_artifacts=True`` raises ``ValueError`` — compact on a
+            discarded artifact is a no-op indicating caller confusion.
 
     Returns:
-        A ``ProfileSet`` homogeneous in the profile class matching
-        ``factor_type``. Factors that raised are absent from the set
-        when ``stop_on_error=False``.
-
-    Note: the per-factor intermediate ``Artifacts`` are not retained
-    on the returned ``ProfileSet``. If you need them (e.g. for
-    ``redundancy_matrix(method="factor_rank")``), call ``fl.evaluate``
-    directly in a loop and keep the Artifacts yourself.
+        By default a ``ProfileSet`` homogeneous in the profile class
+        matching ``factor_type``. When ``keep_artifacts=True``, returns
+        ``(ProfileSet, dict[str, Artifacts])``. Factors that raised are
+        absent from both when ``stop_on_error=False``.
     """
+    from factorlib.evaluation._protocol import _COMPACTED_PREPARED
+    from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profile_set import ProfileSet
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
+
+    if compact and not keep_artifacts:
+        raise ValueError(
+            "evaluate_batch: compact=True requires keep_artifacts=True "
+            "(compact is a no-op when artifacts are discarded)."
+        )
 
     if isinstance(factors, dict):
         factors = list(factors.items())
@@ -388,13 +435,19 @@ def evaluate_batch(
             f"{type(config).factor_type!r}."
         )
 
+    if preprocess:
+        from factorlib.preprocess.pipeline import preprocess as _prep
+    else:
+        _prep = None
+
     profiles = []
+    artifacts_map: dict[str, Any] = {}
     for name, factor_df in factors:
         try:
-            p = evaluate(
-                factor_df, name,
-                config=config, preprocess=preprocess,
-            )
+            prepared = _prep(factor_df, config=config) if _prep else factor_df
+            artifacts = build_artifacts(prepared, config)
+            artifacts.factor_name = name
+            p = profile_cls.from_artifacts(artifacts)
         except Exception as exc:
             if stop_on_error:
                 raise
@@ -403,11 +456,22 @@ def evaluate_batch(
                 on_error(name, exc)
             continue
 
+        if compact:
+            # WHY: from_artifacts already read prepared; drop it now
+            # to free memory before the next iteration.
+            artifacts.prepared = _COMPACTED_PREPARED
+            artifacts.compact = True
+        if keep_artifacts:
+            artifacts_map[name] = artifacts
+
         profiles.append(p)
         if on_result is not None:
             on_result(name, p)
 
-    return ProfileSet(profiles, profile_cls=profile_cls)
+    profile_set = ProfileSet(profiles, profile_cls=profile_cls)
+    if keep_artifacts:
+        return profile_set, artifacts_map
+    return profile_set
 
 
 def redundancy_matrix(

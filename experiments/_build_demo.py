@@ -207,18 +207,12 @@ CELLS: list[dict] = [
         "多因子之間的成對 `|ρ|`，抓出冗餘訊號。"
     ),
     code(
-        "# redundancy_matrix 需要 per-factor Artifacts；evaluate_batch 不保留，\n"
-        "# 要自己 loop fl.evaluate 再 build_artifacts 並收集。\n"
-        "from factorlib.evaluation.pipeline import build_artifacts\n"
+        "# redundancy_matrix 需要 per-factor Artifacts；用 keep_artifacts=True 保留。\n"
+        "ps2, arts = fl.evaluate_batch(\n"
+        "    factors_map, factor_type='cross_sectional', keep_artifacts=True,\n"
+        ")\n"
         "\n"
-        "arts: dict[str, object] = {}\n"
-        "for name, fdf in factors_map.items():\n"
-        "    prep = fl.preprocess(fdf, config=fl.CrossSectionalConfig())\n"
-        "    a = build_artifacts(prep, fl.CrossSectionalConfig())\n"
-        "    a.factor_name = name\n"
-        "    arts[name] = a\n"
-        "\n"
-        "redund = fl.redundancy_matrix(ps, method='value_series', artifacts=arts)\n"
+        "redund = fl.redundancy_matrix(ps2, method='value_series', artifacts=arts)\n"
         "redund"
     ),
     md(

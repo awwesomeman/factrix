@@ -123,17 +123,21 @@ print(top.to_polars())
 ### Level 4 — Redundancy matrix
 
 ```python
-# Both methods require per-factor Artifacts — evaluate_batch does NOT retain
-# them, so build them yourself in a loop. See evaluate_batch docstring note.
-from factorlib.evaluation.pipeline import build_artifacts
+# Both methods require per-factor Artifacts.
+# Use keep_artifacts=True to retain them from evaluate_batch.
+profiles, arts = fl.evaluate_batch(
+    factors, factor_type="cross_sectional", keep_artifacts=True,
+)
+redund = fl.redundancy_matrix(profiles, method="value_series", artifacts=arts)
 
-arts = {}
-for name, fdf in factors.items():
-    prep = fl.preprocess(fdf, config=fl.CrossSectionalConfig())
-    a = build_artifacts(prep, fl.CrossSectionalConfig())
-    a.factor_name = name
-    arts[name] = a
-
+# For large batches, drop the prepared panel to save memory.
+# (factor_rank needs prepared; value_series only needs intermediates.)
+profiles, arts = fl.evaluate_batch(
+    factors,
+    factor_type="cross_sectional",
+    keep_artifacts=True,
+    compact=True,   # drop prepared from each Artifacts
+)
 redund = fl.redundancy_matrix(profiles, method="value_series", artifacts=arts)
 ```
 

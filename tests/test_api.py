@@ -119,6 +119,43 @@ class TestEvaluateBatch:
                 stop_on_error=True,
             )
 
+    def test_keep_artifacts_returns_tuple_with_dict(self):
+        from factorlib.evaluation._protocol import Artifacts
+
+        factors = {
+            "a": _panel_with_price(60, 30, 0.3, 230),
+            "b": _panel_with_price(60, 30, 0.3, 231),
+        }
+        result = fl.evaluate_batch(
+            factors, factor_type="cross_sectional", keep_artifacts=True,
+        )
+        assert isinstance(result, tuple) and len(result) == 2
+        ps, arts = result
+        assert isinstance(ps, fl.ProfileSet)
+        assert set(arts) == {"a", "b"}
+        assert all(isinstance(a, Artifacts) for a in arts.values())
+        # prepared survives when compact=False
+        assert "factor" in arts["a"].prepared.columns
+
+    def test_compact_drops_prepared_panel(self):
+        factors = {"a": _panel_with_price(60, 30, 0.3, 232)}
+        ps, arts = fl.evaluate_batch(
+            factors,
+            factor_type="cross_sectional",
+            keep_artifacts=True,
+            compact=True,
+        )
+        assert arts["a"].compact is True
+        with pytest.raises(RuntimeError, match="compact mode"):
+            _ = arts["a"].prepared.columns
+
+    def test_compact_without_keep_artifacts_raises(self):
+        factors = {"a": _panel_with_price(40, 20, 0.3, 233)}
+        with pytest.raises(ValueError, match="requires keep_artifacts=True"):
+            fl.evaluate_batch(
+                factors, factor_type="cross_sectional", compact=True,
+            )
+
     def test_on_result_called_per_success(self):
         factors = {
             "a": _panel_with_price(60, 30, 0.3, 220),
