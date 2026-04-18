@@ -184,6 +184,71 @@ join your data against ``profiles.to_polars()['factor_name']`` before
 passing. Column-name collisions with dataclass fields or
 multiple-testing output raise ``ValueError``.
 
+### Level 3b — Large-batch screening pattern
+
+When surveying hundreds or thousands of candidate factors, running
+``evaluate_batch`` on every one wastes compute on factors that die at
+the first statistical test. Skip the wasted work with a two-stage
+pattern: a cheap per-factor IC pass to rank candidates, then the full
+pipeline only on the top-K survivors. BHY must know the original
+candidate count so its denominator reflects the full search, not just
+the survivors — pass ``n_total=`` to preserve FDR control.
+
+```python
+import polars as pl
+import factorlib as fl
+from factorlib.config import CrossSectionalConfig
+from factorlib.metrics.ic import compute_ic, ic as ic_metric
+
+config = CrossSectionalConfig()
+
+# Stage 1 — cheap per-factor screen. Any metric works; IC p-value is
+# the usual default. Users pick the screening signal they trust, with
+# the orthogonality caveat below in mind.
+stage1: list[dict] = []
+for name, factor_df in candidates.items():
+    prep = fl.preprocess(factor_df, config=config)
+    ic_m = ic_metric(compute_ic(prep), forward_periods=config.forward_periods)
+    stage1.append({"name": name, "ic_p": float(ic_m.p_value)})
+
+top_k = pl.DataFrame(stage1).sort("ic_p").head(50)
+
+# Stage 2 — full pipeline on survivors. Pass n_total so BHY's
+# denominator reflects the full candidate family, not the 50 survivors.
+survivors = fl.evaluate_batch(
+    {n: candidates[n] for n in top_k["name"].to_list()},
+    factor_type="cross_sectional",
+)
+adjusted = survivors.multiple_testing_correct(
+    fdr=0.05, n_total=len(candidates),
+)
+final = adjusted.filter(pl.col("bhy_significant")).rank_by("ic_ir")
+```
+
+Reproducible microbench (TW panel 2017-2025, 30 factors, Apple M-series):
+
+| path      | per-factor (mean) | 1000→top-50 extrapolation |
+|-----------|-------------------|---------------------------|
+| Full      | 0.95 s            | 15.8 min                  |
+| IC-only   | 0.16 s            | 3.5 min (4.5× overall)    |
+
+See ``experiments/benchmark_two_stage_screening.py`` to re-run.
+
+> **Statistical caveat:** BHY with ``n_total`` controls the **marginal
+> FDR** over the full candidate family only when the screening criterion
+> is independent of the corrected p-value. Screening on ``ic_p`` then
+> correcting ``ic_p`` is a conditional filter — the reported FDR is a
+> lower bound on the true conditional FDR. Pair ``ic_p`` screens with
+> an orthogonal gate (IC magnitude, turnover, coverage) to keep the
+> marginal interpretation honest. See
+> ``ProfileSet.multiple_testing_correct`` docstring.
+
+Reapplying ``multiple_testing_correct`` on an already-adjusted
+``ProfileSet`` raises ``RuntimeError`` — chain corrections on adjusted
+p-values are meaningless, so the API refuses rather than silently
+over-correcting. Build a fresh ``ProfileSet`` if parameters need to
+change.
+
 ### Level 4 — Redundancy matrix
 
 ```python
