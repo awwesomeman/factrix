@@ -31,6 +31,8 @@ class OrthogonalizeResult:
     mean_betas: dict[str, float] = field(default_factory=dict)
     mean_r_squared: float = 0.0
     n_dates: int = 0
+    coverage: float = 0.0
+    n_base: int = 0
 
 
 def orthogonalize_factor(
@@ -155,4 +157,6 @@ def orthogonalize_factor(
         mean_betas=mean_betas,
         mean_r_squared=mean_r2,
         n_dates=n_dates,
+        coverage=(n_ortho / n_total) if n_total else 0.0,
+        n_base=n_base,
     )

@@ -11,9 +11,12 @@ Users should instantiate one of the concrete subclasses
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar, Literal
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 from factorlib._types import FactorType
+
+if TYPE_CHECKING:
+    import polars as pl
 
 ClusteringAdjustment = Literal[
     "none", "calendar_block_bootstrap", "kolari_pynnonen"
@@ -50,6 +53,19 @@ class CrossSectionalConfig(BaseConfig):
     q_top: float = 0.2
     mad_n: float = 3.0
     return_clip_pct: tuple[float, float] = (0.01, 0.99)
+
+    # --- Orthogonalization (Step 6, opt-in) ---
+    # Pass a DataFrame with (date, asset_id, *base_cols). When supplied,
+    # the z-scored factor is regressed per-date against base_cols and
+    # replaced by the (MAD-winsorized, re-z-scored) residual. See
+    # docs/spike_orthogonalize.md for the full policy rationale.
+    orthogonalize: "pl.DataFrame | None" = None
+    orthogonalize_cols: list[str] | None = None
+    # Fraction of factor rows that must have basis coverage after the
+    # inner join; below this, the pipeline raises rather than silently
+    # mixing residuals with originals. 1.0 = require every row; 0.0
+    # disables the gate (not recommended).
+    orthogonalize_min_coverage: float = 0.95
 
 
 @dataclass(kw_only=True)

@@ -77,7 +77,6 @@ print(corrado_rank_test(event_prepared))  # standalone non-parametric test
 ```python
 # (2) Library-only metrics — NOT part of evaluate()'s Profile
 from factorlib.metrics import regime_ic, multi_horizon_ic, spanning_alpha
-from factorlib.preprocess.orthogonalize import orthogonalize_factor
 
 # IC split by user-supplied regime labels (e.g. bull/bear, high/low vol)
 reg = regime_ic(ic_series, regime_labels={...})
@@ -88,10 +87,30 @@ mh = multi_horizon_ic(prepared, periods=[1, 5, 10, 20])
 # Spanning alpha: does a candidate factor have alpha after controlling
 # for a base set of factors?
 span = spanning_alpha(candidate_returns, base_returns)
+```
 
-# Orthogonalize a factor against base exposures before fl.preprocess
-ortho = orthogonalize_factor(df, base_df, base_cols=["size", "momentum"])
-profile = fl.evaluate(ortho.df, "Mom_orth", factor_type="cross_sectional")
+**Orthogonalization (pipeline-integrated)** — pass a basis DataFrame on
+the config and the CS pipeline runs per-date residualization as Step 6,
+re-z-scores, and surfaces R² on the Profile:
+
+```python
+base_df = ...  # (date, asset_id, size, mom_60d, industry_*...)
+cfg = fl.CrossSectionalConfig(
+    orthogonalize=base_df,                 # None to skip (default)
+    orthogonalize_cols=["size", "mom_60d"],  # None -> all non-key cols
+    orthogonalize_min_coverage=0.95,       # hard fail below this
+)
+p = fl.evaluate(factor_df, "Mom_orth", config=cfg)
+p.orthogonalize_r2_mean                    # e.g. 0.28 — share explained by basis
+p.orthogonalize_n_base                     # number of basis factors used
+
+# If coverage falls below orthogonalize_min_coverage (default 0.95) the
+# pipeline raises ValueError rather than silently mixing residuals with
+# originals. Lower the threshold explicitly when you accept the gap.
+#
+# For one-off ad-hoc residualization without the pipeline, the
+# standalone helper is still available:
+#   from factorlib.preprocess.orthogonalize import orthogonalize_factor
 ```
 
 ### Level 3 — Batch + multiple-testing (BHY) + ranking

@@ -102,20 +102,86 @@ def _build_cs_artifacts(
 ) -> Artifacts:
     _validate_columns(df, "cross_sectional")
 
+    ortho_info: pl.DataFrame | None = None
+    if config.orthogonalize is not None:
+        df, ortho_info = _apply_orthogonalize(df, config)
+
     ic_series = compute_ic(df)
     ic_values = ic_series.rename({"ic": "value"})
     spread_series = compute_spread_series(
         df, config.forward_periods, config.n_groups,
     )
+    intermediates: dict[str, pl.DataFrame] = {
+        "ic_series": ic_series,
+        "ic_values": ic_values,
+        "spread_series": spread_series,
+    }
+    if ortho_info is not None:
+        intermediates["ortho_stats"] = ortho_info
     return Artifacts(
         prepared=df,
         config=config,
-        intermediates={
-            "ic_series": ic_series,
-            "ic_values": ic_values,
-            "spread_series": spread_series,
-        },
+        intermediates=intermediates,
     )
+
+
+def _apply_orthogonalize(
+    df: pl.DataFrame, config: CrossSectionalConfig,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Replace df['factor'] with the per-date residual against config.orthogonalize.
+
+    Residuals are MAD-winsorized then re-z-scored to preserve the same
+    Step 4-5 invariant the rest of the pipeline enforces ("factor is
+    MAD-clipped and unit-variance per-date") — OLS residuals can be
+    fat-tailed, so skipping winsorize would let outliers drag IC.
+
+    Coverage below ``config.orthogonalize_min_coverage`` fails loud —
+    half-orthogonalized data was the silent-bug path we refactored
+    away in Phase 1 T1.1. The standalone helper's own ``factor_pre_ortho``
+    column is dropped here; pipeline callers get a clean schema, and
+    one-off comparisons should use ``orthogonalize_factor`` directly.
+
+    Returns ``(df_with_residualized_factor, stats_df)`` where stats_df
+    is a 1-row DataFrame carrying ``r2_mean`` / ``n_base`` / ``coverage``
+    for the Profile layer to surface.
+    """
+    from factorlib.preprocess.normalize import (
+        cross_sectional_zscore,
+        mad_winsorize,
+    )
+    from factorlib.preprocess.orthogonalize import orthogonalize_factor
+
+    result = orthogonalize_factor(
+        df,
+        config.orthogonalize,
+        factor_col="factor",
+        base_cols=config.orthogonalize_cols,
+    )
+
+    if result.coverage < config.orthogonalize_min_coverage:
+        raise ValueError(
+            f"orthogonalize: coverage {result.coverage:.3f} is below "
+            f"orthogonalize_min_coverage={config.orthogonalize_min_coverage:.3f}. "
+            f"Either lower the threshold explicitly (accepting partial "
+            f"residualization), extend base_factors to cover more rows, or "
+            f"trim the factor panel to rows with base-factor coverage."
+        )
+
+    residualized = result.df.drop("factor_pre_ortho")
+    residualized = mad_winsorize(
+        residualized, factor_col="factor", n_mad=config.mad_n,
+    )
+    residualized = cross_sectional_zscore(residualized, factor_col="factor")
+    residualized = residualized.with_columns(
+        pl.col("factor_zscore").alias("factor")
+    ).drop("factor_zscore")
+
+    info_df = pl.DataFrame({
+        "r2_mean": [float(result.mean_r_squared)],
+        "n_base": [int(result.n_base)],
+        "coverage": [float(result.coverage)],
+    })
+    return residualized, info_df
 
 
 def _build_macro_panel_artifacts(
