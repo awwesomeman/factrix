@@ -201,6 +201,111 @@ class TestProfileDfOrderingInvariant:
         self._assert_aligned(ps)
 
 
+class TestWithExtraColumns:
+    """Attach user-computed columns to the polars view.
+
+    Invariants checked:
+      - Dataclass tuples unchanged
+      - Extra columns visible via to_polars / filter / rank_by
+      - Row-count mismatch and name collision raise ValueError
+      - Survives filter / rank_by / top / multiple_testing_correct
+    """
+
+    def test_dict_input_attaches_columns(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).with_extra_columns(
+            {"my_score": [1.0, 2.0, 3.0, 4.0]}
+        )
+        df = ps.to_polars()
+        assert "my_score" in df.columns
+        assert df["my_score"].to_list() == [1.0, 2.0, 3.0, 4.0]
+        # underlying profiles untouched
+        for original, new in zip(profiles, ps.iter_profiles()):
+            assert original is new
+
+    def test_dataframe_input_attaches_columns(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        extra = pl.DataFrame({
+            "earnings_ic": [0.01, 0.05, -0.02, 0.0],
+            "tag": ["a", "b", "c", "d"],
+        })
+        ps = ProfileSet(profiles).with_extra_columns(extra)
+        df = ps.to_polars()
+        assert df["earnings_ic"].to_list() == [0.01, 0.05, -0.02, 0.0]
+        assert df["tag"].to_list() == ["a", "b", "c", "d"]
+
+    def test_row_count_mismatch_raises(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        with pytest.raises(ValueError, match="row-count mismatch"):
+            ProfileSet(profiles).with_extra_columns({"bad": [1.0, 2.0]})
+
+    def test_rejects_dataclass_field_collision(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        with pytest.raises(ValueError, match="already exist"):
+            ProfileSet(profiles).with_extra_columns(
+                {"ic_mean": [0.0] * len(profiles)}
+            )
+
+    def test_rejects_canonical_p_collision(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        with pytest.raises(ValueError, match="already exist"):
+            ProfileSet(profiles).with_extra_columns(
+                {"canonical_p": [0.5] * len(profiles)}
+            )
+
+    def test_extras_survive_filter(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).with_extra_columns(
+            {"my_score": [4.0, 3.0, 2.0, 1.0]}
+        )
+        ps2 = ps.filter(pl.col("my_score") >= 3.0)
+        assert len(ps2) == 2
+        assert ps2.to_polars()["my_score"].to_list() == [4.0, 3.0]
+
+    def test_extras_survive_rank_by_and_top(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = (
+            ProfileSet(profiles)
+            .with_extra_columns({"my_score": [1.0, 4.0, 2.0, 3.0]})
+            .rank_by("my_score", descending=True)
+            .top(2)
+        )
+        # df and profiles are reordered together
+        assert ps.to_polars()["my_score"].to_list() == [4.0, 3.0]
+        names_df = ps.to_polars()["factor_name"].to_list()
+        names_iter = [p.factor_name for p in ps.iter_profiles()]
+        assert names_df == names_iter
+
+    def test_extras_survive_multiple_testing_correct(
+        self, cs_profiles_and_artifacts,
+    ):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = (
+            ProfileSet(profiles)
+            .with_extra_columns({"my_score": [0.1, 0.2, 0.3, 0.4]})
+            .multiple_testing_correct(fdr=0.10)
+        )
+        df = ps.to_polars()
+        assert "my_score" in df.columns
+        assert "p_adjusted" in df.columns
+
+    def test_empty_set_accepts_empty_extras(self):
+        ps = ProfileSet([], profile_cls=CrossSectionalProfile)
+        ps2 = ps.with_extra_columns(pl.DataFrame({"my_score": [], "tag": []}))
+        assert "my_score" in ps2.to_polars().columns
+        assert ps2.to_polars().height == 0
+
+    def test_chained_calls_append_independently(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = (
+            ProfileSet(profiles)
+            .with_extra_columns({"a": [1.0] * len(profiles)})
+            .with_extra_columns({"b": [2.0] * len(profiles)})
+        )
+        df = ps.to_polars()
+        assert {"a", "b"} <= set(df.columns)
+
+
 class TestMultipleTestingCorrect:
     def test_default_p_source_is_canonical(self, cs_profiles_and_artifacts):
         profiles, _ = cs_profiles_and_artifacts

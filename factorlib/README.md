@@ -120,6 +120,24 @@ print(top.to_polars())
 ``to_polars()`` hands back a DataFrame for joins / export. See
 `tests/test_profile_set.py` for the full API surface.
 
+**User-defined columns** attach via ``with_extra_columns``:
+
+```python
+profiles, arts = fl.evaluate_batch(
+    factors, factor_type="cross_sectional", keep_artifacts=True,
+)
+scored = profiles.with_extra_columns({
+    "earnings_ic": [my_metric(arts[p.factor_name]) for p in profiles],
+})
+# Filter/rank on the custom column just like built-ins:
+best = scored.filter(pl.col("earnings_ic") > 0.03).rank_by("earnings_ic")
+```
+
+Alignment is strictly positional (no name-based reindexing); sort or
+join your data against ``profiles.to_polars()['factor_name']`` before
+passing. Column-name collisions with dataclass fields or
+multiple-testing output raise ``ValueError``.
+
 ### Level 4 — Redundancy matrix
 
 ```python
