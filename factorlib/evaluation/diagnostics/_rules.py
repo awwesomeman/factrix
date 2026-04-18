@@ -104,7 +104,25 @@ CROSS_TYPE_RULES: list[Rule] = [
 # Cross-sectional
 # ---------------------------------------------------------------------------
 
+def _ortho_absorbed_message(profile: "CrossSectionalProfile") -> str:
+    r2 = profile.orthogonalize_r2_mean
+    return (
+        f"Basis factors absorbed {r2:.1%} of variance (R²>0.7). The "
+        "residual signal is small; IC / spread reflect it, not the "
+        "original factor. Check whether the basis set is appropriate."
+    )
+
+
 CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
+    Rule(
+        code="cs.orthogonalize_absorbed_most",
+        severity="warn",
+        message=_ortho_absorbed_message,
+        predicate=lambda p: (
+            p.orthogonalize_r2_mean is not None
+            and p.orthogonalize_r2_mean > 0.7
+        ),
+    ),
     Rule(
         code="cs.ic_weak_spread_strong",
         severity="warn",

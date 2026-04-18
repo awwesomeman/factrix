@@ -70,6 +70,12 @@ class CrossSectionalProfile:
     # Data quality context (for diagnose)
     median_universe_n: int
 
+    # Orthogonalization (Step 6, opt-in; None when not applied)
+    # r2_mean is the mean R² of the per-date residualization regression;
+    # n_base is the number of basis factors used. Zero base = not applied.
+    orthogonalize_r2_mean: float | None
+    orthogonalize_n_base: int
+
     # Implementation
     turnover: float
     breakeven_cost: float
@@ -144,6 +150,14 @@ class CrossSectionalProfile:
             artifacts.prepared, forward_periods=fp, q_top=config.q_top,
         )
 
+        ortho_stats = artifacts.intermediates.get("ortho_stats")
+        if ortho_stats is not None:
+            ortho_r2 = float(ortho_stats["r2_mean"][0])
+            ortho_n_base = int(ortho_stats["n_base"][0])
+        else:
+            ortho_r2 = None
+            ortho_n_base = 0
+
         insufficient = _insufficient_metrics({
             "ic_mean": ic_m,
             "ic_ir": ic_ir_m,
@@ -176,6 +190,8 @@ class CrossSectionalProfile:
             oos_survival_ratio=float(oos.survival_ratio),
             oos_sign_flipped=bool(oos.sign_flipped),
             median_universe_n=int(_median_universe_size(artifacts.prepared)),
+            orthogonalize_r2_mean=ortho_r2,
+            orthogonalize_n_base=ortho_n_base,
             turnover=float(turn_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),
