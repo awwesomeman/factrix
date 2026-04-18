@@ -40,6 +40,7 @@ class MacroPanelProfile:
     factor_name: str
     n_periods: int
     median_cross_section_n: int
+    cross_section_below_min: bool
 
     # Fama-MacBeth (canonical)
     fm_beta_mean: float
@@ -111,6 +112,7 @@ class MacroPanelProfile:
         beta_series = artifacts.get("beta_series")
         beta_values = artifacts.get("beta_values")
         spread_series = artifacts.get("spread_series")
+        median_xs_n = int(_median_universe_size(artifacts.prepared))
 
         fm_m = fama_macbeth(beta_series)
         pooled_m = pooled_ols(artifacts.prepared)
@@ -132,7 +134,8 @@ class MacroPanelProfile:
         return cls(
             factor_name=artifacts.factor_name,
             n_periods=int(fm_m.metadata.get("n_periods", len(beta_series))),
-            median_cross_section_n=int(_median_universe_size(artifacts.prepared)),
+            median_cross_section_n=median_xs_n,
+            cross_section_below_min=median_xs_n < config.min_cross_section,
             fm_beta_mean=float(fm_m.value),
             fm_beta_tstat=float(fm_m.stat or 0.0),
             fm_beta_p=_pv(fm_m),

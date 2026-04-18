@@ -69,6 +69,21 @@ class Rule(Generic[P]):
 # ---------------------------------------------------------------------------
 
 CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
+    # TODO: replace with a measured residual-exposure diagnostic (e.g.
+    # FM beta of the factor against size / value / momentum) once that
+    # metric lands. Today this rule fires on every factor with the default
+    # orthogonalize=False, which is why severity is 'info'.
+    Rule(
+        code="cs.orthogonalize_not_applied",
+        severity="info",
+        message=(
+            "orthogonalize=False — factor exposures were not regressed "
+            "against the market's standard risk factors (size / value / "
+            "momentum / industry). Any alpha observed here may be a "
+            "repackaging of a known risk premium."
+        ),
+        predicate=lambda p: not p.orthogonalize_applied,
+    ),
     Rule(
         code="cs.ic_weak_spread_strong",
         severity="warn",
@@ -187,13 +202,18 @@ EVENT_RULES: list[Rule["EventProfile"]] = [
         code="event.clustering_high",
         severity="warn",
         message=(
-            "Event clustering HHI_normalized > 0.30 — event independence "
-            "assumption is likely violated; consider a clustering-adjusted "
-            "standard error."
+            "Event clustering HHI_normalized > 0.30 and "
+            "adjust_clustering='none' — event independence assumption is "
+            "likely violated and no correction was applied. Set "
+            "adjust_clustering to 'kolari_pynnonen' or "
+            "'calendar_block_bootstrap'. Suppressed once an adjustment "
+            "is in effect, since the t-stat already accounts for "
+            "dependence."
         ),
         predicate=lambda p: (
             p.clustering_hhi_normalized is not None
             and p.clustering_hhi_normalized > 0.30
+            and p.clustering_adjustment == "none"
         ),
     ),
     Rule(
@@ -222,10 +242,11 @@ MACRO_PANEL_RULES: list[Rule["MacroPanelProfile"]] = [
         code="macro_panel.small_cross_section",
         severity="warn",
         message=(
-            "Median cross-section N < 10 — Fama-MacBeth β estimates "
-            "are noisy; interpret λ t-stat with caution."
+            "Median cross-section N below the configured "
+            "min_cross_section floor — Fama-MacBeth β estimates are "
+            "noisy; interpret λ t-stat with caution."
         ),
-        predicate=lambda p: p.median_cross_section_n < 10,
+        predicate=lambda p: p.cross_section_below_min,
     ),
     Rule(
         code="macro_panel.fm_pooled_sign_mismatch",

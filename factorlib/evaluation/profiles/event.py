@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import ClassVar, Self, TYPE_CHECKING
 
 from factorlib._types import Diagnostic, FactorType, PValue, Verdict
+from factorlib.config import ClusteringAdjustment
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _pv,
@@ -81,6 +82,7 @@ class EventProfile:
     signal_density: float
     clustering_hhi: float | None
     clustering_hhi_normalized: float | None
+    clustering_adjustment: ClusteringAdjustment
     event_ic: float | None
     event_ic_p: PValue | None
 
@@ -199,6 +201,7 @@ class EventProfile:
             signal_density=float(density_m.value),
             clustering_hhi=clustering_hhi,
             clustering_hhi_normalized=clustering_hhi_normalized,
+            clustering_adjustment=config.adjust_clustering,
             event_ic=event_ic_val,
             event_ic_p=event_ic_p_val,
         )
