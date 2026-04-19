@@ -96,6 +96,31 @@ class TestComputeMfeMae:
         result = compute_mfe_mae(df)
         assert result.is_empty()
 
+    def test_output_date_dtype_mirrors_input_us(self, event_data):
+        df_us = event_data.with_columns(
+            pl.col("date").cast(pl.Datetime("us"))
+        )
+        result = compute_mfe_mae(df_us, window=10)
+        assert result.schema["date"] == pl.Datetime("us"), (
+            "us-precision input should survive to the output"
+        )
+
+    def test_output_date_dtype_mirrors_tz_aware(self, event_data):
+        df_utc = event_data.with_columns(
+            pl.col("date").dt.replace_time_zone("UTC")
+        )
+        result = compute_mfe_mae(df_utc, window=10)
+        assert result.schema["date"] == pl.Datetime("ms", time_zone="UTC")
+
+    def test_empty_output_also_mirrors_dtype(self):
+        df = pl.DataFrame({
+            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("us")),
+            "asset_id": ["A"], "factor": [0.0], "price": [100.0],
+        })
+        result = compute_mfe_mae(df)
+        assert result.is_empty()
+        assert result.schema["date"] == pl.Datetime("us")
+
 
 # ---------------------------------------------------------------------------
 # mfe_mae_summary

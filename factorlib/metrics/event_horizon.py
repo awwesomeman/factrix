@@ -47,20 +47,23 @@ def compute_event_returns(
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
 
+    # Mirror input's date dtype in the output so TZ / precision are
+    # preserved — users with Datetime('us') or TZ-aware panels can join
+    # this result back without another cast.
+    date_dtype = df.schema["date"]
+    empty_schema = {
+        "offset": pl.Int32, "date": date_dtype,
+        "asset_id": pl.String, "signed_return": pl.Float64,
+    }
+
     if price_col not in df.columns:
-        return pl.DataFrame(schema={
-            "offset": pl.Int32, "date": pl.Datetime("ms"),
-            "asset_id": pl.String, "signed_return": pl.Float64,
-        })
+        return pl.DataFrame(schema=empty_schema)
 
     sorted_df = df.sort(["asset_id", "date"])
     events = sorted_df.filter(pl.col(factor_col) != 0)
 
     if len(events) == 0:
-        return pl.DataFrame(schema={
-            "offset": pl.Int32, "date": pl.Datetime("ms"),
-            "asset_id": pl.String, "signed_return": pl.Float64,
-        })
+        return pl.DataFrame(schema=empty_schema)
 
     # Build per-asset price lookup
     event_assets = set(events["asset_id"].unique().to_list())
@@ -112,14 +115,11 @@ def compute_event_returns(
             })
 
     if not rows:
-        return pl.DataFrame(schema={
-            "offset": pl.Int32, "date": pl.Datetime("ms"),
-            "asset_id": pl.String, "signed_return": pl.Float64,
-        })
+        return pl.DataFrame(schema=empty_schema)
 
     return pl.DataFrame(rows).with_columns(
         pl.col("offset").cast(pl.Int32),
-        pl.col("date").cast(pl.Datetime("ms")),
+        pl.col("date").cast(date_dtype),
     )
 
 

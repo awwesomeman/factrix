@@ -18,11 +18,14 @@ import polars as pl
 
 from factorlib._types import EPSILON, MIN_EVENTS, MetricOutput
 
-_EMPTY_MFE_MAE_SCHEMA = {
-    "date": pl.Datetime("ms"), "asset_id": pl.String,
-    "mfe": pl.Float64, "mae": pl.Float64,
-    "bars_to_mfe": pl.Int32, "bars_to_mae": pl.Int32,
-}
+def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
+    """Output schema with ``date`` dtype mirroring the caller's panel so
+    users with Datetime('us') or TZ-aware inputs get a joinable result."""
+    return {
+        "date": date_dtype, "asset_id": pl.String,
+        "mfe": pl.Float64, "mae": pl.Float64,
+        "bars_to_mfe": pl.Int32, "bars_to_mae": pl.Int32,
+    }
 
 
 def compute_mfe_mae(
@@ -49,14 +52,17 @@ def compute_mfe_mae(
         DataFrame with ``date, asset_id, mfe, mae, bars_to_mfe, bars_to_mae``.
         Empty DataFrame if ``price_col`` not present.
     """
+    date_dtype = df.schema["date"]
+    empty_schema = _empty_mfe_mae_schema(date_dtype)
+
     if price_col not in df.columns:
-        return pl.DataFrame(schema=_EMPTY_MFE_MAE_SCHEMA)
+        return pl.DataFrame(schema=empty_schema)
 
     sorted_df = df.sort(["asset_id", "date"])
     events = sorted_df.filter(pl.col(factor_col) != 0)
 
     if len(events) == 0:
-        return pl.DataFrame(schema=_EMPTY_MFE_MAE_SCHEMA)
+        return pl.DataFrame(schema=empty_schema)
 
     event_assets = set(events["asset_id"].unique().to_list())
     asset_groups: dict[str, tuple[dict, np.ndarray]] = {}
@@ -103,10 +109,10 @@ def compute_mfe_mae(
         })
 
     if not rows:
-        return pl.DataFrame(schema=_EMPTY_MFE_MAE_SCHEMA)
+        return pl.DataFrame(schema=empty_schema)
 
     return pl.DataFrame(rows).with_columns(
-        pl.col("date").cast(pl.Datetime("ms")),
+        pl.col("date").cast(date_dtype),
         pl.col("bars_to_mfe").cast(pl.Int32),
         pl.col("bars_to_mae").cast(pl.Int32),
     )

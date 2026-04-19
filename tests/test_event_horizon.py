@@ -85,6 +85,20 @@ class TestComputeEventReturns:
         result = compute_event_returns(event_data, offsets=[12])
         assert result["signed_return"].mean() > 0
 
+    def test_output_date_dtype_mirrors_input_us(self, event_data):
+        df_us = event_data.with_columns(
+            pl.col("date").cast(pl.Datetime("us"))
+        )
+        result = compute_event_returns(df_us, offsets=[1, 6])
+        assert result.schema["date"] == pl.Datetime("us")
+
+    def test_output_date_dtype_mirrors_tz_aware(self, event_data):
+        df_utc = event_data.with_columns(
+            pl.col("date").dt.replace_time_zone("UTC")
+        )
+        result = compute_event_returns(df_utc, offsets=[1, 6])
+        assert result.schema["date"] == pl.Datetime("ms", time_zone="UTC")
+
 
 # ---------------------------------------------------------------------------
 # event_around_return
