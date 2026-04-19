@@ -9,8 +9,9 @@ See ``docs/gate_redesign_v2.md`` (ADR) and ``docs/plan_gate_redesign.md``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from types import MappingProxyType
-from typing import TYPE_CHECKING, ClassVar, Protocol, Self, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, Self, runtime_checkable
 
 from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
 
@@ -72,6 +73,31 @@ def _stash(store: "dict[str, MetricOutput]", m: MetricOutput) -> MetricOutput:
         metadata=MappingProxyType(m.metadata),
     )
     return m
+
+
+def _memoized(
+    store: "dict[str, MetricOutput]",
+    name: str,
+    fn: Callable[..., MetricOutput],
+    *args: Any,
+    **kwargs: Any,
+) -> MetricOutput:
+    """Return ``store[name]`` if present, else compute ``fn(*args, **kwargs)``
+    and ``_stash`` the result.
+
+    Single source of truth for metric caching in ``from_artifacts``:
+    whether an entry was pre-populated by ``_augment_level2_intermediates``
+    (L2 opt-in metrics), by a ``Factor`` session method call, or by a prior
+    ``from_artifacts`` pass, callers never recompute and never overwrite.
+
+    Always returns the ``store``-side (proxy-wrapped) view — reads work
+    identically to the fresh MetricOutput (`.metadata.get(...)` reads the
+    same dict); writes to ``.metadata`` would raise TypeError, which is
+    the intended guardrail (metric values are immutable after computation).
+    """
+    if name not in store:
+        _stash(store, fn(*args, **kwargs))
+    return store[name]
 
 
 def _diagnose(profile: object) -> list[Diagnostic]:

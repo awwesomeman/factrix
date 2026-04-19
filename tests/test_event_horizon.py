@@ -123,9 +123,12 @@ class TestEventAroundReturn:
         result = event_around_return(event_data, offsets=[-6, -3, -1, 1])
         assert result.value < 0.01  # leakage score
 
-    def test_none_without_price(self, no_price_data):
+    def test_short_circuit_without_price(self, no_price_data):
         result = event_around_return(no_price_data)
-        assert result is None
+        assert result.name == "event_around_return"
+        assert result.value == 0.0
+        assert result.metadata["reason"] == "no_price_data"
+        assert result.metadata["per_offset"] == {}
 
 
 # ---------------------------------------------------------------------------
@@ -146,9 +149,12 @@ class TestMultiHorizonHitRate:
         assert "hit_rate" in ph[1]
         assert "z_stat" in ph[1]
 
-    def test_none_without_price(self, no_price_data):
+    def test_short_circuit_without_price(self, no_price_data):
         result = multi_horizon_hit_rate(no_price_data)
-        assert result is None
+        assert result.name == "multi_horizon_hit_rate"
+        assert result.value == 0.0
+        assert result.metadata["reason"] == "no_price_data"
+        assert result.metadata["per_horizon"] == {}
 
 
 # ---------------------------------------------------------------------------

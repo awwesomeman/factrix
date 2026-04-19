@@ -18,6 +18,7 @@ import polars as pl
 
 from factorlib._types import EPSILON, MIN_EVENTS, MetricOutput
 from factorlib._stats import _p_value_from_z, _significance_marker
+from factorlib.metrics._helpers import _short_circuit_output
 
 
 def compute_event_returns(
@@ -129,7 +130,7 @@ def event_around_return(
     offsets: list[int] | None = None,
     factor_col: str = "factor",
     price_col: str = "price",
-) -> MetricOutput | None:
+) -> MetricOutput:
     """Return profile at multiple offsets around event date.
 
     Summarizes per-offset: mean, median, p25, p75, hit_rate, n.
@@ -143,8 +144,10 @@ def event_around_return(
         offsets: Defaults to ``[-6, -3, -1, 1, 6, 12, 24]``.
 
     Returns:
-        MetricOutput with per-offset stats in metadata, or None if
-        no price data.
+        MetricOutput with per-offset stats in metadata. When price data is
+        unavailable, returns a short-circuit MetricOutput (``value=0.0``,
+        ``metadata["reason"]="no_price_data"``) so all metrics share a
+        single return contract.
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
@@ -154,7 +157,9 @@ def event_around_return(
     )
 
     if event_rets.is_empty():
-        return None
+        return _short_circuit_output(
+            "event_around_return", "no_price_data", per_offset={},
+        )
 
     per_offset: dict[int, dict] = {}
     pre_leakage_vals: list[float] = []
@@ -189,6 +194,7 @@ def event_around_return(
         metadata={
             "per_offset": per_offset,
             "interpretation": "value = mean |pre-event return|; high = potential leakage",
+            "p_value": 1.0,
         },
     )
 
@@ -199,7 +205,7 @@ def multi_horizon_hit_rate(
     horizons: list[int] | None = None,
     factor_col: str = "factor",
     price_col: str = "price",
-) -> MetricOutput | None:
+) -> MetricOutput:
     """Win rate at multiple holding periods.
 
     Answers: "how long do you need to hold for the signal to work?"
@@ -212,8 +218,11 @@ def multi_horizon_hit_rate(
         horizons: Holding periods to test. Defaults to ``[1, 6, 12, 24]``.
 
     Returns:
-        MetricOutput with value = hit rate at longest horizon,
-        per-horizon details in metadata. None if no price data.
+        MetricOutput with value = hit rate at longest horizon, per-horizon
+        details in metadata. When price data is unavailable, returns a
+        short-circuit MetricOutput (``value=0.0``,
+        ``metadata["reason"]="no_price_data"``) so all metrics share a
+        single return contract.
     """
     if horizons is None:
         horizons = [1, 6, 12, 24]
@@ -223,7 +232,10 @@ def multi_horizon_hit_rate(
     )
 
     if event_rets.is_empty():
-        return None
+        return _short_circuit_output(
+            "multi_horizon_hit_rate", "no_price_data",
+            per_horizon={}, horizons=horizons,
+        )
 
     per_horizon: dict[int, dict] = {}
     last_valid_rate = 0.0
@@ -257,5 +269,6 @@ def multi_horizon_hit_rate(
         metadata={
             "per_horizon": per_horizon,
             "horizons": horizons,
+            "p_value": 1.0,
         },
     )

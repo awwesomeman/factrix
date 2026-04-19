@@ -74,9 +74,11 @@ from factorlib.evaluation.diagnostics import (
 )
 from factorlib.reporting import describe_profile_values
 from factorlib.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
+from factorlib.factor import Factor, CrossSectionalFactor
 from factorlib._api import (
     evaluate,
     evaluate_batch,
+    factor,
     list_factor_types,
     redundancy_matrix,
     split_by_group,
@@ -88,7 +90,8 @@ from factorlib._api import (
 
 __all__ = [
     # Top-level API
-    "evaluate", "evaluate_batch", "list_factor_types",
+    "evaluate", "evaluate_batch", "factor", "list_factor_types",
+    "Factor", "CrossSectionalFactor",
     "ProfileSet", "redundancy_matrix",
     "FactorProfile",
     "CrossSectionalProfile", "EventProfile",

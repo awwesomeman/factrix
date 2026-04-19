@@ -8,6 +8,34 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
+from factorlib._types import MetricOutput
+
+
+def _short_circuit_output(
+    name: str,
+    reason: str,
+    **extra_metadata: object,
+) -> MetricOutput:
+    """Canonical short-circuit ``MetricOutput`` for "cannot compute".
+
+    Reason vocabulary (matches ``_insufficient_metrics`` prefixes):
+        - ``insufficient_<thing>`` — data shortage (dropped from BHY)
+        - ``no_<thing>`` — missing input / missing config / missing data
+
+    ``p_value=1.0`` is the conservative default so BHY treats short-circuited
+    metrics as rejected rather than crashing; ``_pv`` reads the same key.
+
+    Use this instead of hand-rolling ``MetricOutput(value=0.0, stat=None,
+    significance="", metadata={"reason": ..., "p_value": 1.0, ...})``.
+    """
+    return MetricOutput(
+        name=name,
+        value=0.0,
+        stat=None,
+        significance="",
+        metadata={"reason": reason, "p_value": 1.0, **extra_metadata},
+    )
+
 
 def _sample_non_overlapping(
     df: pl.DataFrame,

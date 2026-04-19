@@ -2,6 +2,7 @@
 
     evaluate         — single factor → FactorProfile
     evaluate_batch   — multiple factors → ProfileSet
+    factor           — single factor → Factor (research session with cache)
     list_factor_types — programmatic enumeration
     describe_profile — reflect per-type profile schema
     describe_factor_types — print supported factor types
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from factorlib.evaluation._protocol import Artifacts
     from factorlib.evaluation.profile_set import ProfileSet
     from factorlib.evaluation.profiles._base import FactorProfile
+    from factorlib.factor import Factor
 from factorlib.config import (
     BaseConfig,
     CrossSectionalConfig,
@@ -51,6 +53,38 @@ FACTOR_TYPES: dict[FactorType, type[BaseConfig]] = {
 # absence is the strict gate that makes evaluate raise instead of
 # silently auto-preprocessing (which would enable silent config mismatch).
 _PREPROCESSED_MARKER = "forward_return"
+
+_PREPROCESSED_GATE_MSG = (
+    "fl.{caller} expects a preprocessed panel — "
+    f"'{_PREPROCESSED_MARKER}' column not found. Call\n"
+    "    prepared = fl.preprocess(df, config=cfg)\n"
+    "then pass 'prepared' to fl.{caller} with the SAME cfg "
+    "instance. Running preprocess and {caller} with different "
+    "configs (e.g. mismatched forward_periods) would silently "
+    "poison downstream metrics."
+)
+
+
+def _build_artifacts_strict(
+    df: pl.DataFrame,
+    factor_name: str,
+    config: BaseConfig,
+    *,
+    caller: str,
+) -> "Artifacts":
+    """Strict-gated ``build_artifacts`` shared by ``evaluate`` / ``factor``.
+
+    Raises ``ValueError`` if ``df`` is not preprocessed (``forward_return``
+    missing), with a message pointing at the right fix. Caller identifier
+    is embedded so users see ``fl.evaluate`` vs ``fl.factor`` in the error.
+    """
+    from factorlib.evaluation.pipeline import build_artifacts
+
+    if _PREPROCESSED_MARKER not in df.columns:
+        raise ValueError(_PREPROCESSED_GATE_MSG.format(caller=caller))
+    artifacts = build_artifacts(df, config)
+    artifacts.factor_name = factor_name
+    return artifacts
 
 _DESCRIPTIONS: dict[FactorType, str] = {
     FactorType.CROSS_SECTIONAL: "截面因子（每期每資產有 signal，N ≥ 30）→ 選股",
@@ -258,22 +292,9 @@ def _evaluate_one(
         ``(profile, artifacts)`` — callers that don't need artifacts
         should discard the second element.
     """
-    from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
-    if _PREPROCESSED_MARKER not in df.columns:
-        raise ValueError(
-            f"fl.evaluate expects a preprocessed panel — "
-            f"'{_PREPROCESSED_MARKER}' column not found. Call\n"
-            f"    prepared = fl.preprocess(df, config=cfg)\n"
-            f"then pass 'prepared' to fl.evaluate with the SAME cfg "
-            f"instance. Running preprocess and evaluate with different "
-            f"configs (e.g. mismatched forward_periods) would silently "
-            f"poison downstream metrics."
-        )
-
-    artifacts = build_artifacts(df, config)
-    artifacts.factor_name = factor_name
+    artifacts = _build_artifacts_strict(df, factor_name, config, caller="evaluate")
 
     if profile_cls is None:
         profile_cls = _PROFILE_REGISTRY.get(type(config).factor_type)
@@ -363,6 +384,68 @@ def evaluate(
     if return_artifacts:
         return profile, artifacts
     return profile
+
+
+def factor(
+    df: pl.DataFrame,
+    factor_name: str,
+    *,
+    factor_type: str | FactorType = "cross_sectional",
+    config: BaseConfig | None = None,
+    **config_overrides: Any,
+) -> "Factor":
+    """Build a research-session ``Factor`` for interactive metric exploration.
+
+    Returns a Factor bound to ``df``, ``factor_name``, and ``config`` with a
+    pre-built ``Artifacts`` cache. Call metrics as methods (``f.ic()``,
+    ``f.quantile_spread()``, ...); repeated calls reuse the cache.
+    ``f.evaluate()`` collapses into a ``FactorProfile`` and shares the
+    same cache. Use ``f.artifacts`` as an escape hatch to downstream
+    tools that take ``Artifacts`` directly.
+
+    Expects a preprocessed panel (``forward_return`` column present) —
+    same strict gate as ``fl.evaluate``. Call ``fl.preprocess(df, config=cfg)``
+    first with the same ``cfg`` to avoid silent config mismatch.
+
+    Args:
+        df: Preprocessed factor panel (has ``forward_return``).
+        factor_name: Identifier written onto the returned Factor / profile.
+        factor_type: Factor type string or enum. Ignored if ``config`` is
+            supplied.
+        config: Explicit config instance; overrides ``factor_type``.
+        **config_overrides: Forwarded to the config constructor when
+            ``config`` is None.
+
+    Returns:
+        A per-type ``Factor`` subclass (e.g. ``CrossSectionalFactor``)
+        dispatched via ``_FACTOR_REGISTRY`` from the config's factor_type.
+
+    Example:
+        >>> f = fl.factor(prepared, "Mom_20D", factor_type="cross_sectional")
+        >>> f.ic()                          # MetricOutput
+        >>> f.quantile_spread(n_groups=10)  # per-call override
+        >>> profile = f.evaluate()          # reuses the cache
+    """
+    from factorlib.factor import _FACTOR_REGISTRY
+
+    if config is None:
+        config = _config_for_type(factor_type, **config_overrides)
+    elif config_overrides:
+        raise TypeError(
+            "factor: cannot pass both config= and config overrides "
+            f"({list(config_overrides)}). Pick one."
+        )
+
+    artifacts = _build_artifacts_strict(df, factor_name, config, caller="factor")
+
+    ft = type(config).factor_type
+    factor_cls = _FACTOR_REGISTRY.get(ft)
+    if factor_cls is None:
+        raise KeyError(
+            f"No Factor subclass registered for factor_type {ft.value!r}. "
+            f"Registered: {sorted(f.value for f in _FACTOR_REGISTRY)}."
+        )
+    return factor_cls(artifacts=artifacts)
 
 
 @overload

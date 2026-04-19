@@ -1,7 +1,8 @@
 """Out-of-sample (OOS) persistence analysis for any time-indexed series.
 
 Input: DataFrame with ``date, value`` (IC series, CAAR series, spread series).
-Output: multi-split decay ratio + sign flip detection.
+Output: MetricOutput with ``value`` = median survival ratio + sign-flip / status
+detail in ``metadata``.
 
 This tool is agnostic to what the series represents — it only knows
 about IS/OOS splits on a time-indexed numeric sequence.
@@ -9,20 +10,25 @@ about IS/OOS splits on a time-indexed numeric sequence.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
 import polars as pl
 
-from factorlib._types import EPSILON, MIN_OOS_PERIODS
+from factorlib._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 
 GateStatus = Literal["PASS", "VETOED"]
 
 
 @dataclass
 class SplitDetail:
-    """Detail for a single IS/OOS split.
+    """Per-split IS/OOS calculation intermediate.
+
+    Not part of the public return API (which is ``MetricOutput``); surfaced
+    as a typed helper for callers that want typed access to individual splits
+    without round-tripping through ``metadata["per_split"]`` dicts.
 
     ``survival_ratio = |mean_OOS| / |mean_IS|`` — 1.0 = OOS matches IS,
     0.0 = signal vanished out of sample. Higher is better.
@@ -38,24 +44,14 @@ class SplitDetail:
     def oos_ratio(self) -> float:
         return 1 - self.is_ratio
 
-
-@dataclass
-class OOSResult:
-    """Aggregated multi-split OOS analysis result.
-
-    Attributes:
-        survival_ratio: Median of per-split survival ratios
-            (``|mean_OOS| / |mean_IS|``). Higher is better — 1.0 means
-            OOS signal is as strong as IS.
-        sign_flipped: True if any split has sign flip → VETOED.
-        per_split: Per-split details.
-        status: "PASS" or "VETOED".
-    """
-
-    survival_ratio: float
-    sign_flipped: bool
-    per_split: list[SplitDetail] = field(default_factory=list)
-    status: GateStatus = "PASS"
+    def to_dict(self) -> dict[str, float | bool]:
+        return {
+            "is_ratio": self.is_ratio,
+            "mean_is": self.mean_is,
+            "mean_oos": self.mean_oos,
+            "survival_ratio": self.survival_ratio,
+            "sign_flipped": self.sign_flipped,
+        }
 
 
 def multi_split_oos_decay(
@@ -63,7 +59,7 @@ def multi_split_oos_decay(
     value_col: str = "value",
     splits: list[tuple[float, float]] | None = None,
     survival_threshold: float = 0.5,
-) -> OOSResult:
+) -> MetricOutput:
     """Multi-split OOS survival analysis with sign-flip detection.
 
     For each split point, divides the series into IS and OOS portions,
@@ -77,7 +73,21 @@ def multi_split_oos_decay(
         survival_threshold: Minimum survival ratio for PASS (default 0.5).
 
     Returns:
-        OOSResult with aggregated status.
+        MetricOutput with:
+          - ``name``: "oos_decay"
+          - ``value``: median survival ratio across splits (0.0 on short-circuit)
+          - ``stat``: None (descriptive statistic, not a hypothesis test)
+          - ``metadata``:
+              - ``sign_flipped`` (bool): any split had sign flip
+              - ``status`` ("PASS" | "VETOED")
+              - ``per_split`` (list[dict]): see ``SplitDetail.to_dict``
+              - ``p_value`` (float): 1.0 (not a hypothesis test; conservative
+                default so downstream BHY doesn't treat descriptive stats as
+                significant by omission)
+              - ``method`` (str): "multi-split OOS decay"
+              - ``survival_threshold`` (float)
+              - ``reason`` (str, short-circuit only): "insufficient_oos_periods"
+                or "no_valid_splits"
 
     References:
         - McLean & Pontiff (2016): average OOS decay ~32%.
@@ -91,10 +101,15 @@ def multi_split_oos_decay(
     n = len(vals)
 
     if n < MIN_OOS_PERIODS * 2:
-        return OOSResult(
-            survival_ratio=0.0,
+        return _short_circuit_output(
+            "oos_decay", "insufficient_oos_periods",
+            n_observed=n,
+            min_required=MIN_OOS_PERIODS * 2,
             sign_flipped=False,
             status="VETOED",
+            per_split=[],
+            method="multi-split OOS decay",
+            survival_threshold=survival_threshold,
         )
 
     split_details: list[SplitDetail] = []
@@ -129,22 +144,38 @@ def multi_split_oos_decay(
         ))
 
     if not split_details:
-        return OOSResult(survival_ratio=0.0, sign_flipped=False, status="VETOED")
+        return _short_circuit_output(
+            "oos_decay", "no_valid_splits",
+            sign_flipped=False,
+            status="VETOED",
+            per_split=[],
+            method="multi-split OOS decay",
+            survival_threshold=survival_threshold,
+        )
 
     # WHY: 取中位數而非均值，對單一 regime change 落在某 split 點更穩健
     median_survival = float(np.median([d.survival_ratio for d in split_details]))
 
     # WHY: sign flip 任一 split 發生即 VETOED — IC 翻轉代表因子在 OOS 預測反了
     if any_sign_flip:
-        status = "VETOED"
+        status: GateStatus = "VETOED"
     elif median_survival >= survival_threshold:
         status = "PASS"
     else:
         status = "VETOED"
 
-    return OOSResult(
-        survival_ratio=median_survival,
-        sign_flipped=any_sign_flip,
-        per_split=split_details,
-        status=status,
+    return MetricOutput(
+        name="oos_decay",
+        value=median_survival,
+        stat=None,
+        significance="",
+        metadata={
+            "sign_flipped": any_sign_flip,
+            "status": status,
+            "per_split": [sd.to_dict() for sd in split_details],
+            "p_value": 1.0,
+            "method": "multi-split OOS decay",
+            "survival_threshold": survival_threshold,
+            "n_splits": len(split_details),
+        },
     )

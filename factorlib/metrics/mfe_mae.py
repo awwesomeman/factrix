@@ -4,7 +4,8 @@ Answers: "what does the price path look like after events?"
 
 Requires bar-by-bar ``price`` data within the event window.
 If ``price`` is not available, ``compute_mfe_mae`` returns an empty
-DataFrame and downstream metrics return None gracefully.
+DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricOutput``
+(``value=0.0``, ``metadata["reason"]``) — never ``None``.
 
 Metrics:
     compute_mfe_mae   — per-event MFE/MAE/Bars_to_MFE/Bars_to_MAE
@@ -17,6 +18,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import EPSILON, MIN_EVENTS, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 
 def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     """Output schema with ``date`` dtype mirroring the caller's panel so
@@ -118,7 +120,7 @@ def compute_mfe_mae(
     )
 
 
-def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput | None:
+def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     """Aggregate MFE/MAE statistics.
 
     Reports MFE/MAE ratio as the primary value — higher is better
@@ -128,15 +130,22 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput | None:
         mfe_mae_df: Output of ``compute_mfe_mae()``.
 
     Returns:
-        MetricOutput with value=MFE_p50/|MAE_p75| ratio, or None if
-        no MFE/MAE data available.
+        MetricOutput with value=MFE_p50/|MAE_p75| ratio. On insufficient
+        data (empty input or fewer than ``MIN_EVENTS`` rows), returns a
+        short-circuit MetricOutput (``value=0.0``, ``metadata["reason"]``
+        set) so all metrics share a single return contract.
     """
     if mfe_mae_df.is_empty():
-        return None
+        return _short_circuit_output(
+            "mfe_mae", "no_price_data", n_events=0,
+        )
 
     n = len(mfe_mae_df)
     if n < MIN_EVENTS:
-        return None
+        return _short_circuit_output(
+            "mfe_mae", "insufficient_events",
+            n_events=n, min_required=MIN_EVENTS,
+        )
 
     mfe_p50 = float(mfe_mae_df["mfe"].quantile(0.50))
     mae_p75 = float(mfe_mae_df["mae"].quantile(0.75))
@@ -158,5 +167,6 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput | None:
             "bars_to_mfe_mean": bars_to_mfe_mean,
             "bars_to_mae_mean": bars_to_mae_mean,
             "n_events": n,
+            "p_value": 1.0,
         },
     )

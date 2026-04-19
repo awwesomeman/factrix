@@ -135,7 +135,7 @@ class TestMfeMaeSummary:
         assert "mfe_p50" in result.metadata
         assert "mae_p75" in result.metadata
 
-    def test_none_when_empty(self):
+    def test_short_circuit_when_empty(self):
         empty = pl.DataFrame(
             schema={
                 "date": pl.Datetime("ms"), "asset_id": pl.String,
@@ -144,7 +144,10 @@ class TestMfeMaeSummary:
             },
         )
         result = mfe_mae_summary(empty)
-        assert result is None
+        assert result.name == "mfe_mae"
+        assert result.value == 0.0
+        assert result.metadata["reason"] == "no_price_data"
+        assert result.metadata["n_events"] == 0
 
 
 # ---------------------------------------------------------------------------

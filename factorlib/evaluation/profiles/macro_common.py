@@ -20,8 +20,8 @@ from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdi
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
+    _memoized,
     _pv,
-    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -109,24 +109,28 @@ class MacroCommonProfile:
         # Fall back to the single-asset regression's own t-stat
         # (already computed in compute_ts_betas).
         if n_assets == 1:
-            row = ts_betas_df.row(0, named=True)
-            ts_beta_m = _stash(outputs, MetricOutput(
-                name="ts_beta",
-                value=float(row["beta"]),
-                stat=float(row["t_stat"]),
-                metadata={
-                    "n_assets": 1,
-                    "p_value": 1.0,  # single-asset: suppress from BHY
-                    "method": "single-asset TS regression (no cross-asset test)",
-                },
-            ))
+            def _build_n1_ts_beta() -> MetricOutput:
+                row = ts_betas_df.row(0, named=True)
+                return MetricOutput(
+                    name="ts_beta",
+                    value=float(row["beta"]),
+                    stat=float(row["t_stat"]),
+                    metadata={
+                        "n_assets": 1,
+                        "p_value": 1.0,  # single-asset: suppress from BHY
+                        "method": "single-asset TS regression (no cross-asset test)",
+                    },
+                )
+            ts_beta_m = _memoized(outputs, "ts_beta", _build_n1_ts_beta)
         else:
-            ts_beta_m = _stash(outputs, ts_beta(ts_betas_df))
+            ts_beta_m = _memoized(outputs, "ts_beta", ts_beta, ts_betas_df)
 
-        r2_m = _stash(outputs, mean_r_squared(ts_betas_df))
-        sign_m = _stash(outputs, ts_beta_sign_consistency(ts_betas_df))
-        oos = multi_split_oos_decay(beta_values)
-        trend_m = _stash(outputs, ic_trend(beta_values))
+        r2_m = _memoized(outputs, "mean_r_squared", mean_r_squared, ts_betas_df)
+        sign_m = _memoized(
+            outputs, "ts_beta_sign_consistency", ts_beta_sign_consistency, ts_betas_df,
+        )
+        oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, beta_values)
+        trend_m = _memoized(outputs, "ic_trend", ic_trend, beta_values)
 
         insufficient = _insufficient_metrics({
             "ts_beta_mean": ts_beta_m,
@@ -144,8 +148,8 @@ class MacroCommonProfile:
             ts_beta_p=_pv(ts_beta_m),
             mean_r_squared=float(r2_m.value),
             ts_beta_sign_consistency=float(sign_m.value),
-            oos_survival_ratio=float(oos.survival_ratio),
-            oos_sign_flipped=bool(oos.sign_flipped),
+            oos_survival_ratio=float(oos_m.value),
+            oos_sign_flipped=bool(oos_m.metadata["sign_flipped"]),
             beta_trend=float(trend_m.value),
             beta_trend_p=_pv(trend_m),
             insufficient_metrics=insufficient,

@@ -18,8 +18,8 @@ from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdi
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
+    _memoized,
     _pv,
-    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -157,30 +157,37 @@ class CrossSectionalProfile:
         ic_values = artifacts.get("ic_values")
         spread_series = artifacts.get("spread_series")
 
-        ic_m = _stash(outputs, ic_metric(ic_series, forward_periods=fp))
-        ic_ir_m = _stash(outputs, ic_ir_metric(ic_series))
-        hit_m = _stash(outputs, hit_rate(ic_values, forward_periods=fp))
-        trend_m = _stash(outputs, ic_trend(ic_values))
-        mono_m = _stash(outputs, monotonicity(
+        ic_m = _memoized(outputs, "ic", ic_metric, ic_series, forward_periods=fp)
+        ic_ir_m = _memoized(outputs, "ic_ir", ic_ir_metric, ic_series)
+        hit_m = _memoized(outputs, "hit_rate", hit_rate, ic_values, forward_periods=fp)
+        trend_m = _memoized(outputs, "ic_trend", ic_trend, ic_values)
+        mono_m = _memoized(
+            outputs, "monotonicity", monotonicity,
             artifacts.prepared, forward_periods=fp, n_groups=config.n_groups,
-        ))
-        oos = multi_split_oos_decay(ic_values)
-        spread_m = _stash(outputs, quantile_spread(
+        )
+        oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, ic_values)
+        spread_m = _memoized(
+            outputs, "q1_q5_spread", quantile_spread,
             artifacts.prepared,
             forward_periods=fp,
             n_groups=config.n_groups,
             _precomputed_series=spread_series,
-        ))
-        turn_m = _stash(outputs, turnover(artifacts.prepared))
-        be_m = _stash(outputs, breakeven_cost(spread_m.value, turn_m.value))
-        ns_m = _stash(outputs, net_spread(
+        )
+        turn_m = _memoized(outputs, "turnover", turnover, artifacts.prepared)
+        be_m = _memoized(
+            outputs, "breakeven_cost", breakeven_cost,
+            spread_m.value, turn_m.value,
+        )
+        ns_m = _memoized(
+            outputs, "net_spread", net_spread,
             spread_m.value, turn_m.value, config.estimated_cost_bps,
-        ))
+        )
         # Q1 = top 1/n_groups — mirrors the quantile_spread Q1 definition
         # so q1_concentration and q1_q5_spread report on the same bucket.
-        conc_m = _stash(outputs, q1_concentration(
+        conc_m = _memoized(
+            outputs, "q1_concentration", q1_concentration,
             artifacts.prepared, forward_periods=fp, q_top=1.0 / config.n_groups,
-        ))
+        )
 
         ortho_stats = artifacts.intermediates.get("ortho_stats")
         if ortho_stats is not None:
@@ -248,8 +255,8 @@ class CrossSectionalProfile:
             q1_concentration_eff_ratio=float(
                 conc_m.metadata.get("ratio_eff_to_total", 1.0)
             ),
-            oos_survival_ratio=float(oos.survival_ratio),
-            oos_sign_flipped=bool(oos.sign_flipped),
+            oos_survival_ratio=float(oos_m.value),
+            oos_sign_flipped=bool(oos_m.metadata["sign_flipped"]),
             median_universe_n=int(_median_universe_size(artifacts.prepared)),
             orthogonalize_r2_mean=ortho_r2,
             orthogonalize_n_base=ortho_n_base,

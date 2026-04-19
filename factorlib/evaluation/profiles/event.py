@@ -31,8 +31,8 @@ from factorlib.config import ClusteringAdjustment
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
+    _memoized,
     _pv,
-    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -144,35 +144,41 @@ class EventProfile:
         caar_series = artifacts.get("caar_series")
         caar_values = artifacts.get("caar_values")
 
-        caar_m = _stash(outputs, caar_metric(
+        caar_m = _memoized(
+            outputs, "caar", caar_metric,
             caar_series, forward_periods=config.forward_periods,
-        ))
-        bmp_m = _stash(outputs, bmp_test(
+        )
+        bmp_m = _memoized(
+            outputs, "bmp_sar", bmp_test,
             artifacts.prepared,
             return_col=ret_col,
             forward_periods=config.forward_periods,
-        ))
-        hit_m = _stash(outputs, event_hit_rate(
+        )
+        hit_m = _memoized(
+            outputs, "event_hit_rate", event_hit_rate,
             artifacts.prepared, return_col=ret_col,
-        ))
-        pf_m = _stash(outputs, profit_factor(
+        )
+        pf_m = _memoized(
+            outputs, "profit_factor", profit_factor,
             artifacts.prepared, return_col=ret_col,
-        ))
-        skew_m = _stash(outputs, event_skewness(
+        )
+        skew_m = _memoized(
+            outputs, "event_skewness", event_skewness,
             artifacts.prepared, return_col=ret_col,
-        ))
-        oos = multi_split_oos_decay(caar_values)
-        trend_m = _stash(outputs, ic_trend(caar_values))  # applied to CAAR
-        density_m = _stash(outputs, signal_density(artifacts.prepared))
+        )
+        oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, caar_values)
+        trend_m = _memoized(outputs, "ic_trend", ic_trend, caar_values)  # applied to CAAR
+        density_m = _memoized(outputs, "signal_density", signal_density, artifacts.prepared)
 
         # Clustering is only meaningful with multiple assets.
         n_assets = artifacts.prepared["asset_id"].n_unique()
         clustering_hhi: float | None
         clustering_hhi_normalized: float | None
         if n_assets > 1:
-            clust_m = _stash(outputs, clustering_diagnostic(
+            clust_m = _memoized(
+                outputs, "clustering_hhi", clustering_diagnostic,
                 artifacts.prepared, cluster_window=config.cluster_window,
-            ))
+            )
             clustering_hhi = float(clust_m.value)
             norm = clust_m.metadata.get("hhi_normalized")
             clustering_hhi_normalized = (
@@ -188,9 +194,10 @@ class EventProfile:
         event_ic_val: float | None
         event_ic_p_val: PValue | None
         if events["factor"].abs().n_unique() > 1:
-            eic_m = _stash(outputs, event_ic_metric(
+            eic_m = _memoized(
+                outputs, "event_ic", event_ic_metric,
                 artifacts.prepared, return_col=ret_col,
-            ))
+            )
             event_ic_val = float(eic_m.value)
             event_ic_p_val = _pv(eic_m)
         else:
@@ -222,8 +229,8 @@ class EventProfile:
             event_hit_rate_p=_pv(hit_m),
             profit_factor=float(pf_m.value),
             event_skewness=float(skew_m.value),
-            oos_survival_ratio=float(oos.survival_ratio),
-            oos_sign_flipped=bool(oos.sign_flipped),
+            oos_survival_ratio=float(oos_m.value),
+            oos_sign_flipped=bool(oos_m.metadata["sign_flipped"]),
             caar_trend=float(trend_m.value),
             caar_trend_p=_pv(trend_m),
             signal_density=float(density_m.value),
