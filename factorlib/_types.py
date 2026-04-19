@@ -59,9 +59,6 @@ EPSILON: float = 1e-9
 # Polars .std() 預設 ddof=1，NumPy 需顯式傳入
 DDOF: int = 1
 
-# WHY: 日曆天年化因子，集中管理避免魔術數字散落各指標
-CALENDAR_DAYS_PER_YEAR: float = 365.25
-
 # WHY: 1.4826 = 1/Φ⁻¹(0.75)，使 MAD 成為常態分佈下 σ 的無偏估計量
 MAD_CONSISTENCY_CONSTANT: float = 1.4826
 
