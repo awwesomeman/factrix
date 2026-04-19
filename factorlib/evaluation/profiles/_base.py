@@ -9,6 +9,7 @@ See ``docs/gate_redesign_v2.md`` (ADR) and ``docs/plan_gate_redesign.md``.
 
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Protocol, Self, runtime_checkable
 
 from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
@@ -53,6 +54,24 @@ def _insufficient_metrics(metrics: "dict[str, MetricOutput]") -> tuple[str, ...]
         if reason.startswith(_INSUFFICIENT_PREFIXES):
             hits.append(public_name)
     return tuple(hits)
+
+
+def _stash(store: "dict[str, MetricOutput]", m: MetricOutput) -> MetricOutput:
+    """Store ``m`` in ``store`` under ``m.name`` with metadata wrapped read-only.
+
+    Returns ``m`` unchanged so callers can chain ``x = _stash(outputs, f(...))``.
+    The stored copy's metadata is a ``MappingProxyType`` view — downstream
+    mutation raises ``TypeError``. The returned ``m`` keeps its mutable
+    metadata so helpers like ``_pv(m)`` can read it without indirection.
+    """
+    store[m.name] = MetricOutput(
+        name=m.name,
+        value=m.value,
+        stat=m.stat,
+        significance=m.significance,
+        metadata=MappingProxyType(m.metadata),
+    )
+    return m
 
 
 def _diagnose(profile: object) -> list[Diagnostic]:
@@ -132,6 +151,9 @@ class FactorProfile(Protocol):
             "significant-but-with-caveats" nuance belongs in diagnose().
         diagnose(): contextual hints as ``list[Diagnostic]``.
         from_artifacts(artifacts): classmethod constructor from Artifacts.
+            Pure function: returns ``(profile, metric_outputs_dict)``
+            without mutating its input, so subclasses can be reasoned
+            about in isolation.
     """
 
     factor_name: str
@@ -148,7 +170,9 @@ class FactorProfile(Protocol):
     def diagnose(self) -> list[Diagnostic]: ...
 
     @classmethod
-    def from_artifacts(cls, artifacts: "Artifacts") -> Self: ...
+    def from_artifacts(
+        cls, artifacts: "Artifacts",
+    ) -> tuple[Self, dict[str, MetricOutput]]: ...
 
 
 # Registry populated by @register_profile; consumed by fl.evaluate() dispatch.

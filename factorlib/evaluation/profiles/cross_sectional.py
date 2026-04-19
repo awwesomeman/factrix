@@ -14,11 +14,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Self, TYPE_CHECKING
 
-from factorlib._types import Diagnostic, FactorType, PValue, Verdict
+from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
     _pv,
+    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -123,7 +124,9 @@ class CrossSectionalProfile:
         return _diagnose(self)
 
     @classmethod
-    def from_artifacts(cls, artifacts: "Artifacts") -> Self:
+    def from_artifacts(
+        cls, artifacts: "Artifacts",
+    ) -> tuple[Self, dict[str, MetricOutput]]:
         # WHY: lazy imports — match existing pipeline style and avoid
         # pulling every metric module at package import time.
         from factorlib.config import CrossSectionalConfig
@@ -146,33 +149,36 @@ class CrossSectionalProfile:
                 f"CrossSectionalConfig; got {type(config).__name__}."
             )
 
+        # Start from what the pipeline already stashed (Level 2 opt-in
+        # metrics live there). Copy so we don't mutate the input artifacts.
+        outputs: dict[str, MetricOutput] = dict(artifacts.metric_outputs)
         fp = config.forward_periods
         ic_series = artifacts.get("ic_series")
         ic_values = artifacts.get("ic_values")
         spread_series = artifacts.get("spread_series")
 
-        ic_m = ic_metric(ic_series, forward_periods=fp)
-        ic_ir_m = ic_ir_metric(ic_series)
-        hit_m = hit_rate(ic_values, forward_periods=fp)
-        trend_m = ic_trend(ic_values)
-        mono_m = monotonicity(
+        ic_m = _stash(outputs, ic_metric(ic_series, forward_periods=fp))
+        ic_ir_m = _stash(outputs, ic_ir_metric(ic_series))
+        hit_m = _stash(outputs, hit_rate(ic_values, forward_periods=fp))
+        trend_m = _stash(outputs, ic_trend(ic_values))
+        mono_m = _stash(outputs, monotonicity(
             artifacts.prepared, forward_periods=fp, n_groups=config.n_groups,
-        )
+        ))
         oos = multi_split_oos_decay(ic_values)
-        spread_m = quantile_spread(
+        spread_m = _stash(outputs, quantile_spread(
             artifacts.prepared,
             forward_periods=fp,
             n_groups=config.n_groups,
             _precomputed_series=spread_series,
-        )
-        turn_m = turnover(artifacts.prepared)
-        be_m = breakeven_cost(spread_m.value, turn_m.value)
-        ns_m = net_spread(
+        ))
+        turn_m = _stash(outputs, turnover(artifacts.prepared))
+        be_m = _stash(outputs, breakeven_cost(spread_m.value, turn_m.value))
+        ns_m = _stash(outputs, net_spread(
             spread_m.value, turn_m.value, config.estimated_cost_bps,
-        )
-        conc_m = q1_concentration(
+        ))
+        conc_m = _stash(outputs, q1_concentration(
             artifacts.prepared, forward_periods=fp, q_top=config.q_top,
-        )
+        ))
 
         ortho_stats = artifacts.intermediates.get("ortho_stats")
         if ortho_stats is not None:
@@ -182,6 +188,10 @@ class CrossSectionalProfile:
             ortho_r2 = None
             ortho_n_base = 0
 
+        # Level 2 opt-in MetricOutputs (regime_ic / multi_horizon_ic /
+        # spanning_alpha) are already in `outputs` via the pipeline's
+        # _augment_level2_intermediates. Here we just read the summary
+        # DataFrames for Profile scalar fields.
         regime_stats = artifacts.intermediates.get("regime_stats")
         if regime_stats is not None:
             regime_min_t = float(regime_stats["min_tstat"][0])
@@ -217,7 +227,7 @@ class CrossSectionalProfile:
             "q1_concentration": conc_m,
             "turnover": turn_m,
         })
-        return cls(
+        profile = cls(
             factor_name=artifacts.factor_name,
             n_periods=int(ic_m.metadata.get("n_periods", len(ic_series))),
             ic_mean=float(ic_m.value),
@@ -252,3 +262,4 @@ class CrossSectionalProfile:
             net_spread=float(ns_m.value),
             insufficient_metrics=insufficient,
         )
+        return profile, outputs

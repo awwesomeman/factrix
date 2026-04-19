@@ -273,7 +273,8 @@ def _evaluate_one(
                 f"{type(config).factor_type!r}."
             )
 
-    profile = profile_cls.from_artifacts(artifacts)
+    profile, metric_outputs = profile_cls.from_artifacts(artifacts)
+    artifacts.metric_outputs = metric_outputs
     return profile, artifacts
 
 @overload

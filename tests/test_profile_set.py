@@ -67,7 +67,7 @@ class TestConstruction:
         from factorlib.evaluation.pipeline import build_artifacts
         art = build_artifacts(df, EventConfig())
         art.factor_name = "ev_aux"
-        ev_prof = EventProfile.from_artifacts(art)
+        ev_prof, _ = EventProfile.from_artifacts(art)
 
         with pytest.raises(TypeError, match="single-type"):
             ProfileSet([cs_profile_strong, ev_prof])

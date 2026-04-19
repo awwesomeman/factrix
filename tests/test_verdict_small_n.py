@@ -50,7 +50,8 @@ def small_n_profile() -> CrossSectionalProfile:
     df = _panel(n_dates=20, n_assets=30, signal=0.35, seed=5001)
     art = build_artifacts(df, CrossSectionalConfig())
     art.factor_name = "small_n_cs"
-    return CrossSectionalProfile.from_artifacts(art)
+    profile, _ = CrossSectionalProfile.from_artifacts(art)
+    return profile
 
 
 @pytest.fixture(scope="module")
@@ -59,7 +60,8 @@ def large_n_profile() -> CrossSectionalProfile:
     df = _panel(n_dates=250, n_assets=30, signal=0.35, seed=5002)
     art = build_artifacts(df, CrossSectionalConfig())
     art.factor_name = "large_n_cs"
-    return CrossSectionalProfile.from_artifacts(art)
+    profile, _ = CrossSectionalProfile.from_artifacts(art)
+    return profile
 
 
 class TestThresholdIsTDistribution:

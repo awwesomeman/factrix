@@ -37,7 +37,8 @@ def event_profile_strong() -> EventProfile:
     df = _event_panel(n_dates=120, n_assets=15, seed=501)
     art = build_artifacts(df, EventConfig())
     art.factor_name = "ev_strong"
-    return EventProfile.from_artifacts(art)
+    profile, _ = EventProfile.from_artifacts(art)
+    return profile
 
 
 class TestSchema:

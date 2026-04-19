@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 import polars as pl
 
+from factorlib._types import MetricOutput
 from factorlib.config import BaseConfig
 
 
@@ -72,6 +73,11 @@ class Artifacts:
     cross-sectional). Use ``.get(key)`` for access with a helpful
     KeyError on missing keys.
 
+    ``metric_outputs`` is the parallel channel for raw ``MetricOutput``
+    objects keyed by ``MetricOutput.name``; consumed by
+    ``fl.describe_profile_values`` for drill-down. Shares lifecycle
+    with ``intermediates`` (both dropped by ``keep_artifacts=False``).
+
     ``factor_name`` identifies which factor this instance represents —
     consumed by per-type Profile ``from_artifacts`` classmethods and by
     downstream plotting / reporting that needs to label outputs.
@@ -79,13 +85,15 @@ class Artifacts:
     ``compact`` toggles memory-saving mode: when True, ``prepared`` is
     replaced with a sentinel that raises on any attribute access. Use
     for 1000-factor batches where the prepared panel (~MB per factor)
-    would exhaust memory. Intermediates (small DataFrames) are kept
-    because metrics and diagnose() need them.
+    would exhaust memory. ``intermediates`` and ``metric_outputs``
+    (small DataFrames / MetricOutput objects) are kept because metrics,
+    diagnose(), and ``describe_profile_values`` need them.
     """
 
     prepared: pl.DataFrame
     config: BaseConfig
     intermediates: dict[str, pl.DataFrame] = field(default_factory=dict)
+    metric_outputs: dict[str, MetricOutput] = field(default_factory=dict)
     factor_name: str = ""
     compact: bool = False
 

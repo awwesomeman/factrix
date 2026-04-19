@@ -21,6 +21,7 @@ from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
     _pv,
+    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -79,7 +80,9 @@ class MacroCommonProfile:
         return _diagnose(self)
 
     @classmethod
-    def from_artifacts(cls, artifacts: "Artifacts") -> Self:
+    def from_artifacts(
+        cls, artifacts: "Artifacts",
+    ) -> tuple[Self, dict[str, MetricOutput]]:
         from factorlib.config import MacroCommonConfig
         from factorlib.metrics.oos import multi_split_oos_decay
         from factorlib.metrics.trend import ic_trend
@@ -96,6 +99,7 @@ class MacroCommonProfile:
                 f"got {type(config).__name__}."
             )
 
+        outputs: dict[str, MetricOutput] = dict(artifacts.metric_outputs)
         ts_betas_df = artifacts.get("beta_series")
         beta_values = artifacts.get("beta_values")
         n_assets = len(ts_betas_df)
@@ -106,7 +110,7 @@ class MacroCommonProfile:
         # (already computed in compute_ts_betas).
         if n_assets == 1:
             row = ts_betas_df.row(0, named=True)
-            ts_beta_m = MetricOutput(
+            ts_beta_m = _stash(outputs, MetricOutput(
                 name="ts_beta",
                 value=float(row["beta"]),
                 stat=float(row["t_stat"]),
@@ -115,14 +119,14 @@ class MacroCommonProfile:
                     "p_value": 1.0,  # single-asset: suppress from BHY
                     "method": "single-asset TS regression (no cross-asset test)",
                 },
-            )
+            ))
         else:
-            ts_beta_m = ts_beta(ts_betas_df)
+            ts_beta_m = _stash(outputs, ts_beta(ts_betas_df))
 
-        r2_m = mean_r_squared(ts_betas_df)
-        sign_m = ts_beta_sign_consistency(ts_betas_df)
+        r2_m = _stash(outputs, mean_r_squared(ts_betas_df))
+        sign_m = _stash(outputs, ts_beta_sign_consistency(ts_betas_df))
         oos = multi_split_oos_decay(beta_values)
-        trend_m = ic_trend(beta_values)
+        trend_m = _stash(outputs, ic_trend(beta_values))
 
         insufficient = _insufficient_metrics({
             "ts_beta_mean": ts_beta_m,
@@ -131,7 +135,7 @@ class MacroCommonProfile:
             "beta_trend": trend_m,
         })
 
-        return cls(
+        profile = cls(
             factor_name=artifacts.factor_name,
             n_periods=n_periods,
             n_assets=n_assets,
@@ -146,3 +150,4 @@ class MacroCommonProfile:
             beta_trend_p=_pv(trend_m),
             insufficient_metrics=insufficient,
         )
+        return profile, outputs

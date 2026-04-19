@@ -112,9 +112,34 @@ p.spanning_alpha_p              # NOT in P_VALUE_FIELDS — canonical_p stays si
 ```
 
 Per-regime / per-horizon / spanning beta detail lives in
-``artifacts.intermediates`` (via ``return_artifacts=True`` or
-``keep_artifacts=True``). Profile fields are for rank/filter/BHY;
-the full structure is for ad-hoc deep dives.
+``artifacts.metric_outputs`` and is auto-rendered by
+``describe_profile_values``:
+
+```python
+profile, arts = fl.evaluate(df, "Mom_20D", config=cfg, return_artifacts=True)
+
+fl.describe_profile_values(profile, arts)                   # scalar + detail
+fl.describe_profile_values(profile, arts, include_detail=False)  # scalar only
+
+# Targeted drill-down — raw MetricOutput is public:
+arts.metric_outputs["regime_ic"].metadata["per_regime"]
+arts.metric_outputs["multi_horizon_ic"].metadata["per_horizon"]
+
+# Batch: arts_map is keyed by factor_name.
+ps, arts_map = fl.evaluate_batch(candidates, keep_artifacts=True, config=cfg)
+for p in ps.rank_by("ic_ir").top(5):
+    fl.describe_profile_values(p, arts_map[p.factor_name])
+```
+
+``artifacts.intermediates`` still holds the 1-row summary DataFrames that
+diagnose() rules consume; ``artifacts.metric_outputs`` is the parallel
+channel carrying the raw ``MetricOutput`` (including per-bucket detail in
+``metadata``). Profile scalar fields remain the place for rank / filter /
+BHY; detail views are for ad-hoc deep dives.
+
+Mutation guard: ``metric_outputs[key].metadata`` is a read-only
+``MappingProxyType``. Attempting to modify it raises ``TypeError``, so
+stale side-channel annotations cannot contaminate later reads.
 
 **Orthogonalization (pipeline-integrated)** — pass a basis DataFrame on
 the config and the CS pipeline runs per-date residualization as Step 6,

@@ -38,7 +38,8 @@ def macro_common_profile() -> MacroCommonProfile:
     df = _macro_common(n_dates=120, n_assets=10, signal=0.4, seed=701)
     art = build_artifacts(df, MacroCommonConfig(ts_window=40))
     art.factor_name = "mc_strong"
-    return MacroCommonProfile.from_artifacts(art)
+    profile, _ = MacroCommonProfile.from_artifacts(art)
+    return profile
 
 
 class TestSchema:
@@ -74,7 +75,7 @@ class TestFromArtifacts:
         df = _macro_common(n_dates=120, n_assets=1, signal=0.5, seed=999)
         art = build_artifacts(df, MacroCommonConfig(ts_window=40))
         art.factor_name = "single"
-        p = MacroCommonProfile.from_artifacts(art)
+        p, _ = MacroCommonProfile.from_artifacts(art)
         assert p.n_assets == 1
         assert p.ts_beta_p == 1.0
         assert p.verdict() == "FAILED"
