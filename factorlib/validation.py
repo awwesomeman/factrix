@@ -1,7 +1,11 @@
 """Data validation — Pandera schema enforcement.
 
 Per-type schemas ensure data meets the requirements of the corresponding
-evaluation pipeline before expensive computation.
+evaluation pipeline before expensive computation. The ``date`` column is
+checked separately (``_check_date_dtype``) because pandera-polars matches
+``pl.Datetime(time_unit, time_zone)`` exactly — we want to accept any
+time_unit and any timezone (including naive) so high-precision or TZ-aware
+panels validate without contortions.
 """
 
 from __future__ import annotations
@@ -15,7 +19,6 @@ from factorlib._types import FactorType
 _SCHEMAS: dict[FactorType, pa.DataFrameSchema] = {
     FactorType.CROSS_SECTIONAL: pa.DataFrameSchema(
         {
-            "date": pa.Column(pl.Datetime("ms"), nullable=False),
             "asset_id": pa.Column(pl.String, nullable=False),
             "factor_raw": pa.Column(pl.Float64, nullable=True),
             "factor": pa.Column(pl.Float64, nullable=False),
@@ -25,7 +28,6 @@ _SCHEMAS: dict[FactorType, pa.DataFrameSchema] = {
     ),
     FactorType.MACRO_PANEL: pa.DataFrameSchema(
         {
-            "date": pa.Column(pl.Datetime("ms"), nullable=False),
             "asset_id": pa.Column(pl.String, nullable=False),
             "factor": pa.Column(pl.Float64, nullable=False),
             "forward_return": pa.Column(pl.Float64, nullable=False),
@@ -41,6 +43,25 @@ _SCHEMAS[FactorType.MACRO_COMMON] = _SCHEMAS[FactorType.MACRO_PANEL]
 FACTOR_SCHEMA = _SCHEMAS[FactorType.CROSS_SECTIONAL]
 
 
+def _check_date_dtype(df: pl.DataFrame) -> None:
+    """Require the ``date`` column to be ``pl.Date`` or any ``pl.Datetime``.
+
+    Accepts any ``time_unit`` / ``time_zone`` combination. TZ consistency
+    across joined DataFrames (main panel / regime_labels /
+    spanning_base_spreads) is checked separately at join points.
+    """
+    if "date" not in df.columns:
+        raise ValueError("date column missing")
+    dtype = df.schema["date"]
+    if isinstance(dtype, (pl.Date, pl.Datetime)):
+        return
+    raise ValueError(
+        f"date column must be pl.Date or pl.Datetime, got {dtype}. "
+        f"Call fl.adapt(...) to normalize, or cast manually with "
+        f"`df.with_columns(pl.col('date').cast(pl.Datetime('ms')))`."
+    )
+
+
 def validate_factor_data(
     df: pl.DataFrame,
     factor_type: FactorType = FactorType.CROSS_SECTIONAL,
@@ -52,8 +73,10 @@ def validate_factor_data(
         factor_type: Which schema to use. Defaults to cross_sectional.
 
     Raises:
-        ValueError: If NaN or Inf values are found in numeric columns.
-        pandera.errors.SchemaError: If schema validation fails.
+        ValueError: If NaN or Inf values are found in numeric columns, or
+            if the ``date`` column is not ``pl.Date`` / ``pl.Datetime``.
+        pandera.errors.SchemaError: If schema validation fails on other
+            columns.
     """
     schema = _SCHEMAS.get(factor_type)
     if schema is None:
@@ -62,6 +85,7 @@ def validate_factor_data(
             f"Available: {list(_SCHEMAS.keys())}"
         )
 
+    _check_date_dtype(df)
     validated = schema.validate(df)
 
     numeric_cols = [
