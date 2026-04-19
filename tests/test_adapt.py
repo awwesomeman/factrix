@@ -73,3 +73,33 @@ class TestCanonicalRenames:
                 date="trade_date", asset_id="ticker", price="close_adj",
                 open="close_adj",
             )
+
+
+class TestDateDtypePromotion:
+    """`adapt()` promotes pl.Date → pl.Datetime("ms") losslessly; other
+    Datetime variants pass through untouched so HF precision and
+    TZ-aware panels aren't silently downcast."""
+
+    def test_pl_date_promoted_to_datetime_ms(self):
+        from datetime import date
+        df = pl.DataFrame({
+            "trade_date": [date(2024, 1, 1), date(2024, 1, 2)],
+            "ticker": ["A", "A"],
+            "close_adj": [100.0, 101.0],
+        })
+        out = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
+        assert out.schema["date"] == pl.Datetime("ms")
+
+    def test_datetime_us_passes_through(self):
+        df = _raw_panel().with_columns(
+            pl.col("trade_date").cast(pl.Datetime("us"))
+        )
+        out = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
+        assert out.schema["date"] == pl.Datetime("us")
+
+    def test_datetime_with_timezone_preserved(self):
+        df = _raw_panel().with_columns(
+            pl.col("trade_date").cast(pl.Datetime("ms")).dt.replace_time_zone("UTC")
+        )
+        out = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
+        assert out.schema["date"] == pl.Datetime("ms", time_zone="UTC")

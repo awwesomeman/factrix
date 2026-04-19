@@ -122,6 +122,14 @@ def adapt(
     if mapping:
         df = df.rename(mapping)
 
+    # Promote pl.Date → pl.Datetime("ms") losslessly so downstream joins
+    # (regime_labels / spanning_base_spreads / user panels) can share a
+    # common datetime dtype without the user writing an explicit cast.
+    # Other Datetime variants (any time_unit, any TZ) pass through — the
+    # library is TZ-agnostic and trusts the caller's precision choice.
+    if "date" in df.columns and df.schema["date"] == pl.Date:
+        df = df.with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
     if fill_forward:
         df = (
             df.sort(["asset_id", "date"])
