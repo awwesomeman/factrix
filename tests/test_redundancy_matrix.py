@@ -87,8 +87,8 @@ class TestMethods:
         art_a = build_artifacts(df_a, cfg); art_a.factor_name = "A"
         art_b = build_artifacts(df_b, cfg); art_b.factor_name = "B"
         profiles = [
-            CrossSectionalProfile.from_artifacts(art_a),
-            CrossSectionalProfile.from_artifacts(art_b),
+            CrossSectionalProfile.from_artifacts(art_a)[0],
+            CrossSectionalProfile.from_artifacts(art_b)[0],
         ]
         ps = ProfileSet(profiles)
 
@@ -143,8 +143,8 @@ class TestDegenerateInputs:
         art_good = build_artifacts(df_good, cfg); art_good.factor_name = "good"
         art_const = build_artifacts(df_const, cfg); art_const.factor_name = "const"
         profiles = [
-            CrossSectionalProfile.from_artifacts(art_good),
-            CrossSectionalProfile.from_artifacts(art_const),
+            CrossSectionalProfile.from_artifacts(art_good)[0],
+            CrossSectionalProfile.from_artifacts(art_const)[0],
         ]
         ps = ProfileSet(profiles)
         with pytest.warns(UserWarning, match="zero-variance"):
@@ -199,8 +199,8 @@ class TestDegenerateInputs:
         art_full = build_artifacts(df_full, cfg); art_full.factor_name = "full"
         art_short = build_artifacts(df_short, cfg); art_short.factor_name = "short"
         profiles = [
-            CrossSectionalProfile.from_artifacts(art_full),
-            CrossSectionalProfile.from_artifacts(art_short),
+            CrossSectionalProfile.from_artifacts(art_full)[0],
+            CrossSectionalProfile.from_artifacts(art_short)[0],
         ]
         ps = ProfileSet(profiles)
         with pytest.warns(UserWarning, match="missing dates"):

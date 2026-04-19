@@ -93,21 +93,34 @@ def ic_series_sign_flip() -> pl.DataFrame:
 # Profile-era fixtures (Phase A)
 # ---------------------------------------------------------------------------
 
-def _cs_panel(n_dates: int, n_assets: int, signal_coef: float, seed: int) -> pl.DataFrame:
-    """Build a cross-sectional panel with a tunable signal-to-noise mix."""
+def _cs_panel(
+    n_dates: int,
+    n_assets: int,
+    signal_coef: float,
+    seed: int,
+    *,
+    include_price: bool = False,
+) -> pl.DataFrame:
+    """Build a cross-sectional panel with a tunable signal-to-noise mix.
+
+    ``include_price=True`` adds a dummy ``price`` column — multi_horizon_ic
+    (and any metric that recomputes forward returns from price) requires it.
+    """
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     rows = []
     for d in dates:
         f = rng.standard_normal(n_assets)
         noise = rng.standard_normal(n_assets)
-        # Keep total variance bounded regardless of signal_coef.
         r = signal_coef * f + (1 - abs(signal_coef)) * noise
         for i in range(n_assets):
-            rows.append({
+            row: dict[str, object] = {
                 "date": d, "asset_id": f"a{i}",
                 "factor": float(f[i]), "forward_return": float(r[i]),
-            })
+            }
+            if include_price:
+                row["price"] = float(100 + rng.standard_normal())
+            rows.append(row)
     return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
@@ -135,7 +148,8 @@ def cs_profile_strong() -> CrossSectionalProfile:
     df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.5, seed=101)
     art = build_artifacts(df, CrossSectionalConfig())
     art.factor_name = "cs_strong"
-    return CrossSectionalProfile.from_artifacts(art)
+    profile, _ = CrossSectionalProfile.from_artifacts(art)
+    return profile
 
 
 @pytest.fixture
@@ -144,7 +158,8 @@ def cs_profile_weak() -> CrossSectionalProfile:
     df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.02, seed=202)
     art = build_artifacts(df, CrossSectionalConfig())
     art.factor_name = "cs_weak"
-    return CrossSectionalProfile.from_artifacts(art)
+    profile, _ = CrossSectionalProfile.from_artifacts(art)
+    return profile
 
 
 @pytest.fixture
@@ -165,6 +180,7 @@ def cs_profiles_and_artifacts() -> tuple[
         df = _cs_panel(n_dates=60, n_assets=25, signal_coef=coef, seed=seed)
         art = build_artifacts(df, CrossSectionalConfig())
         art.factor_name = name
-        profiles.append(CrossSectionalProfile.from_artifacts(art))
+        profile, _ = CrossSectionalProfile.from_artifacts(art)
+        profiles.append(profile)
         artifacts_map[name] = art
     return profiles, artifacts_map

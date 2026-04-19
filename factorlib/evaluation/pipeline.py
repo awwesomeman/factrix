@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import polars as pl
 
+from factorlib._types import MetricOutput
 from factorlib.config import (
     BaseConfig,
     CrossSectionalConfig,
@@ -120,38 +121,56 @@ def _build_cs_artifacts(
     if ortho_info is not None:
         intermediates["ortho_stats"] = ortho_info
 
+    # Level 2 metrics are computed here (they need `prepared` for
+    # multi_horizon_ic). We stash both the summary DataFrame into
+    # intermediates (consumed by diagnose rules) AND the raw MetricOutput
+    # into metric_outputs (consumed by describe_profile_values for
+    # per-regime / per-horizon / spanning detail views). Computing once
+    # and stashing to both channels avoids a second pass in from_artifacts.
+    metric_outputs: dict[str, MetricOutput] = {}
     _augment_level2_intermediates(
-        intermediates, df, ic_series, spread_series, config,
+        intermediates, metric_outputs, df, ic_series, spread_series, config,
     )
 
     return Artifacts(
         prepared=df,
         config=config,
         intermediates=intermediates,
+        metric_outputs=metric_outputs,
     )
 
 
 def _augment_level2_intermediates(
     intermediates: dict[str, pl.DataFrame],
+    metric_outputs: dict[str, MetricOutput],
     df: pl.DataFrame,
     ic_series: pl.DataFrame,
     spread_series: pl.DataFrame,
     config: "CrossSectionalConfig",
 ) -> None:
-    """Populate intermediates with regime / multi-horizon / spanning
-    summaries when the corresponding config inputs are supplied.
+    """Populate intermediates + metric_outputs with regime / multi-horizon
+    / spanning results when the corresponding config inputs are supplied.
 
     Each metric is independently opt-in: leave the corresponding config
-    field as ``None`` to skip. See
-    ``docs/spike_level2_profile_integration.md``.
+    field as ``None`` to skip. The 1-row summary DataFrame goes into
+    ``intermediates`` (diagnose rules read these); the raw
+    ``MetricOutput`` (carrying per-regime / per-horizon / per-base-factor
+    detail in ``metadata``) goes into ``metric_outputs`` with its
+    metadata wrapped read-only by ``_stash``. See
+    ``docs/spike_level2_profile_integration.md`` and
+    ``docs/spike_metric_outputs_retention.md``.
     """
     import math
 
+    from factorlib.evaluation.profiles._base import _stash
     from factorlib.metrics.ic import multi_horizon_ic, regime_ic
     from factorlib.metrics.spanning import spanning_alpha
 
     if config.regime_labels is not None:
-        reg = regime_ic(ic_series, regime_labels=config.regime_labels)
+        reg = _stash(
+            metric_outputs,
+            regime_ic(ic_series, regime_labels=config.regime_labels),
+        )
         per_regime = reg.metadata.get("per_regime") or {}
         if per_regime:
             min_t = float(min(
@@ -167,7 +186,10 @@ def _augment_level2_intermediates(
     # multi_horizon_ic is opt-in (None = skip). Needs price to recompute
     # forward returns across horizons; skip if absent.
     if config.multi_horizon_periods is not None and "price" in df.columns:
-        mh = multi_horizon_ic(df, periods=config.multi_horizon_periods)
+        mh = _stash(
+            metric_outputs,
+            multi_horizon_ic(df, periods=config.multi_horizon_periods),
+        )
         per_horizon = mh.metadata.get("per_horizon") or {}
         valid = {
             h: d for h, d in per_horizon.items()
@@ -191,9 +213,12 @@ def _augment_level2_intermediates(
             })
 
     if config.spanning_base_spreads:
-        sp = spanning_alpha(
-            factor_spread=spread_series,
-            base_spreads=config.spanning_base_spreads,
+        sp = _stash(
+            metric_outputs,
+            spanning_alpha(
+                factor_spread=spread_series,
+                base_spreads=config.spanning_base_spreads,
+            ),
         )
         if sp.stat is not None:
             intermediates["spanning_stats"] = pl.DataFrame({

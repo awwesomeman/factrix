@@ -15,11 +15,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Self, TYPE_CHECKING
 
-from factorlib._types import Diagnostic, FactorType, PValue, Verdict
+from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
     _pv,
+    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -89,7 +90,9 @@ class MacroPanelProfile:
         return _diagnose(self)
 
     @classmethod
-    def from_artifacts(cls, artifacts: "Artifacts") -> Self:
+    def from_artifacts(
+        cls, artifacts: "Artifacts",
+    ) -> tuple[Self, dict[str, MetricOutput]]:
         from factorlib.config import MacroPanelConfig
         from factorlib.metrics._helpers import _median_universe_size
         from factorlib.metrics.fama_macbeth import (
@@ -111,28 +114,29 @@ class MacroPanelProfile:
                 f"got {type(config).__name__}."
             )
 
+        outputs: dict[str, MetricOutput] = dict(artifacts.metric_outputs)
         fp = config.forward_periods
         beta_series = artifacts.get("beta_series")
         beta_values = artifacts.get("beta_values")
         spread_series = artifacts.get("spread_series")
         median_xs_n = int(_median_universe_size(artifacts.prepared))
 
-        fm_m = fama_macbeth(beta_series)
-        pooled_m = pooled_ols(artifacts.prepared)
-        sign_m = beta_sign_consistency(beta_series)
+        fm_m = _stash(outputs, fama_macbeth(beta_series))
+        pooled_m = _stash(outputs, pooled_ols(artifacts.prepared))
+        sign_m = _stash(outputs, beta_sign_consistency(beta_series))
         oos = multi_split_oos_decay(beta_values)
-        trend_m = ic_trend(beta_values)
-        spread_m = quantile_spread(
+        trend_m = _stash(outputs, ic_trend(beta_values))
+        spread_m = _stash(outputs, quantile_spread(
             artifacts.prepared,
             forward_periods=fp,
             n_groups=config.n_groups,
             _precomputed_series=spread_series,
-        )
-        turn_m = turnover(artifacts.prepared)
-        be_m = breakeven_cost(spread_m.value, turn_m.value)
-        ns_m = net_spread(
+        ))
+        turn_m = _stash(outputs, turnover(artifacts.prepared))
+        be_m = _stash(outputs, breakeven_cost(spread_m.value, turn_m.value))
+        ns_m = _stash(outputs, net_spread(
             spread_m.value, turn_m.value, config.estimated_cost_bps,
-        )
+        ))
 
         insufficient = _insufficient_metrics({
             "fm_beta_mean": fm_m,
@@ -143,7 +147,7 @@ class MacroPanelProfile:
             "turnover": turn_m,
         })
 
-        return cls(
+        profile = cls(
             factor_name=artifacts.factor_name,
             n_periods=int(fm_m.metadata.get("n_periods", len(beta_series))),
             median_cross_section_n=median_xs_n,
@@ -168,3 +172,4 @@ class MacroPanelProfile:
             net_spread=float(ns_m.value),
             insufficient_metrics=insufficient,
         )
+        return profile, outputs

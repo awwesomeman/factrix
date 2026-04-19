@@ -26,12 +26,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Self, TYPE_CHECKING
 
-from factorlib._types import Diagnostic, FactorType, PValue, Verdict
+from factorlib._types import Diagnostic, FactorType, MetricOutput, PValue, Verdict
 from factorlib.config import ClusteringAdjustment
 from factorlib.evaluation.profiles._base import (
     _diagnose,
     _insufficient_metrics,
     _pv,
+    _stash,
     _verdict_from_p,
     register_profile,
 )
@@ -109,7 +110,9 @@ class EventProfile:
         return _diagnose(self)
 
     @classmethod
-    def from_artifacts(cls, artifacts: "Artifacts") -> Self:
+    def from_artifacts(
+        cls, artifacts: "Artifacts",
+    ) -> tuple[Self, dict[str, MetricOutput]]:
         import polars as pl
         from factorlib.config import EventConfig
         from factorlib.metrics.caar import bmp_test, caar as caar_metric
@@ -131,6 +134,7 @@ class EventProfile:
                 f"got {type(config).__name__}."
             )
 
+        outputs: dict[str, MetricOutput] = dict(artifacts.metric_outputs)
         ret_col = (
             "abnormal_return"
             if "abnormal_return" in artifacts.prepared.columns
@@ -140,27 +144,35 @@ class EventProfile:
         caar_series = artifacts.get("caar_series")
         caar_values = artifacts.get("caar_values")
 
-        caar_m = caar_metric(caar_series, forward_periods=config.forward_periods)
-        bmp_m = bmp_test(
+        caar_m = _stash(outputs, caar_metric(
+            caar_series, forward_periods=config.forward_periods,
+        ))
+        bmp_m = _stash(outputs, bmp_test(
             artifacts.prepared,
             return_col=ret_col,
             forward_periods=config.forward_periods,
-        )
-        hit_m = event_hit_rate(artifacts.prepared, return_col=ret_col)
-        pf_m = profit_factor(artifacts.prepared, return_col=ret_col)
-        skew_m = event_skewness(artifacts.prepared, return_col=ret_col)
+        ))
+        hit_m = _stash(outputs, event_hit_rate(
+            artifacts.prepared, return_col=ret_col,
+        ))
+        pf_m = _stash(outputs, profit_factor(
+            artifacts.prepared, return_col=ret_col,
+        ))
+        skew_m = _stash(outputs, event_skewness(
+            artifacts.prepared, return_col=ret_col,
+        ))
         oos = multi_split_oos_decay(caar_values)
-        trend_m = ic_trend(caar_values)  # same tool, applied to CAAR series
-        density_m = signal_density(artifacts.prepared)
+        trend_m = _stash(outputs, ic_trend(caar_values))  # applied to CAAR
+        density_m = _stash(outputs, signal_density(artifacts.prepared))
 
         # Clustering is only meaningful with multiple assets.
         n_assets = artifacts.prepared["asset_id"].n_unique()
         clustering_hhi: float | None
         clustering_hhi_normalized: float | None
         if n_assets > 1:
-            clust_m = clustering_diagnostic(
+            clust_m = _stash(outputs, clustering_diagnostic(
                 artifacts.prepared, cluster_window=config.cluster_window,
-            )
+            ))
             clustering_hhi = float(clust_m.value)
             norm = clust_m.metadata.get("hhi_normalized")
             clustering_hhi_normalized = (
@@ -176,7 +188,9 @@ class EventProfile:
         event_ic_val: float | None
         event_ic_p_val: PValue | None
         if events["factor"].abs().n_unique() > 1:
-            eic_m = event_ic_metric(artifacts.prepared, return_col=ret_col)
+            eic_m = _stash(outputs, event_ic_metric(
+                artifacts.prepared, return_col=ret_col,
+            ))
             event_ic_val = float(eic_m.value)
             event_ic_p_val = _pv(eic_m)
         else:
@@ -194,7 +208,7 @@ class EventProfile:
         }
         insufficient = _insufficient_metrics(insufficient_src)
 
-        return cls(
+        profile = cls(
             factor_name=artifacts.factor_name,
             n_periods=int(caar_m.metadata.get("n_event_dates", len(caar_series))),
             n_events=n_events,
@@ -220,3 +234,4 @@ class EventProfile:
             event_ic_p=event_ic_p_val,
             insufficient_metrics=insufficient,
         )
+        return profile, outputs

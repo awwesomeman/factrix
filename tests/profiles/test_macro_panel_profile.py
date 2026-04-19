@@ -21,7 +21,8 @@ def macro_panel_strong() -> MacroPanelProfile:
     df = make_macro_panel(n_dates=60, n_countries=12, signal=0.5, seed=601)
     art = build_artifacts(df, MacroPanelConfig())
     art.factor_name = "mp_strong"
-    return MacroPanelProfile.from_artifacts(art)
+    profile, _ = MacroPanelProfile.from_artifacts(art)
+    return profile
 
 
 class TestSchema:
