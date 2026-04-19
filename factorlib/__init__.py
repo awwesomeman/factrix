@@ -72,6 +72,7 @@ from factorlib.evaluation.diagnostics import (
     clear_custom_rules,
     register_rule,
 )
+from factorlib.reporting import describe_profile_values
 from factorlib.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
 from factorlib._api import (
     evaluate,
@@ -101,6 +102,7 @@ __all__ = [
     "MacroPanelConfig", "MacroCommonConfig",
     "OrthoConfig",
     "FACTOR_TYPES", "describe_factor_types", "describe_profile",
+    "describe_profile_values",
     "MARKET_DEFAULTS",
     "FactorType", "MetricOutput", "Artifacts",
     "split_by_group",
