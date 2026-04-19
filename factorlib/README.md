@@ -30,24 +30,35 @@ dict. Fields are IDE-discoverable and feed polars expressions directly.
 ```python
 import factorlib as fl
 
-profile = fl.evaluate(factor_df, "Mom_20D", factor_type="cross_sectional")
-profile = fl.evaluate(macro_df, "CPI_spread", factor_type="macro_panel")
-profile = fl.evaluate(event_df, "EarningsSurprise", factor_type="event_signal")
+cfg = fl.CrossSectionalConfig()
+prepared = fl.preprocess(factor_df, config=cfg)
+profile  = fl.evaluate(prepared, "Mom_20D", config=cfg)
 ```
+
+`fl.evaluate` requires a preprocessed panel (``forward_return`` column
+present) — the two steps are kept separate so the preprocess call is
+visible in your code (audit trail) and the same ``cfg`` instance is
+physically bound to both steps, preventing silent config mismatches
+(e.g. forward_periods differing between the two would silently poison
+every downstream metric).
 
 ### Level 1 — Full control
 
 ```python
-config = fl.CrossSectionalConfig(forward_periods=5, n_groups=10)
-profile = fl.evaluate(factor_df, "Mom_20D", config=config)
+cfg = fl.CrossSectionalConfig(forward_periods=5, n_groups=10)
+prepared = fl.preprocess(factor_df, config=cfg)
+profile  = fl.evaluate(prepared, "Mom_20D", config=cfg)
 
 # Event signal
-config = fl.EventConfig(forward_periods=5, event_window_post=20)
-profile = fl.evaluate(event_df, "GoldenCross", config=config)
+cfg = fl.EventConfig(forward_periods=5, event_window_post=20)
+prepared = fl.preprocess(event_df, config=cfg)
+profile  = fl.evaluate(prepared, "GoldenCross", config=cfg)
 
-# Reuse existing preprocessed data
-prepared = fl.preprocess(factor_df, config=config)
-profile = fl.evaluate(prepared, "Mom_20D", config=config, preprocess=False)
+# Share preprocess across many factors (batch)
+cfg = fl.CrossSectionalConfig()
+prepared_map = {name: fl.preprocess(df, config=cfg)
+                for name, df in raw_factors.items()}
+ps = fl.evaluate_batch(prepared_map, config=cfg)
 ```
 
 ### Level 2 — Individual Metrics

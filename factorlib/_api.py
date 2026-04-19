@@ -47,6 +47,11 @@ FACTOR_TYPES: dict[FactorType, type[BaseConfig]] = {
     FactorType.MACRO_COMMON: MacroCommonConfig,
 }
 
+# WHY: `forward_return` is produced by every preprocess_* variant; its
+# absence is the strict gate that makes evaluate raise instead of
+# silently auto-preprocessing (which would enable silent config mismatch).
+_PREPROCESSED_MARKER = "forward_return"
+
 _DESCRIPTIONS: dict[FactorType, str] = {
     FactorType.CROSS_SECTIONAL: "截面因子（每期每資產有 signal，N ≥ 30）→ 選股",
     FactorType.EVENT_SIGNAL: "事件訊號（離散觸發）→ 事件交易",
@@ -230,23 +235,21 @@ def _evaluate_one(
     factor_name: str,
     config: BaseConfig,
     *,
-    preprocess: bool,
     profile_cls: type | None = None,
 ) -> tuple[Any, Any]:
     """Single-factor pipeline shared by evaluate() and evaluate_batch().
 
-    Extracting the preprocess → build_artifacts → from_artifacts
-    sequence here keeps both entry points in lockstep when the pipeline
-    gains new steps (e.g. pre-eval validation, cache lookup). Callers
-    handle the surrounding concerns (error policy, artifact retention,
-    callback hooks, compact mode) themselves.
+    Strict precondition: ``df`` must already be preprocessed (have a
+    ``forward_return`` column). Raises ``ValueError`` otherwise. Users
+    call ``fl.preprocess`` explicitly so the preprocess step is visible
+    in their code (audit trail) and so the same config instance is
+    physically bound to both steps (avoids silent config mismatch).
 
     Args:
-        df: Raw panel (or already preprocessed when ``preprocess=False``).
+        df: Preprocessed factor panel (has ``forward_return``).
         factor_name: Written onto the returned ``Artifacts`` and profile.
         config: Pipeline config; its ``factor_type`` picks the Profile
             class if ``profile_cls`` is not supplied.
-        preprocess: Run ``preprocess(df, config=config)`` first.
         profile_cls: Optional pre-resolved Profile class. Passing it
             avoids a registry lookup per call when the caller already
             resolved it (e.g. evaluate_batch hoists it out of the loop).
@@ -258,9 +261,16 @@ def _evaluate_one(
     from factorlib.evaluation.pipeline import build_artifacts
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
-    if preprocess:
-        from factorlib.preprocess.pipeline import preprocess as _prep
-        df = _prep(df, config=config)
+    if _PREPROCESSED_MARKER not in df.columns:
+        raise ValueError(
+            f"fl.evaluate expects a preprocessed panel — "
+            f"'{_PREPROCESSED_MARKER}' column not found. Call\n"
+            f"    prepared = fl.preprocess(df, config=cfg)\n"
+            f"then pass 'prepared' to fl.evaluate with the SAME cfg "
+            f"instance. Running preprocess and evaluate with different "
+            f"configs (e.g. mismatched forward_periods) would silently "
+            f"poison downstream metrics."
+        )
 
     artifacts = build_artifacts(df, config)
     artifacts.factor_name = factor_name
@@ -284,7 +294,6 @@ def evaluate(
     *,
     factor_type: str | FactorType = ...,
     config: BaseConfig | None = ...,
-    preprocess: bool = ...,
     return_artifacts: Literal[False] = ...,
     **config_overrides: Any,
 ) -> "FactorProfile": ...
@@ -297,7 +306,6 @@ def evaluate(
     *,
     factor_type: str | FactorType = ...,
     config: BaseConfig | None = ...,
-    preprocess: bool = ...,
     return_artifacts: Literal[True],
     **config_overrides: Any,
 ) -> tuple["FactorProfile", "Artifacts"]: ...
@@ -309,7 +317,6 @@ def evaluate(
     *,
     factor_type: str | FactorType = "cross_sectional",
     config: BaseConfig | None = None,
-    preprocess: bool = True,
     return_artifacts: bool = False,
     **config_overrides: Any,
 ):
@@ -317,17 +324,22 @@ def evaluate(
 
     Dispatches to the per-type Profile class via ``_PROFILE_REGISTRY``.
 
+    Expects a preprocessed panel (``forward_return`` column present).
+    Call ``fl.preprocess(df, config=cfg)`` first with the same ``cfg``
+    you'll pass here — factorlib intentionally keeps preprocess and
+    evaluate as separate steps so the preprocess call is visible in
+    your code and the physical binding of one ``cfg`` across both
+    steps prevents silent config mismatch (e.g. mismatched
+    ``forward_periods`` would silently poison every downstream metric).
+
     Args:
-        df: Raw panel. If ``preprocess=True`` (default), must contain
-            ``price``; pre-processing computes ``forward_return`` and
-            applies the per-type cleaning steps. If ``preprocess=False``,
-            must already contain ``forward_return``.
+        df: Preprocessed factor panel (has ``forward_return``). Call
+            ``fl.preprocess(raw_df, config=cfg)`` to produce one.
         factor_name: Identifier for the factor being evaluated; written
             onto the returned profile.
         factor_type: Factor type string or FactorType enum. Ignored if
             ``config`` is supplied.
         config: Explicit config instance; overrides ``factor_type``.
-        preprocess: Run preprocessing before evaluation (default True).
         return_artifacts: If True, return ``(profile, artifacts)`` where
             ``artifacts`` exposes ``prepared`` + ``intermediates`` for
             user-defined metrics (MI, dCor, regime splits, etc.) without
@@ -347,9 +359,7 @@ def evaluate(
             f"({list(config_overrides)}). Pick one."
         )
 
-    profile, artifacts = _evaluate_one(
-        df, factor_name, config, preprocess=preprocess,
-    )
+    profile, artifacts = _evaluate_one(df, factor_name, config)
     if return_artifacts:
         return profile, artifacts
     return profile
@@ -361,7 +371,6 @@ def evaluate_batch(
     *,
     factor_type: str | FactorType = ...,
     config: BaseConfig | None = ...,
-    preprocess: bool = ...,
     stop_on_error: bool = ...,
     on_result: Callable[[str, "FactorProfile"], bool | None] | None = ...,
     on_error: Callable[[str, BaseException], None] | None = ...,
@@ -377,7 +386,6 @@ def evaluate_batch(
     *,
     factor_type: str | FactorType = ...,
     config: BaseConfig | None = ...,
-    preprocess: bool = ...,
     stop_on_error: bool = ...,
     on_result: Callable[[str, "FactorProfile"], bool | None] | None = ...,
     on_error: Callable[[str, BaseException], None] | None = ...,
@@ -392,7 +400,6 @@ def evaluate_batch(
     *,
     factor_type: str | FactorType = "cross_sectional",
     config: BaseConfig | None = None,
-    preprocess: bool = True,
     stop_on_error: bool = False,
     on_result: Callable[[str, "FactorProfile"], bool | None] | None = None,
     on_error: Callable[[str, BaseException], None] | None = None,
@@ -402,12 +409,21 @@ def evaluate_batch(
 ):
     """Evaluate many factors and return a ``ProfileSet``.
 
+    Each input DataFrame must be preprocessed (``forward_return``
+    present); strict gate matches ``evaluate``. Typical usage:
+
+    .. code-block:: python
+
+        cfg = fl.CrossSectionalConfig(forward_periods=5)
+        prepared = {name: fl.preprocess(df, config=cfg)
+                    for name, df in raw_factors.items()}
+        ps = fl.evaluate_batch(prepared, config=cfg)
+
     Args:
         factors: ``{name: DataFrame}`` or ``[(name, DataFrame), ...]``.
         factor_type: Default factor type for all factors (ignored if
             ``config`` supplied).
         config: Shared config (overrides ``factor_type``).
-        preprocess: Whether to preprocess each factor.
         stop_on_error: Raise on first failure (True) or log+skip (False).
         on_result: Optional callback ``(name, profile)`` after each ok.
             May return ``bool | None``; returning ``False`` stops the
@@ -466,7 +482,6 @@ def evaluate_batch(
         try:
             p, artifacts = _evaluate_one(
                 factor_df, name, config,
-                preprocess=preprocess,
                 profile_cls=profile_cls,
             )
         except Exception as exc:

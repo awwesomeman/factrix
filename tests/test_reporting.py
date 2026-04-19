@@ -38,7 +38,7 @@ class TestScalarTable:
     def test_prints_header_and_scalar_rows(self, capsys):
         df = _panel()
         profile, arts = fl.evaluate(
-            df, "cs_smoke", preprocess=False, return_artifacts=True,
+            df, "cs_smoke", return_artifacts=True,
         )
         describe_profile_values(profile, arts)
         out = capsys.readouterr().out
@@ -58,7 +58,7 @@ class TestScalarTable:
         })
         cfg = fl.CrossSectionalConfig(regime_labels=regime_df)
         profile, arts = fl.evaluate(
-            df, "cs_no_detail", preprocess=False,
+            df, "cs_no_detail",
             config=cfg, return_artifacts=True,
         )
         describe_profile_values(profile, arts, include_detail=False)
@@ -83,7 +83,7 @@ class TestDetailAutoDiscover:
         })
         cfg = fl.CrossSectionalConfig(regime_labels=regime_df)
         profile, arts = fl.evaluate(
-            df, "cs_regime_detail", preprocess=False,
+            df, "cs_regime_detail",
             config=cfg, return_artifacts=True,
         )
         describe_profile_values(profile, arts)
@@ -98,7 +98,7 @@ class TestDetailAutoDiscover:
         df = _panel(n_dates=120)
         cfg = fl.CrossSectionalConfig(multi_horizon_periods=[1, 5, 10])
         profile, arts = fl.evaluate(
-            df, "cs_mh_detail", preprocess=False,
+            df, "cs_mh_detail",
             config=cfg, return_artifacts=True,
         )
         describe_profile_values(profile, arts)
@@ -111,7 +111,7 @@ class TestDetailAutoDiscover:
         # and no exception should be raised.
         df = _panel()
         profile, arts = fl.evaluate(
-            df, "cs_no_optin", preprocess=False, return_artifacts=True,
+            df, "cs_no_optin", return_artifacts=True,
         )
         describe_profile_values(profile, arts)  # must not raise
         out = capsys.readouterr().out
@@ -129,7 +129,7 @@ class TestDetailAutoDiscover:
 class TestArtifactsRequired:
     def test_empty_metric_outputs_raises_value_error(self):
         df = _panel()
-        profile = fl.evaluate(df, "cs_missing_outputs", preprocess=False)
+        profile = fl.evaluate(df, "cs_missing_outputs")
         # Hand-built Artifacts with no metric_outputs populated — mimics a
         # user who constructed Artifacts manually rather than going through
         # fl.evaluate(..., return_artifacts=True).

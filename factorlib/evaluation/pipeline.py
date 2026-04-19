@@ -59,8 +59,8 @@ def _validate_columns(df: pl.DataFrame, factor_type: str) -> None:
         raise ValueError(
             f"{factor_type} requires columns {_REQUIRED_COLUMNS}. "
             f"Missing: {missing}.\n\n{_SCHEMA_HINT}\n\n"
-            f"Hint: call fl.preprocess(df) first, or pass preprocess=True "
-            f"to fl.evaluate()."
+            f"Hint: call fl.preprocess(df, config=cfg) before passing "
+            f"the panel to fl.evaluate / build_artifacts."
         )
 
 

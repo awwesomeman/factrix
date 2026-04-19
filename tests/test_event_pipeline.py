@@ -119,7 +119,7 @@ class TestEventPipeline:
     def test_evaluate_returns_profile(self, strong_event):
         profile = fl.evaluate(
             strong_event, "test_event",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert isinstance(profile, EventProfile)
         assert profile.factor_name == "test_event"
@@ -127,7 +127,7 @@ class TestEventPipeline:
     def test_profile_has_event_metrics(self, strong_event):
         profile = fl.evaluate(
             strong_event, "test_event",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert profile.caar_mean != 0.0
         assert profile.bmp_sar_mean != 0.0
@@ -138,14 +138,14 @@ class TestEventPipeline:
     def test_clustering_in_multi_asset_profile(self, strong_event):
         profile = fl.evaluate(
             strong_event, "test_event",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert profile.clustering_hhi is not None
 
     def test_noise_fails_verdict(self, noise_event):
         profile = fl.evaluate(
             noise_event, "noise_event",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert profile.verdict() == "FAILED"
 
@@ -163,14 +163,14 @@ class TestSingleAsset:
     def test_no_clustering_in_single_asset(self, single_asset_event):
         profile = fl.evaluate(
             single_asset_event, "single_asset",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert profile.clustering_hhi is None
 
     def test_core_metrics_still_present(self, single_asset_event):
         profile = fl.evaluate(
             single_asset_event, "single_asset",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert profile.caar_mean != 0.0
         assert profile.event_hit_rate >= 0.0
@@ -190,7 +190,7 @@ class TestHighClustering:
     def test_diagnose_flags_high_clustering(self, high_clustering):
         profile = fl.evaluate(
             high_clustering, "cluster_test",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         if profile.clustering_hhi_normalized and profile.clustering_hhi_normalized > 0.3:
             codes = {d.code for d in profile.diagnose()}
@@ -225,14 +225,14 @@ class TestContinuousSignal:
                 rows.append({"date": d, "asset_id": a, "factor": factor_val,
                              "forward_return": daily_ret, "price": price})
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        profile = fl.evaluate(df, "continuous", config=EventConfig(), preprocess=False)
+        profile = fl.evaluate(df, "continuous", config=EventConfig())
         assert profile.event_ic is not None
 
     def test_event_ic_absent_for_discrete(self, strong_event):
         """When factor is {-1, 0, +1}, event_ic is skipped (None)."""
         profile = fl.evaluate(
             strong_event, "discrete",
-            config=EventConfig(), preprocess=False,
+            config=EventConfig(),
         )
         assert profile.event_ic is None
 

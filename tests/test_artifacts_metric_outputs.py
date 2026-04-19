@@ -49,7 +49,7 @@ class TestCanonicalKeysCS:
     def test_all_canonical_keys_present(self):
         df = _panel()
         _, arts = fl.evaluate(
-            df, "cs_canonical", preprocess=False, return_artifacts=True,
+            df, "cs_canonical", return_artifacts=True,
         )
         missing = _CS_CANONICAL_KEYS - arts.metric_outputs.keys()
         assert not missing, (
@@ -60,7 +60,7 @@ class TestCanonicalKeysCS:
     def test_opt_in_keys_absent_by_default(self):
         df = _panel()
         _, arts = fl.evaluate(
-            df, "cs_default", preprocess=False, return_artifacts=True,
+            df, "cs_default", return_artifacts=True,
         )
         opt_in = {"regime_ic", "multi_horizon_ic", "spanning_alpha"}
         present = opt_in & arts.metric_outputs.keys()
@@ -85,7 +85,7 @@ class TestOptInKeysCS:
         })
         cfg = fl.CrossSectionalConfig(regime_labels=regime_df)
         _, arts = fl.evaluate(
-            df, "cs_regime", preprocess=False,
+            df, "cs_regime",
             config=cfg, return_artifacts=True,
         )
         assert "regime_ic" in arts.metric_outputs
@@ -97,7 +97,7 @@ class TestOptInKeysCS:
         df = _panel(n_dates=120)
         cfg = fl.CrossSectionalConfig(multi_horizon_periods=[1, 5, 10])
         _, arts = fl.evaluate(
-            df, "cs_mh", preprocess=False,
+            df, "cs_mh",
             config=cfg, return_artifacts=True,
         )
         assert "multi_horizon_ic" in arts.metric_outputs
@@ -112,7 +112,7 @@ class TestMetadataIsReadOnly:
     def test_assignment_raises_type_error(self):
         df = _panel()
         _, arts = fl.evaluate(
-            df, "cs_readonly", preprocess=False, return_artifacts=True,
+            df, "cs_readonly", return_artifacts=True,
         )
         meta = arts.metric_outputs["ic"].metadata
         with pytest.raises(TypeError):
@@ -121,7 +121,7 @@ class TestMetadataIsReadOnly:
     def test_deletion_raises_type_error(self):
         df = _panel()
         _, arts = fl.evaluate(
-            df, "cs_readonly_del", preprocess=False, return_artifacts=True,
+            df, "cs_readonly_del", return_artifacts=True,
         )
         meta = arts.metric_outputs["ic"].metadata
         with pytest.raises(TypeError):
@@ -130,7 +130,7 @@ class TestMetadataIsReadOnly:
     def test_reads_still_work(self):
         df = _panel()
         _, arts = fl.evaluate(
-            df, "cs_readonly_read", preprocess=False, return_artifacts=True,
+            df, "cs_readonly_read", return_artifacts=True,
         )
         # Reads must keep working — proxy only blocks writes.
         meta = arts.metric_outputs["ic"].metadata
@@ -147,7 +147,7 @@ class TestKeysMatchMetricOutputName:
     def test_keys_equal_name(self):
         df = _panel()
         _, arts = fl.evaluate(
-            df, "cs_name_match", preprocess=False, return_artifacts=True,
+            df, "cs_name_match", return_artifacts=True,
         )
         for key, m in arts.metric_outputs.items():
             assert key == m.name, (

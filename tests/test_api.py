@@ -16,6 +16,12 @@ from factorlib.evaluation.profiles import (
 
 
 def _panel_with_price(n_dates: int, n_assets: int, signal: float, seed: int):
+    """Build a raw panel and preprocess it with the default CS config.
+
+    All callers in this module use default CrossSectionalConfig (no
+    forward_periods override), so preprocessing in the fixture matches
+    what they'd otherwise do with fl.preprocess at the call site.
+    """
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     prices = {f"a{i}": 100.0 for i in range(n_assets)}
@@ -29,7 +35,8 @@ def _panel_with_price(n_dates: int, n_assets: int, signal: float, seed: int):
                 "date": d, "asset_id": f"a{i}",
                 "factor": float(f_vec[i]), "price": float(prices[f"a{i}"]),
             })
-    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    raw = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return fl.preprocess(raw, config=fl.CrossSectionalConfig())
 
 
 class TestListFactorTypes:
@@ -69,6 +76,19 @@ class TestEvaluate:
         cfg = fl.CrossSectionalConfig()
         with pytest.raises(TypeError, match="Pick one"):
             fl.evaluate(df, "x", config=cfg, n_groups=5)
+
+    def test_raw_panel_raises_strict_gate(self):
+        # Build a raw panel (no forward_return) — strict gate must refuse
+        # rather than silently auto-preprocess.
+        rng = np.random.default_rng(777)
+        raw = pl.DataFrame({
+            "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(10)],
+            "asset_id": ["a0"] * 10,
+            "factor": rng.standard_normal(10),
+            "price": 100.0 + rng.standard_normal(10),
+        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with pytest.raises(ValueError, match="preprocessed panel"):
+            fl.evaluate(raw, "x", factor_type="cross_sectional")
 
     def test_return_artifacts_returns_tuple(self):
         from factorlib.evaluation._protocol import Artifacts

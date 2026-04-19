@@ -72,6 +72,11 @@ def _panel_with_base(
     basis_df = pl.DataFrame(basis_rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms"))
     )
+    # Preprocess the factor panel so evaluate's strict gate passes. All
+    # callers here use default forward_periods; ortho runs inside
+    # build_artifacts after preprocess, so this ordering matches the
+    # production pipeline.
+    factor_df = fl.preprocess(factor_df, config=fl.CrossSectionalConfig())
     return factor_df, basis_df
 
 

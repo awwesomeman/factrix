@@ -44,7 +44,7 @@ class TestRegimeLabelsTZMismatch:
         )
         cfg = fl.CrossSectionalConfig(regime_labels=regime)
         with pytest.raises(ValueError, match="regime_labels"):
-            fl.evaluate(df, "tz_mismatch", config=cfg, preprocess=False)
+            fl.evaluate(df, "tz_mismatch", config=cfg)
 
     def test_time_unit_mismatch_raises(self):
         df = _main_panel()  # Datetime("ms")
@@ -54,7 +54,7 @@ class TestRegimeLabelsTZMismatch:
         }).with_columns(pl.col("date").cast(pl.Datetime("us")))
         cfg = fl.CrossSectionalConfig(regime_labels=regime)
         with pytest.raises(ValueError, match="dtype mismatch"):
-            fl.evaluate(df, "unit_mismatch", config=cfg, preprocess=False)
+            fl.evaluate(df, "unit_mismatch", config=cfg)
 
     def test_matching_tz_succeeds(self):
         # Both TZ-aware UTC → should work, not raise.
@@ -68,7 +68,7 @@ class TestRegimeLabelsTZMismatch:
             pl.col("date").cast(pl.Datetime("ms")).dt.replace_time_zone("UTC")
         )
         cfg = fl.CrossSectionalConfig(regime_labels=regime)
-        p = fl.evaluate(df, "tz_match", config=cfg, preprocess=False)
+        p = fl.evaluate(df, "tz_match", config=cfg)
         assert p.regime_ic_min_tstat is not None
 
 
@@ -86,4 +86,4 @@ class TestSpanningBaseSpreadsTZMismatch:
             spanning_base_spreads={"fake_base": base_spread},
         )
         with pytest.raises(ValueError, match=r"spanning_base_spreads\['fake_base'\]"):
-            fl.evaluate(df, "span_tz", config=cfg, preprocess=False)
+            fl.evaluate(df, "span_tz", config=cfg)

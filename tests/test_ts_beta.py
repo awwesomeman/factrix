@@ -106,7 +106,7 @@ class TestMacroCommonPipeline:
     def test_evaluate_returns_profile(self, strong_common):
         profile = fl.evaluate(
             strong_common, "VIX",
-            config=MacroCommonConfig(ts_window=60), preprocess=False,
+            config=MacroCommonConfig(ts_window=60),
         )
         assert isinstance(profile, MacroCommonProfile)
         assert profile.factor_name == "VIX"
@@ -114,14 +114,14 @@ class TestMacroCommonPipeline:
     def test_strong_signal_passes_verdict(self, strong_common):
         profile = fl.evaluate(
             strong_common, "VIX",
-            config=MacroCommonConfig(ts_window=60), preprocess=False,
+            config=MacroCommonConfig(ts_window=60),
         )
         assert profile.verdict() == "PASS"
 
     def test_noise_fails_verdict(self, noise_common):
         profile = fl.evaluate(
             noise_common, "noise",
-            config=MacroCommonConfig(ts_window=60), preprocess=False,
+            config=MacroCommonConfig(ts_window=60),
         )
         assert profile.verdict() == "FAILED"
 

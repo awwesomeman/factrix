@@ -27,7 +27,8 @@ def _cs_panel(n_dates: int, n_assets: int, seed: int = 0) -> pl.DataFrame:
                 "date": d, "asset_id": f"a{i}",
                 "factor": float(f[i]), "price": float(prices[f"a{i}"]),
             })
-    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    raw = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return fl.preprocess(raw, config=fl.CrossSectionalConfig())
 
 
 class TestMetricReasonContract:
@@ -141,6 +142,7 @@ class TestIntentionalSkipDoesNotFire:
                     "factor": direction, "price": price,
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = fl.preprocess(df, config=EventConfig())
         profile = fl.evaluate(df, "discrete_signal", config=EventConfig())
         # event_ic is None but should not be listed as "insufficient"
         # (it's an intentional skip, not a data shortage).

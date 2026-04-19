@@ -158,7 +158,7 @@ class TestMacroPanelPipeline:
     def test_evaluate_returns_profile(self, strong_macro):
         profile = fl.evaluate(
             strong_macro, "test_macro",
-            config=MacroPanelConfig(), preprocess=False,
+            config=MacroPanelConfig(),
         )
         assert isinstance(profile, MacroPanelProfile)
         assert profile.factor_name == "test_macro"
@@ -166,7 +166,7 @@ class TestMacroPanelPipeline:
     def test_strong_signal_passes(self, strong_macro):
         profile = fl.evaluate(
             strong_macro, "test_macro",
-            config=MacroPanelConfig(), preprocess=False,
+            config=MacroPanelConfig(),
         )
         assert profile.verdict() == "PASS"
         assert profile.fm_beta_p < 0.05
@@ -174,14 +174,14 @@ class TestMacroPanelPipeline:
     def test_noise_fails(self, noise_macro):
         profile = fl.evaluate(
             noise_macro, "noise_macro",
-            config=MacroPanelConfig(), preprocess=False,
+            config=MacroPanelConfig(),
         )
         assert profile.verdict() == "FAILED"
 
     def test_tiny_n_diagnoses(self, tiny_macro):
         profile = fl.evaluate(
             tiny_macro, "tiny_macro",
-            config=MacroPanelConfig(min_cross_section=10), preprocess=False,
+            config=MacroPanelConfig(min_cross_section=10),
         )
         codes = {d.code for d in profile.diagnose()}
         assert any("cross_section" in c or "cross-section" in c for c in codes)

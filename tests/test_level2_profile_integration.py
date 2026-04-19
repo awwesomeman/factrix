@@ -34,6 +34,10 @@ def _cs_panel_with_price(
     signal: float = 0.3,
     seed: int = 101,
 ) -> pl.DataFrame:
+    """Raw panel → preprocessed (default CS config). All callers here use
+    default forward_periods, so baking preprocess into the fixture keeps
+    tests terse while honoring evaluate's strict preprocess precondition.
+    """
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     prices = {f"a{i}": 100.0 for i in range(n_assets)}
@@ -47,7 +51,8 @@ def _cs_panel_with_price(
                 "date": d, "asset_id": f"a{i}",
                 "factor": float(f[i]), "price": float(prices[f"a{i}"]),
             })
-    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    raw = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return fl.preprocess(raw, config=fl.CrossSectionalConfig())
 
 
 class TestDefaultsOff:
@@ -105,7 +110,7 @@ class TestMultiHorizonIc:
         ]
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         cfg = fl.CrossSectionalConfig(multi_horizon_periods=[1, 5, 10, 20])
-        p = fl.evaluate(df, "x", config=cfg, preprocess=False)
+        p = fl.evaluate(df, "x", config=cfg)
         assert p.multi_horizon_ic_retention is None
         assert p.multi_horizon_ic_monotonic is None
 
