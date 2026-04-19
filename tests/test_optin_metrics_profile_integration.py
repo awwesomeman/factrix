@@ -1,11 +1,14 @@
-"""T3.S2 integration tests: Level 2 metrics surfaced on CS Profile.
+"""Integration tests for opt-in metrics surfaced on ``CrossSectionalProfile``.
 
-Covers:
-  - config.regime_labels → regime_ic_min_tstat / _consistent populated
-  - price panel → multi_horizon retention / monotonic populated
-  - config.spanning_base_spreads → spanning_alpha_t / _p populated
-  - all three None-by-default when config inputs missing
-  - diagnose rules fire on pathological cases
+Three metrics — ``regime_ic``, ``multi_horizon_ic``, ``spanning_alpha`` —
+populate Profile fields only when the user supplies the corresponding
+config input (``regime_labels`` / ``multi_horizon_periods`` /
+``spanning_base_spreads``). This module covers:
+
+  - fields populated when config inputs are supplied
+  - fields stay ``None`` when they aren't
+  - diagnose rules fire on pathological cases (R² high, direction flip,
+    retention near zero)
 """
 
 from __future__ import annotations

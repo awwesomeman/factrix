@@ -260,7 +260,7 @@ class TestStandaloneMetrics:
 # describe_profile reflects the typed dataclass fields
 # ---------------------------------------------------------------------------
 
-class TestDescribeProfile:
+class TestDescribeEventProfile:
     def test_describe_event_signal(self, capsys):
         fl.describe_profile("event_signal")
         out = capsys.readouterr().out

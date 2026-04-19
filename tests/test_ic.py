@@ -1,10 +1,12 @@
 """Tests for factorlib.metrics.ic."""
 
-import polars as pl
-import pytest
 from datetime import datetime, timedelta
 
-from factorlib.metrics.ic import compute_ic, ic, ic_ir
+import numpy as np
+import polars as pl
+import pytest
+
+from factorlib.metrics.ic import compute_ic, ic, ic_ir, regime_ic
 
 
 class TestComputeIC:
@@ -74,4 +76,51 @@ class TestICIR:
             "ic": [0.05, 0.03, 0.04],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic_ir(df)
+        assert result.value == 0.0
+
+
+class TestRegimeIC:
+    def _make_ic_series(self, n: int = 30, mean: float = 0.05):
+        rng = np.random.default_rng(42)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        return pl.DataFrame({
+            "date": dates,
+            "ic": rng.normal(mean, 0.02, n),
+        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_time_bisection_fallback(self):
+        ic_df = self._make_ic_series(30)
+        result = regime_ic(ic_df)
+        assert result.name == "regime_ic"
+        assert "per_regime" in result.metadata
+        assert "first_half" in result.metadata["per_regime"]
+        assert "second_half" in result.metadata["per_regime"]
+
+    def test_with_regime_labels(self):
+        ic_df = self._make_ic_series(30)
+        dates = ic_df["date"].to_list()
+        labels = pl.DataFrame({
+            "date": dates,
+            "regime": ["bull"] * 15 + ["bear"] * 15,
+        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = regime_ic(ic_df, regime_labels=labels)
+        assert "bull" in result.metadata["per_regime"]
+        assert "bear" in result.metadata["per_regime"]
+
+    def test_direction_consistency(self):
+        # All positive IC → consistent
+        ic_df = self._make_ic_series(30, mean=0.05)
+        result = regime_ic(ic_df)
+        assert result.metadata["direction_consistent"] is True
+
+    def test_summary_uses_mean_value_min_stat(self):
+        ic_df = self._make_ic_series(30, mean=0.05)
+        result = regime_ic(ic_df)
+        assert result.metadata["aggregation"] == "mean_value_min_stat"
+        assert result.stat is not None
+        assert result.significance != ""
+
+    def test_insufficient_data(self):
+        ic_df = self._make_ic_series(5)
+        result = regime_ic(ic_df)
         assert result.value == 0.0

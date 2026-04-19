@@ -1,10 +1,15 @@
 """Tests for factorlib.metrics.quantile."""
 
+from datetime import datetime, timedelta
+
+import numpy as np
+import polars as pl
 import pytest
 
 from factorlib.metrics.quantile import (
-    quantile_spread,
     compute_spread_series,
+    quantile_spread,
+    quantile_spread_vw,
 )
 
 
@@ -57,3 +62,41 @@ class TestQuantileSpread:
             assert "long_stat" in result.metadata
             assert "short_stat" in result.metadata
             assert "p_value" in result.metadata
+
+
+class TestQuantileSpreadVW:
+    def _make_panel_with_cap(self, n_dates: int = 60, n_assets: int = 20):
+        rng = np.random.default_rng(42)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = []
+        for d in dates:
+            f = rng.standard_normal(n_assets)
+            r = 0.5 * f + 0.5 * rng.standard_normal(n_assets)
+            caps = rng.lognormal(10, 1, n_assets)
+            for i in range(n_assets):
+                rows.append({
+                    "date": d, "asset_id": f"s_{i}",
+                    "factor": float(f[i]),
+                    "forward_return": float(r[i]),
+                    "market_cap": float(caps[i]),
+                })
+        return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_basic(self):
+        df = self._make_panel_with_cap()
+        result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
+        assert result.name == "q1_q5_spread_vw"
+        # With signal, VW spread should be nonzero
+        assert result.value != 0.0 or result.metadata.get("reason")
+
+    def test_missing_weight_col(self):
+        df = pl.DataFrame({
+            "date": [datetime(2024, 1, 1)] * 5,
+            "asset_id": [f"s_{i}" for i in range(5)],
+            "factor": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
+        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
+        assert result.value == 0.0
+        assert result.metadata.get("reason") == "missing_weight_column"
+        assert result.metadata.get("missing_column") == "market_cap"
