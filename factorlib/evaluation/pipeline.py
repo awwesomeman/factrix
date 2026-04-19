@@ -140,6 +140,34 @@ def _build_cs_artifacts(
     )
 
 
+def _check_date_dtype_match(
+    main_dtype: object,
+    other: pl.DataFrame,
+    *,
+    source: str,
+) -> None:
+    """Raise if ``other["date"]`` dtype/TZ doesn't match ``main_dtype``.
+
+    factorlib is TZ-agnostic — any Datetime time_unit / time_zone is
+    allowed — but the main panel and each auxiliary DataFrame
+    (``regime_labels``, each ``spanning_base_spreads`` entry) must agree
+    so polars joins don't raise cryptic schema errors deep in a metric.
+    """
+    if "date" not in other.columns:
+        raise ValueError(
+            f"{source} missing 'date' column; got {other.columns}."
+        )
+    other_dtype = other.schema["date"]
+    if other_dtype != main_dtype:
+        raise ValueError(
+            f"date dtype mismatch: main panel uses {main_dtype}, "
+            f"{source} uses {other_dtype}. Normalize both sides to the "
+            f"same Datetime time_unit and timezone (fl.adapt promotes "
+            f"pl.Date → pl.Datetime('ms'); for other casts use "
+            f"`df.with_columns(pl.col('date').cast(pl.Datetime('ms')))`)."
+        )
+
+
 def _augment_level2_intermediates(
     intermediates: dict[str, pl.DataFrame],
     metric_outputs: dict[str, MetricOutput],
@@ -166,7 +194,12 @@ def _augment_level2_intermediates(
     from factorlib.metrics.ic import multi_horizon_ic, regime_ic
     from factorlib.metrics.spanning import spanning_alpha
 
+    main_date_dtype = df.schema["date"]
+
     if config.regime_labels is not None:
+        _check_date_dtype_match(
+            main_date_dtype, config.regime_labels, source="regime_labels",
+        )
         reg = _stash(
             metric_outputs,
             regime_ic(ic_series, regime_labels=config.regime_labels),
@@ -213,6 +246,11 @@ def _augment_level2_intermediates(
             })
 
     if config.spanning_base_spreads:
+        for name, base_df in config.spanning_base_spreads.items():
+            _check_date_dtype_match(
+                main_date_dtype, base_df,
+                source=f"spanning_base_spreads['{name}']",
+            )
         sp = _stash(
             metric_outputs,
             spanning_alpha(

@@ -615,6 +615,31 @@ Customizing verdict threshold:
 profile.verdict(threshold=3.0)  # Harvey-Liu-Zhu (2016) strict bar
 ```
 
+## Frequency + Timezone
+
+**Scope:** factorlib targets **daily-to-monthly bar-based** factor
+evaluation. Intraday / high-frequency (tick-level, sub-second) analysis
+is not tested and not supported — per-date cross-sectional IC / CAAR /
+FM lambda semantics don't translate cleanly to tick data.
+
+**Frequency:** `forward_periods: int` is measured in **rows**, not
+calendar time. A CS panel sampled weekly with `forward_periods=1` means
+"1-week forward return"; same library, same metrics.
+
+**Date dtype:** `fl.adapt(...)` promotes `pl.Date` to
+`pl.Datetime("ms")` automatically. Any other `pl.Datetime` time_unit
+(`us` / `ns`) passes through untouched.
+
+**Timezone:** factorlib is TZ-agnostic — `date` may be naive or any
+TZ-aware `pl.Datetime`. The library never injects or strips TZ info.
+The constraint is **consistency**: the main panel, `regime_labels`,
+and every `spanning_base_spreads` entry must share the same dtype and
+timezone. factorlib raises at the join boundary with a clear message
+when they mismatch, rather than letting polars emit a cryptic schema
+error deep in a metric. Naive `pl.Datetime("ms")` is recommended for
+daily factor data — TZ adds baggage without benefit when `date` is a
+"trading day" label.
+
 ## Statistical Safeguards
 
 - **t+1 entry:** Forward return uses `price[t+1+N] / price[t+1]` — entry at next bar after signal, enforcing causal boundary
