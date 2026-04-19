@@ -176,8 +176,10 @@ class CrossSectionalProfile:
         ns_m = _stash(outputs, net_spread(
             spread_m.value, turn_m.value, config.estimated_cost_bps,
         ))
+        # Q1 = top 1/n_groups — mirrors the quantile_spread Q1 definition
+        # so q1_concentration and q1_q5_spread report on the same bucket.
         conc_m = _stash(outputs, q1_concentration(
-            artifacts.prepared, forward_periods=fp, q_top=config.q_top,
+            artifacts.prepared, forward_periods=fp, q_top=1.0 / config.n_groups,
         ))
 
         ortho_stats = artifacts.intermediates.get("ortho_stats")
