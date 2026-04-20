@@ -1,7 +1,11 @@
-"""Generator for experiments/demo.ipynb — run once, then discard.
+"""Generator for examples/demo.ipynb.
 
 Produces a clean notebook showing every factorlib API level across all four
-factor_types against the bundled TW daily panel.
+factor_types. The opening section uses ``factorlib.datasets`` so the notebook
+runs from a fresh clone — no external parquet required. All sections use
+synthetic panels from ``fl.datasets``.
+
+Run from repo root: ``uv run python scripts/build_demo.py``
 """
 
 from __future__ import annotations
@@ -35,7 +39,9 @@ CELLS: list[dict] = [
         "- 四種 `factor_type`：`cross_sectional` / `event_signal` / `macro_panel` / `macro_common`\n"
         "- 六個使用層級（Level 0–6）：單因子 → 自訂 config → 個別 metrics → "
         "batch + BHY → redundancy → charts → MLflow\n"
-        "- 資料：`tw_stock_daily_2017_2025.parquet`（TW 全市場日線），切出 2023-01–2024-06 當 demo 視窗。"
+        "\n"
+        "資料來源全部是 `fl.datasets` 的合成 panel（seeded），從 fresh clone 可以直接跑，**不需要任何外部 parquet**。\n"
+        "如果要改跑自己手上的真實 panel，把 §0.9 那格的 `raw_demo = ...` 換成 `fl.adapt(your_df, ...)` 即可，下游 cells 都建立在 canonical `date / asset_id / price` 之上。"
     ),
     md("## 0. Setup"),
     code(
@@ -48,21 +54,42 @@ CELLS: list[dict] = [
         "pl.Config.set_fmt_str_lengths(60)\n"
         "print('factorlib version:', getattr(fl, '__version__', 'dev'))"
     ),
+    md(
+        "## 0.5 Synthetic quick-start — 不需外部資料\n"
+        "\n"
+        "`fl.datasets` 提供兩個 seeded 生成器：\n"
+        "- `make_cs_panel(n_assets, n_dates, ic_target=...)` — CS 面板，每期 factor 與 N 日 forward return 的 CS 相關性 ≈ `ic_target`。\n"
+        "- `make_event_panel(n_assets, n_dates, event_rate, post_event_drift_bps)` — 事件訊號（`factor ∈ {-1, 0, +1}`）加上 post-event drift。\n"
+        "\n"
+        "輸出 canonical columns `date, asset_id, price, factor`；下一步照一般流程 `fl.preprocess → fl.evaluate`。\n"
+        "下面這段 cell 示範完整 end-to-end：合成資料 → preprocess → evaluate → profile。後續 sections 會用更大的合成 panel 展示 factor generators、batch、event、macro 等 API。"
+    ),
     code(
-        "# 載入原始 TW 日線，用 fl.adapt 把 user 欄位名對應到 factorlib canonical names\n"
-        "# (canonical = date / asset_id / price)\n"
-        "raw = pl.read_parquet('../tw_stock_daily_2017_2025.parquet')\n"
-        "raw_demo = fl.adapt(raw, date='date', asset_id='ticker', price='close_adj')\n"
-        "\n"
-        "# validation schema 要求 date 為 Datetime(ms)，原始是 pl.Date → 轉型\n"
-        "raw_demo = raw_demo.with_columns(pl.col('date').cast(pl.Datetime('ms')))\n"
-        "\n"
-        "# 切出 2023-01 ~ 2024-06 demo 視窗（控制 runtime）\n"
-        "raw_demo = raw_demo.filter(\n"
-        "    (pl.col('date') >= pl.datetime(2023, 1, 1))\n"
-        "    & (pl.col('date') < pl.datetime(2024, 7, 1))\n"
+        "cfg = fl.CrossSectionalConfig(forward_periods=5)\n"
+        "synthetic_raw = fl.datasets.make_cs_panel(\n"
+        "    n_assets=100, n_dates=500, ic_target=0.04, forward_periods=5, seed=2024,\n"
         ")\n"
-        "print('rows:', raw_demo.height, '| assets:', raw_demo['asset_id'].n_unique())\n"
+        "print('synthetic raw:', synthetic_raw.shape, synthetic_raw.columns)\n"
+        "\n"
+        "synthetic_prepared = fl.preprocess(synthetic_raw, config=cfg)\n"
+        "synthetic_profile = fl.evaluate(synthetic_prepared, 'synthetic', config=cfg)\n"
+        "print(f'realized ic_mean = {synthetic_profile.ic_mean:.4f} '\n"
+        "      f'(target was 0.04)')\n"
+        "print('verdict:', synthetic_profile.verdict())"
+    ),
+    md(
+        "## 0.9 共用 price panel（給 §1 之後的所有 cells）\n"
+        "\n"
+        "用 `fl.datasets.make_cs_panel` 產一份 100 資產 × 500 日的合成 price panel，只留 canonical `date / asset_id / price` — factor 欄位在這裡丟掉，後續 sections 會用 `factorlib.factors` 的 generator 從價格重算動量/波動度等真正的候選因子。\n"
+        "若要換成真實資料，只要把這格的 `raw_demo = ...` 改成 `fl.adapt(your_df, date=..., asset_id=..., price=...)` 即可。"
+    ),
+    code(
+        "raw_demo = (\n"
+        "    fl.datasets.make_cs_panel(n_assets=100, n_dates=500, seed=2024)\n"
+        "    .select(['date', 'asset_id', 'price'])\n"
+        ")\n"
+        "print('rows:', raw_demo.height, '| assets:', raw_demo['asset_id'].n_unique(),\n"
+        "      '| span:', raw_demo['date'].min(), '->', raw_demo['date'].max())\n"
         "raw_demo.head(3)"
     ),
     md(
@@ -100,10 +127,12 @@ CELLS: list[dict] = [
     md(
         "### 2.2 Level 0 — 最簡單 `fl.evaluate`\n"
         "\n"
-        "一行跑完 preprocess + all metrics + diagnostics，回傳 `CrossSectionalProfile`（frozen dataclass）。"
+        "`fl.preprocess` 與 `fl.evaluate` 是兩步驟：preprocess 產出含 `forward_return` 等中間欄位的 prepared panel，evaluate 再跑 all metrics + diagnostics，回傳 `CrossSectionalProfile`（frozen dataclass）。把 preprocess 留在 user code 是為了避免 config 兩邊不一致偷偷壞掉 canonical_p。"
     ),
     code(
-        "profile = fl.evaluate(mom20, 'Mom_20D', factor_type='cross_sectional')\n"
+        "cfg_default = fl.CrossSectionalConfig()\n"
+        "mom20_prep = fl.preprocess(mom20, config=cfg_default)\n"
+        "profile = fl.evaluate(mom20_prep, 'Mom_20D', config=cfg_default)\n"
         "\n"
         "print('type:       ', type(profile).__name__)\n"
         "print('verdict:    ', profile.verdict())\n"
@@ -129,12 +158,12 @@ CELLS: list[dict] = [
         "cfg = fl.CrossSectionalConfig(\n"
         "    forward_periods=10,            # 10 日 forward return\n"
         "    n_groups=5,                    # 5 組 quantile\n"
-        "    q_top=0.2,                     # Q1 取前 20%\n"
         "    mad_n=3.0,\n"
         "    return_clip_pct=(0.01, 0.99),\n"
         "    estimated_cost_bps=30,\n"
         ")\n"
-        "profile_10d = fl.evaluate(mom20, 'Mom_20D_h10', config=cfg)\n"
+        "mom20_prep_10d = fl.preprocess(mom20, config=cfg)\n"
+        "profile_10d = fl.evaluate(mom20_prep_10d, 'Mom_20D_h10', config=cfg)\n"
         "print('verdict @10d:', profile_10d.verdict(), '| ic_ir:', f'{profile_10d.ic_ir:+.3f}')"
     ),
     md(
@@ -180,7 +209,9 @@ CELLS: list[dict] = [
         "    'Mom_60_5': mom60,\n"
         "    'Vol_20D': vol20,\n"
         "}\n"
-        "ps = fl.evaluate_batch(factors_map, factor_type='cross_sectional')\n"
+        "cs_cfg = fl.CrossSectionalConfig()\n"
+        "prepared_map = {name: fl.preprocess(df, config=cs_cfg) for name, df in factors_map.items()}\n"
+        "ps = fl.evaluate_batch(prepared_map, config=cs_cfg)\n"
         "print('ProfileSet size:', len(ps), '| profile class:', ps.profile_cls.__name__)\n"
         "ps.to_polars().select(['factor_name', 'ic_mean', 'ic_ir', 'quantile_spread', 'canonical_p'])  # quick glance\n"
     ),
@@ -209,7 +240,7 @@ CELLS: list[dict] = [
     code(
         "# redundancy_matrix 需要 per-factor Artifacts；用 keep_artifacts=True 保留。\n"
         "ps2, arts = fl.evaluate_batch(\n"
-        "    factors_map, factor_type='cross_sectional', keep_artifacts=True,\n"
+        "    prepared_map, config=cs_cfg, keep_artifacts=True,\n"
         ")\n"
         "\n"
         "redund = fl.redundancy_matrix(ps2, method='value_series', artifacts=arts)\n"
@@ -299,7 +330,8 @@ CELLS: list[dict] = [
         "    cluster_window=3,\n"
         "    adjust_clustering='none',\n"
         ")\n"
-        "ev_profile = fl.evaluate(event_df, 'GoldenCross', config=ev_cfg)\n"
+        "event_prepared = fl.preprocess(event_df, config=ev_cfg)\n"
+        "ev_profile = fl.evaluate(event_prepared, 'GoldenCross', config=ev_cfg)\n"
         "\n"
         "print('type:           ', type(ev_profile).__name__)\n"
         "print('n_events:       ', ev_profile.n_events)\n"
@@ -338,23 +370,20 @@ CELLS: list[dict] = [
         "訊號型態：連續值 + 小截面 `N < 30`。典型用法 = 跨國 CPI / 利差配置。\n"
         "Canonical test: `fm_beta_p`（Fama-MacBeth Newey-West t-test）。\n"
         "\n"
-        "由於 TW 資料只有單一市場，這裡用 **TWSE 產業分類** 當 pseudo-country（N≈30）。"
+        "這裡另外生一份 25 資產的合成 panel，當「25 個 pseudo-country」，示範小截面情境下的 `MacroPanelConfig`。"
     ),
-    md("### 4.1 Build industry-aggregated panel"),
+    md("### 4.1 Build small-N panel"),
     code(
-        "industry = (\n"
-        "    raw_demo.group_by(['date', 'twse_ind'])\n"
-        "    .agg(pl.col('price').mean())\n"
-        "    .rename({'twse_ind': 'asset_id'})\n"
-        "    .drop_nulls(['asset_id'])\n"
-        "    .sort(['asset_id', 'date'])\n"
+        "small_raw = (\n"
+        "    fl.datasets.make_cs_panel(n_assets=25, n_dates=500, seed=7)\n"
+        "    .select(['date', 'asset_id', 'price'])\n"
         ")\n"
-        "# factor = 產業相對 60 日均價偏離（簡單的 mean-reversion proxy）\n"
-        "industry = industry.with_columns(\n"
+        "# factor = 相對 60 日均價偏離（mean-reversion proxy）\n"
+        "small_panel = small_raw.with_columns(\n"
         "    (pl.col('price') / pl.col('price').rolling_mean(60).over('asset_id') - 1).alias('factor')\n"
         ").drop_nulls('factor')\n"
-        "print('industry N:', industry['asset_id'].n_unique())\n"
-        "industry.head(3)"
+        "print('small-N panel:', small_panel['asset_id'].n_unique(), 'assets |', small_panel.height, 'rows')\n"
+        "small_panel.head(3)"
     ),
     md("### 4.2 evaluate + `MacroPanelConfig`"),
     code(
@@ -364,7 +393,8 @@ CELLS: list[dict] = [
         "    demean_cross_section=False,\n"
         "    min_cross_section=10,\n"
         ")\n"
-        "mp_profile = fl.evaluate(industry, 'IndRelValue', config=mp_cfg)\n"
+        "small_prepared = fl.preprocess(small_panel, config=mp_cfg)\n"
+        "mp_profile = fl.evaluate(small_prepared, 'SmallRelValue', config=mp_cfg)\n"
         "\n"
         "print('verdict:              ', mp_profile.verdict())\n"
         "print('fm_beta_mean (λ):     ', f'{mp_profile.fm_beta_mean:+.5f}')\n"
@@ -411,7 +441,8 @@ CELLS: list[dict] = [
         "    ts_window=60,\n"
         "    tradable=False,\n"
         ")\n"
-        "mc_profile = fl.evaluate(common_df, 'MktVol', config=mc_cfg)\n"
+        "common_prepared = fl.preprocess(common_df, config=mc_cfg)\n"
+        "mc_profile = fl.evaluate(common_prepared, 'MktVol', config=mc_cfg)\n"
         "\n"
         "print('verdict:              ', mc_profile.verdict())\n"
         "print('n_assets:             ', mc_profile.n_assets)\n"
@@ -497,7 +528,7 @@ def main() -> None:
         "nbformat": 4,
         "nbformat_minor": 5,
     }
-    out = Path(__file__).parent / "demo.ipynb"
+    out = Path(__file__).resolve().parent.parent / "examples" / "demo.ipynb"
     out.write_text(json.dumps(nb, ensure_ascii=False, indent=1))
     print(f"wrote {out} ({len(CELLS)} cells)")
 
