@@ -245,12 +245,7 @@ class TestDerivedMetrics:
         f = fl.factor(noisy_panel, "Mom_20D", estimated_cost_bps=30.0)
         ns_default = f.net_spread()
         ns_cheap = f.net_spread(estimated_cost_bps=5.0)
-        # noisy_panel has 20 dates; with forward_periods=5 the non-overlap
-        # sample is 4 periods (< MIN_PORTFOLIO_PERIODS=5) so spread
-        # short-circuits → NaN. Skip the value inequality in that case —
-        # the override-doesn't-pollute-cache contract is what we're testing.
-        if not (math.isnan(ns_default.value) or math.isnan(ns_cheap.value)):
-            assert ns_cheap.value >= ns_default.value
+        assert ns_cheap.value >= ns_default.value
         cached = f.artifacts.metric_outputs["net_spread"]
         assert cached is ns_default
 

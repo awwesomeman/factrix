@@ -34,12 +34,16 @@ def tiny_panel() -> pl.DataFrame:
 
 @pytest.fixture
 def noisy_panel() -> pl.DataFrame:
-    """20 dates × 30 assets, seeded random with positive IC.
+    """40 dates × 30 assets, seeded random with positive IC.
 
     return = 0.3 * factor + 0.7 * noise → positive but noisy IC.
+
+    40 dates keeps the non-overlapping sample (fp=5 → 8 periods) above
+    MIN_PORTFOLIO_PERIODS=5 so spread/monotonicity tests actually exercise
+    the compute path instead of short-circuiting to NaN.
     """
     rng = np.random.default_rng(42)
-    n_dates, n_assets = 20, 30
+    n_dates, n_assets = 40, 30
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     assets = [f"asset_{i}" for i in range(n_assets)]
 

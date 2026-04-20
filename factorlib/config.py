@@ -82,7 +82,27 @@ class OrthoConfig:
 
 @dataclass(kw_only=True)
 class CrossSectionalConfig(BaseConfig):
-    """Config for cross-sectional factors (individual stock selection)."""
+    """Config for cross-sectional factors (individual stock selection).
+
+    Key knobs (inherited from ``BaseConfig``):
+        forward_periods: N-period forward return horizon (default 5).
+        n_groups: Quantile bucket count for long-short spread (default 10).
+        estimated_cost_bps: Per-side trading cost for breakeven analysis.
+        tie_policy: ``"ordinal"`` (default) breaks ties by row order →
+            balanced group sizes but injects sorting-artifact noise on
+            low-cardinality factors (binary signals, ESG buckets, sector
+            dummies). Switch to ``"average"`` when a UserWarning fires
+            about ``tie_ratio`` — tied assets share a bucket at the cost
+            of slightly unbalanced group sizes.
+
+    CS-specific:
+        mad_n: MAD winsorize cutoff (default 3σ-equivalent).
+        return_clip_pct: Forward-return percentile clip.
+        ortho: Optional OrthoConfig (or bare DataFrame) to residualize
+            the factor against a basis.
+        regime_labels / multi_horizon_periods / spanning_base_spreads:
+            Level-2 opt-in metrics (None → field stays None on Profile).
+    """
 
     factor_type: ClassVar[FactorType] = FactorType.CROSS_SECTIONAL
 
