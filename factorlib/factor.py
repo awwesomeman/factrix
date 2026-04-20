@@ -333,7 +333,7 @@ class CrossSectionalFactor(Factor):
                 n_groups=n_groups,
             )
         return self._cached_or_compute(
-            "long_short_spread", _qs, self.artifacts.prepared,
+            "quantile_spread", _qs, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             n_groups=self.config.n_groups,
             _precomputed_series=self.artifacts.intermediates.get("spread_series"),
@@ -601,7 +601,7 @@ class MacroPanelFactor(Factor):
                 n_groups=n_groups,
             )
         return self._cached_or_compute(
-            "long_short_spread", _qs, self.artifacts.prepared,
+            "quantile_spread", _qs, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             n_groups=self.config.n_groups,
             _precomputed_series=self.artifacts.intermediates.get("spread_series"),

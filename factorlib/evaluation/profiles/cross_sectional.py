@@ -55,8 +55,8 @@ class CrossSectionalProfile:
     # Monotonicity
     monotonicity: float
 
-    # long-short spread
-    long_short_spread: float
+    # Quantile long-short spread
+    quantile_spread: float
     spread_tstat: float
     spread_p: PValue
 
@@ -167,7 +167,7 @@ class CrossSectionalProfile:
         )
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, ic_values)
         spread_m = _memoized(
-            outputs, "long_short_spread", quantile_spread,
+            outputs, "quantile_spread", quantile_spread,
             artifacts.prepared,
             forward_periods=fp,
             n_groups=config.n_groups,
@@ -183,7 +183,7 @@ class CrossSectionalProfile:
             spread_m.value, turn_m.value, config.estimated_cost_bps,
         )
         # Q1 = top 1/n_groups — mirrors the quantile_spread Q1 definition
-        # so top_concentration and long_short_spread report on the same bucket.
+        # so top_concentration and quantile_spread report on the same bucket.
         conc_m = _memoized(
             outputs, "top_concentration", top_concentration,
             artifacts.prepared, forward_periods=fp, q_top=1.0 / config.n_groups,
@@ -232,7 +232,7 @@ class CrossSectionalProfile:
             "hit_rate": hit_m,
             "ic_trend": trend_m,
             "monotonicity": mono_m,
-            "long_short_spread": spread_m,
+            "quantile_spread": spread_m,
             "top_concentration": conc_m,
             "turnover": turn_m,
         })
@@ -248,7 +248,7 @@ class CrossSectionalProfile:
             ic_trend=float(trend_m.value),
             ic_trend_p=_pv(trend_m),
             monotonicity=float(mono_m.value),
-            long_short_spread=float(spread_m.value),
+            quantile_spread=float(spread_m.value),
             spread_tstat=float(spread_m.stat or 0.0),
             spread_p=_pv(spread_m),
             top_concentration=float(conc_m.value),

@@ -47,7 +47,7 @@ class TestScalarTable:
         assert "CrossSectionalProfile" in out
         # At least one canonical metric row
         assert "ic" in out
-        assert "long_short_spread" in out
+        assert "quantile_spread" in out
 
     def test_include_detail_false_omits_detail_section(self, capsys):
         df = _panel()

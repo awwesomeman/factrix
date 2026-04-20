@@ -111,7 +111,7 @@ CELLS: list[dict] = [
         "print('ic_mean:    ', f'{profile.ic_mean:+.4f}')\n"
         "print('ic_tstat:   ', f'{profile.ic_tstat:+.2f}')\n"
         "print('ic_ir:      ', f'{profile.ic_ir:+.3f}')\n"
-        "print('long-short spread:', f'{profile.long_short_spread:+.4f}')\n"
+        "print('long-short spread:', f'{profile.quantile_spread:+.4f}')\n"
         "print('turnover:   ', f'{profile.turnover:.2%}')\n"
         "print('net_spread: ', f'{profile.net_spread:+.4f}')"
     ),
@@ -158,7 +158,7 @@ CELLS: list[dict] = [
         "mono_m = monotonicity(prepared, forward_periods=cfg.forward_periods, n_groups=cfg.n_groups)\n"
         "\n"
         "# MetricOutput 的 p-value 放在 .metadata['p_value']，__repr__ 會印摘要\n"
-        "for name, out in [('ic', ic_m), ('ic_ir', ir_m), ('long_short_spread', spread_m), ('monotonicity', mono_m)]:\n"
+        "for name, out in [('ic', ic_m), ('ic_ir', ir_m), ('quantile_spread', spread_m), ('monotonicity', mono_m)]:\n"
         "    p = out.metadata.get('p_value')\n"
         "    p_str = 'n/a' if p is None else f'{p:.4f}'\n"
         "    stat_str = 'n/a' if out.stat is None else f'{out.stat:+.2f}'\n"
@@ -182,7 +182,7 @@ CELLS: list[dict] = [
         "}\n"
         "ps = fl.evaluate_batch(factors_map, factor_type='cross_sectional')\n"
         "print('ProfileSet size:', len(ps), '| profile class:', ps.profile_cls.__name__)\n"
-        "ps.to_polars().select(['factor_name', 'ic_mean', 'ic_ir', 'long_short_spread', 'canonical_p'])  # quick glance\n"
+        "ps.to_polars().select(['factor_name', 'ic_mean', 'ic_ir', 'quantile_spread', 'canonical_p'])  # quick glance\n"
     ),
     code(
         "# BHY 多重檢定 + 按 IC_IR 排序 + 取 top 2\n"
@@ -372,7 +372,7 @@ CELLS: list[dict] = [
         "print('fm_beta_p (canonical):', f'{mp_profile.fm_beta_p:.4f}')\n"
         "print('pooled_beta:          ', f'{mp_profile.pooled_beta:+.5f}  p={mp_profile.pooled_beta_p:.4f}')\n"
         "print('beta_sign_consistency:', f'{mp_profile.beta_sign_consistency:.2%}')\n"
-        "print('long_short_spread:         ', f'{mp_profile.long_short_spread:+.4f}')\n"
+        "print('quantile_spread:         ', f'{mp_profile.quantile_spread:+.4f}')\n"
         "print('median cross-section N:', mp_profile.median_cross_section_n)"
     ),
     md(

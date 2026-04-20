@@ -40,7 +40,7 @@ def _panel(n_dates: int = 80, n_assets: int = 30, seed: int = 7) -> pl.DataFrame
 
 _CS_CANONICAL_KEYS = frozenset({
     "ic", "ic_ir", "hit_rate", "ic_trend", "monotonicity",
-    "long_short_spread", "turnover", "breakeven_cost", "net_spread",
+    "quantile_spread", "turnover", "breakeven_cost", "net_spread",
     "top_concentration",
 })
 

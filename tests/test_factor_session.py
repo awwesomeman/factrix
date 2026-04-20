@@ -143,7 +143,7 @@ class TestCacheBehavior:
         f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
         base = f.quantile_spread()
         override_result = f.quantile_spread(n_groups=3)
-        cached = f.artifacts.metric_outputs["long_short_spread"]
+        cached = f.artifacts.metric_outputs["quantile_spread"]
         # Cache reflects config-bound n_groups, not the override.
         assert cached.value == base.value
         assert cached is not override_result
@@ -153,7 +153,7 @@ class TestCacheBehavior:
         (not the cached proxy-wrapped one)."""
         f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
         f.quantile_spread()  # populate cache
-        cached = f.artifacts.metric_outputs["long_short_spread"]
+        cached = f.artifacts.metric_outputs["quantile_spread"]
         override = f.quantile_spread(n_groups=3)
         # Override did not return the cached object.
         assert override is not cached
@@ -204,7 +204,7 @@ class TestDerivedMetrics:
         be = f.breakeven_cost()
         assert isinstance(be, MetricOutput)
         # Both inputs should now be cached
-        assert "long_short_spread" in f.artifacts.metric_outputs
+        assert "quantile_spread" in f.artifacts.metric_outputs
         assert "turnover" in f.artifacts.metric_outputs
         assert "breakeven_cost" in f.artifacts.metric_outputs
 

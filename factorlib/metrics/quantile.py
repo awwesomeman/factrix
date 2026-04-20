@@ -105,7 +105,7 @@ def quantile_spread(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="long_short_spread", value=0.0, stat=0.0, significance="",
+            name="quantile_spread", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": n,
@@ -138,7 +138,7 @@ def quantile_spread(
     p_short = _p_value_from_t(t_short, len(short_arr))
 
     return MetricOutput(
-        name="long_short_spread",
+        name="quantile_spread",
         value=mean_spread,
         stat=t,
         significance=_significance_marker(p),
@@ -184,7 +184,7 @@ def quantile_spread_vw(
     """
     if weight_col not in df.columns:
         return MetricOutput(
-            name="long_short_spread_vw", value=0.0, stat=0.0, significance="",
+            name="quantile_spread_vw", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "missing_weight_column",
                 "missing_column": weight_col,
@@ -223,7 +223,7 @@ def quantile_spread_vw(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="long_short_spread_vw", value=0.0, stat=0.0, significance="",
+            name="quantile_spread_vw", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": n,
@@ -238,7 +238,7 @@ def quantile_spread_vw(
 
     p = _p_value_from_t(t, n)
     return MetricOutput(
-        name="long_short_spread_vw",
+        name="quantile_spread_vw",
         value=mean_spread,
         stat=t,
         significance=_significance_marker(p),

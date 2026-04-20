@@ -146,7 +146,7 @@ class TestBetaSignConsistency:
 class TestQuantileSpreadSmallN:
     def test_strong_signal_positive_spread(self, strong_macro):
         result = quantile_spread(strong_macro, forward_periods=1, n_groups=3)
-        assert result.name == "long_short_spread"
+        assert result.name == "quantile_spread"
         assert result.value > 0
 
 
