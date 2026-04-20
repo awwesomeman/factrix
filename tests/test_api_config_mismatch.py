@@ -141,6 +141,29 @@ class TestPreprocessDoublePass:
 # _CompactedPrepared error message points at the root cause
 # ---------------------------------------------------------------------------
 
+class TestPublicExportSurface:
+    """Q14: ``Factor`` base class is not in ``fl.__all__`` — users should
+    reach for ``fl.factor()`` factory, not construct the base directly."""
+
+    def test_factor_base_not_in_all(self):
+        import factorlib as fl
+        assert "Factor" not in fl.__all__, (
+            "Factor base is intentionally excluded — use fl.factor() factory. "
+            "Import from factorlib.factor directly if you need it for type hints."
+        )
+
+    def test_factor_factory_and_subclasses_are_in_all(self):
+        import factorlib as fl
+        for name in ("factor", "CrossSectionalFactor", "EventFactor",
+                     "MacroPanelFactor", "MacroCommonFactor"):
+            assert name in fl.__all__, f"{name} missing from fl.__all__"
+
+    def test_factor_base_still_importable_for_type_hints(self):
+        # Not in __all__ but still reachable from the submodule.
+        from factorlib.factor import Factor
+        assert Factor.__name__ == "Factor"
+
+
 class TestCompactedErrorAttribution:
     def test_attr_error_names_evaluate_batch_compact(self):
         from factorlib.evaluation._protocol import _COMPACTED_PREPARED

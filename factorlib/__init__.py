@@ -74,8 +74,12 @@ from factorlib.evaluation.diagnostics import (
 )
 from factorlib.reporting import describe_profile_values
 from factorlib.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
+# Factor subclasses are re-exported for isinstance() checks and type
+# hints. The ``Factor`` base class is intentionally NOT re-exported —
+# direct instantiation is an advanced path and the factory ``fl.factor()``
+# is the canonical entry. If you need ``Factor`` as a type hint, import
+# it from ``factorlib.factor`` directly.
 from factorlib.factor import (
-    Factor,
     CrossSectionalFactor,
     EventFactor,
     MacroPanelFactor,
@@ -97,7 +101,7 @@ from factorlib._api import (
 __all__ = [
     # Top-level API
     "evaluate", "evaluate_batch", "factor", "list_factor_types",
-    "Factor", "CrossSectionalFactor",
+    "CrossSectionalFactor",
     "EventFactor", "MacroPanelFactor", "MacroCommonFactor",
     "ProfileSet", "redundancy_matrix",
     "FactorProfile",
