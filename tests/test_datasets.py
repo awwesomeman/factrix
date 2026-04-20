@@ -43,7 +43,7 @@ class TestMakeCsPanelSchema:
 
     def test_raises_on_short_panel(self):
         with pytest.raises(ValueError, match="n_dates must be >="):
-            datasets.make_cs_panel(n_assets=5, n_dates=5, forward_periods=5)
+            datasets.make_cs_panel(n_assets=5, n_dates=5, signal_horizon=5)
 
     def test_raises_on_singleton_cross_section(self):
         with pytest.raises(ValueError, match="n_assets"):
@@ -54,7 +54,7 @@ class TestMakeCsPanelEndToEnd:
     def test_runs_through_preprocess_and_evaluate(self):
         cfg = fl.CrossSectionalConfig(forward_periods=5, n_groups=5)
         raw = datasets.make_cs_panel(
-            n_assets=20, n_dates=80, ic_target=0.05, forward_periods=5, seed=7,
+            n_assets=20, n_dates=80, ic_target=0.05, signal_horizon=5, seed=7,
         )
         prepared = fl.preprocess(raw, config=cfg)
         profile = fl.evaluate(prepared, "synthetic", config=cfg)
@@ -64,16 +64,16 @@ class TestMakeCsPanelEndToEnd:
     def test_realized_ic_mean_near_target(self):
         """Realized ic_mean lands within ~3σ of target.
 
-        Overlapping N-day forward returns give ≈ n_dates / forward_periods
+        Overlapping H-day forward returns give ≈ n_dates / signal_horizon
         independent dates, so per-date IC s.e. ≈ 1/√n_assets and mean-IC
-        s.e. ≈ 1/√((n_dates/forward_periods)·n_assets). At (100, 500, N=5):
+        s.e. ≈ 1/√((n_dates/signal_horizon)·n_assets). At (100, 500, H=5):
         s.e. ≈ 1/√(100·100) = 0.01, so 3σ ≈ 0.03.
         """
         cfg = fl.CrossSectionalConfig(forward_periods=5)
         ic_target = 0.04
         raw = datasets.make_cs_panel(
             n_assets=100, n_dates=500,
-            ic_target=ic_target, forward_periods=5, seed=2024,
+            ic_target=ic_target, signal_horizon=5, seed=2024,
         )
         prepared = fl.preprocess(raw, config=cfg)
         profile = fl.evaluate(prepared, "synthetic", config=cfg)
@@ -86,7 +86,7 @@ class TestMakeCsPanelEndToEnd:
         cfg = fl.CrossSectionalConfig(forward_periods=5)
         raw = datasets.make_cs_panel(
             n_assets=100, n_dates=500,
-            ic_target=-0.05, forward_periods=5, seed=2025,
+            ic_target=-0.05, signal_horizon=5, seed=2025,
         )
         prepared = fl.preprocess(raw, config=cfg)
         profile = fl.evaluate(prepared, "synthetic_neg", config=cfg)
@@ -97,7 +97,7 @@ class TestMakeCsPanelEndToEnd:
     def test_zero_ic_target_gives_near_zero_ic_mean(self):
         cfg = fl.CrossSectionalConfig(forward_periods=5)
         raw = datasets.make_cs_panel(
-            n_assets=80, n_dates=300, ic_target=0.0, forward_periods=5, seed=11,
+            n_assets=80, n_dates=300, ic_target=0.0, signal_horizon=5, seed=11,
         )
         prepared = fl.preprocess(raw, config=cfg)
         profile = fl.evaluate(prepared, "null", config=cfg)
@@ -128,7 +128,7 @@ class TestMakeEventPanel:
         cfg = fl.EventConfig(forward_periods=5)
         raw = datasets.make_event_panel(
             n_assets=30, n_dates=120, event_rate=0.05,
-            post_event_drift_bps=30.0, forward_periods=5, seed=5,
+            post_event_drift_bps=30.0, signal_horizon=5, seed=5,
         )
         prepared = fl.preprocess(raw, config=cfg)
         profile = fl.evaluate(prepared, "events", config=cfg)
@@ -138,17 +138,17 @@ class TestMakeEventPanel:
         """Drift must land inside the forward-return measurement window.
 
         After preprocess, ``forward_return`` at event date t reflects
-        (p[t+1+N]/p[t+1])/N − 1/N, which spans bars t+2..t+1+N. If the
-        dataset injects drift on t+1..t+N instead (off-by-one), realized
+        (p[t+1+H]/p[t+1])/H − 1/H, which spans bars t+2..t+1+H. If the
+        dataset injects drift on t+1..t+H instead (off-by-one), realized
         mean forward_return conditional on factor==+1 can be near zero.
         """
         cfg = fl.EventConfig(forward_periods=5)
         raw = datasets.make_event_panel(
             n_assets=50, n_dates=400, event_rate=0.05,
-            post_event_drift_bps=100.0, forward_periods=5, seed=42,
+            post_event_drift_bps=100.0, signal_horizon=5, seed=42,
         )
         prepared = fl.preprocess(raw, config=cfg)
-        # Expected drift = 100 bps / 1e4 / 5 per bar, N bars measured →
+        # Expected drift = 100 bps / 1e4 / 5 per bar, H bars measured →
         # mean forward_return per bar on +1 events ≈ 2e-4 (before noise).
         mean_fwd_pos = (
             prepared.filter(pl.col("factor") == 1.0)["forward_return"].mean()

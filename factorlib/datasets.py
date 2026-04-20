@@ -9,14 +9,16 @@ Usage:
 
     import factorlib as fl
 
+    raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500)
     cfg = fl.CrossSectionalConfig(forward_periods=5)
-    raw = fl.datasets.make_cs_panel(
-        n_assets=100, n_dates=500, ic_target=0.04, forward_periods=5,
-    )
     prepared = fl.preprocess(raw, config=cfg)
     profile  = fl.evaluate(prepared, "synthetic", config=cfg)
 
-No disk I/O, no external data — everything is seeded RNG.
+The dataset's ``signal_horizon`` (default 5) is a property of the
+synthetic signal, not a pipeline parameter. When
+``cfg.forward_periods == signal_horizon`` the pipeline realizes the
+nominal IC; other horizons realize a decayed signal. No disk I/O, no
+external data — everything is seeded RNG.
 """
 
 from __future__ import annotations
@@ -56,7 +58,7 @@ def make_cs_panel(
     n_assets: int = 50,
     n_dates: int = 252,
     ic_target: float = 0.04,
-    forward_periods: int = 5,
+    signal_horizon: int = 5,
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
@@ -65,10 +67,9 @@ def make_cs_panel(
     Construction:
         1. Per-asset volatility ``σ_i ~ U[0.01, 0.03]``; daily arithmetic
            returns are ``ε_{t,i} ~ N(0, σ_i)``.
-        2. Prices ``p[t,i] = 100 · cumprod(1 + ε)`` — matches what
-           ``fl.preprocess`` computes downstream.
-        3. Forward N-period return ``fr[t] = (p[t+1+N]/p[t+1] − 1) / N``
-           (the exact expression used by ``compute_forward_return``).
+        2. Prices ``p[t,i] = 100 · cumprod(1 + ε)``.
+        3. Signal-horizon forward return
+           ``fr[t] = (p[t+1+H]/p[t+1] − 1) / H`` where ``H = signal_horizon``.
         4. Factor is a cross-sectional mixture of standardized forward
            return and iid noise::
 
@@ -76,11 +77,12 @@ def make_cs_panel(
 
            where ``ρ = clip(ic_target, −0.99, 0.99)`` and ``z`` is plain
            Gaussian (not MAD) z-score so the identity
-           ``Corr(factor, fr) = ρ`` holds exactly per date. Factorlib's
-           ``ic_mean`` is Spearman rank IC, which tracks Pearson ``ρ``
-           tightly at small ``|ρ|`` but is not identical — realized
-           ``ic_mean`` at ``|ic_target| ≳ 0.2`` may diverge by a few bp.
-        5. The last ``N+1`` dates have no defined forward return; factor
+           ``Corr(factor, fr) = ρ`` holds exactly per date at horizon
+           ``H``. Factorlib's ``ic_mean`` uses Spearman rank IC, which
+           tracks Pearson ``ρ`` tightly at small ``|ρ|`` but is not
+           identical — realized ``ic_mean`` at ``|ic_target| ≳ 0.2`` may
+           diverge by a few bp.
+        5. The last ``H+1`` dates have no defined forward return; factor
            values there are pure noise and will be dropped by
            ``fl.preprocess`` along with the null forward returns.
 
@@ -89,17 +91,18 @@ def make_cs_panel(
         n_dates: Number of calendar dates (daily index, includes
             weekends — factorlib doesn't prescribe a calendar).
         ic_target: Target per-date Pearson CS correlation between
-            factor and forward return (see construction note above for
-            the Spearman/Pearson caveat). Realized ``ic_mean`` after
-            ``fl.evaluate`` will fall near this within a couple of
-            standard errors — note that overlapping forward returns
-            reduce effective independent dates by ``forward_periods``
-            so s.e. ≈ ``1 / √((n_dates / forward_periods) · n_assets)``.
-        forward_periods: Horizon over which IC is calibrated. **MUST**
-            match the ``CrossSectionalConfig.forward_periods`` passed
-            to ``fl.preprocess`` / ``fl.evaluate`` downstream — a
-            mismatch silently produces a factor calibrated against a
-            different horizon than the one being measured.
+            factor and forward return at ``signal_horizon``. Realized
+            ``ic_mean`` after ``fl.evaluate`` will fall near this within
+            a couple of standard errors — overlapping forward returns
+            reduce effective independent dates by ``signal_horizon`` so
+            s.e. ≈ ``1 / √((n_dates / signal_horizon) · n_assets)``.
+        signal_horizon: Horizon (in bars) at which the synthetic signal
+            lives — a property of the generated data, not a pipeline
+            parameter. Pipelines measuring at
+            ``CrossSectionalConfig.forward_periods == signal_horizon``
+            realize the nominal IC; different horizons realize a
+            decayed IC (correct physics for a signal with a natural
+            time-scale, not a bug).
         seed: RNG seed.
         start_date: ISO date for the first row.
 
@@ -110,10 +113,10 @@ def make_cs_panel(
     """
     if n_assets < 2:
         raise ValueError("n_assets must be >= 2 for a cross-section")
-    if n_dates < forward_periods + 2:
+    if n_dates < signal_horizon + 2:
         raise ValueError(
-            f"n_dates must be >= forward_periods + 2 (got n_dates={n_dates}, "
-            f"forward_periods={forward_periods})"
+            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
+            f"signal_horizon={signal_horizon})"
         )
 
     rng = np.random.default_rng(seed)
@@ -121,7 +124,7 @@ def make_cs_panel(
     daily_ret = rng.standard_normal((n_dates, n_assets)) * sigmas
     prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
 
-    N = forward_periods
+    N = signal_horizon
     last_valid = n_dates - N - 1
     fr = (prices[1 + N : 1 + N + last_valid] / prices[1 : 1 + last_valid] - 1.0) / N
 
@@ -148,7 +151,7 @@ def make_event_panel(
     n_dates: int = 252,
     event_rate: float = 0.02,
     post_event_drift_bps: float = 10.0,
-    forward_periods: int = 5,
+    signal_horizon: int = 5,
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
@@ -159,10 +162,11 @@ def make_event_panel(
         2. Independent ``Bernoulli(event_rate)`` per ``(t, i)``; sign
            ``±1`` with equal probability. Non-event cells get ``0``.
         3. Post-event drift: for each event with sign ``s``, add
-           ``s · post_event_drift_bps / 1e4 / forward_periods`` to the
-           next ``forward_periods`` daily returns of that asset. The
-           drift is small (≈ bps-per-day) so the event signal is
-           discoverable but not trivial.
+           ``s · post_event_drift_bps / 1e4 / signal_horizon`` to the
+           ``signal_horizon`` bars ``t+2 .. t+1+H`` of that asset — the
+           exact window a pipeline measuring forward return at the same
+           horizon will see. Drift magnitude is small (≈ bps-per-day)
+           so the event signal is discoverable but not trivial.
         4. Prices are cumulated after drift injection.
 
     Suitable for ``EventConfig`` / ``factor_type="event_signal"``.
@@ -173,12 +177,15 @@ def make_event_panel(
         event_rate: Per-cell event probability (≈ expected events per
             asset per date).
         post_event_drift_bps: Total drift in basis points injected
-            across the ``forward_periods`` bars the forward-return
-            window will measure (bars ``t+2 .. t+1+N``).
-        forward_periods: Horizon for drift injection. **MUST** match
-            the ``EventConfig.forward_periods`` used downstream — a
-            mismatch injects drift outside the measurement window and
-            the event signal becomes undetectable.
+            across the ``signal_horizon`` bars of the forward-return
+            window (bars ``t+2 .. t+1+H``).
+        signal_horizon: Horizon (in bars) over which post-event drift
+            is distributed — a property of the generated data, not a
+            pipeline parameter. Pipelines measuring at
+            ``EventConfig.forward_periods == signal_horizon`` realize
+            the nominal drift; different horizons realize a weakened or
+            diluted signal (correct physics for a signal with a natural
+            time-scale, not a bug).
         seed: RNG seed.
         start_date: ISO date for the first row.
 
@@ -189,10 +196,10 @@ def make_event_panel(
     """
     if n_assets < 1:
         raise ValueError("n_assets must be >= 1")
-    if n_dates < forward_periods + 2:
+    if n_dates < signal_horizon + 2:
         raise ValueError(
-            f"n_dates must be >= forward_periods + 2 (got n_dates={n_dates}, "
-            f"forward_periods={forward_periods})"
+            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
+            f"signal_horizon={signal_horizon})"
         )
     if not 0.0 <= event_rate <= 1.0:
         raise ValueError(f"event_rate must be in [0, 1], got {event_rate}")
@@ -205,13 +212,13 @@ def make_event_panel(
     signs = rng.choice([-1.0, 1.0], size=(n_dates, n_assets))
     factor = np.where(has_event, signs, 0.0)
 
-    # compute_forward_return uses (p[t+1+N] / p[t+1] - 1)/N, whose realized
-    # returns span bars t+2..t+1+N — NOT t+1..t+N. Drift has to be injected
+    # compute_forward_return uses (p[t+1+H] / p[t+1] - 1)/H, whose realized
+    # returns span bars t+2..t+1+H — NOT t+1..t+H. Drift has to be injected
     # on that exact window or the forward-return window partly misses it.
-    drift_per_bar = post_event_drift_bps / 1e4 / forward_periods
+    drift_per_bar = post_event_drift_bps / 1e4 / signal_horizon
     event_idx = np.argwhere(has_event)
     for t, i in event_idx:
-        end = min(t + 2 + forward_periods, n_dates)
+        end = min(t + 2 + signal_horizon, n_dates)
         daily_ret[t + 2 : end, i] += factor[t, i] * drift_per_bar
 
     prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
