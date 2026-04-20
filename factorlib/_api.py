@@ -163,6 +163,46 @@ def list_factor_types() -> list[str]:
     return [ft.value for ft in FACTOR_TYPES]
 
 
+def _fmt_field_type(ann: object) -> str:
+    """Render a dataclass field annotation with consistent casing.
+
+    NewType wrappers (e.g. ``PValue``) show the Python base plus a
+    ``[<alias>]`` tag so the "type column" stays lowercase Python types
+    while the semantic role remains visible — fixes the visual mix of
+    ``float`` and ``PValue`` side-by-side that reads as a font change.
+    """
+    import typing
+
+    # NewType: bare "PValue" -> "float  [PValue]"
+    if hasattr(ann, "__supertype__"):
+        base = getattr(ann.__supertype__, "__name__", str(ann.__supertype__))
+        return f"{base}  [{ann.__name__}]"
+
+    origin = typing.get_origin(ann)
+    args = typing.get_args(ann)
+
+    # Union (incl. Optional / X | None): recurse into each arm
+    if origin is typing.Union or (args and type(None) in args):
+        parts = [
+            "None" if a is type(None) else _fmt_field_type(a)
+            for a in args
+        ]
+        return " | ".join(parts)
+
+    # Generic (list[X], tuple[X, ...]): normalize origin + recurse args
+    if origin is not None:
+        origin_name = getattr(origin, "__name__", str(origin))
+        inner = ", ".join(_fmt_field_type(a) for a in args)
+        return f"{origin_name}[{inner}]"
+
+    # Ellipsis inside Tuple[X, ...]
+    if ann is Ellipsis:
+        return "..."
+
+    # Plain class / Literal alias
+    return getattr(ann, "__name__", str(ann))
+
+
 def describe_profile(
     factor_type: str | FactorType = "cross_sectional",
 ) -> None:
@@ -175,6 +215,7 @@ def describe_profile(
     # Lazy imports: profiles package triggers all 4 @register_profile
     # decorators on first access.
     import dataclasses as _dc
+    import typing
     from factorlib.evaluation.profiles import _PROFILE_REGISTRY
 
     factor_type = coerce_factor_type(factor_type)
@@ -193,10 +234,10 @@ def describe_profile(
 
     fields = _dc.fields(cls)
     name_w = max(len(f.name) for f in fields) + 2
+    hints = typing.get_type_hints(cls)
     print(f"\n  Fields:")
     for f in fields:
-        typ = getattr(f.type, "__name__", str(f.type))
-        print(f"    {f.name:<{name_w}} {typ}")
+        print(f"    {f.name:<{name_w}} {_fmt_field_type(hints.get(f.name, f.type))}")
 
     print(f"\n  Canonical p-value (for BHY):")
     print(f"    CANONICAL_P_FIELD = {cls.CANONICAL_P_FIELD!r}")

@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+import math
+
 import polars as pl
 import plotly.graph_objects as go
+
+
+def _fmt_bar_label(v: float) -> str:
+    # NaN → em-dash matches reporting.describe_profile_values so the two
+    # renderers agree; "< 0" check would crash on NaN otherwise.
+    return "—" if v is None or math.isnan(v) else f"{v:.4f}"
 
 
 def quantile_return_chart(group_returns: pl.DataFrame) -> go.Figure:
@@ -17,13 +25,17 @@ def quantile_return_chart(group_returns: pl.DataFrame) -> go.Figure:
     labels = [f"Q{g + 1}" for g in df["group"].to_list()]
     values = df["mean_return"].to_list()
 
-    colors = ["#EF553B" if v < 0 else "#636EFA" for v in values]
+    colors = [
+        "gray" if v is None or math.isnan(v)
+        else ("#EF553B" if v < 0 else "#636EFA")
+        for v in values
+    ]
 
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=labels, y=values,
         marker_color=colors,
-        text=[f"{v:.4f}" for v in values],
+        text=[_fmt_bar_label(v) for v in values],
         textposition="outside",
     ))
     fig.add_hline(y=0, line=dict(color="gray", dash="dash", width=1))
