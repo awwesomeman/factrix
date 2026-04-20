@@ -100,6 +100,21 @@ def _memoized(
     return store[name]
 
 
+def _run_profile_and_attach(profile_cls: type, artifacts: "Any") -> "Any":
+    """Build a Profile via ``from_artifacts`` and attach its metric_outputs.
+
+    ``from_artifacts`` is a pure function returning ``(profile,
+    metric_outputs_dict)``. Both ``_evaluate_one`` and
+    ``Factor.evaluate`` need the same two-step dance: call it, then
+    write the resulting dict back onto ``artifacts.metric_outputs`` so
+    subsequent standalone calls hit cache. Centralizing here keeps the
+    purity contract visible while removing the duplication.
+    """
+    profile, metric_outputs = profile_cls.from_artifacts(artifacts)
+    artifacts.metric_outputs = metric_outputs
+    return profile
+
+
 def _diagnose(profile: object) -> list[Diagnostic]:
     """Run the rule list registered for ``profile``'s concrete type.
 

@@ -344,8 +344,8 @@ def _evaluate_one(
                 f"{type(config).factor_type!r}."
             )
 
-    profile, metric_outputs = profile_cls.from_artifacts(artifacts)
-    artifacts.metric_outputs = metric_outputs
+    from factorlib.evaluation.profiles._base import _run_profile_and_attach
+    profile = _run_profile_and_attach(profile_cls, artifacts)
     return profile, artifacts
 
 @overload

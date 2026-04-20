@@ -50,7 +50,7 @@ from typing import Any
 from factorlib._types import FactorType, MetricOutput
 from factorlib.evaluation._protocol import Artifacts
 from factorlib.evaluation.profiles._base import _memoized
-from factorlib.metrics._helpers import _short_circuit_output  # noqa: F401  (used by _short_circuit_if + subclasses)
+from factorlib.metrics._helpers import _short_circuit_output
 
 if TYPE_CHECKING:
     from factorlib.config import BaseConfig
@@ -112,6 +112,7 @@ class Factor:
         the cache, so subsequent standalone calls also hit the cache.
         """
         from factorlib.evaluation.profiles import _PROFILE_REGISTRY
+        from factorlib.evaluation.profiles._base import _run_profile_and_attach
 
         ft = type(self.config).factor_type
         profile_cls = _PROFILE_REGISTRY.get(ft)
@@ -119,9 +120,7 @@ class Factor:
             raise KeyError(
                 f"No profile registered for factor_type {ft.value!r}."
             )
-        profile, metric_outputs = profile_cls.from_artifacts(self.artifacts)
-        self.artifacts.metric_outputs = metric_outputs
-        return profile
+        return _run_profile_and_attach(profile_cls, self.artifacts)
 
     # ----- subclass helpers -----
 
@@ -167,18 +166,14 @@ class Factor:
     ) -> MetricOutput | None:
         """Return a cached short-circuit ``MetricOutput`` when ``condition``.
 
-        Centralizes the recurring stanza "if prepared lacks column X /
-        factor is discrete / N==1, return a short-circuit MetricOutput
-        with ``metadata["reason"]``" used by ``EventFactor`` sites. Reading
-        the cache first keeps repeat calls O(1); a computed short-circuit
-        is stashed so subsequent calls hit the cache path.
-
-        Returns ``None`` when the condition is False — callers fall
-        through to ``_cached_or_compute``.
+        Centralizes "if prepared lacks column X / factor is discrete /
+        N==1, return a short-circuit MetricOutput with
+        ``metadata["reason"]``" used by ``EventFactor`` sites. Returns
+        ``None`` when the condition is False — callers fall through to
+        ``_cached_or_compute``. ``_memoized`` handles the cache read /
+        stash atomically, so repeat calls are O(1) without an explicit
+        peek here.
         """
-        cached = self.artifacts.metric_outputs.get(cache_key)
-        if cached is not None:
-            return cached
         if not condition:
             return None
         return _memoized(
@@ -186,14 +181,9 @@ class Factor:
             _short_circuit_output, cache_key, reason,
         )
 
-    # ----- Shared tradability metrics (CS + MP) ------------------------
-    # Factor subclasses that expose a portfolio (CS, MP) share identical
-    # turnover / breakeven_cost / net_spread plumbing: same primitives,
-    # same cache keys, same override semantics. Hoisting to the base
-    # avoids divergence when the cost model evolves (reviewer callout).
-    # Subclasses that don't expose a portfolio (Event, MacroCommon)
-    # simply don't call these — Python surface stays clean because
-    # method lookup is per-class attribute access, not reflection.
+    # Shared tradability metrics. CS and MP both expose a portfolio
+    # (quantile long-short) with the same cost model; Event / MC don't
+    # call these — per-class method resolution keeps their surface clean.
 
     def turnover(self) -> MetricOutput:
         """Period-over-period weight turnover fraction."""
@@ -399,12 +389,9 @@ class EventFactor(Factor):
     EXPECTED_FACTOR_TYPE: ClassVar[FactorType] = FactorType.EVENT_SIGNAL
 
     def _return_col(self) -> str:
-        # WHY: Event pipeline computes abnormal_return when N>1 and
-        # EventProfile.from_artifacts prefers it; mirror that so the
-        # Factor method produces identical cached values.
-        if "abnormal_return" in self.artifacts.prepared.columns:
-            return "abnormal_return"
-        return "forward_return"
+        # Shared helper: matches EventProfile.from_artifacts + pipeline.
+        from factorlib.metrics._helpers import _pick_event_return_col
+        return _pick_event_return_col(self.artifacts.prepared)
 
     # ----- Canonical + core -----
 

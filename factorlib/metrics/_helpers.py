@@ -37,6 +37,23 @@ def _short_circuit_output(
     )
 
 
+def _pick_event_return_col(df: pl.DataFrame) -> str:
+    """Return the preferred return column for event analysis.
+
+    ``abnormal_return`` (cross-sectionally de-meaned return) is preferred
+    when present; ``forward_return`` is the fallback for single-asset
+    panels where de-meaning is undefined. Centralized here so EventFactor
+    sessions, EventProfile.from_artifacts, and the build_artifacts
+    pipeline agree on the same choice — diverging would silently route
+    the same Factor call through different series.
+    """
+    return (
+        "abnormal_return"
+        if "abnormal_return" in df.columns
+        else "forward_return"
+    )
+
+
 def _sample_non_overlapping(
     df: pl.DataFrame,
     forward_periods: int,

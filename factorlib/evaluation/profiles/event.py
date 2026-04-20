@@ -134,12 +134,10 @@ class EventProfile:
                 f"got {type(config).__name__}."
             )
 
+        from factorlib.metrics._helpers import _pick_event_return_col
+
         outputs: dict[str, MetricOutput] = dict(artifacts.metric_outputs)
-        ret_col = (
-            "abnormal_return"
-            if "abnormal_return" in artifacts.prepared.columns
-            else "forward_return"
-        )
+        ret_col = _pick_event_return_col(artifacts.prepared)
 
         caar_series = artifacts.get("caar_series")
         caar_values = artifacts.get("caar_values")

@@ -70,15 +70,11 @@ def _build_event_artifacts(
     """Build event signal artifacts: CAAR series and optional MFE/MAE."""
     _validate_columns(df, "event_signal")
 
+    from factorlib.metrics._helpers import _pick_event_return_col
     from factorlib.metrics.caar import compute_caar
     from factorlib.metrics.mfe_mae import compute_mfe_mae
 
-    # WHY: use abnormal_return (market-adjusted) when available;
-    # fall back to forward_return for non-preprocessed data.
-    ret_col = (
-        "abnormal_return" if "abnormal_return" in df.columns
-        else "forward_return"
-    )
+    ret_col = _pick_event_return_col(df)
 
     caar_series = compute_caar(df, return_col=ret_col)
     caar_values = caar_series.rename({"caar": "value"})
