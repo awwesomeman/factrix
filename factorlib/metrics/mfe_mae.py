@@ -137,13 +137,13 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     """
     if mfe_mae_df.is_empty():
         return _short_circuit_output(
-            "mfe_mae", "no_price_data", n_events=0,
+            "mfe_mae_summary", "no_price_data", n_events=0,
         )
 
     n = len(mfe_mae_df)
     if n < MIN_EVENTS:
         return _short_circuit_output(
-            "mfe_mae", "insufficient_events",
+            "mfe_mae_summary", "insufficient_events",
             n_events=n, min_required=MIN_EVENTS,
         )
 
@@ -157,7 +157,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     bars_to_mae_mean = float(mfe_mae_df["bars_to_mae"].mean())
 
     return MetricOutput(
-        name="mfe_mae",
+        name="mfe_mae_summary",
         value=ratio,
         metadata={
             "mfe_p50": mfe_p50,

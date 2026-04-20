@@ -156,7 +156,7 @@ def bmp_test(
             ``1/sqrt(forward_periods)`` to match per-period forward_return.
 
     Returns:
-        MetricOutput(name="bmp_sar", value=mean_SAR, stat=z_bmp, ...).
+        MetricOutput(name="bmp_test", value=mean_SAR, stat=z_bmp, ...).
     """
     sorted_df = df.sort(["asset_id", "date"])
 
@@ -189,7 +189,7 @@ def bmp_test(
     events = sorted_df.filter(pl.col(factor_col) != 0)
     if len(events) == 0:
         return MetricOutput(
-            name="bmp_sar", value=0.0, stat=0.0, significance="",
+            name="bmp_test", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "no_events",
                 "n_observed": 0,
@@ -208,7 +208,7 @@ def bmp_test(
     n_valid = len(valid)
     if n_valid < MIN_EVENTS:
         return MetricOutput(
-            name="bmp_sar", value=0.0, stat=0.0, significance="",
+            name="bmp_test", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_estimation_window",
                 "n_observed": n_valid,
@@ -224,7 +224,7 @@ def bmp_test(
     p = _p_value_from_z(z_bmp)
 
     return MetricOutput(
-        name="bmp_sar",
+        name="bmp_test",
         value=mean_sar,
         stat=z_bmp,
         significance=_significance_marker(p),

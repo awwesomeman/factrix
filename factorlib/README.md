@@ -391,7 +391,7 @@ fl.describe_profile("macro_common")
 | Metric | Calculation | Interpretation |
 |--------|-------------|----------------|
 | `caar` | mean(signed_car), non-overlapping t-test. signed_car = return x sign(factor) | Mean abnormal return per event. `***` = events have real directional effect |
-| `bmp_sar` | Standardize each event's AR by pre-event vol (σ_i), then z-test on SARs | Same hypothesis as CAAR, but robust to event-induced variance inflation |
+| `bmp_test` | Standardize each event's AR by pre-event vol (σ_i), then z-test on SARs (Boehmer-Musumeci-Poulsen 1991) | Same hypothesis as CAAR, but robust to event-induced variance inflation |
 | `event_hit_rate` | fraction(signed_car > 0), binomial z-test H₀: p=0.5 | Direction correct rate. > 55% with significance = useful signal |
 | `event_ic` | Spearman corr(\|factor\|, signed_car) among event rows only | Signal strength → return. > 0 = stronger signal works better. Auto-skips for discrete {±1} signals |
 | `profit_factor` | sum(positive signed_car) / sum(negative signed_car) | Gross P&L ratio. > 1 = gains exceed losses across events |

@@ -130,7 +130,7 @@ class TestEventPipeline:
             config=EventConfig(),
         )
         assert profile.caar_mean != 0.0
-        assert profile.bmp_sar_mean != 0.0
+        assert profile.bmp_test_mean != 0.0
         assert profile.event_hit_rate >= 0.0
         assert profile.oos_survival_ratio >= 0.0
         assert profile.profit_factor > 0.0

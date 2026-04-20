@@ -421,7 +421,7 @@ class EventFactor(Factor):
         """
         from factorlib.metrics.caar import bmp_test as _bmp
         return self._cached_or_compute(
-            "bmp_sar", _bmp, self.artifacts.prepared,
+            "bmp_test", _bmp, self.artifacts.prepared,
             return_col=self._return_col(),
             forward_periods=self.config.forward_periods,
         )
@@ -500,23 +500,18 @@ class EventFactor(Factor):
     # ----- Path-based (need price column) -----
 
     def mfe_mae_summary(self, window: int | None = None) -> MetricOutput:
-        """MFE / MAE excursion ratio. Requires price column.
-
-        Cache key is ``"mfe_mae"`` (the primitive's ``MetricOutput.name``),
-        not ``"mfe_mae_summary"`` — ``_stash`` keys by ``.name`` so the
-        method/key drift is intentional to avoid double-cache entries.
-        """
+        """MFE / MAE excursion ratio. Requires price column."""
         from factorlib.metrics.mfe_mae import (
             compute_mfe_mae as _cm, mfe_mae_summary as _ms,
         )
 
         no_price = "price" not in self.artifacts.prepared.columns
-        sc = self._short_circuit_if("mfe_mae", no_price, "no_price_column")
+        sc = self._short_circuit_if("mfe_mae_summary", no_price, "no_price_column")
         if sc is not None:
             return sc
         w = window if window is not None else self.config.event_window_post
         return self._cached_or_compute(
-            "mfe_mae", lambda df: _ms(_cm(df, window=w)),
+            "mfe_mae_summary", lambda df: _ms(_cm(df, window=w)),
             self.artifacts.prepared,
             override=window is not None,
         )

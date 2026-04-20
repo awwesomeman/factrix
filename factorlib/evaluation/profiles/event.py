@@ -62,7 +62,7 @@ class EventProfile:
     caar_p: PValue
 
     # BMP standardized AR test
-    bmp_sar_mean: float
+    bmp_test_mean: float
     bmp_zstat: float
     bmp_p: PValue
 
@@ -147,7 +147,7 @@ class EventProfile:
             caar_series, forward_periods=config.forward_periods,
         )
         bmp_m = _memoized(
-            outputs, "bmp_sar", bmp_test,
+            outputs, "bmp_test", bmp_test,
             artifacts.prepared,
             return_col=ret_col,
             forward_periods=config.forward_periods,
@@ -204,7 +204,7 @@ class EventProfile:
 
         insufficient_src = {
             "caar_mean": caar_m,
-            "bmp_sar_mean": bmp_m,
+            "bmp_test_mean": bmp_m,
             "event_hit_rate": hit_m,
             "profit_factor": pf_m,
             "event_skewness": skew_m,
@@ -220,7 +220,7 @@ class EventProfile:
             caar_mean=float(caar_m.value),
             caar_tstat=float(caar_m.stat or 0.0),
             caar_p=_pv(caar_m),
-            bmp_sar_mean=float(bmp_m.value),
+            bmp_test_mean=float(bmp_m.value),
             bmp_zstat=float(bmp_m.stat or 0.0),
             bmp_p=_pv(bmp_m),
             event_hit_rate=float(hit_m.value),

@@ -131,7 +131,7 @@ class TestMfeMaeSummary:
         mfe_df = compute_mfe_mae(event_data, window=10)
         result = mfe_mae_summary(mfe_df)
         assert result is not None
-        assert result.name == "mfe_mae"
+        assert result.name == "mfe_mae_summary"
         assert "mfe_p50" in result.metadata
         assert "mae_p75" in result.metadata
 
@@ -144,7 +144,7 @@ class TestMfeMaeSummary:
             },
         )
         result = mfe_mae_summary(empty)
-        assert result.name == "mfe_mae"
+        assert result.name == "mfe_mae_summary"
         assert result.value == 0.0
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["n_events"] == 0

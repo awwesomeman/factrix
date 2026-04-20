@@ -148,7 +148,7 @@ class TestCaar:
 class TestBmpTest:
     def test_strong_signal_significant(self, strong_signal):
         result = bmp_test(strong_signal)
-        assert result.name == "bmp_sar"
+        assert result.name == "bmp_test"
         assert abs(result.stat) > 2.0
         assert result.metadata["stat_type"] == "z"
 

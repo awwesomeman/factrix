@@ -249,7 +249,7 @@ EVENT_RULES: list[Rule["EventProfile"]] = [
             "trustworthy signal."
         ),
         predicate=lambda p: (
-            (p.caar_mean * p.bmp_sar_mean) < 0 and abs(p.bmp_sar_mean) > 1e-9
+            (p.caar_mean * p.bmp_test_mean) < 0 and abs(p.bmp_test_mean) > 1e-9
         ),
     ),
     # Thresholds: |t|≥2 is the CAAR 95% single-test boundary; |z|<1.5
