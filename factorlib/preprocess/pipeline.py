@@ -22,6 +22,8 @@ from factorlib.preprocess.normalize import (
     mad_winsorize,
 )
 
+from factorlib._types import UNSET
+
 if TYPE_CHECKING:
     from factorlib.config import BaseConfig
 
@@ -63,9 +65,9 @@ def preprocess_cs_factor(
     df: pl.DataFrame,
     *,
     config: CrossSectionalConfig | None = None,
-    forward_periods: int = 5,
-    return_clip_pct: tuple[float, float] = (0.01, 0.99),
-    mad_n: float = 3.0,
+    forward_periods: int = UNSET,  # type: ignore[assignment]
+    return_clip_pct: tuple[float, float] = UNSET,  # type: ignore[assignment]
+    mad_n: float = UNSET,  # type: ignore[assignment]
 ) -> pl.DataFrame:
     """Run the full Step 1-5 preprocessing pipeline for cross-sectional factors.
 
@@ -79,9 +81,11 @@ def preprocess_cs_factor(
     Args:
         df: Data with canonical columns ``date``, ``asset_id``, ``price``,
             ``factor``. Use ``adapt()`` to rename if needed.
-        config: If provided, ``forward_periods``, ``return_clip_pct``, and
-            ``mad_n`` are taken from *config* (keyword args are ignored).
-            This ensures a single source of truth with downstream tools.
+        config: Pipeline config; when provided, ``forward_periods`` /
+            ``return_clip_pct`` / ``mad_n`` are read from it. Passing both
+            ``config`` and any of these kwargs raises ``TypeError`` — pick
+            one so the effective value is unambiguous and matches the
+            downstream tools bound to the same ``config``.
         forward_periods: Number of periods for forward return (default 5).
         return_clip_pct: (lower, upper) quantile bounds for return clipping.
         mad_n: Number of MAD units for factor winsorization (0 to disable).
@@ -91,9 +95,28 @@ def preprocess_cs_factor(
         ``date, asset_id, factor_raw, factor, forward_return, abnormal_return, price``.
     """
     if config is not None:
+        overrides = {
+            k: v for k, v in (
+                ("forward_periods", forward_periods),
+                ("return_clip_pct", return_clip_pct),
+                ("mad_n", mad_n),
+            ) if v is not UNSET
+        }
+        if overrides:
+            raise TypeError(
+                "preprocess_cs_factor: cannot pass both config= and "
+                f"{list(overrides)} — the config carries these. Pick one."
+            )
         forward_periods = config.forward_periods
         return_clip_pct = config.return_clip_pct
         mad_n = config.mad_n
+    else:
+        if forward_periods is UNSET:
+            forward_periods = 5
+        if return_clip_pct is UNSET:
+            return_clip_pct = (0.01, 0.99)
+        if mad_n is UNSET:
+            mad_n = 3.0
 
     out = compute_forward_return(df, forward_periods)
     out = winsorize_forward_return(out, lower=return_clip_pct[0], upper=return_clip_pct[1])

@@ -28,33 +28,39 @@ class _CompactedPrepared:
 
     __slots__ = ()
 
-    _MSG = (
-        "Cannot use 'Artifacts.prepared': Artifacts is in compact mode "
-        "(prepared DataFrame was dropped to save memory). Rebuild the "
-        "Artifacts without compact=True if you need the prepared panel."
-    )
+    @staticmethod
+    def _format_msg(target: str) -> str:
+        """Build the compact-mode error message for a specific access site.
 
-    def __getattr__(self, name: str) -> object:
-        raise RuntimeError(
-            f"Cannot access 'prepared.{name}': Artifacts is in compact mode "
-            f"(prepared DataFrame was dropped to save memory). Rebuild the "
-            f"Artifacts without compact=True if you need the prepared panel."
+        Single source of truth so ``__getattr__``'s attribute-specific
+        wording and the container-dunder generic wording stay in lock-step.
+        """
+        return (
+            f"Cannot access {target}: Artifacts is in compact mode "
+            f"(fl.evaluate_batch(..., compact=True) dropped the prepared "
+            f"DataFrame to save memory). Either re-run evaluate_batch "
+            f"without compact=True, or use metrics that read only "
+            f"artifacts.intermediates / artifacts.metric_outputs (e.g. "
+            f"redundancy_matrix(method='value_series'))."
         )
 
+    def __getattr__(self, name: str) -> object:
+        raise RuntimeError(self._format_msg(f"'prepared.{name}'"))
+
     def __bool__(self) -> bool:
-        raise RuntimeError(self._MSG)
+        raise RuntimeError(self._format_msg("'Artifacts.prepared'"))
 
     def __len__(self) -> int:
-        raise RuntimeError(self._MSG)
+        raise RuntimeError(self._format_msg("'Artifacts.prepared'"))
 
     def __iter__(self):
-        raise RuntimeError(self._MSG)
+        raise RuntimeError(self._format_msg("'Artifacts.prepared'"))
 
     def __getitem__(self, key):
-        raise RuntimeError(self._MSG)
+        raise RuntimeError(self._format_msg("'Artifacts.prepared'"))
 
     def __contains__(self, item) -> bool:
-        raise RuntimeError(self._MSG)
+        raise RuntimeError(self._format_msg("'Artifacts.prepared'"))
 
     def __repr__(self) -> str:
         return "<CompactedPrepared: prepared DataFrame dropped>"

@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 
 import polars as pl
 
-from factorlib._types import FactorType, coerce_factor_type
+from factorlib._types import UNSET, FactorType, coerce_factor_type
 
 if TYPE_CHECKING:
     from factorlib.evaluation._protocol import Artifacts
@@ -85,6 +85,46 @@ def _build_artifacts_strict(
     artifacts = build_artifacts(df, config)
     artifacts.factor_name = factor_name
     return artifacts
+
+def _resolve_config(
+    factor_type: "FactorType | str",
+    config: "BaseConfig | None",
+    config_overrides: dict[str, Any],
+    *,
+    caller: str,
+) -> "BaseConfig":
+    """Shared config resolution with mismatch / double-pass detection.
+
+    Raises ``TypeError`` when the caller supplies contradictory inputs
+    (``factor_type`` vs ``config.factor_type``, or ``config`` + ad-hoc
+    overrides). Otherwise returns the resolved config — constructing
+    from ``factor_type`` when ``config`` is None, or returning ``config``
+    unchanged.
+
+    ``factor_type is UNSET`` means the caller did not explicitly supply
+    one; fall through to either ``config``'s factor_type (when config
+    is provided) or the library default ``cross_sectional``.
+    """
+    if config is not None:
+        if config_overrides:
+            raise TypeError(
+                f"{caller}: cannot pass both config= and config overrides "
+                f"({list(config_overrides)}). Pick one."
+            )
+        if factor_type is not UNSET:
+            requested = coerce_factor_type(factor_type)
+            actual = type(config).factor_type
+            if requested != actual:
+                raise TypeError(
+                    f"{caller}: factor_type={requested.value!r} and "
+                    f"config.factor_type={actual.value!r} disagree. Drop "
+                    f"one — they must refer to the same factor type."
+                )
+        return config
+
+    ft = factor_type if factor_type is not UNSET else "cross_sectional"
+    return _config_for_type(ft, **config_overrides)
+
 
 _DESCRIPTIONS: dict[FactorType, str] = {
     FactorType.CROSS_SECTIONAL: "截面因子（每期每資產有 signal，N ≥ 30）→ 選股",
@@ -336,7 +376,7 @@ def evaluate(
     df: pl.DataFrame,
     factor_name: str,
     *,
-    factor_type: str | FactorType = "cross_sectional",
+    factor_type: str | FactorType = UNSET,  # type: ignore[assignment]
     config: BaseConfig | None = None,
     return_artifacts: bool = False,
     **config_overrides: Any,
@@ -372,13 +412,9 @@ def evaluate(
         By default a per-type FactorProfile. When ``return_artifacts``
         is True, returns ``(profile, artifacts)``.
     """
-    if config is None:
-        config = _config_for_type(factor_type, **config_overrides)
-    elif config_overrides:
-        raise TypeError(
-            "evaluate: cannot pass both config= and config overrides "
-            f"({list(config_overrides)}). Pick one."
-        )
+    config = _resolve_config(
+        factor_type, config, config_overrides, caller="evaluate",
+    )
 
     profile, artifacts = _evaluate_one(df, factor_name, config)
     if return_artifacts:
@@ -390,7 +426,7 @@ def factor(
     df: pl.DataFrame,
     factor_name: str,
     *,
-    factor_type: str | FactorType = "cross_sectional",
+    factor_type: str | FactorType = UNSET,  # type: ignore[assignment]
     config: BaseConfig | None = None,
     **config_overrides: Any,
 ) -> "Factor":
@@ -428,13 +464,9 @@ def factor(
     """
     from factorlib.factor import _FACTOR_REGISTRY
 
-    if config is None:
-        config = _config_for_type(factor_type, **config_overrides)
-    elif config_overrides:
-        raise TypeError(
-            "factor: cannot pass both config= and config overrides "
-            f"({list(config_overrides)}). Pick one."
-        )
+    config = _resolve_config(
+        factor_type, config, config_overrides, caller="factor",
+    )
 
     artifacts = _build_artifacts_strict(df, factor_name, config, caller="factor")
 
@@ -481,7 +513,7 @@ def evaluate_batch(
 def evaluate_batch(
     factors: list[tuple[str, pl.DataFrame]] | dict[str, pl.DataFrame],
     *,
-    factor_type: str | FactorType = "cross_sectional",
+    factor_type: str | FactorType = UNSET,  # type: ignore[assignment]
     config: BaseConfig | None = None,
     stop_on_error: bool = False,
     on_result: Callable[[str, "FactorProfile"], bool | None] | None = None,
@@ -544,13 +576,9 @@ def evaluate_batch(
     if isinstance(factors, dict):
         factors = list(factors.items())
 
-    if config is None:
-        config = _config_for_type(factor_type, **config_overrides)
-    elif config_overrides:
-        raise TypeError(
-            "evaluate_batch: cannot pass both config= and config overrides "
-            f"({list(config_overrides)}). Pick one."
-        )
+    config = _resolve_config(
+        factor_type, config, config_overrides, caller="evaluate_batch",
+    )
 
     profile_cls = _PROFILE_REGISTRY.get(type(config).factor_type)
     if profile_cls is None:

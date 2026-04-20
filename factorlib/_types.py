@@ -49,6 +49,32 @@ def coerce_factor_type(factor_type: "FactorType | str") -> "FactorType":
 
 
 # ---------------------------------------------------------------------------
+# Missing-argument sentinel
+# ---------------------------------------------------------------------------
+
+class _Unset:
+    """Sentinel marking "caller supplied no value".
+
+    Distinct from ``None`` (which is a legitimate user-passable value) and
+    from the function's default, which is what a reader of the signature
+    sees. Used by ``_api.py`` / ``preprocess/pipeline.py`` to detect
+    ``config=`` + ``**overrides`` double-pass without forcing callers to
+    switch to ``**kwargs`` + ``pop`` gymnastics.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:
+        return "<unset>"
+
+    def __bool__(self) -> bool:
+        return False
+
+
+UNSET = _Unset()
+
+
+# ---------------------------------------------------------------------------
 # Numerical constants
 # ---------------------------------------------------------------------------
 
