@@ -91,9 +91,61 @@ orthogonalization) write their 1-row DataFrame results into
 - `to_polars()` — flatten to a wide DataFrame for filtering / ranking
 - `rank_by(field)`, `top(n)`, `filter(...)` — chainable selectors
 - `describe_profile_values(...)` — inspect field completeness
+- `diagnose_all()` — flatten every profile's diagnostics into one polars
+  DataFrame (`factor_name, severity, code, message, recommended_p_source`)
+  for zoo-scale triage
+- `with_canonical(field)` — rebind the canonical p-source for downstream
+  `multiple_testing_correct` and the `canonical_p` alias column; does
+  not mutate individual profile dataclasses
 
 Invariant: `multiple_testing_correct`'s `n_total` must be `>= len(self)`
 (correction can be applied over a larger universe than what was kept).
+
+---
+
+## Diagnostics vs Canonical — design philosophy
+
+factorlib deliberately keeps **two decision surfaces distinct**:
+
+1. `canonical_p` (bound to `CANONICAL_P_FIELD`) — the single authoritative
+   p-value fed to BHY. Stable per Profile class; never auto-switches.
+2. `diagnose()` — a list of `Diagnostic(severity, code, message,
+   recommended_p_source)` surfacing risks (clustering, factor persistence,
+   overlap-induced IC inflation). Rules may recommend an alternative
+   p-value via `recommended_p_source`, but the framework **does not**
+   silently rebind canonical based on diagnostics.
+
+Why not auto-switch? Three reasons:
+- **Reproducibility**: canonical tied to a rule threshold (e.g. HHI>0.2)
+  means the BHY input set depends on sample-dependent diagnostics. Two
+  runs on slightly different data could silently pick different p-values.
+- **Hidden assumptions**: a user inspecting `canonical_p=0.01` should be
+  able to name the test without cross-referencing dynamic state.
+- **Threshold fragility**: rule cutoffs (HHI 0.2 vs 0.25, ADF p 0.05 vs
+  0.10) are themselves judgement calls that should not drive first-order
+  statistical inference.
+
+Instead:
+- `diagnose()` surfaces risk flags as data.
+- `verdict()` exposes `PASS_WITH_WARNINGS` when a warn-severity diagnostic
+  names a defensible alternative the user has not adopted — a UX hint, not
+  a severity grade.
+- `ProfileSet.with_canonical(field)` lets the user **explicitly** rebind
+  for zoo-scale BHY.
+- `factorlib.evaluation` logger emits INFO on each `multiple_testing_correct`
+  call and WARNING when `PASS_WITH_WARNINGS` fires. `factorlib.metrics`
+  logger emits DEBUG per correction (sample shrink, NW lags) and WARNING
+  for degenerate regimes (sample < 1.5×min, lags×5 > T).
+
+Slogan: **framework detects risk, user decides the correction**.
+
+Caveat: some diagnostics have **config-level** remediations rather than
+an alternative p-value (e.g. `event.clustering_high` should be fixed by
+setting `EventConfig.adjust_clustering='kolari_pynnonen'`, not by swapping
+p-source). These rules carry no `recommended_p_source` and therefore do
+not upgrade `verdict()` to `PASS_WITH_WARNINGS`. The message field names
+the config lever instead. Users who want a uniform "any diagnose warning
+implies verdict caveat" view can filter `diagnose_all()` directly.
 
 ---
 

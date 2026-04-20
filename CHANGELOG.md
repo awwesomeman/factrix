@@ -16,6 +16,42 @@ on semver range constraints until `1.0.0` is cut.
 
 ---
 
+## [Unreleased]
+
+### Added
+- `ic_newey_west()` — HAC t-test on overlapping IC series; first-class
+  alternative when `signal_horizon > rebalance_freq`.
+- `CrossSectionalProfile.ic_nw_p` (in `P_VALUE_FIELDS`); diagnostic rule
+  `cs.overlapping_returns_inflates_ic` with `recommended_p_source`.
+- `MacroCommonProfile.factor_adf_p` (metadata — NOT in `P_VALUE_FIELDS`,
+  unit-root test ≠ factor significance); rule `macro_common.factor_persistent`.
+- Minimal in-house ADF (`_stats._adf`) with MacKinnon asymptotic crits —
+  no `statsmodels` dependency.
+- `ProfileSet.diagnose_all()` — flatten all diagnostics to a polars DataFrame.
+- `ProfileSet.with_canonical(field)` — rebind canonical p-source for
+  downstream `multiple_testing_correct` and `canonical_p` alias column.
+- `Diagnostic.recommended_p_source` — rules can name a whitelisted
+  alternative p-value; validated against `P_VALUE_FIELDS`.
+- `Verdict` extended with `"PASS_WITH_WARNINGS"` — emitted when `canonical_p`
+  passes but a warn-severity diagnostic names an alternative the user
+  has not adopted.
+- `factorlib._logging` — shared `factorlib.evaluation` (orchestration;
+  INFO / WARNING) and `factorlib.metrics` (correction layer; DEBUG +
+  degenerate-sample WARNING) loggers.
+- `ARCHITECTURE.md` — "Diagnostics vs Canonical" section describing the
+  "framework detects, user decides" philosophy.
+
+### Changed
+- `verdict()` now delegates to `_verdict_with_warnings`; can return
+  `"PASS_WITH_WARNINGS"`, and can raise `ValueError` when a registered
+  `Rule.recommended_p_source` points outside `P_VALUE_FIELDS` (developer
+  error, not user data issue).
+- `multiple_testing_correct` records the resolved field name in
+  `mt_p_source` when `with_canonical` has been applied, not the literal
+  `"canonical_p"` alias.
+
+---
+
 ## [0.1.0] - 2026-04-20
 
 ### Note

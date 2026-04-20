@@ -6,8 +6,11 @@ Single-factor usage::
 
     profile = fl.evaluate(df, "Mom_20D", factor_type="cross_sectional")
     print(profile.verdict(), profile.canonical_p)
+    # verdict() returns "PASS" | "PASS_WITH_WARNINGS" | "FAILED".
+    # PASS_WITH_WARNINGS fires when a warn-severity diagnostic names a
+    # whitelisted alternative p_source the user has not adopted.
     for d in profile.diagnose():
-        print(d.severity, d.code, d.message)
+        print(d.severity, d.code, d.message, d.recommended_p_source)
 
 Batch + BHY multiple-testing::
 
@@ -23,6 +26,12 @@ Batch + BHY multiple-testing::
         .rank_by("ic_ir")
         .top(10)
     )
+
+    # Zoo-scale diagnostic triage
+    profiles.diagnose_all()              # tidy DataFrame: (factor_name,
+                                         # severity, code, message,
+                                         # recommended_p_source)
+    profiles.with_canonical("ic_nw_p")   # rebind canonical for BHY
 
 Schema reflection::
 
