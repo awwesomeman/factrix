@@ -323,7 +323,7 @@ class CrossSectionalFactor(Factor):
         )
 
     def quantile_spread(self, n_groups: int | None = None) -> MetricOutput:
-        """long-short spread per-period mean, t-test against zero.
+        """Top-bottom quantile spread per-period mean, t-test against zero.
 
         ``n_groups`` override bypasses the cache AND the cached
         ``spread_series`` (which was built with the bound ``n_groups``) —
