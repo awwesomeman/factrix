@@ -90,6 +90,7 @@ class MacroCommonProfile:
             mean_r_squared,
             ts_beta,
             ts_beta_sign_consistency,
+            ts_beta_single_asset_fallback,
         )
 
         config = artifacts.config
@@ -106,22 +107,12 @@ class MacroCommonProfile:
         n_periods = int(artifacts.prepared["date"].n_unique())
 
         # N=1 degenerate case: cross-sectional t-test needs N>=2.
-        # Fall back to the single-asset regression's own t-stat
-        # (already computed in compute_ts_betas).
+        # Shared fallback in metrics.ts_beta keeps Profile and Factor
+        # paths bit-identical (see ts_beta_single_asset_fallback docstring).
         if n_assets == 1:
-            def _build_n1_ts_beta() -> MetricOutput:
-                row = ts_betas_df.row(0, named=True)
-                return MetricOutput(
-                    name="ts_beta",
-                    value=float(row["beta"]),
-                    stat=float(row["t_stat"]),
-                    metadata={
-                        "n_assets": 1,
-                        "p_value": 1.0,  # single-asset: suppress from BHY
-                        "method": "single-asset TS regression (no cross-asset test)",
-                    },
-                )
-            ts_beta_m = _memoized(outputs, "ts_beta", _build_n1_ts_beta)
+            ts_beta_m = _memoized(
+                outputs, "ts_beta", ts_beta_single_asset_fallback, ts_betas_df,
+            )
         else:
             ts_beta_m = _memoized(outputs, "ts_beta", ts_beta, ts_betas_df)
 

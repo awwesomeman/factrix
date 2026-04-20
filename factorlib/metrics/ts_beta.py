@@ -106,6 +106,29 @@ def compute_ts_betas(
 # Cross-sectional test on β distribution
 # ---------------------------------------------------------------------------
 
+def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
+    """N=1 fallback: report the single-asset regression's own t-stat.
+
+    The cross-sectional t-test in ``ts_beta`` needs N≥2 assets. With a
+    single asset, both ``MacroCommonProfile.from_artifacts`` and
+    ``MacroCommonFactor.ts_beta`` want the same degenerate-case output:
+    take the row's per-asset beta + t_stat, mark ``p_value=1.0`` so the
+    row is suppressed from BHY, and label the method. Centralizing here
+    keeps Profile and Factor paths bit-identical.
+    """
+    row = ts_betas_df.row(0, named=True)
+    return MetricOutput(
+        name="ts_beta",
+        value=float(row["beta"]),
+        stat=float(row["t_stat"]),
+        metadata={
+            "n_assets": 1,
+            "p_value": 1.0,
+            "method": "single-asset TS regression (no cross-asset test)",
+        },
+    )
+
+
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     """Test H₀: mean(β) = 0 across assets.
 
