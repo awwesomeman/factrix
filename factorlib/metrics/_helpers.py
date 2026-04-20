@@ -81,8 +81,29 @@ def _sample_non_overlapping(
     Returns:
         Filtered DataFrame containing only sampled dates.
     """
-    sampled = df["date"].unique().sort().gather_every(forward_periods)
-    return df.filter(pl.col("date").is_in(sampled.implode()))
+    from factorlib._logging import get_metrics_logger
+    from factorlib._types import MIN_IC_PERIODS
+
+    sampled_dates = df["date"].unique().sort().gather_every(forward_periods)
+    result = df.filter(pl.col("date").is_in(sampled_dates.implode()))
+    n_after = len(sampled_dates)
+    logger = get_metrics_logger()
+    logger.debug(
+        "non_overlap_sample: forward_periods=%d n_dates_before=%d n_after=%d",
+        forward_periods, df["date"].n_unique(), n_after,
+    )
+    # WARNING: post-sampling series shorter than 1.5x the usual minimum is
+    # a red flag — downstream t-tests either short-circuit or operate on
+    # a frail sample that silently caller-doesn't-notice.
+    min_safe = int(MIN_IC_PERIODS * 1.5)
+    if 0 < n_after < min_safe:
+        logger.warning(
+            "non_overlap_sample shrunk to n=%d (< %d = MIN_IC_PERIODS*1.5); "
+            "downstream significance tests may be unreliable. "
+            "forward_periods=%d",
+            n_after, min_safe, forward_periods,
+        )
+    return result
 
 
 def _assign_quantile_groups(

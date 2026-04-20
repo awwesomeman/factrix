@@ -47,7 +47,7 @@ class ProfileSet(Generic[P]):
         - All elements are instances of the same concrete Profile class.
         - ``self._profiles`` and ``self._df`` are kept in lockstep: same
           row order, same length. Internal operations that change one
-          must change the other via ``_with_df``.
+          must change the other via ``_derive``.
         - The df may carry extra columns injected by
           ``multiple_testing_correct`` (``p_adjusted``, ``bhy_significant``,
           ``canonical_p``); these are not on the dataclass schema.
@@ -57,11 +57,12 @@ class ProfileSet(Generic[P]):
     without special-casing.
     """
 
-    __slots__ = ("_profiles", "_df", "_profile_cls")
+    __slots__ = ("_profiles", "_df", "_profile_cls", "_canonical_override")
 
     _profiles: tuple[P, ...]
     _df: pl.DataFrame
     _profile_cls: type[P]
+    _canonical_override: str | None
 
     # ------------------------------------------------------------------
     # Construction
@@ -102,6 +103,7 @@ class ProfileSet(Generic[P]):
         self._profiles = plist
         self._profile_cls = cls
         self._df = _profiles_to_df(plist, cls)
+        self._canonical_override = None
 
     @classmethod
     def _with_df(
@@ -109,6 +111,7 @@ class ProfileSet(Generic[P]):
         profiles: tuple[P, ...],
         df: pl.DataFrame,
         profile_cls: type[P],
+        canonical_override: str | None = None,
     ) -> "ProfileSet[P]":
         """Internal constructor that preserves an existing df.
 
@@ -119,7 +122,41 @@ class ProfileSet(Generic[P]):
         obj._profiles = profiles
         obj._df = df
         obj._profile_cls = profile_cls
+        obj._canonical_override = canonical_override
         return obj
+
+    # Sentinel for ``_derive`` — ``None`` is a legitimate override value
+    # meaning "clear any existing rebinding", so it can't double as the
+    # "carry over from self" signal. Class-typed for mypy friendliness.
+    class _Unchanged:
+        __slots__ = ()
+
+    _UNCHANGED: typing.ClassVar["ProfileSet._Unchanged"] = _Unchanged()
+
+    def _derive(
+        self,
+        *,
+        profiles: "tuple[P, ...] | None" = None,
+        df: "pl.DataFrame | None" = None,
+        canonical_override: "str | None | ProfileSet._Unchanged" = _UNCHANGED,
+    ) -> "ProfileSet[P]":
+        """Clone with select overrides; inherit the rest from ``self``.
+
+        Single choke point so adding a new slot (future feature state)
+        only updates this method, not every ``filter`` / ``rank_by`` /
+        ``top`` / ``with_*`` / ``multiple_testing_correct`` return site.
+        """
+        resolved_override = (
+            self._canonical_override
+            if isinstance(canonical_override, ProfileSet._Unchanged)
+            else canonical_override
+        )
+        return ProfileSet._with_df(
+            self._profiles if profiles is None else profiles,
+            self._df if df is None else df,
+            self._profile_cls,
+            resolved_override,
+        )
 
     # ------------------------------------------------------------------
     # Dunder / basic access
@@ -183,7 +220,7 @@ class ProfileSet(Generic[P]):
             p for p, keep in zip(self._profiles, mask) if keep
         )
         new_df = self._df.filter(pl.Series(mask))
-        return ProfileSet._with_df(new_profiles, new_df, self._profile_cls)
+        return self._derive(profiles=new_profiles, df=new_df)
 
     def _mask_from_expr(self, predicate: pl.Expr) -> list[bool]:
         """Evaluate a polars Expr and return a row-wise Boolean mask.
@@ -224,14 +261,14 @@ class ProfileSet(Generic[P]):
         new_order = idx_df.get_column("_rankby_idx").to_list()
         new_profiles = tuple(self._profiles[i] for i in new_order)
         new_df = idx_df.drop("_rankby_idx")
-        return ProfileSet._with_df(new_profiles, new_df, self._profile_cls)
+        return self._derive(profiles=new_profiles, df=new_df)
 
     def top(self, n: int) -> "ProfileSet[P]":
         if n < 0:
             raise ValueError(f"top(n): n must be non-negative; got {n}.")
         new_profiles = self._profiles[:n]
         new_df = self._df.head(n)
-        return ProfileSet._with_df(new_profiles, new_df, self._profile_cls)
+        return self._derive(profiles=new_profiles, df=new_df)
 
     # ------------------------------------------------------------------
     # Extensibility
@@ -294,7 +331,80 @@ class ProfileSet(Generic[P]):
             )
 
         new_df = self._df.hstack(extra)
-        return ProfileSet._with_df(self._profiles, new_df, self._profile_cls)
+        return self._derive(df=new_df)
+
+    # ------------------------------------------------------------------
+    # Diagnose / canonical rebinding
+    # ------------------------------------------------------------------
+
+    def diagnose_all(self) -> pl.DataFrame:
+        """Flatten ``diagnose()`` output across the set.
+
+        Returns one row per (profile, diagnostic). Profiles with no
+        diagnostics contribute no rows — compare ``len(set)`` against
+        ``diagnose_all()['factor_name'].n_unique()`` to see how many are
+        clean. Columns:
+
+            factor_name, severity, code, message, recommended_p_source
+
+        Designed for zoo-scale triage: ``group_by('code').len()`` for a
+        histogram of failing rules; ``filter(pl.col('severity')=='warn')``
+        to isolate recommendations to act on before BHY.
+        """
+        factor_names: list[str] = []
+        severities: list[str] = []
+        codes: list[str | None] = []
+        messages: list[str] = []
+        recommended: list[str | None] = []
+        for p in self._profiles:
+            for d in p.diagnose():
+                factor_names.append(p.factor_name)
+                severities.append(d.severity)
+                codes.append(d.code)
+                messages.append(d.message)
+                recommended.append(d.recommended_p_source)
+        return pl.DataFrame(
+            {
+                "factor_name": factor_names,
+                "severity": severities,
+                "code": codes,
+                "message": messages,
+                "recommended_p_source": recommended,
+            },
+            schema={
+                "factor_name": pl.Utf8,
+                "severity": pl.Utf8,
+                "code": pl.Utf8,
+                "message": pl.Utf8,
+                "recommended_p_source": pl.Utf8,
+            },
+        )
+
+    def with_canonical(self, field: str) -> "ProfileSet[P]":
+        """Rebind the canonical p-source for downstream operations.
+
+        Affects:
+        - ``multiple_testing_correct()`` default ``p_source`` resolves
+          to ``field`` instead of the class-level ``CANONICAL_P_FIELD``.
+        - The ``canonical_p`` alias column in ``to_polars()`` points at
+          ``field``.
+
+        The underlying profile dataclasses are untouched; individual
+        ``profile.verdict()`` still uses the class-level canonical. For
+        an alternative single-profile verdict, read ``getattr(p, field)``
+        directly.
+
+        ``field`` must be in ``P_VALUE_FIELDS``.
+        """
+        whitelist = self._profile_cls.P_VALUE_FIELDS
+        if field not in whitelist:
+            raise ValueError(
+                f"with_canonical: {field!r} is not in "
+                f"{self._profile_cls.__name__}.P_VALUE_FIELDS="
+                f"{sorted(whitelist)}."
+            )
+        new_df = _attach_canonical_alias(self._df, field)
+        return self._derive(df=new_df, canonical_override=field)
 
     # ------------------------------------------------------------------
     # Multiple testing
@@ -406,8 +516,15 @@ class ProfileSet(Generic[P]):
             )
 
         effective_n_total = int(n_total) if n_total is not None else len(self)
+        # Resolve "canonical_p" through any with_canonical() rebinding so
+        # the recorded mt_p_source names the actual field pulled, not the
+        # alias. Explicit non-canonical p_source (already validated above)
+        # is passed through untouched.
+        resolved_p_source = p_source
+        if p_source == "canonical_p" and self._canonical_override is not None:
+            resolved_p_source = self._canonical_override
         meta_cols = [
-            pl.lit(p_source).alias(_MT_P_SOURCE_COL),
+            pl.lit(resolved_p_source).alias(_MT_P_SOURCE_COL),
             pl.lit(method).alias(_MT_METHOD_COL),
             pl.lit(float(fdr)).alias(_MT_FDR_COL),
             pl.lit(effective_n_total).alias(_MT_N_TOTAL_COL),
@@ -421,15 +538,15 @@ class ProfileSet(Generic[P]):
                 pl.Series("bhy_significant", [], dtype=pl.Boolean),
                 *meta_cols,
             ])
-            return ProfileSet._with_df(self._profiles, new_df, self._profile_cls)
+            return self._derive(df=new_df)
 
-        if p_source == "canonical_p":
+        if resolved_p_source == "canonical_p":
             p_values = np.array(
                 [float(p.canonical_p) for p in self._profiles], dtype=float,
             )
         else:
             p_values = np.array(
-                [float(getattr(p, p_source)) for p in self._profiles],
+                [float(getattr(p, resolved_p_source)) for p in self._profiles],
                 dtype=float,
             )
 
@@ -441,7 +558,14 @@ class ProfileSet(Generic[P]):
             pl.Series("bhy_significant", significant),
             *meta_cols,
         ])
-        return ProfileSet._with_df(self._profiles, new_df, self._profile_cls)
+        from factorlib._logging import get_evaluation_logger
+        get_evaluation_logger().info(
+            "multiple_testing_correct: method=%s p_source=%s fdr=%.4f "
+            "n_hypotheses=%d n_total=%d n_rejected=%d",
+            method, resolved_p_source, fdr, len(self),
+            effective_n_total, int(significant.sum()),
+        )
+        return self._derive(df=new_df)
 
 
 # ---------------------------------------------------------------------------
@@ -476,11 +600,13 @@ def _profiles_to_df(
     }
     df = pl.DataFrame(columns)
 
-    # Expose canonical_p as a convenience column (not on the dataclass).
-    canonical_field = profile_cls.CANONICAL_P_FIELD
-    if canonical_field in df.columns:
-        df = df.with_columns(pl.col(canonical_field).alias("canonical_p"))
+    return _attach_canonical_alias(df, profile_cls.CANONICAL_P_FIELD)
 
+
+def _attach_canonical_alias(df: pl.DataFrame, field: str) -> pl.DataFrame:
+    """Alias ``field`` as ``canonical_p`` on ``df``; no-op if absent."""
+    if field in df.columns:
+        return df.with_columns(pl.col(field).alias("canonical_p"))
     return df
 
 
