@@ -1,5 +1,5 @@
 [project]
-name = "factor-analysis"
+name = "factorlib"
 version = "3.3.0"
 description = "Quantitative factor evaluation framework for AI-driven factor mining"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-factor-lab = "factorlib.dashboard.app:main"
+factor-lab = "factorlib.integrations.streamlit.app:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=9.0", "pytest-cov>=7.0"]
@@ -28,9 +28,9 @@ addopts = "-v --tb=short"
 include = ["factorlib*"]
 namespaces = false
 
-[build-system]                                                                                                                                                                                                                                                     
-requires = ["setuptools>=75.0"]                                                                                                                                                                                                                                    
-build-backend = "setuptools.build_meta"   
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
