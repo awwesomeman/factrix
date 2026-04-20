@@ -50,7 +50,7 @@ from typing import Any
 from factorlib._types import FactorType, MetricOutput
 from factorlib.evaluation._protocol import Artifacts
 from factorlib.evaluation.profiles._base import _memoized
-from factorlib.metrics._helpers import _short_circuit_output
+from factorlib.metrics._helpers import _short_circuit_output  # noqa: F401  (used by _short_circuit_if + subclasses)
 
 if TYPE_CHECKING:
     from factorlib.config import BaseConfig
@@ -138,11 +138,52 @@ class Factor:
         When ``override=True``, bypasses the cache entirely (computes fresh
         and does NOT write back) — per-call overrides must not pollute the
         config-bound cache that ``evaluate()`` reads.
+
+        Enforces the ``cache-key == primitive.MetricOutput.name`` contract:
+        if the computed output's ``.name`` differs from ``name``, ``_stash``
+        would key the entry under the primitive's name and leave the Factor
+        side of the cache empty — a silent double-entry / cache-miss bug.
+        ``_memoized`` + ``_stash`` already do the store; we assert here on
+        the override (uncached) path because ``_memoized`` returns the
+        stored view and can't double-check after stashing.
         """
         if override:
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            assert result.name == name, (
+                f"Factor cache-key contract violated: method requested "
+                f"cache key {name!r} but primitive returned "
+                f"MetricOutput.name={result.name!r}"
+            )
+            return result
         return _memoized(
             self.artifacts.metric_outputs, name, fn, *args, **kwargs,
+        )
+
+    def _short_circuit_if(
+        self,
+        cache_key: str,
+        condition: bool,
+        reason: str,
+    ) -> MetricOutput | None:
+        """Return a cached short-circuit ``MetricOutput`` when ``condition``.
+
+        Centralizes the recurring stanza "if prepared lacks column X /
+        factor is discrete / N==1, return a short-circuit MetricOutput
+        with ``metadata["reason"]``" used by ``EventFactor`` sites. Reading
+        the cache first keeps repeat calls O(1); a computed short-circuit
+        is stashed so subsequent calls hit the cache path.
+
+        Returns ``None`` when the condition is False — callers fall
+        through to ``_cached_or_compute``.
+        """
+        cached = self.artifacts.metric_outputs.get(cache_key)
+        if cached is not None:
+            return cached
+        if not condition:
+            return None
+        return _memoized(
+            self.artifacts.metric_outputs, cache_key,
+            _short_circuit_output, cache_key, reason,
         )
 
     def _l2_short_circuit(self, name: str, field: str) -> MetricOutput:
@@ -305,10 +346,350 @@ class CrossSectionalFactor(Factor):
         return self._l2_short_circuit("spanning_alpha", "spanning_base_spreads")
 
 
+@dataclass
+class EventFactor(Factor):
+    """Research session for an event-signal factor panel.
+
+    Method set mirrors ``EventProfile.from_artifacts`` so that any metric
+    surfaced on the Profile is reachable as a standalone method with the
+    same cache key. Methods that need ``price`` (``mfe_mae_summary`` /
+    ``event_around_return`` / ``multi_horizon_hit_rate``) return a short-
+    circuit ``MetricOutput`` if the prepared panel lacks the column,
+    matching the L2 opt-in contract on ``CrossSectionalFactor``.
+    """
+
+    EXPECTED_FACTOR_TYPE: ClassVar[FactorType] = FactorType.EVENT_SIGNAL
+
+    def _return_col(self) -> str:
+        # WHY: Event pipeline computes abnormal_return when N>1 and
+        # EventProfile.from_artifacts prefers it; mirror that so the
+        # Factor method produces identical cached values.
+        if "abnormal_return" in self.artifacts.prepared.columns:
+            return "abnormal_return"
+        return "forward_return"
+
+    # ----- Canonical + core -----
+
+    def caar(self, forward_periods: int | None = None) -> MetricOutput:
+        """CAAR non-overlapping t-test (canonical test)."""
+        from factorlib.metrics.caar import caar as _caar
+        fp = forward_periods if forward_periods is not None else self.config.forward_periods
+        return self._cached_or_compute(
+            "caar", _caar, self.artifacts.get("caar_series"),
+            forward_periods=fp, override=forward_periods is not None,
+        )
+
+    def bmp_test(self, forward_periods: int | None = None) -> MetricOutput:
+        """BMP standardized-AR z-test (variance-robust confirmation)."""
+        from factorlib.metrics.caar import bmp_test as _bmp
+        fp = forward_periods if forward_periods is not None else self.config.forward_periods
+        return self._cached_or_compute(
+            "bmp_sar", _bmp, self.artifacts.prepared,
+            return_col=self._return_col(), forward_periods=fp,
+            override=forward_periods is not None,
+        )
+
+    def event_hit_rate(self) -> MetricOutput:
+        """Fraction of events with signed_car > 0."""
+        from factorlib.metrics.event_quality import event_hit_rate as _hr
+        return self._cached_or_compute(
+            "event_hit_rate", _hr, self.artifacts.prepared,
+            return_col=self._return_col(),
+        )
+
+    def profit_factor(self) -> MetricOutput:
+        """sum(positive signed_car) / sum(negative signed_car)."""
+        from factorlib.metrics.event_quality import profit_factor as _pf
+        return self._cached_or_compute(
+            "profit_factor", _pf, self.artifacts.prepared,
+            return_col=self._return_col(),
+        )
+
+    def event_skewness(self) -> MetricOutput:
+        """D'Agostino skewness test on signed_car distribution."""
+        from factorlib.metrics.event_quality import event_skewness as _sk
+        return self._cached_or_compute(
+            "event_skewness", _sk, self.artifacts.prepared,
+            return_col=self._return_col(),
+        )
+
+    def event_ic(self) -> MetricOutput:
+        """Spearman corr(|factor|, signed_car). Short-circuits for discrete {±1}."""
+        import polars as pl
+        from factorlib.metrics.event_quality import event_ic as _eic
+
+        events = self.artifacts.prepared.filter(pl.col("factor") != 0)
+        discrete = events["factor"].abs().n_unique() <= 1
+        sc = self._short_circuit_if("event_ic", discrete, "no_magnitude_variance")
+        if sc is not None:
+            return sc
+        return self._cached_or_compute(
+            "event_ic", _eic, self.artifacts.prepared,
+            return_col=self._return_col(),
+        )
+
+    def signal_density(self) -> MetricOutput:
+        """Average bars per event per asset."""
+        from factorlib.metrics.event_quality import signal_density as _sd
+        return self._cached_or_compute(
+            "signal_density", _sd, self.artifacts.prepared,
+        )
+
+    def clustering_hhi(self, cluster_window: int | None = None) -> MetricOutput:
+        """Event-date Herfindahl concentration. Short-circuits for N=1."""
+        from factorlib.metrics.clustering import clustering_diagnostic as _cl
+
+        # Override path recomputes fresh regardless of the single-asset
+        # branch; the cache peek below only helps the default path.
+        if cluster_window is None:
+            single_asset = self.artifacts.prepared["asset_id"].n_unique() <= 1
+            sc = self._short_circuit_if("clustering_hhi", single_asset, "single_asset")
+            if sc is not None:
+                return sc
+        cw = cluster_window if cluster_window is not None else self.config.cluster_window
+        return self._cached_or_compute(
+            "clustering_hhi", _cl, self.artifacts.prepared,
+            cluster_window=cw, override=cluster_window is not None,
+        )
+
+    def corrado_rank_test(self) -> MetricOutput:
+        """Nonparametric rank test for event abnormal returns."""
+        from factorlib.metrics.corrado import corrado_rank_test as _cr
+        return self._cached_or_compute(
+            "corrado_rank", _cr, self.artifacts.prepared,
+            return_col=self._return_col(),
+        )
+
+    # ----- Path-based (need price column) -----
+
+    def mfe_mae_summary(self, window: int | None = None) -> MetricOutput:
+        """MFE / MAE excursion ratio. Requires price column.
+
+        Cache key is ``"mfe_mae"`` (the primitive's ``MetricOutput.name``),
+        not ``"mfe_mae_summary"`` — ``_stash`` keys by ``.name`` so the
+        method/key drift is intentional to avoid double-cache entries.
+        """
+        from factorlib.metrics.mfe_mae import (
+            compute_mfe_mae as _cm, mfe_mae_summary as _ms,
+        )
+
+        no_price = "price" not in self.artifacts.prepared.columns
+        sc = self._short_circuit_if("mfe_mae", no_price, "no_price_column")
+        if sc is not None:
+            return sc
+        w = window if window is not None else self.config.event_window_post
+        return self._cached_or_compute(
+            "mfe_mae", lambda df: _ms(_cm(df, window=w)),
+            self.artifacts.prepared,
+            override=window is not None,
+        )
+
+    def event_around_return(self) -> MetricOutput:
+        """Per-offset return profile T-6..T+24 around events. Requires price."""
+        from factorlib.metrics.event_horizon import event_around_return as _ear
+
+        no_price = "price" not in self.artifacts.prepared.columns
+        sc = self._short_circuit_if("event_around_return", no_price, "no_price_column")
+        if sc is not None:
+            return sc
+        return self._cached_or_compute(
+            "event_around_return", _ear, self.artifacts.prepared,
+        )
+
+    def multi_horizon_hit_rate(self) -> MetricOutput:
+        """Win rate at horizons [1, 6, 12, 24]. Requires price column."""
+        from factorlib.metrics.event_horizon import multi_horizon_hit_rate as _mh
+
+        no_price = "price" not in self.artifacts.prepared.columns
+        sc = self._short_circuit_if("multi_horizon_hit_rate", no_price, "no_price_column")
+        if sc is not None:
+            return sc
+        return self._cached_or_compute(
+            "multi_horizon_hit_rate", _mh, self.artifacts.prepared,
+        )
+
+    # ----- Stability -----
+
+    def caar_trend(self) -> MetricOutput:
+        """Theil-Sen trend on the CAAR value series."""
+        # WHY: EventProfile stashes under "ic_trend" key (shared trend helper).
+        from factorlib.metrics.trend import ic_trend as _tr
+        return self._cached_or_compute(
+            "ic_trend", _tr, self.artifacts.get("caar_values"),
+        )
+
+    def oos_decay(self) -> MetricOutput:
+        """Multi-split OOS survival on CAAR values."""
+        from factorlib.metrics.oos import multi_split_oos_decay as _oos
+        return self._cached_or_compute(
+            "oos_decay", _oos, self.artifacts.get("caar_values"),
+        )
+
+
+@dataclass
+class MacroPanelFactor(Factor):
+    """Research session for a macro-panel (cross-country / small-N) factor.
+
+    Method set mirrors ``MacroPanelProfile.from_artifacts``.
+    """
+
+    EXPECTED_FACTOR_TYPE: ClassVar[FactorType] = FactorType.MACRO_PANEL
+
+    # ----- Canonical + core -----
+
+    def fm_beta(self) -> MetricOutput:
+        """Fama-MacBeth λ Newey-West t-test (canonical test)."""
+        from factorlib.metrics.fama_macbeth import fama_macbeth as _fm
+        return self._cached_or_compute(
+            "fm_beta", _fm, self.artifacts.get("beta_series"),
+        )
+
+    def pooled_beta(self) -> MetricOutput:
+        """Pooled OLS with date-clustered SE (sign-consistency cross-check)."""
+        from factorlib.metrics.fama_macbeth import pooled_ols as _po
+        return self._cached_or_compute(
+            "pooled_beta", _po, self.artifacts.prepared,
+        )
+
+    def beta_sign_consistency(self) -> MetricOutput:
+        """Fraction of periods with β in the dominant direction."""
+        from factorlib.metrics.fama_macbeth import beta_sign_consistency as _bsc
+        return self._cached_or_compute(
+            "beta_sign_consistency", _bsc, self.artifacts.get("beta_series"),
+        )
+
+    def quantile_spread(self, n_groups: int | None = None) -> MetricOutput:
+        """Top-bottom long-short spread t-test."""
+        from factorlib.metrics.quantile import quantile_spread as _qs
+        if n_groups is not None:
+            return _qs(
+                self.artifacts.prepared,
+                forward_periods=self.config.forward_periods,
+                n_groups=n_groups,
+            )
+        return self._cached_or_compute(
+            "q1_q5_spread", _qs, self.artifacts.prepared,
+            forward_periods=self.config.forward_periods,
+            n_groups=self.config.n_groups,
+            _precomputed_series=self.artifacts.intermediates.get("spread_series"),
+        )
+
+    def turnover(self) -> MetricOutput:
+        """Period-over-period weight turnover fraction."""
+        from factorlib.metrics.tradability import turnover as _tn
+        return self._cached_or_compute(
+            "turnover", _tn, self.artifacts.prepared,
+        )
+
+    def breakeven_cost(self) -> MetricOutput:
+        """Per-side cost (bps) that fully erodes the long-short spread."""
+        from factorlib.metrics.tradability import breakeven_cost as _be
+        return self._cached_or_compute(
+            "breakeven_cost", _be,
+            self.quantile_spread().value, self.turnover().value,
+        )
+
+    def net_spread(self) -> MetricOutput:
+        """Spread minus ``estimated_cost_bps`` × turnover (signed)."""
+        from factorlib.metrics.tradability import net_spread as _ns
+        return self._cached_or_compute(
+            "net_spread", _ns,
+            self.quantile_spread().value, self.turnover().value,
+            self.config.estimated_cost_bps,
+        )
+
+    # ----- Stability -----
+
+    def beta_trend(self) -> MetricOutput:
+        """Theil-Sen trend on the FM β series.
+
+        Cache key is ``"ic_trend"`` because the primitive's
+        ``MetricOutput.name`` is ``ic_trend`` (shared ``ic_trend`` /
+        ``trend.py`` helper applied to the β series). Same reuse pattern
+        as ``EventFactor.caar_trend`` and ``MacroCommonFactor.beta_trend``.
+        """
+        from factorlib.metrics.trend import ic_trend as _tr
+        return self._cached_or_compute(
+            "ic_trend", _tr, self.artifacts.get("beta_values"),
+        )
+
+    def oos_decay(self) -> MetricOutput:
+        """Multi-split OOS survival on FM β values."""
+        from factorlib.metrics.oos import multi_split_oos_decay as _oos
+        return self._cached_or_compute(
+            "oos_decay", _oos, self.artifacts.get("beta_values"),
+        )
+
+
+@dataclass
+class MacroCommonFactor(Factor):
+    """Research session for a macro-common (single-time-series) factor.
+
+    Method set mirrors ``MacroCommonProfile.from_artifacts``. The N=1
+    degenerate case (single asset) is handled by the underlying primitive
+    just as it is in the Profile path.
+    """
+
+    EXPECTED_FACTOR_TYPE: ClassVar[FactorType] = FactorType.MACRO_COMMON
+
+    # ----- Canonical + core -----
+
+    def ts_beta(self) -> MetricOutput:
+        """Cross-sectional t-test on per-asset TS β (canonical test).
+
+        With N=1 the cross-sectional t-test is undefined; dispatch to
+        ``ts_beta_single_asset_fallback`` which reports the single-asset
+        regression's own t-stat with ``p_value=1.0`` (suppressed from
+        BHY). Shared with ``MacroCommonProfile.from_artifacts`` so
+        Profile-path and Factor-path produce bit-identical values.
+        """
+        from factorlib.metrics.ts_beta import (
+            ts_beta as _tsb,
+            ts_beta_single_asset_fallback as _n1,
+        )
+        ts_betas = self.artifacts.get("beta_series")
+        if len(ts_betas) <= 1:
+            return self._cached_or_compute("ts_beta", _n1, ts_betas)
+        return self._cached_or_compute("ts_beta", _tsb, ts_betas)
+
+    def mean_r_squared(self) -> MetricOutput:
+        """Mean per-asset regression R²."""
+        from factorlib.metrics.ts_beta import mean_r_squared as _mr2
+        return self._cached_or_compute(
+            "mean_r_squared", _mr2, self.artifacts.get("beta_series"),
+        )
+
+    def ts_beta_sign_consistency(self) -> MetricOutput:
+        """Fraction of assets with β in the dominant direction."""
+        from factorlib.metrics.ts_beta import ts_beta_sign_consistency as _sc
+        return self._cached_or_compute(
+            "ts_beta_sign_consistency", _sc, self.artifacts.get("beta_series"),
+        )
+
+    # ----- Stability -----
+
+    def beta_trend(self) -> MetricOutput:
+        """Theil-Sen trend on the rolling mean β series."""
+        from factorlib.metrics.trend import ic_trend as _tr
+        return self._cached_or_compute(
+            "ic_trend", _tr, self.artifacts.get("beta_values"),
+        )
+
+    def oos_decay(self) -> MetricOutput:
+        """Multi-split OOS survival on rolling mean β values."""
+        from factorlib.metrics.oos import multi_split_oos_decay as _oos
+        return self._cached_or_compute(
+            "oos_decay", _oos, self.artifacts.get("beta_values"),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Factor registry — factor_type → Factor subclass
 # ---------------------------------------------------------------------------
 
 _FACTOR_REGISTRY: dict[FactorType, type[Factor]] = {
     FactorType.CROSS_SECTIONAL: CrossSectionalFactor,
+    FactorType.EVENT_SIGNAL: EventFactor,
+    FactorType.MACRO_PANEL: MacroPanelFactor,
+    FactorType.MACRO_COMMON: MacroCommonFactor,
 }
