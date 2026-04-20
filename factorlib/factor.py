@@ -266,17 +266,18 @@ class CrossSectionalFactor(Factor):
 
     # ----- Level 1: core metrics -----
 
-    def ic(self, forward_periods: int | None = None) -> MetricOutput:
+    def ic(self) -> MetricOutput:
         """Spearman rank IC mean significance (non-overlapping t-test).
 
-        ``forward_periods`` override bypasses the cache and does not write
-        back — the config-bound cache read by ``evaluate()`` stays pure.
+        Uses ``config.forward_periods`` — to test a different horizon,
+        rebuild the session with a new config (the IC series itself is
+        horizon-bound; a per-call override would only shift dof while the
+        values stay computed at the original horizon, which is misleading).
         """
         from factorlib.metrics.ic import ic as _ic
-        fp = forward_periods if forward_periods is not None else self.config.forward_periods
         return self._cached_or_compute(
             "ic", _ic, self.artifacts.get("ic_series"),
-            forward_periods=fp, override=forward_periods is not None,
+            forward_periods=self.config.forward_periods,
         )
 
     def ic_ir(self) -> MetricOutput:
@@ -286,13 +287,12 @@ class CrossSectionalFactor(Factor):
             "ic_ir", _ic_ir, self.artifacts.get("ic_series"),
         )
 
-    def hit_rate(self, forward_periods: int | None = None) -> MetricOutput:
+    def hit_rate(self) -> MetricOutput:
         """Binomial sign-hit rate on IC series."""
         from factorlib.metrics.hit_rate import hit_rate as _hr
-        fp = forward_periods if forward_periods is not None else self.config.forward_periods
         return self._cached_or_compute(
             "hit_rate", _hr, self.artifacts.get("ic_values"),
-            forward_periods=fp, override=forward_periods is not None,
+            forward_periods=self.config.forward_periods,
         )
 
     def ic_trend(self) -> MetricOutput:
@@ -302,19 +302,20 @@ class CrossSectionalFactor(Factor):
             "ic_trend", _tr, self.artifacts.get("ic_values"),
         )
 
-    def monotonicity(
-        self,
-        forward_periods: int | None = None,
-        n_groups: int | None = None,
-    ) -> MetricOutput:
-        """Monotonic return ordering across factor quintiles."""
+    def monotonicity(self, n_groups: int | None = None) -> MetricOutput:
+        """Monotonic return ordering across factor quintiles.
+
+        ``n_groups`` override is a legitimate per-call knob (re-groups
+        the prepared panel); ``forward_periods`` is bound to the session
+        and cannot be overridden — the prepared panel's ``forward_return``
+        is baked at ``config.forward_periods``.
+        """
         from factorlib.metrics.monotonicity import monotonicity as _mono
-        fp = forward_periods if forward_periods is not None else self.config.forward_periods
         ng = n_groups if n_groups is not None else self.config.n_groups
-        override = forward_periods is not None or n_groups is not None
         return self._cached_or_compute(
             "monotonicity", _mono, self.artifacts.prepared,
-            forward_periods=fp, n_groups=ng, override=override,
+            forward_periods=self.config.forward_periods,
+            n_groups=ng, override=n_groups is not None,
         )
 
     def quantile_spread(self, n_groups: int | None = None) -> MetricOutput:
@@ -395,23 +396,30 @@ class EventFactor(Factor):
 
     # ----- Canonical + core -----
 
-    def caar(self, forward_periods: int | None = None) -> MetricOutput:
-        """CAAR non-overlapping t-test (canonical test)."""
+    def caar(self) -> MetricOutput:
+        """CAAR non-overlapping t-test (canonical test).
+
+        Uses ``config.forward_periods`` — the caar_series was sampled at
+        that horizon; overriding fp per-call would only re-sample a series
+        whose values are horizon-bound, producing misleading dof.
+        """
         from factorlib.metrics.caar import caar as _caar
-        fp = forward_periods if forward_periods is not None else self.config.forward_periods
         return self._cached_or_compute(
             "caar", _caar, self.artifacts.get("caar_series"),
-            forward_periods=fp, override=forward_periods is not None,
+            forward_periods=self.config.forward_periods,
         )
 
-    def bmp_test(self, forward_periods: int | None = None) -> MetricOutput:
-        """BMP standardized-AR z-test (variance-robust confirmation)."""
+    def bmp_test(self) -> MetricOutput:
+        """BMP standardized-AR z-test (variance-robust confirmation).
+
+        Uses ``config.forward_periods`` — ``vol_scale = 1/sqrt(fp)`` must
+        match the horizon used to build ``abnormal_return``.
+        """
         from factorlib.metrics.caar import bmp_test as _bmp
-        fp = forward_periods if forward_periods is not None else self.config.forward_periods
         return self._cached_or_compute(
             "bmp_sar", _bmp, self.artifacts.prepared,
-            return_col=self._return_col(), forward_periods=fp,
-            override=forward_periods is not None,
+            return_col=self._return_col(),
+            forward_periods=self.config.forward_periods,
         )
 
     def event_hit_rate(self) -> MetricOutput:
