@@ -429,6 +429,15 @@ def evaluate(
     Returns:
         By default a per-type FactorProfile. When ``return_artifacts``
         is True, returns ``(profile, artifacts)``.
+
+    Note:
+        ``fl.describe_profile_values(profile, artifacts)`` needs
+        ``artifacts`` as its second argument. If you plan to inspect a
+        profile with that helper, pass ``return_artifacts=True`` here —
+        otherwise ``artifacts`` is unrecoverable without re-running
+        ``evaluate`` (double-computation). For interactive research
+        sessions, ``fl.factor(df, name, config=cfg)`` gives you a
+        ``Factor`` whose ``.artifacts`` attribute is always populated.
     """
     config = _resolve_config(
         factor_type, config, config_overrides, caller="evaluate",
