@@ -36,7 +36,10 @@ def compute_spread_series(
 ) -> pl.DataFrame:
     """Per-date long-short spread series (non-overlapping).
 
-    Q1 = top quantile (highest factor), Q5 = bottom quantile.
+    Top bucket = highest factor rank; bottom bucket = lowest. Labels use
+    ``top_return`` / ``bottom_return`` rather than ``q1_return`` /
+    ``q5_return`` because the bucket width depends on ``n_groups`` — at
+    ``n_groups=10`` the bottom is Q10, not Q5.
 
     Args:
         df: Panel with ``date, asset_id, factor, forward_return``.
@@ -194,7 +197,7 @@ def quantile_spread_vw(
     top_group = n_groups - 1
     bottom_group = 0
 
-    # WHY: per-date weighted mean for Q1 and Q5
+    # WHY: per-date weighted mean for top and bottom buckets
     vw_series = (
         grouped.with_columns(
             (pl.col(return_col) * pl.col(weight_col)).alias("_wr"),

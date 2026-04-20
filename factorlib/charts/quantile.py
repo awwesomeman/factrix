@@ -37,7 +37,7 @@ def quantile_return_chart(group_returns: pl.DataFrame) -> go.Figure:
 
 
 def spread_time_series_chart(spread_series: pl.DataFrame) -> go.Figure:
-    """long-short spread over time with Q1/Q5 returns.
+    """Long-short spread over time with top and bottom bucket returns.
 
     Args:
         spread_series: Output of ``compute_spread_series()``
@@ -52,11 +52,11 @@ def spread_time_series_chart(spread_series: pl.DataFrame) -> go.Figure:
     ))
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["top_return"],
-        name="Q1 (Top)", line=dict(color="#00CC96", width=1, dash="dot"),
+        name="Top", line=dict(color="#00CC96", width=1, dash="dot"),
     ))
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["bottom_return"],
-        name="Q5 (Bottom)", line=dict(color="#EF553B", width=1, dash="dot"),
+        name="Bottom", line=dict(color="#EF553B", width=1, dash="dot"),
     ))
     fig.add_hline(y=0, line=dict(color="gray", dash="dash", width=1))
     fig.update_layout(

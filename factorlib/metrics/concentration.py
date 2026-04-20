@@ -1,7 +1,8 @@
-"""Q1 concentration analysis for cross-sectional panels.
+"""Top-bucket concentration analysis for cross-sectional panels.
 
-Measures whether Q1 (top quantile) alpha is concentrated in a few stocks
-or broadly distributed, using HHI (Herfindahl-Hirschman Index) inverse.
+Measures whether top-bucket (long-leg) alpha is concentrated in a few
+stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
+inverse.
 
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
 """
@@ -22,7 +23,7 @@ def top_concentration(
     q_top: float = 0.2,
     factor_col: str = "factor",
 ) -> MetricOutput:
-    """Q1 concentration via HHI inverse.
+    """Top-bucket concentration via HHI inverse.
 
     Per date, selects top ``q_top`` stocks by factor rank, computes
     HHI of their (absolute) factor values, and returns 1/HHI as
@@ -30,11 +31,12 @@ def top_concentration(
 
     Args:
         df: Panel with ``date, asset_id, factor``.
-        q_top: Fraction of stocks in Q1 (default 0.2 = top 20%).
+        q_top: Fraction of top-ranked stocks to include (default 0.2 =
+            top 20%).
 
     Returns:
         MetricOutput with value = mean(1/HHI) across dates.
-        Higher = more diversified Q1.
+        Higher = more diversified top bucket.
     """
     filtered = _sample_non_overlapping(df, forward_periods)
 
