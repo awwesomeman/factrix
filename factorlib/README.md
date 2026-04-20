@@ -609,6 +609,7 @@ fl.CrossSectionalConfig(
     mad_n=3.0,                        # MAD winsorization
     return_clip_pct=(0.01, 0.99),     # Forward-return percentile winsorize
     estimated_cost_bps=30,            # Trading cost estimate
+    tie_policy="ordinal",             # or "average" on low-cardinality factors
 )
 
 # Event signal
@@ -706,6 +707,9 @@ daily factor data — TZ adds baggage without benefit when `date` is a
 - **N-awareness:** Profile and caution logic adapt to single-asset (N=1) vs multi-asset panels
 - **Small N warning:** UserWarning when median cross-section < 30 (suggest MacroPanelConfig)
 - **Per-group warning:** UserWarning when quantile groups have < 5 assets
+- **Tie-ratio warning:** UserWarning when median per-date factor tie_ratio exceeds 0.3 under `tie_policy="ordinal"` — low-cardinality factors (binary signals, ESG buckets, sector dummies) inject sorting-artifact noise under ordinal tie-breaking. Switch to `tie_policy="average"` to share buckets at the cost of slight group-size imbalance. `tie_ratio` is recorded in `MetricOutput.metadata` on every quantile-bucket metric (`quantile_spread`, `quantile_spread_vw`, `monotonicity`, `top_concentration`)
+- **Short-circuit semantics:** when a metric cannot compute (insufficient data, missing input column), it returns `MetricOutput(value=NaN, stat=None, metadata={"reason": ..., "p_value": 1.0})` — 0.0 is a legal factor outcome (IC, β, spread exactly zero), NaN propagates through `.sum()` / `.mean()` and renders as `—` in `describe_profile_values`, keeping skips visible. BHY reads `metadata["p_value"]` so short-circuited metrics are conservatively rejected, not excluded
+- **Per-call override advisory:** `f.quantile_spread(n_groups=10)` on a `Factor` session bypasses the config-bound cache for sensitivity sweeps — the first override per (Factor, key) emits a `UserWarning` so users realize `f.evaluate()` still uses the bound config. Rebuild via `fl.factor(df, name, config=dataclasses.replace(cfg, ...))` to persist
 - **IS/OOS split:** Time-based only, no random split
 - **MAD z-score:** Robust to outliers (median + MAD x 1.4826)
 - **EPSILON guard:** 1e-9 division protection across all metrics
