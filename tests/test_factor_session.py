@@ -338,6 +338,65 @@ class TestEscapeHatch:
 
 
 # ---------------------------------------------------------------------------
+# Override advisory log (#3 from feedback)
+# ---------------------------------------------------------------------------
+
+class TestOverrideLog:
+    def test_first_override_warns(self, noisy_panel, recwarn):
+        f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
+        f.quantile_spread(n_groups=3)
+        advisories = [
+            w for w in recwarn.list
+            if issubclass(w.category, UserWarning)
+            and "per-call override" in str(w.message)
+            and "quantile_spread" in str(w.message)
+        ]
+        assert len(advisories) == 1, (
+            f"expected exactly one override advisory, got {advisories}"
+        )
+
+    def test_repeated_override_only_warns_once_per_key(self, noisy_panel, recwarn):
+        """Sweep loops shouldn't warn on every iteration."""
+        f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
+        for k in (3, 5, 10):
+            f.quantile_spread(n_groups=k)
+        advisories = [
+            w for w in recwarn.list
+            if issubclass(w.category, UserWarning)
+            and "per-call override" in str(w.message)
+            and "quantile_spread" in str(w.message)
+        ]
+        assert len(advisories) == 1
+
+    def test_no_advisory_on_default_call(self, noisy_panel, recwarn):
+        """Calls without override must stay quiet — the warning would be
+        noise on healthy pipeline runs."""
+        f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
+        f.quantile_spread()
+        f.monotonicity()
+        advisories = [
+            w for w in recwarn.list
+            if issubclass(w.category, UserWarning)
+            and "per-call override" in str(w.message)
+        ]
+        assert not advisories
+
+    def test_different_keys_warn_independently(self, noisy_panel, recwarn):
+        """Override on quantile_spread shouldn't silence override on
+        monotonicity — they're independent cache keys."""
+        f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
+        f.quantile_spread(n_groups=3)
+        f.monotonicity(n_groups=3)
+        keys_warned = {
+            "quantile_spread" if "quantile_spread" in str(w.message) else "monotonicity"
+            for w in recwarn.list
+            if issubclass(w.category, UserWarning)
+            and "per-call override" in str(w.message)
+        }
+        assert keys_warned == {"quantile_spread", "monotonicity"}
+
+
+# ---------------------------------------------------------------------------
 # tie_policy threads through Factor → primitive (#4 from feedback)
 # ---------------------------------------------------------------------------
 

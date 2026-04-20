@@ -20,10 +20,25 @@ Cache semantics:
       recomputing.
     - ``f.evaluate()`` reuses the same cache via ``from_artifacts`` — any
       metric called standalone before ``evaluate()`` is not recomputed.
-    - Per-call kwarg overrides (e.g. ``n_groups=10``) bypass the cache
-      (because the result no longer reflects the bound config) and do NOT
-      write back. The next default call (``f.quantile_spread()``) returns
-      the config-bound value.
+    - Per-call kwarg overrides (e.g. ``n_groups=10``) are **sweep overrides**
+      for sensitivity analysis; they bypass the cache (the result no longer
+      reflects the bound config) and do NOT write back. The next default
+      call returns the config-bound value.
+
+Override vs rebind (common gotcha)::
+
+    # ✅ sweep: compare deciles to terciles, cfg untouched
+    [f.quantile_spread(n_groups=k) for k in (3, 5, 10)]
+
+    # ❌ override does NOT persist — evaluate() stays config-bound
+    f.quantile_spread(n_groups=10)
+    profile = f.evaluate()  # still n_groups=5!
+
+    # ✅ persist by rebuilding with a new config
+    from dataclasses import replace
+    f2 = fl.factor(df, name, config=replace(cfg, n_groups=10))
+
+First override per (Factor, key) emits a one-shot ``UserWarning``.
 
 Escape hatches:
     - ``f.artifacts`` — the underlying ``Artifacts`` bundle, for tools that
@@ -41,7 +56,8 @@ for parallel batch evaluation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import warnings
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
 from collections.abc import Callable
@@ -73,6 +89,11 @@ class Factor:
 
     # Subclasses MUST override with their concrete factor type.
     EXPECTED_FACTOR_TYPE: ClassVar[FactorType]
+
+    # Dedup set for the override advisory — one warning per (Factor, key)
+    # keeps sweep loops quiet. Method names are a fixed ~15-element set, so
+    # unbounded growth isn't a concern.
+    _override_log_seen: set[str] = field(default_factory=set, repr=False)
 
     def __post_init__(self) -> None:
         actual_ft = type(self.artifacts.config).factor_type
@@ -151,6 +172,7 @@ class Factor:
         would collide with a positional alias.
         """
         if override:
+            self._log_override_once(key)
             result = fn(*args, **kwargs)
             assert result.name == key, (
                 f"Factor cache-key contract violated: method requested "
@@ -160,6 +182,32 @@ class Factor:
             return result
         return _memoized(
             self.artifacts.metric_outputs, key, fn, *args, **kwargs,
+        )
+
+    def _log_override_once(self, key: str) -> None:
+        """Emit a one-shot ``UserWarning`` when an override bypasses the cache.
+
+        Uses ``warnings.warn`` rather than ``logger.info`` because the
+        default Jupyter / REPL root logger is WARNING — an INFO advisory
+        would be silently dropped in the very environment researchers
+        live in. ``UserWarning`` surfaces in notebooks and CI without
+        requiring explicit handler setup.
+
+        Deduped per (Factor instance, cache key) via ``_override_log_seen``
+        so a sweep loop ``[f.method(kw=k) for k in …]`` warns once, not N
+        times. Message points at the rebuild recipe — ``dataclasses.replace(
+        cfg, …)`` into a fresh ``fl.factor`` — which is the persistent path.
+        """
+        if key in self._override_log_seen:
+            return
+        self._override_log_seen.add(key)
+        warnings.warn(
+            f"Factor.{key}: per-call override detected — result is NOT "
+            f"cached and will not appear in f.evaluate(). To persist, "
+            f"rebuild with fl.factor(df, name, "
+            f"config=dataclasses.replace(cfg, ...)).",
+            UserWarning,
+            stacklevel=3,
         )
 
     def _short_circuit_if(
@@ -332,6 +380,7 @@ class CrossSectionalFactor(Factor):
         """
         from factorlib.metrics.quantile import quantile_spread as _qs
         if n_groups is not None:
+            self._log_override_once("quantile_spread")
             return _qs(
                 self.artifacts.prepared,
                 forward_periods=self.config.forward_periods,
@@ -598,6 +647,7 @@ class MacroPanelFactor(Factor):
         """Top-bottom long-short spread t-test."""
         from factorlib.metrics.quantile import quantile_spread as _qs
         if n_groups is not None:
+            self._log_override_once("quantile_spread")
             return _qs(
                 self.artifacts.prepared,
                 forward_periods=self.config.forward_periods,
