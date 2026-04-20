@@ -24,6 +24,7 @@ from factorlib.metrics._helpers import (
     _compute_tie_ratio,
     _median_universe_size,
     _sample_non_overlapping,
+    _short_circuit_output,
     _warn_high_tie_ratio,
 )
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
@@ -126,16 +127,10 @@ def quantile_spread(
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(
-            name="quantile_spread", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_portfolio_periods",
-                "n_observed": n,
-                "min_required": MIN_PORTFOLIO_PERIODS,
-                "p_value": 1.0,
-                "tie_ratio": tie_ratio,
-                "tie_policy": tie_policy,
-            },
+        return _short_circuit_output(
+            "quantile_spread", "insufficient_portfolio_periods",
+            n_observed=n, min_required=MIN_PORTFOLIO_PERIODS,
+            tie_ratio=tie_ratio, tie_policy=tie_policy,
         )
 
     arr = spread_vals.to_numpy()
@@ -211,16 +206,15 @@ def quantile_spread_vw(
         Hou, Xue & Zhang (2020): ~65% of factors disappear under VW.
     """
     if weight_col not in df.columns:
-        return MetricOutput(
-            name="quantile_spread_vw", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "no_weight_column",
-                "missing_column": weight_col,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "quantile_spread_vw", "no_weight_column",
+            missing_column=weight_col,
         )
 
     sampled = _sample_non_overlapping(df, forward_periods)
+    tie_ratio = _compute_tie_ratio(sampled, factor_col)
+    _warn_high_tie_ratio(tie_ratio, "quantile_spread_vw", tie_policy)
+
     grouped = _assign_quantile_groups(
         sampled, factor_col, n_groups, tie_policy=tie_policy,
     )
@@ -253,14 +247,10 @@ def quantile_spread_vw(
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(
-            name="quantile_spread_vw", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_portfolio_periods",
-                "n_observed": n,
-                "min_required": MIN_PORTFOLIO_PERIODS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "quantile_spread_vw", "insufficient_portfolio_periods",
+            n_observed=n, min_required=MIN_PORTFOLIO_PERIODS,
+            tie_ratio=tie_ratio, tie_policy=tie_policy,
         )
 
     arr = spread_vals.to_numpy()
@@ -274,7 +264,10 @@ def quantile_spread_vw(
         value=mean_spread,
         stat=t,
         significance=_significance_marker(p),
-        metadata={"n_periods": n, "p_value": p, "stat_type": "t", "h0": "mu=0"},
+        metadata={
+            "n_periods": n, "p_value": p, "stat_type": "t", "h0": "mu=0",
+            "tie_ratio": tie_ratio, "tie_policy": tie_policy,
+        },
     )
 
 

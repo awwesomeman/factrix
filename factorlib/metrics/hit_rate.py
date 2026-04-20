@@ -11,7 +11,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import MIN_IC_PERIODS, MetricOutput
-from factorlib.metrics._helpers import _sample_non_overlapping
+from factorlib.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 from factorlib._stats import _p_value_from_z, _significance_marker
 
 
@@ -37,14 +37,9 @@ def hit_rate(
 
     n = len(vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(
-            name="hit_rate", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_hit_rate_samples",
-                "n_observed": n,
-                "min_required": MIN_IC_PERIODS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "hit_rate", "insufficient_hit_rate_samples",
+            n_observed=n, min_required=MIN_IC_PERIODS,
         )
 
     hits = int((vals > 0).sum())

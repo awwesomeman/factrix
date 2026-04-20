@@ -21,6 +21,7 @@ from factorlib.metrics._helpers import (
     _assign_quantile_groups,
     _compute_tie_ratio,
     _sample_non_overlapping,
+    _short_circuit_output,
     _warn_high_tie_ratio,
 )
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
@@ -87,17 +88,10 @@ def monotonicity(
     )
 
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
-        return MetricOutput(
-            name="monotonicity", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_monotonicity_periods",
-                "n_observed": len(mono_df),
-                "min_required": MIN_MONOTONICITY_PERIODS,
-                "n_groups": n_groups,
-                "p_value": 1.0,
-                "tie_ratio": tie_ratio,
-                "tie_policy": tie_policy,
-            },
+        return _short_circuit_output(
+            "monotonicity", "insufficient_monotonicity_periods",
+            n_observed=len(mono_df), min_required=MIN_MONOTONICITY_PERIODS,
+            n_groups=n_groups, tie_ratio=tie_ratio, tie_policy=tie_policy,
         )
 
     mono_arr = mono_df["mono"].to_numpy()

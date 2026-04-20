@@ -23,7 +23,10 @@ from factorlib._stats import (
     _p_value_from_z,
     _significance_marker,
 )
-from factorlib.metrics._helpers import _sample_non_overlapping
+from factorlib.metrics._helpers import (
+    _sample_non_overlapping,
+    _short_circuit_output,
+)
 
 
 def compute_caar(
@@ -85,14 +88,9 @@ def caar(
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
     if n < MIN_EVENTS:
-        return MetricOutput(
-            name="caar", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_event_dates",
-                "n_observed": n,
-                "min_required": MIN_EVENTS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "caar", "insufficient_event_dates",
+            n_observed=n, min_required=MIN_EVENTS,
         )
 
     mean_caar = float(vals.mean())
@@ -189,14 +187,9 @@ def bmp_test(
 
     events = sorted_df.filter(pl.col(factor_col) != 0)
     if len(events) == 0:
-        return MetricOutput(
-            name="bmp_test", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "no_events",
-                "n_observed": 0,
-                "min_required": 1,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "bmp_test", "no_events",
+            n_observed=0, min_required=1,
         )
 
     events = events.with_columns(
@@ -209,14 +202,9 @@ def bmp_test(
 
     n_valid = len(valid)
     if n_valid < MIN_EVENTS:
-        return MetricOutput(
-            name="bmp_test", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_estimation_window",
-                "n_observed": n_valid,
-                "min_required": MIN_EVENTS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "bmp_test", "insufficient_estimation_window",
+            n_observed=n_valid, min_required=MIN_EVENTS,
         )
 
     sar = (valid["_signed_ar"] / valid["_est_vol"]).to_numpy()

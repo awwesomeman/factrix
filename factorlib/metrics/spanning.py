@@ -23,6 +23,7 @@ import polars as pl
 
 from factorlib._ols import OLSResult, ols_alpha as _ols_alpha
 from factorlib._types import MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 from factorlib._stats import _p_value_from_t, _significance_marker
 
 logger = logging.getLogger(__name__)
@@ -116,13 +117,9 @@ def spanning_alpha(
         all_series = {"_candidate_": factor_spread, **base_spreads}
         common_dates, arrays = _align_spread_series(all_series)
         if "_candidate_" not in arrays:
-            return MetricOutput(
-                name="spanning_alpha", value=float("nan"), stat=None, significance="",
-                metadata={
-                    "reason": "no_overlapping_dates_with_candidate",
-                    "n_observed": 0,
-                    "p_value": 1.0,
-                },
+            return _short_circuit_output(
+                "spanning_alpha", "no_overlapping_dates_with_candidate",
+                n_observed=0,
             )
         candidate_arr = arrays.pop("_candidate_")
         base_arrays = arrays
@@ -130,14 +127,9 @@ def spanning_alpha(
     else:
         vals = factor_spread["spread"].drop_nulls()
         if len(vals) < 10:
-            return MetricOutput(
-                name="spanning_alpha", value=float("nan"), stat=None, significance="",
-                metadata={
-                    "reason": "insufficient_spread_observations",
-                    "n_observed": len(vals),
-                    "min_required": 10,
-                    "p_value": 1.0,
-                },
+            return _short_circuit_output(
+                "spanning_alpha", "insufficient_spread_observations",
+                n_observed=len(vals), min_required=10,
             )
         candidate_arr = vals.to_numpy()
         base_arrays = {}

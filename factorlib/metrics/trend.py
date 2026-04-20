@@ -14,6 +14,7 @@ import polars as pl
 from scipy import stats as sp_stats
 
 from factorlib._types import MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 from factorlib._stats import _p_value_from_t, _significance_marker
 
 
@@ -49,14 +50,9 @@ def ic_trend(
     n = len(vals)
 
     if n < 10:
-        return MetricOutput(
-            name=name, value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_trend_periods",
-                "n_observed": n,
-                "min_required": 10,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            name, "insufficient_trend_periods",
+            n_observed=n, min_required=10,
         )
 
     # WHY: 使用序號而非日期差，因為非重疊取樣後日期間距可能不均

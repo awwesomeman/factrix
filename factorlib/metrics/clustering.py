@@ -15,6 +15,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import MIN_EVENTS, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 
 
 def clustering_diagnostic(
@@ -44,13 +45,9 @@ def clustering_diagnostic(
     n_events = len(events)
 
     if n_events < MIN_EVENTS:
-        return MetricOutput(
-            name="clustering_hhi", value=float("nan"),
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n_events,
-                "min_required": MIN_EVENTS,
-            },
+        return _short_circuit_output(
+            "clustering_hhi", "insufficient_events",
+            n_observed=n_events, min_required=MIN_EVENTS,
         )
 
     # Count events per date

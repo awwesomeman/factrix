@@ -19,6 +19,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import DDOF, EPSILON, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 from factorlib._stats import (
     _newey_west_t_test,
     _p_value_from_t,
@@ -87,14 +88,9 @@ def fama_macbeth(
     n = len(betas)
 
     if n < MIN_FM_PERIODS:
-        return MetricOutput(
-            name="fm_beta", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_fm_periods",
-                "n_observed": n,
-                "min_required": MIN_FM_PERIODS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "fm_beta", "insufficient_fm_periods",
+            n_observed=n, min_required=MIN_FM_PERIODS,
         )
 
     mean_beta = float(np.mean(betas))
@@ -137,27 +133,18 @@ def pooled_ols(
     n_obs = len(y)
 
     if n_obs < 10:
-        return MetricOutput(
-            name="pooled_beta", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_pooled_observations",
-                "n_observed": n_obs,
-                "min_required": 10,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "pooled_beta", "insufficient_pooled_observations",
+            n_observed=n_obs, min_required=10,
         )
 
     X = np.column_stack([np.ones(n_obs), x])
     try:
         beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
     except np.linalg.LinAlgError:
-        return MetricOutput(
-            name="pooled_beta", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "singular_pooled_design_matrix",
-                "n_observed": n_obs,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "pooled_beta", "singular_pooled_design_matrix",
+            n_observed=n_obs,
         )
 
     slope = float(beta[1])
@@ -243,13 +230,9 @@ def beta_sign_consistency(
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
     if n == 0:
-        return MetricOutput(
-            name="beta_sign_consistency", value=float("nan"),
-            metadata={
-                "reason": "no_beta_observations",
-                "n_observed": 0,
-                "min_required": 1,
-            },
+        return _short_circuit_output(
+            "beta_sign_consistency", "no_beta_observations",
+            n_observed=0, min_required=1,
         )
 
     if expected_sign >= 0:

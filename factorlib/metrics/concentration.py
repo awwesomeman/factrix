@@ -16,6 +16,7 @@ from factorlib._types import DDOF, EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
 from factorlib.metrics._helpers import (
     _compute_tie_ratio,
     _sample_non_overlapping,
+    _short_circuit_output,
 )
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 
@@ -83,15 +84,10 @@ def top_concentration(
     )
 
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
-        return MetricOutput(
-            name="top_concentration", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_portfolio_periods",
-                "n_observed": len(hhi_per_date),
-                "min_required": MIN_PORTFOLIO_PERIODS,
-                "p_value": 1.0,
-                "tie_ratio": tie_ratio,
-            },
+        return _short_circuit_output(
+            "top_concentration", "insufficient_portfolio_periods",
+            n_observed=len(hhi_per_date), min_required=MIN_PORTFOLIO_PERIODS,
+            tie_ratio=tie_ratio,
         )
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()

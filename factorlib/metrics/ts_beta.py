@@ -16,6 +16,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import DDOF, EPSILON, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 from factorlib._stats import (
     _calc_t_stat,
     _p_value_from_t,
@@ -138,14 +139,9 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     n = len(betas)
 
     if n < 3:
-        return MetricOutput(
-            name="ts_beta", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_assets",
-                "n_observed": n,
-                "min_required": 3,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "ts_beta", "insufficient_assets",
+            n_observed=n, min_required=3,
         )
 
     mean_b = float(np.mean(betas))
@@ -180,13 +176,9 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     n = len(r2_vals)
 
     if n == 0:
-        return MetricOutput(
-            name="mean_r_squared", value=float("nan"),
-            metadata={
-                "reason": "no_asset_r_squared_observations",
-                "n_observed": 0,
-                "min_required": 1,
-            },
+        return _short_circuit_output(
+            "mean_r_squared", "no_asset_r_squared_observations",
+            n_observed=0, min_required=1,
         )
 
     return MetricOutput(
@@ -270,13 +262,9 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
     if n == 0:
-        return MetricOutput(
-            name="ts_beta_sign_consistency", value=float("nan"),
-            metadata={
-                "reason": "no_beta_observations",
-                "n_observed": 0,
-                "min_required": 1,
-            },
+        return _short_circuit_output(
+            "ts_beta_sign_consistency", "no_beta_observations",
+            n_observed=0, min_required=1,
         )
 
     positive = float(np.mean(betas > 0))

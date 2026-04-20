@@ -16,7 +16,10 @@ from factorlib._types import (
     MIN_IC_PERIODS,
     MetricOutput,
 )
-from factorlib.metrics._helpers import _sample_non_overlapping
+from factorlib.metrics._helpers import (
+    _sample_non_overlapping,
+    _short_circuit_output,
+)
 from factorlib._stats import (
     _calc_t_stat,
     _p_value_from_t,
@@ -77,14 +80,9 @@ def ic(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(
-            name="ic", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_ic_periods",
-                "n_observed": n,
-                "min_required": MIN_IC_PERIODS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "ic", "insufficient_ic_periods",
+            n_observed=n, min_required=MIN_IC_PERIODS,
         )
 
     mean_ic = float(ic_vals.mean())
@@ -129,25 +127,17 @@ def ic_ir(
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
-        return MetricOutput(
-            name="ic_ir", value=float("nan"),
-            metadata={
-                "reason": "insufficient_ic_periods",
-                "n_observed": n,
-                "min_required": MIN_IC_PERIODS,
-            },
+        return _short_circuit_output(
+            "ic_ir", "insufficient_ic_periods",
+            n_observed=n, min_required=MIN_IC_PERIODS,
         )
 
     mean_ic = float(ic_vals.mean())
     std_ic = float(ic_vals.std())
 
     if std_ic < EPSILON:
-        return MetricOutput(
-            name="ic_ir", value=float("nan"),
-            metadata={
-                "reason": "degenerate_ic_variance",
-                "std_ic": std_ic,
-            },
+        return _short_circuit_output(
+            "ic_ir", "degenerate_ic_variance", std_ic=std_ic,
         )
 
     ratio = mean_ic / std_ic
@@ -189,14 +179,9 @@ def regime_ic(
         Chen & Zimmermann (2022): report sub-period t-stats separately.
     """
     if len(ic_df) < MIN_IC_PERIODS:
-        return MetricOutput(
-            name="regime_ic", value=float("nan"), significance="",
-            metadata={
-                "reason": "insufficient_ic_periods",
-                "n_observed": len(ic_df),
-                "min_required": MIN_IC_PERIODS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "regime_ic", "insufficient_ic_periods",
+            n_observed=len(ic_df), min_required=MIN_IC_PERIODS,
         )
 
     if regime_labels is not None:
@@ -226,13 +211,9 @@ def regime_ic(
     )
 
     if regime_stats.is_empty():
-        return MetricOutput(
-            name="regime_ic", value=float("nan"), significance="",
-            metadata={
-                "reason": "no_regime_has_enough_observations",
-                "min_required_per_regime": 2,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "regime_ic", "no_regime_has_enough_observations",
+            min_required_per_regime=2,
         )
 
     per_regime: dict[str, dict[str, object]] = {}
@@ -349,13 +330,9 @@ def multi_horizon_ic(
 
     valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
     if not valid_horizons:
-        return MetricOutput(
-            name="multi_horizon_ic", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "no_horizon_has_enough_observations",
-                "min_required": MIN_IC_PERIODS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "multi_horizon_ic", "no_horizon_has_enough_observations",
+            min_required=MIN_IC_PERIODS,
         )
 
     mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))

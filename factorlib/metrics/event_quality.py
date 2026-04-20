@@ -23,7 +23,7 @@ from factorlib._stats import (
     _p_value_from_z,
     _significance_marker,
 )
-from factorlib.metrics._helpers import _signed_car
+from factorlib.metrics._helpers import _short_circuit_output, _signed_car
 
 
 def event_hit_rate(
@@ -47,14 +47,9 @@ def event_hit_rate(
 
     n = len(events)
     if n < MIN_EVENTS:
-        return MetricOutput(
-            name="event_hit_rate", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n,
-                "min_required": MIN_EVENTS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "event_hit_rate", "insufficient_events",
+            n_observed=n, min_required=MIN_EVENTS,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -110,14 +105,9 @@ def event_ic(
     n = len(events)
 
     if n < MIN_EVENTS:
-        return MetricOutput(
-            name="event_ic", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n,
-                "min_required": MIN_EVENTS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "event_ic", "insufficient_events",
+            n_observed=n, min_required=MIN_EVENTS,
         )
 
     abs_signal = np.abs(events[factor_col].to_numpy())
@@ -126,12 +116,8 @@ def event_ic(
         # Signal is discrete {±1}: event_ic is not defined (no magnitude variance).
         # Flagged as "not_applicable" rather than "insufficient" — this is by
         # design, not a shortfall; profiles suppress the field (→ None).
-        return MetricOutput(
-            name="event_ic", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "not_applicable_discrete_signal",
-                "n_events": n,
-            },
+        return _short_circuit_output(
+            "event_ic", "not_applicable_discrete_signal", n_events=n,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -181,13 +167,9 @@ def profit_factor(
     n = len(events)
 
     if n < MIN_EVENTS:
-        return MetricOutput(
-            name="profit_factor", value=float("nan"),
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n,
-                "min_required": MIN_EVENTS,
-            },
+        return _short_circuit_output(
+            "profit_factor", "insufficient_events",
+            n_observed=n, min_required=MIN_EVENTS,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -236,13 +218,9 @@ def event_skewness(
     n = len(events)
 
     if n < MIN_EVENTS:
-        return MetricOutput(
-            name="event_skewness", value=float("nan"),
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n,
-                "min_required": MIN_EVENTS,
-            },
+        return _short_circuit_output(
+            "event_skewness", "insufficient_events",
+            n_observed=n, min_required=MIN_EVENTS,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -294,13 +272,9 @@ def signal_density(
     n_events = len(events)
 
     if n_events < 2:
-        return MetricOutput(
-            name="signal_density", value=float("nan"),
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n_events,
-                "min_required": 2,
-            },
+        return _short_circuit_output(
+            "signal_density", "insufficient_events",
+            n_observed=n_events, min_required=2,
         )
 
     # Per-asset: count events and date span
@@ -315,13 +289,9 @@ def signal_density(
     )
 
     if per_asset.is_empty():
-        return MetricOutput(
-            name="signal_density", value=float("nan"),
-            metadata={
-                "reason": "no_asset_has_min_two_events",
-                "n_observed": n_events,
-                "min_required_per_asset": 2,
-            },
+        return _short_circuit_output(
+            "signal_density", "no_asset_has_min_two_events",
+            n_observed=n_events, min_required_per_asset=2,
         )
 
     # Total bars per asset (from full panel, not just events)

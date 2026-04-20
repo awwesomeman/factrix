@@ -13,6 +13,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import DDOF, EPSILON, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 from factorlib._stats import _significance_marker
 
 
@@ -34,13 +35,9 @@ def turnover(
     """
     dates = df["date"].unique().sort()
     if len(dates) < 2:
-        return MetricOutput(
-            name="turnover", value=float("nan"),
-            metadata={
-                "reason": "insufficient_dates",
-                "n_observed": len(dates),
-                "min_required": 2,
-            },
+        return _short_circuit_output(
+            "turnover", "insufficient_dates",
+            n_observed=len(dates), min_required=2,
         )
 
     date_map = pl.DataFrame({
@@ -70,12 +67,9 @@ def turnover(
     )
 
     if rc_per_date.is_empty():
-        return MetricOutput(
-            name="turnover", value=float("nan"),
-            metadata={
-                "reason": "no_valid_rank_autocorrelation",
-                "n_observed": 0,
-            },
+        return _short_circuit_output(
+            "turnover", "no_valid_rank_autocorrelation",
+            n_observed=0,
         )
 
     rc_arr = rc_per_date["rc"].to_numpy()

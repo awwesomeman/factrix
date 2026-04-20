@@ -22,6 +22,7 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import EPSILON, MIN_EVENTS, MetricOutput
+from factorlib.metrics._helpers import _short_circuit_output
 from factorlib._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 
 
@@ -59,14 +60,9 @@ def corrado_rank_test(
     n_events = len(events)
 
     if n_events < MIN_EVENTS:
-        return MetricOutput(
-            name="corrado_rank", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "insufficient_events",
-                "n_observed": n_events,
-                "min_required": MIN_EVENTS,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "corrado_rank", "insufficient_events",
+            n_observed=n_events, min_required=MIN_EVENTS,
         )
 
     u_event = (
@@ -77,13 +73,9 @@ def corrado_rank_test(
     std_u = float(np.std(u_all))
 
     if std_u < EPSILON:
-        return MetricOutput(
-            name="corrado_rank", value=float("nan"), stat=None, significance="",
-            metadata={
-                "reason": "degenerate_rank_variance",
-                "std_u": std_u,
-                "p_value": 1.0,
-            },
+        return _short_circuit_output(
+            "corrado_rank", "degenerate_rank_variance",
+            std_u=std_u,
         )
 
     mean_u = float(np.mean(u_event))
