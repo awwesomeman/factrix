@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable
 from dataclasses import replace
@@ -20,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import polars as pl
 
 from factorlib._types import UNSET, FactorType, coerce_factor_type
+from factorlib.preprocess.pipeline import PREPROCESS_SIG_MARKER, preprocess_sig
 
 if TYPE_CHECKING:
     from factorlib.evaluation._protocol import Artifacts
@@ -54,8 +56,6 @@ FACTOR_TYPES: dict[FactorType, type[BaseConfig]] = {
 # silently auto-preprocessing (which would enable silent config mismatch).
 _PREPROCESSED_MARKER = "forward_return"
 
-_FP_MARKER = "_fl_forward_periods"
-
 _PREPROCESSED_GATE_MSG = (
     "fl.{caller} expects a preprocessed panel — "
     f"'{_PREPROCESSED_MARKER}' column not found. Call\n"
@@ -77,29 +77,38 @@ def _build_artifacts_strict(
     """Strict-gated ``build_artifacts`` shared by ``evaluate`` / ``factor``.
 
     Raises ``ValueError`` if ``df`` is not preprocessed (``forward_return``
-    missing) or if the preprocessed ``forward_periods`` disagrees with
-    ``config.forward_periods``. Caller identifier is embedded so users
-    see ``fl.evaluate`` vs ``fl.factor`` in the error.
+    missing) or if ANY preprocess-time field embedded in the prepared
+    panel's ``_fl_preprocess_sig`` marker disagrees with ``config`` — see
+    ``factorlib.preprocess.pipeline.preprocess_sig`` for the authoritative
+    per-factor_type field list. Evaluate-time fields are intentionally
+    NOT part of the sig so sweep patterns still work. Caller identifier
+    is embedded so users see ``fl.evaluate`` vs ``fl.factor`` in the error.
     """
     from factorlib.evaluation.pipeline import build_artifacts
 
     if _PREPROCESSED_MARKER not in df.columns:
         raise ValueError(_PREPROCESSED_GATE_MSG.format(caller=caller))
-    if _FP_MARKER in df.columns:
-        embedded_fp = int(df[_FP_MARKER][0])
-        if embedded_fp != config.forward_periods:
-            raise ValueError(
-                f"fl.{caller}: forward_periods mismatch — df was "
-                f"preprocessed with forward_periods={embedded_fp}, but "
-                f"config.forward_periods={config.forward_periods}. Re-run "
-                f"    prepared = fl.preprocess(df, config=cfg)\n"
-                f"with the cfg that has forward_periods="
-                f"{config.forward_periods}, or update the cfg to match "
-                f"the existing panel."
+    if PREPROCESS_SIG_MARKER in df.columns:
+        embedded = json.loads(df[PREPROCESS_SIG_MARKER].item(0))
+        actual = preprocess_sig(config)
+        diffs = [
+            (k, embedded[k], actual.get(k))
+            for k in embedded
+            if embedded[k] != actual.get(k)
+        ]
+        if diffs:
+            field_lines = "\n".join(
+                f"    {k}: prepared was built with {emb!r}; config has {act!r}"
+                for k, emb, act in diffs
             )
-        # Drop after gate — the marker served its purpose; retaining it on
-        # artifacts.prepared wastes ~4 bytes × rows × N_factors in batch runs.
-        df = df.drop(_FP_MARKER)
+            raise ValueError(
+                f"fl.{caller}: preprocess-time fields mismatch between "
+                f"prepared panel and current config:\n"
+                f"{field_lines}\n"
+                f"Re-run `prepared = fl.preprocess(df, config=cfg)` with "
+                f"the intended cfg, or update the cfg to match the panel."
+            )
+        df = df.drop(PREPROCESS_SIG_MARKER)
     artifacts = build_artifacts(df, config)
     artifacts.factor_name = factor_name
     return artifacts

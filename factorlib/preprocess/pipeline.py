@@ -8,7 +8,8 @@ Use ``adapt()`` to rename before calling.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
@@ -28,8 +29,55 @@ if TYPE_CHECKING:
     from factorlib.config import BaseConfig
 
 
-def _fp_marker(forward_periods: int) -> pl.Expr:
-    return pl.lit(forward_periods, dtype=pl.Int32).alias("_fl_forward_periods")
+# Marker column stamped onto prepared panels so evaluate / factor can
+# detect silent preprocess-time config drift. Only fields actually baked
+# into prepared for the relevant factor_type are captured — ortho for CS
+# is deliberately excluded because it runs at build_artifacts time, not
+# here.
+PREPROCESS_SIG_MARKER = "_fl_preprocess_sig"
+
+
+def preprocess_sig(cfg: BaseConfig) -> dict[str, Any]:
+    """Canonical form of the preprocess-time fields consumed by ``cfg``.
+
+    JSON-friendly (lists for tuples, no polars/numpy types) so it can be
+    embedded verbatim via ``pl.lit`` and diffed at the evaluate gate.
+    """
+    from factorlib.config import (
+        CrossSectionalConfig,
+        EventConfig,
+        MacroCommonConfig,
+        MacroPanelConfig,
+    )
+
+    sig: dict[str, Any] = {"forward_periods": int(cfg.forward_periods)}
+    match cfg:
+        case CrossSectionalConfig():
+            sig["mad_n"] = float(cfg.mad_n)
+            sig["return_clip_pct"] = [
+                float(cfg.return_clip_pct[0]),
+                float(cfg.return_clip_pct[1]),
+            ]
+        case MacroPanelConfig():
+            sig["demean_cross_section"] = bool(cfg.demean_cross_section)
+        case EventConfig() | MacroCommonConfig():
+            pass  # forward_periods only
+        case _:
+            ft = getattr(type(cfg), "factor_type", type(cfg).__name__)
+            raise NotImplementedError(f"preprocess_sig not yet implemented for {ft}")
+    return sig
+
+
+def _sig_marker_expr(cfg: BaseConfig) -> pl.Expr:
+    # pl.Categorical dedupes the single literal into one dict entry — keeps
+    # per-row cost at ~4 bytes (index), matching the prior Int32 marker. A
+    # plain pl.Utf8 literal stores the JSON string verbatim per row, which
+    # is ~17× larger on a wide prepared panel.
+    return (
+        pl.lit(json.dumps(preprocess_sig(cfg), sort_keys=True))
+        .cast(pl.Categorical)
+        .alias(PREPROCESS_SIG_MARKER)
+    )
 
 
 def preprocess(
@@ -98,6 +146,7 @@ def preprocess_cs_factor(
         DataFrame with columns:
         ``date, asset_id, factor_raw, factor, forward_return, abnormal_return, price``.
     """
+    from factorlib.config import CrossSectionalConfig
     if config is not None:
         overrides = {
             k: v for k, v in (
@@ -114,6 +163,7 @@ def preprocess_cs_factor(
         forward_periods = config.forward_periods
         return_clip_pct = config.return_clip_pct
         mad_n = config.mad_n
+        sig_cfg = config
     else:
         if forward_periods is UNSET:
             forward_periods = 5
@@ -121,6 +171,13 @@ def preprocess_cs_factor(
             return_clip_pct = (0.01, 0.99)
         if mad_n is UNSET:
             mad_n = 3.0
+        # Reconstruct a config so the ad-hoc-kwargs path stamps the same
+        # preprocess-sig marker as the config= path.
+        sig_cfg = CrossSectionalConfig(
+            forward_periods=forward_periods,
+            return_clip_pct=return_clip_pct,
+            mad_n=mad_n,
+        )
 
     out = compute_forward_return(df, forward_periods)
     out = winsorize_forward_return(out, lower=return_clip_pct[0], upper=return_clip_pct[1])
@@ -140,7 +197,7 @@ def preprocess_cs_factor(
         pl.col("forward_return"),
         pl.col("abnormal_return"),
         pl.col("price"),
-        _fp_marker(forward_periods),
+        _sig_marker_expr(sig_cfg),
     )
 
 
@@ -174,7 +231,7 @@ def preprocess_macro_panel(
             pl.col("factor_zscore").alias("factor"), "forward_return"]
     if "price" in out.columns:
         cols.append("price")
-    cols.append(_fp_marker(config.forward_periods))
+    cols.append(_sig_marker_expr(config))
 
     return out.select(cols)
 
@@ -219,7 +276,7 @@ def preprocess_event_signal(
     cols = ["date", "asset_id", "factor", "forward_return", "abnormal_return"]
     if "price" in out.columns:
         cols.append("price")
-    cols.append(_fp_marker(config.forward_periods))
+    cols.append(_sig_marker_expr(config))
 
     return out.select(cols)
 
@@ -254,6 +311,6 @@ def preprocess_macro_common(
     cols = ["date", "asset_id", "factor_raw", "factor", "forward_return"]
     if "price" in out.columns:
         cols.append("price")
-    cols.append(_fp_marker(config.forward_periods))
+    cols.append(_sig_marker_expr(config))
 
     return out.select(cols)

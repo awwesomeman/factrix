@@ -65,12 +65,15 @@ print(profile.verdict(), '| ic_mean =', round(profile.ic_mean, 4))
    cache。
 
 4. **Preprocess 和 evaluate 兩步驟 + strict gate** — `fl.preprocess(raw,
-   config=cfg)` 烙印 `_fl_forward_periods` marker，`fl.evaluate` / `fl.factor`
-   檢查和 `cfg.forward_periods` 不一致直接 raise。擋掉最惡性的那類 bug
-   — `forward_periods` silently 對不上、全下游 metric 無聲無息污染、測
-   出來的 IC 看起來合理但其實量錯 horizon。兩步驟保留是為了讓 `prepared`
-   cache 一次、evaluate-time 欄位（`n_groups, tie_policy, regime_labels, …`）
-   可以 sweep。
+   config=cfg)` 把**所有被烙進 prepared 的 preprocess-time 欄位**（CS 是
+   `forward_periods / mad_n / return_clip_pct`；Event / MC 是
+   `forward_periods`；MP 另加 `demean_cross_section`）都嵌進 prepared 的
+   `_fl_preprocess_sig` marker。`fl.evaluate` / `fl.factor` 逐欄位 diff，
+   任何對不上直接 raise 並指名哪個欄位、兩邊各是什麼值。擋掉最惡性的那
+   類 bug — 兩邊 config silently 對不上、全下游 metric 無聲無息污染、
+   測出來的 IC 看起來合理但其實量錯 horizon。兩步驟保留是為了讓
+   `prepared` cache 一次、evaluate-time 欄位（`n_groups, tie_policy, ortho,
+   regime_labels, …`）可以 sweep。
 
 5. **批次 + BHY 多重檢定一行搞定** — `ps.multiple_testing_correct(p_source=
    "canonical_p", fdr=0.05)` 用 Benjamini-Yekutieli step-up（比 BH 保守、

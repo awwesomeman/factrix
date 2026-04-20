@@ -32,6 +32,8 @@ from factorlib.config import (
 )
 from factorlib.preprocess.pipeline import preprocess_cs_factor
 
+from tests.conftest import _cs_panel
+
 
 # ---------------------------------------------------------------------------
 # factor_type ↔ config.factor_type mismatch
@@ -162,6 +164,74 @@ class TestPublicExportSurface:
         # Not in __all__ but still reachable from the submodule.
         from factorlib.factor import Factor
         assert Factor.__name__ == "Factor"
+
+
+class TestPreprocessTimeFieldMismatch:
+    """Full preprocess-time fingerprint gate — extends the fp-only check.
+
+    Prepared panels embed every preprocess-time field in a
+    ``_fl_preprocess_sig`` marker. ``fl.evaluate`` / ``fl.factor`` re-
+    derive the sig from the supplied config and raise on ANY disagreement,
+    not just ``forward_periods``. Evaluate-time fields (``n_groups``,
+    ``tie_policy``, ``estimated_cost_bps``, ``ortho``, ``regime_labels``,
+    ``multi_horizon_periods``, ``spanning_base_spreads``) are intentionally
+    NOT part of the sig so sweep patterns remain cheap.
+    """
+
+    def test_mad_n_mismatch_raises(self):
+        df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.3, seed=101, include_price=True)
+        prepared = fl.preprocess(df, config=CrossSectionalConfig(mad_n=3.0))
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)preprocess-time fields mismatch.*mad_n",
+        ):
+            fl.evaluate(prepared, "x", config=CrossSectionalConfig(mad_n=2.5))
+
+    def test_return_clip_pct_mismatch_raises(self):
+        df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.3, seed=102, include_price=True)
+        prepared = fl.preprocess(
+            df, config=CrossSectionalConfig(return_clip_pct=(0.01, 0.99)),
+        )
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)preprocess-time fields mismatch.*return_clip_pct",
+        ):
+            fl.evaluate(
+                prepared, "x",
+                config=CrossSectionalConfig(return_clip_pct=(0.05, 0.95)),
+            )
+
+    def test_evaluate_time_field_sweep_does_not_raise(self):
+        """n_groups / tie_policy / estimated_cost_bps differing between
+        preprocess-cfg and evaluate-cfg is the sweep pattern — must pass."""
+        df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.3, seed=103, include_price=True)
+        prepared = fl.preprocess(
+            df, config=CrossSectionalConfig(forward_periods=5, n_groups=5),
+        )
+        profile = fl.evaluate(
+            prepared, "x",
+            config=CrossSectionalConfig(
+                forward_periods=5,
+                n_groups=3,
+                tie_policy="average",
+                estimated_cost_bps=50.0,
+            ),
+        )
+        assert profile.factor_name == "x"
+
+    def test_macro_panel_demean_mismatch_raises(self):
+        df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.3, seed=104, include_price=True)
+        prepared = fl.preprocess(
+            df, config=MacroPanelConfig(demean_cross_section=False),
+        )
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)preprocess-time fields mismatch.*demean_cross_section",
+        ):
+            fl.evaluate(
+                prepared, "x",
+                config=MacroPanelConfig(demean_cross_section=True),
+            )
 
 
 class TestCompactedErrorAttribution:

@@ -30,13 +30,17 @@ class TestRunPreprocessing:
         assert result.columns == [
             "date", "asset_id", "factor_raw", "factor",
             "forward_return", "abnormal_return", "price",
-            "_fl_forward_periods",
+            "_fl_preprocess_sig",
         ]
 
-    def test_forward_periods_marker_embedded(self):
+    def test_preprocess_sig_marker_embedded(self):
+        import json
         raw = _make_raw_data()
         result = preprocess_cs_factor(raw, forward_periods=7)
-        assert result["_fl_forward_periods"].unique().to_list() == [7]
+        sig = json.loads(result["_fl_preprocess_sig"].unique().to_list()[0])
+        assert sig["forward_periods"] == 7
+        assert sig["mad_n"] == 3.0  # default
+        assert sig["return_clip_pct"] == [0.01, 0.99]  # default
 
     def test_output_dtypes(self):
         raw = _make_raw_data()

@@ -134,7 +134,7 @@ CELLS: list[dict] = [
     md(
         "### 3.2 Level 0 — `fl.factor()` session\n"
         "\n"
-        "`fl.preprocess` 產 prepared panel，`fl.factor` 綁定 panel + cfg 成 session，`f.evaluate()` 收斂成 `CrossSectionalProfile`。Session 內部一份 Artifacts cache：`f.ic()` 等 method 和 `f.evaluate()` 共用，呼叫順序不會讓計算重跑；`forward_periods` 兩邊不一致會直接 raise。"
+        "`fl.preprocess` 產 prepared panel，`fl.factor` 綁定 panel + cfg 成 session，`f.evaluate()` 收斂成 `CrossSectionalProfile`。Session 內部一份 Artifacts cache：`f.ic()` 等 method 和 `f.evaluate()` 共用，呼叫順序不會讓計算重跑；任何 preprocess-time 欄位（`forward_periods / mad_n / return_clip_pct`）兩邊對不上會直接 raise、指名哪個欄位。"
     ),
     code(
         "cfg_default = fl.CrossSectionalConfig()\n"

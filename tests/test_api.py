@@ -96,7 +96,10 @@ class TestEvaluate:
         df = _panel_with_price(80, 30, 0.3, 909)
         prepared = fl.preprocess(df, config=fl.CrossSectionalConfig(forward_periods=5))
         wrong_cfg = fl.CrossSectionalConfig(forward_periods=10)
-        with pytest.raises(ValueError, match="forward_periods mismatch"):
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)preprocess-time fields mismatch.*forward_periods",
+        ):
             fl.evaluate(prepared, "x", config=wrong_cfg)
 
     def test_forward_periods_match_ok(self):
