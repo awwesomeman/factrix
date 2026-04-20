@@ -21,7 +21,7 @@ from factorlib.evaluation.profiles._base import (
     _insufficient_metrics,
     _memoized,
     _pv,
-    _verdict_from_p,
+    _verdict_with_warnings,
     register_profile,
 )
 
@@ -84,7 +84,7 @@ class MacroPanelProfile:
         return getattr(self, self.CANONICAL_P_FIELD)
 
     def verdict(self, threshold: float = 2.0) -> Verdict:
-        return _verdict_from_p(self.canonical_p, threshold, self.n_periods)
+        return _verdict_with_warnings(self, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
         return _diagnose(self)

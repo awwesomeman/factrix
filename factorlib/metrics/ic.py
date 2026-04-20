@@ -22,6 +22,7 @@ from factorlib.metrics._helpers import (
 )
 from factorlib._stats import (
     _calc_t_stat,
+    _newey_west_t_test,
     _p_value_from_t,
     _significance_marker,
 )
@@ -102,6 +103,48 @@ def ic(
             "stat_type": "t",
             "h0": "mu=0",
             "method": "non-overlapping t-test",
+        },
+    )
+
+
+def ic_newey_west(
+    ic_df: pl.DataFrame,
+    forward_periods: int = 5,
+) -> MetricOutput:
+    """IC mean significance via Newey-West HAC t-test on the overlapping series.
+
+    Sibling of ``ic()``: same null hypothesis (H₀: mean IC = 0), but
+    keeps every observation and absorbs the autocorrelation induced by
+    overlapping ``forward_periods``-day returns through HAC standard
+    errors rather than dropping samples.
+
+    Lag selection: ``max(floor(T^(1/3)), forward_periods - 1)`` — the
+    usual rule-of-thumb floor, raised to cover the theoretical
+    dependence horizon of overlapping returns.
+    """
+    ic_vals = ic_df["ic"].drop_nulls().to_numpy()
+    n = len(ic_vals)
+    if n < MIN_IC_PERIODS:
+        return _short_circuit_output(
+            "ic_newey_west", "insufficient_ic_periods",
+            n_observed=n, min_required=MIN_IC_PERIODS,
+        )
+
+    lags = max(int(math.floor(n ** (1 / 3))), max(forward_periods - 1, 0))
+    t, p, sig = _newey_west_t_test(ic_vals, lags=lags)
+    return MetricOutput(
+        name="ic_newey_west",
+        value=float(ic_vals.mean()),
+        stat=t,
+        significance=sig,
+        metadata={
+            "n_periods": n,
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mu=0",
+            "method": "Newey-West HAC t-test on overlapping IC series",
+            "newey_west_lags": lags,
+            "forward_periods": forward_periods,
         },
     )
 

@@ -62,6 +62,7 @@ class Rule(Generic[P]):
     severity: DiagnosticSeverity
     message: "str | Callable[[P], str]"
     predicate: Callable[[P], bool]
+    recommended_p_source: str | None = None
 
     def evaluate(self, profile: P) -> Diagnostic | None:
         if not self.predicate(profile):
@@ -71,6 +72,7 @@ class Rule(Generic[P]):
             severity=self.severity,
             message=msg,
             code=self.code,
+            recommended_p_source=self.recommended_p_source,
         )
 
 
@@ -222,6 +224,22 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
             "implementation costs may erode live alpha."
         ),
         predicate=lambda p: p.turnover > 1.0,
+    ),
+    # WHY: when ``ic_p`` rejects H0 but ``ic_nw_p`` does not, the
+    # non-overlapping t-test's significance is likely inflated by
+    # autocorrelation that the HAC version correctly deflates.
+    # ``recommended_p_source="ic_nw_p"`` surfaces the defensible
+    # alternative without auto-switching canonical.
+    Rule(
+        code="cs.overlapping_returns_inflates_ic",
+        severity="warn",
+        message=(
+            "ic_p ≤ 0.05 but ic_nw_p > 0.10 — overlap-induced "
+            "autocorrelation is likely inflating IC significance. "
+            "Consider BHY on ic_nw_p instead."
+        ),
+        predicate=lambda p: p.ic_p <= 0.05 and p.ic_nw_p > 0.10,
+        recommended_p_source="ic_nw_p",
     ),
 ]
 
@@ -400,6 +418,22 @@ MACRO_COMMON_RULES: list[Rule["MacroCommonProfile"]] = [
         severity="warn",
         message="β trend is significantly negative — exposure may be fading.",
         predicate=lambda p: p.beta_trend < 0 and p.beta_trend_p <= 0.05,
+    ),
+    # WHY: ADF fail-to-reject signals the factor likely has a unit root,
+    # so per-asset β estimates carry Stambaugh (1999) bias. No
+    # ``recommended_p_source`` — the proper remediation is a user-level
+    # Stambaugh reverse-regression or first-difference of the factor,
+    # not a simple alternative p-value inside this library.
+    Rule(
+        code="macro_common.factor_persistent",
+        severity="warn",
+        message=(
+            "Factor ADF p > 0.10 — likely unit root; per-asset β and "
+            "β t-stats are susceptible to Stambaugh bias. Consider "
+            "first-differencing the factor or applying a reverse-"
+            "regression correction before acting on ts_beta_p."
+        ),
+        predicate=lambda p: p.factor_adf_p > 0.10,
     ),
 ]
 

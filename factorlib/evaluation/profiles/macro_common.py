@@ -22,7 +22,7 @@ from factorlib.evaluation.profiles._base import (
     _insufficient_metrics,
     _memoized,
     _pv,
-    _verdict_from_p,
+    _verdict_with_warnings,
     register_profile,
 )
 
@@ -64,6 +64,15 @@ class MacroCommonProfile:
 
     insufficient_metrics: tuple[str, ...]  # see _base._insufficient_metrics
 
+    # Persistence diagnostic: ADF p-value on the common factor series.
+    # High values (> 0.10) indicate a likely unit root → per-asset β
+    # and β t-stats inherit Stambaugh (1999) bias. Not in P_VALUE_FIELDS
+    # because ADF tests a unit-root null, not factor significance —
+    # feeding it to BHY would be a category error. kw-only default of
+    # PValue(1.0) keeps old call sites that construct via kwargs
+    # working without modification.
+    factor_adf_p: PValue = PValue(1.0)
+
     CANONICAL_P_FIELD: ClassVar[str] = "ts_beta_p"
     P_VALUE_FIELDS: ClassVar[frozenset[str]] = frozenset({
         "ts_beta_p", "beta_trend_p",
@@ -74,7 +83,7 @@ class MacroCommonProfile:
         return getattr(self, self.CANONICAL_P_FIELD)
 
     def verdict(self, threshold: float = 2.0) -> Verdict:
-        return _verdict_from_p(self.canonical_p, threshold, self.n_periods)
+        return _verdict_with_warnings(self, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
         return _diagnose(self)
@@ -83,6 +92,10 @@ class MacroCommonProfile:
     def from_artifacts(
         cls, artifacts: "Artifacts",
     ) -> tuple[Self, dict[str, MetricOutput]]:
+        import numpy as np
+
+        from factorlib._stats import _adf
+        from factorlib._types import PValue
         from factorlib.config import MacroCommonConfig
         from factorlib.metrics.oos import multi_split_oos_decay
         from factorlib.metrics.trend import ic_trend
@@ -130,6 +143,19 @@ class MacroCommonProfile:
             "beta_trend": trend_m,
         })
 
+        # Persistence: macro factors are typically shared across assets,
+        # so one value per date. Deduplicate on date (preserves order)
+        # to extract the time series and run a minimal ADF (constant,
+        # no trend, no extra lags — sufficient for a risk flag).
+        factor_series = (
+            artifacts.prepared
+            .unique(subset=["date"], keep="first", maintain_order=True)
+            .sort("date")["factor"]
+            .drop_nulls()
+            .to_numpy()
+        )
+        _, factor_adf_p = _adf(np.asarray(factor_series, dtype=np.float64))
+
         profile = cls(
             factor_name=artifacts.factor_name,
             n_periods=n_periods,
@@ -144,5 +170,6 @@ class MacroCommonProfile:
             beta_trend=float(trend_m.value),
             beta_trend_p=_pv(trend_m),
             insufficient_metrics=insufficient,
+            factor_adf_p=PValue(float(factor_adf_p)),
         )
         return profile, outputs

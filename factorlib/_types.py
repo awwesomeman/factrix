@@ -148,10 +148,10 @@ class MetricOutput:
 # (e.g. ic_ir, oos_decay) programmatically via field annotation inspection.
 PValue = NewType("PValue", float)
 
-# WHY: Verdict is a binary decision on the canonical test only. "CAUTION" is
-# intentionally absent — all shades of "significant but with caveats" belong
-# in Diagnostic, not in verdict (see ADR §4).
-Verdict = Literal["PASS", "FAILED"]
+# WHY: "CAUTION" / "SIGNIFICANT" shades still belong in Diagnostic;
+# PASS_WITH_WARNINGS is strictly a UX signal that diagnose() is worth
+# reading, not a severity level.
+Verdict = Literal["PASS", "PASS_WITH_WARNINGS", "FAILED"]
 
 # WHY: Severity is three-valued for practical triage. "info" is observation,
 # "warn" suggests caution without blocking, "veto" is a deal-breaker that
@@ -170,6 +170,13 @@ class Diagnostic:
     severity: DiagnosticSeverity
     message: str
     code: str | None = None
+    # WHY: when a rule fires because a risk diagnostic (clustering,
+    # persistence, overlapping returns) suggests the canonical p-value
+    # is under-stating uncertainty, ``recommended_p_source`` names the
+    # whitelisted P_VALUE_FIELDS entry the user should consider for BHY
+    # / verdict. None means the rule is purely informational with no
+    # alternative test to recommend.
+    recommended_p_source: str | None = None
 
     def __repr__(self) -> str:
         tag = f"[{self.severity}]"

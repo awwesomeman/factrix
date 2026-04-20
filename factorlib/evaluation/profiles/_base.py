@@ -168,6 +168,40 @@ def _verdict_from_p(p: PValue, threshold: float, n_periods: int) -> Verdict:
     return "PASS" if p <= p_threshold else "FAILED"
 
 
+def _verdict_with_warnings(profile: "FactorProfile", threshold: float) -> Verdict:
+    """Upgrade PASS → PASS_WITH_WARNINGS when a warn-severity diagnostic
+    names a whitelisted alternative p_source the user has not adopted.
+
+    FAILED is never softened: a factor the canonical test rejects stays
+    rejected regardless of warnings.
+    """
+    base = _verdict_from_p(profile.canonical_p, threshold, profile.n_periods)
+    if base != "PASS":
+        return base
+    canonical = profile.CANONICAL_P_FIELD
+    whitelist = profile.P_VALUE_FIELDS
+    for d in profile.diagnose():
+        if d.severity != "warn":
+            continue
+        rec = d.recommended_p_source
+        if rec is None or rec == canonical:
+            continue
+        if rec not in whitelist:
+            raise ValueError(
+                f"Diagnostic {d.code!r} recommends p_source={rec!r} which "
+                f"is not in {type(profile).__name__}.P_VALUE_FIELDS="
+                f"{sorted(whitelist)}. Fix the Rule definition."
+            )
+        from factorlib._logging import get_evaluation_logger
+        get_evaluation_logger().warning(
+            "verdict=PASS_WITH_WARNINGS: factor=%s canonical=%s "
+            "diagnostic=%s recommended_p_source=%s",
+            getattr(profile, "factor_name", "?"), canonical, d.code, rec,
+        )
+        return "PASS_WITH_WARNINGS"
+    return "PASS"
+
+
 @runtime_checkable
 class FactorProfile(Protocol):
     """Structural interface for all typed factor profiles.
@@ -192,8 +226,11 @@ class FactorProfile(Protocol):
     Required members:
         canonical_p: property returning the canonical test p-value (single
             source of truth for BHY inputs).
-        verdict(threshold): binary PASS/FAILED on canonical p only. Any
-            "significant-but-with-caveats" nuance belongs in diagnose().
+        verdict(threshold): PASS / PASS_WITH_WARNINGS / FAILED on
+            canonical p plus diagnose() hints. Raises ``ValueError`` if a
+            registered ``Rule.recommended_p_source`` points outside
+            ``P_VALUE_FIELDS`` — a developer error in rule authoring, not
+            a user-data pathology.
         diagnose(): contextual hints as ``list[Diagnostic]``.
         from_artifacts(artifacts): classmethod constructor from Artifacts.
             Pure function: returns ``(profile, metric_outputs_dict)``

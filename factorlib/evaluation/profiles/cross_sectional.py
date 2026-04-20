@@ -20,7 +20,7 @@ from factorlib.evaluation.profiles._base import (
     _insufficient_metrics,
     _memoized,
     _pv,
-    _verdict_from_p,
+    _verdict_with_warnings,
     register_profile,
 )
 
@@ -108,9 +108,17 @@ class CrossSectionalProfile:
 
     insufficient_metrics: tuple[str, ...]  # see _base._insufficient_metrics
 
+    # Newey-West HAC IC p-value on the overlapping series. Same null
+    # (mean IC = 0) as ``ic_p``; the HAC correction absorbs autocorrelation
+    # from overlapping forward returns rather than dropping samples. kw-only
+    # default of PValue(1.0) keeps old kwarg-construction paths working
+    # without modification; reaches P_VALUE_FIELDS so users can
+    # ``multiple_testing_correct(p_source="ic_nw_p")``.
+    ic_nw_p: PValue = PValue(1.0)
+
     CANONICAL_P_FIELD: ClassVar[str] = "ic_p"
     P_VALUE_FIELDS: ClassVar[frozenset[str]] = frozenset({
-        "ic_p", "hit_rate_p", "ic_trend_p", "spread_p",
+        "ic_p", "ic_nw_p", "hit_rate_p", "ic_trend_p", "spread_p",
     })
 
     @property
@@ -118,7 +126,7 @@ class CrossSectionalProfile:
         return getattr(self, self.CANONICAL_P_FIELD)
 
     def verdict(self, threshold: float = 2.0) -> Verdict:
-        return _verdict_from_p(self.canonical_p, threshold, self.n_periods)
+        return _verdict_with_warnings(self, threshold)
 
     def diagnose(self) -> list[Diagnostic]:
         return _diagnose(self)
@@ -130,7 +138,11 @@ class CrossSectionalProfile:
         # WHY: lazy imports — match existing pipeline style and avoid
         # pulling every metric module at package import time.
         from factorlib.config import CrossSectionalConfig
-        from factorlib.metrics.ic import ic as ic_metric, ic_ir as ic_ir_metric
+        from factorlib.metrics.ic import (
+            ic as ic_metric,
+            ic_ir as ic_ir_metric,
+            ic_newey_west,
+        )
         from factorlib.metrics.quantile import quantile_spread
         from factorlib.metrics.monotonicity import monotonicity
         from factorlib.metrics.concentration import top_concentration
@@ -158,6 +170,9 @@ class CrossSectionalProfile:
         spread_series = artifacts.get("spread_series")
 
         ic_m = _memoized(outputs, "ic", ic_metric, ic_series, forward_periods=fp)
+        ic_nw_m = _memoized(
+            outputs, "ic_newey_west", ic_newey_west, ic_series, forward_periods=fp,
+        )
         ic_ir_m = _memoized(outputs, "ic_ir", ic_ir_metric, ic_series)
         hit_m = _memoized(outputs, "hit_rate", hit_rate, ic_values, forward_periods=fp)
         trend_m = _memoized(outputs, "ic_trend", ic_trend, ic_values)
@@ -270,5 +285,6 @@ class CrossSectionalProfile:
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),
             insufficient_metrics=insufficient,
+            ic_nw_p=_pv(ic_nw_m),
         )
         return profile, outputs
