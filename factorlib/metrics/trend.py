@@ -20,6 +20,8 @@ from factorlib._stats import _p_value_from_t, _significance_marker
 def ic_trend(
     series: pl.DataFrame,
     value_col: str = "value",
+    *,
+    name: str = "ic_trend",
 ) -> MetricOutput:
     """Theil-Sen median slope of a time-indexed series.
 
@@ -30,6 +32,10 @@ def ic_trend(
 
     Args:
         series: DataFrame with ``date`` and ``value_col``.
+        name: MetricOutput.name for the returned output. Defaults to
+            ``"ic_trend"``; EventFactor.caar_trend / MacroPanelFactor.
+            beta_trend pass their own names so method / cache key /
+            primitive name stay three-point unified.
 
     Returns:
         MetricOutput with value = slope, t_stat from Theil-Sen confidence interval.
@@ -44,7 +50,7 @@ def ic_trend(
 
     if n < 10:
         return MetricOutput(
-            name="ic_trend", value=0.0, stat=0.0, significance="",
+            name=name, value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_trend_periods",
                 "n_observed": n,
@@ -74,7 +80,7 @@ def ic_trend(
 
     p = _p_value_from_t(approx_t, n)
     return MetricOutput(
-        name="ic_trend",
+        name=name,
         value=slope,
         stat=approx_t,
         significance=_significance_marker(p),

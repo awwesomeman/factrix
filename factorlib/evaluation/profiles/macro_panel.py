@@ -125,7 +125,7 @@ class MacroPanelProfile:
         pooled_m = _memoized(outputs, "pooled_beta", pooled_ols, artifacts.prepared)
         sign_m = _memoized(outputs, "beta_sign_consistency", beta_sign_consistency, beta_series)
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, beta_values)
-        trend_m = _memoized(outputs, "ic_trend", ic_trend, beta_values)
+        trend_m = _memoized(outputs, "beta_trend", ic_trend, beta_values, name="beta_trend")
         spread_m = _memoized(
             outputs, "quantile_spread", quantile_spread,
             artifacts.prepared,

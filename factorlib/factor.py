@@ -126,36 +126,40 @@ class Factor:
 
     def _cached_or_compute(
         self,
-        name: str,
+        key: str,
         fn: Callable[..., MetricOutput],
         *args: Any,
         override: bool = False,
         **kwargs: Any,
     ) -> MetricOutput:
-        """Read ``metric_outputs[name]`` or compute via ``fn(*args, **kwargs)``.
+        """Read ``metric_outputs[key]`` or compute via ``fn(*args, **kwargs)``.
 
         When ``override=True``, bypasses the cache entirely (computes fresh
         and does NOT write back) — per-call overrides must not pollute the
         config-bound cache that ``evaluate()`` reads.
 
         Enforces the ``cache-key == primitive.MetricOutput.name`` contract:
-        if the computed output's ``.name`` differs from ``name``, ``_stash``
+        if the computed output's ``.name`` differs from ``key``, ``_stash``
         would key the entry under the primitive's name and leave the Factor
         side of the cache empty — a silent double-entry / cache-miss bug.
         ``_memoized`` + ``_stash`` already do the store; we assert here on
         the override (uncached) path because ``_memoized`` returns the
         stored view and can't double-check after stashing.
+
+        Uses ``key`` — not ``name`` — because primitives may take their own
+        ``name=`` kwarg (e.g. ``ic_trend(series, name="caar_trend")``) that
+        would collide with a positional alias.
         """
         if override:
             result = fn(*args, **kwargs)
-            assert result.name == name, (
+            assert result.name == key, (
                 f"Factor cache-key contract violated: method requested "
-                f"cache key {name!r} but primitive returned "
+                f"cache key {key!r} but primitive returned "
                 f"MetricOutput.name={result.name!r}"
             )
             return result
         return _memoized(
-            self.artifacts.metric_outputs, name, fn, *args, **kwargs,
+            self.artifacts.metric_outputs, key, fn, *args, **kwargs,
         )
 
     def _short_circuit_if(
@@ -545,10 +549,10 @@ class EventFactor(Factor):
 
     def caar_trend(self) -> MetricOutput:
         """Theil-Sen trend on the CAAR value series."""
-        # WHY: EventProfile stashes under "ic_trend" key (shared trend helper).
         from factorlib.metrics.trend import ic_trend as _tr
         return self._cached_or_compute(
-            "ic_trend", _tr, self.artifacts.get("caar_values"),
+            "caar_trend", _tr, self.artifacts.get("caar_values"),
+            name="caar_trend",
         )
 
     def oos_decay(self) -> MetricOutput:
@@ -612,16 +616,11 @@ class MacroPanelFactor(Factor):
     # ----- Stability -----
 
     def beta_trend(self) -> MetricOutput:
-        """Theil-Sen trend on the FM β series.
-
-        Cache key is ``"ic_trend"`` because the primitive's
-        ``MetricOutput.name`` is ``ic_trend`` (shared ``ic_trend`` /
-        ``trend.py`` helper applied to the β series). Same reuse pattern
-        as ``EventFactor.caar_trend`` and ``MacroCommonFactor.beta_trend``.
-        """
+        """Theil-Sen trend on the FM β series."""
         from factorlib.metrics.trend import ic_trend as _tr
         return self._cached_or_compute(
-            "ic_trend", _tr, self.artifacts.get("beta_values"),
+            "beta_trend", _tr, self.artifacts.get("beta_values"),
+            name="beta_trend",
         )
 
     def oos_decay(self) -> MetricOutput:
@@ -683,7 +682,8 @@ class MacroCommonFactor(Factor):
         """Theil-Sen trend on the rolling mean β series."""
         from factorlib.metrics.trend import ic_trend as _tr
         return self._cached_or_compute(
-            "ic_trend", _tr, self.artifacts.get("beta_values"),
+            "beta_trend", _tr, self.artifacts.get("beta_values"),
+            name="beta_trend",
         )
 
     def oos_decay(self) -> MetricOutput:

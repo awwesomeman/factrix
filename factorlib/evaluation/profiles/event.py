@@ -165,7 +165,7 @@ class EventProfile:
             artifacts.prepared, return_col=ret_col,
         )
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, caar_values)
-        trend_m = _memoized(outputs, "ic_trend", ic_trend, caar_values)  # applied to CAAR
+        trend_m = _memoized(outputs, "caar_trend", ic_trend, caar_values, name="caar_trend")
         density_m = _memoized(outputs, "signal_density", signal_density, artifacts.prepared)
 
         # Clustering is only meaningful with multiple assets.

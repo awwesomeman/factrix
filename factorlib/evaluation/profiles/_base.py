@@ -77,12 +77,12 @@ def _stash(store: "dict[str, MetricOutput]", m: MetricOutput) -> MetricOutput:
 
 def _memoized(
     store: "dict[str, MetricOutput]",
-    name: str,
+    key: str,
     fn: Callable[..., MetricOutput],
     *args: Any,
     **kwargs: Any,
 ) -> MetricOutput:
-    """Return ``store[name]`` if present, else compute ``fn(*args, **kwargs)``
+    """Return ``store[key]`` if present, else compute ``fn(*args, **kwargs)``
     and ``_stash`` the result.
 
     Single source of truth for metric caching in ``from_artifacts``:
@@ -94,10 +94,14 @@ def _memoized(
     identically to the fresh MetricOutput (`.metadata.get(...)` reads the
     same dict); writes to ``.metadata`` would raise TypeError, which is
     the intended guardrail (metric values are immutable after computation).
+
+    ``key`` — not ``name`` — because primitives may take their own
+    ``name=`` kwarg (e.g. ``ic_trend(series, name="caar_trend")``) that
+    would collide with a positional alias.
     """
-    if name not in store:
+    if key not in store:
         _stash(store, fn(*args, **kwargs))
-    return store[name]
+    return store[key]
 
 
 def _run_profile_and_attach(profile_cls: type, artifacts: "Any") -> "Any":

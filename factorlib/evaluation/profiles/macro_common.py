@@ -121,7 +121,7 @@ class MacroCommonProfile:
             outputs, "ts_beta_sign_consistency", ts_beta_sign_consistency, ts_betas_df,
         )
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, beta_values)
-        trend_m = _memoized(outputs, "ic_trend", ic_trend, beta_values)
+        trend_m = _memoized(outputs, "beta_trend", ic_trend, beta_values, name="beta_trend")
 
         insufficient = _insufficient_metrics({
             "ts_beta_mean": ts_beta_m,
