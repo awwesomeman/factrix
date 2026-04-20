@@ -88,11 +88,12 @@ def fama_macbeth(
 
     if n < MIN_FM_PERIODS:
         return MetricOutput(
-            name="fm_beta", value=0.0, stat=0.0, significance="",
+            name="fm_beta", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_fm_periods",
                 "n_observed": n,
                 "min_required": MIN_FM_PERIODS,
+                "p_value": 1.0,
             },
         )
 
@@ -137,11 +138,12 @@ def pooled_ols(
 
     if n_obs < 10:
         return MetricOutput(
-            name="pooled_beta", value=0.0, stat=0.0, significance="",
+            name="pooled_beta", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_pooled_observations",
                 "n_observed": n_obs,
                 "min_required": 10,
+                "p_value": 1.0,
             },
         )
 
@@ -150,10 +152,11 @@ def pooled_ols(
         beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
     except np.linalg.LinAlgError:
         return MetricOutput(
-            name="pooled_beta", value=0.0, stat=0.0, significance="",
+            name="pooled_beta", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "singular_pooled_design_matrix",
                 "n_observed": n_obs,
+                "p_value": 1.0,
             },
         )
 
@@ -167,12 +170,13 @@ def pooled_ols(
 
     if n_clusters < 3:
         return MetricOutput(
-            name="pooled_beta", value=slope, stat=0.0, significance="",
+            name="pooled_beta", value=slope, stat=None, significance="",
             metadata={
                 "reason": "insufficient_clusters",
                 "n_observed": n_clusters,
                 "min_required": 3,
                 "n_obs": n_obs,
+                "p_value": 1.0,
             },
         )
 
@@ -240,7 +244,7 @@ def beta_sign_consistency(
     n = len(betas)
     if n == 0:
         return MetricOutput(
-            name="beta_sign_consistency", value=0.0,
+            name="beta_sign_consistency", value=float("nan"),
             metadata={
                 "reason": "no_beta_observations",
                 "n_observed": 0,

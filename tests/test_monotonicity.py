@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.monotonicity."""
 
+import math
 import pytest
 
 from factorlib.metrics.monotonicity import monotonicity
@@ -37,5 +38,5 @@ class TestComputeMonotonicity:
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = monotonicity(df, forward_periods=1, n_groups=5)
         # Only 1 date < MIN_MONOTONICITY_PERIODS=5
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.significance == ""

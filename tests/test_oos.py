@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.oos."""
 
+import math
 import pytest
 
 from factorlib.metrics.oos import SplitDetail, multi_split_oos_decay
@@ -29,7 +30,7 @@ class TestMultiSplitOOSDecay:
         )
         result = multi_split_oos_decay(series)
         assert result.metadata["status"] == "VETOED"
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_oos_periods"
 
     def test_custom_single_split(self, ic_series_positive):

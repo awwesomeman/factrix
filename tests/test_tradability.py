@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.tradability."""
 
+import math
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
@@ -26,7 +27,7 @@ class TestComputeTurnover:
             "factor": [1.0, 2.0, 3.0],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = turnover(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
 
 class TestBreakevenCost:

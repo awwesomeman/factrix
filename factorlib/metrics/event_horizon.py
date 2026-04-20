@@ -145,7 +145,7 @@ def event_around_return(
 
     Returns:
         MetricOutput with per-offset stats in metadata. When price data is
-        unavailable, returns a short-circuit MetricOutput (``value=0.0``,
+        unavailable, returns a short-circuit MetricOutput (``value=NaN``,
         ``metadata["reason"]="no_price_data"``) so all metrics share a
         single return contract.
     """
@@ -220,7 +220,7 @@ def multi_horizon_hit_rate(
     Returns:
         MetricOutput with value = hit rate at longest horizon, per-horizon
         details in metadata. When price data is unavailable, returns a
-        short-circuit MetricOutput (``value=0.0``,
+        short-circuit MetricOutput (``value=NaN``,
         ``metadata["reason"]="no_price_data"``) so all metrics share a
         single return contract.
     """

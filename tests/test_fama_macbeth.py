@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.fama_macbeth and macro_panel pipeline."""
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -108,7 +109,7 @@ class TestFamaMacbeth:
             "beta": pl.Series([], dtype=pl.Float64),
         })
         result = fama_macbeth(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
 
 # ---------------------------------------------------------------------------

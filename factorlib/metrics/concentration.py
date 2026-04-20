@@ -13,7 +13,10 @@ import numpy as np
 import polars as pl
 
 from factorlib._types import DDOF, EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
-from factorlib.metrics._helpers import _sample_non_overlapping
+from factorlib.metrics._helpers import (
+    _compute_tie_ratio,
+    _sample_non_overlapping,
+)
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
@@ -37,8 +40,17 @@ def top_concentration(
     Returns:
         MetricOutput with value = mean(1/HHI) across dates.
         Higher = more diversified top bucket.
+
+    Notes:
+        Uses ``rank(method="average")`` internally for the top-bucket
+        cutoff — tie_policy from Config does not apply here because HHI
+        measures concentration *among* the selected stocks, not their
+        bucketing. ``tie_ratio`` is still recorded in metadata as a
+        data-quality diagnostic (high tie_ratio → unstable top-bucket
+        membership across re-rankings).
     """
     filtered = _sample_non_overlapping(df, forward_periods)
+    tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
     q1 = (
         filtered.with_columns(
@@ -72,11 +84,13 @@ def top_concentration(
 
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="top_concentration", value=0.0, stat=0.0, significance="",
+            name="top_concentration", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": len(hhi_per_date),
                 "min_required": MIN_PORTFOLIO_PERIODS,
+                "p_value": 1.0,
+                "tie_ratio": tie_ratio,
             },
         )
 
@@ -110,5 +124,6 @@ def top_concentration(
             "method": "one-sided t-test on ratio",
             "mean_n_top": mean_n_top,
             "ratio_eff_to_total": ratio,
+            "tie_ratio": tie_ratio,
         },
     )

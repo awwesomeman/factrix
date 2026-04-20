@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.mfe_mae and factorlib.metrics.event_quality."""
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -145,7 +146,7 @@ class TestMfeMaeSummary:
         )
         result = mfe_mae_summary(empty)
         assert result.name == "mfe_mae_summary"
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["n_events"] == 0
 
@@ -173,7 +174,7 @@ class TestProfitFactor:
             "forward_return": [0.01],
         })
         result = profit_factor(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
 
 # ---------------------------------------------------------------------------
@@ -194,4 +195,4 @@ class TestEventSkewness:
             "forward_return": [0.01],
         })
         result = event_skewness(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)

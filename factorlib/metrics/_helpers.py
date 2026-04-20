@@ -5,10 +5,19 @@ These are internal utilities — not part of the public API.
 
 from __future__ import annotations
 
+import math
+import warnings
+
 import numpy as np
 import polars as pl
 
 from factorlib._types import MetricOutput
+
+# Median-across-dates tie_ratio above this triggers a UserWarning when
+# tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
+# (bucketed signals, industry/size dummies routinely sit at ~0.5 — below
+# 0.3 the sorting-artifact noise from ordinal tie-breaking is negligible).
+TIE_RATIO_WARN_THRESHOLD = 0.3
 
 
 def _short_circuit_output(
@@ -22,15 +31,20 @@ def _short_circuit_output(
         - ``insufficient_<thing>`` — data shortage (dropped from BHY)
         - ``no_<thing>`` — missing input / missing config / missing data
 
+    ``value=NaN`` (not 0.0) because 0.0 is a legal factor-metric outcome
+    (IC exactly 0, β exactly 0, spread exactly 0) indistinguishable from
+    a silent short-circuit. NaN propagates through downstream aggregations
+    and plots, making data shortages impossible to misread as valid zeros.
+
     ``p_value=1.0`` is the conservative default so BHY treats short-circuited
     metrics as rejected rather than crashing; ``_pv`` reads the same key.
 
-    Use this instead of hand-rolling ``MetricOutput(value=0.0, stat=None,
-    significance="", metadata={"reason": ..., "p_value": 1.0, ...})``.
+    Use this instead of hand-rolling ``MetricOutput(value=float("nan"),
+    stat=None, significance="", metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
     return MetricOutput(
         name=name,
-        value=0.0,
+        value=float("nan"),
         stat=None,
         significance="",
         metadata={"reason": reason, "p_value": 1.0, **extra_metadata},
@@ -75,22 +89,32 @@ def _assign_quantile_groups(
     df: pl.DataFrame,
     factor_col: str = "factor",
     n_groups: int = 5,
+    tie_policy: str = "ordinal",
 ) -> pl.DataFrame:
     """Assign quantile group labels (0 = bottom, n_groups-1 = top) per date.
 
-    Uses ``rank(method="ordinal")`` to break ties deterministically,
-    ensuring balanced group sizes even when many assets share the same
-    factor value. Tie-breaking order is arbitrary but consistent.
+    ``tie_policy="ordinal"`` (default): break ties deterministically by
+    row order → balanced group sizes, but tied assets end up in different
+    buckets (arbitrary but consistent).
+
+    ``tie_policy="average"``: tied assets share an average rank → same
+    bucket → honest signal resolution, group sizes may be unbalanced.
+    Prefer this for low-cardinality factors (binary, bucketed, or
+    categorical signals) where ordinal tie-breaking would inject
+    sorting-artifact noise indistinguishable from alpha.
 
     Returns:
         DataFrame with ``_group`` column appended.
     """
-    # WHY: "ordinal" assigns unique ranks even for tied values,
-    # preventing multiple assets from clustering in the same group.
-    # "average" would give tied assets the same rank → unbalanced groups.
+    rank_expr = (
+        pl.col(factor_col)
+        .rank(method=tie_policy)
+        .over("date")
+        .alias("_rank")
+    )
     return (
         df.with_columns(
-            pl.col(factor_col).rank(method="ordinal").over("date").alias("_rank"),
+            rank_expr,
             pl.len().over("date").alias("_n"),
         )
         .with_columns(
@@ -100,6 +124,65 @@ def _assign_quantile_groups(
             .alias("_group")
         )
         .drop("_rank", "_n")
+    )
+
+
+def _compute_tie_ratio(
+    df: pl.DataFrame,
+    factor_col: str = "factor",
+) -> float:
+    """Median-across-dates tie ratio ``1 - n_unique / n`` for ``factor_col``.
+
+    A float in [0, 1]: 0 means every per-date cross-section has unique
+    factor values (no ties); 1 means every cross-section is fully
+    degenerate. Returns ``nan`` when the panel is empty (no dates).
+
+    Used as a diagnostic on quantile-bucketing metrics — callers log a
+    warning when the return exceeds ``TIE_RATIO_WARN_THRESHOLD`` and
+    stash the value in ``MetricOutput.metadata["tie_ratio"]`` for
+    downstream inspection.
+    """
+    if df.is_empty():
+        return float("nan")
+    per_date = (
+        df.group_by("date")
+        .agg(
+            pl.col(factor_col).n_unique().alias("_u"),
+            pl.len().alias("_n"),
+        )
+        .with_columns(
+            (1.0 - pl.col("_u") / pl.col("_n")).alias("_tr"),
+        )
+    )
+    med = per_date["_tr"].median()
+    return float("nan") if med is None else float(med)
+
+
+def _warn_high_tie_ratio(
+    ratio: float,
+    metric_name: str,
+    tie_policy: str,
+) -> None:
+    """Emit a ``UserWarning`` when median tie_ratio exceeds the threshold.
+
+    No-op for ``tie_policy="average"`` (the policy already handles ties
+    honestly — warning would be noise) or NaN ratios. Uses ``warnings.warn``
+    not ``logger`` so the advisory surfaces in notebooks where root logger
+    defaults to WARNING. Python's default ``"default"`` filter dedupes
+    by (module, lineno, message) so sweep loops naturally emit once.
+    """
+    if math.isnan(ratio) or ratio <= TIE_RATIO_WARN_THRESHOLD:
+        return
+    if tie_policy != "ordinal":
+        return
+    warnings.warn(
+        f"{metric_name}: median tie_ratio={ratio:.3f} exceeds "
+        f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Ordinal tie-breaking on a "
+        f"low-cardinality factor injects sorting-artifact noise. "
+        f"Consider tie_policy='average' on the Config, or a coarser "
+        f"n_groups.",
+        UserWarning,
+        stacklevel=3,
     )
 
 

@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.caar — CAAR, BMP, event_hit_rate, event_ic."""
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -137,8 +138,8 @@ class TestCaar:
             "caar": pl.Series([], dtype=pl.Float64),
         })
         result = caar(df)
-        assert result.value == 0.0
-        assert result.stat == 0.0
+        assert math.isnan(result.value)
+        assert result.stat is None
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +166,7 @@ class TestBmpTest:
             "price": [100.0],
         })
         result = bmp_test(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
     def test_uses_price_for_vol(self, strong_signal):
         result = bmp_test(strong_signal)
@@ -200,7 +201,7 @@ class TestEventHitRate:
             "forward_return": [0.01],
         })
         result = event_hit_rate(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
 
 # ---------------------------------------------------------------------------
@@ -253,8 +254,8 @@ class TestEventIc:
     def test_discrete_signal_skipped(self, strong_signal):
         """All ±1 values → |factor| constant → IC = 0 (no variance)."""
         result = event_ic(strong_signal)
-        assert result.value == 0.0
-        assert result.stat == 0.0
+        assert math.isnan(result.value)
+        assert result.stat is None
 
     def test_insufficient_events(self):
         df = pl.DataFrame({
@@ -264,7 +265,7 @@ class TestEventIc:
             "forward_return": [0.01],
         })
         result = event_ic(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
     def test_standalone_import(self):
         from factorlib.metrics import event_ic as eic

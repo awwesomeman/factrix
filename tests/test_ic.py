@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.ic."""
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -58,7 +59,7 @@ class TestIC:
             "ic": [0.05, 0.03, 0.04],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic(df, forward_periods=1)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
 
 class TestICIR:
@@ -76,7 +77,7 @@ class TestICIR:
             "ic": [0.05, 0.03, 0.04],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic_ir(df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
 
 class TestRegimeIC:
@@ -123,4 +124,4 @@ class TestRegimeIC:
     def test_insufficient_data(self):
         ic_df = self._make_ic_series(5)
         result = regime_ic(ic_df)
-        assert result.value == 0.0
+        assert math.isnan(result.value)

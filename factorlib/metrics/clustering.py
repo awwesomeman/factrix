@@ -45,7 +45,7 @@ def clustering_diagnostic(
 
     if n_events < MIN_EVENTS:
         return MetricOutput(
-            name="clustering_hhi", value=0.0,
+            name="clustering_hhi", value=float("nan"),
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n_events,

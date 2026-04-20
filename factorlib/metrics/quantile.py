@@ -21,8 +21,10 @@ from factorlib._types import (
 )
 from factorlib.metrics._helpers import (
     _assign_quantile_groups,
+    _compute_tie_ratio,
     _median_universe_size,
     _sample_non_overlapping,
+    _warn_high_tie_ratio,
 )
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 
@@ -33,6 +35,7 @@ def compute_spread_series(
     n_groups: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    tie_policy: str = "ordinal",
 ) -> pl.DataFrame:
     """Per-date long-short spread series (non-overlapping).
 
@@ -44,6 +47,9 @@ def compute_spread_series(
     Args:
         df: Panel with ``date, asset_id, factor, forward_return``.
         n_groups: Number of quantile groups.
+        tie_policy: See ``_assign_quantile_groups``. ``"ordinal"`` (default)
+            keeps balanced bucket sizes; ``"average"`` keeps tied assets
+            in the same bucket — prefer for low-cardinality factors.
 
     Returns:
         DataFrame with ``date, spread, top_return, bottom_return, universe_return``.
@@ -61,7 +67,9 @@ def compute_spread_series(
             stacklevel=2,
         )
 
-    grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
+    grouped = _assign_quantile_groups(
+        sampled, factor_col, n_groups, tie_policy=tie_policy,
+    )
 
     top_group = n_groups - 1
     bottom_group = 0
@@ -91,25 +99,42 @@ def quantile_spread(
     forward_periods: int = 5,
     n_groups: int = 5,
     _precomputed_series: pl.DataFrame | None = None,
+    tie_policy: str = "ordinal",
 ) -> MetricOutput:
     """long-short spread (per-period mean).
 
     Args:
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
+        tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
+            When ``_precomputed_series`` is passed, this only affects the
+            ``tie_ratio`` diagnostic — the series itself was already built.
 
     Returns:
         MetricOutput with per-period mean spread, t-stat from non-overlapping periods.
     """
-    series = _precomputed_series if _precomputed_series is not None else compute_spread_series(df, forward_periods, n_groups)
+    # Compute tie_ratio on the sampled subset (what bucketing actually sees)
+    # rather than the full panel — ~N/forward_periods smaller scan.
+    sampled = _sample_non_overlapping(df, forward_periods)
+    tie_ratio = _compute_tie_ratio(sampled)
+    _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
+
+    series = (
+        _precomputed_series
+        if _precomputed_series is not None
+        else compute_spread_series(df, forward_periods, n_groups, tie_policy=tie_policy)
+    )
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="quantile_spread", value=0.0, stat=0.0, significance="",
+            name="quantile_spread", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": n,
                 "min_required": MIN_PORTFOLIO_PERIODS,
+                "p_value": 1.0,
+                "tie_ratio": tie_ratio,
+                "tie_policy": tie_policy,
             },
         )
 
@@ -155,6 +180,8 @@ def quantile_spread(
             "short_stat": t_short,
             "short_p_value": p_short,
             "short_significance": _significance_marker(p_short),
+            "tie_ratio": tie_ratio,
+            "tie_policy": tie_policy,
         },
     )
 
@@ -166,6 +193,7 @@ def quantile_spread_vw(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
+    tie_policy: str = "ordinal",
 ) -> MetricOutput:
     """Value-weighted long-short spread (per-period mean).
 
@@ -184,15 +212,18 @@ def quantile_spread_vw(
     """
     if weight_col not in df.columns:
         return MetricOutput(
-            name="quantile_spread_vw", value=0.0, stat=0.0, significance="",
+            name="quantile_spread_vw", value=float("nan"), stat=None, significance="",
             metadata={
-                "reason": "missing_weight_column",
+                "reason": "no_weight_column",
                 "missing_column": weight_col,
+                "p_value": 1.0,
             },
         )
 
     sampled = _sample_non_overlapping(df, forward_periods)
-    grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
+    grouped = _assign_quantile_groups(
+        sampled, factor_col, n_groups, tie_policy=tie_policy,
+    )
 
     top_group = n_groups - 1
     bottom_group = 0
@@ -223,11 +254,12 @@ def quantile_spread_vw(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="quantile_spread_vw", value=0.0, stat=0.0, significance="",
+            name="quantile_spread_vw", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": n,
                 "min_required": MIN_PORTFOLIO_PERIODS,
+                "p_value": 1.0,
             },
         )
 
@@ -252,6 +284,7 @@ def compute_group_returns(
     n_groups: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    tie_policy: str = "ordinal",
 ) -> pl.DataFrame:
     """Mean return per quantile group (for monotonicity charts).
 
@@ -259,7 +292,9 @@ def compute_group_returns(
         DataFrame with ``group, mean_return`` averaged across non-overlapping dates.
     """
     sampled = _sample_non_overlapping(df, forward_periods)
-    grouped = _assign_quantile_groups(sampled, factor_col, n_groups)
+    grouped = _assign_quantile_groups(
+        sampled, factor_col, n_groups, tie_policy=tie_policy,
+    )
 
     return (
         grouped.group_by("_group")

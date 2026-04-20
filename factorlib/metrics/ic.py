@@ -78,11 +78,12 @@ def ic(
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
         return MetricOutput(
-            name="ic", value=0.0, stat=0.0, significance="",
+            name="ic", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_ic_periods",
                 "n_observed": n,
                 "min_required": MIN_IC_PERIODS,
+                "p_value": 1.0,
             },
         )
 
@@ -129,7 +130,7 @@ def ic_ir(
     n = len(ic_vals)
     if n < MIN_IC_PERIODS:
         return MetricOutput(
-            name="ic_ir", value=0.0,
+            name="ic_ir", value=float("nan"),
             metadata={
                 "reason": "insufficient_ic_periods",
                 "n_observed": n,
@@ -142,7 +143,7 @@ def ic_ir(
 
     if std_ic < EPSILON:
         return MetricOutput(
-            name="ic_ir", value=0.0,
+            name="ic_ir", value=float("nan"),
             metadata={
                 "reason": "degenerate_ic_variance",
                 "std_ic": std_ic,
@@ -189,11 +190,12 @@ def regime_ic(
     """
     if len(ic_df) < MIN_IC_PERIODS:
         return MetricOutput(
-            name="regime_ic", value=0.0, significance="",
+            name="regime_ic", value=float("nan"), significance="",
             metadata={
                 "reason": "insufficient_ic_periods",
                 "n_observed": len(ic_df),
                 "min_required": MIN_IC_PERIODS,
+                "p_value": 1.0,
             },
         )
 
@@ -225,10 +227,11 @@ def regime_ic(
 
     if regime_stats.is_empty():
         return MetricOutput(
-            name="regime_ic", value=0.0, significance="",
+            name="regime_ic", value=float("nan"), significance="",
             metadata={
                 "reason": "no_regime_has_enough_observations",
                 "min_required_per_regime": 2,
+                "p_value": 1.0,
             },
         )
 
@@ -347,10 +350,11 @@ def multi_horizon_ic(
     valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
     if not valid_horizons:
         return MetricOutput(
-            name="multi_horizon_ic", value=0.0, stat=0.0, significance="",
+            name="multi_horizon_ic", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "no_horizon_has_enough_observations",
                 "min_required": MIN_IC_PERIODS,
+                "p_value": 1.0,
             },
         )
 

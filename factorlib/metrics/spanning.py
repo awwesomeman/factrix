@@ -117,10 +117,11 @@ def spanning_alpha(
         common_dates, arrays = _align_spread_series(all_series)
         if "_candidate_" not in arrays:
             return MetricOutput(
-                name="spanning_alpha", value=0.0, stat=0.0, significance="",
+                name="spanning_alpha", value=float("nan"), stat=None, significance="",
                 metadata={
                     "reason": "no_overlapping_dates_with_candidate",
                     "n_observed": 0,
+                    "p_value": 1.0,
                 },
             )
         candidate_arr = arrays.pop("_candidate_")
@@ -130,11 +131,12 @@ def spanning_alpha(
         vals = factor_spread["spread"].drop_nulls()
         if len(vals) < 10:
             return MetricOutput(
-                name="spanning_alpha", value=0.0, stat=0.0, significance="",
+                name="spanning_alpha", value=float("nan"), stat=None, significance="",
                 metadata={
                     "reason": "insufficient_spread_observations",
                     "n_observed": len(vals),
                     "min_required": 10,
+                    "p_value": 1.0,
                 },
             )
         candidate_arr = vals.to_numpy()

@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.trend."""
 
+import math
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
@@ -29,7 +30,7 @@ class TestTheilSenSlope:
     def test_insufficient_data(self):
         values = [0.01] * 5  # < 10
         result = ic_trend(_make_series(values))
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.significance == ""
 
     def test_negative_slope(self):

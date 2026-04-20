@@ -319,7 +319,8 @@ class CrossSectionalFactor(Factor):
         return self._cached_or_compute(
             "monotonicity", _mono, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
-            n_groups=ng, override=n_groups is not None,
+            n_groups=ng, tie_policy=self.config.tie_policy,
+            override=n_groups is not None,
         )
 
     def quantile_spread(self, n_groups: int | None = None) -> MetricOutput:
@@ -335,11 +336,13 @@ class CrossSectionalFactor(Factor):
                 self.artifacts.prepared,
                 forward_periods=self.config.forward_periods,
                 n_groups=n_groups,
+                tie_policy=self.config.tie_policy,
             )
         return self._cached_or_compute(
             "quantile_spread", _qs, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             n_groups=self.config.n_groups,
+            tie_policy=self.config.tie_policy,
             _precomputed_series=self.artifacts.intermediates.get("spread_series"),
         )
 
@@ -350,7 +353,8 @@ class CrossSectionalFactor(Factor):
         return self._cached_or_compute(
             "top_concentration", _qc, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
-            q_top=qt, override=q_top is not None,
+            q_top=qt,
+            override=q_top is not None,
         )
 
     # ``turnover`` / ``breakeven_cost`` / ``net_spread`` are inherited from
@@ -598,11 +602,13 @@ class MacroPanelFactor(Factor):
                 self.artifacts.prepared,
                 forward_periods=self.config.forward_periods,
                 n_groups=n_groups,
+                tie_policy=self.config.tie_policy,
             )
         return self._cached_or_compute(
             "quantile_spread", _qs, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             n_groups=self.config.n_groups,
+            tie_policy=self.config.tie_policy,
             _precomputed_series=self.artifacts.intermediates.get("spread_series"),
         )
 

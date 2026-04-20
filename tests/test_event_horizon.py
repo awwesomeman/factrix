@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.event_horizon and signal_density."""
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -126,7 +127,7 @@ class TestEventAroundReturn:
     def test_short_circuit_without_price(self, no_price_data):
         result = event_around_return(no_price_data)
         assert result.name == "event_around_return"
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["per_offset"] == {}
 
@@ -152,7 +153,7 @@ class TestMultiHorizonHitRate:
     def test_short_circuit_without_price(self, no_price_data):
         result = multi_horizon_hit_rate(no_price_data)
         assert result.name == "multi_horizon_hit_rate"
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["per_horizon"] == {}
 

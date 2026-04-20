@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.quantile."""
 
+import math
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -44,7 +45,7 @@ class TestQuantileSpread:
             "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05] * 2,
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = quantile_spread(df, forward_periods=1, n_groups=5)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
 
     def test_decomposition_in_metadata(self, tiny_panel):
         """spread = long_alpha + short_alpha (per-period)."""
@@ -97,6 +98,6 @@ class TestQuantileSpreadVW:
             "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
-        assert result.value == 0.0
-        assert result.metadata.get("reason") == "missing_weight_column"
+        assert math.isnan(result.value)
+        assert result.metadata.get("reason") == "no_weight_column"
         assert result.metadata.get("missing_column") == "market_cap"

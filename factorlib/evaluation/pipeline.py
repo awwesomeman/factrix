@@ -108,6 +108,7 @@ def _build_cs_artifacts(
     ic_values = ic_series.rename({"ic": "value"})
     spread_series = compute_spread_series(
         df, config.forward_periods, config.n_groups,
+        tie_policy=config.tie_policy,
     )
     intermediates: dict[str, pl.DataFrame] = {
         "ic_series": ic_series,
@@ -331,6 +332,7 @@ def _build_macro_panel_artifacts(
     beta_values = beta_series.rename({"beta": "value"})
     spread_series = compute_spread_series(
         df, config.forward_periods, config.n_groups,
+        tie_policy=config.tie_policy,
     )
 
     return Artifacts(

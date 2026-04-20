@@ -22,6 +22,12 @@ ClusteringAdjustment = Literal[
     "none", "calendar_block_bootstrap", "kolari_pynnonen"
 ]
 
+# Quantile-bucket tie-break policy. See _assign_quantile_groups docstring
+# in factorlib/metrics/_helpers.py for semantics. Kept narrow (2 values)
+# so primitives accept plain ``str`` and point at this alias in docstrings
+# — polars' rank(method=...) does the real validation at the leaf.
+TiePolicy = Literal["ordinal", "average"]
+
 
 @dataclass(kw_only=True)
 class BaseConfig:
@@ -33,6 +39,8 @@ class BaseConfig:
     forward_periods: int = 5
     n_groups: int = 5
     estimated_cost_bps: float = 30.0
+    # Quantile-bucket tie-break policy; see _assign_quantile_groups.
+    tie_policy: TiePolicy = "ordinal"
 
     def __post_init__(self) -> None:
         if type(self) is BaseConfig:

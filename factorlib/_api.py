@@ -436,6 +436,17 @@ def evaluate(
         ``artifacts.metric_outputs[key].metadata`` — the renderer
         ``fl.describe_profile_values(profile)`` intentionally stays
         scalar-only and needs no artifacts argument.
+
+        Short-circuited metrics (insufficient data, missing input) return
+        ``value=NaN`` — rendered as ``—`` by describe_profile_values and
+        NaN-propagating through ``.sum()`` / ``.mean()``. Distinguishes
+        "couldn't compute" from a legitimate zero (IC or β exactly 0).
+
+        Low-cardinality factors (binary, bucketed, categorical) exercise
+        ``CrossSectionalConfig(tie_policy='average')`` — keeps tied assets
+        in the same bucket instead of the default ``"ordinal"`` which
+        breaks ties by row order. A ``UserWarning`` fires on the first
+        evaluate when the median tie_ratio exceeds 0.3 under ordinal.
     """
     config = _resolve_config(
         factor_type, config, config_overrides, caller="evaluate",

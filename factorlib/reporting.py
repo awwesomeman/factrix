@@ -93,7 +93,9 @@ def _fmt_value(x: Any) -> str:
         return str(x)
     if isinstance(x, float):
         if math.isnan(x):
-            return "nan"
+            # WHY: visually distinct from 0.0000 so short-circuited metrics
+            # don't read as "exactly zero". See _short_circuit_output.
+            return "—"
         return f"{x:.4f}"
     if isinstance(x, (tuple, list)):
         return f"[{len(x)} items]" if len(x) > 4 else str(tuple(x))

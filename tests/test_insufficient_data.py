@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -38,7 +40,7 @@ class TestMetricReasonContract:
             "ic": [0.01] * 5,
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         m = ic_metric(tiny, forward_periods=1)
-        assert m.value == 0.0
+        assert math.isnan(m.value)
         assert m.metadata["reason"] == "insufficient_ic_periods"
         assert m.metadata["n_observed"] == 5
         assert m.metadata["min_required"] >= 5
@@ -49,7 +51,7 @@ class TestMetricReasonContract:
             "caar": [0.001, 0.002, 0.003],
         }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         m = caar_metric(tiny, forward_periods=1)
-        assert m.value == 0.0
+        assert math.isnan(m.value)
         assert m.metadata["reason"] == "insufficient_event_dates"
         assert m.metadata["n_observed"] == 3
 

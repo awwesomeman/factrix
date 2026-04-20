@@ -12,8 +12,17 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factorlib._types import DDOF, MIN_MONOTONICITY_PERIODS, MetricOutput
-from factorlib.metrics._helpers import _assign_quantile_groups, _sample_non_overlapping
+from factorlib._types import (
+    DDOF,
+    MIN_MONOTONICITY_PERIODS,
+    MetricOutput,
+)
+from factorlib.metrics._helpers import (
+    _assign_quantile_groups,
+    _compute_tie_ratio,
+    _sample_non_overlapping,
+    _warn_high_tie_ratio,
+)
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
@@ -23,6 +32,7 @@ def monotonicity(
     n_groups: int = 10,
     factor_col: str = "factor",
     return_col: str = "forward_return",
+    tie_policy: str = "ordinal",
 ) -> MetricOutput:
     """Quantile return monotonicity (Spearman correlation).
 
@@ -36,12 +46,18 @@ def monotonicity(
         df: Panel with ``date, asset_id, factor, forward_return``.
         n_groups: Number of quantile groups (default 10 for Taiwan ~2000 stocks).
             Use 5 for N < 1000, 3 for N < 200.
+        tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
 
     Returns:
         MetricOutput with value = mean |Spearman(group_idx, group_return)|.
     """
     filtered = _sample_non_overlapping(df, forward_periods)
-    grouped = _assign_quantile_groups(filtered, factor_col, n_groups)
+    tie_ratio = _compute_tie_ratio(filtered, factor_col)
+    _warn_high_tie_ratio(tie_ratio, "monotonicity", tie_policy)
+
+    grouped = _assign_quantile_groups(
+        filtered, factor_col, n_groups, tie_policy=tie_policy,
+    )
 
     # Mean return per group per date
     group_returns = (
@@ -72,12 +88,15 @@ def monotonicity(
 
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
         return MetricOutput(
-            name="monotonicity", value=0.0, stat=0.0, significance="",
+            name="monotonicity", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_monotonicity_periods",
                 "n_observed": len(mono_df),
                 "min_required": MIN_MONOTONICITY_PERIODS,
                 "n_groups": n_groups,
+                "p_value": 1.0,
+                "tie_ratio": tie_ratio,
+                "tie_policy": tie_policy,
             },
         )
 
@@ -100,5 +119,7 @@ def monotonicity(
             "mean_signed": mean_mono,
             "n_valid_periods": len(mono_arr),
             "n_groups": n_groups,
+            "tie_ratio": tie_ratio,
+            "tie_policy": tie_policy,
         },
     )

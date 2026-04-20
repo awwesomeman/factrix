@@ -65,6 +65,7 @@ def report_charts(artifacts: Artifacts) -> dict[str, go.Figure]:
             artifacts.prepared,
             forward_periods=config.forward_periods,
             n_groups=config.n_groups,
+            tie_policy=config.tie_policy,
         )
         figs["quantile_returns"] = quantile_return_chart(group_returns)
 

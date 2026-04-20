@@ -1,5 +1,6 @@
 """Tests for factorlib.metrics.hit_rate."""
 
+import math
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
@@ -37,5 +38,5 @@ class TestComputeHitRate:
     def test_insufficient_data(self):
         series = _make_series([0.01] * 5)  # < MIN_IC_PERIODS=10
         result = hit_rate(series, forward_periods=1)
-        assert result.value == 0.0
+        assert math.isnan(result.value)
         assert result.significance == ""

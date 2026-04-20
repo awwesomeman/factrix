@@ -35,7 +35,7 @@ def turnover(
     dates = df["date"].unique().sort()
     if len(dates) < 2:
         return MetricOutput(
-            name="turnover", value=0.0,
+            name="turnover", value=float("nan"),
             metadata={
                 "reason": "insufficient_dates",
                 "n_observed": len(dates),
@@ -71,7 +71,7 @@ def turnover(
 
     if rc_per_date.is_empty():
         return MetricOutput(
-            name="turnover", value=0.0,
+            name="turnover", value=float("nan"),
             metadata={
                 "reason": "no_valid_rank_autocorrelation",
                 "n_observed": 0,

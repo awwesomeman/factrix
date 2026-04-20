@@ -48,11 +48,12 @@ def event_hit_rate(
     n = len(events)
     if n < MIN_EVENTS:
         return MetricOutput(
-            name="event_hit_rate", value=0.0, stat=0.0, significance="",
+            name="event_hit_rate", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n,
                 "min_required": MIN_EVENTS,
+                "p_value": 1.0,
             },
         )
 
@@ -110,11 +111,12 @@ def event_ic(
 
     if n < MIN_EVENTS:
         return MetricOutput(
-            name="event_ic", value=0.0, stat=0.0, significance="",
+            name="event_ic", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n,
                 "min_required": MIN_EVENTS,
+                "p_value": 1.0,
             },
         )
 
@@ -125,7 +127,7 @@ def event_ic(
         # Flagged as "not_applicable" rather than "insufficient" — this is by
         # design, not a shortfall; profiles suppress the field (→ None).
         return MetricOutput(
-            name="event_ic", value=0.0, stat=0.0, significance="",
+            name="event_ic", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "not_applicable_discrete_signal",
                 "n_events": n,
@@ -180,7 +182,7 @@ def profit_factor(
 
     if n < MIN_EVENTS:
         return MetricOutput(
-            name="profit_factor", value=0.0,
+            name="profit_factor", value=float("nan"),
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n,
@@ -235,7 +237,7 @@ def event_skewness(
 
     if n < MIN_EVENTS:
         return MetricOutput(
-            name="event_skewness", value=0.0,
+            name="event_skewness", value=float("nan"),
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n,
@@ -293,7 +295,7 @@ def signal_density(
 
     if n_events < 2:
         return MetricOutput(
-            name="signal_density", value=0.0,
+            name="signal_density", value=float("nan"),
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n_events,
@@ -314,7 +316,7 @@ def signal_density(
 
     if per_asset.is_empty():
         return MetricOutput(
-            name="signal_density", value=0.0,
+            name="signal_density", value=float("nan"),
             metadata={
                 "reason": "no_asset_has_min_two_events",
                 "n_observed": n_events,

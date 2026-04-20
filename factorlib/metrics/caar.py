@@ -86,11 +86,12 @@ def caar(
     n = len(vals)
     if n < MIN_EVENTS:
         return MetricOutput(
-            name="caar", value=0.0, stat=0.0, significance="",
+            name="caar", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_event_dates",
                 "n_observed": n,
                 "min_required": MIN_EVENTS,
+                "p_value": 1.0,
             },
         )
 
@@ -189,11 +190,12 @@ def bmp_test(
     events = sorted_df.filter(pl.col(factor_col) != 0)
     if len(events) == 0:
         return MetricOutput(
-            name="bmp_test", value=0.0, stat=0.0, significance="",
+            name="bmp_test", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "no_events",
                 "n_observed": 0,
                 "min_required": 1,
+                "p_value": 1.0,
             },
         )
 
@@ -208,11 +210,12 @@ def bmp_test(
     n_valid = len(valid)
     if n_valid < MIN_EVENTS:
         return MetricOutput(
-            name="bmp_test", value=0.0, stat=0.0, significance="",
+            name="bmp_test", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_estimation_window",
                 "n_observed": n_valid,
                 "min_required": MIN_EVENTS,
+                "p_value": 1.0,
             },
         )
 

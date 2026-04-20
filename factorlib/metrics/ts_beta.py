@@ -139,11 +139,12 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
     if n < 3:
         return MetricOutput(
-            name="ts_beta", value=0.0, stat=0.0, significance="",
+            name="ts_beta", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_assets",
                 "n_observed": n,
                 "min_required": 3,
+                "p_value": 1.0,
             },
         )
 
@@ -180,7 +181,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
     if n == 0:
         return MetricOutput(
-            name="mean_r_squared", value=0.0,
+            name="mean_r_squared", value=float("nan"),
             metadata={
                 "reason": "no_asset_r_squared_observations",
                 "n_observed": 0,
@@ -270,7 +271,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     n = len(betas)
     if n == 0:
         return MetricOutput(
-            name="ts_beta_sign_consistency", value=0.0,
+            name="ts_beta_sign_consistency", value=float("nan"),
             metadata={
                 "reason": "no_beta_observations",
                 "n_observed": 0,

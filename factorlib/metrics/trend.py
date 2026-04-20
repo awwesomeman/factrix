@@ -50,11 +50,12 @@ def ic_trend(
 
     if n < 10:
         return MetricOutput(
-            name=name, value=0.0, stat=0.0, significance="",
+            name=name, value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_trend_periods",
                 "n_observed": n,
                 "min_required": 10,
+                "p_value": 1.0,
             },
         )
 

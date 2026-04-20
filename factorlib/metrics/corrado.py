@@ -60,11 +60,12 @@ def corrado_rank_test(
 
     if n_events < MIN_EVENTS:
         return MetricOutput(
-            name="corrado_rank", value=0.0, stat=0.0, significance="",
+            name="corrado_rank", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "insufficient_events",
                 "n_observed": n_events,
                 "min_required": MIN_EVENTS,
+                "p_value": 1.0,
             },
         )
 
@@ -77,10 +78,11 @@ def corrado_rank_test(
 
     if std_u < EPSILON:
         return MetricOutput(
-            name="corrado_rank", value=0.0, stat=0.0, significance="",
+            name="corrado_rank", value=float("nan"), stat=None, significance="",
             metadata={
                 "reason": "degenerate_rank_variance",
                 "std_u": std_u,
+                "p_value": 1.0,
             },
         )
 

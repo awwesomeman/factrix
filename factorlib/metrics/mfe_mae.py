@@ -5,7 +5,7 @@ Answers: "what does the price path look like after events?"
 Requires bar-by-bar ``price`` data within the event window.
 If ``price`` is not available, ``compute_mfe_mae`` returns an empty
 DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricOutput``
-(``value=0.0``, ``metadata["reason"]``) — never ``None``.
+(``value=NaN``, ``metadata["reason"]``) — never ``None``.
 
 Metrics:
     compute_mfe_mae   — per-event MFE/MAE/Bars_to_MFE/Bars_to_MAE
@@ -132,7 +132,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     Returns:
         MetricOutput with value=MFE_p50/|MAE_p75| ratio. On insufficient
         data (empty input or fewer than ``MIN_EVENTS`` rows), returns a
-        short-circuit MetricOutput (``value=0.0``, ``metadata["reason"]``
+        short-circuit MetricOutput (``value=NaN``, ``metadata["reason"]``
         set) so all metrics share a single return contract.
     """
     if mfe_mae_df.is_empty():
