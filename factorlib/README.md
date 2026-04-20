@@ -40,7 +40,25 @@ present) — the two steps are kept separate so the preprocess call is
 visible in your code (audit trail) and the same ``cfg`` instance is
 physically bound to both steps, preventing silent config mismatches
 (e.g. forward_periods differing between the two would silently poison
-every downstream metric).
+every downstream metric; the gate now also verifies the
+``_fl_forward_periods`` marker embedded by preprocess).
+
+For per-regime / per-horizon / spanning-beta breakdown (bucket dicts,
+not Profile scalars), pass ``return_artifacts=True`` and iterate
+``arts.metric_outputs[key].metadata`` — see the "Level 2" section
+below for examples.
+
+**`fl.preprocess` vs `fl.preprocess_cs_factor`**: `fl.preprocess(df,
+config=cfg)` dispatches to the per-type orchestrator based on
+``type(cfg)``. The `preprocess_<type>` variants (e.g.
+`preprocess_cs_factor`, `preprocess_event_signal`) are the underlying
+implementations and accept **either** `config=` **or** ad-hoc kwargs
+(for quick experiments without building a full Config). Passing both
+`config=` and any kwarg raises `TypeError` — the effective
+configuration must be unambiguous. Prefer the dispatching
+`fl.preprocess(..., config=cfg)` form in production code so the same
+`cfg` object is threaded through preprocess + evaluate, eliminating
+the "preprocess kwargs diverge from evaluate config" class of bug.
 
 ### Level 1 — Full control
 
@@ -95,7 +113,34 @@ from factorlib.metrics import regime_ic, multi_horizon_ic, spanning_alpha
 reg = regime_ic(ic_series, regime_labels=...)
 mh = multi_horizon_ic(prepared, periods=[1, 5, 10, 20])
 span = spanning_alpha(candidate_spread, base_spreads={...})
+
+# (3) Custom bucketing / non-standard sort — compute_group_returns is the
+#     per-group return primitive that quantile_spread / monotonicity build
+#     on. Use it when you need a statistic the default Profile doesn't
+#     cover (e.g. decile IC decay, top-k hit rate).
+from factorlib.metrics import compute_group_returns
+groups = compute_group_returns(prepared, forward_periods=5, n_groups=10)
+# groups columns: group, mean_return — sampled non-overlapping per
+# forward_periods (same convention as quantile_spread / monotonicity).
+
+# (4) Multi-factor selection — greedy_forward_selection iteratively picks
+#     PASS factors that add significant spanning alpha over the current
+#     base set, with backward elimination on every addition.
+from factorlib.metrics import greedy_forward_selection
+result = greedy_forward_selection(
+    factor_spreads,  # dict[name -> DataFrame(date, spread)]
+    base_spreads=None,               # empty base, or known factors
+    significance_threshold=2.0,      # 2σ; use 2.58 for Harvey-Liu-Zhu
+    max_factors=20,
+)
+# result.selected_factors / result.eliminated_factors
 ```
+
+**On `significance_threshold`**: 2.0 is the default (≈5% one-sided p).
+Harvey, Liu & Zhu (2016) recommend 2.58 for multiple-testing contexts
+where you're searching many candidate factors. Values below 2.0 are
+exploratory only — a 1.5 gate ≈ 13% one-sided p, near-zero screening
+power for a typical factor zoo.
 
 **Pipeline-integrated (Profile fields, T3.S2)** — pass inputs on the
 config and the CS pipeline surfaces scalar summaries on Profile
