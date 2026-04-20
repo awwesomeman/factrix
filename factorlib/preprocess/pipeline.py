@@ -28,6 +28,10 @@ if TYPE_CHECKING:
     from factorlib.config import BaseConfig
 
 
+def _fp_marker(forward_periods: int) -> pl.Expr:
+    return pl.lit(forward_periods, dtype=pl.Int32).alias("_fl_forward_periods")
+
+
 def preprocess(
     df: pl.DataFrame,
     *,
@@ -136,6 +140,7 @@ def preprocess_cs_factor(
         pl.col("forward_return"),
         pl.col("abnormal_return"),
         pl.col("price"),
+        _fp_marker(forward_periods),
     )
 
 
@@ -169,6 +174,7 @@ def preprocess_macro_panel(
             pl.col("factor_zscore").alias("factor"), "forward_return"]
     if "price" in out.columns:
         cols.append("price")
+    cols.append(_fp_marker(config.forward_periods))
 
     return out.select(cols)
 
@@ -213,6 +219,7 @@ def preprocess_event_signal(
     cols = ["date", "asset_id", "factor", "forward_return", "abnormal_return"]
     if "price" in out.columns:
         cols.append("price")
+    cols.append(_fp_marker(config.forward_periods))
 
     return out.select(cols)
 
@@ -247,5 +254,6 @@ def preprocess_macro_common(
     cols = ["date", "asset_id", "factor_raw", "factor", "forward_return"]
     if "price" in out.columns:
         cols.append("price")
+    cols.append(_fp_marker(config.forward_periods))
 
     return out.select(cols)

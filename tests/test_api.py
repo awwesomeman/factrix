@@ -90,6 +90,24 @@ class TestEvaluate:
         with pytest.raises(ValueError, match="preprocessed panel"):
             fl.evaluate(raw, "x", factor_type="cross_sectional")
 
+    def test_forward_periods_mismatch_raises(self):
+        # Preprocess with fp=5 then evaluate with fp=10 → gate must refuse
+        # rather than silently poison downstream metrics.
+        df = _panel_with_price(80, 30, 0.3, 909)
+        prepared = fl.preprocess(df, config=fl.CrossSectionalConfig(forward_periods=5))
+        wrong_cfg = fl.CrossSectionalConfig(forward_periods=10)
+        with pytest.raises(ValueError, match="forward_periods mismatch"):
+            fl.evaluate(prepared, "x", config=wrong_cfg)
+
+    def test_forward_periods_match_ok(self):
+        # Matching fp: preprocess and evaluate with the same forward_periods
+        # should pass the gate and return a profile normally.
+        df = _panel_with_price(80, 30, 0.3, 910)
+        cfg = fl.CrossSectionalConfig(forward_periods=5)
+        prepared = fl.preprocess(df, config=cfg)
+        profile = fl.evaluate(prepared, "x", config=cfg)
+        assert isinstance(profile, CrossSectionalProfile)
+
     def test_return_artifacts_returns_tuple(self):
         from factorlib.evaluation._protocol import Artifacts
 

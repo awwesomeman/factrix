@@ -54,6 +54,8 @@ FACTOR_TYPES: dict[FactorType, type[BaseConfig]] = {
 # silently auto-preprocessing (which would enable silent config mismatch).
 _PREPROCESSED_MARKER = "forward_return"
 
+_FP_MARKER = "_fl_forward_periods"
+
 _PREPROCESSED_GATE_MSG = (
     "fl.{caller} expects a preprocessed panel — "
     f"'{_PREPROCESSED_MARKER}' column not found. Call\n"
@@ -75,13 +77,29 @@ def _build_artifacts_strict(
     """Strict-gated ``build_artifacts`` shared by ``evaluate`` / ``factor``.
 
     Raises ``ValueError`` if ``df`` is not preprocessed (``forward_return``
-    missing), with a message pointing at the right fix. Caller identifier
-    is embedded so users see ``fl.evaluate`` vs ``fl.factor`` in the error.
+    missing) or if the preprocessed ``forward_periods`` disagrees with
+    ``config.forward_periods``. Caller identifier is embedded so users
+    see ``fl.evaluate`` vs ``fl.factor`` in the error.
     """
     from factorlib.evaluation.pipeline import build_artifacts
 
     if _PREPROCESSED_MARKER not in df.columns:
         raise ValueError(_PREPROCESSED_GATE_MSG.format(caller=caller))
+    if _FP_MARKER in df.columns:
+        embedded_fp = int(df[_FP_MARKER][0])
+        if embedded_fp != config.forward_periods:
+            raise ValueError(
+                f"fl.{caller}: forward_periods mismatch — df was "
+                f"preprocessed with forward_periods={embedded_fp}, but "
+                f"config.forward_periods={config.forward_periods}. Re-run "
+                f"    prepared = fl.preprocess(df, config=cfg)\n"
+                f"with the cfg that has forward_periods="
+                f"{config.forward_periods}, or update the cfg to match "
+                f"the existing panel."
+            )
+        # Drop after gate — the marker served its purpose; retaining it on
+        # artifacts.prepared wastes ~4 bytes × rows × N_factors in batch runs.
+        df = df.drop(_FP_MARKER)
     artifacts = build_artifacts(df, config)
     artifacts.factor_name = factor_name
     return artifacts
