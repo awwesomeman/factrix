@@ -7,8 +7,19 @@ import polars as pl
 import pytest
 
 from factorlib.config import CrossSectionalConfig
+from factorlib.evaluation.diagnostics import clear_custom_rules
 from factorlib.evaluation.pipeline import build_artifacts
 from factorlib.evaluation.profiles import CrossSectionalProfile
+
+
+@pytest.fixture(autouse=True)
+def _isolate_custom_rules():
+    """Drop any ``register_rule`` residue so rule registrations in one
+    test never leak into another. Tests that need rules still register
+    them explicitly inside the test body."""
+    clear_custom_rules()
+    yield
+    clear_custom_rules()
 
 
 @pytest.fixture
