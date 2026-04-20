@@ -27,8 +27,8 @@ Cache semantics:
 
 Escape hatches:
     - ``f.artifacts`` — the underlying ``Artifacts`` bundle, for tools that
-      operate at that level (``fl.describe_profile_values``,
-      ``fl.redundancy_matrix``, user-defined custom metrics).
+      operate at that level (``fl.redundancy_matrix``, user-defined
+      custom metrics, direct ``metric_outputs`` drill-down).
     - ``factorlib.metrics.*`` — low-level primitive functions that take
       prepared panel / processed intermediates directly (for library
       authors, unit tests, deeply custom research).

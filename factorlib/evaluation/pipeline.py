@@ -120,9 +120,9 @@ def _build_cs_artifacts(
     # Level 2 metrics are computed here (they need `prepared` for
     # multi_horizon_ic). We stash both the summary DataFrame into
     # intermediates (consumed by diagnose rules) AND the raw MetricOutput
-    # into metric_outputs (consumed by describe_profile_values for
-    # per-regime / per-horizon / spanning detail views). Computing once
-    # and stashing to both channels avoids a second pass in from_artifacts.
+    # into metric_outputs (per-regime / per-horizon / spanning metadata
+    # for power-user drill-down). Computing once and stashing to both
+    # channels avoids a second pass in from_artifacts.
     metric_outputs: dict[str, MetricOutput] = {}
     _augment_level2_intermediates(
         intermediates, metric_outputs, df, ic_series, spread_series, config,

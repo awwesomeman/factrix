@@ -80,9 +80,10 @@ class Artifacts:
     KeyError on missing keys.
 
     ``metric_outputs`` is the parallel channel for raw ``MetricOutput``
-    objects keyed by ``MetricOutput.name``; consumed by
-    ``fl.describe_profile_values`` for drill-down. Shares lifecycle
-    with ``intermediates`` (both dropped by ``keep_artifacts=False``).
+    objects keyed by ``MetricOutput.name``; power users read per-metric
+    ``.metadata`` dicts (per_regime / per_horizon / betas) directly for
+    drill-down. Shares lifecycle with ``intermediates`` (both dropped
+    by ``keep_artifacts=False``).
 
     ``factor_name`` identifies which factor this instance represents —
     consumed by per-type Profile ``from_artifacts`` classmethods and by
@@ -92,8 +93,8 @@ class Artifacts:
     replaced with a sentinel that raises on any attribute access. Use
     for 1000-factor batches where the prepared panel (~MB per factor)
     would exhaust memory. ``intermediates`` and ``metric_outputs``
-    (small DataFrames / MetricOutput objects) are kept because metrics,
-    diagnose(), and ``describe_profile_values`` need them.
+    (small DataFrames / MetricOutput objects) are kept because metrics
+    and diagnose() need them.
     """
 
     prepared: pl.DataFrame

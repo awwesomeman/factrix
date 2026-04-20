@@ -431,13 +431,11 @@ def evaluate(
         is True, returns ``(profile, artifacts)``.
 
     Note:
-        ``fl.describe_profile_values(profile, artifacts)`` needs
-        ``artifacts`` as its second argument. If you plan to inspect a
-        profile with that helper, pass ``return_artifacts=True`` here —
-        otherwise ``artifacts`` is unrecoverable without re-running
-        ``evaluate`` (double-computation). For interactive research
-        sessions, ``fl.factor(df, name, config=cfg)`` gives you a
-        ``Factor`` whose ``.artifacts`` attribute is always populated.
+        Need per-metric drill-down (per-regime / per-horizon /
+        spanning betas)? Pass ``return_artifacts=True`` and read
+        ``artifacts.metric_outputs[key].metadata`` — the renderer
+        ``fl.describe_profile_values(profile)`` intentionally stays
+        scalar-only and needs no artifacts argument.
     """
     config = _resolve_config(
         factor_type, config, config_overrides, caller="evaluate",

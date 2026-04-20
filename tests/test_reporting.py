@@ -1,23 +1,15 @@
 """Smoke + contract tests for ``factorlib.reporting.describe_profile_values``.
 
-The detail view auto-discovers opt-in metrics (regime / multi-horizon /
-spanning) from ``artifacts.metric_outputs``. These tests pin:
-
-- Scalar table always prints (smoke)
-- ``include_detail=False`` suppresses the detail sections
-- When an opt-in metric is present, its section appears in output
-- When absent, the section is silently omitted (no raise)
-- Artifacts without ``metric_outputs`` populated raises ``ValueError``
-  pointing at ``return_artifacts=True`` as the fix
+The renderer is Profile-driven: no ``Artifacts`` handle required, and
+every non-None dataclass field appears as a row. L2 opt-in summary
+fields appear only when the corresponding config was enabled.
 """
 
 from __future__ import annotations
 
 import polars as pl
-import pytest
 
 import factorlib as fl
-from factorlib.evaluation._protocol import Artifacts
 from factorlib.reporting import describe_profile_values
 
 from tests.conftest import _cs_panel
@@ -30,109 +22,44 @@ def _panel(n_dates: int = 100, n_assets: int = 30, seed: int = 11) -> pl.DataFra
     )
 
 
-# ---------------------------------------------------------------------------
-# Scalar smoke
-# ---------------------------------------------------------------------------
-
-class TestScalarTable:
-    def test_prints_header_and_scalar_rows(self, capsys):
+class TestProfileRendering:
+    def test_header_and_scalar_fields_present(self, capsys):
         df = _panel()
-        profile, arts = fl.evaluate(
-            df, "cs_smoke", return_artifacts=True,
-        )
-        describe_profile_values(profile, arts)
+        profile = fl.evaluate(df, "cs_smoke")
+        describe_profile_values(profile)
         out = capsys.readouterr().out
-        # Header
         assert "cs_smoke" in out
         assert "CrossSectionalProfile" in out
-        # At least one canonical metric row
-        assert "ic" in out
+        # Canonical scalar fields
+        assert "ic_mean" in out
+        assert "ic_p" in out
         assert "quantile_spread" in out
+        assert "top_concentration" in out
 
-    def test_include_detail_false_omits_detail_section(self, capsys):
+    def test_accepts_only_profile_no_artifacts(self, capsys):
+        # describe_profile_values must work on the vanilla fl.evaluate
+        # return value — no return_artifacts=True needed.
         df = _panel()
+        profile = fl.evaluate(df, "cs_bare")
+        describe_profile_values(profile)  # must not raise
+        out = capsys.readouterr().out
+        assert "Values:" in out
+
+    def test_l2_summary_rows_only_when_configured(self, capsys):
+        df = _panel()
+        profile_no_l2 = fl.evaluate(df, "cs_no_l2")
+        describe_profile_values(profile_no_l2)
+        out_no = capsys.readouterr().out
+        assert "regime_ic_min_tstat" not in out_no  # None → skipped
+
         dates = df["date"].unique().sort()
         regime_df = pl.DataFrame({
             "date": dates,
             "regime": ["bull" if i % 2 == 0 else "bear" for i in range(len(dates))],
         })
         cfg = fl.CrossSectionalConfig(regime_labels=regime_df)
-        profile, arts = fl.evaluate(
-            df, "cs_no_detail",
-            config=cfg, return_artifacts=True,
-        )
-        describe_profile_values(profile, arts, include_detail=False)
-        out = capsys.readouterr().out
-        # Scalar table still there
-        assert "Metrics:" in out
-        # But no detail header
-        assert "Detail:" not in out
-
-
-# ---------------------------------------------------------------------------
-# Detail auto-discovery
-# ---------------------------------------------------------------------------
-
-class TestDetailAutoDiscover:
-    def test_regime_detail_renders_when_present(self, capsys):
-        df = _panel()
-        dates = df["date"].unique().sort()
-        regime_df = pl.DataFrame({
-            "date": dates,
-            "regime": ["bull" if i % 2 == 0 else "bear" for i in range(len(dates))],
-        })
-        cfg = fl.CrossSectionalConfig(regime_labels=regime_df)
-        profile, arts = fl.evaluate(
-            df, "cs_regime_detail",
-            config=cfg, return_artifacts=True,
-        )
-        describe_profile_values(profile, arts)
-        out = capsys.readouterr().out
-        assert "Detail:" in out
-        assert "regime_ic" in out
-        # Per-regime labels should appear
-        assert "bull" in out
-        assert "bear" in out
-
-    def test_multi_horizon_detail_renders_when_present(self, capsys):
-        df = _panel(n_dates=120)
-        cfg = fl.CrossSectionalConfig(multi_horizon_periods=[1, 5, 10])
-        profile, arts = fl.evaluate(
-            df, "cs_mh_detail",
-            config=cfg, return_artifacts=True,
-        )
-        describe_profile_values(profile, arts)
-        out = capsys.readouterr().out
-        assert "multi_horizon_ic" in out
-        assert "horizon" in out
-
-    def test_absent_metric_section_silently_omitted(self, capsys):
-        # No opt-in config → none of the detail sections should appear,
-        # and no exception should be raised.
-        df = _panel()
-        profile, arts = fl.evaluate(
-            df, "cs_no_optin", return_artifacts=True,
-        )
-        describe_profile_values(profile, arts)  # must not raise
-        out = capsys.readouterr().out
-        assert "regime_ic" not in out
-        assert "multi_horizon_ic" not in out
-        assert "spanning_alpha" not in out
-        # The scalar table alone: no "Detail:" header either
-        assert "Detail:" not in out
-
-
-# ---------------------------------------------------------------------------
-# Error contract
-# ---------------------------------------------------------------------------
-
-class TestArtifactsRequired:
-    def test_empty_metric_outputs_raises_value_error(self):
-        df = _panel()
-        profile = fl.evaluate(df, "cs_missing_outputs")
-        # Hand-built Artifacts with no metric_outputs populated — mimics a
-        # user who constructed Artifacts manually rather than going through
-        # fl.evaluate(..., return_artifacts=True).
-        empty = Artifacts(prepared=pl.DataFrame(), config=fl.CrossSectionalConfig())
-        with pytest.raises(ValueError, match="return_artifacts"):
-            describe_profile_values(profile, empty)
+        profile_l2 = fl.evaluate(df, "cs_with_l2", config=cfg)
+        describe_profile_values(profile_l2)
+        out_yes = capsys.readouterr().out
+        assert "regime_ic_min_tstat" in out_yes
+        assert "regime_ic_consistent" in out_yes

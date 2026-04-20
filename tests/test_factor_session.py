@@ -306,7 +306,7 @@ class TestEscapeHatch:
     def test_can_call_describe_profile_values(self, noisy_panel, capsys):
         f = fl.factor(noisy_panel, "Mom_20D")
         profile = f.evaluate()
-        fl.describe_profile_values(profile, f.artifacts)
+        fl.describe_profile_values(profile)
         # Doesn't raise; output goes to stdout
         captured = capsys.readouterr()
         assert captured.out  # non-empty

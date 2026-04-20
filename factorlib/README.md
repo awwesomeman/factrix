@@ -122,24 +122,23 @@ p.spanning_alpha_t              # alpha t-stat vs supplied base spreads
 p.spanning_alpha_p              # NOT in P_VALUE_FIELDS — canonical_p stays singular
 ```
 
-Per-regime / per-horizon / spanning beta detail lives in
-``artifacts.metric_outputs`` and is auto-rendered by
-``describe_profile_values``:
+``describe_profile_values(profile)`` prints every non-None scalar from
+the Profile dataclass — single argument, no ``Artifacts`` needed:
 
 ```python
+profile = fl.evaluate(df, "Mom_20D", config=cfg)
+fl.describe_profile_values(profile)
+
+# Per-regime / per-horizon / spanning beta detail is not rendered here
+# (those are bucket dicts, not Profile scalars). Read them directly:
 profile, arts = fl.evaluate(df, "Mom_20D", config=cfg, return_artifacts=True)
-
-fl.describe_profile_values(profile, arts)                   # scalar + detail
-fl.describe_profile_values(profile, arts, include_detail=False)  # scalar only
-
-# Targeted drill-down — raw MetricOutput is public:
 arts.metric_outputs["regime_ic"].metadata["per_regime"]
 arts.metric_outputs["multi_horizon_ic"].metadata["per_horizon"]
 
-# Batch: arts_map is keyed by factor_name.
-ps, arts_map = fl.evaluate_batch(candidates, keep_artifacts=True, config=cfg)
+# Batch: just iterate the ProfileSet — arts_map only needed for drill-down.
+ps = fl.evaluate_batch(candidates, config=cfg)
 for p in ps.rank_by("ic_ir").top(5):
-    fl.describe_profile_values(p, arts_map[p.factor_name])
+    fl.describe_profile_values(p)
 ```
 
 ``artifacts.intermediates`` still holds the 1-row summary DataFrames that
