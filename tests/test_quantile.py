@@ -17,12 +17,12 @@ class TestQuantileSpreadSeries:
     def test_perfect_panel(self, tiny_panel):
         series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
         assert "spread" in series.columns
-        assert "q1_return" in series.columns
-        assert "q5_return" in series.columns
+        assert "top_return" in series.columns
+        assert "bottom_return" in series.columns
         # factor=[1..5], return=[0.01..0.05], 5 groups → q1=0.05, q5=0.01
         for row in series.iter_rows(named=True):
-            assert row["q1_return"] == pytest.approx(0.05)
-            assert row["q5_return"] == pytest.approx(0.01)
+            assert row["top_return"] == pytest.approx(0.05)
+            assert row["bottom_return"] == pytest.approx(0.01)
             assert row["spread"] == pytest.approx(0.04)
 
 
@@ -50,8 +50,8 @@ class TestQuantileSpread:
         """spread = long_alpha + short_alpha (per-period)."""
         series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
         for row in series.iter_rows(named=True):
-            long = row["q1_return"] - row["universe_return"]
-            short = row["universe_return"] - row["q5_return"]
+            long = row["top_return"] - row["universe_return"]
+            short = row["universe_return"] - row["bottom_return"]
             assert long + short == pytest.approx(row["spread"])
 
     def test_metadata_has_long_short(self, noisy_panel):
@@ -85,7 +85,7 @@ class TestQuantileSpreadVW:
     def test_basic(self):
         df = self._make_panel_with_cap()
         result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
-        assert result.name == "q1_q5_spread_vw"
+        assert result.name == "long_short_spread_vw"
         # With signal, VW spread should be nonzero
         assert result.value != 0.0 or result.metadata.get("reason")
 

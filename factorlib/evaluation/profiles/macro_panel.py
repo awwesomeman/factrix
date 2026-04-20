@@ -65,7 +65,7 @@ class MacroPanelProfile:
     beta_trend_p: PValue
 
     # Portfolio (tercile long-short)
-    q1_q5_spread: float
+    long_short_spread: float
     spread_tstat: float
     spread_p: PValue
     turnover: float
@@ -127,7 +127,7 @@ class MacroPanelProfile:
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, beta_values)
         trend_m = _memoized(outputs, "ic_trend", ic_trend, beta_values)
         spread_m = _memoized(
-            outputs, "q1_q5_spread", quantile_spread,
+            outputs, "long_short_spread", quantile_spread,
             artifacts.prepared,
             forward_periods=fp,
             n_groups=config.n_groups,
@@ -148,7 +148,7 @@ class MacroPanelProfile:
             "pooled_beta": pooled_m,
             "beta_sign_consistency": sign_m,
             "beta_trend": trend_m,
-            "q1_q5_spread": spread_m,
+            "long_short_spread": spread_m,
             "turnover": turn_m,
         })
 
@@ -169,7 +169,7 @@ class MacroPanelProfile:
             oos_sign_flipped=bool(oos_m.metadata["sign_flipped"]),
             beta_trend=float(trend_m.value),
             beta_trend_p=_pv(trend_m),
-            q1_q5_spread=float(spread_m.value),
+            long_short_spread=float(spread_m.value),
             spread_tstat=float(spread_m.stat or 0.0),
             spread_p=_pv(spread_m),
             turnover=float(turn_m.value),

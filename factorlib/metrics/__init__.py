@@ -5,7 +5,7 @@ All metrics return MetricOutput and can be used standalone.
 Cross-Sectional:
     compute_ic, ic, ic_ir, hit_rate, ic_trend,
     multi_split_oos_decay, quantile_spread, monotonicity,
-    q1_concentration, turnover, breakeven_cost, net_spread
+    top_concentration, turnover, breakeven_cost, net_spread
 
 Event Signal:
     compute_caar, caar, bmp_test, event_hit_rate, event_ic,
@@ -38,7 +38,7 @@ from factorlib.metrics.quantile import (
     compute_group_returns,
 )
 from factorlib.metrics.monotonicity import monotonicity
-from factorlib.metrics.concentration import q1_concentration
+from factorlib.metrics.concentration import top_concentration
 from factorlib.metrics.tradability import turnover, breakeven_cost, net_spread
 from factorlib.metrics.spanning import spanning_alpha, greedy_forward_selection
 from factorlib.metrics.caar import (
@@ -82,7 +82,7 @@ __all__ = [
     "compute_ic", "ic", "ic_ir", "regime_ic", "multi_horizon_ic",
     "hit_rate", "ic_trend", "multi_split_oos_decay",
     "compute_spread_series", "quantile_spread", "quantile_spread_vw",
-    "compute_group_returns", "monotonicity", "q1_concentration",
+    "compute_group_returns", "monotonicity", "top_concentration",
     "turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
     "compute_caar", "caar", "bmp_test", "event_hit_rate", "event_ic",

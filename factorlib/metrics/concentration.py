@@ -16,7 +16,7 @@ from factorlib.metrics._helpers import _sample_non_overlapping
 from factorlib._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
-def q1_concentration(
+def top_concentration(
     df: pl.DataFrame,
     forward_periods: int = 5,
     q_top: float = 0.2,
@@ -59,7 +59,7 @@ def q1_concentration(
         .group_by("date")
         .agg(
             (pl.col("_weight") ** 2).sum().alias("hhi"),
-            pl.len().alias("n_q1"),
+            pl.len().alias("n_top"),
         )
         .filter(pl.col("hhi") > EPSILON)
         .with_columns(
@@ -70,7 +70,7 @@ def q1_concentration(
 
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="q1_concentration", value=0.0, stat=0.0, significance="",
+            name="top_concentration", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": len(hhi_per_date),
@@ -79,15 +79,15 @@ def q1_concentration(
         )
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()
-    n_q1_arr = hhi_per_date["n_q1"].to_numpy()
+    n_top_arr = hhi_per_date["n_top"].to_numpy()
     mean_eff_n = float(np.mean(eff_n_arr))
-    mean_n_q1 = float(np.mean(n_q1_arr))
-    ratio = mean_eff_n / max(mean_n_q1, 1)
+    mean_n_top = float(np.mean(n_top_arr))
+    ratio = mean_eff_n / max(mean_n_top, 1)
 
     # WHY: t-stat tests H₀: ratio ≥ 0.5 (well-diversified).
-    # Per-date ratio = eff_n / n_q1; if mean ratio < 0.5 with significant t,
+    # Per-date ratio = eff_n / n_top; if mean ratio < 0.5 with significant t,
     # alpha is concentrated in a few stocks.
-    ratio_arr = eff_n_arr / np.maximum(n_q1_arr, 1)
+    ratio_arr = eff_n_arr / np.maximum(n_top_arr, 1)
     n = len(ratio_arr)
     mean_ratio = float(np.mean(ratio_arr))
     std_ratio = float(np.std(ratio_arr, ddof=DDOF))
@@ -97,7 +97,7 @@ def q1_concentration(
     # WHY: one-sided test → p = P(T < t), not two-sided
     p = _p_value_from_t(t, n, alternative="less")
     return MetricOutput(
-        name="q1_concentration",
+        name="top_concentration",
         value=mean_eff_n,
         stat=t,
         significance=_significance_marker(p),
@@ -106,7 +106,7 @@ def q1_concentration(
             "stat_type": "t",
             "h0": "ratio>=0.5",
             "method": "one-sided t-test on ratio",
-            "mean_n_q1": mean_n_q1,
+            "mean_n_top": mean_n_top,
             "ratio_eff_to_total": ratio,
         },
     )

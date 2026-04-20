@@ -122,7 +122,7 @@ def preprocess_cs_factor(
     out = winsorize_forward_return(out, lower=return_clip_pct[0], upper=return_clip_pct[1])
     out = compute_abnormal_return(out)
 
-    # WHY: 保留原始因子值供後續 Profile 分析（如 Q1_Concentration 使用原始分佈）
+    # WHY: 保留原始因子值供後續 Profile 分析（如 top_concentration 使用原始分佈）
     out = out.with_columns(pl.col("factor").alias("factor_raw"))
 
     out = mad_winsorize(out, n_mad=mad_n)

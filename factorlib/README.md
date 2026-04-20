@@ -13,7 +13,7 @@ profile = fl.evaluate(df, "Mom_20D", factor_type="cross_sectional")
 
 print(profile.verdict())        # 'PASS' or 'FAILED' (canonical p vs threshold)
 print(profile.canonical_p)      # the one p-value verdict is based on
-print(profile.ic_mean, profile.ic_tstat, profile.ic_ir, profile.q1_q5_spread)
+print(profile.ic_mean, profile.ic_tstat, profile.ic_ir, profile.long_short_spread)
 
 for d in profile.diagnose():
     print(d.severity, d.code, d.message)
@@ -383,8 +383,8 @@ fl.describe_profile("macro_common")
 | `ic` | Per-date Spearman rank corr(factor, return), non-overlapping t-test | Mean IC > 0 = factor ranks predict return ranks. `***` = significant |
 | `ic_ir` | mean(IC) / std(IC) | IC stability. > 0.3 is strong |
 | `monotonicity` | Spearman rho across quantile group mean returns | 1.0 = perfect Q1>Q2>...>Q5 ordering. Non-monotonic = unstable |
-| `q1_q5_spread` | mean(Q1 return - Q5 return), t-test | Long-short spread in per-period units |
-| `q1_concentration` | Effective N / Total N in top quantile (HHI-based) | < 0.5 = alpha driven by few stocks |
+| `long_short_spread` | mean(top-quantile return - bottom-quantile return), t-test | Long-short spread in per-period units |
+| `top_concentration` | Effective N / Total N in top quantile (HHI-based) | < 0.5 = alpha driven by few stocks |
 
 **event_signal (caar.py, event_quality.py, event_horizon.py, mfe_mae.py, ...)**
 
@@ -521,7 +521,7 @@ factorlib/
 │   ├── corrado.py           # Corrado (1989) nonparametric rank test
 │   ├── quantile.py          # Quantile spread, group returns
 │   ├── monotonicity.py      # Spearman monotonicity
-│   ├── concentration.py     # Q1 HHI concentration
+│   ├── concentration.py     # top-quantile HHI concentration
 │   ├── hit_rate.py          # IC direction hit rate
 │   ├── trend.py             # Theil-Sen IC/β trend
 │   ├── oos.py               # Multi-split OOS decay

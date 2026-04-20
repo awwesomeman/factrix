@@ -4,12 +4,12 @@ import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.metrics.concentration import q1_concentration
+from factorlib.metrics.concentration import top_concentration
 
 
 class TestQ1Concentration:
     def test_uniform_factor(self):
-        """All Q1 stocks have same |factor| → HHI = 1/n_q1 → eff_n = n_q1."""
+        """All Q1 stocks have same |factor| → HHI = 1/n_top → eff_n = n_top."""
         n_dates, n_assets = 10, 20
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
         rows = []
@@ -22,7 +22,7 @@ class TestQ1Concentration:
                     "forward_return": 0.01,
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = q1_concentration(df, forward_periods=1, q_top=0.2)
+        result = top_concentration(df, forward_periods=1, q_top=0.2)
         # Top 20% = 4 stocks, all with similar |factor| → eff_n near 4
         assert result.value > 2.0  # reasonably diversified
 
@@ -39,5 +39,5 @@ class TestQ1Concentration:
                     "factor": f, "forward_return": 0.01,
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = q1_concentration(df, forward_periods=1, q_top=0.2)
+        result = top_concentration(df, forward_periods=1, q_top=0.2)
         assert result.value < 2.0  # highly concentrated

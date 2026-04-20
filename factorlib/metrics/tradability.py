@@ -100,7 +100,7 @@ def breakeven_cost(
     If the actual trading cost is below this, the factor's alpha survives.
 
     Args:
-        gross_spread: Per-period mean Q1-Q5 spread.
+        gross_spread: Per-period mean long-short spread.
         turnover: Factor turnover estimate (0-1).
 
     Returns:
@@ -136,7 +136,7 @@ def net_spread(
     ``Net = Gross_Spread - 2 × cost_bps × Turnover``
 
     Args:
-        gross_spread: Per-period mean Q1-Q5 spread.
+        gross_spread: Per-period mean long-short spread.
         turnover: Factor turnover estimate.
         estimated_cost_bps: Estimated single-leg trading cost in bps.
 

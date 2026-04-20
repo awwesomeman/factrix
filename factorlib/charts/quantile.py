@@ -37,30 +37,30 @@ def quantile_return_chart(group_returns: pl.DataFrame) -> go.Figure:
 
 
 def spread_time_series_chart(spread_series: pl.DataFrame) -> go.Figure:
-    """Q1-Q5 spread over time with Q1/Q5 returns.
+    """long-short spread over time with Q1/Q5 returns.
 
     Args:
         spread_series: Output of ``compute_spread_series()``
-            — columns ``date, spread, q1_return, q5_return, universe_return``.
+            — columns ``date, spread, top_return, bottom_return, universe_return``.
     """
     df = spread_series.sort("date")
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=df["date"], y=df["spread"],
-        name="Q1-Q5 Spread", line=dict(color="#636EFA", width=2),
+        name="Long-Short Spread", line=dict(color="#636EFA", width=2),
     ))
     fig.add_trace(go.Scatter(
-        x=df["date"], y=df["q1_return"],
+        x=df["date"], y=df["top_return"],
         name="Q1 (Top)", line=dict(color="#00CC96", width=1, dash="dot"),
     ))
     fig.add_trace(go.Scatter(
-        x=df["date"], y=df["q5_return"],
+        x=df["date"], y=df["bottom_return"],
         name="Q5 (Bottom)", line=dict(color="#EF553B", width=1, dash="dot"),
     ))
     fig.add_hline(y=0, line=dict(color="gray", dash="dash", width=1))
     fig.update_layout(
-        title="Q1-Q5 Spread Time Series",
+        title="Long-Short Spread Time Series",
         yaxis_title="Return (per period)",
         height=380,
         margin=dict(t=40, b=30),

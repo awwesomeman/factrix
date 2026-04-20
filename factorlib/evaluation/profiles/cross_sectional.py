@@ -4,7 +4,7 @@ Canonical test: IC non-overlapping t-test (``ic_p``).
 
 Canonical rationale: IC measures signal strength per-date and is the
 workhorse statistic for cross-sectional strategies (Grinold & Kahn 2000).
-Q1-Q5 spread exposes a different hypothesis (long-short portfolio alpha
+long-short spread exposes a different hypothesis (long-short portfolio alpha
 > 0) and belongs in diagnose() as secondary evidence, not in verdict
 — mixing them recreates the OR logic we deliberately retired with gates.
 """
@@ -55,14 +55,14 @@ class CrossSectionalProfile:
     # Monotonicity
     monotonicity: float
 
-    # Q1-Q5 spread
-    q1_q5_spread: float
+    # long-short spread
+    long_short_spread: float
     spread_tstat: float
     spread_p: PValue
 
     # Concentration
-    q1_concentration: float
-    q1_concentration_eff_ratio: float
+    top_concentration: float
+    top_concentration_eff_ratio: float
 
     # OOS stability
     oos_survival_ratio: float
@@ -95,7 +95,7 @@ class CrossSectionalProfile:
     multi_horizon_ic_monotonic: bool | None
 
     # Spanning alpha (T3.S2, opt-in; None when config.spanning_base_spreads is None)
-    # Tests whether the factor's per-date Q1-Q5 spread has alpha after
+    # Tests whether the factor's per-date long-short spread has alpha after
     # controlling for a user-supplied set of base-factor spreads. p is
     # NOT added to P_VALUE_FIELDS — canonical_p must remain singular.
     spanning_alpha_t: float | None
@@ -133,7 +133,7 @@ class CrossSectionalProfile:
         from factorlib.metrics.ic import ic as ic_metric, ic_ir as ic_ir_metric
         from factorlib.metrics.quantile import quantile_spread
         from factorlib.metrics.monotonicity import monotonicity
-        from factorlib.metrics.concentration import q1_concentration
+        from factorlib.metrics.concentration import top_concentration
         from factorlib.metrics.hit_rate import hit_rate
         from factorlib.metrics.trend import ic_trend
         from factorlib.metrics.oos import multi_split_oos_decay
@@ -167,7 +167,7 @@ class CrossSectionalProfile:
         )
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, ic_values)
         spread_m = _memoized(
-            outputs, "q1_q5_spread", quantile_spread,
+            outputs, "long_short_spread", quantile_spread,
             artifacts.prepared,
             forward_periods=fp,
             n_groups=config.n_groups,
@@ -183,9 +183,9 @@ class CrossSectionalProfile:
             spread_m.value, turn_m.value, config.estimated_cost_bps,
         )
         # Q1 = top 1/n_groups — mirrors the quantile_spread Q1 definition
-        # so q1_concentration and q1_q5_spread report on the same bucket.
+        # so top_concentration and long_short_spread report on the same bucket.
         conc_m = _memoized(
-            outputs, "q1_concentration", q1_concentration,
+            outputs, "top_concentration", top_concentration,
             artifacts.prepared, forward_periods=fp, q_top=1.0 / config.n_groups,
         )
 
@@ -232,8 +232,8 @@ class CrossSectionalProfile:
             "hit_rate": hit_m,
             "ic_trend": trend_m,
             "monotonicity": mono_m,
-            "q1_q5_spread": spread_m,
-            "q1_concentration": conc_m,
+            "long_short_spread": spread_m,
+            "top_concentration": conc_m,
             "turnover": turn_m,
         })
         profile = cls(
@@ -248,11 +248,11 @@ class CrossSectionalProfile:
             ic_trend=float(trend_m.value),
             ic_trend_p=_pv(trend_m),
             monotonicity=float(mono_m.value),
-            q1_q5_spread=float(spread_m.value),
+            long_short_spread=float(spread_m.value),
             spread_tstat=float(spread_m.stat or 0.0),
             spread_p=_pv(spread_m),
-            q1_concentration=float(conc_m.value),
-            q1_concentration_eff_ratio=float(
+            top_concentration=float(conc_m.value),
+            top_concentration_eff_ratio=float(
                 conc_m.metadata.get("ratio_eff_to_total", 1.0)
             ),
             oos_survival_ratio=float(oos_m.value),

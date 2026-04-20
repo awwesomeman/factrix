@@ -34,7 +34,7 @@ def compute_spread_series(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Per-date Q1-Q5 spread series (non-overlapping).
+    """Per-date long-short spread series (non-overlapping).
 
     Q1 = top quantile (highest factor), Q5 = bottom quantile.
 
@@ -43,7 +43,7 @@ def compute_spread_series(
         n_groups: Number of quantile groups.
 
     Returns:
-        DataFrame with ``date, spread, q1_return, q5_return, universe_return``.
+        DataFrame with ``date, spread, top_return, bottom_return, universe_return``.
     """
     sampled = _sample_non_overlapping(df, forward_periods)
 
@@ -69,15 +69,15 @@ def compute_spread_series(
             pl.col(return_col)
             .filter(pl.col("_group") == top_group)
             .mean()
-            .alias("q1_return"),
+            .alias("top_return"),
             pl.col(return_col)
             .filter(pl.col("_group") == bottom_group)
             .mean()
-            .alias("q5_return"),
+            .alias("bottom_return"),
             pl.col(return_col).mean().alias("universe_return"),
         )
         .with_columns(
-            (pl.col("q1_return") - pl.col("q5_return")).alias("spread"),
+            (pl.col("top_return") - pl.col("bottom_return")).alias("spread"),
         )
         .sort("date")
     )
@@ -89,7 +89,7 @@ def quantile_spread(
     n_groups: int = 5,
     _precomputed_series: pl.DataFrame | None = None,
 ) -> MetricOutput:
-    """Q1-Q5 spread (per-period mean).
+    """long-short spread (per-period mean).
 
     Args:
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
@@ -102,7 +102,7 @@ def quantile_spread(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="q1_q5_spread", value=0.0, stat=0.0, significance="",
+            name="long_short_spread", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": n,
@@ -118,8 +118,8 @@ def quantile_spread(
     p = _p_value_from_t(t, n)
 
     # Long/short decomposition (spread = long_alpha + short_alpha)
-    long_excess = (series["q1_return"] - series["universe_return"]).drop_nulls()
-    short_excess = (series["universe_return"] - series["q5_return"]).drop_nulls()
+    long_excess = (series["top_return"] - series["universe_return"]).drop_nulls()
+    short_excess = (series["universe_return"] - series["bottom_return"]).drop_nulls()
 
     long_arr = long_excess.to_numpy()
     short_arr = short_excess.to_numpy()
@@ -135,7 +135,7 @@ def quantile_spread(
     p_short = _p_value_from_t(t_short, len(short_arr))
 
     return MetricOutput(
-        name="q1_q5_spread",
+        name="long_short_spread",
         value=mean_spread,
         stat=t,
         significance=_significance_marker(p),
@@ -164,7 +164,7 @@ def quantile_spread_vw(
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
 ) -> MetricOutput:
-    """Value-weighted Q1-Q5 spread (per-period mean).
+    """Value-weighted long-short spread (per-period mean).
 
     Compares with equal-weighted spread to detect small-cap concentration.
     If VW spread << EW spread, alpha is driven by small stocks.
@@ -181,7 +181,7 @@ def quantile_spread_vw(
     """
     if weight_col not in df.columns:
         return MetricOutput(
-            name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="",
+            name="long_short_spread_vw", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "missing_weight_column",
                 "missing_column": weight_col,
@@ -204,14 +204,14 @@ def quantile_spread_vw(
             (
                 pl.col("_wr").filter(pl.col("_group") == top_group).sum()
                 / pl.col(weight_col).filter(pl.col("_group") == top_group).sum()
-            ).alias("q1_return_vw"),
+            ).alias("top_return_vw"),
             (
                 pl.col("_wr").filter(pl.col("_group") == bottom_group).sum()
                 / pl.col(weight_col).filter(pl.col("_group") == bottom_group).sum()
-            ).alias("q5_return_vw"),
+            ).alias("bottom_return_vw"),
         )
         .with_columns(
-            (pl.col("q1_return_vw") - pl.col("q5_return_vw")).alias("spread_vw"),
+            (pl.col("top_return_vw") - pl.col("bottom_return_vw")).alias("spread_vw"),
         )
         .sort("date")
     )
@@ -220,7 +220,7 @@ def quantile_spread_vw(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return MetricOutput(
-            name="q1_q5_spread_vw", value=0.0, stat=0.0, significance="",
+            name="long_short_spread_vw", value=0.0, stat=0.0, significance="",
             metadata={
                 "reason": "insufficient_portfolio_periods",
                 "n_observed": n,
@@ -235,7 +235,7 @@ def quantile_spread_vw(
 
     p = _p_value_from_t(t, n)
     return MetricOutput(
-        name="q1_q5_spread_vw",
+        name="long_short_spread_vw",
         value=mean_spread,
         stat=t,
         significance=_significance_marker(p),

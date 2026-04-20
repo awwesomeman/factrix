@@ -163,7 +163,7 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
         code="cs.ic_weak_spread_strong",
         severity="warn",
         message=(
-            "IC not significant (p > 0.05) but Q1-Q5 spread is "
+            "IC not significant (p > 0.05) but long-short spread is "
             "— alpha may be driven by outlier stocks rather than the "
             "broad cross-section."
         ),
@@ -185,13 +185,13 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
         predicate=lambda p: p.ic_trend < 0 and p.ic_trend_p <= 0.05,
     ),
     Rule(
-        code="cs.q1_concentration_high",
+        code="cs.top_concentration_high",
         severity="veto",
         message=(
-            "Q1 effective-N / total-N < 0.5 — long leg concentrated "
+            "top-bucket effective-N / total-N < 0.5 — long leg concentrated "
             "in a few stocks; alpha is not broadly spread."
         ),
-        predicate=lambda p: p.q1_concentration_eff_ratio < 0.5,
+        predicate=lambda p: p.top_concentration_eff_ratio < 0.5,
     ),
     Rule(
         code="cs.oos_sign_flipped",

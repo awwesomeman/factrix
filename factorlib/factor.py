@@ -186,6 +186,64 @@ class Factor:
             _short_circuit_output, cache_key, reason,
         )
 
+    # ----- Shared tradability metrics (CS + MP) ------------------------
+    # Factor subclasses that expose a portfolio (CS, MP) share identical
+    # turnover / breakeven_cost / net_spread plumbing: same primitives,
+    # same cache keys, same override semantics. Hoisting to the base
+    # avoids divergence when the cost model evolves (reviewer callout).
+    # Subclasses that don't expose a portfolio (Event, MacroCommon)
+    # simply don't call these — Python surface stays clean because
+    # method lookup is per-class attribute access, not reflection.
+
+    def turnover(self) -> MetricOutput:
+        """Period-over-period weight turnover fraction."""
+        from factorlib.metrics.tradability import turnover as _tn
+        return self._cached_or_compute(
+            "turnover", _tn, self.artifacts.prepared,
+        )
+
+    def breakeven_cost(self, n_groups: int | None = None) -> MetricOutput:
+        """Per-side cost (bps) that fully erodes the long-short spread.
+
+        ``n_groups`` override threads through ``quantile_spread`` so a
+        sensitivity sweep like
+        ``[f.breakeven_cost(n_groups=k) for k in (5, 10, 20)]`` reflects
+        the spread *and* breakeven on the same bucketing. Default path
+        reads cached quantile_spread / turnover (no recompute).
+        """
+        from factorlib.metrics.tradability import breakeven_cost as _be
+        spread_val = self.quantile_spread(n_groups=n_groups).value  # type: ignore[attr-defined]
+        turnover_val = self.turnover().value
+        return self._cached_or_compute(
+            "breakeven_cost", _be, spread_val, turnover_val,
+            override=n_groups is not None,
+        )
+
+    def net_spread(
+        self,
+        n_groups: int | None = None,
+        estimated_cost_bps: float | None = None,
+    ) -> MetricOutput:
+        """Spread minus ``estimated_cost_bps`` × turnover (signed).
+
+        Both ``n_groups`` (bucketing) and ``estimated_cost_bps`` (market
+        assumption) are overrideable so research can sweep either
+        dimension without rebuilding the Factor session. Override path
+        bypasses cache on the standard contract.
+        """
+        from factorlib.metrics.tradability import net_spread as _ns
+        spread_val = self.quantile_spread(n_groups=n_groups).value  # type: ignore[attr-defined]
+        turnover_val = self.turnover().value
+        cost = (
+            estimated_cost_bps if estimated_cost_bps is not None
+            else self.config.estimated_cost_bps
+        )
+        override = n_groups is not None or estimated_cost_bps is not None
+        return self._cached_or_compute(
+            "net_spread", _ns, spread_val, turnover_val, cost,
+            override=override,
+        )
+
     def _l2_short_circuit(self, name: str, field: str) -> MetricOutput:
         """Return cached L2 MetricOutput or a cached short-circuit.
 
@@ -270,7 +328,7 @@ class CrossSectionalFactor(Factor):
         )
 
     def quantile_spread(self, n_groups: int | None = None) -> MetricOutput:
-        """Q1-Q5 spread per-period mean, t-test against zero.
+        """long-short spread per-period mean, t-test against zero.
 
         ``n_groups`` override bypasses the cache AND the cached
         ``spread_series`` (which was built with the bound ``n_groups``) —
@@ -284,45 +342,25 @@ class CrossSectionalFactor(Factor):
                 n_groups=n_groups,
             )
         return self._cached_or_compute(
-            "q1_q5_spread", _qs, self.artifacts.prepared,
+            "long_short_spread", _qs, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             n_groups=self.config.n_groups,
             _precomputed_series=self.artifacts.intermediates.get("spread_series"),
         )
 
-    def q1_concentration(self, q_top: float | None = None) -> MetricOutput:
-        """Q1 bucket weight concentration (effective-N / total-N ratio)."""
-        from factorlib.metrics.concentration import q1_concentration as _qc
+    def top_concentration(self, q_top: float | None = None) -> MetricOutput:
+        """top bucket weight concentration (effective-N / total-N ratio)."""
+        from factorlib.metrics.concentration import top_concentration as _qc
         qt = q_top if q_top is not None else 1.0 / self.config.n_groups
         return self._cached_or_compute(
-            "q1_concentration", _qc, self.artifacts.prepared,
+            "top_concentration", _qc, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             q_top=qt, override=q_top is not None,
         )
 
-    def turnover(self) -> MetricOutput:
-        """Period-over-period weight turnover fraction."""
-        from factorlib.metrics.tradability import turnover as _tn
-        return self._cached_or_compute(
-            "turnover", _tn, self.artifacts.prepared,
-        )
-
-    def breakeven_cost(self) -> MetricOutput:
-        """Per-side cost (bps) that fully erodes the Q1-Q5 spread."""
-        from factorlib.metrics.tradability import breakeven_cost as _be
-        return self._cached_or_compute(
-            "breakeven_cost", _be,
-            self.quantile_spread().value, self.turnover().value,
-        )
-
-    def net_spread(self) -> MetricOutput:
-        """Spread minus ``estimated_cost_bps`` × turnover (signed)."""
-        from factorlib.metrics.tradability import net_spread as _ns
-        return self._cached_or_compute(
-            "net_spread", _ns,
-            self.quantile_spread().value, self.turnover().value,
-            self.config.estimated_cost_bps,
-        )
+    # ``turnover`` / ``breakeven_cost`` / ``net_spread`` are inherited from
+    # the ``Factor`` base — shared with MacroPanelFactor because the cost
+    # model is identical for any portfolio-based Factor type.
 
     def oos_decay(self) -> MetricOutput:
         """Multi-split OOS survival ratio with sign-flip detection."""
@@ -568,35 +606,13 @@ class MacroPanelFactor(Factor):
                 n_groups=n_groups,
             )
         return self._cached_or_compute(
-            "q1_q5_spread", _qs, self.artifacts.prepared,
+            "long_short_spread", _qs, self.artifacts.prepared,
             forward_periods=self.config.forward_periods,
             n_groups=self.config.n_groups,
             _precomputed_series=self.artifacts.intermediates.get("spread_series"),
         )
 
-    def turnover(self) -> MetricOutput:
-        """Period-over-period weight turnover fraction."""
-        from factorlib.metrics.tradability import turnover as _tn
-        return self._cached_or_compute(
-            "turnover", _tn, self.artifacts.prepared,
-        )
-
-    def breakeven_cost(self) -> MetricOutput:
-        """Per-side cost (bps) that fully erodes the long-short spread."""
-        from factorlib.metrics.tradability import breakeven_cost as _be
-        return self._cached_or_compute(
-            "breakeven_cost", _be,
-            self.quantile_spread().value, self.turnover().value,
-        )
-
-    def net_spread(self) -> MetricOutput:
-        """Spread minus ``estimated_cost_bps`` × turnover (signed)."""
-        from factorlib.metrics.tradability import net_spread as _ns
-        return self._cached_or_compute(
-            "net_spread", _ns,
-            self.quantile_spread().value, self.turnover().value,
-            self.config.estimated_cost_bps,
-        )
+    # ``turnover`` / ``breakeven_cost`` / ``net_spread`` inherited from base.
 
     # ----- Stability -----
 

@@ -103,7 +103,7 @@ class TestPostInitValidation:
 class TestMethodSet:
     @pytest.mark.parametrize("method_name", [
         "ic", "ic_ir", "hit_rate", "ic_trend",
-        "quantile_spread", "monotonicity", "q1_concentration",
+        "quantile_spread", "monotonicity", "top_concentration",
         "turnover", "breakeven_cost", "net_spread", "oos_decay",
         "regime_ic", "multi_horizon_ic", "spanning_alpha",
     ])
@@ -143,7 +143,7 @@ class TestCacheBehavior:
         f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
         base = f.quantile_spread()
         override_result = f.quantile_spread(n_groups=3)
-        cached = f.artifacts.metric_outputs["q1_q5_spread"]
+        cached = f.artifacts.metric_outputs["long_short_spread"]
         # Cache reflects config-bound n_groups, not the override.
         assert cached.value == base.value
         assert cached is not override_result
@@ -153,7 +153,7 @@ class TestCacheBehavior:
         (not the cached proxy-wrapped one)."""
         f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
         f.quantile_spread()  # populate cache
-        cached = f.artifacts.metric_outputs["q1_q5_spread"]
+        cached = f.artifacts.metric_outputs["long_short_spread"]
         override = f.quantile_spread(n_groups=3)
         # Override did not return the cached object.
         assert override is not cached
@@ -204,7 +204,7 @@ class TestDerivedMetrics:
         be = f.breakeven_cost()
         assert isinstance(be, MetricOutput)
         # Both inputs should now be cached
-        assert "q1_q5_spread" in f.artifacts.metric_outputs
+        assert "long_short_spread" in f.artifacts.metric_outputs
         assert "turnover" in f.artifacts.metric_outputs
         assert "breakeven_cost" in f.artifacts.metric_outputs
 
@@ -213,6 +213,28 @@ class TestDerivedMetrics:
         ns = f.net_spread()
         assert isinstance(ns, MetricOutput)
         assert "net_spread" in f.artifacts.metric_outputs
+
+    def test_breakeven_override_threads_n_groups(self, noisy_panel):
+        """``f.breakeven_cost(n_groups=3)`` reflects the tercile spread,
+        not the config-bound decile spread. Override path must not
+        pollute the config-bound cache."""
+        f = fl.factor(noisy_panel, "Mom_20D", n_groups=10)
+        be_default = f.breakeven_cost()
+        be_override = f.breakeven_cost(n_groups=3)
+        cached = f.artifacts.metric_outputs["breakeven_cost"]
+        # Cache still reflects default (override bypassed)
+        assert cached.value == be_default.value
+        assert be_override is not cached
+
+    def test_net_spread_override_threads_cost(self, noisy_panel):
+        """Cheaper cost → smaller turnover drag → larger net_spread,
+        holding bucketing fixed. Override does not pollute cache."""
+        f = fl.factor(noisy_panel, "Mom_20D", estimated_cost_bps=30.0)
+        ns_default = f.net_spread()
+        ns_cheap = f.net_spread(estimated_cost_bps=5.0)
+        assert ns_cheap.value >= ns_default.value
+        cached = f.artifacts.metric_outputs["net_spread"]
+        assert cached.value == ns_default.value
 
 
 # ---------------------------------------------------------------------------
