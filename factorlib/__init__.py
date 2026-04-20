@@ -96,6 +96,7 @@ from factorlib._api import (
     describe_factor_types,
     describe_profile,
 )
+from factorlib import datasets
 
 __version__ = "0.1.0"
 
@@ -122,4 +123,5 @@ __all__ = [
     "FactorType", "MetricOutput", "Artifacts",
     "split_by_group",
     "validate_factor_data",
+    "datasets",
 ]
