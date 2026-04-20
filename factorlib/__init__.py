@@ -97,6 +97,7 @@ from factorlib._api import (
     describe_profile,
 )
 
+__version__ = "0.1.0"
 
 __all__ = [
     # Top-level API
