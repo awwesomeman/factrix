@@ -190,17 +190,26 @@ def quantile_spread_vw(
     weight_col: str = "market_cap",
     tie_policy: str = "ordinal",
 ) -> MetricOutput:
-    """Value-weighted long-short spread (per-period mean).
+    """Value-weighted long-short spread — alpha concentration diagnostic.
 
-    Compares with equal-weighted spread to detect small-cap concentration.
-    If VW spread << EW spread, alpha is driven by small stocks.
+    Formula (per non-overlapping date t):
+        For bucket b ∈ {bottom, top}:
+            vw_b[t] = Σ_{i∈b} weight[i,t] · return[i,t] / Σ_{i∈b} weight[i,t]
+        spread[t] = vw_top[t] − vw_bottom[t]
+        value = mean_t spread[t];  t-stat = √n · value / std(spread);  DDOF=1
+
+    Compare with equal-weighted ``quantile_spread``: if VW spread much
+    smaller (e.g., < 1/3 of EW), the alpha is driven by small-cap assets
+    and may not survive capacity / liquidity constraints.
 
     Args:
         df: Panel with ``date, asset_id, factor, forward_return, market_cap``.
         weight_col: Column for value weighting (default ``market_cap``).
 
     Returns:
-        MetricOutput with per-period mean VW spread.
+        MetricOutput with per-period mean VW spread, t-stat, and p-value.
+        Short-circuits if ``weight_col`` is missing or post-sampling n <
+        ``MIN_PORTFOLIO_PERIODS``.
 
     References:
         Hou, Xue & Zhang (2020): ~65% of factors disappear under VW.
@@ -279,10 +288,22 @@ def compute_group_returns(
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
 ) -> pl.DataFrame:
-    """Mean return per quantile group (for monotonicity charts).
+    """Mean forward return per quantile bucket (for monotonicity charts).
+
+    Formula:
+        1. Sample dates every ``forward_periods`` rows (non-overlapping).
+        2. Per sampled date, assign each asset to a quantile group
+           0..n_groups-1 by ``factor`` (see ``_assign_quantile_groups``
+           for tie_policy semantics).
+        3. For each group g:
+              mean_return[g] = mean across (date, asset) where _group=g
+                               of ``return_col``
+        (Equal-weighted across all obs in the bucket, not per-date then
+         averaged — use ``compute_spread_series`` if you want the latter.)
 
     Returns:
-        DataFrame with ``group, mean_return`` averaged across non-overlapping dates.
+        DataFrame with ``group, mean_return`` sorted ascending by group.
+        Group 0 = lowest factor rank, n_groups-1 = highest.
     """
     sampled = _sample_non_overlapping(df, forward_periods)
     grouped = _assign_quantile_groups(

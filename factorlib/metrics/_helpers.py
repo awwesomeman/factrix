@@ -72,14 +72,33 @@ def _sample_non_overlapping(
     df: pl.DataFrame,
     forward_periods: int,
 ) -> pl.DataFrame:
-    """Keep every N-th date to avoid overlapping forward returns.
+    """Keep every N-th date to produce a non-overlapping series.
+
+    Algorithm:
+        1. ``unique_dates = sort(df[date].unique())``
+        2. ``sampled = unique_dates[::forward_periods]``  (every N-th)
+        3. Return ``df.filter(date ∈ sampled)``
+
+    Why: with h-period forward returns, consecutive dates' forward
+    returns share h−1 bars of future data — the series has an MA(h−1)
+    structure (Hansen & Hodrick 1980). Sub-sampling at interval h
+    breaks this dependence at the cost of throwing away h−1 of every
+    h observations. This is the most conservative of the Richardson-
+    Stock (1989) remedies; ``_newey_west_t_test`` is the less-lossy
+    alternative (keeps all obs but corrects SE).
+
+    Logs a WARNING at ``factorlib.metrics`` when the sampled series
+    has < 1.5 × MIN_IC_PERIODS rows — downstream t-tests may be frail
+    even if they don't short-circuit.
 
     Args:
         df: DataFrame with a ``date`` column.
-        forward_periods: Sampling interval.
+        forward_periods: Sampling interval (typically equals the
+            ``forward_periods`` of the forward-return column).
 
     Returns:
-        Filtered DataFrame containing only sampled dates.
+        Filtered DataFrame containing only the sampled dates; all
+        other columns untouched.
     """
     from factorlib._logging import get_metrics_logger
     from factorlib._types import MIN_IC_PERIODS

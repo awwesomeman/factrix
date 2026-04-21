@@ -124,9 +124,29 @@ def pooled_ols(
     return_col: str = "forward_return",
     cluster_col: str = "date",
 ) -> MetricOutput:
-    """Pooled OLS: R = α + β · Signal + ε, with SE clustered by date.
+    """Pooled OLS with date-clustered SE — robustness check against FM.
 
-    Clustering accounts for within-date cross-sectional correlation.
+    Formula:
+        Point estimate:
+            [α̂, β̂] = (X'X)⁻¹ X'R   where X = [1, Signal] stacked across
+                                    all (date, asset) observations
+        Clustered sandwich SE (cluster on date):
+            meat = Σ_g (X_g' e_g)(X_g' e_g)'   over date groups g
+            V = c · (X'X)⁻¹ · meat · (X'X)⁻¹
+            c = G/(G−1) · (N−1)/(N−K)    (finite-sample correction)
+            SE(β̂) = √V[1,1]
+            t = β̂ / SE
+        G = number of date clusters, N = total obs, K = 2 (α + β).
+
+    Clustering by date accounts for within-date cross-sectional
+    correlation (contemporaneously correlated residuals across assets).
+    FM and this share the same point estimate under a balanced panel
+    but typically disagree on SE; when β̂ and FM λ̂ have **opposite
+    signs**, the ``macro_panel.fm_pooled_sign_mismatch`` veto rule
+    fires — a red flag for misspecification.
+
+    Short-circuits when N < 10 (no regression), returns stat=None with
+    p=1.0 when G < 3 (SE undefined with < 3 date clusters).
     """
     y = df[return_col].to_numpy().astype(np.float64)
     x = df[factor_col].to_numpy().astype(np.float64)
@@ -221,11 +241,16 @@ def beta_sign_consistency(
     *,
     expected_sign: int = 1,
 ) -> MetricOutput:
-    """Fraction of periods where FM β has the expected sign.
+    """Fraction of FM per-date βs carrying the expected sign — `value = mean_t 1{sign(β_t) == expected_sign}`.
 
-    Args:
-        beta_df: DataFrame with ``date, beta``.
-        expected_sign: +1 (positive beta expected) or -1 (negative).
+    β_t is the per-date OLS β from ``compute_fm_betas``. Range [0, 1];
+    1.0 = β always has the expected sign across periods. Unlike
+    ``ts_beta_sign_consistency`` (which symmetrizes via
+    ``max(pos%, 1-pos%)``), this one is directional — you must supply
+    the a-priori expected sign. Typical use: paired with a prior on
+    factor direction to check stability.
+
+    Short-circuits to NaN when no non-null β observations exist.
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)

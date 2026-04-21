@@ -171,7 +171,17 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 # ---------------------------------------------------------------------------
 
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
-    """Average R² across assets — explanatory power of the common factor."""
+    """Average R² across per-asset TS regressions — `value = mean_i R²_i`.
+
+    R²_i comes from asset i's regression R_{i,t} = α_i + β_i·F_t + ε
+    (computed upstream in ``compute_ts_betas``). Metadata carries
+    ``median_r_squared`` as well — useful when a few high-R² assets
+    pull the mean. Low values (< 0.05) indicate the factor is too
+    weak or noisy to drive individual-asset returns even when its
+    cross-asset mean β looks nonzero.
+
+    Short-circuits to NaN when no assets have a non-null R².
+    """
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
 
@@ -204,11 +214,22 @@ def compute_rolling_mean_beta(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Rolling-window mean β across assets.
+    """Rolling-window mean β across assets — time-series input for OOS / trend.
 
-    At each date, compute per-asset TS β using the trailing window,
-    then take the cross-asset mean. Returns ``date, value`` for
-    compatibility with OOS/trend tools.
+    Formula (per date t ≥ ``window``):
+        For each asset i, take the trailing ``window`` rows ending at t.
+        If ≥ 10 valid (factor, return) pairs, run OLS:
+            R_{i,s} = α_i + β_i·F_s + ε   (s in window)
+        β_t = mean_i β_i   (cross-asset mean of this window's βs)
+
+    Dates with fewer than ``window`` trailing rows are skipped. Assets
+    with < 10 valid obs in the window are dropped from that date's β
+    calculation. If no asset qualifies at a given date, that date is
+    absent from the output entirely.
+
+    Returns:
+        DataFrame with ``date, value`` where ``value`` is the rolling
+        cross-asset mean β. Shape compatible with ``oos`` / ``ic_trend``.
     """
     dates = df["date"].unique().sort()
     if len(dates) < window:
