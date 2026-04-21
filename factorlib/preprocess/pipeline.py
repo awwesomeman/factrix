@@ -30,18 +30,27 @@ if TYPE_CHECKING:
 
 
 # Marker column stamped onto prepared panels so evaluate / factor can
-# detect silent preprocess-time config drift. Only fields actually baked
-# into prepared for the relevant factor_type are captured — ortho for CS
-# is deliberately excluded because it runs at build_artifacts time, not
-# here.
+# detect silent preprocess-time config drift. Captures factor_type plus
+# all preprocess-time fields actually baked into prepared for that type.
+#
+# Deliberately excluded: ``ortho`` (CS, applied at build_artifacts time)
+# and evaluate-time knobs (``n_groups``, ``tie_policy``, ``regime_labels``,
+# ``multi_horizon_periods``, ``spanning_base_spreads``). Excluding these
+# keeps the sweep pattern cheap — a single ``prepared`` can drive many
+# evaluate calls with different downstream knobs. See
+# ``docs/plan_direction.md`` for the trade-off rationale on ortho.
 PREPROCESS_SIG_MARKER = "_fl_preprocess_sig"
 
 
 def preprocess_sig(cfg: BaseConfig) -> dict[str, Any]:
     """Canonical form of the preprocess-time fields consumed by ``cfg``.
 
-    JSON-friendly (lists for tuples, no polars/numpy types) so it can be
-    embedded verbatim via ``pl.lit`` and diffed at the evaluate gate.
+    Always includes ``factor_type`` so a prepared panel pinned to one
+    factor type cannot be silently re-evaluated under a different type's
+    config (which would pass column-presence checks but compute the
+    wrong canonical test). JSON-friendly (lists for tuples, no
+    polars/numpy types) so it can be embedded verbatim via ``pl.lit``
+    and diffed at the evaluate gate.
     """
     from factorlib.config import (
         CrossSectionalConfig,
@@ -50,7 +59,10 @@ def preprocess_sig(cfg: BaseConfig) -> dict[str, Any]:
         MacroPanelConfig,
     )
 
-    sig: dict[str, Any] = {"forward_periods": int(cfg.forward_periods)}
+    sig: dict[str, Any] = {
+        "factor_type": type(cfg).factor_type.value,
+        "forward_periods": int(cfg.forward_periods),
+    }
     match cfg:
         case CrossSectionalConfig():
             sig["mad_n"] = float(cfg.mad_n)
@@ -61,7 +73,7 @@ def preprocess_sig(cfg: BaseConfig) -> dict[str, Any]:
         case MacroPanelConfig():
             sig["demean_cross_section"] = bool(cfg.demean_cross_section)
         case EventConfig() | MacroCommonConfig():
-            pass  # forward_periods only
+            pass
         case _:
             ft = getattr(type(cfg), "factor_type", type(cfg).__name__)
             raise NotImplementedError(f"preprocess_sig not yet implemented for {ft}")
@@ -87,15 +99,25 @@ def preprocess(
 ) -> pl.DataFrame:
     """Preprocess factor data based on config type.
 
-    Dispatches to the appropriate type-specific preprocessor.
-    Defaults to cross-sectional preprocessing.
+    Dispatches to the appropriate type-specific preprocessor. ``config``
+    is required — silently defaulting to ``CrossSectionalConfig`` would
+    let event / macro panels be CS-preprocessed without any downstream
+    marker to detect the mismatch.
     """
     from factorlib.config import (
         CrossSectionalConfig, EventConfig, MacroCommonConfig, MacroPanelConfig,
     )
 
     if config is None:
-        config = CrossSectionalConfig()
+        raise TypeError(
+            "fl.preprocess requires an explicit config= argument. Pick one of:\n"
+            "    fl.CrossSectionalConfig(forward_periods=5)   # 連續因子，寬截面\n"
+            "    fl.EventConfig(forward_periods=5)            # 稀疏事件\n"
+            "    fl.MacroPanelConfig(forward_periods=5)       # 連續因子，小 panel\n"
+            "    fl.MacroCommonConfig(forward_periods=5)      # 共用時序\n"
+            "then pass the SAME cfg to fl.evaluate / fl.factor so the "
+            "preprocess-sig gate can catch config drift."
+        )
 
     match config:
         case CrossSectionalConfig():
@@ -179,6 +201,11 @@ def preprocess_cs_factor(
             mad_n=mad_n,
         )
 
+    # Fail fast on structural mismatch (N=1, or staggered per-date N < 2)
+    # before the z-score step silently produces NaN→0 output.
+    from factorlib._validators import validate_n_assets
+    validate_n_assets(df, "cross_sectional")
+
     out = compute_forward_return(df, forward_periods)
     out = winsorize_forward_return(out, lower=return_clip_pct[0], upper=return_clip_pct[1])
     out = compute_abnormal_return(out)
@@ -214,6 +241,11 @@ def preprocess_macro_panel(
         3. Optional: cross-section demean signal.
         4. Factor z-score (per-date, no MAD — unstable at small N).
     """
+    # Fail fast: FM stage-1 OLS needs ≥ 3 assets per date; catch both
+    # N=1 and staggered-schedule cases here rather than at build_artifacts.
+    from factorlib._validators import validate_n_assets
+    validate_n_assets(df, "macro_panel")
+
     out = compute_forward_return(df, config.forward_periods)
     out = winsorize_forward_return(out)
 

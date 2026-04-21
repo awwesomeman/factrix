@@ -250,6 +250,20 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
 
 EVENT_RULES: list[Rule["EventProfile"]] = [
     Rule(
+        code="event.single_asset",
+        severity="info",
+        message=(
+            "Single-asset panel — CAAR degrades from a cross-sectional "
+            "average of abnormal returns to a per-event time average on "
+            "one asset; BMP uses Patell-style per-event SE (no "
+            "cross-sectional std); clustering_hhi is disabled (needs N≥2). "
+            "Verify the signal is an event study on this specific instrument, "
+            "not a misrouted cross-sectional factor."
+        ),
+        # clustering_hhi is None iff n_assets == 1 (see _build_event_artifacts).
+        predicate=lambda p: p.clustering_hhi is None,
+    ),
+    Rule(
         code="event.n_events_low",
         severity="warn",
         message=(

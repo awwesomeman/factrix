@@ -257,3 +257,77 @@ class TestErrors:
         ps = ProfileSet(profiles)
         with pytest.raises(ValueError, match="Unknown method"):
             redundancy_matrix(ps, method="mahalanobis", artifacts=artifacts)  # type: ignore[arg-type]
+
+
+class TestMacroCommonFactorRankGuard:
+    """`factor_rank` is degenerate on macro_common (factor constant across
+    assets per date). Must raise rather than silently return a zero-filled
+    matrix."""
+
+    def _macro_common_panel(self, seed: int, n_assets: int = 5, n_dates: int = 60):
+        import numpy as np
+        import polars as pl
+        from datetime import datetime, timedelta
+        rng = np.random.default_rng(seed)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        # Common factor value per date; same across all assets.
+        common = rng.standard_normal(n_dates)
+        rows = []
+        for d_i, d in enumerate(dates):
+            for i in range(n_assets):
+                rows.append({
+                    "date": d, "asset_id": f"a{i}",
+                    "factor": float(common[d_i]),
+                    "forward_return": float(
+                        0.3 * common[d_i] + 0.7 * rng.standard_normal()
+                    ),
+                })
+        return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_factor_rank_on_macro_common_raises(self):
+        from factorlib.config import MacroCommonConfig
+        from factorlib.evaluation.pipeline import build_artifacts
+        from factorlib.evaluation.profiles import MacroCommonProfile
+
+        cfg = MacroCommonConfig(forward_periods=1)
+        art_a = build_artifacts(self._macro_common_panel(seed=11), cfg)
+        art_a.factor_name = "A"
+        art_b = build_artifacts(self._macro_common_panel(seed=12), cfg)
+        art_b.factor_name = "B"
+        profiles = [
+            MacroCommonProfile.from_artifacts(art_a)[0],
+            MacroCommonProfile.from_artifacts(art_b)[0],
+        ]
+        ps = ProfileSet(profiles)
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)factor_rank.*not meaningful.*macro_common.*value_series",
+        ):
+            redundancy_matrix(
+                ps, method="factor_rank", artifacts={"A": art_a, "B": art_b},
+            )
+
+    def test_value_series_on_macro_common_works(self):
+        """value_series remains the correct method for macro_common
+        (correlates per-asset β time series)."""
+        from factorlib.config import MacroCommonConfig
+        from factorlib.evaluation.pipeline import build_artifacts
+        from factorlib.evaluation.profiles import MacroCommonProfile
+
+        cfg = MacroCommonConfig(forward_periods=1)
+        art_a = build_artifacts(self._macro_common_panel(seed=21), cfg)
+        art_a.factor_name = "A"
+        art_b = build_artifacts(self._macro_common_panel(seed=22), cfg)
+        art_b.factor_name = "B"
+        profiles = [
+            MacroCommonProfile.from_artifacts(art_a)[0],
+            MacroCommonProfile.from_artifacts(art_b)[0],
+        ]
+        ps = ProfileSet(profiles)
+        m = redundancy_matrix(
+            ps, method="value_series", artifacts={"A": art_a, "B": art_b},
+        )
+        # Shape + unit diagonal invariants
+        assert m.height == 2
+        for n in ("A", "B"):
+            assert abs(m.filter(pl.col("factor") == n)[n].item() - 1.0) < 1e-12

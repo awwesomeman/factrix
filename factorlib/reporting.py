@@ -50,6 +50,7 @@ def describe_profile_values(profile: "FactorProfile") -> None:
     """
     _print_header(profile)
     _print_value_table(profile)
+    _print_diagnostic_summary(profile)
 
 
 def _print_header(profile: "FactorProfile") -> None:
@@ -82,6 +83,34 @@ def _print_value_table(profile: "FactorProfile") -> None:
     print("  Values:")
     for name, value in rows:
         print(f"    {name:<{name_w}} {_fmt_value(value)}")
+    print()
+
+
+def _print_diagnostic_summary(profile: "FactorProfile") -> None:
+    """Hint that diagnostics are available without printing the bodies.
+
+    Pulled-not-pushed: matches factorlib's "framework detects, user
+    decides" philosophy. This is a visibility nudge — it tells the user
+    there's something worth reading without spamming the message body.
+    Call ``profile.diagnose()`` for the list of ``Diagnostic`` objects.
+    """
+    try:
+        diagnostics = profile.diagnose()
+    except Exception:  # noqa: BLE001
+        return
+    if not diagnostics:
+        return
+    counts: dict[str, int] = {}
+    for d in diagnostics:
+        counts[d.severity] = counts.get(d.severity, 0) + 1
+    parts = []
+    for sev in ("veto", "warn", "info"):  # ordered by severity
+        if counts.get(sev):
+            parts.append(f"{counts[sev]} {sev}")
+    if not parts:
+        return
+    summary = ", ".join(parts)
+    print(f"  Diagnostics: {summary} — call .diagnose() for details")
     print()
 
 

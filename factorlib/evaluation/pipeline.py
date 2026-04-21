@@ -64,6 +64,12 @@ def _validate_columns(df: pl.DataFrame, factor_type: str) -> None:
         )
 
 
+def _validate_n_assets(df: pl.DataFrame, factor_type: str) -> None:
+    """Validate panel shape; delegates to ``factorlib._validators``."""
+    from factorlib._validators import validate_n_assets
+    validate_n_assets(df, factor_type)
+
+
 def _build_event_artifacts(
     df: pl.DataFrame, config: EventConfig,
 ) -> Artifacts:
@@ -99,6 +105,7 @@ def _build_cs_artifacts(
     df: pl.DataFrame, config: CrossSectionalConfig,
 ) -> Artifacts:
     _validate_columns(df, "cross_sectional")
+    _validate_n_assets(df, "cross_sectional")
 
     ortho_info: pl.DataFrame | None = None
     if config.ortho is not None:
@@ -110,10 +117,24 @@ def _build_cs_artifacts(
         df, config.forward_periods, config.n_groups,
         tie_policy=config.tie_policy,
     )
+    # Coverage summary: records how many units (dates for CS, assets
+    # for MC) survived the canonical test's silent per-unit filter. Users
+    # inspect via ``art.get("coverage")``; uniform schema across types
+    # so downstream code can read without branching on factor_type.
+    n_total = int(df["date"].n_unique())
+    n_kept = int(ic_series.height)
+    coverage = pl.DataFrame({
+        "axis": ["dates"],
+        "n_total": [n_total],
+        "n_kept": [n_kept],
+        "n_dropped": [n_total - n_kept],
+        "drop_reason": ["per_date_n_below_min_ic_periods"],
+    })
     intermediates: dict[str, pl.DataFrame] = {
         "ic_series": ic_series,
         "ic_values": ic_values,
         "spread_series": spread_series,
+        "coverage": coverage,
     }
     if ortho_info is not None:
         intermediates["ortho_stats"] = ortho_info
@@ -325,6 +346,7 @@ def _build_macro_panel_artifacts(
     df: pl.DataFrame, config: MacroPanelConfig,
 ) -> Artifacts:
     _validate_columns(df, "macro_panel")
+    _validate_n_assets(df, "macro_panel")
 
     from factorlib.metrics.fama_macbeth import compute_fm_betas
 
@@ -356,11 +378,25 @@ def _build_macro_common_artifacts(
     ts_betas = compute_ts_betas(df)
     rolling = compute_rolling_mean_beta(df, window=config.ts_window)
 
+    # Coverage summary: uniform schema with _build_cs_artifacts so
+    # downstream readers of ``art.get("coverage")`` can process without
+    # branching on factor_type.
+    n_total = int(df["asset_id"].n_unique())
+    n_kept = int(ts_betas.height)
+    coverage = pl.DataFrame({
+        "axis": ["assets"],
+        "n_total": [n_total],
+        "n_kept": [n_kept],
+        "n_dropped": [n_total - n_kept],
+        "drop_reason": ["per_asset_t_below_min_ts_obs"],
+    })
+
     return Artifacts(
         prepared=df,
         config=config,
         intermediates={
             "beta_series": ts_betas,
             "beta_values": rolling,
+            "coverage": coverage,
         },
     )

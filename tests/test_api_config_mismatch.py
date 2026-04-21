@@ -233,6 +233,138 @@ class TestPreprocessTimeFieldMismatch:
                 config=MacroPanelConfig(demean_cross_section=True),
             )
 
+    def test_factor_type_mismatch_across_preprocess_and_evaluate_raises(self):
+        """Prepared panel pinned to one factor_type cannot be re-evaluated
+        under a different type's config — catches the class of silent
+        wrongness where column presence passes but the canonical test is
+        wrong (e.g. IC computed on event {-1, 0, +1} signals).
+        """
+        df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.3, seed=105, include_price=True)
+        prepared = fl.preprocess(df, config=EventConfig(forward_periods=5))
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)preprocess-time fields mismatch.*factor_type",
+        ):
+            fl.evaluate(
+                prepared, "x",
+                config=CrossSectionalConfig(forward_periods=5),
+            )
+
+    def test_preprocess_without_config_raises(self):
+        """Silent default CrossSectionalConfig() would CS-preprocess an
+        event / macro panel with no downstream marker to catch the
+        mismatch — require explicit config so user intent is visible.
+        """
+        df = _cs_panel(n_dates=30, n_assets=10, signal_coef=0.1, seed=106, include_price=True)
+        with pytest.raises(
+            TypeError,
+            match=r"(?s)fl\.preprocess requires an explicit config=.*CrossSectionalConfig.*EventConfig",
+        ):
+            fl.preprocess(df)
+
+
+class TestSingleAssetFactorTypeMismatch:
+    """N=1 panel on CS / MP raises with actionable message instead of
+    silently short-circuiting to FAILED verdict. Event / macro_common
+    tolerate N=1 by design and must keep working.
+    """
+
+    def test_cross_sectional_n1_raises_at_preprocess(self):
+        """Guard fires early at preprocess, not later at evaluate — user
+        should not waste a preprocess pass before learning the factor_type
+        is wrong for their data shape."""
+        df = _cs_panel(n_dates=60, n_assets=1, signal_coef=0.0, seed=200, include_price=True)
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)cross_sectional expects a multi-asset panel.*MacroCommonConfig",
+        ):
+            fl.preprocess(df, config=CrossSectionalConfig(forward_periods=5))
+
+    def test_cross_sectional_n1_still_raises_if_preprocess_skipped(self):
+        """Backstop: callers that hand a raw-ish DataFrame to build_artifacts
+        directly (bypassing preprocess) still get the guard at evaluate time.
+        Exercised by supplying a prepared-shaped panel manually."""
+        import numpy as np, polars as pl
+        from datetime import datetime, timedelta
+        rng = np.random.default_rng(280)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(30)]
+        # Hand-build a panel that passes _validate_columns but trips the
+        # build_artifacts backstop (forward_return present, N=1).
+        rows = [
+            {"date": d, "asset_id": "A1",
+             "factor": float(rng.standard_normal()),
+             "forward_return": float(rng.standard_normal())}
+            for d in dates
+        ]
+        prepared_like = pl.DataFrame(rows).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        from factorlib.evaluation.pipeline import build_artifacts
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)cross_sectional expects a multi-asset panel",
+        ):
+            build_artifacts(prepared_like, CrossSectionalConfig(forward_periods=5))
+
+    def test_macro_panel_n1_raises_at_preprocess(self):
+        df = _cs_panel(n_dates=60, n_assets=1, signal_coef=0.0, seed=201, include_price=True)
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)macro_panel expects a small cross-section.*MacroCommonConfig",
+        ):
+            fl.preprocess(df, config=MacroPanelConfig(forward_periods=5))
+
+    def test_macro_panel_staggered_schedule_raises(self):
+        """Staggered-schedule case the global-only check used to miss:
+        N=3 overall but each date only has 1 asset (different asset each
+        day). Per-date max n_unique < 3 → raise with staggered message."""
+        import numpy as np, polars as pl
+        from datetime import datetime, timedelta
+        rng = np.random.default_rng(290)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(60)]
+        rows = []
+        for d_i, d in enumerate(dates):
+            asset = f"a{d_i % 3}"  # Rotate through 3 assets, one per date
+            rows.append({
+                "date": d, "asset_id": asset,
+                "factor": float(rng.standard_normal()),
+            })
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with pytest.raises(
+            ValueError,
+            match=r"(?s)macro_panel.*max per-date n_unique.*staggered",
+        ):
+            fl.preprocess(df, config=MacroPanelConfig(forward_periods=1))
+
+    def test_event_signal_n1_does_not_raise(self):
+        """Event signal explicitly supports single-asset event studies."""
+        from datetime import datetime, timedelta
+        import numpy as np
+        rng = np.random.default_rng(202)
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(120)]
+        rows = []
+        for d in dates:
+            rows.append({
+                "date": d, "asset_id": "A1",
+                "price": 100.0 + float(rng.standard_normal()),
+                "factor": float(rng.choice([-1.0, 0.0, 0.0, 0.0, 1.0])),
+            })
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        prepared = fl.preprocess(df, config=EventConfig(forward_periods=5))
+        # Should not raise — single-asset event study is a legitimate use case
+        profile = fl.evaluate(prepared, "f", config=EventConfig(forward_periods=5))
+        assert profile.factor_name == "f"
+
+    def test_macro_common_n1_does_not_raise(self):
+        """macro_common has a dedicated N=1 fallback path."""
+        df = _cs_panel(n_dates=60, n_assets=1, signal_coef=0.0, seed=203, include_price=True)
+        prepared = fl.preprocess(df, config=MacroCommonConfig(forward_periods=5))
+        # Should not raise — N=1 fallback produces a conservative verdict
+        # (canonical p → 1.0) but still returns a Profile
+        profile = fl.evaluate(prepared, "f", config=MacroCommonConfig(forward_periods=5))
+        assert profile.factor_name == "f"
+        assert profile.n_assets == 1
+
 
 class TestCompactedErrorAttribution:
     def test_attr_error_names_evaluate_batch_compact(self):

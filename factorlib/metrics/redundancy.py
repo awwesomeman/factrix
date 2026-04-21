@@ -1,18 +1,29 @@
 """Pairwise redundancy matrix for a ProfileSet.
 
+Operates on a homogeneous ProfileSet (single factor_type). Measures
+**how redundant** factors are relative to each other; it is a
+**diagnostic**, not a combiner — it tells you which factors to drop
+for overlap, but does not produce a composite signal.
+
 Two methods answer slightly different questions:
 
 ``factor_rank`` — do two factors rank the cross-section similarly?
     Per date, rank assets by each factor, take Spearman correlation
-    between the two rank vectors, then average across dates. This is
-    the closest to "these factors would pick the same stocks". Only
-    available when prepared panels are present (Artifacts built
-    without compact=True).
+    between the two rank vectors, then average across dates. Closest
+    to "these factors would pick the same stocks". Requires prepared
+    panels (Artifacts built without compact=True).
+
+    **Only meaningful when the factor varies across assets per date**:
+        cross_sectional: primary use case ✓
+        macro_panel:     applicable (small panel, noisier) ✓
+        event_signal:    applicable but sparse (mostly zeros) ✓
+        macro_common:    DEGENERATE — factor is constant across assets
+                         per date; raises ValueError. Use value_series.
 
 ``value_series`` — do two factors' *performance* move together?
     Align each factor's value-of-interest time series (IC, CAAR, β)
-    by date, compute Spearman correlation. Survives compact mode
-    because it only needs intermediates, not the full panel.
+    by date, compute Spearman correlation. Works for all factor types.
+    Survives compact mode (needs intermediates only, not the full panel).
 
 References:
     Green, Hand & Zhang (2017), "The characteristics that provide
@@ -92,6 +103,21 @@ def redundancy_matrix(
             f"redundancy_matrix: artifacts dict missing factor(s) {missing}. "
             f"Provided: {sorted(artifacts.keys())}."
         )
+
+    # macro_common's factor is constant across assets per date, so per-date
+    # rank correlation between two factors would tie everything and yield
+    # undefined / degenerate rho. Block explicitly rather than silently
+    # returning zero-filled matrix (the pre-guard silent behavior).
+    if method == "factor_rank":
+        sample_ft = type(artifacts[names[0]].config).factor_type
+        if sample_ft == FactorType.MACRO_COMMON:
+            raise ValueError(
+                "redundancy_matrix(method='factor_rank') is not meaningful "
+                "for macro_common factors: the factor value is identical "
+                "across assets per date, so per-date rank correlation is "
+                "degenerate. Use method='value_series' instead — it "
+                "correlates the per-asset β time series across factors."
+            )
 
     # Auto-downgrade factor_rank -> value_series if any artifacts are compact
     if method == "factor_rank":
