@@ -83,9 +83,10 @@ snapshot is anchored in the source workspace as the tag
   support
 
 ### Known caveats
-- `examples/demo.ipynb` stored outputs may reflect an earlier naming
-  (`q1_q5_spread` → `long_short_spread` rename landed 2026-04-20); rerun
-  with current code to regenerate
+- `examples/demo.ipynb` stored outputs may reflect earlier quantile-spread
+  field names (`q1_q5_spread`, then `long_short_spread` — rename landed
+  2026-04-20). Current field is `quantile_spread` / `spread_tstat` /
+  `spread_p`; rerun the notebook to regenerate outputs against live code.
 - `Factor Signal Analyzer` positioning: `turnover` / `breakeven_cost` /
   `net_spread` are idealized proxies (equal-weight, zero slippage) and do
   not represent tradable returns

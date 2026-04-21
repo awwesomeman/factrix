@@ -56,7 +56,7 @@ are exported so `isinstance(x, CrossSectionalFactor)` works.
 ## Profile dataclass contract
 
 - `frozen=True, slots=True` — Profiles are immutable value objects
-- `verdict()` returns a **binary** `"PASS" | "FAILED"` (no `CAUTION` — deliberately removed)
+- `verdict()` returns `"PASS" | "PASS_WITH_WARNINGS" | "FAILED"`. `PASS_WITH_WARNINGS` fires when `canonical_p` passes but a warn-severity diagnostic names a whitelisted alternative `recommended_p_source` the user has not adopted. No `CAUTION` bucket — that shape was deliberately removed.
 - `canonical_p` is per-type hard-coded (see table above); `P_VALUE_FIELDS`
   is the cross-factor whitelist used when BHY-correcting a `ProfileSet`
 - `diagnose()` returns `list[Diagnostic]` — diagnostic rules are evaluated
@@ -202,7 +202,7 @@ factorlib/
 
 Hard constraints — violating these breaks the API contract:
 
-1. `Profile.verdict()` is binary `PASS | FAILED`; never `CAUTION`.
+1. `Profile.verdict()` returns `PASS | PASS_WITH_WARNINGS | FAILED`; never `CAUTION`.
 2. `Profile` dataclass is `frozen=True, slots=True`.
 3. `CANONICAL_P_FIELD` for each Profile type must appear in its
    `P_VALUE_FIELDS`.
