@@ -258,13 +258,25 @@ def compute_rolling_mean_beta(
 # ---------------------------------------------------------------------------
 
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
-    """Fraction of assets with β > 0 (or consistent sign)."""
+    """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
+
+    Range [0.5, 1.0]: 0.5 = βs evenly split (no directional consensus);
+    1.0 = all βs share one sign. Unlike
+    ``fama_macbeth.beta_sign_consistency`` this is **direction-agnostic**
+    — it does not require a prior on the factor's expected sign.
+
+    Requires N ≥ 2: a single β is trivially "100% consistent with
+    itself" (the max collapses to 1.0 for any nonzero β), which would
+    read as strong evidence on a dashboard but carries zero information.
+    Short-circuits to NaN in that case so the degenerate value never
+    leaks into verdict decisions.
+    """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
-    if n == 0:
+    if n < 2:
         return _short_circuit_output(
-            "ts_beta_sign_consistency", "no_beta_observations",
-            n_observed=0, min_required=1,
+            "ts_beta_sign_consistency", "insufficient_assets_for_sign_consistency",
+            n_observed=n, min_required=2,
         )
 
     positive = float(np.mean(betas > 0))

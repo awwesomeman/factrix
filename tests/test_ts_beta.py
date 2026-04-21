@@ -101,6 +101,14 @@ class TestTsBetaSignConsistency:
         result = ts_beta_sign_consistency(betas)
         assert result.value > 0.8
 
+    def test_single_asset_short_circuits(self):
+        import math
+        import polars as pl
+        betas = pl.DataFrame({"asset_id": ["A"], "beta": [0.5], "t_stat": [2.1]})
+        result = ts_beta_sign_consistency(betas)
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_sign_consistency"
+
 
 class TestMacroCommonPipeline:
     def test_evaluate_returns_profile(self, strong_common):

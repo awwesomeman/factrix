@@ -261,7 +261,10 @@ factorlib 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `met
 ```
 我懷疑 factor_type 選錯了
   │
-  ├─ N=1？ → 走 macro_common（若是連續因子見 README coverage gap）
+  ├─ N=1？
+  │    ├─ 共用時序（VIX、DXY）      → macro_common（保守 fallback，canonical p=1.0）
+  │    ├─ 稀疏事件（單標的 earnings）→ event_signal（clustering_hhi 自停用，CAAR 語意改）
+  │    └─ 連續因子（單標的 P/E-like）→ README coverage gap（目前無 first-class 支援）
   ├─ 2 ≤ N < 30？ → macro_panel（連續）或 event_signal（稀疏）
   ├─ N ≥ 30？ → cross_sectional（連續）或 event_signal（稀疏）
   └─ 看不出訊號 geometry？ → README「怎麼選 factor_type」2D 表
