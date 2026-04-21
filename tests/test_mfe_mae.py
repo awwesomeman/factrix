@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.mfe_mae and factorlib.metrics.event_quality."""
+"""Tests for factrix.metrics.mfe_mae and factrix.metrics.event_quality."""
 
 import math
 from datetime import datetime, timedelta
@@ -7,11 +7,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.metrics.mfe_mae import (
+from factrix.metrics.mfe_mae import (
     compute_mfe_mae,
     mfe_mae_summary,
 )
-from factorlib.metrics.event_quality import (
+from factrix.metrics.event_quality import (
     profit_factor,
     event_skewness,
 )

@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.spanning."""
+"""Tests for factrix.metrics.spanning."""
 
 from datetime import datetime, timedelta
 
@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.metrics.spanning import (
+from factrix.metrics.spanning import (
     spanning_alpha,
     greedy_forward_selection,
     ForwardSelectionResult,
@@ -49,7 +49,7 @@ class TestSpanningTest:
         assert result.metadata["n_base_factors"] == 0
 
     def test_returns_metric_output(self):
-        from factorlib._types import MetricOutput
+        from factrix._types import MetricOutput
         factor = _make_spread_series(100, 0.02, 0.005, 42)
         result = spanning_alpha(factor)
         assert isinstance(result, MetricOutput)

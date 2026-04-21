@@ -25,8 +25,8 @@ import typing
 
 import pytest
 
-from factorlib._types import FactorType, PValue
-from factorlib.evaluation.diagnostics._rules import (
+from factrix._types import FactorType, PValue
+from factrix.evaluation.diagnostics._rules import (
     CROSS_SECTIONAL_RULES,
     CROSS_TYPE_RULES,
     EVENT_RULES,
@@ -34,7 +34,7 @@ from factorlib.evaluation.diagnostics._rules import (
     MACRO_PANEL_RULES,
     _CUSTOM_RULES,
 )
-from factorlib.evaluation.profiles import _PROFILE_REGISTRY
+from factrix.evaluation.profiles import _PROFILE_REGISTRY
 
 
 _RULE_LISTS_BY_TYPE = {
@@ -98,7 +98,7 @@ class TestProfileWhitelistInvariants:
                 f"{cls.__name__}.{name} has annotation {ann!r}; expected "
                 f"PValue (or PValue | None). P_VALUE_FIELDS is the BHY "
                 f"input whitelist — each entry must be a genuine p-value "
-                f"(use the PValue NewType from factorlib._types)."
+                f"(use the PValue NewType from factrix._types)."
             )
 
 

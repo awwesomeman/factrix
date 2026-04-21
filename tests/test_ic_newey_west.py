@@ -8,8 +8,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib._types import MIN_IC_PERIODS
-from factorlib.metrics.ic import ic, ic_newey_west
+from factrix._types import MIN_IC_PERIODS
+from factrix.metrics.ic import ic, ic_newey_west
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ def test_profile_exposes_ic_nw_p_and_whitelist(cs_profile_strong):
 
 
 def test_overlap_rule_fires_when_only_ic_is_significant(cs_profile_strong):
-    from factorlib.evaluation.diagnostics import (
+    from factrix.evaluation.diagnostics import (
         Rule, clear_custom_rules, register_rule,
     )
 
@@ -91,7 +91,7 @@ def test_overlap_rule_silent_when_nw_also_significant(cs_profile_strong):
 
 
 def test_multiple_testing_accepts_ic_nw_p(cs_profiles_and_artifacts):
-    from factorlib.evaluation.profile_set import ProfileSet
+    from factrix.evaluation.profile_set import ProfileSet
 
     profiles, _ = cs_profiles_and_artifacts
     ps = ProfileSet(profiles).multiple_testing_correct(p_source="ic_nw_p")

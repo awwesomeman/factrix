@@ -21,15 +21,15 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib._types import MetricOutput
-from factorlib.config import (
+import factrix as fl
+from factrix._types import MetricOutput
+from factrix.config import (
     CrossSectionalConfig,
     EventConfig,
     MacroCommonConfig,
     MacroPanelConfig,
 )
-from factorlib.factor import (
+from factrix.factor import (
     CrossSectionalFactor,
     EventFactor,
     MacroCommonFactor,

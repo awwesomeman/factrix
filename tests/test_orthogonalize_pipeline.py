@@ -17,8 +17,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib.evaluation.diagnostics import clear_custom_rules
+import factrix as fl
+from factrix.evaluation.diagnostics import clear_custom_rules
 
 
 @pytest.fixture(autouse=True)

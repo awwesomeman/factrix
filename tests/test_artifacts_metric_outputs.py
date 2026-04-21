@@ -20,7 +20,7 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-import factorlib as fl
+import factrix as fl
 
 from tests.conftest import _cs_panel
 

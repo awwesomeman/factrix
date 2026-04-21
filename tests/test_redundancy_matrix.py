@@ -6,9 +6,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.evaluation._protocol import _COMPACTED_PREPARED
-from factorlib.evaluation.profile_set import ProfileSet
-from factorlib.metrics.redundancy import redundancy_matrix
+from factrix.evaluation._protocol import _COMPACTED_PREPARED
+from factrix.evaluation.profile_set import ProfileSet
+from factrix.metrics.redundancy import redundancy_matrix
 
 
 class TestShape:
@@ -57,9 +57,9 @@ class TestMethods:
         import numpy as np
         import polars as pl
         from datetime import datetime, timedelta
-        from factorlib.config import CrossSectionalConfig
-        from factorlib.evaluation.pipeline import build_artifacts
-        from factorlib.evaluation.profiles import CrossSectionalProfile
+        from factrix.config import CrossSectionalConfig
+        from factrix.evaluation.pipeline import build_artifacts
+        from factrix.evaluation.profiles import CrossSectionalProfile
 
         # Build two factors: factor B equals factor A on odd dates and
         # -factor A on even dates. Per-date Spearman alternates +1/-1,
@@ -112,9 +112,9 @@ class TestDegenerateInputs:
         import numpy as np
         import polars as pl
         from datetime import datetime, timedelta
-        from factorlib.config import CrossSectionalConfig
-        from factorlib.evaluation.pipeline import build_artifacts
-        from factorlib.evaluation.profiles import CrossSectionalProfile
+        from factrix.config import CrossSectionalConfig
+        from factrix.evaluation.pipeline import build_artifacts
+        from factrix.evaluation.profiles import CrossSectionalProfile
 
         rng = np.random.default_rng(4242)
         n_dates, n_assets = 40, 20
@@ -167,9 +167,9 @@ class TestDegenerateInputs:
         import numpy as np
         import polars as pl
         from datetime import datetime, timedelta
-        from factorlib.config import CrossSectionalConfig
-        from factorlib.evaluation.pipeline import build_artifacts
-        from factorlib.evaluation.profiles import CrossSectionalProfile
+        from factrix.config import CrossSectionalConfig
+        from factrix.evaluation.pipeline import build_artifacts
+        from factrix.evaluation.profiles import CrossSectionalProfile
 
         rng = np.random.default_rng(5151)
         n_assets = 20
@@ -246,7 +246,7 @@ class TestErrors:
         empty = ProfileSet(
             [],
             profile_cls=__import__(
-                "factorlib.evaluation.profiles", fromlist=["CrossSectionalProfile"]
+                "factrix.evaluation.profiles", fromlist=["CrossSectionalProfile"]
             ).CrossSectionalProfile,
         )
         with pytest.raises(ValueError, match="empty"):
@@ -285,9 +285,9 @@ class TestMacroCommonFactorRankGuard:
         return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     def test_factor_rank_on_macro_common_raises(self):
-        from factorlib.config import MacroCommonConfig
-        from factorlib.evaluation.pipeline import build_artifacts
-        from factorlib.evaluation.profiles import MacroCommonProfile
+        from factrix.config import MacroCommonConfig
+        from factrix.evaluation.pipeline import build_artifacts
+        from factrix.evaluation.profiles import MacroCommonProfile
 
         cfg = MacroCommonConfig(forward_periods=1)
         art_a = build_artifacts(self._macro_common_panel(seed=11), cfg)
@@ -310,9 +310,9 @@ class TestMacroCommonFactorRankGuard:
     def test_value_series_on_macro_common_works(self):
         """value_series remains the correct method for macro_common
         (correlates per-asset β time series)."""
-        from factorlib.config import MacroCommonConfig
-        from factorlib.evaluation.pipeline import build_artifacts
-        from factorlib.evaluation.profiles import MacroCommonProfile
+        from factrix.config import MacroCommonConfig
+        from factrix.evaluation.pipeline import build_artifacts
+        from factrix.evaluation.profiles import MacroCommonProfile
 
         cfg = MacroCommonConfig(forward_periods=1)
         art_a = build_artifacts(self._macro_common_panel(seed=21), cfg)

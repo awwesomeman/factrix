@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-import factorlib as fl
-from factorlib._types import FactorType
-from factorlib.evaluation.diagnostics import (
+import factrix as fl
+from factrix._types import FactorType
+from factrix.evaluation.diagnostics import (
     Rule,
     clear_custom_rules,
     register_rule,
@@ -87,7 +87,7 @@ def test_clear_custom_rules_by_type_is_scoped(cs_profile_strong):
     codes = [d.code for d in cs_profile_strong.diagnose()]
     assert "custom.cs" not in codes
 
-    from factorlib.evaluation.diagnostics._rules import _CUSTOM_RULES
+    from factrix.evaluation.diagnostics._rules import _CUSTOM_RULES
 
     assert FactorType.EVENT_SIGNAL in _CUSTOM_RULES
     assert FactorType.CROSS_SECTIONAL not in _CUSTOM_RULES

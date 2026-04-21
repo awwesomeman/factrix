@@ -1,6 +1,6 @@
 """Pipeline-entry TZ consistency checks.
 
-factorlib is TZ-agnostic but enforces **consistency** at join boundaries
+factrix is TZ-agnostic but enforces **consistency** at join boundaries
 — the main panel, ``regime_labels``, and each ``spanning_base_spreads``
 entry must share the same date dtype (time_unit + time_zone). A mismatch
 raises early with a message pointing at normalization, instead of letting
@@ -15,7 +15,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
+import factrix as fl
 
 from tests.conftest import _cs_panel
 

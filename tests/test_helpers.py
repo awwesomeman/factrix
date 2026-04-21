@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics._helpers."""
+"""Tests for factrix.metrics._helpers."""
 
 import math
 from datetime import datetime, timedelta
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import polars as pl
 import pytest
 
-from factorlib.metrics._helpers import (
+from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _assign_quantile_groups,
     _compute_tie_ratio,

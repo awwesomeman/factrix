@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from factorlib._types import Diagnostic
-from factorlib.evaluation.diagnostics import Rule, clear_custom_rules, register_rule
-from factorlib.evaluation.profiles import CrossSectionalProfile
+from factrix._types import Diagnostic
+from factrix.evaluation.diagnostics import Rule, clear_custom_rules, register_rule
+from factrix.evaluation.profiles import CrossSectionalProfile
 
 
 @pytest.fixture(autouse=True)

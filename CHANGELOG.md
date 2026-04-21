@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **factorlib** will be documented in this file.
+All notable changes to **factrix** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
@@ -35,8 +35,8 @@ on semver range constraints until `1.0.0` is cut.
 - `Verdict` extended with `"PASS_WITH_WARNINGS"` — emitted when `canonical_p`
   passes but a warn-severity diagnostic names an alternative the user
   has not adopted.
-- `factorlib._logging` — shared `factorlib.evaluation` (orchestration;
-  INFO / WARNING) and `factorlib.metrics` (correction layer; DEBUG +
+- `factrix._logging` — shared `factrix.evaluation` (orchestration;
+  INFO / WARNING) and `factrix.metrics` (correction layer; DEBUG +
   degenerate-sample WARNING) loggers.
 - `ARCHITECTURE.md` — "Diagnostics vs Canonical" section describing the
   "framework detects, user decides" philosophy.

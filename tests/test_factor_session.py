@@ -20,12 +20,12 @@ import dataclasses as _dc
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib._types import FactorType, MetricOutput
-from factorlib.config import CrossSectionalConfig, EventConfig
-from factorlib.evaluation._protocol import Artifacts
-from factorlib.factor import CrossSectionalFactor, Factor, _FACTOR_REGISTRY
-from factorlib.evaluation.pipeline import build_artifacts
+import factrix as fl
+from factrix._types import FactorType, MetricOutput
+from factrix.config import CrossSectionalConfig, EventConfig
+from factrix.evaluation._protocol import Artifacts
+from factrix.factor import CrossSectionalFactor, Factor, _FACTOR_REGISTRY
+from factrix.evaluation.pipeline import build_artifacts
 
 
 # ---------------------------------------------------------------------------

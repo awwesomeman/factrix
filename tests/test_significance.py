@@ -1,9 +1,9 @@
-"""Tests for factorlib._stats."""
+"""Tests for factrix._stats."""
 
 import numpy as np
 import pytest
 
-from factorlib._stats import (
+from factrix._stats import (
     _calc_t_stat,
     _significance_marker,
     _t_stat_from_array,

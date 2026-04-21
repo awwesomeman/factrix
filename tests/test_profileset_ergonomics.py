@@ -5,9 +5,9 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-from factorlib.evaluation.diagnostics import Rule, clear_custom_rules, register_rule
-from factorlib.evaluation.profile_set import ProfileSet
-from factorlib.evaluation.profiles import CrossSectionalProfile
+from factrix.evaluation.diagnostics import Rule, clear_custom_rules, register_rule
+from factrix.evaluation.profile_set import ProfileSet
+from factrix.evaluation.profiles import CrossSectionalProfile
 
 
 @pytest.fixture(autouse=True)

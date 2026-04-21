@@ -1,11 +1,11 @@
-"""Tests for factorlib.metrics.tradability."""
+"""Tests for factrix.metrics.tradability."""
 
 import math
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.metrics.tradability import breakeven_cost, turnover, net_spread
+from factrix.metrics.tradability import breakeven_cost, turnover, net_spread
 
 
 class TestComputeTurnover:

@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.ts_beta and macro_common pipeline."""
+"""Tests for factrix.metrics.ts_beta and macro_common pipeline."""
 
 from datetime import datetime, timedelta
 
@@ -6,17 +6,17 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.config import MacroCommonConfig
-from factorlib.metrics.ts_beta import (
+from factrix.config import MacroCommonConfig
+from factrix.metrics.ts_beta import (
     compute_ts_betas,
     ts_beta,
     mean_r_squared,
     compute_rolling_mean_beta,
     ts_beta_sign_consistency,
 )
-import factorlib as fl
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import MacroCommonProfile
+import factrix as fl
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import MacroCommonProfile
 
 
 def _make_macro_common(

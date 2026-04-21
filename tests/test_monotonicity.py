@@ -1,9 +1,9 @@
-"""Tests for factorlib.metrics.monotonicity."""
+"""Tests for factrix.metrics.monotonicity."""
 
 import math
 import pytest
 
-from factorlib.metrics.monotonicity import monotonicity
+from factrix.metrics.monotonicity import monotonicity
 
 
 class TestComputeMonotonicity:

@@ -10,9 +10,9 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib.metrics.caar import caar as caar_metric
-from factorlib.metrics.ic import ic as ic_metric, compute_ic
+import factrix as fl
+from factrix.metrics.caar import caar as caar_metric
+from factrix.metrics.ic import ic as ic_metric, compute_ic
 
 
 def _cs_panel(n_dates: int, n_assets: int, seed: int = 0) -> pl.DataFrame:
@@ -124,7 +124,7 @@ class TestIntentionalSkipDoesNotFire:
         # skip on "not_applicable_discrete_signal", which is *not* an
         # insufficient-data reason and must not show up in
         # profile.insufficient_metrics.
-        from factorlib.config import EventConfig
+        from factrix.config import EventConfig
         rng = np.random.default_rng(0)
         n_dates = 300
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]

@@ -7,9 +7,9 @@ from typing import get_type_hints
 
 import pytest
 
-from factorlib._types import FactorType, PValue
-from factorlib.evaluation.profiles import CrossSectionalProfile
-from factorlib.evaluation.profiles._base import _PROFILE_REGISTRY
+from factrix._types import FactorType, PValue
+from factrix.evaluation.profiles import CrossSectionalProfile
+from factrix.evaluation.profiles._base import _PROFILE_REGISTRY
 
 
 class TestSchema:
@@ -57,8 +57,8 @@ class TestFromArtifacts:
         assert cs_profile_weak.ic_p > 0.10
 
     def test_wrong_config_type_raises(self, cs_profile_strong):
-        from factorlib.config import EventConfig
-        from factorlib.evaluation._protocol import Artifacts
+        from factrix.config import EventConfig
+        from factrix.evaluation._protocol import Artifacts
         import polars as pl
         bad = Artifacts(prepared=pl.DataFrame(), config=EventConfig())
         with pytest.raises(TypeError, match="expects CrossSectionalConfig"):

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import logging
 
-from factorlib._logging import (
+from factrix._logging import (
     get_evaluation_logger,
     get_metrics_logger,
 )
 
 
 def test_loggers_have_expected_names() -> None:
-    assert get_evaluation_logger().name == "factorlib.evaluation"
-    assert get_metrics_logger().name == "factorlib.metrics"
+    assert get_evaluation_logger().name == "factrix.evaluation"
+    assert get_metrics_logger().name == "factrix.metrics"
 
 
 def test_loggers_silent_by_default() -> None:

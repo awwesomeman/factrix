@@ -9,11 +9,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib._types import FactorType
-from factorlib.config import MacroCommonConfig
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import MacroCommonProfile
-from factorlib.evaluation.profiles._base import _PROFILE_REGISTRY
+from factrix._types import FactorType
+from factrix.config import MacroCommonConfig
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import MacroCommonProfile
+from factrix.evaluation.profiles._base import _PROFILE_REGISTRY
 
 
 def _macro_common(n_dates: int, n_assets: int, signal: float, seed: int) -> pl.DataFrame:
@@ -84,8 +84,8 @@ class TestFromArtifacts:
         assert "macro_common.single_asset" in codes
 
     def test_wrong_config_raises(self):
-        from factorlib.config import CrossSectionalConfig
-        from factorlib.evaluation._protocol import Artifacts
+        from factrix.config import CrossSectionalConfig
+        from factrix.evaluation._protocol import Artifacts
         bad = Artifacts(prepared=pl.DataFrame(), config=CrossSectionalConfig())
         with pytest.raises(TypeError, match="expects MacroCommonConfig"):
             MacroCommonProfile.from_artifacts(bad)

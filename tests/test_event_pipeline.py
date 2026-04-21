@@ -6,13 +6,13 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib._types import FactorType
-from factorlib.config import EventConfig
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import EventProfile
-from factorlib.metrics.clustering import clustering_diagnostic
-from factorlib.metrics.corrado import corrado_rank_test
+import factrix as fl
+from factrix._types import FactorType
+from factrix.config import EventConfig
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import EventProfile
+from factrix.metrics.clustering import clustering_diagnostic
+from factrix.metrics.corrado import corrado_rank_test
 
 
 # ---------------------------------------------------------------------------
@@ -248,11 +248,11 @@ class TestStandaloneMetrics:
         assert result.metadata["n_events"] > 0
 
     def test_corrado_importable(self):
-        from factorlib.metrics import corrado_rank_test as crt
+        from factrix.metrics import corrado_rank_test as crt
         assert callable(crt)
 
     def test_compute_mfe_mae_importable(self):
-        from factorlib.metrics import compute_mfe_mae as cmm
+        from factrix.metrics import compute_mfe_mae as cmm
         assert callable(cmm)
 
 

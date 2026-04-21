@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.ic."""
+"""Tests for factrix.metrics.ic."""
 
 import math
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.metrics.ic import compute_ic, ic, ic_ir, regime_ic
+from factrix.metrics.ic import compute_ic, ic, ic_ir, regime_ic
 
 
 class TestComputeIC:

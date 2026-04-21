@@ -16,12 +16,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from factorlib.evaluation.profiles import CrossSectionalProfile
+from factrix.evaluation.profiles import CrossSectionalProfile
 
 
 mlflow = pytest.importorskip("mlflow")
 
-from factorlib.integrations.mlflow import FactorTracker  # noqa: E402
+from factrix.integrations.mlflow import FactorTracker  # noqa: E402
 
 
 def _logged_metric_names(mock_log_metric: MagicMock) -> set[str]:
@@ -39,11 +39,11 @@ def test_log_profile_reflects_every_pvalue_field(
     reached.
     """
     with (
-        patch("factorlib.integrations.mlflow.mlflow.set_experiment"),
-        patch("factorlib.integrations.mlflow.mlflow.start_run") as mock_start,
-        patch("factorlib.integrations.mlflow.mlflow.set_tag"),
-        patch("factorlib.integrations.mlflow.mlflow.log_params"),
-        patch("factorlib.integrations.mlflow.mlflow.log_metric") as mock_log,
+        patch("factrix.integrations.mlflow.mlflow.set_experiment"),
+        patch("factrix.integrations.mlflow.mlflow.start_run") as mock_start,
+        patch("factrix.integrations.mlflow.mlflow.set_tag"),
+        patch("factrix.integrations.mlflow.mlflow.log_params"),
+        patch("factrix.integrations.mlflow.mlflow.log_metric") as mock_log,
     ):
         mock_run = MagicMock()
         mock_run.info.run_id = "test-run-id"

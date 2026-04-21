@@ -1,10 +1,10 @@
-"""Tests for factorlib.preprocess.normalize."""
+"""Tests for factrix.preprocess.normalize."""
 
 import polars as pl
 import pytest
 from datetime import datetime
 
-from factorlib.preprocess.normalize import cross_sectional_zscore, mad_winsorize
+from factrix.preprocess.normalize import cross_sectional_zscore, mad_winsorize
 
 
 class TestMADWinsorize:

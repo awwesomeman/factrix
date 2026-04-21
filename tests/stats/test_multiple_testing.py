@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from factorlib.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
+from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
 
 
 class TestBhyAdjust:

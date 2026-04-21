@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from factorlib.evaluation._protocol import _COMPACTED_PREPARED
+from factrix.evaluation._protocol import _COMPACTED_PREPARED
 
 
 class TestCompactedPreparedDunders:

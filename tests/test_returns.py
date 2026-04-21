@@ -1,10 +1,10 @@
-"""Tests for factorlib.preprocess.returns."""
+"""Tests for factrix.preprocess.returns."""
 
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.preprocess.returns import (
+from factrix.preprocess.returns import (
     compute_abnormal_return,
     compute_forward_return,
     winsorize_forward_return,

@@ -1,11 +1,11 @@
-"""Tests for factorlib.metrics.trend."""
+"""Tests for factrix.metrics.trend."""
 
 import math
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.metrics.trend import ic_trend
+from factrix.metrics.trend import ic_trend
 
 
 def _make_series(values: list[float]) -> pl.DataFrame:

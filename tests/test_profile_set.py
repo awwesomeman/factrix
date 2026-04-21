@@ -6,11 +6,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.evaluation.profiles import (
+from factrix.evaluation.profiles import (
     CrossSectionalProfile,
     EventProfile,
 )
-from factorlib.evaluation.profile_set import ProfileSet
+from factrix.evaluation.profile_set import ProfileSet
 
 
 class TestConstruction:
@@ -38,7 +38,7 @@ class TestConstruction:
         # Empty-set dtype resolution goes through get_type_hints +
         # _polars_dtype_for; lock the three non-trivial cases:
         # PValue (NewType), float | None, and tuple[str, ...].
-        from factorlib.evaluation.profiles import EventProfile
+        from factrix.evaluation.profiles import EventProfile
         ps = ProfileSet([], profile_cls=EventProfile)
         df = ps.to_polars()
         assert df.schema["caar_p"] == pl.Float64                # PValue → float
@@ -63,8 +63,8 @@ class TestConstruction:
                     "factor": float(f), "forward_return": float(r),
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        from factorlib.config import EventConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import EventConfig
+        from factrix.evaluation.pipeline import build_artifacts
         art = build_artifacts(df, EventConfig())
         art.factor_name = "ev_aux"
         ev_prof, _ = EventProfile.from_artifacts(art)
@@ -385,7 +385,7 @@ class TestMultipleTestingCorrect:
         self, cs_profiles_and_artifacts,
     ):
         """`n_total` must flow into BHY and surface as mt_n_total."""
-        from factorlib.stats.multiple_testing import bhy_adjusted_p
+        from factrix.stats.multiple_testing import bhy_adjusted_p
 
         profiles, _ = cs_profiles_and_artifacts
         n_total = 100

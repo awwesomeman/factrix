@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.fama_macbeth and macro_panel pipeline."""
+"""Tests for factrix.metrics.fama_macbeth and macro_panel pipeline."""
 
 import math
 from datetime import datetime, timedelta
@@ -7,18 +7,18 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib._types import FactorType
-from factorlib.config import MacroPanelConfig
-from factorlib.metrics.fama_macbeth import (
+from factrix._types import FactorType
+from factrix.config import MacroPanelConfig
+from factrix.metrics.fama_macbeth import (
     compute_fm_betas,
     fama_macbeth,
     pooled_ols,
     beta_sign_consistency,
 )
-from factorlib.metrics.quantile import quantile_spread, compute_spread_series
-import factorlib as fl
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import MacroPanelProfile
+from factrix.metrics.quantile import quantile_spread, compute_spread_series
+import factrix as fl
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import MacroPanelProfile
 
 
 # ---------------------------------------------------------------------------

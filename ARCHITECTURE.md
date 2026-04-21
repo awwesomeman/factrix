@@ -1,4 +1,4 @@
-# factorlib Architecture
+# factrix Architecture
 
 Current-state snapshot — describes the library as it stands, not how it got
 here. For design-process history see the originating workspace's `docs/`
@@ -8,7 +8,7 @@ here. For design-process history see the originating workspace's `docs/`
 
 ## Positioning
 
-**factorlib is a Factor Signal Analyzer, not a backtest engine.**
+**factrix is a Factor Signal Analyzer, not a backtest engine.**
 
 Metrics like `turnover`, `breakeven_cost`, and `net_spread` are idealized
 proxies (equal-weight, zero slippage) used to screen signal quality; they
@@ -19,7 +19,7 @@ factors into Zipline / Backtrader / a proprietary engine.
 
 ## Public API surface
 
-Four entry points, all in `factorlib.__init__`:
+Four entry points, all in `factrix.__init__`:
 
 | Function | Purpose |
 |----------|---------|
@@ -105,7 +105,7 @@ Invariant: `multiple_testing_correct`'s `n_total` must be `>= len(self)`
 
 ## Diagnostics vs Canonical — design philosophy
 
-factorlib deliberately keeps **two decision surfaces distinct**:
+factrix deliberately keeps **two decision surfaces distinct**:
 
 1. `canonical_p` (bound to `CANONICAL_P_FIELD`) — the single authoritative
    p-value fed to BHY. Stable per Profile class; never auto-switches.
@@ -132,8 +132,8 @@ Instead:
   a severity grade.
 - `ProfileSet.with_canonical(field)` lets the user **explicitly** rebind
   for zoo-scale BHY.
-- `factorlib.evaluation` logger emits INFO on each `multiple_testing_correct`
-  call and WARNING when `PASS_WITH_WARNINGS` fires. `factorlib.metrics`
+- `factrix.evaluation` logger emits INFO on each `multiple_testing_correct`
+  call and WARNING when `PASS_WITH_WARNINGS` fires. `factrix.metrics`
   logger emits DEBUG per correction (sample shrink, NW lags) and WARNING
   for degenerate regimes (sample < 1.5×min, lags×5 > T).
 
@@ -164,14 +164,14 @@ f.net_spread(estimated_cost_bps=25)  # override cost assumption
 ```
 
 Overrides emit a `UserWarning` (advisory — the user is deviating from the
-bound config). See `factorlib/factor.py`.
+bound config). See `factrix/factor.py`.
 
 ---
 
 ## Module layout
 
 ```
-factorlib/
+factrix/
 ├── _api.py                   # fl.evaluate / evaluate_batch / factor / redundancy_matrix
 ├── _types.py                 # Diagnostic, FactorType, MetricOutput, PValue, Verdict
 ├── _ols.py, _stats.py        # numeric primitives
@@ -193,7 +193,7 @@ factorlib/
 ├── charts/                   # quantile, monotonicity (plotly)
 ├── factors/                  # reference factor library (Mom, Rev, Vol, …)
 └── integrations/
-    └── mlflow.py             # run.log_factorlib_artifacts helper
+    └── mlflow.py             # run.log_factrix_artifacts helper
 ```
 
 ---
@@ -223,7 +223,7 @@ Hard constraints — violating these breaks the API contract:
 
 ## Testing
 
-`tests/` mirrors `factorlib/` layout. Fixtures are fully synthetic — no
+`tests/` mirrors `factrix/` layout. Fixtures are fully synthetic — no
 test reads real market data from disk. 555 tests total as of v0.1.0.
 
 Run: `uv run pytest`

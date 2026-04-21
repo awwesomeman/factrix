@@ -1,4 +1,4 @@
-"""Shared fixtures for factorlib unit tests."""
+"""Shared fixtures for factrix unit tests."""
 
 from datetime import datetime, timedelta
 
@@ -6,10 +6,10 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.config import CrossSectionalConfig
-from factorlib.evaluation.diagnostics import clear_custom_rules
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import CrossSectionalProfile
+from factrix.config import CrossSectionalConfig
+from factrix.evaluation.diagnostics import clear_custom_rules
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import CrossSectionalProfile
 
 
 @pytest.fixture(autouse=True)

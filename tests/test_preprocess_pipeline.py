@@ -1,10 +1,10 @@
-"""Tests for factorlib.preprocess.pipeline."""
+"""Tests for factrix.preprocess.pipeline."""
 
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.preprocess.pipeline import preprocess_cs_factor
+from factrix.preprocess.pipeline import preprocess_cs_factor
 
 
 def _make_raw_data(n_dates: int = 30, n_assets: int = 10):
@@ -67,7 +67,7 @@ class TestRunPreprocessing:
         assert result["factor_raw"].std() > 0
 
     def test_config_overrides_kwargs(self):
-        from factorlib.config import CrossSectionalConfig
+        from factrix.config import CrossSectionalConfig
         raw = _make_raw_data()
         config = CrossSectionalConfig(forward_periods=3, mad_n=5.0)
         result_cfg = preprocess_cs_factor(raw, config=config)

@@ -1,7 +1,7 @@
 """Generator for examples/demo.ipynb.
 
-Produces a clean notebook showing every factorlib API level across all four
-factor_types. The opening section uses ``factorlib.datasets`` so the notebook
+Produces a clean notebook showing every factrix API level across all four
+factor_types. The opening section uses ``factrix.datasets`` so the notebook
 runs from a fresh clone — no external parquet required. All sections use
 synthetic panels from ``fl.datasets``.
 
@@ -30,10 +30,10 @@ def code(src: str) -> dict:
 
 CELLS: list[dict] = [
     md(
-        "# factorlib demo — 四種因子類別 × 完整 API 展示\n"
+        "# factrix demo — 四種因子類別 × 完整 API 展示\n"
         "\n"
         "這份 notebook 不是教學文檔，是**可執行的功能索引**：每個 cell 對應 "
-        "`factorlib/README.md` 的一段 API，照順序跑完就看過 factorlib 全部功能。\n"
+        "`factrix/README.md` 的一段 API，照順序跑完就看過 factrix 全部功能。\n"
         "\n"
         "涵蓋：\n"
         "- 四種 `factor_type`：`cross_sectional` / `event_signal` / `macro_panel` / `macro_common`\n"
@@ -53,11 +53,11 @@ CELLS: list[dict] = [
         "from __future__ import annotations\n"
         "\n"
         "import polars as pl\n"
-        "import factorlib as fl\n"
+        "import factrix as fl\n"
         "\n"
         "pl.Config.set_tbl_rows(8)\n"
         "pl.Config.set_fmt_str_lengths(60)\n"
-        "print('factorlib version:', getattr(fl, '__version__', 'dev'))"
+        "print('factrix version:', getattr(fl, '__version__', 'dev'))"
     ),
     md(
         "### 1.2 合成資料 quick-start（end-to-end sanity check）\n"
@@ -66,7 +66,7 @@ CELLS: list[dict] = [
         "- `make_cs_panel(n_assets, n_dates, ic_target=...)` — CS 面板，每期 factor 和 forward return 的 CS 相關性 ≈ `ic_target`。\n"
         "- `make_event_panel(n_assets, n_dates, event_rate, post_event_drift_bps)` — 事件訊號（`factor ∈ {-1, 0, +1}`）加 post-event drift。\n"
         "\n"
-        "輸出 canonical columns `date, asset_id, price, factor`；下一步照一般流程 `fl.preprocess → fl.evaluate`。以下整段 cell 是環境的 sanity check：跑得過、`realized ic_mean` 落在 `ic_target` 附近，就代表 factorlib 這份 clone 基本上正常。"
+        "輸出 canonical columns `date, asset_id, price, factor`；下一步照一般流程 `fl.preprocess → fl.evaluate`。以下整段 cell 是環境的 sanity check：跑得過、`realized ic_mean` 落在 `ic_target` 附近，就代表 factrix 這份 clone 基本上正常。"
     ),
     code(
         "cfg = fl.CrossSectionalConfig(forward_periods=5)\n"
@@ -87,7 +87,7 @@ CELLS: list[dict] = [
     md(
         "### 1.3 共用 price panel（給 §3 之後的所有 cells）\n"
         "\n"
-        "再產一份 100 資產 × 500 日的合成 panel，但只留 canonical `date / asset_id / price` — factor 欄位丟掉，後續 sections 用 `factorlib.factors` 的 generator 從價格重算動量/波動度等真正的候選因子。\n"
+        "再產一份 100 資產 × 500 日的合成 panel，但只留 canonical `date / asset_id / price` — factor 欄位丟掉，後續 sections 用 `factrix.factors` 的 generator 從價格重算動量/波動度等真正的候選因子。\n"
         "要換成真實資料只要把下面那行 `raw_demo = ...` 改成 `fl.adapt(your_df, date=..., asset_id=..., price=...)` 即可。"
     ),
     code(
@@ -104,7 +104,7 @@ CELLS: list[dict] = [
         "\n"
         "`fl.describe_factor_types()` 印出所有註冊的 factor_type 與用途；\n"
         "`fl.describe_profile(<type>)` 反射對應 Profile dataclass 的欄位、canonical p 與方法。\n"
-        "這兩個是「不用開檔就知道 factorlib 現在長什麼樣」的入口。"
+        "這兩個是「不用開檔就知道 factrix 現在長什麼樣」的入口。"
     ),
     code(
         "fl.describe_factor_types()\n"
@@ -121,10 +121,10 @@ CELLS: list[dict] = [
         "訊號型態：每期每資產有連續值。典型用法 = 動量 / 價值 / 規模。\n"
         "Canonical test: `ic_p`（IC 非重疊 t-test）。"
     ),
-    md("### 3.1 Build factor（用 factorlib 內建 generator）"),
+    md("### 3.1 Build factor（用 factrix 內建 generator）"),
     code(
-        "from factorlib.factors import generate_momentum, generate_momentum_60d\n"
-        "from factorlib.factors.volatility import generate_volatility\n"
+        "from factrix.factors import generate_momentum, generate_momentum_60d\n"
+        "from factrix.factors.volatility import generate_volatility\n"
         "\n"
         "mom20 = generate_momentum(raw_demo, lookback=20)\n"
         "print('columns:', mom20.columns)\n"
@@ -196,7 +196,7 @@ CELLS: list[dict] = [
         "print('sweep n_groups=3:', f_10d.quantile_spread(n_groups=3).value)"
     ),
     md(
-        "> **逃生艙**：`factorlib.metrics.*` 的 primitive function（`compute_ic`、`ic(ic_series)`、`quantile_spread(prepared, ...)`）仍然公開，給 library author 寫 unit test 或 custom pipeline 用。一般使用者不用碰 — session method 已經把 input signature 整平了。"
+        "> **逃生艙**：`factrix.metrics.*` 的 primitive function（`compute_ic`、`ic(ic_series)`、`quantile_spread(prepared, ...)`）仍然公開，給 library author 寫 unit test 或 custom pipeline 用。一般使用者不用碰 — session method 已經把 input signature 整平了。"
     ),
     md(
         "### 3.5 Level 3 — `evaluate_batch` + BHY + rank + top\n"
@@ -249,13 +249,13 @@ CELLS: list[dict] = [
         "redund"
     ),
     md(
-        "### 3.7 Level 5 — Charts (optional dep: `factorlib[charts]`)\n"
+        "### 3.7 Level 5 — Charts (optional dep: `factrix[charts]`)\n"
         "\n"
         "`build_artifacts` 保留中間結果（IC series / spread series / quantile group returns…），\n"
         "丟進 `report_charts` 產 plotly 圖。未安裝 `plotly` 會 raise ImportError — 此處 try/except 包起來。"
     ),
     code(
-        "from factorlib.evaluation.pipeline import build_artifacts\n"
+        "from factrix.evaluation.pipeline import build_artifacts\n"
         "\n"
         "prepared = fl.preprocess(mom20, config=fl.CrossSectionalConfig())\n"
         "artifacts = build_artifacts(prepared, fl.CrossSectionalConfig())\n"
@@ -263,16 +263,16 @@ CELLS: list[dict] = [
         "print('artifacts.intermediates keys:', sorted(artifacts.intermediates.keys()))\n"
         "\n"
         "try:\n"
-        "    from factorlib.charts import report_charts\n"
+        "    from factrix.charts import report_charts\n"
         "    figs = report_charts(artifacts)\n"
         "    print(f'produced {len(figs)} figures:', list(figs)[:5])\n"
         "    # 在 notebook 直接顯示第一張\n"
         "    next(iter(figs.values())).show()\n"
         "except ImportError as e:\n"
-        "    print('charts skipped — install with `pip install factorlib[charts]`:', e)"
+        "    print('charts skipped — install with `pip install factrix[charts]`:', e)"
     ),
     md(
-        "### 3.8 Level 6 — MLflow tracking (optional dep: `factorlib[mlflow]`)\n"
+        "### 3.8 Level 6 — MLflow tracking (optional dep: `factrix[mlflow]`)\n"
         "\n"
         "`on_result` callback 在 `evaluate_batch` 的每個因子算完後觸發，\n"
         "可用來 log profile 到 MLflow experiment。這裡只示範寫法，不實跑（避免副作用）。"
@@ -280,7 +280,7 @@ CELLS: list[dict] = [
     code(
         "# 不實跑 — 只展示 API 形狀\n"
         "demo = '''\n"
-        "from factorlib.integrations.mlflow import FactorTracker\n"
+        "from factrix.integrations.mlflow import FactorTracker\n"
         "\n"
         "tracker = FactorTracker('Factor_Zoo')\n"
         "ps = fl.evaluate_batch(\n"

@@ -1,4 +1,4 @@
-"""Tests for factorlib.datasets — synthetic panels with calibrated IC."""
+"""Tests for factrix.datasets — synthetic panels with calibrated IC."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib import datasets
+import factrix as fl
+from factrix import datasets
 
 
 class TestMakeCsPanelSchema:

@@ -9,11 +9,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib._types import FactorType
-from factorlib.config import EventConfig
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import EventProfile
-from factorlib.evaluation.profiles._base import _PROFILE_REGISTRY
+from factrix._types import FactorType
+from factrix.config import EventConfig
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import EventProfile
+from factrix.evaluation.profiles._base import _PROFILE_REGISTRY
 
 
 def _event_panel(n_dates: int, n_assets: int, seed: int) -> pl.DataFrame:
@@ -80,8 +80,8 @@ class TestFromArtifacts:
         assert isinstance(event_profile_strong.diagnose(), list)
 
     def test_wrong_config_raises(self):
-        from factorlib.config import CrossSectionalConfig
-        from factorlib.evaluation._protocol import Artifacts
+        from factrix.config import CrossSectionalConfig
+        from factrix.evaluation._protocol import Artifacts
         bad = Artifacts(prepared=pl.DataFrame(), config=CrossSectionalConfig())
         with pytest.raises(TypeError, match="expects EventConfig"):
             EventProfile.from_artifacts(bad)
@@ -140,7 +140,7 @@ class TestCoverageSummary:
 
     def test_cs_coverage_records_drops(self):
         """CS: compute_ic drops dates with per-date N < MIN_IC_PERIODS."""
-        from factorlib.config import CrossSectionalConfig
+        from factrix.config import CrossSectionalConfig
 
         # 20 dates where every date has only 5 assets (below MIN_IC_PERIODS=10
         # for IC) but 6 assets global; max_per_date=5 >= 2 passes N guard
@@ -160,7 +160,7 @@ class TestCoverageSummary:
                     "factor": float(rng.standard_normal()),
                 })
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        from factorlib.preprocess.pipeline import preprocess_cs_factor
+        from factrix.preprocess.pipeline import preprocess_cs_factor
         prepared = preprocess_cs_factor(df, config=CrossSectionalConfig())
         art = build_artifacts(prepared, CrossSectionalConfig())
         cov = art.get("coverage")
@@ -176,7 +176,7 @@ class TestCoverageSummary:
 
     def test_macro_common_coverage_records_skipped_assets(self):
         """MC: compute_ts_betas skips assets with T < MIN_TS_OBS=20."""
-        from factorlib.config import MacroCommonConfig
+        from factrix.config import MacroCommonConfig
 
         rng = np.random.default_rng(702)
         # 5 assets with full T=40, 3 assets with T=10 (below MIN_TS_OBS)

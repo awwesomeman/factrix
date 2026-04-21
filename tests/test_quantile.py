@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.quantile."""
+"""Tests for factrix.metrics.quantile."""
 
 import math
 from datetime import datetime, timedelta
@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.metrics.quantile import (
+from factrix.metrics.quantile import (
     compute_spread_series,
     quantile_spread,
     quantile_spread_vw,

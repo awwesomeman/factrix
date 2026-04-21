@@ -1,4 +1,4 @@
-"""Tests for factorlib.adapt."""
+"""Tests for factrix.adapt."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import datetime
 import polars as pl
 import pytest
 
-from factorlib.adapt import adapt
+from factrix.adapt import adapt
 
 
 def _raw_panel() -> pl.DataFrame:

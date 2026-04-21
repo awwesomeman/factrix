@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.caar — CAAR, BMP, event_hit_rate, event_ic."""
+"""Tests for factrix.metrics.caar — CAAR, BMP, event_hit_rate, event_ic."""
 
 import math
 from datetime import datetime, timedelta
@@ -7,13 +7,13 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.metrics.caar import (
+from factrix.metrics.caar import (
     compute_caar,
     caar,
     bmp_test,
 )
-from factorlib.metrics.event_quality import event_hit_rate, event_ic
-from factorlib._types import MIN_EVENTS
+from factrix.metrics.event_quality import event_hit_rate, event_ic
+from factrix._types import MIN_EVENTS
 
 
 # ---------------------------------------------------------------------------
@@ -268,5 +268,5 @@ class TestEventIc:
         assert math.isnan(result.value)
 
     def test_standalone_import(self):
-        from factorlib.metrics import event_ic as eic
+        from factrix.metrics import event_ic as eic
         assert callable(eic)

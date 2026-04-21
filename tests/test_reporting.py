@@ -1,4 +1,4 @@
-"""Smoke + contract tests for ``factorlib.reporting.describe_profile_values``.
+"""Smoke + contract tests for ``factrix.reporting.describe_profile_values``.
 
 The renderer is Profile-driven: no ``Artifacts`` handle required, and
 every non-None dataclass field appears as a row. L2 opt-in summary
@@ -12,15 +12,15 @@ from dataclasses import fields
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib.evaluation.profiles import (
+import factrix as fl
+from factrix.evaluation.profiles import (
     CrossSectionalProfile,
     EventProfile,
     MacroCommonProfile,
     MacroPanelProfile,
 )
-from factorlib.reporting import describe_profile_values
-from factorlib.reporting import _SKIP_FIELDS  # internal, used to assert contract
+from factrix.reporting import describe_profile_values
+from factrix.reporting import _SKIP_FIELDS  # internal, used to assert contract
 
 from tests.conftest import _cs_panel
 
@@ -110,8 +110,8 @@ class TestAllProfileTypes:
 
     def test_event_renders(self, capsys):
         from tests.profiles.test_event_profile import _event_panel
-        from factorlib.config import EventConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import EventConfig
+        from factrix.evaluation.pipeline import build_artifacts
         df = _event_panel(n_dates=100, n_assets=25, seed=13)
         art = build_artifacts(df, EventConfig())
         art.factor_name = "ev_render"
@@ -122,8 +122,8 @@ class TestAllProfileTypes:
 
     def test_macro_panel_renders(self, capsys):
         from tests.conftest import make_macro_panel
-        from factorlib.config import MacroPanelConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import MacroPanelConfig
+        from factrix.evaluation.pipeline import build_artifacts
         df = make_macro_panel(n_dates=100, n_countries=20, signal=0.3, seed=17)
         art = build_artifacts(df, MacroPanelConfig())
         art.factor_name = "mp_render"
@@ -134,8 +134,8 @@ class TestAllProfileTypes:
 
     def test_macro_common_renders(self, capsys):
         from tests.profiles.test_macro_common_profile import _macro_common
-        from factorlib.config import MacroCommonConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import MacroCommonConfig
+        from factrix.evaluation.pipeline import build_artifacts
         df = _macro_common(n_dates=100, n_assets=5, signal=0.3, seed=19)
         art = build_artifacts(df, MacroCommonConfig())
         art.factor_name = "mc_render"
@@ -152,8 +152,8 @@ class TestDiagnosticSummary:
 
     def test_single_asset_macro_common_shows_diagnostic_hint(self, capsys):
         from tests.profiles.test_macro_common_profile import _macro_common
-        from factorlib.config import MacroCommonConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import MacroCommonConfig
+        from factrix.evaluation.pipeline import build_artifacts
         # N=1 → macro_common.single_asset (info) fires
         df = _macro_common(n_dates=120, n_assets=1, signal=0.5, seed=321)
         art = build_artifacts(df, MacroCommonConfig(ts_window=40))
@@ -169,8 +169,8 @@ class TestDiagnosticSummary:
         """When diagnose() returns [], describe_profile_values emits no
         'Diagnostics:' line — noiseless fast path for the clean case."""
         from tests.profiles.test_macro_common_profile import _macro_common
-        from factorlib.config import MacroCommonConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import MacroCommonConfig
+        from factrix.evaluation.pipeline import build_artifacts
 
         df = _macro_common(n_dates=120, n_assets=5, signal=0.3, seed=19)
         art = build_artifacts(df, MacroCommonConfig())
@@ -184,10 +184,10 @@ class TestDiagnosticSummary:
 
     def test_hint_orders_severity_veto_warn_info(self, capsys, monkeypatch):
         """Hint ordering is deterministic: veto > warn > info for quick scan."""
-        from factorlib._types import Diagnostic
+        from factrix._types import Diagnostic
         from tests.profiles.test_macro_common_profile import _macro_common
-        from factorlib.config import MacroCommonConfig
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.config import MacroCommonConfig
+        from factrix.evaluation.pipeline import build_artifacts
 
         df = _macro_common(n_dates=120, n_assets=5, signal=0.3, seed=23)
         art = build_artifacts(df, MacroCommonConfig())

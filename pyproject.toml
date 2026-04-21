@@ -1,33 +1,54 @@
 [project]
-name = "factorlib"
+name = "factrix"
 version = "0.1.0"
 description = "Quantitative factor evaluation framework for AI-driven factor mining"
 requires-python = ">=3.12"
 dependencies = [
     "polars>=1.38",
     "numpy>=2.0",
+    "scipy>=1.13",
     "pandera>=0.29",
 ]
 
 [project.optional-dependencies]
 charts = ["plotly>=6.0"]
 mlflow = ["mlflow>=3.10"]
-all = ["plotly>=6.0", "mlflow>=3.10"]
-dev = [
-    "pytest>=9.0",
-    "pytest-cov>=7.0",
+jupyter = [
+    "jupyter>=1.0.0",
+    "jupyterlab>=3.4.0",
+    "ipywidgets>=7.7.0",
     "nbformat>=4.2.0",
-    "nbconvert>=7.17.1",
 ]
+dev = [
+    "pytest==8.3.3",
+    "pytest-cov==6.1.1",
+    "pytest-mock==3.14.0",
+    "pre-commit>=4.5.1",
+    "ruff>=0.14.10",
+    "commitizen>=4.10.1",
+    "mypy>=1.0.0",
+    "build",
+    "twine",
+]
+all = ["factrix[charts,mlflow,jupyter]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 
 [tool.setuptools.packages.find]
-include = ["factorlib*"]
+include = ["factrix*"]
 namespaces = false
 
 [build-system]
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.1.0"
+version_files = [
+    "pyproject.toml:version",
+    "factrix/__init__.py:__version__"
+]
+

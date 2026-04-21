@@ -12,7 +12,7 @@ Covers four correctness fixes:
   (``fl.evaluate_batch(..., compact=True)``) so the trace points at the
   fix, not at the sentinel internals.
 
-These guards all exist because ``factorlib``'s north star prioritizes
+These guards all exist because ``factrix``'s north star prioritizes
 statistical correctness (U4) over convenience: a silently-overridden
 ``forward_periods`` poisons every downstream metric, and a silent
 ``factor_type`` mismatch lets BHY batch two incompatible test families.
@@ -23,14 +23,14 @@ from __future__ import annotations
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib.config import (
+import factrix as fl
+from factrix.config import (
     CrossSectionalConfig,
     EventConfig,
     MacroPanelConfig,
     MacroCommonConfig,
 )
-from factorlib.preprocess.pipeline import preprocess_cs_factor
+from factrix.preprocess.pipeline import preprocess_cs_factor
 
 from tests.conftest import _cs_panel
 
@@ -148,21 +148,21 @@ class TestPublicExportSurface:
     reach for ``fl.factor()`` factory, not construct the base directly."""
 
     def test_factor_base_not_in_all(self):
-        import factorlib as fl
+        import factrix as fl
         assert "Factor" not in fl.__all__, (
             "Factor base is intentionally excluded — use fl.factor() factory. "
-            "Import from factorlib.factor directly if you need it for type hints."
+            "Import from factrix.factor directly if you need it for type hints."
         )
 
     def test_factor_factory_and_subclasses_are_in_all(self):
-        import factorlib as fl
+        import factrix as fl
         for name in ("factor", "CrossSectionalFactor", "EventFactor",
                      "MacroPanelFactor", "MacroCommonFactor"):
             assert name in fl.__all__, f"{name} missing from fl.__all__"
 
     def test_factor_base_still_importable_for_type_hints(self):
         # Not in __all__ but still reachable from the submodule.
-        from factorlib.factor import Factor
+        from factrix.factor import Factor
         assert Factor.__name__ == "Factor"
 
 
@@ -299,7 +299,7 @@ class TestSingleAssetFactorTypeMismatch:
         prepared_like = pl.DataFrame(rows).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        from factorlib.evaluation.pipeline import build_artifacts
+        from factrix.evaluation.pipeline import build_artifacts
         with pytest.raises(
             ValueError,
             match=r"(?s)cross_sectional expects a multi-asset panel",
@@ -368,11 +368,11 @@ class TestSingleAssetFactorTypeMismatch:
 
 class TestCompactedErrorAttribution:
     def test_attr_error_names_evaluate_batch_compact(self):
-        from factorlib.evaluation._protocol import _COMPACTED_PREPARED
+        from factrix.evaluation._protocol import _COMPACTED_PREPARED
         with pytest.raises(RuntimeError, match=r"evaluate_batch\(.*compact=True"):
             _COMPACTED_PREPARED.columns
 
     def test_bool_error_names_evaluate_batch_compact(self):
-        from factorlib.evaluation._protocol import _COMPACTED_PREPARED
+        from factrix.evaluation._protocol import _COMPACTED_PREPARED
         with pytest.raises(RuntimeError, match=r"evaluate_batch\(.*compact=True"):
             bool(_COMPACTED_PREPARED)

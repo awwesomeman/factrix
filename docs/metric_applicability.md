@@ -1,8 +1,8 @@
-# factorlib 指標適用範圍 & Fallback 對照
+# factrix 指標適用範圍 & Fallback 對照
 
 逐 Profile 欄位列 **N（資產數）** / **T（時序長度）** 下限，以及不達門檻時的實際行為。方便使用者在決定 data shape 時先查表、debug 看到 `NaN` 欄位時先對照。
 
-> 本文職責：逐 Profile 欄位的 **N/T 門檻**與**不達門檻時的 fallback 語意**。**精確公式**不在這裡 — 請讀對應 `.py` module 的 docstring（`help(factorlib.metrics.<name>)`）；論文依據請看 `statistical_methods.md`。文件整體分工見 [README.md](../README.md)。
+> 本文職責：逐 Profile 欄位的 **N/T 門檻**與**不達門檻時的 fallback 語意**。**精確公式**不在這裡 — 請讀對應 `.py` module 的 docstring（`help(factrix.metrics.<name>)`）；論文依據請看 `statistical_methods.md`。文件整體分工見 [README.md](../README.md)。
 >
 > **Authoritative source 仍是 code**（`metadata["reason"]`、metric 模組 docstring）。本表為使用者便捷參考，可能漂移；若有疑義以 `metadata["reason"]` 為準，或 `git blame` 對應 `MIN_*` 常數定義。
 
@@ -10,7 +10,7 @@
 
 ## 術語定義
 
-本文和 README 用以下術語描述 factorlib 對非典型輸入的反應；語意有嚴格區分：
+本文和 README 用以下術語描述 factrix 對非典型輸入的反應；語意有嚴格區分：
 
 | 術語 | 定義 | 典型場景 | 通知管道 |
 |---|---|---|---|
@@ -34,14 +34,14 @@
 
 談「樣本夠不夠」要先分清楚三種數量，不同 factor_type 的 canonical test 看到的「有效樣本」是不同組合：
 
-| 維度 | 符號 | 意義 | factorlib 欄位 |
+| 維度 | 符號 | 意義 | factrix 欄位 |
 |---|---|---|---|
 | 資產數 | **N** | 每個 date 截面上有多少 asset | `asset_id` 的 unique 數 |
 | 時序長度 | **T** | 總共有多少個 date | `date` 的 unique 數 |
 | 事件數 | **K** | 稀疏事件類 factor 的非零觸發數 | `filter(factor != 0).height` |
 | 非重疊時序 | **T/h** | T 除以 `forward_periods=h`，避免 overlap 重複計入 | `_sample_non_overlapping` 內部 |
 
-**時間顆粒**（daily / weekly / monthly bar）不直接影響 factorlib 的統計閾值 — 在 factorlib 裡，`forward_periods` 是**行數**，不是日曆時間。週頻 panel 寫 `forward_periods=1` 就是 1 週前瞻報酬。但時間顆粒會透過 **T 的大小**和 **重疊結構**間接影響：日頻 1 年 ≈ T=250；月頻 10 年 ≈ T=120；同一個 MIN_IC_PERIODS=10 在兩者下意義不同（日頻容易滿、月頻需要多年歷史）。
+**時間顆粒**（daily / weekly / monthly bar）不直接影響 factrix 的統計閾值 — 在 factrix 裡，`forward_periods` 是**行數**，不是日曆時間。週頻 panel 寫 `forward_periods=1` 就是 1 週前瞻報酬。但時間顆粒會透過 **T 的大小**和 **重疊結構**間接影響：日頻 1 年 ≈ T=250；月頻 10 年 ≈ T=120；同一個 MIN_IC_PERIODS=10 在兩者下意義不同（日頻容易滿、月頻需要多年歷史）。
 
 ### 各 factor_type 的 canonical test 實際看什麼樣本
 
@@ -73,7 +73,7 @@
 | `macro_common` (N=1) | 1 | ≥ 24 | ≥ 24 | 保守 verdict，改看 tstat |
 | `event_signal` 勉強 | 任意 | — | K ≥ 10（K 才是關鍵）| 事件可跨 N 或跨 T 累積 |
 
-**這些 rule of thumb 不是硬閾值** — factorlib 不會在 N=29 時 raise，但你自己要知道 CI 會很寬。
+**這些 rule of thumb 不是硬閾值** — factrix 不會在 N=29 時 raise，但你自己要知道 CI 會很寬。
 
 ---
 
@@ -88,7 +88,7 @@
 
 ### Fallback 通知管道對照
 
-factorlib 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metadata` / 讀 Artifacts），不主動 `warnings.warn`。這和 `verdict()` + `diagnose()` 的整體哲學一致 — framework 偵測、user 決定。
+factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metadata` / 讀 Artifacts），不主動 `warnings.warn`。這和 `verdict()` + `diagnose()` 的整體哲學一致 — framework 偵測、user 決定。
 
 | Fallback 類型 | 通知管道 | 如何取用 |
 |---|---|---|
@@ -110,17 +110,17 @@ factorlib 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `met
 
 ## 閾值常數
 
-常數定義散落兩處：通用門檻在 `factorlib/_types.py`；metric-specific 門檻在各 metric 模組。下表右欄標明每個常數的實際定義位置 — 以 code 為 authoritative。
+常數定義散落兩處：通用門檻在 `factrix/_types.py`；metric-specific 門檻在各 metric 模組。下表右欄標明每個常數的實際定義位置 — 以 code 為 authoritative。
 
 | 常數 | 值 | 意義 | 定義位置 |
 |---|---|---|---|
-| `MIN_IC_PERIODS` | 10 | IC 時序 t-test 的最小非重疊期數 | `factorlib/_types.py` |
-| `MIN_EVENTS` | 10 | CAAR / BMP / Corrado 最小事件數 | `factorlib/_types.py` |
-| `MIN_OOS_PERIODS` | 5 | OOS decay 每 split 最小期數 | `factorlib/_types.py` |
-| `MIN_PORTFOLIO_PERIODS` | 5 | quantile_spread 時序最小期數 | `factorlib/_types.py` |
-| `MIN_MONOTONICITY_PERIODS` | 5 | monotonicity 最小期數 | `factorlib/_types.py` |
-| `MIN_FM_PERIODS` | 20 | Fama-MacBeth λ 序列最小期數 | `factorlib/metrics/fama_macbeth.py` |
-| `MIN_TS_OBS` | 20 | per-asset TS regression 最小觀測數 | `factorlib/metrics/ts_beta.py` |
+| `MIN_IC_PERIODS` | 10 | IC 時序 t-test 的最小非重疊期數 | `factrix/_types.py` |
+| `MIN_EVENTS` | 10 | CAAR / BMP / Corrado 最小事件數 | `factrix/_types.py` |
+| `MIN_OOS_PERIODS` | 5 | OOS decay 每 split 最小期數 | `factrix/_types.py` |
+| `MIN_PORTFOLIO_PERIODS` | 5 | quantile_spread 時序最小期數 | `factrix/_types.py` |
+| `MIN_MONOTONICITY_PERIODS` | 5 | monotonicity 最小期數 | `factrix/_types.py` |
+| `MIN_FM_PERIODS` | 20 | Fama-MacBeth λ 序列最小期數 | `factrix/metrics/fama_macbeth.py` |
+| `MIN_TS_OBS` | 20 | per-asset TS regression 最小觀測數 | `factrix/metrics/ts_beta.py` |
 
 ---
 
@@ -163,7 +163,7 @@ factorlib 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `met
 
 ### N=1 語意變化（要注意）
 - **CAAR 從「跨資產平均異常報酬」退化成「單資產時間平均異常報酬」** — 數值還是可算，但你失去了「事件在不同資產上表現一致」這層證據
-- 單資產下，同一 asset 不同時點的事件常有自相關（例：earnings pre-announcement leak）— 這層風險目前 factorlib 不檢測
+- 單資產下，同一 asset 不同時點的事件常有自相關（例：earnings pre-announcement leak）— 這層風險目前 factrix 不檢測
 
 ---
 
@@ -206,7 +206,7 @@ factorlib 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `met
 3. `ts_beta_tstat` 欄位仍保留實際 t-stat 值 — 供使用者自己讀
 4. `diagnose()` 發出 `macro_common.single_asset` info 提示退化路徑
 
-**SE 警示**：`ts_beta_tstat` 的分母是 plain OLS SE，**對報酬的 autocorrelation 和 heteroskedasticity 沒有防禦**。嚴格推論（尤其單序列 vol clustering 明顯時）建議外接 `arch` package 跑 GARCH-adjusted SE 或 wild bootstrap。factorlib 內部不內建 HAC 修正 — Stambaugh bias 的根源是 predictor persistence，HAC 只修 SE 不修 bias，內建會給使用者 false confidence。
+**SE 警示**：`ts_beta_tstat` 的分母是 plain OLS SE，**對報酬的 autocorrelation 和 heteroskedasticity 沒有防禦**。嚴格推論（尤其單序列 vol clustering 明顯時）建議外接 `arch` package 跑 GARCH-adjusted SE 或 wild bootstrap。factrix 內部不內建 HAC 修正 — Stambaugh bias 的根源是 predictor persistence，HAC 只修 SE 不修 bias，內建會給使用者 false confidence。
 
 **使用者心態建議**：
 - 別用 `verdict() == "PASS"` 判斷 — 永遠會 FAILED

@@ -21,11 +21,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.config import CrossSectionalConfig
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import CrossSectionalProfile
-from factorlib.evaluation.profiles._base import _verdict_from_p
-from factorlib._stats import _p_value_from_t
+from factrix.config import CrossSectionalConfig
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import CrossSectionalProfile
+from factrix.evaluation.profiles._base import _verdict_from_p
+from factrix._stats import _p_value_from_t
 
 
 def _panel(n_dates: int, n_assets: int, signal: float, seed: int) -> pl.DataFrame:

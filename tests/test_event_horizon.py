@@ -1,4 +1,4 @@
-"""Tests for factorlib.metrics.event_horizon and signal_density."""
+"""Tests for factrix.metrics.event_horizon and signal_density."""
 
 import math
 from datetime import datetime, timedelta
@@ -7,12 +7,12 @@ import numpy as np
 import polars as pl
 import pytest
 
-from factorlib.metrics.event_horizon import (
+from factrix.metrics.event_horizon import (
     compute_event_returns,
     event_around_return,
     multi_horizon_hit_rate,
 )
-from factorlib.metrics.event_quality import signal_density
+from factrix.metrics.event_quality import signal_density
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ class TestSignalDensity:
 
 class TestImports:
     def test_all_importable(self):
-        from factorlib.metrics import (
+        from factrix.metrics import (
             compute_event_returns, event_around_return,
             multi_horizon_hit_rate, signal_density,
         )

@@ -1,10 +1,10 @@
-"""Tests for factorlib.metrics.concentration."""
+"""Tests for factrix.metrics.concentration."""
 
 import polars as pl
 import pytest
 from datetime import datetime, timedelta
 
-from factorlib.metrics.concentration import top_concentration
+from factrix.metrics.concentration import top_concentration
 
 
 class TestQ1Concentration:

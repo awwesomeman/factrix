@@ -20,8 +20,8 @@ from typing import ClassVar, Self
 
 import pytest
 
-from factorlib._types import Diagnostic, FactorType, PValue, Verdict
-from factorlib.evaluation.profiles._base import (
+from factrix._types import Diagnostic, FactorType, PValue, Verdict
+from factrix.evaluation.profiles._base import (
     _PROFILE_REGISTRY,
     register_profile,
 )

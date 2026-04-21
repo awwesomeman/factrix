@@ -7,11 +7,11 @@ from dataclasses import fields as dc_fields
 import polars as pl
 import pytest
 
-from factorlib._types import FactorType
-from factorlib.config import MacroPanelConfig
-from factorlib.evaluation.pipeline import build_artifacts
-from factorlib.evaluation.profiles import MacroPanelProfile
-from factorlib.evaluation.profiles._base import _PROFILE_REGISTRY
+from factrix._types import FactorType
+from factrix.config import MacroPanelConfig
+from factrix.evaluation.pipeline import build_artifacts
+from factrix.evaluation.profiles import MacroPanelProfile
+from factrix.evaluation.profiles._base import _PROFILE_REGISTRY
 
 from tests.conftest import make_macro_panel
 
@@ -57,8 +57,8 @@ class TestFromArtifacts:
         assert isinstance(macro_panel_strong.pooled_beta, float)
 
     def test_wrong_config_raises(self):
-        from factorlib.config import CrossSectionalConfig
-        from factorlib.evaluation._protocol import Artifacts
+        from factrix.config import CrossSectionalConfig
+        from factrix.evaluation._protocol import Artifacts
         bad = Artifacts(prepared=pl.DataFrame(), config=CrossSectionalConfig())
         with pytest.raises(TypeError, match="expects MacroPanelConfig"):
             MacroPanelProfile.from_artifacts(bad)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from factorlib._stats import _adf, _adf_pvalue_interp
+from factrix._stats import _adf, _adf_pvalue_interp
 
 
 @pytest.fixture
@@ -64,9 +64,9 @@ def test_macro_common_factor_persistent_rule_fires(rng):
 
     import polars as pl
 
-    from factorlib.config import MacroCommonConfig
-    from factorlib.evaluation.pipeline import build_artifacts
-    from factorlib.evaluation.profiles import MacroCommonProfile
+    from factrix.config import MacroCommonConfig
+    from factrix.evaluation.pipeline import build_artifacts
+    from factrix.evaluation.profiles import MacroCommonProfile
 
     n_dates = 300
     factor_ts = np.cumsum(rng.standard_normal(n_dates))
@@ -100,9 +100,9 @@ def test_macro_common_stationary_factor_does_not_flag(rng):
 
     import polars as pl
 
-    from factorlib.config import MacroCommonConfig
-    from factorlib.evaluation.pipeline import build_artifacts
-    from factorlib.evaluation.profiles import MacroCommonProfile
+    from factrix.config import MacroCommonConfig
+    from factrix.evaluation.pipeline import build_artifacts
+    from factrix.evaluation.profiles import MacroCommonProfile
 
     n_dates = 300
     factor_ts = rng.standard_normal(n_dates)

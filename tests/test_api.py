@@ -8,8 +8,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-import factorlib as fl
-from factorlib.evaluation.profiles import (
+import factrix as fl
+from factrix.evaluation.profiles import (
     CrossSectionalProfile,
     EventProfile,
 )
@@ -47,7 +47,7 @@ class TestListFactorTypes:
         assert "event_signal" in types
 
     def test_all_registered_appear(self):
-        from factorlib.evaluation.profiles import _PROFILE_REGISTRY
+        from factrix.evaluation.profiles import _PROFILE_REGISTRY
         types = set(fl.list_factor_types())
         assert types == {ft.value for ft in _PROFILE_REGISTRY}
 
@@ -112,7 +112,7 @@ class TestEvaluate:
         assert isinstance(profile, CrossSectionalProfile)
 
     def test_return_artifacts_returns_tuple(self):
-        from factorlib.evaluation._protocol import Artifacts
+        from factrix.evaluation._protocol import Artifacts
 
         df = _panel_with_price(60, 30, 0.3, 104)
         result = fl.evaluate(
@@ -161,7 +161,7 @@ class TestEvaluateBatch:
             )
 
     def test_keep_artifacts_returns_tuple_with_dict(self):
-        from factorlib.evaluation._protocol import Artifacts
+        from factrix.evaluation._protocol import Artifacts
 
         factors = {
             "a": _panel_with_price(60, 30, 0.3, 230),

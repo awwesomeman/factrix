@@ -1,9 +1,9 @@
-"""Tests for factorlib.metrics.oos."""
+"""Tests for factrix.metrics.oos."""
 
 import math
 import pytest
 
-from factorlib.metrics.oos import SplitDetail, multi_split_oos_decay
+from factrix.metrics.oos import SplitDetail, multi_split_oos_decay
 
 
 class TestMultiSplitOOSDecay:
@@ -74,7 +74,7 @@ class TestMultiSplitOOSDecay:
 
     def test_returns_metric_output(self, ic_series_positive):
         """Single-contract check: oos_decay returns MetricOutput, not OOSResult."""
-        from factorlib._types import MetricOutput
+        from factrix._types import MetricOutput
         result = multi_split_oos_decay(ic_series_positive)
         assert isinstance(result, MetricOutput)
         assert result.name == "oos_decay"
