@@ -7,18 +7,18 @@ dependencies = [
     "polars>=1.38",
     "numpy>=2.0",
     "pandera>=0.29",
-    "mlflow>=3.10",
-    "streamlit>=1.55",
-    "plotly>=6.0",
-    "watchdog==6.0.0",
-    "nbformat>=4.2.0",
 ]
 
-[project.scripts]
-factor-lab = "factorlib.integrations.streamlit.app:main"
-
 [project.optional-dependencies]
-dev = ["pytest>=9.0", "pytest-cov>=7.0"]
+charts = ["plotly>=6.0"]
+mlflow = ["mlflow>=3.10"]
+all = ["plotly>=6.0", "mlflow>=3.10"]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "nbformat>=4.2.0",
+    "nbconvert>=7.17.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -31,8 +31,3 @@ namespaces = false
 [build-system]
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
-
-[dependency-groups]
-dev = [
-    "nbconvert>=7.17.1",
-]

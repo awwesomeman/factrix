@@ -193,8 +193,7 @@ factorlib/
 ├── charts/                   # quantile, monotonicity (plotly)
 ├── factors/                  # reference factor library (Mom, Rev, Vol, …)
 └── integrations/
-    ├── mlflow.py             # run.log_factorlib_artifacts helper
-    └── streamlit/            # factor-lab dashboard (`factor-lab` CLI entry)
+    └── mlflow.py             # run.log_factorlib_artifacts helper
 ```
 
 ---
