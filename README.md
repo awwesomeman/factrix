@@ -93,7 +93,7 @@ print(profile.verdict(), '| ic_mean =', round(profile.ic_mean, 4))
 | Type | 訊號型態 | 典型用法 | Canonical test |
 |------|---------|----------|----------------|
 | `cross_sectional` | 每期每資產連續值 | momentum / value / size | IC 非重疊 t-test |
-| `event_signal` | 離散觸發 `{-1, 0, +1}` | 盈餘公告、黃金交叉 | CAAR 非重疊 t-test |
+| `event_signal` | 稀疏有號觸發（`0` = 無事件；非零為事件，`sign()` 決定方向，magnitude 可選） | 盈餘公告、黃金交叉、分級訊號強度 | CAAR 非重疊 t-test |
 | `macro_panel` | 連續值、小截面 N<30 | 跨國 CPI、利差配置 | Fama-MacBeth Newey-West |
 | `macro_common` | 單一時序、全資產共用 | VIX、黃金、USD index | 截面 t-test on per-asset TS β |
 
