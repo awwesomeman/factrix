@@ -129,6 +129,20 @@ gh pr merge --squash
 - 禁用 AI co-author 署名、emoji、句末句號
 - 透過 `cz commit -- -s` 中的 `-s` 來附加 Signed-off-by
 
+#### 變更 `Signed-off-by` 簽名名稱與信箱
+
+`git commit -s` 生成的簽名是讀取 Git 環境設定中的 `user.name` 和 `user.email` 欄位。如果你需要更改簽名，請執行以下指令：
+
+```bash
+# 僅限當前專案生效
+git config user.name "你的新名字"
+git config user.email "你的新信箱@example.com"
+
+# 全域設定 (所有專案預設生效)
+git config --global user.name "你的新名字"
+git config --global user.email "你的新信箱@example.com"
+```
+
 ---
 
 ## 4. Mode B 的三個關鍵陷阱
