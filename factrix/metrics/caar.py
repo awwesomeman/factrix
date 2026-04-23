@@ -16,7 +16,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._types import DDOF, EPSILON, MIN_EVENTS, KPSource, MetricOutput
+from factrix._types import DDOF, EPSILON, KPSource, MIN_EVENTS, MetricOutput
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
