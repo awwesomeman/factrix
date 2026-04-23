@@ -48,6 +48,8 @@ build-backend = "setuptools.build_meta"
 name = "cz_conventional_commits"
 version = "0.3.0"
 tag_format = "v$version"
+bump_message = "chore(release): v$new_version"
+changelog_incremental = true
 major_version_zero = true
 version_files = [
     "pyproject.toml:version",
