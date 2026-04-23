@@ -19,6 +19,7 @@ from __future__ import annotations
 import dataclasses
 import types
 import typing
+import warnings
 from typing import TYPE_CHECKING, Callable, Generic, Iterable, Iterator, Literal, TypeVar
 
 import numpy as np
@@ -57,12 +58,18 @@ class ProfileSet(Generic[P]):
     without special-casing.
     """
 
-    __slots__ = ("_profiles", "_df", "_profile_cls", "_canonical_override")
+    __slots__ = (
+        "_profiles", "_df", "_profile_cls", "_canonical_override",
+        "_warned_uncorrected",
+    )
 
     _profiles: tuple[P, ...]
     _df: pl.DataFrame
     _profile_cls: type[P]
     _canonical_override: str | None
+    # Sticky one-shot flag so a chain like `ps.filter(...).rank_by(...)`
+    # warns once, not on every decision step.
+    _warned_uncorrected: bool
 
     # ------------------------------------------------------------------
     # Construction
@@ -104,6 +111,7 @@ class ProfileSet(Generic[P]):
         self._profile_cls = cls
         self._df = _profiles_to_df(plist, cls)
         self._canonical_override = None
+        self._warned_uncorrected = False
 
     @classmethod
     def _with_df(
@@ -112,6 +120,7 @@ class ProfileSet(Generic[P]):
         df: pl.DataFrame,
         profile_cls: type[P],
         canonical_override: str | None = None,
+        warned_uncorrected: bool = False,
     ) -> "ProfileSet[P]":
         """Internal constructor that preserves an existing df.
 
@@ -123,6 +132,7 @@ class ProfileSet(Generic[P]):
         obj._df = df
         obj._profile_cls = profile_cls
         obj._canonical_override = canonical_override
+        obj._warned_uncorrected = warned_uncorrected
         return obj
 
     # Sentinel for ``_derive`` — ``None`` is a legitimate override value
@@ -156,6 +166,7 @@ class ProfileSet(Generic[P]):
             self._df if df is None else df,
             self._profile_cls,
             resolved_override,
+            warned_uncorrected=self._warned_uncorrected,
         )
 
     # ------------------------------------------------------------------
@@ -205,8 +216,16 @@ class ProfileSet(Generic[P]):
 
         Accepts either a polars ``pl.Expr`` (preferred; vectorized) or a
         Python callable (escape hatch for logic polars cannot express).
+
+        When the Expr references a p-value column on a batch that has
+        not been through ``multiple_testing_correct()``, emits a one-shot
+        ``UserWarning`` — the Callable path does no such check (escape
+        hatch implies advanced caller).
         """
         if isinstance(predicate, pl.Expr):
+            self._check_uncorrected_p_decision(
+                predicate.meta.root_names(), op="filter",
+            )
             mask = self._mask_from_expr(predicate)
         elif callable(predicate):
             mask = [bool(predicate(p)) for p in self._profiles]
@@ -246,6 +265,52 @@ class ProfileSet(Generic[P]):
             )
         return mask_col.to_list()
 
+    def _check_uncorrected_p_decision(
+        self,
+        referenced: Iterable[str],
+        *,
+        op: str,
+    ) -> None:
+        """One-shot ``UserWarning`` on batch decisions over raw p-values.
+
+        Fires when ``filter`` / ``rank_by`` reference a column in
+        ``P_VALUE_FIELDS`` (or ``canonical_p``) on a set with
+        ``len >= 2`` that has not been through
+        ``multiple_testing_correct()``. Suppressed after one fire via
+        ``_warned_uncorrected`` (propagated through ``_derive``), so
+        ``ps.filter(p < 0.05).rank_by(p).top(n)`` warns once, not thrice.
+
+        Rationale: with K ≥ 2 same-family hypotheses the family-wise
+        error rate is already inflated (Harvey-Liu-Zhu 2016). Using a
+        raw p-threshold to decide membership / ordering of the batch
+        manufactures false discoveries in direct proportion to K.
+        """
+        if self._warned_uncorrected:
+            return
+        if len(self) < 2:
+            return
+        if _MT_METHOD_COL in self._df.columns:
+            return
+        p_cols = set(self._profile_cls.P_VALUE_FIELDS) | {"canonical_p"}
+        hit = sorted(set(referenced) & p_cols)
+        if not hit:
+            return
+        self._warned_uncorrected = True
+        warnings.warn(
+            f"ProfileSet.{op} is deciding on raw p-value column(s) "
+            f"{hit} over {len(self)} factors without prior "
+            f"multiple_testing_correct(). With K={len(self)} same-family "
+            f"hypotheses the family-wise error rate inflates (Harvey-Liu-Zhu "
+            f"2016 argue the published finance literature is dominated by "
+            f"this). Apply BHY first:\n"
+            f"    ps.multiple_testing_correct().filter(pl.col('bhy_significant'))\n"
+            f"or sort on p_adjusted. If the decision is intentionally "
+            f"uncorrected (single pre-registered hypothesis, exploratory "
+            f"triage), suppress with warnings.filterwarnings.",
+            UserWarning,
+            stacklevel=3,
+        )
+
     def rank_by(self, field: str, descending: bool = True) -> "ProfileSet[P]":
         """Reorder by a numeric field. Nulls go to the end."""
         if field not in self._df.columns:
@@ -254,6 +319,7 @@ class ProfileSet(Generic[P]):
                 f"{self._profile_cls.__name__}. "
                 f"Available fields: {sorted(self._df.columns)}."
             )
+        self._check_uncorrected_p_decision([field], op="rank_by")
         idx_df = (
             self._df.with_row_index("_rankby_idx")
             .sort(field, descending=descending, nulls_last=True)

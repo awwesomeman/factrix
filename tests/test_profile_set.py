@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import polars as pl
 import pytest
@@ -304,6 +306,67 @@ class TestWithExtraColumns:
         )
         df = ps.to_polars()
         assert {"a", "b"} <= set(df.columns)
+
+
+class TestUncorrectedPDecisionWarning:
+    """Auto-warn when raw p-value columns drive filter / rank on K≥2 sets."""
+
+    def test_filter_on_raw_p_warns(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles)
+        with pytest.warns(UserWarning, match="raw p-value"):
+            ps.filter(pl.col("ic_p") < 1.0)
+
+    def test_rank_by_raw_p_warns(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles)
+        with pytest.warns(UserWarning, match="raw p-value"):
+            ps.rank_by("ic_p")
+
+    def test_warns_once_per_chain(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles)
+        with pytest.warns(UserWarning) as rec:
+            ps.filter(pl.col("ic_p") < 1.0).rank_by("ic_p").filter(
+                pl.col("ic_p") < 0.5,
+            )
+        p_warns = [w for w in rec if "raw p-value" in str(w.message)]
+        assert len(p_warns) == 1
+
+    def test_after_mt_no_warning(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles).multiple_testing_correct(fdr=0.10)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            # Post-BHY these columns are legitimate decision targets.
+            ps.filter(pl.col("bhy_significant"))
+            ps.rank_by("p_adjusted")
+            # Even the raw column is silent — MT trace is present.
+            ps.filter(pl.col("ic_p") < 0.5)
+
+    def test_non_p_field_silent(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            ps.filter(pl.col("ic_mean") > 0.0)
+            ps.rank_by("ic_mean")
+
+    def test_singleton_silent(self, cs_profiles_and_artifacts):
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet([profiles[0]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            ps.filter(pl.col("ic_p") < 1.0)
+            ps.rank_by("ic_p")
+
+    def test_callable_path_silent(self, cs_profiles_and_artifacts):
+        """Callable filter is the escape hatch — no detection, no warning."""
+        profiles, _ = cs_profiles_and_artifacts
+        ps = ProfileSet(profiles)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            ps.filter(lambda p: p.ic_p < 1.0)
 
 
 class TestMultipleTestingCorrect:
