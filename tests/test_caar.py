@@ -172,6 +172,43 @@ class TestBmpTest:
         result = bmp_test(strong_signal)
         assert result.metadata.get("n_events", 0) > 0
 
+    def test_kolari_pynnonen_shrinks_z_when_clustered(self, strong_signal):
+        """K-P adjustment must not expand |z|; when ρ>0 it strictly shrinks."""
+        raw = bmp_test(strong_signal, kolari_pynnonen_adjust=False)
+        adj = bmp_test(strong_signal, kolari_pynnonen_adjust=True)
+        assert adj.metadata.get("kolari_pynnonen_applied") is True
+        r = adj.metadata["kolari_pynnonen_r"]
+        n_eff = adj.metadata["kolari_pynnonen_n_eff"]
+        assert 0.0 <= r <= 1.0
+        assert n_eff >= 1.0
+        # Scaling factor ≤ 1 always (r ∈ [0,1]), so |z_adj| ≤ |z_raw|.
+        assert abs(adj.stat) <= abs(raw.stat) + 1e-9
+        assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
+
+    def test_kolari_pynnonen_skipped_without_clusters(self):
+        """No multi-event dates → r̂ undefined → correction bypassed."""
+        from datetime import datetime, timedelta
+        rng = np.random.default_rng(0)
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(120)]
+        rows = []
+        # One event per date on a single asset: no same-date clustering.
+        price = 100.0
+        for i, d in enumerate(dates):
+            ret = float(0.001 + 0.02 * rng.standard_normal())
+            price *= 1.0 + ret
+            rows.append({
+                "date": d, "asset_id": "A",
+                "factor": 1.0 if i >= 80 else 0.0,
+                "forward_return": ret,
+                "price": price,
+            })
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = bmp_test(df, kolari_pynnonen_adjust=True)
+        assert result.metadata["kolari_pynnonen_applied"] is False
+        assert result.metadata["kolari_pynnonen_r_source"] == (
+            "no_multi_event_dates"
+        )
+
 
 # ---------------------------------------------------------------------------
 # event_hit_rate

@@ -13,6 +13,8 @@ References:
 
 from __future__ import annotations
 
+from typing import Literal
+
 import numpy as np
 import polars as pl
 
@@ -127,6 +129,7 @@ def bmp_test(
     return_col: str = "forward_return",
     estimation_window: int = 60,
     forward_periods: int = 5,
+    kolari_pynnonen_adjust: bool = False,
 ) -> MetricOutput:
     """Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
 
@@ -153,6 +156,20 @@ def bmp_test(
         forward_periods: Return horizon for vol scaling (default 5).
             When using price-derived daily vol, scales by
             ``1/sqrt(forward_periods)`` to match per-period forward_return.
+        kolari_pynnonen_adjust: When True, apply the Kolari-Pynnönen
+            (2010) adjustment for cross-sectional correlation of SAR:
+            ``z_KP = z_BMP · √((1 − r̂) / (1 + (N_eff − 1)·r̂))`` where
+            ``r̂`` is the ICC-style within-date correlation of SAR and
+            ``N_eff`` is the average events per event date. Vanilla BMP
+            overstates significance when events cluster on the same
+            date (earnings season, macro release), inflating z by
+            factors of 1.5-2×. Enable this when the event-study
+            ``clustering_hhi`` diagnostic is high (≥ 0.3) or when you
+            otherwise expect same-date shock sharing.
+
+    References:
+        Kolari & Pynnönen (2010), "Event Study Testing with Cross-
+        Sectional Correlation of Abnormal Returns."
 
     Returns:
         MetricOutput(name="bmp_test", value=mean_SAR, stat=z_bmp, ...).
@@ -207,26 +224,112 @@ def bmp_test(
             n_observed=n_valid, min_required=MIN_EVENTS,
         )
 
-    sar = (valid["_signed_ar"] / valid["_est_vol"]).to_numpy()
+    valid = valid.with_columns(
+        (pl.col("_signed_ar") / pl.col("_est_vol")).alias("_sar")
+    )
+    sar = valid["_sar"].to_numpy()
     mean_sar = float(np.mean(sar))
     std_sar = float(np.std(sar, ddof=DDOF))
 
     z_bmp = _calc_t_stat(mean_sar, std_sar, n_valid)
-    p = _p_value_from_z(z_bmp)
+
+    metadata: dict = {
+        "n_events": n_valid,
+        "n_dropped": len(events) - n_valid,
+        "std_sar": std_sar,
+        "estimation_window": estimation_window,
+        "stat_type": "z",
+        "h0": "mu_SAR=0",
+        "method": "BMP standardized cross-sectional test",
+    }
+
+    if kolari_pynnonen_adjust:
+        r_hat, n_eff, kp_source = _estimate_sar_icc(valid.select("date", "_sar"))
+        metadata["kolari_pynnonen_r"] = r_hat
+        metadata["kolari_pynnonen_n_eff"] = n_eff
+        metadata["kolari_pynnonen_r_source"] = kp_source
+        if r_hat is None or n_eff <= 1.0:
+            metadata["kolari_pynnonen_applied"] = False
+            z = z_bmp
+        else:
+            scale = float(np.sqrt((1.0 - r_hat) / (1.0 + (n_eff - 1.0) * r_hat)))
+            z = z_bmp * scale
+            metadata["kolari_pynnonen_scaling"] = scale
+            metadata["kolari_pynnonen_applied"] = True
+            metadata["stat_uncorrected"] = z_bmp
+            metadata["method"] = (
+                "BMP + Kolari-Pynnönen (2010) cross-sectional-correlation "
+                "adjustment"
+            )
+    else:
+        z = z_bmp
+
+    p = _p_value_from_z(z)
+    metadata["p_value"] = p
 
     return MetricOutput(
         name="bmp_test",
         value=mean_sar,
-        stat=z_bmp,
+        stat=z,
         significance=_significance_marker(p),
-        metadata={
-            "n_events": n_valid,
-            "n_dropped": len(events) - n_valid,
-            "std_sar": std_sar,
-            "estimation_window": estimation_window,
-            "p_value": p,
-            "stat_type": "z",
-            "h0": "mu_SAR=0",
-            "method": "BMP standardized cross-sectional test",
-        },
+        metadata=metadata,
     )
+
+
+KPSource = Literal["icc", "no_multi_event_dates"]
+
+
+def _estimate_sar_icc(
+    sar_by_date: pl.DataFrame,
+) -> tuple[float | None, float, KPSource]:
+    """ICC-style within-date correlation r̂ of SAR and average cluster size.
+
+    Args:
+        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
+            columns (one row per event, SAR already standardized).
+
+    Returns ``(r_hat, n_eff, source)`` where ``source`` is one of:
+        - ``"icc"``: standard between/within decomposition across event
+          dates with n_k ≥ 2 events each.
+        - ``"no_multi_event_dates"``: not enough date-clusters to
+          estimate within-variance; r_hat is ``None``.
+
+    Uses ``σ²_between = var(date_mean_SAR)`` and ``σ²_within =`` the
+    pooled within-date variance (weighted by ``n_k − 1``).
+    ``r̂ = σ²_between / (σ²_between + σ²_within)`` clipped to ``[0, 1]``.
+    """
+    per_date = sar_by_date.group_by("date").agg(
+        pl.col("_sar").mean().alias("m"),
+        pl.col("_sar").var(ddof=DDOF).alias("v"),
+        pl.len().alias("n"),
+    )
+    if per_date.height == 0:
+        return None, 0.0, "no_multi_event_dates"
+
+    multi = per_date.filter(pl.col("n") >= 2)
+    # n_eff must align with the subsample r̂ is estimated on: computing
+    # n_eff across singleton-heavy dates and scaling by r̂ from the
+    # multi-event subset conflates two different clustering regimes and
+    # biases the correction downward when singletons dominate. Using the
+    # multi-event mean keeps the two moments commensurate (conservative
+    # on singleton-heavy datasets, as recommended by the K-P literature).
+    if multi.height < 2:
+        fallback_n_eff = (
+            float(per_date["n"].sum() / per_date.height)
+        )
+        return None, fallback_n_eff, "no_multi_event_dates"
+    n_eff = float(multi["n"].mean())
+
+    w_num = (multi["v"] * (multi["n"] - 1)).sum()
+    w_den = (multi["n"] - 1).sum()
+    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0
+
+    date_means = multi["m"].to_numpy()
+    sigma2_between = float(np.var(date_means, ddof=DDOF))
+
+    total = sigma2_between + sigma2_within
+    if total < EPSILON:
+        r_hat = 0.0
+    else:
+        r_hat = max(0.0, min(1.0, sigma2_between / total))
+    return r_hat, n_eff, "icc"
