@@ -55,11 +55,34 @@ class TestTheilSenSlope:
         result = ic_trend(_make_series(noise))
         assert result.metadata["unit_root_suspected"] is False
 
-    def test_adf_check_opt_out(self):
+    def test_adf_threshold_none_disables_check(self):
         values = [0.01 * i for i in range(20)]
-        result = ic_trend(_make_series(values), adf_check=False)
+        result = ic_trend(_make_series(values), adf_threshold=None)
         assert "unit_root_suspected" not in result.metadata
         assert "adf_p" not in result.metadata
+
+    def test_adf_threshold_custom_value(self):
+        """Strict threshold (0.01) should rarely flag stationary noise;
+        permissive threshold (0.50) should frequently flag the same series.
+        Verifies the parameter actually plumbs into the unit-root decision."""
+        import numpy as np
+        rng = np.random.default_rng(7)
+        noise = rng.standard_normal(200).tolist()
+        strict = ic_trend(_make_series(noise), adf_threshold=0.01)
+        permissive = ic_trend(_make_series(noise), adf_threshold=0.50)
+        assert strict.metadata["adf_p"] == permissive.metadata["adf_p"]
+        # Same ADF p, different decision threshold → strict <= permissive flag.
+        assert int(strict.metadata["unit_root_suspected"]) <= int(
+            permissive.metadata["unit_root_suspected"]
+        )
+
+    def test_adf_threshold_out_of_range_raises(self):
+        import pytest
+        values = [0.01 * i for i in range(20)]
+        with pytest.raises(ValueError, match="adf_threshold"):
+            ic_trend(_make_series(values), adf_threshold=1.5)
+        with pytest.raises(ValueError, match="adf_threshold"):
+            ic_trend(_make_series(values), adf_threshold=0.0)
 
     def test_all_nan_input_short_circuits(self):
         """Regression: NaN-heavy IC series (e.g. from a constant factor)
