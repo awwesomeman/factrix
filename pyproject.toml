@@ -47,7 +47,7 @@ build-backend = "setuptools.build_meta"
 [tool.commitizen]
 name = "cz_conventional_commits"
 version = "0.3.0"
-tag_format = "$version"
+tag_format = "v$version"
 major_version_zero = true
 version_files = [
     "pyproject.toml:version",
