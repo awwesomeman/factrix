@@ -13,12 +13,10 @@ References:
 
 from __future__ import annotations
 
-from typing import Literal
-
 import numpy as np
 import polars as pl
 
-from factrix._types import DDOF, EPSILON, MIN_EVENTS, MetricOutput
+from factrix._types import DDOF, EPSILON, MIN_EVENTS, KPSource, MetricOutput
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
@@ -277,9 +275,6 @@ def bmp_test(
         significance=_significance_marker(p),
         metadata=metadata,
     )
-
-
-KPSource = Literal["icc", "no_multi_event_dates"]
 
 
 def _estimate_sar_icc(

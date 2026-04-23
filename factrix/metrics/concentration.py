@@ -9,14 +9,16 @@ Input: DataFrame with ``date, asset_id, factor, forward_return``.
 
 from __future__ import annotations
 
-from typing import Literal
-
 import numpy as np
 import polars as pl
 
-ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
-
-from factrix._types import DDOF, EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
+from factrix._types import (
+    DDOF,
+    EPSILON,
+    MIN_PORTFOLIO_PERIODS,
+    ConcentrationWeight,
+    MetricOutput,
+)
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
     _sample_non_overlapping,

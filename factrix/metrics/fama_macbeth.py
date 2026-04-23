@@ -14,14 +14,11 @@ References:
 from __future__ import annotations
 
 import math
-from typing import Literal
 
 import numpy as np
 import polars as pl
 
-ShankenVarSource = Literal["user_supplied", "betas_timeseries_proxy"]
-
-from factrix._types import DDOF, EPSILON, MetricOutput
+from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
 from factrix.metrics._helpers import _short_circuit_output
 from factrix._stats import (
     _newey_west_t_test,

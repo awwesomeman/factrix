@@ -182,3 +182,23 @@ class Diagnostic:
         tag = f"[{self.severity}]"
         code_part = f" ({self.code})" if self.code else ""
         return f"Diagnostic{tag}{code_part} {self.message}"
+
+
+# ---------------------------------------------------------------------------
+# Metric-option Literal aliases
+# ---------------------------------------------------------------------------
+# Centralised so the public surface of ``compute_caar`` / ``fama_macbeth`` /
+# ``top_concentration`` shares one canonical spelling, and so type checkers
+# can flag a misspelt option from a single source of truth.
+
+# Kolari-Pynnönen (2010) clustering correction for CAAR — which intra-day
+# correlation source the Z is built from.
+KPSource = Literal["icc", "no_multi_event_dates"]
+
+# Shanken (1992) errors-in-variables correction — which σ²(λ) input feeds
+# the second-stage variance inflation.
+ShankenVarSource = Literal["user_supplied", "betas_timeseries_proxy"]
+
+# Top-bucket concentration weight basis — pure factor magnitude vs.
+# realised contribution to the long-leg's α.
+ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
