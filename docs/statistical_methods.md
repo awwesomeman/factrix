@@ -32,8 +32,8 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 觀點：K-期前向預測回歸的殘差必然存在 MA(K−1) 結構，未校正的 t-stat 會系統性高估顯著性。
   - 採用：此為 `ic_p` 和 `ic_nw_p` 雙路徑的動機基石。
 - **Richardson & Stock (1989)**, *JFE* 25(2)
-  - 觀點：多年重疊報酬的漸近推論校正；樣本切割至獨立子集為最保守可行做法。
-  - 採用：`_sample_non_overlapping` 以 `forward_periods`-步取樣，正是 Richardson-Stock 的最保守樣本切割形式。
+  - 觀點：提出 `K/T → κ` 的新 asymptotic 框架，給出多年重疊報酬統計量的極限分佈（Wiener 泛函），替代傳統漸近近似。
+  - 採用：**本專案不採用 RS 的 K/T 框架**；引用此文僅作為「重疊報酬推論非 standard」的文獻背景。`_sample_non_overlapping` 以 `forward_periods`-步取樣的做法更接近 Hansen-Hodrick (1980) 所示 MA(K−1) 結構下的 conservative sub-sampling 傳統。
 
 ### Newey-West HAC t-test — `ic_nw_p`、FM λ、time-series 檢定
 
@@ -44,13 +44,16 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 採用：White 的 HC0 是 Newey-West 的起點；我們的 HAC 實作繼承三明治結構。
 - **Newey & West (1987)**, *Econometrica* 55(3)
   - 觀點：Bartlett kernel `w_j = 1 − j/(L+1)` 確保 HAC 共變異數為正半定，同時處理異質變異與自相關。
-  - 採用：`_newey_west_se` 與 `_newey_west_t_test` 直接實作 Bartlett kernel；`lags = ⌊T^(1/3)⌋` 為其經典 rule-of-thumb。
-- **Newey & West (1994)**, *RES* 61(4)
-  - 觀點：提出 `lags = ⌊T^(1/3)⌋` 作為 practical rule-of-thumb，兼顧 bias-variance。
-  - 採用：作為 lag 預設公式；**`ic_nw_p` 再疊加 Hansen-Hodrick (1980) 下界** `h − 1`（overlap 週期），取 `lags = max(⌊T^(1/3)⌋, forward_periods − 1)`。
+  - 採用：`_newey_west_se` 與 `_newey_west_t_test` 直接實作 Bartlett kernel。
 - **Andrews (1991)**, *Econometrica* 59(3)
-  - 觀點：data-adaptive MSE-optimal bandwidth；以 AR(1)/VAR pre-whitening 後的解析式選 lag。
-  - 採用：未直接實作（需 pre-whitening 步驟）；僅作為 data-adaptive 方向的文獻背景，讓進階使用者知道有更精準的選法可外接。
+  - 觀點：以 minimax MSE 準則導出各 kernel 的最適 bandwidth 成長率；Bartlett kernel 的最適成長率為 `T^(1/3)`，並提供以 AR(1) 近似的 data-adaptive plug-in lag。
+  - 採用：本專案取其 Bartlett 最適成長率的粗化版 `⌊T^(1/3)⌋` 作為 lag 預設（非 data-adaptive plug-in 形式）。
+- **Newey & West (1994)**, *RES* 61(4)
+  - 觀點：以非參數估計 spectral density 的導數，提出 data-adaptive plug-in bandwidth selection，漸近 MSE-optimal。
+  - 採用：**未直接實作** plug-in 演算法；本專案 lag 預設採 Andrews 1991 的 Bartlett 成長率 `⌊T^(1/3)⌋`，並於 `ic_nw_p` 疊加 Hansen-Hodrick (1980) 下界 `h − 1`（overlap 週期），取 `lags = max(⌊T^(1/3)⌋, forward_periods − 1)`。此處引 NW 1994 主要作為「自動 lag 選擇方向」的文獻背景。
+- **Andrews & Monahan (1992)**, *Econometrica* 60(4)
+  - 觀點：以 VAR pre-whitening 後再做 kernel HAC，顯著降低 Bartlett/QS 估計的 bias、改善 t-stat 的 size。
+  - 採用：未實作 pre-whitening；僅作為進階路徑的文獻背景，讓使用者知道若 lag 仍不足可外接此類修正。
 
 ### Quantile Spread / Monotonicity / Top Concentration — 輔助診斷
 
@@ -72,14 +75,14 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 精確實作：`factrix/metrics/caar.py::compute_caar` + `::caar`（signed_car 公式、非重疊採樣、t-stat）
 
 - **Fama, Fisher, Jensen & Roll (1969)**, *IER* 10(1)
-  - 觀點：事件研究方法的原始論文；定義了 AR、CAR、event window、estimation window 等基礎概念。
-  - 採用：整個事件研究架構的語彙皆沿用此文。
+  - 觀點：開創事件研究方法（以股票分割為應用），首次使用市場模型殘差觀察價格對資訊的調整；AR、CAR、event window、estimation window 等術語的系統命名為後續文獻（Brown-Warner、MacKinlay）標準化的成果。
+  - 採用：整個事件研究架構的基礎方法論承襲此文。
 - **Brown & Warner (1980)**, *JFE* 8(3)
   - 觀點：**月頻**資料下不同 AR 估計模型（mean-adjusted / market-adjusted / market-model）的 size & power 比較；簡單方法在月頻即已足夠。
   - 採用：支撐「CAAR t-test 在合理樣本下 well-specified」的實證基礎。
 - **Brown & Warner (1985)**, *JFE* 14(1)
-  - 觀點：**日頻**資料下事件研究的推論挑戰（nonsynchronous trading、fatter tails）；parametric t-test 仍 well-specified 只要樣本足。
-  - 採用：我們允許日頻輸入 (`forward_periods=1` 即可) 的理論背書。
+  - 觀點：檢視日頻資料的特性（nonsynchronous trading、厚尾、條件異質變異、自相關）對事件研究方法的影響；**結論標準 parametric t-test 在日頻下仍 well-specified**，只需樣本量合理。
+  - 採用：我們允許日頻輸入 (`forward_periods=1`) 的理論背書。
 - **MacKinlay (1997)**, *JEL* 35(1)
   - 觀點：現代事件研究教科書式整合；標準化 event window × estimation window 的切割與推論流程。
   - 採用：`EventConfig` 的 `estimation_window`、`event_window_post` 等欄位語意完全沿用 MacKinlay。
@@ -103,8 +106,8 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 精確實作：`factrix/metrics/corrado.py::corrado_rank_test`（pooled-rank 簡化版，與論文原式的 deviation 見 docstring）
 
 - **Corrado (1989)**, *JFE* 23(2)
-  - 觀點：不假設 AR 常態分佈的 rank-based test；論文 eq.(5) 的 SE 以 per-date 平均 rank 的時序 std 估計。
-  - 採用：`corrado_rank_test` 採 **pooled-rank 簡化版**（分母為 pooled rank series std），與論文原式略有差異；適合快速 robustness screen，嚴格尺寸檢定建議外接專用套件。
+  - 觀點：不假設 AR 常態分佈的 rank-based test；論文 eq.(5) 的 SE 以 **combined window（estimation + event period）** 每日跨截面平均 rank 偏差的時序 std 估計。
+  - 採用：`corrado_rank_test` 採 **pooled-rank 簡化版**（分母為 pooled rank series std），與論文原式的 "per-date mean of rank deviations across combined window" 略有差異；適合快速 robustness screen，嚴格尺寸檢定建議外接專用套件。
 - **Corrado & Zivney (1992)**, *JFQA* 27(3)
   - 觀點：比較 sign test 與 rank test 在日頻 AR 下的功效；rank test 在多數情境下 power 較高。
   - 採用：基於此決定採用 rank test 而非 sign test。
@@ -113,12 +116,12 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 
 精確實作：`factrix/metrics/clustering.py::clustering_diagnostic`（時間維度 HHI + effective-n 歸一化）
 
-- **Herfindahl (1950)**, Columbia University PhD dissertation；**Hirschman (1945)**, University of California Press
-  - 觀點：以 Σs² 量度集中度（產業 / 貿易）；越高越集中於少數主體。
-  - 採用：方法論轉借至**時間維度**，計算事件日集中度（高 HHI → 事件聚集在少數交易日）。
+- **Hirschman (1945)**, *National Power and the Structure of Foreign Trade*, University of California Press；**Herfindahl (1950)**, Columbia University PhD dissertation
+  - 觀點：Hirschman (1945) 最先提出集中度指標（原型為 √Σs²）；Herfindahl (1950) 獨立再發現並改採 Σs² 形式（今日 HHI 通行的平方和形式）。越高越集中於少數主體。
+  - 採用：方法論轉借至**時間維度**，計算事件日集中度（高 HHI → 事件聚集在少數交易日）。採 Σs² 形式（Herfindahl 版）。
 - **Kolari & Pynnönen (2010)**, *RFS* 23(11)
-  - 觀點：event clustering 違反 BMP 原本假設的跨事件獨立性；提出修正 z-statistic。
-  - 採用：`clustering_hhi` diagnostic 用於**偵測**；Kolari-Pynnönen 的修正本身保留為未實作 config 選項（`adjust_clustering='kolari_pynnonen'`）。
+  - 觀點：ARs 間的 **cross-sectional correlation**（event-date clustering、共同市場衝擊等皆為來源）違反 BMP 原本假設的跨事件獨立性；提出以平均跨期 AR 相關係數修正 BMP t-statistic 的 z-statistic。
+  - 採用：`clustering_hhi` diagnostic 用於**偵測事件時間聚集**（cross-sectional correlation 的一個常見來源）；Kolari-Pynnönen 的修正本身保留為未實作 config 選項（`adjust_clustering='kolari_pynnonen'`）。
 
 ### Event Hit Rate / Profit Factor
 
@@ -144,8 +147,8 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 觀點：論述 FM 與 GMM、MLE 等估計法的等價性與漸近性質；FM 在 panel 稀疏時計算穩定。
   - 採用：選 FM 而非 GMM 即因其在跨國 / 跨資產這種 panel 不整齊情境下 robust。
 - **Petersen (2009)**, *RFS* 22(1)
-  - 觀點：系統比較 FM、clustered、White SE；FM 配 Newey-West 對時序相依 panel 是低 bias、計算穩定的組合。
-  - 採用：支撐我們「FM λ 時序一律走 Newey-West」的預設。
+  - 觀點：系統比較 FM、firm-clustered、White、雙向 cluster SE：**firm effect** 存在時只有 firm-clustered SE 不偏；**time effect** 存在時 FM（可配 Newey-West 處理時序相依）才是不偏的組合。
+  - 採用：Macro panel 情境以「時序 λ」為主要推論對象（對應 time effect），本專案採 FM + Newey-West。若未來擴展至同時存在 firm effect 的 panel，需改採 clustered SE（未實作）。
 
 ### Newey-West 於 λ 時序
 
@@ -218,8 +221,8 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 ### `verdict()` 預設 t 門檻 2.0
 
 - **Harvey, Liu & Zhu (2016)**, *RFS* 29(1)
-  - 觀點：面對 300+ 已發表因子的 data mining 壓力，單因子宣稱應將 t 門檻上調至 3.0；並提出 BHY-based adjusted threshold。
-  - 採用：預設門檻 2.0（單因子 95% 經典邊界），將多重檢定的嚴格把關交給 `multiple_testing_correct`（BHY）。
+  - 觀點：面對 300+ 已發表因子的 data mining 壓力，單因子宣稱應將 t 門檻上調至 3.0；比較 Bonferroni、Holm、BH、BHY 等多重檢定校正並給出對應 adjusted threshold。
+  - 採用：預設門檻 2.0（單因子 95% 經典邊界），將多重檢定的嚴格把關交給 `multiple_testing_correct`（BHY，因子池相依性高時最合適）。
 - **Harvey (2017)**, *JoF* 72(4)
   - 觀點：呼籲因子發現的統計誠實性：區分 "exploratory" 與 "confirmatory"，並鼓勵公開失敗研究以減少 publication bias。
   - 採用：「framework detects, user decides」設計哲學與此呼應；`integrations/mlflow.py` 的 `log_failed_run` 提供技術層面的 audit trail（與 Harvey 訴求的 publication 層面不同，但減少 survivorship 偏差的精神一致）。
@@ -236,8 +239,8 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 觀點：robust estimator 理論；breakdown point 50% 的 MAD 對污染資料比 OLS 標準差穩健得多。
   - 採用：`mad_winsorize` 以 median + MAD 定義裁切邊界；對股票報酬的 fat tail 特別適合。
 - **Hampel (1974)**, *JASA* 69(346)
-  - 觀點：導出 influence curve 概念並確立 MAD 在常態下的 unbiased consistency constant 1.4826 = 1/Φ⁻¹(0.75)。
-  - 採用：`MAD_CONSISTENCY_CONSTANT = 1.4826`（定義於 `_types.py`），直接取自 Hampel 的結果。
+  - 觀點：導出 influence curve 概念，並於 robust statistics 架構下系統化採用 MAD 作為 scale estimator，其常態 Fisher-consistent scaling 為 1/Φ⁻¹(0.75) ≈ 1.4826。
+  - 採用：`MAD_CONSISTENCY_CONSTANT = 1.4826`（定義於 `_types.py`）。常數的數學事實本身遠早於 Hampel（可溯至 19 世紀 Gauss 的 probable-error = 0.6745σ 傳統）；Hampel 1974 是現代 robust literature 中將其制度化採用的標準出處。
 - **Rousseeuw & Croux (1993)**, *JASA* 88(424)
   - 觀點：系統比較 MAD、Q_n、S_n 等 robust scale estimator 的效率與 bias；Q_n 效率更高但計算 O(n log n)。
   - 採用：選 MAD 而非 Q_n 是 efficiency-for-speed 取捨；R-C 1993 是此決策的 secondary reference。
@@ -278,6 +281,7 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 
 - Ambachtsheer, K. P. (1977). "Where Are the Customers' Alphas?" *Journal of Portfolio Management* 4(1).
 - Andrews, D. W. K. (1991). "Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation." *Econometrica* 59(3).
+- Andrews, D. W. K. & Monahan, J. C. (1992). "An Improved Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimator." *Econometrica* 60(4).
 - Benjamini, Y. & Hochberg, Y. (1995). "Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing." *Journal of the Royal Statistical Society: Series B* 57(1).
 - Benjamini, Y. & Yekutieli, D. (2001). "The Control of the False Discovery Rate in Multiple Testing Under Dependency." *Annals of Statistics* 29(4).
 - Black, F., Jensen, M. C. & Scholes, M. (1972). "The Capital Asset Pricing Model: Some Empirical Tests." In M. Jensen (ed.), *Studies in the Theory of Capital Markets*. Praeger.
