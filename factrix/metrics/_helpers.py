@@ -125,6 +125,29 @@ def _sample_non_overlapping(
     return result
 
 
+def _lag_within_asset(
+    df: pl.DataFrame,
+    col: str,
+    *,
+    periods: int = 1,
+    by: str = "asset_id",
+) -> pl.DataFrame:
+    """Replace ``col`` with its per-asset lag; drop rows where the lag is null.
+
+    Common post-sampling pattern: after ``_sample_non_overlapping`` sorts
+    the panel to the rebalance schedule, we want each row's ``col`` to
+    carry the value observed one sampled period earlier on the same
+    asset (weight[t-1], rank[t-1], ...). Single helper so the whole
+    codebase lags the same way — sort by (asset, date), shift within
+    asset, drop the first row per asset.
+    """
+    return (
+        df.sort([by, "date"])
+        .with_columns(pl.col(col).shift(periods).over(by).alias(col))
+        .drop_nulls([col])
+    )
+
+
 def _assign_quantile_groups(
     df: pl.DataFrame,
     factor_col: str = "factor",

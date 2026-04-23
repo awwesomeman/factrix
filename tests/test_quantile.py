@@ -90,6 +90,18 @@ class TestQuantileSpreadVW:
         # With signal, VW spread should be nonzero
         assert result.value != 0.0 or result.metadata.get("reason")
 
+    def test_lag_weights_flag_recorded(self):
+        df = self._make_panel_with_cap()
+        default = quantile_spread_vw(df, forward_periods=1, n_groups=5)
+        explicit_off = quantile_spread_vw(
+            df, forward_periods=1, n_groups=5, lag_weights=False,
+        )
+        assert default.metadata["weights_lagged"] is True
+        assert explicit_off.metadata["weights_lagged"] is False
+        # Default lag drops exactly the first sampled row per asset on
+        # the balanced panel — strict shrinkage of the effective window.
+        assert default.metadata["n_periods"] < explicit_off.metadata["n_periods"]
+
     def test_missing_weight_col(self):
         df = pl.DataFrame({
             "date": [datetime(2024, 1, 1)] * 5,

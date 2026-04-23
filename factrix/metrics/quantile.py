@@ -22,6 +22,7 @@ from factrix._types import (
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _compute_tie_ratio,
+    _lag_within_asset,
     _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
@@ -189,22 +190,38 @@ def quantile_spread_vw(
     return_col: str = "forward_return",
     weight_col: str = "market_cap",
     tie_policy: str = "ordinal",
+    lag_weights: bool = True,
 ) -> MetricOutput:
     """Value-weighted long-short spread — alpha concentration diagnostic.
 
     Formula (per non-overlapping date t):
         For bucket b ∈ {bottom, top}:
-            vw_b[t] = Σ_{i∈b} weight[i,t] · return[i,t] / Σ_{i∈b} weight[i,t]
+            vw_b[t] = Σ_{i∈b} w[i,t−1] · return[i, t→t+h] / Σ_{i∈b} w[i,t−1]
         spread[t] = vw_top[t] − vw_bottom[t]
         value = mean_t spread[t];  t-stat = √n · value / std(spread);  DDOF=1
+
+    Weights are **lagged by one sampled period per asset** by default
+    (``lag_weights=True``): a portfolio rebalanced at date t uses the
+    market-cap observed at the previous rebalance, not at t. Pairing
+    contemporaneous ``market_cap[t]`` with ``forward_return[t→t+h]`` is
+    a classic look-ahead trap — market cap measured on date t embeds
+    news that the t→t+h return has not yet realized.
+
+    Pass ``lag_weights=False`` only when the caller has **already**
+    supplied a lagged weight column (e.g., prior-month-end cap) and
+    wants the function to treat it as observed at t.
 
     Compare with equal-weighted ``quantile_spread``: if VW spread much
     smaller (e.g., < 1/3 of EW), the alpha is driven by small-cap assets
     and may not survive capacity / liquidity constraints.
 
     Args:
-        df: Panel with ``date, asset_id, factor, forward_return, market_cap``.
+        df: Panel with ``date, asset_id, factor, forward_return,
+            market_cap`` (or whatever ``weight_col`` names).
         weight_col: Column for value weighting (default ``market_cap``).
+        lag_weights: When True (default), shift ``weight_col`` by 1
+            period per asset (on the non-overlap-sampled frame) before
+            weighting. When False, use weights as supplied.
 
     Returns:
         MetricOutput with per-period mean VW spread, t-stat, and p-value.
@@ -221,6 +238,8 @@ def quantile_spread_vw(
         )
 
     sampled = _sample_non_overlapping(df, forward_periods)
+    if lag_weights:
+        sampled = _lag_within_asset(sampled, weight_col)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
     _warn_high_tie_ratio(tie_ratio, "quantile_spread_vw", tie_policy)
 
@@ -276,6 +295,7 @@ def quantile_spread_vw(
         metadata={
             "n_periods": n, "p_value": p, "stat_type": "t", "h0": "mu=0",
             "tie_ratio": tie_ratio, "tie_policy": tie_policy,
+            "weights_lagged": lag_weights,
         },
     )
 
