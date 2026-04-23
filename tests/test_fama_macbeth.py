@@ -111,6 +111,44 @@ class TestFamaMacbeth:
         result = fama_macbeth(df)
         assert math.isnan(result.value)
 
+    def test_shanken_correction_reduces_t(self, strong_macro):
+        """EIV flag inflates SE by √c exactly; t scaled by 1/√c."""
+        betas = compute_fm_betas(strong_macro)
+        raw = fama_macbeth(betas, is_estimated_factor=False)
+        corrected = fama_macbeth(betas, is_estimated_factor=True)
+        c = corrected.metadata["shanken_c"]
+        assert c > 1.0
+        assert corrected.stat == pytest.approx(raw.stat / math.sqrt(c), rel=1e-10)
+        assert corrected.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
+        assert corrected.metadata["method"].endswith("Shanken (1992) EIV")
+        assert corrected.metadata["shanken_factor_return_var_source"] == (
+            "betas_timeseries_proxy"
+        )
+
+    def test_shanken_with_user_supplied_factor_var(self, strong_macro):
+        """User-supplied σ²_f overrides the proxy; source field reflects it."""
+        betas = compute_fm_betas(strong_macro)
+        corrected = fama_macbeth(
+            betas, is_estimated_factor=True, factor_return_var=0.01,
+        )
+        assert corrected.metadata["shanken_factor_return_var"] == 0.01
+        assert corrected.metadata["shanken_factor_return_var_source"] == (
+            "user_supplied"
+        )
+
+    def test_shanken_skipped_on_flat_factor(self):
+        """σ²_f ≈ 0 → correction skipped; uncorrected values kept."""
+        from datetime import datetime, timedelta
+        df = pl.DataFrame({
+            "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(20)],
+            "beta": [0.5] * 20,
+        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = fama_macbeth(df, is_estimated_factor=True)
+        assert result.metadata["shanken_correction"] == (
+            "skipped_zero_factor_variance"
+        )
+        assert "shanken_c" not in result.metadata
+
 
 # ---------------------------------------------------------------------------
 # pooled_ols
@@ -126,6 +164,66 @@ class TestPooledOls:
     def test_noise_not_significant(self, noise_macro):
         result = pooled_ols(noise_macro)
         assert abs(result.stat) < 2.0
+
+    def test_two_way_metadata_shape(self, strong_macro):
+        """Opt-in two-way clustering reports both cluster counts + intersection."""
+        result = pooled_ols(
+            strong_macro, two_way_cluster_col="asset_id",
+        )
+        md = result.metadata
+        assert md["method"].startswith(
+            "Pooled OLS + two-way clustered SE",
+        )
+        assert "n_clusters_a" in md
+        assert "n_clusters_b" in md
+        assert "n_clusters_intersection" in md
+        # Intersection cells ≤ product of the two margins (balanced panel
+        # gives equality, unbalanced gives strict <).
+        assert md["n_clusters_intersection"] <= (
+            md["n_clusters_a"] * md["n_clusters_b"]
+        )
+
+    def test_two_way_and_one_way_differ(self, strong_macro):
+        """Two-way SE ≠ single-way SE on data with asset-level persistence."""
+        single = pooled_ols(strong_macro)
+        two_way = pooled_ols(
+            strong_macro, two_way_cluster_col="asset_id",
+        )
+        # Both share the same point estimate (same OLS).
+        assert single.value == pytest.approx(two_way.value)
+        # But t-stats differ because SE differs (usually two-way SE > single).
+        assert abs(single.stat - two_way.stat) > 1e-6
+
+    def test_two_way_non_psd_falls_back_to_oneway(self, strong_macro, monkeypatch):
+        """Non-PSD V → fall back to single-way V_a; metadata flags the swap.
+
+        Trigger by patching ``_cluster_meat`` to return a meat-i dominating
+        a+b, which guarantees ``meat_a + meat_b − meat_i`` has a negative
+        [1,1] along the slope coordinate. The single-way test above
+        establishes the happy-path baseline; this one covers the
+        Cameron-Miller (2015) fallback branch.
+        """
+        import sys
+        fm_mod = sys.modules["factrix.metrics.fama_macbeth"]
+        real_meat = fm_mod._cluster_meat
+        call_count = {"n": 0}
+
+        def patched_meat(X, resid, clusters):
+            call_count["n"] += 1
+            meat, g = real_meat(X, resid, clusters)
+            # Third call is meat_i (after meat_a, meat_b). Inflate it so
+            # c_a·meat_a + c_b·meat_b − c_i·meat_i has negative [1,1].
+            if call_count["n"] == 3:
+                return meat * 10.0, g
+            return meat, g
+
+        monkeypatch.setattr(fm_mod, "_cluster_meat", patched_meat)
+        result = pooled_ols(strong_macro, two_way_cluster_col="asset_id")
+        md = result.metadata
+        assert md.get("variance_non_psd_fallback") == "one_way_date"
+        # After fallback, SE equals single-way SE on the a-dimension.
+        single = pooled_ols(strong_macro)
+        assert abs(result.stat) == pytest.approx(abs(single.stat), rel=1e-10)
 
 
 # ---------------------------------------------------------------------------
