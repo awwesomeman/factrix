@@ -37,3 +37,26 @@ class TestTheilSenSlope:
         values = [0.10 - 0.005 * i for i in range(20)]
         result = ic_trend(_make_series(values))
         assert result.value < 0
+
+    def test_adf_flags_random_walk(self):
+        """Unit-root series (random walk) should trip the ADF guard."""
+        import numpy as np
+        rng = np.random.default_rng(0)
+        walk = np.cumsum(rng.standard_normal(200)).tolist()
+        result = ic_trend(_make_series(walk))
+        assert result.metadata["unit_root_suspected"] is True
+        assert "adf_stat" in result.metadata
+
+    def test_adf_clears_stationary_noise(self):
+        """IID Gaussian noise should not trip the ADF guard."""
+        import numpy as np
+        rng = np.random.default_rng(1)
+        noise = rng.standard_normal(200).tolist()
+        result = ic_trend(_make_series(noise))
+        assert result.metadata["unit_root_suspected"] is False
+
+    def test_adf_check_opt_out(self):
+        values = [0.01 * i for i in range(20)]
+        result = ic_trend(_make_series(values), adf_check=False)
+        assert "unit_root_suspected" not in result.metadata
+        assert "adf_p" not in result.metadata

@@ -15,7 +15,11 @@ from scipy import stats as sp_stats
 
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
-from factrix._stats import _p_value_from_t, _significance_marker
+from factrix._stats import _adf, _p_value_from_t, _significance_marker
+
+# ADF p above this threshold flags "can't reject unit root" → downstream
+# slope / t-stat on an I(1) series is Stock-Watson (1988) spurious.
+_ADF_UNIT_ROOT_P: float = 0.10
 
 
 def ic_trend(
@@ -23,6 +27,7 @@ def ic_trend(
     value_col: str = "value",
     *,
     name: str = "ic_trend",
+    adf_check: bool = True,
 ) -> MetricOutput:
     """Theil-Sen median slope of a time-indexed series.
 
@@ -37,6 +42,15 @@ def ic_trend(
             ``"ic_trend"``; EventFactor.caar_trend / MacroPanelFactor.
             beta_trend pass their own names so method / cache key /
             primitive name stay three-point unified.
+        adf_check: When True (default), run an Augmented Dickey-Fuller
+            test on the input series. A unit root (ADF p > 0.10) makes
+            the slope t-stat **spurious** in the Stock-Watson (1988)
+            sense — OLS / Theil-Sen on an I(1) series reject the null
+            at inflated rates regardless of the true trend. When
+            detected, metadata flags ``unit_root_suspected=True`` and
+            records ``adf_stat`` / ``adf_p``; the slope value is still
+            returned (caller decides) but significance should be read
+            with scepticism.
 
     Returns:
         MetricOutput with value = slope, t_stat from Theil-Sen confidence interval.
@@ -44,6 +58,7 @@ def ic_trend(
     References:
         Sen (1968), "Estimates of the Regression Coefficient Based on Kendall's Tau."
         Lou & Polk (2022), "Comomentum" — factor crowding/decay framework.
+        Stock & Watson (1988), "Variable Trends in Economic Time Series."
     """
     sorted_s = series.sort("date").drop_nulls(subset=[value_col])
     vals = sorted_s[value_col].to_numpy()
@@ -76,20 +91,26 @@ def ic_trend(
         approx_t = 0.0
 
     p = _p_value_from_t(approx_t, n)
+    metadata: dict = {
+        "p_value": p,
+        "stat_type": "t",
+        "h0": "slope=0",
+        "method": "theil-sen CI approximation",
+        "n_periods": n,
+        "ci_low": low_slope,
+        "ci_high": high_slope,
+        "ci_excludes_zero": ci_excludes_zero,
+        "intercept": float(result.intercept),
+    }
+    if adf_check:
+        adf_stat, adf_p = _adf(vals)
+        metadata["adf_stat"] = adf_stat
+        metadata["adf_p"] = adf_p
+        metadata["unit_root_suspected"] = adf_p > _ADF_UNIT_ROOT_P
     return MetricOutput(
         name=name,
         value=slope,
         stat=approx_t,
         significance=_significance_marker(p),
-        metadata={
-            "p_value": p,
-            "stat_type": "t",
-            "h0": "slope=0",
-            "method": "theil-sen CI approximation",
-            "n_periods": n,
-            "ci_low": low_slope,
-            "ci_high": high_slope,
-            "ci_excludes_zero": ci_excludes_zero,
-            "intercept": float(result.intercept),
-        },
+        metadata=metadata,
     )
