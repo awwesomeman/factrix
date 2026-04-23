@@ -77,7 +77,6 @@ class TestTheilSenSlope:
         )
 
     def test_adf_threshold_out_of_range_raises(self):
-        import pytest
         values = [0.01 * i for i in range(20)]
         with pytest.raises(ValueError, match="adf_threshold"):
             ic_trend(_make_series(values), adf_threshold=1.5)

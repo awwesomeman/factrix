@@ -20,9 +20,6 @@ import polars as pl
 from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
-# BMP (Boehmer-Musumeci-Poulsen 1991) convention for daily-frequency
-# estimation-window σ̂. Higher-frequency panels (e.g. weekly) may want
-# 8-10; expose via ``min_estimation_samples`` on ``compute_mfe_mae``.
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
 
