@@ -40,3 +40,21 @@ class TestComputeHitRate:
         result = hit_rate(series, forward_periods=1)
         assert math.isnan(result.value)
         assert result.significance == ""
+
+    def test_small_n_uses_exact_binomial(self):
+        # n=15 → below _BINOMIAL_EXACT_CUTOFF=20. All hits → exact p is
+        # 2 * 0.5**15 ≈ 6.1e-5, whereas the normal approx gives ≈ 6.3e-5
+        # for z = √15. Any difference confirms the exact branch.
+        series = _make_series([0.01] * 15)
+        result = hit_rate(series, forward_periods=1)
+        assert result.metadata["method"] == "binomial exact test"
+        # Exact p for 15/15 successes under H₀: p=0.5 is 2 * 0.5**15.
+        assert result.metadata["p_value"] == pytest.approx(2 * 0.5 ** 15)
+
+    def test_large_n_uses_normal_approximation(self):
+        series = _make_series([0.01] * 100 + [-0.01] * 100)
+        result = hit_rate(series, forward_periods=1)
+        assert (
+            result.metadata["method"]
+            == "binomial score test (normal approximation)"
+        )

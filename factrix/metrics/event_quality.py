@@ -20,7 +20,9 @@ import polars as pl
 
 from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
 from factrix._stats import (
-    _p_value_from_z,
+    _BINOMIAL_EXACT_CUTOFF,
+    _binomial_test_method_name,
+    _binomial_two_sided_p,
     _significance_marker,
 )
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
@@ -55,22 +57,28 @@ def event_hit_rate(
     signed = _signed_car(events, factor_col, return_col)
     hits = int(np.sum(signed > 0))
     rate = hits / n
+    p = _binomial_two_sided_p(hits, n, p0=0.5)
 
-    z = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
-    p = _p_value_from_z(z)
+    # Keep stat / stat_type consistent with the test that produced p.
+    if n < _BINOMIAL_EXACT_CUTOFF:
+        stat: float = float(hits)
+        stat_type = "binomial_hits"
+    else:
+        stat = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
+        stat_type = "z"
 
     return MetricOutput(
         name="event_hit_rate",
         value=rate,
-        stat=z,
+        stat=stat,
         significance=_significance_marker(p),
         metadata={
             "n_events": n,
             "n_hits": hits,
             "p_value": p,
-            "stat_type": "z",
+            "stat_type": stat_type,
             "h0": "p=0.5",
-            "method": "binomial score test",
+            "method": _binomial_test_method_name(n),
         },
     )
 

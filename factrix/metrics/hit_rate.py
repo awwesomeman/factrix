@@ -12,7 +12,12 @@ import polars as pl
 
 from factrix._types import MIN_IC_PERIODS, MetricOutput
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
-from factrix._stats import _p_value_from_z, _significance_marker
+from factrix._stats import (
+    _BINOMIAL_EXACT_CUTOFF,
+    _binomial_test_method_name,
+    _binomial_two_sided_p,
+    _significance_marker,
+)
 
 
 def hit_rate(
@@ -44,23 +49,30 @@ def hit_rate(
 
     hits = int((vals > 0).sum())
     rate = hits / n
+    p = _binomial_two_sided_p(hits, n, p0=0.5)
 
-    # WHY: 二項分布 t-stat，H₀: p = 0.5（隨機猜測）
-    # (rate - 0.5) / sqrt(0.25/n) = (rate - 0.5) * sqrt(n) / 0.5
-    t = float((rate - 0.5) * np.sqrt(n) / 0.5)
+    # stat / stat_type must reflect the test actually run, so a reader
+    # never sees stat=z paired with an exact-binomial p (the z↔p normal
+    # identity would silently break). Under the exact branch we publish
+    # the hit count as the statistic and flag stat_type accordingly.
+    if n < _BINOMIAL_EXACT_CUTOFF:
+        stat: float = float(hits)
+        stat_type = "binomial_hits"
+    else:
+        stat = float((rate - 0.5) * np.sqrt(n) / 0.5)
+        stat_type = "z"
 
-    p = _p_value_from_z(t)
     return MetricOutput(
         name="hit_rate",
         value=rate,
-        stat=t,
+        stat=stat,
         significance=_significance_marker(p),
         metadata={
             "n_hits": hits,
             "n_total": n,
             "p_value": p,
-            "stat_type": "z",
+            "stat_type": stat_type,
             "h0": "p=0.5",
-            "method": "binomial score test",
+            "method": _binomial_test_method_name(n),
         },
     )

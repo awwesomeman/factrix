@@ -77,6 +77,41 @@ def _p_value_from_z(z: float) -> float:
     return float(2 * sp_stats.norm.sf(abs(z)))
 
 
+# Below this sample count, the normal approximation to the binomial
+# systematically mis-sizes the test (≈5% actual α at nominal 5% only
+# kicks in around n≥20; smaller n is liberal). Use exact binomial CDF
+# when we fall below.
+_BINOMIAL_EXACT_CUTOFF: int = 20
+
+
+def _binomial_two_sided_p(hits: int, n: int, p0: float = 0.5) -> float:
+    """Two-sided binomial test p-value for ``H₀: p = p0``.
+
+    Uses the exact binomial CDF for ``n < _BINOMIAL_EXACT_CUTOFF`` and
+    the normal-approximation ``z = (p̂ − p0) / √(p0(1−p0)/n)`` for larger
+    samples. For p0 = 0.5 the two tails are symmetric; otherwise scipy's
+    ``binomtest`` handles the asymmetric two-sided convention.
+    """
+    if n <= 0:
+        return 1.0
+    if n < _BINOMIAL_EXACT_CUTOFF:
+        return float(sp_stats.binomtest(hits, n, p0).pvalue)
+    rate = hits / n
+    denom = float(np.sqrt(p0 * (1.0 - p0) / n))
+    if denom < EPSILON:
+        return 1.0
+    z = (rate - p0) / denom
+    return _p_value_from_z(z)
+
+
+def _binomial_test_method_name(n: int) -> str:
+    """Human-readable test name mirroring the branch in ``_binomial_two_sided_p``."""
+    return (
+        "binomial exact test" if n < _BINOMIAL_EXACT_CUTOFF
+        else "binomial score test (normal approximation)"
+    )
+
+
 def _t_test_summary(
     mean: float, std: float, n: int,
 ) -> tuple[float, float, str]:
