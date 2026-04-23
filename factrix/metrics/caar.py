@@ -27,6 +27,7 @@ from factrix._stats import (
 )
 from factrix.metrics._helpers import (
     _sample_non_overlapping,
+    _scaled_min_periods,
     _short_circuit_output,
 )
 
@@ -89,10 +90,12 @@ def caar(
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
-    if n < MIN_EVENTS:
+    raw_min = _scaled_min_periods(MIN_EVENTS, forward_periods)
+    if n < raw_min:
         return _short_circuit_output(
             "caar", "insufficient_event_dates",
-            n_observed=n, min_required=MIN_EVENTS,
+            n_observed=n, min_required=raw_min,
+            forward_periods=forward_periods,
         )
 
     mean_caar = float(vals.mean())

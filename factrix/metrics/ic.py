@@ -18,6 +18,7 @@ from factrix._types import (
 )
 from factrix.metrics._helpers import (
     _sample_non_overlapping,
+    _scaled_min_periods,
     _short_circuit_output,
 )
 from factrix._stats import (
@@ -26,6 +27,7 @@ from factrix._stats import (
     _p_value_from_t,
     _significance_marker,
 )
+from factrix.stats import bhy_adjusted_p
 
 
 def compute_ic(
@@ -80,16 +82,24 @@ def ic(
     """
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    if n < MIN_IC_PERIODS:
+    raw_min = _scaled_min_periods(MIN_IC_PERIODS, forward_periods)
+    if n < raw_min:
         return _short_circuit_output(
             "ic", "insufficient_ic_periods",
-            n_observed=n, min_required=MIN_IC_PERIODS,
+            n_observed=n, min_required=raw_min,
+            forward_periods=forward_periods,
         )
 
     mean_ic = float(ic_vals.mean())
     sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
     n_sampled = len(sampled)
-    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled) if n_sampled >= 2 else 0.0
+    if n_sampled < MIN_IC_PERIODS:
+        return _short_circuit_output(
+            "ic", "insufficient_sampled_ic_periods",
+            n_observed=n_sampled, min_required=MIN_IC_PERIODS,
+            forward_periods=forward_periods,
+        )
+    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
     p = _p_value_from_t(t, n_sampled)
 
     return MetricOutput(
@@ -203,11 +213,11 @@ def regime_ic(
     unlike OOS decay which tests overfitting.
 
     Each regime's t-stat is an independent test (H₀: mean IC = 0 within
-    that regime).  This is **not** a joint test across all regimes.
-    Strictly, testing "all regimes significant" would require a multiple
-    comparison correction (e.g. Bonferroni: threshold = t_{α/2k} for k
-    regimes).  In practice, with only 2-3 regimes the correction is
-    small (2.0 → ~2.2 for k=2) and rarely applied in factor research.
+    that regime); sweeping k regimes manufactures k implicit tests.
+    Each per-regime entry in ``per_regime`` metadata reports ``p_value``
+    (raw) alongside ``p_adjusted_bhy`` (BHY-corrected across the k
+    regimes); top-level metadata also surfaces ``p_value_bhy_adjusted``
+    = the worst adjusted p across regimes, for aggregate decisions.
 
     Args:
         ic_df: Output of ``compute_ic()`` (``date, ic``).
@@ -217,10 +227,11 @@ def regime_ic(
     Returns:
         MetricOutput with value = mean IC across regimes,
         stat = min |t| across regimes (conservative: if weakest passes, all pass).
-        Per-regime details in metadata.
+        Per-regime details in metadata, each with raw and BHY-adjusted p.
 
     References:
         Chen & Zimmermann (2022): report sub-period t-stats separately.
+        Benjamini-Yekutieli (2001): FDR control under arbitrary dependence.
     """
     if len(ic_df) < MIN_IC_PERIODS:
         return _short_circuit_output(
@@ -261,6 +272,8 @@ def regime_ic(
         )
 
     per_regime: dict[str, dict[str, object]] = {}
+    raw_p_list: list[float] = []
+    regime_order: list[str] = []
     for row in regime_stats.iter_rows(named=True):
         t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
         p = _p_value_from_t(t, row["n"])
@@ -272,14 +285,24 @@ def regime_ic(
             "significance": _significance_marker(p),
             "n_periods": row["n"],
         }
+        raw_p_list.append(p)
+        regime_order.append(row["regime"])
+
+    # BHY across regimes: sweeping k regimes is k implicit tests on the
+    # same null family. Report adjusted per-regime p for callers that
+    # want to act on a specific regime's significance without manually
+    # correcting; also surface min adjusted p for aggregate decisions.
+    adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []
+    for name, ap in zip(regime_order, adj_p):
+        per_regime[name]["p_adjusted_bhy"] = float(ap)
 
     mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
 
-    # WHY: min |t| across regimes — if the weakest regime is significant,
-    # all regimes are significant. Conservative summary statistic.
+    # Conservative summary: if the weakest regime is significant, all are.
     min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))
     min_t = min_abs_t_regime["stat"]
     min_p = min_abs_t_regime["p_value"]
+    min_p_adjusted = float(max(adj_p)) if len(adj_p) else 1.0
 
     # WHY: filter near-zero means before checking direction consistency —
     # a regime with IC ≈ 0 has no signal, not a "consistent direction"
@@ -296,11 +319,13 @@ def regime_ic(
         significance=_significance_marker(min_p),
         metadata={
             "p_value": min_p,
+            "p_value_bhy_adjusted": min_p_adjusted,
             "stat_type": "t",
             "h0": "mu=0 (per regime)",
             "aggregation": "mean_value_min_stat",
             "per_regime": per_regime,
             "direction_consistent": consistent,
+            "n_regimes": len(per_regime),
         },
     )
 
@@ -347,7 +372,9 @@ def multi_horizon_ic(
         ic_vals = ic_series["ic"].drop_nulls()
         n_ic = len(ic_vals)
 
-        if n_ic >= MIN_IC_PERIODS:
+        # Scale the raw threshold to land with ≥ MIN_IC_PERIODS after
+        # the p-period non-overlap sub-sampling below.
+        if n_ic >= _scaled_min_periods(MIN_IC_PERIODS, p):
             mean_ic = float(ic_vals.mean())
             # WHY: use non-overlapping sampling for t-stat to avoid
             # autocorrelation inflation from overlapping forward returns
@@ -379,12 +406,19 @@ def multi_horizon_ic(
             min_required=MIN_IC_PERIODS,
         )
 
+    # BHY across horizons: sweeping k horizons is k implicit tests.
+    horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]
+    raw_h_p = [per_horizon[h]["p_value"] for h in horizon_keys]
+    adj_h_p = bhy_adjusted_p(raw_h_p) if raw_h_p else []
+    for h, ap in zip(horizon_keys, adj_h_p):
+        per_horizon[h]["p_adjusted_bhy"] = float(ap)
+
     mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))
 
-    # WHY: min |t| across horizons — conservative summary
     weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))
     min_t = weakest["stat"]
     min_p = weakest["p_value"]
+    min_p_adjusted = float(max(adj_h_p)) if len(adj_h_p) else 1.0
 
     return MetricOutput(
         name="multi_horizon_ic",
@@ -393,9 +427,11 @@ def multi_horizon_ic(
         significance=_significance_marker(min_p),
         metadata={
             "p_value": min_p,
+            "p_value_bhy_adjusted": min_p_adjusted,
             "stat_type": "t",
             "h0": "mu=0 (per horizon)",
             "aggregation": "mean_value_min_stat",
             "per_horizon": per_horizon,
+            "n_horizons": len(valid_horizons),
         },
     )

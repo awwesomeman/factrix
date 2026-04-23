@@ -125,6 +125,20 @@ def _sample_non_overlapping(
     return result
 
 
+def _scaled_min_periods(base: int, forward_periods: int) -> int:
+    """Raw-sample minimum for a metric that will sub-sample at stride h.
+
+    ``MIN_*_PERIODS`` constants are calibrated for the *effective*
+    sample size the downstream t-test operates on. When the metric
+    first runs ``_sample_non_overlapping(df, h)`` the effective n
+    shrinks to ``raw_n / h``, so the pre-sampling guard needs
+    ``raw_n ≥ base · h`` to land with ≥ ``base`` independent
+    observations after sampling. Clamps ``h ≥ 1`` so ``h = 1`` is a
+    no-op.
+    """
+    return base * max(forward_periods, 1)
+
+
 def _lag_within_asset(
     df: pl.DataFrame,
     col: str,

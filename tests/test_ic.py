@@ -125,3 +125,13 @@ class TestRegimeIC:
         ic_df = self._make_ic_series(5)
         result = regime_ic(ic_df)
         assert math.isnan(result.value)
+
+    def test_bhy_adjusted_p_per_regime(self):
+        """Each regime gets a raw and a BHY-adjusted p; aggregate exposed."""
+        ic_df = self._make_ic_series(40, mean=0.05)
+        result = regime_ic(ic_df)
+        for bucket in result.metadata["per_regime"].values():
+            # Adjusted p must be >= raw p (BHY shrinks rejection power).
+            assert bucket["p_adjusted_bhy"] >= bucket["p_value"] - 1e-12
+        assert "p_value_bhy_adjusted" in result.metadata
+        assert result.metadata["n_regimes"] == 2

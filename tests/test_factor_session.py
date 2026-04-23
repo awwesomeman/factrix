@@ -139,7 +139,9 @@ class TestCacheBehavior:
         assert second is f.artifacts.metric_outputs["ic"]
         # First call also returns the stored version (written during call).
         assert first is f.artifacts.metric_outputs["ic"]
-        assert first.value == second.value
+        # Identity already implies value-equality; bypasses the NaN!=NaN
+        # trap when the sample triggers a short-circuit.
+        assert first is second
 
     def test_override_bypasses_cache(self, noisy_panel):
         f = fl.factor(noisy_panel, "Mom_20D", n_groups=5)
@@ -168,9 +170,10 @@ class TestCacheBehavior:
         # Now run full evaluate — it should reuse the cached ic entry.
         f.evaluate()
         ic_after = f.artifacts.metric_outputs["ic"]
-        # Same cached object — the value propagated through from_artifacts
-        # rather than being recomputed.
-        assert ic_after.value == ic_first.value
+        # Identity: evaluate propagated the cached object through
+        # from_artifacts rather than recomputing. NaN-safe (short-circuited
+        # metrics return NaN, which breaks value-equality).
+        assert ic_after is ic_first
 
     def test_standalone_after_evaluate_reuses_cache(self, noisy_panel):
         f = fl.factor(noisy_panel, "Mom_20D")
