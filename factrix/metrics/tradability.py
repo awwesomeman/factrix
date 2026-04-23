@@ -190,6 +190,13 @@ def net_spread(
 
     ``Net = Gross_Spread - 2 × cost_bps × Turnover``
 
+    The ``2 ×`` accounts for both legs of the long-short portfolio
+    needing to be traded (long side + short side) at each rebalance.
+    Default ``estimated_cost_bps=30`` is a conservative single-leg
+    mid-cap US equity estimate (half-spread + impact) sized to give a
+    useful headline number; override with a venue-specific estimate
+    when available.
+
     Args:
         gross_spread: Per-period mean long-short spread.
         turnover: Factor turnover estimate.
@@ -199,7 +206,9 @@ def net_spread(
         MetricOutput with value = net spread (per-period).
 
     References:
-        DeMiguel, Martin-Utrera & Nogales (2020).
+        DeMiguel, Martin-Utrera, Nogales & Uppal (2020), "A
+        Transaction-Cost Perspective on the Multitude of Firm
+        Characteristics." *Review of Financial Studies* 33(5).
     """
     cost_drag = 2 * (estimated_cost_bps / 10000) * turnover
     net = gross_spread - cost_drag

@@ -261,20 +261,25 @@ def signal_density(
     *,
     factor_col: str = "factor",
 ) -> MetricOutput:
-    """Average time gap (in bars) between consecutive events.
+    """Average bars per event (inverse frequency).
 
     Answers: "how frequently does this signal fire?"
 
-    Computed per-asset, then averaged across assets. Low density
-    (large gaps) means the signal is selective; high density (small
-    gaps) means the signal fires often — capacity is higher but
-    independence may be weaker.
+    Computed per-asset as ``total_bars / n_events`` (inverse event
+    frequency), then averaged across assets. This is **not** the mean
+    of actual inter-event gaps: bars-per-event depends only on counts,
+    so clustered events and evenly-spaced events yield the same value.
+    See ``clustering_diagnostic`` for event-date concentration.
+
+    Low density (large gaps) means the signal is selective; high
+    density (small gaps) means the signal fires often — capacity is
+    higher but independence may be weaker.
 
     Args:
         df: Panel with ``date, asset_id, factor``.
 
     Returns:
-        MetricOutput with value = mean bars between events.
+        MetricOutput with value = mean bars-per-event across assets.
     """
     events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
     n_events = len(events)

@@ -41,12 +41,27 @@ def corrado_rank_test(
     Across all event observations:
         4. z = mean(U_event × sign(factor)) / (std(U_all) / √N_events)
 
+    Deviation from Corrado (1989) eq.(5):
+        The paper computes the denominator as the time-series std of the
+        **cross-sectional mean** of rank deviations across the combined
+        estimation + event window. We use the **pooled std of U_all**
+        across all (asset, date) cells instead — a simpler estimator
+        that conflates asset-level and time-level dispersion. The two
+        coincide under iid ranks but diverge when event-date clustering
+        is present. Adequate for a robustness screen against parametric
+        BMP / CAAR; not a substitute for a reference event-study package
+        if strict size control matters.
+
     Args:
         df: Full panel with ``date, asset_id, factor, forward_return``.
             Must include non-event rows for ranking.
 
     Returns:
         MetricOutput with value=mean rank deviation, stat=z.
+
+    References:
+        Corrado (1989), "A Nonparametric Test for Abnormal Security-
+        Price Performance in Event Studies."
     """
     ranked = df.with_columns(
         (

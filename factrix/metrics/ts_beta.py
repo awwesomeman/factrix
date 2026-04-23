@@ -116,6 +116,14 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     take the row's per-asset beta + t_stat, mark ``p_value=1.0`` so the
     row is suppressed from BHY, and label the method. Centralizing here
     keeps Profile and Factor paths bit-identical.
+
+    Statistical caveat: the returned t-stat tests the **time-series**
+    hypothesis ``H₀: β_i = 0 for this asset``, which is **not** the
+    ``ts_beta`` cross-sectional hypothesis ``H₀: mean(β) = 0 across
+    assets``. The two are not exchangeable — a single-asset t-stat of
+    2.5 says that asset's β differs from zero over time, it does not
+    say the common factor is priced. ``p_value=1.0`` enforces this by
+    keeping the row out of BHY adjudication.
     """
     row = ts_betas_df.row(0, named=True)
     return MetricOutput(

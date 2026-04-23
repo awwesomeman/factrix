@@ -222,7 +222,15 @@ _ADF_CRITS_CONSTANT: tuple[tuple[float, float], ...] = (
 
 
 def _adf_pvalue_interp(tau: float) -> float:
-    """Linear interpolation of ADF p-value from MacKinnon (1996) crits."""
+    """Linear interpolation of ADF p-value from MacKinnon (1996) crits.
+
+    Behaviour at the tails is driven by the outermost critical points
+    in ``_ADF_CRITS_CONSTANT``: τ below the leftmost point clamps to
+    0.001 (strongly reject unit root); τ above the rightmost clamps to
+    0.95 — this is the rightmost MacKinnon value, **not** a hardcoded
+    cap. Extending the right tail would require adding critical points
+    beyond τ = 0.23.
+    """
     if tau <= _ADF_CRITS_CONSTANT[0][0]:
         return _ADF_CRITS_CONSTANT[0][1]
     if tau >= _ADF_CRITS_CONSTANT[-1][0]:
