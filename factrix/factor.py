@@ -238,10 +238,17 @@ class Factor:
     # call these — per-class method resolution keeps their surface clean.
 
     def turnover(self) -> MetricOutput:
-        """Period-over-period weight turnover fraction."""
+        """Rank-autocorrelation turnover at the session's forward horizon.
+
+        Sampled at stride ``config.forward_periods`` (non-overlapping) so
+        the stability window matches the horizon used for forward returns
+        — a factor reshuffled within the holding window counts as churn,
+        but within-window noise does not.
+        """
         from factrix.metrics.tradability import turnover as _tn
         return self._cached_or_compute(
             "turnover", _tn, self.artifacts.prepared,
+            forward_periods=self.config.forward_periods,
         )
 
     def breakeven_cost(self, n_groups: int | None = None) -> MetricOutput:

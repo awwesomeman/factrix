@@ -13,73 +13,134 @@ import numpy as np
 import polars as pl
 
 from factrix._types import DDOF, EPSILON, MetricOutput
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 from factrix._stats import _significance_marker
 
 
 def turnover(
     df: pl.DataFrame,
     factor_col: str = "factor",
+    forward_periods: int = 1,
+    quantile: float | None = None,
 ) -> MetricOutput:
-    """Factor turnover via rank autocorrelation.
+    """Factor turnover via non-overlapping rank autocorrelation.
 
     ``turnover = 1 - mean(rank_autocorrelation)``
 
-    High rank autocorrelation = low turnover = lower rebalance cost.
+    Rank autocorrelation is measured between dates ``t`` and ``t +
+    forward_periods``, sub-sampled at stride ``forward_periods`` (phase-0)
+    so each pair is a non-overlapping snapshot. This aligns the stability
+    window with the forward-return horizon used elsewhere in the profile.
 
     Args:
         df: Panel with ``date, asset_id, factor``.
+        factor_col: Name of the factor column. Defaults to ``"factor"``.
+        forward_periods: Sampling stride in periods — should match the
+            forward-return horizon the factor is being evaluated against.
+            ``1`` reproduces the lag-1 behaviour.
+        quantile: Optional tail filter in ``(0, 0.5)``. When set, restrict
+            the Spearman ρ at each pair to assets whose rank at *either*
+            endpoint lies in the top-q or bottom-q of that date's cross-
+            section — i.e. the statistical region where the long-short
+            spread is actually measured. Union (not intersection) so names
+            entering or leaving the tail both register as turnover.
+
+            Caveat: ρ on the tail union is NOT comparable to the
+            unfiltered ρ — tail names are more persistent by construction,
+            so the resulting turnover will typically be lower. Compare
+            only against other tail-filtered estimates at the same q.
 
     Returns:
-        MetricOutput with value = turnover estimate (0-1).
+        MetricOutput with ``value = turnover estimate (0–1)`` and metadata
+        carrying ``mean_rank_autocorrelation``, ``std_rank_autocorrelation``,
+        ``n_pairs``, ``forward_periods``, ``quantile``, and
+        ``n_cross_section_mean`` (mean assets-per-pair post-filter).
+
+        ``std_rank_autocorrelation`` is the cross-pair sample std. Using
+        ``std/√n_pairs`` as an SE is a *lower bound*: consecutive pairs
+        share one rank-vector endpoint (pair k and pair k+1 both involve
+        ``rank @ t_{k·h}``), so the per-pair ρ's have weak positive
+        dependence and the true SE is marginally larger. For publication
+        grade inference, use a HAC variance estimator.
     """
-    dates = df["date"].unique().sort()
-    if len(dates) < 2:
+    if quantile is not None and not 0.0 < quantile < 0.5:
+        raise ValueError(
+            f"quantile must be in (0, 0.5), got {quantile!r}"
+        )
+    if forward_periods < 1:
+        raise ValueError(
+            f"forward_periods must be ≥ 1, got {forward_periods!r}"
+        )
+
+    all_dates = df["date"].unique().sort()
+    # Need ≥ 2 non-overlapping pairs so std(ρ) is defined; that requires
+    # ≥ 3 sampled dates (Hansen & Hodrick 1980), i.e. ≥ 2·h + 1 raw dates.
+    min_required = 2 * forward_periods + 1
+    if len(all_dates) < min_required:
         return _short_circuit_output(
             "turnover", "insufficient_dates",
-            n_observed=len(dates), min_required=2,
+            n_observed=len(all_dates), min_required=min_required,
+            forward_periods=forward_periods,
         )
 
-    date_map = pl.DataFrame({
-        "date": dates[1:],
-        "prev_date": dates[:-1],
-    })
+    sampled_df = _sample_non_overlapping(df, forward_periods)
 
-    ranked = df.select(
+    ranked = sampled_df.select(
         "date", "asset_id",
-        pl.col(factor_col).rank(method="average").over("date").alias("factor_rank"),
-    )
+        pl.col(factor_col).rank(method="average").over("date").alias("rank_curr"),
+        pl.len().over("date").alias("n_curr"),
+    ).sort("asset_id", "date")
 
-    paired = (
-        ranked.rename({"factor_rank": "rank_curr"})
-        .join(date_map, on="date")
-        .join(
-            ranked.rename({"date": "prev_date", "factor_rank": "rank_prev"}),
-            on=["prev_date", "asset_id"],
+    # Lag-within-asset avoids a self-join on (prev_date, asset_id):
+    # rank_prev at date_k is this asset's rank at the previous *sampled*
+    # date, which is the prior row in each asset's sorted group.
+    paired = ranked.with_columns(
+        pl.col("rank_curr").shift(1).over("asset_id").alias("rank_prev"),
+        pl.col("n_curr").shift(1).over("asset_id").alias("n_prev"),
+    ).drop_nulls(["rank_prev"])
+
+    if quantile is not None:
+        in_tail = (
+            (pl.col("rank_curr") <= pl.col("n_curr") * quantile)
+            | (pl.col("rank_curr") > pl.col("n_curr") * (1.0 - quantile))
+            | (pl.col("rank_prev") <= pl.col("n_prev") * quantile)
+            | (pl.col("rank_prev") > pl.col("n_prev") * (1.0 - quantile))
         )
-    )
+        paired = paired.filter(in_tail)
 
     rc_per_date = (
         paired.group_by("date")
-        .agg(pl.corr("rank_curr", "rank_prev").alias("rc"))
+        .agg(
+            pl.corr("rank_curr", "rank_prev").alias("rc"),
+            pl.len().alias("n_pair"),
+        )
         .filter(pl.col("rc").is_not_null() & pl.col("rc").is_not_nan())
         .sort("date")
     )
 
-    if rc_per_date.is_empty():
+    if rc_per_date.height < 2:
         return _short_circuit_output(
-            "turnover", "no_valid_rank_autocorrelation",
-            n_observed=0,
+            "turnover", "insufficient_pairs",
+            n_observed=rc_per_date.height, min_required=2,
+            forward_periods=forward_periods, quantile=quantile,
         )
 
     rc_arr = rc_per_date["rc"].to_numpy()
     mean_rc = float(np.mean(rc_arr))
-    turnover = 1.0 - mean_rc
+    std_rc = float(np.std(rc_arr, ddof=DDOF))
+    n_cs_mean = float(rc_per_date["n_pair"].mean())
 
     return MetricOutput(
         name="turnover",
-        value=turnover,
-        metadata={"mean_rank_autocorrelation": mean_rc, "n_dates": len(rc_arr)},
+        value=1.0 - mean_rc,
+        metadata={
+            "mean_rank_autocorrelation": mean_rc,
+            "std_rank_autocorrelation": std_rc,
+            "n_pairs": rc_per_date.height,
+            "forward_periods": forward_periods,
+            "quantile": quantile,
+            "n_cross_section_mean": n_cs_mean,
+        },
     )
 
 
