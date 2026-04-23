@@ -130,8 +130,9 @@ def ic_newey_west(
             n_observed=n, min_required=MIN_IC_PERIODS,
         )
 
-    lags = max(int(math.floor(n ** (1 / 3))), max(forward_periods - 1, 0))
-    t, p, sig = _newey_west_t_test(ic_vals, lags=lags)
+    from factrix._stats import _resolve_nw_lags
+    lags = _resolve_nw_lags(n, lags=None, forward_periods=forward_periods)
+    t, p, sig = _newey_west_t_test(ic_vals, forward_periods=forward_periods)
     return MetricOutput(
         name="ic_newey_west",
         value=float(ic_vals.mean()),

@@ -630,10 +630,16 @@ class MacroPanelFactor(Factor):
     # ----- Canonical + core -----
 
     def fm_beta(self) -> MetricOutput:
-        """Fama-MacBeth λ Newey-West t-test (canonical test)."""
+        """Fama-MacBeth λ Newey-West t-test (canonical test).
+
+        Threads ``config.forward_periods`` through so the NW bandwidth is
+        floored at ``forward_periods - 1`` — consistent under the
+        MA(h-1) overlap of h-period forward returns.
+        """
         from factrix.metrics.fama_macbeth import fama_macbeth as _fm
         return self._cached_or_compute(
             "fm_beta", _fm, self.artifacts.get("beta_series"),
+            forward_periods=self.config.forward_periods,
         )
 
     def pooled_beta(self) -> MetricOutput:

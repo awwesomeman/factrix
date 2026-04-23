@@ -121,7 +121,10 @@ class MacroPanelProfile:
         spread_series = artifacts.get("spread_series")
         median_xs_n = int(_median_universe_size(artifacts.prepared))
 
-        fm_m = _memoized(outputs, "fm_beta", fama_macbeth, beta_series)
+        fm_m = _memoized(
+            outputs, "fm_beta", fama_macbeth, beta_series,
+            forward_periods=fp,
+        )
         pooled_m = _memoized(outputs, "pooled_beta", pooled_ols, artifacts.prepared)
         sign_m = _memoized(outputs, "beta_sign_consistency", beta_sign_consistency, beta_series)
         oos_m = _memoized(outputs, "oos_decay", multi_split_oos_decay, beta_values)

@@ -80,6 +80,7 @@ def fama_macbeth(
     beta_df: pl.DataFrame,
     *,
     newey_west_lags: int | None = None,
+    forward_periods: int | None = None,
     is_estimated_factor: bool = False,
     factor_return_var: float | None = None,
 ) -> MetricOutput:
@@ -88,6 +89,10 @@ def fama_macbeth(
     Args:
         beta_df: DataFrame with ``date, beta`` columns (from compute_fm_betas).
         newey_west_lags: Number of NW lags. Defaults to floor(T^(1/3)).
+        forward_periods: Overlap horizon of the regression's forward
+            return. When set, the NW bandwidth is floored at
+            ``forward_periods - 1`` so the kernel is consistent under
+            the MA(h-1) overlap structure of h-period returns.
         is_estimated_factor: Set True when the ``Signal_i`` column used by
             ``compute_fm_betas`` is itself an **estimated** quantity
             (rolling OLS β to another factor, PCA score, ML-predicted
@@ -128,12 +133,12 @@ def fama_macbeth(
             n_observed=n, min_required=MIN_FM_PERIODS,
         )
 
+    from factrix._stats import _resolve_nw_lags
     mean_beta = float(np.mean(betas))
-    t, p, sig = _newey_west_t_test(betas, lags=newey_west_lags)
-    actual_lags = (
-        newey_west_lags if newey_west_lags is not None
-        else int(np.floor(n ** (1 / 3)))
+    t, p, sig = _newey_west_t_test(
+        betas, lags=newey_west_lags, forward_periods=forward_periods,
     )
+    actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
 
     metadata: dict = {
         "p_value": p,
@@ -142,6 +147,7 @@ def fama_macbeth(
         "method": "Fama-MacBeth + Newey-West",
         "n_periods": n,
         "newey_west_lags": actual_lags,
+        "forward_periods": forward_periods,
         "is_estimated_factor": is_estimated_factor,
     }
 

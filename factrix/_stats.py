@@ -110,14 +110,40 @@ def _significance_marker(p_value: float | None) -> str:
     return ""
 
 
-def _newey_west_se(values: np.ndarray, lags: int | None = None) -> float:
+def _resolve_nw_lags(
+    n: int,
+    lags: int | None,
+    forward_periods: int | None,
+) -> int:
+    """Pick Bartlett-kernel bandwidth, honoring the overlap horizon.
+
+    ``max(floor(T^(1/3)), forward_periods - 1)`` when ``forward_periods``
+    is provided; the ``h - 1`` floor is required for consistency when
+    input series carries an MA(h-1) structure from overlapping forward
+    returns. Clipped to ``n - 1`` so the kernel stays inside the sample.
+    """
+    base = int(np.floor(n ** (1 / 3))) if lags is None else lags
+    if forward_periods is not None:
+        base = max(base, max(forward_periods - 1, 0))
+    return min(base, n - 1)
+
+
+def _newey_west_se(
+    values: np.ndarray,
+    lags: int | None = None,
+    forward_periods: int | None = None,
+) -> float:
     """Newey-West HAC standard error for the mean of a time series.
 
     Uses Bartlett kernel weights: w_j = 1 - j/(L+1).
 
     Args:
         values: 1-D array of time series observations.
-        lags: Number of lags. Defaults to floor(T^(1/3)).
+        lags: Number of lags. Defaults to ``floor(T^(1/3))``.
+        forward_periods: Overlap horizon of the input series. When set,
+            enforces ``lags >= forward_periods - 1`` — the minimum
+            consistent bandwidth for overlapping h-period returns
+            (Hansen-Hodrick 1980 MA(h-1) structure).
 
     Returns:
         HAC-adjusted standard error of the mean.
@@ -126,9 +152,7 @@ def _newey_west_se(values: np.ndarray, lags: int | None = None) -> float:
     if n < 2:
         return 0.0
 
-    if lags is None:
-        lags = int(np.floor(n ** (1 / 3)))
-    lags = min(lags, n - 1)
+    lags = _resolve_nw_lags(n, lags, forward_periods)
 
     mean = float(np.mean(values))
     demeaned = values - mean
@@ -230,8 +254,17 @@ def _adf(y: np.ndarray, lags: int = 0) -> tuple[float, float]:
 def _newey_west_t_test(
     values: np.ndarray,
     lags: int | None = None,
+    forward_periods: int | None = None,
 ) -> tuple[float, float, str]:
     """Newey-West t-test for H₀: mean = 0.
+
+    Args:
+        values: 1-D array of time series observations.
+        lags: Optional explicit Bartlett-kernel bandwidth. ``None`` uses
+            the default ``floor(T^(1/3))`` rule-of-thumb.
+        forward_periods: Overlap horizon of the series. When set,
+            bandwidth is floored at ``forward_periods - 1`` to stay
+            consistent under the MA(h-1) overlap structure.
 
     Returns:
         (t_stat, p_value, significance_marker)
@@ -242,9 +275,7 @@ def _newey_west_t_test(
     if n < 3:
         return 0.0, 1.0, ""
 
-    effective_lags = (
-        lags if lags is not None else int(np.floor(n ** (1 / 3)))
-    )
+    effective_lags = _resolve_nw_lags(n, lags, forward_periods)
     logger = get_metrics_logger()
     logger.debug("newey_west_t_test: n=%d lags=%d", n, effective_lags)
     # WARNING: NW kernel needs enough samples per lag to estimate
@@ -257,7 +288,7 @@ def _newey_west_t_test(
         )
 
     mean = float(np.mean(values))
-    se = _newey_west_se(values, lags)
+    se = _newey_west_se(values, lags, forward_periods=forward_periods)
     if se < EPSILON:
         return 0.0, 1.0, ""
 
