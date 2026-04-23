@@ -55,6 +55,15 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 觀點：以 VAR pre-whitening 後再做 kernel HAC，顯著降低 Bartlett/QS 估計的 bias、改善 t-stat 的 size。
   - 採用：未實作 pre-whitening；僅作為進階路徑的文獻背景，讓使用者知道若 lag 仍不足可外接此類修正。
 
+### Regime IC / Multi-horizon IC — 穩定性診斷
+
+精確實作：`factrix/metrics/ic.py::regime_ic`（per-regime t-test + BHY 跨 regime 校正）、`::multi_horizon_ic`（horizon list 掃 IC，per-horizon 非重疊 t-test）
+
+- **Chen & Zimmermann (2022)**, *Critical Finance Review* 11(2)
+  - 觀點：已發表因子的 OOS decay 與 sub-period 穩定性檢驗是 zoo-scale 整理的最低標；建議 report sub-period t-stats 分別檢查而非僅看 full-sample。
+  - 採用：`regime_ic` 對每個 regime 跑獨立 t-test（H₀: mean IC = 0 within regime），並用 **BHY** 對 k 個 regime p-value 做相依性校正；預設以「時間 bisection（前半/後半）」作 regime fallback，接受使用者自供 regime 標籤。stat 回傳 **min|t| across regimes**（conservative：最弱 regime 若顯著則全 regime 皆顯著）。
+  - 採用：`multi_horizon_ic` 掃預設 horizon list `[1, 5, 10, 20]`，per-horizon 以非重疊採樣（`_sample_non_overlapping`）做 t-test 避免重疊報酬 inflate，並用 `MIN_IC_PERIODS` 依 horizon 縮放（短期 horizon 要求更多樣本以補償 sub-sampling 之資料耗損）。retention ratio 與 monotonicity 診斷由下游 veto rule (`cs.multi_horizon_decay_fast`) 消費。
+
 ### Quantile Spread / Monotonicity / Top Concentration — 輔助診斷
 
 精確實作：`factrix/metrics/quantile.py`（spread / VW spread / group returns）、`factrix/metrics/monotonicity.py`、`factrix/metrics/concentration.py`（HHI⁻¹ effective-n）
@@ -157,9 +166,21 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 
 - **Newey & West (1987)** — 同前；λ 時序的 lags 從 `forward_periods` 導出以覆蓋重疊週期結構。
 
-### Pooled OLS 對比
+### Pooled OLS with clustered SE (`pooled_ols`)
 
-- 非單一論文觀點；FM λ 與 pooled β 正負號不一致時觸發 `macro_panel.fm_pooled_sign_mismatch` veto rule，作為 robustness check。
+精確實作：`factrix/metrics/fama_macbeth.py::pooled_ols`（sandwich SE、single-way / two-way cluster、non-PSD fallback）
+
+- **Petersen (2009)** — 同前；FM 與 single-way 在平衡 panel 下 point estimate 等價，但 SE 不同。
+- **Cameron, Gelbach & Miller (2011)**, *Journal of Business & Economic Statistics* 29(2)
+  - 觀點：two-way clustering `V = V_A + V_B − V_A∩B`；在 firm 與 time 兩維度同時存在相依性時必要。
+  - 採用：`pooled_ols(two_way_cluster_col=...)` 直接實作 CGM 2011；每個 component 採自己的 finite-sample correction `G/(G−1)`；df 依 Thompson (2011) 取 `min(G_A, G_B) − 1`。
+- **Thompson (2011)**, *JFE* 99(1)
+  - 觀點：firm × time 雙向 cluster 的簡化實作；推薦 df 採 `min(G_A, G_B) − 1`。
+  - 採用：df 計算與建議一致。
+- **Cameron & Miller (2015)**, *Journal of Human Resources* 50(2)
+  - 觀點：two-way V 在小樣本可能 non-PSD；直接 clip 到 0 會報出 SE=0（偽顯著），應 fallback 至 larger-dimension single-way V。
+  - 採用：`non_psd_fallback` 邏輯於 `V[1,1] < 0` 時回退至 `cluster_col` 的 single-way variance，並於 metadata 標註 `variance_non_psd_fallback`。
+- **Veto 用法**：FM λ 與 pooled β 正負號不一致時觸發 `macro_panel.fm_pooled_sign_mismatch` veto rule，作為 robustness check；同號但大小差異大時不 veto（視為 SE 差異而非 misspecification）。
 
 ---
 
@@ -172,6 +193,10 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - **Black, Jensen & Scholes (1972)**, in *Studies in the Theory of Capital Markets* (M. Jensen, ed.), Praeger
   - 觀點：先以時序回歸估 per-asset β（stage 1），再對 β 分佈或其與報酬的關係做推論（stage 2）；適用於**因子本身在截面上沒變化**的情境（例如市場 premium）。
   - 採用：`ts_beta_p` 取其 stage-2 精神，對跨資產 β 分佈做 H₀: mean(β)=0 的 t-test — macro_common 的共用因子在截面上恆定，正符合 BJS 的適用條件。
+
+**N=1 退化路徑（`ts_beta_single_asset_fallback`）**：
+- 當 panel 只剩單一資產（`n_assets = 1`），跨資產 t-test 無法進行（需要 N≥3）。此時回傳該資產 stage-1 TS 回歸的 β 與 t-stat，但 **`p_value=1.0`** 以使 BHY 自動排除此列——stage-1 的 per-asset t-stat 是**時序假設**（H₀: β_i=0 for that asset），**不等同於** stage-2 跨資產推論（H₀: mean(β)=0 across assets）。兩者統計意義不同，不應混用。
+- 下游 veto rule `macro_common.single_asset` 會以此旗標提示使用者結果僅為 single-asset 時序結論。
 
 ### Augmented Dickey-Fuller (`factor_adf_p`) — 因子單位根檢驗
 
@@ -198,6 +223,52 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - **Kostakis, Magdalinos & Stamatogiannis (2015)**, *RFS* 28(5)；延伸自 **Phillips & Magdalinos (2009)** 的 IVX 框架
   - 觀點：以工具變數（IVX）消除 persistent predictor 引起的 near-unit-root bias，統計性質不依賴 persistence degree。
   - 採用：IVX 未內建；建議使用者如需 Stambaugh 修正，優先外接 IVX 實作（如 `arch` / R `ivx` package）。
+
+---
+
+## OOS persistence（樣本外穩定性）
+
+### Multi-split OOS decay (`multi_split_oos_decay`)
+
+精確實作：`factrix/metrics/oos.py::multi_split_oos_decay`（IS/OOS 切割、per-split `|mean_OOS|/|mean_IS|`、sign-flip 偵測、median survival ratio）
+
+- **McLean & Pontiff (2016)**, *JoF* 71(1)
+  - 觀點：已發表因子的 OOS 報酬平均衰減 ~32%（in-sample 高估約一半來自 statistical bias、另一半來自 publication-induced learning）；任何 strategy 若 OOS 報酬不存在即屬 overfitting。
+  - 採用：`multi_split_oos_decay` 以 median survival ratio across splits 為 `value`；預設 `survival_threshold=0.5`（OOS 應至少保留 IS 的一半強度）；任一 split 發生 **sign flip** 即 VETOED（IC 翻轉比 decay 更嚴重，代表因子在 OOS 方向錯誤）。
+  - 採用：`stat = None` — OOS decay 是描述性統計而非假設檢定，`p_value` 固定 `1.0` 以避免下游 BHY 把它當成顯著項目（conservative by omission）。
+- **de Prado (2018)**, *Advances in Financial Machine Learning*, ch. 7
+  - 觀點：Combinatorial Purged Cross-Validation (CPCV) 在時序資料上比固定 IS/OOS 切割更 robust。
+  - 採用：**未實作 CPCV**；本專案用 3 個固定切點 `[(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]` 並取 median，理由是 CPCV 對外部 dependency 與計算成本較高；median-of-splits 是 lean 版的 robustness check。若需要嚴格 CPCV 建議外接 `mlfinlab`。
+
+**Split 策略 rationale**：
+- 固定三個切點而非滑動窗：避免產生隱含多重檢定壓力（滑動窗實質上在「選擇 split 位置」）。
+- 取 median 而非 mean：對單一 regime change 剛好落在某 split 點的 robust 更好。
+- 0.5 threshold：為嚴格中位數；McLean-Pontiff 觀察到平均 decay 32% 對應 survival ratio ≈ 0.68，因此 0.5 是 conservative 但非極端的門檻。可由 caller 覆蓋。
+
+---
+
+## Factor spanning & selection（因子跨度與選擇）
+
+### Spanning regression (`spanning_alpha`)
+
+精確實作：`factrix/metrics/spanning.py::spanning_alpha`（candidate = α + Σβ·base + ε；`factrix/_ols.py::ols_alpha` 背後 OLS）
+
+- **Barillas & Shanken (2017)**, *RFS* 30(4)
+  - 觀點：比較競爭模型 / 因子時，唯一正確方式是檢驗「candidate 是否對既有 base set 提供增量 α」（spanning regression），而非比較 pricing error 本身。
+  - 採用：`spanning_alpha` 跑 candidate spread series = α + Σβ·base_spread + ε 的 OLS 回歸；對齊採 inner join 只保留所有 base 與 candidate 共同非 null 的日期（避免以 0 補值污染 β）；t-stat 以 classical OLS SE 計算，未加 Newey-West（base set 通常為 non-overlapping portfolio spread，自相關有限）。
+
+### Greedy forward selection (`greedy_forward_selection`)
+
+精確實作：`factrix/metrics/spanning.py::greedy_forward_selection`（forward pick by |α|、backward elimination by |t|）
+
+- **Feng, Giglio & Xiu (2020)**, *JoF* 75(3)
+  - 觀點：面對因子 zoo，提出 double-selection LASSO 框架做有效 pricing factor 挑選；核心觀察：**選擇的順序與 base set 會嚴重影響結論**，應顯式記錄。
+  - 採用：本專案採簡化版 **greedy forward + backward elimination**（非 double-selection LASSO）：每步選 |α| 最大且 |t| ≥ 2 的 candidate；每次加入後重跑 backward 檢查已選因子之 |t|，凡 |t| 低於閾值者剔除。Algorithm 透明、可重現，但統計性質不同於 LASSO。
+
+- **Leeb & Pötscher (2005)**, *Econometric Theory* 21(1)；**Berk, Brown, Buja, Zhang & Zhao (2013)**, *AoS* 41(2) — Post-Selection Inference
+  - 觀點：stepwise selection 後的 t-stat 分佈**不再是常態**（pre-test bias / PoSI 問題）；報告 selected factor 的 t-stat 作為顯著性宣稱是**統計上無效**的。
+  - 採用：`greedy_forward_selection` 僅產生「**候選名單**」而**不輸出顯著性宣稱**。回傳的 `SpanningResult.t_stat` 僅為 selection 過程的 diagnostic，不應當作 post-selection p-value。嚴格推論需另接 PoSI 或 sample-splitting 做 confirmatory test——本專案**刻意不實作**自動 post-selection inference，避免 false confidence。
+  - **使用者注意**：若需對 selected set 做發表級的 t-stat claim，請在獨立 holdout 上重跑 `spanning_alpha`，該測試是 honest 的（無 selection bias）。
 
 ---
 
@@ -262,6 +333,42 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 
 ---
 
+## 常數與門檻（Reproducibility reference）
+
+以下常數分散於 `_types.py` 與各模組，集中列表方便 reviewer 核對與重現。
+
+### 數值常數
+| 常數 | 值 | 定義位置 | 用途 |
+|------|----|---------|------|
+| `EPSILON` | `1e-9` | `_types.py` | 除零保護、幾乎為 0 的比較門檻 |
+| `DDOF` | `1` | `_types.py` | 樣本標準差自由度校正；全專案統一（Polars `.std()` 預設即為 1） |
+| `MAD_CONSISTENCY_CONSTANT` | `1.4826` | `_types.py` | `= 1/Φ⁻¹(0.75)`，使 MAD 成為常態下 σ 的無偏估計 |
+
+### 最低樣本門檻（觸發 short-circuit 回傳）
+| 門檻 | 值 | 定義位置 | 對應檢定 |
+|------|----|---------|---------|
+| `MIN_IC_PERIODS` | `10` | `_types.py` | IC 時序檢定（per-date IC 數量）；`multi_horizon_ic` 會 scale 以補償 sub-sampling 資料耗損 |
+| `MIN_EVENTS` | `10` | `_types.py` | CAAR / BMP 事件 N；BMP 常態近似於 `N ≥ 10` 時 z 與 t 誤差可接受 |
+| `MIN_OOS_PERIODS` | `5` | `_types.py` | 每個 IS / OOS 分段至少觀測值；`multi_split_oos_decay` 要求整段 `N ≥ 2·MIN_OOS_PERIODS` |
+| `MIN_PORTFOLIO_PERIODS` | `5` | `_types.py` | 非重疊 portfolio spread 最低期數 |
+| `MIN_MONOTONICITY_PERIODS` | `5` | `_types.py` | Monotonicity Spearman 檢定最低期數 |
+| `MIN_FM_PERIODS` | `20` | `fama_macbeth.py` | λ 時序長度；Newey-West 需要 T 足夠大才能有意義 |
+| `MIN_TS_OBS` | `20` | `ts_beta.py` | 每資產 TS 回歸最低觀測值 |
+| `_BINOMIAL_EXACT_CUTOFF` | `20` | `_stats.py` | `N < 20` 用精確 binomial CDF，否則用 normal approximation z |
+| `TIE_RATIO_WARN_THRESHOLD` | `0.3` | `metrics/_helpers.py` | 若 > 30% 的 factor 值相同會發 warning（tie policy 選擇） |
+
+### 顯著性標記閾值（`_significance_marker`）
+| Marker | p 範圍 | 意涵 |
+|:------:|-------|------|
+| `***` | `p < 0.01` | Highly significant |
+| `**`  | `p < 0.05` | Significant |
+| `*`   | `p < 0.10` | Weakly significant |
+| （空） | `p ≥ 0.10` | Not significant |
+
+此為學界慣例；**單因子宣稱** 的實質門檻仍以 `verdict()` 的 `threshold=2.0`（對應 `p < 0.05`）與 `multiple_testing_correct` 的 BHY 校正後 p 為準，星號只是視覺標示。
+
+---
+
 ## 經評估但刻意未實作
 
 以下方法**在設計討論中有考慮**，但因增量收益有限或會偏離 lean-dependency 原則而未納入。若你的 workflow 真的需要，建議使用 `statsmodels` / `arch` / `linearmodels` 等專門套件在 factrix 輸出之外處理。
@@ -285,14 +392,19 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - Ambachtsheer, K. P. (1977). "Where Are the Customers' Alphas?" *Journal of Portfolio Management* 4(1).
 - Andrews, D. W. K. (1991). "Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimation." *Econometrica* 59(3).
 - Andrews, D. W. K. & Monahan, J. C. (1992). "An Improved Heteroskedasticity and Autocorrelation Consistent Covariance Matrix Estimator." *Econometrica* 60(4).
+- Barillas, F. & Shanken, J. (2017). "Which Alpha?" *Review of Financial Studies* 30(4).
 - Benjamini, Y. & Hochberg, Y. (1995). "Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing." *Journal of the Royal Statistical Society: Series B* 57(1).
 - Benjamini, Y. & Yekutieli, D. (2001). "The Control of the False Discovery Rate in Multiple Testing Under Dependency." *Annals of Statistics* 29(4).
+- Berk, R., Brown, L., Buja, A., Zhang, K. & Zhao, L. (2013). "Valid Post-Selection Inference." *Annals of Statistics* 41(2).
 - Black, F., Jensen, M. C. & Scholes, M. (1972). "The Capital Asset Pricing Model: Some Empirical Tests." In M. Jensen (ed.), *Studies in the Theory of Capital Markets*. Praeger.
 - Boehmer, E., Musumeci, J. & Poulsen, A. B. (1991). "Event-study Methodology Under Conditions of Event-induced Variance." *Journal of Financial Economics* 30(2).
 - Brown, S. J. & Warner, J. B. (1980). "Measuring Security Price Performance." *Journal of Financial Economics* 8(3).
 - Brown, S. J. & Warner, J. B. (1985). "Using Daily Stock Returns: The Case of Event Studies." *Journal of Financial Economics* 14(1).
+- Cameron, A. C., Gelbach, J. B. & Miller, D. L. (2011). "Robust Inference With Multiway Clustering." *Journal of Business & Economic Statistics* 29(2).
+- Cameron, A. C. & Miller, D. L. (2015). "A Practitioner's Guide to Cluster-Robust Inference." *Journal of Human Resources* 50(2).
 - Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The Econometrics of Financial Markets*. Princeton University Press.
 - Campbell, J. Y. & Yogo, M. (2006). "Efficient Tests of Stock Return Predictability." *Journal of Financial Economics* 81(1).
+- Chen, A. Y. & Zimmermann, T. (2022). "Open Source Cross-Sectional Asset Pricing." *Critical Finance Review* 11(2).
 - Cochrane, J. H. (2005). *Asset Pricing* (Revised ed.). Princeton University Press.
 - Corrado, C. J. (1989). "A Nonparametric Test for Abnormal Security-price Performance in Event Studies." *Journal of Financial Economics* 23(2).
 - Corrado, C. J. & Zivney, T. L. (1992). "The Specification and Power of the Sign Test in Event Study Hypothesis Tests Using Daily Stock Returns." *Journal of Financial and Quantitative Analysis* 27(3).
@@ -302,6 +414,7 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - Fama, E. F. & French, K. R. (1992). "The Cross-Section of Expected Stock Returns." *Journal of Finance* 47(2).
 - Fama, E. F. & French, K. R. (1993). "Common Risk Factors in the Returns on Stocks and Bonds." *Journal of Financial Economics* 33(1).
 - Fama, E. F. & MacBeth, J. D. (1973). "Risk, Return, and Equilibrium: Empirical Tests." *Journal of Political Economy* 81(3).
+- Feng, G., Giglio, S. & Xiu, D. (2020). "Taming the Factor Zoo: A Test of New Factors." *Journal of Finance* 75(3).
 - Grinold, R. C. (1989). "The Fundamental Law of Active Management." *Journal of Portfolio Management* 15(3).
 - Grinold, R. C. & Kahn, R. N. (2000). *Active Portfolio Management: A Quantitative Approach for Producing Superior Returns and Controlling Risk* (2nd ed.). McGraw-Hill.
 - Hampel, F. R. (1974). "The Influence Curve and its Role in Robust Estimation." *Journal of the American Statistical Association* 69(346).
@@ -316,8 +429,11 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - Kan, R. & Zhang, C. (1999). "Two-Pass Tests of Asset Pricing Models with Useless Factors." *Journal of Finance* 54(1).
 - Kolari, J. W. & Pynnönen, S. (2010). "Event Study Testing with Cross-sectional Correlation of Abnormal Returns." *Review of Financial Studies* 23(11).
 - Kostakis, A., Magdalinos, T. & Stamatogiannis, M. P. (2015). "Robust Econometric Inference for Stock Return Predictability." *Review of Financial Studies* 28(5).
+- Leeb, H. & Pötscher, B. M. (2005). "Model Selection and Inference: Facts and Fiction." *Econometric Theory* 21(1).
+- López de Prado, M. (2018). *Advances in Financial Machine Learning*. Wiley.
 - MacKinlay, A. C. (1997). "Event Studies in Economics and Finance." *Journal of Economic Literature* 35(1).
 - MacKinnon, J. G. (1996). "Numerical Distribution Functions for Unit Root and Cointegration Tests." *Journal of Applied Econometrics* 11(6).
+- McLean, R. D. & Pontiff, J. (2016). "Does Academic Research Destroy Stock Return Predictability?" *Journal of Finance* 71(1).
 - Newey, W. K. & West, K. D. (1987). "A Simple, Positive Semi-Definite, Heteroskedasticity and Autocorrelation Consistent Covariance Matrix." *Econometrica* 55(3).
 - Newey, W. K. & West, K. D. (1994). "Automatic Lag Selection in Covariance Matrix Estimation." *Review of Economic Studies* 61(4).
 - Patell, J. M. (1976). "Corporate Forecasts of Earnings Per Share and Stock Price Behavior: Empirical Tests." *Journal of Accounting Research* 14(2).
@@ -330,4 +446,5 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - Said, S. E. & Dickey, D. A. (1984). "Testing for Unit Roots in Autoregressive-Moving Average Models of Unknown Order." *Biometrika* 71(3).
 - Shanken, J. (1992). "On the Estimation of Beta-Pricing Models." *Review of Financial Studies* 5(1).
 - Stambaugh, R. F. (1999). "Predictive Regressions." *Journal of Financial Economics* 54(3).
+- Thompson, S. B. (2011). "Simple Formulas for Standard Errors that Cluster by Both Firm and Time." *Journal of Financial Economics* 99(1).
 - White, H. (1980). "A Heteroskedasticity-Consistent Covariance Matrix Estimator and a Direct Test for Heteroskedasticity." *Econometrica* 48(4).
