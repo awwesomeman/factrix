@@ -1,49 +1,21 @@
 # factrix
 
-**Modular factor evaluation toolkit** — 針對**不同訊號幾何 (signal
-geometry)** 的因子做穩健性檢測：連續截面（選股）、稀疏事件、小 panel
-（跨國配置）、共用時序（共同驅動因子）。全部走同一套 `preprocess →
-evaluate → Profile` API，polars-native，每一步有 statistical-discipline
-的預設值，對樣本不足 / 資產數少的情境有明確（而非美化）的 fallback。
+> **Factor Matrix Library** — 專為量化研究設計的**因子訊號驗證器 (Factor Signal Validator)**。
 
-> **定位：Factor Signal Validator**。回答「這個因子統計上真的有效嗎」，
-> **不回答**「該怎麼配置」「該怎麼交易」。驗證後要做配置 / 策略，請把
-> Profile 的 `canonical_p` + 效果量帶去 `skfolio` / `PyPortfolioOpt` /
-> `vectorbt` 等下游工具。`turnover` / `breakeven_cost` / `net_spread` 是
-> screening 用的理想化 proxy（等權、無滑價），不是 tradable P&L。
+`factrix` 是一個基於 **Polars** 打造的模組化因子評估工具包 (Modular factor evaluation toolkit)。我們針對**不同訊號幾何 (Signal Geometry)**（連續截面、稀疏事件、小 panel、共用時序）提供嚴謹的統計檢定。
 
----
+不論訊號型態為何，全部統一透過 `preprocess → evaluate → Profile` API 進行驗證。每一步操作皆建立在 statistical-discipline (統計紀律) 的預設值之上，對於樣本不足或資產數極端的情境，我們提供明確且誠實的 fallback，絕不為求產出報表而妥協統計的正確性。
 
-## Install
+> **專案定位：回答「這個因子在統計上真的有效嗎？」**
+> `factrix` **不是**回測框架，也**不是**資產配置工具。我們的唯一職責是：在排除雜訊、檢定多重假設（Multiple Testing）後，給出可信的 `canonical_p` 與效果量。驗證有效後，請將結果帶往 `vectorbt` / `skfolio` / `PyPortfolioOpt` 等下游工具進行回測與配置。
 
-目前專案尚未公開發佈至公開的 PyPI。針對不同的使用情境，提供以下兩種安裝方式：
+## 與其他開源專案的差異
 
-### 1. 境內量化研究員直接安裝 (使用套件)
-此方法適用於只想要使用套件的研究員，**不需額外架設私有 PyPI**。只需要產生一組擁有讀取權限的 GitHub Token，就能讓 `pip` 直接到 Repo 抓取代碼並自動打包安裝。在這個過程中，Private GitHub 就充當了我們的私有套件庫：
+如果你已經熟悉開源量化生態系，`factrix` 的定位介於**純統計套件**與**回測框架**之間：
 
-```bash
-# 透過 Git Token 進行一鍵安裝
-pip install git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git
-
-# 若需安裝畫圖與追蹤等 optional 依賴
-pip install "factrix[all] @ git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git"
-```
-
-### 2. 框架開發者 (Editable Install)
-若你需要開發、修改 `factrix` 的底層源碼或跑測試：
-
-```bash
-git clone https://github.com/awwesomeman/factrix.git
-cd factrix
-
-pip install -e .                   # core (polars + numpy + pandera)
-pip install -e ".[charts]"         # + plotly 圖表
-pip install -e ".[mlflow]"         # + mlflow tracking
-pip install -e ".[all]"            # charts + mlflow
-pip install -e ".[dev]"            # + pytest / nbformat（跑測試、build demo）
-```
-
-Core 只依賴 `polars + numpy + pandera`；plotly / mlflow 屬 optional extras，不裝也能跑完 `evaluate` / `ProfileSet` / BHY 全部核心流程。
+- **對比 `alphalens`**：`alphalens` 專注於連續截面（Cross-Sectional）的 IC 與分層回報，但已年久失修（Pandas-based）。`factrix` 是 **Polars-native** 的現代化替代品，且進一步支援**事件驅動（Event-driven）**、**總經面板（Macro Panel）**與**共用時序**的檢定，並內建 BHY 多重檢定校正（FDR control），避免 P-hacking。
+- **對比 `vectorbt` / `zipline` / `backtrader`**：這些是**回測（Backtesting）與交易執行框架**。`factrix` 不做部位管理、不處理保證金與真實滑價。我們提供的 `turnover` 或 `breakeven_cost` 只是用來做前置篩選（Screening）的理想化 proxy，讓你**在寫複雜回測程式碼之前，先快速淘汰無效的假因子**。
+- **對比 `skfolio` / `PyPortfolioOpt`**：這些是**投資組合最佳化（Portfolio Optimization）工具**。`factrix` 負責幫你找出有預測力的 Alpha 訊號，但不處理如何根據協方差矩陣去最佳化配置權重。
 
 ---
 
@@ -67,7 +39,7 @@ print(profile.verdict(), '| ic_mean =', round(profile.ic_mean, 4))
 
 ---
 
-## 為什麼用 factrix
+## 核心優勢：為什麼用 factrix
 
 比起自己 rolling 一套 factor-analysis 腳本，主要差在六件事：
 
@@ -113,6 +85,67 @@ print(profile.verdict(), '| ic_mean =', round(profile.ic_mean, 4))
 
 ---
 
+## Scope & non-goals
+
+### Scope
+- **建議的資料頻率 (Daily-to-monthly bar-based)**：除了 `event_signal` 模組能自然適應不定期發生的事件外，其餘模組皆**建議使用日頻（Daily）或更低頻率**的資料進行分析。若使用稍高頻（如小時、分鐘）的資料，數學上不會報錯且仍能運作，但**明確不支援真正的超高頻（Tick-level, HFT）數據**。
+- **`forward_periods` 是 rows，不是 calendar time** — 週頻 panel 寫 `forward_periods=1` 就是 1-week 前向報酬，不同頻率全部走同一套 API。
+- **訊號幾何 × 資料形狀**覆蓋四種主要 cell（見上方表）；單資產連續因子有明確標示的 coverage gap。
+- **統計嚴謹的 PASS/FAILED gate** + structured `diagnose()` + BHY FDR 控制，作為後續 allocation / strategy layer 的可信輸入。
+
+### 明確不做（不只是「沒做」— 是設計上決定不做）
+
+| 不做 | 理由 | 該用什麼 |
+|---|---|---|
+| Portfolio optimization（MVO / Black-Litterman / HRP / Risk Parity） | 生態已成熟；lib 定位為 validator 不是 optimizer | `skfolio` / `PyPortfolioOpt` / `riskfolio-lib` / `cvxpy` |
+| ML 信號層（xgboost / lightgbm + SHAP） | 複雜特徵工程 + 可解釋性不是 validator 職責 | `xgboost` + `shap` |
+| Regime detection methodology（HMM / threshold / K-means state） | 方法論學術上不收斂，不內建以免 bake-in 未驗證選擇；`regime_labels` 只提供 input contract | `hmmlearn` / 自寫 threshold rule |
+| Structural break detection（Chow / Quandt-Andrews / Bai-Perron） | 屬時序 regime analysis 領域，out of scope | `ruptures` |
+| GARCH / wild bootstrap SE | 保持 core 依賴精簡（polars + numpy + pandera）；進階推論外接 | `arch` |
+| Predictive regression with persistent predictor 自動修正（IVX / Stambaugh correction） | 透過 `factor_adf_p` 只做 flagging，避免 false confidence | `arch` / R `ivx` |
+| Backtest / execution simulation / slippage / margin | 明確非 scope；`turnover` / `breakeven_cost` 是 screening proxy | `vectorbt` / `bt` / Zipline / Backtrader |
+| Intraday / HFT（tick-level、sub-second） | per-date CS IC / CAAR / FM λ 的語意在 tick data 上不成立 | 另找專用工具 |
+| 跨 factor 合成信號 / factor combiner（產生單一 composite signal）| 屬 signal layer，validator 不碰。注意：factrix 的 `redundancy_matrix` 是 **diagnostic**（量化因子之間的重疊程度），不是 combiner — 它告訴你哪些因子該合、哪些該剃，但不產生合成信號 | 自寫、或用 `scikit-learn` 的 regression |
+
+這份清單不是 TODO，是**承諾不擴張的 scope 邊界**。擴張請先更新
+[`ARCHITECTURE.md`](ARCHITECTURE.md) 的 Invariants 區塊，並在
+`awwesomeman/factor-analysis` workspace 的 `docs/` 新增 `spike_*.md` 設計文件。
+
+---
+
+## Install
+
+目前專案尚未公開發佈至公開的 PyPI。針對不同的使用情境，提供以下兩種安裝方式：
+
+### 1. 境內量化研究員直接安裝 (使用套件)
+此方法適用於只想要使用套件的研究員，**不需額外架設私有 PyPI**。只需要產生一組擁有讀取權限的 GitHub Token，就能讓 `pip` 直接到 Repo 抓取代碼並自動打包安裝。在這個過程中，Private GitHub 就充當了我們的私有套件庫：
+
+```bash
+# 透過 Git Token 進行一鍵安裝
+pip install git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git
+
+# 若需安裝畫圖與追蹤等 optional 依賴
+pip install "factrix[all] @ git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git"
+```
+
+### 2. 框架開發者 (Editable Install)
+若你需要開發、修改 `factrix` 的底層源碼或跑測試：
+
+```bash
+git clone https://github.com/awwesomeman/factrix.git
+cd factrix
+
+pip install -e .                   # core (polars + numpy + pandera)
+pip install -e ".[charts]"         # + plotly 圖表
+pip install -e ".[mlflow]"         # + mlflow tracking
+pip install -e ".[all]"            # charts + mlflow
+pip install -e ".[dev]"            # + pytest / nbformat（跑測試、build demo）
+```
+
+Core 只依賴 `polars + numpy + pandera`；plotly / mlflow 屬 optional extras，不裝也能跑完 `evaluate` / `ProfileSet` / BHY 全部核心流程。
+
+---
+
 ## 怎麼選 factor_type
 
 factrix 用兩個軸決定該走哪個 canonical test：**signal geometry**（因子
@@ -152,37 +185,6 @@ factrix 的每個指標都對應業界 / 學界認可的方法。完整論述（
 - `MIN_IC_PERIODS = 10`、`MIN_EVENTS = 10`、`MIN_OOS_PERIODS = 5`、`MIN_PORTFOLIO_PERIODS = 5`、`MIN_MONOTONICITY_PERIODS = 5`
 - `MIN_FM_PERIODS = 20`（Fama-MacBeth λ 序列，見 `metrics/fama_macbeth.py`）、`MIN_TS_OBS = 20`（per-asset TS regression，見 `metrics/ts_beta.py`）
 - 未達門檻時，metric 會 short-circuit 並在 `metadata.reason` 標記 `insufficient_*`；對應 profile 欄位走 conservative default（p=1.0），不會產生假陽性。
-
----
-
-## Scope & non-goals
-
-### Scope
-- **Daily-to-monthly bar-based factor evaluation**。`forward_periods` 是
-  **rows，不是 calendar time** — 週頻 panel 寫 `forward_periods=1` 就是
-  1-week 前向報酬，同一套 API。
-- **訊號幾何 × 資料形狀**覆蓋四種主要 cell（見上方表）；單資產連續因子
-  有明確標示的 coverage gap。
-- **統計嚴謹的 PASS/FAILED gate** + structured `diagnose()` + BHY FDR 控
-  制，作為後續 allocation / strategy layer 的可信輸入。
-
-### 明確不做（不只是「沒做」— 是設計上決定不做）
-
-| 不做 | 理由 | 該用什麼 |
-|---|---|---|
-| Portfolio optimization（MVO / Black-Litterman / HRP / Risk Parity） | 生態已成熟；lib 定位為 validator 不是 optimizer | `skfolio` / `PyPortfolioOpt` / `riskfolio-lib` / `cvxpy` |
-| ML 信號層（xgboost / lightgbm + SHAP） | 複雜特徵工程 + 可解釋性不是 validator 職責 | `xgboost` + `shap` |
-| Regime detection methodology（HMM / threshold / K-means state） | 方法論學術上不收斂，不內建以免 bake-in 未驗證選擇；`regime_labels` 只提供 input contract | `hmmlearn` / 自寫 threshold rule |
-| Structural break detection（Chow / Quandt-Andrews / Bai-Perron） | 屬時序 regime analysis 領域，out of scope | `ruptures` |
-| GARCH / wild bootstrap SE | 保持 core 依賴精簡（polars + numpy + pandera）；進階推論外接 | `arch` |
-| Predictive regression with persistent predictor 自動修正（IVX / Stambaugh correction） | 透過 `factor_adf_p` 只做 flagging，避免 false confidence | `arch` / R `ivx` |
-| Backtest / execution simulation / slippage / margin | 明確非 scope；`turnover` / `breakeven_cost` 是 screening proxy | `vectorbt` / `bt` / Zipline / Backtrader |
-| Intraday / HFT（tick-level、sub-second） | per-date CS IC / CAAR / FM λ 的語意在 tick data 上不成立 | 另找專用工具 |
-| 跨 factor 合成信號 / factor combiner（產生單一 composite signal）| 屬 signal layer，validator 不碰。注意：factrix 的 `redundancy_matrix` 是 **diagnostic**（量化因子之間的重疊程度），不是 combiner — 它告訴你哪些因子該合、哪些該剃，但不產生合成信號 | 自寫、或用 `scikit-learn` 的 regression |
-
-這份清單不是 TODO，是**承諾不擴張的 scope 邊界**。擴張請先更新
-[`ARCHITECTURE.md`](ARCHITECTURE.md) 的 Invariants 區塊，並在
-`awwesomeman/factor-analysis` workspace 的 `docs/` 新增 `spike_*.md` 設計文件。
 
 ---
 
