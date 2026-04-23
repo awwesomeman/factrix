@@ -25,9 +25,28 @@ Two methods answer slightly different questions:
     by date, compute Spearman correlation. Works for all factor types.
     Survives compact mode (needs intermediates only, not the full panel).
 
+Caveat — conditional redundancy blind spot:
+    This matrix reports **marginal** pairwise correlation. If a third
+    factor C drives both A and B, the pairwise (A, B) correlation
+    may look small (they can be marginally independent) yet A and B
+    are still redundant given C — adding B on top of (A, C) buys
+    nothing new. The proper diagnostic for conditional redundancy is
+    **partial correlation** (Spearman |ρ(A, B | rest)|) or, for the
+    performance series, a Fama-French-style **spanning regression**:
+    `r_A = α + β·r_B + γ·r_C + ε`; if |t(α)| is small once B and C
+    are included, A is conditionally redundant.
+
+    Factrix exposes single-factor spanning via
+    ``factrix.metrics.spanning.spanning_alpha`` — use it pairwise /
+    against a base set when you suspect conditional structure this
+    matrix misses. ``greedy_forward_selection`` automates the scan
+    but carries its own snooping-bias caveat (see that module).
+
 References:
     Green, Hand & Zhang (2017), "The characteristics that provide
     independent information about average U.S. monthly stock returns."
+    Barillas & Shanken (2017), "Which Alpha?" — spanning regressions
+    as the test of conditional (given a base set) redundancy.
 """
 
 from __future__ import annotations
@@ -82,6 +101,11 @@ def redundancy_matrix(
         dropped). Caller can force an error by setting
         method='factor_rank' and ensuring the upstream Artifacts were
         built without compact=True.
+
+    Marginal vs conditional: the matrix is **pairwise**, i.e. marginal.
+    It will not flag A-B as redundant when both are driven by a third
+    factor C; see the module docstring for the conditional-redundancy
+    caveat and the ``spanning_alpha`` escape hatch.
     """
     from factrix.evaluation._protocol import _CompactedPrepared
 
