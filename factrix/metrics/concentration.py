@@ -9,8 +9,12 @@ Input: DataFrame with ``date, asset_id, factor, forward_return``.
 
 from __future__ import annotations
 
+from typing import Literal
+
 import numpy as np
 import polars as pl
+
+ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
 
 from factrix._types import DDOF, EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
 from factrix.metrics._helpers import (
@@ -26,17 +30,33 @@ def top_concentration(
     forward_periods: int = 5,
     q_top: float = 0.2,
     factor_col: str = "factor",
+    return_col: str = "forward_return",
+    weight_by: ConcentrationWeight = "abs_factor",
 ) -> MetricOutput:
     """Top-bucket concentration via HHI inverse.
 
     Per date, selects top ``q_top`` stocks by factor rank, computes
-    HHI of their (absolute) factor values, and returns 1/HHI as
-    the effective number of independent bets.
+    HHI of their weights, and returns 1/HHI as the effective number of
+    independent bets.
 
     Args:
-        df: Panel with ``date, asset_id, factor``.
+        df: Panel with ``date, asset_id, factor`` (and ``forward_return``
+            if ``weight_by="alpha_contribution"``).
         q_top: Fraction of top-ranked stocks to include (default 0.2 =
             top 20%).
+        weight_by: HHI weight convention.
+            - ``"abs_factor"`` (default): weight by ``|factor|``. Answers
+              "how concentrated is the signal itself in the top bucket".
+              Conservative, signal-level.
+            - ``"alpha_contribution"``: weight by the magnitude of each
+              name's realised contribution ``|sign(factor) · forward_return|``.
+              Captures **risk-concentration**: the top bucket's realised
+              return is dominated by a few outliers. Note the absolute
+              value — a single big *winner* and a single big *loser*
+              both register as concentration, which is the right
+              framing for risk but NOT for signed-alpha attribution.
+              If you need the latter, apply HHI downstream on the
+              signed ``sign(factor) · forward_return`` series yourself.
 
     Returns:
         MetricOutput with value = mean(1/HHI) across dates.
@@ -50,6 +70,12 @@ def top_concentration(
         data-quality diagnostic (high tie_ratio → unstable top-bucket
         membership across re-rankings).
     """
+    if weight_by == "alpha_contribution" and return_col not in df.columns:
+        return _short_circuit_output(
+            "top_concentration", "no_return_column",
+            missing_column=return_col, weight_by=weight_by,
+        )
+
     filtered = _sample_non_overlapping(df, forward_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
@@ -63,12 +89,20 @@ def top_concentration(
         .filter(pl.col("_pct_rank") >= (1 - q_top))
     )
 
-    hhi_per_date = (
-        q1.with_columns(
-            pl.col(factor_col).abs().alias("_abs_factor")
+    if weight_by == "alpha_contribution":
+        weighted = q1.with_columns(
+            (
+                pl.col(factor_col).sign() * pl.col(return_col)
+            ).abs().alias("_raw_weight")
         )
-        .with_columns(
-            (pl.col("_abs_factor") / pl.col("_abs_factor").sum().over("date"))
+    else:
+        weighted = q1.with_columns(
+            pl.col(factor_col).abs().alias("_raw_weight")
+        )
+
+    hhi_per_date = (
+        weighted.with_columns(
+            (pl.col("_raw_weight") / pl.col("_raw_weight").sum().over("date"))
             .alias("_weight")
         )
         .group_by("date")
@@ -121,5 +155,6 @@ def top_concentration(
             "mean_n_top": mean_n_top,
             "ratio_eff_to_total": ratio,
             "tie_ratio": tie_ratio,
+            "weight_by": weight_by,
         },
     )
