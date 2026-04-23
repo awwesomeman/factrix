@@ -16,6 +16,7 @@ References:
 from __future__ import annotations
 
 import logging
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -41,11 +42,21 @@ class SpanningResult:
 
 @dataclass
 class ForwardSelectionResult:
-    """Output of greedy forward selection."""
+    """Output of greedy forward selection.
+
+    ``t_stats_inference_invalid``: a fixed ``True`` — stepwise selection
+    searches over the candidate pool and picks by |alpha|, so the
+    t-statistics on ``selected_factors`` and ``eliminated_factors`` are
+    conditioned on having been chosen. They do not have a valid
+    t-distribution null and must not be used for inference (White 2000;
+    Harvey-Liu-Zhu 2016). For post-selection significance, re-evaluate
+    survivors on a held-out sample or with a bootstrap.
+    """
 
     selected_factors: list[SpanningResult] = field(default_factory=list)
     eliminated_factors: list[SpanningResult] = field(default_factory=list)
     all_candidates: list[SpanningResult] = field(default_factory=list)
+    t_stats_inference_invalid: bool = field(default=True, init=False)
 
 
 # ---------------------------------------------------------------------------
@@ -170,8 +181,22 @@ def greedy_forward_selection(
     base_spreads: dict[str, pl.DataFrame] | None = None,
     significance_threshold: float = 2.0,
     max_factors: int = 20,
+    suppress_snooping_warning: bool = False,
 ) -> ForwardSelectionResult:
     """Greedy forward selection with backward elimination.
+
+    WARNING — data snooping / selection bias:
+        Stepwise selection over a candidate pool of K factors inflates
+        the per-selected-factor t-stat by an order-statistic factor
+        (typical estimates 2-4× on K=10-100 pools). The t-stats on
+        ``selected_factors`` are NOT valid for hypothesis testing —
+        they are conditional on survival, not draws from the t-null.
+        Use this function as a **model-construction helper**, not as
+        an inference tool. For post-selection significance, re-evaluate
+        the surviving set on a held-out window, or use a White (2000)
+        Reality Check / Hansen (2005) SPA procedure on the pre-selection
+        stage. The returned ``t_stats_inference_invalid=True`` flag
+        encodes this contract.
 
     Algorithm:
         1. Start with base factor set (e.g., Size, Value, Momentum spreads).
@@ -188,10 +213,40 @@ def greedy_forward_selection(
             If None, starts with an empty base.
         significance_threshold: Minimum |t-stat| for selection (default 2.0).
         max_factors: Maximum number of factors to select.
+        suppress_snooping_warning: Silence the one-shot ``UserWarning``.
+            Only set when the caller has explicitly acknowledged that
+            the returned t-stats are for model-construction, not
+            inference.
 
     Returns:
         ForwardSelectionResult with selected factors in order.
+
+    References:
+        White (2000), "A Reality Check for Data Snooping."
+        Harvey, Liu & Zhu (2016), "…and the Cross-Section of Expected
+        Returns," Section on stepwise-selection bias.
     """
+    if not suppress_snooping_warning:
+        warnings.warn(
+            "greedy_forward_selection: stepwise selection inflates the "
+            "t-stats on selected factors; the returned values are NOT "
+            "valid for inference. Use this as a model-construction "
+            "helper and re-evaluate survivors on a held-out sample or "
+            "with a Hansen (2005) SPA / White (2000) Reality Check "
+            "procedure. Pass suppress_snooping_warning=True to silence.",
+            UserWarning,
+            stacklevel=2,
+        )
+    else:
+        # Audit trail: flip-to-silent is the obvious bypass path; log
+        # it at INFO so a research-log reader can still see that the
+        # snooping discipline was explicitly acknowledged-and-dismissed.
+        logger.info(
+            "greedy_forward_selection: snooping warning suppressed by "
+            "caller (n_candidates=%d, n_base=%d)",
+            len(factor_spreads), len(base_spreads or {}),
+        )
+
     if base_spreads is None:
         base_spreads = {}
 

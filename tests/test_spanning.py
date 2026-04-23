@@ -1,5 +1,6 @@
 """Tests for factrix.metrics.spanning."""
 
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -89,7 +90,9 @@ class TestGreedyForwardSelection:
         a = _make_spread_series(100, 0.02, 0.005, 42)
         # Factor B: pure noise
         b = _make_spread_series(100, 0.0, 0.01, 99)
-        result = greedy_forward_selection({"A": a, "B": b})
+        result = greedy_forward_selection(
+            {"A": a, "B": b}, suppress_snooping_warning=True,
+        )
         selected_names = [s.factor_name for s in result.selected_factors]
         assert "A" in selected_names
 
@@ -105,6 +108,7 @@ class TestGreedyForwardSelection:
         result = greedy_forward_selection(
             {"spanned": spanned},
             base_spreads={"base": base},
+            suppress_snooping_warning=True,
         )
         selected_names = [s.factor_name for s in result.selected_factors]
         assert "spanned" not in selected_names
@@ -122,26 +126,51 @@ class TestGreedyForwardSelection:
         a = pl.DataFrame({"date": dates, "spread": a_vals}).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         b = pl.DataFrame({"date": dates, "spread": b_vals}).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
-        result = greedy_forward_selection({"A": a, "B": b})
+        result = greedy_forward_selection(
+            {"A": a, "B": b}, suppress_snooping_warning=True,
+        )
         selected_names = [s.factor_name for s in result.selected_factors]
         # At most one should survive — they're nearly identical
         assert len(selected_names) <= 2
 
     def test_empty_candidates(self):
-        result = greedy_forward_selection({})
+        result = greedy_forward_selection(
+            {}, suppress_snooping_warning=True,
+        )
         assert result.selected_factors == []
 
     def test_insufficient_dates(self):
         short = _make_spread_series(5, 0.01, 0.005, 42)
-        result = greedy_forward_selection({"short": short})
+        result = greedy_forward_selection(
+            {"short": short}, suppress_snooping_warning=True,
+        )
         assert result.selected_factors == []
 
     def test_max_factors_limit(self):
         factors = {}
         for i in range(10):
             factors[f"f_{i}"] = _make_spread_series(100, 0.02 + i * 0.005, 0.005, i)
-        result = greedy_forward_selection(factors, max_factors=2)
+        result = greedy_forward_selection(
+            factors, max_factors=2, suppress_snooping_warning=True,
+        )
         assert len(result.selected_factors) <= 2
+
+    def test_snooping_warning_fires_by_default(self):
+        a = _make_spread_series(100, 0.02, 0.005, 42)
+        b = _make_spread_series(100, 0.0, 0.01, 99)
+        with pytest.warns(UserWarning, match="stepwise selection inflates"):
+            result = greedy_forward_selection({"A": a, "B": b})
+        assert result.t_stats_inference_invalid is True
+
+    def test_snooping_warning_suppressible(self):
+        a = _make_spread_series(100, 0.02, 0.005, 42)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            result = greedy_forward_selection(
+                {"A": a}, suppress_snooping_warning=True,
+            )
+        # Contract: flag stays truthy even when the warning is silenced.
+        assert result.t_stats_inference_invalid is True
 
     def test_result_structure(self):
         a = _make_spread_series(100, 0.02, 0.005, 42)
