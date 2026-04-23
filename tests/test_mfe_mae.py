@@ -83,6 +83,24 @@ class TestComputeMfeMae:
         assert result["mfe"].mean() > 0
         assert result["mae"].mean() < 0
 
+    def test_z_score_columns_present_and_consistent(self, event_data):
+        result = compute_mfe_mae(event_data, window=10, estimation_window=60)
+        assert {"mfe_z", "mae_z", "est_sigma"}.issubset(result.columns)
+        # Where est_sigma is finite-positive the z-scores must match
+        # the raw excursion divided by σ · √window.
+        finite = result.filter(
+            pl.col("est_sigma").is_finite() & (pl.col("est_sigma") > 0.0),
+        )
+        if finite.is_empty():
+            pytest.skip("No events had enough look-back for σ estimation")
+        scale = finite["est_sigma"] * math.sqrt(10)
+        assert finite["mfe_z"].to_numpy() == pytest.approx(
+            (finite["mfe"] / scale).to_numpy(),
+        )
+        assert finite["mae_z"].to_numpy() == pytest.approx(
+            (finite["mae"] / scale).to_numpy(),
+        )
+
     def test_no_price_returns_empty(self, no_price_data):
         result = compute_mfe_mae(no_price_data, window=10)
         assert result.is_empty()
