@@ -20,7 +20,10 @@ import polars as pl
 from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
-MIN_ESTIMATION_SAMPLES: int = 20
+# BMP (Boehmer-Musumeci-Poulsen 1991) convention for daily-frequency
+# estimation-window σ̂. Higher-frequency panels (e.g. weekly) may want
+# 8-10; expose via ``min_estimation_samples`` on ``compute_mfe_mae``.
+DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
 
 def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
@@ -40,6 +43,7 @@ def compute_mfe_mae(
     *,
     window: int = 20,
     estimation_window: int = 60,
+    min_estimation_samples: int = DEFAULT_MIN_ESTIMATION_SAMPLES,
     factor_col: str = "factor",
     price_col: str = "price",
 ) -> pl.DataFrame:
@@ -67,8 +71,13 @@ def compute_mfe_mae(
         window: Number of bars after event to examine. Maps to
             ``EventConfig.event_window_post``.
         estimation_window: Look-back window for per-event daily-return
-            σ (default 60). z-scores report ``NaN`` when fewer than
-            ``MIN_ESTIMATION_SAMPLES`` (20) observations are available.
+            σ (default 60).
+        min_estimation_samples: Minimum non-degenerate prior bars
+            required to produce a finite ``est_sigma``. Default 20
+            mirrors the BMP (Boehmer-Musumeci-Poulsen 1991) daily-σ
+            convention; weekly panels can drop to ~8-10. Below the
+            threshold, ``mfe_z`` / ``mae_z`` report ``NaN``. Must be
+            ≥2 (the std degrees-of-freedom floor).
         factor_col: Event signal column.
         price_col: Price column for bar-by-bar path.
 
@@ -77,6 +86,12 @@ def compute_mfe_mae(
         est_sigma, bars_to_mfe, bars_to_mae``. Empty DataFrame if
         ``price_col`` not present.
     """
+    if min_estimation_samples < 2:
+        raise ValueError(
+            f"min_estimation_samples must be >= 2 (std needs ddof=1 "
+            f"and at least 2 observations), got {min_estimation_samples}"
+        )
+
     date_dtype = df.schema["date"]
     empty_schema = _empty_mfe_mae_schema(date_dtype)
 
@@ -131,10 +146,10 @@ def compute_mfe_mae(
         est_start = max(0, idx - estimation_window)
         est_prices = prices[est_start:idx]
         est_sigma = float("nan")
-        if len(est_prices) > MIN_ESTIMATION_SAMPLES:
+        if len(est_prices) > min_estimation_samples:
             prior = est_prices[:-1]
             safe = prior > EPSILON
-            if safe.sum() >= MIN_ESTIMATION_SAMPLES:
+            if safe.sum() >= min_estimation_samples:
                 daily_rets = (est_prices[1:][safe] / prior[safe]) - 1.0
                 if len(daily_rets) >= 2:
                     est_sigma = float(np.std(daily_rets, ddof=1))

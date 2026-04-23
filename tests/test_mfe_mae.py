@@ -140,6 +140,33 @@ class TestComputeMfeMae:
         assert result.is_empty()
         assert result.schema["date"] == pl.Datetime("us")
 
+    def test_min_estimation_samples_lower_admits_more_z_scores(
+        self, event_data,
+    ):
+        """Lowering the threshold (e.g. for weekly data) lets early events
+        in the panel get a finite est_sigma where the BMP-default 20
+        would NaN them out. Verifies the parameter actually plumbs into
+        the σ̂ guard."""
+        strict = compute_mfe_mae(
+            event_data, window=10, estimation_window=30,
+            min_estimation_samples=20,
+        )
+        loose = compute_mfe_mae(
+            event_data, window=10, estimation_window=30,
+            min_estimation_samples=5,
+        )
+        strict_finite = strict["est_sigma"].is_finite().sum()
+        loose_finite = loose["est_sigma"].is_finite().sum()
+        assert loose_finite >= strict_finite
+        assert loose_finite > strict_finite, (
+            "Fixture should have at least one event whose look-back "
+            "fits the loose threshold but not the strict one."
+        )
+
+    def test_min_estimation_samples_below_two_raises(self, event_data):
+        with pytest.raises(ValueError, match="min_estimation_samples"):
+            compute_mfe_mae(event_data, window=10, min_estimation_samples=1)
+
 
 # ---------------------------------------------------------------------------
 # mfe_mae_summary
