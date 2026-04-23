@@ -247,6 +247,13 @@ def _adf(y: np.ndarray, lags: int = 0) -> tuple[float, float]:
     not a substitute for a full unit-root toolkit.
     """
     y = np.asarray(y, dtype=np.float64)
+    # Defence-in-depth for callers that didn't pre-filter: NaN / Inf
+    # inputs feed straight into np.linalg.lstsq and trip LAPACK's
+    # DLASCL "parameter had an illegal value" emission at process exit.
+    # Return the same "can't reject unit root" shape the short sample
+    # guard returns; this is the honest answer on a degenerate input.
+    if not np.isfinite(y).all():
+        return 0.0, 1.0
     n = len(y)
     if n < 10 + lags:
         return 0.0, 1.0

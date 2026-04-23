@@ -60,3 +60,11 @@ class TestTheilSenSlope:
         result = ic_trend(_make_series(values), adf_check=False)
         assert "unit_root_suspected" not in result.metadata
         assert "adf_p" not in result.metadata
+
+    def test_all_nan_input_short_circuits(self):
+        """Regression: NaN-heavy IC series (e.g. from a constant factor)
+        must short-circuit, not flow into lstsq and trip LAPACK DLASCL."""
+        import math
+        result = ic_trend(_make_series([math.nan] * 30))
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_trend_periods"

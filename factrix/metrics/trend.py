@@ -62,6 +62,11 @@ def ic_trend(
     """
     sorted_s = series.sort("date").drop_nulls(subset=[value_col])
     vals = sorted_s[value_col].to_numpy()
+    # polars drop_nulls does not drop float NaN; an all-NaN IC series
+    # (e.g. from a constant factor whose per-date rank correlation is
+    # degenerate) would otherwise flow into theilslopes and _adf and
+    # trip LAPACK DLASCL before any short-circuit could save us.
+    vals = vals[np.isfinite(vals)]
     n = len(vals)
 
     if n < 10:
