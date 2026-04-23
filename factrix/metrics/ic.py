@@ -272,8 +272,6 @@ def regime_ic(
         )
 
     per_regime: dict[str, dict[str, object]] = {}
-    raw_p_list: list[float] = []
-    regime_order: list[str] = []
     for row in regime_stats.iter_rows(named=True):
         t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
         p = _p_value_from_t(t, row["n"])
@@ -285,16 +283,17 @@ def regime_ic(
             "significance": _significance_marker(p),
             "n_periods": row["n"],
         }
-        raw_p_list.append(p)
-        regime_order.append(row["regime"])
 
     # BHY across regimes: sweeping k regimes is k implicit tests on the
     # same null family. Report adjusted per-regime p for callers that
     # want to act on a specific regime's significance without manually
     # correcting; also surface min adjusted p for aggregate decisions.
+    # per_regime is insertion-ordered, so iterating .values() lines up
+    # with the BHY adjuster's positional output.
+    raw_p_list = [d["p_value"] for d in per_regime.values()]
     adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []
-    for name, ap in zip(regime_order, adj_p):
-        per_regime[name]["p_adjusted_bhy"] = float(ap)
+    for entry, ap in zip(per_regime.values(), adj_p):
+        entry["p_adjusted_bhy"] = float(ap)
 
     mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
 
