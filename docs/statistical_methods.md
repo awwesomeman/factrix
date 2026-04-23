@@ -139,7 +139,10 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 
 - **Fama & MacBeth (1973)**, *JPE* 81(3)
   - 觀點：兩階段估計：每期 cross-sectional 回歸得到 λ_t，再對 λ 時序做 t-test；相較 pooled 可隔離截面相關性。
-  - 採用：`fama_macbeth` 採用其兩階段架構，並於 stage-2 加 Newey-West；**未實作 Shanken (1992) errors-in-variables 校正**（βs 視為已知，適合 pre-computed factor exposures 的情境）。
+  - 採用：`fama_macbeth` 採用其兩階段架構，並於 stage-2 加 Newey-West。預設把 Signal 視為觀察值（raw characteristics 如 B/M、momentum、accounting ratios），不做 EIV 校正；需校正時設 `is_estimated_factor=True`（見下條）。
+- **Shanken (1992)**, *RFS* 5(1) — 見 §Macro common 與 §參考文獻
+  - 觀點：FM stage-2 將第一階段估出的 β 當作已知會低估 SE，需 EIV 校正因子 `1 + λ'Σ_f⁻¹λ`。
+  - 採用：`fama_macbeth(is_estimated_factor=True)` 實作 **Kan-Zhang (1999) 單因子簡化形式**：NW SE 乘上 `√(1 + λ̂²/σ²_f)`，**省略 Shanken 原公式中的 `+σ²_f/T` 加性項**，僅對大 T 誠實。適用對象限 **估計出的 signal**（rolling β、PCA score、ML 預測、first-stage 殘差）；raw characteristics 不應啟用，否則 t-stat 會被虛假壓低。
 - **Fama & French (1992)**, *JoF* 47(2) 與 **Fama & French (1993)**, *JFE* 33(1)
   - 觀點：FM 程序在跨 stock panel 上的現代標準用法；建立 size、book-to-market 等 anomaly 的推論模板。
   - 採用：Config 預設、variable 命名、預期使用情境皆以 FF 風格 panel 為基準。
@@ -310,6 +313,7 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - Hirschman, A. O. (1945). *National Power and the Structure of Foreign Trade*. University of California Press.
 - Huber, P. J. (1964). "Robust Estimation of a Location Parameter." *Annals of Mathematical Statistics* 35(1).
 - Huber, P. J. (1981). *Robust Statistics*. Wiley.
+- Kan, R. & Zhang, C. (1999). "Two-Pass Tests of Asset Pricing Models with Useless Factors." *Journal of Finance* 54(1).
 - Kolari, J. W. & Pynnönen, S. (2010). "Event Study Testing with Cross-sectional Correlation of Abnormal Returns." *Review of Financial Studies* 23(11).
 - Kostakis, A., Magdalinos, T. & Stamatogiannis, M. P. (2015). "Robust Econometric Inference for Stock Return Predictability." *Review of Financial Studies* 28(5).
 - MacKinlay, A. C. (1997). "Event Studies in Economics and Finance." *Journal of Economic Literature* 35(1).
