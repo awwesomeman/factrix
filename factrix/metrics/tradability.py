@@ -1,5 +1,16 @@
 """Tradability metrics: Turnover, Breakeven Cost, Net Spread.
 
+Two flavours of turnover co-exist here, measuring different things:
+
+- ``turnover()`` — ``1 − mean(rank autocorrelation)``. Rank-stability
+  diagnostic; responds to mid-rank reshuffling. **Not** a notional
+  trading-fraction and should **not** be fed into ``breakeven_cost`` /
+  ``net_spread``.
+- ``turnover_jaccard()`` — fraction of top-and-bottom quantile members
+  replaced per rebalance. Matches Novy-Marx & Velikov (2016) τ; this is
+  the quantity that drives bps trading cost for an equal-weight Q1/Qn
+  long-short portfolio.
+
 These are implementation-feasibility indicators, not factor quality
 measures — they belong in Profile, not in Gates.
 
@@ -13,8 +24,11 @@ import numpy as np
 import polars as pl
 
 from factrix._types import DDOF, EPSILON, MetricOutput
-from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
-from factrix._stats import _significance_marker
+from factrix.metrics._helpers import (
+    _assign_quantile_groups,
+    _sample_non_overlapping,
+    _short_circuit_output,
+)
 
 
 def turnover(
@@ -23,9 +37,23 @@ def turnover(
     forward_periods: int = 1,
     quantile: float | None = None,
 ) -> MetricOutput:
-    """Factor turnover via non-overlapping rank autocorrelation.
+    """Factor rank-stability via non-overlapping rank autocorrelation.
 
     ``turnover = 1 - mean(rank_autocorrelation)``
+
+    **What this measures.** Sensitivity of the *full* cross-section rank
+    vector to reshuffling between ``t`` and ``t + forward_periods``. Mid-rank
+    churn (names moving between e.g. Q4 ↔ Q5 in a 10-group split) counts
+    even though those names carry zero weight in a Q1/Qn long-short
+    portfolio. So this is a **rank-stability diagnostic**, *not* a notional
+    trading-fraction.
+
+    **When to use this vs ``turnover_jaccard``.** Feed a strategy-cost
+    formula (breakeven_cost / net_spread) with ``turnover_jaccard``, not
+    this function — the bps coefficients there assume ``turnover`` is the
+    fraction of Q1/Qn positions replaced per rebalance, which ``1 − ρ``
+    does not provide. Keep this metric for ranking-stability comparisons
+    across factors.
 
     Rank autocorrelation is measured between dates ``t`` and ``t +
     forward_periods``, sub-sampled at stride ``forward_periods`` (phase-0)
@@ -144,6 +172,160 @@ def turnover(
     )
 
 
+def turnover_jaccard(
+    df: pl.DataFrame,
+    factor_col: str = "factor",
+    *,
+    n_groups: int = 10,
+    forward_periods: int = 1,
+) -> MetricOutput:
+    """Portfolio notional turnover via top/bottom quantile membership churn.
+
+    For an equal-weight Q1/Q_n long-short portfolio the only trades that
+    incur cost are changes in top-quantile and bottom-quantile membership
+    — reshuffling within the middle deciles triggers no rebalancing and
+    should not be counted. This is the metric whose units are directly
+    compatible with ``breakeven_cost`` / ``net_spread``: Novy-Marx &
+    Velikov (2016) τ = fraction of portfolio value replaced per rebalance.
+
+    Per-rebalance turnover is the mean of two one-sided overlap losses::
+
+        top_churn = 1 - |Q_top_t ∩ Q_top_{t-1}| / |Q_top_t|
+        bot_churn = 1 - |Q_bot_t ∩ Q_bot_{t-1}| / |Q_bot_t|
+        turnover  = (top_churn + bot_churn) / 2
+
+    ``(k − m) / k`` for ``k`` names in today's tail and ``m`` carry-overs
+    equals the fraction of that leg that must be traded under equal
+    weighting. Averaging the two legs keeps the ``× 2`` factor in
+    ``breakeven_cost = spread / (2 × turnover) × 1e4`` consistent.
+
+    Args:
+        df: Panel with ``date, asset_id, factor``.
+        factor_col: Name of the factor column.
+        n_groups: Number of quantile groups (default ``10`` = deciles).
+            Must be ≥ 3 so top and bottom are distinct buckets.
+        forward_periods: Rebalance stride. When ``> 1``, sub-samples at
+            stride ``h`` before pairing consecutive dates — matches a
+            holding-period-aligned rebalance schedule.
+
+    Returns:
+        MetricOutput with ``value`` = mean per-rebalance turnover ∈ [0, 1].
+        ``0`` = identical tail sets every rebalance; ``1`` = full rotation.
+        Metadata: ``n_rebalances``, ``n_groups``, ``forward_periods``,
+        ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2``;
+        ≠ ``n_assets / n_groups`` signals unbalanced buckets from ties or
+        a short universe), ``method``.
+
+    Notes:
+        Names dropped from ``Q_top_{t-1}`` / ``Q_bot_{t-1}`` by delisting
+        before ``t`` (not present in ``df`` at ``t``) are silently missed
+        on the sell side — real portfolios would book that liquidation
+        cost. The bias is typically small but grows with universe churn.
+
+    References:
+        Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their
+        Trading Costs."
+    """
+    if forward_periods < 1:
+        raise ValueError(
+            f"forward_periods must be ≥ 1, got {forward_periods!r}"
+        )
+    if n_groups < 3:
+        raise ValueError(
+            f"n_groups must be ≥ 3 (need distinct top/bottom buckets), "
+            f"got {n_groups!r}"
+        )
+
+    if forward_periods > 1:
+        df = _sample_non_overlapping(df, forward_periods)
+
+    dates = df["date"].unique().sort()
+    if len(dates) < 2:
+        return _short_circuit_output(
+            "turnover_jaccard", "insufficient_dates",
+            n_observed=len(dates), min_required=2,
+            forward_periods=forward_periods,
+        )
+
+    top_g = n_groups - 1
+    bot_g = 0
+    grouped = (
+        _assign_quantile_groups(df, factor_col, n_groups)
+        .select(
+            "date", "asset_id",
+            (pl.col("_group") == top_g).alias("is_top"),
+            (pl.col("_group") == bot_g).alias("is_bot"),
+        )
+    )
+
+    date_map = pl.DataFrame({"date": dates[1:], "prev_date": dates[:-1]})
+    prev = grouped.select(
+        pl.col("date").alias("prev_date"),
+        "asset_id",
+        pl.col("is_top").alias("was_top"),
+        pl.col("is_bot").alias("was_bot"),
+    )
+
+    # WHY: fill_null(False) treats names absent at t-1 as "new top/bot" —
+    # this matches a live portfolio that has to buy into them at t.
+    paired = (
+        grouped.join(date_map, on="date")
+        .join(prev, on=["prev_date", "asset_id"], how="left")
+        .with_columns(
+            pl.col("was_top").fill_null(False),
+            pl.col("was_bot").fill_null(False),
+        )
+    )
+
+    per_date = (
+        paired.group_by("date")
+        .agg(
+            pl.col("is_top").sum().alias("n_top"),
+            (pl.col("is_top") & pl.col("was_top")).sum().alias("n_top_kept"),
+            pl.col("is_bot").sum().alias("n_bot"),
+            (pl.col("is_bot") & pl.col("was_bot")).sum().alias("n_bot_kept"),
+        )
+        .filter((pl.col("n_top") > 0) & (pl.col("n_bot") > 0))
+        .with_columns(
+            (
+                (1 - pl.col("n_top_kept") / pl.col("n_top"))
+                + (1 - pl.col("n_bot_kept") / pl.col("n_bot"))
+            ).truediv(2).alias("turnover")
+        )
+        .sort("date")
+    )
+
+    if per_date.is_empty():
+        return _short_circuit_output(
+            "turnover_jaccard", "no_valid_pairs",
+            forward_periods=forward_periods, n_groups=n_groups,
+        )
+
+    turnover_arr = per_date["turnover"].to_numpy()
+    mean_turnover = float(np.mean(turnover_arr))
+    tail_pct = 1.0 / n_groups
+
+    mean_tail_size = float(
+        per_date.select(
+            ((pl.col("n_top") + pl.col("n_bot")) / 2).mean()
+        ).item()
+    )
+    return MetricOutput(
+        name="turnover_jaccard",
+        value=mean_turnover,
+        metadata={
+            "n_rebalances": int(per_date.height),
+            "n_groups": n_groups,
+            "forward_periods": forward_periods,
+            "mean_tail_size": mean_tail_size,
+            "method": (
+                f"one-sided overlap on top/bottom {tail_pct:.0%} "
+                f"quantile, top/bot averaged"
+            ),
+        },
+    )
+
+
 def breakeven_cost(
     gross_spread: float,
     turnover: float,
@@ -154,9 +336,14 @@ def breakeven_cost(
 
     If the actual trading cost is below this, the factor's alpha survives.
 
+    Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
+    share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
+    Use ``turnover_jaccard()``; do **not** feed in ``turnover()``
+    (which is rank-stability, not position-change).
+
     Args:
         gross_spread: Per-period mean long-short spread.
-        turnover: Factor turnover estimate (0-1).
+        turnover: Notional turnover ∈ [0, 1] from ``turnover_jaccard()``.
 
     Returns:
         MetricOutput with value = breakeven cost in bps.
@@ -197,9 +384,14 @@ def net_spread(
     useful headline number; override with a venue-specific estimate
     when available.
 
+    Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
+    share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
+    Use ``turnover_jaccard()``; do **not** feed in ``turnover()``
+    (which is rank-stability, not position-change).
+
     Args:
         gross_spread: Per-period mean long-short spread.
-        turnover: Factor turnover estimate.
+        turnover: Notional turnover ∈ [0, 1] from ``turnover_jaccard()``.
         estimated_cost_bps: Estimated single-leg trading cost in bps.
 
     Returns:

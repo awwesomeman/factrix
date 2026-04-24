@@ -134,7 +134,9 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 | `quantile_spread` / `spread_p` | ≥ `n_groups`（預設 10） | `MIN_PORTFOLIO_PERIODS=5` | NaN；per-date N < n_groups 時該期被 drop |
 | `monotonicity` | ≥ `n_groups` | `MIN_MONOTONICITY_PERIODS=5` | NaN |
 | `top_concentration` | ≥ `n_groups` | — | NaN 若 top bucket 空 |
-| `turnover` / `breakeven_cost` / `net_spread` | 繼承 quantile_spread 門檻 | 繼承 | NaN |
+| `turnover` (rank-stability diagnostic: `1 − mean Spearman ρ`) | 繼承 quantile_spread 門檻 | ≥ `2·forward_periods + 1` raw dates | NaN, `reason=insufficient_dates` |
+| `turnover_jaccard` (notional Q1/Q_n churn — **this is the cost driver**) | ≥ `n_groups` per date | ≥ 2 sampled dates | NaN, `reason=insufficient_dates` \| `no_valid_pairs` |
+| `breakeven_cost` / `net_spread` | 綁 `turnover_jaccard` | 同 | NaN 或 `inf`（turnover → 0 時） |
 | `ic_trend` | 同 `ic_*` | 同 IC | NaN |
 | `oos_survival_ratio` / `oos_sign_flipped` | 同 IC | T 可分 2 splits × `MIN_OOS_PERIODS=5` | NaN |
 | `regime_ic` *(opt-in)* | 同 IC | 每 regime ≥ `MIN_IC_PERIODS` | 失守 regime 略過；metadata 保留成功 regime |

@@ -64,6 +64,47 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 採用：`regime_ic` 對每個 regime 跑獨立 t-test（H₀: mean IC = 0 within regime），並用 **BHY** 對 k 個 regime p-value 做相依性校正；預設以「時間 bisection（前半/後半）」作 regime fallback，接受使用者自供 regime 標籤。stat 回傳 **min|t| across regimes**（conservative：最弱 regime 若顯著則全 regime 皆顯著）。
   - 採用：`multi_horizon_ic` 掃預設 horizon list `[1, 5, 10, 20]`，per-horizon 以非重疊採樣（`_sample_non_overlapping`）做 t-test 避免重疊報酬 inflate，並用 `MIN_IC_PERIODS` 依 horizon 縮放（短期 horizon 要求更多樣本以補償 sub-sampling 之資料耗損）。retention ratio 與 monotonicity 診斷由下游 veto rule (`cs.multi_horizon_decay_fast`) 消費。
 
+### Turnover & Trading-Cost Proxy — `turnover`、`turnover_jaccard`、`breakeven_cost`、`net_spread`
+
+精確實作：`factrix/metrics/tradability.py`
+
+兩個 turnover 指標**不等價**，服務不同目的：
+
+- `turnover` = `1 − mean(Spearman ρ(rank_t, rank_{t+h}))`，衡量全截面排序穩定度。
+  中段 rank 翻動會計入，即便這些名單在 Q1/Qn equal-weight long-short portfolio
+  中權重為 0 → **不是 notional 成本驅動者**，僅作 rank-stability 診斷。
+- `turnover_jaccard` = `mean((1 − |Q_top_t ∩ Q_top_{t-1}| / |Q_top_t|) +
+  (1 − |Q_bot_t ∩ Q_bot_{t-1}| / |Q_bot_t|)) / 2`，衡量 top/bot 分位集合每
+  rebalance 被替換的比例。對應 Novy-Marx & Velikov (2016) τ 定義，等於
+  equal-weight Q1/Qn portfolio 的 notional 替換率 → **這才是 bps 成本公式的
+  線性 driver**。
+
+公式（單位：per-period）：
+
+- `breakeven_cost = gross_spread / (2 × turnover_jaccard) × 10000`（bps）
+- `net_spread = gross_spread − 2 × (cost_bps / 10000) × turnover_jaccard`
+
+「× 2」對應 long 與 short 兩腿都要 rebalance；`turnover_jaccard` 已平均過兩腿，
+故 full rotation 時 `2 × 1 × cost_bps = 2·cost_bps`，代數自洽。
+
+- **Novy-Marx & Velikov (2016)**, *Review of Financial Studies* 29(1)
+  - 觀點：以實證成本 τ（portfolio 替換比例）估算 anomaly 的 breakeven cost；
+    middle-rank shuffle 不產生 notional 成本，只有分位邊界跨越才算。
+  - 採用：`turnover_jaccard` 定義、`breakeven_cost` 公式、bps 單位對齊。
+- **Hansen & Hodrick (1980)**, *JPE* 88(5)
+  - 觀點：overlapping forward windows 造成 MA(h−1) 自相關。
+  - 採用：`forward_periods > 1` 時兩個指標都走 `_sample_non_overlapping`。
+
+設計 caveat：
+
+- `turnover_jaccard` 在 prev-date 有、今日退市的名單上沉默 under-count（該部位
+  實際上已平倉但不在 today panel），影響通常小但隨 universe churn 放大。
+- `turnover`（1 − ρ）的尾部 quantile filter 在 tail-union 之上算 ρ，docstring
+  自標其 ρ **不可** 與 unfiltered ρ 比較（tail 名單本就較穩定 → 會低估 turnover）；
+  因此不建議把 filtered `turnover` 再喂 cost 公式。
+
+---
+
 ### Quantile Spread / Monotonicity / Top Concentration — 輔助診斷
 
 精確實作：`factrix/metrics/quantile.py`（spread / VW spread / group returns）、`factrix/metrics/monotonicity.py`、`factrix/metrics/concentration.py`（HHI⁻¹ effective-n）

@@ -18,6 +18,32 @@ on semver range constraints until `1.0.0` is cut.
 
 ## [Unreleased]
 
+### Added
+- `factrix/metrics/tradability.py::turnover_jaccard` — notional Q1/Q_n
+  membership-churn turnover (Novy-Marx & Velikov 2016 τ). Per-rebalance
+  mean of top-set and bottom-set one-sided overlap losses,
+  `(top_churn + bot_churn) / 2`, giving the fraction of an
+  equal-weight Q1/Q_n long-short portfolio replaced per rebalance.
+- `CrossSectionalProfile.turnover_jaccard` field — the new notional
+  turnover is reported alongside the existing rank-stability
+  `turnover`.
+
+### Changed
+- **BREAKING**: `CrossSectionalProfile.breakeven_cost` and
+  `.net_spread` are now computed from `turnover_jaccard`, not from
+  `turnover` (1 − Spearman ρ). The latter double-counted middle-rank
+  reshuffling that incurs no actual trading cost, pushing breakeven
+  estimates systematically low (pessimistic). Numerical values of
+  these two fields will change for most factors — typically
+  `breakeven_cost` rises because `turnover_jaccard ≤ turnover`.
+  Migration: consumers who previously compared against stored
+  `breakeven_cost` thresholds must re-calibrate.
+- `turnover()` docstring relabels the metric as a **rank-stability
+  diagnostic**; callers that were using it as a cost proxy should
+  switch to `turnover_jaccard()`.
+- `breakeven_cost()` / `net_spread()` docstrings state explicitly
+  that `turnover` must be a notional ∈ [0, 1] fraction.
+
 ---
 
 ## [0.3.0] - 2026-04-23
