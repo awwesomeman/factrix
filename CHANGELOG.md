@@ -16,204 +16,6 @@ on semver range constraints until `1.0.0` is cut.
 
 ---
 
-## [Unreleased]
-
-### Added
-- `factrix/metrics/tradability.py::notional_turnover` — notional Q1/Q_n
-  membership-churn turnover (Novy-Marx & Velikov 2016 τ). Per-rebalance
-  mean of top-set and bottom-set one-sided overlap losses,
-  `(top_churn + bot_churn) / 2`, giving the fraction of an
-  equal-weight Q1/Q_n long-short portfolio replaced per rebalance.
-- `CrossSectionalProfile.notional_turnover` and
-  `MacroPanelProfile.notional_turnover` fields — notional turnover is
-  reported alongside the existing rank-stability `turnover`.
-- `Factor.notional_turnover()` session method with the standard
-  `n_groups` override / cache shape; mirrors `quantile_spread`.
-- Diagnostic rules `cs.high_notional_turnover` and
-  `macro_panel.high_notional_turnover` (severity `warn`, threshold
-  `notional_turnover > 0.5`) — sibling to the existing rank-stability
-  `cs.high_turnover`. Both rules can fire independently: a factor
-  with high mid-rank noise but stable Q1/Qn has high `turnover` yet
-  low `notional_turnover` (still implementable).
-
-### Changed
-- **BREAKING**: `CrossSectionalProfile.breakeven_cost` and
-  `.net_spread` are now computed from `notional_turnover`, not from
-  `turnover` (1 − Spearman ρ). The latter double-counted middle-rank
-  reshuffling that incurs no actual trading cost, pushing breakeven
-  estimates systematically low (pessimistic). Numerical values of
-  these two fields will change for most factors — typically
-  `breakeven_cost` rises because `notional_turnover ≤ turnover`.
-  Migration: consumers who previously compared against stored
-  `breakeven_cost` thresholds must re-calibrate.
-- `turnover()` docstring relabels the metric as a **rank-stability
-  diagnostic**; callers that were using it as a cost proxy should
-  switch to `notional_turnover()`.
-- `breakeven_cost()` / `net_spread()` docstrings state explicitly
-  that `turnover` must be a notional ∈ [0, 1] fraction.
-
----
-
-## [0.3.0] - 2026-04-23
-
-### Added
-- `factrix/stats/bootstrap.py` — `stationary_bootstrap_resamples`
-  (Politis-Romano 1994) + `bootstrap_mean_ci`. Default block length
-  uses the Politis-White (2004) practical rule `L = 1.75 · T^(1/3)`
-  when caller leaves it `None`; mean statistic fast-paths via axis=1
-  reduction.
-- `fama_macbeth(shanken_eiv=True, ...)` — Shanken (1992)
-  errors-in-variables variance correction; `cluster="two_way"`
-  enables Petersen (2009) two-way clustering.
-- `bmp_test(adjust_clustering="kolari_pynnonen")` — Kolari-Pynnönen
-  (2010) cross-sectional correlation adjustment for the BMP z-stat.
-- `compute_mfe_mae` reports `mfe_z` / `mae_z` / `est_sigma` per event
-  — estimation-window-normalised excursions (`σ̂ · √window` scale
-  matches the order-statistic growth rate; Campbell-Lo-MacKinlay
-  Ch 4) for cross-horizon / cross-vol comparison. `mfe_mae_summary`
-  surfaces `mfe_z_p50` / `mae_z_p75` / `mfe_mae_ratio_z`.
-- `regime_ic` / `multi_horizon_ic` — BHY adjustment per bucket;
-  horizon-aware minimum-sample guards (`_scaled_min_periods`).
-- `ic_trend(adf_threshold=...)` — pre-checks the input series and
-  flags `unit_root_suspected` in metadata when ADF p exceeds the
-  threshold (Stock-Watson 1988 spurious-trend protection).
-- `top_concentration(weight_by="alpha_contribution")` — alpha-
-  realised contribution variant alongside the existing
-  `"abs_factor"` HHI weighting.
-- `compute_mfe_mae(min_estimation_samples=...)` — exposes the BMP
-  daily-σ floor as a kwarg so weekly-frequency callers can lower
-  it without monkey-patching the module.
-- `hit_rate_test` — exact binomial p-value path for small samples
-  (was normal approximation throughout).
-- `greedy_forward_selection` — emits one-shot `UserWarning` that
-  selected-factor t-stats are inflated by stepwise selection
-  (White 2000, Harvey-Liu-Zhu 2016); `suppress_snooping_warning=True`
-  silences it (suppression itself logged at INFO).
-  `ForwardSelectionResult.t_stats_inference_invalid=True` so callers
-  can branch programmatically.
-- `ProfileSet` — one-shot `UserWarning` when `filter(Expr)` /
-  `rank_by` targets a `P_VALUE_FIELDS` column on a K≥2 set without
-  prior `multiple_testing_correct`. Callable-filter path stays
-  silent (escape hatch). `_warned_uncorrected` propagates through
-  `_derive` so a chain warns exactly once.
-- `KPSource` / `ShankenVarSource` / `ConcentrationWeight` Literal
-  aliases now exported from `factrix._types` (single source of
-  truth for the public option spellings; `from typing import
-  Literal` dropped from each metrics module).
-
-### Changed
-- `quantile_spread_vw` defaults to `lag_weights=True` — pairs
-  `weight[t-1]` with `forward_return[t→t+h]` to remove the
-  contemporaneous-cap look-ahead trap. New `_lag_within_asset`
-  helper handles the per-asset post-sampling lag pattern.
-- `_newey_west_se` / `_newey_west_t_test` accept optional
-  `forward_periods` and enforce `lags ≥ h-1` under MA(h-1) overlap
-  (Hansen-Hodrick 1980) via shared `_resolve_nw_lags`. Default
-  `⌊T^(1/3)⌋` unchanged when `forward_periods is None`.
-  `ic_newey_west` / `fama_macbeth` thread `forward_periods`
-  through; ad-hoc `max(⌊T^(1/3)⌋, h-1)` at each call site removed.
-- `regime_ic` internal: drop the parallel `regime_order` /
-  `raw_p_list` accumulators in favour of iterating
-  `per_regime.values()` (relies on Python 3.7+ dict insertion
-  order). Behaviour-preserving.
-
-### Removed
-- **BREAKING**: `ic_trend(adf_check: bool = True)` removed.
-  Migrate `adf_check=False` → `adf_threshold=None`; `adf_check=True`
-  → drop the kwarg (default `adf_threshold=0.10` matches the prior
-  behaviour). Float in `(0, 1)` lets callers tune the unit-root
-  cutoff; `None` skips ADF entirely.
-- **BREAKING**: `turnover` realigned with the forward-return
-  horizon. Sampled at stride `forward_periods` (Hansen-Hodrick
-  non-overlap), self-join replaced with `shift().over(asset_id)`,
-  optional quantile filter for tail-only AC. `metadata["n_dates"]`
-  → `metadata["n_pairs"]`; short-circuit reason
-  `no_valid_rank_autocorrelation` → `insufficient_pairs`.
-  Minimum dates raised to `2·h+1`.
-
-### Fixed
-- `ic_trend` short-circuits on all-NaN input series (e.g. from a
-  constant factor whose per-date rank correlation is degenerate)
-  instead of flowing into `theilslopes` / `_adf` and tripping
-  LAPACK DLASCL.
-
-### Docs
-- `docs/statistical_methods.md` — citation / attribution sweep:
-  Andrews (1991) vs Newey-West (1994) vs Andrews-Monahan (1992)
-  distinctions, Brown-Warner (1985) framing, Hirschman (1945) /
-  Herfindahl (1950) ordering, Kolari-Pynnönen scope, Corrado SE
-  derivation, Richardson-Stock framework non-adoption, FFJR
-  attribution.
-- `docs/redundancy_matrix.md` — flag conditional-redundancy blind
-  spot of the unconditional metric; point readers to
-  `spanning_alpha` and cite Barillas-Shanken (2017).
-- `README.md` — refined project positioning, scope, document
-  structure.
-- `docs/plans/` — migrated project planning and spike
-  documentation.
-- `CONTRIBUTING.md` — instructions for changing the git
-  Signed-off-by signature.
-
----
-
-## [0.2.0] - 2026-04-21
-
-### Added
-- `ic_newey_west()` — HAC t-test on overlapping IC series; first-class
-  alternative when `signal_horizon > rebalance_freq`.
-- `CrossSectionalProfile.ic_nw_p` (in `P_VALUE_FIELDS`); diagnostic rule
-  `cs.overlapping_returns_inflates_ic` with `recommended_p_source`.
-- `MacroCommonProfile.factor_adf_p` (metadata — NOT in `P_VALUE_FIELDS`,
-  unit-root test ≠ factor significance); rule `macro_common.factor_persistent`.
-- Minimal in-house ADF (`_stats._adf`) with MacKinnon asymptotic crits —
-  no `statsmodels` dependency.
-- `ProfileSet.diagnose_all()` — flatten all diagnostics to a polars DataFrame.
-- `ProfileSet.with_canonical(field)` — rebind canonical p-source for
-  downstream `multiple_testing_correct` and `canonical_p` alias column.
-- `Diagnostic.recommended_p_source` — rules can name a whitelisted
-  alternative p-value; validated against `P_VALUE_FIELDS`.
-- `Verdict` extended with `"PASS_WITH_WARNINGS"` — emitted when `canonical_p`
-  passes but a warn-severity diagnostic names an alternative the user
-  has not adopted.
-- `factrix._logging` — shared `factrix.evaluation` (orchestration;
-  INFO / WARNING) and `factrix.metrics` (correction layer; DEBUG +
-  degenerate-sample WARNING) loggers.
-- `ARCHITECTURE.md` — "Diagnostics vs Canonical" section describing the
-  "framework detects, user decides" philosophy.
-- Synthetic CS / event panel datasets with calibrated IC under
-  `factrix.datasets`.
-- `CONTRIBUTING.md` — factorlib (now factrix) dev workflow guide.
-
-### Changed
-- `verdict()` now delegates to `_verdict_with_warnings`; can return
-  `"PASS_WITH_WARNINGS"`, and can raise `ValueError` when a registered
-  `Rule.recommended_p_source` points outside `P_VALUE_FIELDS` (developer
-  error, not user data issue).
-- `multiple_testing_correct` records the resolved field name in
-  `mt_p_source` when `with_canonical` has been applied, not the literal
-  `"canonical_p"` alias.
-- Strict-gate safety + fallback visibility hardened in
-  `preprocess` / `evaluate`.
-- `ts_beta_sign_consistency` guarded at N<2.
-- README reframed; statistical methods + metric applicability extracted
-  to standalone docs.
-- Metrics formula docstrings expanded.
-- Dropped `streamlit` dependency; pyproject deps slimmed; editable
-  install path documented.
-
-### Removed
-- **BREAKING**: package renamed `factorlib` → `factrix`. Update imports.
-- **BREAKING**: `PASS_WITH_WARNINGS` introduced as a new `Verdict` value;
-  callers exhaustively matching the previous two-valued enum need to
-  handle the third state.
-- **BREAKING**: preprocess strict gate widened to all preprocess-time
-  fields; previously silent fallbacks now raise / warn.
-- **BREAKING**: `datasets.forward_periods` renamed to
-  `datasets.signal_horizon`.
-
----
-
-## [0.1.0] - 2026-04-20
 
 ### Note
 First standalone release. Extracted from the `awwesomeman/factor-analysis`
@@ -251,3 +53,312 @@ snapshot is anchored in the source workspace as the tag
 - `Factor Signal Analyzer` positioning: `turnover` / `breakeven_cost` /
   `net_spread` are idealized proxies (equal-weight, zero slippage) and do
   not represent tradable returns
+
+## v0.4.0 (2026-04-25)
+
+Trading-cost arithmetic overhaul: separates rank-stability turnover
+from notional position turnover, fixes per-period vs per-rebalance
+unit mismatch in the bps formulas, and renames `turnover_jaccard` →
+`notional_turnover` to describe the concept (Novy-Marx & Velikov τ)
+rather than the implementation (Jaccard set-similarity).
+
+### BREAKING CHANGE
+
+- `breakeven_cost` / `net_spread` now require `forward_periods`
+  (kw-only) so per-period spread and per-rebalance turnover stay on
+  the same time scale. Without it, h ≥ 2 factors were over-charged
+  by N× and breakeven understated by N×. No default — a default of
+  1 would silently reproduce the buggy answer.
+- `breakeven_cost` / `net_spread` numeric values shift on every
+  factor that previously hit the rank-stability-turnover bug
+  (CrossSectionalProfile from prior release; MacroPanelProfile and
+  `Factor.evaluate()` in this release). Direction is optimistic for
+  CS (breakeven rises) and pessimistic for MP (breakeven falls,
+  because the rank-stability turnover overstated churn). Consumers
+  comparing against stored thresholds must re-calibrate.
+- `MacroPanelProfile` gains a required `notional_turnover: float`
+  field; direct kwarg-construction breaks until callers add it.
+- Identifier rename across the public API:
+  `turnover_jaccard` → `notional_turnover` (primitive, MetricOutput
+  name / cache key, `Factor` session method, Profile dataclass fields
+  on both CS and MP, public export). Migration is mechanical
+  find-and-replace.
+- Rule code rename: `cs.high_turnover_jaccard` →
+  `cs.high_notional_turnover`; `macro_panel.high_turnover_jaccard` →
+  `macro_panel.high_notional_turnover`.
+
+### Feat
+
+- **tradability**: `notional_turnover` (Novy-Marx & Velikov 2016 τ)
+  separated from rank-stability `turnover` (1 − Spearman ρ). The two
+  measure different things — middle-rank shuffling counts as turnover
+  but not as notional churn — so only `notional_turnover`'s units
+  align with the bps cost arithmetic. (Originally landed as
+  `turnover_jaccard` in 2d005ff; renamed in this release.)
+- **tradability**: `Factor.notional_turnover()` session method with
+  the standard `n_groups` override + cache shape; mirrors
+  `quantile_spread`. `n_groups` override on `breakeven_cost` /
+  `net_spread` now also reroutes the turnover bucketing so spread
+  and turnover stay consistent during a sensitivity sweep.
+- **tradability**: `notional_turnover` exported from
+  `factrix.metrics.__all__` (the prior `turnover_jaccard` name was
+  never threaded into the public surface).
+- **diagnostics**: `cs.high_notional_turnover` and
+  `macro_panel.high_notional_turnover` rules (severity `warn`,
+  threshold `notional_turnover > 0.5`). Sibling to the existing
+  `cs.high_turnover`; both rules can fire independently — a factor
+  with high mid-rank noise but stable Q1/Qn has high `turnover` yet
+  low `notional_turnover` (still implementable).
+
+### Fix
+
+- **tradability**: per-period vs per-rebalance unit mismatch in the
+  bps formulas. `gross_spread` (per-period) was being subtracted
+  from `2·cost·turnover` (per-N-period rebalance) — different time
+  scales. `breakeven_cost ×= forward_periods`, `net_spread`'s
+  `cost_drag /= forward_periods` to align both sides on the
+  per-period scale.
+- **tradability**: `MacroPanelProfile.from_artifacts` and
+  `Factor.breakeven_cost` / `Factor.net_spread` were still feeding
+  rank-stability `turnover` into the bps formulas despite the
+  primitive's docstring forbidding it. Routed through
+  `notional_turnover` instead — completes the wiring that 2d005ff
+  applied only to CrossSectionalProfile.
+- **tradability**: `MacroPanelProfile.turnover` is now sampled at
+  `config.forward_periods` stride (was defaulting to lag-1).
+  Mirrors `CrossSectionalProfile`. Diagnostic-only field; bps
+  formulas are unaffected (they consume `notional_turnover`).
+
+### Refactor
+
+- **tradability**: rename `turnover_jaccard` → `notional_turnover`
+  throughout the public API. Renamed mechanically; no logic change.
+  See BREAKING above for migration surface.
+
+## v0.3.0 (2026-04-23)
+
+### BREAKING CHANGE
+
+- callers passing adf_check=False must migrate to
+adf_threshold=None; callers passing adf_check=True can drop the
+argument (default unchanged) or pass adf_threshold=0.10.
+- metadata n_dates -> n_pairs; short-circuit reason
+no_valid_rank_autocorrelation -> insufficient_pairs.
+
+### Feat
+
+- **mfe-mae**: expose min_estimation_samples kwarg
+- **trend**: adf_threshold replaces adf_check bool
+- **hit-rate**: exact binomial p-value for small samples
+- **concentration**: add alpha-contribution hhi variant
+- **ic-trend**: flag unit-root suspicion via adf pre-check
+- **ic,caar**: bhy per bucket; horizon-aware sample guards
+- **stats**: add stationary bootstrap utility
+- **mfe-mae**: normalize excursions by estimation sigma
+- **spanning**: flag inflated t-stats from forward selection
+- **quantile-spread**: lag vw weights by default
+- **bmp-test**: add kolari-pynnönen cross-sectional adjustment
+- **stats**: enforce forward_periods floor on newey-west
+- **fama-macbeth**: shanken eiv + two-way cluster
+- **profileset**: warn on raw-p batch decisions
+- **metrics**: align turnover with forward horizon
+
+### Fix
+
+- **trend**: short-circuit nan-only ic series before lstsq
+
+### Refactor
+
+- **ic**: drop parallel list in regime_ic bhy step
+- **_types**: centralise metric option literals
+
+## v0.2.0 (2026-04-21)
+
+### BREAKING CHANGE
+
+- consumers must update `import factorlib` →
+`import factrix` and `pip install factorlib` → `pip install factrix`.
+- prepared panels now carry _fl_preprocess_sig (String)
+instead of _fl_forward_periods (Int32). Downstream code reading that
+specific column name must update.
+- fl.datasets.make_cs_panel(..., forward_periods=5)
+and fl.datasets.make_event_panel(..., forward_periods=5) must be
+updated to signal_horizon=5. Package is at 0.1.0 with no external
+users.
+
+### Feat
+
+- **profileset**: add diagnose_all, with_canonical, and layered logging
+- **profiles**: add PASS_WITH_WARNINGS verdict and alternative p-values
+- **preprocess**: widen strict gate to all preprocess-time fields
+- **datasets**: add synthetic CS / event panels with calibrated IC
+
+### Fix
+
+- **metrics**: guard ts_beta_sign_consistency at N<2
+- **preprocess,evaluate**: strict-gate safety + fallback visibility
+
+### Refactor
+
+- rename package from factorlib to factrix
+- drop streamlit; lean pyproject deps; editable install
+- **datasets**: rename forward_periods to signal_horizon
+
+## v0.1.0 (2026-04-20)
+
+### BREAKING CHANGE
+
+- describe_profile_values(profile, artifacts, *,
+include_detail) -> describe_profile_values(profile). Call-sites in
+tests / demo / README / docstrings updated to the single-arg form.
+Demo notebook rerun end-to-end: 56/56 cells green.
+- EventProfile field bmp_sar_mean renamed to
+bmp_test_mean; metric_outputs cache keys "mfe_mae" -> "mfe_mae_summary"
+and "bmp_sar" -> "bmp_test".
+- Artifacts.metric_outputs cache keys renamed from
+"ic_trend" to "caar_trend" (EventProfile) and "beta_trend"
+(MacroPanel/MacroCommon). CrossSectionalProfile unaffected.
+- Profile fields long_short_spread / long_short_spread_vw
+renamed to quantile_spread / quantile_spread_vw. Cache keys and
+MetricOutput.name identifiers renamed in lockstep.
+- to test a different forward_periods, rebuild the
+Factor session with a new config (fl.preprocess + fl.factor).
+- q1_q5_spread → long_short_spread, q1_concentration →
+top_concentration, plus intermediate columns q1_return/q5_return →
+top_return/bottom_return. Old names hard-coded Q1/Q5 but n_groups is
+configurable (CS default 10) — a quant reading q1_q5_spread under
+n_groups=10 was literally wrong. Prose / charts / diagnose messages
+propagated.
+- metrics/oos.multi_split_oos_decay returns MetricOutput
+(was OOSResult); event_around_return/multi_horizon_hit_rate/mfe_mae_summary
+return short-circuit MetricOutput instead of None.
+- `validate_factor_data` previously required the date
+column to be exactly `pl.Datetime("ms")` naive; it now accepts `pl.Date`
+or any `pl.Datetime(time_unit, time_zone)` variant. Callers relying on
+the strict-ms rejection must pre-cast themselves.
+- `CrossSectionalConfig.q_top` removed. `q1_concentration`
+now uses `q_top=1/n_groups` so its Q1 bucket matches the Q1 in
+`q1_q5_spread`. Previously the default `n_groups=10` + `q_top=0.2` made
+the two Q1 metrics disagree (concentration used top 20%, spread used
+top 10%) — a silent inconsistency that users had to notice and tune out.
+- `Profile.from_artifacts(artifacts)` now returns
+`tuple[Self, dict[str, MetricOutput]]` instead of `Self`. Direct callers
+(subclass authors, test helpers) must tuple-unpack.
+- BaseConfig.multi_horizon_periods removed.
+- CrossSectionalConfig.orthogonalize removed;
+CrossSectionalProfile.orthogonalize_applied removed;
+cs.orthogonalize_not_applied diagnose rule removed.
+
+### Feat
+
+- **reporting**: normalize describe_profile type column and NaN labels
+- **factor**: override advisory via UserWarning
+- **metrics**: tie_policy diagnostic and short-circuit NaN
+- **preprocess**: embed forward_periods marker
+- **factor**: add event/macro factor session subclasses
+- **factor**: add fl.factor() session API and unify MetricOutput contract
+- **evaluation**: date dtype consistency check at join boundaries
+- **adapt**: auto-promote pl.Date to pl.Datetime(ms)
+- **reporting**: describe_profile_values drill-down api
+- **stats**: support two-stage screening BHY with n_total
+- **adapt**: support OHLCV canonical renames
+- **profiles**: wire Level 2 metrics into CrossSectionalProfile (T3.S2)
+- **preprocess**: wire orthogonalize into the CS pipeline (T3.S1)
+- **profile_set**: add with_extra_columns for user-defined columns
+- **api**: allow on_result callback to signal early stop
+- **diagnostics**: support register_rule for external rule injection
+- **api**: support keep_artifacts and compact in evaluate_batch
+- **api**: expose artifacts via evaluate(return_artifacts=True)
+- **profiles**: surface insufficient data via profile field and diagnose rule
+- **metrics**: structure short-circuit metadata with reason/n_observed
+- **factorlib**: add multi-horizon event metrics and docs
+- **factorlib**: add event_ic metric for continuous signal strength
+- **factorlib**: implement event_signal factor type
+- **factorlib**: implement macro_common factor type (Future B)
+- **factorlib**: implement macro_panel factor type (Future A)
+- **factors**: add generate_price_intention factor
+- **adapt**: accept pandas DataFrame and add fill_forward option
+- add split_by_group utility and comparison charts
+- **factors**: add industry dummy encoding for orthogonalization
+- **charts**: add reusable Plotly chart builders for factor analysis
+- **ic**: expose std_ic in regime_ic metadata for downstream charts
+- **regression**: add spanning regression with greedy forward selection
+- **experiment**: add log_evaluation for gate-based MLflow logging
+- **gates**: add gate pipeline for factor evaluation
+- **tools**: add modular tools layer and preprocessing pipeline
+- bootstrap factor analysis framework
+
+### Fix
+
+- **demo**: complete P2/COV coverage gaps
+- **demo**: regime shift(1) and market_cap size proxy
+- **api**: raise on silent config / factor_type / compact misuse
+- **metrics**: mirror input date dtype in event output frames
+- **profile_set**: make runtime-guard error actionable
+- **redundancy**: surface degenerate inputs instead of silently zeroing
+- **profile_set**: re-check canonical invariant at runtime BHY call
+- **profiles**: verdict uses t-distribution; extract _diagnose helper
+- **protocol**: _CompactedPrepared blocks every container/truth-testing path
+- **metrics**: redundancy_matrix uses mean(|rho|) not |mean(rho)|
+- **factorlib**: show gate results in EvaluationResult repr
+- **factorlib**: use t+1 entry for forward return computation
+- **factorlib**: improve UX/DX after routing refactor
+- **concentration**: change t-stat to test H₀: ratio ≥ 0.5
+- **tools**: fix OOS median, spanning null-fill, quantile ties, and add guards
+
+### Refactor
+
+- **metrics**: adopt _short_circuit_output helper at all sites
+- **reporting**: drop artifacts arg from describe_profile_values
+- **factor**: unify mfe_mae_summary and bmp_test names
+- **factor**: unify caar_trend / beta_trend names
+- **profile**: unify on quantile_spread across API
+- **factor**: drop forward_periods= override
+- **factor**: consolidate shared helpers from review pass
+- **api**: drop Factor base class from top-level __all__
+- **profile**: rename q1 fields and polish factor session
+- **metrics**: extract single-asset ts_beta fallback helper
+- **api**: require preprocessed input (strict gate)
+- **validation**: accept any Datetime time_unit / timezone
+- **config**: drop q_top, derive from n_groups
+- **evaluation**: stash MetricOutput, pure from_artifacts tuple return
+- **config**: add OrthoConfig sub-dataclass + DataFrame shortcut
+- **api**: extract _evaluate_one shared helper
+- **phase1-2**: apply review findings
+- **profiles**: remove orthogonalize false provenance
+- **profile_set**: resolve empty-set dtypes via typing.get_type_hints
+- drop gate-era evaluation layer for FactorProfile API
+- **tests**: hoist make_macro_panel helper into conftest
+- rename oos_decay to oos_survival_ratio
+- **profiles**: restore config-aware diagnose rules via profile fields
+- **api**: drop keep_artifacts no-op param and delete dead metric dicts
+- **factorlib**: add top-level profile-era API and reflect describe_profile
+- **factorlib**: add ProfileSet, multiple_testing module, redundancy_matrix
+- **factorlib**: add diagnostic rules module and Artifacts compact mode
+- **factorlib**: add per-type Profile dataclasses with canonical-p whitelist
+- **factorlib**: add FactorProfile protocol and registry scaffold
+- **metrics**: split event metrics by statistical question
+- **factorlib**: unify quantile spread, add discoverability, fix cross-type consistency
+- **factorlib**: add pipeline routing, API layer, and clean break exports
+- **factorlib**: add FactorType enum, per-type config, and rich protocol types
+- **factorlib**: restructure packages per v8 routing design
+- **tools**: generalize statistics to p-value driven significance
+- **tools**: implement P1 metric refactoring
+- unify naming to snake_case and align with return types
+- **ic**: split IC and IC_IR into separate metrics
+- **preprocess**: accept PipelineConfig and preserve date dtype
+- **preprocess**: rename preprocessing to preprocess
+- unify canonical column names (date/asset_id/price) and add adapt()
+- **gates**: publicize build_artifacts as standard API
+- **preprocessing**: rename to preprocess_cs_factor and pass through price
+- **tools**: use academic significance markers (***/**/*)
+- **dashboard,scoring**: rename dimensions and enhance dashboard layout
+- restructure project into modular packages
+- extract scoring into package with registry pattern
+
+### Perf
+
+- **stats**: cache bhy correction factor
+- **preprocess**: use partition_by for per-date OLS
+- **redundancy**: vectorize pairwise_abs_spearman via numpy.corrcoef
+- **profile_set**: column-wise DataFrame build and tidy error f-string

@@ -107,7 +107,7 @@ from factrix._api import (
 )
 from factrix import datasets
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     # Top-level API
