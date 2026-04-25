@@ -265,6 +265,7 @@ class Factor:
         turnover_val = self.turnover().value
         return self._cached_or_compute(
             "breakeven_cost", _be, spread_val, turnover_val,
+            forward_periods=self.config.forward_periods,
             override=n_groups is not None,
         )
 
@@ -290,6 +291,7 @@ class Factor:
         override = n_groups is not None or estimated_cost_bps is not None
         return self._cached_or_compute(
             "net_spread", _ns, spread_val, turnover_val, cost,
+            forward_periods=self.config.forward_periods,
             override=override,
         )
 

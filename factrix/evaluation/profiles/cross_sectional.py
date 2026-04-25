@@ -208,11 +208,12 @@ class CrossSectionalProfile:
         )
         be_m = _memoized(
             outputs, "breakeven_cost", breakeven_cost,
-            spread_m.value, turn_jac_m.value,
+            spread_m.value, turn_jac_m.value, forward_periods=fp,
         )
         ns_m = _memoized(
             outputs, "net_spread", net_spread,
             spread_m.value, turn_jac_m.value, config.estimated_cost_bps,
+            forward_periods=fp,
         )
         # Q1 = top 1/n_groups — mirrors the quantile_spread Q1 definition
         # so top_concentration and quantile_spread report on the same bucket.

@@ -329,10 +329,12 @@ def turnover_jaccard(
 def breakeven_cost(
     gross_spread: float,
     turnover: float,
+    *,
+    forward_periods: int,
 ) -> MetricOutput:
     """Breakeven single-leg trading cost in bps.
 
-    ``Breakeven = Gross_Spread / (2 × Turnover)``
+    ``Breakeven = Gross_Spread × forward_periods / (2 × Turnover)``
 
     If the actual trading cost is below this, the factor's alpha survives.
 
@@ -341,9 +343,17 @@ def breakeven_cost(
     Use ``turnover_jaccard()``; do **not** feed in ``turnover()``
     (which is rank-stability, not position-change).
 
+    Time-scale alignment: ``gross_spread`` from ``quantile_spread`` is
+    per-period (forward_return is divided by N upstream), but ``turnover``
+    is per-rebalance (one rotation every N periods). Multiplying spread
+    by ``forward_periods`` puts both sides on the per-rebalance scale
+    before solving net=0 — without it, breakeven is understated by N×.
+
     Args:
         gross_spread: Per-period mean long-short spread.
         turnover: Notional turnover ∈ [0, 1] from ``turnover_jaccard()``.
+        forward_periods: Holding period N matching the upstream
+            ``compute_forward_return`` and ``turnover_jaccard`` stride.
 
     Returns:
         MetricOutput with value = breakeven cost in bps.
@@ -351,20 +361,33 @@ def breakeven_cost(
     References:
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
     """
+    if forward_periods < 1:
+        raise ValueError(
+            f"forward_periods must be ≥ 1, got {forward_periods!r}"
+        )
     if turnover < EPSILON:
         return MetricOutput(
             name="breakeven_cost",
             value=float("inf"),
-            metadata={"gross_spread": gross_spread, "turnover": turnover},
+            metadata={
+                "gross_spread": gross_spread,
+                "turnover": turnover,
+                "forward_periods": forward_periods,
+            },
         )
 
-    # WHY: ×2 因為 long-short 雙邊交易；×10000 轉 bps
-    be_bps = (gross_spread / (2 * turnover)) * 10000
+    # WHY: ×2 因為 long-short 雙邊交易；×forward_periods 把 per-period spread
+    # 升到 per-rebalance 與 turnover 對齊；×10000 轉 bps。
+    be_bps = (gross_spread * forward_periods / (2 * turnover)) * 10000
 
     return MetricOutput(
         name="breakeven_cost",
         value=be_bps,
-        metadata={"gross_spread": gross_spread, "turnover": turnover},
+        metadata={
+            "gross_spread": gross_spread,
+            "turnover": turnover,
+            "forward_periods": forward_periods,
+        },
     )
 
 
@@ -372,10 +395,12 @@ def net_spread(
     gross_spread: float,
     turnover: float,
     estimated_cost_bps: float = 30.0,
+    *,
+    forward_periods: int,
 ) -> MetricOutput:
     """Net spread after estimated trading costs (per-period).
 
-    ``Net = Gross_Spread - 2 × cost_bps × Turnover``
+    ``Net = Gross_Spread - 2 × cost_bps × Turnover / forward_periods``
 
     The ``2 ×`` accounts for both legs of the long-short portfolio
     needing to be traded (long side + short side) at each rebalance.
@@ -383,6 +408,12 @@ def net_spread(
     mid-cap US equity estimate (half-spread + impact) sized to give a
     useful headline number; override with a venue-specific estimate
     when available.
+
+    Time-scale alignment: ``gross_spread`` is per-period (forward_return
+    is divided by N upstream) but ``2 × cost × turnover`` is the cost paid
+    once per N-period rebalance. Dividing by ``forward_periods`` amortises
+    that cost back to per-period. Without it, net is over-charged by N×
+    and any factor with h ≥ 2 is artificially killed.
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
@@ -393,6 +424,8 @@ def net_spread(
         gross_spread: Per-period mean long-short spread.
         turnover: Notional turnover ∈ [0, 1] from ``turnover_jaccard()``.
         estimated_cost_bps: Estimated single-leg trading cost in bps.
+        forward_periods: Holding period N matching the upstream
+            ``compute_forward_return`` and ``turnover_jaccard`` stride.
 
     Returns:
         MetricOutput with value = net spread (per-period).
@@ -402,7 +435,11 @@ def net_spread(
         Transaction-Cost Perspective on the Multitude of Firm
         Characteristics." *Review of Financial Studies* 33(5).
     """
-    cost_drag = 2 * (estimated_cost_bps / 10000) * turnover
+    if forward_periods < 1:
+        raise ValueError(
+            f"forward_periods must be ≥ 1, got {forward_periods!r}"
+        )
+    cost_drag = 2 * (estimated_cost_bps / 10000) * turnover / forward_periods
     net = gross_spread - cost_drag
 
     return MetricOutput(
@@ -413,5 +450,6 @@ def net_spread(
             "cost_drag": cost_drag,
             "estimated_cost_bps": estimated_cost_bps,
             "turnover": turnover,
+            "forward_periods": forward_periods,
         },
     )

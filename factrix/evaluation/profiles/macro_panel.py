@@ -139,11 +139,12 @@ class MacroPanelProfile:
         turn_m = _memoized(outputs, "turnover", turnover, artifacts.prepared)
         be_m = _memoized(
             outputs, "breakeven_cost", breakeven_cost,
-            spread_m.value, turn_m.value,
+            spread_m.value, turn_m.value, forward_periods=fp,
         )
         ns_m = _memoized(
             outputs, "net_spread", net_spread,
             spread_m.value, turn_m.value, config.estimated_cost_bps,
+            forward_periods=fp,
         )
 
         insufficient = _insufficient_metrics({
