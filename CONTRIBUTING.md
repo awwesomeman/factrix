@@ -83,6 +83,32 @@ uv add <pkg>         # 新增 dep，同步更新 pyproject + uv.lock
 uv lock --upgrade    # 升 lock 到當前 pyproject constraint 的最新版
 ```
 
+### Git hooks（pre-push CHANGELOG check）
+
+Repo 根目錄下的 `.githooks/` 收受版控的 hook script。fresh clone 後跑
+一次：
+
+```bash
+git config core.hooksPath .githooks
+```
+
+這條 config 是 per-clone local，不會跨機器自動同步，所以每個 clone /
+新機器都要跑一次。
+
+目前唯一的 hook 是 `pre-push`：當 push 含 `chore(release): vX.Y.Z`
+（亦即 `cz bump` 產出的 release commit），會檢查 `CHANGELOG.md` 中對
+應 `## vX.Y.Z` section 的非空白行數 ≥ 25。低於門檻 → block push，逼
+你補 WHY narrative（BREAKING migration、行為方向、動機）再 push。
+真要繞過：`git push --no-verify`。
+
+調整門檻（per-shell）：
+
+```bash
+CHANGELOG_MIN_LINES=10 git push
+```
+
+設計理由見 §7 「Release workflow」對 cz auto-CHANGELOG 的限制說明。
+
 ---
 
 ## 3. 開發循環（branch → test → commit → push → PR）

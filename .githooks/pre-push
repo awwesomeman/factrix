@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# pre-push: enforce CHANGELOG polish on release commits.
+#
+# When the push includes a ``chore(release): vX.Y.Z`` commit, the
+# corresponding ``## vX.Y.Z`` section in CHANGELOG.md (as committed
+# at that release) must have at least CHANGELOG_MIN_LINES non-blank
+# lines. Bypass with ``git push --no-verify`` when you really mean it.
+#
+# Threshold rationale: cz auto-generated section is ~17 lines; a
+# polished BREAKING release runs 50+. 25 is the cliff between "just
+# bullets" and "has WHY narrative".
+
+set -eu
+
+CHANGELOG="CHANGELOG.md"
+CHANGELOG_MIN_LINES=${CHANGELOG_MIN_LINES:-25}
+ZERO="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$local_sha" = "$ZERO" ] && continue
+    if [ "$remote_sha" = "$ZERO" ]; then
+        # New branch — scan all reachable commits.
+        range="$local_sha"
+    else
+        range="$remote_sha..$local_sha"
+    fi
+
+    # WHY: process substitution (not pipe) so the loop runs in this
+    # shell — a piped `while` runs in a subshell and `exit 1` from
+    # inside leaks no failure status to the script.
+    while read -r sha; do
+        subject=$(git log -1 --format=%s "$sha")
+        case "$subject" in
+            "chore(release): v"[0-9]*)
+                version=${subject##*: }  # e.g. "v0.4.0"
+                section=$(git show "$sha:$CHANGELOG" 2>/dev/null | awk -v v="## $version " '
+                    $0 ~ "^"v {flag=1; next}
+                    flag && /^## v[0-9]/ {exit}
+                    flag {print}
+                ')
+                lines=$(printf '%s\n' "$section" | grep -cE '[^[:space:]]' || true)
+                if [ "$lines" -lt "$CHANGELOG_MIN_LINES" ]; then
+                    printf '\n' >&2
+                    printf 'pre-push blocked: CHANGELOG.md "## %s" has only %s non-blank lines (need %s).\n' \
+                        "$version" "$lines" "$CHANGELOG_MIN_LINES" >&2
+                    printf 'Polish the WHY narrative (BREAKING migration, direction, motivation),\n' >&2
+                    printf 'or bypass with: git push --no-verify\n\n' >&2
+                    exit 1
+                fi
+                ;;
+        esac
+    done < <(git rev-list "$range")
+done
+
+exit 0
