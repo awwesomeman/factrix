@@ -14,7 +14,7 @@
 如果你已經熟悉開源量化生態系，`factrix` 的定位介於**純統計套件**與**回測框架**之間：
 
 - **對比 `alphalens`**：`alphalens` 專注於連續截面（Cross-Sectional）的 IC 與分層回報，但已年久失修（Pandas-based）。`factrix` 是 **Polars-native** 的現代化替代品，且進一步支援**事件驅動（Event-driven）**、**總經面板（Macro Panel）**與**共用時序**的檢定，並內建 BHY 多重檢定校正（FDR control），避免 P-hacking。
-- **對比 `vectorbt` / `zipline` / `backtrader`**：這些是**回測（Backtesting）與交易執行框架**。`factrix` 不做部位管理、不處理保證金與真實滑價。我們提供的 `turnover` 或 `breakeven_cost` 只是用來做前置篩選（Screening）的理想化 proxy，讓你**在寫複雜回測程式碼之前，先快速淘汰無效的假因子**。
+- **對比 `vectorbt` / `zipline` / `backtrader`**：這些是**回測（Backtesting）與交易執行框架**。`factrix` 不做部位管理、不處理保證金與真實滑價。我們提供的 `notional_turnover` / `breakeven_cost` 等指標只是用來做前置篩選（Screening）的理想化 proxy（成本以 Novy-Marx & Velikov 2016 τ 估計），讓你**在寫複雜回測程式碼之前，先快速淘汰無效的假因子**。
 - **對比 `skfolio` / `PyPortfolioOpt`**：這些是**投資組合最佳化（Portfolio Optimization）工具**。`factrix` 負責幫你找出有預測力的 Alpha 訊號，但不處理如何根據協方差矩陣去最佳化配置權重。
 
 ---
@@ -103,7 +103,7 @@ print(profile.verdict(), '| ic_mean =', round(profile.ic_mean, 4))
 | Structural break detection（Chow / Quandt-Andrews / Bai-Perron） | 屬時序 regime analysis 領域，out of scope | `ruptures` |
 | GARCH / wild bootstrap SE | 保持 core 依賴精簡（polars + numpy + pandera）；進階推論外接 | `arch` |
 | Predictive regression with persistent predictor 自動修正（IVX / Stambaugh correction） | 透過 `factor_adf_p` 只做 flagging，避免 false confidence | `arch` / R `ivx` |
-| Backtest / execution simulation / slippage / margin | 明確非 scope；`turnover` / `breakeven_cost` 是 screening proxy | `vectorbt` / `bt` / Zipline / Backtrader |
+| Backtest / execution simulation / slippage / margin | 明確非 scope；`notional_turnover` / `breakeven_cost` 是 screening proxy | `vectorbt` / `bt` / Zipline / Backtrader |
 | Intraday / HFT（tick-level、sub-second） | per-date CS IC / CAAR / FM λ 的語意在 tick data 上不成立 | 另找專用工具 |
 | 跨 factor 合成信號 / factor combiner（產生單一 composite signal）| 屬 signal layer，validator 不碰。注意：factrix 的 `redundancy_matrix` 是 **diagnostic**（量化因子之間的重疊程度），不是 combiner — 它告訴你哪些因子該合、哪些該剃，但不產生合成信號 | 自寫、或用 `scikit-learn` 的 regression |
 
