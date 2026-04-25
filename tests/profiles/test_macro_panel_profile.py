@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import fields as dc_fields
+from datetime import datetime, timedelta
 
 import polars as pl
 import pytest
@@ -62,3 +63,40 @@ class TestFromArtifacts:
         bad = Artifacts(prepared=pl.DataFrame(), config=CrossSectionalConfig())
         with pytest.raises(TypeError, match="expects MacroPanelConfig"):
             MacroPanelProfile.from_artifacts(bad)
+
+
+class TestDiagnose:
+    def test_high_notional_turnover_fires_on_iid_factor(self, macro_panel_strong):
+        # The macro_panel_strong fixture re-draws factor iid each date,
+        # so top/bot tercile membership rotates fully every rebalance and
+        # notional_turnover > 0.5 by construction. The rule must fire.
+        codes = {d.code for d in macro_panel_strong.diagnose()}
+        assert "macro_panel.high_notional_turnover" in codes
+        assert macro_panel_strong.notional_turnover > 0.5
+
+    def test_high_notional_turnover_quiet_on_persistent_factor(self):
+        # Persistent factor (each country fixed across dates) → tail sets
+        # stable → notional_turnover ≈ 0 → rule must NOT fire. Pins the
+        # negative half so a threshold drop (e.g. 0.5 → 0.0) gets caught.
+        # NB: this does not catch a `>` → `<` operator flip — for that
+        # you'd need a moderate-churn case in (0, 0.5).
+        n_dates, n_countries = 40, 12
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = []
+        for d in dates:
+            for i in range(n_countries):
+                rows.append({
+                    "date": d, "asset_id": f"c{i}",
+                    "factor": float(i),
+                    "forward_return": float(i) * 0.01,
+                })
+        df = pl.DataFrame(rows).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        art = build_artifacts(df, MacroPanelConfig())
+        art.factor_name = "mp_persistent"
+        profile, _ = MacroPanelProfile.from_artifacts(art)
+
+        codes = {d.code for d in profile.diagnose()}
+        assert "macro_panel.high_notional_turnover" not in codes
+        assert profile.notional_turnover < 0.5

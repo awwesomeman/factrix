@@ -24,9 +24,17 @@ on semver range constraints until `1.0.0` is cut.
   mean of top-set and bottom-set one-sided overlap losses,
   `(top_churn + bot_churn) / 2`, giving the fraction of an
   equal-weight Q1/Q_n long-short portfolio replaced per rebalance.
-- `CrossSectionalProfile.notional_turnover` field — the new notional
-  turnover is reported alongside the existing rank-stability
-  `turnover`.
+- `CrossSectionalProfile.notional_turnover` and
+  `MacroPanelProfile.notional_turnover` fields — notional turnover is
+  reported alongside the existing rank-stability `turnover`.
+- `Factor.notional_turnover()` session method with the standard
+  `n_groups` override / cache shape; mirrors `quantile_spread`.
+- Diagnostic rules `cs.high_notional_turnover` and
+  `macro_panel.high_notional_turnover` (severity `warn`, threshold
+  `notional_turnover > 0.5`) — sibling to the existing rank-stability
+  `cs.high_turnover`. Both rules can fire independently: a factor
+  with high mid-rank noise but stable Q1/Qn has high `turnover` yet
+  low `notional_turnover` (still implementable).
 
 ### Changed
 - **BREAKING**: `CrossSectionalProfile.breakeven_cost` and

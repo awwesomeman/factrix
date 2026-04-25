@@ -147,6 +147,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 - Low-cardinality factor（binary / bucketed）：`tie_policy='ordinal'` 可能讓結果受 sort order 干擾；超過門檻會 `UserWarning` 提示切 `tie_policy='average'`
 - `ortho` 不在 `_fl_preprocess_sig`，允許 "preprocess 一次 / evaluate 時 sweep basis" 的使用模式；代價是使用者需自保 preprocess cfg 和 evaluate cfg 的 ortho 是同一個（否則 silently 應用 evaluate 時的 ortho）
 - **`turnover` vs `notional_turnover` 選用**：把 `breakeven_cost` / `net_spread` 當**實盤 bps 閾值**在 dashboard / filter 上比時，一律以 `notional_turnover` 為單位（middle-rank shuffle 不計成本、尾部 churn 才算）。`turnover` 只適合用來做「哪個因子的排序比較穩」這類 factor-ranking，不宜直接喂給成本公式——詳見 `statistical_methods.md` 的 Turnover & Trading-Cost Proxy 段落與兩個指標的 bias 方向說明
+- **Diagnostic rule**：`notional_turnover > 0.5` 時，`profile.diagnose()` 會吐出 `cs.high_notional_turnover` (CrossSectional) 或 `macro_panel.high_notional_turnover` (MacroPanel)，severity = `warn`。要在 ProfileSet 大批 filter 時用 `diagnose_all()` 篩 code 即可，不必自己寫 threshold 判斷。
 
 ---
 

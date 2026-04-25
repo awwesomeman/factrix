@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import fields as dc_fields
+from datetime import datetime, timedelta
 from typing import get_type_hints
 
+import polars as pl
 import pytest
 
 from factrix._types import FactorType, PValue
+from factrix.config import CrossSectionalConfig
+from factrix.evaluation.pipeline import build_artifacts
 from factrix.evaluation.profiles import CrossSectionalProfile
 from factrix.evaluation.profiles._base import _PROFILE_REGISTRY
 
@@ -129,3 +133,38 @@ class TestDiagnose:
         diag = cs_profile_weak.diagnose()
         # Not asserting definitively; but at least one warn or veto typical
         assert any(d.severity in ("warn", "veto") for d in diag)
+
+    def test_high_notional_turnover_fires_on_iid_factor(self, cs_profile_strong):
+        # cs_profile_strong fixture uses re-drawn iid factor each date,
+        # so Q1/Q10 membership rotates ~fully every rebalance and
+        # notional_turnover > 0.5 by construction. The rule must fire.
+        codes = {d.code for d in cs_profile_strong.diagnose()}
+        assert "cs.high_notional_turnover" in codes
+        assert cs_profile_strong.notional_turnover > 0.5
+
+    def test_high_notional_turnover_quiet_on_persistent_factor(self):
+        # Persistent factor (each asset's value fixed across dates) →
+        # tail sets stable → notional_turnover ≈ 0 → rule must NOT fire.
+        # Pins the negative half so a threshold drop (e.g. 0.5 → 0.0)
+        # gets caught. NB: this does not catch a `>` → `<` operator
+        # flip — for that you'd need a moderate-churn case in (0, 0.5).
+        n_dates, n_assets = 40, 30
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = []
+        for d in dates:
+            for i in range(n_assets):
+                rows.append({
+                    "date": d, "asset_id": f"a{i}",
+                    "factor": float(i),  # fixed per asset across dates
+                    "forward_return": float(i) * 0.01,
+                })
+        df = pl.DataFrame(rows).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        art = build_artifacts(df, CrossSectionalConfig())
+        art.factor_name = "persistent"
+        profile, _ = CrossSectionalProfile.from_artifacts(art)
+
+        codes = {d.code for d in profile.diagnose()}
+        assert "cs.high_notional_turnover" not in codes
+        assert profile.notional_turnover < 0.5
