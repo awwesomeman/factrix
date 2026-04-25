@@ -10,7 +10,7 @@
 # polished BREAKING release runs 50+. 25 is the cliff between "just
 # bullets" and "has WHY narrative".
 
-set -eu
+set -euo pipefail
 
 CHANGELOG="CHANGELOG.md"
 CHANGELOG_MIN_LINES=${CHANGELOG_MIN_LINES:-25}
@@ -33,11 +33,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         case "$subject" in
             "chore(release): v"[0-9]*)
                 version=${subject##*: }  # e.g. "v0.4.0"
-                section=$(git show "$sha:$CHANGELOG" 2>/dev/null | awk -v v="## $version " '
+                # WHY: ``|| true`` keeps a missing-CHANGELOG (or any
+                # other pipeline failure under ``pipefail``) from
+                # crashing the hook — empty section just lands as 0
+                # lines below and trips the threshold cleanly.
+                section=$({ git show "$sha:$CHANGELOG" 2>/dev/null | awk -v v="## $version " '
                     $0 ~ "^"v {flag=1; next}
                     flag && /^## v[0-9]/ {exit}
                     flag {print}
-                ')
+                '; } || true)
                 lines=$(printf '%s\n' "$section" | grep -cE '[^[:space:]]' || true)
                 if [ "$lines" -lt "$CHANGELOG_MIN_LINES" ]; then
                     printf '\n' >&2
