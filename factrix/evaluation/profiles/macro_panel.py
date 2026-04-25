@@ -143,8 +143,13 @@ class MacroPanelProfile:
             _precomputed_series=spread_series,
         )
         # Only turnover_jaccard's units align with the bps cost arithmetic;
-        # turnover is kept for diagnostic side-by-side reporting.
-        turn_m = _memoized(outputs, "turnover", turnover, artifacts.prepared)
+        # turnover is kept for diagnostic side-by-side reporting. Sample
+        # at the holding-period stride so the rank-stability window
+        # matches the horizon (mirrors CrossSectionalProfile).
+        turn_m = _memoized(
+            outputs, "turnover", turnover,
+            artifacts.prepared, forward_periods=fp,
+        )
         turn_jac_m = _memoized(
             outputs, "turnover_jaccard", turnover_jaccard,
             artifacts.prepared,
