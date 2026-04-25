@@ -106,8 +106,8 @@ class TestMethodSet:
     @pytest.mark.parametrize("method_name", [
         "ic", "ic_ir", "hit_rate", "ic_trend",
         "quantile_spread", "monotonicity", "top_concentration",
-        "turnover", "breakeven_cost", "net_spread", "oos_decay",
-        "regime_ic", "multi_horizon_ic", "spanning_alpha",
+        "turnover", "turnover_jaccard", "breakeven_cost", "net_spread",
+        "oos_decay", "regime_ic", "multi_horizon_ic", "spanning_alpha",
     ])
     def test_all_methods_return_metric_output(self, noisy_panel, method_name):
         f = fl.factor(noisy_panel, "Mom_20D")
@@ -116,14 +116,22 @@ class TestMethodSet:
             f"{method_name} returned {type(result).__name__}, not MetricOutput"
         )
 
-    def test_cs_factor_method_count(self):
-        """CrossSectionalFactor exposes exactly 14 public metric methods."""
-        methods = [
+    def test_cs_factor_method_set(self):
+        """CrossSectionalFactor exposes exactly this set of public metric
+        methods. Name-set (not just count) so accidental rename / drop /
+        unrelated addition fails informatively."""
+        expected = {
+            "ic", "ic_ir", "ic_trend", "hit_rate",
+            "quantile_spread", "monotonicity", "top_concentration",
+            "turnover", "turnover_jaccard", "breakeven_cost", "net_spread",
+            "oos_decay", "regime_ic", "multi_horizon_ic", "spanning_alpha",
+        }
+        actual = {
             m for m in dir(CrossSectionalFactor)
             if not m.startswith("_") and callable(getattr(CrossSectionalFactor, m))
             and m not in {"evaluate", "config", "factor_name"}
-        ]
-        assert len(methods) == 14, f"got methods={methods}"
+        }
+        assert actual == expected, f"diff: {actual ^ expected}"
 
 
 # ---------------------------------------------------------------------------
@@ -218,10 +226,32 @@ class TestDerivedMetrics:
         f = fl.factor(noisy_panel, "Mom_20D")
         be = f.breakeven_cost()
         assert isinstance(be, MetricOutput)
-        # Both inputs should now be cached
+        # Both inputs should now be cached. Note breakeven feeds on
+        # turnover_jaccard (notional churn), not the rank-stability
+        # turnover — units must match the bps cost arithmetic.
         assert "quantile_spread" in f.artifacts.metric_outputs
-        assert "turnover" in f.artifacts.metric_outputs
+        assert "turnover_jaccard" in f.artifacts.metric_outputs
         assert "breakeven_cost" in f.artifacts.metric_outputs
+
+    def test_breakeven_value_uses_jaccard_not_rank_turnover(self, noisy_panel):
+        """Regression: previously breakeven was computed against the
+        rank-stability turnover, off by `jaccard / (1−ρ)` and typically
+        ~2-5× optimistic. Pin the formula to jaccard so a future re-wire
+        to ``self.turnover()`` can't slip back in silently."""
+        f = fl.factor(noisy_panel, "Mom_20D")
+        spread = f.quantile_spread().value
+        jaccard = f.turnover_jaccard().value
+        rank_turnover = f.turnover().value
+        be = f.breakeven_cost().value
+        fp = f.config.forward_periods
+
+        expected_jaccard = (spread * fp / (2 * jaccard)) * 1e4
+        wrong_rank = (spread * fp / (2 * rank_turnover)) * 1e4
+
+        assert be == pytest.approx(expected_jaccard, rel=1e-9)
+        # Sanity: the two formulas would actually disagree on this panel
+        # (otherwise the regression guard above is vacuous).
+        assert not math.isclose(expected_jaccard, wrong_rank, rel_tol=1e-2)
 
     def test_net_spread_reads_spread_and_turnover(self, noisy_panel):
         f = fl.factor(noisy_panel, "Mom_20D")

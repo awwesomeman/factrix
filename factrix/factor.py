@@ -244,6 +244,10 @@ class Factor:
         the stability window matches the horizon used for forward returns
         — a factor reshuffled within the holding window counts as churn,
         but within-window noise does not.
+
+        Diagnostic only — for the bps cost arithmetic in
+        ``breakeven_cost`` / ``net_spread`` use ``turnover_jaccard`` (it
+        measures notional Q1/Q_n churn, the units the formulas assume).
         """
         from factrix.metrics.tradability import turnover as _tn
         return self._cached_or_compute(
@@ -251,18 +255,41 @@ class Factor:
             forward_periods=self.config.forward_periods,
         )
 
+    def turnover_jaccard(self, n_groups: int | None = None) -> MetricOutput:
+        """Notional turnover (Novy-Marx & Velikov τ) at session horizon.
+
+        Top/bottom quantile membership churn per rebalance — the
+        position-replacement fraction that ``breakeven_cost`` /
+        ``net_spread`` consume. ``n_groups`` override mirrors
+        ``quantile_spread`` so a sensitivity sweep stays internally
+        consistent (spread bucketing == turnover bucketing).
+        """
+        from factrix.metrics.tradability import turnover_jaccard as _tj
+        if n_groups is not None:
+            self._log_override_once("turnover_jaccard")
+            return _tj(
+                self.artifacts.prepared,
+                forward_periods=self.config.forward_periods,
+                n_groups=n_groups,
+            )
+        return self._cached_or_compute(
+            "turnover_jaccard", _tj, self.artifacts.prepared,
+            forward_periods=self.config.forward_periods,
+            n_groups=self.config.n_groups,
+        )
+
     def breakeven_cost(self, n_groups: int | None = None) -> MetricOutput:
         """Per-side cost (bps) that fully erodes the long-short spread.
 
-        ``n_groups`` override threads through ``quantile_spread`` so a
-        sensitivity sweep like
+        ``n_groups`` override threads through ``quantile_spread`` *and*
+        ``turnover_jaccard`` so a sensitivity sweep like
         ``[f.breakeven_cost(n_groups=k) for k in (5, 10, 20)]`` reflects
         the spread *and* breakeven on the same bucketing. Default path
-        reads cached quantile_spread / turnover (no recompute).
+        reads cached quantile_spread / turnover_jaccard (no recompute).
         """
         from factrix.metrics.tradability import breakeven_cost as _be
         spread_val = self.quantile_spread(n_groups=n_groups).value  # type: ignore[attr-defined]
-        turnover_val = self.turnover().value
+        turnover_val = self.turnover_jaccard(n_groups=n_groups).value
         return self._cached_or_compute(
             "breakeven_cost", _be, spread_val, turnover_val,
             forward_periods=self.config.forward_periods,
@@ -274,7 +301,7 @@ class Factor:
         n_groups: int | None = None,
         estimated_cost_bps: float | None = None,
     ) -> MetricOutput:
-        """Spread minus ``estimated_cost_bps`` × turnover (signed).
+        """Spread minus ``estimated_cost_bps`` × turnover_jaccard (signed).
 
         Both ``n_groups`` (bucketing) and ``estimated_cost_bps`` (market
         assumption) are overrideable so research can sweep either
@@ -283,7 +310,7 @@ class Factor:
         """
         from factrix.metrics.tradability import net_spread as _ns
         spread_val = self.quantile_spread(n_groups=n_groups).value  # type: ignore[attr-defined]
-        turnover_val = self.turnover().value
+        turnover_val = self.turnover_jaccard(n_groups=n_groups).value
         cost = (
             estimated_cost_bps if estimated_cost_bps is not None
             else self.config.estimated_cost_bps
