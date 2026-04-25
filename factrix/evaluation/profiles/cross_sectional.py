@@ -105,11 +105,11 @@ class CrossSectionalProfile:
     #
     # turnover: rank-stability (1 − mean Spearman ρ), mid-rank sensitive —
     #   diagnostic only, NOT the cost driver.
-    # turnover_jaccard: fraction of Q1/Q_n membership replaced per
+    # notional_turnover: fraction of Q1/Q_n membership replaced per
     #   rebalance (Novy-Marx & Velikov τ) — this is what drives the bps
     #   arithmetic in breakeven_cost / net_spread.
     turnover: float
-    turnover_jaccard: float
+    notional_turnover: float
     breakeven_cost: float
     net_spread: float
 
@@ -158,7 +158,7 @@ class CrossSectionalProfile:
         from factrix.metrics.oos import multi_split_oos_decay
         from factrix.metrics._helpers import _median_universe_size
         from factrix.metrics.tradability import (
-            breakeven_cost, net_spread, turnover, turnover_jaccard,
+            breakeven_cost, net_spread, turnover, notional_turnover,
         )
 
         config = artifacts.config
@@ -195,24 +195,24 @@ class CrossSectionalProfile:
             n_groups=config.n_groups,
             _precomputed_series=spread_series,
         )
-        # Only turnover_jaccard's units align with bps cost arithmetic;
+        # Only notional_turnover's units align with bps cost arithmetic;
         # turnover is kept for diagnostic side-by-side reporting.
         turn_m = _memoized(
             outputs, "turnover", turnover,
             artifacts.prepared, forward_periods=fp,
         )
-        turn_jac_m = _memoized(
-            outputs, "turnover_jaccard", turnover_jaccard,
+        turn_not_m = _memoized(
+            outputs, "notional_turnover", notional_turnover,
             artifacts.prepared,
             forward_periods=fp, n_groups=config.n_groups,
         )
         be_m = _memoized(
             outputs, "breakeven_cost", breakeven_cost,
-            spread_m.value, turn_jac_m.value, forward_periods=fp,
+            spread_m.value, turn_not_m.value, forward_periods=fp,
         )
         ns_m = _memoized(
             outputs, "net_spread", net_spread,
-            spread_m.value, turn_jac_m.value, config.estimated_cost_bps,
+            spread_m.value, turn_not_m.value, config.estimated_cost_bps,
             forward_periods=fp,
         )
         # Q1 = top 1/n_groups — mirrors the quantile_spread Q1 definition
@@ -268,7 +268,7 @@ class CrossSectionalProfile:
             "quantile_spread": spread_m,
             "top_concentration": conc_m,
             "turnover": turn_m,
-            "turnover_jaccard": turn_jac_m,
+            "notional_turnover": turn_not_m,
         })
         profile = cls(
             factor_name=artifacts.factor_name,
@@ -301,7 +301,7 @@ class CrossSectionalProfile:
             spanning_alpha_t=spanning_t,
             spanning_alpha_p=spanning_p,
             turnover=float(turn_m.value),
-            turnover_jaccard=float(turn_jac_m.value),
+            notional_turnover=float(turn_not_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),
             insufficient_metrics=insufficient,

@@ -135,8 +135,8 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 | `monotonicity` | ≥ `n_groups` | `MIN_MONOTONICITY_PERIODS=5` | NaN |
 | `top_concentration` | ≥ `n_groups` | — | NaN 若 top bucket 空 |
 | `turnover` (rank-stability: `1 − mean(Spearman ρ)`；**診斷用**，**不**入 cost 公式) | ≥ 2 per date（rank 需要 ≥ 2 asset） | ≥ `2·forward_periods + 1` raw dates | NaN, `reason=insufficient_dates` |
-| `turnover_jaccard` (notional Q1/Q_n churn；**cost 公式唯一合法 driver**) | ≥ `n_groups` per date（否則 top / bot 可能為空 → 該期被 drop） | ≥ `forward_periods + 1` raw dates（等價於取樣後 ≥ 2 個 rebalance 配對）| NaN, `reason=insufficient_dates` \| `no_valid_pairs` |
-| `breakeven_cost` / `net_spread` | 繼承 `turnover_jaccard` 門檻 | 同 | `inf` 若 turnover_jaccard → 0；NaN 若 turnover_jaccard 短路 |
+| `notional_turnover` (notional Q1/Q_n churn；**cost 公式唯一合法 driver**) | ≥ `n_groups` per date（否則 top / bot 可能為空 → 該期被 drop） | ≥ `forward_periods + 1` raw dates（等價於取樣後 ≥ 2 個 rebalance 配對）| NaN, `reason=insufficient_dates` \| `no_valid_pairs` |
+| `breakeven_cost` / `net_spread` | 繼承 `notional_turnover` 門檻 | 同 | `inf` 若 notional_turnover → 0；NaN 若 notional_turnover 短路 |
 | `ic_trend` | 同 `ic_*` | 同 IC | NaN |
 | `oos_survival_ratio` / `oos_sign_flipped` | 同 IC | T 可分 2 splits × `MIN_OOS_PERIODS=5` | NaN |
 | `regime_ic` *(opt-in)* | 同 IC | 每 regime ≥ `MIN_IC_PERIODS` | 失守 regime 略過；metadata 保留成功 regime |
@@ -146,7 +146,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 ### 注意事項
 - Low-cardinality factor（binary / bucketed）：`tie_policy='ordinal'` 可能讓結果受 sort order 干擾；超過門檻會 `UserWarning` 提示切 `tie_policy='average'`
 - `ortho` 不在 `_fl_preprocess_sig`，允許 "preprocess 一次 / evaluate 時 sweep basis" 的使用模式；代價是使用者需自保 preprocess cfg 和 evaluate cfg 的 ortho 是同一個（否則 silently 應用 evaluate 時的 ortho）
-- **`turnover` vs `turnover_jaccard` 選用**：把 `breakeven_cost` / `net_spread` 當**實盤 bps 閾值**在 dashboard / filter 上比時，一律以 `turnover_jaccard` 為單位（middle-rank shuffle 不計成本、尾部 churn 才算）。`turnover` 只適合用來做「哪個因子的排序比較穩」這類 factor-ranking，不宜直接喂給成本公式——詳見 `statistical_methods.md` 的 Turnover & Trading-Cost Proxy 段落與兩個指標的 bias 方向說明
+- **`turnover` vs `notional_turnover` 選用**：把 `breakeven_cost` / `net_spread` 當**實盤 bps 閾值**在 dashboard / filter 上比時，一律以 `notional_turnover` 為單位（middle-rank shuffle 不計成本、尾部 churn 才算）。`turnover` 只適合用來做「哪個因子的排序比較穩」這類 factor-ranking，不宜直接喂給成本公式——詳見 `statistical_methods.md` 的 Turnover & Trading-Cost Proxy 段落與兩個指標的 bias 方向說明
 
 ---
 

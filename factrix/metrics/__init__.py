@@ -5,7 +5,8 @@ All metrics return MetricOutput and can be used standalone.
 Cross-Sectional:
     compute_ic, ic, ic_ir, hit_rate, ic_trend,
     multi_split_oos_decay, quantile_spread, monotonicity,
-    top_concentration, turnover, breakeven_cost, net_spread
+    top_concentration, turnover, notional_turnover,
+    breakeven_cost, net_spread
 
 Event Signal:
     compute_caar, caar, bmp_test, event_hit_rate, event_ic,
@@ -39,7 +40,9 @@ from factrix.metrics.quantile import (
 )
 from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.concentration import top_concentration
-from factrix.metrics.tradability import turnover, breakeven_cost, net_spread
+from factrix.metrics.tradability import (
+    turnover, notional_turnover, breakeven_cost, net_spread,
+)
 from factrix.metrics.spanning import spanning_alpha, greedy_forward_selection
 from factrix.metrics.caar import (
     compute_caar,
@@ -83,7 +86,7 @@ __all__ = [
     "hit_rate", "ic_trend", "multi_split_oos_decay",
     "compute_spread_series", "quantile_spread", "quantile_spread_vw",
     "compute_group_returns", "monotonicity", "top_concentration",
-    "turnover", "breakeven_cost", "net_spread",
+    "turnover", "notional_turnover", "breakeven_cost", "net_spread",
     "spanning_alpha", "greedy_forward_selection",
     "compute_caar", "caar", "bmp_test", "event_hit_rate", "event_ic",
     "compute_mfe_mae", "mfe_mae_summary", "profit_factor", "event_skewness",

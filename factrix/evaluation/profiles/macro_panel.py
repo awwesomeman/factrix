@@ -67,14 +67,14 @@ class MacroPanelProfile:
     # Portfolio (tercile quantile spread)
     #
     # turnover: rank-stability (1 − mean Spearman ρ) — diagnostic only.
-    # turnover_jaccard: fraction of top/bot tercile membership replaced
+    # notional_turnover: fraction of top/bot tercile membership replaced
     #   per rebalance — drives the bps arithmetic in breakeven_cost /
     #   net_spread (Novy-Marx & Velikov τ).
     quantile_spread: float
     spread_tstat: float
     spread_p: PValue
     turnover: float
-    turnover_jaccard: float
+    notional_turnover: float
     breakeven_cost: float
     net_spread: float
 
@@ -109,7 +109,7 @@ class MacroPanelProfile:
         from factrix.metrics.oos import multi_split_oos_decay
         from factrix.metrics.quantile import quantile_spread
         from factrix.metrics.tradability import (
-            breakeven_cost, net_spread, turnover, turnover_jaccard,
+            breakeven_cost, net_spread, turnover, notional_turnover,
         )
         from factrix.metrics.trend import ic_trend
 
@@ -142,7 +142,7 @@ class MacroPanelProfile:
             n_groups=config.n_groups,
             _precomputed_series=spread_series,
         )
-        # Only turnover_jaccard's units align with the bps cost arithmetic;
+        # Only notional_turnover's units align with the bps cost arithmetic;
         # turnover is kept for diagnostic side-by-side reporting. Sample
         # at the holding-period stride so the rank-stability window
         # matches the horizon (mirrors CrossSectionalProfile).
@@ -150,18 +150,18 @@ class MacroPanelProfile:
             outputs, "turnover", turnover,
             artifacts.prepared, forward_periods=fp,
         )
-        turn_jac_m = _memoized(
-            outputs, "turnover_jaccard", turnover_jaccard,
+        turn_not_m = _memoized(
+            outputs, "notional_turnover", notional_turnover,
             artifacts.prepared,
             forward_periods=fp, n_groups=config.n_groups,
         )
         be_m = _memoized(
             outputs, "breakeven_cost", breakeven_cost,
-            spread_m.value, turn_jac_m.value, forward_periods=fp,
+            spread_m.value, turn_not_m.value, forward_periods=fp,
         )
         ns_m = _memoized(
             outputs, "net_spread", net_spread,
-            spread_m.value, turn_jac_m.value, config.estimated_cost_bps,
+            spread_m.value, turn_not_m.value, config.estimated_cost_bps,
             forward_periods=fp,
         )
 
@@ -172,7 +172,7 @@ class MacroPanelProfile:
             "beta_trend": trend_m,
             "quantile_spread": spread_m,
             "turnover": turn_m,
-            "turnover_jaccard": turn_jac_m,
+            "notional_turnover": turn_not_m,
         })
 
         profile = cls(
@@ -196,7 +196,7 @@ class MacroPanelProfile:
             spread_tstat=float(spread_m.stat or 0.0),
             spread_p=_pv(spread_m),
             turnover=float(turn_m.value),
-            turnover_jaccard=float(turn_jac_m.value),
+            notional_turnover=float(turn_not_m.value),
             breakeven_cost=float(be_m.value),
             net_spread=float(ns_m.value),
             insufficient_metrics=insufficient,

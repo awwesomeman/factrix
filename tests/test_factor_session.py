@@ -106,7 +106,7 @@ class TestMethodSet:
     @pytest.mark.parametrize("method_name", [
         "ic", "ic_ir", "hit_rate", "ic_trend",
         "quantile_spread", "monotonicity", "top_concentration",
-        "turnover", "turnover_jaccard", "breakeven_cost", "net_spread",
+        "turnover", "notional_turnover", "breakeven_cost", "net_spread",
         "oos_decay", "regime_ic", "multi_horizon_ic", "spanning_alpha",
     ])
     def test_all_methods_return_metric_output(self, noisy_panel, method_name):
@@ -123,7 +123,7 @@ class TestMethodSet:
         expected = {
             "ic", "ic_ir", "ic_trend", "hit_rate",
             "quantile_spread", "monotonicity", "top_concentration",
-            "turnover", "turnover_jaccard", "breakeven_cost", "net_spread",
+            "turnover", "notional_turnover", "breakeven_cost", "net_spread",
             "oos_decay", "regime_ic", "multi_horizon_ic", "spanning_alpha",
         }
         actual = {
@@ -227,31 +227,31 @@ class TestDerivedMetrics:
         be = f.breakeven_cost()
         assert isinstance(be, MetricOutput)
         # Both inputs should now be cached. Note breakeven feeds on
-        # turnover_jaccard (notional churn), not the rank-stability
+        # notional_turnover (notional churn), not the rank-stability
         # turnover — units must match the bps cost arithmetic.
         assert "quantile_spread" in f.artifacts.metric_outputs
-        assert "turnover_jaccard" in f.artifacts.metric_outputs
+        assert "notional_turnover" in f.artifacts.metric_outputs
         assert "breakeven_cost" in f.artifacts.metric_outputs
 
-    def test_breakeven_value_uses_jaccard_not_rank_turnover(self, noisy_panel):
+    def test_breakeven_value_uses_notional_not_rank_turnover(self, noisy_panel):
         """Regression: previously breakeven was computed against the
-        rank-stability turnover, off by `jaccard / (1−ρ)` and typically
-        ~2-5× optimistic. Pin the formula to jaccard so a future re-wire
-        to ``self.turnover()`` can't slip back in silently."""
+        rank-stability turnover, off by `notional / (1−ρ)` and typically
+        ~2-5× optimistic. Pin the formula to notional turnover so a
+        future re-wire to ``self.turnover()`` can't slip back in silently."""
         f = fl.factor(noisy_panel, "Mom_20D")
         spread = f.quantile_spread().value
-        jaccard = f.turnover_jaccard().value
+        notional = f.notional_turnover().value
         rank_turnover = f.turnover().value
         be = f.breakeven_cost().value
         fp = f.config.forward_periods
 
-        expected_jaccard = (spread * fp / (2 * jaccard)) * 1e4
+        expected_notional = (spread * fp / (2 * notional)) * 1e4
         wrong_rank = (spread * fp / (2 * rank_turnover)) * 1e4
 
-        assert be == pytest.approx(expected_jaccard, rel=1e-9)
+        assert be == pytest.approx(expected_notional, rel=1e-9)
         # Sanity: the two formulas would actually disagree on this panel
         # (otherwise the regression guard above is vacuous).
-        assert not math.isclose(expected_jaccard, wrong_rank, rel_tol=1e-2)
+        assert not math.isclose(expected_notional, wrong_rank, rel_tol=1e-2)
 
     def test_net_spread_reads_spread_and_turnover(self, noisy_panel):
         f = fl.factor(noisy_panel, "Mom_20D")

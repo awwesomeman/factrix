@@ -9,7 +9,7 @@ from factrix.metrics.tradability import (
     breakeven_cost,
     net_spread,
     turnover,
-    turnover_jaccard,
+    notional_turnover,
 )
 
 
@@ -98,13 +98,13 @@ class TestComputeTurnover:
             turnover(df, forward_periods=0)
 
 
-class TestTurnoverJaccard:
+class TestNotionalTurnover:
     TEN_ASSETS = [chr(ord("A") + i) for i in range(10)]
 
     def test_static_factor(self):
-        """Same tail sets every day → jaccard turnover = 0."""
+        """Same tail sets every day → notional turnover = 0."""
         df = _panel(5, self.TEN_ASSETS, lambda t, a: ord(a))
-        result = turnover_jaccard(df, n_groups=5)
+        result = notional_turnover(df, n_groups=5)
         assert result.value == pytest.approx(0.0)
         assert result.metadata["n_rebalances"] == 4
         assert result.metadata["n_groups"] == 5
@@ -115,13 +115,13 @@ class TestTurnoverJaccard:
             base = ord(a) - ord("A")
             return base if t % 2 == 0 else (9 - base)
         df = _panel(5, self.TEN_ASSETS, factor)
-        result = turnover_jaccard(df, n_groups=5)
+        result = notional_turnover(df, n_groups=5)
         assert result.value == pytest.approx(1.0)
 
     def test_middle_shuffle_does_not_count(self):
-        """Middle-rank reshuffling with stable tails → jaccard=0, ρ<1.
+        """Middle-rank reshuffling with stable tails → notional=0, ρ<1.
 
-        This is the raison d'être of turnover_jaccard: ``turnover``
+        This is the raison d'être of notional_turnover: ``turnover``
         (1 − Spearman ρ) is non-zero here because middle ranks move,
         but no bps cost is actually incurred because Q1/Q5 membership
         is unchanged.
@@ -139,9 +139,9 @@ class TestTurnoverJaccard:
             return 20 + ((idx + t) % len(middle))
 
         df = _panel(6, self.TEN_ASSETS, factor)
-        jac = turnover_jaccard(df, n_groups=5)
+        notional = notional_turnover(df, n_groups=5)
         stab = turnover(df)
-        assert jac.value == pytest.approx(0.0)
+        assert notional.value == pytest.approx(0.0)
         assert stab.value > 0.05  # rank AC noticeably below 1
         assert tails == set("ABIJ")  # scaffolding: document intent
 
@@ -166,7 +166,7 @@ class TestTurnoverJaccard:
             return 20 + (ord(a) - ord("C"))
 
         df = _panel(6, self.TEN_ASSETS, factor)
-        result = turnover_jaccard(df, n_groups=5)
+        result = notional_turnover(df, n_groups=5)
         # Per pair: top sometimes swaps 1/2 names (churn=0.5) or keeps
         # both (churn=0). Over the 5 pairs the mean of (top+bot)/2 should
         # land between 0 and 0.25; asserting in a band is more robust
@@ -180,22 +180,22 @@ class TestTurnoverJaccard:
             return base if t % 2 == 0 else (9 - base)
         df = _panel(7, self.TEN_ASSETS, factor)
         # Even-only sample → ranks identical every sampled date → 0.
-        result = turnover_jaccard(df, n_groups=5, forward_periods=2)
+        result = notional_turnover(df, n_groups=5, forward_periods=2)
         assert result.value == pytest.approx(0.0)
         assert result.metadata["forward_periods"] == 2
 
     def test_insufficient_dates_short_circuits(self):
         df = _panel(1, self.TEN_ASSETS, lambda t, a: ord(a))
-        result = turnover_jaccard(df, n_groups=5)
+        result = notional_turnover(df, n_groups=5)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_dates"
 
     def test_validation(self):
         df = _panel(3, self.TEN_ASSETS, lambda t, a: ord(a))
         with pytest.raises(ValueError, match="forward_periods"):
-            turnover_jaccard(df, forward_periods=0)
+            notional_turnover(df, forward_periods=0)
         with pytest.raises(ValueError, match="n_groups"):
-            turnover_jaccard(df, n_groups=2)
+            notional_turnover(df, n_groups=2)
 
 
 class TestBreakevenCost:

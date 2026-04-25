@@ -226,20 +226,21 @@ CROSS_SECTIONAL_RULES: list[Rule["CrossSectionalProfile"]] = [
         predicate=lambda p: p.turnover > 1.0,
     ),
     # Notional-churn complement to cs.high_turnover. The two rules
-    # measure different things: rank-stability counts mid-rank shuffling
-    # (no trade), jaccard counts position replacement (real cost). Both
-    # can fire independently — a factor with high mid-rank noise but
-    # stable Q1/Qn is high-turnover-low-jaccard (implementable).
+    # measure different things: rank-stability counts mid-rank
+    # shuffling (no trade); notional turnover counts position
+    # replacement (real cost). Both can fire independently — a factor
+    # with high mid-rank noise but stable Q1/Qn has high turnover yet
+    # low notional turnover (still implementable).
     Rule(
-        code="cs.high_turnover_jaccard",
+        code="cs.high_notional_turnover",
         severity="warn",
         message=(
-            "turnover_jaccard > 0.5 — more than half of long/short "
+            "notional_turnover > 0.5 — more than half of long/short "
             "positions are replaced per rebalance. Drives the bps "
             "cost in breakeven_cost / net_spread; verify those "
             "before assuming the alpha is implementable."
         ),
-        predicate=lambda p: p.turnover_jaccard > 0.5,
+        predicate=lambda p: p.notional_turnover > 0.5,
     ),
     # WHY: when ``ic_p`` rejects H0 but ``ic_nw_p`` does not, the
     # non-overlapping t-test's significance is likely inflated by
@@ -409,15 +410,15 @@ MACRO_PANEL_RULES: list[Rule["MacroPanelProfile"]] = [
         predicate=lambda p: p.oos_sign_flipped,
     ),
     Rule(
-        code="macro_panel.high_turnover_jaccard",
+        code="macro_panel.high_notional_turnover",
         severity="warn",
         message=(
-            "turnover_jaccard > 0.5 — more than half of top/bot "
+            "notional_turnover > 0.5 — more than half of top/bot "
             "tercile members are replaced per rebalance. Cross-check "
             "breakeven_cost before assuming the FM λ is tradable as "
             "a long/short tercile rotation on this panel."
         ),
-        predicate=lambda p: p.turnover_jaccard > 0.5,
+        predicate=lambda p: p.notional_turnover > 0.5,
     ),
 ]
 

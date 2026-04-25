@@ -64,43 +64,43 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
   - 採用：`regime_ic` 對每個 regime 跑獨立 t-test（H₀: mean IC = 0 within regime），並用 **BHY** 對 k 個 regime p-value 做相依性校正；預設以「時間 bisection（前半/後半）」作 regime fallback，接受使用者自供 regime 標籤。stat 回傳 **min|t| across regimes**（conservative：最弱 regime 若顯著則全 regime 皆顯著）。
   - 採用：`multi_horizon_ic` 掃預設 horizon list `[1, 5, 10, 20]`，per-horizon 以非重疊採樣（`_sample_non_overlapping`）做 t-test 避免重疊報酬 inflate，並用 `MIN_IC_PERIODS` 依 horizon 縮放（短期 horizon 要求更多樣本以補償 sub-sampling 之資料耗損）。retention ratio 與 monotonicity 診斷由下游 veto rule (`cs.multi_horizon_decay_fast`) 消費。
 
-### Turnover & Trading-Cost Proxy — `turnover`、`turnover_jaccard`、`breakeven_cost`、`net_spread`
+### Turnover & Trading-Cost Proxy — `turnover`、`notional_turnover`、`breakeven_cost`、`net_spread`
 
-精確實作：`factrix/metrics/tradability.py::turnover`、`::turnover_jaccard`、`::breakeven_cost`、`::net_spread`
+精確實作：`factrix/metrics/tradability.py::turnover`、`::notional_turnover`、`::breakeven_cost`、`::net_spread`
 
 兩個 turnover 指標**不等價**，各自回答不同問題：
 
 | 指標 | 公式 | 回答什麼 | 可否餵入 cost 公式 |
 |------|------|----------|-------------------|
 | `turnover` | `1 − mean(Spearman ρ(rank_t, rank_{t+h}))` | 全截面排序在 h 期內的穩定度；中段 rank 翻動也會計入 | **否**（量綱不對；下游會雙重計算未真正下單的 middle-rank churn） |
-| `turnover_jaccard` | 見下方程式碼區塊 | top / bottom 分位集合在 h 期 rebalance 被替換的比例；對應 Novy-Marx & Velikov (2016) τ | **是**（等於 equal-weight Q1/Q_n long-short portfolio 的 notional 替換率） |
+| `notional_turnover` | 見下方程式碼區塊 | top / bottom 分位集合在 h 期 rebalance 被替換的比例；對應 Novy-Marx & Velikov (2016) τ | **是**（等於 equal-weight Q1/Q_n long-short portfolio 的 notional 替換率） |
 
 ```
 top_churn_t = 1 − |Q_top_t ∩ Q_top_{t−h}| / |Q_top_t|
 bot_churn_t = 1 − |Q_bot_t ∩ Q_bot_{t−h}| / |Q_bot_t|
-turnover_jaccard = mean_t( (top_churn_t + bot_churn_t) / 2 )
+notional_turnover = mean_t( (top_churn_t + bot_churn_t) / 2 )
 ```
 
 成本公式（per-period，`c_bps` = 單邊成本 bps）：
 
 ```
-breakeven_cost = gross_spread / (2 × turnover_jaccard) × 10000   [bps]
-net_spread     = gross_spread − 2 × (c_bps / 10000) × turnover_jaccard
+breakeven_cost = gross_spread / (2 × notional_turnover) × 10000   [bps]
+net_spread     = gross_spread − 2 × (c_bps / 10000) × notional_turnover
 ```
 
-係數「× 2」對應 long 與 short 兩腿都要 rebalance；`turnover_jaccard` 已在 top / bot 之間取平均，故 full rotation 時 `2 × 1 × c_bps = 2·c_bps`，代數自洽。
+係數「× 2」對應 long 與 short 兩腿都要 rebalance；`notional_turnover` 已在 top / bot 之間取平均，故 full rotation 時 `2 × 1 × c_bps = 2·c_bps`，代數自洽。
 
 - **Novy-Marx & Velikov (2016)**, *Review of Financial Studies* 29(1)
   - 觀點：以實證成本 τ（portfolio 替換比例）估算 anomaly 的 breakeven cost；middle-rank shuffle 不產生 notional 成本，只有分位邊界跨越才算。
-  - 採用：`turnover_jaccard` 定義、`breakeven_cost` 公式、bps 單位對齊。
+  - 採用：`notional_turnover` 定義、`breakeven_cost` 公式、bps 單位對齊。
 - **Hansen & Hodrick (1980)**, *JPE* 88(5)
   - 觀點：overlapping forward windows 造成 MA(h−1) 自相關。
   - 採用：`forward_periods > 1` 時兩個指標都先經 `_sample_non_overlapping` 按 stride `h` 取樣後再配對。
 
 設計 caveat：
 
-- **退市 under-count**：`turnover_jaccard` 在「前一次 rebalance 在 Q_top/Q_bot、但本次不在 panel」的名單上**沉默跳過**（計算只能看到今日 panel 的 asset）。真實 portfolio 會記一筆平倉成本，此處略去；影響量隨 universe churn 放大。
-- **`turnover` 的尾部 quantile filter 不可直接入 cost 公式**：`turnover()` 支援 `quantile` 參數把 ρ 限定在 top-q ∪ bot-q 集合上計算，但 tail-union 上的 ρ 本就比全截面 ρ 穩（尾部名單較為 sticky），會系統性**低估** turnover。僅作跨因子 rank-stability 比較用；若要導入 cost 公式應改用 `turnover_jaccard`。
+- **退市 under-count**：`notional_turnover` 在「前一次 rebalance 在 Q_top/Q_bot、但本次不在 panel」的名單上**沉默跳過**（計算只能看到今日 panel 的 asset）。真實 portfolio 會記一筆平倉成本，此處略去；影響量隨 universe churn 放大。
+- **`turnover` 的尾部 quantile filter 不可直接入 cost 公式**：`turnover()` 支援 `quantile` 參數把 ρ 限定在 top-q ∪ bot-q 集合上計算，但 tail-union 上的 ρ 本就比全截面 ρ 穩（尾部名單較為 sticky），會系統性**低估** turnover。僅作跨因子 rank-stability 比較用；若要導入 cost 公式應改用 `notional_turnover`。
 - **Annualization 由 caller 負責**：兩個指標都回傳 per-rebalance 值。年化成本 = `turnover × (年化期數 / forward_periods)`；`breakeven_cost` / `net_spread` 本身只做 per-period 計算。
 
 ---

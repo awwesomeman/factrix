@@ -6,7 +6,7 @@ Two flavours of turnover co-exist here, measuring different things:
   diagnostic; responds to mid-rank reshuffling. **Not** a notional
   trading-fraction and should **not** be fed into ``breakeven_cost`` /
   ``net_spread``.
-- ``turnover_jaccard()`` — fraction of top-and-bottom quantile members
+- ``notional_turnover()`` — fraction of top-and-bottom quantile members
   replaced per rebalance. Matches Novy-Marx & Velikov (2016) τ; this is
   the quantity that drives bps trading cost for an equal-weight Q1/Qn
   long-short portfolio.
@@ -48,8 +48,8 @@ def turnover(
     portfolio. So this is a **rank-stability diagnostic**, *not* a notional
     trading-fraction.
 
-    **When to use this vs ``turnover_jaccard``.** Feed a strategy-cost
-    formula (breakeven_cost / net_spread) with ``turnover_jaccard``, not
+    **When to use this vs ``notional_turnover``.** Feed a strategy-cost
+    formula (breakeven_cost / net_spread) with ``notional_turnover``, not
     this function — the bps coefficients there assume ``turnover`` is the
     fraction of Q1/Qn positions replaced per rebalance, which ``1 − ρ``
     does not provide. Keep this metric for ranking-stability comparisons
@@ -172,7 +172,7 @@ def turnover(
     )
 
 
-def turnover_jaccard(
+def notional_turnover(
     df: pl.DataFrame,
     factor_col: str = "factor",
     *,
@@ -242,7 +242,7 @@ def turnover_jaccard(
     dates = df["date"].unique().sort()
     if len(dates) < 2:
         return _short_circuit_output(
-            "turnover_jaccard", "insufficient_dates",
+            "notional_turnover", "insufficient_dates",
             n_observed=len(dates), min_required=2,
             forward_periods=forward_periods,
         )
@@ -297,7 +297,7 @@ def turnover_jaccard(
 
     if per_date.is_empty():
         return _short_circuit_output(
-            "turnover_jaccard", "no_valid_pairs",
+            "notional_turnover", "no_valid_pairs",
             forward_periods=forward_periods, n_groups=n_groups,
         )
 
@@ -311,7 +311,7 @@ def turnover_jaccard(
         ).item()
     )
     return MetricOutput(
-        name="turnover_jaccard",
+        name="notional_turnover",
         value=mean_turnover,
         metadata={
             "n_rebalances": int(per_date.height),
@@ -340,7 +340,7 @@ def breakeven_cost(
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
-    Use ``turnover_jaccard()``; do **not** feed in ``turnover()``
+    Use ``notional_turnover()``; do **not** feed in ``turnover()``
     (which is rank-stability, not position-change).
 
     Time-scale alignment: ``gross_spread`` from ``quantile_spread`` is
@@ -351,9 +351,9 @@ def breakeven_cost(
 
     Args:
         gross_spread: Per-period mean long-short spread.
-        turnover: Notional turnover ∈ [0, 1] from ``turnover_jaccard()``.
+        turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         forward_periods: Holding period N matching the upstream
-            ``compute_forward_return`` and ``turnover_jaccard`` stride.
+            ``compute_forward_return`` and ``notional_turnover`` stride.
 
     Returns:
         MetricOutput with value = breakeven cost in bps.
@@ -417,15 +417,15 @@ def net_spread(
 
     Expects ``turnover`` to be a **notional** fraction ∈ [0, 1] — the
     share of the equal-weight Q1/Q_n portfolio replaced per rebalance.
-    Use ``turnover_jaccard()``; do **not** feed in ``turnover()``
+    Use ``notional_turnover()``; do **not** feed in ``turnover()``
     (which is rank-stability, not position-change).
 
     Args:
         gross_spread: Per-period mean long-short spread.
-        turnover: Notional turnover ∈ [0, 1] from ``turnover_jaccard()``.
+        turnover: Notional turnover ∈ [0, 1] from ``notional_turnover()``.
         estimated_cost_bps: Estimated single-leg trading cost in bps.
         forward_periods: Holding period N matching the upstream
-            ``compute_forward_return`` and ``turnover_jaccard`` stride.
+            ``compute_forward_return`` and ``notional_turnover`` stride.
 
     Returns:
         MetricOutput with value = net spread (per-period).
