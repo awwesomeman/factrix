@@ -202,3 +202,11 @@ factrix 的每個指標都對應業界 / 學界認可的方法。完整論述（
 | 內部結構（module layout、invariants、Profile contract、Artifacts 策略）| [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 想貢獻（dev workflow、submodule、test 規範、release、docstring 風格）| [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | 版本變動 | [`CHANGELOG.md`](CHANGELOG.md) |
+
+---
+
+## License
+
+`factrix` 以 [Apache License 2.0](LICENSE) 釋出。Apache-2.0 同時授予使用者**著作權**與**專利權**，並包含專利反訴終止條款（§3），對下游使用者與貢獻者皆有明確的專利保護。
+
+外部貢獻者送 PR 即視為依 Apache-2.0 §5 將該貢獻以同等授權回饋本專案（inbound = outbound），詳見 [`CONTRIBUTING.md`](CONTRIBUTING.md)。

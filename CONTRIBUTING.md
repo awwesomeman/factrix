@@ -393,3 +393,17 @@ factrix main、打 tag，再讓 workspace bump 到 tag。
 - **大改動 / 架構決策**：在 workspace repo 的 `docs/` 下新增 `spike_*.md`
   設計文件（跟歷史 spike 一致），factrix PR 引用它
 - **Invariant 級規則變更**：更新 `ARCHITECTURE.md` 的 `Invariants` 區塊
+
+---
+
+## 11. 授權與貢獻條款（Licensing）
+
+本專案採用 [Apache License 2.0](LICENSE)。
+
+**Inbound = Outbound**：依 Apache-2.0 §5，凡你向本 repo 提交（PR、patch、issue 附帶程式碼等）的內容，**預設視為以 Apache-2.0 同等條款授權回本專案**，除非你在提交時明確聲明其他條款。送 PR 前請確認：
+
+- 你對該段程式碼擁有授權權利（自行撰寫，或來源相容於 Apache-2.0）
+- 引用第三方程式碼時，於檔案 header 或 PR description 標註原始授權
+- 涉及專利的演算法（如：你個人或所屬組織持有專利的方法），請在 PR description 主動揭露
+
+不接受 GPL/AGPL 等具強制 copyleft 的程式碼合併進主程式碼樹（會污染下游使用者的授權義務）。
