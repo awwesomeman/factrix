@@ -172,8 +172,79 @@ class _CommonSparsePanelProcedure(_StubProcedure):
     _NAME = "_CommonSparsePanelProcedure"
 
 
-class _TSBetaContTimeseriesProcedure(_StubProcedure):
-    _NAME = "_TSBetaContTimeseriesProcedure"
+class _TSBetaContTimeseriesProcedure:
+    """``(COMMON, CONTINUOUS, None, TIMESERIES)`` — single-asset OLS β.
+
+    Plan §5.2 Mode B continuous: OLS ``y_t = α + β·factor_t + ε`` with
+    NW HAC SE on β; ADF on factor surfaces persistence (CONTINUOUS-only
+    diagnostic per I6). T-stratified per I5: below ``MIN_T_HARD`` raise
+    ``InsufficientSampleError``; in ``[MIN_T_HARD, MIN_T_RELIABLE)``
+    emit verdict + ``WarningCode.UNRELIABLE_SE_SHORT_SERIES``.
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        from factrix._codes import StatCode, WarningCode
+        from factrix._errors import InsufficientSampleError
+        from factrix._profile import FactorProfile
+        from factrix._stats import _adf, _ols_nw_slope_t, _resolve_nw_lags
+        from factrix._stats.constants import (
+            MIN_T_HARD,
+            MIN_T_RELIABLE,
+            auto_bartlett,
+        )
+
+        sorted_raw = raw.sort("date")
+        y = sorted_raw["forward_return"].drop_nulls().to_numpy()
+        x = sorted_raw["factor"].drop_nulls().to_numpy()
+        T = int(min(len(y), len(x)))
+
+        if T < MIN_T_HARD:
+            raise InsufficientSampleError(
+                f"T={T} below MIN_T_HARD={MIN_T_HARD}; NW HAC SE is too "
+                "biased for primary_p to be trustworthy at this floor."
+            )
+
+        # Same HH overlap floor logic as the IC PANEL procedure: forward
+        # returns of horizon h induce MA(h-1) structure that the auto
+        # Bartlett rule does not see on its own.
+        nw_lags = _resolve_nw_lags(
+            T, auto_bartlett(T), config.forward_periods,
+        )
+        # Truncate to common length on the off-chance one column had
+        # extra nulls.
+        y, x = y[:T], x[:T]
+        beta, t_stat, p_value, _ = _ols_nw_slope_t(y, x, lags=nw_lags)
+        adf_tau, adf_p = _adf(x)
+
+        warnings: set[WarningCode] = set()
+        if T < MIN_T_RELIABLE:
+            warnings.add(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+        # I6: ADF persistence diagnostic is CONTINUOUS-only. The 0.10
+        # cutoff matches plan §5.2 — a non-rejection at the 10% level
+        # is the conventional "likely persistent" trigger.
+        if adf_p > 0.10:
+            warnings.add(WarningCode.PERSISTENT_REGRESSOR)
+
+        return FactorProfile(
+            config=config,
+            mode=Mode.TIMESERIES,
+            primary_p=p_value,
+            n_obs=T,
+            warnings=frozenset(warnings),
+            stats={
+                StatCode.TS_BETA: beta,
+                StatCode.TS_BETA_T_NW: t_stat,
+                StatCode.TS_BETA_P: p_value,
+                StatCode.FACTOR_ADF_P: adf_p,
+                StatCode.NW_LAGS_USED: float(nw_lags),
+            },
+        )
 
 
 class _TSDummySparseTimeseriesProcedure(_StubProcedure):

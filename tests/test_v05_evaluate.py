@@ -162,12 +162,6 @@ class TestStubsSurfaceThroughEvaluate:
                 "CommonContPanel",
                 id="common_continuous_panel",
             ),
-            pytest.param(
-                lambda: _build_timeseries(n_dates=40, seed=9),
-                lambda: AnalysisConfig.common_continuous(),
-                "TSBetaCont",
-                id="common_continuous_timeseries",
-            ),
         ],
     )
     def test_stub_raises_with_procedure_name(

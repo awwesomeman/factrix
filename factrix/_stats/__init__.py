@@ -345,3 +345,56 @@ def _newey_west_t_test(
     t = mean / se
     p = _p_value_from_t(t, n)
     return t, p, _significance_marker(p)
+
+
+def _ols_nw_slope_t(
+    y: np.ndarray,
+    x: np.ndarray,
+    *,
+    lags: int,
+) -> tuple[float, float, float, np.ndarray]:
+    """OLS ``y = α + β·x + ε`` with Newey-West HAC SE on β.
+
+    Returns (β̂, t-stat, two-sided p-value with df=n-2, residuals).
+    Centring is done in-place; the residuals are computed in the
+    de-meaned space (same as full-rank OLS up to the constant), and
+    the score ``u_t = x̃_t · ε_t`` is fed to the same Bartlett kernel
+    used by ``_newey_west_se`` so the HAC math stays in one place.
+
+    Returns ``(0.0, 0.0, 1.0, np.zeros(n))`` for n < 3 or degenerate
+    inputs (``Var(x) ≈ 0``).
+    """
+    n = len(y)
+    if n < 3 or len(x) != n:
+        return 0.0, 0.0, 1.0, np.zeros(n)
+
+    x_c = x - float(np.mean(x))
+    y_c = y - float(np.mean(y))
+    sxx = float(np.dot(x_c, x_c))
+    if sxx < EPSILON:
+        return 0.0, 0.0, 1.0, np.zeros(n)
+
+    beta = float(np.dot(x_c, y_c)) / sxx
+    resid = y_c - beta * x_c
+    u = x_c * resid
+
+    # Bartlett-kernel long-run variance of Σu_t (sum form, not mean):
+    # S = γ_0 + 2 Σ_{k=1..L} (1 - k/(L+1)) γ_k where γ_k = Σ u_t u_{t-k}.
+    gamma_0 = float(np.dot(u, u))
+    long_run = gamma_0
+    L = max(0, min(lags, n - 1))
+    for k in range(1, L + 1):
+        gamma_k = float(np.dot(u[k:], u[:-k]))
+        weight = 1.0 - k / (L + 1)
+        long_run += 2.0 * weight * gamma_k
+    long_run = max(long_run, 0.0)
+
+    var_beta = long_run / (sxx * sxx)
+    se_beta = float(np.sqrt(var_beta))
+    if se_beta < EPSILON:
+        return beta, 0.0, 1.0, resid
+
+    t_stat = beta / se_beta
+    # df = n - 2 for univariate OLS with intercept (Greene §4.5).
+    p_value = float(2 * sp_stats.t.sf(abs(t_stat), df=max(n - 2, 1)))
+    return beta, t_stat, p_value, resid
