@@ -101,6 +101,27 @@ def _row_for_tuple(
     }
 
 
+def _factory_call_for(
+    scope: str, signal: str, metric: str | None,
+) -> str:
+    """Render the AnalysisConfig factory call for a `(scope, signal, metric)` row.
+
+    UX-5 from review: ``describe_analysis_modes`` text output should
+    answer "which factory do I call?" without forcing the reader to
+    cross-reference the README factory table.
+    """
+    if scope == "individual" and signal == "continuous":
+        m = "Metric.IC" if metric == "ic" else "Metric.FM"
+        return f"AnalysisConfig.individual_continuous(metric={m})"
+    if scope == "individual" and signal == "sparse":
+        return "AnalysisConfig.individual_sparse()"
+    if scope == "common" and signal == "continuous":
+        return "AnalysisConfig.common_continuous()"
+    if scope == "common" and signal == "sparse":
+        return "AnalysisConfig.common_sparse()"
+    return f"AnalysisConfig({scope=}, {signal=}, {metric=})"  # pragma: no cover
+
+
 def _render_text(rows: list[dict[str, Any]]) -> str:
     lines: list[str] = []
     for row in rows:
@@ -108,6 +129,9 @@ def _render_text(rows: list[dict[str, Any]]) -> str:
             f"({row['scope']}, {row['signal']}, {row['metric']})"
         )
         lines.append(f"Cell: {header}")
+        lines.append(
+            f"  Factory: {_factory_call_for(row['scope'], row['signal'], row['metric'])}",
+        )
         panel = row["mode_a_panel"]
         if panel is None:
             lines.append("  Mode A (panel): not registered")

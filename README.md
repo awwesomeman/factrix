@@ -57,6 +57,12 @@ profile = fl.evaluate(panel, cfg)
 
 print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
 # → pass | primary_p = 0.0
+
+# diagnose() 一次拿完整結果（給人讀也給 AI agent 拿）
+print(profile.diagnose())
+# {'mode': 'panel', 'n_obs': 494, 'primary_p': 2.13e-40,
+#  'warnings': [], 'info_notes': [],
+#  'stats': {'ic_mean': 0.0722, 'ic_t_nw': 14.60, 'ic_p': ..., 'nw_lags_used': 5}}
 ```
 
 無需外部資料、無需設定檔；`fl.datasets` 產可重現合成 panel。

@@ -51,10 +51,11 @@ __version__ = "0.5.0"
 __all__ = [
     # Configuration
     "AnalysisConfig",
-    # Axis enums
+    # Axis enums (Mode intentionally NOT exported — it is derived at
+    # evaluate-time from N and read off profile.mode, never set by user
+    # code; review fix UX-7. Still importable from factrix._axis.)
     "FactorScope",
     "Metric",
-    "Mode",
     "Signal",
     # Code enums
     "InfoCode",

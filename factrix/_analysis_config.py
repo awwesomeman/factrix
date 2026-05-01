@@ -53,13 +53,18 @@ def _validate_axis_compat(
     if matches_user_axis(scope, signal, metric):
         return
     metric_repr = metric.value if metric is not None else None
+    # UX-8 from review: lead with the actionable factory list, leave the
+    # tuple enumeration as a parenthetical for users debugging by hand.
     raise IncompatibleAxisError(
         f"({scope.value}, {signal.value}, {metric_repr}) is not a legal "
-        "analysis cell. The five legal tuples are: "
-        "(individual, continuous, ic), (individual, continuous, fm), "
-        "(individual, sparse, None), (common, continuous, None), "
-        "(common, sparse, None). Use AnalysisConfig.individual_continuous() "
-        "/ .individual_sparse() / .common_continuous() / .common_sparse()."
+        "analysis cell. Use one of the four factory methods:\n"
+        "  AnalysisConfig.individual_continuous(metric=Metric.IC|Metric.FM)\n"
+        "  AnalysisConfig.individual_sparse()\n"
+        "  AnalysisConfig.common_continuous()\n"
+        "  AnalysisConfig.common_sparse()\n"
+        "(legal tuples: (individual, continuous, ic), "
+        "(individual, continuous, fm), (individual, sparse, None), "
+        "(common, continuous, None), (common, sparse, None).)"
     )
 
 

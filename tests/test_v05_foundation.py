@@ -137,6 +137,36 @@ class TestExceptionHierarchy:
         assert "explanation here" in str(err)
 
 
+class TestPublicSurface:
+    def test_mode_excluded_from_dunder_all(self) -> None:
+        """UX-7 review fix: Mode is derived at evaluate-time and read
+        off profile.mode, never set by user code — keeping it out of
+        __all__ prevents 'fl.Mode' from showing up as a public symbol
+        users are tempted to plug into AnalysisConfig."""
+        import factrix as fl
+        assert "Mode" not in fl.__all__
+        # Still importable from the private module for advanced uses.
+        from factrix._axis import Mode  # noqa: F401
+
+
+class TestIncompatibleAxisErrorMessage:
+    def test_message_leads_with_factory_calls(self) -> None:
+        """UX-8 review fix: actionable factory list comes before the
+        tuple enumeration so users debugging an error see what to call,
+        not what's wrong."""
+        from factrix._analysis_config import _validate_axis_compat
+        with pytest.raises(IncompatibleAxisError) as exc:
+            _validate_axis_compat(
+                FactorScope.INDIVIDUAL, Signal.SPARSE, Metric.IC,
+            )
+        msg = str(exc.value)
+        factories_idx = msg.find("Use one of the four factory methods")
+        tuples_idx = msg.find("legal tuples:")
+        assert 0 < factories_idx < tuples_idx, (
+            "factory list should appear before the tuple enumeration"
+        )
+
+
 # ---------------------------------------------------------------------------
 # AnalysisConfig factories (§4.2)
 # ---------------------------------------------------------------------------

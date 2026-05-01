@@ -95,6 +95,20 @@ class TestDescribeAnalysisModes:
         # warns the reader the null is not the cross-asset E[β]=0 of A.
         assert "single-series test" in out
 
+    def test_text_includes_factory_call_per_row(self) -> None:
+        """UX-5 review fix: each cell row prints the factory call that
+        constructs the corresponding AnalysisConfig — answers
+        "which factory do I call?" without README cross-reference."""
+        out = describe_analysis_modes(format="text")
+        for call in (
+            "AnalysisConfig.individual_continuous(metric=Metric.IC)",
+            "AnalysisConfig.individual_continuous(metric=Metric.FM)",
+            "AnalysisConfig.individual_sparse()",
+            "AnalysisConfig.common_continuous()",
+            "AnalysisConfig.common_sparse()",
+        ):
+            assert call in out, f"missing factory call: {call}"
+
 
 # ---------------------------------------------------------------------------
 # suggest_config — synthetic data fixtures
