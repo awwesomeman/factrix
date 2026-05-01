@@ -64,7 +64,19 @@ class StatCode(StrEnum):
     """Cell-specific scalar stats keyed in ``FactorProfile.stats``.
 
     Adding a new metric → add an enum value here + populate it in the
-    procedure. Profile schema does not grow.
+    procedure. Profile schema does not grow. Stats fall in three
+    families:
+
+    - **p-values**: identifier ends in ``_p`` (``IC_P`` / ``FM_LAMBDA_P``
+      / ``TS_BETA_P`` / ``CAAR_P`` plus the diagnostic-only
+      ``FACTOR_ADF_P`` / ``LJUNG_BOX_P``). ``is_p_value`` returns
+      ``True``. These are the only codes ``multi_factor.bhy`` will
+      accept as a ``gate=`` override (BHY step-up requires probabilities
+      — feeding it t-stats yields nonsense FDR control).
+    - **t-stats** / effect-size means / lag counts / HHI: ``is_p_value``
+      returns ``False``. ``profile.verdict(gate=...)`` accepts these
+      (the comparison is generic ``value < threshold`` — interpretation
+      is the caller's call) but ``bhy(gate=...)`` rejects them.
     """
 
     IC_MEAN = "ic_mean"
@@ -83,6 +95,16 @@ class StatCode(StrEnum):
     LJUNG_BOX_P = "ljung_box_p"
     EVENT_TEMPORAL_HHI = "event_temporal_hhi"
     NW_LAGS_USED = "nw_lags_used"
+
+    @property
+    def is_p_value(self) -> bool:
+        """``True`` iff this stat is a probability in [0, 1].
+
+        Used by ``multi_factor.bhy`` to gatekeep the ``gate=`` override
+        — BHY step-up math requires p-values, so feeding a t-stat would
+        silently corrupt FDR control.
+        """
+        return self.value.endswith("_p")
 
 
 class Verdict(StrEnum):

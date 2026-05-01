@@ -68,6 +68,7 @@ class _ICContPanelProcedure:
         # factor / tied returns) so the explicit drop is reachable.
         ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
         T = int(len(ic_values))
+        n_assets = int(raw["asset_id"].n_unique())
         # Plan §5.2 picks NW1994 auto_bartlett as the default lag, but
         # h-period forward returns force MA(h-1) structure on the IC
         # series so we floor at ``forward_periods - 1`` (Hansen-Hodrick
@@ -85,6 +86,7 @@ class _ICContPanelProcedure:
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=T,
+            n_assets=n_assets,
             stats={
                 StatCode.IC_MEAN: ic_mean,
                 StatCode.IC_T_NW: t_stat,
@@ -122,6 +124,7 @@ class _FMContPanelProcedure:
             compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
         )
         T = int(len(beta_values))
+        n_assets = int(raw["asset_id"].n_unique())
         nw_lags = (
             _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
             if T >= 2 else 0
@@ -134,6 +137,7 @@ class _FMContPanelProcedure:
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=T,
+            n_assets=n_assets,
             stats={
                 StatCode.FM_LAMBDA_MEAN: lambda_mean,
                 StatCode.FM_LAMBDA_T_NW: t_stat,
@@ -169,6 +173,7 @@ class _CAARSparsePanelProcedure:
 
         caar_values = compute_caar(raw)["caar"].drop_nulls().to_numpy()
         T = int(len(caar_values))
+        n_assets = int(raw["asset_id"].n_unique())
         nw_lags = (
             _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
             if T >= 2 else 0
@@ -181,6 +186,7 @@ class _CAARSparsePanelProcedure:
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=T,
+            n_assets=n_assets,
             stats={
                 StatCode.CAAR_MEAN: caar_mean,
                 StatCode.CAAR_T_NW: t_stat,
@@ -285,11 +291,15 @@ def _compute_common_panel(
         if adf_p > 0.10:
             warnings.add(WarningCode.PERSISTENT_REGRESSOR)
 
+    # n_obs == N here (cross-asset aggregation), but expose n_assets
+    # explicitly anyway so callers get the same field shape regardless
+    # of which cell produced the profile.
     return FactorProfile(
         config=config,
         mode=Mode.PANEL,
         primary_p=p_value,
         n_obs=N,
+        n_assets=int(raw["asset_id"].n_unique()),
         warnings=frozenset(warnings),
         stats=stats,
     )
@@ -362,6 +372,7 @@ class _TSBetaContTimeseriesProcedure:
             mode=Mode.TIMESERIES,
             primary_p=p_value,
             n_obs=T,
+            n_assets=int(raw["asset_id"].n_unique()),
             warnings=frozenset(warnings),
             stats={
                 StatCode.TS_BETA: beta,
@@ -452,6 +463,7 @@ class _TSDummySparseTimeseriesProcedure:
             mode=Mode.TIMESERIES,
             primary_p=p_value,
             n_obs=T,
+            n_assets=int(raw["asset_id"].n_unique()),
             warnings=frozenset(warnings),
             stats={
                 StatCode.TS_BETA: beta,

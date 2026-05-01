@@ -60,8 +60,8 @@ print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
 
 # diagnose() 一次拿完整結果（給人讀也給 AI agent 拿）
 print(profile.diagnose())
-# {'mode': 'panel', 'n_obs': 494, 'primary_p': 2.13e-40,
-#  'warnings': [], 'info_notes': [],
+# {'mode': 'panel', 'n_obs': 494, 'n_assets': 100,
+#  'primary_p': 2.13e-40, 'warnings': [], 'info_notes': [],
 #  'stats': {'ic_mean': 0.0722, 'ic_t_nw': 14.60, 'ic_p': ..., 'nw_lags_used': 5}}
 ```
 

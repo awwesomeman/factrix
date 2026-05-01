@@ -168,6 +168,7 @@ def _make_profile(
         mode=Mode.PANEL,
         primary_p=primary_p,
         n_obs=100,
+        n_assets=20,
         warnings=warnings,
         info_notes=info_notes,
         stats=stats or {},
@@ -215,6 +216,7 @@ class TestProfileImmutability:
             mode=Mode.TIMESERIES,
             primary_p=0.5,
             n_obs=50,
+            n_assets=1,
         )
         assert prof.warnings == frozenset()
         assert prof.info_notes == frozenset()

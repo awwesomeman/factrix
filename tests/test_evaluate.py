@@ -193,3 +193,42 @@ class TestFallbackNoneBranch:
             assert "Suggested fix:" not in str(exc.value)
         finally:
             _DISPATCH_REGISTRY[key] = original
+
+
+# ---------------------------------------------------------------------------
+# n_assets exposure: every procedure populates the cross-section width
+# ---------------------------------------------------------------------------
+
+
+class TestNAssetsExposure:
+    """Every cell should carry the panel's cross-section width on the
+    profile so users can disambiguate "small n_obs from short series"
+    vs "small n_obs from thin cross-section". Per-procedure derivation
+    keeps the value correct even for direct ``procedure.compute(...)``
+    calls that bypass ``_evaluate``."""
+
+    def test_panel_ic_carries_n_assets(self) -> None:
+        panel = _build_panel(n_dates=60, n_assets=25, seed=7)
+        profile = _evaluate(
+            panel,
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+        )
+        assert profile.n_assets == 25
+        assert profile.n_obs != profile.n_assets  # T vs N differ
+
+    def test_timeseries_n_assets_is_one(self) -> None:
+        panel = _build_panel(n_dates=60, n_assets=25, seed=8)
+        single = panel.filter(pl.col("asset_id") == panel["asset_id"][0])
+        profile = _evaluate(single, AnalysisConfig.common_continuous())
+        assert profile.mode is Mode.TIMESERIES
+        assert profile.n_assets == 1
+
+    def test_diagnose_includes_n_assets(self) -> None:
+        panel = _build_panel(n_dates=60, n_assets=15, seed=9)
+        profile = _evaluate(
+            panel,
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+        )
+        d = profile.diagnose()
+        assert d["n_assets"] == 15
+        assert d["n_obs"] != d["n_assets"]

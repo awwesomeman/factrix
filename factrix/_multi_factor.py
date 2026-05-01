@@ -50,7 +50,14 @@ def _family_key(profile: "FactorProfile") -> _DispatchKey:
 def _gate_p_value(
     profile: "FactorProfile", gate: StatCode | None,
 ) -> float:
-    """Return ``primary_p`` (default) or ``stats[gate]`` for the BHY input."""
+    """Return ``primary_p`` (default) or ``stats[gate]`` for the BHY input.
+
+    ``gate`` must be a p-value ``StatCode`` (``is_p_value`` is True).
+    BHY step-up math requires probabilities; feeding a t-stat or HHI
+    would silently produce incoherent FDR control. Validation lives at
+    the caller (``bhy``) so the error fires once per call, not once per
+    profile.
+    """
     if gate is None:
         return profile.primary_p
     return profile.stats[gate]
@@ -66,15 +73,25 @@ def bhy(
 
     ``threshold`` is the FDR level (plan §7.5 invariant — never
     ``alpha``). ``gate`` chooses the p-value the test runs on:
-    ``None`` = procedure-canonical ``primary_p``; otherwise the named
-    ``StatCode`` is read from every profile's ``stats`` mapping
-    (``KeyError`` if a family member does not populate it).
+    ``None`` = procedure-canonical ``primary_p``; otherwise a
+    ``StatCode`` whose ``is_p_value`` is ``True`` is read from every
+    profile's ``stats`` mapping (``KeyError`` if a family member does
+    not populate it). Non-p ``StatCode`` values raise ``ValueError`` —
+    BHY step-up requires probabilities, so passing e.g.
+    ``StatCode.IC_T_NW`` would silently corrupt FDR control.
 
     Profiles are grouped by family key (= registry ``_DispatchKey``);
     each family runs an independent BHY step-up on its p-values.
     Cross-family aggregation is the user's responsibility and is
     deliberately not done here (§5.6).
     """
+    if gate is not None and not gate.is_p_value:
+        raise ValueError(
+            f"bhy(gate={gate.name}): BHY step-up requires p-value input, "
+            f"but {gate.name} is not a probability. Pass a *_P StatCode "
+            "(e.g. StatCode.IC_P, StatCode.FM_LAMBDA_P) or omit `gate=` "
+            "to use the procedure-canonical primary_p.",
+        )
     families: dict[_DispatchKey, list["FactorProfile"]] = defaultdict(list)
     for profile in profiles:
         families[_family_key(profile)].append(profile)

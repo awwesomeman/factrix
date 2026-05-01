@@ -28,6 +28,7 @@ def _profile(
         mode=mode,
         primary_p=primary_p,
         n_obs=100,
+        n_assets=1 if mode is Mode.TIMESERIES else 30,
         stats=base_stats,
     )
 
@@ -249,3 +250,59 @@ class TestSingletonFamilyWarning:
         with _warnings.catch_warnings():
             _warnings.simplefilter("error")
             bhy([a, b], threshold=0.05)
+
+
+# ---------------------------------------------------------------------------
+# bhy gate validation: must be a p-value StatCode
+# ---------------------------------------------------------------------------
+
+
+class TestBhyGateValidation:
+    def test_non_p_gate_rejected(self) -> None:
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+        prof = _profile(
+            config=cfg, mode=Mode.PANEL, primary_p=0.04,
+            stats={StatCode.IC_T_NW: 2.5},
+        )
+        # IC_T_NW is a t-stat, not a probability — BHY step-up math
+        # would silently corrupt if fed t-stats.
+        with pytest.raises(ValueError, match="requires p-value input"):
+            bhy([prof], threshold=0.05, gate=StatCode.IC_T_NW)
+
+    def test_p_gate_accepted(self) -> None:
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+        prof = _profile(
+            config=cfg, mode=Mode.PANEL, primary_p=0.99,
+            stats={StatCode.FM_LAMBDA_P: 0.001},
+        )
+        survivors = bhy(
+            [prof], threshold=0.05, gate=StatCode.FM_LAMBDA_P,
+        )
+        assert survivors == [prof]
+
+    def test_default_gate_uses_primary_p(self) -> None:
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+        prof = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.01)
+        # No exception even though stats has no *_P; primary_p is used.
+        assert bhy([prof], threshold=0.05) == [prof]
+
+
+class TestStatCodeIsPValue:
+    def test_p_codes_marked(self) -> None:
+        for code in (
+            StatCode.IC_P, StatCode.FM_LAMBDA_P, StatCode.TS_BETA_P,
+            StatCode.CAAR_P, StatCode.FACTOR_ADF_P, StatCode.LJUNG_BOX_P,
+        ):
+            assert code.is_p_value, f"{code.name} should be flagged as p-value"
+
+    def test_non_p_codes_unmarked(self) -> None:
+        for code in (
+            StatCode.IC_MEAN, StatCode.IC_T_NW,
+            StatCode.FM_LAMBDA_MEAN, StatCode.FM_LAMBDA_T_NW,
+            StatCode.TS_BETA, StatCode.TS_BETA_T_NW,
+            StatCode.CAAR_MEAN, StatCode.CAAR_T_NW,
+            StatCode.EVENT_TEMPORAL_HHI, StatCode.NW_LAGS_USED,
+        ):
+            assert not code.is_p_value, (
+                f"{code.name} should NOT be flagged as p-value"
+            )

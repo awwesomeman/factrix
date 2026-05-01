@@ -116,11 +116,17 @@ class FactorProfile:
     config: AnalysisConfig
     mode: Mode
     primary_p: float
-    n_obs: int
+    n_obs: int          # cell-canonical effective N (T / events / assets)
+    n_assets: int       # raw panel cross-section width (always available)
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
     stats: Mapping[StatCode, float] = field(default_factory=dict)
 ```
+
+`n_obs` semantics vary by cell — T for IC/FM/TS-β, event count for
+CAAR, asset count for COMMON×* PANEL. `n_assets` is always
+`raw["asset_id"].n_unique()`; reading both side by side disambiguates
+"small effective sample" between short series vs thin cross-section.
 
 - `verdict(*, threshold=0.05, gate=None) -> Verdict` — `gate=None` uses `primary_p`; supplying a `StatCode` swaps the gate (raises `KeyError` if not populated)
 - `diagnose() -> dict[str, Any]` — flatten `mode / n_obs / primary_p / warnings / info_notes / stats` for human or AI agent triage
