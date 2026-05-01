@@ -156,3 +156,40 @@ class TestSparseCollapse:
         profile = _evaluate(panel, AnalysisConfig.individual_sparse())
         assert profile.mode is Mode.PANEL
         assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes
+
+
+# ---------------------------------------------------------------------------
+# Review fix TC-FALLBACK-None: monkey-patch the registry so a legal
+# AnalysisConfig produces a registry miss with no _FALLBACK_MAP entry,
+# verifying _evaluate's `suggested_fix=None` branch (the suffix="" path
+# in the ModeAxisError construction) is exercised.
+# ---------------------------------------------------------------------------
+
+
+class TestFallbackNoneBranch:
+    def test_unregistered_cell_with_no_fallback_raises_clean_error(
+        self, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from factrix import _evaluate as evaluate_mod
+        from factrix._registry import _DispatchKey, _DISPATCH_REGISTRY
+
+        # Pop the live (COMMON, CONTINUOUS, PANEL) entry so a real
+        # call with that config produces a registry miss. _FALLBACK_MAP
+        # has no entry for (COMMON, CONTINUOUS, PANEL) — N≥2 paths are
+        # always supposed to be wired — so the lookup yields None and
+        # ModeAxisError is raised with suggested_fix=None.
+        key = _DispatchKey(
+            FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.PANEL,
+        )
+        original = _DISPATCH_REGISTRY.pop(key)
+        try:
+            panel = _build_panel(n_dates=30, n_assets=20, seed=11)
+            with pytest.raises(ModeAxisError) as exc:
+                evaluate_mod._evaluate(
+                    panel, AnalysisConfig.common_continuous(),
+                )
+            assert exc.value.suggested_fix is None
+            # Suffix should be empty — no "Suggested fix:" tail.
+            assert "Suggested fix:" not in str(exc.value)
+        finally:
+            _DISPATCH_REGISTRY[key] = original

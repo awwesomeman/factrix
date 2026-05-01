@@ -253,3 +253,46 @@ class TestEndToEndViaEvaluate:
         # SCOPE_AXIS_COLLAPSED only fires at N=1; PANEL routing keeps
         # COMMON scope intact.
         assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes
+
+
+# ---------------------------------------------------------------------------
+# Review fix TC-1: empty-panel fallback (N == 0)
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyPanelFallback:
+    """When ``compute_ts_betas`` yields zero betas (empty panel after
+    drop_nulls), the procedure must return a finite profile with
+    primary_p == 1.0 rather than raising or producing NaN. Pins the
+    N == 0 branch in ``_compute_common_panel``."""
+
+    def test_continuous_empty_returns_p_one(
+        self, cfg_continuous: AnalysisConfig,
+    ) -> None:
+        empty = pl.DataFrame(
+            schema={
+                "date": pl.Date,
+                "asset_id": pl.Utf8,
+                "factor": pl.Float64,
+                "forward_return": pl.Float64,
+            },
+        )
+        profile = _CommonContPanelProcedure().compute(empty, cfg_continuous)
+        assert profile.primary_p == 1.0
+        assert profile.n_obs == 0
+        assert profile.stats[StatCode.TS_BETA] == 0.0
+
+    def test_sparse_empty_returns_p_one(
+        self, cfg_sparse: AnalysisConfig,
+    ) -> None:
+        empty = pl.DataFrame(
+            schema={
+                "date": pl.Date,
+                "asset_id": pl.Utf8,
+                "factor": pl.Float64,
+                "forward_return": pl.Float64,
+            },
+        )
+        profile = _CommonSparsePanelProcedure().compute(empty, cfg_sparse)
+        assert profile.primary_p == 1.0
+        assert profile.n_obs == 0
