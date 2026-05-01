@@ -85,6 +85,16 @@ class TestDescribeAnalysisModes:
             assert isinstance(panel["references"], list)
             assert all(isinstance(ref, str) for ref in panel["references"])
 
+    def test_text_distinguishes_collapse_vs_single_series(self) -> None:
+        """A-8 review fix: rendered text names what Mode B actually tests
+        (single-series null) instead of implying parity with Mode A."""
+        out = describe_analysis_modes(format="text")
+        # Sparse cells get the scope-collapse note (true collapse).
+        assert "scope axis collapsed at N=1" in out
+        # COMMON × CONTINUOUS Mode B keeps a different annotation that
+        # warns the reader the null is not the cross-asset E[β]=0 of A.
+        assert "single-series test" in out
+
 
 # ---------------------------------------------------------------------------
 # suggest_config — synthetic data fixtures

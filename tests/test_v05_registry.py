@@ -336,3 +336,19 @@ class TestRegisterSentinelMetricGuard:
         )
         with pytest.raises(ValueError, match="metric=None"):
             register(bad_key, _Stub(), use_case="illegal — should never land")
+
+
+# ---------------------------------------------------------------------------
+# Review fix A-5: post-bootstrap registry size invariant
+# ---------------------------------------------------------------------------
+
+
+class TestRegistryBootstrapInvariant:
+    def test_seven_cells_registered_at_import(self) -> None:
+        """5 PANEL + 2 TIMESERIES per refactor_api §4.3. The
+        post-import assert in _registry.py guards against accidental
+        deletion of a register() call or a circular-import regression
+        that would prevent _procedures from running to completion."""
+        from factrix._registry import _EXPECTED_REGISTRY_SIZE
+        assert _EXPECTED_REGISTRY_SIZE == 7
+        assert len(_DISPATCH_REGISTRY) == _EXPECTED_REGISTRY_SIZE

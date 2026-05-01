@@ -119,10 +119,16 @@ def _render_text(rows: list[dict[str, Any]]) -> str:
         if isinstance(ts, str):
             lines.append(f"  Mode B (timeseries): {ts}")
         else:
-            note = (
-                " — scope axis collapsed at N=1"
-                if ts.get("scope_collapsed") else ""
-            )
+            # A-8 from review: name what the Mode B null actually tests
+            # rather than implying parity with Mode A's cross-asset null.
+            # Sparse Mode B genuinely collapses the scope axis (sentinel
+            # routes both INDIVIDUAL and COMMON sparse to one procedure);
+            # continuous Mode B is a single-series β whose null is
+            # distinct from the cross-asset E[β]=0 of Mode A.
+            if ts.get("scope_collapsed"):
+                note = " — scope axis collapsed at N=1"
+            else:
+                note = " — single-series test (null differs from Mode A)"
             lines.append(
                 f"  Mode B (timeseries): {ts['use_case']}{note}",
             )

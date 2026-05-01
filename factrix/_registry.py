@@ -129,8 +129,23 @@ def matches_user_axis(
     return False
 
 
-# Import-time bootstrap: ``_procedures`` calls ``register(...)`` at
-# module bottom, populating ``_DISPATCH_REGISTRY`` before any first
-# query lands. ``_procedures`` imports back only ``register`` and
-# ``_DispatchKey`` from us, both defined above this line.
+# IMPORT-ORDER LOAD-BEARING — do not move this import.
+#
+# ``_procedures`` calls ``register(...)`` at module bottom, populating
+# ``_DISPATCH_REGISTRY`` before any first query lands. ``_procedures``
+# imports from us only the names defined above this line (``register``,
+# ``_DispatchKey``, ``_route_scope``, ``_SCOPE_COLLAPSED``,
+# ``_ScopeCollapsedSentinel``). Adding a top-level ``_procedures``
+# usage of any helper defined below would create a circular-import
+# deadlock that will not surface until import time of a downstream
+# package — fail loudly here instead with the post-import assert below.
 from factrix import _procedures as _procedures  # noqa: E402, F401
+
+# Post-bootstrap invariant: 7 cells (5 PANEL + 2 TIMESERIES). Catches
+# accidental deletion of a register(...) call or a circular-import
+# regression that prevents _procedures from running to completion.
+_EXPECTED_REGISTRY_SIZE = 7
+assert len(_DISPATCH_REGISTRY) == _EXPECTED_REGISTRY_SIZE, (
+    f"registry bootstrap incomplete: {len(_DISPATCH_REGISTRY)} of "
+    f"{_EXPECTED_REGISTRY_SIZE} cells registered"
+)
