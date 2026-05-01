@@ -164,12 +164,109 @@ class _CAARSparsePanelProcedure(_StubProcedure):
     _NAME = "_CAARSparsePanelProcedure"
 
 
-class _CommonContPanelProcedure(_StubProcedure):
-    _NAME = "_CommonContPanelProcedure"
+class _CommonContPanelProcedure:
+    """``(COMMON, CONTINUOUS, None, PANEL)`` — broadcast factor β panel.
+
+    Per-asset OLS β_i on the broadcast factor (single time series shared
+    across assets), aggregated to a cross-asset t-test on ``E[β]``.
+    ADF on the factor surfaces persistence (CONTINUOUS-only per I6).
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        return _compute_common_panel(raw, config, with_adf=True)
 
 
-class _CommonSparsePanelProcedure(_StubProcedure):
-    _NAME = "_CommonSparsePanelProcedure"
+class _CommonSparsePanelProcedure:
+    """``(COMMON, SPARSE, None, PANEL)`` — broadcast event-dummy β panel.
+
+    Per-asset OLS β_i on a broadcast {-1, 0, +1} dummy, aggregated to
+    a cross-asset t-test on ``E[β]``. Plan §4.3: same per-asset β →
+    cross-asset t-test pattern as COMMON × CONTINUOUS, with the dummy
+    replacing the continuous factor. ADF skipped (I6).
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        return _compute_common_panel(raw, config, with_adf=False)
+
+
+def _compute_common_panel(
+    raw: Any, config: "AnalysisConfig", *, with_adf: bool,
+) -> "FactorProfile":
+    """Shared core for the two ``(COMMON, *, None, PANEL)`` procedures.
+
+    The two cells differ only in (a) whether ADF persistence is run on
+    the broadcast factor and (b) what the regressor's marginal looks
+    like; ``compute_ts_betas`` treats both identically (per-asset OLS).
+
+    The cross-asset SE assumes asset-level independence (plan §4.3 spec).
+    Under contemporaneous return correlation across assets — common in
+    market-driven panels — the standard t will over-state significance;
+    Petersen (2009) clustered SE is deferred per plan §11.
+    """
+    import numpy as np
+    import polars as pl
+
+    from factrix._codes import StatCode, WarningCode
+    from factrix._profile import FactorProfile
+    from factrix._stats import _adf, _calc_t_stat, _p_value_from_t
+    from factrix.metrics.ts_beta import compute_ts_betas
+
+    betas_df = compute_ts_betas(raw)
+    betas = betas_df["beta"].drop_nulls().to_numpy()
+    N = int(len(betas))
+
+    if N == 0:
+        beta_mean = 0.0
+        t_stat = 0.0
+        p_value = 1.0
+    else:
+        beta_mean = float(np.mean(betas))
+        beta_std = float(np.std(betas, ddof=1)) if N >= 2 else 0.0
+        t_stat = _calc_t_stat(beta_mean, beta_std, N)
+        p_value = _p_value_from_t(t_stat, N) if N >= 2 else 1.0
+
+    stats: dict[StatCode, float] = {
+        StatCode.TS_BETA: beta_mean,
+        StatCode.TS_BETA_T_NW: t_stat,
+        StatCode.TS_BETA_P: p_value,
+    }
+    warnings: set[WarningCode] = set()
+
+    if with_adf:
+        # The broadcast factor is the same series across every asset on
+        # a given date; collapse to one row per date before ADF.
+        factor_series = (
+            raw.sort("date")
+            .group_by("date", maintain_order=True)
+            .agg(pl.col("factor").first())["factor"]
+            .drop_nulls()
+            .to_numpy()
+        )
+        _, adf_p = _adf(factor_series)
+        stats[StatCode.FACTOR_ADF_P] = adf_p
+        if adf_p > 0.10:
+            warnings.add(WarningCode.PERSISTENT_REGRESSOR)
+
+    return FactorProfile(
+        config=config,
+        mode=Mode.PANEL,
+        primary_p=p_value,
+        n_obs=N,
+        warnings=frozenset(warnings),
+        stats=stats,
+    )
 
 
 class _TSBetaContTimeseriesProcedure:

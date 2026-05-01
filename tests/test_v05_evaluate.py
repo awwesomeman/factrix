@@ -162,9 +162,9 @@ class TestStubsSurfaceThroughEvaluate:
         [
             pytest.param(
                 lambda: _build_panel(n_dates=30, n_assets=15, seed=8),
-                lambda: AnalysisConfig.common_continuous(),
-                "CommonContPanel",
-                id="common_continuous_panel",
+                lambda: AnalysisConfig.individual_sparse(),
+                "CAARSparse",
+                id="individual_sparse_panel",
             ),
         ],
     )
