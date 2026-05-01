@@ -1,0 +1,161 @@
+"""v0.5 ``AnalysisConfig`` — three-axis orthogonal factor analysis spec (§4).
+
+The user-facing surface is the four factory methods + ``from_dict`` /
+``to_dict``; ``__post_init__`` is the single source of truth for axis
+validation, reachable from every path that produces an ``AnalysisConfig``.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Self
+
+from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._errors import IncompatibleAxisError
+
+
+# SSOT for legal ``(scope, signal, metric)`` triples (§4.3).
+_LEGAL_AXIS_TUPLES: frozenset[
+    tuple[FactorScope, Signal, Metric | None]
+] = frozenset({
+    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
+    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM),
+    (FactorScope.INDIVIDUAL, Signal.SPARSE, None),
+    (FactorScope.COMMON, Signal.CONTINUOUS, None),
+    (FactorScope.COMMON, Signal.SPARSE, None),
+})
+
+
+# Nearest-legal cell suggested when an evaluate-time mode/sample check
+# fails (§4.5 A4). Keyed by ``(scope, signal, mode)``; values are
+# zero-arg factories so cycles via ``AnalysisConfig`` resolve lazily.
+# Add a fallback → add one entry; raise sites do not encode "which
+# cell to suggest".
+_FALLBACK_MAP: dict[
+    tuple[FactorScope, Signal, Mode],
+    Callable[[], "AnalysisConfig"],
+] = {
+    # (INDIVIDUAL, CONTINUOUS, N=1) — IC / FM-λ undefined at N=1 (no
+    # cross-sectional dispersion). COMMON × CONTINUOUS is the only
+    # legal CONTINUOUS path on a single asset (§5.5).
+    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Mode.TIMESERIES):
+        lambda: AnalysisConfig.common_continuous(),
+}
+
+
+def _validate_axis_compat(
+    scope: FactorScope,
+    signal: Signal,
+    metric: Metric | None,
+) -> None:
+    """Raise ``IncompatibleAxisError`` if the triple is not a legal cell.
+
+    Called from ``AnalysisConfig.__post_init__`` so every construction
+    path (factory, direct, ``from_dict``) hits the same gate.
+    """
+    if (scope, signal, metric) in _LEGAL_AXIS_TUPLES:
+        return
+    metric_repr = metric.value if metric is not None else None
+    raise IncompatibleAxisError(
+        f"({scope.value}, {signal.value}, {metric_repr}) is not a legal "
+        "analysis cell. The five legal tuples are: "
+        "(individual, continuous, ic), (individual, continuous, fm), "
+        "(individual, sparse, None), (common, continuous, None), "
+        "(common, sparse, None). Use AnalysisConfig.individual_continuous() "
+        "/ .individual_sparse() / .common_continuous() / .common_sparse()."
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisConfig:
+    """Three-axis spec for a single-factor analysis.
+
+    Construct via the four factory methods (the supported public API);
+    direct construction works but bypasses no validation — every path
+    runs through ``__post_init__``.
+    """
+
+    scope: FactorScope
+    signal: Signal
+    metric: Metric | None
+    forward_periods: int = 5
+
+    def __post_init__(self) -> None:
+        _validate_axis_compat(self.scope, self.signal, self.metric)
+
+    @classmethod
+    def individual_continuous(
+        cls,
+        *,
+        metric: Metric = Metric.IC,
+        forward_periods: int = 5,
+    ) -> Self:
+        """Per-(date, asset) continuous factor.
+
+        ``metric=IC`` for rank predictive ordering; ``metric=FM`` for
+        unit-of-exposure premium (Fama-MacBeth λ).
+        """
+        return cls(
+            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric,
+            forward_periods=forward_periods,
+        )
+
+    @classmethod
+    def individual_sparse(cls, *, forward_periods: int = 5) -> Self:
+        """Per-(date, asset) sparse trigger (``{-1, 0, +1}``).
+
+        Mode A canonical: CAAR cross-event t-test.
+        Mode B (N=1): TS dummy regression + NW HAC SE (§5.2).
+        """
+        return cls(
+            FactorScope.INDIVIDUAL, Signal.SPARSE, None,
+            forward_periods=forward_periods,
+        )
+
+    @classmethod
+    def common_continuous(cls, *, forward_periods: int = 5) -> Self:
+        """Broadcast continuous factor (e.g. VIX).
+
+        Canonical: per-asset β → cross-asset t-test on ``E[β]``.
+        """
+        return cls(
+            FactorScope.COMMON, Signal.CONTINUOUS, None,
+            forward_periods=forward_periods,
+        )
+
+    @classmethod
+    def common_sparse(cls, *, forward_periods: int = 5) -> Self:
+        """Broadcast sparse trigger (FOMC, policy, index rebalance).
+
+        Mode A canonical: per-asset β on dummy + cross-asset t-test.
+        Mode B (N=1): TS dummy regression + NW HAC SE (§5.2).
+        """
+        return cls(
+            FactorScope.COMMON, Signal.SPARSE, None,
+            forward_periods=forward_periods,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict (string-valued enums)."""
+        return {
+            "scope": self.scope.value,
+            "signal": self.signal.value,
+            "metric": self.metric.value if self.metric is not None else None,
+            "forward_periods": self.forward_periods,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Self:
+        """Reconstruct from ``to_dict``'s output.
+
+        Goes through ``__post_init__`` so an invalid triple raises
+        ``IncompatibleAxisError`` rather than silently constructing.
+        """
+        m = d.get("metric")
+        return cls(
+            scope=FactorScope(d["scope"]),
+            signal=Signal(d["signal"]),
+            metric=Metric(m) if m is not None else None,
+            forward_periods=d.get("forward_periods", 5),
+        )
