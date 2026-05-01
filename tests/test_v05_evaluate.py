@@ -132,14 +132,18 @@ class TestModeAxisError:
 
 class TestSparseCollapse:
     def test_individual_sparse_n1_routes_to_sentinel_entry(self) -> None:
-        ts = _build_timeseries(n_dates=20, seed=4)
-        with pytest.raises(NotImplementedError, match="TSDummy"):
-            _evaluate(ts, AnalysisConfig.individual_sparse())
+        # Sentinel cell is now wired — verify the routing reaches a real
+        # FactorProfile and the collapse InfoCode is attached.
+        ts = _build_timeseries(n_dates=40, seed=4)
+        profile = _evaluate(ts, AnalysisConfig.individual_sparse())
+        assert profile.mode is Mode.TIMESERIES
+        assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes
 
     def test_common_sparse_n1_routes_to_same_sentinel_entry(self) -> None:
-        ts = _build_timeseries(n_dates=20, seed=5)
-        with pytest.raises(NotImplementedError, match="TSDummy"):
-            _evaluate(ts, AnalysisConfig.common_sparse())
+        ts = _build_timeseries(n_dates=40, seed=5)
+        profile = _evaluate(ts, AnalysisConfig.common_sparse())
+        assert profile.mode is Mode.TIMESERIES
+        assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes
 
     def test_panel_sparse_routes_to_panel_entry(self) -> None:
         panel = _build_panel(n_dates=30, n_assets=20, seed=6)

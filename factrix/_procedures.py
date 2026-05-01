@@ -247,11 +247,129 @@ class _TSBetaContTimeseriesProcedure:
         )
 
 
-class _TSDummySparseTimeseriesProcedure(_StubProcedure):
-    """Mode B sparse procedure — shared across both user-facing scopes
-    via the ``_SCOPE_COLLAPSED`` sentinel (§5.4.1)."""
+class _TSDummySparseTimeseriesProcedure:
+    """``(_, SPARSE, None, TIMESERIES)`` — single-asset OLS β on dummy.
 
-    _NAME = "_TSDummySparseTimeseriesProcedure"
+    Plan §5.2 Mode B sparse / §5.4.1 sentinel collapse: shared across
+    both user-facing scopes (``individual_sparse`` and ``common_sparse``)
+    because at N=1 they are statistically equivalent. ``primary_p``
+    is the calendar-time TS dummy regression β NW HAC t-test — NOT
+    event-time CAAR (CAAR is kept as a Mode A procedure for the
+    PANEL cell).
+
+    Diagnostics (plan §5.2 four-layer warnings):
+
+    1. event window overlap on consecutive event gaps
+    2. Ljung-Box on residual ε_t (auto-lag ``min(10, T//10)``)
+    3. ``event_temporal_hhi`` Herfindahl on equal-time bin shares —
+       surfaces clustering of events along the calendar axis
+    4. ``UNRELIABLE_SE_SHORT_SERIES`` for ``T < MIN_T_RELIABLE``
+       (T < ``MIN_T_HARD`` raises ``InsufficientSampleError`` upstream)
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        import numpy as np
+
+        from factrix._codes import StatCode, WarningCode
+        from factrix._errors import InsufficientSampleError
+        from factrix._profile import FactorProfile
+        from factrix._stats import (
+            _ljung_box_p,
+            _ols_nw_slope_t,
+            _resolve_nw_lags,
+        )
+        from factrix._stats.constants import (
+            MIN_T_HARD,
+            MIN_T_RELIABLE,
+            auto_bartlett,
+        )
+
+        sorted_raw = raw.sort("date")
+        y = sorted_raw["forward_return"].drop_nulls().to_numpy()
+        d = sorted_raw["factor"].drop_nulls().to_numpy()
+        T = int(min(len(y), len(d)))
+
+        if T < MIN_T_HARD:
+            raise InsufficientSampleError(
+                f"T={T} below MIN_T_HARD={MIN_T_HARD}; NW HAC SE is too "
+                "biased for primary_p to be trustworthy at this floor."
+            )
+
+        y, d = y[:T], d[:T]
+        nw_lags = _resolve_nw_lags(
+            T, auto_bartlett(T), config.forward_periods,
+        )
+        beta, t_stat, p_value, resid = _ols_nw_slope_t(y, d, lags=nw_lags)
+        ljung_box_p = _ljung_box_p(resid)
+        hhi = _event_temporal_hhi(d)
+        overlap = _has_event_window_overlap(d, config.forward_periods)
+
+        warnings: set[WarningCode] = set()
+        if T < MIN_T_RELIABLE:
+            warnings.add(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+        if ljung_box_p < 0.05:
+            warnings.add(WarningCode.SERIAL_CORRELATION_DETECTED)
+        if overlap:
+            warnings.add(WarningCode.EVENT_WINDOW_OVERLAP)
+
+        return FactorProfile(
+            config=config,
+            mode=Mode.TIMESERIES,
+            primary_p=p_value,
+            n_obs=T,
+            warnings=frozenset(warnings),
+            stats={
+                StatCode.TS_BETA: beta,
+                StatCode.TS_BETA_T_NW: t_stat,
+                StatCode.TS_BETA_P: p_value,
+                StatCode.LJUNG_BOX_P: ljung_box_p,
+                StatCode.EVENT_TEMPORAL_HHI: hhi,
+                StatCode.NW_LAGS_USED: float(nw_lags),
+            },
+        )
+
+
+def _event_temporal_hhi(d_signal: Any, *, n_bins: int = 10) -> float:
+    """Herfindahl share of events across ``n_bins`` equal-time calendar bins.
+
+    HHI = ``Σ_k (n_k / N_total)²``. ``1/n_bins`` under uniform spread,
+    ``1.0`` when all events land in one bin, ``0.0`` for an empty
+    signal. Captures temporal clustering distinct from inter-event
+    gap variance.
+    """
+    import numpy as np
+
+    arr = np.asarray(d_signal)
+    nonzero = arr != 0
+    n_events = int(nonzero.sum())
+    if n_events == 0:
+        return 0.0
+    T = len(arr)
+    bins_for_position = np.minimum(np.arange(T) * n_bins // T, n_bins - 1)
+    counts = np.bincount(bins_for_position[nonzero], minlength=n_bins)
+    shares = counts / n_events
+    return float(np.sum(shares * shares))
+
+
+def _has_event_window_overlap(d_signal: Any, forward_periods: int) -> bool:
+    """True when any consecutive event pair sits within ``2*forward_periods``.
+
+    Plan §5.2: the response window of one event still contaminates the
+    next when ``min(dt_between_events) < 2 * window_length``.
+    """
+    import numpy as np
+
+    arr = np.asarray(d_signal)
+    positions = np.flatnonzero(arr != 0)
+    if len(positions) < 2:
+        return False
+    return bool(np.min(np.diff(positions)) < 2 * forward_periods)
 
 
 # ---------------------------------------------------------------------------
