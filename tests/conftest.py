@@ -1,25 +1,17 @@
-"""Shared fixtures for factrix unit tests."""
+"""Shared fixtures for factrix unit tests.
+
+Trimmed to v0.5 surface — Profile-era fixtures (cs_profile_strong /
+cs_profile_weak / cs_profiles_and_artifacts), the auto-use rule
+isolation, and the v0.4 build_artifacts dependency are all gone with
+the v0.4 deletion sweep. v0.5 procedure tests build their own
+synthetic panels locally.
+"""
 
 from datetime import datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
-
-from factrix.config import CrossSectionalConfig
-from factrix.evaluation.diagnostics import clear_custom_rules
-from factrix.evaluation.pipeline import build_artifacts
-from factrix.evaluation.profiles import CrossSectionalProfile
-
-
-@pytest.fixture(autouse=True)
-def _isolate_custom_rules():
-    """Drop any ``register_rule`` residue so rule registrations in one
-    test never leak into another. Tests that need rules still register
-    them explicitly inside the test body."""
-    clear_custom_rules()
-    yield
-    clear_custom_rules()
 
 
 @pytest.fixture
@@ -45,14 +37,7 @@ def tiny_panel() -> pl.DataFrame:
 
 @pytest.fixture
 def noisy_panel() -> pl.DataFrame:
-    """40 dates × 30 assets, seeded random with positive IC.
-
-    return = 0.3 * factor + 0.7 * noise → positive but noisy IC.
-
-    40 dates keeps the non-overlapping sample (fp=5 → 8 periods) above
-    MIN_PORTFOLIO_PERIODS=5 so spread/monotonicity tests actually exercise
-    the compute path instead of short-circuiting to NaN.
-    """
+    """40 dates × 30 assets, seeded random with positive IC."""
     rng = np.random.default_rng(42)
     n_dates, n_assets = 40, 30
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -81,7 +66,7 @@ def ic_series_positive() -> pl.DataFrame:
     """50-period positive IC series (date + value)."""
     rng = np.random.default_rng(42)
     values = rng.normal(0.05, 0.02, 50)
-    values = np.abs(values)  # ensure all positive
+    values = np.abs(values)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(50)]
     return pl.DataFrame({
         "date": dates,
@@ -104,45 +89,10 @@ def ic_series_sign_flip() -> pl.DataFrame:
     }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
-# ---------------------------------------------------------------------------
-# Profile-era fixtures (Phase A)
-# ---------------------------------------------------------------------------
-
-def _cs_panel(
-    n_dates: int,
-    n_assets: int,
-    signal_coef: float,
-    seed: int,
-    *,
-    include_price: bool = False,
-) -> pl.DataFrame:
-    """Build a cross-sectional panel with a tunable signal-to-noise mix.
-
-    ``include_price=True`` adds a dummy ``price`` column — multi_horizon_ic
-    (and any metric that recomputes forward returns from price) requires it.
-    """
-    rng = np.random.default_rng(seed)
-    dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
-    rows = []
-    for d in dates:
-        f = rng.standard_normal(n_assets)
-        noise = rng.standard_normal(n_assets)
-        r = signal_coef * f + (1 - abs(signal_coef)) * noise
-        for i in range(n_assets):
-            row: dict[str, object] = {
-                "date": d, "asset_id": f"a{i}",
-                "factor": float(f[i]), "forward_return": float(r[i]),
-            }
-            if include_price:
-                row["price"] = float(100 + rng.standard_normal())
-            rows.append(row)
-    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-
-
 def make_macro_panel(
     n_dates: int, n_countries: int, signal: float, seed: int,
 ) -> pl.DataFrame:
-    """Macro-panel factor panel (public — shared by profile/parity tests)."""
+    """Macro-panel factor panel (public — shared by parity tests)."""
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     rows = []
@@ -155,47 +105,3 @@ def make_macro_panel(
                 "factor": float(fvals[i]), "forward_return": float(r),
             })
     return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-
-
-@pytest.fixture
-def cs_profile_strong() -> CrossSectionalProfile:
-    """A cross-sectional profile with genuine positive IC signal."""
-    df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.5, seed=101)
-    art = build_artifacts(df, CrossSectionalConfig())
-    art.factor_name = "cs_strong"
-    profile, _ = CrossSectionalProfile.from_artifacts(art)
-    return profile
-
-
-@pytest.fixture
-def cs_profile_weak() -> CrossSectionalProfile:
-    """A cross-sectional profile with near-zero IC (should FAIL verdict)."""
-    df = _cs_panel(n_dates=60, n_assets=30, signal_coef=0.02, seed=202)
-    art = build_artifacts(df, CrossSectionalConfig())
-    art.factor_name = "cs_weak"
-    profile, _ = CrossSectionalProfile.from_artifacts(art)
-    return profile
-
-
-@pytest.fixture
-def cs_profiles_and_artifacts() -> tuple[
-    list[CrossSectionalProfile], dict[str, object]
-]:
-    """Four CS profiles ranging from strong to pure noise, plus their
-    artifacts (keyed by factor_name) for redundancy_matrix tests."""
-    specs = [
-        ("strong", 0.5, 301),
-        ("good", 0.3, 302),
-        ("marginal", 0.1, 303),
-        ("noise", 0.01, 304),
-    ]
-    profiles = []
-    artifacts_map = {}
-    for name, coef, seed in specs:
-        df = _cs_panel(n_dates=60, n_assets=25, signal_coef=coef, seed=seed)
-        art = build_artifacts(df, CrossSectionalConfig())
-        art.factor_name = name
-        profile, _ = CrossSectionalProfile.from_artifacts(art)
-        profiles.append(profile)
-        artifacts_map[name] = art
-    return profiles, artifacts_map
