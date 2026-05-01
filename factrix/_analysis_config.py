@@ -13,18 +13,7 @@ from typing import Any, Self
 
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._errors import IncompatibleAxisError
-
-
-# SSOT for legal ``(scope, signal, metric)`` triples (§4.3).
-_LEGAL_AXIS_TUPLES: frozenset[
-    tuple[FactorScope, Signal, Metric | None]
-] = frozenset({
-    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
-    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM),
-    (FactorScope.INDIVIDUAL, Signal.SPARSE, None),
-    (FactorScope.COMMON, Signal.CONTINUOUS, None),
-    (FactorScope.COMMON, Signal.SPARSE, None),
-})
+from factrix._registry import matches_user_axis
 
 
 # Nearest-legal cell suggested when an evaluate-time mode/sample check
@@ -51,10 +40,13 @@ def _validate_axis_compat(
 ) -> None:
     """Raise ``IncompatibleAxisError`` if the triple is not a legal cell.
 
-    Called from ``AnalysisConfig.__post_init__`` so every construction
-    path (factory, direct, ``from_dict``) hits the same gate.
+    Reverse-queries the registry SSOT (§4.4 A1) — any registered
+    ``_DispatchKey`` whose ``(signal, metric)`` matches and whose scope
+    either equals ``scope`` or is the collapse sentinel admits the
+    triple. Called from ``AnalysisConfig.__post_init__`` so every
+    construction path (factory, direct, ``from_dict``) hits one gate.
     """
-    if (scope, signal, metric) in _LEGAL_AXIS_TUPLES:
+    if matches_user_axis(scope, signal, metric):
         return
     metric_repr = metric.value if metric is not None else None
     raise IncompatibleAxisError(

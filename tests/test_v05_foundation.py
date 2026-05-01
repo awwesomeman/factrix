@@ -1,10 +1,4 @@
-"""v0.5 foundation tests — enums, constants, exceptions, AnalysisConfig.
-
-Covers refactor_api.md §4 / §4.5 / §4.6 / §5.2 acceptance criteria for
-the first batch of the rip-and-replace. Existing v0.4 evaluate path is
-not touched by the modules under test, so this file does not exercise
-``fl.evaluate`` / profiles / pipelines.
-"""
+"""v0.5 foundation tests — enums, constants, exceptions, AnalysisConfig."""
 
 from __future__ import annotations
 
@@ -12,11 +6,7 @@ import dataclasses
 
 import pytest
 
-from factrix._analysis_config import (
-    _FALLBACK_MAP,
-    _LEGAL_AXIS_TUPLES,
-    AnalysisConfig,
-)
+from factrix._analysis_config import _FALLBACK_MAP, AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
 from factrix._errors import (
@@ -174,8 +164,8 @@ class TestFactories:
         cfg = AnalysisConfig.individual_continuous(forward_periods=20)
         assert cfg.forward_periods == 20
 
-    def test_factories_only_emit_legal_tuples(self) -> None:
-        # Invariant: every factory output is in the legal set.
+    def test_factories_emit_five_distinct_legal_tuples(self) -> None:
+        # Invariant: factories produce exactly the five legal cells.
         configs = [
             AnalysisConfig.individual_continuous(),
             AnalysisConfig.individual_continuous(metric=Metric.FM),
@@ -184,7 +174,7 @@ class TestFactories:
             AnalysisConfig.common_sparse(),
         ]
         triples = {(c.scope, c.signal, c.metric) for c in configs}
-        assert triples == _LEGAL_AXIS_TUPLES
+        assert len(triples) == 5
 
     def test_frozen_dataclass(self) -> None:
         cfg = AnalysisConfig.individual_continuous()
