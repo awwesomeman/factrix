@@ -157,12 +157,6 @@ class TestStubsSurfaceThroughEvaluate:
         "build,cfg_factory,match",
         [
             pytest.param(
-                lambda: _build_panel(n_dates=30, n_assets=15, seed=7),
-                lambda: AnalysisConfig.individual_continuous(metric=Metric.FM),
-                "FMContPanel",
-                id="fm_panel",
-            ),
-            pytest.param(
                 lambda: _build_panel(n_dates=30, n_assets=15, seed=8),
                 lambda: AnalysisConfig.common_continuous(),
                 "CommonContPanel",

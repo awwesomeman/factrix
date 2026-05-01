@@ -143,9 +143,9 @@ class TestProcedureStubs:
         # Tracks the generic invariant: any cell whose procedure
         # subclasses _StubProcedure still surfaces NotImplementedError.
         # Update the dispatch key when this cell gets wired.
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.FM)
+        cfg = AnalysisConfig.common_continuous()
         key = _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM, Mode.PANEL,
+            FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.PANEL,
         )
         with pytest.raises(NotImplementedError, match="not implemented"):
             _DISPATCH_REGISTRY[key].procedure.compute(raw=None, config=cfg)

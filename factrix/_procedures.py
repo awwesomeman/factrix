@@ -111,8 +111,53 @@ class _ICContPanelProcedure:
         )
 
 
-class _FMContPanelProcedure(_StubProcedure):
-    _NAME = "_FMContPanelProcedure"
+class _FMContPanelProcedure:
+    """``(INDIVIDUAL, CONTINUOUS, FM, PANEL)`` — per-date OLS slope λ.
+
+    Aggregates per-date cross-sectional regression slopes into a time
+    series, then runs an NW HAC t-test on the mean (Bartlett kernel,
+    NW1994 auto lag with Hansen-Hodrick overlap floor — same shape as
+    the IC procedure).
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        import numpy as np
+
+        from factrix._codes import StatCode
+        from factrix._profile import FactorProfile
+        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
+        from factrix._stats.constants import auto_bartlett
+        from factrix.metrics.fama_macbeth import compute_fm_betas
+
+        beta_values = (
+            compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
+        )
+        T = int(len(beta_values))
+        nw_lags = (
+            _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
+            if T >= 2 else 0
+        )
+        lambda_mean = float(np.mean(beta_values)) if T > 0 else 0.0
+        t_stat, p_value, _ = _newey_west_t_test(beta_values, lags=nw_lags)
+
+        return FactorProfile(
+            config=config,
+            mode=Mode.PANEL,
+            primary_p=p_value,
+            n_obs=T,
+            stats={
+                StatCode.FM_LAMBDA_MEAN: lambda_mean,
+                StatCode.FM_LAMBDA_T_NW: t_stat,
+                StatCode.FM_LAMBDA_P: p_value,
+                StatCode.NW_LAGS_USED: float(nw_lags),
+            },
+        )
 
 
 class _CAARSparsePanelProcedure(_StubProcedure):
