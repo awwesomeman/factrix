@@ -1,18 +1,19 @@
 """Synthetic panels for examples, tests, and documentation.
 
 Both generators emit **raw canonical-column panels** (``date, asset_id,
-price, factor``). Callers run ``fl.preprocess`` before ``fl.evaluate`` —
-this matches the rest of factrix where preprocess and evaluate are
-deliberately two visible steps so config binding can't silently drift.
+price, factor``). Callers attach ``forward_return`` (e.g. via
+``factrix.preprocess.returns.compute_forward_return``) before calling
+``fl.evaluate(panel, cfg)``.
 
 Usage:
 
     import factrix as fl
+    from factrix.preprocess.returns import compute_forward_return
 
     raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500)
-    cfg = fl.CrossSectionalConfig(forward_periods=5)
-    prepared = fl.preprocess(raw, config=cfg)
-    profile  = fl.evaluate(prepared, "synthetic", config=cfg)
+    panel = compute_forward_return(raw, forward_periods=5)
+    cfg = fl.AnalysisConfig.individual_continuous(forward_periods=5)
+    profile = fl.evaluate(panel, cfg)
 
 The dataset's ``signal_horizon`` (default 5) is a property of the
 synthetic signal, not a pipeline parameter. When
@@ -83,8 +84,8 @@ def make_cs_panel(
            identical — realized ``ic_mean`` at ``|ic_target| ≳ 0.2`` may
            diverge by a few bp.
         5. The last ``H+1`` dates have no defined forward return; factor
-           values there are pure noise and will be dropped by
-           ``fl.preprocess`` along with the null forward returns.
+           values there are pure noise and will be dropped along with
+           the null forward returns once ``compute_forward_return`` runs.
 
     Args:
         n_assets: Cross-sectional width.
@@ -92,14 +93,15 @@ def make_cs_panel(
             weekends — factrix doesn't prescribe a calendar).
         ic_target: Target per-date Pearson CS correlation between
             factor and forward return at ``signal_horizon``. Realized
-            ``ic_mean`` after ``fl.evaluate`` will fall near this within
-            a couple of standard errors — overlapping forward returns
-            reduce effective independent dates by ``signal_horizon`` so
-            s.e. ≈ ``1 / √((n_dates / signal_horizon) · n_assets)``.
+            realized per-date IC after ``fl.evaluate`` will fall near this
+            within a couple of standard errors — overlapping forward
+            returns reduce effective independent dates by
+            ``signal_horizon`` so s.e. ≈
+            ``1 / √((n_dates / signal_horizon) · n_assets)``.
         signal_horizon: Horizon (in bars) at which the synthetic signal
             lives — a property of the generated data, not a pipeline
             parameter. Pipelines measuring at
-            ``CrossSectionalConfig.forward_periods == signal_horizon``
+            ``AnalysisConfig.forward_periods == signal_horizon``
             realize the nominal IC; different horizons realize a
             decayed IC (correct physics for a signal with a natural
             time-scale, not a bug).
@@ -108,8 +110,9 @@ def make_cs_panel(
 
     Returns:
         Long DataFrame with ``date, asset_id, price, factor`` and
-        ``date`` dtype ``pl.Datetime("ms")`` so it drops directly into
-        ``fl.validate_factor_data`` / ``fl.preprocess``.
+        ``date`` dtype ``pl.Datetime("ms")``. Attach ``forward_return``
+        (e.g. via ``factrix.preprocess.returns.compute_forward_return``)
+        before passing to ``fl.evaluate``.
     """
     if n_assets < 2:
         raise ValueError("n_assets must be >= 2 for a cross-section")
@@ -169,7 +172,8 @@ def make_event_panel(
            so the event signal is discoverable but not trivial.
         4. Prices are cumulated after drift injection.
 
-    Suitable for ``EventConfig`` / ``factor_type="event_signal"``.
+    Suitable for ``AnalysisConfig.individual_sparse()`` /
+    ``AnalysisConfig.common_sparse()``.
 
     Args:
         n_assets: Cross-sectional width.
@@ -182,7 +186,7 @@ def make_event_panel(
         signal_horizon: Horizon (in bars) over which post-event drift
             is distributed — a property of the generated data, not a
             pipeline parameter. Pipelines measuring at
-            ``EventConfig.forward_periods == signal_horizon`` realize
+            ``AnalysisConfig.forward_periods == signal_horizon`` realize
             the nominal drift; different horizons realize a weakened or
             diluted signal (correct physics for a signal with a natural
             time-scale, not a bug).
@@ -191,8 +195,10 @@ def make_event_panel(
 
     Returns:
         Long DataFrame with ``date, asset_id, price, factor``. Factor
-        is ``Float64`` with values in ``{-1.0, 0.0, +1.0}`` so the
-        event_signal preprocess path accepts it verbatim.
+        is ``Float64`` with values in ``{-1.0, 0.0, +1.0}``. Attach
+        ``forward_return`` (e.g. via
+        ``factrix.preprocess.returns.compute_forward_return``) before
+        passing to ``fl.evaluate``.
     """
     if n_assets < 1:
         raise ValueError("n_assets must be >= 1")

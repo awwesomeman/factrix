@@ -1,6 +1,6 @@
 [project]
 name = "factrix"
-version = "0.4.0"
+version = "0.5.0"
 description = "Quantitative factor evaluation framework for AI-driven factor mining"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -46,9 +46,14 @@ namespaces = false
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+]
+
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.4.0"
+version = "0.5.0"
 tag_format = "v$version"
 bump_message = "chore(release): v$new_version"
 changelog_incremental = true

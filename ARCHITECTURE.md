@@ -1,170 +1,181 @@
 # factrix Architecture
 
-Current-state snapshot — describes the library as it stands, not how it got
-here. For design-process history see the originating workspace's `docs/`
-(spike docs, refactor plans) in the `awwesomeman/factor-analysis` repo.
+Current-state snapshot — describes the v0.5 library as it stands.
 
 ---
 
 ## Positioning
 
-**factrix is a Factor Signal Analyzer, not a backtest engine.**
+**factrix is a Factor Signal Validator, not a backtest engine.**
 
-Metrics like `turnover`, `breakeven_cost`, and `net_spread` are idealized
-proxies (equal-weight, zero slippage) used to screen signal quality; they
-are not tradable P&L. For realistic execution simulation, feed screened
-factors into Zipline / Backtrader / a proprietary engine.
+The library produces a single `primary_p` per factor cell from a NW HAC-corrected
+canonical procedure (IC / FM-λ / CAAR / TS-β). Realistic execution simulation,
+tradability proxies, and portfolio construction are out of scope — feed
+screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
 ---
 
 ## Public API surface
 
-Four entry points, all in `factrix.__init__`:
+Three entry points, all in `factrix.__init__`:
 
-| Function | Purpose |
-|----------|---------|
-| `fl.preprocess(df, config=...)` | Attach `forward_return` column, attach `_fl_forward_periods` marker, dispatch to per-type orchestrator |
-| `fl.evaluate(prepared_df, factor_name, config=...)` | Single-factor evaluation → typed `Profile` dataclass |
-| `fl.evaluate_batch(prepared_df, factor_names, config=..., compact=, keep_artifacts=)` | Multi-factor evaluation → `ProfileSet` |
-| `fl.factor(factor_type, ...)` | Factory for `Factor` session (caches primitives, supports per-call overrides) |
+| Symbol | Purpose |
+|--------|---------|
+| `fl.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
+| `fl.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
+| `fl.multi_factor.bhy(profiles, *, threshold=0.05)` | Benjamini-Yekutieli FDR correction across a profile batch |
 
-Both `evaluate` and `evaluate_batch` accept `return_artifacts=True` to expose
-the underlying `Artifacts` object for drill-down into intermediate
-`MetricOutput` dictionaries.
+Plus introspection / error / enum re-exports:
 
----
+- `fl.FactorScope`, `fl.Signal`, `fl.Metric`, `fl.Mode` — three user-facing axes + the evaluate-time-derived fourth
+- `fl.WarningCode`, `fl.InfoCode`, `fl.StatCode`, `fl.Verdict` — structured codes carried on `FactorProfile`
+- `fl.FactorProfile` — single unified result type
+- `fl.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
+- `fl.suggest_config(panel)` — heuristic factory call from a raw panel
+- `fl.ConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError` — exception hierarchy
 
-## Four factor types
-
-Each type has its own `Config`, `Profile` dataclass, `Factor` subclass, and
-preprocess orchestrator. Mixing types in a single `ProfileSet` raises
-`TypeError`.
-
-| Type | Config | Profile | Factor subclass | Canonical p-value source |
-|------|--------|---------|-----------------|--------------------------|
-| cross_sectional | `CrossSectionalConfig` | `CrossSectionalProfile` | `CrossSectionalFactor` | IC t-test p |
-| event_signal | `EventConfig` | `EventProfile` | `EventFactor` | CAAR p on main event window |
-| macro_panel | `MacroPanelConfig` | `MacroPanelProfile` | `MacroPanelFactor` | Fama-MacBeth λ p |
-| macro_common | `MacroCommonConfig` | `MacroCommonProfile` | `MacroCommonFactor` | time-series β p |
-
-The `Factor` base class itself is deliberately **not** re-exported in
-`fl.__all__` — factory `fl.factor()` is the canonical entry. Subclasses
-are exported so `isinstance(x, CrossSectionalFactor)` works.
+`__version__ = "0.5.0"`.
 
 ---
 
-## Profile dataclass contract
+## Three orthogonal axes + Mode
 
-- `frozen=True, slots=True` — Profiles are immutable value objects
-- `verdict()` returns `"PASS" | "PASS_WITH_WARNINGS" | "FAILED"`. `PASS_WITH_WARNINGS` fires when `canonical_p` passes but a warn-severity diagnostic names a whitelisted alternative `recommended_p_source` the user has not adopted. No `CAUTION` bucket — that shape was deliberately removed.
-- `canonical_p` is per-type hard-coded (see table above); `P_VALUE_FIELDS`
-  is the cross-factor whitelist used when BHY-correcting a `ProfileSet`
-- `diagnose()` returns `list[Diagnostic]` — diagnostic rules are evaluated
-  lazily per call, allowing user-registered rules via `register_rule`
-- Canonical p field **must** appear in `P_VALUE_FIELDS`
+The user-facing axis triple is `(FactorScope, Signal, Metric)`. A fourth
+axis `Mode` is **derived at evaluate-time** from `panel["asset_id"].n_unique()`:
 
----
+| Axis        | Values                                      | User-facing? |
+|-------------|---------------------------------------------|--------------|
+| `FactorScope` | `INDIVIDUAL` / `COMMON`                   | yes          |
+| `Signal`    | `CONTINUOUS` / `SPARSE`                     | yes          |
+| `Metric`    | `IC` / `FM` / `None`                        | yes (only `(INDIVIDUAL, CONTINUOUS)` accepts a non-None metric) |
+| `Mode`      | `PANEL` (N≥2) / `TIMESERIES` (N=1)          | no — derived  |
 
-## Artifacts and compact mode
-
-`Artifacts` holds the raw computation output (IC series, quantile returns,
-event matrices, intermediates). It's hidden by default. Opt-in paths:
-
-- `evaluate(..., return_artifacts=True)` → `(profile, artifacts)` tuple
-- `evaluate_batch(..., keep_artifacts=True)` — keeps all artifacts in
-  `ProfileSet.artifacts` (memory-expensive for large batches)
-- `evaluate_batch(..., compact=True)` — keeps only a minimal subset
-  (`MetricOutput.compact()`), suitable for 1000+ factor sweeps
-
-Level 2 helpers (`regime_ic`, `multi_horizon_ic`, `spanning_alpha`,
-orthogonalization) write their 1-row DataFrame results into
-`artifacts.intermediates` with stable keys.
+Five legal `(scope, signal, metric)` triples × two modes give seven legal
+`(scope, signal, metric, mode)` cells (Mode B narrows to three triples; the
+remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel — see §5.4.1
+of the refactor plan).
 
 ---
 
-## ProfileSet and multiple testing
+## Registry SSOT dispatch
 
-`ProfileSet` is a homogeneous container (single Profile type). Key methods:
+`factrix/_registry.py` holds **the** source of truth:
 
-- `multiple_testing_correct(p_source=..., fdr=0.05, method="bhy")` —
-  adds a `<method>_significant` column and `mt_method` marker column
-- `to_polars()` — flatten to a wide DataFrame for filtering / ranking
-- `rank_by(field)`, `top(n)`, `filter(...)` — chainable selectors
-- `describe_profile_values(...)` — inspect field completeness
-- `diagnose_all()` — flatten every profile's diagnostics into one polars
-  DataFrame (`factor_name, severity, code, message, recommended_p_source`)
-  for zoo-scale triage
-- `with_canonical(field)` — rebind the canonical p-source for downstream
-  `multiple_testing_correct` and the `canonical_p` alias column; does
-  not mutate individual profile dataclasses
+- `_DispatchKey(scope, signal, metric, mode)` — the cell coordinate
+- `_RegistryEntry(key, procedure, canonical_use_case, references)` — procedure + docs metadata
+- `_DISPATCH_REGISTRY: dict[_DispatchKey, _RegistryEntry]`
+- `register(key, procedure, *, use_case, refs)` — append-only; duplicate keys raise
+- `matches_user_axis(scope, signal, metric)` — reverse query for `AnalysisConfig` validation
+- `_SCOPE_COLLAPSED: _ScopeCollapsedSentinel` — internal routing token for `(*, SPARSE, N=1)`; not exposed as a `FactorScope` enum value to keep the user-facing axis narrow
 
-Invariant: `multiple_testing_correct`'s `n_total` must be `>= len(self)`
-(correction can be applied over a larger universe than what was kept).
+Bootstrap order: `_registry` defines `register` / `_DispatchKey`, then imports
+`_procedures` at the bottom of the module so all 7 cells `register(...)` at
+import time. Every introspection/validation path reverse-queries this dict —
+no parallel rule table.
 
----
-
-## Diagnostics vs Canonical — design philosophy
-
-factrix deliberately keeps **two decision surfaces distinct**:
-
-1. `canonical_p` (bound to `CANONICAL_P_FIELD`) — the single authoritative
-   p-value fed to BHY. Stable per Profile class; never auto-switches.
-2. `diagnose()` — a list of `Diagnostic(severity, code, message,
-   recommended_p_source)` surfacing risks (clustering, factor persistence,
-   overlap-induced IC inflation). Rules may recommend an alternative
-   p-value via `recommended_p_source`, but the framework **does not**
-   silently rebind canonical based on diagnostics.
-
-Why not auto-switch? Three reasons:
-- **Reproducibility**: canonical tied to a rule threshold (e.g. HHI>0.2)
-  means the BHY input set depends on sample-dependent diagnostics. Two
-  runs on slightly different data could silently pick different p-values.
-- **Hidden assumptions**: a user inspecting `canonical_p=0.01` should be
-  able to name the test without cross-referencing dynamic state.
-- **Threshold fragility**: rule cutoffs (HHI 0.2 vs 0.25, ADF p 0.05 vs
-  0.10) are themselves judgement calls that should not drive first-order
-  statistical inference.
-
-Instead:
-- `diagnose()` surfaces risk flags as data.
-- `verdict()` exposes `PASS_WITH_WARNINGS` when a warn-severity diagnostic
-  names a defensible alternative the user has not adopted — a UX hint, not
-  a severity grade.
-- `ProfileSet.with_canonical(field)` lets the user **explicitly** rebind
-  for zoo-scale BHY.
-- `factrix.evaluation` logger emits INFO on each `multiple_testing_correct`
-  call and WARNING when `PASS_WITH_WARNINGS` fires. `factrix.metrics`
-  logger emits DEBUG per correction (sample shrink, NW lags) and WARNING
-  for degenerate regimes (sample < 1.5×min, lags×5 > T).
-
-Slogan: **framework detects risk, user decides the correction**.
-
-Caveat: some diagnostics have **config-level** remediations rather than
-an alternative p-value (e.g. `event.clustering_high` should be fixed by
-setting `EventConfig.adjust_clustering='kolari_pynnonen'`, not by swapping
-p-source). These rules carry no `recommended_p_source` and therefore do
-not upgrade `verdict()` to `PASS_WITH_WARNINGS`. The message field names
-the config lever instead. Users who want a uniform "any diagnose warning
-implies verdict caveat" view can filter `diagnose_all()` directly.
+Adding a cell touches one `register(...)` call.
 
 ---
 
-## Factor session (caching + override)
+## FactorProcedure protocol
 
-`fl.factor(factor_type, ...)` returns a `Factor` session bound to a
-(df, config) pair. Primitives are cached by key — the cache key **must**
-match `MetricOutput.name` (asserted on the override path to catch
-name/key drift).
+`factrix/_procedures.py` defines the seven procedure classes. Each implements:
 
-Per-call overrides (e.g., sensitivity sweeps):
 ```python
-f = fl.factor("cross_sectional", df=prepared, name="Mom_20D")
-f.breakeven_cost(n_groups=5)         # override n_groups
-f.net_spread(estimated_cost_bps=25)  # override cost assumption
+class FactorProcedure(Protocol):
+    INPUT_SCHEMA: ClassVar[InputSchema]
+    def compute(self, raw: pl.DataFrame, config: AnalysisConfig) -> FactorProfile: ...
 ```
 
-Overrides emit a `UserWarning` (advisory — the user is deviating from the
-bound config). See `factrix/factor.py`.
+`InputSchema` lists `required_columns` — currently `("date", "asset_id", "factor", "forward_return")` for all 7 cells.
+
+The seven cells:
+
+| `(scope, signal, metric, mode)`                         | Procedure class                                  | Canonical statistic             |
+|---------------------------------------------------------|--------------------------------------------------|---------------------------------|
+| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICPanelProcedure`                              | NW HAC t on `E[Spearman ρ_t]`   |
+| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMPanelProcedure`                              | NW HAC t on `E[λ_t]`            |
+| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARPanelProcedure`                            | Cross-event t on CAAR           |
+| `(COMMON, CONTINUOUS, None, PANEL)`                      | `_CommonContPanelProcedure`                      | Cross-asset t on `E[β_i]`       |
+| `(COMMON, SPARSE, None, PANEL)`                          | `_CommonSparsePanelProcedure`                    | Cross-asset t on `E[β_i]` on dummy |
+| `(COMMON, CONTINUOUS, None, TIMESERIES)`                 | `_TSBetaContTimeseriesProcedure`                 | NW HAC t on β; ADF on factor    |
+| `(_SCOPE_COLLAPSED, SPARSE, None, TIMESERIES)`           | `_TSDummySparseTimeseriesProcedure`              | NW HAC t on β; Ljung-Box on ε   |
+
+The two timeseries cells share the NW HAC + auto-Bartlett-with-Hansen-Hodrick-floor
+lag rule from `factrix/_stats/constants.py`.
+
+---
+
+## FactorProfile dataclass contract
+
+`factrix/_profile.py`:
+
+```python
+@dataclass(frozen=True, slots=True)
+class FactorProfile:
+    config: AnalysisConfig
+    mode: Mode
+    primary_p: float
+    n_obs: int
+    warnings: frozenset[WarningCode] = frozenset()
+    info_notes: frozenset[InfoCode] = frozenset()
+    stats: Mapping[StatCode, float] = field(default_factory=dict)
+```
+
+- `verdict(*, threshold=0.05, gate=None) -> Verdict` — `gate=None` uses `primary_p`; supplying a `StatCode` swaps the gate (raises `KeyError` if not populated)
+- `diagnose() -> dict[str, Any]` — flatten `mode / n_obs / primary_p / warnings / info_notes / stats` for human or AI agent triage
+
+Single dataclass, no per-cell subclass proliferation. Cell-specific scalars live
+in `stats: Mapping[StatCode, float]` keyed by enum, not by string.
+
+---
+
+## Mode A / Mode B equivalence
+
+Both modes produce real `primary_p` values — neither is degraded.
+
+`(INDIVIDUAL, CONTINUOUS, *) × N=1` is mathematically undefined (no
+cross-sectional dispersion → IC and per-date OLS undefined). `_evaluate`
+raises `ModeAxisError` with `suggested_fix=AnalysisConfig.common_continuous(...)`
+drawn from `_FALLBACK_MAP` in `factrix/_analysis_config.py`. Explicit
+user-correctable, never silent rewrite.
+
+`(*, SPARSE, *) × N=1` is well-defined but the `INDIVIDUAL` / `COMMON`
+distinction collapses (one asset → no scope axis). Both user-facing factory
+calls route to the same `_TSDummySparseTimeseriesProcedure` via the
+`_SCOPE_COLLAPSED` sentinel, with `InfoCode.SCOPE_AXIS_COLLAPSED` attached
+to the resulting profile so the routing is auditable.
+
+---
+
+## Sample guards
+
+`factrix/_stats/constants.py`:
+
+- `MIN_T_HARD = 20` — `T < MIN_T_HARD` raises `InsufficientSampleError`
+- `MIN_T_RELIABLE = 30` — `T < MIN_T_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_SERIES`
+- `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule
+- Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` — ensures NW lag covers MA(h-1) structure from overlapping forward returns
+
+`factrix/_types.py` keeps the older per-metric thresholds (`MIN_IC_PERIODS = 10`,
+`MIN_EVENTS = 10`, etc.) used internally by the metric primitives that
+procedures wrap.
+
+---
+
+## BHY family partitioning
+
+`factrix/_multi_factor.py::bhy(profiles, *, threshold=0.05, gate=None)`:
+
+1. partitions `profiles` by `_family_key(profile)` — derived from
+   `(profile.config.scope, profile.config.signal, profile.config.metric)`
+   with the same `_SCOPE_COLLAPSED` collapse rule applied at evaluate-time so
+   Mode A and Mode B sparse profiles aggregate to one family.
+2. within each family, runs Benjamini-Yekutieli step-up correction at the
+   given FDR threshold and returns the survivors.
+
+User does **not** pass a group key — same-test-family is enforced by the
+config triple, not by user discipline.
 
 ---
 
@@ -172,28 +183,24 @@ bound config). See `factrix/factor.py`.
 
 ```
 factrix/
-├── _api.py                   # fl.evaluate / evaluate_batch / factor / redundancy_matrix
-├── _types.py                 # Diagnostic, FactorType, MetricOutput, PValue, Verdict
-├── _ols.py, _stats.py        # numeric primitives
-├── config.py                 # {CrossSectional,Event,MacroPanel,MacroCommon}Config
-├── factor.py                 # Factor base + 4 subclasses, caching, override path
-├── validation.py             # validate_factor_data
-├── reporting.py              # describe_profile_values
-├── adapt.py                  # fl.adapt (deprecated path, retained for compat)
-├── preprocess/               # per-type preprocess orchestrators
-├── evaluation/
-│   ├── pipeline.py           # build_artifacts, compute_spread_series
-│   ├── profiles/             # {CrossSectional,Event,MacroPanel,MacroCommon}Profile
-│   ├── profile_set.py        # ProfileSet
-│   └── diagnostics.py        # Rule, register_rule, clear_custom_rules
-├── metrics/                  # ic, caar, hit_rate, monotonicity, concentration,
-│                             # quantile, fama_macbeth, ts_beta, tradability,
-│                             # trend, spanning, clustering, corrado, event_quality
-├── stats/                    # bhy_adjust, bhy_adjusted_p, small-sample p-value
-├── charts/                   # quantile, monotonicity (plotly)
-├── factors/                  # reference factor library (Mom, Rev, Vol, …)
-└── integrations/
-    └── mlflow.py             # run.log_factrix_artifacts helper
+├── __init__.py              # public surface
+├── _axis.py                 # FactorScope / Signal / Metric / Mode StrEnums
+├── _codes.py                # WarningCode / InfoCode / StatCode / Verdict StrEnums
+├── _errors.py               # FactrixError → ConfigError → {IncompatibleAxisError, ModeAxisError, InsufficientSampleError}
+├── _analysis_config.py      # AnalysisConfig + 4 factories + _FALLBACK_MAP
+├── _registry.py             # _DispatchKey, _RegistryEntry, _SCOPE_COLLAPSED, register()
+├── _procedures.py           # 7 FactorProcedure classes; bootstrap-registered at import
+├── _profile.py              # FactorProfile dataclass + verdict / diagnose
+├── _evaluate.py             # _derive_mode + _evaluate dispatch wrapper
+├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
+├── _multi_factor.py         # bhy with family partitioning
+├── multi_factor.py          # public namespace (re-exports bhy)
+├── _stats/
+│   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
+│   └── constants.py         # MIN_T_HARD / MIN_T_RELIABLE / auto_bartlett
+├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_*_PERIODS
+├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
+└── datasets.py              # synthetic CS / event panels
 ```
 
 ---
@@ -202,28 +209,23 @@ factrix/
 
 Hard constraints — violating these breaks the API contract:
 
-1. `Profile.verdict()` returns `PASS | PASS_WITH_WARNINGS | FAILED`; never `CAUTION`.
-2. `Profile` dataclass is `frozen=True, slots=True`.
-3. `CANONICAL_P_FIELD` for each Profile type must appear in its
-   `P_VALUE_FIELDS`.
-4. `ProfileSet` holds a single Profile type; mixing raises `TypeError`.
-5. `P_VALUE_FIELDS` is a cross-factor whitelist (same test applied to
-   the whole BHY batch).
-6. `config.ortho` is `OrthoConfig | pl.DataFrame | None`.
-7. `ortho_stats` / `regime_stats` / `multi_horizon_stats` / `spanning_stats`
-   are 1-row DataFrames living in `artifacts.intermediates`.
-8. `ProfileSet.mt_method` column means "correction applied" (marker).
-9. `multiple_testing_correct(n_total=N)` requires `N >= len(self)`.
-10. `fl.factor()` supports all four `factor_type` values; the `Factor`
-    base class is not in `fl.__all__` — factory is the canonical entry.
-11. `Factor` cache key **must** equal the primitive's `MetricOutput.name`
-    (asserted on override path).
+1. `AnalysisConfig` is `frozen=True, slots=True`; every construction path goes through `__post_init__ → _validate_axis_compat` (factory, direct, `from_dict` all hit the same gate).
+2. `FactorProfile` is `frozen=True, slots=True`. One unified type — no per-cell subclass.
+3. The registry is the SSOT for "which cells exist". `_validate_axis_compat`, `describe_analysis_modes`, `suggest_config`, BHY family partitioning all reverse-query it; no parallel rule table.
+4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
+5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. Mode B never returns a degenerate `primary_p = 1.0`.
+6. `verdict()` reads `primary_p` (or a user-supplied `StatCode` gate); `warnings` and `info_notes` never auto-rebind it.
+7. BHY family key is derived from the config triple, not user-supplied. Same-test-family is mechanical, not by discipline.
+8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
+9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
+10. `T < MIN_T_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.
 
 ---
 
 ## Testing
 
-`tests/` mirrors `factrix/` layout. Fixtures are fully synthetic — no
-test reads real market data from disk. 555 tests total as of v0.1.0.
+`tests/` covers the v0.5 surface only — v0.4 tests were removed in the §8.2
+deletion sweep. Fixtures are fully synthetic (`tests/conftest.py` +
+`factrix.datasets`); no test reads real market data from disk.
 
 Run: `uv run pytest`

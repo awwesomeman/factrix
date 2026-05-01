@@ -21,14 +21,13 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from factrix._analysis_config import _FALLBACK_MAP
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import Mode, Signal
 from factrix._codes import InfoCode
 from factrix._errors import ModeAxisError
 from factrix._registry import (
     _DISPATCH_REGISTRY,
-    _SCOPE_COLLAPSED,
     _DispatchKey,
-    _ScopeCollapsedSentinel,
+    _route_scope,
 )
 
 if TYPE_CHECKING:
@@ -49,13 +48,11 @@ def _derive_mode(raw: Any) -> Mode:
 def _evaluate(raw: Any, config: "AnalysisConfig") -> "FactorProfile":
     """Dispatch ``config + raw`` to the registered procedure."""
     mode = _derive_mode(raw)
-    routed_scope: FactorScope | _ScopeCollapsedSentinel = config.scope
-    extra_info: frozenset[InfoCode] = frozenset()
-
-    if config.signal is Signal.SPARSE and mode is Mode.TIMESERIES:
-        routed_scope = _SCOPE_COLLAPSED
-        extra_info = frozenset({InfoCode.SCOPE_AXIS_COLLAPSED})
-
+    routed_scope = _route_scope(config.scope, config.signal, mode)
+    extra_info: frozenset[InfoCode] = (
+        frozenset({InfoCode.SCOPE_AXIS_COLLAPSED})
+        if routed_scope is not config.scope else frozenset()
+    )
     key = _DispatchKey(routed_scope, config.signal, config.metric, mode)
     entry = _DISPATCH_REGISTRY.get(key)
     if entry is None:

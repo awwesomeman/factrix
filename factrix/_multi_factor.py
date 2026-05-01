@@ -14,19 +14,15 @@ effective sample sizes. Mode B sparse collapses scope into the
 
 from __future__ import annotations
 
+import warnings
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 import numpy as np
 
-from factrix._axis import FactorScope, Mode, Signal
 from factrix._codes import StatCode
-from factrix._registry import (
-    _SCOPE_COLLAPSED,
-    _DispatchKey,
-    _ScopeCollapsedSentinel,
-)
+from factrix._registry import _DispatchKey, _route_scope
 from factrix.stats.multiple_testing import bhy_adjust
 
 if TYPE_CHECKING:
@@ -36,14 +32,13 @@ if TYPE_CHECKING:
 def _family_key(profile: "FactorProfile") -> _DispatchKey:
     """Derive the BHY family key from a ``FactorProfile``.
 
-    Mirrors ``_evaluate``'s sparse-N=1 collapse: when ``signal=SPARSE``
-    and ``mode=TIMESERIES`` the user-facing scope is rewritten to the
-    ``_SCOPE_COLLAPSED`` sentinel so ``individual_sparse`` and
-    ``common_sparse`` profiles share one family (§5.4.1 / §5.6).
+    Reuses ``_route_scope`` so the sparse-N=1 collapse mirrors
+    ``_evaluate`` exactly — ``individual_sparse`` and ``common_sparse``
+    profiles at N=1 sit in the same family (§5.4.1 / §5.6).
     """
-    scope: FactorScope | _ScopeCollapsedSentinel = profile.config.scope
-    if profile.config.signal is Signal.SPARSE and profile.mode is Mode.TIMESERIES:
-        scope = _SCOPE_COLLAPSED
+    scope = _route_scope(
+        profile.config.scope, profile.config.signal, profile.mode,
+    )
     return _DispatchKey(
         scope=scope,
         signal=profile.config.signal,
@@ -83,6 +78,22 @@ def bhy(
     families: dict[_DispatchKey, list["FactorProfile"]] = defaultdict(list)
     for profile in profiles:
         families[_family_key(profile)].append(profile)
+
+    # UX-2 from review: BHY on a size-1 family is identical to a raw
+    # threshold check — useful diagnostic for the (common bug) of
+    # passing one profile per cell from a sweep and assuming FDR is
+    # being controlled. Warn but do not raise; user may have only one
+    # candidate in a family legitimately.
+    singleton_families = sum(1 for fps in families.values() if len(fps) == 1)
+    if singleton_families and len(families) > 1:
+        warnings.warn(
+            f"bhy: {singleton_families} of {len(families)} families "
+            "contain a single profile — BHY on n=1 is identical to a "
+            "raw threshold and provides no FDR correction. Group ≥2 "
+            "same-family profiles per call for meaningful control.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     survivors: list["FactorProfile"] = []
     for family_profiles in families.values():

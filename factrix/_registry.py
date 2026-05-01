@@ -77,12 +77,36 @@ def register(
     """
     if key in _DISPATCH_REGISTRY:
         raise ValueError(f"DispatchKey already registered: {key}")
+    # A-4 from review: sentinel-keyed entries route both INDIVIDUAL and
+    # COMMON user axes to the same procedure, so a non-None metric on
+    # such an entry would silently let an illegal (e.g. SPARSE+IC)
+    # triple pass `matches_user_axis`. Lock it out at registration.
+    if key.scope is _SCOPE_COLLAPSED and key.metric is not None:
+        raise ValueError(
+            "_SCOPE_COLLAPSED entries must have metric=None — "
+            "non-None metric on a collapsed-scope cell would let "
+            "matches_user_axis admit illegal user triples.",
+        )
     _DISPATCH_REGISTRY[key] = _RegistryEntry(
         key=key,
         procedure=procedure,
         canonical_use_case=use_case,
         references=refs,
     )
+
+
+def _route_scope(
+    scope: FactorScope, signal: Signal, mode: Mode,
+) -> FactorScope | _ScopeCollapsedSentinel:
+    """Apply the §5.4.1 scope-collapse rule for sparse Mode B routing.
+
+    Single source of truth for "when does the scope axis collapse to
+    the sentinel?" — `_evaluate`, `_describe`, and `_multi_factor.bhy`
+    all call this so the rule cannot drift across sites.
+    """
+    if signal is Signal.SPARSE and mode is Mode.TIMESERIES:
+        return _SCOPE_COLLAPSED
+    return scope
 
 
 def matches_user_axis(

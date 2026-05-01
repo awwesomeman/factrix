@@ -10,10 +10,13 @@ from enum import StrEnum
 
 
 class WarningCode(StrEnum):
-    """Procedure-degradation flags (replaces v3 ``DegradedMode``)."""
+    """Procedure-degradation flags (replaces v3 ``DegradedMode``).
 
-    INSUFFICIENT_EVENTS = "insufficient_events"
-    INSUFFICIENT_ASSETS = "insufficient_assets"
+    Each value carries a one-line ``description`` gloss for
+    ``profile.diagnose()`` consumers (review fix UX-4) — pure metadata,
+    StrEnum value identity is unchanged.
+    """
+
     UNRELIABLE_SE_SHORT_SERIES = "unreliable_se_short_series"
     EVENT_WINDOW_OVERLAP = "event_window_overlap"
     # Fired when ADF p > 0.1 on a CONTINUOUS factor (Stambaugh-style
@@ -21,11 +24,40 @@ class WarningCode(StrEnum):
     PERSISTENT_REGRESSOR = "persistent_regressor"
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
 
+    @property
+    def description(self) -> str:
+        return _WARNING_DESCRIPTIONS[self]
+
+
+_WARNING_DESCRIPTIONS: dict["WarningCode", str] = {}
+
+
+_WARNING_DESCRIPTIONS.update({
+    WarningCode.UNRELIABLE_SE_SHORT_SERIES:
+        "T is below MIN_T_RELIABLE=30; NW HAC SE may be biased.",
+    WarningCode.EVENT_WINDOW_OVERLAP:
+        "Adjacent events sit within forward_periods; AR windows overlap.",
+    WarningCode.PERSISTENT_REGRESSOR:
+        "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
+    WarningCode.SERIAL_CORRELATION_DETECTED:
+        "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
+})
+
 
 class InfoCode(StrEnum):
     """Neutral facts surfaced to the caller — not warnings, not errors."""
 
     SCOPE_AXIS_COLLAPSED = "scope_axis_collapsed"
+
+    @property
+    def description(self) -> str:
+        return _INFO_DESCRIPTIONS[self]
+
+
+_INFO_DESCRIPTIONS: dict["InfoCode", str] = {
+    InfoCode.SCOPE_AXIS_COLLAPSED:
+        "N=1 collapsed scope axis; routed via _SCOPE_COLLAPSED sentinel.",
+}
 
 
 class StatCode(StrEnum):

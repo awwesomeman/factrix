@@ -330,7 +330,10 @@ class _TSBetaContTimeseriesProcedure:
         if T < MIN_T_HARD:
             raise InsufficientSampleError(
                 f"T={T} below MIN_T_HARD={MIN_T_HARD}; NW HAC SE is too "
-                "biased for primary_p to be trustworthy at this floor."
+                "biased for primary_p to be trustworthy at this floor. "
+                f"Extend the time series to ≥{MIN_T_HARD} rows or "
+                "aggregate to a lower frequency.",
+                actual_T=T, required_T=MIN_T_HARD,
             )
 
         # Same HH overlap floor logic as the IC PANEL procedure: forward
@@ -421,7 +424,10 @@ class _TSDummySparseTimeseriesProcedure:
         if T < MIN_T_HARD:
             raise InsufficientSampleError(
                 f"T={T} below MIN_T_HARD={MIN_T_HARD}; NW HAC SE is too "
-                "biased for primary_p to be trustworthy at this floor."
+                "biased for primary_p to be trustworthy at this floor. "
+                f"Extend the time series to ≥{MIN_T_HARD} rows or "
+                "aggregate to a lower frequency.",
+                actual_T=T, required_T=MIN_T_HARD,
             )
 
         y, d = y[:T], d[:T]

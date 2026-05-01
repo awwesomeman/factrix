@@ -284,3 +284,55 @@ class TestMatchesUserAxis:
         assert matches_user_axis(
             FactorScope.INDIVIDUAL, Signal.SPARSE, None,
         )
+
+
+# ---------------------------------------------------------------------------
+# Review fix A-2: _route_scope shared helper SSOT
+# ---------------------------------------------------------------------------
+
+
+from factrix._registry import _route_scope
+
+
+class TestRouteScope:
+    def test_sparse_timeseries_collapses(self) -> None:
+        for scope in (FactorScope.INDIVIDUAL, FactorScope.COMMON):
+            assert _route_scope(
+                scope, Signal.SPARSE, Mode.TIMESERIES,
+            ) is _SCOPE_COLLAPSED
+
+    def test_continuous_passes_through_at_any_mode(self) -> None:
+        for mode in (Mode.PANEL, Mode.TIMESERIES):
+            assert _route_scope(
+                FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode,
+            ) is FactorScope.INDIVIDUAL
+            assert _route_scope(
+                FactorScope.COMMON, Signal.CONTINUOUS, mode,
+            ) is FactorScope.COMMON
+
+    def test_sparse_panel_passes_through(self) -> None:
+        # Mode A sparse keeps the user scope — only Mode B collapses.
+        for scope in (FactorScope.INDIVIDUAL, FactorScope.COMMON):
+            assert _route_scope(scope, Signal.SPARSE, Mode.PANEL) is scope
+
+
+# ---------------------------------------------------------------------------
+# Review fix A-4: register guards sentinel-keyed entries against metric≠None
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterSentinelMetricGuard:
+    def test_sentinel_with_nonnull_metric_rejected(self) -> None:
+        class _Stub:
+            INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+                required_columns=("date", "asset_id", "factor", "forward_return"),
+            )
+
+            def compute(self, raw, config):  # pragma: no cover — guard fires first
+                raise NotImplementedError
+
+        bad_key = _DispatchKey(
+            _SCOPE_COLLAPSED, Signal.SPARSE, Metric.IC, Mode.TIMESERIES,
+        )
+        with pytest.raises(ValueError, match="metric=None"):
+            register(bad_key, _Stub(), use_case="illegal — should never land")

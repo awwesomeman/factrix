@@ -12,11 +12,12 @@ from typing import Any, Literal
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import WarningCode
+from factrix._evaluate import _derive_mode
 from factrix._registry import (
     _DISPATCH_REGISTRY,
-    _SCOPE_COLLAPSED,
     _DispatchKey,
     _ScopeCollapsedSentinel,
+    _route_scope,
 )
 from factrix._stats.constants import MIN_T_HARD, MIN_T_RELIABLE
 
@@ -63,16 +64,11 @@ def _user_facing_axis_tuples() -> list[tuple[FactorScope, Signal, Metric | None]
 def _entry_for(
     scope: FactorScope, signal: Signal, metric: Metric | None, mode: Mode,
 ) -> Any:
-    """Return the registry entry routing this user-facing axis at ``mode``.
-
-    Sparse signals at TIMESERIES route through the ``_SCOPE_COLLAPSED``
-    sentinel (§5.4.1); other cells route on the user scope directly.
-    """
-    if signal is Signal.SPARSE and mode is Mode.TIMESERIES:
-        key = _DispatchKey(_SCOPE_COLLAPSED, signal, metric, mode)
-    else:
-        key = _DispatchKey(scope, signal, metric, mode)
-    return _DISPATCH_REGISTRY.get(key)
+    """Return the registry entry routing this user-facing axis at ``mode``."""
+    routed_scope = _route_scope(scope, signal, mode)
+    return _DISPATCH_REGISTRY.get(
+        _DispatchKey(routed_scope, signal, metric, mode),
+    )
 
 
 def _row_for_tuple(
@@ -242,7 +238,7 @@ def suggest_config(
     scope, scope_reason = _detect_scope(raw)
 
     n_assets = int(raw["asset_id"].n_unique())
-    mode = Mode.TIMESERIES if n_assets <= 1 else Mode.PANEL
+    mode = _derive_mode(raw)
     mode_reason = (
         f"n_assets = {n_assets} detected → Mode "
         f"{'B (timeseries)' if mode is Mode.TIMESERIES else 'A (panel)'}"

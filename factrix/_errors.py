@@ -62,5 +62,19 @@ class InsufficientSampleError(ConfigError):
 
     Below the floor, NW HAC SE is too biased for ``primary_p`` to be
     trustworthy. Raised at evaluate-time. ``suggested_fix`` is ``None``
-    — this is a data limitation, not an axis-tuple miswire.
+    — this is a data limitation, not an axis-tuple miswire. ``actual_T``
+    and ``required_T`` carry the numbers so callers can recover or
+    aggregate programmatically (review fix UX-3).
     """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        actual_T: int,
+        required_T: int,
+        suggested_fix: "AnalysisConfig | None" = None,
+    ) -> None:
+        super().__init__(message, suggested_fix=suggested_fix)
+        self.actual_T = actual_T
+        self.required_T = required_T

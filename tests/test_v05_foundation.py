@@ -48,19 +48,25 @@ class TestCodeEnums:
         assert Verdict.FAIL.value == "fail"
 
     def test_warning_codes_present(self) -> None:
-        # Spot-check the six codes called out in §7.3.
+        # Spot-check the four live codes (§7.3) — each is raised by at
+        # least one procedure in factrix/_procedures.py.
         for code in (
-            WarningCode.INSUFFICIENT_EVENTS,
-            WarningCode.INSUFFICIENT_ASSETS,
             WarningCode.UNRELIABLE_SE_SHORT_SERIES,
             WarningCode.EVENT_WINDOW_OVERLAP,
             WarningCode.PERSISTENT_REGRESSOR,
             WarningCode.SERIAL_CORRELATION_DETECTED,
         ):
             assert isinstance(code.value, str)
+            assert isinstance(code.description, str) and code.description
 
     def test_info_code_scope_collapsed(self) -> None:
         assert InfoCode.SCOPE_AXIS_COLLAPSED.value == "scope_axis_collapsed"
+        assert InfoCode.SCOPE_AXIS_COLLAPSED.description
+
+    def test_warning_descriptions_cover_every_member(self) -> None:
+        # Review fix UX-4: every WarningCode has a human-readable gloss.
+        for code in WarningCode:
+            assert code.description, f"{code} missing description"
 
     def test_stat_code_population(self) -> None:
         # Representative stats for each metric family + diagnostics.
@@ -120,8 +126,11 @@ class TestExceptionHierarchy:
         assert err.suggested_fix is cfg
 
     def test_suggested_fix_defaults_to_none(self) -> None:
-        err = InsufficientSampleError("T below floor")
+        err = InsufficientSampleError(
+            "T below floor", actual_T=10, required_T=20,
+        )
         assert err.suggested_fix is None
+        assert err.actual_T == 10 and err.required_T == 20
 
     def test_message_passthrough(self) -> None:
         err = IncompatibleAxisError("explanation here")

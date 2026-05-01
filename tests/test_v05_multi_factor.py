@@ -203,3 +203,49 @@ class TestGateOverride:
         # CAAR_P never populated for an IC profile.
         with pytest.raises(KeyError):
             bhy([prof], gate=StatCode.CAAR_P)
+
+
+# ---------------------------------------------------------------------------
+# UX-2 review fix: cross-family no-op warning
+# ---------------------------------------------------------------------------
+
+
+class TestSingletonFamilyWarning:
+    def test_warns_on_multiple_singleton_families(self) -> None:
+        """README's BHY-of-the-day bug: 3 distinct cells × 1 profile each
+        produces 3 size-1 families — BHY ≡ raw threshold, no FDR control."""
+        ic = _profile(
+            config=AnalysisConfig.individual_continuous(metric=Metric.IC),
+            mode=Mode.PANEL, primary_p=0.04,
+        )
+        fm = _profile(
+            config=AnalysisConfig.individual_continuous(metric=Metric.FM),
+            mode=Mode.PANEL, primary_p=0.04,
+        )
+        common = _profile(
+            config=AnalysisConfig.common_continuous(),
+            mode=Mode.PANEL, primary_p=0.04,
+        )
+        with pytest.warns(RuntimeWarning, match="single profile"):
+            bhy([ic, fm, common], threshold=0.05)
+
+    def test_silent_on_single_family(self) -> None:
+        """One family with one profile is the legitimate single-candidate
+        case — the cross-family no-op heuristic does not fire."""
+        prof = _profile(
+            config=AnalysisConfig.individual_continuous(metric=Metric.IC),
+            mode=Mode.PANEL, primary_p=0.04,
+        )
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")
+            bhy([prof], threshold=0.05)
+
+    def test_silent_when_all_families_have_two_plus(self) -> None:
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+        a = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.01)
+        b = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.02)
+        import warnings as _warnings
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")
+            bhy([a, b], threshold=0.05)

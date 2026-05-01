@@ -27,7 +27,7 @@ Schema reflection::
     print(fl.suggest_config(panel))
 """
 
-from factrix import multi_factor
+from factrix import datasets, multi_factor
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
@@ -76,4 +76,6 @@ __all__ = [
     "suggest_config",
     # Multi-factor namespace
     "multi_factor",
+    # Synthetic panels
+    "datasets",
 ]

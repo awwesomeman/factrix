@@ -18,16 +18,20 @@ from factrix._registry import matches_user_axis
 
 # Nearest-legal cell suggested when an evaluate-time mode/sample check
 # fails (§4.5 A4). Keyed by ``(scope, signal, mode)``; values are
-# zero-arg factories so cycles via ``AnalysisConfig`` resolve lazily.
-# Add a fallback → add one entry; raise sites do not encode "which
-# cell to suggest".
+# zero-arg factories so cycles via ``AnalysisConfig`` resolve lazily
+# (factory call sites need ``AnalysisConfig`` defined; lazy lambdas
+# defer the lookup until raise time, after class definition).
+#
+# Intentionally narrow — every other legal user triple has a registered
+# Mode A *and* Mode B procedure, so ``_evaluate`` never reaches the
+# fallback path for them. Only ``(INDIVIDUAL, CONTINUOUS, *)`` lacks a
+# Mode B cell (no cross-sectional dispersion at N=1 → IC and per-date
+# OLS undefined, §5.5). Adding a Mode-B-less cell → add one entry; do
+# not encode the suggestion at the ``raise`` site.
 _FALLBACK_MAP: dict[
     tuple[FactorScope, Signal, Mode],
     Callable[[], "AnalysisConfig"],
 ] = {
-    # (INDIVIDUAL, CONTINUOUS, N=1) — IC / FM-λ undefined at N=1 (no
-    # cross-sectional dispersion). COMMON × CONTINUOUS is the only
-    # legal CONTINUOUS path on a single asset (§5.5).
     (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Mode.TIMESERIES):
         lambda: AnalysisConfig.common_continuous(),
 }
