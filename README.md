@@ -81,12 +81,22 @@ print(profile.diagnose())
 
 ### scope 是**因子屬性**，不是**資料結構**
 
-> 你的 panel 永遠是 cross-sectional 結構（多 asset × 多 date）。`scope` 描述的是**因子值在資產之間的形狀**，不是資料形狀。
->
-> - **`INDIVIDUAL`**：每個 `(date, asset_id)` 有獨立的 factor 值。例：P/E、Momentum、Quality — 每檔股票自己的訊號。
-> - **`COMMON`**：每個 `date` 上所有 `asset_id` 共享同一個 factor 值。例：VIX、DXY、FOMC dummy — broadcast 到全 universe 的訊號。
->
-> 用 polars 一行話判斷：`COMMON` ⇔ `df.group_by("date").agg(pl.col("factor").n_unique() == 1).all()`。
+factrix 的輸入是 **panel data** — 同時帶有時序軸（dates, T 維度）與
+cross-section 軸（assets, N 維度）。`scope` 描述的是**因子值在
+cross-section 軸上的形狀**，不是資料的整體結構：
+
+- **`INDIVIDUAL`**：每個 `(date, asset_id)` 有獨立的 factor 值。
+  例：P/E、Momentum、Quality — 每檔股票自己的訊號。
+- **`COMMON`**：每個 `date` 上所有 `asset_id` 共享同一個 factor 值。
+  例：VIX、DXY、FOMC dummy — broadcast 到全 universe 的訊號。
+
+用 polars 一行話判斷：
+`COMMON` ⇔ `df.group_by("date").agg(pl.col("factor").n_unique() == 1).all()`。
+
+> **N=1 退化**：cross-section 軸只剩一個 asset 時，「INDIVIDUAL vs
+> COMMON」的區分自然消失（沒有 cross-section 可比）。資料退化為純
+> 時序，factrix 路由到 Mode B 用 NW HAC 時序統計處理 — 詳見下方
+> §[Mode A / Mode B](#mode-a--mode-b由-n-自動推導)。
 
 ### signal
 
