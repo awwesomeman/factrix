@@ -140,9 +140,12 @@ class TestProcedureStubs:
             assert isinstance(entry.procedure, FactorProcedure)
 
     def test_stubs_raise_not_implemented(self) -> None:
-        cfg = AnalysisConfig.individual_continuous()
+        # Tracks the generic invariant: any cell whose procedure
+        # subclasses _StubProcedure still surfaces NotImplementedError.
+        # Update the dispatch key when this cell gets wired.
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.FM)
         key = _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL,
+            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM, Mode.PANEL,
         )
         with pytest.raises(NotImplementedError, match="not implemented"):
             _DISPATCH_REGISTRY[key].procedure.compute(raw=None, config=cfg)

@@ -1,10 +1,9 @@
-"""v0.5 ``FactorProcedure`` Protocol + per-cell stubs (§4.4.2 B3).
+"""v0.5 ``FactorProcedure`` Protocol + per-cell procedures (§4.4.2 B3).
 
 Each cell maps to exactly one ``FactorProcedure`` instance whose
 ``compute(raw, config) -> FactorProfile`` is the only place numerical
-work happens. This batch ships stubs only — every ``compute`` raises
-``NotImplementedError`` with the procedure name. Real implementations
-arrive in the next batch (§5.2 / §8.1).
+work happens. Cells whose ``compute`` is not yet wired subclass
+``_StubProcedure`` and raise ``NotImplementedError``.
 
 Module-bottom ``register(...)`` calls populate
 ``factrix._registry._DISPATCH_REGISTRY`` at import time so the
@@ -58,8 +57,58 @@ class _StubProcedure:
         raise NotImplementedError(f"{self._NAME}.compute is not implemented")
 
 
-class _ICContPanelProcedure(_StubProcedure):
-    _NAME = "_ICContPanelProcedure"
+class _ICContPanelProcedure:
+    """``(INDIVIDUAL, CONTINUOUS, IC, PANEL)`` — per-date Spearman IC.
+
+    Aggregates per-date rank correlations between the factor and the
+    forward-return into a time series, then runs an NW HAC t-test on
+    its mean (Bartlett kernel, NW1994 automatic lag).
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        import numpy as np
+
+        from factrix._codes import StatCode
+        from factrix._profile import FactorProfile
+        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
+        from factrix._stats.constants import auto_bartlett
+        from factrix.metrics.ic import compute_ic
+
+        # ``compute_ic`` filters by MIN_IC_PERIODS but does not drop nulls;
+        # ``pl.corr`` returns null for zero-variance dates (degenerate
+        # factor / tied returns) so the explicit drop is reachable.
+        ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
+        T = int(len(ic_values))
+        # Plan §5.2 picks NW1994 auto_bartlett as the default lag, but
+        # h-period forward returns force MA(h-1) structure on the IC
+        # series so we floor at ``forward_periods - 1`` (Hansen-Hodrick
+        # 1980) to keep the HAC SE consistent. ``_resolve_nw_lags``
+        # applies that floor and the ``min(., T-1)`` clip in one place.
+        nw_lags = (
+            _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
+            if T >= 2 else 0
+        )
+        ic_mean = float(np.mean(ic_values)) if T > 0 else 0.0
+        t_stat, p_value, _ = _newey_west_t_test(ic_values, lags=nw_lags)
+
+        return FactorProfile(
+            config=config,
+            mode=Mode.PANEL,
+            primary_p=p_value,
+            n_obs=T,
+            stats={
+                StatCode.IC_MEAN: ic_mean,
+                StatCode.IC_T_NW: t_stat,
+                StatCode.IC_P: p_value,
+                StatCode.NW_LAGS_USED: float(nw_lags),
+            },
+        )
 
 
 class _FMContPanelProcedure(_StubProcedure):
