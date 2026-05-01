@@ -7,17 +7,15 @@ shape + verdict policy), §5.4.1 (Mode B sparse collapse), §7.5
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import pytest
 
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
 from factrix._errors import IncompatibleAxisError
-from factrix._procedures import (
-    FactorProcedure,
-    InputSchema,
-    _StubProcedure,
-)
+from factrix._procedures import FactorProcedure, InputSchema
 from factrix._profile import FactorProfile
 from factrix._registry import (
     _DISPATCH_REGISTRY,
@@ -89,13 +87,22 @@ class TestSentinel:
         assert _SCOPE_COLLAPSED is not FactorScope.COMMON
 
 
+class _NoopProcedure:
+    """Throwaway procedure used by the duplicate-key test."""
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema()
+
+    def compute(self, raw, config):  # pragma: no cover - never called
+        raise RuntimeError("noop")
+
+
 class TestRegisterIdempotency:
     def test_duplicate_key_rejected(self) -> None:
         existing_key = next(iter(_DISPATCH_REGISTRY))
         with pytest.raises(ValueError, match="already registered"):
             register(
                 existing_key,
-                _StubProcedure(),
+                _NoopProcedure(),
                 use_case="dup",
             )
 
@@ -130,25 +137,14 @@ class TestFactoryRegistryInvariant:
 
 
 # ---------------------------------------------------------------------------
-# FactorProcedure Protocol + stubs
+# FactorProcedure Protocol conformance
 # ---------------------------------------------------------------------------
 
 
-class TestProcedureStubs:
+class TestProcedureProtocol:
     def test_every_registered_procedure_satisfies_protocol(self) -> None:
         for entry in _DISPATCH_REGISTRY.values():
             assert isinstance(entry.procedure, FactorProcedure)
-
-    def test_stubs_raise_not_implemented(self) -> None:
-        # Tracks the generic invariant: any cell whose procedure
-        # subclasses _StubProcedure still surfaces NotImplementedError.
-        # Update the dispatch key when this cell gets wired.
-        cfg = AnalysisConfig.individual_sparse()
-        key = _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.SPARSE, None, Mode.PANEL,
-        )
-        with pytest.raises(NotImplementedError, match="not implemented"):
-            _DISPATCH_REGISTRY[key].procedure.compute(raw=None, config=cfg)
 
     def test_input_schema_present(self) -> None:
         for entry in _DISPATCH_REGISTRY.values():

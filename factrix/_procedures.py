@@ -2,8 +2,7 @@
 
 Each cell maps to exactly one ``FactorProcedure`` instance whose
 ``compute(raw, config) -> FactorProfile`` is the only place numerical
-work happens. Cells whose ``compute`` is not yet wired subclass
-``_StubProcedure`` and raise ``NotImplementedError``.
+work happens.
 
 Module-bottom ``register(...)`` calls populate
 ``factrix._registry._DISPATCH_REGISTRY`` at import time so the
@@ -39,22 +38,6 @@ class FactorProcedure(Protocol):
     def compute(
         self, raw: Any, config: "AnalysisConfig",
     ) -> "FactorProfile": ...
-
-
-class _StubProcedure:
-    """Common base — every method ``raise NotImplementedError``.
-
-    Subclasses set ``INPUT_SCHEMA`` and ``_NAME`` so the error message
-    points the caller at the missing implementation cell.
-    """
-
-    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema()
-    _NAME: ClassVar[str] = "FactorProcedure"
-
-    def compute(
-        self, raw: Any, config: "AnalysisConfig",
-    ) -> "FactorProfile":
-        raise NotImplementedError(f"{self._NAME}.compute is not implemented")
 
 
 class _ICContPanelProcedure:
@@ -160,8 +143,51 @@ class _FMContPanelProcedure:
         )
 
 
-class _CAARSparsePanelProcedure(_StubProcedure):
-    _NAME = "_CAARSparsePanelProcedure"
+class _CAARSparsePanelProcedure:
+    """``(INDIVIDUAL, SPARSE, None, PANEL)`` — per-event AR → CAAR.
+
+    Plan §4.3: per-event signed AR aggregated to a CAAR series across
+    event dates, then a cross-event t-test on the CAAR mean. Same
+    HH-floored NW HAC machinery as IC and FM PANEL — h-period
+    forward returns induce MA(h-1) on the CAAR series identically.
+    """
+
+    INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
+        required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+
+    def compute(
+        self, raw: Any, config: "AnalysisConfig",
+    ) -> "FactorProfile":
+        import numpy as np
+
+        from factrix._codes import StatCode
+        from factrix._profile import FactorProfile
+        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
+        from factrix._stats.constants import auto_bartlett
+        from factrix.metrics.caar import compute_caar
+
+        caar_values = compute_caar(raw)["caar"].drop_nulls().to_numpy()
+        T = int(len(caar_values))
+        nw_lags = (
+            _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
+            if T >= 2 else 0
+        )
+        caar_mean = float(np.mean(caar_values)) if T > 0 else 0.0
+        t_stat, p_value, _ = _newey_west_t_test(caar_values, lags=nw_lags)
+
+        return FactorProfile(
+            config=config,
+            mode=Mode.PANEL,
+            primary_p=p_value,
+            n_obs=T,
+            stats={
+                StatCode.CAAR_MEAN: caar_mean,
+                StatCode.CAAR_T_NW: t_stat,
+                StatCode.CAAR_P: p_value,
+                StatCode.NW_LAGS_USED: float(nw_lags),
+            },
+        )
 
 
 class _CommonContPanelProcedure:

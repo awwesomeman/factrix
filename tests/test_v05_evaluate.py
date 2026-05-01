@@ -145,34 +145,14 @@ class TestSparseCollapse:
         assert profile.mode is Mode.TIMESERIES
         assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes
 
-    def test_panel_sparse_routes_to_panel_entry(self) -> None:
+    def test_panel_sparse_does_not_collapse(self) -> None:
+        # PANEL routing keeps the user-facing scope intact; the CAAR
+        # cell handles individual_sparse without going through the
+        # _SCOPE_COLLAPSED sentinel (collapse only fires at N=1).
         panel = _build_panel(n_dates=30, n_assets=20, seed=6)
-        with pytest.raises(NotImplementedError, match="CAARSparse"):
-            _evaluate(panel, AnalysisConfig.individual_sparse())
-
-
-# ---------------------------------------------------------------------------
-# Stub procedure NotImplementedError still surfaces
-# ---------------------------------------------------------------------------
-
-
-class TestStubsSurfaceThroughEvaluate:
-    @pytest.mark.parametrize(
-        "build,cfg_factory,match",
-        [
-            pytest.param(
-                lambda: _build_panel(n_dates=30, n_assets=15, seed=8),
-                lambda: AnalysisConfig.individual_sparse(),
-                "CAARSparse",
-                id="individual_sparse_panel",
-            ),
-        ],
-    )
-    def test_stub_raises_with_procedure_name(
-        self,
-        build,
-        cfg_factory,
-        match: str,
-    ) -> None:
-        with pytest.raises(NotImplementedError, match=match):
-            _evaluate(build(), cfg_factory())
+        # Inject a sparse trigger column so compute_caar has events.
+        sparse_factor = (np.arange(len(panel)) % 11 == 0).astype(np.float64)
+        panel = panel.with_columns(pl.Series("factor", sparse_factor))
+        profile = _evaluate(panel, AnalysisConfig.individual_sparse())
+        assert profile.mode is Mode.PANEL
+        assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes
