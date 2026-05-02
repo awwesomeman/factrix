@@ -16,7 +16,7 @@ from factrix._errors import (
     InsufficientSampleError,
     ModeAxisError,
 )
-from factrix._stats.constants import MIN_T_HARD, MIN_T_RELIABLE, auto_bartlett
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE, auto_bartlett
 
 
 # ---------------------------------------------------------------------------
@@ -84,12 +84,12 @@ class TestCodeEnums:
 
 class TestStatsConstants:
     def test_thresholds_ordered(self) -> None:
-        assert MIN_T_HARD < MIN_T_RELIABLE
+        assert MIN_PERIODS_HARD < MIN_PERIODS_RELIABLE
 
     def test_threshold_values(self) -> None:
         # Pinned per §5.2 — these are statistical contract, not a default.
-        assert MIN_T_HARD == 20
-        assert MIN_T_RELIABLE == 30
+        assert MIN_PERIODS_HARD == 20
+        assert MIN_PERIODS_RELIABLE == 30
 
     def test_auto_bartlett_floor(self) -> None:
         assert auto_bartlett(1) == 1
@@ -127,10 +127,10 @@ class TestExceptionHierarchy:
 
     def test_suggested_fix_defaults_to_none(self) -> None:
         err = InsufficientSampleError(
-            "T below floor", actual_T=10, required_T=20,
+            "T below floor", actual_periods=10, required_periods=20,
         )
         assert err.suggested_fix is None
-        assert err.actual_T == 10 and err.required_T == 20
+        assert err.actual_periods == 10 and err.required_periods == 20
 
     def test_message_passthrough(self) -> None:
         err = IncompatibleAxisError("explanation here")

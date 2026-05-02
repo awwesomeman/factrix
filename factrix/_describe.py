@@ -19,7 +19,7 @@ from factrix._registry import (
     _ScopeCollapsedSentinel,
     _route_scope,
 )
-from factrix._stats.constants import MIN_T_HARD, MIN_T_RELIABLE
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE
 
 
 # Sparsity threshold above which `factor` is treated as an event series.
@@ -296,8 +296,8 @@ def suggest_config(
 
     warnings: list[WarningCode] = []
     if mode is Mode.TIMESERIES:
-        T = len(raw)
-        if MIN_T_HARD <= T < MIN_T_RELIABLE:
+        n_periods = len(raw)
+        if MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
             warnings.append(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
 
     return SuggestConfigResult(

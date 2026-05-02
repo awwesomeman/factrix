@@ -115,8 +115,8 @@ print(profile.diagnose())
 
 ### scope 是**因子屬性**，不是**資料結構**
 
-factrix 的輸入是 **panel data** — 同時帶有時序軸（dates, T 維度）與
-cross-section 軸（assets, N 維度）。`scope` 描述的是**因子值在
+factrix 的輸入是 **panel data** — 同時帶有時序軸（dates, `n_periods` 維度）
+與 cross-section 軸（assets, `n_assets` 維度）。`scope` 描述的是**因子值在
 cross-section 軸上的形狀**，不是資料的整體結構：
 
 - **`INDIVIDUAL`**：每個 `(date, asset_id)` 有獨立的 factor 值。
@@ -214,15 +214,15 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 
 ## 樣本守門
 
-時序長度 `T` 與資產數 `N` **獨立守門**，不採用 `T × N` 總觀測數作為單一 power 指標 — per-date stat 變異主要由 `N` 決定，time-series aggregation power 主要由 `T` 決定。
+時序長度 `n_periods` 與資產數 `n_assets` **獨立守門**，不採用 `n_periods × n_assets` 總觀測數作為單一 power 指標 — per-date stat 變異主要由 `n_assets` 決定，time-series aggregation power 主要由 `n_periods` 決定。
 
 | 常數                | 來源                              | 行為                                                                            |
 |---------------------|-----------------------------------|---------------------------------------------------------------------------------|
-| `MIN_T_HARD = 20`   | `factrix/_stats/constants.py`    | `T < 20` → raise `InsufficientSampleError(actual_T, required_T)`                |
-| `MIN_T_RELIABLE = 30` | 同上                             | `T < 30` → 加 `WarningCode.UNRELIABLE_SE_SHORT_SERIES` 到 `profile.warnings`     |
+| `MIN_PERIODS_HARD = 20`   | `factrix/_stats/constants.py`    | `n_periods < 20` → raise `InsufficientSampleError(actual_periods, required_periods)`                |
+| `MIN_PERIODS_RELIABLE = 30` | 同上                             | `n_periods < 30` → 加 `WarningCode.UNRELIABLE_SE_SHORT_SERIES` 到 `profile.warnings`     |
 | `MIN_IC_PERIODS = 10` / `MIN_EVENTS = 10` | `factrix/_types.py` | metric 內部 short-circuit 用                                                     |
 
-`fl.suggest_config(panel)` 可反向給出建議的 factory call + 警報；`fl.describe_analysis_modes()` 列出所有 cell 及其 procedure / 文獻 / `MIN_T_*`。
+`fl.suggest_config(panel)` 可反向給出建議的 factory call + 警報；`fl.describe_analysis_modes()` 列出所有 cell 及其 procedure / 文獻 / `MIN_PERIODS_*`。
 
 ---
 
@@ -268,7 +268,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 
 | WarningCode                    | 觸發條件                                                  |
 |--------------------------------|-----------------------------------------------------------|
-| `UNRELIABLE_SE_SHORT_SERIES`   | `T < MIN_T_RELIABLE = 30` → NW HAC SE 不穩定               |
+| `UNRELIABLE_SE_SHORT_SERIES`   | `n_periods < MIN_PERIODS_RELIABLE = 30` → NW HAC SE 不穩定       |
 | `PERSISTENT_REGRESSOR`         | `factor_adf_p > 0.10`（CONTINUOUS factor，Stambaugh-style） |
 | `EVENT_WINDOW_OVERLAP`         | event windows 重疊（CAAR / sparse 場景）                   |
 | `SERIAL_CORRELATION_DETECTED`  | Ljung-Box p < 0.05 on residuals                            |

@@ -158,8 +158,8 @@ to the resulting profile so the routing is auditable.
 
 `factrix/_stats/constants.py`:
 
-- `MIN_T_HARD = 20` — `T < MIN_T_HARD` raises `InsufficientSampleError`
-- `MIN_T_RELIABLE = 30` — `T < MIN_T_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_SERIES`
+- `MIN_PERIODS_HARD = 20` — `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`
+- `MIN_PERIODS_RELIABLE = 30` — `T < MIN_PERIODS_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_SERIES`
 - `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule
 - Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` — ensures NW lag covers MA(h-1) structure from overlapping forward returns
 
@@ -203,7 +203,7 @@ factrix/
 ├── multi_factor.py          # public namespace (re-exports bhy)
 ├── _stats/
 │   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
-│   └── constants.py         # MIN_T_HARD / MIN_T_RELIABLE / auto_bartlett
+│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_RELIABLE / auto_bartlett
 ├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_*_PERIODS
 ├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
 └── datasets.py              # synthetic CS / event panels
@@ -224,7 +224,7 @@ Hard constraints — violating these breaks the API contract:
 7. BHY family key is derived from the config triple, not user-supplied. Same-test-family is mechanical, not by discipline.
 8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
 9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
-10. `T < MIN_T_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.
+10. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.
 
 ---
 

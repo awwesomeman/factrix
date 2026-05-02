@@ -7,14 +7,14 @@ Centralised per refactor_api.md §5.2 (A3): no literal ``20`` / ``30`` /
 from __future__ import annotations
 
 
-# ``T < MIN_T_HARD`` → :class:`factrix._errors.InsufficientSampleError`
+# ``T < MIN_PERIODS_HARD`` → :class:`factrix._errors.InsufficientSampleError`
 # (no verdict — NW HAC SE biased beyond the floor where verdict can be
 # trusted at all).
-MIN_T_HARD: int = 20
+MIN_PERIODS_HARD: int = 20
 
-# ``MIN_T_HARD <= T < MIN_T_RELIABLE`` → verdict still emitted, but
+# ``MIN_PERIODS_HARD <= T < MIN_PERIODS_RELIABLE`` → verdict still emitted, but
 # tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_SERIES`.
-MIN_T_RELIABLE: int = 30
+MIN_PERIODS_RELIABLE: int = 30
 
 
 def auto_bartlett(T: int) -> int:

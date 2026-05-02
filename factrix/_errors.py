@@ -58,12 +58,12 @@ class ModeAxisError(ConfigError):
 
 
 class InsufficientSampleError(ConfigError):
-    """``T < MIN_T_HARD`` for a TIMESERIES procedure.
+    """``T < MIN_PERIODS_HARD`` for a TIMESERIES procedure.
 
     Below the floor, NW HAC SE is too biased for ``primary_p`` to be
     trustworthy. Raised at evaluate-time. ``suggested_fix`` is ``None``
-    — this is a data limitation, not an axis-tuple miswire. ``actual_T``
-    and ``required_T`` carry the numbers so callers can recover or
+    — this is a data limitation, not an axis-tuple miswire. ``actual_periods``
+    and ``required_periods`` carry the numbers so callers can recover or
     aggregate programmatically (review fix UX-3).
     """
 
@@ -71,10 +71,10 @@ class InsufficientSampleError(ConfigError):
         self,
         message: str,
         *,
-        actual_T: int,
-        required_T: int,
+        actual_periods: int,
+        required_periods: int,
         suggested_fix: "AnalysisConfig | None" = None,
     ) -> None:
         super().__init__(message, suggested_fix=suggested_fix)
-        self.actual_T = actual_T
-        self.required_T = required_T
+        self.actual_periods = actual_periods
+        self.required_periods = required_periods

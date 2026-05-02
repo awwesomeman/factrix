@@ -253,16 +253,16 @@ except fl.ModeAxisError as e:
     print(f"  suggested_fix : {e.suggested_fix}")
 
 # %% [markdown]
-# `T < MIN_T_HARD = 20` raise `InsufficientSampleError` 並帶 `actual_T`/
-# `required_T` 給 caller 程式化 recover：
+# `T < MIN_PERIODS_HARD = 20` raise `InsufficientSampleError` 並帶 `actual_periods`/
+# `required_periods` 給 caller 程式化 recover：
 
 # %%
 short = single_asset.head(15)
 try:
     fl.evaluate(short, cfg_cc)
 except fl.InsufficientSampleError as e:
-    print(f"actual_T   = {e.actual_T}")
-    print(f"required_T = {e.required_T}")
+    print(f"actual_periods   = {e.actual_periods}")
+    print(f"required_periods = {e.required_periods}")
     print(f"message    : {e}")
 
 # %% [markdown]

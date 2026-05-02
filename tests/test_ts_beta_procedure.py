@@ -23,7 +23,7 @@ from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _TSBetaContTimeseriesProcedure
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
-from factrix._stats.constants import MIN_T_HARD, MIN_T_RELIABLE, auto_bartlett
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE, auto_bartlett
 
 
 def _make_ts(
@@ -154,21 +154,21 @@ class TestPersistentRegressor:
 
 class TestSampleSizeStratification:
     def test_T_below_hard_floor_raises(self, cfg: AnalysisConfig) -> None:
-        ts = _make_ts(n_dates=MIN_T_HARD - 1, seed=1, beta=0.5)
-        with pytest.raises(InsufficientSampleError, match="MIN_T_HARD"):
+        ts = _make_ts(n_dates=MIN_PERIODS_HARD - 1, seed=1, beta=0.5)
+        with pytest.raises(InsufficientSampleError, match="MIN_PERIODS_HARD"):
             _TSBetaContTimeseriesProcedure().compute(ts, cfg)
 
     def test_T_in_warning_band_emits_warning(self, cfg: AnalysisConfig) -> None:
-        # MIN_T_HARD <= T < MIN_T_RELIABLE → verdict + UNRELIABLE_SE warn.
-        ts = _make_ts(n_dates=MIN_T_HARD, seed=2, beta=0.5)
+        # MIN_PERIODS_HARD <= T < MIN_PERIODS_RELIABLE → verdict + UNRELIABLE_SE warn.
+        ts = _make_ts(n_dates=MIN_PERIODS_HARD, seed=2, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
         assert WarningCode.UNRELIABLE_SE_SHORT_SERIES in profile.warnings
-        assert profile.n_obs == MIN_T_HARD
+        assert profile.n_obs == MIN_PERIODS_HARD
 
     def test_T_at_reliable_floor_no_se_warning(
         self, cfg: AnalysisConfig,
     ) -> None:
-        ts = _make_ts(n_dates=MIN_T_RELIABLE, seed=3, beta=0.5)
+        ts = _make_ts(n_dates=MIN_PERIODS_RELIABLE, seed=3, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
         assert WarningCode.UNRELIABLE_SE_SHORT_SERIES not in profile.warnings
 

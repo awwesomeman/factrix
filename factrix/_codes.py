@@ -34,7 +34,7 @@ _WARNING_DESCRIPTIONS: dict["WarningCode", str] = {}
 
 _WARNING_DESCRIPTIONS.update({
     WarningCode.UNRELIABLE_SE_SHORT_SERIES:
-        "T is below MIN_T_RELIABLE=30; NW HAC SE may be biased.",
+        "T is below MIN_PERIODS_RELIABLE=30; NW HAC SE may be biased.",
     WarningCode.EVENT_WINDOW_OVERLAP:
         "Adjacent events sit within forward_periods; AR windows overlap.",
     WarningCode.PERSISTENT_REGRESSOR:

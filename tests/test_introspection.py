@@ -16,7 +16,7 @@ from factrix._describe import (
     describe_analysis_modes,
     suggest_config,
 )
-from factrix._stats.constants import MIN_T_HARD, MIN_T_RELIABLE
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE
 
 
 # ---------------------------------------------------------------------------
@@ -252,14 +252,14 @@ class TestSuggestConfigWarnings:
 
     def test_short_timeseries_emits_unreliable_se_warning(self) -> None:
         ts = _make_timeseries(
-            n_dates=MIN_T_HARD + 2, sparse=False, seed=14,
+            n_dates=MIN_PERIODS_HARD + 2, sparse=False, seed=14,
         )
         result = suggest_config(ts)
         assert WarningCode.UNRELIABLE_SE_SHORT_SERIES in result.warnings
 
     def test_long_timeseries_no_warning(self) -> None:
         ts = _make_timeseries(
-            n_dates=MIN_T_RELIABLE + 50, sparse=False, seed=15,
+            n_dates=MIN_PERIODS_RELIABLE + 50, sparse=False, seed=15,
         )
         result = suggest_config(ts)
         assert WarningCode.UNRELIABLE_SE_SHORT_SERIES not in result.warnings

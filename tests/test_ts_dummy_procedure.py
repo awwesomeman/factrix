@@ -27,7 +27,7 @@ from factrix._procedures import (
 )
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _SCOPE_COLLAPSED, _DispatchKey
-from factrix._stats.constants import MIN_T_HARD, MIN_T_RELIABLE
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE
 
 
 def _make_sparse_ts(
@@ -226,7 +226,7 @@ class TestSampleSizeStratification:
         self, cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_T_HARD - 1, seed=1,
+            n_dates=MIN_PERIODS_HARD - 1, seed=1,
             event_positions=[2, 6, 10], beta=1.0,
         )
         with pytest.raises(InsufficientSampleError):
@@ -236,7 +236,7 @@ class TestSampleSizeStratification:
         self, cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_T_HARD, seed=2,
+            n_dates=MIN_PERIODS_HARD, seed=2,
             event_positions=[3, 8, 13, 18], beta=1.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
@@ -248,7 +248,7 @@ class TestSampleSizeStratification:
         self, cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_T_RELIABLE, seed=3,
+            n_dates=MIN_PERIODS_RELIABLE, seed=3,
             event_positions=list(range(4, 30, 5)), beta=1.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(

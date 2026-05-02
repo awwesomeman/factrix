@@ -67,25 +67,25 @@ class _ICContPanelProcedure:
         # ``pl.corr`` returns null for zero-variance dates (degenerate
         # factor / tied returns) so the explicit drop is reachable.
         ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
-        T = int(len(ic_values))
+        n_periods = int(len(ic_values))
         n_assets = int(raw["asset_id"].n_unique())
         # Plan §5.2 picks NW1994 auto_bartlett as the default lag, but
         # h-period forward returns force MA(h-1) structure on the IC
         # series so we floor at ``forward_periods - 1`` (Hansen-Hodrick
         # 1980) to keep the HAC SE consistent. ``_resolve_nw_lags``
-        # applies that floor and the ``min(., T-1)`` clip in one place.
+        # applies that floor and the ``min(., n_periods-1)`` clip in one place.
         nw_lags = (
-            _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
-            if T >= 2 else 0
+            _resolve_nw_lags(n_periods, auto_bartlett(n_periods), config.forward_periods)
+            if n_periods >= 2 else 0
         )
-        ic_mean = float(np.mean(ic_values)) if T > 0 else 0.0
+        ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(ic_values, lags=nw_lags)
 
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
-            n_obs=T,
+            n_obs=n_periods,
             n_assets=n_assets,
             stats={
                 StatCode.IC_MEAN: ic_mean,
@@ -123,20 +123,20 @@ class _FMContPanelProcedure:
         beta_values = (
             compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
         )
-        T = int(len(beta_values))
+        n_periods = int(len(beta_values))
         n_assets = int(raw["asset_id"].n_unique())
         nw_lags = (
-            _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
-            if T >= 2 else 0
+            _resolve_nw_lags(n_periods, auto_bartlett(n_periods), config.forward_periods)
+            if n_periods >= 2 else 0
         )
-        lambda_mean = float(np.mean(beta_values)) if T > 0 else 0.0
+        lambda_mean = float(np.mean(beta_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(beta_values, lags=nw_lags)
 
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
-            n_obs=T,
+            n_obs=n_periods,
             n_assets=n_assets,
             stats={
                 StatCode.FM_LAMBDA_MEAN: lambda_mean,
@@ -172,20 +172,20 @@ class _CAARSparsePanelProcedure:
         from factrix.metrics.caar import compute_caar
 
         caar_values = compute_caar(raw)["caar"].drop_nulls().to_numpy()
-        T = int(len(caar_values))
+        n_periods = int(len(caar_values))
         n_assets = int(raw["asset_id"].n_unique())
         nw_lags = (
-            _resolve_nw_lags(T, auto_bartlett(T), config.forward_periods)
-            if T >= 2 else 0
+            _resolve_nw_lags(n_periods, auto_bartlett(n_periods), config.forward_periods)
+            if n_periods >= 2 else 0
         )
-        caar_mean = float(np.mean(caar_values)) if T > 0 else 0.0
+        caar_mean = float(np.mean(caar_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(caar_values, lags=nw_lags)
 
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
-            n_obs=T,
+            n_obs=n_periods,
             n_assets=n_assets,
             stats={
                 StatCode.CAAR_MEAN: caar_mean,
@@ -310,8 +310,8 @@ class _TSBetaContTimeseriesProcedure:
 
     Plan §5.2 TIMESERIES continuous: OLS ``y_t = α + β·factor_t + ε`` with
     NW HAC SE on β; ADF on factor surfaces persistence (CONTINUOUS-only
-    diagnostic per I6). T-stratified per I5: below ``MIN_T_HARD`` raise
-    ``InsufficientSampleError``; in ``[MIN_T_HARD, MIN_T_RELIABLE)``
+    diagnostic per I6). n_periods-stratified per I5: below ``MIN_PERIODS_HARD`` raise
+    ``InsufficientSampleError``; in ``[MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE)``
     emit verdict + ``WarningCode.UNRELIABLE_SE_SHORT_SERIES``.
     """
 
@@ -327,39 +327,39 @@ class _TSBetaContTimeseriesProcedure:
         from factrix._profile import FactorProfile
         from factrix._stats import _adf, _ols_nw_slope_t, _resolve_nw_lags
         from factrix._stats.constants import (
-            MIN_T_HARD,
-            MIN_T_RELIABLE,
+            MIN_PERIODS_HARD,
+            MIN_PERIODS_RELIABLE,
             auto_bartlett,
         )
 
         sorted_raw = raw.sort("date")
         y = sorted_raw["forward_return"].drop_nulls().to_numpy()
         x = sorted_raw["factor"].drop_nulls().to_numpy()
-        T = int(min(len(y), len(x)))
+        n_periods = int(min(len(y), len(x)))
 
-        if T < MIN_T_HARD:
+        if n_periods < MIN_PERIODS_HARD:
             raise InsufficientSampleError(
-                f"T={T} below MIN_T_HARD={MIN_T_HARD}; NW HAC SE is too "
+                f"n_periods={n_periods} below MIN_PERIODS_HARD={MIN_PERIODS_HARD}; NW HAC SE is too "
                 "biased for primary_p to be trustworthy at this floor. "
-                f"Extend the time series to ≥{MIN_T_HARD} rows or "
+                f"Extend the time series to ≥{MIN_PERIODS_HARD} rows or "
                 "aggregate to a lower frequency.",
-                actual_T=T, required_T=MIN_T_HARD,
+                actual_periods=n_periods, required_periods=MIN_PERIODS_HARD,
             )
 
         # Same HH overlap floor logic as the IC PANEL procedure: forward
         # returns of horizon h induce MA(h-1) structure that the auto
         # Bartlett rule does not see on its own.
         nw_lags = _resolve_nw_lags(
-            T, auto_bartlett(T), config.forward_periods,
+            n_periods, auto_bartlett(n_periods), config.forward_periods,
         )
         # Truncate to common length on the off-chance one column had
         # extra nulls.
-        y, x = y[:T], x[:T]
+        y, x = y[:n_periods], x[:n_periods]
         beta, t_stat, p_value, _ = _ols_nw_slope_t(y, x, lags=nw_lags)
         adf_tau, adf_p = _adf(x)
 
         warnings: set[WarningCode] = set()
-        if T < MIN_T_RELIABLE:
+        if n_periods < MIN_PERIODS_RELIABLE:
             warnings.add(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
         # I6: ADF persistence diagnostic is CONTINUOUS-only. The 0.10
         # cutoff matches plan §5.2 — a non-rejection at the 10% level
@@ -371,7 +371,7 @@ class _TSBetaContTimeseriesProcedure:
             config=config,
             mode=Mode.TIMESERIES,
             primary_p=p_value,
-            n_obs=T,
+            n_obs=n_periods,
             n_assets=int(raw["asset_id"].n_unique()),
             warnings=frozenset(warnings),
             stats={
@@ -397,11 +397,11 @@ class _TSDummySparseTimeseriesProcedure:
     Diagnostics (plan §5.2 four-layer warnings):
 
     1. event window overlap on consecutive event gaps
-    2. Ljung-Box on residual ε_t (auto-lag ``min(10, T//10)``)
+    2. Ljung-Box on residual ε_t (auto-lag ``min(10, n_periods//10)``)
     3. ``event_temporal_hhi`` Herfindahl on equal-time bin shares —
        surfaces clustering of events along the calendar axis
-    4. ``UNRELIABLE_SE_SHORT_SERIES`` for ``T < MIN_T_RELIABLE``
-       (T < ``MIN_T_HARD`` raises ``InsufficientSampleError`` upstream)
+    4. ``UNRELIABLE_SE_SHORT_SERIES`` for ``n_periods < MIN_PERIODS_RELIABLE``
+       (n_periods < ``MIN_PERIODS_HARD`` raises ``InsufficientSampleError`` upstream)
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
@@ -422,28 +422,28 @@ class _TSDummySparseTimeseriesProcedure:
             _resolve_nw_lags,
         )
         from factrix._stats.constants import (
-            MIN_T_HARD,
-            MIN_T_RELIABLE,
+            MIN_PERIODS_HARD,
+            MIN_PERIODS_RELIABLE,
             auto_bartlett,
         )
 
         sorted_raw = raw.sort("date")
         y = sorted_raw["forward_return"].drop_nulls().to_numpy()
         d = sorted_raw["factor"].drop_nulls().to_numpy()
-        T = int(min(len(y), len(d)))
+        n_periods = int(min(len(y), len(d)))
 
-        if T < MIN_T_HARD:
+        if n_periods < MIN_PERIODS_HARD:
             raise InsufficientSampleError(
-                f"T={T} below MIN_T_HARD={MIN_T_HARD}; NW HAC SE is too "
+                f"n_periods={n_periods} below MIN_PERIODS_HARD={MIN_PERIODS_HARD}; NW HAC SE is too "
                 "biased for primary_p to be trustworthy at this floor. "
-                f"Extend the time series to ≥{MIN_T_HARD} rows or "
+                f"Extend the time series to ≥{MIN_PERIODS_HARD} rows or "
                 "aggregate to a lower frequency.",
-                actual_T=T, required_T=MIN_T_HARD,
+                actual_periods=n_periods, required_periods=MIN_PERIODS_HARD,
             )
 
-        y, d = y[:T], d[:T]
+        y, d = y[:n_periods], d[:n_periods]
         nw_lags = _resolve_nw_lags(
-            T, auto_bartlett(T), config.forward_periods,
+            n_periods, auto_bartlett(n_periods), config.forward_periods,
         )
         beta, t_stat, p_value, resid = _ols_nw_slope_t(y, d, lags=nw_lags)
         ljung_box_p = _ljung_box_p(resid)
@@ -451,7 +451,7 @@ class _TSDummySparseTimeseriesProcedure:
         overlap = _has_event_window_overlap(d, config.forward_periods)
 
         warnings: set[WarningCode] = set()
-        if T < MIN_T_RELIABLE:
+        if n_periods < MIN_PERIODS_RELIABLE:
             warnings.add(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
         if ljung_box_p < 0.05:
             warnings.add(WarningCode.SERIAL_CORRELATION_DETECTED)
@@ -462,7 +462,7 @@ class _TSDummySparseTimeseriesProcedure:
             config=config,
             mode=Mode.TIMESERIES,
             primary_p=p_value,
-            n_obs=T,
+            n_obs=n_periods,
             n_assets=int(raw["asset_id"].n_unique()),
             warnings=frozenset(warnings),
             stats={
@@ -491,8 +491,8 @@ def _event_temporal_hhi(d_signal: Any, *, n_bins: int = 10) -> float:
     n_events = int(nonzero.sum())
     if n_events == 0:
         return 0.0
-    T = len(arr)
-    bins_for_position = np.minimum(np.arange(T) * n_bins // T, n_bins - 1)
+    n_periods = len(arr)
+    bins_for_position = np.minimum(np.arange(n_periods) * n_bins // n_periods, n_bins - 1)
     counts = np.bincount(bins_for_position[nonzero], minlength=n_bins)
     shares = counts / n_events
     return float(np.sum(shares * shares))
