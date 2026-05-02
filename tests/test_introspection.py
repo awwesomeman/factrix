@@ -29,7 +29,7 @@ class TestDescribeAnalysisModes:
         out = describe_analysis_modes(format="text")
         assert isinstance(out, str)
         assert "Cell:" in out
-        assert "Mode A" in out and "Mode B" in out
+        assert "PANEL" in out and "TIMESERIES" in out
 
     def test_json_format_returns_five_user_tuples(self) -> None:
         rows = describe_analysis_modes(format="json")
@@ -41,7 +41,7 @@ class TestDescribeAnalysisModes:
         row = rows[0]
         assert set(row.keys()) == {
             "scope", "signal", "metric",
-            "mode_a_panel", "mode_b_timeseries",
+            "panel", "timeseries",
         }
 
     def test_individual_continuous_ic_routing(self) -> None:
@@ -52,10 +52,10 @@ class TestDescribeAnalysisModes:
             and r["signal"] == "continuous"
             and r["metric"] == "ic"
         )
-        # Mode A entry exists; Mode B entry does NOT (raises ModeAxisError).
-        assert ic_row["mode_a_panel"] is not None
-        assert isinstance(ic_row["mode_b_timeseries"], str)
-        assert "ModeAxisError" in ic_row["mode_b_timeseries"]
+        # PANEL entry exists; TIMESERIES entry does NOT (raises ModeAxisError).
+        assert ic_row["panel"] is not None
+        assert isinstance(ic_row["timeseries"], str)
+        assert "ModeAxisError" in ic_row["timeseries"]
 
     def test_common_continuous_has_both_modes(self) -> None:
         rows = describe_analysis_modes(format="json")
@@ -63,36 +63,36 @@ class TestDescribeAnalysisModes:
             r for r in rows
             if r["scope"] == "common" and r["signal"] == "continuous"
         )
-        assert cc_row["mode_a_panel"] is not None
-        assert isinstance(cc_row["mode_b_timeseries"], dict)
+        assert cc_row["panel"] is not None
+        assert isinstance(cc_row["timeseries"], dict)
         # No collapse on common × continuous.
-        assert cc_row["mode_b_timeseries"]["scope_collapsed"] is False
+        assert cc_row["timeseries"]["scope_collapsed"] is False
 
     def test_sparse_rows_flag_scope_collapse_at_n1(self) -> None:
         rows = describe_analysis_modes(format="json")
         for r in rows:
             if r["signal"] != "sparse":
                 continue
-            ts = r["mode_b_timeseries"]
+            ts = r["timeseries"]
             assert isinstance(ts, dict)
             assert ts["scope_collapsed"] is True
 
     def test_references_present_for_panel_entries(self) -> None:
         rows = describe_analysis_modes(format="json")
         for r in rows:
-            panel = r["mode_a_panel"]
+            panel = r["panel"]
             assert panel is not None
             assert isinstance(panel["references"], list)
             assert all(isinstance(ref, str) for ref in panel["references"])
 
     def test_text_distinguishes_collapse_vs_single_series(self) -> None:
-        """A-8 review fix: rendered text names what Mode B actually tests
-        (single-series null) instead of implying parity with Mode A."""
+        """A-8 review fix: rendered text names what TIMESERIES actually tests
+        (single-series null) instead of implying parity with PANEL."""
         out = describe_analysis_modes(format="text")
         # Sparse cells get the scope-collapse note (true collapse).
         assert "scope axis collapsed at N=1" in out
-        # COMMON × CONTINUOUS Mode B keeps a different annotation that
-        # warns the reader the null is not the cross-asset E[β]=0 of A.
+        # COMMON × CONTINUOUS TIMESERIES keeps a different annotation that
+        # warns the reader the null is not the cross-asset E[β]=0 of PANEL.
         assert "single-series test" in out
 
     def test_text_includes_factory_call_per_row(self) -> None:
@@ -236,12 +236,12 @@ class TestSuggestConfigReasoning:
 
     def test_mode_reasoning_picks_panel_when_multi_asset(self) -> None:
         result = suggest_config(_make_individual_continuous_panel())
-        assert "Mode A" in result.reasoning["mode"]
+        assert "PANEL" in result.reasoning["mode"]
 
     def test_mode_reasoning_picks_timeseries_when_n1(self) -> None:
         ts = _make_timeseries(n_dates=80, sparse=False, seed=13)
         result = suggest_config(ts)
-        assert "Mode B" in result.reasoning["mode"]
+        assert "TIMESERIES" in result.reasoning["mode"]
 
 
 class TestSuggestConfigWarnings:

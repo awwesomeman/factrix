@@ -84,7 +84,7 @@ class TestFamilyKey:
         )
         assert _family_key(prof).scope is FactorScope.INDIVIDUAL
 
-    def test_mode_a_and_mode_b_not_same_family(self) -> None:
+    def test_panel_and_timeseries_not_same_family(self) -> None:
         prof_a = _profile(
             config=AnalysisConfig.common_continuous(),
             mode=Mode.PANEL,

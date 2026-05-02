@@ -1,6 +1,6 @@
 """v0.5 ``_TSDummySparseTimeseriesProcedure.compute`` end-to-end tests.
 
-Plan §5.2 Mode B sparse + §5.4.1 sentinel collapse. Single-asset
+Plan §5.2 TIMESERIES sparse + §5.4.1 sentinel collapse. Single-asset
 panels with sparse ``{-1, 0, +1}`` triggers in the ``factor`` column
 and ``forward_return`` either driven by the trigger (strong-β) or
 independent (random).

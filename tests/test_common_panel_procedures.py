@@ -1,6 +1,6 @@
 """v0.5 ``_CommonContPanelProcedure`` + ``_CommonSparsePanelProcedure``.
 
-Both Mode A panel cells follow the same shape: per-asset OLS β on a
+Both PANEL cells follow the same shape: per-asset OLS β on a
 broadcast regressor (continuous factor or sparse dummy), aggregated
 into a cross-asset t-test on ``E[β]``. Synthetic panels build a
 broadcast time series shared by every asset, then draw heterogeneous

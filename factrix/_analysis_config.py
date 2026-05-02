@@ -23,10 +23,10 @@ from factrix._registry import matches_user_axis
 # defer the lookup until raise time, after class definition).
 #
 # Intentionally narrow — every other legal user triple has a registered
-# Mode A *and* Mode B procedure, so ``_evaluate`` never reaches the
+# PANEL *and* TIMESERIES procedure, so ``_evaluate`` never reaches the
 # fallback path for them. Only ``(INDIVIDUAL, CONTINUOUS, *)`` lacks a
-# Mode B cell (no cross-sectional dispersion at N=1 → IC and per-date
-# OLS undefined, §5.5). Adding a Mode-B-less cell → add one entry; do
+# TIMESERIES cell (no cross-sectional dispersion at N=1 → IC and per-date
+# OLS undefined, §5.5). Adding a TIMESERIES-less cell → add one entry; do
 # not encode the suggestion at the ``raise`` site.
 _FALLBACK_MAP: dict[
     tuple[FactorScope, Signal, Mode],
@@ -106,8 +106,8 @@ class AnalysisConfig:
     def individual_sparse(cls, *, forward_periods: int = 5) -> Self:
         """Per-(date, asset) sparse trigger (``{-1, 0, +1}``).
 
-        Mode A canonical: CAAR cross-event t-test.
-        Mode B (N=1): TS dummy regression + NW HAC SE (§5.2).
+        PANEL canonical: CAAR cross-event t-test.
+        TIMESERIES (N=1): TS dummy regression + NW HAC SE (§5.2).
         """
         return cls(
             FactorScope.INDIVIDUAL, Signal.SPARSE, None,
@@ -129,8 +129,8 @@ class AnalysisConfig:
     def common_sparse(cls, *, forward_periods: int = 5) -> Self:
         """Broadcast sparse trigger (FOMC, policy, index rebalance).
 
-        Mode A canonical: per-asset β on dummy + cross-asset t-test.
-        Mode B (N=1): TS dummy regression + NW HAC SE (§5.2).
+        PANEL canonical: per-asset β on dummy + cross-asset t-test.
+        TIMESERIES (N=1): TS dummy regression + NW HAC SE (§5.2).
         """
         return cls(
             FactorScope.COMMON, Signal.SPARSE, None,

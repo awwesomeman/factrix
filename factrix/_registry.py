@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 class _ScopeCollapsedSentinel:
-    """Marker for the collapsed scope axis under Mode B sparse (§5.4.1).
+    """Marker for the collapsed scope axis under TIMESERIES sparse (§5.4.1).
 
     A single sentinel instance — not an enum value — keeps the
     ``FactorScope | _ScopeCollapsedSentinel`` union narrow and avoids
@@ -98,7 +98,7 @@ def register(
 def _route_scope(
     scope: FactorScope, signal: Signal, mode: Mode,
 ) -> FactorScope | _ScopeCollapsedSentinel:
-    """Apply the §5.4.1 scope-collapse rule for sparse Mode B routing.
+    """Apply the §5.4.1 scope-collapse rule for sparse TIMESERIES routing.
 
     Single source of truth for "when does the scope axis collapse to
     the sentinel?" — `_evaluate`, `_describe`, and `_multi_factor.bhy`

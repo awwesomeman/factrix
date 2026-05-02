@@ -3,7 +3,7 @@
 Single-asset (N=1) panels: T daily observations, ``factor`` as a
 broadcast continuous series, ``forward_return`` either correlated
 with the factor (strong-β scenario) or independent (random scenario).
-Covers plan §5.2 Mode B continuous + I5 T-stratification + I6 ADF
+Covers plan §5.2 TIMESERIES continuous + I5 T-stratification + I6 ADF
 persistence diagnose.
 """
 

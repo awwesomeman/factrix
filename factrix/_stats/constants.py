@@ -1,4 +1,4 @@
-"""Mode B sample-size thresholds and Newey-West Bartlett bandwidth.
+"""TIMESERIES sample-size thresholds and Newey-West Bartlett bandwidth.
 
 Centralised per refactor_api.md §5.2 (A3): no literal ``20`` / ``30`` /
 ``floor(4 * (T/100)**(2/9))`` may appear elsewhere in factrix.

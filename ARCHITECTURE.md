@@ -51,7 +51,7 @@ axis `Mode` is **derived at evaluate-time** from `panel["asset_id"].n_unique()`:
 | `Mode`      | `PANEL` (N≥2) / `TIMESERIES` (N=1)          | no — derived  |
 
 Five legal `(scope, signal, metric)` triples × two modes give seven legal
-`(scope, signal, metric, mode)` cells (Mode B narrows to three triples; the
+`(scope, signal, metric, mode)` cells (TIMESERIES narrows to three triples; the
 remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel — see §5.4.1
 of the refactor plan).
 
@@ -136,7 +136,7 @@ in `stats: Mapping[StatCode, float]` keyed by enum, not by string.
 
 ---
 
-## Mode A / Mode B equivalence
+## PANEL / TIMESERIES equivalence
 
 Both modes produce real `primary_p` values — neither is degraded.
 
@@ -176,7 +176,7 @@ procedures wrap.
 1. partitions `profiles` by `_family_key(profile)` — derived from
    `(profile.config.scope, profile.config.signal, profile.config.metric)`
    with the same `_SCOPE_COLLAPSED` collapse rule applied at evaluate-time so
-   Mode A and Mode B sparse profiles aggregate to one family.
+   PANEL and TIMESERIES sparse profiles aggregate to one family.
 2. within each family, runs Benjamini-Yekutieli step-up correction at the
    given FDR threshold and returns the survivors.
 
@@ -219,7 +219,7 @@ Hard constraints — violating these breaks the API contract:
 2. `FactorProfile` is `frozen=True, slots=True`. One unified type — no per-cell subclass.
 3. The registry is the SSOT for "which cells exist". `_validate_axis_compat`, `describe_analysis_modes`, `suggest_config`, BHY family partitioning all reverse-query it; no parallel rule table.
 4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
-5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. Mode B never returns a degenerate `primary_p = 1.0`.
+5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate `primary_p = 1.0`.
 6. `verdict()` reads `primary_p` (or a user-supplied `StatCode` gate); `warnings` and `info_notes` never auto-rebind it.
 7. BHY family key is derived from the config triple, not user-supplied. Same-test-family is mechanical, not by discipline.
 8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.

@@ -58,7 +58,7 @@ class ModeAxisError(ConfigError):
 
 
 class InsufficientSampleError(ConfigError):
-    """``T < MIN_T_HARD`` for a Mode B procedure.
+    """``T < MIN_T_HARD`` for a TIMESERIES procedure.
 
     Below the floor, NW HAC SE is too biased for ``primary_p`` to be
     trustworthy. Raised at evaluate-time. ``suggested_fix`` is ``None``

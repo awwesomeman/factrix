@@ -13,7 +13,7 @@
 2. [30-second smoke test](#30-second-smoke-test)
 3. [設計核心：三條正交分析軸](#設計核心三條正交分析軸)
 4. [5 個合法 cell + canonical procedure](#5-個合法-cell--canonical-procedure)
-5. [Mode A / Mode B：由 N 自動推導](#mode-a--mode-bn-自動推導)
+5. [PANEL / TIMESERIES：由 N 自動推導](#panel--timeseriesn-自動推導)
 6. [樣本守門](#樣本守門)
 7. [批次評估與 BHY](#批次評估與-bhy)
 8. [profile.diagnose() 與 WarningCode](#profilediagnose-與-warningcode)
@@ -129,8 +129,8 @@ cross-section 軸上的形狀**，不是資料的整體結構：
 
 > **N=1 退化**：cross-section 軸只剩一個 asset 時，「INDIVIDUAL vs
 > COMMON」的區分自然消失（沒有 cross-section 可比）。資料退化為純
-> 時序，factrix 路由到 Mode B 用 NW HAC 時序統計處理 — 詳見下方
-> §[Mode A / Mode B](#mode-a--mode-b由-n-自動推導)。
+> 時序，factrix 路由到 `TIMESERIES` 用 NW HAC 時序統計處理 — 詳見下方
+> §[PANEL / TIMESERIES](#panel--timeseriesn-自動推導)。
 
 ### signal
 
@@ -194,7 +194,7 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 
 ---
 
-## Mode A / Mode B：由 N 自動推導
+## PANEL / TIMESERIES：由 N 自動推導
 
 `Mode` **不是 user-facing 軸**，由 raw data 的 `N = panel["asset_id"].n_unique()` 在 evaluate-time 自動決定：
 

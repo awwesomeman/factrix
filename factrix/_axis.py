@@ -44,11 +44,8 @@ class Metric(StrEnum):
 class Mode(StrEnum):
     """Sample regime, derived from ``N`` at evaluate-time.
 
-    ``PANEL``      — Mode A: ``N >= 2`` (multi-asset / multi-event panel).
-    ``TIMESERIES`` — Mode B: ``N == 1`` (single-asset time series).
-
-    This docstring is the SSOT for the "Mode A / Mode B" marketing label
-    used in README, docs, and ``describe_analysis_modes()`` output.
+    ``PANEL``      — ``N >= 2`` (multi-asset / multi-event panel).
+    ``TIMESERIES`` — ``N == 1`` (single-asset time series).
     """
 
     PANEL = "panel"

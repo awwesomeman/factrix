@@ -80,14 +80,14 @@ def _row_for_tuple(
         "scope": scope.value,
         "signal": signal.value,
         "metric": metric.value if metric is not None else None,
-        "mode_a_panel": (
+        "panel": (
             {
                 "use_case": panel.canonical_use_case,
                 "references": list(panel.references),
             }
             if panel is not None else None
         ),
-        "mode_b_timeseries": (
+        "timeseries": (
             {
                 "use_case": timeseries.canonical_use_case,
                 "references": list(timeseries.references),
@@ -132,29 +132,29 @@ def _render_text(rows: list[dict[str, Any]]) -> str:
         lines.append(
             f"  Factory: {_factory_call_for(row['scope'], row['signal'], row['metric'])}",
         )
-        panel = row["mode_a_panel"]
+        panel = row["panel"]
         if panel is None:
-            lines.append("  Mode A (panel): not registered")
+            lines.append("  PANEL: not registered")
         else:
-            lines.append(f"  Mode A (panel): {panel['use_case']}")
+            lines.append(f"  PANEL: {panel['use_case']}")
             if panel["references"]:
                 lines.append(f"    refs: {'; '.join(panel['references'])}")
-        ts = row["mode_b_timeseries"]
+        ts = row["timeseries"]
         if isinstance(ts, str):
-            lines.append(f"  Mode B (timeseries): {ts}")
+            lines.append(f"  TIMESERIES: {ts}")
         else:
-            # A-8 from review: name what the Mode B null actually tests
-            # rather than implying parity with Mode A's cross-asset null.
-            # Sparse Mode B genuinely collapses the scope axis (sentinel
+            # A-8 from review: name what the TIMESERIES null actually tests
+            # rather than implying parity with PANEL's cross-asset null.
+            # Sparse TIMESERIES genuinely collapses the scope axis (sentinel
             # routes both INDIVIDUAL and COMMON sparse to one procedure);
-            # continuous Mode B is a single-series β whose null is
-            # distinct from the cross-asset E[β]=0 of Mode A.
+            # continuous TIMESERIES is a single-series β whose null is
+            # distinct from the cross-asset E[β]=0 of PANEL.
             if ts.get("scope_collapsed"):
                 note = " — scope axis collapsed at N=1"
             else:
-                note = " — single-series test (null differs from Mode A)"
+                note = " — single-series test (null differs from PANEL)"
             lines.append(
-                f"  Mode B (timeseries): {ts['use_case']}{note}",
+                f"  TIMESERIES: {ts['use_case']}{note}",
             )
             if ts["references"]:
                 lines.append(f"    refs: {'; '.join(ts['references'])}")
@@ -165,12 +165,12 @@ def _render_text(rows: list[dict[str, Any]]) -> str:
 def describe_analysis_modes(
     *, format: Literal["text", "json"] = "text",
 ) -> str | list[dict[str, Any]]:
-    """Enumerate the legal analysis cells with Mode A/B routing notes.
+    """Enumerate the legal analysis cells with PANEL / TIMESERIES routing notes.
 
     Iterates ``_DISPATCH_REGISTRY`` (single source of truth for "which
     cells exist") and groups by user-facing ``(scope, signal, metric)``
-    so each row carries both Mode A (PANEL) and Mode B (TIMESERIES)
-    information when registered. Plan §7.1.
+    so each row carries both ``PANEL`` and ``TIMESERIES`` information
+    when registered. Plan §7.1.
     """
     rows = [_row_for_tuple(*t) for t in _user_facing_axis_tuples()]
     if format == "json":
@@ -270,8 +270,8 @@ def suggest_config(
     n_assets = int(raw["asset_id"].n_unique())
     mode = _derive_mode(raw)
     mode_reason = (
-        f"n_assets = {n_assets} detected → Mode "
-        f"{'B (timeseries)' if mode is Mode.TIMESERIES else 'A (panel)'}"
+        f"n_assets = {n_assets} detected → "
+        f"{'TIMESERIES' if mode is Mode.TIMESERIES else 'PANEL'}"
     )
 
     suggested = _build_suggested(scope, signal, forward_periods=forward_periods)

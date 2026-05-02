@@ -1,4 +1,4 @@
-"""factrix v0.5 demo — 5 個合法 cell × Mode A/B × BHY × 錯誤路徑.
+"""factrix v0.5 demo — 5 個合法 cell × PANEL/TIMESERIES × BHY × 錯誤路徑.
 
 可執行的功能索引：每個 section 對應 README 一個概念。從 fresh clone
 直接跑，無外部資料。生成 ``examples/demo.ipynb`` 走
@@ -44,7 +44,7 @@ print("factrix version:", fl.__version__)
 # ## 2. 合法 cell 一覽
 #
 # `describe_analysis_modes()` reverse-query registry SSOT，列出所有合法
-# `(scope, signal, metric)` cell × Mode A/B 路由 + 文獻基礎。
+# `(scope, signal, metric)` cell × PANEL/TIMESERIES 路由 + 文獻基礎。
 
 # %%
 print(fl.describe_analysis_modes())
@@ -198,7 +198,7 @@ print(f"primary_p = {prof_cs.primary_p:.4g}")
 print(f"E[β]      = {prof_cs.stats[fl.StatCode.TS_BETA]:+.5f}")
 
 # %% [markdown]
-# ## 8. Mode B — N=1 自動降維為時序
+# ## 8. TIMESERIES — N=1 自動降維為時序
 #
 # `Mode` 不是 user-facing 軸，由 `N = n_unique(asset_id)` 決定。N=1 時
 # `(COMMON, *)` 與 `(INDIVIDUAL, SPARSE)` 都走真正的時序 procedure，
@@ -210,7 +210,7 @@ print(f"N = {single_asset['asset_id'].n_unique()}")
 
 prof_b = fl.evaluate(single_asset, cfg_cc)
 print(f"mode      = {prof_b.mode}")
-print(f"primary_p = {prof_b.primary_p:.4g}  (Mode B 真實值)")
+print(f"primary_p = {prof_b.primary_p:.4g}  (TIMESERIES 真實值)")
 print(f"warnings  = {sorted(w.value for w in prof_b.warnings)}")
 
 # %% [markdown]

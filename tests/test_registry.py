@@ -1,7 +1,7 @@
 """v0.5 registry SSOT + procedure stubs + FactorProfile semantics.
 
 Covers refactor_api.md §4.4 (registry as SSOT, A1), §4.4.2 (Profile
-shape + verdict policy), §5.4.1 (Mode B sparse collapse), §7.5
+shape + verdict policy), §5.4.1 (TIMESERIES sparse collapse), §7.5
 (naming-consistency invariants).
 """
 
@@ -313,7 +313,7 @@ class TestRouteScope:
             ) is FactorScope.COMMON
 
     def test_sparse_panel_passes_through(self) -> None:
-        # Mode A sparse keeps the user scope — only Mode B collapses.
+        # PANEL sparse keeps the user scope — only TIMESERIES collapses.
         for scope in (FactorScope.INDIVIDUAL, FactorScope.COMMON):
             assert _route_scope(scope, Signal.SPARSE, Mode.PANEL) is scope
 

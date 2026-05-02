@@ -308,7 +308,7 @@ def _compute_common_panel(
 class _TSBetaContTimeseriesProcedure:
     """``(COMMON, CONTINUOUS, None, TIMESERIES)`` — single-asset OLS β.
 
-    Plan §5.2 Mode B continuous: OLS ``y_t = α + β·factor_t + ε`` with
+    Plan §5.2 TIMESERIES continuous: OLS ``y_t = α + β·factor_t + ε`` with
     NW HAC SE on β; ADF on factor surfaces persistence (CONTINUOUS-only
     diagnostic per I6). T-stratified per I5: below ``MIN_T_HARD`` raise
     ``InsufficientSampleError``; in ``[MIN_T_HARD, MIN_T_RELIABLE)``
@@ -387,11 +387,11 @@ class _TSBetaContTimeseriesProcedure:
 class _TSDummySparseTimeseriesProcedure:
     """``(_, SPARSE, None, TIMESERIES)`` — single-asset OLS β on dummy.
 
-    Plan §5.2 Mode B sparse / §5.4.1 sentinel collapse: shared across
+    Plan §5.2 TIMESERIES sparse / §5.4.1 sentinel collapse: shared across
     both user-facing scopes (``individual_sparse`` and ``common_sparse``)
     because at N=1 they are statistically equivalent. ``primary_p``
     is the calendar-time TS dummy regression β NW HAC t-test — NOT
-    event-time CAAR (CAAR is kept as a Mode A procedure for the
+    event-time CAAR (CAAR is kept as a PANEL procedure for the
     PANEL cell).
 
     Diagnostics (plan §5.2 four-layer warnings):

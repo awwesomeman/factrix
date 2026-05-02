@@ -5,9 +5,9 @@ Currently exposes ``bhy`` only. ``redundancy_matrix`` /
 land alongside the v0.4 deletion sweep that retires the existing
 v0.4 ``redundancy_matrix`` / ``spanning`` modules.
 
-Family key for BHY = registry dispatch key (plan §5.6). Mode A and
-Mode B never share a family — different null distributions and
-effective sample sizes. Mode B sparse collapses scope into the
+Family key for BHY = registry dispatch key (plan §5.6). PANEL and
+TIMESERIES never share a family — different null distributions and
+effective sample sizes. Sparse TIMESERIES collapses scope into the
 ``_SCOPE_COLLAPSED`` sentinel so ``individual_sparse`` and
 ``common_sparse`` profiles at N=1 sit in the same family.
 """
