@@ -252,7 +252,19 @@ profiles = [
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 ```
 
-`bhy()` 自動依 `(scope, signal, metric)` tuple 分 family，user **不需手動指定 group key**。如果任一 family 退化成 `size=1`（典型誤用：一個 factor 在多個 cell 各跑一次），會 emit `RuntimeWarning` — 因為這時 BHY 等同於 raw threshold，沒有 FDR 校正力。
+`bhy()` 自動依 `(scope, signal, metric, mode, forward_periods)` 分 family，user **不需手動指定 group key**。`forward_periods` 一定會被切開：每個 horizon 有自己的 null distribution 與 effective sample size，混批會稀釋 `q × k / N` 的 step-up 門檻、靜默破壞 FDR 控制。如果任一 family 退化成 `size=1`（典型誤用：一個 factor 在多個 cell 各跑一次），會 emit `RuntimeWarning` — 因為這時 BHY 等同於 raw threshold，沒有 FDR 校正力。
+
+### Horizon-shopping 校正：先壓 horizon、再 BHY
+
+`bhy()` 自動分 family 只解決「同 horizon 內」的 FDR 控制。若你**對每個因子掃多個 horizon、再挑 min-p**，挑 horizon 本身就是隱形多重檢定（K = horizon 數），BHY 不會替你校正這層 — 必須先用 **FWER 程序**把 horizon 維度內縮成單一代表性 p，再餵進 BHY。
+
+選 FWER 程序時依場景抽換：
+
+- **Bonferroni**（`p × K`）：horizon 數小、彼此可視為獨立時最簡單；K 小（≤ 5）時甚至比 BHY 更不保守。
+- **Holm**（step-down）：同樣控 FWER 但較不保守，當 horizon 之間 p-value 強度差異大時更實用。
+- **不要**用 BHY 當內層程序：(1) 內層只挑單一代表性 p 是 FWER 問題不是 FDR 問題；(2) BHY ∘ BHY 沒有合成定理；(3) K 小時 BHY 因 `c(m)` 因子反而比 Bonferroni 更嚴。
+
+> 別把 K 個因子 × H 個 horizon 共 K×H 個原始 profile 直接 `bhy()`：BHY 會按 horizon 切成 H 個 family of K（這是「在每個 horizon 上獨立挑因子」的正確問題），但這**不**對應「對每個因子挑最佳 horizon」的問題。後者一定要先做 FWER 內縮。
 
 ---
 
