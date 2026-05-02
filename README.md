@@ -25,21 +25,55 @@
 
 ## 安裝
 
-```bash
-git clone https://github.com/awwesomeman/factrix.git
-cd factrix
+`factrix` 支援直接從 GitHub 安裝，Core 模組只依賴 `polars + numpy`。
 
-uv sync                  # core (polars + numpy)
-uv sync --extra dev      # + pytest
-```
+以下提供兩種常見的環境建置與安裝方式：
 
-或 pip 直裝：
+### 選項 A：使用 `uv` (推薦)
+
+`uv` 是一個極速的 Python 封裝與環境管理工具。
 
 ```bash
-pip install git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git
+# 建立並清理全新的 .venv 虛擬環境 (使用 Python 3.12)
+uv venv --python 3.12 --clear
+
+# 啟動虛擬環境 (Linux / macOS)
+source .venv/bin/activate
+# Windows 使用者請執行: .venv\Scripts\activate
+
+# 安裝 main 分支最新開發版
+uv pip install git+https://github.com/awwesomeman/factrix.git
+
+# 若需安裝指定版本 (例如 v0.6.0，建議用於正式環境)
+# uv pip install git+https://github.com/awwesomeman/factrix.git@v0.6.0
 ```
 
-Core 只依賴 `polars + numpy`。
+### 選項 B：使用 `conda`
+
+如果您習慣使用 Anaconda / Miniconda，可以依照以下步驟建立環境：
+
+```bash
+# 建立名為 factrix 的虛擬環境 (使用 Python 3.12)
+conda create -n factrix python=3.12 -y
+
+# 啟動虛擬環境
+conda activate factrix
+
+# 安裝 main 分支最新開發版
+pip install git+https://github.com/awwesomeman/factrix.git
+
+# 若需安裝指定版本 (例如 v0.6.0，建議用於正式環境)
+# pip install git+https://github.com/awwesomeman/factrix.git@v0.6.0
+```
+
+> **💡 開發者貢獻指南**
+> 若您想進行本地開發與修改源碼，請使用 `git clone`：
+> ```bash
+> git clone https://github.com/awwesomeman/factrix.git
+> cd factrix
+> uv sync                  # 安裝 core 依賴
+> uv sync --extra dev      # 包含 pytest 等開發工具
+> ```
 
 ---
 
@@ -273,7 +307,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 
 定位介於**純統計套件**與**回測框架**之間：
 
-- **vs `alphalens`**：alphalens 只做連續截面 IC + 分層回報、Pandas-based 已年久失修。`factrix` 是 Polars-native 替代品，且擴展到 sparse signal、broadcast factor、TS β、BHY FDR。
+- **vs `alphalens`**：`alphalens` 只做連續截面 IC + 分層回報、Pandas-based 已年久失修。`factrix` 是 Polars-native 替代品，且擴展到 sparse signal、broadcast factor、TS β、BHY FDR。
 - **vs `vectorbt` / `zipline` / `backtrader`**：那些是回測 / 交易執行框架；`factrix` 不做部位、不處理保證金與滑價。職責止於提供可信的 `primary_p` —「在寫複雜回測之前，先快速淘汰假因子」。
 - **vs `skfolio` / `PyPortfolioOpt`**：那些是投組最佳化工具；`factrix` 找出有預測力的 alpha 訊號，不處理權重最佳化。
 
