@@ -1,207 +1,330 @@
 # factrix
 
-> **Factor Matrix Library** — 專為量化研究設計的**因子訊號驗證器 (Factor Signal Validator)**。
+> **Factor Matrix Library** — Polars-native 因子訊號驗證器 (Factor Signal Validator)。
 
-`factrix` 是一個基於 **Polars** 打造的模組化因子評估工具包 (Modular factor evaluation toolkit)。我們針對**不同訊號幾何 (Signal Geometry)**（連續截面、稀疏事件、小 panel、共用時序）提供嚴謹的統計檢定。
+回答的問題只有一個：**「這個因子在統計上真的有效嗎？」**
+回答完之後，請帶著 `primary_p` 與 `verdict()` 去下游做回測 / 配置 — `factrix` 不做那些。
 
-不論訊號型態為何，全部統一透過 `preprocess → evaluate → Profile` API 進行驗證。每一步操作皆建立在 statistical-discipline (統計紀律) 的預設值之上，對於樣本不足或資產數極端的情境，我們提供明確且誠實的 fallback，絕不為求產出報表而妥協統計的正確性。
+---
 
-> **專案定位：回答「這個因子在統計上真的有效嗎？」**
-> `factrix` **不是**回測框架，也**不是**資產配置工具。我們的唯一職責是：在排除雜訊、檢定多重假設（Multiple Testing）後，給出可信的 `canonical_p` 與效果量。驗證有效後，請將結果帶往 `vectorbt` / `skfolio` / `PyPortfolioOpt` 等下游工具進行回測與配置。
+## 目錄
 
-## 與其他開源專案的差異
+1. [安裝](#安裝)
+2. [30-second smoke test](#30-second-smoke-test)
+3. [設計核心：三條正交分析軸](#設計核心三條正交分析軸)
+4. [5 個合法 cell + canonical procedure](#5-個合法-cell--canonical-procedure)
+5. [PANEL / TIMESERIES：由 N 自動推導](#panel--timeseriesn-自動推導)
+6. [樣本守門](#樣本守門)
+7. [批次評估與 BHY](#批次評估與-bhy)
+8. [profile.diagnose() 與 WarningCode](#profilediagnose-與-warningcode)
+9. [Scope & non-goals](#scope--non-goals)
+10. [與其他開源套件的差異](#與其他開源套件的差異)
+11. [文件導引](#文件導引)
 
-如果你已經熟悉開源量化生態系，`factrix` 的定位介於**純統計套件**與**回測框架**之間：
+---
 
-- **對比 `alphalens`**：`alphalens` 專注於連續截面（Cross-Sectional）的 IC 與分層回報，但已年久失修（Pandas-based）。`factrix` 是 **Polars-native** 的現代化替代品，且進一步支援**事件驅動（Event-driven）**、**總經面板（Macro Panel）**與**共用時序**的檢定，並內建 BHY 多重檢定校正（FDR control），避免 P-hacking。
-- **對比 `vectorbt` / `zipline` / `backtrader`**：這些是**回測（Backtesting）與交易執行框架**。`factrix` 不做部位管理、不處理保證金與真實滑價。我們提供的 `notional_turnover` / `breakeven_cost` 等指標只是用來做前置篩選（Screening）的理想化 proxy（成本以 Novy-Marx & Velikov 2016 τ 估計），讓你**在寫複雜回測程式碼之前，先快速淘汰無效的假因子**。
-- **對比 `skfolio` / `PyPortfolioOpt`**：這些是**投資組合最佳化（Portfolio Optimization）工具**。`factrix` 負責幫你找出有預測力的 Alpha 訊號，但不處理如何根據協方差矩陣去最佳化配置權重。
+## 安裝
+
+`factrix` 支援直接從 GitHub 安裝，Core 模組只依賴 `polars + numpy`。
+
+以下提供兩種常見的環境建置與安裝方式：
+
+### 選項 A：使用 `uv` (推薦)
+
+`uv` 是一個極速的 Python 封裝與環境管理工具。
+
+```bash
+# 建立並清理全新的 .venv 虛擬環境 (使用 Python 3.12)
+uv venv --python 3.12 --clear
+
+# 啟動虛擬環境 (Linux / macOS)
+source .venv/bin/activate
+# Windows 使用者請執行: .venv\Scripts\activate
+
+# 安裝 main 分支最新開發版
+uv pip install git+https://github.com/awwesomeman/factrix.git
+
+# 若需安裝指定版本 (例如 v0.6.0，建議用於正式環境)
+# uv pip install git+https://github.com/awwesomeman/factrix.git@v0.6.0
+```
+
+### 選項 B：使用 `conda`
+
+如果您習慣使用 Anaconda / Miniconda，可以依照以下步驟建立環境：
+
+```bash
+# 建立名為 factrix 的虛擬環境 (使用 Python 3.12)
+conda create -n factrix python=3.12 -y
+
+# 啟動虛擬環境
+conda activate factrix
+
+# 安裝 main 分支最新開發版
+pip install git+https://github.com/awwesomeman/factrix.git
+
+# 若需安裝指定版本 (例如 v0.6.0，建議用於正式環境)
+# pip install git+https://github.com/awwesomeman/factrix.git@v0.6.0
+```
+
+> **💡 開發者貢獻指南**
+> 若您想進行本地開發與修改源碼，請使用 `git clone`：
+> ```bash
+> git clone https://github.com/awwesomeman/factrix.git
+> cd factrix
+> uv sync                  # 安裝 core 依賴
+> uv sync --extra dev      # 包含 pytest 等開發工具
+> ```
 
 ---
 
 ## 30-second smoke test
 
-確認裝好了、環境跑得起來：
+```python
+import factrix as fl
+from factrix.preprocess.returns import compute_forward_return
+
+raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+panel = compute_forward_return(raw, forward_periods=5)
+
+cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+profile = fl.evaluate(panel, cfg)
+
+print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
+# → pass | primary_p = 0.0
+
+# diagnose() 一次拿完整結果（給人讀也給 AI agent 拿）
+print(profile.diagnose())
+# {'mode': 'panel', 'n_obs': 494, 'n_assets': 100,
+#  'primary_p': 2.13e-40, 'warnings': [], 'info_notes': [],
+#  'stats': {'ic_mean': 0.0722, 'ic_t_nw': 14.60, 'ic_p': ..., 'nw_lags_used': 5}}
+```
+
+無需外部資料、無需設定檔；`fl.datasets` 產可重現合成 panel。
+
+---
+
+## 設計核心：三條正交分析軸
+
+`AnalysisConfig` 由三條 user-facing 軸構成。三軸**正交**：每個合法組合對應一個明確的統計檢定。
+
+| Axis     | Values                                | 問的是                                                        |
+|----------|---------------------------------------|---------------------------------------------------------------|
+| `scope`  | `INDIVIDUAL` / `COMMON`               | 因子值是**每個 asset 自己一套**還是**所有 asset 共用同一個**？ |
+| `signal` | `CONTINUOUS` / `SPARSE`               | 訊號是連續實數還是 `{−1, 0, +1}` 觸發？                       |
+| `metric` | `IC` / `FM` / *(N/A)*                 | 只在 `(INDIVIDUAL, CONTINUOUS)` cell 細分研究問題              |
+
+### scope 是**因子屬性**，不是**資料結構**
+
+factrix 的輸入是 **panel data** — 同時帶有時序軸（dates, `n_periods` 維度）
+與 cross-section 軸（assets, `n_assets` 維度）。`scope` 描述的是**因子值在
+cross-section 軸上的形狀**，不是資料的整體結構：
+
+- **`INDIVIDUAL`**：每個 `(date, asset_id)` 有獨立的 factor 值。
+  例：P/E、Momentum、Quality — 每檔股票自己的訊號。
+- **`COMMON`**：每個 `date` 上所有 `asset_id` 共享同一個 factor 值。
+  例：VIX、DXY、FOMC dummy — broadcast 到全 universe 的訊號。
+
+用 polars 一行話判斷：
+`COMMON` ⇔ `df.group_by("date").agg(pl.col("factor").n_unique() == 1).all()`。
+
+> **N=1 退化**：cross-section 軸只剩一個 asset 時，「INDIVIDUAL vs
+> COMMON」的區分自然消失（沒有 cross-section 可比）。資料退化為純
+> 時序，factrix 路由到 `TIMESERIES` 用 NW HAC 時序統計處理 — 詳見下方
+> §[PANEL / TIMESERIES](#panel--timeseriesn-自動推導)。
+
+### signal
+
+- **`CONTINUOUS`**：實數值（zscore、percentile、價格動能 …）
+- **`SPARSE`**：稀疏觸發 `{−1, 0, +1}`，0 為 no-event；連續零值占比 ≥ 50% 才合理用 SPARSE 路徑
+
+### metric（只在 `(INDIVIDUAL, CONTINUOUS)` 出現）
+
+- **`IC`**（default）：rank-based predictive ordering — Spearman ρ → NW HAC t-test
+- **`FM`**：unit-of-exposure premium — Fama-MacBeth λ → NW HAC t-test
+
+`(INDIVIDUAL, SPARSE)`、`(COMMON, *)` 沒有 metric 細分，`metric=None`。
+
+---
+
+## 5 個合法 cell + canonical procedure
+
+合法 `(scope, signal, metric)` 三元組共 5 個，由 `AnalysisConfig` 的 4 個 factory methods 構造：
 
 ```python
 import factrix as fl
 
-raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
-cfg = fl.CrossSectionalConfig(forward_periods=5)
-profile = fl.evaluate(fl.preprocess(raw, config=cfg), "sanity", config=cfg)
+# 1. INDIVIDUAL × CONTINUOUS × IC  — stock-picking IC（default metric=IC）
+cfg = fl.AnalysisConfig.individual_continuous(forward_periods=5)
 
-print(profile.verdict(), '| ic_mean =', round(profile.ic_mean, 4))
-# → PASS | ic_mean = 0.0722
+# 2. INDIVIDUAL × CONTINUOUS × FM  — Fama-MacBeth λ（小 N panel 較穩）
+cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.FM, forward_periods=5)
+
+# 3. INDIVIDUAL × SPARSE           — 個股事件 (earnings / rating)
+cfg = fl.AnalysisConfig.individual_sparse(forward_periods=5)
+
+# 4. COMMON × CONTINUOUS           — broadcast factor (VIX / DXY)
+cfg = fl.AnalysisConfig.common_continuous(forward_periods=5)
+
+# 5. COMMON × SPARSE               — broadcast event (FOMC / index rebalance)
+cfg = fl.AnalysisConfig.common_sparse(forward_periods=5)
+
+profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_return)
 ```
 
-三行，不需要任何外部資料（`fl.datasets` 產可重現合成 panel）。通了以後去跑
-[`examples/demo.ipynb`](examples/demo.ipynb) 看完整用法。
+每個 factory 對應的 canonical 統計程序：
+
+| Factory                                | Procedure                                                                                  | 文獻基礎                                  |
+|----------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------------------|
+| `individual_continuous(metric=IC)`      | per-date Spearman ρ → NW HAC t on `E[IC]`                                                  | Grinold (1989); Newey & West (1987)       |
+| `individual_continuous(metric=FM)`      | per-date OLS slope `λ_t` → NW HAC t on `E[λ]`                                              | Fama & MacBeth (1973); Petersen (2009)    |
+| `individual_sparse()`                   | per-event `AR_{i,τ}` → CAAR → cross-event t                                                | Brown & Warner (1985); MacKinlay (1997)   |
+| `common_continuous()`                   | per-asset TS β → cross-asset t on `E[β]`                                                   | Black-Jensen-Scholes (1972)               |
+| `common_sparse()`                       | per-asset TS β on dummy → cross-asset t on `E[β]`                                          | TS-β + event-study hybrid                 |
+
+> Factory methods 是 type-safe constructors — 違反組合（如對 `SPARSE` cell 傳 `metric=IC`）IDE 直接標紅，不必等 runtime `IncompatibleAxisError`。
+
+### IC 還是 FM？
+
+回答的研究問題不同，**選擇依研究問題決定，不依資料形狀決定**：
+
+- **`IC`**：「factor 對未來報酬有沒有 predictive ordering？」 — rank-based、對 outlier robust
+- **`FM`**：「factor 每多一單位 exposure 對應多少報酬溢酬？」 — slope-based、有 economic interpretation
+
+實務參考：`N < 10` 時 IC variance 過高，建議切 `FM`；`N ∈ [20, 50]` 區間兩者皆穩。
 
 ---
 
-## 核心優勢：為什麼用 factrix
+## PANEL / TIMESERIES：由 N 自動推導
 
-比起自己 rolling 一套 factor-analysis 腳本，主要差在六件事：
+`Mode` **不是 user-facing 軸**，由 raw data 的 `N = panel["asset_id"].n_unique()` 在 evaluate-time 自動決定：
 
-1. **一個 `canonical_p` 驅動 `verdict()`** — 每個 factor_type 有**單一** p-value
-   當 PASS/FAILED gate（IC t-test / CAAR / Fama-MacBeth / TS β）。不搞「看 IC
-   又看 spread 又看 hit rate 最後人工拍板」的 ad-hoc 聚合。其他 signal 質
-   / stability / regime 訊息全部走 `profile.diagnose()` 回 structured
-   `Diagnostic`，不偷跑進 verdict。
+| Mode         | 條件   | 適用 tuple                                        | 統計重心                                  |
+|--------------|--------|---------------------------------------------------|-------------------------------------------|
+| `PANEL`      | N ≥ 2  | 全部 5 個                                         | cross-sectional / cross-asset aggregation |
+| `TIMESERIES` | N = 1  | `(INDIVIDUAL, SPARSE)`、`(COMMON, *)` 三個        | time-series aggregation (NW HAC + ADF)    |
 
-2. **Typed `Profile` dataclass，不是 dict** — `CrossSectionalProfile`、
-   `EventProfile` 等 `frozen + slots`，欄位 IDE discoverable，直接餵 polars
-   expression 做 filter / rank / BHY。寫 `profile.ic_mean` 打錯 key IDE 就
-   會叫，不會 typo 到半夜 debug。
+兩 mode **對等 first-class** — `primary_p` 都是真實值，不會壓 1.0。差別只在底層 procedure。
 
-3. **`fl.factor()` session 統一 metric API** — 單因子研究時所有 standalone
-   metric 變成 session method（`f.ic()`、`f.quantile_spread()` 等），
-   shared Artifacts cache 讓各 method 和 `f.evaluate()` 共用同一份計算；
-   per-call `f.quantile_spread(n_groups=3)` 做 sensitivity sweep 不污染
-   cache。
+### N=1 的特殊路徑
 
-4. **Preprocess 和 evaluate 兩步驟 + strict gate** — `fl.preprocess(raw,
-   config=cfg)` 把 **`factor_type` + 所有被烙進 prepared 的 preprocess-time
-   欄位**（CS 加 `mad_n / return_clip_pct`；MP 加 `demean_cross_section`；
-   Event / MC 只有 `forward_periods`）嵌進 prepared 的 `_fl_preprocess_sig`
-   marker。`fl.evaluate` / `fl.factor` 逐欄位 diff，任何對不上直接 raise
-   並指名哪個欄位、兩邊各是什麼值。擋掉最惡性的那類 bug — 兩邊 config
-   silently 對不上、跨 factor_type 誤用（event panel 被 CS 化）、全下游
-   metric 無聲無息污染、測出來的 IC 看起來合理但其實量錯 horizon。兩步驟
-   保留是為了讓 `prepared` cache 一次、evaluate-time 欄位（`n_groups,
-   tie_policy, ortho, regime_labels, …`）可以 sweep。`config=` 在
-   `fl.preprocess` 是必填 — 沒有 silent 預設 factor_type。
+- **`(INDIVIDUAL, CONTINUOUS, *) × N=1`**：數學上不存在（無 cross-sectional dispersion → IC / per-date OLS undefined）。`evaluate()` 直接 `raise ModeAxisError(suggested_fix=AnalysisConfig.common_continuous(...))`。
+- **`(*, SPARSE, None) × N=1`**：scope 軸自然 collapse — `individual_sparse()` 與 `common_sparse()` 在 N=1 路由到同一個 timeseries dummy procedure，`profile.info_notes` 加入 `InfoCode.SCOPE_AXIS_COLLAPSED` 留下 audit trail。
 
-5. **批次 + BHY 多重檢定一行搞定** — `ps.multiple_testing_correct(p_source=
-   "canonical_p", fdr=0.05)` 用 Benjamini-Yekutieli step-up（比 BH 保守、
-   容許 dependence）控制 family-wise FDR；`p_source` 白名單只收
-   `Profile.P_VALUE_FIELDS`，複合 p 例如 `min(ic_p, spread_p)` 會被拒，不
-   讓 user 餵跨 hypothesis 的 p 進 BHY 壞掉 same-test-family 語意。
+---
 
-6. **Short-circuit = NaN, not 0** — metric 算不出來（sample 太小、缺欄位）
-   回傳 `NaN` 加 `metadata["reason"]`，BHY 讀 `metadata["p_value"]=1.0`
-   保守拒絕。0 是合法的 factor 結果（IC、β 剛好為 0），NaN 才是「跳過」。
-   `describe_profile_values` 把 NaN 顯示成 `—`，skips 看得見。
+## 樣本守門
+
+時序長度 `n_periods` 與資產數 `n_assets` **獨立守門**，不採用 `n_periods × n_assets` 總觀測數作為單一 power 指標 — per-date stat 變異主要由 `n_assets` 決定，time-series aggregation power 主要由 `n_periods` 決定。
+
+| 常數                | 來源                              | 行為                                                                            |
+|---------------------|-----------------------------------|---------------------------------------------------------------------------------|
+| `MIN_PERIODS_HARD = 20`   | `factrix/_stats/constants.py`    | `n_periods < 20` → raise `InsufficientSampleError(actual_periods, required_periods)`                |
+| `MIN_PERIODS_RELIABLE = 30` | 同上                             | `n_periods < 30` → 加 `WarningCode.UNRELIABLE_SE_SHORT_SERIES` 到 `profile.warnings`     |
+| `MIN_IC_PERIODS = 10` / `MIN_EVENTS = 10` | `factrix/_types.py` | metric 內部 short-circuit 用                                                     |
+
+`fl.suggest_config(panel)` 可反向給出建議的 factory call + 警報；`fl.describe_analysis_modes()` 列出所有 cell 及其 procedure / 文獻 / `MIN_PERIODS_*`。
+
+---
+
+## 批次評估與 BHY
+
+BHY 控制的是**同一 statistical family 內**的 FDR：用同一個 procedure 評估多個 candidate factor，再對這批 p-value 做 step-up 校正。**不要混 family** — 跨 IC / FM / TS-β 的 p-value 統計意義不可換算，混批等於放棄 FDR control。
+
+```python
+import factrix as fl
+import polars as pl
+
+# 10 個 momentum candidate, 同一個 cell (IC PANEL) 跑批
+candidates = ["mom_5d", "mom_20d", "mom_60d", ...]
+cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+
+profiles = [
+    fl.evaluate(panel.with_columns(pl.col(name).alias("factor")), cfg)
+    for name in candidates
+]
+survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+```
+
+`bhy()` 自動依 `(scope, signal, metric)` tuple 分 family，user **不需手動指定 group key**。如果任一 family 退化成 `size=1`（典型誤用：一個 factor 在多個 cell 各跑一次），會 emit `RuntimeWarning` — 因為這時 BHY 等同於 raw threshold，沒有 FDR 校正力。
+
+---
+
+## profile.diagnose() 與 WarningCode
+
+`profile.diagnose()` 一次回傳 `dict[str, Any]`，給人讀也給 AI agent 拿：
+
+```python
+{
+    "mode": "panel",
+    "n_obs": 500,
+    "primary_p": 0.0001,
+    "warnings": ["unreliable_se_short_series"],   # WarningCode.value
+    "info_notes": [],                              # InfoCode.value
+    "stats": {"ic_mean": 0.082, "ic_t_nw": 4.21, "nw_lags_used": 5},
+}
+```
+
+`profile.warnings: frozenset[WarningCode]` 是顯式 enum，每個 code 帶一行 `description` gloss：
+
+| WarningCode                    | 觸發條件                                                  |
+|--------------------------------|-----------------------------------------------------------|
+| `UNRELIABLE_SE_SHORT_SERIES`   | `n_periods < MIN_PERIODS_RELIABLE = 30` → NW HAC SE 不穩定       |
+| `PERSISTENT_REGRESSOR`         | `factor_adf_p > 0.10`（CONTINUOUS factor，Stambaugh-style） |
+| `EVENT_WINDOW_OVERLAP`         | event windows 重疊（CAAR / sparse 場景）                   |
+| `SERIAL_CORRELATION_DETECTED`  | Ljung-Box p < 0.05 on residuals                            |
+
+> **重要**：`warnings` **不**影響 `verdict()`。它是 risk flag，user 自行決定是否在 BHY 之前過濾。`verdict()` 只看 `primary_p < threshold`。
 
 ---
 
 ## Scope & non-goals
 
 ### Scope
-- **建議的資料頻率 (Daily-to-monthly bar-based)**：除了 `event_signal` 模組能自然適應不定期發生的事件外，其餘模組皆**建議使用日頻（Daily）或更低頻率**的資料進行分析。若使用稍高頻（如小時、分鐘）的資料，數學上不會報錯且仍能運作，但**明確不支援真正的超高頻（Tick-level, HFT）數據**。
-- **`forward_periods` 是 rows，不是 calendar time** — 週頻 panel 寫 `forward_periods=1` 就是 1-week 前向報酬，不同頻率全部走同一套 API。
-- **訊號幾何 × 資料形狀**覆蓋四種主要 cell（見上方表）；單資產連續因子有明確標示的 coverage gap。
-- **統計嚴謹的 PASS/FAILED gate** + structured `diagnose()` + BHY FDR 控制，作為後續 allocation / strategy layer 的可信輸入。
+- 建議資料頻率：**Daily 到 monthly** bar-based。Sparse signal 模組能適應不定期事件，其餘建議日頻或更低；不支援真正的 HFT (tick-level)。
+- `forward_periods` 是 **rows，不是 calendar time** — 週頻 panel `forward_periods=1` 就是 1-week 前向報酬。
+- 5 個 `(scope, signal, metric)` cell 全覆蓋；`(INDIVIDUAL, CONTINUOUS, *) × N=1` 數學上不存在的位置 raise `ModeAxisError` 並提示改 `common_continuous`。
+- 統計嚴謹的 PASS/FAIL gate + `profile.diagnose()` warnings + BHY FDR 控制 = 後續 allocation / strategy layer 的可信輸入。
 
 ### 明確不做（不只是「沒做」— 是設計上決定不做）
 
-| 不做 | 理由 | 該用什麼 |
-|---|---|---|
-| Portfolio optimization（MVO / Black-Litterman / HRP / Risk Parity） | 生態已成熟；lib 定位為 validator 不是 optimizer | `skfolio` / `PyPortfolioOpt` / `riskfolio-lib` / `cvxpy` |
-| ML 信號層（xgboost / lightgbm + SHAP） | 複雜特徵工程 + 可解釋性不是 validator 職責 | `xgboost` + `shap` |
-| Regime detection methodology（HMM / threshold / K-means state） | 方法論學術上不收斂，不內建以免 bake-in 未驗證選擇；`regime_labels` 只提供 input contract | `hmmlearn` / 自寫 threshold rule |
-| Structural break detection（Chow / Quandt-Andrews / Bai-Perron） | 屬時序 regime analysis 領域，out of scope | `ruptures` |
-| GARCH / wild bootstrap SE | 保持 core 依賴精簡（polars + numpy + pandera）；進階推論外接 | `arch` |
-| Predictive regression with persistent predictor 自動修正（IVX / Stambaugh correction） | 透過 `factor_adf_p` 只做 flagging，避免 false confidence | `arch` / R `ivx` |
-| Backtest / execution simulation / slippage / margin | 明確非 scope；`notional_turnover` / `breakeven_cost` 是 screening proxy | `vectorbt` / `bt` / Zipline / Backtrader |
-| Intraday / HFT（tick-level、sub-second） | per-date CS IC / CAAR / FM λ 的語意在 tick data 上不成立 | 另找專用工具 |
-| 跨 factor 合成信號 / factor combiner（產生單一 composite signal）| 屬 signal layer，validator 不碰。注意：factrix 的 `redundancy_matrix` 是 **diagnostic**（量化因子之間的重疊程度），不是 combiner — 它告訴你哪些因子該合、哪些該剃，但不產生合成信號 | 自寫、或用 `scikit-learn` 的 regression |
+| 不做                                                       | 該用什麼                                                          |
+|------------------------------------------------------------|-------------------------------------------------------------------|
+| Portfolio optimization (MVO / HRP / Risk Parity)           | `skfolio` / `PyPortfolioOpt` / `riskfolio-lib` / `cvxpy`          |
+| ML 信號層 (xgboost / lightgbm + SHAP)                       | `xgboost` + `shap`                                                |
+| Regime detection methodology (HMM / threshold)             | `hmmlearn` / 自寫                                                  |
+| Structural break detection (Chow / Bai-Perron)             | `ruptures`                                                        |
+| GARCH / wild bootstrap SE                                  | `arch`                                                            |
+| Persistent-predictor 自動修正 (IVX / Stambaugh)             | `arch` / R `ivx`（factrix 只 flag，不 auto-correct）              |
+| Backtest / execution / slippage / margin                    | `vectorbt` / `bt` / Zipline / Backtrader                          |
+| Intraday / HFT (tick-level)                                | 另找專用工具                                                       |
+| 跨 factor 合成信號 / factor combiner                         | 自寫，或 `scikit-learn`                                            |
 
-這份清單不是 TODO，是**承諾不擴張的 scope 邊界**。擴張請先更新
-[`ARCHITECTURE.md`](ARCHITECTURE.md) 的 Invariants 區塊，並在
-`awwesomeman/factor-analysis` workspace 的 `docs/` 新增 `spike_*.md` 設計文件。
+這份清單不是 TODO，是**承諾不擴張的 scope 邊界**。擴張請先更新 [`ARCHITECTURE.md`](ARCHITECTURE.md) Invariants。
 
 ---
 
-## Install
+## 與其他開源套件的差異
 
-目前專案尚未公開發佈至公開的 PyPI。針對不同的使用情境，提供以下兩種安裝方式：
+定位介於**純統計套件**與**回測框架**之間：
 
-### 1. 境內量化研究員直接安裝 (使用套件)
-此方法適用於只想要使用套件的研究員，**不需額外架設私有 PyPI**。只需要產生一組擁有讀取權限的 GitHub Token，就能讓 `pip` 直接到 Repo 抓取代碼並自動打包安裝。在這個過程中，Private GitHub 就充當了我們的私有套件庫：
-
-```bash
-# 透過 Git Token 進行一鍵安裝
-pip install git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git
-
-# 若需安裝畫圖與追蹤等 optional 依賴
-pip install "factrix[all] @ git+https://<YOUR_GITHUB_TOKEN>@github.com/awwesomeman/factrix.git"
-```
-
-### 2. 框架開發者 (Editable Install)
-若你需要開發、修改 `factrix` 的底層源碼或跑測試：
-
-```bash
-git clone https://github.com/awwesomeman/factrix.git
-cd factrix
-
-pip install -e .                   # core (polars + numpy + pandera)
-pip install -e ".[charts]"         # + plotly 圖表
-pip install -e ".[mlflow]"         # + mlflow tracking
-pip install -e ".[all]"            # charts + mlflow
-pip install -e ".[dev]"            # + pytest / nbformat（跑測試、build demo）
-```
-
-Core 只依賴 `polars + numpy + pandera`；plotly / mlflow 屬 optional extras，不裝也能跑完 `evaluate` / `ProfileSet` / BHY 全部核心流程。
+- **vs `alphalens`**：`alphalens` 只做連續截面 IC + 分層回報、Pandas-based 已年久失修。`factrix` 是 Polars-native 替代品，且擴展到 sparse signal、broadcast factor、TS β、BHY FDR。
+- **vs `vectorbt` / `zipline` / `backtrader`**：那些是回測 / 交易執行框架；`factrix` 不做部位、不處理保證金與滑價。職責止於提供可信的 `primary_p` —「在寫複雜回測之前，先快速淘汰假因子」。
+- **vs `skfolio` / `PyPortfolioOpt`**：那些是投組最佳化工具；`factrix` 找出有預測力的 alpha 訊號，不處理權重最佳化。
 
 ---
 
-## 怎麼選 factor_type
+## 文件導引
 
-factrix 用兩個軸決定該走哪個 canonical test：**signal geometry**（因子
-在 (date, asset) 維度上如何變化）× **data shape**（你手上有多少資產 × 多
-長的時序）。當前支援狀況：
-
-| Signal geometry ↓ ／ Data shape → | 寬截面 N ≥ 30（選股典型） | 小 panel 2 ≤ N < 30（跨國配置典型） | 單資產 N = 1（單標的交易典型） |
-|---|---|---|---|
-| **連續因子**<br/>每 date 每 asset 一個連續值<br/>例：P/E, Momentum, CAPE | `cross_sectional`<br/>IC 非重疊 t-test | `macro_panel`<br/>Fama-MacBeth Newey-West | **[coverage gap]**<br/>詳見下方 Fallback 清單 |
-| **稀疏事件**<br/>有號觸發 {−, 0, +}<br/>例：earnings、cross、policy shift | `event_signal`<br/>CAAR 非重疊 t-test | `event_signal`<br/>CAAR + `clustering_hhi` 診斷 | `event_signal` **[degraded]**<br/>`clustering_hhi` 自動停用、CAAR 退化成單資產時間平均（不再是 "cross-sectional average"） |
-| **共用時序**<br/>同一 date 所有 asset 共用同一 factor 值<br/>例：VIX, DXY, 黃金 | `macro_common`<br/>跨資產 t-test on per-asset TS β | `macro_common`<br/>同上，但 β 分佈離散度要人工判讀 | `macro_common` **[fallback]**<br/>canonical p 被**保守地壓到 1.0**，verdict **幾乎一定 FAILED**；改看 `ts_beta_tstat` 作為替代指標 |
-
-`fl.describe_factor_types()` / `fl.describe_profile("event_signal")` 印出
-對應的 Profile dataclass 欄位與 canonical p 名稱。
-
-### Fallback 行為：誠實清單
-
-- **連續因子 × 單資產**（coverage gap）：你用 `macro_common` 硬塞時，`factor` 會被當時序 z-score，`ts_beta` 轉成自相關測試（不是 cross-sectional 溢酬）— 結果會跑，但語意並非你要的「這個連續 factor 在這支 asset 上有 predictive 力嗎」。這個 cell 是否要補成 `single_asset` 第 5 類，視使用者 friction log 累積信號決定。
-- **Event N=1**：CAAR t-test 仍跑，但你失去「跨資產事件一致性」這層證據。`clustering_hhi` 屬於 cross-sectional clustering 的診斷，單資產下無意義故自動停用；若你擔心同一 asset 事件序列自相關（earnings pre-announcement leak 之類），目前沒有內建檢測。
-- **Macro common N=1**：底層切到 `ts_beta_single_asset_fallback`，這是**保守 conservative** 的處理 — 它不產生假陽性，但也幾乎不給真陽性。別用 `verdict() == "PASS"` 判斷，改讀 `ts_beta_tstat` / `factor_adf_p` 的實際值。
-- **CS / MP 丟 N=1 panel**：會在 `build_artifacts` raise `ValueError` 並指向 `MacroCommonConfig` — 不讓你拿到「silently FAILED」的誤導性結果。
-- **樣本 T 不足**（少於 `MIN_IC_PERIODS=10` / `MIN_FM_PERIODS=20` / `MIN_TS_OBS=20` / `MIN_EVENTS=10`）：對應 metric 短路成 `NaN` 並在 `metadata.reason` 標 `insufficient_*`；canonical p 走 conservative default (1.0)，不會產生假陽性。逐欄位 N/T 下限 + fallback 對照見 [`docs/metric_applicability.md`](docs/metric_applicability.md)。
-
----
-
-## 統計方法與參考文獻
-
-factrix 的每個指標都對應業界 / 學界認可的方法。完整論述（每個 canonical test 的論文依據、實際採用的部分、經評估但刻意未實作的部分、完整參考文獻）放在獨立文件：
-
-- [`docs/statistical_methods.md`](docs/statistical_methods.md) — 逐方法引用、採用細節、完整文獻清單
-- [`docs/metric_applicability.md`](docs/metric_applicability.md) — 每個 Profile 欄位的 N/T 下限 + fallback 行為
-
-下面留的「樣本數守門」只是常查閾值的快捷表；其他內容請走上面兩個檔。
-
-### 樣本數守門（統一閾值，見 `_types.py`）
-
-- `MIN_IC_PERIODS = 10`、`MIN_EVENTS = 10`、`MIN_OOS_PERIODS = 5`、`MIN_PORTFOLIO_PERIODS = 5`、`MIN_MONOTONICITY_PERIODS = 5`
-- `MIN_FM_PERIODS = 20`（Fama-MacBeth λ 序列，見 `metrics/fama_macbeth.py`）、`MIN_TS_OBS = 20`（per-asset TS regression，見 `metrics/ts_beta.py`）
-- 未達門檻時，metric 會 short-circuit 並在 `metadata.reason` 標記 `insufficient_*`；對應 profile 欄位走 conservative default（p=1.0），不會產生假陽性。
-
----
-
-## 下一步看哪裡
-
-本專案 metric 相關資訊**刻意分三層**，每層職責不重疊 — 查不同問題走不同入口：
-
-| 想知道 | 看 |
-|--------|-----|
-| 怎麼用（可執行例子） | [`examples/demo.ipynb`](examples/demo.ipynb) — 四種 factor_type × Level 0–6 的可執行功能索引，`fl.datasets` 產資料、從 fresh clone 可以直接跑 |
-| **精確公式 / 演算法 / 邊界 case**（authoritative source）| 對應 module docstring — `help(factrix.metrics.ic)`、`help(factrix.metrics.caar)`、… |
-| **為什麼選這個方法**（論文依據、與原式 deviation、經評估但未實作）| [`docs/statistical_methods.md`](docs/statistical_methods.md) |
-| **這個指標我的資料夠不夠用**（N/T 下限、fallback 語意）| [`docs/metric_applicability.md`](docs/metric_applicability.md) |
-| Profile 欄位、Config 介面 | `fl.describe_profile(<type>)`、`help(fl.CrossSectionalConfig)` 等 |
-| 內部結構（module layout、invariants、Profile contract、Artifacts 策略）| [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| 想貢獻（dev workflow、submodule、test 規範、release、docstring 風格）| [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| 版本變動 | [`CHANGELOG.md`](CHANGELOG.md) |
+| 想知道                                                                        | 看                                                                             |
+|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| 怎麼用                                                                        | 上方 §30-second smoke test、`fl.describe_analysis_modes()`、`fl.suggest_config(panel)` |
+| **精確公式 / 演算法 / 邊界 case**（authoritative source）                       | 對應 module docstring：`help(factrix.metrics.ic)`、…                            |
+| **為什麼選這個方法**（論文依據、deviation）                                     | [`docs/statistical_methods.md`](docs/statistical_methods.md)                   |
+| **資料夠不夠用**（N/T 下限、fallback 語意）                                     | [`docs/metric_applicability.md`](docs/metric_applicability.md)                 |
+| Profile / Config 介面                                                         | `help(fl.FactorProfile)`、`help(fl.AnalysisConfig)`                            |
+| 內部結構（registry SSOT、Procedure protocol、Mode 推導、Invariants）            | [`ARCHITECTURE.md`](ARCHITECTURE.md)                                          |
+| 想貢獻                                                                        | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                          |
+| 版本變動                                                                      | [`CHANGELOG.md`](CHANGELOG.md)                                                |
 
 ---
 

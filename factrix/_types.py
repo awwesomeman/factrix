@@ -1,77 +1,16 @@
-"""Shared types and constants for all factrix tools.
+"""Shared types and constants for the v0.4 metric primitives.
 
-Every tool returns ``MetricOutput``; every tool shares the same
-numerical constants. This module is the single source of truth.
+The v0.5 axis enums (``FactorScope`` / ``Signal`` / ``Metric`` / ``Mode``)
+live in :mod:`factrix._axis`; the v0.5 result type
+(``FactorProfile``) lives in :mod:`factrix._profile`. This module
+keeps only the numerical constants and ``MetricOutput`` shared by the
+``factrix.metrics.*`` primitives that v0.5 procedures wrap.
 """
 
 from __future__ import annotations
 
-import enum
 from dataclasses import dataclass, field
 from typing import Literal, NewType
-
-
-# ---------------------------------------------------------------------------
-# Factor type taxonomy
-# ---------------------------------------------------------------------------
-
-class FactorType(enum.StrEnum):
-    """Supported factor type categories.
-
-    Determines which metrics, gates, and profile logic apply.
-    """
-
-    CROSS_SECTIONAL = "cross_sectional"
-    EVENT_SIGNAL = "event_signal"
-    MACRO_PANEL = "macro_panel"
-    MACRO_COMMON = "macro_common"
-
-
-def coerce_factor_type(factor_type: "FactorType | str") -> "FactorType":
-    """Accept a FactorType enum or its string value and return the enum.
-
-    Centralizes the string→enum coercion used by public API entry points
-    (``evaluate``, ``evaluate_batch``, ``describe_profile``,
-    ``register_rule``). Surfaces the same error message regardless of
-    call site so users can pattern-match it reliably.
-    """
-    if isinstance(factor_type, FactorType):
-        return factor_type
-    try:
-        return FactorType(factor_type)
-    except ValueError:
-        valid = ", ".join(ft.value for ft in FactorType)
-        raise ValueError(
-            f"Unknown factor_type {factor_type!r}. "
-            f"Supported: {valid}. "
-            f"Use fl.describe_factor_types() for details."
-        ) from None
-
-
-# ---------------------------------------------------------------------------
-# Missing-argument sentinel
-# ---------------------------------------------------------------------------
-
-class _Unset:
-    """Sentinel marking "caller supplied no value".
-
-    Distinct from ``None`` (which is a legitimate user-passable value) and
-    from the function's default, which is what a reader of the signature
-    sees. Used by ``_api.py`` / ``preprocess/pipeline.py`` to detect
-    ``config=`` + ``**overrides`` double-pass without forcing callers to
-    switch to ``**kwargs`` + ``pop`` gymnastics.
-    """
-
-    __slots__ = ()
-
-    def __repr__(self) -> str:
-        return "<unset>"
-
-    def __bool__(self) -> bool:
-        return False
-
-
-UNSET = _Unset()
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +29,7 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 
 
 # ---------------------------------------------------------------------------
-# Minimum sample thresholds
+# Minimum sample thresholds (used by metrics primitives)
 # ---------------------------------------------------------------------------
 
 MIN_IC_PERIODS: int = 10
@@ -101,27 +40,21 @@ MIN_MONOTONICITY_PERIODS: int = 5
 
 
 # ---------------------------------------------------------------------------
-# Unified output type
+# Unified output type for metric primitives
 # ---------------------------------------------------------------------------
 
 @dataclass
 class MetricOutput:
-    """Unified return type for all tools.
-
-    Every tool function returns ``MetricOutput``.  The ``name`` and ``value``
-    fields are mandatory; everything else is optional context.
+    """Return type for ``factrix.metrics.*`` primitives.
 
     Args:
         name: Metric identifier (e.g. "ic_ir", "oos_decay").
-        value: Raw metric value — never mapped to 0-100.
+        value: Raw metric value.
         stat: Test statistic (t, z, W, chi2, ...), when applicable.
-        significance: "***" (p < 0.01) / "**" (p < 0.05) / "*" (p < 0.10) / "" (ns).
-            Derived from ``metadata["p_value"]`` when available.
-        metadata: Tool-specific context. Standard keys:
-            - ``p_value`` (float): p-value for significance determination.
-            - ``stat_type`` (str): "t" | "z" | "wilcoxon" | "bootstrap" | ...
-            - ``h0`` (str): null hypothesis, e.g. "mu=0", "p=0.5".
-            - ``method`` (str): e.g. "non-overlapping t-test", "binomial score".
+        significance: ``***`` / ``**`` / ``*`` / ``""`` derived from
+            ``metadata["p_value"]`` when available.
+        metadata: Tool-specific context (``p_value``, ``stat_type``,
+            ``h0``, ``method`` are the standard keys).
     """
 
     name: str
@@ -139,57 +72,15 @@ class MetricOutput:
         return f"MetricOutput({', '.join(parts)})"
 
 
-# ---------------------------------------------------------------------------
-# Profile architecture types (new in v4 — see docs/gate_redesign_v2.md)
-# ---------------------------------------------------------------------------
-
-# WHY: PValue is structurally a float, but the NewType makes intent explicit
-# and lets the whitelist in multiple_testing_correct() reject non-p fields
-# (e.g. ic_ir, oos_decay) programmatically via field annotation inspection.
+# Structural alias used by metric internals to mark "this float is a
+# p-value, not an effect-size". Carried for the metrics surface; the
+# v0.5 profile schema uses ``primary_p: float`` directly.
 PValue = NewType("PValue", float)
-
-# WHY: "CAUTION" / "SIGNIFICANT" shades still belong in Diagnostic;
-# PASS_WITH_WARNINGS is strictly a UX signal that diagnose() is worth
-# reading, not a severity level.
-Verdict = Literal["PASS", "PASS_WITH_WARNINGS", "FAILED"]
-
-# WHY: Severity is three-valued for practical triage. "info" is observation,
-# "warn" suggests caution without blocking, "veto" is a deal-breaker that
-# should override a PASS verdict in downstream filtering if the user opts in.
-DiagnosticSeverity = Literal["info", "warn", "veto"]
-
-
-@dataclass(frozen=True, slots=True)
-class Diagnostic:
-    """Contextual hint produced by ``Profile.diagnose()``.
-
-    ``severity`` drives filtering; ``code`` is a stable machine-readable
-    identifier for programmatic handling (e.g. AI agent triage).
-    """
-
-    severity: DiagnosticSeverity
-    message: str
-    code: str | None = None
-    # WHY: when a rule fires because a risk diagnostic (clustering,
-    # persistence, overlapping returns) suggests the canonical p-value
-    # is under-stating uncertainty, ``recommended_p_source`` names the
-    # whitelisted P_VALUE_FIELDS entry the user should consider for BHY
-    # / verdict. None means the rule is purely informational with no
-    # alternative test to recommend.
-    recommended_p_source: str | None = None
-
-    def __repr__(self) -> str:
-        tag = f"[{self.severity}]"
-        code_part = f" ({self.code})" if self.code else ""
-        return f"Diagnostic{tag}{code_part} {self.message}"
 
 
 # ---------------------------------------------------------------------------
 # Metric-option Literal aliases
 # ---------------------------------------------------------------------------
-# Centralised so the public surface of ``compute_caar`` / ``fama_macbeth`` /
-# ``top_concentration`` shares one canonical spelling, and so type checkers
-# can flag a misspelt option from a single source of truth.
 
 # Kolari-Pynnönen (2010) clustering correction for CAAR — which intra-day
 # correlation source the Z is built from.

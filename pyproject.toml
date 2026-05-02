@@ -1,16 +1,36 @@
 [project]
 name = "factrix"
-version = "0.4.0"
-description = "Quantitative factor evaluation framework for AI-driven factor mining"
+version = "0.5.0"
+description = "Polars-native factor signal validation toolkit for quantitative finance"
+readme = "README.md"
+authors = [
+  { name = "Jason Pan", email = "atk50715@gmail.com" }
+]
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
+keywords = ["quantitative-finance", "factor-analysis", "polars", "statistics","asset-pricing", "cross-sectional", "fama-macbeth", "ic"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
 dependencies = [
     "polars>=1.38",
     "numpy>=2.0",
     "scipy>=1.13",
     "pandera>=0.29",
 ]
+
+[project.urls]
+Repository = "https://github.com/awwesomeman/factrix"
+Issues = "https://github.com/awwesomeman/factrix/issues"
+Changelog = "https://github.com/awwesomeman/factrix/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 charts = ["plotly>=6.0"]
@@ -46,9 +66,14 @@ namespaces = false
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
 
+[dependency-groups]
+dev = [
+    "ipykernel>=7.2.0",
+]
+
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.4.0"
+version = "0.5.0"
 tag_format = "v$version"
 bump_message = "chore(release): v$new_version"
 changelog_incremental = true

@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -869,7 +869,7 @@ wheels = [
 
 [[package]]
 name = "factrix"
-version = "0.1.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
@@ -911,6 +911,11 @@ mlflow = [
     { name = "mlflow" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "ipykernel" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "build", marker = "extra == 'dev'" },
@@ -935,6 +940,9 @@ requires-dist = [
     { name = "twine", marker = "extra == 'dev'" },
 ]
 provides-extras = ["charts", "mlflow", "jupyter", "dev", "all"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ipykernel", specifier = ">=7.2.0" }]
 
 [[package]]
 name = "fastapi"
