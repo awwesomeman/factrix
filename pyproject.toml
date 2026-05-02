@@ -17,20 +17,20 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 
-[project.urls]
-Repository = "https://github.com/awwesomeman/factrix"
-Issues = "https://github.com/awwesomeman/factrix/issues"
-Changelog = "https://github.com/awwesomeman/factrix/blob/main/CHANGELOG.md"
 dependencies = [
     "polars>=1.38",
     "numpy>=2.0",
     "scipy>=1.13",
     "pandera>=0.29",
 ]
+
+[project.urls]
+Repository = "https://github.com/awwesomeman/factrix"
+Issues = "https://github.com/awwesomeman/factrix/issues"
+Changelog = "https://github.com/awwesomeman/factrix/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 charts = ["plotly>=6.0"]
