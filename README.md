@@ -66,7 +66,7 @@ pip install git+https://github.com/awwesomeman/factrix.git
 # pip install git+https://github.com/awwesomeman/factrix.git@v0.6.0
 ```
 
-> **💡 開發者貢獻指南**
+> **開發者貢獻指南**
 > 若您想進行本地開發與修改源碼，請使用 `git clone`：
 > ```bash
 > git clone https://github.com/awwesomeman/factrix.git
@@ -79,10 +79,17 @@ pip install git+https://github.com/awwesomeman/factrix.git
 
 ## 30-second smoke test
 
+> **`forward_periods` 是 rows，不是 calendar time。**
+> factrix 是 **frequency-agnostic** — 不讀 `date` 欄位的單位，只 shift 行數。
+> `forward_periods=5` 在 daily panel = 5 個交易日；在 weekly panel = 5 週；在
+> 1-min bar = 5 分鐘。**caller 負責確保 panel 已按 asset 排序且時間軸間距規律**。
+> 同理 `n_periods` / `MIN_PERIODS_*` 全部以 row 為單位。
+
 ```python
 import factrix as fl
 from factrix.preprocess.returns import compute_forward_return
 
+# n_dates=500 daily bars → forward_periods=5 means 1 trading week
 raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
@@ -280,8 +287,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 ## Scope & non-goals
 
 ### Scope
-- 建議資料頻率：**Daily 到 monthly** bar-based。Sparse signal 模組能適應不定期事件，其餘建議日頻或更低；不支援真正的 HFT (tick-level)。
-- `forward_periods` 是 **rows，不是 calendar time** — 週頻 panel `forward_periods=1` 就是 1-week 前向報酬。
+- 建議資料頻率：**Daily 到 monthly** bar-based。Sparse signal 模組能適應不定期事件，其餘建議日頻或更低；不支援真正的 HFT (tick-level)。Row-based 語意見頂部 §[30-second smoke test](#30-second-smoke-test) 的 callout。
 - 5 個 `(scope, signal, metric)` cell 全覆蓋；`(INDIVIDUAL, CONTINUOUS, *) × N=1` 數學上不存在的位置 raise `ModeAxisError` 並提示改 `common_continuous`。
 - 統計嚴謹的 PASS/FAIL gate + `profile.diagnose()` warnings + BHY FDR 控制 = 後續 allocation / strategy layer 的可信輸入。
 

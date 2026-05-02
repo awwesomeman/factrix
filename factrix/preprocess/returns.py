@@ -35,8 +35,13 @@ def compute_forward_return(
     different forward_periods directly comparable.
 
     Args:
-        df: Must contain ``date``, ``asset_id``, ``price``.
-        forward_periods: Number of holding periods (default 5).
+        df: Must contain ``date``, ``asset_id``, ``price``. Must already
+            be sorted with **regular spacing per asset** on the time axis;
+            this function shifts by row count and does not inspect ``date``.
+        forward_periods: Holding horizon in **rows** of the time axis,
+            not calendar time (default 5). On a daily panel this is 5
+            trading days; on a weekly panel, 5 weeks; on 1-min bars,
+            5 minutes. Frequency is the caller's responsibility.
 
     Returns:
         Input DataFrame with ``forward_return`` column appended.

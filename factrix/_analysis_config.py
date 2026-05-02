@@ -75,12 +75,22 @@ class AnalysisConfig:
     Construct via the four factory methods (the supported public API);
     direct construction works but bypasses no validation — every path
     runs through ``__post_init__``.
+
+    ``forward_periods`` semantics (frequency-agnostic):
+        Counts **rows on the panel's time axis**, not calendar time.
+        factrix never inspects the ``date`` column's dtype or spacing;
+        it shifts ``forward_periods`` rows per ``asset_id``. Therefore
+        ``forward_periods=5`` on a daily panel = 5 trading days, on a
+        weekly panel = 5 weeks, on a 1-min bar panel = 5 minutes. The
+        caller owns frequency and regular spacing.
     """
 
     scope: FactorScope
     signal: Signal
     metric: Metric | None
     forward_periods: int = 5
+    """Forward-return horizon, in **rows** of the time axis (not calendar
+    time). See class docstring for frequency semantics."""
 
     def __post_init__(self) -> None:
         _validate_axis_compat(self.scope, self.signal, self.metric)
