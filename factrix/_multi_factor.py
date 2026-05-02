@@ -5,11 +5,14 @@ Currently exposes ``bhy`` only. ``redundancy_matrix`` /
 land alongside the v0.4 deletion sweep that retires the existing
 v0.4 ``redundancy_matrix`` / ``spanning`` modules.
 
-Family key for BHY = registry dispatch key (plan §5.6). PANEL and
-TIMESERIES never share a family — different null distributions and
-effective sample sizes. Sparse TIMESERIES collapses scope into the
-``_SCOPE_COLLAPSED`` sentinel so ``individual_sparse`` and
-``common_sparse`` profiles at N=1 sit in the same family.
+BHY family key = ``(_DispatchKey, forward_periods)``. The registry
+dispatch key alone is *not* sufficient: pooling profiles across
+horizons inflates family size and dilutes the step-up threshold,
+silently destroying FDR control. PANEL and TIMESERIES never share a
+family — different null distributions and effective sample sizes.
+Sparse TIMESERIES collapses scope into the ``_SCOPE_COLLAPSED``
+sentinel so ``individual_sparse`` and ``common_sparse`` profiles at
+N=1 sit in the same family at matching horizon.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from __future__ import annotations
 import warnings
 from collections import defaultdict
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -29,21 +33,42 @@ if TYPE_CHECKING:
     from factrix._profile import FactorProfile
 
 
-def _family_key(profile: "FactorProfile") -> _DispatchKey:
+@dataclass(frozen=True, slots=True)
+class _FamilyKey:
+    """BHY family coordinate = procedure cell × forward-return horizon.
+
+    Kept distinct from ``_DispatchKey`` (which the registry uses to
+    route cells to procedures, horizon-agnostic) because BHY family
+    membership *must* split on ``forward_periods``. Each horizon
+    carries its own null distribution and effective sample size; mixing
+    them in one step-up batch dilutes the per-rank threshold
+    (``q × k / N``) and silently inflates FDR above the nominal level.
+    """
+
+    dispatch: _DispatchKey
+    forward_periods: int
+
+
+def _family_key(profile: "FactorProfile") -> _FamilyKey:
     """Derive the BHY family key from a ``FactorProfile``.
 
     Reuses ``_route_scope`` so the sparse-N=1 collapse mirrors
     ``_evaluate`` exactly — ``individual_sparse`` and ``common_sparse``
-    profiles at N=1 sit in the same family (§5.4.1 / §5.6).
+    profiles at N=1 sit in the same dispatch cell (§5.4.1 / §5.6) and
+    therefore the same family *at matching ``forward_periods``*.
     """
     scope = _route_scope(
         profile.config.scope, profile.config.signal, profile.mode,
     )
-    return _DispatchKey(
+    dispatch = _DispatchKey(
         scope=scope,
         signal=profile.config.signal,
         metric=profile.config.metric,
         mode=profile.mode,
+    )
+    return _FamilyKey(
+        dispatch=dispatch,
+        forward_periods=profile.config.forward_periods,
     )
 
 
@@ -92,7 +117,7 @@ def bhy(
             "(e.g. StatCode.IC_P, StatCode.FM_LAMBDA_P) or omit `gate=` "
             "to use the procedure-canonical primary_p.",
         )
-    families: dict[_DispatchKey, list["FactorProfile"]] = defaultdict(list)
+    families: dict[_FamilyKey, list["FactorProfile"]] = defaultdict(list)
     for profile in profiles:
         families[_family_key(profile)].append(profile)
 

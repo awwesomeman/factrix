@@ -7,7 +7,7 @@ import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
-from factrix._multi_factor import _family_key, bhy
+from factrix._multi_factor import _FamilyKey, _family_key, bhy
 from factrix._profile import FactorProfile
 from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey
 
@@ -45,8 +45,12 @@ class TestFamilyKey:
             mode=Mode.PANEL,
             primary_p=0.01,
         )
-        assert _family_key(prof) == _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL,
+        assert _family_key(prof) == _FamilyKey(
+            dispatch=_DispatchKey(
+                FactorScope.INDIVIDUAL, Signal.CONTINUOUS,
+                Metric.IC, Mode.PANEL,
+            ),
+            forward_periods=5,
         )
 
     def test_panel_fm_distinct_from_panel_ic(self) -> None:
@@ -74,7 +78,7 @@ class TestFamilyKey:
             primary_p=0.04,
         )
         assert _family_key(prof_i) == _family_key(prof_c)
-        assert _family_key(prof_i).scope is _SCOPE_COLLAPSED
+        assert _family_key(prof_i).dispatch.scope is _SCOPE_COLLAPSED
 
     def test_panel_sparse_does_not_collapse(self) -> None:
         prof = _profile(
@@ -82,7 +86,30 @@ class TestFamilyKey:
             mode=Mode.PANEL,
             primary_p=0.05,
         )
-        assert _family_key(prof).scope is FactorScope.INDIVIDUAL
+        assert _family_key(prof).dispatch.scope is FactorScope.INDIVIDUAL
+
+    def test_distinct_horizons_get_distinct_families(self) -> None:
+        # Same dispatch cell, different forward_periods → different
+        # families. Pooling horizons would dilute the BHY step-up
+        # threshold and silently inflate FDR.
+        prof_h5 = _profile(
+            config=AnalysisConfig.individual_continuous(
+                metric=Metric.IC, forward_periods=5,
+            ),
+            mode=Mode.PANEL,
+            primary_p=0.01,
+        )
+        prof_h20 = _profile(
+            config=AnalysisConfig.individual_continuous(
+                metric=Metric.IC, forward_periods=20,
+            ),
+            mode=Mode.PANEL,
+            primary_p=0.01,
+        )
+        assert _family_key(prof_h5) != _family_key(prof_h20)
+        assert _family_key(prof_h5).dispatch == _family_key(prof_h20).dispatch
+        assert _family_key(prof_h5).forward_periods == 5
+        assert _family_key(prof_h20).forward_periods == 20
 
     def test_panel_and_timeseries_not_same_family(self) -> None:
         prof_a = _profile(
@@ -144,6 +171,27 @@ class TestBhyFamilyIsolation:
         assert len(survivors) == 2
         for s in survivors:
             assert s.config.metric is Metric.IC
+
+    def test_horizons_isolated_within_same_cell(self) -> None:
+        # Two horizons of the same cell. If pooled, h=20's large p's
+        # would borrow h=5's strong evidence and inflate the survivor
+        # count beyond the per-horizon truth.
+        cfg_h5 = AnalysisConfig.individual_continuous(
+            metric=Metric.IC, forward_periods=5,
+        )
+        cfg_h20 = AnalysisConfig.individual_continuous(
+            metric=Metric.IC, forward_periods=20,
+        )
+        profiles = [
+            _profile(config=cfg_h5, mode=Mode.PANEL, primary_p=0.001),
+            _profile(config=cfg_h5, mode=Mode.PANEL, primary_p=0.002),
+            _profile(config=cfg_h20, mode=Mode.PANEL, primary_p=0.60),
+            _profile(config=cfg_h20, mode=Mode.PANEL, primary_p=0.80),
+        ]
+        survivors = bhy(profiles)
+        assert len(survivors) == 2
+        for s in survivors:
+            assert s.config.forward_periods == 5
 
     def test_sparse_n1_individual_and_common_pool_into_one_family(self) -> None:
         # Three profiles sharing the sentinel family; their p-values
