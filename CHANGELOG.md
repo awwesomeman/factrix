@@ -22,8 +22,8 @@ Three-axis orthogonal API rewrite. Replaces the four `factor_type` strings
 + four parallel `Profile` dataclasses + `preprocess` / `factor` session /
 `ProfileSet` triad with a single `AnalysisConfig` (4 factory methods over
 `FactorScope × Signal × Metric`), a single `FactorProfile` result type,
-and a registry-SSOT dispatch (`factrix/_registry.py`). Mode A (panel,
-N≥2) and Mode B (timeseries, N=1) are now first-class equals — `(COMMON,
+and a registry-SSOT dispatch (`factrix/_registry.py`). PANEL (panel,
+N≥2) and TIMESERIES (N=1) are now first-class equals — `(COMMON,
 *, N=1)` and `(INDIVIDUAL, SPARSE, N=1)` produce real `primary_p`,
 no longer pinned to `1.0`. Single-phase rip-and-replace per
 [`docs/plans/refactor_api.md`](docs/plans/refactor_api.md) §8 — no alias
@@ -55,13 +55,13 @@ or deprecation cycle.
 - **Verdict**: `PASS_WITH_WARNINGS` removed. `Verdict` is binary `PASS`
   / `FAIL`. `warnings` / `info_notes` are surfacing-only — they never
   auto-rebind `primary_p` or upgrade `verdict()`.
-- **Mode B first class**: `(COMMON, *, N=1)` and `(INDIVIDUAL, SPARSE, N=1)`
+- **TIMESERIES first class**: `(COMMON, *, N=1)` and `(INDIVIDUAL, SPARSE, N=1)`
   no longer return `primary_p = 1.0`. Real NW HAC t-tests on the
   underlying time series; `(INDIVIDUAL, SPARSE)` with the same N=1 user
   config and `(COMMON, SPARSE)` with N=1 collapse to the same procedure
   via the internal `_SCOPE_COLLAPSED` sentinel and tag the profile with
   `InfoCode.SCOPE_AXIS_COLLAPSED`.
-- **Mode A invalid combos**: `(INDIVIDUAL, CONTINUOUS, *) × N=1` is
+- **PANEL invalid combos**: `(INDIVIDUAL, CONTINUOUS, *) × N=1` is
   mathematically undefined and now raises `ModeAxisError` with
   `suggested_fix=AnalysisConfig.common_continuous(...)` instead of
   silently degrading. `(INDIVIDUAL, *)` no longer accepts N=1 panels for
@@ -72,10 +72,10 @@ or deprecation cycle.
   longer passes a group key; cross-family p mixing is structurally
   prevented.
 - **Sample guards**: per-metric `MIN_FM_PERIODS = 20` / `MIN_TS_OBS = 20`
-  unified into `MIN_T_HARD = 20` (raise `InsufficientSampleError`) and
-  `MIN_T_RELIABLE = 30` (warn `UNRELIABLE_SE_SHORT_SERIES`) in
+  unified into `MIN_PERIODS_HARD = 20` (raise `InsufficientSampleError`) and
+  `MIN_PERIODS_RELIABLE = 30` (warn `UNRELIABLE_SE_SHORT_SERIES`) in
   `factrix/_stats/constants.py`. Procedures never silently produce a
-  result on `T < MIN_T_HARD`.
+  result on `n_periods < MIN_PERIODS_HARD`.
 - **Errors**: `FactrixError` hierarchy — `ConfigError` →
   `{IncompatibleAxisError, ModeAxisError, InsufficientSampleError}`.
 - **Removed v0.4 modules**: `_api.py`, `factor.py`, `config.py`,
@@ -116,6 +116,46 @@ or deprecation cycle.
   and timeseries cells with overlapping forward returns. Newey-West (1994)
   `auto_bartlett(T) = max(1, int(4 · (T/100)^(2/9)))` lag rule.
 
+### Hardened (post-cut review fixes)
+
+Applied during the v0.5 cut window before the surface was made public:
+
+- `FactorProfile.n_assets: int` — panel cross-section width surfaced
+  alongside `n_obs`. Disambiguates "small effective sample" between
+  short series and thin cross-section. Visible in `diagnose()`.
+- `multi_factor.bhy(gate=...)` requires a p-value `StatCode` and raises
+  `ValueError` otherwise. Closes a footgun where `gate=StatCode.IC_T_NW`
+  silently fed t-stats into BHY step-up. New `StatCode.is_p_value`
+  property supports the validation.
+- `multi_factor.bhy` emits `RuntimeWarning` when a batch yields ≥2
+  size-1 families (= no FDR correction power) — surfaces the
+  cross-family no-op anti-pattern.
+- `WarningCode` / `InfoCode` gain `.description` glosses,
+  `IncompatibleAxisError` leads with the actionable factory list,
+  registry adds a `_SCOPE_COLLAPSED` metric guard + post-import
+  invariant assert (catches silent registration drift).
+- `_route_scope(scope, signal, mode)` SSOT for the §5.4.1 sparse-
+  TIMESERIES scope-collapse rule; `_evaluate`, `_describe`, and
+  `_multi_factor.bhy` all reverse-call it (no parallel implementations).
+
+### Renamed (terminology disambiguation)
+
+Pre-1.0 readability sweep — no behaviour change:
+
+- `MIN_T_HARD` / `MIN_T_RELIABLE` → `MIN_PERIODS_HARD` /
+  `MIN_PERIODS_RELIABLE`. `InsufficientSampleError` kwargs `actual_T` /
+  `required_T` → `actual_periods` / `required_periods`. Disambiguates
+  `T` (time-series length) from `t` (Student's t-statistic) used in
+  `*_T_NW` `StatCode` enums. `auto_bartlett(T)` and `*_T_NW` keep the
+  literal `T` (direct citations of NW1994 and Student's t).
+- `describe_analysis_modes(format="json")` row keys
+  `mode_a_panel` / `mode_b_timeseries` → `panel` / `timeseries`,
+  matching the `Mode.PANEL` / `Mode.TIMESERIES` enum values that
+  already drove dispatch.
+- README / ARCHITECTURE / docstrings drop the `Mode A` / `Mode B`
+  marketing label in favour of the enum names; procedure code uses
+  `n_periods` / `n_assets` consistently for dimension counts.
+
 ### Migration
 
 | v0.4                                     | v0.5                                                                       |
@@ -131,7 +171,10 @@ or deprecation cycle.
 | `profile.diagnose() -> list[Diagnostic]` | `profile.diagnose() -> dict[str, Any]` + `profile.warnings: frozenset[WarningCode]` |
 | `ProfileSet.multiple_testing_correct(...)`  | `fl.multi_factor.bhy(profiles, threshold=0.05)`                          |
 | `Profile.verdict()` ∈ `{PASS, PASS_WITH_WARNINGS, FAILED}` | `profile.verdict()` ∈ `{Verdict.PASS, Verdict.FAIL}` |
-| `(COMMON, *) × N=1` → `primary_p = 1.0`  | Mode B first-class — real NW HAC t-test                                    |
+| `(COMMON, *) × N=1` → `primary_p = 1.0`  | TIMESERIES first-class — real NW HAC t-test                                    |
+| _(no n_assets exposure)_                 | `FactorProfile.n_assets` (cross-section width)                              |
+| `MIN_T_HARD` / `MIN_T_RELIABLE`          | `MIN_PERIODS_HARD` / `MIN_PERIODS_RELIABLE`                                |
+| `InsufficientSampleError(actual_T=, required_T=)` | `InsufficientSampleError(actual_periods=, required_periods=)`         |
 
 ### Note
 
