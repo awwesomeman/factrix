@@ -400,6 +400,75 @@ def _ols_nw_slope_t(
     return beta, t_stat, p_value, resid
 
 
+def _ols_nw_multivariate(
+    y: np.ndarray,
+    X: np.ndarray,
+    *,
+    lags: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Multi-regressor OLS ``y = Xβ + ε`` with Newey-West HAC covariance.
+
+    Returns ``(β̂, V_hac, resid)``. ``X`` carries its own intercept column
+    if needed — this routine does not auto-add one. Bartlett kernel
+    matches ``_newey_west_se`` / ``_ols_nw_slope_t`` so HAC math stays
+    in one place.
+
+    Returns ``(zeros(k), zeros((k,k)), zeros(n))`` if ``X'X`` is singular
+    (e.g. perfectly collinear columns) or ``n < k + 1``.
+    """
+    n, k = X.shape
+    if len(y) != n or n < k + 1:
+        return np.zeros(k), np.zeros((k, k)), np.zeros(n)
+
+    XtX = X.T @ X
+    try:
+        XtX_inv = np.linalg.inv(XtX)
+    except np.linalg.LinAlgError:
+        return np.zeros(k), np.zeros((k, k)), np.zeros(n)
+
+    beta = XtX_inv @ (X.T @ y)
+    resid = y - X @ beta
+
+    # Score matrix: u_t = x_t * e_t (n × k).
+    U = X * resid[:, None]
+
+    # S = Γ_0 + Σ_{j=1..L} w_j (Γ_j + Γ_j')
+    # Γ_0 = Σ u_t u_t' (sum form, matches _ols_nw_slope_t convention).
+    S = U.T @ U
+    L = max(0, min(lags, n - 1))
+    for j in range(1, L + 1):
+        gamma_j = U[j:].T @ U[:-j]
+        weight = 1.0 - j / (L + 1)
+        S += weight * (gamma_j + gamma_j.T)
+
+    V_hac = XtX_inv @ S @ XtX_inv
+    return beta, V_hac, resid
+
+
+def _wald_p_linear(
+    beta: np.ndarray,
+    V: np.ndarray,
+    R: np.ndarray,
+    q: np.ndarray | float = 0.0,
+) -> tuple[float, float]:
+    """Wald χ² test of the linear restriction ``Rβ = q``.
+
+    ``R`` is ``(r, k)``; ``q`` is ``(r,)`` or scalar for r=1. Returns
+    ``(W, p)`` with ``W ~ χ²_r`` under H₀. Returns ``(0.0, 1.0)`` if
+    the middle matrix is singular (degenerate restriction).
+    """
+    R = np.atleast_2d(R)
+    diff = R @ beta - np.atleast_1d(q)
+    middle = R @ V @ R.T
+    try:
+        middle_inv = np.linalg.inv(middle)
+    except np.linalg.LinAlgError:
+        return 0.0, 1.0
+    W = float(diff @ middle_inv @ diff)
+    p = float(sp_stats.chi2.sf(W, df=R.shape[0]))
+    return W, p
+
+
 def _ljung_box_p(
     resid: np.ndarray,
     *,
