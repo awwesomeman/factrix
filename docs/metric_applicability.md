@@ -274,7 +274,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 | **COMMON × CONTINUOUS, TIMESERIES** (N=1) | ✓ | ✓ |
 | **INDIVIDUAL × CONTINUOUS** (任何 mode) | ✗ guard → 改用 cross-sectional `quantile_spread` | ✗ → `quantile_spread.long_alpha / short_alpha` |
 | **(\*, SPARSE / binary / ternary)** | ✗ Gate A → `event_quality.*` | ✗ Gate B → `event_hit_rate` |
-| **factor 全 ≥ 0 或全 ≤ 0** | ✓ | ✗ Gate B（無雙側）→ `metadata["method_a_skipped"]` / `method_b_skipped` 記錄 reason |
+| **factor 全 ≥ 0 或全 ≤ 0** | ✓ | ✗ Gate B（無雙側）→ 整個 metric 短路，reason 寫入 `metadata["reason"]`（method 不分 A/B，兩個都不出）；Gate C 失敗才是「method A 出、method B 不出」，由 `metadata["method_b_skipped"]` 記錄 |
 
 任一 gate 失敗 → `MetricOutput` 帶 `metadata["reason"]` + redirect hint，**不 silently 回 NaN**（與 §跨類通用 §Metric 短路 慣例一致）。
 
