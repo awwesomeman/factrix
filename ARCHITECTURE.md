@@ -89,17 +89,20 @@ class FactorProcedure(Protocol):
 
 `InputSchema` lists `required_columns` — currently `("date", "asset_id", "factor", "forward_return")` for all 7 cells.
 
-The seven cells:
+The seven cells (cell tuple ↔ procedure class). For the user-facing factory
+mapping and per-cell canonical statistic / references, see
+[README §5 種支援的分析情境](README.md#5-種支援的分析情境--對應檢定方法) — that
+table is the SSOT for what each procedure computes.
 
-| `(scope, signal, metric, mode)`                         | Procedure class                                  | Canonical statistic             |
-|---------------------------------------------------------|--------------------------------------------------|---------------------------------|
-| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICPanelProcedure`                              | NW HAC t on `E[Spearman ρ_t]`   |
-| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMPanelProcedure`                              | NW HAC t on `E[λ_t]`            |
-| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARPanelProcedure`                            | Cross-event t on CAAR           |
-| `(COMMON, CONTINUOUS, None, PANEL)`                      | `_CommonContPanelProcedure`                      | Cross-asset t on `E[β_i]`       |
-| `(COMMON, SPARSE, None, PANEL)`                          | `_CommonSparsePanelProcedure`                    | Cross-asset t on `E[β_i]` on dummy |
-| `(COMMON, CONTINUOUS, None, TIMESERIES)`                 | `_TSBetaContTimeseriesProcedure`                 | NW HAC t on β; ADF on factor    |
-| `(_SCOPE_COLLAPSED, SPARSE, None, TIMESERIES)`           | `_TSDummySparseTimeseriesProcedure`              | NW HAC t on β; Ljung-Box on ε   |
+| `(scope, signal, metric, mode)`                         | Procedure class                                  |
+|---------------------------------------------------------|--------------------------------------------------|
+| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICPanelProcedure`                              |
+| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMPanelProcedure`                              |
+| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARPanelProcedure`                            |
+| `(COMMON, CONTINUOUS, None, PANEL)`                      | `_CommonContPanelProcedure`                      |
+| `(COMMON, SPARSE, None, PANEL)`                          | `_CommonSparsePanelProcedure`                    |
+| `(COMMON, CONTINUOUS, None, TIMESERIES)`                 | `_TSBetaContTimeseriesProcedure`                 |
+| `(_SCOPE_COLLAPSED, SPARSE, None, TIMESERIES)`           | `_TSDummySparseTimeseriesProcedure`              |
 
 The two timeseries cells share the NW HAC + auto-Bartlett-with-Hansen-Hodrick-floor
 lag rule from `factrix/_stats/constants.py`.
@@ -173,15 +176,67 @@ procedures wrap.
 
 `factrix/_multi_factor.py::bhy(profiles, *, threshold=0.05, gate=None)`:
 
-1. partitions `profiles` by `_family_key(profile)` — derived from
-   `(profile.config.scope, profile.config.signal, profile.config.metric)`
-   with the same `_SCOPE_COLLAPSED` collapse rule applied at evaluate-time so
-   PANEL and TIMESERIES sparse profiles aggregate to one family.
+1. partitions `profiles` by `_family_key(profile) -> _FamilyKey(dispatch, forward_periods)`:
+   - `dispatch: _DispatchKey` derived from `(scope, signal, metric, mode)` with the
+     `_SCOPE_COLLAPSED` collapse rule applied so PANEL and TIMESERIES sparse profiles
+     aggregate consistently
+   - `forward_periods` from `profile.config.forward_periods` — split into separate families
+     because each horizon carries its own null distribution and effective sample size;
+     pooling horizons dilutes the step-up threshold `q × k / N` and silently inflates FDR
 2. within each family, runs Benjamini-Yekutieli step-up correction at the
    given FDR threshold and returns the survivors.
 
-User does **not** pass a group key — same-test-family is enforced by the
-config triple, not by user discipline.
+`_FamilyKey` is kept distinct from `_DispatchKey` (the registry SSOT must remain
+horizon-agnostic — one procedure per cell). User does **not** pass a group key —
+same-test-family is enforced mechanically.
+
+Cross-family aggregation (e.g. horizon-shopping correction) is the user's
+responsibility — see README §批次評估與 BHY for the FWER-then-BHY recipe.
+
+---
+
+## Registry procedure vs standalone metric
+
+Two-tier metric organisation. Choosing the right tier when adding a new metric:
+
+| Tier | Lives in | Count today | Definition | Surfaces |
+|------|----------|-------------|------------|----------|
+| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `FactorProfile.verdict()`, BHY family key |
+| **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricOutput` |
+
+### When to register
+
+Add a registry procedure **only** when introducing a new legal cell on the axis
+(`FactorScope × Signal × Metric × Mode`). The 7-cell invariant (`_registry.py::_EXPECTED_REGISTRY_SIZE`)
+is a load-bearing assert — adding to the registry without adding a new cell would
+mean two canonical procedures compete for the same dispatch, breaking the SSOT
+contract.
+
+### When to add a standalone metric
+
+Everything else. Specifically:
+
+- **Same cell already has a canonical procedure** but you want to surface a different angle
+  (non-linearity, asymmetry, decomposition, regime split). Example precedent:
+  `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
+  supplement the registered CAAR procedure for `(INDIVIDUAL, SPARSE, None, PANEL)`.
+- **Descriptive diagnostic without a formal H₀** (concentration HHI, tradability, OOS decay).
+- **Multi-factor relationship** outside the single-factor verdict frame (`spanning.py`).
+
+### Standalone metric contract
+
+- Take `pl.DataFrame` with the cell's standard schema (`date, asset_id, factor, forward_return`)
+  plus any optional columns
+- Return `MetricOutput` (`factrix/_types.py`) — `name`, `value`, optional `stat`, `significance`,
+  and a `metadata` dict for cell-specific scalars
+- Use `_short_circuit_output(...)` for sample-floor failures rather than raising
+- Reuse `_stats/` primitives (`_p_value_from_t`, `_calc_t_stat`, NW HAC helpers) so the
+  statistical treatment matches the registered procedures — most notably **NW HAC SE
+  for any inference on overlapping forward returns**, never iid Welch / OLS SE
+
+A standalone metric never enters BHY automatically (no `FactorProfile`, no canonical
+`primary_p`); the user is responsible for collecting comparable p-values into a family
+themselves if FDR control is needed across a batch of standalone runs.
 
 ---
 
@@ -221,7 +276,7 @@ Hard constraints — violating these breaks the API contract:
 4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
 5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate `primary_p = 1.0`.
 6. `verdict()` reads `primary_p` (or a user-supplied `StatCode` gate); `warnings` and `info_notes` never auto-rebind it.
-7. BHY family key is derived from the config triple, not user-supplied. Same-test-family is mechanical, not by discipline.
+7. BHY family key = `_FamilyKey(_DispatchKey, forward_periods)`, derived mechanically from the profile, not user-supplied. Horizons split into separate families to preserve nominal FDR control.
 8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
 9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
 10. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.

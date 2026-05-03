@@ -1,9 +1,10 @@
 # factrix
 
-> **Factor Matrix Library** — Polars-native 因子訊號驗證器 (Factor Signal Validator)。
+> **Factor Matrix Library** — Polars-native Factor Signal Validator
 
-回答的問題只有一個：**「這個因子在統計上真的有效嗎？」**
-回答完之後，請帶著 `primary_p` 與 `verdict()` 去下游做回測 / 配置 — `factrix` 不做那些。
+Factrix 只回答：**「這個因子在統計上真的有效嗎？」**
+
+請帶著 `primary_p` 與 `verdict()` 去下游做回測 / 配置 — `factrix` 不做那些。
 
 ---
 
@@ -12,7 +13,7 @@
 1. [安裝](#安裝)
 2. [30-second smoke test](#30-second-smoke-test)
 3. [設計核心：三條正交分析軸](#設計核心三條正交分析軸)
-4. [5 個合法 cell + canonical procedure](#5-個合法-cell--canonical-procedure)
+4. [5 種支援的分析情境 + 對應檢定方法](#5-種支援的分析情境--對應檢定方法)
 5. [PANEL / TIMESERIES：由 N 自動推導](#panel--timeseriesn-自動推導)
 6. [樣本守門](#樣本守門)
 7. [批次評估與 BHY](#批次評估與-bhy)
@@ -112,13 +113,13 @@ print(profile.diagnose())
 
 ## 設計核心：三條正交分析軸
 
-`AnalysisConfig` 由三條 user-facing 軸構成。三軸**正交**：每個合法組合對應一個明確的統計檢定。
+`AnalysisConfig` 由三條 user-facing 軸構成。三軸**正交**：每個支援的組合對應一個明確的統計檢定。
 
 | Axis     | Values                                | 問的是                                                        |
 |----------|---------------------------------------|---------------------------------------------------------------|
 | `scope`  | `INDIVIDUAL` / `COMMON`               | 因子值是**每個 asset 自己一套**還是**所有 asset 共用同一個**？ |
 | `signal` | `CONTINUOUS` / `SPARSE`               | 訊號是連續實數還是 `{−1, 0, +1}` 觸發？                       |
-| `metric` | `IC` / `FM` / *(N/A)*                 | 只在 `(INDIVIDUAL, CONTINUOUS)` cell 細分研究問題              |
+| `metric` | `IC` / `FM` / *(N/A)*                 | 只在 `(INDIVIDUAL, CONTINUOUS)` 情境細分研究問題              |
 
 ### scope 是**因子屬性**，不是**資料結構**
 
@@ -153,9 +154,11 @@ cross-section 軸上的形狀**，不是資料的整體結構：
 
 ---
 
-## 5 個合法 cell + canonical procedure
+## 5 種支援的分析情境 + 對應檢定方法
 
-合法 `(scope, signal, metric)` 三元組共 5 個，由 `AnalysisConfig` 的 4 個 factory methods 構造：
+三軸正交組合出 5 種支援的「分析情境」(每種對應一個標準的統計檢定)，由 `AnalysisConfig` 的 4 個 factory methods 構造（IC / FM 共用同一個 factory，差別在 `metric=` 參數）：
+
+> 5 種情境是 user-facing 數量。底層 `evaluate()` 推導出 `Mode` (PANEL / TIMESERIES) 後再對應到 7 個 procedure — PANEL 走 cross-asset 統計、TIMESERIES 走 NW HAC TS 統計。Mode 推導與 N=1 路徑詳見下方 §[PANEL / TIMESERIES](#panel--timeseriesn-自動推導)；7 個 procedure 的 cell ↔ class 對應見 [`ARCHITECTURE.md` §FactorProcedure protocol](ARCHITECTURE.md#factorprocedure-protocol)。
 
 ```python
 import factrix as fl
@@ -178,7 +181,7 @@ cfg = fl.AnalysisConfig.common_sparse(forward_periods=5)
 profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_return)
 ```
 
-每個 factory 對應的 canonical 統計程序：
+每個 factory 對應的標準檢定方法：
 
 | Factory                                | Procedure                                                                                  | 文獻基礎                                  |
 |----------------------------------------|--------------------------------------------------------------------------------------------|-------------------------------------------|
@@ -188,7 +191,7 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 | `common_continuous()`                   | per-asset TS β → cross-asset t on `E[β]`                                                   | Black-Jensen-Scholes (1972)               |
 | `common_sparse()`                       | per-asset TS β on dummy → cross-asset t on `E[β]`                                          | TS-β + event-study hybrid                 |
 
-> Factory methods 是 type-safe constructors — 違反組合（如對 `SPARSE` cell 傳 `metric=IC`）IDE 直接標紅，不必等 runtime `IncompatibleAxisError`。
+> Factory methods 是 type-safe constructors — 不支援的組合（如對 `SPARSE` 情境傳 `metric=IC`）IDE 直接標紅，不必等 runtime `IncompatibleAxisError`。
 
 ### IC 還是 FM？
 
@@ -229,7 +232,7 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 | `MIN_PERIODS_RELIABLE = 30` | 同上                             | `n_periods < 30` → 加 `WarningCode.UNRELIABLE_SE_SHORT_SERIES` 到 `profile.warnings`     |
 | `MIN_IC_PERIODS = 10` / `MIN_EVENTS = 10` | `factrix/_types.py` | metric 內部 short-circuit 用                                                     |
 
-`fl.suggest_config(panel)` 可反向給出建議的 factory call + 警報；`fl.describe_analysis_modes()` 列出所有 cell 及其 procedure / 文獻 / `MIN_PERIODS_*`。
+`fl.suggest_config(panel)` 可反向給出建議的 factory call + 警報；`fl.describe_analysis_modes()` 列出所有情境及其 procedure / 文獻 / `MIN_PERIODS_*`。
 
 ---
 
@@ -241,7 +244,7 @@ BHY 控制的是**同一 statistical family 內**的 FDR：用同一個 procedur
 import factrix as fl
 import polars as pl
 
-# 10 個 momentum candidate, 同一個 cell (IC PANEL) 跑批
+# 10 個 momentum candidate, 同一個分析情境 (IC PANEL) 跑批
 candidates = ["mom_5d", "mom_20d", "mom_60d", ...]
 cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
 
@@ -252,7 +255,7 @@ profiles = [
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 ```
 
-`bhy()` 自動依 `(scope, signal, metric, mode, forward_periods)` 分 family，user **不需手動指定 group key**。`forward_periods` 一定會被切開：每個 horizon 有自己的 null distribution 與 effective sample size，混批會稀釋 `q × k / N` 的 step-up 門檻、靜默破壞 FDR 控制。如果任一 family 退化成 `size=1`（典型誤用：一個 factor 在多個 cell 各跑一次），會 emit `RuntimeWarning` — 因為這時 BHY 等同於 raw threshold，沒有 FDR 校正力。
+`bhy()` 自動依**分析情境（含 horizon）** 分 family，user **不需手動指定 group key**。`forward_periods` 一定會被切開：每個 horizon 有自己的 null distribution 與 effective sample size，混批會稀釋 step-up 門檻、靜默破壞 FDR 控制。如果任一 family 退化成 `size=1`（典型誤用：一個因子在多個情境各跑一次），會 emit `RuntimeWarning` — 因為這時 BHY 等同於 raw threshold，沒有 FDR 校正力。內部分組規則細節見 [`ARCHITECTURE.md` §BHY family partitioning](ARCHITECTURE.md#bhy-family-partitioning)。
 
 ### Horizon-shopping 校正：先壓 horizon、再 BHY
 
@@ -300,7 +303,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 
 ### Scope
 - 建議資料頻率：**Daily 到 monthly** bar-based。Sparse signal 模組能適應不定期事件，其餘建議日頻或更低；不支援真正的 HFT (tick-level)。Row-based 語意見頂部 §[30-second smoke test](#30-second-smoke-test) 的 callout。
-- 5 個 `(scope, signal, metric)` cell 全覆蓋；`(INDIVIDUAL, CONTINUOUS, *) × N=1` 數學上不存在的位置 raise `ModeAxisError` 並提示改 `common_continuous`。
+- 5 種分析情境全覆蓋；`(INDIVIDUAL, CONTINUOUS, *) × N=1` 數學上不存在的組合會 raise `ModeAxisError` 並提示改用 `common_continuous`。
 - 統計嚴謹的 PASS/FAIL gate + `profile.diagnose()` warnings + BHY FDR 控制 = 後續 allocation / strategy layer 的可信輸入。
 
 ### 明確不做（不只是「沒做」— 是設計上決定不做）
