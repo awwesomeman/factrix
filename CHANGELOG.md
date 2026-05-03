@@ -16,6 +16,59 @@ on semver range constraints until `1.0.0` is cut.
 
 ---
 
+## v0.6.0 (2026-05-03)
+
+Time-series shape diagnostics + a statistical infrastructure layer that
+makes them, and future Wald-based metrics, p-value-comparable with the
+existing `ts_beta` family. Plus a quiet but load-bearing FDR-control
+fix for batch BHY: `forward_periods` is now part of the family key, so
+mixing horizons in a single `bhy()` call no longer silently dilutes the
+step-up threshold.
+
+### Added
+
+- **`ts_quantile_spread` + `ts_asymmetry`** standalone diagnostics for
+  `(COMMON, CONTINUOUS, *)` cells (#5). Both supplement the linear,
+  symmetric OLS β assumed by `ts_beta_t_nw` — the first catches
+  U-shape / inverted-U / extreme-only response via top-bottom bucket
+  Wald, the second catches long-side ≠ short-side via either
+  conditional means (method A) or piecewise slopes (method B). Three
+  applicability gates (`distinct ≥ n_groups×2`, `兩側存在`, `雙側內變異`)
+  short-circuit with `metadata["reason"]` + redirect hint instead of
+  silent NaN.
+- **NW HAC multivariate OLS + Wald helpers** (`factrix/_stats/__init__.py`)
+  — the joint-regression infrastructure under the new diagnostics, with
+  HAC variance and joint Wald χ² so all three (`ts_beta_t_nw`,
+  `ts_quantile_spread`, `ts_asymmetry`) emit p-values from the same
+  framework and stay cross-metric comparable.
+- **`docs/metric_applicability.md`** §`ts_quantile_spread / ts_asymmetry`
+  applicability matrix and gate definitions; **README** §文件導引 link
+  to the new section.
+- **README** use-case → factory reverse-lookup table for users not yet
+  fluent in the three-axis vocabulary, plus a worked Bonferroni-then-BHY
+  recipe for horizon-shopping correction.
+
+### Fixed
+
+- **`multi_factor.bhy()` family partitioning** now splits on
+  `forward_periods` in addition to `(scope, signal, metric)`. Each
+  horizon has its own null distribution and effective sample size;
+  pooling them across horizons silently broke FDR control. Mixing
+  horizons in one `bhy()` call now produces correctly-partitioned
+  families.
+
+### Changed (docs)
+
+- Clarified that `forward_periods` is **rows on the time axis**, not
+  calendar time — factrix is frequency-agnostic and shifts by row count.
+  Aligned wording across README smoke-test callout, `AnalysisConfig`
+  class + attribute docstrings, and `compute_forward_return` so IDE
+  hover and README give the same answer. (Frequent confusion: users
+  defaulted to a daily reading even on weekly / intraday panels.)
+- Documented the **metric tier convention** (registry procedure vs
+  standalone diagnostic) and softened user-facing terminology around
+  cells / modes.
+
 ## v0.5.0 (2026-05-01)
 
 Three-axis orthogonal API rewrite. Replaces the four `factor_type` strings

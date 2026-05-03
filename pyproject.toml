@@ -1,6 +1,6 @@
 [project]
 name = "factrix"
-version = "0.5.0"
+version = "0.6.0"
 description = "Polars-native factor signal validation toolkit for quantitative finance"
 readme = "README.md"
 authors = [
@@ -73,7 +73,7 @@ dev = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.5.0"
+version = "0.6.0"
 tag_format = "v$version"
 bump_message = "chore(release): v$new_version"
 changelog_incremental = true
