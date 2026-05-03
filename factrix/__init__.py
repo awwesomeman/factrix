@@ -46,7 +46,7 @@ from factrix._errors import (
 from factrix._evaluate import _evaluate as evaluate
 from factrix._profile import FactorProfile
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     # Configuration

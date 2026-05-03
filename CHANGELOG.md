@@ -16,6 +16,46 @@ on semver range constraints until `1.0.0` is cut.
 
 ---
 
+## v0.7.0 (2026-05-04)
+
+Closes the silent-coercion gap in sparse-procedure dispatch. Until now,
+a user feeding a sparse-but-continuous signal (SUE z-score, ratings
+notch delta, event-day return, order-flow imbalance burst, earnings
+revision delta — anything where magnitude is the research target) was
+silently routed to `Signal.SPARSE` purely on zero-ratio, then had their
+magnitude information discarded inside `compute_caar` / `bmp_test` via
+`pl.col(factor).sign()`. No warning, no info note, no way to know
+without reading the source. This release makes the coercion *visible*
+without changing it; the broader axis-design question — whether to add
+a magnitude-weighted sparse procedure family — is tracked separately
+(#12) and intentionally **not** bundled here.
+
+### Added
+
+- **`WarningCode.SPARSE_MAGNITUDE_DROPPED`** — emitted by
+  `suggest_config(...)` when `_detect_signal` detects a SPARSE-shaped
+  factor whose non-zero values are not strictly in {-1, +1}. Users see,
+  before running anything, that CAAR / BMP will collapse magnitude to
+  sign, and can rescale to ±1, route to a continuous procedure, or
+  knowingly accept the sign-only semantics (#8).
+
+### Changed (docs)
+
+- **`compute_caar` docstring** now states the `.sign()` coercion in a
+  dedicated `Note:` block and updates the `factor_col` argument
+  description. Behavior is unchanged — the sign-only semantics has
+  always been the contract; the docstring just no longer hides it.
+
+### Migration
+
+No code changes required. If `suggest_config(...).warnings` now
+contains `WarningCode.SPARSE_MAGNITUDE_DROPPED`, your factor is being
+treated sign-only by CAAR / BMP — this was already the behavior in
+prior releases, you just couldn't see it. To preserve sign-only
+semantics: ignore the warning. To use magnitude: pre-multiply your
+factor to ±1 by another rule, or wait for the magnitude-weighted
+sparse procedure tracked in #12.
+
 ## v0.6.0 (2026-05-03)
 
 Time-series shape diagnostics + a statistical infrastructure layer that
