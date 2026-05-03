@@ -266,6 +266,49 @@ class TestSuggestConfigWarnings:
 
 
 # ---------------------------------------------------------------------------
+# suggest_config — sparse magnitude drop warning (issue #8)
+# ---------------------------------------------------------------------------
+
+
+def _make_sparse_weighted_panel(seed: int = 21) -> pl.DataFrame:
+    """Sparse layout but non-zero values are continuous magnitudes (SUE-like)."""
+    rng = np.random.default_rng(seed)
+    n_dates, n_assets = 60, 15
+    is_event = rng.choice([0.0, 1.0], size=(n_dates, n_assets), p=[0.92, 0.08])
+    magnitudes = rng.standard_normal((n_dates, n_assets)) * 2.0
+    factor = is_event * magnitudes
+    rows: list[dict[str, object]] = []
+    for t in range(n_dates):
+        d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
+        for j in range(n_assets):
+            rows.append({
+                "date": d, "asset_id": f"A{j:03d}",
+                "factor": float(factor[t, j]),
+                "forward_return": float(rng.standard_normal()),
+            })
+    return pl.DataFrame(rows)
+
+
+class TestSparseMagnitudeWarning:
+    def test_pure_ternary_sparse_no_magnitude_warning(self) -> None:
+        result = suggest_config(_make_sparse_panel())
+        assert WarningCode.SPARSE_MAGNITUDE_DROPPED not in result.warnings
+
+    def test_continuous_sparse_emits_magnitude_warning(self) -> None:
+        result = suggest_config(_make_sparse_weighted_panel())
+        assert result.suggested.signal is Signal.SPARSE
+        assert WarningCode.SPARSE_MAGNITUDE_DROPPED in result.warnings
+
+    def test_continuous_dense_no_magnitude_warning(self) -> None:
+        result = suggest_config(_make_individual_continuous_panel())
+        assert WarningCode.SPARSE_MAGNITUDE_DROPPED not in result.warnings
+
+    def test_signal_reasoning_mentions_coercion_when_dropped(self) -> None:
+        result = suggest_config(_make_sparse_weighted_panel())
+        assert ".sign()" in result.reasoning["signal"]
+
+
+# ---------------------------------------------------------------------------
 # Frozen result type
 # ---------------------------------------------------------------------------
 

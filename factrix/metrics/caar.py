@@ -43,9 +43,18 @@ def compute_caar(
 
     Only rows where ``factor ≠ 0`` are included (event rows).
 
+    Note:
+        ``factor_col`` is coerced via ``.sign()``: any non-±1 magnitude
+        is **dropped silently here** (sign-only semantics). For
+        magnitude-bearing event signals (SUE z-score, ratings notch
+        delta, etc.) ``suggest_config`` raises
+        ``WarningCode.SPARSE_MAGNITUDE_DROPPED`` so the user can either
+        rescale to ±1 before calling, or route to a continuous procedure.
+
     Args:
         df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
-        factor_col: Column with discrete signal {-1, 0, +1}.
+        factor_col: Column with discrete signal {-1, 0, +1}; non-±1
+            magnitudes are coerced to their sign.
         return_col: Column with forward/abnormal return.
 
     Returns:
