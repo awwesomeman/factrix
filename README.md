@@ -12,15 +12,16 @@ Factrix 只回答：**「這個因子在統計上真的有效嗎？」**
 
 1. [安裝](#安裝)
 2. [30-second smoke test](#30-second-smoke-test)
-3. [設計核心：三條正交分析軸](#設計核心三條正交分析軸)
-4. [5 種支援的分析情境 + 對應檢定方法](#5-種支援的分析情境--對應檢定方法)
-5. [PANEL / TIMESERIES：由 N 自動推導](#panel--timeseriesn-自動推導)
-6. [樣本守門](#樣本守門)
-7. [批次評估與 BHY](#批次評估與-bhy)
-8. [profile.diagnose() 與 WarningCode](#profilediagnose-與-warningcode)
-9. [Scope & non-goals](#scope--non-goals)
-10. [與其他開源套件的差異](#與其他開源套件的差異)
-11. [文件導引](#文件導引)
+3. [我的問題對應哪個 factory？](#我的問題對應哪個-factory)
+4. [設計核心：三條正交分析軸](#設計核心三條正交分析軸)
+5. [5 種支援的分析情境 + 對應檢定方法](#5-種支援的分析情境--對應檢定方法)
+6. [PANEL / TIMESERIES：由 N 自動推導](#panel--timeseriesn-自動推導)
+7. [樣本守門](#樣本守門)
+8. [批次評估與 BHY](#批次評估與-bhy)
+9. [profile.diagnose() 與 WarningCode](#profilediagnose-與-warningcode)
+10. [Scope & non-goals](#scope--non-goals)
+11. [與其他開源套件的差異](#與其他開源套件的差異)
+12. [文件導引](#文件導引)
 
 ---
 
@@ -94,6 +95,11 @@ from factrix.preprocess.returns import compute_forward_return
 raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
+# --- Path A：不確定該選哪個情境 → 讓 factrix 從資料形狀推 ---
+result  = fl.suggest_config(panel)            # 回 (suggested, reasoning, warnings)
+profile = fl.evaluate(panel, result.suggested)
+
+# --- Path B：知道自己要哪個 → 直接用 factory（type-safe, IDE 擋非法組合）---
 cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
 profile = fl.evaluate(panel, cfg)
 
@@ -107,11 +113,49 @@ print(profile.diagnose())
 #  'stats': {'ic_mean': 0.0722, 'ic_t_nw': 14.60, 'ic_p': ..., 'nw_lags_used': 5}}
 ```
 
-無需外部資料、無需設定檔；`fl.datasets` 產可重現合成 panel。
+無需外部資料、無需設定檔；`fl.datasets` 產可重現合成 panel。Path A 適合**第一次跑 / 不熟三軸語彙**的 user — `result.reasoning` 會解釋每軸偵測理由，`result.warnings` 列出潛在 risk。下一節提供 use-case → factory 反向查表。
+
+---
+
+## 我的問題對應哪個 factory？
+
+不想學三軸語彙就先用這張反向表 — 從**你想問的研究問題**找出口。每列的 factory call 拿去當 §[30-second smoke test](#30-second-smoke-test) Path B 的 `cfg` 就能跑。
+
+| 你想問的問題                                                                  | Factory                                              |
+|-------------------------------------------------------------------------------|------------------------------------------------------|
+| 我的 per-asset 因子（P/E、momentum、quality）能否預測 cross-section 排序？     | `individual_continuous(metric=fl.Metric.IC)`         |
+| 我的 per-asset 因子每多一單位 exposure 對應多少報酬溢酬？                      | `individual_continuous(metric=fl.Metric.FM)`         |
+| 個股事件（earnings / rating / 併購公告）有沒有 abnormal return？               | `individual_sparse()`                                |
+| Macro 因子（VIX / DXY / 利率）對 cross-section 有沒有 systematic exposure？    | `common_continuous()`                                |
+| Macro 事件（FOMC / index rebalance / 政策公布）有沒有市場效應？                | `common_sparse()`                                    |
+
+> **N=1（單一 asset / series）**：mode 自動切 TIMESERIES。Macro 因子 / 事件兩列照走；個股 SPARSE 也照走（內部 collapse 到同一 TS dummy procedure）。`individual_continuous` 在 N=1 數學上 undefined，`evaluate()` 會 raise `ModeAxisError` 並建議改用 `common_continuous()`。
+
+想了解這 5 個 factory 背後的三軸設計（為什麼是這 5 個、為什麼不能更多）→ 看下節。
 
 ---
 
 ## 設計核心：三條正交分析軸
+
+```
+                            你手上的 panel
+                                  │
+                ┌─────────────────┴─────────────────┐
+       同 date 下每 asset 因子值不同？      所有 asset 共用同一個值？
+                │                                   │
+            INDIVIDUAL                            COMMON
+                │                                   │
+        ┌───────┴───────┐                   ┌───────┴───────┐
+   連續實數         {-1,0,+1}            連續實數         {-1,0,+1}
+        │              │                       │              │
+  ┌─────┴─────┐        │                       │              │
+  IC          FM       │                       │              │
+  │           │        │                       │              │
+ind_cont    ind_cont  ind_sparse           comm_cont       comm_sparse
+(IC)        (FM)
+```
+
+> **N=1 footnote**：mode 自動切 TIMESERIES，**樹結構不變**。COMMON 兩條 leaf 與 SPARSE 任一 leaf 皆可走（兩個 SPARSE leaf 在 N=1 內部路由到同一 TS dummy procedure，並加 `InfoCode.SCOPE_AXIS_COLLAPSED` 留 audit trail）。`INDIVIDUAL × CONTINUOUS` 在 N=1 數學上 undefined（無 cross-section dispersion → IC / per-date OLS 不存在），`evaluate()` 會 raise `ModeAxisError(suggested_fix=common_continuous(...))`。**設計上刻意不把 N=1 做成樹的一級分支** — Mode 不暴露給 user 是 factrix 的設計承諾，footnote 處理足夠。
 
 `AnalysisConfig` 由三條 user-facing 軸構成。三軸**正交**：每個支援的組合對應一個明確的統計檢定。
 
