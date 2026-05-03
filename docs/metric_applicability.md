@@ -249,6 +249,44 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 
 ---
 
+## `ts_quantile_spread` / `ts_asymmetry` 的適用範圍
+
+兩個 **standalone diagnostic**（不進 registry、不影響 `verdict()`）— 補位 `(COMMON, CONTINUOUS, *)` cell 的 OLS β 假設線性 + 對稱所漏掉的 shape：
+
+- `ts_quantile_spread`：factor 自己歷史分桶 → 桶間條件期望檢定（top-bottom Wald）+ Spearman 單調性 diagnostic。抓 U-shape / inverted-U / extreme-only。
+- `ts_asymmetry`：factor 正負兩側 response 是否對稱（method A 條件期望、method B 分段斜率）。抓 long-side ≠ short-side。
+
+兩者皆 OLS + NW HAC + Wald，與 `ts_beta_t_nw` 對齊；**不**用 Welch t（iid 假設在 overlapping forward return 下破裂）。
+
+### 適用性（gates）
+
+| Gate | 條件 | 影響 |
+|------|------|------|
+| **A**. distinct 數量 | `n_unique(factor) ≥ n_groups × 2` | `ts_quantile_spread` 是否可跑 |
+| **B**. 雙側存在 | `(factor>0).any() and (factor<0).any()` | `ts_asymmetry` 兩個方法的最低門檻 |
+| **C**. 雙側內變異 | `n_unique(factor[factor>0]) ≥ 2 and n_unique(factor[factor<0]) ≥ 2` | `ts_asymmetry` method B 的額外條件 |
+
+### 適用性矩陣
+
+| 你手上的資料 | `ts_quantile_spread` | `ts_asymmetry` |
+|---|---|---|
+| **COMMON × CONTINUOUS, PANEL** (N≥2) | ✓ 收成 `equal_weight` per-date（`metadata["aggregation"]` 記錄）| ✓ |
+| **COMMON × CONTINUOUS, TIMESERIES** (N=1) | ✓ | ✓ |
+| **INDIVIDUAL × CONTINUOUS** (任何 mode) | ✗ guard → 改用 cross-sectional `quantile_spread` | ✗ → `quantile_spread.long_alpha / short_alpha` |
+| **(\*, SPARSE / binary / ternary)** | ✗ Gate A → `event_quality.*` | ✗ Gate B → `event_hit_rate` |
+| **factor 全 ≥ 0 或全 ≤ 0** | ✓ | ✗ Gate B（無雙側）→ 整個 metric 短路，reason 寫入 `metadata["reason"]`（method 不分 A/B，兩個都不出）；Gate C 失敗才是「method A 出、method B 不出」，由 `metadata["method_b_skipped"]` 記錄 |
+
+任一 gate 失敗 → `MetricOutput` 帶 `metadata["reason"]` + redirect hint，**不 silently 回 NaN**（與 §跨類通用 §Metric 短路 慣例一致）。
+
+### API policy
+
+- `n_groups: int = 5` default、user override、`n_periods // n_groups < 5` soft warning、`n_periods < MIN_PORTFOLIO_PERIODS` hard short-circuit。**不** auto-adjust。
+- v1 PANEL 收法固定 `equal_weight`；`value_weight` / `factor_weight` 後續 issue。
+
+設計細節 / Wald regression 公式 / 為何不用 Welch → 見 [issue #5](https://github.com/awwesomeman/factrix/issues/5) 與兩個 module docstring。
+
+---
+
 ## 常見 decision tree（給 debug 用）
 
 ```

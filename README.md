@@ -386,6 +386,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 | **精確公式 / 演算法 / 邊界 case**（authoritative source）                       | 對應 module docstring：`help(factrix.metrics.ic)`、…                            |
 | **為什麼選這個方法**（論文依據、deviation）                                     | [`docs/statistical_methods.md`](docs/statistical_methods.md)                   |
 | **資料夠不夠用**（N/T 下限、fallback 語意）                                     | [`docs/metric_applicability.md`](docs/metric_applicability.md)                 |
+| **Standalone diagnostics**（不走 `evaluate()` 的補位 metric — 抓 OLS β 漏掉的 shape / asymmetry） | [`docs/metric_applicability.md` §`ts_quantile_spread` / `ts_asymmetry`](docs/metric_applicability.md#ts_quantile_spread--ts_asymmetry-的適用範圍) |
 | Profile / Config 介面                                                         | `help(fl.FactorProfile)`、`help(fl.AnalysisConfig)`                            |
 | 內部結構（registry SSOT、Procedure protocol、Mode 推導、Invariants）            | [`ARCHITECTURE.md`](ARCHITECTURE.md)                                          |
 | 想貢獻                                                                        | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                          |
