@@ -199,19 +199,42 @@ class SuggestConfigResult:
     warnings: list[WarningCode] = field(default_factory=list)
 
 
-def _detect_signal(raw: Any) -> tuple[Signal, str]:
-    """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS."""
+def _detect_signal(raw: Any) -> tuple[Signal, str, bool]:
+    """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
+
+    The third return value is ``magnitude_dropped``: ``True`` iff the
+    detected signal is SPARSE *and* the non-zero values are not strictly
+    ternary {-1, +1}. Sparse procedures coerce via ``.sign()`` so any
+    non-±1 magnitude is silently dropped — the flag lets ``suggest_config``
+    surface ``WarningCode.SPARSE_MAGNITUDE_DROPPED``.
+    """
+    import polars as pl
+
     n = len(raw)
     if n == 0:
-        return Signal.CONTINUOUS, "factor column empty: defaulting to CONTINUOUS"
-    n_zero = int((raw["factor"] == 0).sum())
+        return (
+            Signal.CONTINUOUS,
+            "factor column empty: defaulting to CONTINUOUS",
+            False,
+        )
+    n_zero, all_ternary = raw.select(
+        n_zero=(pl.col("factor") == 0).sum(),
+        all_ternary=(
+            (pl.col("factor") == 0) | (pl.col("factor").abs() == 1)
+        ).all(),
+    ).row(0)
     sparsity = n_zero / n
-    decision = "SPARSE" if sparsity >= _SPARSITY_THRESHOLD else "CONTINUOUS"
-    return (
-        Signal.SPARSE if decision == "SPARSE" else Signal.CONTINUOUS,
-        f"sparsity ratio = {sparsity:.2f} "
-        f"(threshold {_SPARSITY_THRESHOLD}): → {decision}",
+    signal = (
+        Signal.SPARSE if sparsity >= _SPARSITY_THRESHOLD else Signal.CONTINUOUS
     )
+    reason = (
+        f"sparsity ratio = {sparsity:.2f} "
+        f"(threshold {_SPARSITY_THRESHOLD}): → {signal.value.upper()}"
+    )
+    magnitude_dropped = signal is Signal.SPARSE and not bool(all_ternary)
+    if magnitude_dropped:
+        reason += " (non-±1 magnitudes present; .sign() coercion will drop them)"
+    return signal, reason, magnitude_dropped
 
 
 def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
@@ -264,7 +287,7 @@ def suggest_config(
     caller (or an AI agent) reads ``reasoning`` and ``warnings`` to
     decide whether to override.
     """
-    signal, signal_reason = _detect_signal(raw)
+    signal, signal_reason, magnitude_dropped = _detect_signal(raw)
     scope, scope_reason = _detect_scope(raw)
 
     n_assets = int(raw["asset_id"].n_unique())
@@ -299,6 +322,8 @@ def suggest_config(
         n_periods = len(raw)
         if MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
             warnings.append(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+    if magnitude_dropped:
+        warnings.append(WarningCode.SPARSE_MAGNITUDE_DROPPED)
 
     return SuggestConfigResult(
         suggested=suggested,
