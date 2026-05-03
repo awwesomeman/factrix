@@ -80,6 +80,8 @@ from factrix.metrics.ts_beta import (
     compute_rolling_mean_beta,
     ts_beta_sign_consistency,
 )
+from factrix.metrics.ts_quantile import ts_quantile_spread
+from factrix.metrics.ts_asymmetry import ts_asymmetry
 
 __all__ = [
     "compute_ic", "ic", "ic_ir", "regime_ic", "multi_horizon_ic",
@@ -96,4 +98,5 @@ __all__ = [
     "beta_sign_consistency",
     "compute_ts_betas", "ts_beta", "mean_r_squared",
     "compute_rolling_mean_beta", "ts_beta_sign_consistency",
+    "ts_quantile_spread", "ts_asymmetry",
 ]

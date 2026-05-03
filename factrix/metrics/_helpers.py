@@ -20,6 +20,38 @@ from factrix._types import MetricOutput
 TIE_RATIO_WARN_THRESHOLD = 0.3
 
 
+def _aggregate_to_per_date(
+    df: pl.DataFrame,
+    *,
+    factor_col: str = "factor",
+    return_col: str = "forward_return",
+    factor_alias: str = "_f",
+    return_alias: str = "_r",
+) -> pl.DataFrame:
+    """Collapse a panel to one row per ``date`` (mean factor + mean return).
+
+    For COMMON-scope factors (broadcast within date) the mean is the
+    identity. For single-asset TIMESERIES it is also the identity.
+    For INDIVIDUAL panels the cross-section is silently averaged —
+    callers using this on time-series-only metrics document that
+    aggregation in their own docstrings.
+    """
+    return (
+        df.lazy()
+        .group_by("date")
+        .agg(
+            pl.col(factor_col).mean().alias(factor_alias),
+            pl.col(return_col).mean().alias(return_alias),
+        )
+        .filter(
+            pl.col(factor_alias).is_not_null()
+            & pl.col(return_alias).is_not_null()
+        )
+        .sort("date")
+        .collect()
+    )
+
+
 def _short_circuit_output(
     name: str,
     reason: str,
