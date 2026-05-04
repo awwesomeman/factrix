@@ -64,6 +64,9 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
   - pymdownx.details
   - pymdownx.superfences:
       custom_fences:
@@ -86,8 +89,8 @@ extra:
 
 validation:
   links:
-    not_found: info
-    anchors: info
+    not_found: warn
+    anchors: warn
 
 exclude_docs: |
   plans/
@@ -95,6 +98,7 @@ exclude_docs: |
 
 nav:
   - Home: index.md
-  - Methodology: methodology_reference.md
-  - Statistical methods: statistical_methods.md
-  - Metric applicability: metric_applicability.md
+  - Reference:
+      - Methodology: reference/methodology.md
+      - Statistical methods: reference/statistical-methods.md
+      - Metric applicability: reference/metric-applicability.md

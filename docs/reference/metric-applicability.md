@@ -2,7 +2,7 @@
 
 逐 Profile 欄位列 **N（資產數）** / **T（時序長度）** 下限，以及不達門檻時的實際行為。方便使用者在決定 data shape 時先查表、debug 看到 `NaN` 欄位時先對照。
 
-> 本文職責：逐 Profile 欄位的 **N/T 門檻**與**不達門檻時的 fallback 語意**。**精確公式**不在這裡 — 請讀對應 `.py` module 的 docstring（`help(factrix.metrics.<name>)`）；論文依據請看 `statistical_methods.md`。文件整體分工見 [README.md](../README.md)。
+> 本文職責：逐 Profile 欄位的 **N/T 門檻**與**不達門檻時的 fallback 語意**。**精確公式**不在這裡 — 請讀對應 `.py` module 的 docstring（`help(factrix.metrics.<name>)`）；論文依據請看 [statistical-methods.md](./statistical-methods.md)。文件整體分工見 [README.md](https://github.com/awwesomeman/factrix/blob/main/README.md)。
 >
 > **Authoritative source 仍是 code**（`metadata["reason"]`、metric 模組 docstring）。本表為使用者便捷參考，可能漂移；若有疑義以 `metadata["reason"]` 為準，或 `git blame` 對應 `MIN_*` 常數定義。
 
@@ -321,4 +321,4 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 2. 改 `from_artifacts` 的 fallback 邏輯 → 更新對應 factor_type 區塊
 3. 新增 metric → 在對應 factor_type 區塊加一行（N 下限 / T 下限 / fallback）
 
-長期計劃（見 [`plan_direction.md`](./plan_direction.md) §7）：把本表資訊 programmatic 化進 `fl.describe_profile()`，避免手動同步漂移。
+長期計劃：把本表資訊 programmatic 化進 `fl.describe_profile()`，避免手動同步漂移。
