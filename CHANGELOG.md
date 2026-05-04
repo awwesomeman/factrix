@@ -58,8 +58,27 @@ CONTRIBUTING §7 (Release workflow).
   `MIN_PERIODS_RELIABLE`. Naming deliberately omits `_HARD` for
   `MIN_ASSETS` because the `n_assets` axis only warns — re-using the
   `n_periods` `_HARD` (which means "raise") would mislead.
+- **`factrix.metrics`** module docstring gains a fifth category,
+  Time-Series / Standalone Diagnostic, listing the `ts_beta` family +
+  `ts_quantile_spread` + `ts_asymmetry`. `help(factrix.metrics)` now
+  surfaces them; previously the docstring categorisation hid them
+  despite being fully exported (#18).
 
-Refs #15.
+### Migration
+
+- **`MIN_IC_PERIODS` → `MIN_ASSETS_PER_DATE_IC`** (in `factrix/_types.py`).
+  The "PERIODS" suffix was misleading — the value has always been
+  checked against per-date asset counts, not period counts. **Direct
+  rename, no alias.** Pre-1.0 + single-consumer convention: callers
+  (factor-analysis workspace via SHA pin) update the import once.
+- **`WarningCode.UNRELIABLE_SE_SHORT_SERIES` → `UNRELIABLE_SE_SHORT_PERIODS`**.
+  Vocabulary aligned with the `n_periods` parameter name canonicalised
+  in #15. Both Python identifier and serialised string value change to
+  `"unreliable_se_short_periods"`. **Direct rename, no alias.** Update
+  imports + any string-based filters / log queries that match the old
+  value (#18).
+
+Refs #15, #18.
 
 ## v0.7.0 (2026-05-04)
 

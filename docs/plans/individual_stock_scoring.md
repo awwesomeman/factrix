@@ -258,7 +258,7 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 |------|-----|------|
 | `EPSILON` | 1e-9 | 避免除以零 |
 | `DDOF` | 1 | 樣本標準差（Bessel 修正） |
-| `MIN_IC_PERIODS` | 10 | IC 最小有效期數 |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | IC 最小有效期數 |
 | `MIN_STABILITY_PERIODS` | 12 | IC_Stability 最小窗口數 |
 | `MIN_OOS_PERIODS` | 5 | OOS 最小期數 |
 | `MIN_PORTFOLIO_PERIODS` | 5 | Long_Alpha / MDD 最小期數 |

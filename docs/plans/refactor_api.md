@@ -502,7 +502,7 @@ def from_dict(cls, d: dict[str, Any]) -> Self:
 
 ```python
 MIN_T_HARD     = 20    # < this → InsufficientSampleError
-MIN_T_RELIABLE = 30    # < this → WarningCode.UNRELIABLE_SE_SHORT_SERIES
+MIN_T_RELIABLE = 30    # < this → WarningCode.UNRELIABLE_SE_SHORT_PERIODS
 def auto_bartlett(T: int) -> int:
     """Newey-West (1994) automatic lag: floor(4 * (T/100)^(2/9))."""
     return max(1, int(4 * (T / 100) ** (2 / 9)))
@@ -510,7 +510,7 @@ def auto_bartlett(T: int) -> int:
 
 **T 樣本長度分層（I5）**：所有 Mode B procedure 適用同一 floor：
 - `T < MIN_T_HARD` → `InsufficientSampleError`（不出 verdict）
-- `MIN_T_HARD ≤ T < MIN_T_RELIABLE` → 出 verdict + `WarningCode.UNRELIABLE_SE_SHORT_SERIES`
+- `MIN_T_HARD ≤ T < MIN_T_RELIABLE` → 出 verdict + `WarningCode.UNRELIABLE_SE_SHORT_PERIODS`
 - `T ≥ MIN_T_RELIABLE` → 標準 verdict
 
 #### `(COMMON, CONTINUOUS, N=1)` — Single-asset continuous broadcast factor
@@ -551,7 +551,7 @@ primary_p  = two_sided_t_p(beta_tstat, df=T - 2)
 1. **Event window overlap** — `min(dt_between_events) < 2 * window_length` → `WarningCode.EVENT_WINDOW_OVERLAP`
 2. **Ljung-Box on residual ε_t** — `lags=min(10, T//10)`；p < 0.05 → `WarningCode.SERIAL_CORRELATION_DETECTED`
 3. **`event_temporal_hhi`**（放 `profile.stats[StatCode.EVENT_TEMPORAL_HHI]`，由 `diagnose()` 暴露；不污染 top-level schema）— 衡量同一 asset 事件在時間軸上的集中程度
-4. **T < MIN_T_RELIABLE** → `WarningCode.UNRELIABLE_SE_SHORT_SERIES`（T < MIN_T_HARD 已在 InsufficientSampleError 攔截）
+4. **T < MIN_T_RELIABLE** → `WarningCode.UNRELIABLE_SE_SHORT_PERIODS`（T < MIN_T_HARD 已在 InsufficientSampleError 攔截）
 
 ### 5.3 Mode B 適用情境（明確 IN scope）
 
@@ -679,7 +679,7 @@ SuggestConfigResult(
         "metric": "scope=COMMON: metric axis collapsed (no IC/FM choice)",   # I4
         "mode":   "n_assets = 1 detected → Mode B (timeseries)",
     },
-    warnings  = [WarningCode.UNRELIABLE_SE_SHORT_SERIES],   # I2 — enum, not str
+    warnings  = [WarningCode.UNRELIABLE_SE_SHORT_PERIODS],   # I2 — enum, not str
 )
 ```
 
@@ -708,7 +708,7 @@ class Mode(StrEnum):                     # sample regime — 中性
 class WarningCode(StrEnum):              # procedure 退化警示（取代 v3 草案的 DegradedMode）
     INSUFFICIENT_EVENTS         = "insufficient_events"            # events < MIN_EVENTS
     INSUFFICIENT_ASSETS         = "insufficient_assets"            # N too small for cross-asset agg power
-    UNRELIABLE_SE_SHORT_SERIES  = "unreliable_se_short_series"     # 20 ≤ T < 30 → NW HAC SE 偏誤
+    UNRELIABLE_SE_SHORT_PERIODS  = "unreliable_se_short_periods"    # 20 ≤ n_periods < 30 → NW HAC SE 偏誤
     EVENT_WINDOW_OVERLAP        = "event_window_overlap"           # min(dt_between_events) < 2 * window_length
     PERSISTENT_REGRESSOR        = "persistent_regressor"           # ADF p > 0.1（CONTINUOUS only — I6）
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"    # Ljung-Box p < 0.05
@@ -730,7 +730,7 @@ profile.info_notes: frozenset[InfoCode]             # 中性事實提示
 AI agent pattern-match 範例：
 ```python
 if WarningCode.PERSISTENT_REGRESSOR in profile.warnings: ...
-if profile.warnings & {WarningCode.UNRELIABLE_SE_SHORT_SERIES,
+if profile.warnings & {WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
                        WarningCode.SERIAL_CORRELATION_DETECTED}: ...
 ```
 

@@ -161,7 +161,7 @@ class TestSparsePanelDropsThinDates:
         self, ic_config: AnalysisConfig,
     ) -> None:
         # Build 30 dates × 30 assets, then drop assets on the first 10
-        # dates so they fall below MIN_IC_PERIODS=10.
+        # dates so they fall below MIN_ASSETS_PER_DATE_IC=10.
         panel = _make_panel(
             n_dates=30, n_assets=30, seed=11, factor_strength=0.7,
         )

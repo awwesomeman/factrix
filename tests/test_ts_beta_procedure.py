@@ -125,7 +125,7 @@ class TestStrongBeta:
     def test_no_unreliable_se_warning_at_T_120(
         self, profile: FactorProfile,
     ) -> None:
-        assert WarningCode.UNRELIABLE_SE_SHORT_SERIES not in profile.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
 
 
 class TestRandomFactor:
@@ -162,7 +162,7 @@ class TestSampleSizeStratification:
         # MIN_PERIODS_HARD <= T < MIN_PERIODS_RELIABLE → verdict + UNRELIABLE_SE warn.
         ts = _make_ts(n_dates=MIN_PERIODS_HARD, seed=2, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
-        assert WarningCode.UNRELIABLE_SE_SHORT_SERIES in profile.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in profile.warnings
         assert profile.n_obs == MIN_PERIODS_HARD
 
     def test_T_at_reliable_floor_no_se_warning(
@@ -170,7 +170,7 @@ class TestSampleSizeStratification:
     ) -> None:
         ts = _make_ts(n_dates=MIN_PERIODS_RELIABLE, seed=3, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
-        assert WarningCode.UNRELIABLE_SE_SHORT_SERIES not in profile.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
 
 
 class TestNwLagFloor:

@@ -62,7 +62,7 @@ factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所
 - **Chen & Zimmermann (2022)**, *Critical Finance Review* 11(2)
   - 觀點：已發表因子的 OOS decay 與 sub-period 穩定性檢驗是 zoo-scale 整理的最低標；建議 report sub-period t-stats 分別檢查而非僅看 full-sample。
   - 採用：`regime_ic` 對每個 regime 跑獨立 t-test（H₀: mean IC = 0 within regime），並用 **BHY** 對 k 個 regime p-value 做相依性校正；預設以「時間 bisection（前半/後半）」作 regime fallback，接受使用者自供 regime 標籤。stat 回傳 **min|t| across regimes**（conservative：最弱 regime 若顯著則全 regime 皆顯著）。
-  - 採用：`multi_horizon_ic` 掃預設 horizon list `[1, 5, 10, 20]`，per-horizon 以非重疊採樣（`_sample_non_overlapping`）做 t-test 避免重疊報酬 inflate，並用 `MIN_IC_PERIODS` 依 horizon 縮放（短期 horizon 要求更多樣本以補償 sub-sampling 之資料耗損）。retention ratio 與 monotonicity 診斷由下游 veto rule (`cs.multi_horizon_decay_fast`) 消費。
+  - 採用：`multi_horizon_ic` 掃預設 horizon list `[1, 5, 10, 20]`，per-horizon 以非重疊採樣（`_sample_non_overlapping`）做 t-test 避免重疊報酬 inflate，並用 `MIN_ASSETS_PER_DATE_IC` 依 horizon 縮放（短期 horizon 要求更多樣本以補償 sub-sampling 之資料耗損）。retention ratio 與 monotonicity 診斷由下游 veto rule (`cs.multi_horizon_decay_fast`) 消費。
 
 ### Turnover & Trading-Cost Proxy — `turnover`、`notional_turnover`、`breakeven_cost`、`net_spread`
 
@@ -388,7 +388,7 @@ net_spread     = gross_spread − 2 × (c_bps / 10000) × notional_turnover
 ### 最低樣本門檻（觸發 short-circuit 回傳）
 | 門檻 | 值 | 定義位置 | 對應檢定 |
 |------|----|---------|---------|
-| `MIN_IC_PERIODS` | `10` | `_types.py` | IC 時序檢定（per-date IC 數量）；`multi_horizon_ic` 會 scale 以補償 sub-sampling 資料耗損 |
+| `MIN_ASSETS_PER_DATE_IC` | `10` | `_types.py` | IC 時序檢定（per-date IC 數量）；`multi_horizon_ic` 會 scale 以補償 sub-sampling 資料耗損 |
 | `MIN_EVENTS` | `10` | `_types.py` | CAAR / BMP 事件 N；BMP 常態近似於 `N ≥ 10` 時 z 與 t 誤差可接受 |
 | `MIN_OOS_PERIODS` | `5` | `_types.py` | 每個 IS / OOS 分段至少觀測值；`multi_split_oos_decay` 要求整段 `N ≥ 2·MIN_OOS_PERIODS` |
 | `MIN_PORTFOLIO_PERIODS` | `5` | `_types.py` | 非重疊 portfolio spread 最低期數 |

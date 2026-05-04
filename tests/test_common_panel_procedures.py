@@ -301,7 +301,7 @@ class TestEmptyPanelFallback:
 class TestCrossSectionNWarnings:
     """Two-tier n_assets guards on PANEL common_continuous (#15).
 
-    Mirrors the existing n_periods two-tier (UNRELIABLE_SE_SHORT_SERIES).
+    Mirrors the existing n_periods two-tier (UNRELIABLE_SE_SHORT_PERIODS).
     Only one of the two codes fires per profile — SMALL implies
     BORDERLINE — so callers can `if SMALL in warnings:` without
     double-checking.

@@ -331,7 +331,7 @@ def suggest_config(
     if mode is Mode.TIMESERIES:
         n_periods = len(raw)
         if MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
-            warnings.append(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+            warnings.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
     if n_tier is not None:
         warnings.append(n_tier)
     if magnitude_dropped:

@@ -120,7 +120,7 @@ def _sample_non_overlapping(
     alternative (keeps all obs but corrects SE).
 
     Logs a WARNING at ``factrix.metrics`` when the sampled series
-    has < 1.5 × MIN_IC_PERIODS rows — downstream t-tests may be frail
+    has < 1.5 × MIN_ASSETS_PER_DATE_IC rows — downstream t-tests may be frail
     even if they don't short-circuit.
 
     Args:
@@ -133,7 +133,7 @@ def _sample_non_overlapping(
         other columns untouched.
     """
     from factrix._logging import get_metrics_logger
-    from factrix._types import MIN_IC_PERIODS
+    from factrix._types import MIN_ASSETS_PER_DATE_IC
 
     sampled_dates = df["date"].unique().sort().gather_every(forward_periods)
     result = df.filter(pl.col("date").is_in(sampled_dates.implode()))
@@ -146,10 +146,10 @@ def _sample_non_overlapping(
     # WARNING: post-sampling series shorter than 1.5x the usual minimum is
     # a red flag — downstream t-tests either short-circuit or operate on
     # a frail sample that silently caller-doesn't-notice.
-    min_safe = int(MIN_IC_PERIODS * 1.5)
+    min_safe = int(MIN_ASSETS_PER_DATE_IC * 1.5)
     if 0 < n_after < min_safe:
         logger.warning(
-            "non_overlap_sample shrunk to n=%d (< %d = MIN_IC_PERIODS*1.5); "
+            "non_overlap_sample shrunk to n=%d (< %d = MIN_ASSETS_PER_DATE_IC*1.5); "
             "downstream significance tests may be unreliable. "
             "forward_periods=%d",
             n_after, min_safe, forward_periods,

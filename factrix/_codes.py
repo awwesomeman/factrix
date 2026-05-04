@@ -17,7 +17,7 @@ class WarningCode(StrEnum):
     StrEnum value identity is unchanged.
     """
 
-    UNRELIABLE_SE_SHORT_SERIES = "unreliable_se_short_series"
+    UNRELIABLE_SE_SHORT_PERIODS = "unreliable_se_short_periods"
     EVENT_WINDOW_OVERLAP = "event_window_overlap"
     # Fired when ADF p > 0.1 on a CONTINUOUS factor (Stambaugh-style
     # persistent-regressor flag, §5.2 / §7.3). Not raised for SPARSE.
@@ -28,7 +28,7 @@ class WarningCode(StrEnum):
     # so users with SUE/notch-delta signals can rescale or re-route.
     SPARSE_MAGNITUDE_DROPPED = "sparse_magnitude_dropped"
     # Two-tier cross-asset N guards for PANEL common_continuous. Mirrors
-    # the n_periods two-tier (UNRELIABLE_SE_SHORT_SERIES) but the axis
+    # the n_periods two-tier (UNRELIABLE_SE_SHORT_PERIODS) but the axis
     # never raises — cross-asset t-test on E[β] is well-defined for N≥2.
     SMALL_CROSS_SECTION_N = "small_cross_section_n"
     BORDERLINE_CROSS_SECTION_N = "borderline_cross_section_n"
@@ -42,8 +42,8 @@ _WARNING_DESCRIPTIONS: dict["WarningCode", str] = {}
 
 
 _WARNING_DESCRIPTIONS.update({
-    WarningCode.UNRELIABLE_SE_SHORT_SERIES:
-        "T is below MIN_PERIODS_RELIABLE=30; NW HAC SE may be biased.",
+    WarningCode.UNRELIABLE_SE_SHORT_PERIODS:
+        "n_periods is below MIN_PERIODS_RELIABLE=30; NW HAC SE may be biased.",
     WarningCode.EVENT_WINDOW_OVERLAP:
         "Adjacent events sit within forward_periods; AR windows overlap.",
     WarningCode.PERSISTENT_REGRESSOR:

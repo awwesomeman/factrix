@@ -17,7 +17,7 @@
 | **raise** | 立即拋出 exception，停止執行 | 結構錯誤（wrong factor_type、N=1 on CS/MP）、config 缺漏 | `ValueError` / `TypeError` |
 | **fallback** | 切到一條**語意不同但仍有意義**的替代計算路徑，Profile 欄位有值但解讀須調整 | `macro_common` N=1 切到單資產 OLS；`event_signal` N=1 讓 CAAR 退化成時間平均 | `diagnose()` info rule |
 | **degraded** | 同 fallback，但**診斷欄位本身被停用**（Profile 欄位為 `None`）；計算仍跑，只是失去 cross-section 相關診斷 | `event_signal` N=1 → `clustering_hhi=None` | `diagnose()` info rule + Profile 欄位 `None` |
-| **short-circuit** | 樣本不足、input 缺失等情況下，metric 不嘗試計算，直接回傳 `NaN` + `metadata["reason"]` | T < MIN_IC_PERIODS、N < MIN_TS_OBS 的 asset 全部被 skip 等 | `MetricOutput.metadata["reason"]` + `insufficient_metrics` tuple + cross-type `data.insufficient` rule |
+| **short-circuit** | 樣本不足、input 缺失等情況下，metric 不嘗試計算，直接回傳 `NaN` + `metadata["reason"]` | T < MIN_ASSETS_PER_DATE_IC、N < MIN_TS_OBS 的 asset 全部被 skip 等 | `MetricOutput.metadata["reason"]` + `insufficient_metrics` tuple + cross-type `data.insufficient` rule |
 | **drop / skip** | 計算跑完，但某些 row / asset / date 被**靜默過濾**（例：per-date N<10 的 date 不進 IC 序列） | `compute_ic` 每日 N<10 drop；`compute_ts_betas` T<20 skip | `Artifacts.intermediates["coverage"]` 1-row summary |
 | **short-circuit → canonical p=1.0** | short-circuit 時 canonical p 保守壓到 1.0 確保 `verdict()` FAILED | 所有 metric short-circuit | 隱含 canonical p；`verdict()` 輸出 `FAILED` |
 
@@ -41,7 +41,7 @@
 | 事件數 | **K** | 稀疏事件類 factor 的非零觸發數 | `filter(factor != 0).height` |
 | 非重疊時序 | **T/h** | T 除以 `forward_periods=h`，避免 overlap 重複計入 | `_sample_non_overlapping` 內部 |
 
-**時間顆粒**（daily / weekly / monthly bar）不直接影響 factrix 的統計閾值 — 在 factrix 裡，`forward_periods` 是**行數**，不是日曆時間。週頻 panel 寫 `forward_periods=1` 就是 1 週前瞻報酬。但時間顆粒會透過 **T 的大小**和 **重疊結構**間接影響：日頻 1 年 ≈ T=250；月頻 10 年 ≈ T=120；同一個 MIN_IC_PERIODS=10 在兩者下意義不同（日頻容易滿、月頻需要多年歷史）。
+**時間顆粒**（daily / weekly / monthly bar）不直接影響 factrix 的統計閾值 — 在 factrix 裡，`forward_periods` 是**行數**，不是日曆時間。週頻 panel 寫 `forward_periods=1` 就是 1 週前瞻報酬。但時間顆粒會透過 **T 的大小**和 **重疊結構**間接影響：日頻 1 年 ≈ T=250；月頻 10 年 ≈ T=120；同一個 MIN_ASSETS_PER_DATE_IC=10 在兩者下意義不同（日頻容易滿、月頻需要多年歷史）。
 
 ### 各 factor_type 的 canonical test 實際看什麼樣本
 
@@ -114,7 +114,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 
 | 常數 | 值 | 意義 | 定義位置 |
 |---|---|---|---|
-| `MIN_IC_PERIODS` | 10 | IC 時序 t-test 的最小非重疊期數 | `factrix/_types.py` |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | IC 時序 t-test 的最小非重疊期數 | `factrix/_types.py` |
 | `MIN_EVENTS` | 10 | CAAR / BMP / Corrado 最小事件數 | `factrix/_types.py` |
 | `MIN_OOS_PERIODS` | 5 | OOS decay 每 split 最小期數 | `factrix/_types.py` |
 | `MIN_PORTFOLIO_PERIODS` | 5 | quantile_spread 時序最小期數 | `factrix/_types.py` |
@@ -130,7 +130,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 
 | 欄位 | N 下限 (per date) | T 下限 | 不達門檻時 |
 |---|---|---|---|
-| `ic_mean` / `ic_p` / `ic_nw_p` / `ic_ir` | ≥ 2 per date（rank 需要兩個以上 asset） | `MIN_IC_PERIODS=10` 非重疊期 | NaN + p=1.0，`reason=insufficient_ic_periods` |
+| `ic_mean` / `ic_p` / `ic_nw_p` / `ic_ir` | ≥ 2 per date（rank 需要兩個以上 asset） | `MIN_ASSETS_PER_DATE_IC=10` 非重疊期 | NaN + p=1.0，`reason=insufficient_ic_periods` |
 | `quantile_spread` / `spread_p` | ≥ `n_groups`（預設 10） | `MIN_PORTFOLIO_PERIODS=5` | NaN；per-date N < n_groups 時該期被 drop |
 | `monotonicity` | ≥ `n_groups` | `MIN_MONOTONICITY_PERIODS=5` | NaN |
 | `top_concentration` | ≥ `n_groups` | — | NaN 若 top bucket 空 |
@@ -139,8 +139,8 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 | `breakeven_cost` / `net_spread` | 繼承 `notional_turnover` 門檻 | 同 | `inf` 若 notional_turnover → 0；NaN 若 notional_turnover 短路 |
 | `ic_trend` | 同 `ic_*` | 同 IC | NaN |
 | `oos_survival_ratio` / `oos_sign_flipped` | 同 IC | T 可分 2 splits × `MIN_OOS_PERIODS=5` | NaN |
-| `regime_ic` *(opt-in)* | 同 IC | 每 regime ≥ `MIN_IC_PERIODS` | 失守 regime 略過；metadata 保留成功 regime |
-| `multi_horizon_ic` *(opt-in)* | 需 `price` 欄位 | 每 horizon ≥ `MIN_IC_PERIODS` × 步長 | 長 horizon 單獨失守時該欄 NaN |
+| `regime_ic` *(opt-in)* | 同 IC | 每 regime ≥ `MIN_ASSETS_PER_DATE_IC` | 失守 regime 略過；metadata 保留成功 regime |
+| `multi_horizon_ic` *(opt-in)* | 需 `price` 欄位 | 每 horizon ≥ `MIN_ASSETS_PER_DATE_IC` × 步長 | 長 horizon 單獨失守時該欄 NaN |
 | `spanning_alpha` *(opt-in)* | — | 基底 spreads T 需對齊 factor spread | NaN |
 
 ### 注意事項

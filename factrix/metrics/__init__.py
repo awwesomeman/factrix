@@ -18,6 +18,16 @@ Macro Panel:
     compute_fm_betas, fama_macbeth, pooled_ols,
     beta_sign_consistency
 
+Time-Series / Standalone Diagnostic:
+    compute_ts_betas, ts_beta, mean_r_squared,
+    compute_rolling_mean_beta, ts_beta_sign_consistency,
+    ts_quantile_spread, ts_asymmetry
+
+    Single-series or per-asset diagnostics that supplement the four
+    PANEL/TIMESERIES procedures registered in ``_DISPATCH_REGISTRY``.
+    Useful for ts_beta-family applicability checks (linearity, symmetry,
+    distinctness) before trusting a primary β estimate.
+
 Factor Attribution:
     spanning_alpha, greedy_forward_selection
 """

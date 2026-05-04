@@ -261,14 +261,14 @@ class TestSuggestConfigWarnings:
             n_dates=MIN_PERIODS_HARD + 2, sparse=False, seed=14,
         )
         result = suggest_config(ts)
-        assert WarningCode.UNRELIABLE_SE_SHORT_SERIES in result.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
     def test_long_timeseries_no_warning(self) -> None:
         ts = _make_timeseries(
             n_dates=MIN_PERIODS_RELIABLE + 50, sparse=False, seed=15,
         )
         result = suggest_config(ts)
-        assert WarningCode.UNRELIABLE_SE_SHORT_SERIES not in result.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in result.warnings
 
 
 # ---------------------------------------------------------------------------

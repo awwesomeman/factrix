@@ -496,7 +496,7 @@ Phase B 完成後資深 quant / 資深後端 fallback 審計發現 12+ 個 metri
 
 - **Prefix vocabulary 優於 StrEnum**：reviewer 建議將 reason 值遷至 `StrEnum`；拒絕，因為會強迫每個 metric 模組 import enum + 指定完整名稱，for a 4-line literal 增加 coupling。prefix (`insufficient_*` / `no_*` / `not_applicable_*` / `degenerate_*`) 的分類成本在 `_insufficient_metrics` 單點集中，call-site 仍是 grep-friendly literal。
 - **不做 `MetricOutput.insufficient(...)` factory**：同理；14 個 call-site × 6 行 literal 的重複 vs helper 強迫 import 的權衡下，literal 保留可讀性勝出。
-- **`_verdict_from_p(n<2) → FAILED` 的門檻為什麼是 `<2` 而非 `MIN_IC_PERIODS=10`**：兩層語義分離 — `n<2` 是**統計有效性 floor**（t-distribution df ≤ 0 undefined），永遠不能 PASS；`n<MIN_IC_PERIODS` 是**metric 可靠性警告**，以 `data.insufficient` diagnose（warn）呈現但仍允許 verdict PASS（使用者可能做 5-period 探索性 verdict）。
+- **`_verdict_from_p(n<2) → FAILED` 的門檻為什麼是 `<2` 而非 `MIN_ASSETS_PER_DATE_IC=10`**：兩層語義分離 — `n<2` 是**統計有效性 floor**（t-distribution df ≤ 0 undefined），永遠不能 PASS；`n<MIN_ASSETS_PER_DATE_IC` 是**metric 可靠性警告**，以 `data.insufficient` diagnose（warn）呈現但仍允許 verdict PASS（使用者可能做 5-period 探索性 verdict）。
 - **`mlflow.log_profile` tuple branch**：`isinstance(value, (tuple, list))` → 以 `","` join 為 tag；否則新加的 `insufficient_metrics` 會被 dataclass field iteration 默默丟棄。
 
 **UX 結果驗證**（smoke test）

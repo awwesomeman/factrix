@@ -27,8 +27,8 @@ class TestComputeIC:
             assert ic_val == pytest.approx(-1.0)
 
     def test_drops_small_dates(self):
-        """Dates with < MIN_IC_PERIODS assets should be excluded."""
-        # 3 assets < MIN_IC_PERIODS=10
+        """Dates with < MIN_ASSETS_PER_DATE_IC assets should be excluded."""
+        # 3 assets < MIN_ASSETS_PER_DATE_IC=10
         dates = [datetime(2024, 1, 1)]
         rows = [
             {"date": dates[0], "asset_id": f"A{i}", "factor": float(i), "forward_return": float(i) * 0.01}

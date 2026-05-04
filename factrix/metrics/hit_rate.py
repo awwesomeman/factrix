@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._types import MIN_IC_PERIODS, MetricOutput
+from factrix._types import MIN_ASSETS_PER_DATE_IC, MetricOutput
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -41,10 +41,10 @@ def hit_rate(
     vals = sampled[value_col].drop_nulls()
 
     n = len(vals)
-    if n < MIN_IC_PERIODS:
+    if n < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "hit_rate", "insufficient_hit_rate_samples",
-            n_observed=n, min_required=MIN_IC_PERIODS,
+            n_observed=n, min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     hits = int((vals > 0).sum())

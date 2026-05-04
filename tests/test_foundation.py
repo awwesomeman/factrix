@@ -51,7 +51,7 @@ class TestCodeEnums:
         # Spot-check the four live codes (§7.3) — each is raised by at
         # least one procedure in factrix/_procedures.py.
         for code in (
-            WarningCode.UNRELIABLE_SE_SHORT_SERIES,
+            WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
             WarningCode.EVENT_WINDOW_OVERLAP,
             WarningCode.PERSISTENT_REGRESSOR,
             WarningCode.SERIAL_CORRELATION_DETECTED,

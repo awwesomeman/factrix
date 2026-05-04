@@ -13,7 +13,7 @@ import polars as pl
 
 from factrix._types import (
     EPSILON,
-    MIN_IC_PERIODS,
+    MIN_ASSETS_PER_DATE_IC,
     MetricOutput,
 )
 from factrix.metrics._helpers import (
@@ -42,7 +42,7 @@ def compute_ic(
 
     Returns:
         DataFrame with columns ``date, ic`` sorted by date.
-        Dates with fewer than ``MIN_IC_PERIODS`` assets are dropped.
+        Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are dropped.
     """
     ranked = df.with_columns(
         pl.col(factor_col).rank(method="average").over("date").alias("_rank_factor"),
@@ -54,7 +54,7 @@ def compute_ic(
             pl.corr("_rank_factor", "_rank_return").alias("ic"),
             pl.len().alias("n"),
         )
-        .filter(pl.col("n") >= MIN_IC_PERIODS)
+        .filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
         .sort("date")
         .select("date", "ic")
     )
@@ -82,7 +82,7 @@ def ic(
     """
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    raw_min = _scaled_min_periods(MIN_IC_PERIODS, forward_periods)
+    raw_min = _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, forward_periods)
     if n < raw_min:
         return _short_circuit_output(
             "ic", "insufficient_ic_periods",
@@ -93,10 +93,10 @@ def ic(
     mean_ic = float(ic_vals.mean())
     sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
     n_sampled = len(sampled)
-    if n_sampled < MIN_IC_PERIODS:
+    if n_sampled < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "ic", "insufficient_sampled_ic_periods",
-            n_observed=n_sampled, min_required=MIN_IC_PERIODS,
+            n_observed=n_sampled, min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
     t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
@@ -134,10 +134,10 @@ def ic_newey_west(
     """
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
     n = len(ic_vals)
-    if n < MIN_IC_PERIODS:
+    if n < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "ic_newey_west", "insufficient_ic_periods",
-            n_observed=n, min_required=MIN_IC_PERIODS,
+            n_observed=n, min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     from factrix._stats import _resolve_nw_lags
@@ -180,10 +180,10 @@ def ic_ir(
     """
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    if n < MIN_IC_PERIODS:
+    if n < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "ic_ir", "insufficient_ic_periods",
-            n_observed=n, min_required=MIN_IC_PERIODS,
+            n_observed=n, min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     mean_ic = float(ic_vals.mean())
@@ -233,10 +233,10 @@ def regime_ic(
         Chen & Zimmermann (2022): report sub-period t-stats separately.
         Benjamini-Yekutieli (2001): FDR control under arbitrary dependence.
     """
-    if len(ic_df) < MIN_IC_PERIODS:
+    if len(ic_df) < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "regime_ic", "insufficient_ic_periods",
-            n_observed=len(ic_df), min_required=MIN_IC_PERIODS,
+            n_observed=len(ic_df), min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     if regime_labels is not None:
@@ -371,9 +371,9 @@ def multi_horizon_ic(
         ic_vals = ic_series["ic"].drop_nulls()
         n_ic = len(ic_vals)
 
-        # Scale the raw threshold to land with ≥ MIN_IC_PERIODS after
+        # Scale the raw threshold to land with ≥ MIN_ASSETS_PER_DATE_IC after
         # the p-period non-overlap sub-sampling below.
-        if n_ic >= _scaled_min_periods(MIN_IC_PERIODS, p):
+        if n_ic >= _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, p):
             mean_ic = float(ic_vals.mean())
             # WHY: use non-overlapping sampling for t-stat to avoid
             # autocorrelation inflation from overlapping forward returns
@@ -402,7 +402,7 @@ def multi_horizon_ic(
     if not valid_horizons:
         return _short_circuit_output(
             "multi_horizon_ic", "no_horizon_has_enough_observations",
-            min_required=MIN_IC_PERIODS,
+            min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     # BHY across horizons: sweeping k horizons is k implicit tests.
