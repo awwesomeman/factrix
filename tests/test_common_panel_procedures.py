@@ -296,3 +296,49 @@ class TestEmptyPanelFallback:
         profile = _CommonSparsePanelProcedure().compute(empty, cfg_sparse)
         assert profile.primary_p == 1.0
         assert profile.n_obs == 0
+
+
+class TestCrossSectionNWarnings:
+    """Two-tier n_assets guards on PANEL common_continuous (#15).
+
+    Mirrors the existing n_periods two-tier (UNRELIABLE_SE_SHORT_SERIES).
+    Only one of the two codes fires per profile — SMALL implies
+    BORDERLINE — so callers can `if SMALL in warnings:` without
+    double-checking.
+    """
+
+    def _profile_for(
+        self, n_assets: int, cfg_continuous: AnalysisConfig,
+    ) -> FactorProfile:
+        panel = _make_common_panel(
+            n_dates=60, n_assets=n_assets, seed=11, true_beta=0.5,
+        )
+        return _CommonContPanelProcedure().compute(panel, cfg_continuous)
+
+    def test_emits_small_at_n5(
+        self, cfg_continuous: AnalysisConfig,
+    ) -> None:
+        profile = self._profile_for(5, cfg_continuous)
+        assert WarningCode.SMALL_CROSS_SECTION_N in profile.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in profile.warnings
+
+    def test_only_small_at_n9(
+        self, cfg_continuous: AnalysisConfig,
+    ) -> None:
+        profile = self._profile_for(9, cfg_continuous)
+        assert WarningCode.SMALL_CROSS_SECTION_N in profile.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in profile.warnings
+
+    def test_emits_borderline_at_n15(
+        self, cfg_continuous: AnalysisConfig,
+    ) -> None:
+        profile = self._profile_for(15, cfg_continuous)
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N in profile.warnings
+        assert WarningCode.SMALL_CROSS_SECTION_N not in profile.warnings
+
+    def test_no_warning_at_n35(
+        self, cfg_continuous: AnalysisConfig,
+    ) -> None:
+        profile = self._profile_for(35, cfg_continuous)
+        assert WarningCode.SMALL_CROSS_SECTION_N not in profile.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in profile.warnings

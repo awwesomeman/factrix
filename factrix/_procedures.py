@@ -250,7 +250,7 @@ def _compute_common_panel(
     import numpy as np
     import polars as pl
 
-    from factrix._codes import StatCode, WarningCode
+    from factrix._codes import StatCode, WarningCode, cross_section_tier
     from factrix._profile import FactorProfile
     from factrix._stats import _adf, _calc_t_stat, _p_value_from_t
     from factrix.metrics.ts_beta import compute_ts_betas
@@ -275,6 +275,9 @@ def _compute_common_panel(
         StatCode.TS_BETA_P: p_value,
     }
     warnings: set[WarningCode] = set()
+    n_tier = cross_section_tier(N)
+    if n_tier is not None:
+        warnings.add(n_tier)
 
     if with_adf:
         # The broadcast factor is the same series across every asset on

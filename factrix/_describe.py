@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import WarningCode
+from factrix._codes import WarningCode, cross_section_tier
 from factrix._evaluate import _derive_mode
 from factrix._registry import (
     _DISPATCH_REGISTRY,
@@ -19,7 +19,11 @@ from factrix._registry import (
     _ScopeCollapsedSentinel,
     _route_scope,
 )
-from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE
+from factrix._stats.constants import (
+    MIN_ASSETS_RELIABLE,
+    MIN_PERIODS_HARD,
+    MIN_PERIODS_RELIABLE,
+)
 
 
 # Sparsity threshold above which `factor` is treated as an event series.
@@ -296,6 +300,12 @@ def suggest_config(
         f"n_assets = {n_assets} detected → "
         f"{'TIMESERIES' if mode is Mode.TIMESERIES else 'PANEL'}"
     )
+    n_tier = cross_section_tier(n_assets) if mode is Mode.PANEL else None
+    if n_tier is not None:
+        mode_reason += (
+            f" (n_assets < MIN_ASSETS_RELIABLE = {MIN_ASSETS_RELIABLE} → "
+            f"cross-asset df low, see WarningCode.{n_tier.name})"
+        )
 
     suggested = _build_suggested(scope, signal, forward_periods=forward_periods)
 
@@ -322,6 +332,8 @@ def suggest_config(
         n_periods = len(raw)
         if MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
             warnings.append(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+    if n_tier is not None:
+        warnings.append(n_tier)
     if magnitude_dropped:
         warnings.append(WarningCode.SPARSE_MAGNITUDE_DROPPED)
 

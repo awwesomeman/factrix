@@ -27,6 +27,11 @@ class WarningCode(StrEnum):
     # coerce via .sign() so magnitude is silently dropped — surface it
     # so users with SUE/notch-delta signals can rescale or re-route.
     SPARSE_MAGNITUDE_DROPPED = "sparse_magnitude_dropped"
+    # Two-tier cross-asset N guards for PANEL common_continuous. Mirrors
+    # the n_periods two-tier (UNRELIABLE_SE_SHORT_SERIES) but the axis
+    # never raises — cross-asset t-test on E[β] is well-defined for N≥2.
+    SMALL_CROSS_SECTION_N = "small_cross_section_n"
+    BORDERLINE_CROSS_SECTION_N = "borderline_cross_section_n"
 
     @property
     def description(self) -> str:
@@ -48,7 +53,33 @@ _WARNING_DESCRIPTIONS.update({
     WarningCode.SPARSE_MAGNITUDE_DROPPED:
         "Sparse factor has non-±1 magnitudes; sparse procedures will "
         "coerce via .sign() and drop magnitude information.",
+    WarningCode.SMALL_CROSS_SECTION_N:
+        "PANEL cross-asset t-test with n_assets < MIN_ASSETS (10); "
+        "df=n_assets-1 too low — t_crit at n_assets=3 ≈ 4.30 "
+        "(+119% vs asymptotic 1.96).",
+    WarningCode.BORDERLINE_CROSS_SECTION_N:
+        "PANEL cross-asset t-test with MIN_ASSETS ≤ n_assets < "
+        "MIN_ASSETS_RELIABLE (10..29); residual t_crit inflation "
+        "5–15% — read borderline p-values cautiously.",
 })
+
+
+def cross_section_tier(n_assets: int) -> WarningCode | None:
+    """Map ``n_assets`` to the appropriate cross-asset N warning code.
+
+    Tiers are mutually exclusive — SMALL is strictly more severe than
+    BORDERLINE — so callers can membership-check the more severe code
+    without an else branch. Returns ``None`` at ``n_assets ≥
+    MIN_ASSETS_RELIABLE`` (clean) or ``n_assets < 2`` (PANEL impossible
+    by upstream mode routing; defensive).
+    """
+    from factrix._stats.constants import MIN_ASSETS, MIN_ASSETS_RELIABLE
+
+    if 2 <= n_assets < MIN_ASSETS:
+        return WarningCode.SMALL_CROSS_SECTION_N
+    if MIN_ASSETS <= n_assets < MIN_ASSETS_RELIABLE:
+        return WarningCode.BORDERLINE_CROSS_SECTION_N
+    return None
 
 
 class InfoCode(StrEnum):

@@ -39,6 +39,26 @@ CONTRIBUTING §7 (Release workflow).
   small-`n_assets` failure mode、threshold 對應），把行為矩陣背後的
   statistical rationale 集中到一處。
 
+### Added
+
+- **`WarningCode.SMALL_CROSS_SECTION_N`** + **`BORDERLINE_CROSS_SECTION_N`**
+  — emitted by the `common_continuous` PANEL procedure
+  (`_compute_common_panel`) and by `suggest_config` based on `n_assets`.
+  `2 ≤ n_assets < 10` → SMALL (df=`n_assets`-1 ≤ 8, t_crit inflated
+  18%–548% vs asymptotic 1.96); `10 ≤ n_assets < 30` → BORDERLINE
+  (residual inflation 5%–15%); `n_assets ≥ 30` → no warning. Two-tier
+  mirrors the existing `n_periods` structure (`MIN_PERIODS_HARD` /
+  `MIN_PERIODS_RELIABLE`); SMALL implies BORDERLINE so only the more
+  severe code emits per profile. Procedure still runs at all
+  `n_assets ≥ 2` — warnings surface the inference-power decay rather
+  than blocking execution. `suggest_config().reasoning["mode"]` is
+  amended to point at the corresponding code when `n_assets < 30`.
+- `MIN_ASSETS = 10` and `MIN_ASSETS_RELIABLE = 30` constants in
+  `factrix/_stats/constants.py`, alongside `MIN_PERIODS_HARD` /
+  `MIN_PERIODS_RELIABLE`. Naming deliberately omits `_HARD` for
+  `MIN_ASSETS` because the `n_assets` axis only warns — re-using the
+  `n_periods` `_HARD` (which means "raise") would mislead.
+
 Refs #15.
 
 ## v0.7.0 (2026-05-04)
