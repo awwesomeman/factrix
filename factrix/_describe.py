@@ -35,7 +35,7 @@ _SPARSITY_THRESHOLD: float = 0.5
 # per-key types/meanings.
 DETECTED_KEYS: frozenset[str] = frozenset({
     "scope", "signal", "mode",
-    "n_assets", "n_periods", "sparsity", "magnitude_dropped",
+    "n_assets", "n_periods", "sparsity",
 })
 
 
@@ -219,7 +219,6 @@ class SuggestConfigResult:
     | ``n_assets``         | int       | unique ``asset_id`` count                 |
     | ``n_periods``        | int       | unique ``date`` count                     |
     | ``sparsity``         | float     | zero-ratio in ``factor`` column           |
-    | ``magnitude_dropped``| bool      | True iff the suggested routing actually drops magnitude (SPARSE + INDIVIDUAL + PANEL + non-±1) |
     """
 
     suggested: AnalysisConfig
@@ -228,25 +227,14 @@ class SuggestConfigResult:
     warnings: list[WarningCode] = field(default_factory=list)
 
 
-def _detect_signal(raw: Any) -> tuple[Signal, str, bool, float]:
+def _detect_signal(raw: Any) -> tuple[Signal, str, float]:
     """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
 
-    Returns ``(signal, reason, has_nonternary_magnitudes, sparsity)``.
-
-    - ``has_nonternary_magnitudes``: ``True`` iff at least one factor
-      value is non-zero and not in ``{-1, +1}``. This is a **raw
-      observation**, scope/mode-blind. Whether those magnitudes will
-      actually be dropped depends on the dispatched procedure — only
-      ``_CAARSparsePanelProcedure`` (INDIVIDUAL × SPARSE × PANEL)
-      coerces via ``.sign()``. ``suggest_config`` combines this flag
-      with scope and mode to compute the user-facing
-      ``magnitude_dropped``.
-    - ``sparsity``: zero-ratio in the factor column. Surfaced for
-      ``SuggestConfigResult.detected`` so callers can branch on the raw
-      observation rather than re-deriving it from the panel.
+    Returns ``(signal, reason, sparsity)`` where ``sparsity`` is the
+    zero-ratio in the factor column, surfaced on
+    ``SuggestConfigResult.detected`` so callers can branch on the raw
+    observation rather than re-deriving it from the panel.
     """
-    import polars as pl
-
     import math
 
     n = len(raw)
@@ -256,15 +244,9 @@ def _detect_signal(raw: Any) -> tuple[Signal, str, bool, float]:
         return (
             Signal.CONTINUOUS,
             "factor column empty: defaulting to CONTINUOUS",
-            False,
             math.nan,
         )
-    n_zero, all_ternary = raw.select(
-        n_zero=(pl.col("factor") == 0).sum(),
-        all_ternary=(
-            (pl.col("factor") == 0) | (pl.col("factor").abs() == 1)
-        ).all(),
-    ).row(0)
+    n_zero = int((raw["factor"] == 0).sum())
     sparsity = n_zero / n
     signal = (
         Signal.SPARSE if sparsity >= _SPARSITY_THRESHOLD else Signal.CONTINUOUS
@@ -273,10 +255,7 @@ def _detect_signal(raw: Any) -> tuple[Signal, str, bool, float]:
         f"sparsity ratio = {sparsity:.2f} "
         f"(threshold {_SPARSITY_THRESHOLD}): → {signal.value.upper()}"
     )
-    has_nonternary_magnitudes = (
-        signal is Signal.SPARSE and not bool(all_ternary)
-    )
-    return signal, reason, has_nonternary_magnitudes, sparsity
+    return signal, reason, sparsity
 
 
 def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
@@ -329,27 +308,13 @@ def suggest_config(
     caller (or an AI agent) reads ``reasoning`` and ``warnings`` to
     decide whether to override.
     """
-    signal, signal_reason, has_nonternary, sparsity = _detect_signal(raw)
+    signal, signal_reason, sparsity = _detect_signal(raw)
     scope, scope_reason = _detect_scope(raw)
 
     n_assets = int(raw["asset_id"].n_unique())
     n_periods = int(raw["date"].n_unique())
     mode = _derive_mode(raw)
 
-    # Magnitude is only dropped on the INDIVIDUAL × SPARSE × PANEL routing
-    # (`_CAARSparsePanelProcedure` → `compute_caar`'s `.sign()` coercion).
-    # COMMON × SPARSE and N=1 sparse routings feed the raw factor into OLS,
-    # so a non-±1 magnitude is preserved there — emitting the warning on
-    # those routings would mislead the caller into rescaling unnecessarily.
-    magnitude_dropped = (
-        has_nonternary
-        and scope is FactorScope.INDIVIDUAL
-        and mode is Mode.PANEL
-    )
-    if magnitude_dropped:
-        signal_reason += (
-            " (non-±1 magnitudes present; .sign() coercion will drop them)"
-        )
     mode_reason = (
         f"n_assets = {n_assets} detected → "
         f"{'TIMESERIES' if mode is Mode.TIMESERIES else 'PANEL'}"
@@ -387,8 +352,6 @@ def suggest_config(
             warnings.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
     if n_tier is not None:
         warnings.append(n_tier)
-    if magnitude_dropped:
-        warnings.append(WarningCode.SPARSE_MAGNITUDE_DROPPED)
 
     detected: dict[str, Any] = {
         "scope": scope.value,
@@ -397,7 +360,6 @@ def suggest_config(
         "n_assets": n_assets,
         "n_periods": n_periods,
         "sparsity": sparsity,
-        "magnitude_dropped": magnitude_dropped,
     }
 
     return SuggestConfigResult(

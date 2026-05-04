@@ -23,10 +23,6 @@ class WarningCode(StrEnum):
     # persistent-regressor flag, §5.2 / §7.3). Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
-    # Fired when SPARSE-detected factor has non-±1 magnitudes. CAAR/BMP
-    # coerce via .sign() so magnitude is silently dropped — surface it
-    # so users with SUE/notch-delta signals can rescale or re-route.
-    SPARSE_MAGNITUDE_DROPPED = "sparse_magnitude_dropped"
     # Two-tier cross-asset N guards for PANEL common_continuous. Mirrors
     # the n_periods two-tier (UNRELIABLE_SE_SHORT_PERIODS) but the axis
     # never raises — cross-asset t-test on E[β] is well-defined for N≥2.
@@ -56,9 +52,6 @@ _WARNING_DESCRIPTIONS.update({
         "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
     WarningCode.SERIAL_CORRELATION_DETECTED:
         "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
-    WarningCode.SPARSE_MAGNITUDE_DROPPED:
-        "Sparse factor has non-±1 magnitudes; sparse procedures will "
-        "coerce via .sign() and drop magnitude information.",
     WarningCode.SMALL_CROSS_SECTION_N:
         "PANEL cross-asset t-test with n_assets < MIN_ASSETS (10); "
         "df=n_assets-1 too low — t_crit at n_assets=3 ≈ 4.30 "

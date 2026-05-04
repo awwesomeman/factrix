@@ -1,7 +1,7 @@
 """CAAR (Cumulative Average Abnormal Return) significance tests.
 
 Tests H₀: event abnormal return = 0, using two complementary methods:
-    compute_caar — per-event-date signed abnormal return series
+    compute_caar — per-event-date weighted abnormal return series
     caar         — CAAR t-test (parametric, non-overlapping sampling)
     bmp_test     — BMP standardized AR test (robust to event-induced variance)
 
@@ -36,25 +36,38 @@ def compute_caar(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Per-event-date signed abnormal return series.
+    """Per-event-date weighted abnormal return series.
 
-    ``signed_car = return × sign(factor)``
-    ``caar = per-date mean of signed_car across events``
+    Aggregation:
+        CS-first. For each event date, take the cross-sectional mean of
+        ``signed_car = return × factor`` across event rows
+        (``factor ≠ 0``); the resulting ``n_event_dates``-length CAAR
+        series feeds a downstream NW HAC t-test on the mean.
 
-    Only rows where ``factor ≠ 0`` are included (event rows).
+    Magnitude is preserved — no ``.sign()`` coercion. The statistic that
+    emerges depends on the input form (general primitive ``{0, R}``;
+    special cases ``{0, 1}`` and ``{-1, 0, +1}`` reduce naturally):
 
-    Note:
-        ``factor_col`` is coerced via ``.sign()``: any non-±1 magnitude
-        is **dropped silently here** (sign-only semantics). For
-        magnitude-bearing event signals (SUE z-score, ratings notch
-        delta, etc.) ``suggest_config`` raises
-        ``WarningCode.SPARSE_MAGNITUDE_DROPPED`` so the user can either
-        rescale to ±1 before calling, or route to a continuous procedure.
+    | Input ``factor``      | ``signed_car`` reduces to | Statistic tested              |
+    |-----------------------|---------------------------|-------------------------------|
+    | ``{0, 1}``            | ``return`` on event rows  | Average event-day return      |
+    | ``{0, R}``, ``R ∈ ℝ`` | ``return × R``            | Magnitude-weighted CAAR       |
+    | ``{-1, 0, +1}``       | ``return × ±1``           | Signed CAAR (literature std.) |
+
+    If the caller wants ternary semantics on a non-ternary input, apply
+    ``.sign()`` to the input column before calling.
+
+    Scale:
+        CAAR magnitude tracks the units of ``factor`` (bps, z-score,
+        unit-less ±1). Hypothesis tests via the downstream ``caar``
+        t-statistic are scale-invariant (numerator and denominator both
+        scale linearly), but cross-factor *effect-size* comparisons
+        require commensurate units.
 
     Args:
         df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
-        factor_col: Column with discrete signal {-1, 0, +1}; non-±1
-            magnitudes are coerced to their sign.
+        factor_col: Numeric column. Magnitude is preserved as a weight
+            in the per-row product; only zero rows are filtered.
         return_col: Column with forward/abnormal return.
 
     Returns:
@@ -63,8 +76,7 @@ def compute_caar(
     return (
         df.filter(pl.col(factor_col) != 0)
         .with_columns(
-            (pl.col(return_col) * pl.col(factor_col).sign())
-            .alias("_signed_car")
+            (pl.col(return_col) * pl.col(factor_col)).alias("_signed_car")
         )
         .group_by("date")
         .agg(pl.col("_signed_car").mean().alias("caar"))
