@@ -1,0 +1,2020 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/metric_applicability/">
+      
+      
+        <link rel="prev" href="../statistical_methods/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Metric applicability - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#factrix-fallback" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Metric applicability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../methodology_reference/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Methodology
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../statistical_methods/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Statistical methods
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Metric applicability
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../methodology_reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../statistical_methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        術語定義
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        樣本量的三個維度（先看懂這個再查表）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="樣本量的三個維度（先看懂這個再查表）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#factor_type-canonical-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        各 factor_type 的 canonical test 實際看什麼樣本
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        總樣本量（N×T）什麼時候關鍵
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-of-thumb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        最小可用組合（rule of thumb）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        全域 fallback 行為
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="全域 fallback 行為">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fallback_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fallback 通知管道對照
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        閾值常數
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross_sectionalcrosssectionalprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cross_sectional（CrossSectionalProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cross_sectional（CrossSectionalProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        注意事項
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event_signaleventprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        event_signal（EventProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="event_signal（EventProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#n1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        N=1 語意變化（要注意）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#macro_panelmacropanelprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        macro_panel（MacroPanelProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="macro_panel（MacroPanelProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#n-hac-lag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        小 N 的 HAC lag 警示
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#macro_commonmacrocommonprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        macro_common（MacroCommonProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="macro_common（MacroCommonProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#n1-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        N=1 的保守 fallback 設計與解讀
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        跨類通用
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#redundancy_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        redundancy_matrix 的適用範圍
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ts_quantile_spread-ts_asymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ts_quantile_spread / ts_asymmetry 的適用範圍
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ts_quantile_spread / ts_asymmetry 的適用範圍">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        適用性（gates）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        適用性矩陣
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-tree-debug" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        常見 decision tree（給 debug 用）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        版本同步提示
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        術語定義
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        樣本量的三個維度（先看懂這個再查表）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="樣本量的三個維度（先看懂這個再查表）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#factor_type-canonical-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        各 factor_type 的 canonical test 實際看什麼樣本
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        總樣本量（N×T）什麼時候關鍵
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#rule-of-thumb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        最小可用組合（rule of thumb）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        全域 fallback 行為
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="全域 fallback 行為">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#fallback_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fallback 通知管道對照
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        閾值常數
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross_sectionalcrosssectionalprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        cross_sectional（CrossSectionalProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="cross_sectional（CrossSectionalProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        注意事項
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event_signaleventprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        event_signal（EventProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="event_signal（EventProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#n1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        N=1 語意變化（要注意）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#macro_panelmacropanelprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        macro_panel（MacroPanelProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="macro_panel（MacroPanelProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#n-hac-lag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        小 N 的 HAC lag 警示
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#macro_commonmacrocommonprofile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        macro_common（MacroCommonProfile 欄位）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="macro_common（MacroCommonProfile 欄位）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#n1-fallback" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        N=1 的保守 fallback 設計與解讀
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        跨類通用
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#redundancy_matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        redundancy_matrix 的適用範圍
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ts_quantile_spread-ts_asymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ts_quantile_spread / ts_asymmetry 的適用範圍
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ts_quantile_spread / ts_asymmetry 的適用範圍">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#gates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        適用性（gates）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        適用性矩陣
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api-policy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API policy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-tree-debug" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        常見 decision tree（給 debug 用）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        版本同步提示
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/metric_applicability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="factrix-fallback">factrix 指標適用範圍 &amp; Fallback 對照<a class="headerlink" href="#factrix-fallback" title="Permanent link">&para;</a></h1>
+<p>逐 Profile 欄位列 <strong>N（資產數）</strong> / <strong>T（時序長度）</strong> 下限，以及不達門檻時的實際行為。方便使用者在決定 data shape 時先查表、debug 看到 <code>NaN</code> 欄位時先對照。</p>
+<blockquote>
+<p>本文職責：逐 Profile 欄位的 <strong>N/T 門檻</strong>與<strong>不達門檻時的 fallback 語意</strong>。<strong>精確公式</strong>不在這裡 — 請讀對應 <code>.py</code> module 的 docstring（<code>help(factrix.metrics.&lt;name&gt;)</code>）；論文依據請看 <code>statistical_methods.md</code>。文件整體分工見 <a href="../README.md">README.md</a>。</p>
+<p><strong>Authoritative source 仍是 code</strong>（<code>metadata["reason"]</code>、metric 模組 docstring）。本表為使用者便捷參考，可能漂移；若有疑義以 <code>metadata["reason"]</code> 為準，或 <code>git blame</code> 對應 <code>MIN_*</code> 常數定義。</p>
+</blockquote>
+<hr />
+<h2 id="_1">術語定義<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<p>本文和 README 用以下術語描述 factrix 對非典型輸入的反應；語意有嚴格區分：</p>
+<table>
+<thead>
+<tr>
+<th>術語</th>
+<th>定義</th>
+<th>典型場景</th>
+<th>通知管道</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>raise</strong></td>
+<td>立即拋出 exception，停止執行</td>
+<td>結構錯誤（wrong factor_type、N=1 on CS/MP）、config 缺漏</td>
+<td><code>ValueError</code> / <code>TypeError</code></td>
+</tr>
+<tr>
+<td><strong>fallback</strong></td>
+<td>切到一條<strong>語意不同但仍有意義</strong>的替代計算路徑，Profile 欄位有值但解讀須調整</td>
+<td><code>macro_common</code> N=1 切到單資產 OLS；<code>event_signal</code> N=1 讓 CAAR 退化成時間平均</td>
+<td><code>diagnose()</code> info rule</td>
+</tr>
+<tr>
+<td><strong>degraded</strong></td>
+<td>同 fallback，但<strong>診斷欄位本身被停用</strong>（Profile 欄位為 <code>None</code>）；計算仍跑，只是失去 cross-section 相關診斷</td>
+<td><code>event_signal</code> N=1 → <code>clustering_hhi=None</code></td>
+<td><code>diagnose()</code> info rule + Profile 欄位 <code>None</code></td>
+</tr>
+<tr>
+<td><strong>short-circuit</strong></td>
+<td>樣本不足、input 缺失等情況下，metric 不嘗試計算，直接回傳 <code>NaN</code> + <code>metadata["reason"]</code></td>
+<td>T &lt; MIN_ASSETS_PER_DATE_IC、N &lt; MIN_TS_OBS 的 asset 全部被 skip 等</td>
+<td><code>MetricOutput.metadata["reason"]</code> + <code>insufficient_metrics</code> tuple + cross-type <code>data.insufficient</code> rule</td>
+</tr>
+<tr>
+<td><strong>drop / skip</strong></td>
+<td>計算跑完，但某些 row / asset / date 被<strong>靜默過濾</strong>（例：per-date N&lt;10 的 date 不進 IC 序列）</td>
+<td><code>compute_ic</code> 每日 N&lt;10 drop；<code>compute_ts_betas</code> T&lt;20 skip</td>
+<td><code>Artifacts.intermediates["coverage"]</code> 1-row summary</td>
+</tr>
+<tr>
+<td><strong>short-circuit → canonical p=1.0</strong></td>
+<td>short-circuit 時 canonical p 保守壓到 1.0 確保 <code>verdict()</code> FAILED</td>
+<td>所有 metric short-circuit</td>
+<td>隱含 canonical p；<code>verdict()</code> 輸出 <code>FAILED</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>何時用哪個詞</strong>：
+- Profile 欄位<strong>有值但語意變</strong>了 → 「fallback」
+- Profile 欄位<strong>是 <code>None</code></strong> → 「degraded」
+- Profile 欄位<strong>是 <code>NaN</code></strong> → 「short-circuit」
+- <strong>資料某些 row 被丟</strong> → 「drop / skip」
+- <strong>使用者的 API 呼叫被擋</strong> → 「raise」</p>
+<hr />
+<h2 id="_2">樣本量的三個維度（先看懂這個再查表）<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<p>談「樣本夠不夠」要先分清楚三種數量，不同 factor_type 的 canonical test 看到的「有效樣本」是不同組合：</p>
+<table>
+<thead>
+<tr>
+<th>維度</th>
+<th>符號</th>
+<th>意義</th>
+<th>factrix 欄位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>資產數</td>
+<td><strong>N</strong></td>
+<td>每個 date 截面上有多少 asset</td>
+<td><code>asset_id</code> 的 unique 數</td>
+</tr>
+<tr>
+<td>時序長度</td>
+<td><strong>T</strong></td>
+<td>總共有多少個 date</td>
+<td><code>date</code> 的 unique 數</td>
+</tr>
+<tr>
+<td>事件數</td>
+<td><strong>K</strong></td>
+<td>稀疏事件類 factor 的非零觸發數</td>
+<td><code>filter(factor != 0).height</code></td>
+</tr>
+<tr>
+<td>非重疊時序</td>
+<td><strong>T/h</strong></td>
+<td>T 除以 <code>forward_periods=h</code>，避免 overlap 重複計入</td>
+<td><code>_sample_non_overlapping</code> 內部</td>
+</tr>
+</tbody>
+</table>
+<p><strong>時間顆粒</strong>（daily / weekly / monthly bar）不直接影響 factrix 的統計閾值 — 在 factrix 裡，<code>forward_periods</code> 是<strong>行數</strong>，不是日曆時間。週頻 panel 寫 <code>forward_periods=1</code> 就是 1 週前瞻報酬。但時間顆粒會透過 <strong>T 的大小</strong>和 <strong>重疊結構</strong>間接影響：日頻 1 年 ≈ T=250；月頻 10 年 ≈ T=120；同一個 MIN_ASSETS_PER_DATE_IC=10 在兩者下意義不同（日頻容易滿、月頻需要多年歷史）。</p>
+<h3 id="factor_type-canonical-test">各 factor_type 的 canonical test 實際看什麼樣本<a class="headerlink" href="#factor_type-canonical-test" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>factor_type</th>
+<th>canonical test</th>
+<th>有效樣本</th>
+<th>另一個維度的門檻</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cross_sectional</code></td>
+<td>IC 非重疊 t-test</td>
+<td><strong>T/h</strong>（期數）</td>
+<td>每 date N ≥ 2 才有 rank；per-date N 太小會 drop 掉該期</td>
+</tr>
+<tr>
+<td><code>macro_panel</code></td>
+<td>Fama-MacBeth λ 的 t-test</td>
+<td><strong>T</strong>（λ 序列長度，<code>MIN_FM_PERIODS=20</code>）</td>
+<td>每 date N ≥ 3 做 stage-1 OLS</td>
+</tr>
+<tr>
+<td><code>macro_common</code> (N≥2)</td>
+<td>跨資產 t-test on per-asset β</td>
+<td><strong>N</strong>（資產數）</td>
+<td>每 asset T ≥ <code>MIN_TS_OBS=20</code> 估 β</td>
+</tr>
+<tr>
+<td><code>macro_common</code> (N=1)</td>
+<td>單資產 OLS t-test（fallback，無 HAC 修正）</td>
+<td><strong>T</strong>（時序長度）</td>
+<td>canonical p 保守壓到 1.0</td>
+</tr>
+<tr>
+<td><code>event_signal</code></td>
+<td>CAAR 非重疊 t-test</td>
+<td><strong>K/h</strong>（非重疊事件數）</td>
+<td>N 無下限；K ≥ <code>MIN_EVENTS=10</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>常見誤會</strong>：「我有 1000 筆資料」不等於「樣本夠」 — 要看是 1000 個 (date, asset) pair、還是 1000 個事件、還是 1000 個非重疊期。同樣 1000 筆，在不同 factor_type 下可能樣本很充足或嚴重不足。</p>
+<h3 id="nt">總樣本量（N×T）什麼時候關鍵<a class="headerlink" href="#nt" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>macro_panel</code> stage-1 OLS</strong>：每期用 N 個 asset 做 regression，dof = N − 2；N = 3 是最低底線但結果不穩。N × T 規模決定整體推論的平均精度。</li>
+<li><strong><code>cross_sectional</code> per-date IC</strong>：per-date rank correlation 用 N 個 asset；N 小則單期 IC 噪音大，但多期平均（T）可以平掉。N × T 總量 &lt; 1000 時 IC 時序 CI 變寬。</li>
+<li><strong><code>macro_common</code> per-asset regression</strong>：每個 asset 用 T 觀測，N × T 總量決定 ts_beta 分佈的穩定度。</li>
+</ul>
+<h3 id="rule-of-thumb">最小可用組合（rule of thumb）<a class="headerlink" href="#rule-of-thumb" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>目標</th>
+<th>N</th>
+<th>T</th>
+<th>總觀測 (N×T)</th>
+<th>備註</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cross_sectional</code> 勉強可信</td>
+<td>≥ 30</td>
+<td>≥ 250 日 = 1 年（或 ≥ 24 月）</td>
+<td>≥ 7,500</td>
+<td>日頻 1 年 / 月頻 2 年</td>
+</tr>
+<tr>
+<td><code>cross_sectional</code> 建議門檻</td>
+<td>≥ 100</td>
+<td>≥ 500 日 = 2 年</td>
+<td>≥ 50,000</td>
+<td>業界常見標準</td>
+</tr>
+<tr>
+<td><code>macro_panel</code> 勉強可信</td>
+<td>≥ 5</td>
+<td>≥ 24（滿足 MIN_FM_PERIODS 加 overlap 緩衝）</td>
+<td>≥ 120</td>
+<td>跨國配置，月頻 2 年</td>
+</tr>
+<tr>
+<td><code>macro_panel</code> 建議</td>
+<td>≥ 10</td>
+<td>≥ 60</td>
+<td>≥ 600</td>
+<td></td>
+</tr>
+<tr>
+<td><code>macro_common</code> (N≥2) 勉強</td>
+<td>≥ 5</td>
+<td>≥ 24 per asset</td>
+<td>≥ 120</td>
+<td></td>
+</tr>
+<tr>
+<td><code>macro_common</code> (N=1)</td>
+<td>1</td>
+<td>≥ 24</td>
+<td>≥ 24</td>
+<td>保守 verdict，改看 tstat</td>
+</tr>
+<tr>
+<td><code>event_signal</code> 勉強</td>
+<td>任意</td>
+<td>—</td>
+<td>K ≥ 10（K 才是關鍵）</td>
+<td>事件可跨 N 或跨 T 累積</td>
+</tr>
+</tbody>
+</table>
+<p><strong>這些 rule of thumb 不是硬閾值</strong> — factrix 不會在 N=29 時 raise，但你自己要知道 CI 會很寬。</p>
+<hr />
+<h2 id="fallback">全域 fallback 行為<a class="headerlink" href="#fallback" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Metric short-circuit</strong>：算不出來時統一回傳</li>
+<li><code>value = NaN</code></li>
+<li><code>metadata["reason"] = "insufficient_*"</code> 或其他具體原因</li>
+<li><code>metadata["p_value"] = 1.0</code>（保守預設，BHY 一定拒絕）</li>
+<li><strong><code>describe_profile_values()</code></strong>：NaN 顯示為 <code>—</code>，使用者一眼看見哪些欄位 skip；底部附 diagnostic 計數提示（<code>veto</code>/<code>warn</code>/<code>info</code> 數），引導 <code>profile.diagnose()</code></li>
+<li><strong>Verdict</strong>：canonical p = 1.0 → verdict = <code>FAILED</code>（但這時 "FAILED" 的意義是「資料不足以判斷」而非「因子無效」）</li>
+</ul>
+<h3 id="fallback_1">Fallback 通知管道對照<a class="headerlink" href="#fallback_1" title="Permanent link">&para;</a></h3>
+<p>factrix 預設採<strong>拉式</strong>通知（user 主動呼叫 <code>.diagnose()</code> / 讀 <code>metadata</code> / 讀 Artifacts），不主動 <code>warnings.warn</code>。這和 <code>verdict()</code> + <code>diagnose()</code> 的整體哲學一致 — framework 偵測、user 決定。</p>
+<table>
+<thead>
+<tr>
+<th>Fallback 類型</th>
+<th>通知管道</th>
+<th>如何取用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>結構錯誤</strong>：wrong factor_type、N=1 panel 餵 CS/MP</td>
+<td><code>raise ValueError</code> / <code>TypeError</code></td>
+<td>不可避免；必須改 code</td>
+</tr>
+<tr>
+<td><strong>語意退化</strong>：N=1 event CAAR 退化成單資產時間平均；N=1 macro_common canonical p → 1.0</td>
+<td><code>profile.diagnose()</code> 回傳 info-severity <code>Diagnostic</code></td>
+<td><code>for d in profile.diagnose(): print(d)</code></td>
+</tr>
+<tr>
+<td><strong>Metric 層短路</strong>：樣本不足（MIN_* 未達）→ 欄位 NaN</td>
+<td><code>MetricOutput.metadata["reason"]</code> + Profile 欄位 <code>insufficient_metrics</code>（tuple）+ cross-type rule <code>data.insufficient</code> 觸發 warn-severity diagnose</td>
+<td><code>profile.insufficient_metrics</code>；或 <code>artifacts.metric_outputs["ic"].metadata["reason"]</code></td>
+</tr>
+<tr>
+<td><strong>逐行 / 逐資產 drop</strong>：<code>compute_ic</code> 丟 per-date N&lt;10 的 date；<code>compute_ts_betas</code> skip T&lt;20 的 asset</td>
+<td><code>artifacts.intermediates["coverage"]</code> 1-row DataFrame（欄位 <code>axis / n_total / n_kept / n_dropped / drop_reason</code>，CS 的 <code>axis='dates'</code>、MC 的 <code>axis='assets'</code>）</td>
+<td><code>art.get("coverage").row(0, named=True)</code> 讀對應數字</td>
+</tr>
+<tr>
+<td><strong>Factor-type 選錯提示</strong>：<code>describe_profile_values</code> 底部顯示 diagnostic 計數</td>
+<td>stdout print</td>
+<td>視覺線索，非 programmatic</td>
+</tr>
+<tr>
+<td><strong>既有 UserWarning</strong>：<code>quantile_spread</code> 小 N per group、<code>redundancy_matrix</code> 退化、tie_ratio 過高等</td>
+<td><code>warnings.warn(UserWarning)</code></td>
+<td>標準 Python warnings 機制；<code>pytest.warns</code> 可捕捉</td>
+</tr>
+</tbody>
+</table>
+<p><strong>設計原則</strong>：
+- <strong>結構錯誤 raise</strong>：不讓使用者 silently 得到錯誤結果
+- <strong>語意退化走 diagnose</strong>：使用者需要時主動問；不噪
+- <strong>統計短路同時走 metadata 和 diagnose</strong>：提供機器可讀欄位（metadata）+ 人類可讀彙總（diagnose 的 <code>data.insufficient</code> rule）
+- <strong>Silent drop 走 Artifacts intermediates</strong>：合法使用情境（unbalanced panel）很常見；不適合 push；但使用者可以<strong>主動查</strong>
+- <strong>不做 <code>warnings.warn</code> 上 per-element 事件</strong>：批次 evaluate 500 個 factor × 10 個 warning 會變成 5000 行 log 噪音</p>
+<hr />
+<h2 id="_3">閾值常數<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<p>常數定義散落兩處：通用門檻在 <code>factrix/_types.py</code>；metric-specific 門檻在各 metric 模組。下表右欄標明每個常數的實際定義位置 — 以 code 為 authoritative。</p>
+<table>
+<thead>
+<tr>
+<th>常數</th>
+<th>值</th>
+<th>意義</th>
+<th>定義位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MIN_ASSETS_PER_DATE_IC</code></td>
+<td>10</td>
+<td>IC 時序 t-test 的最小非重疊期數</td>
+<td><code>factrix/_types.py</code></td>
+</tr>
+<tr>
+<td><code>MIN_EVENTS</code></td>
+<td>10</td>
+<td>CAAR / BMP / Corrado 最小事件數</td>
+<td><code>factrix/_types.py</code></td>
+</tr>
+<tr>
+<td><code>MIN_OOS_PERIODS</code></td>
+<td>5</td>
+<td>OOS decay 每 split 最小期數</td>
+<td><code>factrix/_types.py</code></td>
+</tr>
+<tr>
+<td><code>MIN_PORTFOLIO_PERIODS</code></td>
+<td>5</td>
+<td>quantile_spread 時序最小期數</td>
+<td><code>factrix/_types.py</code></td>
+</tr>
+<tr>
+<td><code>MIN_MONOTONICITY_PERIODS</code></td>
+<td>5</td>
+<td>monotonicity 最小期數</td>
+<td><code>factrix/_types.py</code></td>
+</tr>
+<tr>
+<td><code>MIN_FM_PERIODS</code></td>
+<td>20</td>
+<td>Fama-MacBeth λ 序列最小期數</td>
+<td><code>factrix/metrics/fama_macbeth.py</code></td>
+</tr>
+<tr>
+<td><code>MIN_TS_OBS</code></td>
+<td>20</td>
+<td>per-asset TS regression 最小觀測數</td>
+<td><code>factrix/metrics/ts_beta.py</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="cross_sectionalcrosssectionalprofile"><code>cross_sectional</code>（<code>CrossSectionalProfile</code> 欄位）<a class="headerlink" href="#cross_sectionalcrosssectionalprofile" title="Permanent link">&para;</a></h2>
+<p><strong>整體 N=1 panel</strong>：<code>_validate_n_assets</code> 於 <code>build_artifacts</code> raise <code>ValueError</code>，訊息指向 <code>MacroCommonConfig</code>。</p>
+<table>
+<thead>
+<tr>
+<th>欄位</th>
+<th>N 下限 (per date)</th>
+<th>T 下限</th>
+<th>不達門檻時</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ic_mean</code> / <code>ic_p</code> / <code>ic_nw_p</code> / <code>ic_ir</code></td>
+<td>≥ 2 per date（rank 需要兩個以上 asset）</td>
+<td><code>MIN_ASSETS_PER_DATE_IC=10</code> 非重疊期</td>
+<td>NaN + p=1.0，<code>reason=insufficient_ic_periods</code></td>
+</tr>
+<tr>
+<td><code>quantile_spread</code> / <code>spread_p</code></td>
+<td>≥ <code>n_groups</code>（預設 10）</td>
+<td><code>MIN_PORTFOLIO_PERIODS=5</code></td>
+<td>NaN；per-date N &lt; n_groups 時該期被 drop</td>
+</tr>
+<tr>
+<td><code>monotonicity</code></td>
+<td>≥ <code>n_groups</code></td>
+<td><code>MIN_MONOTONICITY_PERIODS=5</code></td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>top_concentration</code></td>
+<td>≥ <code>n_groups</code></td>
+<td>—</td>
+<td>NaN 若 top bucket 空</td>
+</tr>
+<tr>
+<td><code>turnover</code> (rank-stability: <code>1 − mean(Spearman ρ)</code>；<strong>診斷用</strong>，<strong>不</strong>入 cost 公式)</td>
+<td>≥ 2 per date（rank 需要 ≥ 2 asset）</td>
+<td>≥ <code>2·forward_periods + 1</code> raw dates</td>
+<td>NaN, <code>reason=insufficient_dates</code></td>
+</tr>
+<tr>
+<td><code>notional_turnover</code> (notional Q1/Q_n churn；<strong>cost 公式唯一合法 driver</strong>)</td>
+<td>≥ <code>n_groups</code> per date（否則 top / bot 可能為空 → 該期被 drop）</td>
+<td>≥ <code>forward_periods + 1</code> raw dates（等價於取樣後 ≥ 2 個 rebalance 配對）</td>
+<td>NaN, <code>reason=insufficient_dates</code> | <code>no_valid_pairs</code></td>
+</tr>
+<tr>
+<td><code>breakeven_cost</code> / <code>net_spread</code></td>
+<td>繼承 <code>notional_turnover</code> 門檻</td>
+<td>同</td>
+<td><code>inf</code> 若 notional_turnover → 0；NaN 若 notional_turnover 短路</td>
+</tr>
+<tr>
+<td><code>ic_trend</code></td>
+<td>同 <code>ic_*</code></td>
+<td>同 IC</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>oos_survival_ratio</code> / <code>oos_sign_flipped</code></td>
+<td>同 IC</td>
+<td>T 可分 2 splits × <code>MIN_OOS_PERIODS=5</code></td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>regime_ic</code> <em>(opt-in)</em></td>
+<td>同 IC</td>
+<td>每 regime ≥ <code>MIN_ASSETS_PER_DATE_IC</code></td>
+<td>失守 regime 略過；metadata 保留成功 regime</td>
+</tr>
+<tr>
+<td><code>multi_horizon_ic</code> <em>(opt-in)</em></td>
+<td>需 <code>price</code> 欄位</td>
+<td>每 horizon ≥ <code>MIN_ASSETS_PER_DATE_IC</code> × 步長</td>
+<td>長 horizon 單獨失守時該欄 NaN</td>
+</tr>
+<tr>
+<td><code>spanning_alpha</code> <em>(opt-in)</em></td>
+<td>—</td>
+<td>基底 spreads T 需對齊 factor spread</td>
+<td>NaN</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_4">注意事項<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Low-cardinality factor（binary / bucketed）：<code>tie_policy='ordinal'</code> 可能讓結果受 sort order 干擾；超過門檻會 <code>UserWarning</code> 提示切 <code>tie_policy='average'</code></li>
+<li><code>ortho</code> 不在 <code>_fl_preprocess_sig</code>，允許 "preprocess 一次 / evaluate 時 sweep basis" 的使用模式；代價是使用者需自保 preprocess cfg 和 evaluate cfg 的 ortho 是同一個（否則 silently 應用 evaluate 時的 ortho）</li>
+<li><strong><code>turnover</code> vs <code>notional_turnover</code> 選用</strong>：把 <code>breakeven_cost</code> / <code>net_spread</code> 當<strong>實盤 bps 閾值</strong>在 dashboard / filter 上比時，一律以 <code>notional_turnover</code> 為單位（middle-rank shuffle 不計成本、尾部 churn 才算）。<code>turnover</code> 只適合用來做「哪個因子的排序比較穩」這類 factor-ranking，不宜直接喂給成本公式——詳見 <code>statistical_methods.md</code> 的 Turnover &amp; Trading-Cost Proxy 段落與兩個指標的 bias 方向說明</li>
+<li><strong>Diagnostic rule</strong>：<code>notional_turnover &gt; 0.5</code> 時，<code>profile.diagnose()</code> 會吐出 <code>cs.high_notional_turnover</code> (CrossSectional) 或 <code>macro_panel.high_notional_turnover</code> (MacroPanel)，severity = <code>warn</code>。要在 ProfileSet 大批 filter 時用 <code>diagnose_all()</code> 篩 code 即可，不必自己寫 threshold 判斷。</li>
+</ul>
+<hr />
+<h2 id="event_signaleventprofile"><code>event_signal</code>（<code>EventProfile</code> 欄位）<a class="headerlink" href="#event_signaleventprofile" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>欄位</th>
+<th>N</th>
+<th>事件數</th>
+<th>T 下限</th>
+<th>不達門檻時</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>caar_mean</code> / <code>caar_p</code> (canonical)</td>
+<td>無 (N=1 可用)</td>
+<td><code>MIN_EVENTS=10</code></td>
+<td>—</td>
+<td>NaN + p=1.0</td>
+</tr>
+<tr>
+<td><code>bmp_p</code></td>
+<td>N 無硬下限；SE 為 event-wise SAR 的 std (跨事件)，故 N=1 仍可算</td>
+<td><code>MIN_EVENTS</code></td>
+<td>—</td>
+<td>NaN 若事件數不足。<strong>N=1 時 BMP 喪失原本對「cross-sectional event-induced variance inflation」的防禦（沒有 cross-section），數值上退化成類似單資產 mean-adjusted CAAR 的 t-test</strong></td>
+</tr>
+<tr>
+<td><code>corrado_rank_p</code></td>
+<td>無</td>
+<td><code>MIN_EVENTS</code></td>
+<td>—</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>event_hit_rate</code> / <code>hit_rate_p</code></td>
+<td>無</td>
+<td><code>MIN_EVENTS</code></td>
+<td>—</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>profit_factor</code> / <code>event_skewness</code></td>
+<td>無</td>
+<td>非零事件數 &gt; 1</td>
+<td>—</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><strong><code>clustering_hhi</code></strong> / <code>clustering_hhi_normalized</code></td>
+<td><strong>N = 1 → 自動停用</strong>，Profile 欄位 = <code>None</code></td>
+<td>—</td>
+<td>—</td>
+<td><code>None</code>（不是 NaN，型別是 <code>float \| None</code>）</td>
+</tr>
+<tr>
+<td><code>event_ic</code> / <code>event_ic_p</code></td>
+<td>—</td>
+<td><code>MIN_EVENTS</code> 且 <code>\|factor\|</code> 須有變化</td>
+<td>—</td>
+<td><code>None</code> 若 magnitude 全同</td>
+</tr>
+<tr>
+<td><code>signal_density</code></td>
+<td>無</td>
+<td>無</td>
+<td>—</td>
+<td>純資訊指標，總是可算</td>
+</tr>
+<tr>
+<td><code>caar_trend</code> / <code>oos_survival_ratio</code></td>
+<td>同 caar</td>
+<td>T 可分 2 splits × <code>MIN_OOS_PERIODS</code></td>
+<td>—</td>
+<td>NaN</td>
+</tr>
+</tbody>
+</table>
+<h3 id="n1">N=1 語意變化（要注意）<a class="headerlink" href="#n1" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>CAAR 從「跨資產平均異常報酬」退化成「單資產時間平均異常報酬」</strong> — 數值還是可算，但你失去了「事件在不同資產上表現一致」這層證據</li>
+<li>單資產下，同一 asset 不同時點的事件常有自相關（例：earnings pre-announcement leak）— 這層風險目前 factrix 不檢測</li>
+</ul>
+<hr />
+<h2 id="macro_panelmacropanelprofile"><code>macro_panel</code>（<code>MacroPanelProfile</code> 欄位）<a class="headerlink" href="#macro_panelmacropanelprofile" title="Permanent link">&para;</a></h2>
+<p><strong>整體 N=1 panel</strong>：<code>_validate_n_assets</code> 於 <code>build_artifacts</code> raise <code>ValueError</code>，訊息指向 <code>MacroCommonConfig</code>。</p>
+<p><strong>小 N 典型範圍</strong>：2 ≤ N &lt; 30（跨國 / 跨資產類別）</p>
+<table>
+<thead>
+<tr>
+<th>欄位</th>
+<th>N (per date)</th>
+<th>T 下限</th>
+<th>不達門檻時</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fm_beta_mean</code> / <code>fm_beta_p</code> / <code>fm_beta_tstat</code> (canonical)</td>
+<td>≥ 3 per date（stage-1 OLS 需 2 係數 + ≥1 dof）</td>
+<td>λ 序列長度 ≥ <code>MIN_FM_PERIODS=20</code></td>
+<td>NaN + p=1.0，<code>reason=insufficient_fm_periods</code></td>
+</tr>
+<tr>
+<td><code>pooled_beta</code> / <code>pooled_p</code></td>
+<td>—</td>
+<td>N × T dof ≥ 基本門檻</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>fm_pooled_sign_consistency</code></td>
+<td>兩者皆需可算</td>
+<td>同上</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>beta_trend</code></td>
+<td>同 FM</td>
+<td>同 FM</td>
+<td>NaN</td>
+</tr>
+<tr>
+<td><code>oos_survival_ratio</code> / <code>oos_sign_flipped</code></td>
+<td>同 FM</td>
+<td>T 可分 2 splits × <code>MIN_OOS_PERIODS</code></td>
+<td>NaN</td>
+</tr>
+</tbody>
+</table>
+<h3 id="n-hac-lag">小 N 的 HAC lag 警示<a class="headerlink" href="#n-hac-lag" title="Permanent link">&para;</a></h3>
+<p><code>fama_macbeth</code> 使用 Newey-West <code>lags = max(⌊T^(1/3)⌋, forward_periods − 1)</code>。當 T (λ 序列長度) 接近 <code>3 × lags</code> 時，HAC 估計邊際可靠；實務上 T &lt; 24 + <code>forward_periods − 1</code> 建議雙讀 <code>fm_beta_p</code> 與 <code>pooled_p</code>，正負號不一致時觸發 <code>macro_panel.fm_pooled_sign_mismatch</code> veto rule。</p>
+<hr />
+<h2 id="macro_commonmacrocommonprofile"><code>macro_common</code>（<code>MacroCommonProfile</code> 欄位）<a class="headerlink" href="#macro_commonmacrocommonprofile" title="Permanent link">&para;</a></h2>
+<p><strong>支援 N=1</strong>：語意是「單一時序因子在一支資產上的 predictive power」。詳見下方「N=1 行為」。</p>
+<table>
+<thead>
+<tr>
+<th>欄位</th>
+<th>N</th>
+<th>T (per asset)</th>
+<th>N=1 行為</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ts_beta_mean</code> / <code>ts_beta_p</code> / <code>ts_beta_tstat</code> (canonical)</td>
+<td>—</td>
+<td><code>MIN_TS_OBS=20</code></td>
+<td><strong>Fallback → 單資產 OLS t-test（plain SE，無 HAC）；<code>ts_beta_p</code> 保守壓到 1.0</strong>（見下方）</td>
+</tr>
+<tr>
+<td><code>mean_r_squared</code></td>
+<td>—</td>
+<td>同上</td>
+<td>N=1 時為該單一資產的 TS 回歸 R²</td>
+</tr>
+<tr>
+<td><code>ts_beta_sign_consistency</code></td>
+<td><strong>≥ 2</strong></td>
+<td>同上</td>
+<td>N=1 → NaN（沒有 sign 分佈可比）</td>
+</tr>
+<tr>
+<td><code>oos_survival_ratio</code> / <code>oos_sign_flipped</code></td>
+<td>—</td>
+<td>T 可分 2 splits × <code>MIN_OOS_PERIODS</code></td>
+<td>N=1 仍可算（純時序 split）</td>
+</tr>
+<tr>
+<td><code>beta_trend</code></td>
+<td>—</td>
+<td>同 T 門檻</td>
+<td>N=1 仍可算</td>
+</tr>
+<tr>
+<td><code>factor_adf_p</code></td>
+<td>—</td>
+<td>單時序長度 ≥ ~10 meaningful</td>
+<td>高值（&gt; 0.10）→ Stambaugh bias flag</td>
+</tr>
+</tbody>
+</table>
+<h3 id="n1-fallback">N=1 的保守 fallback 設計與解讀<a class="headerlink" href="#n1-fallback" title="Permanent link">&para;</a></h3>
+<p>底層切到 <code>ts_beta_single_asset_fallback</code>：
+1. 對該單一資產做<strong>plain OLS</strong> TS regression 算 β 與 t-stat（SE 為 <code>sqrt(σ² · (X'X)⁻¹)</code>，<strong>未做 HAC 修正</strong>）
+2. <strong>canonical <code>ts_beta_p</code> 保守地壓到 1.0</strong> — 為避免 N=1 時使用者誤把單資產顯著誤讀成跨資產 premium
+3. <code>ts_beta_tstat</code> 欄位仍保留實際 t-stat 值 — 供使用者自己讀
+4. <code>diagnose()</code> 發出 <code>macro_common.single_asset</code> info 提示退化路徑</p>
+<p><strong>SE 警示</strong>：<code>ts_beta_tstat</code> 的分母是 plain OLS SE，<strong>對報酬的 autocorrelation 和 heteroskedasticity 沒有防禦</strong>。嚴格推論（尤其單序列 vol clustering 明顯時）建議外接 <code>arch</code> package 跑 GARCH-adjusted SE 或 wild bootstrap。factrix 內部不內建 HAC 修正 — Stambaugh bias 的根源是 predictor persistence，HAC 只修 SE 不修 bias，內建會給使用者 false confidence。</p>
+<p><strong>使用者心態建議</strong>：
+- 別用 <code>verdict() == "PASS"</code> 判斷 — 永遠會 FAILED
+- 讀 <code>ts_beta_tstat</code> 和 <code>factor_adf_p</code> 的實際值
+- 若 <code>factor_adf_p &gt; 0.10</code> 同時 <code>|ts_beta_tstat| &gt; 2</code>：Stambaugh bias 高度懷疑，建議外接 IVX (<code>arch</code> package) 或 Campbell-Yogo Q-test</p>
+<hr />
+<h2 id="_5">跨類通用<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>情境</th>
+<th>統一行為</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metric 短路</td>
+<td>NaN + <code>metadata["reason"]</code> + <code>metadata["p_value"]=1.0</code></td>
+</tr>
+<tr>
+<td>BHY FDR 控制</td>
+<td><code>P_VALUE_FIELDS</code> 白名單限制；短路欄位 p=1.0 自然拒絕</td>
+</tr>
+<tr>
+<td><code>verdict()</code> 門檻</td>
+<td>預設 <code>t=2.0</code>；<code>2.0 ≤ \|t\| &lt; 3.0</code> 時若 warn-level diagnostic 命名替代 p-source，升級為 <code>PASS_WITH_WARNINGS</code></td>
+</tr>
+<tr>
+<td><code>describe_profile_values()</code></td>
+<td>NaN → <code>—</code>；<code>None</code> → <code>—</code>；skips 顯而易見</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="redundancy_matrix"><code>redundancy_matrix</code> 的適用範圍<a class="headerlink" href="#redundancy_matrix" title="Permanent link">&para;</a></h2>
+<p><code>redundancy_matrix</code> 是<strong>診斷工具</strong>（量化 factor 之間的重疊程度），<strong>不是 combiner</strong>（不產生合成信號）。輸入是 <code>ProfileSet</code>（保證同一 factor_type），輸出是 |Spearman ρ| 矩陣。</p>
+<p>兩個方法在不同 factor_type 下的適用情況：</p>
+<table>
+<thead>
+<tr>
+<th>method</th>
+<th><code>cross_sectional</code></th>
+<th><code>macro_panel</code></th>
+<th><code>event_signal</code></th>
+<th><code>macro_common</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>factor_rank</code></strong>（per-date 資產間 rank 相關）</td>
+<td>主要使用情境；語意最清楚</td>
+<td>可用（小 panel 較噪）</td>
+<td>可用（但大多為 0 事件稀疏）</td>
+<td><strong>拒絕（raise ValueError）</strong> — factor 跨資產恆定，ranking 全部 tied 屬退化</td>
+</tr>
+<tr>
+<td><strong><code>value_series</code></strong>（Profile 值序列 Spearman 相關）</td>
+<td>IC 序列相關</td>
+<td>λ 序列相關</td>
+<td>CAAR 序列相關</td>
+<td>per-asset β 序列相關；支援且語意清楚</td>
+</tr>
+</tbody>
+</table>
+<p><strong>怎麼選 method</strong>：
+- 問「這些 factor 會選到一樣的股票嗎」→ <code>factor_rank</code>
+- 問「這些 factor 績效在時序上一起動嗎」→ <code>value_series</code>
+- <code>macro_common</code> 只能 <code>value_series</code>（hard-coded guard）
+- Compact mode artifacts 只能 <code>value_series</code>（<code>factor_rank</code> 需 prepared panel；code 會自動降級並發 <code>UserWarning</code>）</p>
+<hr />
+<h2 id="ts_quantile_spread-ts_asymmetry"><code>ts_quantile_spread</code> / <code>ts_asymmetry</code> 的適用範圍<a class="headerlink" href="#ts_quantile_spread-ts_asymmetry" title="Permanent link">&para;</a></h2>
+<p>兩個 <strong>standalone diagnostic</strong>（不進 registry、不影響 <code>verdict()</code>）— 補位 <code>(COMMON, CONTINUOUS, *)</code> cell 的 OLS β 假設線性 + 對稱所漏掉的 shape：</p>
+<ul>
+<li><code>ts_quantile_spread</code>：factor 自己歷史分桶 → 桶間條件期望檢定（top-bottom Wald）+ Spearman 單調性 diagnostic。抓 U-shape / inverted-U / extreme-only。</li>
+<li><code>ts_asymmetry</code>：factor 正負兩側 response 是否對稱（method A 條件期望、method B 分段斜率）。抓 long-side ≠ short-side。</li>
+</ul>
+<p>兩者皆 OLS + NW HAC + Wald，與 <code>ts_beta_t_nw</code> 對齊；<strong>不</strong>用 Welch t（iid 假設在 overlapping forward return 下破裂）。</p>
+<h3 id="gates">適用性（gates）<a class="headerlink" href="#gates" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Gate</th>
+<th>條件</th>
+<th>影響</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A</strong>. distinct 數量</td>
+<td><code>n_unique(factor) ≥ n_groups × 2</code></td>
+<td><code>ts_quantile_spread</code> 是否可跑</td>
+</tr>
+<tr>
+<td><strong>B</strong>. 雙側存在</td>
+<td><code>(factor&gt;0).any() and (factor&lt;0).any()</code></td>
+<td><code>ts_asymmetry</code> 兩個方法的最低門檻</td>
+</tr>
+<tr>
+<td><strong>C</strong>. 雙側內變異</td>
+<td><code>n_unique(factor[factor&gt;0]) ≥ 2 and n_unique(factor[factor&lt;0]) ≥ 2</code></td>
+<td><code>ts_asymmetry</code> method B 的額外條件</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_6">適用性矩陣<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>你手上的資料</th>
+<th><code>ts_quantile_spread</code></th>
+<th><code>ts_asymmetry</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>COMMON × CONTINUOUS, PANEL</strong> (N≥2)</td>
+<td>✓ 收成 <code>equal_weight</code> per-date（<code>metadata["aggregation"]</code> 記錄）</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><strong>COMMON × CONTINUOUS, TIMESERIES</strong> (N=1)</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><strong>INDIVIDUAL × CONTINUOUS</strong> (任何 mode)</td>
+<td>✗ guard → 改用 cross-sectional <code>quantile_spread</code></td>
+<td>✗ → <code>quantile_spread.long_alpha / short_alpha</code></td>
+</tr>
+<tr>
+<td><strong>(*, SPARSE / binary / ternary)</strong></td>
+<td>✗ Gate A → <code>event_quality.*</code></td>
+<td>✗ Gate B → <code>event_hit_rate</code></td>
+</tr>
+<tr>
+<td><strong>factor 全 ≥ 0 或全 ≤ 0</strong></td>
+<td>✓</td>
+<td>✗ Gate B（無雙側）→ 整個 metric 短路，reason 寫入 <code>metadata["reason"]</code>（method 不分 A/B，兩個都不出）；Gate C 失敗才是「method A 出、method B 不出」，由 <code>metadata["method_b_skipped"]</code> 記錄</td>
+</tr>
+</tbody>
+</table>
+<p>任一 gate 失敗 → <code>MetricOutput</code> 帶 <code>metadata["reason"]</code> + redirect hint，<strong>不 silently 回 NaN</strong>（與 §跨類通用 §Metric 短路 慣例一致）。</p>
+<h3 id="api-policy">API policy<a class="headerlink" href="#api-policy" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>n_groups: int = 5</code> default、user override、<code>n_periods // n_groups &lt; 5</code> soft warning、<code>n_periods &lt; MIN_PORTFOLIO_PERIODS</code> hard short-circuit。<strong>不</strong> auto-adjust。</li>
+<li>v1 PANEL 收法固定 <code>equal_weight</code>；<code>value_weight</code> / <code>factor_weight</code> 後續 issue。</li>
+</ul>
+<p>設計細節 / Wald regression 公式 / 為何不用 Welch → 見 <a href="https://github.com/awwesomeman/factrix/issues/5">issue #5</a> 與兩個 module docstring。</p>
+<hr />
+<h2 id="decision-tree-debug">常見 decision tree（給 debug 用）<a class="headerlink" href="#decision-tree-debug" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>我的 Profile 顯示 canonical p = 1.0 → FAILED
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  ├─ describe_profile_values 看到 canonical 欄位顯示 &quot;—&quot;？
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  │    └─ YES → 資料不足，查 metadata[&quot;reason&quot;]
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  │
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  └─ 有數字但 p=1.0？
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>       └─ 可能是 N=1 macro_common 保守 fallback
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>           └─ 讀 ts_beta_tstat / factor_adf_p 實際值
+</span></code></pre></div>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>我懷疑 factor_type 選錯了
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  │
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  ├─ N=1？
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  │    ├─ 共用時序（VIX、DXY）      → macro_common（保守 fallback，canonical p=1.0）
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  │    ├─ 稀疏事件（單標的 earnings）→ event_signal（clustering_hhi 自停用，CAAR 語意改）
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  │    └─ 連續因子（單標的 P/E-like）→ README coverage gap（目前無 first-class 支援）
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  ├─ 2 ≤ N &lt; 30？ → macro_panel（連續）或 event_signal（稀疏）
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  ├─ N ≥ 30？ → cross_sectional（連續）或 event_signal（稀疏）
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  └─ 看不出訊號 geometry？ → README「怎麼選 factor_type」2D 表
+</span></code></pre></div>
+<hr />
+<h2 id="_7">版本同步提示<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
+<p>本表若與實際 metric 行為不符，<strong>請以 code 行為為準</strong>。更新路徑：
+1. 改 <code>_types.py</code> 的通用 <code>MIN_*</code> 常數、或 <code>metrics/fama_macbeth.py</code> / <code>metrics/ts_beta.py</code> 內的 metric-specific 常數 → 更新本文上方「閾值常數」表（含定義位置欄）
+2. 改 <code>from_artifacts</code> 的 fallback 邏輯 → 更新對應 factor_type 區塊
+3. 新增 metric → 在對應 factor_type 區塊加一行（N 下限 / T 下限 / fallback）</p>
+<p>長期計劃（見 <a href="./plan_direction.md"><code>plan_direction.md</code></a> §7）：把本表資訊 programmatic 化進 <code>fl.describe_profile()</code>，避免手動同步漂移。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
