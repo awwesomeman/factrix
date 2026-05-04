@@ -96,19 +96,37 @@ def bhy(
 ) -> list["FactorProfile"]:
     """BHY step-up FDR within each family; return the surviving subset.
 
-    ``threshold`` is the FDR level (plan §7.5 invariant — never
-    ``alpha``). ``gate`` chooses the p-value the test runs on:
-    ``None`` = procedure-canonical ``primary_p``; otherwise a
-    ``StatCode`` whose ``is_p_value`` is ``True`` is read from every
-    profile's ``stats`` mapping (``KeyError`` if a family member does
-    not populate it). Non-p ``StatCode`` values raise ``ValueError`` —
-    BHY step-up requires probabilities, so passing e.g.
-    ``StatCode.IC_T_NW`` would silently corrupt FDR control.
+    Profiles are grouped by family key (= dispatch cell × forward
+    horizon); each family runs an independent BHY step-up on its
+    p-values. Cross-family aggregation is the user's responsibility
+    and is deliberately not done here. A warning fires when most
+    families are size-1 (BHY on a singleton is identical to a raw
+    threshold and provides no FDR correction).
 
-    Profiles are grouped by family key (= registry ``_DispatchKey``);
-    each family runs an independent BHY step-up on its p-values.
-    Cross-family aggregation is the user's responsibility and is
-    deliberately not done here (§5.6).
+    Args:
+        profiles: Iterable of ``FactorProfile`` to screen. Profiles
+            from different cells / horizons partition into separate
+            families automatically.
+        threshold: FDR level (not ``alpha``). Default ``0.05``.
+        gate: ``StatCode`` whose ``is_p_value`` is ``True`` selects
+            an alternate p-value from each profile's ``stats``;
+            ``None`` uses the procedure-canonical ``primary_p``.
+
+    Returns:
+        The subset of ``profiles`` that survive the BHY step-up
+        within their respective families, in input order across
+        families.
+
+    Raises:
+        ValueError: If ``gate`` is a ``StatCode`` whose
+            ``is_p_value`` is ``False`` (BHY step-up requires
+            probabilities).
+        KeyError: If ``gate`` is set and any profile in a family
+            does not populate that key in ``stats``.
+
+    Warns:
+        RuntimeWarning: If most families contain a single profile —
+            BHY on n=1 provides no correction beyond a raw cutoff.
     """
     if gate is not None and not gate.is_p_value:
         raise ValueError(

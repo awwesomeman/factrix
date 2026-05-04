@@ -102,3 +102,9 @@ nav:
       - Methodology: reference/methodology.md
       - Statistical methods: reference/statistical-methods.md
       - Metric applicability: reference/metric-applicability.md
+      - API:
+          - AnalysisConfig: reference/api/analysis-config.md
+          - evaluate: reference/api/evaluate.md
+          - FactorProfile: reference/api/factor-profile.md
+          - multi_factor: reference/api/multi-factor.md
+          - datasets: reference/api/datasets.md
