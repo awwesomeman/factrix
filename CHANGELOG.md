@@ -16,6 +16,14 @@ on semver range constraints until `1.0.0` is cut.
 
 ---
 
+## [Unreleased]
+
+PRs accumulate WHY-narrative bullets here under `### Added` / `### Changed` /
+`### Fixed` / `### Migration`. A release commit (`cz bump --changelog`) renames
+this section to the next versioned heading and adds a fresh `[Unreleased]`
+above it. This decouples per-PR cadence from per-tag cadence — see
+CONTRIBUTING §7 (Release workflow).
+
 ## v0.7.0 (2026-05-04)
 
 Closes the silent-coercion gap in sparse-procedure dispatch. Until now,
