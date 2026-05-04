@@ -32,6 +32,27 @@ MIN_ASSETS: int = 10
 MIN_ASSETS_RELIABLE: int = 30
 
 
+# Broadcast-dummy event count for the ``(COMMON, SPARSE, None, PANEL)``
+# procedure. Per-asset OLS β on a sparse {-1, 0, +1} dummy is driven
+# entirely by the event observations — total ``n_periods`` is already
+# checked (``MIN_TS_OBS = 20`` per asset in ``compute_ts_betas``), but
+# with ``n_events = 1`` a β is still fit from a single point with no
+# diagnostic. These thresholds guard the event-count axis specifically.
+# Naming is procedure-domain-specific to avoid colliding with the
+# CAAR-side ``MIN_EVENTS`` in ``factrix/_types.py`` (different statistic).
+#
+# ``n_events < MIN_BROADCAST_EVENTS_HARD`` → :class:`factrix._errors.InsufficientSampleError`
+# (β not identifiable: with fewer than 5 informative observations the
+# slope and its SE are both dominated by individual points).
+MIN_BROADCAST_EVENTS_HARD: int = 5
+
+# ``MIN_BROADCAST_EVENTS_HARD <= n_events < MIN_BROADCAST_EVENTS_RELIABLE`` →
+# :attr:`factrix._codes.WarningCode.SPARSE_COMMON_FEW_EVENTS`. Aligns with
+# the ``MIN_TS_OBS = 20`` philosophy: slope is estimable but cross-event
+# averaging is too thin for the asymptotic t-distribution to be trusted.
+MIN_BROADCAST_EVENTS_RELIABLE: int = 20
+
+
 def auto_bartlett(T: int) -> int:
     """Newey & West (1994) automatic Bartlett-kernel lag.
 

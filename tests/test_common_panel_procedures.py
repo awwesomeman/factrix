@@ -282,9 +282,14 @@ class TestEmptyPanelFallback:
         assert profile.n_obs == 0
         assert profile.stats[StatCode.TS_BETA] == 0.0
 
-    def test_sparse_empty_returns_p_one(
+    def test_sparse_empty_raises_insufficient_events(
         self, cfg_sparse: AnalysisConfig,
     ) -> None:
+        # n_events=0 trips the MIN_EVENTS_HARD guard before any β fitting.
+        # Empty panels should not silently return p=1.0 here — the procedure
+        # cannot fit per-asset β on a dummy with no events.
+        from factrix._errors import InsufficientSampleError
+
         empty = pl.DataFrame(
             schema={
                 "date": pl.Date,
@@ -293,9 +298,43 @@ class TestEmptyPanelFallback:
                 "forward_return": pl.Float64,
             },
         )
-        profile = _CommonSparsePanelProcedure().compute(empty, cfg_sparse)
-        assert profile.primary_p == 1.0
-        assert profile.n_obs == 0
+        with pytest.raises(InsufficientSampleError):
+            _CommonSparsePanelProcedure().compute(empty, cfg_sparse)
+
+
+class TestSparseCommonEventCountGuard:
+    """Two-tier event-count guard on `(COMMON, SPARSE, PANEL)` (#25)."""
+
+    def test_three_events_raises(self, cfg_sparse: AnalysisConfig) -> None:
+        from factrix._errors import InsufficientSampleError
+
+        # density=0.05 × n_dates=60 → max(2, 3) = 3 events < MIN_EVENTS_HARD=5.
+        panel = _make_common_panel(
+            n_dates=60, n_assets=15, seed=51, true_beta=0.0,
+            factor_kind="sparse", sparse_event_density=0.05,
+        )
+        with pytest.raises(InsufficientSampleError):
+            _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
+
+    def test_ten_events_emits_borderline_warning(
+        self, cfg_sparse: AnalysisConfig,
+    ) -> None:
+        # 10 events, in [MIN_EVENTS_HARD=5, MIN_EVENTS_RELIABLE=20) → warn.
+        panel = _make_common_panel(
+            n_dates=60, n_assets=15, seed=52, true_beta=0.0,
+            factor_kind="sparse", sparse_event_density=10 / 60,
+        )
+        profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
+        assert WarningCode.SPARSE_COMMON_FEW_EVENTS in profile.warnings
+
+    def test_thirty_events_silent(self, cfg_sparse: AnalysisConfig) -> None:
+        # 30 events ≥ MIN_EVENTS_RELIABLE=20 → no event-count warning.
+        panel = _make_common_panel(
+            n_dates=60, n_assets=15, seed=53, true_beta=0.0,
+            factor_kind="sparse", sparse_event_density=0.5,
+        )
+        profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
+        assert WarningCode.SPARSE_COMMON_FEW_EVENTS not in profile.warnings
 
 
 class TestCrossSectionNWarnings:
