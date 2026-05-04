@@ -135,6 +135,12 @@ gh pr create --title "..." --body "..."
 gh pr merge --squash
 ```
 
+> **重要**：merge 完 **不** 跑 `cz bump`。版號與 tag 走 release-train
+> 節奏（見 §7）——多個 PR 累積後才一次性 release。每個 PR 在自己的
+> 改動寫進 `CHANGELOG.md` 的 `## [Unreleased]` 段（含 `### Added` /
+> `### Changed` / `### Fixed` / `### Migration` 子段，視適用情況），release
+> 時 `cz bump --changelog` 會把該段固化成下一個版本標題。
+
 ### Branch 命名
 
 `<type>/<short-desc>`，全小寫連字號：
@@ -325,11 +331,26 @@ PR 不該 merge**——先 fix 再繼續。
 BC 變動**。Consumer（如 `factor-analysis` workspace）應該透過 **git
 submodule SHA pin** 而非 version range，直到 1.0.0 穩定為止。
 
-**專案採用 Commitizen 進行全自動升版與 Changelog 生成。**
+**專案採用 Commitizen 進行全自動升版與 Changelog 生成，搭配 release-train
+節奏：PR 隨時 merge，但 release（bump + tag）獨立排程。**
+
+### Release cadence — release train
+
+PR 與 release 解耦：
+
+- **PR cadence**：高頻、原子。merge 完 **不** bump，**不** tag。
+- **Release cadence**：低頻、彙總。當以下任一條件達到才開 release：
+  - 累積 ≥ 3 個 user-facing `feat:` / `fix:`
+  - 距上一個 tag ≥ 2 週
+  - 有對下游 workspace 的緊急 bug fix（單獨 PATCH 隨時可切）
+  - 為了讓某人 / 某 demo 拉到具名版本
+
+每個 PR 自己負責把 WHY narrative 寫進 `CHANGELOG.md` 的 `## [Unreleased]`
+段（`### Added` / `### Changed` / `### Fixed` / `### Migration` 子段）。
+這樣 release 時不用回頭重建敘事——`cz bump --changelog` 把整段固化成下
+一個版本標題即可。
 
 ### Release workflow
-
-Release = 「自動推導新版號、寫出 CHANGELOG、打 Tag，並讓 workspace 能抓到這份乾淨版本的完整過程」。
 
 ```bash
 # 1. 在 factrix repo main 分支確保最新
@@ -339,19 +360,26 @@ git checkout main && git pull
 uv run pytest
 
 # 3. 自動改版與打標籤
-# 此指令會根據 git history 自動計算版本號 (feat=MINOR, fix=PATCH)，
-# 更新 pyproject.toml 與 CHANGELOG.md，並自動 commit 與建立 tag。
-cz bump
+# cz 根據自上一個 tag 以來的 commits 推導 (feat=MINOR, fix=PATCH)，
+# 把 [Unreleased] 段改名為新版本標題，新增空白 [Unreleased] 段，
+# 更新 pyproject.toml，自動 commit + tag。
+cz bump --changelog
 
-# 4. 手動推送到 Remote
+# 4. （選配）手動潤飾 release 段——補 BREAKING migration / 方向 / 動機
+#    至 ≥ 25 非空白行，否則 pre-push 會 block（見 §2 hook）。
+#    潤完用 git commit --amend 收回 release commit，刪舊 tag 重建：
+git commit --amend --no-edit
+git tag -d v<X.Y.Z> && git tag v<X.Y.Z>
+
+# 5. Push
 git push origin main
-git push origin main --tags
+git push origin v<X.Y.Z>
 
-# 5. 回 workspace bump submodule
+# 6. 回 workspace bump submodule
 cd ~/Desktop/dst/code/factor-analysis
-cd external/factrix && git fetch && git checkout <剛剛建立的新 tag>
+cd external/factrix && git fetch && git checkout v<X.Y.Z>
 cd ../.. && git add external/factrix
-git commit -m "chore: bump factrix to <tag>"
+git commit -m "chore: bump factrix to v<X.Y.Z>"
 git push
 ```
 
