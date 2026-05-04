@@ -148,14 +148,29 @@ class _FMContPanelProcedure:
 
 
 class _CAARSparsePanelProcedure:
-    """``(INDIVIDUAL, SPARSE, None, PANEL)`` — per-event-date weighted CAAR.
+    """``(INDIVIDUAL, SPARSE, None, PANEL)`` — calendar-time CAAR.
 
-    Plan §4.3: dispatches to ``compute_caar`` (see for the
-    magnitude-preserving per-row formula and input-form behaviour),
-    then runs an HH-floored NW HAC t-test on the resulting event-date-
-    indexed CAAR series. Same NW HAC machinery as IC and FM PANEL —
-    h-period forward returns induce MA(h-1) on the CAAR series
-    identically.
+    Plan §4.3 / Issue #24. Dispatches to ``compute_caar`` (see for the
+    magnitude-preserving per-row formula), reindexes the event-date-
+    indexed series to the **dense calendar** (zero-fill on non-event
+    dates), then runs an HH-floored NW HAC t-test on the dense series.
+
+    Densification is the calendar-time portfolio approach (Jaffe 1974,
+    Mandelker 1974; Fama 1998 §2) — restores the lag rule's "consecutive
+    observations are 1 calendar period apart" assumption that
+    ``compute_caar``'s event-date filter would otherwise break. With it,
+    sparse events let zero-padding zero out spurious autocovariance
+    terms and clustered events get the real MA(h-1) overlap structure
+    weighted correctly. Pipeline parity with IC / FM / common-sparse
+    PANEL: same ``_resolve_nw_lags`` + ``_newey_west_t_test`` machinery,
+    same dense-series semantics.
+
+    Output contract: ``CAAR_MEAN`` reports the event-only mean
+    (user-facing statistic — the average effect on event days);
+    ``n_obs`` and ``NW_LAGS_USED`` reflect the dense series the t-stat
+    is computed on. ``mean_dense × n_total = mean_event × n_event``, so
+    the t-statistic is invariant to the dense reframing in the iid
+    limit (canonical p unchanged when the lag rule was already valid).
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
@@ -166,6 +181,7 @@ class _CAARSparsePanelProcedure:
         self, raw: Any, config: "AnalysisConfig",
     ) -> "FactorProfile":
         import numpy as np
+        import polars as pl
 
         from factrix._codes import StatCode
         from factrix._profile import FactorProfile
@@ -173,15 +189,29 @@ class _CAARSparsePanelProcedure:
         from factrix._stats.constants import auto_bartlett
         from factrix.metrics.caar import compute_caar
 
-        caar_values = compute_caar(raw)["caar"].drop_nulls().to_numpy()
-        n_periods = int(len(caar_values))
+        event_caar = compute_caar(raw)
+        all_dates = raw.select(pl.col("date").unique().sort())
+        dense = (
+            all_dates
+            .join(event_caar, on="date", how="left")
+            .with_columns(pl.col("caar").fill_null(0.0))
+            .sort("date")
+        )
+        caar_dense = dense["caar"].to_numpy()
+        n_periods = int(len(caar_dense))
         n_assets = int(raw["asset_id"].n_unique())
+
+        event_mean = (
+            float(event_caar["caar"].drop_nulls().mean())
+            if event_caar.height > 0 else 0.0
+        )
         nw_lags = (
-            _resolve_nw_lags(n_periods, auto_bartlett(n_periods), config.forward_periods)
+            _resolve_nw_lags(
+                n_periods, auto_bartlett(n_periods), config.forward_periods,
+            )
             if n_periods >= 2 else 0
         )
-        caar_mean = float(np.mean(caar_values)) if n_periods > 0 else 0.0
-        t_stat, p_value, _ = _newey_west_t_test(caar_values, lags=nw_lags)
+        t_stat, p_value, _ = _newey_west_t_test(caar_dense, lags=nw_lags)
 
         return FactorProfile(
             config=config,
@@ -190,7 +220,7 @@ class _CAARSparsePanelProcedure:
             n_obs=n_periods,
             n_assets=n_assets,
             stats={
-                StatCode.CAAR_MEAN: caar_mean,
+                StatCode.CAAR_MEAN: event_mean,
                 StatCode.CAAR_T_NW: t_stat,
                 StatCode.CAAR_P: p_value,
                 StatCode.NW_LAGS_USED: float(nw_lags),

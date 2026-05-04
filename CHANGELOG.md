@@ -92,6 +92,27 @@ CONTRIBUTING §7 (Release workflow).
 
 ### Fixed
 
+- **`(INDIVIDUAL, SPARSE, None, PANEL)` NW HAC lag rule.** The procedure
+  previously fed `compute_caar`'s event-date-indexed series straight into
+  NW HAC, but the `forward_periods - 1` lag floor assumes consecutive
+  observations are 1 calendar period apart. On the event-only filtered
+  series that assumption breaks: sparse events (calendar gap >
+  `forward_periods`) over-corrected an MA(h-1) overlap that did not
+  exist (deflating t / inflating p); clustered events
+  (gap < `forward_periods`) under-corrected the real overlap structure
+  (inflating t / deflating p). The procedure now reindexes the CAAR
+  series to the full calendar and zero-fills non-event dates before NW
+  HAC — the **calendar-time portfolio approach** (Jaffe 1974; Mandelker
+  1974; Fama 1998 §2). Mathematically the t-statistic is invariant to
+  the dense reframing in the iid limit (`mean_dense × n_total =
+  mean_event × n_event`), so the canonical p is unchanged where the lag
+  rule was already valid; only the previously-biased regimes shift. All
+  four NW-HAC PANEL procedures (IC / FM / CAAR / common-sparse) now run
+  on calendar-dense series with the same `_resolve_nw_lags` machinery.
+  **Output contract:** `FactorProfile.n_obs` and
+  `StatCode.NW_LAGS_USED` now report the dense-series counts (was
+  event-date counts); `StatCode.CAAR_MEAN` continues to report the
+  per-event-date mean (user-facing statistic unchanged). (#24)
 - **`(COMMON, SPARSE, None, PANEL)` event-count guard.** The procedure
   previously checked only ``n_periods`` (via per-asset
   ``MIN_TS_OBS = 20`` in ``compute_ts_betas``); a broadcast dummy with

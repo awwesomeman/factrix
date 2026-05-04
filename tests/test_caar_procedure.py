@@ -159,3 +159,115 @@ class TestEndToEndViaEvaluate:
         assert profile.mode is Mode.PANEL
         assert StatCode.CAAR_P in profile.stats
         assert profile.verdict() is Verdict.PASS
+
+
+# ---------------------------------------------------------------------------
+# Calendar-time portfolio regimes (issue #24)
+# ---------------------------------------------------------------------------
+
+
+def _make_panel_with_event_dates(
+    *,
+    event_dates: list[dt.date],
+    all_dates: list[dt.date],
+    n_assets: int,
+    seed: int,
+    beta: float,
+) -> pl.DataFrame:
+    """Panel with ±1 events only on the listed event_dates.
+
+    Forward returns follow ``β·factor + N(0,1)`` so per-event signed AR
+    has mean ≈ β. Non-event dates carry factor=0 with pure-noise return.
+    """
+    rng = np.random.default_rng(seed)
+    rows: list[dict[str, object]] = []
+    for d in all_dates:
+        is_event = d in set(event_dates)
+        for j in range(n_assets):
+            if is_event:
+                f = float(rng.choice([-1.0, 1.0]))
+            else:
+                f = 0.0
+            rows.append({
+                "date": d,
+                "asset_id": f"A{j:03d}",
+                "factor": f,
+                "forward_return": float(beta * f + rng.standard_normal()),
+            })
+    return pl.DataFrame(rows)
+
+
+class TestCalendarTimeRegimes:
+    def test_sparse_regime_n_obs_is_calendar_count(
+        self, cfg: AnalysisConfig,
+    ) -> None:
+        # 4 events on a 120-day panel → n_obs is the dense-series length.
+        start = dt.date(2024, 1, 1)
+        all_dates = [start + dt.timedelta(days=i) for i in range(120)]
+        event_dates = [start + dt.timedelta(days=30 * k) for k in range(4)]
+        panel = _make_panel_with_event_dates(
+            event_dates=event_dates, all_dates=all_dates,
+            n_assets=10, seed=7, beta=0.0,
+        )
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+        assert profile.n_obs == 120
+
+    def test_sparse_regime_caar_mean_uses_event_only_average(
+        self, cfg: AnalysisConfig,
+    ) -> None:
+        # CAAR_MEAN must be the per-event-date mean (≈ β=1.0), not the
+        # zero-diluted dense mean (≈ 0.033 = β × n_event/n_calendar).
+        start = dt.date(2024, 1, 1)
+        all_dates = [start + dt.timedelta(days=i) for i in range(120)]
+        event_dates = [start + dt.timedelta(days=30 * k) for k in range(4)]
+        panel = _make_panel_with_event_dates(
+            event_dates=event_dates, all_dates=all_dates,
+            n_assets=40, seed=11, beta=1.0,
+        )
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+        assert 0.6 < profile.stats[StatCode.CAAR_MEAN] < 1.4
+
+    def test_dense_regime_matches_event_only_when_every_date_is_event(
+        self, cfg: AnalysisConfig,
+    ) -> None:
+        # When every date carries an event, the dense reindex is a no-op —
+        # the procedure should agree with a hand-rolled NW HAC on the
+        # raw CAAR series (the pre-fix codepath, in this regime only).
+        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
+        from factrix._stats.constants import auto_bartlett
+        from factrix.metrics.caar import compute_caar
+
+        start = dt.date(2024, 1, 1)
+        all_dates = [start + dt.timedelta(days=i) for i in range(80)]
+        panel = _make_panel_with_event_dates(
+            event_dates=all_dates, all_dates=all_dates,
+            n_assets=20, seed=23, beta=0.5,
+        )
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+
+        event_caar = compute_caar(panel)["caar"].drop_nulls().to_numpy()
+        T = len(event_caar)
+        lags = _resolve_nw_lags(T, auto_bartlett(T), cfg.forward_periods)
+        ref_t, ref_p, _ = _newey_west_t_test(event_caar, lags=lags)
+        assert profile.stats[StatCode.CAAR_T_NW] == pytest.approx(ref_t)
+        assert profile.stats[StatCode.CAAR_P] == pytest.approx(ref_p)
+
+    def test_clustered_regime_picks_up_overlap_via_nw_hac(
+        self, cfg: AnalysisConfig,
+    ) -> None:
+        # Two clusters of 4 consecutive event days within forward_periods=5;
+        # estimator must produce a finite p without collapsing.
+        start = dt.date(2024, 1, 1)
+        all_dates = [start + dt.timedelta(days=i) for i in range(60)]
+        clusters = [
+            start + dt.timedelta(days=10 + k) for k in range(4)
+        ] + [
+            start + dt.timedelta(days=40 + k) for k in range(4)
+        ]
+        panel = _make_panel_with_event_dates(
+            event_dates=clusters, all_dates=all_dates,
+            n_assets=15, seed=31, beta=0.5,
+        )
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+        assert 0.0 <= profile.stats[StatCode.CAAR_P] <= 1.0
+        assert profile.n_obs == 60

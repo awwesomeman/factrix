@@ -257,24 +257,33 @@ Failure modes:
 ### `individual_sparse` (CAAR PANEL) — cross-section first (events)
 
 ```
-per-event-date mean of signed_car = return × factor   (cross-section step)
-                                                    →  n_event_dates-length CAAR series
-                                                    →  NW HAC t-test on mean(CAAR)   (time-series step)
+per-event-date mean of signed_car = return × factor      (cross-section step)
+                                                       →  event-date-indexed CAAR
+reindex to dense calendar, zero-fill non-event dates   →  n_periods-length CAAR series
+                                                       →  NW HAC t-test on mean(CAAR)   (time-series step)
 ```
 
-The CAAR series is **event-date-indexed** (filter `factor != 0` before the
-cross-section step), not per-asset CAAR. Magnitude is preserved as a weight
-in `signed_car` (no `.sign()` coercion at this layer — `compute_caar`'s
-docstring carries the input-form behaviour table).
+The CAAR series is **calendar-indexed**: `compute_caar` produces an
+event-date-indexed primitive (filter `factor != 0`), which the procedure
+then reindexes against the full date set with zero-fill. This is the
+calendar-time portfolio approach (Jaffe 1974, Mandelker 1974; Fama 1998
+§2) — restores the lag rule's "consecutive observations are 1 calendar
+period apart" assumption that an event-only series would otherwise
+break. With it, sparse events let zero-padding zero out spurious
+autocovariance terms and clustered events get the real MA(h-1) overlap
+weighted correctly. Pipeline parity with IC / FM / common-sparse PANEL.
+
+Magnitude is preserved as a weight in `signed_car` (no `.sign()` coercion
+at this layer — `compute_caar`'s docstring carries the input-form
+behaviour table). User-facing `CAAR_MEAN` reports the per-event-date
+mean (the average effect on event days); `n_obs` and `NW_LAGS_USED`
+reflect the dense series.
 
 Failure modes:
 
-- `n_events < MIN_EVENTS` → CAAR series too short → primary_p reverts to insufficient.
+- `n_events < MIN_EVENTS` → event series too short → primary_p reverts to insufficient.
 - `n_periods < MIN_PERIODS_HARD` (overall panel length) → `InsufficientSampleError`.
 - `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
-- NW HAC lag rule currently uses index distance on the filtered event-date
-  series; for sparse or clustered events the calendar-gap structure can
-  diverge from the assumed MA(`forward_periods` − 1) overlap.
 
 ### `common_continuous` — time-series first
 
