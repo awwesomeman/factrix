@@ -52,6 +52,12 @@ dev = [
     "build",
     "twine",
 ]
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
+    "mkdocs-jupyter>=0.25",
+    "mike>=2.1",
+]
 all = ["factrix[charts,mlflow,jupyter]"]
 
 [tool.pytest.ini_options]
