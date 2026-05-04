@@ -115,10 +115,11 @@ class TestDescribeAnalysisModes:
 # ---------------------------------------------------------------------------
 
 
-def _make_individual_continuous_panel(seed: int = 1) -> pl.DataFrame:
-    """Factor varies across assets at each date."""
+def _make_individual_continuous_panel_n(
+    n_assets: int, *, n_dates: int = 60, seed: int = 17,
+) -> pl.DataFrame:
+    """Factor varies across assets at each date; ``n_assets`` is parametric."""
     rng = np.random.default_rng(seed)
-    n_dates, n_assets = 60, 20
     rows: list[dict[str, object]] = []
     for t in range(n_dates):
         d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
@@ -129,6 +130,11 @@ def _make_individual_continuous_panel(seed: int = 1) -> pl.DataFrame:
                 "forward_return": float(rng.standard_normal()),
             })
     return pl.DataFrame(rows)
+
+
+def _make_individual_continuous_panel(seed: int = 1) -> pl.DataFrame:
+    """Factor varies across assets at each date (fixed n_assets=20)."""
+    return _make_individual_continuous_panel_n(20, seed=seed)
 
 
 def _make_common_continuous_panel(seed: int = 2) -> pl.DataFrame:
@@ -306,6 +312,39 @@ class TestSparseMagnitudeWarning:
     def test_signal_reasoning_mentions_coercion_when_dropped(self) -> None:
         result = suggest_config(_make_sparse_weighted_panel())
         assert ".sign()" in result.reasoning["signal"]
+
+
+# ---------------------------------------------------------------------------
+# suggest_config — n_assets two-tier guard (issue #15)
+# ---------------------------------------------------------------------------
+
+
+class TestSuggestConfigCrossSectionNWarnings:
+    def test_panel_n5_emits_small(self) -> None:
+        result = suggest_config(_make_individual_continuous_panel_n(5))
+        assert WarningCode.SMALL_CROSS_SECTION_N in result.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in result.warnings
+
+    def test_panel_n15_emits_borderline(self) -> None:
+        result = suggest_config(_make_individual_continuous_panel_n(15))
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N in result.warnings
+        assert WarningCode.SMALL_CROSS_SECTION_N not in result.warnings
+
+    def test_panel_n35_no_n_warning(self) -> None:
+        result = suggest_config(_make_individual_continuous_panel_n(35))
+        assert WarningCode.SMALL_CROSS_SECTION_N not in result.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in result.warnings
+
+    def test_n1_no_panel_warning(self) -> None:
+        # N=1 routes to TIMESERIES, so PANEL guards must not fire.
+        ts = _make_timeseries(n_dates=80, sparse=False, seed=33)
+        result = suggest_config(ts)
+        assert WarningCode.SMALL_CROSS_SECTION_N not in result.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in result.warnings
+
+    def test_mode_reasoning_mentions_warning_at_small_n(self) -> None:
+        result = suggest_config(_make_individual_continuous_panel_n(5))
+        assert "SMALL_CROSS_SECTION_N" in result.reasoning["mode"]
 
 
 # ---------------------------------------------------------------------------
