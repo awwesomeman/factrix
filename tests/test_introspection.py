@@ -277,13 +277,17 @@ class TestSuggestConfigWarnings:
 # ---------------------------------------------------------------------------
 
 
+def _sparse_weighted_factor(rng, shape) -> np.ndarray:
+    """8% non-zero events, magnitudes ~ N(0, 2) — the non-±1 sparse pattern."""
+    is_event = rng.choice([0.0, 1.0], size=shape, p=[0.92, 0.08])
+    return is_event * rng.standard_normal(shape) * 2.0
+
+
 def _make_sparse_weighted_panel(seed: int = 21) -> pl.DataFrame:
     """Sparse layout but non-zero values are continuous magnitudes (SUE-like)."""
     rng = np.random.default_rng(seed)
     n_dates, n_assets = 60, 15
-    is_event = rng.choice([0.0, 1.0], size=(n_dates, n_assets), p=[0.92, 0.08])
-    magnitudes = rng.standard_normal((n_dates, n_assets)) * 2.0
-    factor = is_event * magnitudes
+    factor = _sparse_weighted_factor(rng, (n_dates, n_assets))
     rows: list[dict[str, object]] = []
     for t in range(n_dates):
         d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
@@ -293,6 +297,39 @@ def _make_sparse_weighted_panel(seed: int = 21) -> pl.DataFrame:
                 "factor": float(factor[t, j]),
                 "forward_return": float(rng.standard_normal()),
             })
+    return pl.DataFrame(rows)
+
+
+def _make_common_sparse_weighted_panel(seed: int = 22) -> pl.DataFrame:
+    """Broadcast sparse factor with non-±1 magnitudes when non-zero."""
+    rng = np.random.default_rng(seed)
+    n_dates, n_assets = 60, 15
+    factor_t = _sparse_weighted_factor(rng, n_dates)
+    rows: list[dict[str, object]] = []
+    for t in range(n_dates):
+        d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
+        for j in range(n_assets):
+            rows.append({
+                "date": d, "asset_id": f"A{j:03d}",
+                "factor": float(factor_t[t]),
+                "forward_return": float(rng.standard_normal()),
+            })
+    return pl.DataFrame(rows)
+
+
+def _make_timeseries_sparse_weighted(n_dates: int = 80, seed: int = 23) -> pl.DataFrame:
+    """N=1 sparse with non-±1 magnitudes."""
+    rng = np.random.default_rng(seed)
+    factor = _sparse_weighted_factor(rng, n_dates)
+    rows = [
+        {
+            "date": dt.date(2024, 1, 1) + dt.timedelta(days=t),
+            "asset_id": "SPY",
+            "factor": float(factor[t]),
+            "forward_return": float(rng.standard_normal()),
+        }
+        for t in range(n_dates)
+    ]
     return pl.DataFrame(rows)
 
 
@@ -313,6 +350,25 @@ class TestSparseMagnitudeWarning:
     def test_signal_reasoning_mentions_coercion_when_dropped(self) -> None:
         result = suggest_config(_make_sparse_weighted_panel())
         assert ".sign()" in result.reasoning["signal"]
+
+
+class TestSparseMagnitudeWarningScopeGating:
+    """Warning is gated to the (INDIVIDUAL, SPARSE, PANEL) routing only."""
+
+    def test_common_sparse_weighted_no_warning(self) -> None:
+        result = suggest_config(_make_common_sparse_weighted_panel())
+        assert result.suggested.signal is Signal.SPARSE
+        assert result.suggested.scope is FactorScope.COMMON
+        assert WarningCode.SPARSE_MAGNITUDE_DROPPED not in result.warnings
+        assert result.detected["magnitude_dropped"] is False
+        assert ".sign()" not in result.reasoning["signal"]
+
+    def test_timeseries_sparse_weighted_no_warning(self) -> None:
+        result = suggest_config(_make_timeseries_sparse_weighted(n_dates=80))
+        assert result.suggested.signal is Signal.SPARSE
+        assert WarningCode.SPARSE_MAGNITUDE_DROPPED not in result.warnings
+        assert result.detected["magnitude_dropped"] is False
+        assert ".sign()" not in result.reasoning["signal"]
 
 
 # ---------------------------------------------------------------------------

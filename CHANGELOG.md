@@ -81,6 +81,19 @@ CONTRIBUTING §7 (Release workflow).
   string-based filters / log queries that match the old serialised value;
   no alias kept. (#19)
 
+### Fixed
+
+- **`WarningCode.SPARSE_MAGNITUDE_DROPPED`** is now scope- and mode-gated.
+  Previously emitted by `suggest_config` whenever a SPARSE factor carried
+  non-±1 magnitudes — but only the `(INDIVIDUAL, SPARSE, PANEL)` routing
+  (CAAR via `compute_caar`) actually applies `.sign()` coercion. The
+  `(COMMON, SPARSE, PANEL)` and `(*, SPARSE, *) × N=1` routings feed the
+  raw factor into OLS, preserving magnitude — emitting the warning there
+  misled callers into rescaling unnecessarily. The same predicate now
+  gates `SuggestConfigResult.detected["magnitude_dropped"]` and the
+  `reasoning["signal"]` `.sign()` addendum, so the three user-facing
+  surfaces stay coherent. (#28)
+
 ## v0.7.0 (2026-05-04)
 
 Closes the silent-coercion gap in sparse-procedure dispatch. Until now,
