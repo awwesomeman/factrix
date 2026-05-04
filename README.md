@@ -244,7 +244,7 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 - **`IC`**：「factor 對未來報酬有沒有 predictive ordering？」 — rank-based、對 outlier robust
 - **`FM`**：「factor 每多一單位 exposure 對應多少報酬溢酬？」 — slope-based、有 economic interpretation
 
-實務參考：`N < 10` 時 IC variance 過高，建議切 `FM`；`N ∈ [20, 50]` 區間兩者皆穩。
+`n_assets` 對 IC / FM 各自的有效運作範圍，見下方 §樣本守門 §行為矩陣。
 
 ---
 
@@ -270,13 +270,38 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 
 時序長度 `n_periods` 與資產數 `n_assets` **獨立守門**，不採用 `n_periods × n_assets` 總觀測數作為單一 power 指標 — per-date stat 變異主要由 `n_assets` 決定，time-series aggregation power 主要由 `n_periods` 決定。
 
-| 常數                | 來源                              | 行為                                                                            |
-|---------------------|-----------------------------------|---------------------------------------------------------------------------------|
-| `MIN_PERIODS_HARD = 20`   | `factrix/_stats/constants.py`    | `n_periods < 20` → raise `InsufficientSampleError(actual_periods, required_periods)`                |
-| `MIN_PERIODS_RELIABLE = 30` | 同上                             | `n_periods < 30` → 加 `WarningCode.UNRELIABLE_SE_SHORT_SERIES` 到 `profile.warnings`     |
-| `MIN_IC_PERIODS = 10` / `MIN_EVENTS = 10` | `factrix/_types.py` | metric 內部 short-circuit 用                                                     |
+### 兩軸守門對稱結構
 
-`fl.suggest_config(panel)` 可反向給出建議的 factory call + 警報；`fl.describe_analysis_modes()` 列出所有情境及其 procedure / 文獻 / `MIN_PERIODS_*`。
+| 軸 | 硬擋 | 軟警告 | clean |
+|----|------|--------|-------|
+| `n_periods` (T) | `n_periods < MIN_PERIODS_HARD = 20` → `InsufficientSampleError` | `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE = 30` → `WarningCode.UNRELIABLE_SE_SHORT_SERIES` | `n_periods ≥ 30` |
+| `n_assets` (N) | （無——`n_assets = 2..9` 的 cross-asset t-test 仍合法執行） | `n_assets < MIN_ASSETS = 10` → `WarningCode.SMALL_CROSS_SECTION_N`；`MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N` | `n_assets ≥ 30` |
+
+`n_assets` 不硬擋的理由：cross-asset t-test on E[β] 對 `n_assets ≥ 2` 數學上 well-defined，只是 t_crit 在小 N 嚴重膨脹（`n_assets=3` → df=2 → t_crit≈4.30，相對漸近 1.96 高 119%）。硬擋會逼使用者在「執行不了」與「不知道有問題」之間選；warning 讓使用者拿到結果**之前**就被告知。
+
+常數位置：`MIN_PERIODS_*` 與 `MIN_ASSETS*` 在 `factrix/_stats/constants.py`；procedure-local 的 `MIN_IC_PERIODS = 10` / `MIN_EVENTS = 10` 在 `factrix/_types.py`。
+
+### 行為矩陣 — factory × `n_assets` regime
+
+| Factory | N=1 | N=2..9 | N=10..29 | N≥30 |
+|---|---|---|---|---|
+| `individual_continuous(IC)` | raises `ModeAxisError`（建議改 `common_continuous`） | **空結果**：`MIN_IC_PERIODS=10` 把所有 date drop，stats=NaN | 正常 PANEL | 正常 PANEL |
+| `individual_continuous(FM)` | raises `ModeAxisError` | N=2 per-date guard drop；N=3..9 跑但 df=N-2 極低，β 不穩 | 正常 PANEL | 正常 PANEL |
+| `common_continuous` | TIMESERIES 單序列 β（null: β=0，**非** E[β]=0） | **emit `SMALL_CROSS_SECTION_N`**：cross-asset df=N-1，N=3 t_crit≈4.30 | **emit `BORDERLINE_CROSS_SECTION_N`**：t_crit 仍偏高（N=10 +15%、N=20 +7%） | 正常 PANEL |
+| `individual_sparse` / `common_sparse` | `_SCOPE_COLLAPSED` sentinel 路由同一 TS dummy；emit `InfoCode.SCOPE_AXIS_COLLAPSED` | 正常 PANEL CAAR / BMP | 正常 PANEL CAAR / BMP | 正常 PANEL CAAR / BMP |
+
+### 計算順序對照（重要）
+
+使用者常誤以為三個 PANEL continuous procedure 都「先橫斷面再時序」——其實只有 `individual_*` 是這樣，`common_continuous` 順序相反：
+
+- **`individual_continuous(IC)` / `individual_continuous(FM)`**：cross-section first → time-series。每 date 算一個 cross-`n_assets` statistic（IC 或 λ），再對 `n_periods` 個 statistic 做 NW HAC t-test。
+- **`common_continuous`**：time-series first → cross-asset。每 asset 用全 `n_periods` 期跑 OLS β，再對 `n_assets` 個 β 做 cross-asset t-test on `E[β]`。**`n_assets = 1` 時退化為單序列 β=0 test**——這也是 N=1 行為改變的根因。
+
+設計理由與 small-`n_assets` failure mode 完整討論 → 見 `ARCHITECTURE.md` §Procedure pipelines。
+
+### Introspection 工具
+
+`fl.suggest_config(panel)` 反向給出建議的 factory call + 警報（含 `n_assets` 不足時的 `SMALL_CROSS_SECTION_N` / `BORDERLINE_CROSS_SECTION_N`）；`fl.describe_analysis_modes()` 列出所有情境及其 procedure / 文獻 / `MIN_PERIODS_*`。
 
 ---
 
