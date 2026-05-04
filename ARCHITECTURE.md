@@ -170,6 +170,91 @@ to the resulting profile so the routing is auditable.
 `MIN_EVENTS = 10`, etc.) used internally by the metric primitives that
 procedures wrap.
 
+### Cross-sectional guards (`n_assets`)
+
+`factrix/_stats/constants.py`:
+
+- `MIN_ASSETS = 10` — `n_assets < MIN_ASSETS` emits `WarningCode.SMALL_CROSS_SECTION_N`
+  from the `common_continuous` PANEL procedure and from `suggest_config`.
+  df = `n_assets` − 1 → t_crit at `n_assets` = 3 ≈ 4.30 (+119% vs asymptotic 1.96),
+  at `n_assets` = 5 ≈ 2.78 (+42%). Test still runs; warning surfaces the
+  inflation so caller can collect more cross-section before trusting reject
+  decisions.
+- `MIN_ASSETS_RELIABLE = 30` — `MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE`
+  emits `WarningCode.BORDERLINE_CROSS_SECTION_N`. df → t_crit at
+  `n_assets` = 10 ≈ 2.26 (+15%), at `n_assets` = 20 ≈ 2.09 (+7%). The gross
+  failure tier is cleared, but residual t-stat inflation matters for borderline
+  p-values (e.g. p ≈ 0.04 should be read as "borderline at this `n_assets`",
+  not "rejected").
+
+Symmetric with the `n_periods` two-tier (`MIN_PERIODS_HARD = 20` raises
+`InsufficientSampleError`; `MIN_PERIODS_RELIABLE = 30` emits
+`UNRELIABLE_SE_SHORT_SERIES`). The `n_assets` axis never raises because
+the cross-asset t-test on E[β] is mathematically well-defined for
+`n_assets ≥ 2` — only its statistical power degrades. Constant naming
+deliberately drops the `_HARD` suffix on `MIN_ASSETS` to avoid implying a
+raise; `_RELIABLE` mirrors the `n_periods` semantics.
+
+`MIN_IC_PERIODS = 10` (in `factrix/_types.py`, naming legacy — the value is
+actually a per-date min asset count, not a period count) drops dates with
+fewer than 10 assets from `compute_ic`. At `n_assets` < 10 the IC procedure
+short-circuits to NaN because every date is dropped. `compute_fm_betas`
+carries an inline `if len(y) < 3: continue` guard but no per-date min
+above 3.
+
+---
+
+## Procedure pipelines
+
+Three PANEL continuous procedures differ fundamentally in computation order,
+which dictates their small-`n_assets` failure modes and the N=1 collapse
+behavior of `common_continuous`. The user-facing factory chosen determines
+which pipeline runs.
+
+### `individual_continuous(IC)` — cross-section first
+
+```
+per-date Spearman across n_assets  →  n_periods-length IC time series
+                                  →  NW HAC t-test on mean(IC)
+```
+
+Failure modes:
+
+- `n_assets` < 10 → `MIN_IC_PERIODS` drops every date → output is NaN.
+- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
+- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_SERIES`.
+
+### `individual_continuous(FM)` — cross-section first
+
+```
+per-date OLS R = α + β·Signal across n_assets  →  n_periods-length λ time series
+                                              →  NW HAC t-test on mean(λ)
+```
+
+Failure modes:
+
+- per-date `n_assets` < 3 → date dropped (`if len(y) < 3: continue`).
+- per-date `n_assets` small but ≥ 3 → df = `n_assets` − 2 minimal, β unstable.
+- `n_periods < MIN_FM_PERIODS = 20` → short-circuit to insufficient.
+
+### `common_continuous` — time-series first
+
+```
+per-asset OLS R_i = α_i + β_i·F across all n_periods dates  →  n_assets betas
+                                                            →  cross-asset t-test on E[β]
+```
+
+Failure modes:
+
+- per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
+- `n_assets < MIN_ASSETS = 10` → `WarningCode.SMALL_CROSS_SECTION_N` (still runs).
+- `MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N`.
+- `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
+  TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
+  `StatCode.TS_BETA` identifier is shared across the two modes, so the
+  same field on `FactorProfile` carries different statistical meaning
+  depending on `profile.mode`; see §PANEL/TIMESERIES equivalence.
+
 ---
 
 ## BHY family partitioning

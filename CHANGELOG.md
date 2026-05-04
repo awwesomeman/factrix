@@ -24,6 +24,23 @@ this section to the next versioned heading and adds a fresh `[Unreleased]`
 above it. This decouples per-PR cadence from per-tag cadence — see
 CONTRIBUTING §7 (Release workflow).
 
+### Changed (docs)
+
+- README §樣本守門 重寫：新增「factory × `n_assets` regime 行為矩陣」表 +
+  「計算順序對照」段 + 「兩軸守門對稱」表，明確區分
+  `individual_continuous`（cross-section first → time-series）與
+  `common_continuous`（time-series first → cross-asset）的計算順序差異——
+  使用者誤以為兩者皆「先橫斷面再時序」是 `common_continuous` N=1 退化
+  與 small-`n_assets` 結果不可信的根因。修正先前 L247「`n_assets` < 10
+  切 FM」誤導建議——FM 在 `n_assets` = 2..9 同樣不可靠。
+- ARCHITECTURE.md 增補 §Cross-sectional guards (`n_assets`)（two-tier
+  threshold 設計理由 + t_crit 衰減表 + 與 `MIN_PERIODS_*` 命名差異說明）
+  與 §Procedure pipelines（每個 PANEL continuous procedure 的計算管線、
+  small-`n_assets` failure mode、threshold 對應），把行為矩陣背後的
+  statistical rationale 集中到一處。
+
+Refs #15.
+
 ## v0.7.0 (2026-05-04)
 
 Closes the silent-coercion gap in sparse-procedure dispatch. Until now,
