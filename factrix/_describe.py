@@ -29,6 +29,15 @@ from factrix._stats.constants import (
 # Sparsity threshold above which `factor` is treated as an event series.
 _SPARSITY_THRESHOLD: float = 0.5
 
+# Canonical key set on ``SuggestConfigResult.detected``. Module-level so
+# tests + future programmatic consumers can membership-check without
+# duplicating the literal set; the dataclass docstring carries the
+# per-key types/meanings.
+DETECTED_KEYS: frozenset[str] = frozenset({
+    "scope", "signal", "mode",
+    "n_assets", "n_periods", "sparsity", "magnitude_dropped",
+})
+
 
 # ---------------------------------------------------------------------------
 # describe_analysis_modes
@@ -189,37 +198,63 @@ def describe_analysis_modes(
 
 @dataclass(frozen=True, slots=True)
 class SuggestConfigResult:
-    """Auto-detected ``AnalysisConfig`` plus per-axis reasoning.
+    """Auto-detected ``AnalysisConfig`` plus structured observations + reasoning.
 
-    ``reasoning`` is a structured dict with the four invariant keys
-    ``scope`` / ``signal`` / ``metric`` / ``mode`` (plan §7.2 I4) so AI
-    agents can pattern-match. ``warnings`` is a list of ``WarningCode``
-    enums (I2) — pre-computed evaluate-time warnings the user can act
-    on before running the suggested config.
+    ``detected`` carries the **structured panel observations** that drove
+    the suggestion (machine-readable; AI agents and pipeline gates branch
+    on these without parsing strings). ``reasoning`` is the human-readable
+    mirror of the same information per axis.
+
+    ``warnings`` is a list of ``WarningCode`` enums — pre-computed
+    evaluate-time warnings the user can act on before running the
+    suggested config.
+
+    ``detected`` keys (always present, type-stable):
+
+    | Key                  | Type      | Meaning                                   |
+    |----------------------|-----------|-------------------------------------------|
+    | ``scope``            | str       | ``"individual"`` / ``"common"``           |
+    | ``signal``           | str       | ``"continuous"`` / ``"sparse"``           |
+    | ``mode``             | str       | ``"panel"`` / ``"timeseries"``            |
+    | ``n_assets``         | int       | unique ``asset_id`` count                 |
+    | ``n_periods``        | int       | unique ``date`` count                     |
+    | ``sparsity``         | float     | zero-ratio in ``factor`` column           |
+    | ``magnitude_dropped``| bool      | True iff SPARSE + non-±1 magnitudes       |
     """
 
     suggested: AnalysisConfig
+    detected: dict[str, Any]
     reasoning: dict[str, str]
     warnings: list[WarningCode] = field(default_factory=list)
 
 
-def _detect_signal(raw: Any) -> tuple[Signal, str, bool]:
+def _detect_signal(raw: Any) -> tuple[Signal, str, bool, float]:
     """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
 
-    The third return value is ``magnitude_dropped``: ``True`` iff the
-    detected signal is SPARSE *and* the non-zero values are not strictly
-    ternary {-1, +1}. Sparse procedures coerce via ``.sign()`` so any
-    non-±1 magnitude is silently dropped — the flag lets ``suggest_config``
-    surface ``WarningCode.SPARSE_MAGNITUDE_DROPPED``.
+    Returns ``(signal, reason, magnitude_dropped, sparsity)``.
+
+    - ``magnitude_dropped``: ``True`` iff the detected signal is SPARSE
+      and the non-zero values are not strictly ternary {-1, +1}. Sparse
+      procedures coerce via ``.sign()`` so any non-±1 magnitude is
+      silently dropped — the flag lets ``suggest_config`` surface
+      ``WarningCode.SPARSE_MAGNITUDE_DROPPED``.
+    - ``sparsity``: zero-ratio in the factor column. Surfaced for
+      ``SuggestConfigResult.detected`` so callers can branch on the raw
+      observation rather than re-deriving it from the panel.
     """
     import polars as pl
 
+    import math
+
     n = len(raw)
     if n == 0:
+        # nan, not 0.0 — there is no zero-ratio with zero observations.
+        # Reporting 0.0 would falsely imply "fully dense".
         return (
             Signal.CONTINUOUS,
             "factor column empty: defaulting to CONTINUOUS",
             False,
+            math.nan,
         )
     n_zero, all_ternary = raw.select(
         n_zero=(pl.col("factor") == 0).sum(),
@@ -238,7 +273,7 @@ def _detect_signal(raw: Any) -> tuple[Signal, str, bool]:
     magnitude_dropped = signal is Signal.SPARSE and not bool(all_ternary)
     if magnitude_dropped:
         reason += " (non-±1 magnitudes present; .sign() coercion will drop them)"
-    return signal, reason, magnitude_dropped
+    return signal, reason, magnitude_dropped, sparsity
 
 
 def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
@@ -291,10 +326,11 @@ def suggest_config(
     caller (or an AI agent) reads ``reasoning`` and ``warnings`` to
     decide whether to override.
     """
-    signal, signal_reason, magnitude_dropped = _detect_signal(raw)
+    signal, signal_reason, magnitude_dropped, sparsity = _detect_signal(raw)
     scope, scope_reason = _detect_scope(raw)
 
     n_assets = int(raw["asset_id"].n_unique())
+    n_periods = int(raw["date"].n_unique())
     mode = _derive_mode(raw)
     mode_reason = (
         f"n_assets = {n_assets} detected → "
@@ -329,7 +365,6 @@ def suggest_config(
 
     warnings: list[WarningCode] = []
     if mode is Mode.TIMESERIES:
-        n_periods = len(raw)
         if MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
             warnings.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
     if n_tier is not None:
@@ -337,8 +372,19 @@ def suggest_config(
     if magnitude_dropped:
         warnings.append(WarningCode.SPARSE_MAGNITUDE_DROPPED)
 
+    detected: dict[str, Any] = {
+        "scope": scope.value,
+        "signal": signal.value,
+        "mode": mode.value,
+        "n_assets": n_assets,
+        "n_periods": n_periods,
+        "sparsity": sparsity,
+        "magnitude_dropped": magnitude_dropped,
+    }
+
     return SuggestConfigResult(
         suggested=suggested,
+        detected=detected,
         reasoning=reasoning,
         warnings=warnings,
     )
