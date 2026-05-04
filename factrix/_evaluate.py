@@ -46,7 +46,31 @@ def _derive_mode(raw: Any) -> Mode:
 
 
 def _evaluate(raw: Any, config: "AnalysisConfig") -> "FactorProfile":
-    """Dispatch ``config + raw`` to the registered procedure."""
+    """Dispatch ``config + raw`` to the registered procedure.
+
+    Mode is derived from ``raw`` (``N == 1`` → ``TIMESERIES``, else
+    ``PANEL``). Sparse signals at ``N == 1`` collapse the scope axis
+    so ``individual_sparse`` and ``common_sparse`` route to the same
+    cell, tagged with ``InfoCode.SCOPE_AXIS_COLLAPSED`` on the
+    returned profile.
+
+    Args:
+        raw: Canonical-column panel (``date, asset_id, factor,
+            forward_return``). Schema is validated downstream by the
+            registered procedure.
+        config: Validated ``AnalysisConfig`` produced by one of the
+            four factory methods.
+
+    Returns:
+        A ``FactorProfile`` populated by the procedure registered for
+        the routed dispatch cell.
+
+    Raises:
+        ModeAxisError: If the routed cell has no registered procedure
+            under the derived mode (e.g. ``(INDIVIDUAL, CONTINUOUS, *)``
+            at ``N == 1``); the error carries a nearest-legal
+            ``suggested_fix``.
+    """
     mode = _derive_mode(raw)
     routed_scope = _route_scope(config.scope, config.signal, mode)
     extra_info: frozenset[InfoCode] = (

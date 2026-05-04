@@ -76,21 +76,26 @@ class AnalysisConfig:
     direct construction works but bypasses no validation — every path
     runs through ``__post_init__``.
 
-    ``forward_periods`` semantics (frequency-agnostic):
-        Counts **rows on the panel's time axis**, not calendar time.
-        factrix never inspects the ``date`` column's dtype or spacing;
-        it shifts ``forward_periods`` rows per ``asset_id``. Therefore
-        ``forward_periods=5`` on a daily panel = 5 trading days, on a
-        weekly panel = 5 weeks, on a 1-min bar panel = 5 minutes. The
-        caller owns frequency and regular spacing.
+    Attributes:
+        scope: Factor scope axis. ``INDIVIDUAL`` = per-asset factor;
+            ``COMMON`` = single broadcast value per date.
+        signal: Signal type axis. ``CONTINUOUS`` = real-valued;
+            ``SPARSE`` = ``{-1, 0, +1}`` trigger.
+        metric: Procedure metric axis. Only populated for
+            ``(INDIVIDUAL, CONTINUOUS, *)`` cells (``IC`` or ``FM``);
+            ``None`` elsewhere.
+        forward_periods: Forward-return horizon in **rows** of the
+            panel's time axis, not calendar time. factrix never
+            inspects ``date`` dtype or spacing; the caller owns
+            frequency and regular spacing. ``forward_periods=5``
+            therefore means 5 trading days on a daily panel, 5 weeks
+            on a weekly panel, 5 minutes on a 1-min bar panel.
     """
 
     scope: FactorScope
     signal: Signal
     metric: Metric | None
     forward_periods: int = 5
-    """Forward-return horizon, in **rows** of the time axis (not calendar
-    time). See class docstring for frequency semantics."""
 
     def __post_init__(self) -> None:
         _validate_axis_compat(self.scope, self.signal, self.metric)
@@ -104,8 +109,15 @@ class AnalysisConfig:
     ) -> Self:
         """Per-(date, asset) continuous factor.
 
-        ``metric=IC`` for rank predictive ordering; ``metric=FM`` for
-        unit-of-exposure premium (Fama-MacBeth λ).
+        Args:
+            metric: ``IC`` for rank predictive ordering; ``FM`` for
+                unit-of-exposure premium (Fama-MacBeth λ).
+            forward_periods: Forward-return horizon (rows of the time
+                axis).
+
+        Returns:
+            A validated ``AnalysisConfig`` for the
+            ``(INDIVIDUAL, CONTINUOUS, metric)`` cell.
         """
         return cls(
             FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric,
@@ -116,8 +128,17 @@ class AnalysisConfig:
     def individual_sparse(cls, *, forward_periods: int = 5) -> Self:
         """Per-(date, asset) sparse trigger (``{-1, 0, +1}``).
 
-        PANEL canonical: CAAR cross-event t-test.
-        TIMESERIES (N=1): TS dummy regression + NW HAC SE (§5.2).
+        PANEL canonical procedure is the CAAR cross-event t-test;
+        TIMESERIES (N=1) collapses to a dummy regression with NW HAC
+        SE.
+
+        Args:
+            forward_periods: Forward-return horizon (rows of the time
+                axis).
+
+        Returns:
+            A validated ``AnalysisConfig`` for the
+            ``(INDIVIDUAL, SPARSE, None)`` cell.
         """
         return cls(
             FactorScope.INDIVIDUAL, Signal.SPARSE, None,
@@ -128,7 +149,16 @@ class AnalysisConfig:
     def common_continuous(cls, *, forward_periods: int = 5) -> Self:
         """Broadcast continuous factor (e.g. VIX).
 
-        Canonical: per-asset β → cross-asset t-test on ``E[β]``.
+        Canonical procedure is the per-asset β estimate followed by a
+        cross-asset t-test on ``E[β]``.
+
+        Args:
+            forward_periods: Forward-return horizon (rows of the time
+                axis).
+
+        Returns:
+            A validated ``AnalysisConfig`` for the
+            ``(COMMON, CONTINUOUS, None)`` cell.
         """
         return cls(
             FactorScope.COMMON, Signal.CONTINUOUS, None,
@@ -140,7 +170,15 @@ class AnalysisConfig:
         """Broadcast sparse trigger (FOMC, policy, index rebalance).
 
         PANEL canonical: per-asset β on dummy + cross-asset t-test.
-        TIMESERIES (N=1): TS dummy regression + NW HAC SE (§5.2).
+        TIMESERIES (N=1): TS dummy regression + NW HAC SE.
+
+        Args:
+            forward_periods: Forward-return horizon (rows of the time
+                axis).
+
+        Returns:
+            A validated ``AnalysisConfig`` for the
+            ``(COMMON, SPARSE, None)`` cell.
         """
         return cls(
             FactorScope.COMMON, Signal.SPARSE, None,
@@ -148,7 +186,12 @@ class AnalysisConfig:
         )
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (string-valued enums)."""
+        """Serialise to a JSON-compatible dict.
+
+        Returns:
+            A dict with string-valued enums and integer
+            ``forward_periods``, suitable for JSON serialisation.
+        """
         return {
             "scope": self.scope.value,
             "signal": self.signal.value,
@@ -160,8 +203,18 @@ class AnalysisConfig:
     def from_dict(cls, d: dict[str, Any]) -> Self:
         """Reconstruct from ``to_dict``'s output.
 
-        Goes through ``__post_init__`` so an invalid triple raises
-        ``IncompatibleAxisError`` rather than silently constructing.
+        Goes through ``__post_init__``, so an invalid triple raises
+        ``IncompatibleAxisError`` instead of silently constructing.
+
+        Args:
+            d: Mapping in the shape produced by ``to_dict``.
+
+        Returns:
+            A validated ``AnalysisConfig``.
+
+        Raises:
+            IncompatibleAxisError: If the ``(scope, signal, metric)``
+                triple is not a legal cell.
         """
         m = d.get("metric")
         return cls(
