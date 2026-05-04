@@ -1,5 +1,9 @@
 """CAAR (Cumulative Average Abnormal Return) significance tests.
 
+Aggregation: per-event-date weighted abnormal return (per-event-date
+step) then non-overlapping cross-event sample; t-test on CAAR, or BMP
+standardized AR z-test for event-induced variance.
+
 Tests H₀: event abnormal return = 0, using two complementary methods:
     compute_caar — per-event-date weighted abnormal return series
     caar         — CAAR t-test (parametric, non-overlapping sampling)

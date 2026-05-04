@@ -1,5 +1,9 @@
 """Tradability metrics: Turnover, Breakeven Cost, Net Spread.
 
+Aggregation: per-date turnover / cost diagnostics on quantile-group
+membership (cross-section step), then time-series mean; descriptive
+(no formal H₀).
+
 Two flavours of turnover co-exist here, measuring different things:
 
 - ``turnover()`` — ``1 − mean(rank autocorrelation)``. Rank-stability

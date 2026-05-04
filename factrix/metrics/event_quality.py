@@ -1,5 +1,9 @@
 """Per-event quality descriptive statistics for event signals.
 
+Aggregation: per-event scalar (hit / IC / skew / density) computed
+on `signed_car`, then cross-event aggregation; binomial inference for
+hit rate, nonparametric for IC / skewness, descriptive elsewhere.
+
 All metrics operate on the ``signed_car`` (return x sign(factor)) of
 individual events. They describe the quality and shape of per-event
 outcomes — distinct from significance testing (caar.py) and path

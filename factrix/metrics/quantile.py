@@ -1,5 +1,8 @@
 """Quantile analysis for cross-sectional panels.
 
+Aggregation: per-date long-short spread on quantile groups
+(cross-section step), then non-overlapping t on the spread series.
+
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
 Output: spread series, long/short alpha decomposition.
 

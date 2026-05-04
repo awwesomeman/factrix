@@ -1,5 +1,9 @@
 """Corrado (1989) nonparametric rank test for event signals.
 
+Aggregation: per-asset full-sample ranks of abnormal returns
+(time-series step), then aggregate event-period ranks across events;
+nonparametric rank test on standardized rank deviation.
+
 A non-parametric alternative to the CAAR t-test. Ranks abnormal returns
 across the full sample (event + non-event periods) for each asset, then
 tests whether event-period ranks deviate from their expected value.

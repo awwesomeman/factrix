@@ -1,5 +1,8 @@
 """Hit rate computation for any time-indexed series.
 
+Aggregation: time-series only, sampled non-overlapping on a 1-D
+series; binomial test against `p = 0.5`.
+
 Input: DataFrame with ``date, value`` or a 1-D array.
 Output: proportion of periods where the value satisfies a condition
 (default: value > 0).

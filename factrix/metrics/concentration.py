@@ -1,5 +1,9 @@
 """Top-bucket concentration analysis for cross-sectional panels.
 
+Aggregation: per-date HHI inverse on top-bucket weights (cross-section
+step) → per-date ratio series, then non-overlapping sample;
+across-time t against ``H₀: ratio ≥ 0.5``.
+
 Measures whether top-bucket (long-leg) alpha is concentrated in a few
 stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
 inverse.

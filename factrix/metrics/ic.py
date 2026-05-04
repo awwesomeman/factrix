@@ -1,5 +1,9 @@
 """IC (Information Coefficient) computation for cross-sectional panels.
 
+Aggregation: per-date Spearman rank IC (cross-section step) → IC time
+series, then non-overlapping cross-asset t or NW HAC t on its mean;
+regime / multi-horizon variants slice or repeat the same pipeline.
+
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
 Output: time-indexed IC series (``date, ic``) that can be fed into
 any ``series/`` tool (oos, trend, significance, hit_rate).

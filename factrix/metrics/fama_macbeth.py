@@ -1,5 +1,9 @@
 """Fama-MacBeth regression and macro panel metrics.
 
+Aggregation: per-date cross-sectional OLS slope λ (cross-section step)
+→ time series of λ, then NW HAC t on its mean; pooled OLS variant
+clusters SE by date.
+
 ``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
 ``fama_macbeth``: Newey-West t-test on the beta series.
 ``pooled_ols``: pooled OLS with clustered SE by date.
@@ -41,7 +45,15 @@ def compute_fm_betas(
 ) -> pl.DataFrame:
     """Per-date cross-sectional OLS: R_i = α + β · Signal_i + ε.
 
-    Returns DataFrame with columns ``date, beta``.
+    Args:
+        df: Long panel with ``date, asset_id, factor, forward_return``.
+        factor_col: Column carrying the factor exposure.
+        return_col: Column carrying the forward return.
+
+    Returns:
+        DataFrame with ``date, beta`` (one row per date that admits a
+        finite OLS solution; dates with fewer than 3 observations or
+        a singular design are dropped).
     """
     dates = df["date"].unique().sort()
     rows: list[dict] = []

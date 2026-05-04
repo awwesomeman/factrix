@@ -1,5 +1,9 @@
 """MFE/MAE — per-event price path excursion analysis.
 
+Aggregation: per-event MFE / MAE excursion over a fixed window
+(per-event step), then cross-event quantile / ratio summary;
+descriptive (no formal H₀).
+
 Answers: "what does the price path look like after events?"
 
 Requires bar-by-bar ``price`` data within the event window.

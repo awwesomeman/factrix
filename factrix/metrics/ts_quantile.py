@@ -1,5 +1,9 @@
 """Time-series quantile bucketing + monotonicity test (issue #5).
 
+Aggregation: per-date aggregation to a common ``(_f, _r)`` series
+(cross-section step), then quantile-bucketed NW HAC OLS on that time
+series; Wald χ² on the top-bottom bucket spread.
+
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells: bucket factor history into quantiles and check the conditional
 mean forward return per bucket. Catches U-shape / inverted-U /
@@ -45,6 +49,7 @@ def ts_quantile_spread(
     """Bucket time-series factor by historical quantiles, test conditional means.
 
     Reported:
+
     - ``value`` = top-bottom spread (β_{K-1} - β_0)
     - ``stat``  = Wald on ``H0: β_{K-1} = β_0`` → two-sided p in metadata
     - ``metadata["spearman_rho"]`` / ``spearman_p`` = small-sample
@@ -54,6 +59,25 @@ def ts_quantile_spread(
     Gate (issue #5): ``n_unique(factor) >= n_groups * 2``. Below the
     gate the factor cannot sustain quantile cuts — short-circuits with
     a redirect to ``event_quality.*`` for binary / sparse signals.
+
+    Args:
+        df: Long panel; aggregated to per-date ``(_f, _r)`` internally.
+        factor_col: Column carrying the factor.
+        return_col: Column carrying the forward return.
+        n_groups: Number of quantile buckets ``K`` to cut the factor
+            history into.
+        forward_periods: Overlap horizon of the forward return; floors
+            the NW bandwidth.
+        nw_lags: Override for the NW lag count. ``None`` resolves to
+            the standard rule given ``forward_periods`` and ``T``.
+
+    Returns:
+        ``MetricOutput`` whose ``value`` is the top-bottom bucket
+        spread; bucket detail and the Spearman monotonicity diagnostic
+        live in ``metadata``. Short-circuits with a reason code when
+        input shape is insufficient (no ``date`` / factor / return
+        column, fewer than ``MIN_PORTFOLIO_PERIODS`` rows, or factor
+        variation below ``n_groups * 2`` distinct values).
     """
     if "date" not in df.columns:
         return _short_circuit_output(
