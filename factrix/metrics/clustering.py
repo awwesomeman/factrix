@@ -1,5 +1,9 @@
 """Event clustering diagnostic for event signals.
 
+Aggregation: static cross-section — single HHI computed once over the
+event-date histogram; no time-axis aggregation, no formal H₀
+(descriptive concentration index).
+
 When events cluster on the same dates, the independence assumption
 underlying the CAAR t-test is violated, potentially inflating the
 test statistic. The Herfindahl-Hirschman Index (HHI) on event dates

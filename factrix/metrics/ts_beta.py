@@ -1,5 +1,9 @@
 """Time-series beta metrics for macro common factors.
 
+Aggregation: per-asset full-sample OLS β (time-series step), then
+cross-asset t on the β distribution; rolling-window variant slices
+the time axis before the per-asset step.
+
 macro_common factors (VIX, gold, USD index) are a single time series
 shared across all assets. Per-asset time-series regression measures
 each asset's sensitivity (β) to the common factor.
@@ -39,7 +43,15 @@ def compute_ts_betas(
 ) -> pl.DataFrame:
     """Per-asset time-series OLS: R_{i,t} = α_i + β_i · F_t + ε.
 
-    Returns DataFrame with ``asset_id, beta, alpha, t_stat, r_squared, n_obs``.
+    Args:
+        df: Long panel with ``date, asset_id, factor, forward_return``.
+        factor_col: Column carrying the (broadcast) factor.
+        return_col: Column carrying the per-asset forward return.
+
+    Returns:
+        DataFrame with ``asset_id, beta, alpha, t_stat, r_squared,
+        n_obs``. Assets with fewer than ``MIN_TS_OBS`` valid rows or a
+        singular design are dropped.
     """
     assets = df["asset_id"].unique().sort()
     rows: list[dict] = []

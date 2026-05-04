@@ -1,5 +1,8 @@
 """Out-of-sample (OOS) persistence analysis for any time-indexed series.
 
+Aggregation: time-series only, IS/OOS window split on a 1-D series;
+descriptive decay diagnostic (no formal H₀).
+
 Input: DataFrame with ``date, value`` (IC series, CAAR series, spread series).
 Output: MetricOutput with ``value`` = median survival ratio + sign-flip / status
 detail in ``metadata``.

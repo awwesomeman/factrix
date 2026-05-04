@@ -1,5 +1,8 @@
 """IC trend analysis using Theil-Sen estimator.
 
+Aggregation: time-series only, Theil-Sen median pairwise slope on a
+1-D series; CI from the rank-based pairwise slope distribution.
+
 Input: DataFrame with ``date, value`` (typically an IC series).
 Output: slope + confidence interval for trend detection.
 

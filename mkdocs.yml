@@ -102,6 +102,7 @@ nav:
       - Methodology: reference/methodology.md
       - Statistical methods: reference/statistical-methods.md
       - Metric applicability: reference/metric-applicability.md
+      - Standalone metrics: reference/standalone-metrics.md
       - API:
           - AnalysisConfig: reference/api/analysis-config.md
           - evaluate: reference/api/evaluate.md

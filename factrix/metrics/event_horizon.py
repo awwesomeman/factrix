@@ -1,5 +1,8 @@
 """Multi-horizon event analysis — how does the signal behave across time?
 
+Aggregation: per-event return profile across `k` offsets (per-event
+step); descriptive curve plus binomial test on per-horizon hit rate.
+
 Answers:
     - Is there pre-event leakage? (T-6..T-1 should be ~0)
     - At which horizon is the signal strongest?

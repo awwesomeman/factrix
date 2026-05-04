@@ -1,5 +1,10 @@
 """Long-side / short-side asymmetry test (issue #5).
 
+Aggregation: per-date aggregation of factor and forward return to a
+common ``(_f, _r)`` series (cross-section step), then NW HAC OLS with
+sign-asymmetric slopes on the resulting time series; Wald χ² on the
+slope difference.
+
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells. OLS β reports a single slope and assumes the response is
 symmetric around zero — `β > 0` could be "rises more on positive
@@ -57,6 +62,7 @@ def ts_asymmetry(
     """Long/short asymmetry of factor → return relationship.
 
     Reported headline:
+
     - ``value`` = method-A magnitude ``β_long + β_short`` (0 under
       perfect symmetry; positive = long side stronger)
     - ``stat``  = ``value`` / NW HAC SE
@@ -65,6 +71,24 @@ def ts_asymmetry(
     Method B (Gate C passing) populates ``beta_pos`` / ``beta_neg`` /
     ``p_wald_slopes``; otherwise ``method_b_skipped`` carries the
     reason.
+
+    Args:
+        df: Long panel; aggregated to per-date ``(_f, _r)`` internally.
+        factor_col: Column carrying the factor.
+        return_col: Column carrying the forward return.
+        forward_periods: Overlap horizon of the forward return; used
+            to floor the NW bandwidth so the kernel is consistent
+            with the autocorrelation it must absorb.
+        nw_lags: Override for the NW lag count. ``None`` resolves to
+            the standard rule given ``forward_periods`` and ``T``.
+
+    Returns:
+        ``MetricOutput`` whose ``value`` is the method-A magnitude;
+        diagnostic statistics live in ``metadata``. Short-circuits
+        with a reason code when input shape is insufficient (no
+        ``date`` column, missing ``factor`` / return column, fewer
+        than ``MIN_PORTFOLIO_PERIODS`` per-date rows, or no two-sided
+        factor variation).
     """
     if "date" not in df.columns:
         return _short_circuit_output(

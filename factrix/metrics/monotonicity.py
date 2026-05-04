@@ -1,5 +1,9 @@
 """Monotonicity test for cross-sectional panels.
 
+Aggregation: per-date Spearman corr between quantile index and group
+mean return (cross-section step), then non-overlapping cross-asset t
+on the per-date series.
+
 Measures whether factor quantile groups exhibit monotonic return ordering.
 Per-date: split into n_groups by factor rank, compute mean return per group,
 Spearman corr between group index and return.

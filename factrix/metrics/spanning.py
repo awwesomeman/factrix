@@ -1,5 +1,9 @@
 """Spanning regression — single-factor test and multi-factor selection.
 
+Aggregation: regression of factor return time-series on base-factor
+returns (time-series step); NW HAC t on alpha. The greedy stepwise
+selection variant inflates t-stats and is not for inference.
+
 ``spanning_alpha``: does a single factor have alpha after controlling for
 base factors? Standard factor research tool (Barillas & Shanken 2017).
 
