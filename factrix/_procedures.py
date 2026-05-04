@@ -63,7 +63,7 @@ class _ICContPanelProcedure:
         from factrix._stats.constants import auto_bartlett
         from factrix.metrics.ic import compute_ic
 
-        # ``compute_ic`` filters by MIN_IC_PERIODS but does not drop nulls;
+        # ``compute_ic`` filters by MIN_ASSETS_PER_DATE_IC but does not drop nulls;
         # ``pl.corr`` returns null for zero-variance dates (degenerate
         # factor / tied returns) so the explicit drop is reachable.
         ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
@@ -315,7 +315,7 @@ class _TSBetaContTimeseriesProcedure:
     NW HAC SE on β; ADF on factor surfaces persistence (CONTINUOUS-only
     diagnostic per I6). n_periods-stratified per I5: below ``MIN_PERIODS_HARD`` raise
     ``InsufficientSampleError``; in ``[MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE)``
-    emit verdict + ``WarningCode.UNRELIABLE_SE_SHORT_SERIES``.
+    emit verdict + ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
@@ -363,7 +363,7 @@ class _TSBetaContTimeseriesProcedure:
 
         warnings: set[WarningCode] = set()
         if n_periods < MIN_PERIODS_RELIABLE:
-            warnings.add(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+            warnings.add(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
         # I6: ADF persistence diagnostic is CONTINUOUS-only. The 0.10
         # cutoff matches plan §5.2 — a non-rejection at the 10% level
         # is the conventional "likely persistent" trigger.
@@ -403,7 +403,7 @@ class _TSDummySparseTimeseriesProcedure:
     2. Ljung-Box on residual ε_t (auto-lag ``min(10, n_periods//10)``)
     3. ``event_temporal_hhi`` Herfindahl on equal-time bin shares —
        surfaces clustering of events along the calendar axis
-    4. ``UNRELIABLE_SE_SHORT_SERIES`` for ``n_periods < MIN_PERIODS_RELIABLE``
+    4. ``UNRELIABLE_SE_SHORT_PERIODS`` for ``n_periods < MIN_PERIODS_RELIABLE``
        (n_periods < ``MIN_PERIODS_HARD`` raises ``InsufficientSampleError`` upstream)
     """
 
@@ -455,7 +455,7 @@ class _TSDummySparseTimeseriesProcedure:
 
         warnings: set[WarningCode] = set()
         if n_periods < MIN_PERIODS_RELIABLE:
-            warnings.add(WarningCode.UNRELIABLE_SE_SHORT_SERIES)
+            warnings.add(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
         if ljung_box_p < 0.05:
             warnings.add(WarningCode.SERIAL_CORRELATION_DETECTED)
         if overlap:

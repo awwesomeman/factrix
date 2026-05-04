@@ -161,12 +161,12 @@ to the resulting profile so the routing is auditable.
 
 `factrix/_stats/constants.py`:
 
-- `MIN_PERIODS_HARD = 20` — `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`
-- `MIN_PERIODS_RELIABLE = 30` — `T < MIN_PERIODS_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_SERIES`
+- `MIN_PERIODS_HARD = 20` — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`
+- `MIN_PERIODS_RELIABLE = 30` — `n_periods < MIN_PERIODS_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_PERIODS`
 - `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule
 - Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` — ensures NW lag covers MA(h-1) structure from overlapping forward returns
 
-`factrix/_types.py` keeps the older per-metric thresholds (`MIN_IC_PERIODS = 10`,
+`factrix/_types.py` keeps the older per-metric thresholds (`MIN_ASSETS_PER_DATE_IC = 10`,
 `MIN_EVENTS = 10`, etc.) used internally by the metric primitives that
 procedures wrap.
 
@@ -189,14 +189,13 @@ procedures wrap.
 
 Symmetric with the `n_periods` two-tier (`MIN_PERIODS_HARD = 20` raises
 `InsufficientSampleError`; `MIN_PERIODS_RELIABLE = 30` emits
-`UNRELIABLE_SE_SHORT_SERIES`). The `n_assets` axis never raises because
+`UNRELIABLE_SE_SHORT_PERIODS`). The `n_assets` axis never raises because
 the cross-asset t-test on E[β] is mathematically well-defined for
 `n_assets ≥ 2` — only its statistical power degrades. Constant naming
 deliberately drops the `_HARD` suffix on `MIN_ASSETS` to avoid implying a
 raise; `_RELIABLE` mirrors the `n_periods` semantics.
 
-`MIN_IC_PERIODS = 10` (in `factrix/_types.py`, naming legacy — the value is
-actually a per-date min asset count, not a period count) drops dates with
+`MIN_ASSETS_PER_DATE_IC = 10` (in `factrix/_types.py`) drops dates with
 fewer than 10 assets from `compute_ic`. At `n_assets` < 10 the IC procedure
 short-circuits to NaN because every date is dropped. `compute_fm_betas`
 carries an inline `if len(y) < 3: continue` guard but no per-date min
@@ -220,9 +219,9 @@ per-date Spearman across n_assets  →  n_periods-length IC time series
 
 Failure modes:
 
-- `n_assets` < 10 → `MIN_IC_PERIODS` drops every date → output is NaN.
+- `n_assets` < 10 → `MIN_ASSETS_PER_DATE_IC` drops every date → output is NaN.
 - `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_SERIES`.
+- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 
 ### `individual_continuous(FM)` — cross-section first
 

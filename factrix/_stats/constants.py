@@ -13,7 +13,7 @@ from __future__ import annotations
 MIN_PERIODS_HARD: int = 20
 
 # ``MIN_PERIODS_HARD <= T < MIN_PERIODS_RELIABLE`` → verdict still emitted, but
-# tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_SERIES`.
+# tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_PERIODS`.
 MIN_PERIODS_RELIABLE: int = 30
 
 # ``n_assets < MIN_ASSETS`` → :attr:`factrix._codes.WarningCode.SMALL_CROSS_SECTION_N`

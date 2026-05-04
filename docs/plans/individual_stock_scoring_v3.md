@@ -632,7 +632,7 @@ v3    新增            → Regime IC, Multi-horizon IC, Short_Alpha
 |------|-----|------|
 | `EPSILON` | 1e-9 | 避免除以零 |
 | `DDOF` | 1 | 樣本標準差 Bessel 修正 |
-| `MIN_IC_PERIODS` | 10 | IC 最小有效期數 |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | IC 最小有效期數 |
 | `MIN_OOS_PERIODS` | 5 | OOS 最小期數 |
 | `MIN_PORTFOLIO_PERIODS` | 5 | Quantile spread 最小期數 |
 | `n_groups` | 10 | Monotonicity 分組數（台股 N~2000；N < 200 時降為 5 或 3，見 §15.3） |

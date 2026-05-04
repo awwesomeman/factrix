@@ -31,7 +31,7 @@ factrix 目前投資最深的 `cross_sectional`（P3）是**最不急**的場景
 ### 2.1 統計面（資深 quant 視角）
 - **N=1 不是 first-class**：僅 `macro_common` 有顯式 fallback，`cross_sectional` / `macro_panel` 單資產時 silently 短路成 FAILED（訊息是「樣本不足」但真因是「選錯 type」）。
 - **單資產 canonical 設計錯誤**：`ts_beta_single_asset_fallback` 把 p 壓到 1.0，uninformative 而非 conservative。正確應走 HAC-corrected predictive regression β t-test。
-- **`MIN_IC_PERIODS=10` 語意重載**：同一常數同時當「時間軸樣本數 gate」和「per-date 資產數」使用，該拆成 `MIN_IC_PERIODS_T` / `MIN_CS_UNIVERSE`。
+- **`MIN_ASSETS_PER_DATE_IC=10` 語意重載**：同一常數同時當「時間軸樣本數 gate」和「per-date 資產數」使用，該拆成 `MIN_ASSETS_PER_DATE_IC_T` / `MIN_CS_UNIVERSE`。
 - **`verdict()` t=2.0 門檻**：單因子 discovery 在 Harvey-Liu-Zhu (2016) 下應 t≥3；現有 `PASS_WITH_WARNINGS` 機制可用來在 `2.0 ≤ |t| < 3.0` 發出警告。
 - **Effect size 不是一等公民**：Profile 輸出以 `canonical_p` 為中心，effect size 散落各欄位。**這是 BL integration 的直接 blocker** — BL 的 `(P, Q, Ω)` 需要 effect magnitude + SE，不是 p-value。
 

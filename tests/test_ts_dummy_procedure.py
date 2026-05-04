@@ -242,7 +242,7 @@ class TestSampleSizeStratification:
         profile = _TSDummySparseTimeseriesProcedure().compute(
             ts, cfg_individual,
         )
-        assert WarningCode.UNRELIABLE_SE_SHORT_SERIES in profile.warnings
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in profile.warnings
 
     def test_T_at_reliable_floor_no_se_warning(
         self, cfg_individual: AnalysisConfig,
@@ -255,7 +255,7 @@ class TestSampleSizeStratification:
             ts, cfg_individual,
         )
         assert (
-            WarningCode.UNRELIABLE_SE_SHORT_SERIES not in profile.warnings
+            WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
         )
 
 

@@ -478,7 +478,7 @@ FACTOR_CONFIGS = {
 |------|-----|------|
 | `EPSILON` | 1e-9 | 避免除以零 |
 | `DDOF` | 1 | 樣本標準差（Bessel 修正） |
-| `MIN_IC_PERIODS` | 10 | IC 最小有效期數 |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | IC 最小有效期數 |
 | `MIN_OOS_PERIODS` | 5 | OOS 最小期數 |
 | `MIN_PORTFOLIO_PERIODS` | 5 | LS_IR / Breakeven Cost / MDD 最小期數 |
 | `DEFAULT_ADAPTIVE_TAU` | 2.0 | 自適應權重 t-stat 門檻 |

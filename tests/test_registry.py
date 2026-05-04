@@ -228,14 +228,14 @@ class TestDiagnose:
         prof = _make_profile(
             primary_p=0.02,
             stats={StatCode.IC_MEAN: 0.05, StatCode.NW_LAGS_USED: 4.0},
-            warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_SERIES}),
+            warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS}),
             info_notes=frozenset({InfoCode.SCOPE_AXIS_COLLAPSED}),
         )
         d = prof.diagnose()
         assert d["mode"] == "panel"
         assert d["n_obs"] == 100
         assert d["primary_p"] == 0.02
-        assert "unreliable_se_short_series" in d["warnings"]
+        assert "unreliable_se_short_periods" in d["warnings"]
         assert "scope_axis_collapsed" in d["info_notes"]
         assert d["stats"]["ic_mean"] == 0.05
 

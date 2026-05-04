@@ -241,7 +241,7 @@ def orthogonalize_factor(
 `tools/_typing.py` 提供統一型別和常數：
 - `MetricOutput` — 所有工具的統一輸出
 - `EPSILON`, `DDOF`, `MAD_CONSISTENCY_CONSTANT` — 數值常數
-- `MIN_IC_PERIODS`, `MIN_OOS_PERIODS`, `MIN_PORTFOLIO_PERIODS`, `MIN_MONOTONICITY_PERIODS` — 最小樣本門檻
+- `MIN_ASSETS_PER_DATE_IC`, `MIN_OOS_PERIODS`, `MIN_PORTFOLIO_PERIODS`, `MIN_MONOTONICITY_PERIODS` — 最小樣本門檻
 
 ### 2.8 實作順序
 

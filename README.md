@@ -274,18 +274,18 @@ profile = fl.evaluate(panel, cfg)  # panel: (date, asset_id, factor, forward_ret
 
 | 軸 | 硬擋 | 軟警告 | clean |
 |----|------|--------|-------|
-| `n_periods` (T) | `n_periods < MIN_PERIODS_HARD = 20` → `InsufficientSampleError` | `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE = 30` → `WarningCode.UNRELIABLE_SE_SHORT_SERIES` | `n_periods ≥ 30` |
+| `n_periods` (T) | `n_periods < MIN_PERIODS_HARD = 20` → `InsufficientSampleError` | `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE = 30` → `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` | `n_periods ≥ 30` |
 | `n_assets` (N) | （無——`n_assets = 2..9` 的 cross-asset t-test 仍合法執行） | `n_assets < MIN_ASSETS = 10` → `WarningCode.SMALL_CROSS_SECTION_N`；`MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N` | `n_assets ≥ 30` |
 
 `n_assets` 不硬擋的理由：cross-asset t-test on E[β] 對 `n_assets ≥ 2` 數學上 well-defined，只是 t_crit 在小 N 嚴重膨脹（`n_assets=3` → df=2 → t_crit≈4.30，相對漸近 1.96 高 119%）。硬擋會逼使用者在「執行不了」與「不知道有問題」之間選；warning 讓使用者拿到結果**之前**就被告知。
 
-常數位置：`MIN_PERIODS_*` 與 `MIN_ASSETS*` 在 `factrix/_stats/constants.py`；procedure-local 的 `MIN_IC_PERIODS = 10` / `MIN_EVENTS = 10` 在 `factrix/_types.py`。
+常數位置：`MIN_PERIODS_*` 與 `MIN_ASSETS*` 在 `factrix/_stats/constants.py`；procedure-local 的 `MIN_ASSETS_PER_DATE_IC = 10` / `MIN_EVENTS = 10` 在 `factrix/_types.py`。
 
 ### 行為矩陣 — factory × `n_assets` regime
 
 | Factory | N=1 | N=2..9 | N=10..29 | N≥30 |
 |---|---|---|---|---|
-| `individual_continuous(IC)` | raises `ModeAxisError`（建議改 `common_continuous`） | **空結果**：`MIN_IC_PERIODS=10` 把所有 date drop，stats=NaN | 正常 PANEL | 正常 PANEL |
+| `individual_continuous(IC)` | raises `ModeAxisError`（建議改 `common_continuous`） | **空結果**：`MIN_ASSETS_PER_DATE_IC=10` 把所有 date drop，stats=NaN | 正常 PANEL | 正常 PANEL |
 | `individual_continuous(FM)` | raises `ModeAxisError` | N=2 per-date guard drop；N=3..9 跑但 df=N-2 極低，β 不穩 | 正常 PANEL | 正常 PANEL |
 | `common_continuous` | TIMESERIES 單序列 β（null: β=0，**非** E[β]=0） | **emit `SMALL_CROSS_SECTION_N`**：cross-asset df=N-1，N=3 t_crit≈4.30 | **emit `BORDERLINE_CROSS_SECTION_N`**：t_crit 仍偏高（N=10 +15%、N=20 +7%） | 正常 PANEL |
 | `individual_sparse` / `common_sparse` | `_SCOPE_COLLAPSED` sentinel 路由同一 TS dummy；emit `InfoCode.SCOPE_AXIS_COLLAPSED` | 正常 PANEL CAAR / BMP | 正常 PANEL CAAR / BMP | 正常 PANEL CAAR / BMP |
@@ -349,7 +349,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
     "mode": "panel",
     "n_obs": 500,
     "primary_p": 0.0001,
-    "warnings": ["unreliable_se_short_series"],   # WarningCode.value
+    "warnings": ["unreliable_se_short_periods"],  # WarningCode.value
     "info_notes": [],                              # InfoCode.value
     "stats": {"ic_mean": 0.082, "ic_t_nw": 4.21, "nw_lags_used": 5},
 }
@@ -359,7 +359,7 @@ survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 
 | WarningCode                    | 觸發條件                                                  |
 |--------------------------------|-----------------------------------------------------------|
-| `UNRELIABLE_SE_SHORT_SERIES`   | `n_periods < MIN_PERIODS_RELIABLE = 30` → NW HAC SE 不穩定       |
+| `UNRELIABLE_SE_SHORT_PERIODS`   | `n_periods < MIN_PERIODS_RELIABLE = 30` → NW HAC SE 不穩定       |
 | `PERSISTENT_REGRESSOR`         | `factor_adf_p > 0.10`（CONTINUOUS factor，Stambaugh-style） |
 | `EVENT_WINDOW_OVERLAP`         | event windows 重疊（CAAR / sparse 場景）                   |
 | `SERIAL_CORRELATION_DETECTED`  | Ljung-Box p < 0.05 on residuals                            |
