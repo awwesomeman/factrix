@@ -115,6 +115,74 @@ class TestComputeCaar:
 
 
 # ---------------------------------------------------------------------------
+# compute_caar — input-form behaviour matrix (issue #12)
+# ---------------------------------------------------------------------------
+
+
+def _two_event_panel(
+    factor_a: float, factor_b: float, ret_a: float, ret_b: float,
+) -> pl.DataFrame:
+    return pl.DataFrame({
+        "date": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
+        "asset_id": ["A", "B"],
+        "factor": [factor_a, factor_b],
+        "forward_return": [ret_a, ret_b],
+    })
+
+
+class TestComputeCaarInputForms:
+    def test_occurrence_only_zero_one(self):
+        df = _two_event_panel(1.0, 1.0, 0.02, -0.01)
+        result = compute_caar(df)
+        assert result["caar"].to_list() == pytest.approx([0.02, -0.01])
+
+    def test_signed_ternary(self):
+        df = _two_event_panel(-1.0, 1.0, -0.02, 0.03)
+        result = compute_caar(df)
+        assert result["caar"].to_list() == pytest.approx([0.02, 0.03])
+
+    def test_magnitude_weighted_zero_R(self):
+        df = _two_event_panel(2.5, -3.0, 0.01, 0.02)
+        result = compute_caar(df)
+        assert result["caar"].to_list() == pytest.approx([0.025, -0.06])
+
+    def test_magnitude_preserved_not_dropped(self):
+        # Pins the post-change behaviour — sign-coerced math would yield
+        # 0.01, magnitude-preserving math yields 0.025.
+        df = pl.DataFrame({
+            "date": [datetime(2020, 1, 1)],
+            "asset_id": ["A"],
+            "factor": [2.5],
+            "forward_return": [0.01],
+        })
+        result = compute_caar(df)
+        assert result["caar"][0] == pytest.approx(0.025)
+        assert result["caar"][0] != pytest.approx(0.01)
+
+    def test_within_date_cs_average_weighted(self):
+        df = pl.DataFrame({
+            "date": [datetime(2020, 1, 1), datetime(2020, 1, 1)],
+            "asset_id": ["A", "B"],
+            "factor": [2.0, -1.0],
+            "forward_return": [0.03, 0.04],
+        })
+        result = compute_caar(df)
+        assert len(result) == 1
+        assert result["caar"][0] == pytest.approx(0.01)
+
+    def test_caller_can_opt_into_ternary_via_sign(self):
+        df = pl.DataFrame({
+            "date": [datetime(2020, 1, 1)],
+            "asset_id": ["A"],
+            "factor": [2.5],
+            "forward_return": [0.01],
+        })
+        coerced = df.with_columns(pl.col("factor").sign())
+        result = compute_caar(coerced)
+        assert result["caar"][0] == pytest.approx(0.01)
+
+
+# ---------------------------------------------------------------------------
 # caar (significance test)
 # ---------------------------------------------------------------------------
 

@@ -257,15 +257,15 @@ Failure modes:
 ### `individual_sparse` (CAAR PANEL) — cross-section first (events)
 
 ```
-per-event-date mean of signed_car = return × sign(factor)   (cross-section step)
-                                                          →  n_event_dates-length CAAR series
-                                                          →  NW HAC t-test on mean(CAAR)   (time-series step)
+per-event-date mean of signed_car = return × factor   (cross-section step)
+                                                    →  n_event_dates-length CAAR series
+                                                    →  NW HAC t-test on mean(CAAR)   (time-series step)
 ```
 
 The CAAR series is **event-date-indexed** (filter `factor != 0` before the
-cross-section step), not per-asset CAAR. `signed_car` coerces the factor via
-`.sign()` — non-±1 magnitudes are dropped at this layer (see
-`WarningCode.SPARSE_MAGNITUDE_DROPPED`).
+cross-section step), not per-asset CAAR. Magnitude is preserved as a weight
+in `signed_car` (no `.sign()` coercion at this layer — `compute_caar`'s
+docstring carries the input-form behaviour table).
 
 Failure modes:
 

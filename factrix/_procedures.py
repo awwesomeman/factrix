@@ -148,12 +148,14 @@ class _FMContPanelProcedure:
 
 
 class _CAARSparsePanelProcedure:
-    """``(INDIVIDUAL, SPARSE, None, PANEL)`` — per-event AR → CAAR.
+    """``(INDIVIDUAL, SPARSE, None, PANEL)`` — per-event-date weighted CAAR.
 
-    Plan §4.3: per-event signed AR aggregated to a CAAR series across
-    event dates, then a cross-event t-test on the CAAR mean. Same
-    HH-floored NW HAC machinery as IC and FM PANEL — h-period
-    forward returns induce MA(h-1) on the CAAR series identically.
+    Plan §4.3: dispatches to ``compute_caar`` (see for the
+    magnitude-preserving per-row formula and input-form behaviour),
+    then runs an HH-floored NW HAC t-test on the resulting event-date-
+    indexed CAAR series. Same NW HAC machinery as IC and FM PANEL —
+    h-period forward returns induce MA(h-1) on the CAAR series
+    identically.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(

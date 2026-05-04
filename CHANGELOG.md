@@ -49,15 +49,24 @@ CONTRIBUTING §7 (Release workflow).
   despite being fully exported. (#19)
 - **`SuggestConfigResult.detected: dict[str, Any]`** — new field
   carrying the structured panel observations behind the suggestion
-  (`scope`, `signal`, `mode`, `n_assets`, `n_periods`, `sparsity`,
-  `magnitude_dropped`). All keys always present, type-stable. AI
-  agents and pipeline gates branch on these without parsing the
-  `reasoning` strings or re-deriving observations from the raw panel.
-  `reasoning` (human-readable narrative) and `warnings` unchanged.
-  (#21)
+  (`scope`, `signal`, `mode`, `n_assets`, `n_periods`, `sparsity`).
+  All keys always present, type-stable. AI agents and pipeline gates
+  branch on these without parsing the `reasoning` strings or
+  re-deriving observations from the raw panel. `reasoning`
+  (human-readable narrative) and `warnings` unchanged. (#21)
 
 ### Changed
 
+- **`compute_caar` per-row formula: `return × sign(factor)` →
+  `return × factor`.** Magnitude is now preserved as a weight rather
+  than being silently dropped via `.sign()` coercion. `{0, 1}` and
+  `{-1, 0, +1}` callers see no behaviour change (sign was identity);
+  `{0, R}` non-ternary callers — previously flagged by
+  `WarningCode.SPARSE_MAGNITUDE_DROPPED` as wrong — now get the
+  magnitude-weighted statistic they were trying to compute. Callers
+  wanting ternary semantics on a non-ternary input apply `.sign()` to
+  the input column themselves before calling. See `compute_caar`
+  docstring for the input-form behaviour table. (#12)
 - README §樣本守門 重寫：新增「factory × `n_assets` regime 行為矩陣」表 +
   「計算順序對照」段 + 「兩軸守門對稱」表，明確區分
   `individual_continuous`（cross-section first → time-series）與
@@ -98,16 +107,22 @@ CONTRIBUTING §7 (Release workflow).
   ``MIN_EVENTS = 10`` in ``factrix/_types.py`` (different statistic).
   Empty-panel sparse-PANEL behaviour shifts from silent
   ``primary_p = 1.0`` to an explicit raise. (#29)
-- **`WarningCode.SPARSE_MAGNITUDE_DROPPED`** is now scope- and mode-gated.
-  Previously emitted by `suggest_config` whenever a SPARSE factor carried
-  non-±1 magnitudes — but only the `(INDIVIDUAL, SPARSE, PANEL)` routing
-  (CAAR via `compute_caar`) actually applies `.sign()` coercion. The
-  `(COMMON, SPARSE, PANEL)` and `(*, SPARSE, *) × N=1` routings feed the
-  raw factor into OLS, preserving magnitude — emitting the warning there
-  misled callers into rescaling unnecessarily. The same predicate now
-  gates `SuggestConfigResult.detected["magnitude_dropped"]` and the
-  `reasoning["signal"]` `.sign()` addendum, so the three user-facing
-  surfaces stay coherent. (#28)
+### Removed
+
+- **`WarningCode.SPARSE_MAGNITUDE_DROPPED`** enum value + description.
+  The warning existed to flag callers that the dispatched sparse
+  procedure would drop magnitude via `.sign()`. With the
+  `compute_caar` semantic shift above, no routing drops magnitude any
+  more — the warning has nothing left to warn about. (#12)
+- **`SuggestConfigResult.detected["magnitude_dropped"]`** key removed;
+  `DETECTED_KEYS` reduced from 7 to 6. `_detect_signal` returns a
+  3-tuple `(signal, reason, sparsity)` (was 4-tuple including
+  `has_nonternary_magnitudes`). The `suggest_config` `magnitude_dropped`
+  predicate, scope/mode gating, and `reasoning["signal"]` `.sign()`
+  addendum are all gone — same root cause. **Migration:** delete any
+  branch that reads `result.detected["magnitude_dropped"]` or
+  membership-checks `WarningCode.SPARSE_MAGNITUDE_DROPPED`; on `{0, R}`
+  inputs, `compute_caar` now does the right thing without warning. (#12)
 
 ## v0.7.0 (2026-05-04)
 
