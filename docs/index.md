@@ -10,9 +10,9 @@ constructors.
 
 ## Documentation
 
-- [Methodology reference](methodology_reference.md) — IC / FM / CAAR / TS-β derivations.
-- [Statistical methods](statistical_methods.md) — NW HAC, test selection, BHY.
-- [Metric applicability](metric_applicability.md) — when to use each metric, N/T thresholds.
+- [Methodology reference](reference/methodology.md) — IC / FM / CAAR / TS-β derivations.
+- [Statistical methods](reference/statistical-methods.md) — NW HAC, test selection, BHY.
+- [Metric applicability](reference/metric-applicability.md) — when to use each metric, N/T thresholds.
 
 ## Source
 
