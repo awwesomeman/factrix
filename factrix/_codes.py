@@ -32,6 +32,12 @@ class WarningCode(StrEnum):
     # never raises — cross-asset t-test on E[β] is well-defined for N≥2.
     SMALL_CROSS_SECTION_N = "small_cross_section_n"
     BORDERLINE_CROSS_SECTION_N = "borderline_cross_section_n"
+    # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
+    # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
+    # MIN_BROADCAST_EVENTS_RELIABLE. Per-asset β is identifiable but
+    # the cross-event averaging is too thin for asymptotic t to be
+    # trusted. Below the HARD floor raises InsufficientSampleError instead.
+    SPARSE_COMMON_FEW_EVENTS = "sparse_common_few_events"
 
     @property
     def description(self) -> str:
@@ -61,6 +67,11 @@ _WARNING_DESCRIPTIONS.update({
         "PANEL cross-asset t-test with MIN_ASSETS ≤ n_assets < "
         "MIN_ASSETS_RELIABLE (10..29); residual t_crit inflation "
         "5–15% — read borderline p-values cautiously.",
+    WarningCode.SPARSE_COMMON_FEW_EVENTS:
+        "(COMMON, SPARSE, PANEL) broadcast dummy has "
+        "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE "
+        "(5..19); per-asset β estimable but cross-event averaging too thin "
+        "for asymptotic t.",
 })
 
 

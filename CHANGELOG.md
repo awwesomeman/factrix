@@ -83,6 +83,21 @@ CONTRIBUTING §7 (Release workflow).
 
 ### Fixed
 
+- **`(COMMON, SPARSE, None, PANEL)` event-count guard.** The procedure
+  previously checked only ``n_periods`` (via per-asset
+  ``MIN_TS_OBS = 20`` in ``compute_ts_betas``); a broadcast dummy with
+  a single non-zero event would still produce a β driven entirely by
+  that one observation, with no warning. Two-tier guard added on the
+  event count: ``n_events < MIN_BROADCAST_EVENTS_HARD = 5`` raises
+  ``InsufficientSampleError``;
+  ``MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE = 20``
+  emits the new ``WarningCode.SPARSE_COMMON_FEW_EVENTS``. Mirrors the
+  existing ``n_periods`` two-tier (``MIN_PERIODS_HARD`` / ``_RELIABLE``).
+  Constants live in ``factrix/_stats/constants.py``; the
+  ``BROADCAST_`` prefix disambiguates from the CAAR
+  ``MIN_EVENTS = 10`` in ``factrix/_types.py`` (different statistic).
+  Empty-panel sparse-PANEL behaviour shifts from silent
+  ``primary_p = 1.0`` to an explicit raise. (#29)
 - **`WarningCode.SPARSE_MAGNITUDE_DROPPED`** is now scope- and mode-gated.
   Previously emitted by `suggest_config` whenever a SPARSE factor carried
   non-±1 magnitudes — but only the `(INDIVIDUAL, SPARSE, PANEL)` routing

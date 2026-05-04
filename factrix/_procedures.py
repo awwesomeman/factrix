@@ -221,6 +221,12 @@ class _CommonSparsePanelProcedure:
     a cross-asset t-test on ``E[β]``. Plan §4.3: same per-asset β →
     cross-asset t-test pattern as COMMON × CONTINUOUS, with the dummy
     replacing the continuous factor. ADF skipped (I6).
+
+    Two-tier event-count guard on the broadcast dummy: with very few
+    non-zero events the per-asset β is fit from a handful of points,
+    yielding an asymptotic t the cross-asset aggregation cannot
+    rescue. Below ``MIN_BROADCAST_EVENTS_HARD`` raises; the borderline
+    tier surfaces ``SPARSE_COMMON_FEW_EVENTS``.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
@@ -230,11 +236,61 @@ class _CommonSparsePanelProcedure:
     def compute(
         self, raw: Any, config: "AnalysisConfig",
     ) -> "FactorProfile":
-        return _compute_common_panel(raw, config, with_adf=False)
+        import polars as pl
+
+        from factrix._codes import WarningCode
+        from factrix._errors import InsufficientSampleError
+        from factrix._stats.constants import (
+            MIN_BROADCAST_EVENTS_HARD,
+            MIN_BROADCAST_EVENTS_RELIABLE,
+        )
+
+        # Broadcast factor is the same per date across assets; count
+        # event dates by collapsing to one row per date first.
+        n_events = int(
+            raw.group_by("date")
+            .agg(pl.col("factor").first())
+            .filter(pl.col("factor") != 0)
+            .height,
+        )
+        if n_events < MIN_BROADCAST_EVENTS_HARD:
+            if n_events == 0:
+                detail = (
+                    "the broadcast factor has no non-zero observations; ensure "
+                    "events are encoded as ±1 on event dates (zero on non-event "
+                    "dates) before dispatching"
+                )
+            else:
+                detail = (
+                    "aggregate to a coarser frequency, broaden the event "
+                    "definition, or switch to a continuous factory"
+                )
+            raise InsufficientSampleError(
+                f"n_events={n_events} below "
+                f"MIN_BROADCAST_EVENTS_HARD={MIN_BROADCAST_EVENTS_HARD}; "
+                f"per-asset β on a broadcast sparse dummy is fit from too few "
+                f"informative observations to support the cross-asset t-test. "
+                f"To resolve: {detail}.",
+                actual_periods=n_events,
+                required_periods=MIN_BROADCAST_EVENTS_HARD,
+            )
+
+        extra_warnings: frozenset[WarningCode] = (
+            frozenset({WarningCode.SPARSE_COMMON_FEW_EVENTS})
+            if n_events < MIN_BROADCAST_EVENTS_RELIABLE
+            else frozenset()
+        )
+        return _compute_common_panel(
+            raw, config, with_adf=False, extra_warnings=extra_warnings,
+        )
 
 
 def _compute_common_panel(
-    raw: Any, config: "AnalysisConfig", *, with_adf: bool,
+    raw: Any,
+    config: "AnalysisConfig",
+    *,
+    with_adf: bool,
+    extra_warnings: "frozenset[WarningCode]" = frozenset(),
 ) -> "FactorProfile":
     """Shared core for the two ``(COMMON, *, None, PANEL)`` procedures.
 
@@ -274,7 +330,7 @@ def _compute_common_panel(
         StatCode.TS_BETA_T_NW: t_stat,
         StatCode.TS_BETA_P: p_value,
     }
-    warnings: set[WarningCode] = set()
+    warnings: set[WarningCode] = set(extra_warnings)
     n_tier = cross_section_tier(N)
     if n_tier is not None:
         warnings.add(n_tier)
