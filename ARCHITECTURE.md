@@ -205,16 +205,33 @@ above 3.
 
 ## Procedure pipelines
 
-Three PANEL continuous procedures differ fundamentally in computation order,
-which dictates their small-`n_assets` failure modes and the N=1 collapse
-behavior of `common_continuous`. The user-facing factory chosen determines
-which pipeline runs.
+The 7 registered procedures differ in **aggregation order** — which axis is
+collapsed first determines small-sample failure modes and the N=1 collapse
+behavior. The user-facing factory chosen determines which pipeline runs.
+
+### Terminology — aggregation regime
+
+Two regimes, each with concrete sub-forms. Pipeline pseudocode tags each
+step with `(cross-section step)` or `(time-series step)` inline:
+
+- **cross-section step** — aggregate over assets at a fixed date
+  - `per-date` — applied to every date (continuous panel)
+  - `per-event-date` — restricted to dates where `factor != 0` (sparse cells)
+- **time-series step** — aggregate over the time axis
+  - `per-asset` — fix one asset, aggregate its full date sequence
+    (`filter(asset_id == X)`)
+  - on a previously-built time-indexed series — e.g. NW HAC t-test on
+    `IC[t]` or `β[i]` after the upstream step has produced the series
+
+Unqualified `per-event` is **not** used — always written as `per-event-date`
+to keep the regime unambiguous.
 
 ### `individual_continuous(IC)` — cross-section first
 
 ```
-per-date Spearman across n_assets  →  n_periods-length IC time series
-                                  →  NW HAC t-test on mean(IC)
+per-date Spearman across n_assets         (cross-section step)
+                                       →  n_periods-length IC time series
+                                       →  NW HAC t-test on mean(IC)        (time-series step)
 ```
 
 Failure modes:
@@ -226,8 +243,9 @@ Failure modes:
 ### `individual_continuous(FM)` — cross-section first
 
 ```
-per-date OLS R = α + β·Signal across n_assets  →  n_periods-length λ time series
-                                              →  NW HAC t-test on mean(λ)
+per-date OLS R = α + β·Signal across n_assets   (cross-section step)
+                                              →  n_periods-length λ time series
+                                              →  NW HAC t-test on mean(λ)   (time-series step)
 ```
 
 Failure modes:
@@ -236,11 +254,34 @@ Failure modes:
 - per-date `n_assets` small but ≥ 3 → df = `n_assets` − 2 minimal, β unstable.
 - `n_periods < MIN_FM_PERIODS = 20` → short-circuit to insufficient.
 
+### `individual_sparse` (CAAR PANEL) — cross-section first (events)
+
+```
+per-event-date mean of signed_car = return × sign(factor)   (cross-section step)
+                                                          →  n_event_dates-length CAAR series
+                                                          →  NW HAC t-test on mean(CAAR)   (time-series step)
+```
+
+The CAAR series is **event-date-indexed** (filter `factor != 0` before the
+cross-section step), not per-asset CAAR. `signed_car` coerces the factor via
+`.sign()` — non-±1 magnitudes are dropped at this layer (see
+`WarningCode.SPARSE_MAGNITUDE_DROPPED`).
+
+Failure modes:
+
+- `n_events < MIN_EVENTS` → CAAR series too short → primary_p reverts to insufficient.
+- `n_periods < MIN_PERIODS_HARD` (overall panel length) → `InsufficientSampleError`.
+- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
+- NW HAC lag rule currently uses index distance on the filtered event-date
+  series; for sparse or clustered events the calendar-gap structure can
+  diverge from the assumed MA(`forward_periods` − 1) overlap.
+
 ### `common_continuous` — time-series first
 
 ```
-per-asset OLS R_i = α_i + β_i·F across all n_periods dates  →  n_assets betas
-                                                            →  cross-asset t-test on E[β]
+per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
+                                                         →  n_assets-length β vector
+                                                         →  cross-asset t-test on E[β]   (cross-section step)
 ```
 
 Failure modes:
@@ -253,6 +294,74 @@ Failure modes:
   `StatCode.TS_BETA` identifier is shared across the two modes, so the
   same field on `FactorProfile` carries different statistical meaning
   depending on `profile.mode`; see §PANEL/TIMESERIES equivalence.
+
+### `common_sparse` (PANEL) — time-series first
+
+```
+per-asset OLS R_i = α_i + β_i·D over all n_periods dates   (time-series step)
+                                                         →  n_assets-length β vector
+                                                         →  cross-asset t-test on E[β]   (cross-section step)
+```
+
+Same shape as `common_continuous`; the broadcast `D ∈ {-1, 0, +1}` dummy
+replaces the continuous regressor. Factor magnitudes are **preserved** in
+the OLS (no `.sign()` coercion at this layer — distinct from the
+`individual_sparse` PANEL pipeline). ADF persistence diagnostic is skipped
+per I6 (sparse regressors are not unit-root candidates).
+
+Failure modes:
+
+- per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
+- `n_assets` two-tier guard same as `common_continuous` (`SMALL_CROSS_SECTION_N` /
+  `BORDERLINE_CROSS_SECTION_N`).
+- The procedure does not currently impose a `n_events` floor on the
+  broadcast dummy — very-few-event factors can produce point estimates
+  driven by a single observation.
+- Cross-asset SE assumes asset-level independence (plan §4.3 spec); under
+  contemporaneous return correlation the standard t over-states
+  significance — Petersen (2009) clustered SE deferred per plan §11.
+
+### `common_continuous` (TIMESERIES, N=1) — time-series only
+
+```
+single-asset OLS y_t = α + β·F_t + ε   (time-series step)
+                                     →  NW HAC t-test on β
+                                     +  ADF persistence diagnostic on F
+```
+
+The N=1 collapse of `common_continuous`. Null is `β = 0` for the single
+series, not `E[β] = 0` across assets — semantically distinct from the
+PANEL form.
+
+Failure modes:
+
+- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
+- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
+- ADF p > 0.10 → `WarningCode.PERSISTENT_REGRESSOR`.
+
+### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
+
+```
+single-asset OLS y_t = α + β·D_t + ε on calendar-dense series   (time-series step)
+                                                              →  NW HAC t-test on β
+                                                              +  Ljung-Box on residual
+                                                              +  event_temporal_hhi
+                                                              +  event-window-overlap check
+```
+
+Reached from both `individual_sparse` and `common_sparse` at N=1 via the
+`_SCOPE_COLLAPSED` sentinel — at N=1 the two scopes are statistically
+equivalent (plan §5.4.1). The series is the **full calendar grid** with
+zero-padding on non-event dates (distinct from the PANEL CAAR pipeline,
+which works on the event-date-only series). Factor magnitudes are
+preserved (no `.sign()` coercion at this layer).
+
+Failure modes:
+
+- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
+- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
+- Ljung-Box p < 0.05 on residuals → `WarningCode.SERIAL_CORRELATION_DETECTED`.
+- Consecutive event gap < 2·`forward_periods` → `WarningCode.EVENT_WINDOW_OVERLAP`.
 
 ---
 
