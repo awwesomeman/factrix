@@ -12,6 +12,7 @@ from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import WarningCode
 from factrix._describe import (
+    DETECTED_KEYS,
     SuggestConfigResult,
     describe_analysis_modes,
     suggest_config,
@@ -345,6 +346,70 @@ class TestSuggestConfigCrossSectionNWarnings:
     def test_mode_reasoning_mentions_warning_at_small_n(self) -> None:
         result = suggest_config(_make_individual_continuous_panel_n(5))
         assert "SMALL_CROSS_SECTION_N" in result.reasoning["mode"]
+
+
+# ---------------------------------------------------------------------------
+# suggest_config — detected (issue #20)
+# ---------------------------------------------------------------------------
+
+
+class TestSuggestConfigDetected:
+    """`detected` carries the structured panel observations behind the
+    suggestion. Same data the reasoning strings narrate, but
+    machine-readable for AI agents / pipeline gates."""
+
+    @pytest.mark.parametrize(
+        "fixture_factory",
+        [
+            lambda: _make_individual_continuous_panel(),
+            lambda: _make_sparse_panel(),
+            lambda: _make_timeseries(n_dates=80, sparse=False, seed=41),
+        ],
+        ids=["individual_continuous", "sparse_panel", "timeseries"],
+    )
+    def test_keys_match_canonical_set(self, fixture_factory) -> None:
+        result = suggest_config(fixture_factory())
+        assert set(result.detected.keys()) == DETECTED_KEYS
+
+    def test_individual_continuous_values(self) -> None:
+        result = suggest_config(_make_individual_continuous_panel())
+        d = result.detected
+        assert d["scope"] == "individual"
+        assert d["signal"] == "continuous"
+        assert d["mode"] == "panel"
+        assert d["n_assets"] == 20
+        assert d["n_periods"] == 60
+        assert 0.0 <= d["sparsity"] < 0.5
+        assert d["magnitude_dropped"] is False
+
+    def test_sparse_values(self) -> None:
+        result = suggest_config(_make_sparse_panel())
+        d = result.detected
+        assert d["signal"] == "sparse"
+        assert d["sparsity"] >= 0.5
+        assert d["magnitude_dropped"] is False
+
+    def test_sparse_weighted_flags_magnitude_dropped(self) -> None:
+        result = suggest_config(_make_sparse_weighted_panel())
+        assert result.detected["magnitude_dropped"] is True
+
+    def test_timeseries_mode(self) -> None:
+        ts = _make_timeseries(n_dates=80, sparse=False, seed=42)
+        d = suggest_config(ts).detected
+        assert d["mode"] == "timeseries"
+        assert d["n_assets"] == 1
+        assert d["n_periods"] == 80
+
+    def test_consistency_with_suggested_config(self) -> None:
+        # detected.scope/signal must round-trip to the suggested config's axes.
+        for fixture in (
+            _make_individual_continuous_panel(),
+            _make_common_continuous_panel(),
+            _make_sparse_panel(),
+        ):
+            result = suggest_config(fixture)
+            assert result.detected["scope"] == result.suggested.scope.value
+            assert result.detected["signal"] == result.suggested.signal.value
 
 
 # ---------------------------------------------------------------------------

@@ -24,7 +24,39 @@ this section to the next versioned heading and adds a fresh `[Unreleased]`
 above it. This decouples per-PR cadence from per-tag cadence — see
 CONTRIBUTING §7 (Release workflow).
 
-### Changed (docs)
+### Added
+
+- **`WarningCode.SMALL_CROSS_SECTION_N`** + **`BORDERLINE_CROSS_SECTION_N`**
+  — emitted by the `common_continuous` PANEL procedure and by
+  `suggest_config` based on `n_assets`. `2 ≤ n_assets < 10` → SMALL
+  (df=`n_assets`-1 ≤ 8, t_crit inflated 18%–548% vs asymptotic 1.96);
+  `10 ≤ n_assets < 30` → BORDERLINE (residual inflation 5%–15%);
+  `n_assets ≥ 30` → no warning. Two-tier mirrors the existing
+  `n_periods` structure (`MIN_PERIODS_HARD` / `MIN_PERIODS_RELIABLE`).
+  SMALL implies BORDERLINE so only the more severe code emits per
+  profile. Procedure still runs at all `n_assets ≥ 2` — warnings
+  surface the inference-power decay rather than blocking execution.
+  (#17)
+- `MIN_ASSETS = 10` and `MIN_ASSETS_RELIABLE = 30` constants in
+  `factrix/_stats/constants.py`, alongside `MIN_PERIODS_HARD` /
+  `MIN_PERIODS_RELIABLE`. Naming deliberately omits `_HARD` for
+  `MIN_ASSETS` because the `n_assets` axis only warns — re-using the
+  `n_periods` `_HARD` (which means "raise") would mislead. (#17)
+- **`factrix.metrics`** module docstring gains a fifth category,
+  Time-Series / Standalone Diagnostic, listing the `ts_beta` family +
+  `ts_quantile_spread` + `ts_asymmetry`. `help(factrix.metrics)` now
+  surfaces them; previously the docstring categorisation hid them
+  despite being fully exported. (#19)
+- **`SuggestConfigResult.detected: dict[str, Any]`** — new field
+  carrying the structured panel observations behind the suggestion
+  (`scope`, `signal`, `mode`, `n_assets`, `n_periods`, `sparsity`,
+  `magnitude_dropped`). All keys always present, type-stable. AI
+  agents and pipeline gates branch on these without parsing the
+  `reasoning` strings or re-deriving observations from the raw panel.
+  `reasoning` (human-readable narrative) and `warnings` unchanged.
+  (#21)
+
+### Changed
 
 - README §樣本守門 重寫：新增「factory × `n_assets` regime 行為矩陣」表 +
   「計算順序對照」段 + 「兩軸守門對稱」表，明確區分
@@ -32,53 +64,22 @@ CONTRIBUTING §7 (Release workflow).
   `common_continuous`（time-series first → cross-asset）的計算順序差異——
   使用者誤以為兩者皆「先橫斷面再時序」是 `common_continuous` N=1 退化
   與 small-`n_assets` 結果不可信的根因。修正先前 L247「`n_assets` < 10
-  切 FM」誤導建議——FM 在 `n_assets` = 2..9 同樣不可靠。
+  切 FM」誤導建議——FM 在 `n_assets` = 2..9 同樣不可靠。 (#16)
 - ARCHITECTURE.md 增補 §Cross-sectional guards (`n_assets`)（two-tier
-  threshold 設計理由 + t_crit 衰減表 + 與 `MIN_PERIODS_*` 命名差異說明）
-  與 §Procedure pipelines（每個 PANEL continuous procedure 的計算管線、
-  small-`n_assets` failure mode、threshold 對應），把行為矩陣背後的
-  statistical rationale 集中到一處。
-
-### Added
-
-- **`WarningCode.SMALL_CROSS_SECTION_N`** + **`BORDERLINE_CROSS_SECTION_N`**
-  — emitted by the `common_continuous` PANEL procedure
-  (`_compute_common_panel`) and by `suggest_config` based on `n_assets`.
-  `2 ≤ n_assets < 10` → SMALL (df=`n_assets`-1 ≤ 8, t_crit inflated
-  18%–548% vs asymptotic 1.96); `10 ≤ n_assets < 30` → BORDERLINE
-  (residual inflation 5%–15%); `n_assets ≥ 30` → no warning. Two-tier
-  mirrors the existing `n_periods` structure (`MIN_PERIODS_HARD` /
-  `MIN_PERIODS_RELIABLE`); SMALL implies BORDERLINE so only the more
-  severe code emits per profile. Procedure still runs at all
-  `n_assets ≥ 2` — warnings surface the inference-power decay rather
-  than blocking execution. `suggest_config().reasoning["mode"]` is
-  amended to point at the corresponding code when `n_assets < 30`.
-- `MIN_ASSETS = 10` and `MIN_ASSETS_RELIABLE = 30` constants in
-  `factrix/_stats/constants.py`, alongside `MIN_PERIODS_HARD` /
-  `MIN_PERIODS_RELIABLE`. Naming deliberately omits `_HARD` for
-  `MIN_ASSETS` because the `n_assets` axis only warns — re-using the
-  `n_periods` `_HARD` (which means "raise") would mislead.
-- **`factrix.metrics`** module docstring gains a fifth category,
-  Time-Series / Standalone Diagnostic, listing the `ts_beta` family +
-  `ts_quantile_spread` + `ts_asymmetry`. `help(factrix.metrics)` now
-  surfaces them; previously the docstring categorisation hid them
-  despite being fully exported (#18).
-
-### Migration
-
+  threshold 設計理由 + t_crit 衰減表）與 §Procedure pipelines（每個 PANEL
+  continuous procedure 的計算管線、small-`n_assets` failure mode、threshold
+  對應），把行為矩陣背後的 statistical rationale 集中到一處。 (#16)
 - **`MIN_IC_PERIODS` → `MIN_ASSETS_PER_DATE_IC`** (in `factrix/_types.py`).
   The "PERIODS" suffix was misleading — the value has always been
-  checked against per-date asset counts, not period counts. **Direct
-  rename, no alias.** Pre-1.0 + single-consumer convention: callers
-  (factor-analysis workspace via SHA pin) update the import once.
+  checked against per-date asset counts, not period counts. **Migration:**
+  update the import; no deprecation alias kept (pre-1.0 + single-consumer
+  convention; the factor-analysis workspace pins by SHA). (#19)
 - **`WarningCode.UNRELIABLE_SE_SHORT_SERIES` → `UNRELIABLE_SE_SHORT_PERIODS`**.
-  Vocabulary aligned with the `n_periods` parameter name canonicalised
-  in #15. Both Python identifier and serialised string value change to
-  `"unreliable_se_short_periods"`. **Direct rename, no alias.** Update
-  imports + any string-based filters / log queries that match the old
-  value (#18).
-
-Refs #15, #18.
+  Vocabulary aligned with the `n_periods` parameter name canonicalised in
+  PR #16. Both Python identifier and serialised string value change to
+  `"unreliable_se_short_periods"`. **Migration:** update imports + any
+  string-based filters / log queries that match the old serialised value;
+  no alias kept. (#19)
 
 ## v0.7.0 (2026-05-04)
 
