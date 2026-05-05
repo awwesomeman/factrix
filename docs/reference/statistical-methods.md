@@ -329,6 +329,12 @@ net_spread     = gross_spread − 2 × (c_bps / 10000) × notional_turnover
   - 觀點：1000+ 假設尺度下的 empirical Bayes 處理；locally FDR 與 global FDR 的權衡。
   - 採用：論述支持 FDR 框架在 zoo-scale 的適用性；未直接實作 empirical Bayes 方法。
 
+### `bhy()` 家族分割設計
+
+`bhy()` 在執行 BHY step-up 前先將 profiles 依 **`(dispatch cell, forward_periods)`** 分成獨立家族，每個家族在自己的 p-value 池中做校正。這是有意識的設計：不同程序（IC vs FM vs TS）的 null distributions 不同、不同 horizon 的有效樣本也不同，混在同一個 BHY 池會稀釋門檻、誤導 FDR 控制。跨家族聚合由使用者自行決定。
+
+**單家族 `RuntimeWarning`**：若大多數家族只包含一個 profile（`singleton_families > 0 and len(families) > 1`），`bhy()` 會發出 `RuntimeWarning` — 單元素家族的 BHY 等同於原始截斷，並不提供 FDR 校正。典型觸發情境是逐個因子呼叫 `bhy()` 而非批次傳入同家族的候選因子。
+
 ### Two-stage screening 支援
 
 - `multiple_testing_correct(n_total=...)`：前篩後仍在原始候選池尺度做 BHY，避免倖存者偏差造成 FDR 低估。前提是前篩條件需與待校正 p-value **邊際獨立**。

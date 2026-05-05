@@ -19,7 +19,7 @@
 | **degraded** | 同 fallback，但**診斷欄位本身被停用**（Profile 欄位為 `None`）；計算仍跑，只是失去 cross-section 相關診斷 | `event_signal` N=1 → `clustering_hhi=None` | `diagnose()` info rule + Profile 欄位 `None` |
 | **short-circuit** | 樣本不足、input 缺失等情況下，metric 不嘗試計算，直接回傳 `NaN` + `metadata["reason"]` | T < MIN_ASSETS_PER_DATE_IC、N < MIN_TS_OBS 的 asset 全部被 skip 等 | `MetricOutput.metadata["reason"]` + `insufficient_metrics` tuple + cross-type `data.insufficient` rule |
 | **drop / skip** | 計算跑完，但某些 row / asset / date 被**靜默過濾**（例：per-date N<10 的 date 不進 IC 序列） | `compute_ic` 每日 N<10 drop；`compute_ts_betas` T<20 skip | `Artifacts.intermediates["coverage"]` 1-row summary |
-| **short-circuit → canonical p=1.0** | short-circuit 時 canonical p 保守壓到 1.0 確保 `verdict()` FAILED | 所有 metric short-circuit | 隱含 canonical p；`verdict()` 輸出 `FAILED` |
+| **short-circuit → `primary_p`=1.0** | short-circuit 時 `FactorProfile.primary_p` 保守壓到 1.0 確保 `verdict()` FAILED | 所有 metric short-circuit | 隱含 `primary_p`；`verdict()` 輸出 `FAILED` |
 
 **何時用哪個詞**：
 - Profile 欄位**有值但語意變**了 → 「fallback」
@@ -50,7 +50,7 @@
 | `cross_sectional` | IC 非重疊 t-test | **T/h**（期數）| 每 date N ≥ 2 才有 rank；per-date N 太小會 drop 掉該期 |
 | `macro_panel` | Fama-MacBeth λ 的 t-test | **T**（λ 序列長度，`MIN_FM_PERIODS=20`）| 每 date N ≥ 3 做 stage-1 OLS |
 | `macro_common` (N≥2) | 跨資產 t-test on per-asset β | **N**（資產數）| 每 asset T ≥ `MIN_TS_OBS=20` 估 β |
-| `macro_common` (N=1) | 單資產 OLS t-test（fallback，無 HAC 修正）| **T**（時序長度）| canonical p 保守壓到 1.0 |
+| `macro_common` (N=1) | 單資產 OLS t-test（fallback，無 HAC 修正）| **T**（時序長度）| `primary_p` 保守壓到 1.0 |
 | `event_signal` | CAAR 非重疊 t-test | **K/h**（非重疊事件數）| N 無下限；K ≥ `MIN_EVENTS=10` |
 
 **常見誤會**：「我有 1000 筆資料」不等於「樣本夠」 — 要看是 1000 個 (date, asset) pair、還是 1000 個事件、還是 1000 個非重疊期。同樣 1000 筆，在不同 factor_type 下可能樣本很充足或嚴重不足。
@@ -82,9 +82,9 @@
 - **Metric short-circuit**：算不出來時統一回傳
   - `value = NaN`
   - `metadata["reason"] = "insufficient_*"` 或其他具體原因
-  - `metadata["p_value"] = 1.0`（保守預設，BHY 一定拒絕）
+  - `metadata["p_value"] = 1.0`（保守預設）→ profile 建構時此值決定 `FactorProfile.primary_p`；`bhy()` 讀 `primary_p`，不直接讀 `metadata`
 - **`describe_profile_values()`**：NaN 顯示為 `—`，使用者一眼看見哪些欄位 skip；底部附 diagnostic 計數提示（`veto`/`warn`/`info` 數），引導 `profile.diagnose()`
-- **Verdict**：canonical p = 1.0 → verdict = `FAILED`（但這時 "FAILED" 的意義是「資料不足以判斷」而非「因子無效」）
+- **Verdict**：`primary_p` = 1.0 → verdict = `FAILED`（但這時 "FAILED" 的意義是「資料不足以判斷」而非「因子無效」）
 
 ### Fallback 通知管道對照
 
@@ -93,7 +93,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 | Fallback 類型 | 通知管道 | 如何取用 |
 |---|---|---|
 | **結構錯誤**：wrong factor_type、N=1 panel 餵 CS/MP | `raise ValueError` / `TypeError` | 不可避免；必須改 code |
-| **語意退化**：N=1 event CAAR 退化成單資產時間平均；N=1 macro_common canonical p → 1.0 | `profile.diagnose()` 回傳 info-severity `Diagnostic` | `for d in profile.diagnose(): print(d)` |
+| **語意退化**：N=1 event CAAR 退化成單資產時間平均；N=1 macro_common `primary_p` → 1.0 | `profile.diagnose()` 回傳 info-severity `Diagnostic` | `for d in profile.diagnose(): print(d)` |
 | **Metric 層短路**：樣本不足（MIN_* 未達）→ 欄位 NaN | `MetricOutput.metadata["reason"]` + Profile 欄位 `insufficient_metrics`（tuple）+ cross-type rule `data.insufficient` 觸發 warn-severity diagnose | `profile.insufficient_metrics`；或 `artifacts.metric_outputs["ic"].metadata["reason"]` |
 | **逐行 / 逐資產 drop**：`compute_ic` 丟 per-date N<10 的 date；`compute_ts_betas` skip T<20 的 asset | `artifacts.intermediates["coverage"]` 1-row DataFrame（欄位 `axis / n_total / n_kept / n_dropped / drop_reason`，CS 的 `axis='dates'`、MC 的 `axis='assets'`） | `art.get("coverage").row(0, named=True)` 讀對應數字 |
 | **Factor-type 選錯提示**：`describe_profile_values` 底部顯示 diagnostic 計數 | stdout print | 視覺線索，非 programmatic |
@@ -206,7 +206,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 ### N=1 的保守 fallback 設計與解讀
 底層切到 `ts_beta_single_asset_fallback`：
 1. 對該單一資產做**plain OLS** TS regression 算 β 與 t-stat（SE 為 `sqrt(σ² · (X'X)⁻¹)`，**未做 HAC 修正**）
-2. **canonical `ts_beta_p` 保守地壓到 1.0** — 為避免 N=1 時使用者誤把單資產顯著誤讀成跨資產 premium
+2. **`primary_p`（由 `ts_beta_p` 決定）保守地壓到 1.0** — 為避免 N=1 時使用者誤把單資產顯著誤讀成跨資產 premium
 3. `ts_beta_tstat` 欄位仍保留實際 t-stat 值 — 供使用者自己讀
 4. `diagnose()` 發出 `macro_common.single_asset` info 提示退化路徑
 
@@ -272,7 +272,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 |---|---|---|
 | **COMMON × CONTINUOUS, PANEL** (N≥2) | ✓ 收成 `equal_weight` per-date（`metadata["aggregation"]` 記錄）| ✓ |
 | **COMMON × CONTINUOUS, TIMESERIES** (N=1) | ✓ | ✓ |
-| **INDIVIDUAL × CONTINUOUS** (任何 mode) | ✗ guard → 改用 cross-sectional `quantile_spread` | ✗ → `quantile_spread.long_alpha / short_alpha` |
+| **INDIVIDUAL × CONTINUOUS** (任何 mode) | ✗ guard → `_FALLBACK_MAP` 自動切到 `AnalysisConfig.common_continuous()` | ✗ → `quantile_spread.long_alpha / short_alpha` |
 | **(\*, SPARSE / binary / ternary)** | ✗ Gate A → `event_quality.*` | ✗ Gate B → `event_hit_rate` |
 | **factor 全 ≥ 0 或全 ≤ 0** | ✓ | ✗ Gate B（無雙側）→ 整個 metric 短路，reason 寫入 `metadata["reason"]`（method 不分 A/B，兩個都不出）；Gate C 失敗才是「method A 出、method B 不出」，由 `metadata["method_b_skipped"]` 記錄 |
 
@@ -290,7 +290,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 ## 常見 decision tree（給 debug 用）
 
 ```
-我的 Profile 顯示 canonical p = 1.0 → FAILED
+我的 Profile 顯示 `primary_p` = 1.0 → FAILED
   │
   ├─ describe_profile_values 看到 canonical 欄位顯示 "—"？
   │    └─ YES → 資料不足，查 metadata["reason"]
@@ -304,7 +304,7 @@ factrix 預設採**拉式**通知（user 主動呼叫 `.diagnose()` / 讀 `metad
 我懷疑 factor_type 選錯了
   │
   ├─ N=1？
-  │    ├─ 共用時序（VIX、DXY）      → macro_common（保守 fallback，canonical p=1.0）
+  │    ├─ 共用時序（VIX、DXY）      → macro_common（保守 fallback，`primary_p`=1.0）
   │    ├─ 稀疏事件（單標的 earnings）→ event_signal（clustering_hhi 自停用，CAAR 語意改）
   │    └─ 連續因子（單標的 P/E-like）→ README coverage gap（目前無 first-class 支援）
   ├─ 2 ≤ N < 30？ → macro_panel（連續）或 event_signal（稀疏）
