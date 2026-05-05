@@ -36,6 +36,7 @@ theme:
 
 hooks:
   - scripts/gen_metric_matrix.py
+  - scripts/sync_examples.py
 
 plugins:
   - search:
@@ -111,7 +112,9 @@ nav:
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
       - Batch screening (BHY): guides/batch-screening.md
       - Choosing a metric: guides/choosing-metric.md
-      - Examples: examples/demo.ipynb
+  - Examples:
+      - examples/index.md
+      - End-to-end walkthrough: examples/demo.ipynb
   - Reference:
       - Methodology: reference/methodology.md
       - Statistical methods: reference/statistical-methods.md

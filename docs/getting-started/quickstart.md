@@ -1,6 +1,10 @@
 # Quickstart
 
-> **`forward_periods` is rows, not calendar time.** factrix is frequency-agnostic — it only shifts row indices. `forward_periods=5` on a daily panel = 5 trading days; on a weekly panel = 5 weeks. The caller is responsible for ensuring the panel is sorted per asset and has regular time spacing.
+> **`forward_periods` counts rows, not calendar time.** factrix is
+> frequency-agnostic — it only shifts row indices. `forward_periods=5` on a
+> daily panel means 5 trading days; on a weekly panel, 5 weeks. The caller is
+> responsible for ensuring the panel is sorted per asset and has regular time
+> spacing.
 
 ## 30-second smoke test
 
@@ -11,11 +15,7 @@ from factrix.preprocess.returns import compute_forward_return
 raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
-# Path A — let factrix infer the scenario from data shape
-result  = fl.suggest_config(panel)
-profile = fl.evaluate(panel, result.suggested)
-
-# Path B — supply the config directly (type-safe, IDE validates illegal combos)
+# Path B — supply the config directly (type-safe; the IDE rejects illegal combos)
 cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
 profile = fl.evaluate(panel, cfg)
 
@@ -28,23 +28,34 @@ print(profile.diagnose())
 #  'stats': {'ic_mean': 0.0722, 'ic_t_nw': 14.60, ...}}
 ```
 
-Path A suits first-time exploration — `result.reasoning` explains why each axis was inferred, `result.warnings` lists potential risks.
+If you are not sure which factory to use, let factrix infer it from the
+panel shape:
 
-## Research question → factory lookup
+```python
+# Path A — inferred config + reasoning trace
+result  = fl.suggest_config(panel)
+profile = fl.evaluate(panel, result.suggested)
+# result.reasoning explains how each axis was inferred
+# result.warnings flags potential risks (small N, persistence, …)
+```
 
-| 你想問的問題 | Factory |
-|---|---|
-| 我的 per-asset 因子（P/E、momentum）能否預測 cross-section 排序？ | `individual_continuous(metric=fl.Metric.IC)` |
-| 我的 per-asset 因子每多一單位 exposure 對應多少報酬溢酬？ | `individual_continuous(metric=fl.Metric.FM)` |
-| 個股事件（earnings / rating / 併購公告）有沒有 abnormal return？ | `individual_sparse()` |
-| Macro 因子（VIX / DXY / 利率）對 cross-section 有沒有 systematic exposure？ | `common_continuous()` |
-| Macro 事件（FOMC / index rebalance / 政策公布）有沒有市場效應？ | `common_sparse()` |
+See [Concepts](concepts.md) for what each axis means.
 
-> **N=1（single asset / series）**: mode auto-switches to TIMESERIES. Macro and sparse rows work as-is; `individual_continuous` at N=1 raises `ModeAxisError` with a `suggested_fix` pointing to `common_continuous()`.
+## Research question → factory
 
-## `profile.diagnose()` and WarningCode
+The five supported research questions and their factory calls live in
+[Concepts § Five analysis scenarios](concepts.md#five-analysis-scenarios)
+— that page is also the SSOT for the procedure and literature behind each
+factory. For task-oriented help on **picking** the right factory (IC vs FM,
+when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 
-`diagnose()` returns a flat dict for human reading or AI agent triage:
+> **N = 1 (single asset / series):** `Mode` auto-switches to `TIMESERIES`. The
+> macro and sparse factories work as-is. `individual_continuous` at N=1
+> raises `ModeAxisError` with `suggested_fix=common_continuous(...)`.
+
+## `profile.diagnose()` and warnings
+
+`diagnose()` returns a flat dict for human inspection or AI agent triage:
 
 ```python
 {
@@ -57,11 +68,15 @@ Path A suits first-time exploration — `result.reasoning` explains why each axi
 }
 ```
 
-| WarningCode | Trigger |
-|---|---|
+The most common warnings:
+
+| `WarningCode` | Trigger |
+|---------------|---------|
 | `UNRELIABLE_SE_SHORT_PERIODS` | `n_periods < 30` — NW HAC SE unstable |
 | `PERSISTENT_REGRESSOR` | factor ADF p > 0.10 |
 | `EVENT_WINDOW_OVERLAP` | event windows overlap (CAAR / sparse) |
 | `SERIAL_CORRELATION_DETECTED` | Ljung-Box p < 0.05 on residuals |
 
-`warnings` does **not** affect `verdict()`. It is a risk flag — user decides whether to filter before BHY. `verdict()` reads only `primary_p < threshold`.
+`warnings` does **not** affect `verdict()` — it is a risk flag. The user
+decides whether to filter on warnings before BHY. `verdict()` reads only
+`primary_p < threshold`.

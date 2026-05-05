@@ -1,16 +1,13 @@
 # Choosing a Metric
 
-## Which scenario?
+This page is task-oriented: assume you already know factrix exists and you
+need to pick a factory. For the canonical 5-scenario table (research
+question → factory → procedure → literature) see
+[Concepts § Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios).
 
-| Research question | Factory |
-|---|---|
-| Does my per-asset factor predict cross-section rank? | `individual_continuous(metric=IC)` |
-| What is the unit-exposure return premium? | `individual_continuous(metric=FM)` |
-| Do individual stock events carry abnormal return? | `individual_sparse()` |
-| Does a macro factor explain cross-section systematically? | `common_continuous()` |
-| Does a macro event move the market? | `common_sparse()` |
-
-Factory methods are type-safe constructors. Unsupported combinations (e.g. `metric=IC` on a sparse signal) are caught by the IDE before runtime.
+Factory methods are type-safe constructors. Unsupported combinations (e.g.
+`metric=IC` on a sparse signal) are caught by the IDE before runtime — no
+need to memorise the legal axis triples.
 
 ## IC vs FM
 

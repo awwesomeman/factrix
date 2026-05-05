@@ -190,47 +190,36 @@ to the resulting profile so the routing is auditable.
 
 ## Sample guards
 
-`factrix/_stats/constants.py`:
-
-- `MIN_PERIODS_HARD = 20` — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`
-- `MIN_PERIODS_RELIABLE = 30` — `n_periods < MIN_PERIODS_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_PERIODS`
-- `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule
-- Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` — ensures NW lag covers MA(h-1) structure from overlapping forward returns
-
-`factrix/_types.py` keeps the older per-metric thresholds (`MIN_ASSETS_PER_DATE_IC = 10`,
-`MIN_EVENTS = 10`, etc.) used internally by the metric primitives that
-procedures wrap.
-
-### Cross-sectional guards (`n_assets`)
+User-facing tier semantics (hard block / soft warning / clean) live in
+[Guides § PANEL vs TIMESERIES — Sample guards](../guides/panel-timeseries.md#sample-guards).
+This section catalogues the **internal constants** that back those tiers.
 
 `factrix/_stats/constants.py`:
 
-- `MIN_ASSETS = 10` — `n_assets < MIN_ASSETS` emits `WarningCode.SMALL_CROSS_SECTION_N`
-  from the `common_continuous` PANEL procedure and from `suggest_config`.
-  df = `n_assets` − 1 → t_crit at `n_assets` = 3 ≈ 4.30 (+119% vs asymptotic 1.96),
-  at `n_assets` = 5 ≈ 2.78 (+42%). Test still runs; warning surfaces the
-  inflation so caller can collect more cross-section before trusting reject
-  decisions.
-- `MIN_ASSETS_RELIABLE = 30` — `MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE`
-  emits `WarningCode.BORDERLINE_CROSS_SECTION_N`. df → t_crit at
-  `n_assets` = 10 ≈ 2.26 (+15%), at `n_assets` = 20 ≈ 2.09 (+7%). The gross
-  failure tier is cleared, but residual t-stat inflation matters for borderline
-  p-values (e.g. p ≈ 0.04 should be read as "borderline at this `n_assets`",
-  not "rejected").
+- `MIN_PERIODS_HARD = 20`, `MIN_PERIODS_RELIABLE = 30` — the two-tier `n_periods` thresholds.
+- `MIN_ASSETS = 10`, `MIN_ASSETS_RELIABLE = 30` — the two-tier `n_assets` thresholds. The
+  `n_assets` axis never raises (cross-asset t-test on E[β] is mathematically defined for
+  `n_assets ≥ 2`), so constant naming deliberately drops the `_HARD` suffix to avoid
+  implying a raise.
+- `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule.
+- Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` —
+  ensures NW lag covers MA(h-1) structure from overlapping forward returns.
 
-Symmetric with the `n_periods` two-tier (`MIN_PERIODS_HARD = 20` raises
-`InsufficientSampleError`; `MIN_PERIODS_RELIABLE = 30` emits
-`UNRELIABLE_SE_SHORT_PERIODS`). The `n_assets` axis never raises because
-the cross-asset t-test on E[β] is mathematically well-defined for
-`n_assets ≥ 2` — only its statistical power degrades. Constant naming
-deliberately drops the `_HARD` suffix on `MIN_ASSETS` to avoid implying a
-raise; `_RELIABLE` mirrors the `n_periods` semantics.
+`factrix/_types.py` keeps the older per-metric thresholds used internally by the metric
+primitives that procedures wrap:
 
-`MIN_ASSETS_PER_DATE_IC = 10` (in `factrix/_types.py`) drops dates with
-fewer than 10 assets from `compute_ic`. At `n_assets` < 10 the IC procedure
-short-circuits to NaN because every date is dropped. `compute_fm_betas`
-carries an inline `if len(y) < 3: continue` guard but no per-date min
-above 3.
+- `MIN_ASSETS_PER_DATE_IC = 10` — `compute_ic` drops dates with fewer than 10 assets;
+  at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
+- `MIN_EVENTS = 10` — sparse-cell event-count floor.
+- `compute_fm_betas` carries an inline `if len(y) < 3: continue` guard, no per-date min above 3.
+
+### Inflation cost at low `n_assets`
+
+For interpreting borderline p-values when `n_assets` falls in the warning bands:
+df = `n_assets` − 1 → t_crit at `n_assets` = 3 ≈ 4.30 (+119% vs asymptotic 1.96),
+at 5 ≈ 2.78 (+42%), at 10 ≈ 2.26 (+15%), at 20 ≈ 2.09 (+7%). The test still
+runs; the warning surfaces the inflation so callers can read p ≈ 0.04 as
+"borderline at this `n_assets`" rather than "rejected".
 
 ---
 
