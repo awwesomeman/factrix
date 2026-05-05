@@ -108,8 +108,7 @@ def adapt(
             continue
         if source not in df.columns:
             raise ValueError(
-                f"adapt: column '{source}' not found. "
-                f"Available: {df.columns}"
+                f"adapt: column '{source}' not found. Available: {df.columns}"
             )
         if canonical in df.columns:
             raise ValueError(

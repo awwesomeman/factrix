@@ -60,12 +60,12 @@ def orthogonalize_factor(
         - ``mean_r_squared``: average R² across dates.
     """
     if base_cols is None:
-        base_cols = [
-            c for c in base_factors.columns if c not in ("date", "asset_id")
-        ]
+        base_cols = [c for c in base_factors.columns if c not in ("date", "asset_id")]
 
     if not base_cols:
-        logger.warning("orthogonalize_factor: no base_cols specified, returning unchanged")
+        logger.warning(
+            "orthogonalize_factor: no base_cols specified, returning unchanged"
+        )
         return OrthogonalizeResult(df=factor_df)
 
     # WHY: join 確保 date × asset_id 對齊
@@ -108,7 +108,9 @@ def orthogonalize_factor(
             all_r2.append(1.0 - ss_res / ss_tot if ss_tot > EPSILON else 0.0)
         except np.linalg.LinAlgError:
             dt = chunk["date"][0]
-            logger.warning("orthogonalize: lstsq failed for date %s, keeping original", dt)
+            logger.warning(
+                "orthogonalize: lstsq failed for date %s, keeping original", dt
+            )
             residual = y
 
         residuals_list.append(
@@ -125,8 +127,7 @@ def orthogonalize_factor(
 
     # WHY: 保留正交化前的原始值供比較分析
     result = (
-        factor_df
-        .with_columns(pl.col(factor_col).alias("factor_pre_ortho"))
+        factor_df.with_columns(pl.col(factor_col).alias("factor_pre_ortho"))
         .join(residuals_df, on=["date", "asset_id"], how="left")
         .with_columns(
             pl.col("_residual").fill_null(pl.col(factor_col)).alias(factor_col)
@@ -143,12 +144,16 @@ def orthogonalize_factor(
         logger.warning(
             "orthogonalize_factor: %.1f%% of rows (%d/%d) not orthogonalized "
             "(base factor coverage gap — original values kept for those rows)",
-            drop_pct, n_total - n_ortho, n_total,
+            drop_pct,
+            n_total - n_ortho,
+            n_total,
         )
 
     logger.info(
         "orthogonalize_factor: processed %d dates, %d base factors, %.1f%% coverage",
-        n_dates, n_base, 100 - drop_pct,
+        n_dates,
+        n_base,
+        100 - drop_pct,
     )
 
     # Attribution: average betas and R² across dates

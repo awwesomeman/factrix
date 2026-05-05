@@ -11,7 +11,9 @@ class TestPointEstimates:
     def test_recovers_ols_at_lags_zero(self):
         rng = np.random.default_rng(0)
         n = 500
-        X = np.column_stack([np.ones(n), rng.standard_normal(n), rng.standard_normal(n)])
+        X = np.column_stack(
+            [np.ones(n), rng.standard_normal(n), rng.standard_normal(n)]
+        )
         true_beta = np.array([0.5, 1.2, -0.7])
         y = X @ true_beta + rng.standard_normal(n) * 0.3
         beta, _V, _ = _ols_nw_multivariate(y, X, lags=0)

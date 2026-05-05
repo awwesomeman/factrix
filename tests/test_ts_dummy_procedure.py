@@ -99,7 +99,10 @@ def cfg_common() -> AnalysisConfig:
 class TestRegistryWiring:
     def test_sentinel_keyed_entry_is_real(self) -> None:
         key = _DispatchKey(
-            _SCOPE_COLLAPSED, Signal.SPARSE, None, Mode.TIMESERIES,
+            _SCOPE_COLLAPSED,
+            Signal.SPARSE,
+            None,
+            Mode.TIMESERIES,
         )
         assert isinstance(
             _DISPATCH_REGISTRY[key].procedure,
@@ -110,7 +113,10 @@ class TestRegistryWiring:
         schema = _TSDummySparseTimeseriesProcedure.INPUT_SCHEMA
         assert isinstance(schema, InputSchema)
         assert set(schema.required_columns) == {
-            "date", "asset_id", "factor", "forward_return",
+            "date",
+            "asset_id",
+            "factor",
+            "forward_return",
         }
 
 
@@ -130,7 +136,8 @@ class TestStrongTrigger:
             beta=2.0,
         )
         return _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
 
     def test_passes_verdict(self, profile: FactorProfile) -> None:
@@ -156,27 +163,37 @@ class TestStrongTrigger:
 
 class TestRandomSparse:
     def test_random_dummy_fails_at_default_threshold(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=120, seed=10, event_density=0.08, beta=0.0,
+            n_dates=120,
+            seed=10,
+            event_density=0.08,
+            beta=0.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert profile.verdict() is Verdict.FAIL
 
 
 class TestSerialCorrelationWarning:
     def test_ar1_residuals_trigger_serial_correlation(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=200, seed=99, event_density=0.05,
-            beta=0.0, noise_kind="ar1",
+            n_dates=200,
+            seed=99,
+            event_density=0.05,
+            beta=0.0,
+            noise_kind="ar1",
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert WarningCode.SERIAL_CORRELATION_DETECTED in profile.warnings
         assert profile.stats[StatCode.LJUNG_BOX_P] < 0.05
@@ -189,29 +206,35 @@ class TestSerialCorrelationWarning:
 
 class TestEventOverlapWarning:
     def test_clustered_events_trigger_overlap(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         # Three events three days apart — well below 2*forward_periods=10.
         ts = _make_sparse_ts(
-            n_dates=120, seed=3,
+            n_dates=120,
+            seed=3,
             event_positions=[20, 23, 26],
             beta=0.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert WarningCode.EVENT_WINDOW_OVERLAP in profile.warnings
 
     def test_well_spaced_events_do_not_trigger(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=120, seed=4,
+            n_dates=120,
+            seed=4,
             event_positions=list(range(5, 120, 20)),
             beta=0.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert WarningCode.EVENT_WINDOW_OVERLAP not in profile.warnings
 
@@ -223,40 +246,49 @@ class TestEventOverlapWarning:
 
 class TestSampleSizeStratification:
     def test_T_below_hard_floor_raises(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_PERIODS_HARD - 1, seed=1,
-            event_positions=[2, 6, 10], beta=1.0,
+            n_dates=MIN_PERIODS_HARD - 1,
+            seed=1,
+            event_positions=[2, 6, 10],
+            beta=1.0,
         )
         with pytest.raises(InsufficientSampleError):
             _TSDummySparseTimeseriesProcedure().compute(ts, cfg_individual)
 
     def test_T_in_warning_band_emits_warning(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_PERIODS_HARD, seed=2,
-            event_positions=[3, 8, 13, 18], beta=1.0,
+            n_dates=MIN_PERIODS_HARD,
+            seed=2,
+            event_positions=[3, 8, 13, 18],
+            beta=1.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in profile.warnings
 
     def test_T_at_reliable_floor_no_se_warning(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_PERIODS_RELIABLE, seed=3,
-            event_positions=list(range(4, 30, 5)), beta=1.0,
+            n_dates=MIN_PERIODS_RELIABLE,
+            seed=3,
+            event_positions=list(range(4, 30, 5)),
+            beta=1.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
-        assert (
-            WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
-        )
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +303,8 @@ class TestSentinelCollapse:
         cfg_common: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=120, seed=55,
+            n_dates=120,
+            seed=55,
             event_positions=list(range(5, 120, 10)),
             beta=1.5,
         )
@@ -337,27 +370,37 @@ class TestNWLagsFloorTSDummy:
     that already pin the same Hansen-Hodrick floor on their cells)."""
 
     def test_short_series_uses_hh_floor(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         # T=24 → auto_bartlett(24)=int(4*0.24**(2/9))=int(2.93)=2; the
         # config's forward_periods=5 → HH floor = 5-1 = 4. Floor wins.
         ts = _make_sparse_ts(
-            n_dates=24, seed=99, event_density=0.20, beta=2.0,
+            n_dates=24,
+            seed=99,
+            event_density=0.20,
+            beta=2.0,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert profile.stats[StatCode.NW_LAGS_USED] == 4.0
 
     def test_long_series_uses_auto_bartlett(
-        self, cfg_individual: AnalysisConfig,
+        self,
+        cfg_individual: AnalysisConfig,
     ) -> None:
         # T=400 → auto_bartlett(400)=int(4*4**(2/9))=int(5.34)=5; HH
         # floor = 5-1 = 4. auto_bartlett wins.
         ts = _make_sparse_ts(
-            n_dates=400, seed=7, event_density=0.05, beta=1.5,
+            n_dates=400,
+            seed=7,
+            event_density=0.05,
+            beta=1.5,
         )
         profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts, cfg_individual,
+            ts,
+            cfg_individual,
         )
         assert profile.stats[StatCode.NW_LAGS_USED] == 5.0

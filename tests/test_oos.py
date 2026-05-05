@@ -75,6 +75,7 @@ class TestMultiSplitOOSDecay:
     def test_returns_metric_output(self, ic_series_positive):
         """Single-contract check: oos_decay returns MetricOutput, not OOSResult."""
         from factrix._types import MetricOutput
+
         result = multi_split_oos_decay(ic_series_positive)
         assert isinstance(result, MetricOutput)
         assert result.name == "oos_decay"
@@ -88,7 +89,11 @@ class TestMultiSplitOOSDecay:
         for entry in result.metadata["per_split"]:
             assert isinstance(entry, dict)
             assert set(entry.keys()) == {
-                "is_ratio", "mean_is", "mean_oos", "survival_ratio", "sign_flipped",
+                "is_ratio",
+                "mean_is",
+                "mean_oos",
+                "survival_ratio",
+                "sign_flipped",
             }
 
 

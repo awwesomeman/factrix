@@ -16,13 +16,17 @@ from factrix.metrics.spanning import (
 )
 
 
-def _make_spread_series(n_dates: int, mean: float, std: float, seed: int) -> pl.DataFrame:
+def _make_spread_series(
+    n_dates: int, mean: float, std: float, seed: int
+) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
-    return pl.DataFrame({
-        "date": dates,
-        "spread": rng.normal(mean, std, n_dates),
-    }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return pl.DataFrame(
+        {
+            "date": dates,
+            "spread": rng.normal(mean, std, n_dates),
+        }
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
 class TestSpanningTest:
@@ -37,10 +41,15 @@ class TestSpanningTest:
         base = _make_spread_series(200, 0.01, 0.01, 42)
         dates = base["date"].to_list()
         # candidate ≈ 2*base → alpha ≈ 0 after controlling for base
-        spanned_vals = 2 * base["spread"].to_numpy() + np.random.default_rng(99).normal(0, 0.001, 200)
-        candidate = pl.DataFrame({
-            "date": dates, "spread": spanned_vals,
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        spanned_vals = 2 * base["spread"].to_numpy() + np.random.default_rng(99).normal(
+            0, 0.001, 200
+        )
+        candidate = pl.DataFrame(
+            {
+                "date": dates,
+                "spread": spanned_vals,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = spanning_alpha(candidate, base_spreads={"base": base})
         assert abs(result.stat) < 2.0
 
@@ -51,6 +60,7 @@ class TestSpanningTest:
 
     def test_returns_metric_output(self):
         from factrix._types import MetricOutput
+
         factor = _make_spread_series(100, 0.02, 0.005, 42)
         result = spanning_alpha(factor)
         assert isinstance(result, MetricOutput)
@@ -91,7 +101,8 @@ class TestGreedyForwardSelection:
         # Factor B: pure noise
         b = _make_spread_series(100, 0.0, 0.01, 99)
         result = greedy_forward_selection(
-            {"A": a, "B": b}, suppress_snooping_warning=True,
+            {"A": a, "B": b},
+            suppress_snooping_warning=True,
         )
         selected_names = [s.factor_name for s in result.selected_factors]
         assert "A" in selected_names
@@ -100,11 +111,15 @@ class TestGreedyForwardSelection:
         base = _make_spread_series(100, 0.01, 0.005, 42)
         # Candidate = base + tiny noise → fully spanned
         dates = base["date"].to_list()
-        spanned_vals = base["spread"].to_numpy() + np.random.default_rng(99).normal(0, 0.0001, 100)
-        spanned = pl.DataFrame({
-            "date": dates,
-            "spread": spanned_vals,
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        spanned_vals = base["spread"].to_numpy() + np.random.default_rng(99).normal(
+            0, 0.0001, 100
+        )
+        spanned = pl.DataFrame(
+            {
+                "date": dates,
+                "spread": spanned_vals,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = greedy_forward_selection(
             {"spanned": spanned},
             base_spreads={"base": base},
@@ -123,11 +138,16 @@ class TestGreedyForwardSelection:
         # B: initially looks good, but once A is in, B is redundant (B ≈ A + tiny noise)
         b_vals = a_vals + rng.normal(0, 0.0005, n)
 
-        a = pl.DataFrame({"date": dates, "spread": a_vals}).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        b = pl.DataFrame({"date": dates, "spread": b_vals}).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        a = pl.DataFrame({"date": dates, "spread": a_vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        b = pl.DataFrame({"date": dates, "spread": b_vals}).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
 
         result = greedy_forward_selection(
-            {"A": a, "B": b}, suppress_snooping_warning=True,
+            {"A": a, "B": b},
+            suppress_snooping_warning=True,
         )
         selected_names = [s.factor_name for s in result.selected_factors]
         # At most one should survive — they're nearly identical
@@ -135,14 +155,16 @@ class TestGreedyForwardSelection:
 
     def test_empty_candidates(self):
         result = greedy_forward_selection(
-            {}, suppress_snooping_warning=True,
+            {},
+            suppress_snooping_warning=True,
         )
         assert result.selected_factors == []
 
     def test_insufficient_dates(self):
         short = _make_spread_series(5, 0.01, 0.005, 42)
         result = greedy_forward_selection(
-            {"short": short}, suppress_snooping_warning=True,
+            {"short": short},
+            suppress_snooping_warning=True,
         )
         assert result.selected_factors == []
 
@@ -151,7 +173,9 @@ class TestGreedyForwardSelection:
         for i in range(10):
             factors[f"f_{i}"] = _make_spread_series(100, 0.02 + i * 0.005, 0.005, i)
         result = greedy_forward_selection(
-            factors, max_factors=2, suppress_snooping_warning=True,
+            factors,
+            max_factors=2,
+            suppress_snooping_warning=True,
         )
         assert len(result.selected_factors) <= 2
 
@@ -167,7 +191,8 @@ class TestGreedyForwardSelection:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             result = greedy_forward_selection(
-                {"A": a}, suppress_snooping_warning=True,
+                {"A": a},
+                suppress_snooping_warning=True,
             )
         # Contract: flag stays truthy even when the warning is silenced.
         assert result.t_stats_inference_invalid is True

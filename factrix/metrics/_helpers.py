@@ -43,10 +43,7 @@ def _aggregate_to_per_date(
             pl.col(factor_col).mean().alias(factor_alias),
             pl.col(return_col).mean().alias(return_alias),
         )
-        .filter(
-            pl.col(factor_alias).is_not_null()
-            & pl.col(return_alias).is_not_null()
-        )
+        .filter(pl.col(factor_alias).is_not_null() & pl.col(return_alias).is_not_null())
         .sort("date")
         .collect()
     )
@@ -93,11 +90,7 @@ def _pick_event_return_col(df: pl.DataFrame) -> str:
     pipeline agree on the same choice — diverging would silently route
     the same Factor call through different series.
     """
-    return (
-        "abnormal_return"
-        if "abnormal_return" in df.columns
-        else "forward_return"
-    )
+    return "abnormal_return" if "abnormal_return" in df.columns else "forward_return"
 
 
 def _sample_non_overlapping(
@@ -141,7 +134,9 @@ def _sample_non_overlapping(
     logger = get_metrics_logger()
     logger.debug(
         "non_overlap_sample: forward_periods=%d n_dates_before=%d n_after=%d",
-        forward_periods, df["date"].n_unique(), n_after,
+        forward_periods,
+        df["date"].n_unique(),
+        n_after,
     )
     # WARNING: post-sampling series shorter than 1.5x the usual minimum is
     # a red flag — downstream t-tests either short-circuit or operate on
@@ -152,7 +147,9 @@ def _sample_non_overlapping(
             "non_overlap_sample shrunk to n=%d (< %d = MIN_ASSETS_PER_DATE_IC*1.5); "
             "downstream significance tests may be unreliable. "
             "forward_periods=%d",
-            n_after, min_safe, forward_periods,
+            n_after,
+            min_safe,
+            forward_periods,
         )
     return result
 
@@ -215,12 +212,7 @@ def _assign_quantile_groups(
     Returns:
         DataFrame with ``_group`` column appended.
     """
-    rank_expr = (
-        pl.col(factor_col)
-        .rank(method=tie_policy)
-        .over("date")
-        .alias("_rank")
-    )
+    rank_expr = pl.col(factor_col).rank(method=tie_policy).over("date").alias("_rank")
     return (
         df.with_columns(
             rank_expr,
@@ -298,9 +290,7 @@ def _warn_high_tie_ratio(
 def _median_universe_size(df: pl.DataFrame) -> int:
     """Median number of unique assets per date."""
     return int(
-        df.group_by("date")
-        .agg(pl.col("asset_id").n_unique().alias("n"))
-        ["n"].median()
+        df.group_by("date").agg(pl.col("asset_id").n_unique().alias("n"))["n"].median()
     )
 
 
@@ -320,5 +310,3 @@ def _signed_car(
         1-D numpy array of signed abnormal returns.
     """
     return df[return_col].to_numpy() * np.sign(df[factor_col].to_numpy())
-
-

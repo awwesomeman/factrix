@@ -116,13 +116,9 @@ def turnover(
         ``2h + 1`` minimum-date floor for non-overlap pair stride ``h``.
     """
     if quantile is not None and not 0.0 < quantile < 0.5:
-        raise ValueError(
-            f"quantile must be in (0, 0.5), got {quantile!r}"
-        )
+        raise ValueError(f"quantile must be in (0, 0.5), got {quantile!r}")
     if forward_periods < 1:
-        raise ValueError(
-            f"forward_periods must be ≥ 1, got {forward_periods!r}"
-        )
+        raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
 
     all_dates = df["date"].unique().sort()
     # Need ≥ 2 non-overlapping pairs so std(ρ) is defined; that requires
@@ -130,15 +126,18 @@ def turnover(
     min_required = 2 * forward_periods + 1
     if len(all_dates) < min_required:
         return _short_circuit_output(
-            "turnover", "insufficient_dates",
-            n_observed=len(all_dates), min_required=min_required,
+            "turnover",
+            "insufficient_dates",
+            n_observed=len(all_dates),
+            min_required=min_required,
             forward_periods=forward_periods,
         )
 
     sampled_df = _sample_non_overlapping(df, forward_periods)
 
     ranked = sampled_df.select(
-        "date", "asset_id",
+        "date",
+        "asset_id",
         pl.col(factor_col).rank(method="average").over("date").alias("rank_curr"),
         pl.len().over("date").alias("n_curr"),
     ).sort("asset_id", "date")
@@ -172,9 +171,12 @@ def turnover(
 
     if rc_per_date.height < 2:
         return _short_circuit_output(
-            "turnover", "insufficient_pairs",
-            n_observed=rc_per_date.height, min_required=2,
-            forward_periods=forward_periods, quantile=quantile,
+            "turnover",
+            "insufficient_pairs",
+            n_observed=rc_per_date.height,
+            min_required=2,
+            forward_periods=forward_periods,
+            quantile=quantile,
         )
 
     rc_arr = rc_per_date["rc"].to_numpy()
@@ -260,13 +262,10 @@ def notional_turnover(
         Trading Costs."
     """
     if forward_periods < 1:
-        raise ValueError(
-            f"forward_periods must be ≥ 1, got {forward_periods!r}"
-        )
+        raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
     if n_groups < 3:
         raise ValueError(
-            f"n_groups must be ≥ 3 (need distinct top/bottom buckets), "
-            f"got {n_groups!r}"
+            f"n_groups must be ≥ 3 (need distinct top/bottom buckets), got {n_groups!r}"
         )
 
     if forward_periods > 1:
@@ -275,20 +274,20 @@ def notional_turnover(
     dates = df["date"].unique().sort()
     if len(dates) < 2:
         return _short_circuit_output(
-            "notional_turnover", "insufficient_dates",
-            n_observed=len(dates), min_required=2,
+            "notional_turnover",
+            "insufficient_dates",
+            n_observed=len(dates),
+            min_required=2,
             forward_periods=forward_periods,
         )
 
     top_g = n_groups - 1
     bot_g = 0
-    grouped = (
-        _assign_quantile_groups(df, factor_col, n_groups)
-        .select(
-            "date", "asset_id",
-            (pl.col("_group") == top_g).alias("is_top"),
-            (pl.col("_group") == bot_g).alias("is_bot"),
-        )
+    grouped = _assign_quantile_groups(df, factor_col, n_groups).select(
+        "date",
+        "asset_id",
+        (pl.col("_group") == top_g).alias("is_top"),
+        (pl.col("_group") == bot_g).alias("is_bot"),
     )
 
     date_map = pl.DataFrame({"date": dates[1:], "prev_date": dates[:-1]})
@@ -323,15 +322,19 @@ def notional_turnover(
             (
                 (1 - pl.col("n_top_kept") / pl.col("n_top"))
                 + (1 - pl.col("n_bot_kept") / pl.col("n_bot"))
-            ).truediv(2).alias("turnover")
+            )
+            .truediv(2)
+            .alias("turnover")
         )
         .sort("date")
     )
 
     if per_date.is_empty():
         return _short_circuit_output(
-            "notional_turnover", "no_valid_pairs",
-            forward_periods=forward_periods, n_groups=n_groups,
+            "notional_turnover",
+            "no_valid_pairs",
+            forward_periods=forward_periods,
+            n_groups=n_groups,
         )
 
     turnover_arr = per_date["turnover"].to_numpy()
@@ -339,9 +342,7 @@ def notional_turnover(
     tail_pct = 1.0 / n_groups
 
     mean_tail_size = float(
-        per_date.select(
-            ((pl.col("n_top") + pl.col("n_bot")) / 2).mean()
-        ).item()
+        per_date.select(((pl.col("n_top") + pl.col("n_bot")) / 2).mean()).item()
     )
     return MetricOutput(
         name="notional_turnover",
@@ -407,9 +408,7 @@ def breakeven_cost(
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
     """
     if forward_periods < 1:
-        raise ValueError(
-            f"forward_periods must be ≥ 1, got {forward_periods!r}"
-        )
+        raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
     if turnover < EPSILON:
         return MetricOutput(
             name="breakeven_cost",
@@ -492,9 +491,7 @@ def net_spread(
         Characteristics." *Review of Financial Studies* 33(5).
     """
     if forward_periods < 1:
-        raise ValueError(
-            f"forward_periods must be ≥ 1, got {forward_periods!r}"
-        )
+        raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
     cost_drag = 2 * (estimated_cost_bps / 10000) * turnover / forward_periods
     net = gross_spread - cost_drag
 

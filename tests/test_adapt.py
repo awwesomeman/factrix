@@ -11,21 +11,25 @@ from factrix.adapt import adapt
 
 
 def _raw_panel() -> pl.DataFrame:
-    return pl.DataFrame({
-        "trade_date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
-        "ticker": ["A", "A"],
-        "close_adj": [100.0, 101.0],
-        "open_adj": [99.5, 100.5],
-        "high_adj": [101.0, 102.0],
-        "low_adj": [99.0, 100.0],
-        "volume_adj": [1000, 1200],
-        "market_cap": [1e9, 1.01e9],
-    })
+    return pl.DataFrame(
+        {
+            "trade_date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+            "ticker": ["A", "A"],
+            "close_adj": [100.0, 101.0],
+            "open_adj": [99.5, 100.5],
+            "high_adj": [101.0, 102.0],
+            "low_adj": [99.0, 100.0],
+            "volume_adj": [1000, 1200],
+            "market_cap": [1e9, 1.01e9],
+        }
+    )
 
 
 class TestCanonicalRenames:
     def test_only_price_renamed_by_default(self):
-        out = adapt(_raw_panel(), date="trade_date", asset_id="ticker", price="close_adj")
+        out = adapt(
+            _raw_panel(), date="trade_date", asset_id="ticker", price="close_adj"
+        )
         assert "date" in out.columns and "trade_date" not in out.columns
         assert "asset_id" in out.columns and "ticker" not in out.columns
         assert "price" in out.columns and "close_adj" not in out.columns
@@ -37,8 +41,13 @@ class TestCanonicalRenames:
     def test_ohlcv_renames_when_supplied(self):
         out = adapt(
             _raw_panel(),
-            date="trade_date", asset_id="ticker", price="close_adj",
-            open="open_adj", high="high_adj", low="low_adj", volume="volume_adj",
+            date="trade_date",
+            asset_id="ticker",
+            price="close_adj",
+            open="open_adj",
+            high="high_adj",
+            low="low_adj",
+            volume="volume_adj",
         )
         for c in ("open", "high", "low", "volume"):
             assert c in out.columns, f"{c} canonical missing"
@@ -49,7 +58,9 @@ class TestCanonicalRenames:
         # User only needs 'high' for generate_52w_high_ratio
         out = adapt(
             _raw_panel(),
-            date="trade_date", asset_id="ticker", price="close_adj",
+            date="trade_date",
+            asset_id="ticker",
+            price="close_adj",
             high="high_adj",
         )
         assert "high" in out.columns
@@ -61,7 +72,9 @@ class TestCanonicalRenames:
         with pytest.raises(ValueError, match="high_missing"):
             adapt(
                 _raw_panel(),
-                date="trade_date", asset_id="ticker", price="close_adj",
+                date="trade_date",
+                asset_id="ticker",
+                price="close_adj",
                 high="high_missing",
             )
 
@@ -70,7 +83,9 @@ class TestCanonicalRenames:
         with pytest.raises(ValueError, match="'open' already exists"):
             adapt(
                 df,
-                date="trade_date", asset_id="ticker", price="close_adj",
+                date="trade_date",
+                asset_id="ticker",
+                price="close_adj",
                 open="close_adj",
             )
 
@@ -82,18 +97,19 @@ class TestDateDtypePromotion:
 
     def test_pl_date_promoted_to_datetime_ms(self):
         from datetime import date
-        df = pl.DataFrame({
-            "trade_date": [date(2024, 1, 1), date(2024, 1, 2)],
-            "ticker": ["A", "A"],
-            "close_adj": [100.0, 101.0],
-        })
+
+        df = pl.DataFrame(
+            {
+                "trade_date": [date(2024, 1, 1), date(2024, 1, 2)],
+                "ticker": ["A", "A"],
+                "close_adj": [100.0, 101.0],
+            }
+        )
         out = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
         assert out.schema["date"] == pl.Datetime("ms")
 
     def test_datetime_us_passes_through(self):
-        df = _raw_panel().with_columns(
-            pl.col("trade_date").cast(pl.Datetime("us"))
-        )
+        df = _raw_panel().with_columns(pl.col("trade_date").cast(pl.Datetime("us")))
         out = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
         assert out.schema["date"] == pl.Datetime("us")
 

@@ -13,12 +13,12 @@ from factrix.metrics.caar import (
     bmp_test,
 )
 from factrix.metrics.event_quality import event_hit_rate, event_ic
-from factrix._types import MIN_EVENTS
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_event_signal(
     n_assets: int = 50,
@@ -48,13 +48,15 @@ def _make_event_signal(
                 direction = 0.0
                 ret = rng.normal(0, 0.02)
 
-            rows.append({
-                "date": d,
-                "asset_id": a,
-                "factor": direction,
-                "forward_return": ret,
-                "price": 100 + rng.normal(0, 5),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": a,
+                    "factor": direction,
+                    "forward_return": ret,
+                    "price": 100 + rng.normal(0, 5),
+                }
+            )
 
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
@@ -73,13 +75,15 @@ def noise_signal() -> pl.DataFrame:
 
 @pytest.fixture
 def single_asset_signal() -> pl.DataFrame:
-    return _make_event_signal(n_assets=1, n_dates=1000, event_prob=0.05,
-                              signal_strength=0.03, seed=77)
+    return _make_event_signal(
+        n_assets=1, n_dates=1000, event_prob=0.05, signal_strength=0.03, seed=77
+    )
 
 
 # ---------------------------------------------------------------------------
 # compute_caar
 # ---------------------------------------------------------------------------
+
 
 class TestComputeCaar:
     def test_returns_date_caar_columns(self, strong_signal):
@@ -90,9 +94,7 @@ class TestComputeCaar:
 
     def test_filters_non_events(self, strong_signal):
         result = compute_caar(strong_signal)
-        n_event_dates = (
-            strong_signal.filter(pl.col("factor") != 0)["date"].n_unique()
-        )
+        n_event_dates = strong_signal.filter(pl.col("factor") != 0)["date"].n_unique()
         assert len(result) == n_event_dates
 
     def test_strong_signal_positive_mean(self, strong_signal):
@@ -104,12 +106,14 @@ class TestComputeCaar:
         assert abs(result["caar"].mean()) < 0.01
 
     def test_empty_events(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [0.0],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [0.0],
+                "forward_return": [0.01],
+            }
+        )
         result = compute_caar(df)
         assert len(result) == 0
 
@@ -120,14 +124,19 @@ class TestComputeCaar:
 
 
 def _two_event_panel(
-    factor_a: float, factor_b: float, ret_a: float, ret_b: float,
+    factor_a: float,
+    factor_b: float,
+    ret_a: float,
+    ret_b: float,
 ) -> pl.DataFrame:
-    return pl.DataFrame({
-        "date": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
-        "asset_id": ["A", "B"],
-        "factor": [factor_a, factor_b],
-        "forward_return": [ret_a, ret_b],
-    })
+    return pl.DataFrame(
+        {
+            "date": [datetime(2020, 1, 1), datetime(2020, 1, 2)],
+            "asset_id": ["A", "B"],
+            "factor": [factor_a, factor_b],
+            "forward_return": [ret_a, ret_b],
+        }
+    )
 
 
 class TestComputeCaarInputForms:
@@ -149,34 +158,40 @@ class TestComputeCaarInputForms:
     def test_magnitude_preserved_not_dropped(self):
         # Pins the post-change behaviour — sign-coerced math would yield
         # 0.01, magnitude-preserving math yields 0.025.
-        df = pl.DataFrame({
-            "date": [datetime(2020, 1, 1)],
-            "asset_id": ["A"],
-            "factor": [2.5],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1)],
+                "asset_id": ["A"],
+                "factor": [2.5],
+                "forward_return": [0.01],
+            }
+        )
         result = compute_caar(df)
         assert result["caar"][0] == pytest.approx(0.025)
         assert result["caar"][0] != pytest.approx(0.01)
 
     def test_within_date_cs_average_weighted(self):
-        df = pl.DataFrame({
-            "date": [datetime(2020, 1, 1), datetime(2020, 1, 1)],
-            "asset_id": ["A", "B"],
-            "factor": [2.0, -1.0],
-            "forward_return": [0.03, 0.04],
-        })
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1), datetime(2020, 1, 1)],
+                "asset_id": ["A", "B"],
+                "factor": [2.0, -1.0],
+                "forward_return": [0.03, 0.04],
+            }
+        )
         result = compute_caar(df)
         assert len(result) == 1
         assert result["caar"][0] == pytest.approx(0.01)
 
     def test_caller_can_opt_into_ternary_via_sign(self):
-        df = pl.DataFrame({
-            "date": [datetime(2020, 1, 1)],
-            "asset_id": ["A"],
-            "factor": [2.5],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2020, 1, 1)],
+                "asset_id": ["A"],
+                "factor": [2.5],
+                "forward_return": [0.01],
+            }
+        )
         coerced = df.with_columns(pl.col("factor").sign())
         result = compute_caar(coerced)
         assert result["caar"][0] == pytest.approx(0.01)
@@ -185,6 +200,7 @@ class TestComputeCaarInputForms:
 # ---------------------------------------------------------------------------
 # caar (significance test)
 # ---------------------------------------------------------------------------
+
 
 class TestCaar:
     def test_strong_signal_significant(self, strong_signal):
@@ -201,10 +217,12 @@ class TestCaar:
         assert abs(result.stat) < 2.0
 
     def test_insufficient_data(self):
-        df = pl.DataFrame({
-            "date": pl.Series([], dtype=pl.Datetime("ms")),
-            "caar": pl.Series([], dtype=pl.Float64),
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([], dtype=pl.Datetime("ms")),
+                "caar": pl.Series([], dtype=pl.Float64),
+            }
+        )
         result = caar(df)
         assert math.isnan(result.value)
         assert result.stat is None
@@ -213,6 +231,7 @@ class TestCaar:
 # ---------------------------------------------------------------------------
 # bmp_test
 # ---------------------------------------------------------------------------
+
 
 class TestBmpTest:
     def test_strong_signal_significant(self, strong_signal):
@@ -226,13 +245,15 @@ class TestBmpTest:
         assert abs(result.stat) < 2.0
 
     def test_no_events(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [0.0],
-            "forward_return": [0.01],
-            "price": [100.0],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [0.0],
+                "forward_return": [0.01],
+                "price": [100.0],
+            }
+        )
         result = bmp_test(df)
         assert math.isnan(result.value)
 
@@ -256,6 +277,7 @@ class TestBmpTest:
     def test_kolari_pynnonen_skipped_without_clusters(self):
         """No multi-event dates → r̂ undefined → correction bypassed."""
         from datetime import datetime, timedelta
+
         rng = np.random.default_rng(0)
         dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(120)]
         rows = []
@@ -264,23 +286,25 @@ class TestBmpTest:
         for i, d in enumerate(dates):
             ret = float(0.001 + 0.02 * rng.standard_normal())
             price *= 1.0 + ret
-            rows.append({
-                "date": d, "asset_id": "A",
-                "factor": 1.0 if i >= 80 else 0.0,
-                "forward_return": ret,
-                "price": price,
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": "A",
+                    "factor": 1.0 if i >= 80 else 0.0,
+                    "forward_return": ret,
+                    "price": price,
+                }
+            )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = bmp_test(df, kolari_pynnonen_adjust=True)
         assert result.metadata["kolari_pynnonen_applied"] is False
-        assert result.metadata["kolari_pynnonen_r_source"] == (
-            "no_multi_event_dates"
-        )
+        assert result.metadata["kolari_pynnonen_r_source"] == ("no_multi_event_dates")
 
 
 # ---------------------------------------------------------------------------
 # event_hit_rate
 # ---------------------------------------------------------------------------
+
 
 class TestEventHitRate:
     def test_strong_signal_high_hit_rate(self, strong_signal):
@@ -299,12 +323,14 @@ class TestEventHitRate:
         assert 0.0 <= result.value <= 1.0
 
     def test_no_events(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [0.0],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [0.0],
+                "forward_return": [0.01],
+            }
+        )
         result = event_hit_rate(df)
         assert math.isnan(result.value)
 
@@ -312,6 +338,7 @@ class TestEventHitRate:
 # ---------------------------------------------------------------------------
 # event_ic
 # ---------------------------------------------------------------------------
+
 
 def _make_continuous_signal(
     n_assets: int = 50,
@@ -338,10 +365,14 @@ def _make_continuous_signal(
                 signal = 0.0
                 ret = rng.normal(0, 0.02)
 
-            rows.append({
-                "date": d, "asset_id": a,
-                "factor": signal, "forward_return": ret,
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": a,
+                    "factor": signal,
+                    "forward_return": ret,
+                }
+            )
 
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
@@ -354,7 +385,10 @@ class TestEventIc:
         result = event_ic(df)
         assert result.name == "event_ic"
         assert result.value > 0
-        assert result.metadata["method"] == "Spearman rank correlation (|signal| vs signed_car)"
+        assert (
+            result.metadata["method"]
+            == "Spearman rank correlation (|signal| vs signed_car)"
+        )
 
     def test_discrete_signal_skipped(self, strong_signal):
         """All ±1 values → |factor| constant → IC = 0 (no variance)."""
@@ -363,15 +397,18 @@ class TestEventIc:
         assert result.stat is None
 
     def test_insufficient_events(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [2.5],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [2.5],
+                "forward_return": [0.01],
+            }
+        )
         result = event_ic(df)
         assert math.isnan(result.value)
 
     def test_standalone_import(self):
         from factrix.metrics import event_ic as eic
+
         assert callable(eic)

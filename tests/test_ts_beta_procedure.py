@@ -23,7 +23,11 @@ from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _TSBetaContTimeseriesProcedure
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
-from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE, auto_bartlett
+from factrix._stats.constants import (
+    MIN_PERIODS_HARD,
+    MIN_PERIODS_RELIABLE,
+    auto_bartlett,
+)
 
 
 def _make_ts(
@@ -70,7 +74,10 @@ def cfg() -> AnalysisConfig:
 class TestRegistryWiring:
     def test_registered_procedure_is_real(self) -> None:
         key = _DispatchKey(
-            FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.TIMESERIES,
+            FactorScope.COMMON,
+            Signal.CONTINUOUS,
+            None,
+            Mode.TIMESERIES,
         )
         assert isinstance(
             _DISPATCH_REGISTRY[key].procedure,
@@ -81,7 +88,10 @@ class TestRegistryWiring:
         schema = _TSBetaContTimeseriesProcedure.INPUT_SCHEMA
         assert isinstance(schema, InputSchema)
         assert set(schema.required_columns) == {
-            "date", "asset_id", "factor", "forward_return",
+            "date",
+            "asset_id",
+            "factor",
+            "forward_return",
         }
 
 
@@ -118,12 +128,14 @@ class TestStrongBeta:
             assert key in profile.stats
 
     def test_no_persistent_regressor_warning_on_iid_factor(
-        self, profile: FactorProfile,
+        self,
+        profile: FactorProfile,
     ) -> None:
         assert WarningCode.PERSISTENT_REGRESSOR not in profile.warnings
 
     def test_no_unreliable_se_warning_at_T_120(
-        self, profile: FactorProfile,
+        self,
+        profile: FactorProfile,
     ) -> None:
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
 
@@ -144,7 +156,8 @@ class TestRandomFactor:
 
 class TestPersistentRegressor:
     def test_random_walk_factor_triggers_warning(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         ts = _make_ts(n_dates=120, seed=7, beta=0.0, factor_kind="rw")
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
@@ -166,7 +179,8 @@ class TestSampleSizeStratification:
         assert profile.n_obs == MIN_PERIODS_HARD
 
     def test_T_at_reliable_floor_no_se_warning(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         ts = _make_ts(n_dates=MIN_PERIODS_RELIABLE, seed=3, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
@@ -175,7 +189,8 @@ class TestSampleSizeStratification:
 
 class TestNwLagFloor:
     def test_nw_lags_floor_at_forward_periods_minus_one(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         ts = _make_ts(n_dates=60, seed=4, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
@@ -185,7 +200,8 @@ class TestNwLagFloor:
 
 class TestEndToEndViaEvaluate:
     def test_evaluate_dispatches_to_ts_beta(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         ts = _make_ts(n_dates=80, seed=99, beta=0.7)
         profile = _evaluate(ts, cfg)

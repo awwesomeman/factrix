@@ -111,10 +111,7 @@ CELLS: list[dict] = [
         "print()\n"
         "print('list_factor_types ->', fl.list_factor_types())"
     ),
-    code(
-        "for ft in fl.list_factor_types():\n"
-        "    fl.describe_profile(ft)"
-    ),
+    code("for ft in fl.list_factor_types():\n    fl.describe_profile(ft)"),
     md(
         "## 3. Cross-sectional（選股因子）\n"
         "\n"
@@ -238,11 +235,7 @@ CELLS: list[dict] = [
         "stable = ps.filter(pl.col('ic_ir').abs() > 0.1)\n"
         "print('factors with |IC_IR| > 0.1:', [p.factor_name for p in stable])"
     ),
-    md(
-        "### 3.6 Level 4 — Redundancy matrix\n"
-        "\n"
-        "多因子之間的成對 `|ρ|`，抓出冗餘訊號。"
-    ),
+    md("### 3.6 Level 4 — Redundancy matrix\n\n多因子之間的成對 `|ρ|`，抓出冗餘訊號。"),
     code(
         "# 重用 §3.5 的 arts — redundancy_matrix 需要 per-factor Artifacts。\n"
         "redund = fl.redundancy_matrix(ps, method='value_series', artifacts=arts)\n"

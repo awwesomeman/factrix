@@ -31,7 +31,12 @@ class TestComputeIC:
         # 3 assets < MIN_ASSETS_PER_DATE_IC=10
         dates = [datetime(2024, 1, 1)]
         rows = [
-            {"date": dates[0], "asset_id": f"A{i}", "factor": float(i), "forward_return": float(i) * 0.01}
+            {
+                "date": dates[0],
+                "asset_id": f"A{i}",
+                "factor": float(i),
+                "forward_return": float(i) * 0.01,
+            }
             for i in range(3)
         ]
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
@@ -54,10 +59,12 @@ class TestIC:
         assert result.significance != ""
 
     def test_insufficient_periods(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(3)],
-            "ic": [0.05, 0.03, 0.04],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(3)],
+                "ic": [0.05, 0.03, 0.04],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic(df, forward_periods=1)
         assert math.isnan(result.value)
 
@@ -72,10 +79,12 @@ class TestICIR:
         assert "mean_ic" in result.metadata
 
     def test_insufficient_periods(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(3)],
-            "ic": [0.05, 0.03, 0.04],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(3)],
+                "ic": [0.05, 0.03, 0.04],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic_ir(df)
         assert math.isnan(result.value)
 
@@ -84,10 +93,12 @@ class TestRegimeIC:
     def _make_ic_series(self, n: int = 30, mean: float = 0.05):
         rng = np.random.default_rng(42)
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
-        return pl.DataFrame({
-            "date": dates,
-            "ic": rng.normal(mean, 0.02, n),
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        return pl.DataFrame(
+            {
+                "date": dates,
+                "ic": rng.normal(mean, 0.02, n),
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     def test_time_bisection_fallback(self):
         ic_df = self._make_ic_series(30)
@@ -100,10 +111,12 @@ class TestRegimeIC:
     def test_with_regime_labels(self):
         ic_df = self._make_ic_series(30)
         dates = ic_df["date"].to_list()
-        labels = pl.DataFrame({
-            "date": dates,
-            "regime": ["bull"] * 15 + ["bear"] * 15,
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        labels = pl.DataFrame(
+            {
+                "date": dates,
+                "regime": ["bull"] * 15 + ["bear"] * 15,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = regime_ic(ic_df, regime_labels=labels)
         assert "bull" in result.metadata["per_regime"]
         assert "bear" in result.metadata["per_regime"]

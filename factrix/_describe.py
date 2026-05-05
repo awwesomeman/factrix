@@ -33,10 +33,16 @@ _SPARSITY_THRESHOLD: float = 0.5
 # tests + future programmatic consumers can membership-check without
 # duplicating the literal set; the dataclass docstring carries the
 # per-key types/meanings.
-DETECTED_KEYS: frozenset[str] = frozenset({
-    "scope", "signal", "mode",
-    "n_assets", "n_periods", "sparsity",
-})
+DETECTED_KEYS: frozenset[str] = frozenset(
+    {
+        "scope",
+        "signal",
+        "mode",
+        "n_assets",
+        "n_periods",
+        "sparsity",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +63,8 @@ def _user_facing_axis_tuples() -> list[tuple[FactorScope, Signal, Metric | None]
         scope = entry.key.scope
         if isinstance(scope, _ScopeCollapsedSentinel):
             scopes: list[FactorScope] = [
-                FactorScope.INDIVIDUAL, FactorScope.COMMON,
+                FactorScope.INDIVIDUAL,
+                FactorScope.COMMON,
             ]
         else:
             scopes = [scope]
@@ -75,7 +82,10 @@ def _user_facing_axis_tuples() -> list[tuple[FactorScope, Signal, Metric | None]
 
 
 def _entry_for(
-    scope: FactorScope, signal: Signal, metric: Metric | None, mode: Mode,
+    scope: FactorScope,
+    signal: Signal,
+    metric: Metric | None,
+    mode: Mode,
 ) -> Any:
     """Return the registry entry routing this user-facing axis at ``mode``."""
     routed_scope = _route_scope(scope, signal, mode)
@@ -85,7 +95,9 @@ def _entry_for(
 
 
 def _row_for_tuple(
-    scope: FactorScope, signal: Signal, metric: Metric | None,
+    scope: FactorScope,
+    signal: Signal,
+    metric: Metric | None,
 ) -> dict[str, Any]:
     panel = _entry_for(scope, signal, metric, Mode.PANEL)
     timeseries = _entry_for(scope, signal, metric, Mode.TIMESERIES)
@@ -98,15 +110,14 @@ def _row_for_tuple(
                 "use_case": panel.canonical_use_case,
                 "references": list(panel.references),
             }
-            if panel is not None else None
+            if panel is not None
+            else None
         ),
         "timeseries": (
             {
                 "use_case": timeseries.canonical_use_case,
                 "references": list(timeseries.references),
-                "scope_collapsed": (
-                    signal is Signal.SPARSE
-                ),
+                "scope_collapsed": (signal is Signal.SPARSE),
             }
             if timeseries is not None
             else "raises ModeAxisError; see _FALLBACK_MAP"
@@ -115,7 +126,9 @@ def _row_for_tuple(
 
 
 def _factory_call_for(
-    scope: str, signal: str, metric: str | None,
+    scope: str,
+    signal: str,
+    metric: str | None,
 ) -> str:
     """Render the AnalysisConfig factory call for a `(scope, signal, metric)` row.
 
@@ -138,9 +151,7 @@ def _factory_call_for(
 def _render_text(rows: list[dict[str, Any]]) -> str:
     lines: list[str] = []
     for row in rows:
-        header = (
-            f"({row['scope']}, {row['signal']}, {row['metric']})"
-        )
+        header = f"({row['scope']}, {row['signal']}, {row['metric']})"
         lines.append(f"Cell: {header}")
         lines.append(
             f"  Factory: {_factory_call_for(row['scope'], row['signal'], row['metric'])}",
@@ -176,7 +187,8 @@ def _render_text(rows: list[dict[str, Any]]) -> str:
 
 
 def describe_analysis_modes(
-    *, format: Literal["text", "json"] = "text",
+    *,
+    format: Literal["text", "json"] = "text",
 ) -> str | list[dict[str, Any]]:
     """Enumerate the legal analysis cells with PANEL / TIMESERIES routing notes.
 
@@ -248,9 +260,7 @@ def _detect_signal(raw: Any) -> tuple[Signal, str, float]:
         )
     n_zero = int((raw["factor"] == 0).sum())
     sparsity = n_zero / n
-    signal = (
-        Signal.SPARSE if sparsity >= _SPARSITY_THRESHOLD else Signal.CONTINUOUS
-    )
+    signal = Signal.SPARSE if sparsity >= _SPARSITY_THRESHOLD else Signal.CONTINUOUS
     reason = (
         f"sparsity ratio = {sparsity:.2f} "
         f"(threshold {_SPARSITY_THRESHOLD}): → {signal.value.upper()}"
@@ -268,9 +278,8 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
             FactorScope.COMMON,
             f"n_assets = {n_assets}: scope axis trivially COMMON at N=1",
         )
-    per_date_unique = (
-        raw.group_by("date")
-        .agg(pl.col("factor").n_unique().alias("n_unique_per_date"))
+    per_date_unique = raw.group_by("date").agg(
+        pl.col("factor").n_unique().alias("n_unique_per_date")
     )
     is_broadcast = bool(
         (per_date_unique["n_unique_per_date"] == 1).all(),
@@ -284,7 +293,10 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
 
 
 def _build_suggested(
-    scope: FactorScope, signal: Signal, *, forward_periods: int,
+    scope: FactorScope,
+    signal: Signal,
+    *,
+    forward_periods: int,
 ) -> AnalysisConfig:
     if signal is Signal.SPARSE:
         if scope is FactorScope.INDIVIDUAL:
@@ -294,13 +306,16 @@ def _build_suggested(
         return AnalysisConfig.common_sparse(forward_periods=forward_periods)
     if scope is FactorScope.INDIVIDUAL:
         return AnalysisConfig.individual_continuous(
-            metric=Metric.IC, forward_periods=forward_periods,
+            metric=Metric.IC,
+            forward_periods=forward_periods,
         )
     return AnalysisConfig.common_continuous(forward_periods=forward_periods)
 
 
 def suggest_config(
-    raw: Any, *, forward_periods: int = 5,
+    raw: Any,
+    *,
+    forward_periods: int = 5,
 ) -> SuggestConfigResult:
     """Inspect ``raw`` and propose an ``AnalysisConfig`` with reasoning.
 

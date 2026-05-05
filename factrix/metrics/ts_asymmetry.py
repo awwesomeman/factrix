@@ -120,23 +120,29 @@ def ts_asymmetry(
     """
     if "date" not in df.columns:
         return _short_circuit_output(
-            "ts_asymmetry", "no_date_column",
+            "ts_asymmetry",
+            "no_date_column",
         )
     for col in (factor_col, return_col):
         if col not in df.columns:
             return _short_circuit_output(
-                "ts_asymmetry", f"no_{col}_column",
+                "ts_asymmetry",
+                f"no_{col}_column",
             )
 
     per_date = _aggregate_to_per_date(
-        df, factor_col=factor_col, return_col=return_col,
+        df,
+        factor_col=factor_col,
+        return_col=return_col,
     )
     n_periods = len(per_date)
 
     if n_periods < MIN_PORTFOLIO_PERIODS:
         return _short_circuit_output(
-            "ts_asymmetry", "insufficient_portfolio_periods",
-            n_observed=n_periods, min_required=MIN_PORTFOLIO_PERIODS,
+            "ts_asymmetry",
+            "insufficient_portfolio_periods",
+            n_observed=n_periods,
+            min_required=MIN_PORTFOLIO_PERIODS,
         )
 
     f = per_date["_f"].to_numpy()
@@ -152,8 +158,12 @@ def ts_asymmetry(
 
     if n_pos == 0 or n_neg == 0:
         return _short_circuit_output(
-            "ts_asymmetry", "no_two_sided_factor",
-            n_pos=n_pos, n_neg=n_neg, n_zero=n_zero, n_periods=n_periods,
+            "ts_asymmetry",
+            "no_two_sided_factor",
+            n_pos=n_pos,
+            n_neg=n_neg,
+            n_zero=n_zero,
+            n_periods=n_periods,
             hint=(
                 "factor lacks one of {positive, negative} regions; "
                 "long/short asymmetry is undefined. For unsigned event "

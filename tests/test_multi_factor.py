@@ -47,8 +47,10 @@ class TestFamilyKey:
         )
         assert _family_key(prof) == _FamilyKey(
             dispatch=_DispatchKey(
-                FactorScope.INDIVIDUAL, Signal.CONTINUOUS,
-                Metric.IC, Mode.PANEL,
+                FactorScope.INDIVIDUAL,
+                Signal.CONTINUOUS,
+                Metric.IC,
+                Mode.PANEL,
             ),
             forward_periods=5,
         )
@@ -94,14 +96,16 @@ class TestFamilyKey:
         # threshold and silently inflate FDR.
         prof_h5 = _profile(
             config=AnalysisConfig.individual_continuous(
-                metric=Metric.IC, forward_periods=5,
+                metric=Metric.IC,
+                forward_periods=5,
             ),
             mode=Mode.PANEL,
             primary_p=0.01,
         )
         prof_h20 = _profile(
             config=AnalysisConfig.individual_continuous(
-                metric=Metric.IC, forward_periods=20,
+                metric=Metric.IC,
+                forward_periods=20,
             ),
             mode=Mode.PANEL,
             primary_p=0.01,
@@ -148,8 +152,7 @@ class TestBhyStepUp:
     def test_high_p_values_fail(self) -> None:
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
         profiles = [
-            _profile(config=cfg, mode=Mode.PANEL, primary_p=p)
-            for p in [0.5, 0.7, 0.9]
+            _profile(config=cfg, mode=Mode.PANEL, primary_p=p) for p in [0.5, 0.7, 0.9]
         ]
         survivors = bhy(profiles)
         assert survivors == []
@@ -177,10 +180,12 @@ class TestBhyFamilyIsolation:
         # would borrow h=5's strong evidence and inflate the survivor
         # count beyond the per-horizon truth.
         cfg_h5 = AnalysisConfig.individual_continuous(
-            metric=Metric.IC, forward_periods=5,
+            metric=Metric.IC,
+            forward_periods=5,
         )
         cfg_h20 = AnalysisConfig.individual_continuous(
-            metric=Metric.IC, forward_periods=20,
+            metric=Metric.IC,
+            forward_periods=20,
         )
         profiles = [
             _profile(config=cfg_h5, mode=Mode.PANEL, primary_p=0.001),
@@ -265,15 +270,18 @@ class TestSingletonFamilyWarning:
         produces 3 size-1 families — BHY ≡ raw threshold, no FDR control."""
         ic = _profile(
             config=AnalysisConfig.individual_continuous(metric=Metric.IC),
-            mode=Mode.PANEL, primary_p=0.04,
+            mode=Mode.PANEL,
+            primary_p=0.04,
         )
         fm = _profile(
             config=AnalysisConfig.individual_continuous(metric=Metric.FM),
-            mode=Mode.PANEL, primary_p=0.04,
+            mode=Mode.PANEL,
+            primary_p=0.04,
         )
         common = _profile(
             config=AnalysisConfig.common_continuous(),
-            mode=Mode.PANEL, primary_p=0.04,
+            mode=Mode.PANEL,
+            primary_p=0.04,
         )
         with pytest.warns(RuntimeWarning, match="single profile"):
             bhy([ic, fm, common], threshold=0.05)
@@ -283,9 +291,11 @@ class TestSingletonFamilyWarning:
         case — the cross-family no-op heuristic does not fire."""
         prof = _profile(
             config=AnalysisConfig.individual_continuous(metric=Metric.IC),
-            mode=Mode.PANEL, primary_p=0.04,
+            mode=Mode.PANEL,
+            primary_p=0.04,
         )
         import warnings as _warnings
+
         with _warnings.catch_warnings():
             _warnings.simplefilter("error")
             bhy([prof], threshold=0.05)
@@ -295,6 +305,7 @@ class TestSingletonFamilyWarning:
         a = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.01)
         b = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.02)
         import warnings as _warnings
+
         with _warnings.catch_warnings():
             _warnings.simplefilter("error")
             bhy([a, b], threshold=0.05)
@@ -309,7 +320,9 @@ class TestBhyGateValidation:
     def test_non_p_gate_rejected(self) -> None:
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
         prof = _profile(
-            config=cfg, mode=Mode.PANEL, primary_p=0.04,
+            config=cfg,
+            mode=Mode.PANEL,
+            primary_p=0.04,
             stats={StatCode.IC_T_NW: 2.5},
         )
         # IC_T_NW is a t-stat, not a probability — BHY step-up math
@@ -320,11 +333,15 @@ class TestBhyGateValidation:
     def test_p_gate_accepted(self) -> None:
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
         prof = _profile(
-            config=cfg, mode=Mode.PANEL, primary_p=0.99,
+            config=cfg,
+            mode=Mode.PANEL,
+            primary_p=0.99,
             stats={StatCode.FM_LAMBDA_P: 0.001},
         )
         survivors = bhy(
-            [prof], threshold=0.05, gate=StatCode.FM_LAMBDA_P,
+            [prof],
+            threshold=0.05,
+            gate=StatCode.FM_LAMBDA_P,
         )
         assert survivors == [prof]
 
@@ -338,19 +355,26 @@ class TestBhyGateValidation:
 class TestStatCodeIsPValue:
     def test_p_codes_marked(self) -> None:
         for code in (
-            StatCode.IC_P, StatCode.FM_LAMBDA_P, StatCode.TS_BETA_P,
-            StatCode.CAAR_P, StatCode.FACTOR_ADF_P, StatCode.LJUNG_BOX_P,
+            StatCode.IC_P,
+            StatCode.FM_LAMBDA_P,
+            StatCode.TS_BETA_P,
+            StatCode.CAAR_P,
+            StatCode.FACTOR_ADF_P,
+            StatCode.LJUNG_BOX_P,
         ):
             assert code.is_p_value, f"{code.name} should be flagged as p-value"
 
     def test_non_p_codes_unmarked(self) -> None:
         for code in (
-            StatCode.IC_MEAN, StatCode.IC_T_NW,
-            StatCode.FM_LAMBDA_MEAN, StatCode.FM_LAMBDA_T_NW,
-            StatCode.TS_BETA, StatCode.TS_BETA_T_NW,
-            StatCode.CAAR_MEAN, StatCode.CAAR_T_NW,
-            StatCode.EVENT_TEMPORAL_HHI, StatCode.NW_LAGS_USED,
+            StatCode.IC_MEAN,
+            StatCode.IC_T_NW,
+            StatCode.FM_LAMBDA_MEAN,
+            StatCode.FM_LAMBDA_T_NW,
+            StatCode.TS_BETA,
+            StatCode.TS_BETA_T_NW,
+            StatCode.CAAR_MEAN,
+            StatCode.CAAR_T_NW,
+            StatCode.EVENT_TEMPORAL_HHI,
+            StatCode.NW_LAGS_USED,
         ):
-            assert not code.is_p_value, (
-                f"{code.name} should NOT be flagged as p-value"
-            )
+            assert not code.is_p_value, f"{code.name} should NOT be flagged as p-value"

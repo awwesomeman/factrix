@@ -33,11 +33,15 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     """Output schema with ``date`` dtype mirroring the caller's panel so
     users with Datetime('us') or TZ-aware inputs get a joinable result."""
     return {
-        "date": date_dtype, "asset_id": pl.String,
-        "mfe": pl.Float64, "mae": pl.Float64,
-        "mfe_z": pl.Float64, "mae_z": pl.Float64,
+        "date": date_dtype,
+        "asset_id": pl.String,
+        "mfe": pl.Float64,
+        "mae": pl.Float64,
+        "mfe_z": pl.Float64,
+        "mae_z": pl.Float64,
         "est_sigma": pl.Float64,
-        "bars_to_mfe": pl.Int32, "bars_to_mae": pl.Int32,
+        "bars_to_mfe": pl.Int32,
+        "bars_to_mae": pl.Int32,
     }
 
 
@@ -182,7 +186,8 @@ def compute_mfe_mae(
                     est_sigma = float(np.std(daily_rets, ddof=1))
         window_scale = (
             est_sigma * np.sqrt(window)
-            if est_sigma > 0 and np.isfinite(est_sigma) else float("nan")
+            if est_sigma > 0 and np.isfinite(est_sigma)
+            else float("nan")
         )
         if np.isfinite(window_scale) and window_scale > EPSILON:
             mfe_z = float(mfe / window_scale)
@@ -191,17 +196,19 @@ def compute_mfe_mae(
             mfe_z = float("nan")
             mae_z = float("nan")
 
-        rows.append({
-            "date": event_date,
-            "asset_id": asset_id,
-            "mfe": mfe,
-            "mae": mae,
-            "mfe_z": mfe_z,
-            "mae_z": mae_z,
-            "est_sigma": est_sigma,
-            "bars_to_mfe": bars_to_mfe,
-            "bars_to_mae": bars_to_mae,
-        })
+        rows.append(
+            {
+                "date": event_date,
+                "asset_id": asset_id,
+                "mfe": mfe,
+                "mae": mae,
+                "mfe_z": mfe_z,
+                "mae_z": mae_z,
+                "est_sigma": est_sigma,
+                "bars_to_mfe": bars_to_mfe,
+                "bars_to_mae": bars_to_mae,
+            }
+        )
 
     if not rows:
         return pl.DataFrame(schema=empty_schema)
@@ -242,14 +249,18 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     """
     if mfe_mae_df.is_empty():
         return _short_circuit_output(
-            "mfe_mae_summary", "no_price_data", n_events=0,
+            "mfe_mae_summary",
+            "no_price_data",
+            n_events=0,
         )
 
     n = len(mfe_mae_df)
     if n < MIN_EVENTS:
         return _short_circuit_output(
-            "mfe_mae_summary", "insufficient_events",
-            n_events=n, min_required=MIN_EVENTS,
+            "mfe_mae_summary",
+            "insufficient_events",
+            n_events=n,
+            min_required=MIN_EVENTS,
         )
 
     mfe_p50 = float(mfe_mae_df["mfe"].quantile(0.50))

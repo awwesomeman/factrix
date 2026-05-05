@@ -41,14 +41,18 @@ class TestDescribeAnalysisModes:
         rows = describe_analysis_modes(format="json")
         row = rows[0]
         assert set(row.keys()) == {
-            "scope", "signal", "metric",
-            "panel", "timeseries",
+            "scope",
+            "signal",
+            "metric",
+            "panel",
+            "timeseries",
         }
 
     def test_individual_continuous_ic_routing(self) -> None:
         rows = describe_analysis_modes(format="json")
         ic_row = next(
-            r for r in rows
+            r
+            for r in rows
             if r["scope"] == "individual"
             and r["signal"] == "continuous"
             and r["metric"] == "ic"
@@ -61,8 +65,7 @@ class TestDescribeAnalysisModes:
     def test_common_continuous_has_both_modes(self) -> None:
         rows = describe_analysis_modes(format="json")
         cc_row = next(
-            r for r in rows
-            if r["scope"] == "common" and r["signal"] == "continuous"
+            r for r in rows if r["scope"] == "common" and r["signal"] == "continuous"
         )
         assert cc_row["panel"] is not None
         assert isinstance(cc_row["timeseries"], dict)
@@ -117,7 +120,10 @@ class TestDescribeAnalysisModes:
 
 
 def _make_individual_continuous_panel_n(
-    n_assets: int, *, n_dates: int = 60, seed: int = 17,
+    n_assets: int,
+    *,
+    n_dates: int = 60,
+    seed: int = 17,
 ) -> pl.DataFrame:
     """Factor varies across assets at each date; ``n_assets`` is parametric."""
     rng = np.random.default_rng(seed)
@@ -125,11 +131,14 @@ def _make_individual_continuous_panel_n(
     for t in range(n_dates):
         d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
         for j in range(n_assets):
-            rows.append({
-                "date": d, "asset_id": f"A{j:03d}",
-                "factor": float(rng.standard_normal()),
-                "forward_return": float(rng.standard_normal()),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": float(rng.standard_normal()),
+                    "forward_return": float(rng.standard_normal()),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -147,11 +156,14 @@ def _make_common_continuous_panel(seed: int = 2) -> pl.DataFrame:
         d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
         f_t = float(rng.standard_normal())  # SAME for every asset
         for j in range(n_assets):
-            rows.append({
-                "date": d, "asset_id": f"A{j:03d}",
-                "factor": f_t,
-                "forward_return": float(rng.standard_normal()),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": f_t,
+                    "forward_return": float(rng.standard_normal()),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -159,16 +171,21 @@ def _make_sparse_panel(seed: int = 3) -> pl.DataFrame:
     """Sparse triggers: most factor values are 0."""
     rng = np.random.default_rng(seed)
     n_dates, n_assets = 60, 15
-    factor = rng.choice([-1.0, 0.0, 1.0], size=(n_dates, n_assets), p=[0.04, 0.92, 0.04])
+    factor = rng.choice(
+        [-1.0, 0.0, 1.0], size=(n_dates, n_assets), p=[0.04, 0.92, 0.04]
+    )
     rows: list[dict[str, object]] = []
     for t in range(n_dates):
         d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
         for j in range(n_assets):
-            rows.append({
-                "date": d, "asset_id": f"A{j:03d}",
-                "factor": float(factor[t, j]),
-                "forward_return": float(rng.standard_normal()),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": float(factor[t, j]),
+                    "forward_return": float(rng.standard_normal()),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -196,9 +213,13 @@ def _make_timeseries(*, n_dates: int, sparse: bool, seed: int) -> pl.DataFrame:
 
 
 class TestSuggestConfigRouting:
-    def test_individual_continuous_panel_suggests_individual_continuous_ic(self) -> None:
+    def test_individual_continuous_panel_suggests_individual_continuous_ic(
+        self,
+    ) -> None:
         result = suggest_config(_make_individual_continuous_panel())
-        assert result.suggested == AnalysisConfig.individual_continuous(metric=Metric.IC)
+        assert result.suggested == AnalysisConfig.individual_continuous(
+            metric=Metric.IC
+        )
 
     def test_common_continuous_panel_suggests_common_continuous(self) -> None:
         result = suggest_config(_make_common_continuous_panel())
@@ -259,14 +280,18 @@ class TestSuggestConfigWarnings:
 
     def test_short_timeseries_emits_unreliable_se_warning(self) -> None:
         ts = _make_timeseries(
-            n_dates=MIN_PERIODS_HARD + 2, sparse=False, seed=14,
+            n_dates=MIN_PERIODS_HARD + 2,
+            sparse=False,
+            seed=14,
         )
         result = suggest_config(ts)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
     def test_long_timeseries_no_warning(self) -> None:
         ts = _make_timeseries(
-            n_dates=MIN_PERIODS_RELIABLE + 50, sparse=False, seed=15,
+            n_dates=MIN_PERIODS_RELIABLE + 50,
+            sparse=False,
+            seed=15,
         )
         result = suggest_config(ts)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in result.warnings

@@ -17,7 +17,11 @@ from factrix._profile import FactorProfile
 
 
 def _build_panel(
-    *, n_dates: int, n_assets: int, seed: int, factor_strength: float = 0.0,
+    *,
+    n_dates: int,
+    n_assets: int,
+    seed: int,
+    factor_strength: float = 0.0,
 ) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     start = dt.date(2024, 1, 1)
@@ -28,11 +32,14 @@ def _build_panel(
         noise = rng.standard_normal(n_assets)
         factor = factor_strength * fwd + (1.0 - factor_strength) * noise
         for j in range(n_assets):
-            rows.append({
-                "date": d, "asset_id": f"A{j:03d}",
-                "factor": float(factor[j]),
-                "forward_return": float(fwd[j]),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": float(factor[j]),
+                    "forward_return": float(fwd[j]),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -67,10 +74,14 @@ class TestDeriveMode:
         assert _derive_mode(ts) is Mode.TIMESERIES
 
     def test_timeseries_when_zero_rows(self) -> None:
-        empty = pl.DataFrame(schema={
-            "date": pl.Date, "asset_id": pl.Utf8,
-            "factor": pl.Float64, "forward_return": pl.Float64,
-        })
+        empty = pl.DataFrame(
+            schema={
+                "date": pl.Date,
+                "asset_id": pl.Utf8,
+                "factor": pl.Float64,
+                "forward_return": pl.Float64,
+            }
+        )
         assert _derive_mode(empty) is Mode.TIMESERIES
 
 
@@ -83,7 +94,10 @@ class TestIcPanelEndToEnd:
     @pytest.fixture(scope="class")
     def profile(self) -> FactorProfile:
         panel = _build_panel(
-            n_dates=60, n_assets=30, seed=42, factor_strength=0.95,
+            n_dates=60,
+            n_assets=30,
+            seed=42,
+            factor_strength=0.95,
         )
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
         return _evaluate(panel, cfg)
@@ -168,7 +182,8 @@ class TestSparseCollapse:
 
 class TestFallbackNoneBranch:
     def test_unregistered_cell_with_no_fallback_raises_clean_error(
-        self, monkeypatch: pytest.MonkeyPatch,
+        self,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from factrix import _evaluate as evaluate_mod
         from factrix._registry import _DispatchKey, _DISPATCH_REGISTRY
@@ -179,14 +194,18 @@ class TestFallbackNoneBranch:
         # always supposed to be wired — so the lookup yields None and
         # ModeAxisError is raised with suggested_fix=None.
         key = _DispatchKey(
-            FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.PANEL,
+            FactorScope.COMMON,
+            Signal.CONTINUOUS,
+            None,
+            Mode.PANEL,
         )
         original = _DISPATCH_REGISTRY.pop(key)
         try:
             panel = _build_panel(n_dates=30, n_assets=20, seed=11)
             with pytest.raises(ModeAxisError) as exc:
                 evaluate_mod._evaluate(
-                    panel, AnalysisConfig.common_continuous(),
+                    panel,
+                    AnalysisConfig.common_continuous(),
                 )
             assert exc.value.suggested_fix is None
             # Suffix should be empty — no "Suggested fix:" tail.

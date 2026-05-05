@@ -58,7 +58,9 @@ def _family_key(profile: "FactorProfile") -> _FamilyKey:
     therefore the same family *at matching ``forward_periods``*.
     """
     scope = _route_scope(
-        profile.config.scope, profile.config.signal, profile.mode,
+        profile.config.scope,
+        profile.config.signal,
+        profile.mode,
     )
     dispatch = _DispatchKey(
         scope=scope,
@@ -73,7 +75,8 @@ def _family_key(profile: "FactorProfile") -> _FamilyKey:
 
 
 def _gate_p_value(
-    profile: "FactorProfile", gate: StatCode | None,
+    profile: "FactorProfile",
+    gate: StatCode | None,
 ) -> float:
     """Return ``primary_p`` (default) or ``stats[gate]`` for the BHY input.
 
@@ -164,7 +167,5 @@ def bhy(
             dtype=np.float64,
         )
         mask = bhy_adjust(p_array, fdr=threshold)
-        survivors.extend(
-            fp for fp, accept in zip(family_profiles, mask) if accept
-        )
+        survivors.extend(fp for fp, accept in zip(family_profiles, mask) if accept)
     return survivors

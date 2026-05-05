@@ -36,7 +36,9 @@ class FactorProcedure(Protocol):
     INPUT_SCHEMA: ClassVar[InputSchema]
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile": ...
 
 
@@ -53,7 +55,9 @@ class _ICContPanelProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
         import numpy as np
 
@@ -75,8 +79,11 @@ class _ICContPanelProcedure:
         # 1980) to keep the HAC SE consistent. ``_resolve_nw_lags``
         # applies that floor and the ``min(., n_periods-1)`` clip in one place.
         nw_lags = (
-            _resolve_nw_lags(n_periods, auto_bartlett(n_periods), config.forward_periods)
-            if n_periods >= 2 else 0
+            _resolve_nw_lags(
+                n_periods, auto_bartlett(n_periods), config.forward_periods
+            )
+            if n_periods >= 2
+            else 0
         )
         ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(ic_values, lags=nw_lags)
@@ -110,7 +117,9 @@ class _FMContPanelProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
         import numpy as np
 
@@ -120,14 +129,15 @@ class _FMContPanelProcedure:
         from factrix._stats.constants import auto_bartlett
         from factrix.metrics.fama_macbeth import compute_fm_betas
 
-        beta_values = (
-            compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
-        )
+        beta_values = compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
         n_periods = int(len(beta_values))
         n_assets = int(raw["asset_id"].n_unique())
         nw_lags = (
-            _resolve_nw_lags(n_periods, auto_bartlett(n_periods), config.forward_periods)
-            if n_periods >= 2 else 0
+            _resolve_nw_lags(
+                n_periods, auto_bartlett(n_periods), config.forward_periods
+            )
+            if n_periods >= 2
+            else 0
         )
         lambda_mean = float(np.mean(beta_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(beta_values, lags=nw_lags)
@@ -178,9 +188,10 @@ class _CAARSparsePanelProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
-        import numpy as np
         import polars as pl
 
         from factrix._codes import StatCode
@@ -192,8 +203,7 @@ class _CAARSparsePanelProcedure:
         event_caar = compute_caar(raw)
         all_dates = raw.select(pl.col("date").unique().sort())
         dense = (
-            all_dates
-            .join(event_caar, on="date", how="left")
+            all_dates.join(event_caar, on="date", how="left")
             .with_columns(pl.col("caar").fill_null(0.0))
             .sort("date")
         )
@@ -203,13 +213,17 @@ class _CAARSparsePanelProcedure:
 
         event_mean = (
             float(event_caar["caar"].drop_nulls().mean())
-            if event_caar.height > 0 else 0.0
+            if event_caar.height > 0
+            else 0.0
         )
         nw_lags = (
             _resolve_nw_lags(
-                n_periods, auto_bartlett(n_periods), config.forward_periods,
+                n_periods,
+                auto_bartlett(n_periods),
+                config.forward_periods,
             )
-            if n_periods >= 2 else 0
+            if n_periods >= 2
+            else 0
         )
         t_stat, p_value, _ = _newey_west_t_test(caar_dense, lags=nw_lags)
 
@@ -241,7 +255,9 @@ class _CommonContPanelProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
         return _compute_common_panel(raw, config, with_adf=True)
 
@@ -266,7 +282,9 @@ class _CommonSparsePanelProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
         import polars as pl
 
@@ -313,7 +331,10 @@ class _CommonSparsePanelProcedure:
             else frozenset()
         )
         return _compute_common_panel(
-            raw, config, with_adf=False, extra_warnings=extra_warnings,
+            raw,
+            config,
+            with_adf=False,
+            extra_warnings=extra_warnings,
         )
 
 
@@ -411,7 +432,9 @@ class _TSBetaContTimeseriesProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
         from factrix._codes import StatCode, WarningCode
         from factrix._errors import InsufficientSampleError
@@ -434,14 +457,17 @@ class _TSBetaContTimeseriesProcedure:
                 "biased for primary_p to be trustworthy at this floor. "
                 f"Extend the time series to ≥{MIN_PERIODS_HARD} rows or "
                 "aggregate to a lower frequency.",
-                actual_periods=n_periods, required_periods=MIN_PERIODS_HARD,
+                actual_periods=n_periods,
+                required_periods=MIN_PERIODS_HARD,
             )
 
         # Same HH overlap floor logic as the IC PANEL procedure: forward
         # returns of horizon h induce MA(h-1) structure that the auto
         # Bartlett rule does not see on its own.
         nw_lags = _resolve_nw_lags(
-            n_periods, auto_bartlett(n_periods), config.forward_periods,
+            n_periods,
+            auto_bartlett(n_periods),
+            config.forward_periods,
         )
         # Truncate to common length on the off-chance one column had
         # extra nulls.
@@ -500,9 +526,10 @@ class _TSDummySparseTimeseriesProcedure:
     )
 
     def compute(
-        self, raw: Any, config: "AnalysisConfig",
+        self,
+        raw: Any,
+        config: "AnalysisConfig",
     ) -> "FactorProfile":
-        import numpy as np
 
         from factrix._codes import StatCode, WarningCode
         from factrix._errors import InsufficientSampleError
@@ -529,12 +556,15 @@ class _TSDummySparseTimeseriesProcedure:
                 "biased for primary_p to be trustworthy at this floor. "
                 f"Extend the time series to ≥{MIN_PERIODS_HARD} rows or "
                 "aggregate to a lower frequency.",
-                actual_periods=n_periods, required_periods=MIN_PERIODS_HARD,
+                actual_periods=n_periods,
+                required_periods=MIN_PERIODS_HARD,
             )
 
         y, d = y[:n_periods], d[:n_periods]
         nw_lags = _resolve_nw_lags(
-            n_periods, auto_bartlett(n_periods), config.forward_periods,
+            n_periods,
+            auto_bartlett(n_periods),
+            config.forward_periods,
         )
         beta, t_stat, p_value, resid = _ols_nw_slope_t(y, d, lags=nw_lags)
         ljung_box_p = _ljung_box_p(resid)
@@ -583,7 +613,9 @@ def _event_temporal_hhi(d_signal: Any, *, n_bins: int = 10) -> float:
     if n_events == 0:
         return 0.0
     n_periods = len(arr)
-    bins_for_position = np.minimum(np.arange(n_periods) * n_bins // n_periods, n_bins - 1)
+    bins_for_position = np.minimum(
+        np.arange(n_periods) * n_bins // n_periods, n_bins - 1
+    )
     counts = np.bincount(bins_for_position[nonzero], minlength=n_bins)
     shares = counts / n_events
     return float(np.sum(shares * shares))

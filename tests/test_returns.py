@@ -13,11 +13,14 @@ from factrix.preprocess.returns import (
 
 def _make_price_data():
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(5)]
-    return pl.DataFrame({
-        "date": dates * 2,
-        "asset_id": ["A"] * 5 + ["B"] * 5,
-        "price": [100.0, 110.0, 121.0, 133.1, 146.41] + [200.0, 190.0, 180.5, 171.475, 162.9],
-    }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return pl.DataFrame(
+        {
+            "date": dates * 2,
+            "asset_id": ["A"] * 5 + ["B"] * 5,
+            "price": [100.0, 110.0, 121.0, 133.1, 146.41]
+            + [200.0, 190.0, 180.5, 171.475, 162.9],
+        }
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
 class TestComputeForwardReturn:
@@ -55,18 +58,22 @@ class TestComputeForwardReturn:
 
 class TestWinsorizeForwardReturn:
     def test_noop(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 5,
-            "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 5,
+                "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = winsorize_forward_return(df, lower=0.0, upper=1.0)
         assert result["forward_return"].to_list() == df["forward_return"].to_list()
 
     def test_clips_extreme(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 10,
-            "forward_return": [0.01] * 8 + [0.50, -0.50],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 10,
+                "forward_return": [0.01] * 8 + [0.50, -0.50],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = winsorize_forward_return(df, lower=0.1, upper=0.9)
         vals = result["forward_return"].to_list()
         assert max(vals) < 0.50
@@ -75,19 +82,23 @@ class TestWinsorizeForwardReturn:
 
 class TestComputeAbnormalReturn:
     def test_zero_mean_per_date(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 5,
-            "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 5,
+                "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = compute_abnormal_return(df)
         mean_abnormal = result["abnormal_return"].mean()
         assert abs(mean_abnormal) < 1e-10
 
     def test_known_values(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 3,
-            "forward_return": [0.01, 0.02, 0.03],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 3,
+                "forward_return": [0.01, 0.02, 0.03],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = compute_abnormal_return(df)
         expected = [-0.01, 0.0, 0.01]
         actual = result["abnormal_return"].to_list()

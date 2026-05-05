@@ -63,8 +63,10 @@ def event_hit_rate(
     n = len(events)
     if n < MIN_EVENTS:
         return _short_circuit_output(
-            "event_hit_rate", "insufficient_events",
-            n_observed=n, min_required=MIN_EVENTS,
+            "event_hit_rate",
+            "insufficient_events",
+            n_observed=n,
+            min_required=MIN_EVENTS,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -138,8 +140,10 @@ def event_ic(
 
     if n < MIN_EVENTS:
         return _short_circuit_output(
-            "event_ic", "insufficient_events",
-            n_observed=n, min_required=MIN_EVENTS,
+            "event_ic",
+            "insufficient_events",
+            n_observed=n,
+            min_required=MIN_EVENTS,
         )
 
     abs_signal = np.abs(events[factor_col].to_numpy())
@@ -149,7 +153,9 @@ def event_ic(
         # Flagged as "not_applicable" rather than "insufficient" — this is by
         # design, not a shortfall; profiles suppress the field (→ None).
         return _short_circuit_output(
-            "event_ic", "not_applicable_discrete_signal", n_events=n,
+            "event_ic",
+            "not_applicable_discrete_signal",
+            n_events=n,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -211,8 +217,10 @@ def profit_factor(
 
     if n < MIN_EVENTS:
         return _short_circuit_output(
-            "profit_factor", "insufficient_events",
-            n_observed=n, min_required=MIN_EVENTS,
+            "profit_factor",
+            "insufficient_events",
+            n_observed=n,
+            min_required=MIN_EVENTS,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -274,8 +282,10 @@ def event_skewness(
 
     if n < MIN_EVENTS:
         return _short_circuit_output(
-            "event_skewness", "insufficient_events",
-            n_observed=n, min_required=MIN_EVENTS,
+            "event_skewness",
+            "insufficient_events",
+            n_observed=n,
+            min_required=MIN_EVENTS,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -297,8 +307,16 @@ def event_skewness(
         significance=_significance_marker(p) if p is not None else None,
         metadata={
             "n_events": n,
-            **({"p_value": p, "stat_type": "z", "h0": "skew=0",
-                "method": "D'Agostino skew test"} if p is not None else {}),
+            **(
+                {
+                    "p_value": p,
+                    "stat_type": "z",
+                    "h0": "skew=0",
+                    "method": "D'Agostino skew test",
+                }
+                if p is not None
+                else {}
+            ),
         },
     )
 
@@ -343,8 +361,10 @@ def signal_density(
 
     if n_events < 2:
         return _short_circuit_output(
-            "signal_density", "insufficient_events",
-            n_observed=n_events, min_required=2,
+            "signal_density",
+            "insufficient_events",
+            n_observed=n_events,
+            min_required=2,
         )
 
     # Per-asset: count events and date span
@@ -360,14 +380,15 @@ def signal_density(
 
     if per_asset.is_empty():
         return _short_circuit_output(
-            "signal_density", "no_asset_has_min_two_events",
-            n_observed=n_events, min_required_per_asset=2,
+            "signal_density",
+            "no_asset_has_min_two_events",
+            n_observed=n_events,
+            min_required_per_asset=2,
         )
 
     # Total bars per asset (from full panel, not just events)
-    bars_per_asset = (
-        df.group_by("asset_id")
-        .agg(pl.col("date").count().alias("total_bars"))
+    bars_per_asset = df.group_by("asset_id").agg(
+        pl.col("date").count().alias("total_bars")
     )
     per_asset = per_asset.join(bars_per_asset, on="asset_id", how="left")
 

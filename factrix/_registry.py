@@ -96,7 +96,9 @@ def register(
 
 
 def _route_scope(
-    scope: FactorScope, signal: Signal, mode: Mode,
+    scope: FactorScope,
+    signal: Signal,
+    mode: Mode,
 ) -> FactorScope | _ScopeCollapsedSentinel:
     """Apply the §5.4.1 scope-collapse rule for sparse TIMESERIES routing.
 

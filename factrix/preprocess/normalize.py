@@ -67,10 +67,7 @@ def cross_sectional_zscore(
     median_expr, mad_expr = _mad_expressions(factor_col)
 
     return df.with_columns(
-        (
-            (pl.col(factor_col) - median_expr)
-            / (mad_expr * MAD_CONSISTENCY_CONSTANT)
-        )
+        ((pl.col(factor_col) - median_expr) / (mad_expr * MAD_CONSISTENCY_CONSTANT))
         .fill_nan(0.0)
         .fill_null(0.0)
         .alias("factor_zscore")

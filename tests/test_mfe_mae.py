@@ -21,6 +21,7 @@ from factrix.metrics.event_quality import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_event_with_price(
     n_assets: int = 10,
     n_dates: int = 300,
@@ -41,15 +42,17 @@ def _make_event_with_price(
             daily_ret = rng.normal(0, 0.015)
             if is_event:
                 daily_ret += signal_strength * direction
-            price *= (1 + daily_ret)
+            price *= 1 + daily_ret
 
-            rows.append({
-                "date": d,
-                "asset_id": a,
-                "factor": direction,
-                "forward_return": daily_ret,
-                "price": price,
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": a,
+                    "factor": direction,
+                    "forward_return": daily_ret,
+                    "price": price,
+                }
+            )
 
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
@@ -71,11 +74,18 @@ def no_price_data() -> pl.DataFrame:
 # compute_mfe_mae
 # ---------------------------------------------------------------------------
 
+
 class TestComputeMfeMae:
     def test_returns_expected_columns(self, event_data):
         result = compute_mfe_mae(event_data, window=10)
-        assert set(result.columns) >= {"date", "asset_id", "mfe", "mae",
-                                        "bars_to_mfe", "bars_to_mae"}
+        assert set(result.columns) >= {
+            "date",
+            "asset_id",
+            "mfe",
+            "mae",
+            "bars_to_mfe",
+            "bars_to_mae",
+        }
         assert len(result) > 0
 
     def test_mfe_positive_mae_negative(self, event_data):
@@ -106,53 +116,60 @@ class TestComputeMfeMae:
         assert result.is_empty()
 
     def test_no_events_returns_empty(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [0.0],
-            "price": [100.0],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [0.0],
+                "price": [100.0],
+            }
+        )
         result = compute_mfe_mae(df)
         assert result.is_empty()
 
     def test_output_date_dtype_mirrors_input_us(self, event_data):
-        df_us = event_data.with_columns(
-            pl.col("date").cast(pl.Datetime("us"))
-        )
+        df_us = event_data.with_columns(pl.col("date").cast(pl.Datetime("us")))
         result = compute_mfe_mae(df_us, window=10)
         assert result.schema["date"] == pl.Datetime("us"), (
             "us-precision input should survive to the output"
         )
 
     def test_output_date_dtype_mirrors_tz_aware(self, event_data):
-        df_utc = event_data.with_columns(
-            pl.col("date").dt.replace_time_zone("UTC")
-        )
+        df_utc = event_data.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
         result = compute_mfe_mae(df_utc, window=10)
         assert result.schema["date"] == pl.Datetime("ms", time_zone="UTC")
 
     def test_empty_output_also_mirrors_dtype(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("us")),
-            "asset_id": ["A"], "factor": [0.0], "price": [100.0],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("us")),
+                "asset_id": ["A"],
+                "factor": [0.0],
+                "price": [100.0],
+            }
+        )
         result = compute_mfe_mae(df)
         assert result.is_empty()
         assert result.schema["date"] == pl.Datetime("us")
 
     def test_min_estimation_samples_lower_admits_more_z_scores(
-        self, event_data,
+        self,
+        event_data,
     ):
         """Lowering the threshold (e.g. for weekly data) lets early events
         in the panel get a finite est_sigma where the BMP-default 20
         would NaN them out. Verifies the parameter actually plumbs into
         the σ̂ guard."""
         strict = compute_mfe_mae(
-            event_data, window=10, estimation_window=30,
+            event_data,
+            window=10,
+            estimation_window=30,
             min_estimation_samples=20,
         )
         loose = compute_mfe_mae(
-            event_data, window=10, estimation_window=30,
+            event_data,
+            window=10,
+            estimation_window=30,
             min_estimation_samples=5,
         )
         strict_finite = strict["est_sigma"].is_finite().sum()
@@ -172,6 +189,7 @@ class TestComputeMfeMae:
 # mfe_mae_summary
 # ---------------------------------------------------------------------------
 
+
 class TestMfeMaeSummary:
     def test_returns_metric_output(self, event_data):
         mfe_df = compute_mfe_mae(event_data, window=10)
@@ -184,9 +202,12 @@ class TestMfeMaeSummary:
     def test_short_circuit_when_empty(self):
         empty = pl.DataFrame(
             schema={
-                "date": pl.Datetime("ms"), "asset_id": pl.String,
-                "mfe": pl.Float64, "mae": pl.Float64,
-                "bars_to_mfe": pl.Int32, "bars_to_mae": pl.Int32,
+                "date": pl.Datetime("ms"),
+                "asset_id": pl.String,
+                "mfe": pl.Float64,
+                "mae": pl.Float64,
+                "bars_to_mfe": pl.Int32,
+                "bars_to_mae": pl.Int32,
             },
         )
         result = mfe_mae_summary(empty)
@@ -200,6 +221,7 @@ class TestMfeMaeSummary:
 # profit_factor
 # ---------------------------------------------------------------------------
 
+
 class TestProfitFactor:
     def test_strong_signal_above_one(self, event_data):
         result = profit_factor(event_data)
@@ -212,12 +234,14 @@ class TestProfitFactor:
         assert "total_losses" in result.metadata
 
     def test_insufficient_events(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [1.0],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [1.0],
+                "forward_return": [0.01],
+            }
+        )
         result = profit_factor(df)
         assert math.isnan(result.value)
 
@@ -226,6 +250,7 @@ class TestProfitFactor:
 # event_skewness
 # ---------------------------------------------------------------------------
 
+
 class TestEventSkewness:
     def test_returns_metric(self, event_data):
         result = event_skewness(event_data)
@@ -233,11 +258,13 @@ class TestEventSkewness:
         assert isinstance(result.value, float)
 
     def test_insufficient_events(self):
-        df = pl.DataFrame({
-            "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
-            "asset_id": ["A"],
-            "factor": [1.0],
-            "forward_return": [0.01],
-        })
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2020, 1, 1)], dtype=pl.Datetime("ms")),
+                "asset_id": ["A"],
+                "factor": [1.0],
+                "forward_return": [0.01],
+            }
+        )
         result = event_skewness(df)
         assert math.isnan(result.value)

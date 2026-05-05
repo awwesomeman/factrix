@@ -40,6 +40,7 @@ MIN_FM_PERIODS: int = 20
 # Raw computation (parallel to compute_ic)
 # ---------------------------------------------------------------------------
 
+
 def compute_fm_betas(
     df: pl.DataFrame,
     *,
@@ -94,8 +95,12 @@ def compute_fm_betas(
         rows.append({"date": dt, "beta": float(beta[1])})
 
     if not rows:
-        return pl.DataFrame({"date": pl.Series([], dtype=pl.Datetime("ms")),
-                             "beta": pl.Series([], dtype=pl.Float64)})
+        return pl.DataFrame(
+            {
+                "date": pl.Series([], dtype=pl.Datetime("ms")),
+                "beta": pl.Series([], dtype=pl.Float64),
+            }
+        )
 
     return pl.DataFrame(rows)
 
@@ -103,6 +108,7 @@ def compute_fm_betas(
 # ---------------------------------------------------------------------------
 # Fama-MacBeth significance (parallel to ic())
 # ---------------------------------------------------------------------------
+
 
 def fama_macbeth(
     beta_df: pl.DataFrame,
@@ -186,14 +192,19 @@ def fama_macbeth(
 
     if n < MIN_FM_PERIODS:
         return _short_circuit_output(
-            "fm_beta", "insufficient_fm_periods",
-            n_observed=n, min_required=MIN_FM_PERIODS,
+            "fm_beta",
+            "insufficient_fm_periods",
+            n_observed=n,
+            min_required=MIN_FM_PERIODS,
         )
 
     from factrix._stats import _resolve_nw_lags
+
     mean_beta = float(np.mean(betas))
     t, p, sig = _newey_west_t_test(
-        betas, lags=newey_west_lags, forward_periods=forward_periods,
+        betas,
+        lags=newey_west_lags,
+        forward_periods=forward_periods,
     )
     actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
 
@@ -210,7 +221,8 @@ def fama_macbeth(
 
     if is_estimated_factor:
         sigma2_f = (
-            float(factor_return_var) if factor_return_var is not None
+            float(factor_return_var)
+            if factor_return_var is not None
             else float(np.var(betas, ddof=DDOF))
         )
         # σ²_f ≈ 0 means the factor premium series is flat; Shanken's
@@ -220,26 +232,27 @@ def fama_macbeth(
         if sigma2_f < EPSILON:
             metadata["shanken_correction"] = "skipped_zero_factor_variance"
         else:
-            c = 1.0 + (mean_beta ** 2) / sigma2_f
+            c = 1.0 + (mean_beta**2) / sigma2_f
             sqrt_c = math.sqrt(c)
             t_shanken = t / sqrt_c
             p_shanken = _p_value_from_t(t_shanken, n)
             sig_shanken = _significance_marker(p_shanken)
             source: ShankenVarSource = (
-                "user_supplied" if factor_return_var is not None
+                "user_supplied"
+                if factor_return_var is not None
                 else "betas_timeseries_proxy"
             )
-            metadata.update({
-                "p_value_uncorrected": p,
-                "stat_uncorrected": t,
-                "shanken_c": c,
-                "shanken_factor_return_var": sigma2_f,
-                "shanken_factor_return_var_source": source,
-                "p_value": p_shanken,
-                "method": (
-                    "Fama-MacBeth + Newey-West + Shanken (1992) EIV"
-                ),
-            })
+            metadata.update(
+                {
+                    "p_value_uncorrected": p,
+                    "stat_uncorrected": t,
+                    "shanken_c": c,
+                    "shanken_factor_return_var": sigma2_f,
+                    "shanken_factor_return_var_source": source,
+                    "p_value": p_shanken,
+                    "method": ("Fama-MacBeth + Newey-West + Shanken (1992) EIV"),
+                }
+            )
             t, sig = t_shanken, sig_shanken
 
     return MetricOutput(
@@ -255,8 +268,11 @@ def fama_macbeth(
 # Pooled OLS with clustered SE
 # ---------------------------------------------------------------------------
 
+
 def _cluster_meat(
-    X: np.ndarray, resid: np.ndarray, clusters: np.ndarray,
+    X: np.ndarray,
+    resid: np.ndarray,
+    clusters: np.ndarray,
 ) -> tuple[np.ndarray, int]:
     r"""$\sum_g (X_g' e_g)(X_g' e_g)'$ over the groups encoded by ``clusters``.
 
@@ -360,8 +376,10 @@ def pooled_ols(
 
     if n_obs < 10:
         return _short_circuit_output(
-            "pooled_beta", "insufficient_pooled_observations",
-            n_observed=n_obs, min_required=10,
+            "pooled_beta",
+            "insufficient_pooled_observations",
+            n_observed=n_obs,
+            min_required=10,
         )
 
     X = np.column_stack([np.ones(n_obs), x])
@@ -369,7 +387,8 @@ def pooled_ols(
         beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
     except np.linalg.LinAlgError:
         return _short_circuit_output(
-            "pooled_beta", "singular_pooled_design_matrix",
+            "pooled_beta",
+            "singular_pooled_design_matrix",
             n_observed=n_obs,
         )
 
@@ -388,7 +407,10 @@ def pooled_ols(
     if two_way_cluster_col is None:
         if g_a < 3:
             return MetricOutput(
-                name="pooled_beta", value=slope, stat=None, significance="",
+                name="pooled_beta",
+                value=slope,
+                stat=None,
+                significance="",
                 metadata={
                     "reason": "insufficient_clusters",
                     "n_observed": g_a,
@@ -413,7 +435,10 @@ def pooled_ols(
         meat_i, g_i = _cluster_meat(X, resid, inter_ids)
         if min(g_a, g_b) < 3:
             return MetricOutput(
-                name="pooled_beta", value=slope, stat=None, significance="",
+                name="pooled_beta",
+                value=slope,
+                stat=None,
+                significance="",
                 metadata={
                     "reason": "insufficient_clusters",
                     "n_observed": min(g_a, g_b),
@@ -431,8 +456,7 @@ def pooled_ols(
         )
         df_t = min(g_a, g_b)
         method_desc = (
-            f"Pooled OLS + two-way clustered SE "
-            f"({cluster_col}, {two_way_cluster_col})"
+            f"Pooled OLS + two-way clustered SE ({cluster_col}, {two_way_cluster_col})"
         )
         cluster_metadata = {
             "n_clusters_a": g_a,
@@ -444,7 +468,10 @@ def pooled_ols(
         xtx_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
         return MetricOutput(
-            name="pooled_beta", value=slope, stat=0.0, significance="",
+            name="pooled_beta",
+            value=slope,
+            stat=0.0,
+            significance="",
         )
 
     V = c_obs * xtx_inv @ effective_meat @ xtx_inv
@@ -493,6 +520,7 @@ def pooled_ols(
 # Beta sign consistency (parallel to hit_rate)
 # ---------------------------------------------------------------------------
 
+
 def beta_sign_consistency(
     beta_df: pl.DataFrame,
     *,
@@ -524,8 +552,10 @@ def beta_sign_consistency(
     n = len(betas)
     if n == 0:
         return _short_circuit_output(
-            "beta_sign_consistency", "no_beta_observations",
-            n_observed=0, min_required=1,
+            "beta_sign_consistency",
+            "no_beta_observations",
+            n_observed=0,
+            min_required=1,
         )
 
     if expected_sign >= 0:
@@ -541,5 +571,3 @@ def beta_sign_consistency(
             "n_periods": n,
         },
     )
-
-

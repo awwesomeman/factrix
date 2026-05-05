@@ -90,38 +90,34 @@ def top_concentration(
     """
     if weight_by == "alpha_contribution" and return_col not in df.columns:
         return _short_circuit_output(
-            "top_concentration", "no_return_column",
-            missing_column=return_col, weight_by=weight_by,
+            "top_concentration",
+            "no_return_column",
+            missing_column=return_col,
+            weight_by=weight_by,
         )
 
     filtered = _sample_non_overlapping(df, forward_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
-    q1 = (
-        filtered.with_columns(
-            (
-                pl.col(factor_col).rank(method="average").over("date")
-                / pl.len().over("date")
-            ).alias("_pct_rank")
-        )
-        .filter(pl.col("_pct_rank") >= (1 - q_top))
-    )
+    q1 = filtered.with_columns(
+        (
+            pl.col(factor_col).rank(method="average").over("date")
+            / pl.len().over("date")
+        ).alias("_pct_rank")
+    ).filter(pl.col("_pct_rank") >= (1 - q_top))
 
     if weight_by == "alpha_contribution":
         weighted = q1.with_columns(
-            (
-                pl.col(factor_col).sign() * pl.col(return_col)
-            ).abs().alias("_raw_weight")
+            (pl.col(factor_col).sign() * pl.col(return_col)).abs().alias("_raw_weight")
         )
     else:
-        weighted = q1.with_columns(
-            pl.col(factor_col).abs().alias("_raw_weight")
-        )
+        weighted = q1.with_columns(pl.col(factor_col).abs().alias("_raw_weight"))
 
     hhi_per_date = (
         weighted.with_columns(
-            (pl.col("_raw_weight") / pl.col("_raw_weight").sum().over("date"))
-            .alias("_weight")
+            (pl.col("_raw_weight") / pl.col("_raw_weight").sum().over("date")).alias(
+                "_weight"
+            )
         )
         .group_by("date")
         .agg(
@@ -129,16 +125,16 @@ def top_concentration(
             pl.len().alias("n_top"),
         )
         .filter(pl.col("hhi") > EPSILON)
-        .with_columns(
-            (1.0 / pl.col("hhi")).alias("eff_n")
-        )
+        .with_columns((1.0 / pl.col("hhi")).alias("eff_n"))
         .sort("date")
     )
 
     if len(hhi_per_date) < MIN_PORTFOLIO_PERIODS:
         return _short_circuit_output(
-            "top_concentration", "insufficient_portfolio_periods",
-            n_observed=len(hhi_per_date), min_required=MIN_PORTFOLIO_PERIODS,
+            "top_concentration",
+            "insufficient_portfolio_periods",
+            n_observed=len(hhi_per_date),
+            min_required=MIN_PORTFOLIO_PERIODS,
             tie_ratio=tie_ratio,
         )
 

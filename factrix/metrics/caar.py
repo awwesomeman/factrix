@@ -109,9 +109,7 @@ def compute_caar(
     """
     return (
         df.filter(pl.col(factor_col) != 0)
-        .with_columns(
-            (pl.col(return_col) * pl.col(factor_col)).alias("_signed_car")
-        )
+        .with_columns((pl.col(return_col) * pl.col(factor_col)).alias("_signed_car"))
         .group_by("date")
         .agg(pl.col("_signed_car").mean().alias("caar"))
         .sort("date")
@@ -156,8 +154,10 @@ def caar(
     raw_min = _scaled_min_periods(MIN_EVENTS, forward_periods)
     if n < raw_min:
         return _short_circuit_output(
-            "caar", "insufficient_event_dates",
-            n_observed=n, min_required=raw_min,
+            "caar",
+            "insufficient_event_dates",
+            n_observed=n,
+            min_required=raw_min,
             forward_periods=forward_periods,
         )
 
@@ -264,16 +264,15 @@ def bmp_test(
 
     if "price" in sorted_df.columns:
         sorted_df = sorted_df.with_columns(
-            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1)
-            .alias("_daily_ret")
+            (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1).alias(
+                "_daily_ret"
+            )
         )
         # WHY: forward_return = (price[t+1+N]/price[t+1] - 1) / N has
         # std ≈ σ_daily / sqrt(N). Scale estimation vol to match.
         vol_scale = 1.0 / np.sqrt(forward_periods)
     else:
-        sorted_df = sorted_df.with_columns(
-            pl.col(return_col).alias("_daily_ret")
-        )
+        sorted_df = sorted_df.with_columns(pl.col(return_col).alias("_daily_ret"))
         vol_scale = 1.0
 
     # WHY: no .shift(1) needed — forward_return already starts at t+1
@@ -291,8 +290,10 @@ def bmp_test(
     events = sorted_df.filter(pl.col(factor_col) != 0)
     if len(events) == 0:
         return _short_circuit_output(
-            "bmp_test", "no_events",
-            n_observed=0, min_required=1,
+            "bmp_test",
+            "no_events",
+            n_observed=0,
+            min_required=1,
         )
 
     events = events.with_columns(
@@ -306,8 +307,10 @@ def bmp_test(
     n_valid = len(valid)
     if n_valid < MIN_EVENTS:
         return _short_circuit_output(
-            "bmp_test", "insufficient_estimation_window",
-            n_observed=n_valid, min_required=MIN_EVENTS,
+            "bmp_test",
+            "insufficient_estimation_window",
+            n_observed=n_valid,
+            min_required=MIN_EVENTS,
         )
 
     valid = valid.with_columns(
@@ -344,8 +347,7 @@ def bmp_test(
             metadata["kolari_pynnonen_applied"] = True
             metadata["stat_uncorrected"] = z_bmp
             metadata["method"] = (
-                "BMP + Kolari-Pynnönen (2010) cross-sectional-correlation "
-                "adjustment"
+                "BMP + Kolari-Pynnönen (2010) cross-sectional-correlation adjustment"
             )
     else:
         z = z_bmp
@@ -399,9 +401,7 @@ def _estimate_sar_icc(
     # multi-event mean keeps the two moments commensurate (conservative
     # on singleton-heavy datasets, as recommended by the K-P literature).
     if multi.height < 2:
-        fallback_n_eff = (
-            float(per_date["n"].sum() / per_date.height)
-        )
+        fallback_n_eff = float(per_date["n"].sum() / per_date.height)
         return None, fallback_n_eff, "no_multi_event_dates"
     n_eff = float(multi["n"].mean())
 

@@ -35,11 +35,13 @@ class TestComputeTurnover:
         assert result.metadata["quantile"] is None
 
     def test_single_date(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 3,
-            "asset_id": ["A", "B", "C"],
-            "factor": [1.0, 2.0, 3.0],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 3,
+                "asset_id": ["A", "B", "C"],
+                "factor": [1.0, 2.0, 3.0],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = turnover(df)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_dates"
@@ -59,9 +61,11 @@ class TestComputeTurnover:
         reverse. With ``forward_periods=2`` we sample only even dates, so
         every pair's rank-AC is +1 → turnover=0.
         """
+
         def factor(t, a):
             base = ord(a) - ord("A") + 1
             return base if t % 2 == 0 else (4 - base)
+
         df = _panel(7, ["A", "B", "C"], factor)
         result = turnover(df, forward_periods=2)
         assert result.value == pytest.approx(0.0, abs=0.01)
@@ -111,9 +115,11 @@ class TestNotionalTurnover:
 
     def test_full_rotation(self):
         """Ranks reverse every date → top ↔ bot fully swap → turnover = 1."""
+
         def factor(t, a):
             base = ord(a) - ord("A")
             return base if t % 2 == 0 else (9 - base)
+
         df = _panel(5, self.TEN_ASSETS, factor)
         result = notional_turnover(df, n_groups=5)
         assert result.value == pytest.approx(1.0)
@@ -152,6 +158,7 @@ class TestNotionalTurnover:
         exactly one of the two top names rotates out each date while the
         bottom stays put: top_churn=0.5, bot_churn=0 → turnover=0.25.
         """
+
         def factor(t, a):
             if a in ("A", "B"):
                 return ord(a) - ord("A")  # bottom 2 fixed
@@ -175,9 +182,11 @@ class TestNotionalTurnover:
 
     def test_forward_periods_stride(self):
         """forward_periods=2 sub-samples to odd/even dates only."""
+
         def factor(t, a):
             base = ord(a) - ord("A")
             return base if t % 2 == 0 else (9 - base)
+
         df = _panel(7, self.TEN_ASSETS, factor)
         # Even-only sample → ranks identical every sampled date → 0.
         result = notional_turnover(df, n_groups=5, forward_periods=2)

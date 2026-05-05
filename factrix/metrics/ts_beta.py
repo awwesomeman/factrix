@@ -37,6 +37,7 @@ MIN_TS_OBS: int = 20
 # Per-asset TS regression
 # ---------------------------------------------------------------------------
 
+
 def compute_ts_betas(
     df: pl.DataFrame,
     *,
@@ -113,24 +114,28 @@ def compute_ts_betas(
         else:
             t_stat = 0.0
 
-        rows.append({
-            "asset_id": asset,
-            "beta": beta_val,
-            "alpha": alpha_val,
-            "t_stat": t_stat,
-            "r_squared": r_sq,
-            "n_obs": n,
-        })
+        rows.append(
+            {
+                "asset_id": asset,
+                "beta": beta_val,
+                "alpha": alpha_val,
+                "t_stat": t_stat,
+                "r_squared": r_sq,
+                "n_obs": n,
+            }
+        )
 
     if not rows:
-        return pl.DataFrame({
-            "asset_id": pl.Series([], dtype=pl.String),
-            "beta": pl.Series([], dtype=pl.Float64),
-            "alpha": pl.Series([], dtype=pl.Float64),
-            "t_stat": pl.Series([], dtype=pl.Float64),
-            "r_squared": pl.Series([], dtype=pl.Float64),
-            "n_obs": pl.Series([], dtype=pl.Int64),
-        })
+        return pl.DataFrame(
+            {
+                "asset_id": pl.Series([], dtype=pl.String),
+                "beta": pl.Series([], dtype=pl.Float64),
+                "alpha": pl.Series([], dtype=pl.Float64),
+                "t_stat": pl.Series([], dtype=pl.Float64),
+                "r_squared": pl.Series([], dtype=pl.Float64),
+                "n_obs": pl.Series([], dtype=pl.Int64),
+            }
+        )
 
     return pl.DataFrame(rows)
 
@@ -138,6 +143,7 @@ def compute_ts_betas(
 # ---------------------------------------------------------------------------
 # Cross-sectional test on β distribution
 # ---------------------------------------------------------------------------
+
 
 def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
@@ -208,8 +214,10 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
     if n < 3:
         return _short_circuit_output(
-            "ts_beta", "insufficient_assets",
-            n_observed=n, min_required=3,
+            "ts_beta",
+            "insufficient_assets",
+            n_observed=n,
+            min_required=3,
         )
 
     mean_b = float(np.mean(betas))
@@ -237,6 +245,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 # ---------------------------------------------------------------------------
 # Mean R²
 # ---------------------------------------------------------------------------
+
 
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
@@ -267,8 +276,10 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
     if n == 0:
         return _short_circuit_output(
-            "mean_r_squared", "no_asset_r_squared_observations",
-            n_observed=0, min_required=1,
+            "mean_r_squared",
+            "no_asset_r_squared_observations",
+            n_observed=0,
+            min_required=1,
         )
 
     return MetricOutput(
@@ -286,6 +297,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
 # ---------------------------------------------------------------------------
 # Rolling mean beta for stability / OOS analysis
 # ---------------------------------------------------------------------------
+
 
 def compute_rolling_mean_beta(
     df: pl.DataFrame,
@@ -325,14 +337,16 @@ def compute_rolling_mean_beta(
     """
     dates = df["date"].unique().sort()
     if len(dates) < window:
-        return pl.DataFrame({
-            "date": pl.Series([], dtype=pl.Datetime("ms")),
-            "value": pl.Series([], dtype=pl.Float64),
-        })
+        return pl.DataFrame(
+            {
+                "date": pl.Series([], dtype=pl.Datetime("ms")),
+                "value": pl.Series([], dtype=pl.Float64),
+            }
+        )
 
     rows: list[dict] = []
     for i in range(window, len(dates)):
-        window_dates = dates[i - window:i]
+        window_dates = dates[i - window : i]
         chunk = df.filter(pl.col("date").is_in(window_dates.implode()))
 
         betas_per_asset: list[float] = []
@@ -352,16 +366,20 @@ def compute_rolling_mean_beta(
                 continue
 
         if betas_per_asset:
-            rows.append({
-                "date": dates[i],
-                "value": float(np.mean(betas_per_asset)),
-            })
+            rows.append(
+                {
+                    "date": dates[i],
+                    "value": float(np.mean(betas_per_asset)),
+                }
+            )
 
     if not rows:
-        return pl.DataFrame({
-            "date": pl.Series([], dtype=pl.Datetime("ms")),
-            "value": pl.Series([], dtype=pl.Float64),
-        })
+        return pl.DataFrame(
+            {
+                "date": pl.Series([], dtype=pl.Datetime("ms")),
+                "value": pl.Series([], dtype=pl.Float64),
+            }
+        )
 
     return pl.DataFrame(rows)
 
@@ -369,6 +387,7 @@ def compute_rolling_mean_beta(
 # ---------------------------------------------------------------------------
 # β sign consistency (per-asset version)
 # ---------------------------------------------------------------------------
+
 
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
@@ -399,8 +418,10 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     n = len(betas)
     if n < 2:
         return _short_circuit_output(
-            "ts_beta_sign_consistency", "insufficient_assets_for_sign_consistency",
-            n_observed=n, min_required=2,
+            "ts_beta_sign_consistency",
+            "insufficient_assets_for_sign_consistency",
+            n_observed=n,
+            min_required=2,
         )
 
     positive = float(np.mean(betas > 0))

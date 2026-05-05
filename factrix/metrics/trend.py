@@ -99,8 +99,10 @@ def ic_trend(
 
     if n < 10:
         return _short_circuit_output(
-            name, "insufficient_trend_periods",
-            n_observed=n, min_required=10,
+            name,
+            "insufficient_trend_periods",
+            n_observed=n,
+            min_required=10,
         )
 
     # WHY: 使用序號而非日期差，因為非重疊取樣後日期間距可能不均
@@ -113,7 +115,9 @@ def ic_trend(
     high_slope = float(result.high_slope)
 
     # WHY: 如果 CI 不跨零，slope 顯著
-    ci_excludes_zero = (low_slope > 0 and high_slope > 0) or (low_slope < 0 and high_slope < 0)
+    ci_excludes_zero = (low_slope > 0 and high_slope > 0) or (
+        low_slope < 0 and high_slope < 0
+    )
 
     # WHY: 從 CI 推導近似 t-stat 供顯著性標記使用
     # slope ± margin = CI → margin = (high - low) / 2 → SE ≈ margin / 1.96

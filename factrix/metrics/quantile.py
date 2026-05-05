@@ -87,7 +87,10 @@ def compute_spread_series(
         )
 
     grouped = _assign_quantile_groups(
-        sampled, factor_col, n_groups, tie_policy=tie_policy,
+        sampled,
+        factor_col,
+        n_groups,
+        tie_policy=tie_policy,
     )
 
     top_group = n_groups - 1
@@ -161,9 +164,12 @@ def quantile_spread(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return _short_circuit_output(
-            "quantile_spread", "insufficient_portfolio_periods",
-            n_observed=n, min_required=MIN_PORTFOLIO_PERIODS,
-            tie_ratio=tie_ratio, tie_policy=tie_policy,
+            "quantile_spread",
+            "insufficient_portfolio_periods",
+            n_observed=n,
+            min_required=MIN_PORTFOLIO_PERIODS,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     arr = spread_vals.to_numpy()
@@ -283,7 +289,8 @@ def quantile_spread_vw(
     """
     if weight_col not in df.columns:
         return _short_circuit_output(
-            "quantile_spread_vw", "no_weight_column",
+            "quantile_spread_vw",
+            "no_weight_column",
             missing_column=weight_col,
         )
 
@@ -294,7 +301,10 @@ def quantile_spread_vw(
     _warn_high_tie_ratio(tie_ratio, "quantile_spread_vw", tie_policy)
 
     grouped = _assign_quantile_groups(
-        sampled, factor_col, n_groups, tie_policy=tie_policy,
+        sampled,
+        factor_col,
+        n_groups,
+        tie_policy=tie_policy,
     )
 
     top_group = n_groups - 1
@@ -326,9 +336,12 @@ def quantile_spread_vw(
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS:
         return _short_circuit_output(
-            "quantile_spread_vw", "insufficient_portfolio_periods",
-            n_observed=n, min_required=MIN_PORTFOLIO_PERIODS,
-            tie_ratio=tie_ratio, tie_policy=tie_policy,
+            "quantile_spread_vw",
+            "insufficient_portfolio_periods",
+            n_observed=n,
+            min_required=MIN_PORTFOLIO_PERIODS,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     arr = spread_vals.to_numpy()
@@ -343,8 +356,12 @@ def quantile_spread_vw(
         stat=t,
         significance=_significance_marker(p),
         metadata={
-            "n_periods": n, "p_value": p, "stat_type": "t", "h0": "mu=0",
-            "tie_ratio": tie_ratio, "tie_policy": tie_policy,
+            "n_periods": n,
+            "p_value": p,
+            "stat_type": "t",
+            "h0": "mu=0",
+            "tie_ratio": tie_ratio,
+            "tie_policy": tie_policy,
             "weights_lagged": lag_weights,
         },
     )
@@ -385,7 +402,10 @@ def compute_group_returns(
     """
     sampled = _sample_non_overlapping(df, forward_periods)
     grouped = _assign_quantile_groups(
-        sampled, factor_col, n_groups, tie_policy=tie_policy,
+        sampled,
+        factor_col,
+        n_groups,
+        tie_policy=tie_policy,
     )
 
     return (

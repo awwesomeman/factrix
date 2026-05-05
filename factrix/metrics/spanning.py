@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
-from factrix._ols import OLSResult, ols_alpha as _ols_alpha
+from factrix._ols import ols_alpha as _ols_alpha
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 from factrix._stats import _p_value_from_t, _significance_marker
@@ -69,6 +69,7 @@ class ForwardSelectionResult:
 # Date alignment helper
 # ---------------------------------------------------------------------------
 
+
 def _align_spread_series(
     series_dict: dict[str, pl.DataFrame],
 ) -> tuple[pl.DataFrame, dict[str, np.ndarray]]:
@@ -96,16 +97,16 @@ def _align_spread_series(
     common_dates = all_dates.sort("date")
     arrays = {}
     for name, df in series_dict.items():
-        arrays[name] = (
-            common_dates.join(df.select("date", "spread"), on="date", how="inner")
-            ["spread"].to_numpy()
-        )
+        arrays[name] = common_dates.join(
+            df.select("date", "spread"), on="date", how="inner"
+        )["spread"].to_numpy()
     return common_dates, arrays
 
 
 # ---------------------------------------------------------------------------
 # Public API: single-factor spanning test
 # ---------------------------------------------------------------------------
+
 
 def spanning_alpha(
     factor_spread: pl.DataFrame,
@@ -148,7 +149,8 @@ def spanning_alpha(
         common_dates, arrays = _align_spread_series(all_series)
         if "_candidate_" not in arrays:
             return _short_circuit_output(
-                "spanning_alpha", "no_overlapping_dates_with_candidate",
+                "spanning_alpha",
+                "no_overlapping_dates_with_candidate",
                 n_observed=0,
             )
         candidate_arr = arrays.pop("_candidate_")
@@ -158,8 +160,10 @@ def spanning_alpha(
         vals = factor_spread["spread"].drop_nulls()
         if len(vals) < 10:
             return _short_circuit_output(
-                "spanning_alpha", "insufficient_spread_observations",
-                n_observed=len(vals), min_required=10,
+                "spanning_alpha",
+                "insufficient_spread_observations",
+                n_observed=len(vals),
+                min_required=10,
             )
         candidate_arr = vals.to_numpy()
         base_arrays = {}
@@ -194,6 +198,7 @@ def spanning_alpha(
 # ---------------------------------------------------------------------------
 # Public API: multi-factor greedy forward selection
 # ---------------------------------------------------------------------------
+
 
 def greedy_forward_selection(
     factor_spreads: dict[str, pl.DataFrame],
@@ -276,7 +281,8 @@ def greedy_forward_selection(
         logger.info(
             "greedy_forward_selection: snooping warning suppressed by "
             "caller (n_candidates=%d, n_base=%d)",
-            len(factor_spreads), len(base_spreads or {}),
+            len(factor_spreads),
+            len(base_spreads or {}),
         )
 
     if base_spreads is None:
@@ -314,10 +320,17 @@ def greedy_forward_selection(
 
         for name in remaining:
             ols = _ols_alpha(candidate_arrays[name], base_matrix)
-            result.all_candidates.append(SpanningResult(
-                factor_name=name, alpha=ols.alpha, t_stat=ols.alpha_t, selected=False,
-            ))
-            if abs(ols.alpha_t) >= significance_threshold and abs(ols.alpha) > abs(best_alpha):
+            result.all_candidates.append(
+                SpanningResult(
+                    factor_name=name,
+                    alpha=ols.alpha,
+                    t_stat=ols.alpha_t,
+                    selected=False,
+                )
+            )
+            if abs(ols.alpha_t) >= significance_threshold and abs(ols.alpha) > abs(
+                best_alpha
+            ):
                 best_name = name
                 best_alpha = ols.alpha
                 best_t = ols.alpha_t
@@ -328,14 +341,21 @@ def greedy_forward_selection(
         selected_names.append(best_name)
         selected_arrays[best_name] = candidate_arrays[best_name]
         remaining.remove(best_name)
-        result.selected_factors.append(SpanningResult(
-            factor_name=best_name, alpha=best_alpha, t_stat=best_t,
-            selected=True,
-        ))
+        result.selected_factors.append(
+            SpanningResult(
+                factor_name=best_name,
+                alpha=best_alpha,
+                t_stat=best_t,
+                selected=True,
+            )
+        )
 
         _backward_eliminate(
-            selected_names, selected_arrays, base_arrays,
-            significance_threshold, result,
+            selected_names,
+            selected_arrays,
+            base_arrays,
+            significance_threshold,
+            result,
         )
 
     return result
@@ -353,9 +373,7 @@ def _backward_eliminate(
     while changed:
         changed = False
         for name in list(selected_names):
-            others = [
-                selected_arrays[n] for n in selected_names if n != name
-            ]
+            others = [selected_arrays[n] for n in selected_names if n != name]
             base_cols = list(base_arrays.values()) + others
             if base_cols:
                 base_matrix = np.column_stack(base_cols)
@@ -367,15 +385,22 @@ def _backward_eliminate(
             if abs(ols.alpha_t) < threshold:
                 selected_names.remove(name)
                 del selected_arrays[name]
-                result.eliminated_factors.append(SpanningResult(
-                    factor_name=name, alpha=ols.alpha, t_stat=ols.alpha_t, selected=False,
-                ))
+                result.eliminated_factors.append(
+                    SpanningResult(
+                        factor_name=name,
+                        alpha=ols.alpha,
+                        t_stat=ols.alpha_t,
+                        selected=False,
+                    )
+                )
                 result.selected_factors = [
                     s for s in result.selected_factors if s.factor_name != name
                 ]
                 changed = True
                 logger.info(
                     "backward elimination: removed %s (alpha=%.6f, t=%.2f)",
-                    name, ols.alpha, ols.alpha_t,
+                    name,
+                    ols.alpha,
+                    ols.alpha_t,
                 )
                 break

@@ -90,7 +90,6 @@ def compute_ic(
     )
 
 
-
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -127,8 +126,10 @@ def ic(
     raw_min = _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, forward_periods)
     if n < raw_min:
         return _short_circuit_output(
-            "ic", "insufficient_ic_periods",
-            n_observed=n, min_required=raw_min,
+            "ic",
+            "insufficient_ic_periods",
+            n_observed=n,
+            min_required=raw_min,
             forward_periods=forward_periods,
         )
 
@@ -137,8 +138,10 @@ def ic(
     n_sampled = len(sampled)
     if n_sampled < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
-            "ic", "insufficient_sampled_ic_periods",
-            n_observed=n_sampled, min_required=MIN_ASSETS_PER_DATE_IC,
+            "ic",
+            "insufficient_sampled_ic_periods",
+            n_observed=n_sampled,
+            min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
     t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
@@ -195,11 +198,14 @@ def ic_newey_west(
     n = len(ic_vals)
     if n < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
-            "ic_newey_west", "insufficient_ic_periods",
-            n_observed=n, min_required=MIN_ASSETS_PER_DATE_IC,
+            "ic_newey_west",
+            "insufficient_ic_periods",
+            n_observed=n,
+            min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     from factrix._stats import _resolve_nw_lags
+
     lags = _resolve_nw_lags(n, lags=None, forward_periods=forward_periods)
     t, p, sig = _newey_west_t_test(ic_vals, forward_periods=forward_periods)
     return MetricOutput(
@@ -253,8 +259,10 @@ def ic_ir(
     n = len(ic_vals)
     if n < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
-            "ic_ir", "insufficient_ic_periods",
-            n_observed=n, min_required=MIN_ASSETS_PER_DATE_IC,
+            "ic_ir",
+            "insufficient_ic_periods",
+            n_observed=n,
+            min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     mean_ic = float(ic_vals.mean())
@@ -262,7 +270,9 @@ def ic_ir(
 
     if std_ic < EPSILON:
         return _short_circuit_output(
-            "ic_ir", "degenerate_ic_variance", std_ic=std_ic,
+            "ic_ir",
+            "degenerate_ic_variance",
+            std_ic=std_ic,
         )
 
     ratio = mean_ic / std_ic
@@ -320,22 +330,30 @@ def regime_ic(
     """
     if len(ic_df) < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
-            "regime_ic", "insufficient_ic_periods",
-            n_observed=len(ic_df), min_required=MIN_ASSETS_PER_DATE_IC,
+            "regime_ic",
+            "insufficient_ic_periods",
+            n_observed=len(ic_df),
+            min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     if regime_labels is not None:
-        merged = ic_df.join(regime_labels.select("date", "regime"), on="date", how="inner")
+        merged = ic_df.join(
+            regime_labels.select("date", "regime"), on="date", how="inner"
+        )
     else:
         # Fallback: time bisection
         sorted_ic = ic_df.sort("date")
         mid = len(sorted_ic) // 2
-        merged = sorted_ic.with_row_index("_idx").with_columns(
-            pl.when(pl.col("_idx") < mid)
-            .then(pl.lit("first_half"))
-            .otherwise(pl.lit("second_half"))
-            .alias("regime")
-        ).drop("_idx")
+        merged = (
+            sorted_ic.with_row_index("_idx")
+            .with_columns(
+                pl.when(pl.col("_idx") < mid)
+                .then(pl.lit("first_half"))
+                .otherwise(pl.lit("second_half"))
+                .alias("regime")
+            )
+            .drop("_idx")
+        )
 
     # Single-pass group_by instead of per-regime Python loop
     regime_stats = (
@@ -352,7 +370,8 @@ def regime_ic(
 
     if regime_stats.is_empty():
         return _short_circuit_output(
-            "regime_ic", "no_regime_has_enough_observations",
+            "regime_ic",
+            "no_regime_has_enough_observations",
             min_required_per_regime=2,
         )
 
@@ -457,14 +476,14 @@ def multi_horizon_ic(
     per_horizon: dict[int, dict[str, object]] = {}
 
     sorted_df = df.sort(["asset_id", "date"])
-    all_returns = sorted_df.with_columns([
-        (
-            pl.col(price_col).shift(-p).over("asset_id")
-            / pl.col(price_col)
-            - 1
-        ).alias(f"_fwd_ret_{p}")
-        for p in periods
-    ])
+    all_returns = sorted_df.with_columns(
+        [
+            (
+                pl.col(price_col).shift(-p).over("asset_id") / pl.col(price_col) - 1
+            ).alias(f"_fwd_ret_{p}")
+            for p in periods
+        ]
+    )
 
     for p in periods:
         ret_col = f"_fwd_ret_{p}"
@@ -504,7 +523,8 @@ def multi_horizon_ic(
     valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
     if not valid_horizons:
         return _short_circuit_output(
-            "multi_horizon_ic", "no_horizon_has_enough_observations",
+            "multi_horizon_ic",
+            "no_horizon_has_enough_observations",
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 

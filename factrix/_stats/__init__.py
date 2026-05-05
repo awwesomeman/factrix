@@ -107,13 +107,16 @@ def _binomial_two_sided_p(hits: int, n: int, p0: float = 0.5) -> float:
 def _binomial_test_method_name(n: int) -> str:
     """Human-readable test name mirroring the branch in ``_binomial_two_sided_p``."""
     return (
-        "binomial exact test" if n < _BINOMIAL_EXACT_CUTOFF
+        "binomial exact test"
+        if n < _BINOMIAL_EXACT_CUTOFF
         else "binomial score test (normal approximation)"
     )
 
 
 def _t_test_summary(
-    mean: float, std: float, n: int,
+    mean: float,
+    std: float,
+    n: int,
 ) -> tuple[float, float, str]:
     """Compute t-stat, p-value, and significance marker in one call."""
     t = _calc_t_stat(mean, std, n)
@@ -334,7 +337,8 @@ def _newey_west_t_test(
         logger.warning(
             "newey_west_t_test: n=%d < 5 * lags=%d — HAC estimate may be "
             "poorly conditioned. Consider smaller lags or more data.",
-            n, effective_lags,
+            n,
+            effective_lags,
         )
 
     mean = float(np.mean(values))

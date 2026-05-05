@@ -23,9 +23,9 @@ def test_loggers_silent_by_default() -> None:
     NullHandler is attached to each logger.
     """
     for logger in (get_evaluation_logger(), get_metrics_logger()):
-        assert any(
-            isinstance(h, logging.NullHandler) for h in logger.handlers
-        ), f"{logger.name} must have a NullHandler attached"
+        assert any(isinstance(h, logging.NullHandler) for h in logger.handlers), (
+            f"{logger.name} must have a NullHandler attached"
+        )
 
 
 def test_loggers_independently_configurable() -> None:

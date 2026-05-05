@@ -38,12 +38,14 @@ class TestQuantileSpread:
         from datetime import datetime
 
         # 2 dates < MIN_PORTFOLIO_PERIODS=5
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 5 + [datetime(2024, 1, 2)] * 5,
-            "asset_id": ["A", "B", "C", "D", "E"] * 2,
-            "factor": [1.0, 2.0, 3.0, 4.0, 5.0] * 2,
-            "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05] * 2,
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 5 + [datetime(2024, 1, 2)] * 5,
+                "asset_id": ["A", "B", "C", "D", "E"] * 2,
+                "factor": [1.0, 2.0, 3.0, 4.0, 5.0] * 2,
+                "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05] * 2,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = quantile_spread(df, forward_periods=1, n_groups=5)
         assert math.isnan(result.value)
 
@@ -75,12 +77,15 @@ class TestQuantileSpreadVW:
             r = 0.5 * f + 0.5 * rng.standard_normal(n_assets)
             caps = rng.lognormal(10, 1, n_assets)
             for i in range(n_assets):
-                rows.append({
-                    "date": d, "asset_id": f"s_{i}",
-                    "factor": float(f[i]),
-                    "forward_return": float(r[i]),
-                    "market_cap": float(caps[i]),
-                })
+                rows.append(
+                    {
+                        "date": d,
+                        "asset_id": f"s_{i}",
+                        "factor": float(f[i]),
+                        "forward_return": float(r[i]),
+                        "market_cap": float(caps[i]),
+                    }
+                )
         return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     def test_basic(self):
@@ -94,7 +99,10 @@ class TestQuantileSpreadVW:
         df = self._make_panel_with_cap()
         default = quantile_spread_vw(df, forward_periods=1, n_groups=5)
         explicit_off = quantile_spread_vw(
-            df, forward_periods=1, n_groups=5, lag_weights=False,
+            df,
+            forward_periods=1,
+            n_groups=5,
+            lag_weights=False,
         )
         assert default.metadata["weights_lagged"] is True
         assert explicit_off.metadata["weights_lagged"] is False
@@ -103,12 +111,14 @@ class TestQuantileSpreadVW:
         assert default.metadata["n_periods"] < explicit_off.metadata["n_periods"]
 
     def test_missing_weight_col(self):
-        df = pl.DataFrame({
-            "date": [datetime(2024, 1, 1)] * 5,
-            "asset_id": [f"s_{i}" for i in range(5)],
-            "factor": [1.0, 2.0, 3.0, 4.0, 5.0],
-            "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
-        }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 5,
+                "asset_id": [f"s_{i}" for i in range(5)],
+                "factor": [1.0, 2.0, 3.0, 4.0, 5.0],
+                "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
         assert math.isnan(result.value)
         assert result.metadata.get("reason") == "no_weight_column"

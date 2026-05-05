@@ -27,14 +27,18 @@ class TestStationaryBootstrapResamples:
     def test_shape_and_same_length(self):
         x = np.arange(100, dtype=float)
         resamples = stationary_bootstrap_resamples(
-            x, n_bootstrap=50, seed=0,
+            x,
+            n_bootstrap=50,
+            seed=0,
         )
         assert resamples.shape == (50, 100)
 
     def test_values_are_a_subset_of_input(self):
         x = np.arange(50, dtype=float)
         resamples = stationary_bootstrap_resamples(
-            x, n_bootstrap=20, seed=0,
+            x,
+            n_bootstrap=20,
+            seed=0,
         )
         # Every draw must come from the original series.
         assert np.isin(resamples, x).all()
@@ -58,16 +62,23 @@ class TestStationaryBootstrapResamples:
 
         def mean_lag1_acf(samples: np.ndarray) -> float:
             acfs = [
-                float(np.corrcoef(s[:-1], s[1:])[0, 1]) for s in samples
+                float(np.corrcoef(s[:-1], s[1:])[0, 1])
+                for s in samples
                 if np.std(s) > 0.0
             ]
             return float(np.mean(acfs)) if acfs else 0.0
 
         iid = stationary_bootstrap_resamples(
-            x, n_bootstrap=100, block_length=1.0, seed=1,
+            x,
+            n_bootstrap=100,
+            block_length=1.0,
+            seed=1,
         )
         block = stationary_bootstrap_resamples(
-            x, n_bootstrap=100, block_length=30.0, seed=1,
+            x,
+            n_bootstrap=100,
+            block_length=30.0,
+            seed=1,
         )
         # Mean preservation holds for both.
         assert np.mean(iid) == pytest.approx(np.mean(x), rel=0.05)
@@ -79,7 +90,9 @@ class TestStationaryBootstrapResamples:
         rng = np.random.default_rng(123)
         x = rng.standard_normal(500) + 0.2
         resamples = stationary_bootstrap_resamples(
-            x, n_bootstrap=1000, seed=0,
+            x,
+            n_bootstrap=1000,
+            seed=0,
         )
         # Grand mean across all resamples ≈ sample mean.
         assert float(resamples.mean()) == pytest.approx(x.mean(), abs=0.05)
@@ -87,7 +100,9 @@ class TestStationaryBootstrapResamples:
     def test_rejects_block_length_below_one(self):
         with pytest.raises(ValueError, match="block_length"):
             stationary_bootstrap_resamples(
-                np.arange(10.0), n_bootstrap=5, block_length=0.5,
+                np.arange(10.0),
+                n_bootstrap=5,
+                block_length=0.5,
             )
 
 
@@ -104,7 +119,10 @@ class TestBootstrapMeanCI:
         rng = np.random.default_rng(0)
         x = rng.standard_normal(200)
         lo, hi, point = bootstrap_mean_ci(
-            x, n_bootstrap=300, seed=2, statistic=np.median,
+            x,
+            n_bootstrap=300,
+            seed=2,
+            statistic=np.median,
         )
         assert lo < point < hi
         assert point == pytest.approx(float(np.median(x)))
