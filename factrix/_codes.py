@@ -40,7 +40,7 @@ class WarningCode(StrEnum):
         return _WARNING_DESCRIPTIONS[self]
 
 
-_WARNING_DESCRIPTIONS: dict["WarningCode", str] = {}
+_WARNING_DESCRIPTIONS: dict[WarningCode, str] = {}
 
 
 _WARNING_DESCRIPTIONS.update(
@@ -91,7 +91,7 @@ class InfoCode(StrEnum):
         return _INFO_DESCRIPTIONS[self]
 
 
-_INFO_DESCRIPTIONS: dict["InfoCode", str] = {
+_INFO_DESCRIPTIONS: dict[InfoCode, str] = {
     InfoCode.SCOPE_AXIS_COLLAPSED: "N=1 collapsed scope axis; routed via _SCOPE_COLLAPSED sentinel.",
 }
 

@@ -45,7 +45,7 @@ class FactorProfile:
             secondary p-values, HHI, etc.).
     """
 
-    config: "AnalysisConfig"
+    config: AnalysisConfig
     mode: Mode
     primary_p: float
     n_obs: int

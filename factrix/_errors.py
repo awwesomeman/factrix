@@ -32,7 +32,7 @@ class ConfigError(FactrixError):
         self,
         message: str,
         *,
-        suggested_fix: "AnalysisConfig | None" = None,
+        suggested_fix: AnalysisConfig | None = None,
     ) -> None:
         super().__init__(message)
         self.suggested_fix = suggested_fix
@@ -73,7 +73,7 @@ class InsufficientSampleError(ConfigError):
         *,
         actual_periods: int,
         required_periods: int,
-        suggested_fix: "AnalysisConfig | None" = None,
+        suggested_fix: AnalysisConfig | None = None,
     ) -> None:
         super().__init__(message, suggested_fix=suggested_fix)
         self.actual_periods = actual_periods

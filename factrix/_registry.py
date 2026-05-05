@@ -55,7 +55,7 @@ class _RegistryEntry:
     """
 
     key: _DispatchKey
-    procedure: "FactorProcedure"
+    procedure: FactorProcedure
     canonical_use_case: str
     references: tuple[str, ...] = field(default_factory=tuple)
 
@@ -65,7 +65,7 @@ _DISPATCH_REGISTRY: dict[_DispatchKey, _RegistryEntry] = {}
 
 def register(
     key: _DispatchKey,
-    procedure: "FactorProcedure",
+    procedure: FactorProcedure,
     *,
     use_case: str,
     refs: tuple[str, ...] = (),
