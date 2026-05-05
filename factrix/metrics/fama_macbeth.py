@@ -170,9 +170,10 @@ def fama_macbeth(
         [Andrews 1991][andrews-1991]: optimal Bartlett growth rate.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlap horizon
         flooring the kernel.
-        Shanken (1992), "On the Estimation of Beta-Pricing Models."
-        Kan-Zhang (1999), "Two-Pass Tests of Asset Pricing Models with
-        Useless Factors," for the single-factor simplification used here.
+        [Shanken 1992][shanken-1992]: errors-in-variables correction
+        for FM stage-2 t when the regressor is itself estimated.
+        [Kan-Zhang 1999][kan-zhang-1999]: single-factor simplification
+        of the Shanken EIV correction that factrix actually applies.
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)

@@ -81,8 +81,11 @@ def corrado_rank_test(
         control matters.
 
     References:
-        Corrado (1989), "A Nonparametric Test for Abnormal Security-
-        Price Performance in Event Studies."
+        [Corrado 1989][corrado-1989]: nonparametric rank test for
+        event-window abnormal returns.
+        [Corrado-Zivney 1992][corrado-zivney-1992]: source of the
+        direction-adjustment idea factrix adopts for two-sided
+        signals.
     """
     ranked = df.with_columns(
         (

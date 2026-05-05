@@ -1,6 +1,6 @@
 <div align="center">
 
-# ＦＡＣＴＲＩＸ
+# factrix
 
 </div>
 

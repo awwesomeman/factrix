@@ -72,9 +72,11 @@ def ic_trend(
         rank-CI is approximate, not asymptotically exact.
 
     References:
-        Sen (1968), "Estimates of the Regression Coefficient Based on Kendall's Tau."
-        Lou & Polk (2022), "Comomentum" — factor crowding/decay framework.
-        Stock & Watson (1988), "Variable Trends in Economic Time Series."
+        [Sen 1968][sen-1968]: Theil-Sen median pairwise slope.
+        [Lou-Polk 2022][lou-polk-2022]: factor-crowding decay
+        mechanism that motivates a slope test on IC.
+        [Stock-Watson 1988][stock-watson-1988]: practitioner
+        unit-root concerns — backs the default `adf_threshold=0.10`.
         [Dickey-Fuller 1979][dickey-fuller-1979]: ADF persistence
         diagnostic on the input series.
         [MacKinnon 1996][mackinnon-1996]: ADF p-value response surface

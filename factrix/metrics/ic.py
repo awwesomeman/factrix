@@ -55,13 +55,21 @@ def compute_ic(
         the cross-section at date ``t``; rank ties are broken with average
         rank (``method="average"``).
 
+        At high tie rates Spearman ρ on average ranks is biased relative
+        to the tie-corrected formula (Kendall-Stuart §31). factrix does
+        not surface ``tie_ratio`` from this primitive; if you suspect a
+        bucketed / categorical signal, inspect tie density on the input
+        before reporting IC.
+
         factrix drops dates whose cross-section has fewer than
         ``MIN_ASSETS_PER_DATE_IC`` assets — undersized panels yield
         rank-correlation estimates with degenerate variance.
 
     References:
         [Grinold 1989][grinold-1989]: ``IR ≈ IC × sqrt(breadth)`` motivates
-        IC as the canonical signal-quality measure.
+        IC as the canonical signal-quality measure (the formal
+        decomposition is older — see [Treynor-Black
+        1973][treynor-black-1973]).
     """
     ranked = df.with_columns(
         pl.col(factor_col).rank(method="average").over("date").alias("_rank_factor"),

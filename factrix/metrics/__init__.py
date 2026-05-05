@@ -17,8 +17,9 @@ Individual × Continuous:
     compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency,
     spanning_alpha, greedy_forward_selection
 
-Individual × Sparse (the ``Common × Sparse`` broadcast-dummy
-procedure reuses the same modules — no separate set):
+Individual × Sparse (the ``Common × Sparse`` cell has its own
+broadcast-dummy procedure but reuses these helper metrics — there is
+no separate Common-sparse module set):
     compute_caar, caar, bmp_test, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
     compute_event_returns, event_around_return, multi_horizon_hit_rate,

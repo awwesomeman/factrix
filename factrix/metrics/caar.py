@@ -86,13 +86,18 @@ def compute_caar(
 
         factrix follows the MacKinlay (1997) event-window vocabulary
         (factor as the event indicator / sign on the announcement date)
-        but generalises ``signed_car`` to numeric factor magnitude so
-        ternary ``{-1, 0, +1}`` and continuous-strength signals share one
-        primitive.
+        but generalises ``signed_car`` to numeric factor magnitude. With
+        a continuous ``factor`` column, the resulting CAAR is the
+        per-event regression-slope statistic in the
+        Sefcik-Thompson (1986) lineage rather than the equal-weighted
+        MacKinlay CAAR.
 
     References:
         [MacKinlay 1997][mackinlay-1997]: standardised event-window /
         estimation-window vocabulary inherited by ``EventConfig``.
+        [Sefcik-Thompson 1986][sefcik-thompson-1986]: per-event
+        regression-slope ancestor of the magnitude-weighted CAAR
+        produced when ``factor`` is continuous.
         [Brown-Warner 1985][brown-warner-1985]: daily event-study
         methodology backing the parametric-test path.
     """
@@ -241,8 +246,9 @@ def bmp_test(
     References:
         [Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]:
         the BMP standardised AR test.
-        Kolari & Pynnönen (2010), "Event Study Testing with Cross-
-        Sectional Correlation of Abnormal Returns."
+        [Kolari-Pynnönen 2010][kolari-pynnonen-2010]: clustering-
+        adjusted BMP variant referenced by
+        ``EventConfig.adjust_clustering`` (not yet implemented).
     """
     sorted_df = df.sort(["asset_id", "date"])
 

@@ -32,7 +32,7 @@ modules plus a fourth axis-agnostic group**:
 |---|---|---|
 | `Individual × Continuous` | **Individual continuous** | Both `IC` and `FM` primary metrics live in this cell; ancillary metrics (`quantile`, `monotonicity`, `concentration`, `tradability`, `spanning`) are shared across both. |
 | `Individual × Sparse` | **Individual sparse** | Per-event tests on `(date, asset_id, factor ∈ {-1, 0, +1})`. Domain shorthand: *event signal*. |
-| `Common × Sparse` | **Individual sparse** (shared) | Routes to the same broadcast-dummy procedure as `Individual × Sparse` and reuses the same metric modules — no separate group. |
+| `Common × Sparse` | **Individual sparse** (shared metric modules) | Has its own dispatch procedure (`_CommonSparsePanelProcedure`: per-asset OLS β on the broadcast dummy → cross-asset *t*) — not the CAAR per-event flow used by `Individual × Sparse`. The two cells share the SPARSE column contract and the event-quality / clustering / corrado helper metrics, so factrix groups them on this nav. |
 | `Common × Continuous` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
 
 **Series tools** (`hit_rate`, `trend`, `oos`) are axis-agnostic — they

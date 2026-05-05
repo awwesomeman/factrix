@@ -82,6 +82,16 @@ HAC. Cited as background.
 
 ## Cross-section and panel pricing
 
+### Treynor & Black (1973)
+[](){ #treynor-black-1973 }
+
+Treynor, J. L. & Black, F. (1973). "How to Use Security Analysis to
+Improve Portfolio Selection." *Journal of Business* 46(1), 66–86.
+
+Original derivation of the alpha-vs-residual-risk active-management
+optimisation that yields the `IR ≈ IC × √breadth` decomposition that
+[Grinold 1989][grinold-1989] later popularised.
+
 ### Grinold (1989)
 [](){ #grinold-1989 }
 
@@ -304,6 +314,20 @@ Clustering-adjusted BMP variant; `EventConfig.adjust_clustering=
 'kolari_pynnonen'` is reserved for this but the adjustment is not
 yet implemented (high-HHI events should fall back to manual
 calendar-block bootstrap until it ships).
+
+### Sefcik & Thompson (1986)
+[](){ #sefcik-thompson-1986 }
+
+Sefcik, S. E. & Thompson, R. (1986). "An Approach to Statistical
+Inference in Cross-Sectional Models with Security Abnormal Returns
+as Dependent Variable." *Journal of Accounting Research* 24(2),
+316–334.
+
+Per-event cross-sectional regression of abnormal return on a
+continuous event characteristic; the `factor × return` magnitude-
+weighted CAAR factrix computes (`compute_caar` with continuous
+`factor`) is a per-event regression-slope statistic in this lineage,
+distinct from the equal-weighted MacKinlay-style CAAR.
 
 ---
 
