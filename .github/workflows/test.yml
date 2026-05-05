@@ -82,7 +82,7 @@ jobs:
       - name: Import-from-wheel smoke
         run: |
           uv venv /tmp/smoke
-          /tmp/smoke/bin/pip install --quiet dist/factrix-*.whl
+          uv pip install --python /tmp/smoke/bin/python --quiet dist/factrix-*.whl
           /tmp/smoke/bin/python -c "
           import factrix as fl
           import importlib.resources as ir
