@@ -118,11 +118,13 @@ nav:
       - Metric applicability: reference/metric-applicability.md
       - Standalone metrics: reference/standalone-metrics.md
       - Statistical methods: reference/statistical-methods.md
+      - Warning / info / stat codes: reference/warning-codes.md
       - Bibliography: reference/bibliography.md
   - API:
       - AnalysisConfig: api/analysis-config.md
       - evaluate: api/evaluate.md
       - FactorProfile: api/factor-profile.md
+      - MetricOutput: api/metric-output.md
       - multi_factor: api/multi-factor.md
       - datasets: api/datasets.md
       - Metrics:

@@ -5,3 +5,9 @@ Per-date cross-sectional OLS slope λ then NW HAC *t* on the λ series
 consistency check.
 
 ::: factrix.metrics.fama_macbeth
+    options:
+      members:
+        - fama_macbeth
+        - pooled_ols
+        - beta_sign_consistency
+        - compute_fm_betas

@@ -71,12 +71,15 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
 
 The most common warnings:
 
-| `WarningCode` | Trigger |
-|---------------|---------|
-| `UNRELIABLE_SE_SHORT_PERIODS` | `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` (= `20 ≤ T < 30`) — NW HAC SE unstable; `T < 20` raises `InsufficientSampleError` |
-| `PERSISTENT_REGRESSOR` | factor ADF p > 0.10 |
-| `EVENT_WINDOW_OVERLAP` | event windows overlap (CAAR / sparse) |
-| `SERIAL_CORRELATION_DETECTED` | Ljung-Box p < 0.05 on residuals |
+- `UNRELIABLE_SE_SHORT_PERIODS` — `20 ≤ T < 30`; NW HAC SE unstable.
+  `T < 20` raises `InsufficientSampleError`.
+- `PERSISTENT_REGRESSOR` — factor ADF *p* > 0.10.
+- `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
+- `SERIAL_CORRELATION_DETECTED` — Ljung-Box *p* < 0.05 on residuals.
+
+For the full enum and the trigger conditions for each `WarningCode`,
+`InfoCode`, `StatCode`, and `Verdict`, see
+[Reference § Warning / info / stat codes](../reference/warning-codes.md).
 
 `warnings` does **not** affect [`verdict()`][factrix.FactorProfile.verdict] —
 it is a risk flag. The user decides whether to filter on warnings before

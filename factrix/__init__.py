@@ -45,6 +45,7 @@ from factrix._errors import (
 )
 from factrix._evaluate import _evaluate as evaluate
 from factrix._profile import FactorProfile
+from factrix._types import MetricOutput
 
 __version__ = "0.7.0"
 
@@ -70,6 +71,7 @@ __all__ = [
     "ModeAxisError",
     # Profile + dispatch
     "FactorProfile",
+    "MetricOutput",
     "evaluate",
     # Introspection
     "SuggestConfigResult",

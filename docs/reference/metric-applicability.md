@@ -85,6 +85,32 @@ For non-overlapping metrics (`ic`, `caar`, …) the effective floor is
 `factrix.metrics._helpers`), which scales the base constant by the
 forward-return horizon `h`.
 
+## Caveats on the headline thresholds
+
+The constants above are the **floors at which a metric will run**, not
+the sample sizes at which the inferential statement is well-calibrated.
+A few specific caveats worth flagging:
+
+- **`MIN_FM_PERIODS = 20`** for `fama_macbeth` is the floor at which
+  the NW HAC `t` is computed. With the Andrews `T^(1/3)` bandwidth at
+  `T = 20`, the kernel uses 2 lags and the small-sample HAC is known
+  to **over-reject**; treat *p*-values from `T ∈ [20, 30]` as
+  anti-conservative. Forty periods is the practical floor in the
+  panel-econometrics literature.
+- **`MIN_EVENTS = 10`** for the event-study CAAR `t` is the floor at
+  which the cross-sectional `t` is even computable. Brown & Warner
+  (1985) tabulate well-behaved power at `K ≥ 50` and use `K ≥ 30` as
+  the conventional minimum; in `K ∈ [10, 30]` the parametric `caar`
+  is under-powered, and the `bmp_test` / `corrado_rank_test` siblings
+  only partly mitigate.
+- **`MIN_PORTFOLIO_PERIODS = 5`** in `top_concentration` and
+  `ts_quantile_spread`, and **`MIN_OOS_PERIODS = 5`** in
+  `multi_split_oos_decay`, are diagnostic floors. Five-point series do
+  not give meaningful inference; treat the corresponding outputs as
+  descriptive — the formal `verdict()` reading should rely on the
+  cell-canonical metric, not these auxiliaries, until the underlying
+  series is materially longer.
+
 ## Below-threshold behaviour
 
 When the input fails a sample threshold, factrix never silently
