@@ -27,12 +27,17 @@ The four sections are the only first-class disciplines in factrix:
 ## 1. HAC SE under overlapping returns
 
 When forward returns span `h > 1` periods, consecutive observations
-inherit MA(`h − 1`) structure and OLS or non-overlapping `t` either
-mis-estimates SE or wastes a factor of `h` of the sample.
-factrix uses the [Newey-West 1987][newey-west-1987] Bartlett-kernel
-HAC variance estimator with a deterministic bandwidth, applied as the
-`*_newey_west` variant of every CS-first metric (`ic_newey_west`,
-`fama_macbeth`, `pooled_ols`, `ts_quantile_spread`, `ts_asymmetry`).
+inherit MA(`h − 1`) structure. Two standard responses, with different
+trade-offs: NW HAC corrects SE on the full series at the cost of a
+kernel choice and asymptotic-Gaussian inference, while non-overlapping
+sampling preserves an exact-distribution `t` at the cost of a factor
+of `h` in effective sample size. factrix exposes both — non-overlap
+as the default for cell-canonical metrics, NW HAC as an explicit
+sibling.
+When NW HAC is selected, factrix uses the
+[Newey-West 1987][newey-west-1987] Bartlett kernel with a
+deterministic bandwidth, applied by `ic_newey_west`, `fama_macbeth`,
+`pooled_ols`, `ts_quantile_spread`, and `ts_asymmetry`.
 
 The bandwidth rule is
 
@@ -68,9 +73,19 @@ is itself an estimated quantity (rolling β, PCA score, ML predictor),
 [`fama_macbeth(is_estimated_factor=True)`](../api/metrics/fama_macbeth.md)
 applies the [Kan-Zhang 1999][kan-zhang-1999] single-factor
 simplification of the [Shanken 1992][shanken-1992] errors-in-variables
-correction, scaling SE by `√(1 + λ̂² / σ²_f)`. This omits the additive
-`+σ²_f / T` term of the full Shanken EIV variance; it is honest only
-for large `T`.
+correction, scaling SE by `√(1 + λ̂² / σ²_f)`. The full Shanken
+variance has an additional `+σ²_f / T` term that factrix omits: at
+finite `T` the omission **understates** the EIV inflation and so
+**overstates** the resulting `t`. The simplification is honest only
+when `T` is large enough that the dropped term is negligible.
+
+When `factor_return_var` is not supplied, factrix falls back to
+`var(β̂_t)` as a proxy for `σ²_f`. Because `β̂_t` already absorbs
+estimation noise from the upstream factor score, this proxy
+**inflates the denominator** of the EIV factor and so **further
+deflates** the correction. Treat the
+`betas_timeseries_proxy` result as a lower bound on the true
+inflation — i.e. an upper bound on the reported `t`.
 
 Default versus paired t-test is a separate choice: the cell-canonical
 metrics (`ic`, `caar`) use **non-overlapping resampling** as the
@@ -166,8 +181,11 @@ language is [Hampel 1974][hampel-1974].
 
 Predictive regressions with persistent regressors carry the
 [Stambaugh 1999][stambaugh-1999] bias: when the regressor's
-innovation correlates with the dependent return innovation, OLS β̂ is
-biased even in large samples. The textbook corrections
+innovation correlates with the dependent return innovation, OLS β̂
+carries a finite-sample bias of order `O(1/T)` that does not vanish
+at conventional research sample sizes (β̂ is consistent
+asymptotically, but the bias is large enough to flip inference at
+`T ≈ 10–30` years of monthly data). The textbook corrections
 ([Campbell-Yogo 2006][campbell-yogo-2006] Bonferroni Q,
 [Phillips-Magdalinos 2009][phillips-magdalinos-2009] /
 [Kostakis-Magdalinos-Stamatogiannis 2015][kostakis-magdalinos-stamatogiannis-2015]

@@ -50,8 +50,9 @@ factory. For task-oriented help on **picking** the right factory (IC vs FM,
 when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 
 > **N = 1 (single asset / series):** `Mode` auto-switches to `TIMESERIES`. The
-> macro and sparse factories work as-is. `individual_continuous` at N=1
-> raises `ModeAxisError` with `suggested_fix=common_continuous(...)`.
+> `common_continuous` and `*_sparse` factories work as-is.
+> `individual_continuous` at N=1 raises `ModeAxisError` with
+> `suggested_fix=common_continuous(...)`.
 
 ## `profile.diagnose()` and warnings
 
@@ -72,7 +73,7 @@ The most common warnings:
 
 | `WarningCode` | Trigger |
 |---------------|---------|
-| `UNRELIABLE_SE_SHORT_PERIODS` | `n_periods < 30` — NW HAC SE unstable |
+| `UNRELIABLE_SE_SHORT_PERIODS` | `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` (= `20 ≤ T < 30`) — NW HAC SE unstable; `T < 20` raises `InsufficientSampleError` |
 | `PERSISTENT_REGRESSOR` | factor ADF p > 0.10 |
 | `EVENT_WINDOW_OVERLAP` | event windows overlap (CAAR / sparse) |
 | `SERIAL_CORRELATION_DETECTED` | Ljung-Box p < 0.05 on residuals |

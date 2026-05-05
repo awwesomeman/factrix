@@ -141,10 +141,13 @@ def fama_macbeth(
             actually traded on the signal). When ``None`` and
             ``is_estimated_factor=True``, falls back to ``var(β_t)`` as a
             rough placeholder — β̂_t is *not* the factor-mimicking return
-            but is usually the only readily-available series, and its
-            variance absorbs measurement error. Treat the
-            ``betas_timeseries_proxy`` result as a lower bound on the
-            true correction, not a precise estimate.
+            but is usually the only readily-available series. Because
+            ``var(β̂_t)`` already absorbs upstream estimation noise, it
+            inflates the denominator of the EIV factor and so deflates
+            the SE correction; treat the ``betas_timeseries_proxy``
+            result as a **lower bound on the true SE inflation** — i.e.
+            an **upper bound on the reported t-stat** — not a precise
+            estimate.
 
     Notes:
         Stage 2 of FM: ``mean_beta = mean_t beta_t``; ``t = mean_beta /

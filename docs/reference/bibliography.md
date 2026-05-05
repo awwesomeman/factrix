@@ -204,9 +204,13 @@ Brown, S. J. & Warner, J. B. (1985). "Using Daily Stock Returns: The
 Case of Event Studies." *Journal of Financial Economics* 14(1),
 3–31.
 
-Daily-frequency event-study methodology; t-test on CAAR is well
-specified at standard sample sizes — backs the parametric path used
-by `individual_sparse`.
+Simulation framework against which event-study tests are evaluated.
+The cross-sectional `t` on CAAR is reasonably specified at moderate
+`K` under no event-induced variance and is mis-specified under
+variance inflation around the event date — the BW1985 documentation
+of this failure is the motivation for the
+[Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]
+standardised AR test (factrix `bmp_test`).
 
 ### Brown & Warner (1980)
 [](){ #brown-warner-1980 }
@@ -253,8 +257,10 @@ Boehmer, E., Musumeci, J. & Poulsen, A. B. (1991). "Event-study
 Methodology Under Conditions of Event-induced Variance." *Journal of
 Financial Economics* 30(2), 253–272.
 
-BMP standardised AR test; implemented as `bmp_test` for the
-mean-adjusted, prediction-error-omitted simplification.
+BMP standardised AR test. factrix's `bmp_test` is a **BMP-style**
+simplification: it uses mean-adjusted abnormal returns and omits the
+prediction-error correction of the original BMP formulation, so
+results will not match a textbook BMP implementation byte-for-byte.
 
 ### Patell (1976)
 [](){ #patell-1976 }
@@ -557,8 +563,12 @@ background for the Hansen-Hodrick lag floor.
 Stock, J. H. & Watson, M. W. (1988). "Variable Trends in Economic
 Time Series." *Journal of Economic Perspectives* 2(3), 147–174.
 
-Practitioner ADF cutoff `p > 0.10 ⇒ unit-root suspect`; the basis
-of `ic_trend`'s default `adf_threshold=0.10`.
+Practitioner-oriented review of the consequences of unit roots in
+macroeconomic time series; cited as general background for why an
+ADF flag matters in `ic_trend`. The specific `p > 0.10 ⇒ unit-root
+suspect` threshold is folklore from the unit-root literature
+(closer to Stock 1994 *Handbook of Econometrics* §III) rather than a
+direct prescription from this paper.
 
 ---
 
@@ -630,8 +640,12 @@ Lou, D. & Polk, C. (2022). "Comomentum: Inferring Arbitrage
 Activity from Return Correlations." *Review of Financial Studies*
 35(7), 3272–3302.
 
-Crowding/decay framework for factor strategies; cited from
-`ic_trend` as the structural reason a slope test on IC matters.
+Comomentum measures crowding from cross-asset return correlations
+within momentum winners and losers. Cited from `ic_trend` as a
+suggestive *crowding* explanation for downward-sloping IC over time;
+the paper's direct subject is return comomentum, not IC slope —
+[McLean-Pontiff 2016][mclean-pontiff-2016] is the cleaner cite for
+post-publication IC decay.
 
 ---
 
@@ -661,7 +675,8 @@ Bayesian model-comparison alternative; cited in design notes as the
 Feng, G., Giglio, S. & Xiu, D. (2020). "Taming the Factor Zoo: A
 Test of New Factors." *Journal of Finance* 75(3), 1327–1370.
 
-Double-selection LASSO for incremental-alpha tests; cited from
+Two-pass model-selection-corrected SDF estimator for testing whether
+a candidate factor adds incremental pricing power. Cited from
 `spanning.py` as the principled alternative to greedy forward
 selection.
 
@@ -740,8 +755,10 @@ its scope boundary.
 Ambachtsheer, K. P. (1977). "Where Are the Customers' Alphas?"
 *Journal of Portfolio Management* 4(1), 52–56.
 
-Origin of the "alpha = IC × √breadth × σ" decomposition popularised
-by Grinold (1989).
+Early operational use of IC-based alpha attribution in pension-fund
+performance discussion; the formal `IR ≈ IC × √breadth`
+decomposition itself traces to Treynor & Black (1973) and is
+canonically stated in [Grinold 1989][grinold-1989].
 
 ---
 

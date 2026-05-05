@@ -24,9 +24,9 @@ flowchart TD
     REG["Registry\n_registry.py SSOT\n7 cells"]
     MODE{"Mode\nN = panel.asset_id.n_unique()"}
 
-    P1["_ICPanelProcedure\nindividual × continuous × IC"]
-    P2["_FMPanelProcedure\nindividual × continuous × FM"]
-    P3["_CAARPanelProcedure\nindividual × sparse"]
+    P1["_ICContPanelProcedure\nindividual × continuous × IC"]
+    P2["_FMContPanelProcedure\nindividual × continuous × FM"]
+    P3["_CAARSparsePanelProcedure\nindividual × sparse"]
     P4["_CommonContPanelProcedure\ncommon × continuous"]
     P5["_CommonSparsePanelProcedure\ncommon × sparse"]
     T1["_TSBetaContTimeseriesProcedure\ncommon × continuous · N=1"]
@@ -83,8 +83,8 @@ axis `Mode` is **derived at evaluate-time** from `panel["asset_id"].n_unique()`:
 
 Five legal `(scope, signal, metric)` triples × two modes give seven legal
 `(scope, signal, metric, mode)` cells (TIMESERIES narrows to three triples; the
-remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel — see §5.4.1
-of the refactor plan).
+remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel defined in
+`factrix/_axis.py`).
 
 ---
 
@@ -127,9 +127,9 @@ table is the SSOT for what each procedure computes.
 
 | `(scope, signal, metric, mode)`                         | Procedure class                                  |
 |---------------------------------------------------------|--------------------------------------------------|
-| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICPanelProcedure`                              |
-| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMPanelProcedure`                              |
-| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARPanelProcedure`                            |
+| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICContPanelProcedure`                          |
+| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMContPanelProcedure`                          |
+| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARSparsePanelProcedure`                      |
 | `(COMMON, CONTINUOUS, None, PANEL)`                      | `_CommonContPanelProcedure`                      |
 | `(COMMON, SPARSE, None, PANEL)`                          | `_CommonSparsePanelProcedure`                    |
 | `(COMMON, CONTINUOUS, None, TIMESERIES)`                 | `_TSBetaContTimeseriesProcedure`                 |
@@ -346,12 +346,13 @@ Failure modes:
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
 - `n_assets` two-tier guard same as `common_continuous` (`SMALL_CROSS_SECTION_N` /
   `BORDERLINE_CROSS_SECTION_N`).
-- The procedure does not currently impose a `n_events` floor on the
-  broadcast dummy — very-few-event factors can produce point estimates
-  driven by a single observation.
-- Cross-asset SE assumes asset-level independence (plan §4.3 spec); under
-  contemporaneous return correlation the standard t over-states
-  significance — Petersen (2009) clustered SE deferred per plan §11.
+- Two-tier event-count guard (`factrix/_stats/constants.py`):
+  `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
+  `5 ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE = 20` emits
+  `SPARSE_COMMON_FEW_EVENTS`.
+- Cross-asset SE assumes asset-level independence; under contemporaneous
+  return correlation the standard t over-states significance — Petersen
+  (2009) clustered SE deferred.
 
 ### `common_continuous` (TIMESERIES, N=1) — time-series only
 
@@ -480,8 +481,11 @@ factrix/
 ├── _stats/
 │   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
 │   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_RELIABLE / auto_bartlett
-├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_*_PERIODS
+├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
+│                            #   MIN_EVENTS, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS, ...
 ├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
+│                            # per-cell thresholds (MIN_FM_PERIODS, MIN_TS_OBS) live
+│                            # alongside the procedures that enforce them
 └── datasets.py              # synthetic CS / event panels
 ```
 

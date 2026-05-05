@@ -105,11 +105,9 @@ market and comparing the returned `FactorProfile`s.
   international tests, the latter not in bibliography) shows local
   models price local cross-sections better). Either aggregation
   choice would foreclose a research path.
-- Standardisation across markets has industry conventions
-  (country-specific mean + global standard deviation in MSCI
-  Barra-style models — not in bibliography) but no canonical academic
-  answer. Picking one inside the library would impose a prior the
-  user did not opt into.
+- Standardisation across markets has industry conventions but no
+  canonical academic answer. Picking one inside the library would
+  impose a prior the user did not opt into.
 - A separate cross-market layer can be built on factrix outputs
   without library support: each `FactorProfile.metrics` is
   serialisable and easy to combine externally.
@@ -157,11 +155,15 @@ The `Individual × Continuous` cell with `Metric.FM` runs Fama-MacBeth
 ([Newey-West 1987][newey-west-1987]), not pooled OLS with clustered
 SE.
 
-- Pooled OLS understates SE in the time-effect-dominant panels where
-  factrix factor evaluations typically run
-  ([Petersen 2009][petersen-2009]). The FM aggregation order — date
-  cross-section first, then time-series t — is robust to
-  contemporaneous cross-sectional dependence by construction.
+- Pooled OLS *without* clustering understates SE in the
+  time-effect-dominant panels where factrix factor evaluations
+  typically run ([Petersen 2009][petersen-2009]). FM and pooled OLS
+  with date-clustered SE are asymptotically equivalent under a
+  balanced panel; the choice between them is about small-sample
+  behaviour, not the basic correction. factrix defaults to FM because
+  the cross-section-first aggregation order — per-date OLS, then NW
+  HAC `t` on the λ series — is exactly identifiable in finite samples
+  and degrades transparently when an entire date is dropped.
 - The future extension to two-way clustering
   ([Cameron-Gelbach-Miller 2011][cameron-gelbach-miller-2011],
   [Thompson 2011][thompson-2011]) is acknowledged in the
@@ -170,10 +172,10 @@ SE.
   and the two-way correction adds complexity without changing the
   point estimate.
 - `pooled_ols` is exposed as an explicit comparison metric so a user
-  can see when FM and pooled disagree (the
-  `fm_pooled_sign_mismatch`-style diagnostic surfaced by
-  `profile.diagnose()`). This is information for the user, not a
-  reason to default to pooled.
+  can see whether FM and pooled disagree on sign or magnitude. The
+  comparison stays in the `FactorProfile.metrics` payload — divergence
+  is information for the user to interpret, not a `diagnose()`-level
+  signal that triggers automatic action.
 
 ---
 
