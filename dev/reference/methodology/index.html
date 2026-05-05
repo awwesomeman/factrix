@@ -3117,13 +3117,13 @@
 <ul>
 <li><strong>出處：</strong> Goodhart, C. A. E. (1984). "Problems of Monetary Management: The U.K. Experience." In <em>Monetary Theory and Practice: The U.K. Experience</em>. Macmillan, pp. 91-121.</li>
 <li><strong>採用論點：</strong> Goodhart's Law："When a measure becomes a target, it ceases to be a good measure." 原為貨幣政策語境，廣泛引用於量化金融的指標設計討論。當 composite score 成為因子生成器的最佳化目標時，會產出刷分因子——形式上各指標達標但無真正經濟意義。</li>
-<li><strong>在本框架的應用：</strong> v3 放棄 composite score 的核心理由之一。改用 gate-based pass/fail 設計，gates 是篩選工具而非最佳化目標。</li>
+<li><strong>在本框架的應用：</strong> factrix 放棄 composite score 的核心理由之一。採用 <code>verdict()</code> pass/fail 設計，評估程序是篩選工具而非最佳化目標。</li>
 </ul>
 <h3 id="mackinlay-1997">MacKinlay (1997)<a class="headerlink" href="#mackinlay-1997" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>出處：</strong> MacKinlay, A. C. (1997). "Event Studies in Economics and Finance." <em>Journal of Economic Literature</em> 35(1), 13-39.</li>
 <li><strong>採用論點：</strong> 事件研究（event study）是一套完整獨立的方法論體系，包含 CAR（累積異常報酬）、BHAR（買入持有異常報酬）、calendar-time portfolio 等方法。其統計框架（事件窗口、估計窗口、異常報酬定義、截面聚合）與截面因子評估（IC、quantile sort、factor portfolio）是完全不同的統計問題。</li>
-<li><strong>在本框架的應用：</strong> v3 scope 收窄至截面個股因子的核心依據。事件訊號應使用 event study 方法論獨立評估，不應強行套入截面因子的 gate 框架。兩者共享基礎設施（MLflow、Dashboard UI）但不共享評估邏輯。</li>
+<li><strong>在本框架的應用：</strong> factrix 評估框架聚焦於截面個股因子的核心依據。事件訊號應使用 event study 方法論獨立評估，不應強行套入截面因子的評估程序。兩者共享基礎設施（MLflow、Dashboard UI）但不共享評估邏輯。</li>
 </ul>
 <hr />
 <h2 id="3-統計門檻與多重比較">3. 統計門檻與多重比較<a class="headerlink" href="#3-統計門檻與多重比較" title="Permanent link">&para;</a></h2>
@@ -3131,7 +3131,7 @@
 <ul>
 <li><strong>出處：</strong> Benjamini, Y. &amp; Hochberg, Y. (1995). "Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing." <em>Journal of the Royal Statistical Society: Series B</em> 57(1), 289-300.</li>
 <li><strong>採用論點：</strong> 提出 False Discovery Rate (FDR) 概念及 BH step-up procedure。FDR 控制的是「被宣稱顯著的假設中，false discovery 的期望比例」，而非 Bonferroni 的「至少出現一個 false positive 的機率」(FWER)。BH 比 Bonferroni 寬鬆但仍提供嚴格的統計保證，適用於大規模同時檢定（如數百因子篩選）。<strong>BH procedure 的輸入是 p-values，與產生 p-value 的檢定類型無關</strong>（t 檢定、z 檢定、bootstrap 等均可混用）。</li>
-<li><strong>在本框架的應用：</strong> <code>compare(bhy=True)</code> 的理論基礎。BHY（下條）是 BH 的推廣，但核心演算法相同。factorlib 的實作使用 p-values 作為輸入（而非 t-stats），確保不同 factor type 的不同檢定類型可以統一處理。</li>
+<li><strong>在本框架的應用：</strong> <code>bhy()</code> / <code>multiple_testing_correct()</code> 的理論基礎。BHY（下條）是 BH 的推廣，但核心演算法相同。factrix 的實作使用 p-values 作為輸入（而非 t-stats），確保不同 factor type 的不同檢定類型可以統一處理。</li>
 </ul>
 <h3 id="benjamini--yekutieli-2001">Benjamini &amp; Yekutieli (2001)<a class="headerlink" href="#benjamini--yekutieli-2001" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3144,13 +3144,13 @@
 <li><strong>出處：</strong> Harvey, C. R., Liu, Y. &amp; Zhu, H. (2016). "...and the Cross-Section of Expected Returns." <em>Review of Financial Studies</em> 29(1), 5-68.</li>
 <li><strong>採用論點：</strong> 整理 300+ 已發表因子，指出傳統 t &gt; 2.0 門檻在大量多重檢定下不足。建議新因子的 t-stat 應 &gt; 3.0（Bonferroni、Holm、BHY 校正）。隨因子數量增長，門檻應進一步提高。</li>
 <li><strong>重要情境限定：</strong> Harvey 的 t &gt; 3.0 建議是針對「整個學術圈歷史上累積做過的所有因子檢定」，其中檢定總數未知且受 publication bias 影響（只有顯著結果會被發表）。<strong>這與單次篩選 session 中明確知道做了 N 次檢定的情境不同。</strong> 在已知 N 的情境下，BHY 可精確計算門檻，不需要 Harvey 的 t &gt; 3.0 啟發式近似。</li>
-<li><strong>在本框架的應用：</strong> <code>compare(bhy=True)</code> 使用 BHY 精確校正（而非固定 t &gt; 3.0），因為篩選 session 中 N 已知。Harvey 的 t &gt; 3.0 保留作為文獻參考，不作為 factorlib 的門檻。</li>
+<li><strong>在本框架的應用：</strong> <code>bhy()</code> 使用 BHY 精確校正（而非固定 t &gt; 3.0），因為篩選 session 中 N 已知。Harvey 的 t &gt; 3.0 保留作為文獻參考，不作為 factrix 的門檻。</li>
 </ul>
 <h3 id="harvey-2017">Harvey (2017)<a class="headerlink" href="#harvey-2017" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>出處：</strong> Harvey, C. R. (2017). "Presidential Address: The Scientific Outlook in Financial Economics." <em>Journal of Finance</em> 72(4), 1399-1440. (<a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2893930">SSRN</a>)</li>
 <li><strong>採用論點：</strong> 提出回測檢查清單：需有經濟動機、OOS 測試、跨市場穩健性檢驗、交易成本考量。建議使用最小貝式因子（minimum Bayes factor）作為 p-value 的替代。</li>
-<li><strong>在本框架的應用：</strong> 支持閘門機制（OOS Decay VETO、t-stat skip）的設計——不依賴單一指標，而是多層過濾。</li>
+<li><strong>在本框架的應用：</strong> 支持多層過濾設計（<code>oos_survival_ratio</code> veto rule、<code>verdict()</code> t-stat 門檻）——不依賴單一指標，而是多層過濾。</li>
 </ul>
 <h3 id="chordia-goyal--saretto-2020">Chordia, Goyal &amp; Saretto (2020)<a class="headerlink" href="#chordia-goyal--saretto-2020" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3162,13 +3162,13 @@
 <ul>
 <li><strong>出處：</strong> Harvey, C. R. &amp; Liu, Y. (2020). "Lucky Factors." <em>Journal of Financial Economics</em> 137(1), 116-142.</li>
 <li><strong>採用論點：</strong> Bayesian multiple testing framework，自然整合因子間相關結構。考慮 multiple testing 後，大量「t &gt; 2.0」的因子不再顯著。比 Bonferroni/BHY 更適合因子間有相關性的場景。</li>
-<li><strong>在本框架的應用：</strong> Gate 1 P1 BHY 連續校正的理論依據——從固定門檻升級為連續校正時，本文論證了為什麼離散階梯門檻不夠原則性。詳見 <a href="#13-統計穩健性與交易成本">§13</a>。</li>
+<li><strong>在本框架的應用：</strong> <code>bhy()</code> / <code>multiple_testing_correct()</code> 連續校正的理論依據——從固定門檻升級為連續校正時，本文論證了為什麼離散階梯門檻不夠原則性。詳見 <a href="#13-統計穩健性與交易成本">§13</a>。</li>
 </ul>
 <h3 id="de-prado-2018">de Prado (2018)<a class="headerlink" href="#de-prado-2018" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>出處：</strong> de Prado, M. L. (2018). <em>Advances in Financial Machine Learning.</em> Wiley. Chapter 12: "Backtesting through Cross-Validation."</li>
 <li><strong>採用論點：</strong> 提出 Combinatorial Purged Cross-Validation (CPCV) 處理金融資料的 train/test split 問題。單一 train/test 切分對切分點位置脆弱——多組 purged splits 降低對切分點落在何處（例如 COVID、GFC）的敏感度。適用於 OOS decay 評估。</li>
-<li><strong>在本框架的應用：</strong> 支持 multi-split Gate 2 改進——使用 3+ 個切分點（而非單一 80/20）計算 OOS Decay ratio 取中位數，降低 regime-change 敏感度。</li>
+<li><strong>在本框架的應用：</strong> 支持 <code>oos_survival_ratio</code> 多切分設計——使用 3+ 個切分點（而非單一 80/20）取中位數，降低 regime-change 敏感度。</li>
 </ul>
 <hr />
 <h2 id="4-factor-zoo-與因子複製">4. Factor Zoo 與因子複製<a class="headerlink" href="#4-factor-zoo-與因子複製" title="Permanent link">&para;</a></h2>
@@ -3188,7 +3188,7 @@
 <ul>
 <li><strong>出處：</strong> Jensen, T. I., Kelly, B. T. &amp; Pedersen, L. H. (2023). "Is There a Replication Crisis in Finance?" <em>Journal of Finance</em> 78(5), 2465-2518.</li>
 <li><strong>採用論點：</strong> 重新檢驗約 150 個因子，發現約 85% 在使用原始方法論時可複製，但大多數被其他因子涵蓋（subsumed）。<strong>多重檢定問題是真實的，但沒有 Harvey (2016) 宣稱的那麼嚴重</strong>——大多數因子在 OOS 和跨市場資料中仍然 replicate。具有強經濟學動機（economic motivation）的因子複製率更高。</li>
-<li><strong>在本框架的應用：</strong> 支持 <code>redundancy_matrix()</code> 的設計——因子個別有效但彼此冗餘是比 false discovery 更常見的問題。同時支持 BHY 作為 compare 欄位（資訊性）而非 Gate（攔截性）的設計決策：多重檢定問題是真的，但不應過度保守地攔截所有 marginally significant 因子。</li>
+<li><strong>在本框架的應用：</strong> 支持 <code>redundancy_matrix()</code> 的設計——因子個別有效但彼此冗餘是比 false discovery 更常見的問題。同時支持 <code>bhy()</code> 作為可選工具（資訊性）而非硬截斷（攔截性）的設計決策：多重檢定問題是真的，但不應過度保守地攔截所有 marginally significant 因子。</li>
 </ul>
 <h3 id="green-hand--zhang-2017">Green, Hand &amp; Zhang (2017)<a class="headerlink" href="#green-hand--zhang-2017" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3294,7 +3294,7 @@
 <ul>
 <li><strong>出處：</strong> Macrosynergy. "Panel Regression with JPMaQS." (<a href="https://macrosynergy.com/academy/notebooks/panel-regression-with-jpmaqs/">連結</a>)</li>
 <li><strong>採用論點：</strong> 提供 Python 實作範例，示範如何用 <code>LinearMixedModel</code>（<code>statsmodels</code> 或 <code>macrosynergy</code> 套件）估計 period random effects。關鍵步驟：(1) 構建 panel DataFrame（entity × time）、(2) 指定 random effect group = time period、(3) 對比 pooled OLS vs RE 的 coefficient significance。</li>
-<li><strong>在本框架的應用：</strong> 如果未來實作 <code>factorlib/tools/panel/fama_macbeth.py</code> 或 macro 因子評估路徑，此文件提供直接可參考的實作模式。</li>
+<li><strong>在本框架的應用：</strong> <code>factrix/metrics/fama_macbeth.py</code> 的 macro 因子評估路徑實作，此文件提供直接可參考的實作模式。</li>
 </ul>
 <h3 id="fama-macbeth-在小-n-下的適用性">Fama-MacBeth 在小 N 下的適用性<a class="headerlink" href="#fama-macbeth-在小-n-下的適用性" title="Permanent link">&para;</a></h3>
 <h4 id="fama--macbeth-1973">Fama &amp; MacBeth (1973)<a class="headerlink" href="#fama--macbeth-1973" title="Permanent link">&para;</a></h4>
@@ -3379,32 +3379,32 @@
 <ul>
 <li><strong>出處：</strong> Griffin, J. M. (2002). "Are the Fama and French Factors Global or Country Specific?" <em>Review of Financial Studies</em> 15(3), 783-803.</li>
 <li><strong>採用論點：</strong> <strong>本地因子模型在 R² 和定價誤差上全面優於全球因子模型。</strong> 加入外國因子反而讓 in-sample 和 out-of-sample 定價更不準確。研究涵蓋美國、英國、日本、加拿大四國，將全球 HML/SMB 分解為 domestic 和 foreign 成分後比較。結論：實務應用（資本成本估計、績效歸因）應以 country-specific 為基準。</li>
-<li><strong>在本框架的應用：</strong> 支持 v3 Gate 1-3 逐市場獨立運行的設計——跨市場有效性應作為附加品質信號，而非取代本地評估。</li>
+<li><strong>在本框架的應用：</strong> 支持 factrix 逐市場獨立評估的設計——跨市場有效性應作為附加品質信號，而非取代本地 <code>verdict()</code> 評估。</li>
 </ul>
 <h4 id="fama--french-2012">Fama &amp; French (2012)<a class="headerlink" href="#fama--french-2012" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>出處：</strong> Fama, E. F. &amp; French, K. R. (2012). "Size, Value, and Momentum in International Stock Returns." <em>Journal of Financial Economics</em> 105(3), 457-472.</li>
 <li><strong>採用論點：</strong> 23 國分 4 區域（北美、歐洲、日本、亞太），value premium 在所有區域存在，momentum 除日本外均存在。<strong>關鍵發現：拒絕跨區域整合定價假說</strong>——local model 使用 local explanatory returns 對 local average returns 的解釋力顯著優於 global model。因子構建方式：區域內 2×3 sorts。</li>
-<li><strong>在本框架的應用：</strong> 因子是普遍的（pervasive：在多個區域出現）但定價機制是本地的（local：各區域的因子溢價大小和結構不同）。支持「本地 Gate 為主、跨市場一致性為輔」的分層設計。</li>
+<li><strong>在本框架的應用：</strong> 因子是普遍的（pervasive：在多個區域出現）但定價機制是本地的（local：各區域的因子溢價大小和結構不同）。支持「本地 <code>verdict()</code> 為主、跨市場一致性為輔」的分層設計。</li>
 </ul>
 <h4 id="fama--french-2017">Fama &amp; French (2017)<a class="headerlink" href="#fama--french-2017" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>出處：</strong> Fama, E. F. &amp; French, K. R. (2017). "International Tests of a Five-Factor Asset Pricing Model." <em>Journal of Financial Economics</em> 123(3), 441-463.</li>
 <li><strong>採用論點：</strong> 五因子模型（Mkt, SMB, HML, RMW, CMA）的國際測試。歐美亞太大致有效，<strong>但日本異常</strong>——有強 BTM 效應卻幾乎無 profitability/investment 效應。Spanning test 確認 global factors 無法解釋 regional returns。全球版模型在所有區域的定價誤差均大於本地版。</li>
-<li><strong>在本框架的應用：</strong> 日本的例外說明「Pervasive ≠ Identical Everywhere」——同一因子在不同市場可能有不同的表現模式。跨市場 Gate 通過數應容許部分市場未通過。</li>
+<li><strong>在本框架的應用：</strong> 日本的例外說明「Pervasive ≠ Identical Everywhere」——同一因子在不同市場可能有不同的表現模式。跨市場評估應容許部分市場的 <code>verdict()</code> 未通過。</li>
 </ul>
 <h3 id="跨市場因子複製與衰減">跨市場因子複製與衰減<a class="headerlink" href="#跨市場因子複製與衰減" title="Permanent link">&para;</a></h3>
 <h4 id="jacobs--müller-2020">Jacobs &amp; Müller (2020)<a class="headerlink" href="#jacobs--müller-2020" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>出處：</strong> Jacobs, H. &amp; Müller, S. (2020). "Anomalies Across the Globe: Once Public, No Longer Existent?" <em>Journal of Financial Economics</em> 135(1), 213-230.</li>
 <li><strong>採用論點：</strong> 241 個異常因子在 39 個股票市場的 pre/post-publication 表現。<strong>美國是唯一有顯著 post-publication decay 的市場</strong>，國際市場的因子獲利性在發表後大致維持。原因：跨國投資障礙（資本管制、資訊不對稱、本地偏好）使套利資金無法自由流動，市場保持分割。</li>
-<li><strong>在本框架的應用：</strong> 對 Gate 2 (OOS_Decay) 的跨市場含義：台股或其他新興市場的 OOS decay 可能天然低於美股，因為套利效率較低。0.5 門檻在不同市場的嚴格程度不同——但這是市場結構差異，不是門檻設計問題。</li>
+<li><strong>在本框架的應用：</strong> <code>oos_survival_ratio</code> 的跨市場含義：台股或其他新興市場的 OOS decay 可能天然低於美股，因為套利效率較低。0.5 門檻在不同市場的嚴格程度不同——但這是市場結構差異，不是門檻設計問題。</li>
 </ul>
 <h4 id="baltussen-swinkels--van-vliet-2021">Baltussen, Swinkels &amp; van Vliet (2021)<a class="headerlink" href="#baltussen-swinkels--van-vliet-2021" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>出處：</strong> Baltussen, G., Swinkels, L. &amp; van Vliet, P. (2021). "Global Factor Premiums." <em>Journal of Financial Economics</em> 142(3), 1128-1154.</li>
 <li><strong>採用論點：</strong> 24 個因子溢價跨股票、債券、商品、外匯四大資產類別，<strong>217 年歷史</strong>（1800-2016）。OOS 測試顯示因子溢價存在且衰減有限。方法論：(1) Dual replication/OOS 設計——先在已知期間複製，再在更早歷史資料中 OOS 測試；(2) 使用 minimum Bayes factor（Harvey 建議）校正 p-hacking。</li>
-<li><strong>在本框架的應用：</strong> 支持以超長歷史 + 跨資產類別證據作為因子「真實性」的判據。Dual replication 設計可與 v3 Gate 2 的 IS/OOS 概念對應。</li>
+<li><strong>在本框架的應用：</strong> 支持以超長歷史 + 跨資產類別證據作為因子「真實性」的判據。Dual replication 設計可與 factrix <code>oos_survival_ratio</code> 的 IS/OOS 概念對應。</li>
 </ul>
 <h4 id="jensen-kelly--pedersen-2023同-4跨市場面向">Jensen, Kelly &amp; Pedersen (2023)（同 §4，跨市場面向）<a class="headerlink" href="#jensen-kelly--pedersen-2023同-4跨市場面向" title="Permanent link">&para;</a></h4>
 <ul>
@@ -3428,7 +3428,7 @@
 <ul>
 <li><strong>出處：</strong> Karolyi, G. A. &amp; Wu, Y. (2022). "A New Partial-Segmentation Approach to Modeling International Stock Returns." <em>Journal of Financial and Quantitative Analysis</em> 57(2), 459-496.</li>
 <li><strong>採用論點：</strong> 提出「部分分割」（partial segmentation）方法：同時構建 local 和 foreign 因子，測試哪種組合最佳。46 國 37,000+ 股票，20 年。發現 <strong>local + foreign 的混合模型</strong>優於純 global 或純 local。市場既非完全整合也非完全分割。</li>
-<li><strong>在本框架的應用：</strong> 理論上支持「本地 Gate 為主 + 跨市場信號為輔」的分層架構——兩者提供互補資訊，不應只取其一。</li>
+<li><strong>在本框架的應用：</strong> 理論上支持「本地 <code>verdict()</code> 為主 + 跨市場信號為輔」的分層架構——兩者提供互補資訊，不應只取其一。</li>
 </ul>
 <h3 id="新興市場與市場微結構差異">新興市場與市場微結構差異<a class="headerlink" href="#新興市場與市場微結構差異" title="Permanent link">&para;</a></h3>
 <h4 id="cakici-fabozzi--tan-2013">Cakici, Fabozzi &amp; Tan (2013)<a class="headerlink" href="#cakici-fabozzi--tan-2013" title="Permanent link">&para;</a></h4>
@@ -3461,7 +3461,7 @@
 <ul>
 <li><strong>出處：</strong> MSCI. (2018). "MSCI FaCS Methodology." 另參考 Barra Global Equity Model (GEM3) 及 Global Total Market Equity Model (GEMLT) 文件。</li>
 <li><strong>採用論點：</strong> 業界標準的跨市場因子標準化方法——<strong>country-specific mean + global standard deviation</strong>。即：每個市場內部去均值（消除國家效應），但用全球標準差做尺度（確保跨國可比）。模型結構將報酬分解為 World + Country + Industry + Style + Currency 五層。個股對本國 country factor 有 unit exposure，對他國為 zero。Volatility 等本質跨市場可比的因子使用 global mean。</li>
-<li><strong>在本框架的應用：</strong> 如果未來需要跨市場比較因子 signal 的強度，MSCI 的 country-specific mean + global std 是業界公認的標準化方式。但 v3 Gate 的 pass/fail 設計天然迴避了這個問題——比較的是 Gate status（通過/未通過），不是 signal 的絕對值。</li>
+<li><strong>在本框架的應用：</strong> 如果未來需要跨市場比較因子 signal 的強度，MSCI 的 country-specific mean + global std 是業界公認的標準化方式。但 factrix <code>verdict()</code> pass/fail 設計天然迴避了這個問題——比較的是通過/未通過，不是 signal 的絕對值。</li>
 </ul>
 <hr />
 <h3 id="宏觀因子訊號評估方法論">宏觀因子訊號評估方法論<a class="headerlink" href="#宏觀因子訊號評估方法論" title="Permanent link">&para;</a></h3>
@@ -3493,19 +3493,19 @@
 <ul>
 <li><strong>出處：</strong> Harvey, C. R. &amp; Liu, Y. (2020). "Lucky Factors." <em>Journal of Financial Economics</em> 137(1), 116-142.</li>
 <li><strong>採用論點：</strong> 提出 Bayesian multiple testing framework，處理大量因子同時檢定的 false discovery 問題。相較 Bonferroni（假設檢定間獨立）和 BHY（允許相關但為 frequentist），Bayesian 方法自然整合因子間的相關結構，提供 posterior probability of being a true factor。核心結論：考慮 multiple testing 後，大量「t &gt; 2.0」的因子不再顯著。</li>
-<li><strong>在本框架的應用：</strong> Gate 1 P1 改進的理論依據——從固定門檻 2.0 升級為 BHY 連續校正時，本文提供了為什麼 BHY 比離散階梯門檻（2.0/2.5/3.0）更原則性的論證。未來若需更精確的校正，可進一步採用本文的 Bayesian framework。</li>
+<li><strong>在本框架的應用：</strong> <code>bhy()</code> / <code>verdict()</code> 改進的理論依據——從固定門檻 2.0 升級為 BHY 連續校正時，本文提供了為什麼 BHY 比離散階梯門檻（2.0/2.5/3.0）更原則性的論證。未來若需更精確的校正，可進一步採用本文的 Bayesian framework。</li>
 </ul>
 <h3 id="romano--wolf-2005">Romano &amp; Wolf (2005)<a class="headerlink" href="#romano--wolf-2005" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>出處：</strong> Romano, J. P. &amp; Wolf, M. (2005). "Stepwise Multiple Testing as Formalized Data Snooping." <em>Econometrica</em> 73(4), 1237-1282.</li>
 <li><strong>採用論點：</strong> 提出 stepdown 多重檢定校正方法，控制 family-wise error rate (FWER)。相較 Bonferroni，stepdown 方法通過 bootstrap 估計聯合分佈，考慮檢定統計量間的相關性，因此在保持相同 FWER 控制的前提下有更高的統計力（拒絕更多虛假因子）。</li>
-<li><strong>在本框架的應用：</strong> Gate 1 的 OR 條件（IC_IR OR Q1-Q5 spread）等效於兩次檢定。P1 可使用 Romano-Wolf stepdown correction 處理此 OR 帶來的多重檢定膨脹，比 Bonferroni 近似（門檻從 2.0 提高至 ~2.24）更精確。</li>
+<li><strong>在本框架的應用：</strong> <code>verdict()</code> 的 OR 條件（IC_IR OR Q1-Q5 spread）等效於兩次檢定。可使用 Romano-Wolf stepdown correction 處理此 OR 帶來的多重檢定膨脹，比 Bonferroni 近似（門檻從 2.0 提高至 ~2.24）更精確。</li>
 </ul>
 <h3 id="demiguel-martin-utrera--nogales-2020">DeMiguel, Martin-Utrera &amp; Nogales (2020)<a class="headerlink" href="#demiguel-martin-utrera--nogales-2020" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>出處：</strong> DeMiguel, V., Martin-Utrera, A. &amp; Nogales, F. J. (2020). "Transaction Costs and Trading Volume in the Cross-Section of Stock Returns." <em>Journal of Financial Economics</em> 135(1), 271-292.</li>
 <li><strong>採用論點：</strong> 實證顯示考慮交易成本後，最優因子集合可能完全改變——高 alpha 但高 turnover 的因子在扣除成本後可能不如低 alpha 但低 turnover 的因子。提出 cost-adjusted factor selection 框架，將交易成本內嵌於因子篩選（而非事後作為 profile 指標）。</li>
-<li><strong>在本框架的應用：</strong> 支持 Net_Spread（<code>Q1-Q5 Spread - 2 × cost × Turnover</code>）作為 Profile 指標——雖然不作為 Gate（成本是 implementation 問題），但讓使用者快速判斷扣除成本後的殘餘 alpha。本文的核心洞見是 Breakeven Cost 和 Gross Spread 分開報告不足以捕捉交互效應。</li>
+<li><strong>在本框架的應用：</strong> 支持 Net_Spread（<code>Q1-Q5 Spread - 2 × cost × Turnover</code>）作為 Profile 指標——雖然不進入 <code>verdict()</code> 判斷（成本是 implementation 問題），但讓使用者快速判斷扣除成本後的殘餘 alpha。本文的核心洞見是 Breakeven Cost 和 Gross Spread 分開報告不足以捕捉交互效應。</li>
 </ul>
 <h3 id="sen-1968">Sen (1968)<a class="headerlink" href="#sen-1968" title="Permanent link">&para;</a></h3>
 <ul>

@@ -2,42 +2,46 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
+    </url>
+    <url>
+         <loc>https://awwesomeman.github.io/factrix/latest/plan_factrix/</loc>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/methodology/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/metric-applicability/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/standalone-metrics/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/statistical-methods/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/api/analysis-config/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/api/datasets/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/api/evaluate/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/api/factor-profile/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/api/multi-factor/</loc>
-         <lastmod>2026-05-04</lastmod>
+         <lastmod>2026-05-05</lastmod>
     </url>
 </urlset>

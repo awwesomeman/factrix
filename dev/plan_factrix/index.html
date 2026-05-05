@@ -1,0 +1,1576 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/plan_factrix/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>factrix 策略方向與下一步 - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#factrix-策略方向與下一步" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              factrix 策略方向與下一步
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../reference/methodology/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/statistical-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/metric-applicability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/standalone-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standalone metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/analysis-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnalysisConfig
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/factor-profile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FactorProfile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/multi-factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    multi_factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-脈絡" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 脈絡
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. 脈絡">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-原目標宣言專案願景" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 原目標宣言（專案願景）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-實際工作優先級真正的-driver" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 實際工作優先級（真正的 driver）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-關鍵錯位" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 關鍵錯位
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-核心診斷多輪-review-收斂" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 核心診斷（多輪 review 收斂）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. 核心診斷（多輪 review 收斂）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-統計面資深-quant-視角" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 統計面（資深 quant 視角）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-架構面資深後端視角" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 架構面（資深後端視角）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-最終決策" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 最終決策
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. 最終決策">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-路徑決策path-b" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 路徑決策：Path B'
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-實施哲學research-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 實施哲學：research-first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-對使用者研究素材的-framing-修正" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 對使用者研究素材的 framing 修正
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-立即行動safety-minimum約-1-週--1520-小時" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. 立即行動：Safety Minimum（約 1 週 / 15–20 小時）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. 立即行動：Safety Minimum（約 1 週 / 15–20 小時）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-修-_fl_preprocess_sig-三個洞" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 修 _fl_preprocess_sig 三個洞
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-factor_type-mismatch-明確-raise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 factor_type mismatch 明確 raise
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-p_value_fields-invariant-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 P_VALUE_FIELDS invariant test
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-後續-review-補丁subagent-review-後" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 後續 review 補丁（subagent review 後）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-fallback-一致性最小修補agent-review-class-de" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Fallback 一致性最小修補（agent review Class D/E）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-明確不做至少-phase-1-研究完成前" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. 明確不做（至少 Phase 1 研究完成前）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-friction-log-協議" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Friction Log 協議
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Friction Log 協議">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-檔案位置" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 檔案位置
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-entry-格式" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Entry 格式
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-review-節奏" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Review 節奏
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-決策規則" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 決策規則
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-待定決策safety-minimum--1-個-p1-研究跑完後重審" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 待定決策（Safety minimum + 1 個 P1 研究跑完後重審）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-生態位置定位給未來參考" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 生態位置定位（給未來參考）
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-參考" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 參考
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. 參考">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-關鍵對話輸入" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 關鍵對話輸入
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-研究素材" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 研究素材
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-factrix-現況關鍵檔案" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 factrix 現況關鍵檔案
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-當前狀態--下一步" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. 當前狀態 / 下一步
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meta-notes給未來的自己" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Meta-notes（給未來的自己）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/plan_factrix.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="factrix-策略方向與下一步">factrix 策略方向與下一步<a class="headerlink" href="#factrix-策略方向與下一步" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>日期：2026-04-21
+用途：避免後續再重新走過同樣的討論；作為未來 refactor 決策的 anchor。</p>
+<p><strong>範圍註記</strong>：本檔是 <code>factor-analysis</code> workspace 的內部工作文件，不構成 factrix 套件的對外文件。下方若干 <code>../../docs/...</code> 連結指向 parent repo 的研究素材；獨立 clone factrix submodule 的使用者不會看到那些檔案，但核心 factrix 決策（scope、Path B'、未定項目）獨立於 parent repo。</p>
+</blockquote>
+<hr />
+<h2 id="1-脈絡">1. 脈絡<a class="headerlink" href="#1-脈絡" title="Permanent link">&para;</a></h2>
+<h3 id="11-原目標宣言專案願景">1.1 原目標宣言（專案願景）<a class="headerlink" href="#11-原目標宣言專案願景" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>讓 quant 輕鬆分析不同因子類別 — 使用者側要一致 / 易用 / 可擴充 / 統計正確，開發者側要一致 / 可擴充 / 正確。預期可以找出用於單資產交易的因子、選股策略因子等等。</p>
+</blockquote>
+<h3 id="12-實際工作優先級真正的-driver">1.2 實際工作優先級（真正的 driver）<a class="headerlink" href="#12-實際工作優先級真正的-driver" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>優先級</th>
+<th>場景</th>
+<th>性質</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P1（急）</strong></td>
+<td>資產配置研究（廣義，不止區域股市配置）</td>
+<td>工作主軸</td>
+</tr>
+<tr>
+<td><strong>P2（長期）</strong></td>
+<td>單資產交易策略開發</td>
+<td>個人主軸；factrix 原初動機</td>
+</tr>
+<tr>
+<td>P3（潛在）</td>
+<td>選股策略</td>
+<td>不急；factrix 目前最成熟</td>
+</tr>
+<tr>
+<td>P4（潛在）</td>
+<td>套利策略</td>
+<td>工具類別不同（cointegration-driven），factrix 不適合</td>
+</tr>
+<tr>
+<td>P5（期待）</td>
+<td>HFT</td>
+<td>明確 out-of-scope</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-關鍵錯位">1.3 關鍵錯位<a class="headerlink" href="#13-關鍵錯位" title="Permanent link">&para;</a></h3>
+<p>factrix 目前投資最深的 <code>cross_sectional</code>（P3）是<strong>最不急</strong>的場景；P1/P2 支援<strong>不到 30%</strong>。</p>
+<hr />
+<h2 id="2-核心診斷多輪-review-收斂">2. 核心診斷（多輪 review 收斂）<a class="headerlink" href="#2-核心診斷多輪-review-收斂" title="Permanent link">&para;</a></h2>
+<h3 id="21-統計面資深-quant-視角">2.1 統計面（資深 quant 視角）<a class="headerlink" href="#21-統計面資深-quant-視角" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>N=1 不是 first-class</strong>：僅 <code>macro_common</code> 有顯式 fallback，<code>cross_sectional</code> / <code>macro_panel</code> 單資產時 silently 短路成 FAILED（訊息是「樣本不足」但真因是「選錯 type」）。</li>
+<li><strong>單資產 canonical 設計錯誤</strong>：<code>ts_beta_single_asset_fallback</code> 把 p 壓到 1.0，uninformative 而非 conservative。正確應走 HAC-corrected predictive regression β t-test。</li>
+<li><strong><code>MIN_ASSETS_PER_DATE_IC=10</code> 語意重載</strong>：同一常數同時當「時間軸樣本數 gate」和「per-date 資產數」使用，該拆成 <code>MIN_ASSETS_PER_DATE_IC_T</code> / <code>MIN_CS_UNIVERSE</code>。</li>
+<li><strong><code>verdict()</code> t=2.0 門檻</strong>：單因子 discovery 在 Harvey-Liu-Zhu (2016) 下應 t≥3；現有 <code>PASS_WITH_WARNINGS</code> 機制可用來在 <code>2.0 ≤ |t| &lt; 3.0</code> 發出警告。</li>
+<li><strong>Effect size 不是一等公民</strong>：Profile 輸出以 <code>canonical_p</code> 為中心，effect size 散落各欄位。<strong>這是 BL integration 的直接 blocker</strong> — BL 的 <code>(P, Q, Ω)</code> 需要 effect magnitude + SE，不是 p-value。</li>
+</ul>
+<h3 id="22-架構面資深後端視角">2.2 架構面（資深後端視角）<a class="headerlink" href="#22-架構面資深後端視角" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Dispatch 寫在 7 個地方</strong>：<code>_api.FACTOR_TYPES</code>、<code>preprocess/pipeline.py</code>、<code>preprocess_sig</code>、<code>build_artifacts</code>、<code>_FACTOR_REGISTRY</code>、<code>diagnose_profile</code> 等。extensibility 4/10。</li>
+<li><strong><code>_fl_preprocess_sig</code> 三個 silent-wrongness 洞</strong>：</li>
+<li>(a) <code>config=None</code> 默認成 <code>CrossSectionalConfig()</code> — event 資料 silently CS-preprocess</li>
+<li>(b) sig 不 key on <code>factor_type</code></li>
+<li>(c) <code>ortho</code> basis 在 <code>build_artifacts</code> 才算 — preprocess / evaluate 間切換 ortho 會 silently 產出不同 Profile</li>
+<li><strong><code>P_VALUE_FIELDS</code> 無 invariant check</strong>：欄位重命名會造成 BHY runtime <code>KeyError</code>，而非 class-def 期報錯。</li>
+<li><strong>Config / Profile 對稱性已裂</strong>：<code>CrossSectionalConfig</code> 7+ knobs vs <code>MacroCommonConfig</code> 2 knobs；<code>ic_trend</code> / <code>beta_trend</code> / <code>caar_trend</code> 不同 stem；OOS 欄位在 4 個 Profile 各複製一份。</li>
+</ul>
+<hr />
+<h2 id="3-最終決策">3. 最終決策<a class="headerlink" href="#3-最終決策" title="Permanent link">&para;</a></h2>
+<h3 id="31-路徑決策path-b">3.1 路徑決策：Path B'<a class="headerlink" href="#31-路徑決策path-b" title="Permanent link">&para;</a></h3>
+<p><strong>factrix 維持為 signal validator，不吸收 allocation / strategy 方法論。</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Input: 價量 + 宏觀 + 估值
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  ↓
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>[1] factrix — signal 有效性驗證 (canonical p + effect size + diagnose)
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  ↓
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>[2] ML signal layer — xgboost + shap（下游，不是 factrix 職責）
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  ↓
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>[3] Black-Litterman / view integration — PyPortfolioOpt 或未來 factrix-allocation
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  ↓
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>[4] Optimizer — skfolio / cvxpy / riskfolio-lib
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  ↓
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>Output: 資產權重
+</span></code></pre></div>
+<p><strong>明確：factrix 只做 [1]。</strong> [2]–[4] 生態已有成熟工具，重造輪子的 ROI 為負。</p>
+<h3 id="32-實施哲學research-first">3.2 實施哲學：research-first<a class="headerlink" href="#32-實施哲學research-first" title="Permanent link">&para;</a></h3>
+<ul>
+<li>P1 研究 deadline 真實存在；2 個月 infrastructure refactor 是奢侈品。</li>
+<li>現有 factrix 核心邏輯對 P1 正常路徑統計上夠正確（<code>macro_panel</code> / <code>macro_common</code>）。</li>
+<li>具體 refactor 需求要靠實際研究的 friction 驗證，不靠 speculation。</li>
+<li>v0.x 階段 API 破壞自由仍在，晚點重構不會更貴。</li>
+</ul>
+<h3 id="33-對使用者研究素材的-framing-修正">3.3 對使用者研究素材的 framing 修正<a class="headerlink" href="#33-對使用者研究素材的-framing-修正" title="Permanent link">&para;</a></h3>
+<p><code>../../docs/study/regional_equity_allocation.md</code> section 六「開發建議路徑」目前的 framing 是 Path A（把 MVO / HRP / BL 納入 factrix）— <strong>應改寫為 Path B' framing</strong>：factrix 只負責 signal validation，allocation 交下游。此修改建議留到第一個 P1 研究跑完後再做（那時會更清楚介面該長什麼樣）。</p>
+<hr />
+<h2 id="4-立即行動safety-minimum約-1-週--1520-小時">4. 立即行動：Safety Minimum（約 1 週 / 15–20 小時）<a class="headerlink" href="#4-立即行動safety-minimum約-1-週--1520-小時" title="Permanent link">&para;</a></h2>
+<p>這三項是 <strong>silent-wrongness fix</strong>，不做會污染研究結論。<strong>不是 refactor，是 bug fix。</strong></p>
+<h3 id="41-修-_fl_preprocess_sig-三個洞">4.1 修 <code>_fl_preprocess_sig</code> 三個洞<a class="headerlink" href="#41-修-_fl_preprocess_sig-三個洞" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ <strong>(a) 完成</strong>：<code>preprocess()</code> 在 <code>config=None</code> 時改成 raise TypeError，列出四個 config 選項。</li>
+<li>✅ <strong>(b) 完成</strong>：<code>factor_type</code> 納入 <code>preprocess_sig</code> 第一個 key；既有的 diff 邏輯自動捕捉跨類 mismatch。</li>
+<li>🟡 <strong>(c) 延後 / 不做</strong>：ortho fingerprint 進 sig 會破壞 legitimate sweep pattern（<code>prepared = preprocess(df, cfg_base); for basis in bases: evaluate(prepared, ..., config=replace(cfg_base, ortho=basis))</code>）。silent-wrongness 風險是 scenario 1（cfg 複製漏同步）；sweep 是 scenario 2（跨 basis 比較）。為了保住 scenario 2，暫不改。若後續 friction log 出現 scenario 1 被踩 ≥2 次，再評估改用「build_artifacts 時 stamp 第二 marker」的方案。README 會補充「使用同一個 cfg 實例」的文化守則。</li>
+</ul>
+<h3 id="42-factor_type-mismatch-明確-raise">4.2 <code>factor_type</code> mismatch 明確 raise<a class="headerlink" href="#42-factor_type-mismatch-明確-raise" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ <strong>完成</strong>：<code>factrix/_validators.py</code> 新 module 提供 <code>validate_n_assets</code>；從 <code>preprocess_cs_factor</code> / <code>preprocess_macro_panel</code>（fail fast）和 <code>build_artifacts</code>（backstop）雙層呼叫。</li>
+<li>涵蓋兩種退化：</li>
+<li>(a) 全域 N=1：單資產 panel 餵 CS/MP</li>
+<li>(b) staggered schedule：全域 N≥2 但 max per-date n_unique &lt; 2 (CS) / &lt; 3 (MP) — 每個 date 都會被 metric 層短路，原本悄悄產生空 IC / λ</li>
+<li>錯誤訊息指向 <code>MacroCommonConfig</code> 與 <code>docs/plan_direction.md §7 待定決策</code>。</li>
+</ul>
+<h3 id="43-p_value_fields-invariant-test">4.3 <code>P_VALUE_FIELDS</code> invariant test<a class="headerlink" href="#43-p_value_fields-invariant-test" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ <strong>完成</strong>：<code>tests/test_profile_invariants.py</code> 13 個 parametrized 測試。</li>
+<li><code>CANONICAL_P_FIELD ⊂ P_VALUE_FIELDS</code></li>
+<li>每個 whitelist 欄位在 Profile dataclass 中存在且 annotation 為 <code>PValue</code>（或 <code>PValue | None</code>）</li>
+<li>per-type rules 和 <code>CROSS_TYPE_RULES</code> 的 <code>recommended_p_source</code> 都在對應 whitelist</li>
+<li>包括 <code>_CUSTOM_RULES</code>（執行時註冊的）</li>
+</ul>
+<h3 id="44-後續-review-補丁subagent-review-後">4.4 後續 review 補丁（subagent review 後）<a class="headerlink" href="#44-後續-review-補丁subagent-review-後" title="Permanent link">&para;</a></h3>
+<ul>
+<li>✅ <code>redundancy_matrix(method='factor_rank')</code> 在 <code>macro_common</code> 加 runtime guard（原本 silent 返回 0 矩陣；現 raise ValueError）</li>
+<li>✅ metric_applicability.md 修正：</li>
+<li><code>macro_common</code> N=1 fallback 從誤稱 "Newey-West" 改為「plain OLS」+ HAC 警語</li>
+<li>「閾值常數」加「定義位置」欄，修正原本「單一 source of truth: <code>_types.py</code>」誤導（<code>MIN_FM_PERIODS</code> / <code>MIN_TS_OBS</code> 實際在 metric 模組）</li>
+<li>✅ 此 plan doc 從 parent repo 搬進 factrix submodule（原本內部連結斷）</li>
+<li>✅ N=1 guard 強化：新 <code>factrix/_validators.py</code>；除全域 N=1 外補 staggered schedule 偵測（max per-date n_unique &lt; 2 for CS / &lt; 3 for MP）；同步從 <code>preprocess_cs_factor</code> / <code>preprocess_macro_panel</code> 呼叫（fail fast），<code>build_artifacts</code> 保留 backstop</li>
+</ul>
+<h3 id="45-fallback-一致性最小修補agent-review-class-de">4.5 Fallback 一致性最小修補（agent review Class D/E）<a class="headerlink" href="#45-fallback-一致性最小修補agent-review-class-de" title="Permanent link">&para;</a></h3>
+<p>採用最小修補而非全框架重構（α/β/γ 都不是；走「現有 <code>diagnose()</code> + <code>metadata</code> + <code>Artifacts</code> 三管道分工」）：
+- ✅ 新增 <code>event.single_asset</code> info-severity rule — 補齊 event_signal N=1 在 diagnose 的 asymmetry（原本只有 <code>macro_common.single_asset</code>）；用 <code>clustering_hhi is None</code> 作 N=1 signal
+- ✅ <code>Artifacts.intermediates["coverage"]</code> — <code>_build_cs_artifacts</code> 記錄 <code>n_dates_total / n_dates_kept / n_dates_dropped_low_n</code>；<code>_build_macro_common_artifacts</code> 記錄 <code>n_assets_total / n_assets_kept / n_assets_skipped_short_t</code>。合法使用情境（unbalanced panel）常見，不適合 push，但使用者可以主動查
+- ✅ <code>describe_profile_values()</code> 底部加 diagnostic 計數提示（<code>N veto, N warn, N info — call .diagnose() for details</code>），有 fire 才出；不污染 clean fast-path
+- ✅ metric_applicability.md 加「Fallback 通知管道對照」表 — raise / diagnose / metadata / Artifacts summary / UserWarning 五種管道各自職責</p>
+<p><strong>明確不做</strong>（保留給 friction log 證偽）：
+- Per-element silent drop 不加 <code>warnings.warn</code>（批次 evaluate 會噪）
+- 不做全面 "hybrid γ" 框架（複雜度無實證需求）
+- <code>n_assets</code> 欄位不新加入 <code>EventProfile</code>（用 <code>clustering_hhi is None</code> 當 proxy 夠精確）</p>
+<hr />
+<h2 id="5-明確不做至少-phase-1-研究完成前">5. 明確不做（至少 Phase 1 研究完成前）<a class="headerlink" href="#5-明確不做至少-phase-1-研究完成前" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>不做的理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Registry dispatch (<code>FactorTypeSpec</code> + <code>SPEC_REGISTRY</code>)</td>
+<td>短期只修一次 silent-wrongness，不新增 factor_type；7 處 dispatch 不會痛</td>
+</tr>
+<tr>
+<td><code>SingleAsset</code> 第 5 個 FactorType</td>
+<td>現有 <code>macro_common</code> N=1 fallback 在 Safety minimum 後對 P2 初期夠用；真的痛再加</td>
+</tr>
+<tr>
+<td><code>effect_size</code> 升格 first-class 欄位</td>
+<td>第一個 BL adapter 寫時再評估；現在從 Profile 手挖欄位成本低</td>
+</tr>
+<tr>
+<td><code>factrix-allocation</code> 新 repo</td>
+<td>speculation-driven；等研究 friction log 累積再抽</td>
+</tr>
+<tr>
+<td>Regime conditioning 方法論</td>
+<td>HMM / threshold 的實作屬下游 allocation layer，不是 validator</td>
+</tr>
+<tr>
+<td><code>scipy</code> 加入 core dep</td>
+<td>無具體痛點；現有自刻夠用</td>
+</tr>
+<tr>
+<td>MVO / HRP / BL 進 factrix</td>
+<td>生態工具成熟（<code>skfolio</code> / <code>PyPortfolioOpt</code>）；定位漂移</td>
+</tr>
+<tr>
+<td>Structural break / GARCH SE / IVX</td>
+<td>外接 <code>ruptures</code> / <code>arch</code>；lean-dep 原則保留</td>
+</tr>
+<tr>
+<td>ML signal layer（xgboost + shap）</td>
+<td>不是 factrix 職責；allocation layer 或 notebook</td>
+</tr>
+<tr>
+<td>Backtest engine</td>
+<td>README 已明確 non-goal</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-friction-log-協議">6. Friction Log 協議<a class="headerlink" href="#6-friction-log-協議" title="Permanent link">&para;</a></h2>
+<h3 id="61-檔案位置">6.1 檔案位置<a class="headerlink" href="#61-檔案位置" title="Permanent link">&para;</a></h3>
+<p><code>../../docs/friction_log.md</code>（位於 parent repo factor-analysis，不隨 factrix 發行）</p>
+<h3 id="62-entry-格式">6.2 Entry 格式<a class="headerlink" href="#62-entry-格式" title="Permanent link">&para;</a></h3>
+<div class="language-markdown highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="gu">## YYYY-MM-DD</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">-</span><span class="w"> </span>任務脈絡：當下在做什麼研究
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">-</span><span class="w"> </span>痛點：具體遇到什麼不順
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">-</span><span class="w"> </span>workaround：這次怎麼繞過去
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">-</span><span class="w"> </span>[tag: short_tag_for_grouping]
+</span></code></pre></div>
+<h3 id="63-review-節奏">6.3 Review 節奏<a class="headerlink" href="#63-review-節奏" title="Permanent link">&para;</a></h3>
+<ul>
+<li>每 4–8 週 review 一次</li>
+<li>或累計 10+ entries 時 review</li>
+</ul>
+<h3 id="64-決策規則">6.4 決策規則<a class="headerlink" href="#64-決策規則" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tag 出現次數</th>
+<th>行動</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>≥ 3 次</td>
+<td>值得做成 library feature；進 roadmap</td>
+</tr>
+<tr>
+<td>1–2 次</td>
+<td>notebook util function 或放 <code>factrix-allocation</code> 候選</td>
+</tr>
+<tr>
+<td>0 次（本計劃預測的痛點沒發生）</td>
+<td>從 roadmap 刪除，Speculation 被證偽</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-待定決策safety-minimum--1-個-p1-研究跑完後重審">7. 待定決策（Safety minimum + 1 個 P1 研究跑完後重審）<a class="headerlink" href="#7-待定決策safety-minimum--1-個-p1-研究跑完後重審" title="Permanent link">&para;</a></h2>
+<p>這些是目前 subagent 建議但<strong>尚未 commit</strong> 的項目。research phase 結束後回來決定：</p>
+<ol>
+<li><strong><code>SingleAsset</code> 是否成為第 5 個 FactorType</strong>？或繼續用 <code>macro_common</code> N=1 fallback？</li>
+<li>決策信號：friction log 中 <code>n1_dispatch</code> / <code>single_asset_*</code> tag 出現頻率。</li>
+<li><strong><code>effect_size</code> 是否升格為 Profile 一等欄位</strong>？</li>
+<li>決策信號：寫第一個 BL adapter 時的摩擦程度。</li>
+<li><strong><code>factrix-allocation</code> 是否開 repo</strong>？</li>
+<li>決策信號：notebook 中 allocation 相關 util 是否重複 3 次以上。</li>
+<li><strong><code>FactorTypeSpec</code> registry 是否做</strong>？</li>
+<li>決策信號：有沒有第二次需要新增 factor_type（例如為了 P1 才發現要一個 <code>cross_asset_common</code>）。</li>
+<li><strong><code>scipy</code> 是否加入 core dep</strong>？</li>
+<li>決策信號：下一個要加的統計方法是否涉及重造 scipy 既有功能（如 bootstrap CI、特殊分佈）。</li>
+<li><strong><code>../../docs/study/regional_equity_allocation.md</code> section 六是否改寫</strong>？</li>
+<li>決策信號：第一個 P1 研究跑完後，實際用到的 pipeline 形狀。</li>
+</ol>
+<hr />
+<h2 id="8-生態位置定位給未來參考">8. 生態位置定位（給未來參考）<a class="headerlink" href="#8-生態位置定位給未來參考" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>層級</th>
+<th>工具</th>
+<th>職責</th>
+<th>備註</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Signal validation</td>
+<td><strong>factrix</strong></td>
+<td>canonical p + effect size + diagnose</td>
+<td>本 repo 專責此層</td>
+</tr>
+<tr>
+<td>Signal combination</td>
+<td><code>xgboost</code> + <code>shap</code></td>
+<td>多因子合成 expected return + 可解釋性</td>
+<td>見 <code>study/regional_equity_allocation_ml.md</code></td>
+</tr>
+<tr>
+<td>View integration</td>
+<td><code>PyPortfolioOpt.BlackLittermanModel</code></td>
+<td>ML view + 市場先驗 → posterior μ</td>
+<td>或未來 <code>factrix-allocation</code> 薄 wrapper</td>
+</tr>
+<tr>
+<td>Optimizer</td>
+<td><code>skfolio</code> / <code>cvxpy</code> / <code>riskfolio-lib</code></td>
+<td>解 w*</td>
+<td>不自己重造</td>
+</tr>
+<tr>
+<td>Regime detection</td>
+<td><code>hmmlearn</code> / 自寫 threshold</td>
+<td>state classifier</td>
+<td>放 allocation layer</td>
+</tr>
+<tr>
+<td>Structural break</td>
+<td><code>ruptures</code></td>
+<td>斷點偵測</td>
+<td>不進 factrix core</td>
+</tr>
+<tr>
+<td>ARCH / GARCH SE</td>
+<td><code>arch</code></td>
+<td>vol clustering 推論</td>
+<td>不進 factrix core</td>
+</tr>
+<tr>
+<td>Backtest glue</td>
+<td><code>vectorbt</code> / <code>bt</code> / 自寫</td>
+<td>執行模擬</td>
+<td>未來 <code>factrix-strategy</code> 考慮薄 adapter</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-參考">9. 參考<a class="headerlink" href="#9-參考" title="Permanent link">&para;</a></h2>
+<h3 id="91-關鍵對話輸入">9.1 關鍵對話輸入<a class="headerlink" href="#91-關鍵對話輸入" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Senior-quant subagent review A（第一輪）：findings on N=1 silent degeneracy、MIN constant overload、verdict threshold。</li>
+<li>Senior-backend subagent review A（第一輪）：7-site dispatch、<code>P_VALUE_FIELDS</code> invariant、preprocess_sig holes。</li>
+<li>Senior-quant subagent review B（第二輪，更新目標後）：<code>Hypothesis</code> abstraction 建議、methodology fit audit、rename <code>macro_common</code> → <code>time_series_predictor</code> 建議、scipy 放寬建議。</li>
+<li>Senior-backend subagent review B（第二輪）：monorepo + 多 package 統一版本建議、<code>FactorTypeSpec</code> 設計、5 個 FactorType（vs 雙軸）、測試 minimum viable set。</li>
+</ul>
+<h3 id="92-研究素材">9.2 研究素材<a class="headerlink" href="#92-研究素材" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>../../docs/study/regional_equity_allocation.md</code> — 區域股市配置業界實務與學術方法論。</li>
+<li><code>../../docs/study/regional_equity_allocation_ml.md</code> — ML 可解釋性在區域配置的應用。</li>
+<li>（注意：section 六「開發建議路徑」目前 framing 偏 Path A，待改寫）</li>
+</ul>
+<h3 id="93-factrix-現況關鍵檔案">9.3 factrix 現況關鍵檔案<a class="headerlink" href="#93-factrix-現況關鍵檔案" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>factrix/_types.py</code> — <code>FactorType</code> enum、<code>MIN_*</code> 常數、<code>Verdict</code> / <code>Diagnostic</code> 型別</li>
+<li><code>factrix/_api.py</code> — 公開 API 表面（dispatch 集中處之一）</li>
+<li><code>factrix/evaluation/profiles/</code> — 四個 Profile class</li>
+<li><code>factrix/evaluation/diagnostics/_rules.py</code> — 診斷規則定義</li>
+<li><code>factrix/preprocess/pipeline.py</code> — <code>_fl_preprocess_sig</code> 三個洞的所在</li>
+<li><code>factrix/metrics/</code> — canonical test 實作</li>
+<li><code>pyproject.toml</code> — 依賴管理</li>
+</ul>
+<hr />
+<h2 id="10-當前狀態--下一步">10. 當前狀態 / 下一步<a class="headerlink" href="#10-當前狀態--下一步" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[ ] Safety minimum 4.1：修 <code>_fl_preprocess_sig</code> 三個洞</li>
+<li>[ ] Safety minimum 4.2：<code>factor_type</code> mismatch 明確 raise</li>
+<li>[ ] Safety minimum 4.3：<code>P_VALUE_FIELDS</code> invariant test</li>
+<li>[ ] 建立 <code>../../docs/friction_log.md</code> 空檔（parent repo）</li>
+<li>[ ] 開跑第一個 P1 研究（候選：跨國 CAPE + Momentum 驗證，對應 parent repo <code>docs/study/regional_equity_allocation.md</code> 第五節）</li>
+<li>[ ] 4–8 週後回來 review friction log，重審第 7 節待定決策</li>
+</ul>
+<hr />
+<h2 id="meta-notes給未來的自己">Meta-notes（給未來的自己）<a class="headerlink" href="#meta-notes給未來的自己" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Scope 克制原則</strong>：每次考慮加新 feature 前問三題 — (a) 讓 factor validation 做得更好嗎？(b) 需要新 dependency 嗎？(c) 在補既有承諾還是開新承諾？三題都過才做。</li>
+<li><strong>Research-first 不等於 infrastructure-never</strong>：friction log 的意義是讓 speculation 被 empirical signal 取代，而非拒絕所有抽象。</li>
+<li><strong>不要再被 subagent 的 ambitious refactor plan 拉偏</strong>：solo maintainer + 工作 deadline 下，subagent 的「2 個月 refactor」常常是 greenfield 思維，要有意識過濾。</li>
+<li><strong>factrix 的護城河是 canonical p + diagnose 的 statistical discipline</strong>，不是 feature 數量。保住這個護城河比擴大範圍重要。</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
