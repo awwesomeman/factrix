@@ -8,14 +8,13 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
-      - 'factrix/**/*.py'
+      - 'factrix/**'
+      - 'scripts/**'
       - '.github/workflows/docs.yml'
-      - 'scripts/gen_metric_matrix.py'
-      - 'scripts/sync_examples.py'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: docs-${{ github.ref }}
@@ -25,6 +24,7 @@ jobs:
   build:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -46,6 +46,9 @@ jobs:
   deploy:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:

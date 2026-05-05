@@ -6,9 +6,45 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
+    name: pytest (py${{ matrix.python }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: uv sync --all-extras --python ${{ matrix.python }}
+
+      - name: Run pytest
+        run: uv run --python ${{ matrix.python }} pytest
+
+  build:
+    name: wheel build + import smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -21,8 +57,18 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Install dependencies
-        run: uv sync --all-extras
+      - name: Build wheel + sdist
+        run: uv build
 
-      - name: Run pytest
-        run: uv run pytest
+      - name: Import-from-wheel smoke
+        run: |
+          uv venv /tmp/smoke
+          /tmp/smoke/bin/pip install --quiet dist/factrix-*.whl
+          /tmp/smoke/bin/python -c "
+          import factrix as fl
+          import importlib.resources as ir
+          assert fl.__version__
+          assert ir.files('factrix').joinpath('llms-full.txt').is_file()
+          assert ir.files('factrix').joinpath('llms.txt').is_file()
+          print(f'OK factrix {fl.__version__}; llms-full.txt shipped in wheel')
+          "
