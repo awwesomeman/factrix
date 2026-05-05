@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# pre-commit: enforce ruff baseline on staged Python files.
+#
+# Mirrors the lint job in .github/workflows/test.yml so commits that
+# would fail CI fail locally instead. Bypass with ``git commit
+# --no-verify`` when you really mean it (e.g. WIP, partial reformat).
+#
+# Scoped to staged .py files for speed — at factrix's size whole-repo
+# would be sub-second, but the staged scope keeps the hook silent on
+# commits that touch only YAML / Markdown / .txt.
+
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.py$' || true)
+if [ -z "$staged" ]; then
+    exit 0
+fi
+
+# shellcheck disable=SC2086
+echo "[pre-commit] ruff check on staged .py files..."
+echo "$staged" | xargs uv run ruff check || {
+    echo "[pre-commit] FAIL — fix with: uv run ruff check --fix <files>"
+    echo "[pre-commit] bypass:        git commit --no-verify"
+    exit 1
+}
+
+echo "[pre-commit] ruff format --check on staged .py files..."
+echo "$staged" | xargs uv run ruff format --check || {
+    echo "[pre-commit] FAIL — fix with: uv run ruff format <files>"
+    echo "[pre-commit] bypass:        git commit --no-verify"
+    exit 1
+}
