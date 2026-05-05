@@ -3897,13 +3897,17 @@ for row in modes_json:
 </clipboard-copy>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="n">raw</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span>
-    <span class="n">n_assets</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">ic_target</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2024</span><span class="p">,</span>
+    <span class="n">n_assets</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">n_dates</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">ic_target</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">2024</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"panel shape=</span><span class="si">{</span><span class="n">panel</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">  N=</span><span class="si">{</span><span class="n">panel</span><span class="p">[</span><span class="s1">'asset_id'</span><span class="p">]</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <span class="n">cfg_ic</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span>
-    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">,</span>
+    <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">prof_ic</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span>
 
@@ -3915,13 +3919,17 @@ for row in modes_json:
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"nw_lags_used = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">NW_LAGS_USED</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-4">raw = fl.datasets.make_cs_panel(
-    n_assets=100, n_dates=500, ic_target=0.08, seed=2024,
+    n_assets=100,
+    n_dates=500,
+    ic_target=0.08,
+    seed=2024,
 )
 panel = compute_forward_return(raw, forward_periods=5)
 print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")
 
 cfg_ic = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.IC, forward_periods=5,
+    metric=fl.Metric.IC,
+    forward_periods=5,
 )
 prof_ic = fl.evaluate(panel, cfg_ic)
 
@@ -3986,9 +3994,11 @@ nw_lags_used = 5
 </clipboard-copy>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+
 <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">diagnose</span><span class="p">(),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-5">import json
+
 print(json.dumps(prof_ic.diagnose(), indent=2, default=str))</div>
 </div>
 </div>
@@ -4053,7 +4063,8 @@ print(json.dumps(prof_ic.diagnose(), indent=2, default=str))</div>
 </clipboard-copy>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="n">cfg_fm</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span>
-    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">FM</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">FM</span><span class="p">,</span>
+    <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">prof_fm</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg_fm</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict       = </span><span class="si">{</span><span class="n">prof_fm</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
@@ -4062,7 +4073,8 @@ print(json.dumps(prof_ic.diagnose(), indent=2, default=str))</div>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"λ_t_nw        = </span><span class="si">{</span><span class="n">prof_fm</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">FM_LAMBDA_T_NW</span><span class="p">]</span><span class="si">:</span><span class="s2">+.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-6">cfg_fm = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.FM, forward_periods=5,
+    metric=fl.Metric.FM,
+    forward_periods=5,
 )
 prof_fm = fl.evaluate(panel, cfg_fm)
 print(f"verdict       = {prof_fm.verdict()}")
@@ -4121,9 +4133,12 @@ primary_p     = 1.05e-45
 </clipboard-copy>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="n">ev_raw</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_event_panel</span><span class="p">(</span>
-    <span class="n">n_assets</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">n_dates</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
-    <span class="n">event_rate</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">post_event_drift_bps</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>
-    <span class="n">signal_horizon</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+    <span class="n">n_assets</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span>
+    <span class="n">n_dates</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+    <span class="n">event_rate</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
+    <span class="n">post_event_drift_bps</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>
+    <span class="n">signal_horizon</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">ev_panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">ev_raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
 
@@ -4136,9 +4151,12 @@ primary_p     = 1.05e-45
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warnings  = </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">prof_caar</span><span class="o">.</span><span class="n">warnings</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-7">ev_raw = fl.datasets.make_event_panel(
-    n_assets=80, n_dates=400,
-    event_rate=0.02, post_event_drift_bps=15.0,
-    signal_horizon=5, seed=42,
+    n_assets=80,
+    n_dates=400,
+    event_rate=0.02,
+    post_event_drift_bps=15.0,
+    signal_horizon=5,
+    seed=42,
 )
 ev_panel = compute_forward_return(ev_raw, forward_periods=5)
 
@@ -4203,7 +4221,9 @@ t-test on <code>E[β]</code>。</p>
 </clipboard-copy>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_broadcast_panel</span><span class="p">(</span>
-    <span class="n">n_assets</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">n_dates</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">11</span><span class="p">,</span>
+    <span class="n">n_assets</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="n">n_dates</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">11</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
     <span class="n">dates</span> <span class="o">=</span> <span class="p">[</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_dates</span><span class="p">)]</span>
@@ -4212,11 +4232,14 @@ t-test on <code>E[β]</code>。</p>
     <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dates</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_assets</span><span class="p">):</span>
             <span class="n">r</span> <span class="o">=</span> <span class="mf">0.4</span> <span class="o">*</span> <span class="n">f_t</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.01</span> <span class="o">+</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">()</span>
-            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                <span class="s2">"date"</span><span class="p">:</span> <span class="n">d</span><span class="p">,</span> <span class="s2">"asset_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"a</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-                <span class="s2">"factor"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_t</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span>
-                <span class="s2">"forward_return"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
-            <span class="p">})</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"date"</span><span class="p">:</span> <span class="n">d</span><span class="p">,</span>
+                    <span class="s2">"asset_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"a</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="s2">"factor"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_t</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span>
+                    <span class="s2">"forward_return"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
     <span class="k">return</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
         <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">(</span><span class="s2">"ms"</span><span class="p">)),</span>
     <span class="p">)</span>
@@ -4225,8 +4248,10 @@ t-test on <code>E[β]</code>。</p>
 <span class="n">bcast</span> <span class="o">=</span> <span class="n">make_broadcast_panel</span><span class="p">()</span>
 <span class="c1"># 驗證 broadcast 性質：每個 date 上 factor 值唯一</span>
 <span class="n">is_broadcast</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
-    <span class="n">bcast</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"factor"</span><span class="p">)</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">"u"</span><span class="p">))</span>
-    <span class="o">.</span><span class="n">select</span><span class="p">((</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"u"</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="n">bcast</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"factor"</span><span class="p">)</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">"u"</span><span class="p">))</span>
+    <span class="o">.</span><span class="n">select</span><span class="p">((</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"u"</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+    <span class="o">.</span><span class="n">item</span><span class="p">()</span>
 <span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"broadcast verified: </span><span class="si">{</span><span class="n">is_broadcast</span><span class="si">}</span><span class="s2">  N=</span><span class="si">{</span><span class="n">bcast</span><span class="p">[</span><span class="s1">'asset_id'</span><span class="p">]</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
@@ -4237,7 +4262,9 @@ t-test on <code>E[β]</code>。</p>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"E[β]          = </span><span class="si">{</span><span class="n">prof_cc</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">TS_BETA</span><span class="p">]</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-8">def make_broadcast_panel(
-    n_assets: int = 30, n_dates: int = 300, seed: int = 11,
+    n_assets: int = 30,
+    n_dates: int = 300,
+    seed: int = 11,
 ) -&gt; pl.DataFrame:
     rng = np.random.default_rng(seed)
     dates = [datetime(2023, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -4246,11 +4273,14 @@ t-test on <code>E[β]</code>。</p>
     for t, d in enumerate(dates):
         for i in range(n_assets):
             r = 0.4 * f_t[t] * 0.01 + 0.01 * rng.standard_normal()
-            rows.append({
-                "date": d, "asset_id": f"a{i:02d}",
-                "factor": float(f_t[t]),
-                "forward_return": float(r),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"a{i:02d}",
+                    "factor": float(f_t[t]),
+                    "forward_return": float(r),
+                }
+            )
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
     )
@@ -4259,8 +4289,10 @@ t-test on <code>E[β]</code>。</p>
 bcast = make_broadcast_panel()
 # 驗證 broadcast 性質：每個 date 上 factor 值唯一
 is_broadcast = bool(
-    bcast.group_by("date").agg(pl.col("factor").n_unique().alias("u"))
-    .select((pl.col("u") == 1).all()).item()
+    bcast.group_by("date")
+    .agg(pl.col("factor").n_unique().alias("u"))
+    .select((pl.col("u") == 1).all())
+    .item()
 )
 print(f"broadcast verified: {is_broadcast}  N={bcast['asset_id'].n_unique()}")
 
@@ -4335,11 +4367,14 @@ E[β]          = +0.0041
     <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dates</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_assets</span><span class="p">):</span>
             <span class="n">r</span> <span class="o">=</span> <span class="mf">0.005</span> <span class="o">*</span> <span class="n">d_t</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">()</span>
-            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-                <span class="s2">"date"</span><span class="p">:</span> <span class="n">d</span><span class="p">,</span> <span class="s2">"asset_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"a</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-                <span class="s2">"factor"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">d_t</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span>
-                <span class="s2">"forward_return"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
-            <span class="p">})</span>
+            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"date"</span><span class="p">:</span> <span class="n">d</span><span class="p">,</span>
+                    <span class="s2">"asset_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"a</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="s2">"factor"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">d_t</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span>
+                    <span class="s2">"forward_return"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
     <span class="k">return</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
         <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">(</span><span class="s2">"ms"</span><span class="p">)),</span>
     <span class="p">)</span>
@@ -4361,11 +4396,14 @@ E[β]          = +0.0041
     for t, d in enumerate(dates):
         for i in range(n_assets):
             r = 0.005 * d_t[t] + 0.01 * rng.standard_normal()
-            rows.append({
-                "date": d, "asset_id": f"a{i:02d}",
-                "factor": float(d_t[t]),
-                "forward_return": float(r),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"a{i:02d}",
+                    "factor": float(d_t[t]),
+                    "forward_return": float(r),
+                }
+            )
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
     )
@@ -4499,40 +4537,40 @@ warnings  = []
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="n">single_event</span> <span class="o">=</span> <span class="n">cs_event</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"asset_id"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"a00"</span><span class="p">)</span>
 <span class="n">prof_collapsed</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-    <span class="n">single_event</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">common_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">single_event</span><span class="p">,</span>
+    <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">common_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
 <span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"info_notes = </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">prof_collapsed</span><span class="o">.</span><span class="n">info_notes</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <span class="c1"># 兩個入口在 N=1 等價</span>
 <span class="n">prof_via_individual</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-    <span class="n">single_event</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+    <span class="n">single_event</span><span class="p">,</span>
+    <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
 <span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span>
-    <span class="sa">f</span><span class="s2">"individual_sparse(N=1) primary_p = "</span>
-    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prof_via_individual</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="sa">f</span><span class="s2">"individual_sparse(N=1) primary_p = </span><span class="si">{</span><span class="n">prof_via_individual</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span>
-    <span class="sa">f</span><span class="s2">"common_sparse(N=1)     primary_p = "</span>
-    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prof_collapsed</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+    <span class="sa">f</span><span class="s2">"common_sparse(N=1)     primary_p = </span><span class="si">{</span><span class="n">prof_collapsed</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-11">single_event = cs_event.filter(pl.col("asset_id") == "a00")
 prof_collapsed = fl.evaluate(
-    single_event, fl.AnalysisConfig.common_sparse(forward_periods=1),
+    single_event,
+    fl.AnalysisConfig.common_sparse(forward_periods=1),
 )
 print(f"info_notes = {sorted(i.value for i in prof_collapsed.info_notes)}")
 
 # 兩個入口在 N=1 等價
 prof_via_individual = fl.evaluate(
-    single_event, fl.AnalysisConfig.individual_sparse(forward_periods=1),
+    single_event,
+    fl.AnalysisConfig.individual_sparse(forward_periods=1),
 )
 print(
-    f"individual_sparse(N=1) primary_p = "
-    f"{prof_via_individual.primary_p:.4g}",
+    f"individual_sparse(N=1) primary_p = {prof_via_individual.primary_p:.4g}",
 )
 print(
-    f"common_sparse(N=1)     primary_p = "
-    f"{prof_collapsed.primary_p:.4g}",
+    f"common_sparse(N=1)     primary_p = {prof_collapsed.primary_p:.4g}",
 )</div>
 </div>
 </div>
@@ -4786,7 +4824,9 @@ candidate」的正確用法：</p>
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_factor_variant</span><span class="p">(</span><span class="n">panel</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">noise_scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_factor_variant</span><span class="p">(</span>
+    <span class="n">panel</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">noise_scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
     <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">panel</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
         <span class="n">pl</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
@@ -4801,16 +4841,16 @@ candidate」的正確用法：</p>
     <span class="sa">f</span><span class="s2">"variant_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="n">make_factor_variant</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">noise_scale</span><span class="o">=</span><span class="mf">0.5</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">100</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
 <span class="p">}</span>
-<span class="n">profiles</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-<span class="p">]</span>
+<span class="n">profiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
 <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">prof</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">profiles</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">12s</span><span class="si">}</span><span class="s2"> primary_p=</span><span class="si">{</span><span class="n">prof</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">  verdict=</span><span class="si">{</span><span class="n">prof</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <span class="n">survivors</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">profiles</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">BHY survivors: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">survivors</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">profiles</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-15">def make_factor_variant(panel: pl.DataFrame, noise_scale: float, seed: int) -&gt; pl.DataFrame:
+<div class="clipboard-copy-txt" id="cell-15">def make_factor_variant(
+    panel: pl.DataFrame, noise_scale: float, seed: int
+) -&gt; pl.DataFrame:
     rng = np.random.default_rng(seed)
     return panel.with_columns(
         pl.Series(
@@ -4825,9 +4865,7 @@ candidates = {
     f"variant_{i}": make_factor_variant(panel, noise_scale=0.5 + 0.3 * i, seed=100 + i)
     for i in range(5)
 }
-profiles = [
-    fl.evaluate(p, cfg_ic) for p in candidates.values()
-]
+profiles = [fl.evaluate(p, cfg_ic) for p in candidates.values()]
 for name, prof in zip(candidates, profiles):
     print(f"  {name:12s} primary_p={prof.primary_p:.4g}  verdict={prof.verdict()}")
 
@@ -4957,14 +4995,14 @@ print(f"warnings raised: {[str(w.message) for w in caught]}")</div>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="n">suggestion</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">suggest_config</span><span class="p">(</span><span class="n">panel</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"suggested  : </span><span class="si">{</span><span class="n">suggestion</span><span class="o">.</span><span class="n">suggested</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"reasoning  :"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"reasoning  :"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">why</span> <span class="ow">in</span> <span class="n">suggestion</span><span class="o">.</span><span class="n">reasoning</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">axis</span><span class="si">:</span><span class="s2">8s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">why</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warnings   : </span><span class="si">{</span><span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">suggestion</span><span class="o">.</span><span class="n">warnings</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-17">suggestion = fl.suggest_config(panel)
 print(f"suggested  : {suggestion.suggested}")
-print(f"reasoning  :")
+print("reasoning  :")
 for axis, why in suggestion.reasoning.items():
     print(f"  {axis:8s}: {why}")
 print(f"warnings   : {[w.value for w in suggestion.warnings]}")</div>
