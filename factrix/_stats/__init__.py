@@ -238,7 +238,9 @@ def _adf_pvalue_interp(tau: float) -> float:
         return _ADF_CRITS_CONSTANT[0][1]
     if tau >= _ADF_CRITS_CONSTANT[-1][0]:
         return _ADF_CRITS_CONSTANT[-1][1]
-    for (t1, p1), (t2, p2) in zip(_ADF_CRITS_CONSTANT[:-1], _ADF_CRITS_CONSTANT[1:]):
+    for (t1, p1), (t2, p2) in zip(
+        _ADF_CRITS_CONSTANT[:-1], _ADF_CRITS_CONSTANT[1:], strict=False
+    ):
         if t1 <= tau <= t2:
             return p1 + (p2 - p1) * (tau - t1) / (t2 - t1)
     return 0.5
