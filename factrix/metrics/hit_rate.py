@@ -32,15 +32,27 @@ def hit_rate(
 ) -> MetricOutput:
     """Hit rate = proportion of periods where value > 0.
 
-    Uses non-overlapping sampling to avoid autocorrelation.
-    t-stat is from a binomial test: ``(p - 0.5) / sqrt(0.25 / n)``.
-
     Args:
         series: DataFrame with ``date`` and ``value_col``.
         forward_periods: Sampling interval for non-overlapping dates.
 
     Returns:
         MetricOutput with value = hit rate (0.0-1.0).
+
+    Notes:
+        ``rate = (#{t : value_t > 0}) / n`` on a non-overlapping subsample
+        at stride ``forward_periods``. Two-sided binomial test against
+        ``H0: p = 0.5``: exact binomial below ``_BINOMIAL_EXACT_CUTOFF``,
+        normal-approximation z-test ``(rate - 0.5) sqrt(n) / 0.5`` above.
+
+        factrix reports the actual statistic (hits or z) consistent with
+        the test branch taken, so a reader cannot mistake an exact-binomial
+        p for a Gaussian z. Non-overlap stride mirrors the IC pipeline so
+        autocorrelation from overlapping forward returns does not leak in.
+
+    References:
+        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): overlapping-return
+        autocorrelation horizon motivating the non-overlap stride.
     """
     sampled = _sample_non_overlapping(series, forward_periods)
     vals = sampled[value_col].drop_nulls()

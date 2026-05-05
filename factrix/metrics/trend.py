@@ -58,10 +58,27 @@ def ic_trend(
     Returns:
         MetricOutput with value = slope, t_stat from Theil-Sen confidence interval.
 
+    Notes:
+        Theil-Sen median pairwise slope: ``slope = median{(y_j - y_i) /
+        (j - i) : i < j}``. Approximate t-stat is reconstructed from the
+        rank-based 95% confidence interval ``[low, high]``:
+        ``SE ≈ (high - low) / 2 / 1.96`` and ``t ≈ slope / SE``. An ADF
+        unit-root pre-check on the input flags series for which the slope
+        null is rejected at inflated rates regardless of the true trend.
+
+        factrix uses Theil-Sen rather than OLS because its 29.3% breakdown
+        point absorbs IC outliers (e.g. COVID-era spikes) that would
+        dominate an OLS slope; the trade-off is the SE recovered from the
+        rank-CI is approximate, not asymptotically exact.
+
     References:
         Sen (1968), "Estimates of the Regression Coefficient Based on Kendall's Tau."
         Lou & Polk (2022), "Comomentum" — factor crowding/decay framework.
         Stock & Watson (1988), "Variable Trends in Economic Time Series."
+        [Dickey-Fuller 1979](../../reference/bibliography.md#dickey-fuller-1979): ADF persistence
+        diagnostic on the input series.
+        [MacKinnon 1996](../../reference/bibliography.md#mackinnon-1996): ADF p-value response surface
+        used by ``_adf_pvalue_interp``.
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
         raise ValueError(

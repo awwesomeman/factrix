@@ -57,6 +57,19 @@ def monotonicity(
 
     Returns:
         MetricOutput with value = mean |Spearman(group_idx, group_return)|.
+
+    Notes:
+        Per non-overlap date ``t``, bucket assets into ``n_groups`` by
+        factor rank and compute ``mono_t = Spearman(group_idx,
+        group_mean_return)``. ``value = mean_t |mono_t|`` (magnitude of
+        monotonicity, ≥ 0); ``t-stat = mean(mono) / (std(mono) /
+        sqrt(n))`` on the signed series tests directional consistency.
+
+        factrix splits magnitude (``value``) and direction (``stat``)
+        deliberately: a high ``value`` paired with insignificant ``t``
+        means the factor monotonically discriminates returns but its sign
+        flips across dates — useful information that a single signed
+        average would hide.
     """
     filtered = _sample_non_overlapping(df, forward_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)

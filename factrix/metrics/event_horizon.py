@@ -49,6 +49,18 @@ def compute_event_returns(
     Returns:
         DataFrame with ``offset, date, asset_id, signed_return, abs_return``.
         Empty if ``price`` column not present.
+
+    Notes:
+        For each event ``(t_event, asset)`` and offset ``k``::
+
+            k > 0:  signed_return = sign(factor) *
+                                    (price[t+1+k] / price[t+1] - 1)
+            k < 0:  signed_return = price[t+k] / price[t+k-1] - 1
+
+        factrix asymmetrically signs only post-event returns. Pre-event
+        single-bar returns are unsigned because they are read for
+        leakage detection, where the absolute response (independent of
+        the eventual signal direction) is what matters.
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
@@ -153,6 +165,17 @@ def event_around_return(
         unavailable, returns a short-circuit MetricOutput (``value=NaN``,
         ``metadata["reason"]="no_price_data"``) so all metrics share a
         single return contract.
+
+    Notes:
+        For each offset ``k``: ``mean, median, p25, p75, hit_rate``
+        across events with valid ``signed_return``. The headline
+        ``value = mean_{k < 0} |mean_k|`` summarises pre-event leakage —
+        a healthy signal has flat pre-event means.
+
+        factrix uses ``|mean|`` rather than absolute returns to avoid
+        rewarding offsets where positive and negative pre-event drifts
+        cancel — leakage with consistent direction would be missed by
+        ``mean(|return|)``.
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
@@ -228,6 +251,16 @@ def multi_horizon_hit_rate(
         short-circuit MetricOutput (``value=NaN``,
         ``metadata["reason"]="no_price_data"``) so all metrics share a
         single return contract.
+
+    Notes:
+        Per horizon ``h``: ``rate_h = sum_i 1{signed_return_{i,h} > 0} /
+        N_h``; ``z_h = (hits - N_h/2) / (sqrt(N_h) / 2)`` with two-sided
+        normal-approx p-value against ``H0: p = 0.5``.
+
+        factrix sets the top-level ``p_value = 1.0`` because the per-
+        horizon p-values are the inferential output and BHY adjustment
+        across horizons is left to the caller (the appropriate set of
+        sweeps is application-specific).
     """
     if horizons is None:
         horizons = [1, 6, 12, 24]

@@ -71,12 +71,19 @@ def top_concentration(
         Higher = more diversified top bucket.
 
     Notes:
-        Uses ``rank(method="average")`` internally for the top-bucket
-        cutoff — tie_policy from Config does not apply here because HHI
-        measures concentration *among* the selected stocks, not their
-        bucketing. ``tie_ratio`` is still recorded in metadata as a
-        data-quality diagnostic (high tie_ratio → unstable top-bucket
-        membership across re-rankings).
+        Per non-overlap date ``t`` with top-bucket members ``Q_top(t)``
+        (size ``n_top``), define weights ``w_i`` by ``weight_by`` and form
+        the Herfindahl ``HHI_t = sum_i (w_i / sum_j w_j)^2``. Effective
+        independent bets ``eff_n_t = 1 / HHI_t``. Per-date diversification
+        ratio ``r_t = eff_n_t / n_top`` is averaged and tested one-sided
+        against ``H0: E[r] >= 0.5``: rejecting flags concentration.
+
+        factrix uses ``rank(method="average")`` for the top-bucket cutoff
+        — ``tie_policy`` from Config does not apply because HHI measures
+        concentration *among* the selected stocks, not their bucketing.
+        ``tie_ratio`` is still recorded in metadata as a data-quality
+        diagnostic (high tie_ratio → unstable membership across
+        re-rankings).
     """
     if weight_by == "alpha_contribution" and return_col not in df.columns:
         return _short_circuit_output(

@@ -1,35 +1,36 @@
 """factrix.metrics — Independent factor evaluation metrics.
 
-All metrics return MetricOutput and can be used standalone.
+All metrics return ``MetricOutput`` and can be used standalone.
 
-Cross-Sectional:
-    compute_ic, ic, ic_ir, hit_rate, ic_trend,
-    multi_split_oos_decay, quantile_spread, monotonicity,
-    top_concentration, turnover, notional_turnover,
-    breakeven_cost, net_spread
+Grouping below follows the ``Scope × Signal`` cells defined in
+``factrix._axis`` — *not* ``Mode`` (which is a derived sample regime,
+``PANEL`` for ``N ≥ 2`` and ``TIMESERIES`` for ``N == 1``). Every
+cell can run in either Mode; the dispatch registry handles that.
+Series tools are axis-agnostic and operate on any ``(date, value)``
+series produced upstream.
 
-Event Signal:
+Individual × Continuous:
+    compute_ic, ic, ic_ir, regime_ic, multi_horizon_ic,
+    compute_spread_series, quantile_spread, quantile_spread_vw,
+    compute_group_returns, monotonicity, top_concentration,
+    turnover, notional_turnover, breakeven_cost, net_spread,
+    compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency,
+    spanning_alpha, greedy_forward_selection
+
+Individual × Sparse (the ``Common × Sparse`` broadcast-dummy
+procedure reuses the same modules — no separate set):
     compute_caar, caar, bmp_test, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
     compute_event_returns, event_around_return, multi_horizon_hit_rate,
     signal_density, clustering_diagnostic, corrado_rank_test
 
-Macro Panel:
-    compute_fm_betas, fama_macbeth, pooled_ols,
-    beta_sign_consistency
-
-Time-Series / Standalone Diagnostic:
+Common × Continuous:
     compute_ts_betas, ts_beta, mean_r_squared,
     compute_rolling_mean_beta, ts_beta_sign_consistency,
     ts_quantile_spread, ts_asymmetry
 
-    Single-series or per-asset diagnostics that supplement the four
-    PANEL/TIMESERIES procedures registered in ``_DISPATCH_REGISTRY``.
-    Useful for ts_beta-family applicability checks (linearity, symmetry,
-    distinctness) before trusting a primary β estimate.
-
-Factor Attribution:
-    spanning_alpha, greedy_forward_selection
+Series tools — axis-agnostic on ``(date, value)``:
+    hit_rate, ic_trend, multi_split_oos_decay
 """
 
 from factrix.metrics.ic import (

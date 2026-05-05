@@ -80,6 +80,28 @@ def ts_quantile_spread(
         input shape is insufficient (no ``date`` / factor / return
         column, fewer than ``MIN_PORTFOLIO_PERIODS`` rows, or factor
         variation below ``n_groups * 2`` distinct values).
+
+    Notes:
+        Aggregate the panel to per-date ``(_f, _r)``, ordinal-rank into
+        ``K = n_groups`` buckets by historical ``_f`` quantile, run
+        ``r_t = sum_k beta_k * I(bucket_t = k) + eps`` with NW HAC
+        covariance, and form the spread ``value = beta_{K-1} - beta_0``
+        with Wald p-value on ``H0: beta_{K-1} = beta_0``. A
+        ``Spearman(0..K-1, beta)`` rank-monotonicity diagnostic across
+        buckets is reported alongside.
+
+        factrix uses NW HAC + Wald rather than Welch t for cross-method
+        comparability with ``ts_asymmetry`` / ``ts_beta_t_nw`` and
+        because ``forward_periods > 1`` breaks the iid assumption Welch
+        relies on.
+
+    References:
+        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC covariance under-pinning
+        the Wald test.
+        [Andrews 1991](../../reference/bibliography.md#andrews-1991): Bartlett growth rate ``T^(1/3)``
+        used for the default lag.
+        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): ``forward_periods - 1``
+        floor for overlapping returns.
     """
     if "date" not in df.columns:
         return _short_circuit_output(

@@ -49,6 +49,19 @@ def compute_ic(
     Returns:
         DataFrame with columns ``date, ic`` sorted by date.
         Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are dropped.
+
+    Notes:
+        Per-date Spearman IC is ``IC_t = corr(rank(f_t), rank(r_t))`` over
+        the cross-section at date ``t``; rank ties are broken with average
+        rank (``method="average"``).
+
+        factrix drops dates whose cross-section has fewer than
+        ``MIN_ASSETS_PER_DATE_IC`` assets — undersized panels yield
+        rank-correlation estimates with degenerate variance.
+
+    References:
+        [Grinold 1989](../../reference/bibliography.md#grinold-1989): ``IR ≈ IC × sqrt(breadth)`` motivates
+        IC as the canonical signal-quality measure.
     """
     ranked = df.with_columns(
         pl.col(factor_col).rank(method="average").over("date").alias("_rank_factor"),
@@ -73,18 +86,29 @@ def ic(
 ) -> MetricOutput:
     """IC mean significance: is mean IC significantly different from zero?
 
-    Uses non-overlapping sampling (every ``forward_periods``-th date) to
-    eliminate autocorrelation from overlapping forward returns.
-
-    Statistical method: t = mean / (std / √n) on non-overlapping samples.
-    H₀: mean IC = 0.
-
     Args:
         ic_df: Output of ``compute_ic()``.
         forward_periods: Sampling interval for non-overlapping dates.
 
     Returns:
         MetricOutput with value=mean IC, t_stat from non-overlapping sampling.
+
+    Notes:
+        Given the per-date IC series ``IC_t``, significance is
+        ``t = mean(IC) / (std(IC) / sqrt(n))`` computed on a non-overlapping
+        subsample (every ``forward_periods``-th date). H0: ``E[IC] = 0``.
+
+        factrix uses non-overlapping resampling rather than Newey-West HAC
+        for the default ``ic`` test to avoid the lag floor implied by
+        overlapping forward returns; the HAC route is offered separately
+        as ``ic_newey_west`` for callers who prefer to keep every sample.
+
+    References:
+        [Grinold 1989](../../reference/bibliography.md#grinold-1989): IC as the canonical signal-quality
+        measure under the Fundamental Law of Active Management.
+        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): K-period overlapping
+        returns carry MA(K-1) autocorrelation — the motivation for the
+        non-overlap stride used here.
     """
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
@@ -129,14 +153,30 @@ def ic_newey_west(
 ) -> MetricOutput:
     """IC mean significance via Newey-West HAC t-test on the overlapping series.
 
-    Sibling of ``ic()``: same null hypothesis (H₀: mean IC = 0), but
+    Sibling of ``ic()``: same null hypothesis (H0: mean IC = 0), but
     keeps every observation and absorbs the autocorrelation induced by
     overlapping ``forward_periods``-day returns through HAC standard
     errors rather than dropping samples.
 
-    Lag selection: ``max(floor(T^(1/3)), forward_periods - 1)`` — the
-    usual rule-of-thumb floor, raised to cover the theoretical
-    dependence horizon of overlapping returns.
+    Notes:
+        ``t = mean(IC) / NW_SE(IC)`` on the full overlapping IC series.
+        Lag selection: ``L = max(floor(T^(1/3)), forward_periods - 1)`` —
+        the Andrews (1991) Bartlett growth rate, floored against the
+        Hansen-Hodrick MA(h-1) overlap horizon so the kernel covers the
+        induced dependence.
+
+        factrix uses the Andrews fixed-rate rule rather than the
+        Newey-West (1994) data-adaptive bandwidth — simpler, deterministic
+        across reruns, and adequate at the typical T of factor research.
+
+    References:
+        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC variance estimator.
+        [Andrews 1991](../../reference/bibliography.md#andrews-1991): optimal Bartlett growth rate
+        ``T^(1/3)`` underlying the default lag rule.
+        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): ``forward_periods - 1``
+        floor for overlapping returns.
+        [Newey-West 1994](../../reference/bibliography.md#newey-west-1994): data-adaptive lag-selection
+        alternative; cited as background.
     """
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
     n = len(ic_vals)
@@ -183,6 +223,17 @@ def ic_ir(
 
     Returns:
         MetricOutput with value=IC_IR (signed), t_stat=None.
+
+    Notes:
+        ``IC_IR = mean(IC) / std(IC)`` over the per-date IC series — a
+        Sharpe-style ratio describing time-series stability of the signal.
+        Reported as a descriptive statistic; no inference is attached
+        because the HAC-corrected significance test on ``mean(IC)`` lives
+        in ``ic`` / ``ic_newey_west``.
+
+    References:
+        [Grinold 1989](../../reference/bibliography.md#grinold-1989): ICIR is the time-stability
+        normalisation that completes the IR decomposition.
     """
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
@@ -235,9 +286,21 @@ def regime_ic(
         stat = min |t| across regimes (conservative: if weakest passes, all pass).
         Per-regime details in metadata, each with raw and BHY-adjusted p.
 
+    Notes:
+        Within each regime ``g``, ``t_g = mean(IC_g) / (std(IC_g) /
+        sqrt(n_g))`` with H0: ``E[IC_g] = 0``. Sweeping ``k`` regimes is
+        ``k`` implicit tests on the same null family, so per-regime raw p
+        is accompanied by a BHY-adjusted p across regimes.
+
+        factrix uses BHY rather than Benjamini-Hochberg because per-regime
+        IC samples are typically dependent (overlapping market states).
+        The conservative summary reports the weakest regime's |t|: if the
+        weakest passes, all pass.
+
     References:
         Chen & Zimmermann (2022): report sub-period t-stats separately.
-        Benjamini-Yekutieli (2001): FDR control under arbitrary dependence.
+        [Benjamini-Yekutieli 2001](../../reference/bibliography.md#benjamini-yekutieli-2001): FDR control
+        under arbitrary dependence; the BHY adjustment used here.
     """
     if len(ic_df) < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
@@ -353,6 +416,24 @@ def multi_horizon_ic(
         MetricOutput with value = mean IC across horizons,
         stat = min |t| across horizons.
         Per-horizon details in metadata.
+
+    Notes:
+        For each horizon ``h``, run ``compute_ic`` against
+        ``forward_return(h)`` and apply the ``ic`` non-overlapping
+        t-test at stride ``h``. Sweeping ``k`` horizons is ``k`` implicit
+        tests, so per-horizon p-values are also reported BHY-adjusted.
+
+        factrix sub-samples per horizon at its own stride rather than
+        applying NW HAC across horizons — the overlap structure differs
+        by ``h`` and a unified HAC kernel would be misspecified.
+
+    References:
+        [Grinold 1989](../../reference/bibliography.md#grinold-1989): motivates IC as the canonical
+        signal-quality summary across horizons.
+        [Benjamini-Yekutieli 2001](../../reference/bibliography.md#benjamini-yekutieli-2001): BHY adjustment
+        used to control FDR across the horizon sweep.
+        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): per-horizon overlap
+        rule motivating the per-horizon stride.
     """
     if periods is None:
         periods = [1, 5, 10, 20]

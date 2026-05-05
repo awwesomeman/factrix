@@ -124,8 +124,21 @@ def spanning_alpha(
     Returns:
         MetricOutput with value=alpha, t_stat, significance.
 
+    Notes:
+        Run OLS ``r_t = alpha + sum_k beta_k * base_k(t) + eps_t`` on
+        common-date intersected spread series. Test ``H0: alpha = 0`` via
+        ``t = alpha / SE(alpha)`` from the OLS covariance.
+
+        factrix uses plain OLS standard errors here rather than NW HAC:
+        the inputs are non-overlap quantile spreads (single-period stride)
+        so MA(h-1) overlap is absent. Callers feeding HAC-relevant
+        overlapping series should either pre-resample or wrap the call
+        with their own HAC SE.
+
     References:
         Barillas & Shanken (2017), "Which Alpha?"
+        [White 1980](../../reference/bibliography.md#white-1980): heteroskedasticity-consistent SE
+        ancestor of the HAC variants applicable when overlap is added.
     """
     if base_spreads is None:
         base_spreads = {}
@@ -226,6 +239,19 @@ def greedy_forward_selection(
 
     Returns:
         ForwardSelectionResult with selected factors in order.
+
+    Notes:
+        Iteratively run ``spanning_alpha(candidate, base ∪ selected)``;
+        add the candidate with the largest ``|alpha|`` whose ``|t| >=
+        threshold``; after each add, re-test all selected factors against
+        the others and drop any that lose significance. Repeat until the
+        pool dries up or ``max_factors`` is hit.
+
+        factrix flags ``t_stats_inference_invalid = True`` because the
+        retained t-stats are conditional on selection — they are
+        order-statistic inflated and must not be read as draws from the
+        t-null. Use the result as a model-construction helper; verify
+        survivors on a held-out window.
 
     References:
         White (2000), "A Reality Check for Data Snooping."

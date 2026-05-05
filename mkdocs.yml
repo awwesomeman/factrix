@@ -123,6 +123,31 @@ nav:
       - FactorProfile: api/factor-profile.md
       - multi_factor: api/multi-factor.md
       - datasets: api/datasets.md
+      - Metrics:
+          - api/metrics/index.md
+          - Individual continuous:
+              - ic: api/metrics/ic.md
+              - fama_macbeth: api/metrics/fama_macbeth.md
+              - quantile: api/metrics/quantile.md
+              - monotonicity: api/metrics/monotonicity.md
+              - concentration: api/metrics/concentration.md
+              - tradability: api/metrics/tradability.md
+              - spanning: api/metrics/spanning.md
+          - Individual sparse:
+              - caar: api/metrics/caar.md
+              - event_quality: api/metrics/event_quality.md
+              - event_horizon: api/metrics/event_horizon.md
+              - mfe_mae: api/metrics/mfe_mae.md
+              - clustering: api/metrics/clustering.md
+              - corrado: api/metrics/corrado.md
+          - Common continuous:
+              - ts_beta: api/metrics/ts_beta.md
+              - ts_quantile: api/metrics/ts_quantile.md
+              - ts_asymmetry: api/metrics/ts_asymmetry.md
+          - Series tools:
+              - hit_rate: api/metrics/hit_rate.md
+              - trend: api/metrics/trend.md
+              - oos: api/metrics/oos.md
   - Examples:
       - examples/index.md
       - End-to-end walkthrough: examples/demo.ipynb

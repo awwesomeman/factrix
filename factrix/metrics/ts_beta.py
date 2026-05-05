@@ -54,6 +54,24 @@ def compute_ts_betas(
         DataFrame with ``asset_id, beta, alpha, t_stat, r_squared,
         n_obs``. Assets with fewer than ``MIN_TS_OBS`` valid rows or a
         singular design are dropped.
+
+    Notes:
+        Per asset ``i``, run OLS ``R_{i,t} = alpha_i + beta_i * F_t +
+        eps`` over the asset's full sample with homoskedastic SE; emit
+        ``beta_i, alpha_i, t_i, R^2_i, n_i``. The output is the
+        per-asset stage feeding the cross-asset Black-Jensen-Scholes
+        style aggregation in ``ts_beta``.
+
+        factrix reports homoskedastic per-asset t (not NW HAC) at this
+        stage because the inferential burden lives downstream — the
+        cross-asset t in ``ts_beta`` is what a caller decides on, and
+        adding HAC at the per-asset stage would only smear the
+        per-asset diagnostic without affecting stage-2 inference.
+
+    References:
+        [Black-Jensen-Scholes 1972](../../reference/bibliography.md#black-jensen-scholes-1972): per-
+        asset time-series beta then cross-asset aggregation; the
+        order this two-stage path mirrors.
     """
     assets = df["asset_id"].unique().sort()
     rows: list[dict] = []
@@ -138,6 +156,16 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     2.5 says that asset's β differs from zero over time, it does not
     say the common factor is priced. ``p_value=1.0`` enforces this by
     keeping the row out of BHY adjudication.
+
+    Notes:
+        N=1 path: ``value = beta_1``, ``stat = t_1`` from the single
+        asset's TS OLS, ``p_value = 1.0`` so BHY skips the row. No
+        cross-asset inference is attempted.
+
+        factrix centralises the degenerate-case output here so
+        Profile / Factor paths produce bit-identical metadata —
+        otherwise each entry point would coerce the single-asset row
+        differently and the verdict surface would diverge.
     """
     row = ts_betas_df.row(0, named=True)
     return MetricOutput(
@@ -156,6 +184,22 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     """Test H₀: mean(β) = 0 across assets.
 
     Uses the cross-sectional distribution of per-asset betas.
+
+    Notes:
+        Stage 2 of the BJS aggregation: ``mean_beta = mean_i beta_i``;
+        ``t = mean_beta / (std(beta) / sqrt(N))`` with ``H0: E[beta] = 0``
+        across assets. The std is the sample cross-sectional std with
+        ``ddof=1``.
+
+        factrix uses an iid cross-asset t at this stage rather than a
+        clustered/HAC variant: per-asset betas come from non-overlapping
+        time-series fits in ``compute_ts_betas``, so the betas are
+        approximately independent across assets unless a strong
+        latent common factor links them.
+
+    References:
+        [Black-Jensen-Scholes 1972](../../reference/bibliography.md#black-jensen-scholes-1972): the
+        cross-asset t on E[beta] this function implements.
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -203,6 +247,16 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     cross-asset mean β looks nonzero.
 
     Short-circuits to NaN when no assets have a non-null R².
+
+    Notes:
+        ``value = mean_i R^2_i`` and ``median_r_squared = median_i R^2_i``
+        on the per-asset OLS fits from ``compute_ts_betas``. Pure
+        descriptive statistic — no formal H0.
+
+        factrix reports both mean and median because a few high-R^2
+        assets can dominate the mean; large mean-vs-median gaps signal
+        the factor explains a small subset of assets rather than the
+        cross-section as a whole.
     """
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
@@ -252,6 +306,18 @@ def compute_rolling_mean_beta(
     Returns:
         DataFrame with ``date, value`` where ``value`` is the rolling
         cross-asset mean β. Shape compatible with ``oos`` / ``ic_trend``.
+
+    Notes:
+        Per date ``t >= window``, run the per-asset TS OLS over the
+        trailing ``window`` rows and compute ``value_t = mean_i beta_i``.
+        Output schema matches the time-series tools (``oos`` /
+        ``ic_trend``), so callers can pipe rolling betas into stability
+        and trend diagnostics.
+
+        factrix requires at least 10 valid rows per asset within each
+        rolling window; below that, the asset is dropped from that
+        date's mean rather than imputed — keeps each ``value_t`` an
+        average over identifiable per-asset slopes.
     """
     dates = df["date"].unique().sort()
     if len(dates) < window:
@@ -313,6 +379,17 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     read as strong evidence on a dashboard but carries zero information.
     Short-circuits to NaN in that case so the degenerate value never
     leaks into verdict decisions.
+
+    Notes:
+        ``pos = mean_i 1{beta_i > 0}``; ``value = max(pos, 1 - pos)``.
+        Direction-agnostic: returns 1 when all assets have positive
+        beta or all negative.
+
+        factrix gates this metric at ``N >= 2`` so a single-asset
+        ``max(pos, 1-pos) = 1.0`` cannot leak into verdict surfaces as
+        spurious "perfect agreement". Pair with
+        ``fama_macbeth.beta_sign_consistency`` when a directional prior
+        is available.
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)

@@ -1,4 +1,5 @@
-"""Fama-MacBeth regression and macro panel metrics.
+"""Fama-MacBeth regression — FM-canonical metric for the
+``Individual × Continuous`` cell.
 
 Aggregation: per-date cross-sectional OLS slope λ (cross-section step)
 → time series of λ, then NW HAC t on its mean; pooled OLS variant
@@ -56,6 +57,21 @@ def compute_fm_betas(
         DataFrame with ``date, beta`` (one row per date that admits a
         finite OLS solution; dates with fewer than 3 observations or
         a singular design are dropped).
+
+    Notes:
+        Per date ``t``, solve the cross-sectional OLS ``R_{i,t} = alpha_t
+        + beta_t * Signal_{i,t} + eps_{i,t}`` and emit the slope
+        ``beta_t``. The output series feeds the stage-2 NW HAC t-test in
+        ``fama_macbeth``.
+
+        factrix drops dates with fewer than 3 cross-sectional
+        observations or a singular design rather than coercing to NaN —
+        this keeps stage-2 a clean t-test on a finite, well-defined
+        series with no NaN propagation in the NW kernel.
+
+    References:
+        [Fama-MacBeth 1973](../../reference/bibliography.md#fama-macbeth-1973): the per-date cross-
+        sectional regression at stage 1 of the FM procedure.
     """
     dates = df["date"].unique().sort()
     rows: list[dict] = []
@@ -130,7 +146,27 @@ def fama_macbeth(
             ``betas_timeseries_proxy`` result as a lower bound on the
             true correction, not a precise estimate.
 
+    Notes:
+        Stage 2 of FM: ``mean_beta = mean_t beta_t``; ``t = mean_beta /
+        NW_SE(beta)`` with kernel lag ``L = max(floor(T^(1/3)),
+        forward_periods - 1)``. With ``is_estimated_factor=True``, the
+        Shanken-Kan-Zhang single-factor correction scales SE by
+        ``sqrt(1 + mean_beta^2 / sigma^2_f)``.
+
+        factrix uses the Andrews (1991) ``T^(1/3)`` bandwidth floored
+        against the Hansen-Hodrick overlap horizon rather than the
+        Newey-West (1994) data-adaptive plug-in — simpler, deterministic,
+        and adequate at typical research T. The Kan-Zhang simplification
+        omits the additive ``+sigma^2_f / T`` term of full Shanken EIV,
+        so the correction is honest only for large T.
+
     References:
+        [Fama-MacBeth 1973](../../reference/bibliography.md#fama-macbeth-1973): two-stage lambda
+        procedure underlying this test.
+        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC variance estimator.
+        [Andrews 1991](../../reference/bibliography.md#andrews-1991): optimal Bartlett growth rate.
+        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): overlap horizon
+        flooring the kernel.
         Shanken (1992), "On the Estimation of Beta-Pricing Models."
         Kan-Zhang (1999), "Two-Pass Tests of Asset Pricing Models with
         Useless Factors," for the single-factor simplification used here.
@@ -262,15 +298,30 @@ def pooled_ols(
 
     FM and single-way share the same point estimate under a balanced
     panel but typically disagree on SE; when β̂ and FM λ̂ have **opposite
-    signs**, the ``macro_panel.fm_pooled_sign_mismatch`` veto rule fires
-    — a red flag for misspecification.
+    signs**, ``profile.diagnose()`` flags an FM/pooled sign-mismatch —
+    a red flag for misspecification.
 
     Short-circuits when N < 10 (no regression), returns stat=None with
     p=1.0 when the effective ``G < 3`` (SE undefined with < 3 clusters).
 
+    Notes:
+        Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +
+        beta * Signal + eps`` with the appropriate cluster-robust
+        sandwich covariance described above. Single-way: ``df = G - 1``
+        with ``G`` the number of clusters; two-way:
+        ``df = min(G_A, G_B) - 1`` per Thompson (2011).
+
+        factrix reports ``stat = None`` (rather than 0) when ``G < 3``
+        because the cluster-robust variance is undefined with too few
+        clusters; falling back to a homoskedastic SE in that regime
+        would silently break the panel-correlation guarantee that
+        motivated using clustered SE in the first place.
+
     References:
-        Petersen (2009), "Estimating Standard Errors in Finance Panel
-        Data Sets: Comparing Approaches."
+        [Petersen 2009](../../reference/bibliography.md#petersen-2009): comparison of FM, clustered, and
+        two-way SE under firm/time correlation.
+        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC variance ancestor of the
+        sandwich form used here.
         Cameron, Gelbach & Miller (2011), "Robust Inference With
         Multiway Clustering."
         Thompson (2011), "Simple Formulas for Standard Errors that
@@ -430,6 +481,17 @@ def beta_sign_consistency(
     factor direction to check stability.
 
     Short-circuits to NaN when no non-null β observations exist.
+
+    Notes:
+        ``value = mean_t 1{sign(beta_t) == expected_sign}`` over the FM
+        per-date beta series. Range ``[0, 1]``; ``1.0`` = beta always
+        agrees with the prior. Descriptive (no formal H0); pair with
+        ``fama_macbeth`` for inferential significance.
+
+        factrix splits this directional check from the symmetric
+        ``ts_beta_sign_consistency`` so the two answer different
+        questions: this one requires the caller to commit to a prior
+        sign; the symmetric variant tests cross-asset agreement only.
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)

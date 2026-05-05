@@ -78,6 +78,23 @@ def compute_caar(
 
     Returns:
         DataFrame with columns ``date, caar`` sorted by date.
+
+    Notes:
+        Per event date ``d``, ``CAAR_d = mean_{i in events(d)} (return_i ×
+        factor_i)``. Magnitude of ``factor`` is preserved as a weight; only
+        rows with ``factor == 0`` are dropped.
+
+        factrix follows the MacKinlay (1997) event-window vocabulary
+        (factor as the event indicator / sign on the announcement date)
+        but generalises ``signed_car`` to numeric factor magnitude so
+        ternary ``{-1, 0, +1}`` and continuous-strength signals share one
+        primitive.
+
+    References:
+        [MacKinlay 1997](../../reference/bibliography.md#mackinlay-1997): standardised event-window /
+        estimation-window vocabulary inherited by ``EventConfig``.
+        [Brown-Warner 1985](../../reference/bibliography.md#brown-warner-1985): daily event-study
+        methodology backing the parametric-test path.
     """
     return (
         df.filter(pl.col(factor_col) != 0)
@@ -97,12 +114,6 @@ def caar(
 ) -> MetricOutput:
     """CAAR significance: is mean CAAR significantly different from zero?
 
-    Uses non-overlapping sampling (every ``forward_periods``-th date) to
-    eliminate autocorrelation from overlapping forward returns.
-
-    Statistical method: t = mean / (std / sqrt(n)) on non-overlapping samples.
-    H₀: mean(CAAR) = 0.
-
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar``.
         forward_periods: Sampling interval for non-overlapping dates.
@@ -112,6 +123,21 @@ def caar(
 
     Returns:
         MetricOutput with value=mean CAAR, stat=t from non-overlapping sampling.
+
+    Notes:
+        ``t = mean(CAAR) / (std(CAAR) / sqrt(n))`` on a non-overlap
+        subsample (stride ``forward_periods``) of the per-event-date
+        ``CAAR`` series; ``H0: E[CAAR] = 0``.
+
+        factrix uses non-overlap resampling rather than NW HAC for the
+        default CAAR test — the same convention as ``ic`` — and exposes
+        ``bmp_test`` as the variance-robust sibling for event-induced
+        variance regimes.
+
+    References:
+        [Brown-Warner 1985](../../reference/bibliography.md#brown-warner-1985): daily event-study
+        t-test specification at standard sample sizes.
+        [MacKinlay 1997](../../reference/bibliography.md#mackinlay-1997): event-window vocabulary.
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
@@ -195,12 +221,28 @@ def bmp_test(
             ``clustering_hhi`` diagnostic is high (≥ 0.3) or when you
             otherwise expect same-date shock sharing.
 
-    References:
-        Kolari & Pynnönen (2010), "Event Study Testing with Cross-
-        Sectional Correlation of Abnormal Returns."
-
     Returns:
         MetricOutput(name="bmp_test", value=mean_SAR, stat=z_bmp, ...).
+
+    Notes:
+        For each event ``i``: estimate pre-event vol ``sigma_i`` over the
+        ``estimation_window``, scaled to the forward horizon by
+        ``1/sqrt(forward_periods)`` when daily prices are available;
+        ``SAR_i = signed_AR_i / sigma_i``; aggregate to ``z = mean(SAR) /
+        (std(SAR) / sqrt(N))``. With ``kolari_pynnonen_adjust=True``,
+        scale ``z`` by ``sqrt((1 - r_hat) / (1 + (N_eff - 1) r_hat))``.
+
+        factrix simplifies the original BMP by omitting the prediction-
+        error term from the standardiser (using mean-adjusted residuals
+        rather than market-model residuals) — adequate for the default
+        Brown-Warner / MacKinlay event-study path; pair with the K-P
+        adjustment when ``clustering_hhi`` flags same-date shock sharing.
+
+    References:
+        [Boehmer-Musumeci-Poulsen 1991](../../reference/bibliography.md#boehmer-musumeci-poulsen-1991):
+        the BMP standardised AR test.
+        Kolari & Pynnönen (2010), "Event Study Testing with Cross-
+        Sectional Correlation of Abnormal Returns."
     """
     sorted_df = df.sort(["asset_id", "date"])
 
