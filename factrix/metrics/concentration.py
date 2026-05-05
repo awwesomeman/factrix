@@ -71,13 +71,13 @@ def top_concentration(
         Higher = more diversified top bucket.
 
     Notes:
-        Per non-overlap date $t$ with top-bucket members $Q_{\text{top}}(t)$
-        (size $n_{\text{top}}$), define weights $w_i$ by ``weight_by``
+        Per non-overlap date $t$ with top-bucket members $Q^{\mathrm{top}}(t)$
+        (size $n^{\mathrm{top}}$), define weights $w_i$ by ``weight_by``
         and form the Herfindahl
         $\mathrm{HHI}_t = \sum_i (w_i / \sum_j w_j)^2$. Effective
-        independent bets $\mathrm{eff\_n}_t = 1 / \mathrm{HHI}_t$.
+        independent bets $n^{\mathrm{eff}}_t = 1 / \mathrm{HHI}_t$.
         Per-date diversification ratio
-        $r_t = \mathrm{eff\_n}_t / n_{\text{top}}$ is averaged and tested
+        $r_t = n^{\mathrm{eff}}_t / n^{\mathrm{top}}$ is averaged and tested
         one-sided against $H_0: \mathbb{E}[r] \geq 0.5$: rejecting flags
         concentration.
 

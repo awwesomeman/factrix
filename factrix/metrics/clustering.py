@@ -53,9 +53,9 @@ def clustering_diagnostic(
         $s_d = (\text{events on date } d) / \text{total}$; ranges from
         $1/D$ (uniform across $D$ event dates) to $1.0$ (all events on
         a single date).
-        $\text{effective\_n\_dates} = 1 / \mathrm{HHI}$;
-        $\text{hhi\_normalized} = (\mathrm{HHI} - 1/D) / (1 - 1/D)$
-        rescales to $[0, 1]$.
+        ``effective_n_dates`` $= 1 / \mathrm{HHI}$;
+        ``hhi_normalized`` $= (\mathrm{HHI} - 1/D) / (1 - 1/D)$ rescales
+        to $[0, 1]$.
 
         factrix reports HHI as a descriptive concentration index — no
         formal $H_0$ — because the natural follow-up correction

@@ -42,10 +42,10 @@ deterministic bandwidth, applied by `ic_newey_west`, `fama_macbeth`,
 The bandwidth rule is
 
 $$
-L = \max\!\left(\lfloor T^{1/3} \rfloor,\; \text{forward\_periods} - 1\right)
+L = \max\!\left(\lfloor T^{1/3} \rfloor,\; h - 1\right)
 $$
 
-The first term is the [Andrews 1991][andrews-1991] optimal Bartlett
+with $h$ = `forward_periods`. The first term is the [Andrews 1991][andrews-1991] optimal Bartlett
 growth rate; the second is the
 [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
 the kernel covers the MA(`h − 1`) structure of overlapping returns.

@@ -239,7 +239,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 # ---------------------------------------------------------------------------
 
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
-    r"""Average $R^2$ across per-asset TS regressions — $\text{value} = \mathrm{mean}_i R^2_i$.
+    r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
 
     $R^2_i$ comes from asset $i$'s regression
     $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ (computed
@@ -252,10 +252,10 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     Short-circuits to NaN when no assets have a non-null $R^2$.
 
     Notes:
-        $\text{value} = \mathrm{mean}_i R^2_i$ and
-        $\text{median\_r\_squared} = \mathrm{median}_i R^2_i$ on the
-        per-asset OLS fits from ``compute_ts_betas``. Pure descriptive
-        statistic — no formal $H_0$.
+        ``value`` $= \mathrm{mean}_i R^2_i$ and ``median_r_squared``
+        $= \mathrm{median}_i R^2_i$ on the per-asset OLS fits from
+        ``compute_ts_betas``. Pure descriptive statistic — no formal
+        $H_0$.
 
         factrix reports both mean and median because a few high-$R^2$
         assets can dominate the mean; large mean-vs-median gaps signal

@@ -46,7 +46,7 @@ def turnover(
 ) -> MetricOutput:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
-    $\text{turnover} = 1 - \mathrm{mean}(\text{rank\_autocorrelation})$
+    $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 
     **What this measures.** Sensitivity of the *full* cross-section rank
     vector to reshuffling between ``t`` and ``t + forward_periods``. Mid-rank

@@ -171,9 +171,9 @@ def ic_newey_west(
     errors rather than dropping samples.
 
     Notes:
-        $t = \mathrm{mean}(\mathrm{IC}) / \mathrm{NW\_SE}(\mathrm{IC})$
+        $t = \mathrm{mean}(\mathrm{IC}) / \mathrm{SE}_{\mathrm{NW}}(\mathrm{IC})$
         on the full overlapping IC series. Lag selection:
-        $L = \max(\lfloor T^{1/3} \rfloor, \text{forward\_periods} - 1)$
+        $L = \max(\lfloor T^{1/3} \rfloor, h - 1)$ (with $h$ = ``forward_periods``)
         — the Andrews (1991) Bartlett growth rate, floored against the
         Hansen-Hodrick MA($h-1$) overlap horizon so the kernel covers
         the induced dependence.
@@ -222,7 +222,7 @@ def ic_newey_west(
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricOutput:
-    r"""$\mathrm{IC\_IR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
+    r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
     Signed ratio — positive when IC is consistently positive, negative
     when consistently negative.  Analogous to a Sharpe ratio for the
@@ -238,7 +238,7 @@ def ic_ir(
         MetricOutput with value=IC_IR (signed), t_stat=None.
 
     Notes:
-        $\mathrm{IC\_IR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
+        $\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
         over the per-date IC series — a Sharpe-style ratio describing
         time-series stability of the signal. Reported as a descriptive
         statistic; no inference is attached because the HAC-corrected

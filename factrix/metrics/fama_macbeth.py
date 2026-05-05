@@ -155,9 +155,9 @@ def fama_macbeth(
     Notes:
         Stage 2 of FM:
         $\overline{\beta} = \mathrm{mean}_t\,\beta_t$;
-        $t = \overline{\beta} / \mathrm{NW\_SE}(\beta)$
+        $t = \overline{\beta} / \mathrm{SE}_{\mathrm{NW}}(\beta)$
         with kernel lag
-        $L = \max(\lfloor T^{1/3} \rfloor,\, \text{forward\_periods} - 1)$.
+        $L = \max(\lfloor T^{1/3} \rfloor,\, h - 1)$.
         With ``is_estimated_factor=True``, the Shanken-Kan-Zhang
         single-factor correction scales SE by
         $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
@@ -498,19 +498,19 @@ def beta_sign_consistency(
     *,
     expected_sign: int = 1,
 ) -> MetricOutput:
-    r"""Fraction of FM per-date $\beta$s carrying the expected sign — $\text{value} = \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = \text{expected\_sign}\}$.
+    r"""Fraction of FM per-date $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
 
     $\beta_t$ is the per-date OLS $\beta$ from ``compute_fm_betas``.
     Range $[0, 1]$; $1.0$ = $\beta$ always has the expected sign across
     periods. Unlike ``ts_beta_sign_consistency`` (which symmetrizes via
-    $\max(\text{pos\%}, 1 - \text{pos\%})$), this one is directional —
+    $\max(p, 1-p)$ where $p$ is the positive-sign fraction), this one is directional —
     you must supply the a-priori expected sign. Typical use: paired with
     a prior on factor direction to check stability.
 
     Short-circuits to NaN when no non-null $\beta$ observations exist.
 
     Notes:
-        $\text{value} = \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = \text{expected\_sign}\}$
+        ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$
         over the FM per-date beta series. Range $[0, 1]$; $1.0$ = beta
         always agrees with the prior. Descriptive (no formal $H_0$);
         pair with ``fama_macbeth`` for inferential significance.

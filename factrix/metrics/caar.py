@@ -46,10 +46,9 @@ def compute_caar(
 
     Aggregation:
         CS-first. For each event date, take the cross-sectional mean of
-        $\text{signed\_car} = \text{return} \times \text{factor}$ across
-        event rows ($\text{factor} \neq 0$); the resulting
-        ``n_event_dates``-length CAAR series feeds a downstream NW HAC
-        $t$-test on the mean.
+        ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
+        the resulting ``n_event_dates``-length CAAR series feeds a
+        downstream NW HAC $t$-test on the mean.
 
     Magnitude is preserved — no ``.sign()`` coercion. factrix accepts
     two input contracts; everything else (including signed
@@ -209,7 +208,7 @@ def bmp_test(
            ``estimation_window`` periods of the same asset's returns to
            estimate $\sigma_i$.
         2. Scale $\sigma_i$ to match the forward_return horizon.
-        3. $\mathrm{SAR}_i = \mathrm{signed\_AR}_i / \sigma^{\text{scaled}}_i$.
+        3. $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma^{\text{scaled}}_i$.
         4. $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
 
     Uses ``price`` column for estimation-window volatility if available;
@@ -242,8 +241,8 @@ def bmp_test(
     Notes:
         For each event $i$: estimate pre-event vol $\sigma_i$ over the
         ``estimation_window``, scaled to the forward horizon by
-        $1/\sqrt{\text{forward\_periods}}$ when daily prices are available;
-        $\mathrm{SAR}_i = \mathrm{signed\_AR}_i / \sigma_i$; aggregate to
+        $1/\sqrt{h}$ (with $h$ = ``forward_periods``) when daily prices are available;
+        $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma_i$; aggregate to
         $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
         With ``kolari_pynnonen_adjust=True``, scale $z$ by
         $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\, \hat r)}$.
@@ -378,7 +377,7 @@ def _estimate_sar_icc(
         - ``"no_multi_event_dates"``: not enough date-clusters to
           estimate within-variance; $\hat r$ is ``None``.
 
-    Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\mathrm{date\_mean\_SAR})$
+    Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{\mathrm{SAR}}_d)$ (date-mean SAR)
     and $\sigma^2_{\mathrm{within}}$ = the pooled within-date variance
     (weighted by $n_k - 1$).
     $\hat r = \sigma^2_{\mathrm{between}} / (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$

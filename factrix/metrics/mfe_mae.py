@@ -59,8 +59,8 @@ def compute_mfe_mae(
     Also reports an estimation-window-normalised z-score per event:
 
     $$
-    \mathrm{mfe\_z} = \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}), \quad
-    \mathrm{mae\_z} = \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
+    z_{\mathrm{mfe}} = \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}), \quad
+    z_{\mathrm{mae}} = \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
     $$
 
     where $\hat\sigma$ is the daily-return std over the
@@ -100,9 +100,9 @@ def compute_mfe_mae(
         \begin{aligned}
         r_k       &= \text{direction} \cdot (P_k / P_0 - 1) \quad \text{for } k = 1 \ldots W \\
         \mathrm{mfe}       &= \max_k r_k, \quad \mathrm{mae} = \min_k r_k \\
-        \hat\sigma &= \mathrm{std}(\text{daily\_return}) \text{ over the prior estimation\_window} \\
-        \mathrm{mfe\_z}     &= \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}) \\
-        \mathrm{mae\_z}     &= \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
+        \hat\sigma &= \mathrm{std}(r_d) \text{ over the prior estimation window} \\
+        z_{\mathrm{mfe}}     &= \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}) \\
+        z_{\mathrm{mae}}     &= \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
         \end{aligned}
         $$
 
