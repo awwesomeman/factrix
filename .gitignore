@@ -49,3 +49,5 @@ site/
 
 # MkDocs build-time artifacts (synced from SSOT by hooks; see scripts/)
 docs/examples/*.ipynb
+docs/llms.txt
+docs/llms-full.txt

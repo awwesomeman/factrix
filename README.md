@@ -37,7 +37,9 @@ uv pip install git+https://github.com/awwesomeman/factrix.git
 
 See the [installation guide](https://awwesomeman.github.io/factrix/getting-started/install/) for `pip` / `conda`, version pinning, and development setup.
 
-## Quickstart
+## Typical usage
+
+**Single factor — IC evaluation**
 
 ```python
 import factrix as fl
@@ -50,7 +52,22 @@ cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_p
 profile = fl.evaluate(panel, cfg)
 
 print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
-# → pass | primary_p = 0.0
+print(profile.diagnose())   # WarningCode / InfoCode list
+```
+
+**Multi-factor BHY screening**
+
+```python
+profiles  = [fl.evaluate(p, cfg) for p in [panel_a, panel_b, panel_c, panel_d, panel_e]]
+survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+```
+
+**Single-asset (timeseries) fallback**
+
+```python
+cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+profile = fl.evaluate(single_asset_panel, cfg)  # mode auto-switches to TIMESERIES
+print(profile.stats.get(fl.StatCode.TS_BETA))
 ```
 
 ## Documentation
