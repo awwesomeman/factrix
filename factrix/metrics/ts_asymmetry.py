@@ -46,7 +46,7 @@ from factrix._stats import (
     _significance_marker,
     _wald_p_linear,
 )
-from factrix._types import MIN_PORTFOLIO_PERIODS, MetricOutput
+from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MetricOutput
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _short_circuit_output,
@@ -89,7 +89,7 @@ def ts_asymmetry(
         diagnostic statistics live in ``metadata``. Short-circuits
         with a reason code when input shape is insufficient (no
         ``date`` column, missing ``factor`` / return column, fewer
-        than ``MIN_PORTFOLIO_PERIODS`` per-date rows, or no two-sided
+        than ``MIN_PORTFOLIO_PERIODS_HARD`` per-date rows, or no two-sided
         factor variation).
 
     Notes:
@@ -137,12 +137,12 @@ def ts_asymmetry(
     )
     n_periods = len(per_date)
 
-    if n_periods < MIN_PORTFOLIO_PERIODS:
+    if n_periods < MIN_PORTFOLIO_PERIODS_HARD:
         return _short_circuit_output(
             "ts_asymmetry",
             "insufficient_portfolio_periods",
             n_observed=n_periods,
-            min_required=MIN_PORTFOLIO_PERIODS,
+            min_required=MIN_PORTFOLIO_PERIODS_HARD,
         )
 
     f = per_date["_f"].to_numpy()

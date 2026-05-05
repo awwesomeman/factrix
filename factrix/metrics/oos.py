@@ -81,16 +81,13 @@ def multi_split_oos_decay(
         MetricOutput with:
 
         - ``name``: "oos_decay"
-        - ``value``: median survival ratio across splits (0.0 on short-circuit)
-        - ``stat``: None (descriptive statistic, not a hypothesis test)
+        - ``value``: median survival ratio across splits (NaN on short-circuit)
+        - ``stat``: None — descriptive only (no hypothesis test attached; a t-stat at ``MIN_OOS_PERIODS = 5`` would have power ≈ 0 and invite mis-reading the diagnostic as a significance test).
         - ``metadata``:
 
             - ``sign_flipped`` (bool): any split had sign flip
             - ``status`` ("PASS" | "VETOED")
             - ``per_split`` (list[dict]): see ``SplitDetail.to_dict``
-            - ``p_value`` (float): 1.0 (not a hypothesis test; conservative
-              default so downstream BHY doesn't treat descriptive stats as
-              significant by omission)
             - ``method`` (str): "multi-split OOS decay"
             - ``survival_threshold`` (float)
             - ``reason`` (str, short-circuit only): "insufficient_oos_periods"
@@ -106,9 +103,10 @@ def multi_split_oos_decay(
 
         factrix reports the **median** across splits rather than mean:
         a single regime change landing inside one split distorts the
-        mean disproportionately. Descriptive only — no formal H0 is
-        attached and ``p_value`` is set to 1.0 so downstream BHY does
-        not treat the diagnostic as a significant test.
+        mean disproportionately. Descriptive only — no ``p_value`` is
+        emitted (the multi-split structure already conveys the
+        signal-decay message; running a t-test at the
+        ``MIN_OOS_PERIODS`` floor would have power ≈ 0).
 
     References:
         - McLean & Pontiff (2016): average OOS decay ~32%.
@@ -122,7 +120,7 @@ def multi_split_oos_decay(
     n = len(vals)
 
     if n < MIN_OOS_PERIODS * 2:
-        return _short_circuit_output(
+        out = _short_circuit_output(
             "oos_decay",
             "insufficient_oos_periods",
             n_observed=n,
@@ -133,6 +131,11 @@ def multi_split_oos_decay(
             method="multi-split OOS decay",
             survival_threshold=survival_threshold,
         )
+        # Descriptive-only: drop ``p_value`` so callers cannot
+        # accidentally route oos_decay into BHY / gate logic that
+        # expects a probability.
+        out.metadata.pop("p_value", None)
+        return out
 
     split_details: list[SplitDetail] = []
     any_sign_flip = False
@@ -165,7 +168,7 @@ def multi_split_oos_decay(
         )
 
     if not split_details:
-        return _short_circuit_output(
+        out = _short_circuit_output(
             "oos_decay",
             "no_valid_splits",
             sign_flipped=False,
@@ -174,6 +177,8 @@ def multi_split_oos_decay(
             method="multi-split OOS decay",
             survival_threshold=survival_threshold,
         )
+        out.metadata.pop("p_value", None)
+        return out
 
     # WHY: 取中位數而非均值，對單一 regime change 落在某 split 點更穩健
     median_survival = float(np.median([d.survival_ratio for d in split_details]))
@@ -195,7 +200,6 @@ def multi_split_oos_decay(
             "sign_flipped": any_sign_flip,
             "status": status,
             "per_split": [sd.to_dict() for sd in split_details],
-            "p_value": 1.0,
             "method": "multi-split OOS decay",
             "survival_threshold": survival_threshold,
             "n_splits": len(split_details),

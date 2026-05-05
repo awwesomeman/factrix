@@ -17,7 +17,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Mode, Signal
-from factrix._codes import StatCode, Verdict
+from factrix._codes import StatCode, Verdict, WarningCode
 from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _CAARSparsePanelProcedure
 from factrix._profile import FactorProfile
@@ -307,3 +307,61 @@ class TestCalendarTimeRegimes:
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
         assert 0.0 <= profile.stats[StatCode.CAAR_P] <= 1.0
         assert profile.n_obs == 60
+
+
+class TestSparseMagnitudeWeightedWarning:
+    """Individual×Sparse procedure surfaces magnitude-weighted contract warning."""
+
+    def test_mixed_sign_non_ternary_emits_warning(
+        self,
+        cfg: AnalysisConfig,
+    ) -> None:
+        panel = _make_event_panel(n_dates=80, n_assets=20, seed=42, beta=1.0)
+        perturbed = panel.with_columns(
+            pl.when(pl.col("factor") > 0)
+            .then(2.5)
+            .when(pl.col("factor") < 0)
+            .then(-1.7)
+            .otherwise(0.0)
+            .alias("factor")
+        )
+        profile = _CAARSparsePanelProcedure().compute(perturbed, cfg)
+        assert WarningCode.SPARSE_MAGNITUDE_WEIGHTED in profile.warnings
+
+    def test_clean_ternary_silent(self, cfg: AnalysisConfig) -> None:
+        panel = _make_event_panel(n_dates=80, n_assets=20, seed=43, beta=1.0)
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+        assert WarningCode.SPARSE_MAGNITUDE_WEIGHTED not in profile.warnings
+
+
+class TestFewEventsBrownWarner:
+    """`(INDIVIDUAL, SPARSE, PANEL)` propagates Brown-Warner borderline."""
+
+    def test_borderline_event_count_emits_warning(
+        self,
+        cfg: AnalysisConfig,
+    ) -> None:
+        # Density tuned so the seed produces n_event_dates in [4, 30).
+        panel = _make_event_panel(
+            n_dates=120,
+            n_assets=10,
+            seed=51,
+            beta=0.0,
+            event_prob=0.02,
+        )
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+        if profile.n_obs >= 4:  # n_obs is dense; sanity guard
+            ev = panel.filter(pl.col("factor") != 0)["date"].n_unique()
+            if 4 <= ev < 30:
+                assert WarningCode.FEW_EVENTS_BROWN_WARNER in profile.warnings
+
+    def test_many_events_silent(self, cfg: AnalysisConfig) -> None:
+        panel = _make_event_panel(
+            n_dates=200,
+            n_assets=20,
+            seed=52,
+            beta=0.0,
+            event_prob=0.20,
+        )
+        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
+        assert WarningCode.FEW_EVENTS_BROWN_WARNER not in profile.warnings

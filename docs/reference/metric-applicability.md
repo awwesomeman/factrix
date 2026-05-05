@@ -33,83 +33,110 @@ across Modes, only the sample axis that constrains it.
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | Individual × Continuous | IR / ICIR | `T` | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`regime_ic`][factrix.metrics.ic.regime_ic] | Individual × Continuous | Regime-stratified IC | `T` per regime | per-regime `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`multi_horizon_ic`][factrix.metrics.ic.multi_horizon_ic] | Individual × Continuous | Per-horizon IC + BHY | `T` per horizon | per-horizon `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
-| [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | Individual × Continuous | Cell-canonical (FM) | `T` (λ series) | `T ≥ MIN_FM_PERIODS` (= 20) |
+| [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | Individual × Continuous | Cell-canonical (FM) | `T` (λ series) | `T ≥ MIN_FM_PERIODS_HARD` (= 4); warn if `T < MIN_FM_PERIODS_WARN` (= 30) |
 | [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | Individual × Continuous | Pooled OLS sibling of FM | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
-| [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | Individual × Continuous | Per-period β-sign hit rate | `T` (β series) | `T ≥ MIN_FM_PERIODS` |
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | Individual × Continuous | Top-minus-bottom spread t | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS` (= 5); per-date `N ≥ n_groups` |
+| [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | Individual × Continuous | Per-period β-sign hit rate | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | Individual × Continuous | Top-minus-bottom spread t | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD` (= 3); warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` (= 20); per-date `N ≥ n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | Individual × Continuous | Value-weighted spread | `T/h` | as `quantile_spread` |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Individual × Continuous | Group-rank monotonicity | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS` (= 5) |
-| [`top_concentration`][factrix.metrics.concentration.top_concentration] | Individual × Continuous | Top-bucket HHI ratio | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS` |
+| [`top_concentration`][factrix.metrics.concentration.top_concentration] | Individual × Continuous | Top-bucket HHI ratio | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 | [`turnover`][factrix.metrics.tradability.turnover] | Individual × Continuous | Rank-stability (`1 − ρ`) | `T` | `T ≥ 2·forward_periods + 1` |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | Individual × Continuous | Q1/Qn replacement fraction | `T` | as `turnover` |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | Individual × Continuous | bps cost where α → 0 | scalar | `notional_turnover > 0` |
 | [`net_spread`][factrix.metrics.tradability.net_spread] | Individual × Continuous | $\text{spread} - \text{cost} \cdot \tau$ | scalar | spread + cost provided |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | Spread-series consumer | Single-factor α post base | `T` | aligned spread series |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | Spread-series consumer | Diagnostic — not for inference | `T` | as `spanning_alpha` |
-| [`caar`][factrix.metrics.caar.caar] | Individual × Sparse | Cell-canonical | `K/h` (non-overlap) | `K/h ≥ MIN_EVENTS` (= 10) via `_scaled_min_periods(MIN_EVENTS, h)` |
-| [`bmp_test`][factrix.metrics.caar.bmp_test] | Individual × Sparse | Variance-robust sibling | `K` | `K ≥ MIN_EVENTS`; `estimation_window` periods per asset |
-| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | Individual × Sparse | Per-event sign hit rate | `K` | `K ≥ MIN_EVENTS` |
-| [`event_ic`][factrix.metrics.event_quality.event_ic] | Individual × Sparse | Strength → return Spearman | `K` | `K ≥ MIN_EVENTS` |
-| [`profit_factor`][factrix.metrics.event_quality.profit_factor] | Individual × Sparse | `Σ gains / Σ losses` | `K` | `K ≥ MIN_EVENTS` |
-| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | Individual × Sparse | Per-event return skewness | `K` | `K ≥ MIN_EVENTS` |
+| [`caar`][factrix.metrics.caar.caar] | Individual × Sparse | Cell-canonical | `K/h` (non-overlap) | `K/h ≥ MIN_EVENTS_HARD` (= 4); warn if `K/h < MIN_EVENTS_WARN` (= 30) via `_scaled_min_periods(MIN_EVENTS_HARD, h)` |
+| [`bmp_test`][factrix.metrics.caar.bmp_test] | Individual × Sparse | Variance-robust sibling | `K` | `K ≥ MIN_EVENTS_HARD`; `estimation_window` periods per asset |
+| [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | Individual × Sparse | Per-event sign hit rate | `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`event_ic`][factrix.metrics.event_quality.event_ic] | Individual × Sparse | Strength → return Spearman | `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`profit_factor`][factrix.metrics.event_quality.profit_factor] | Individual × Sparse | `Σ gains / Σ losses` | `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`event_skewness`][factrix.metrics.event_quality.event_skewness] | Individual × Sparse | Per-event return skewness | `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | Individual × Sparse | Mean inter-event gap | `K` | `K ≥ 2` |
-| [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Individual × Sparse | Per-offset return profile | per-offset `K` | `K ≥ MIN_EVENTS` |
-| [`multi_horizon_hit_rate`][factrix.metrics.event_horizon.multi_horizon_hit_rate] | Individual × Sparse | Per-horizon binomial hit | per-horizon `K` | `K ≥ MIN_EVENTS` |
-| [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | Individual × Sparse | Path-excursion summary | `K` | `K ≥ MIN_EVENTS`; `price` column required |
-| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | Individual × Sparse (`N ≥ 2`) | Event-date HHI | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS` |
-| [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | Individual × Sparse | Nonparametric rank test | `K` × estimation window | `K ≥ MIN_EVENTS`; per-asset `T ≥ 30` |
+| [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Individual × Sparse | Per-offset return profile | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`multi_horizon_hit_rate`][factrix.metrics.event_horizon.multi_horizon_hit_rate] | Individual × Sparse | Per-horizon binomial hit | per-horizon `K` | `K ≥ MIN_EVENTS_HARD` |
+| [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | Individual × Sparse | Path-excursion summary | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
+| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | Individual × Sparse (`N ≥ 2`) | Event-date HHI | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
+| [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | Individual × Sparse | Nonparametric rank test | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
 | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | Common × Continuous | Cell-canonical | `N` (β distribution) | `N ≥ 2`; per-asset `T ≥ MIN_TS_OBS` (= 20) |
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | Common × Continuous | Avg explanatory R² | `N` | as `ts_beta` |
 | [`compute_rolling_mean_beta`][factrix.metrics.ts_beta.compute_rolling_mean_beta] | Common × Continuous | β stability over time | `T` per window | window ≥ `MIN_TS_OBS` |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | Common × Continuous | Cross-asset β-sign rate | `N` | `N ≥ 2` |
-| [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | Common × Continuous | Quantile-bucketed Wald | `T` | `T ≥ MIN_PORTFOLIO_PERIODS`; factor `n_unique ≥ n_groups × 2` |
+| [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | Common × Continuous | Quantile-bucketed Wald | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
 | [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | Common × Continuous | Long/short slope asymmetry | `T` | factor has both signs (Gate B); each side `n_unique ≥ 2` for method B (Gate C) |
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | Series-tools | Binomial hit rate | series length | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Series-tools | Theil-Sen slope + ADF flag | `T` | `T ≥ 10` (literal floor) |
 | [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | Series-tools | Median IS/OOS survival | `T` | `T ≥ 2 × MIN_OOS_PERIODS` (= 10) |
 
-Constants in the `Min sample` column come from three locations:
+Constants in the `Min sample` column come from three locations and follow
+a two-tier `_HARD` / `_WARN` model (see "Sample-size sensitivity" below):
 
 - `factrix._types` — cross-metric defaults (`MIN_ASSETS_PER_DATE_IC`,
-  `MIN_EVENTS`, `MIN_OOS_PERIODS`, `MIN_PORTFOLIO_PERIODS`,
+  `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30`, `MIN_OOS_PERIODS = 5`,
+  `MIN_PORTFOLIO_PERIODS_HARD = 3`, `MIN_PORTFOLIO_PERIODS_WARN = 20`,
   `MIN_MONOTONICITY_PERIODS`).
 - `factrix._stats.constants` — procedure-level guards
-  (`MIN_PERIODS_HARD = 20`, `MIN_PERIODS_RELIABLE = 30`,
-  `MIN_BROADCAST_EVENTS_HARD = 5`, `MIN_BROADCAST_EVENTS_RELIABLE = 20`).
+  (`MIN_PERIODS_HARD = 20`, `MIN_PERIODS_WARN = 30`,
+  `MIN_BROADCAST_EVENTS_HARD = 5`, `MIN_BROADCAST_EVENTS_WARN = 20`,
+  `MIN_ASSETS = 10`, `MIN_ASSETS_WARN = 30`).
 - The metric module itself for cell-specific thresholds:
-  `MIN_FM_PERIODS = 20` in `factrix.metrics.fama_macbeth`,
-  `MIN_TS_OBS = 20` in `factrix.metrics.ts_beta`.
+  `MIN_FM_PERIODS_HARD = 4` / `MIN_FM_PERIODS_WARN = 30` in
+  `factrix.metrics.fama_macbeth`, `MIN_TS_OBS = 20` in
+  `factrix.metrics.ts_beta`.
 
 For non-overlapping metrics (`ic`, `caar`, …) the effective floor is
 `_scaled_min_periods(base, forward_periods)` (in
 `factrix.metrics._helpers`), which scales the base constant by the
 forward-return horizon `h`.
 
-## Caveats on the headline thresholds
+## Sample-size sensitivity — the two-tier `_HARD` / `_WARN` model
 
-The constants above are the **floors at which a metric will run**, not
-the sample sizes at which the inferential statement is well-calibrated.
+Inferential metrics enforce two separate floors:
+
+- **`_HARD`** — the **mathematical floor**. Below it, the statistic is
+  not defined (e.g. `t = (μ − 0) / (s / √n)` requires `n ≥ 2`; the FM
+  small-sample HAC needs at least a few lagged covariances). `n < HARD`
+  short-circuits to `MetricOutput(value=NaN, metadata={"reason": ...})`.
+- **`_WARN`** — the **literature / power floor**. The statistic *is*
+  computable, but the SE is biased small or power is poor; the metric
+  returns the stat, emits a `UserWarning`, and adds a `WarningCode` to
+  `MetricOutput.metadata["warning_codes"]` so `FactorProfile.warnings`
+  can propagate it. `n ≥ WARN` is silent.
+
+**Descriptive metrics** (`clustering_diagnostic`, `corrado_rank_test`,
+`event_around_return`, `multi_horizon_hit_rate`, `event_hit_rate`,
+`event_ic`, `profit_factor`, `event_skewness`, `mfe_mae_summary`,
+`quantile_spread`, `ts_quantile_spread`, `ts_asymmetry`, `bmp_test`)
+enforce **`_HARD` only** — they have no formal H₀ under which power
+can be characterised, so the literature `_WARN` tier is undefined
+for them. They accept smaller-`n` inputs than the inferential
+canonicals.
+
 A few specific caveats worth flagging:
 
-- **`MIN_FM_PERIODS = 20`** for `fama_macbeth` is the floor at which
-  the NW HAC `t` is computed. With the Andrews `T^(1/3)` bandwidth at
-  `T = 20`, the kernel uses 2 lags and the small-sample HAC is known
-  to **over-reject**; treat *p*-values from `T ∈ [20, 30]` as
+- **`MIN_FM_PERIODS_HARD = 4` / `MIN_FM_PERIODS_WARN = 30`** for
+  `fama_macbeth`. `T = 4` is the math floor at which the NW HAC `t`
+  is computable; the small-sample HAC is known to **over-reject**, so
+  in `T ∈ [4, 30)` the metric emits
+  `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` and treats *p*-values as
   anti-conservative. Forty periods is the practical floor in the
   panel-econometrics literature.
-- **`MIN_EVENTS = 10`** for the event-study CAAR `t` is the floor at
-  which the cross-sectional `t` is even computable. Brown & Warner
-  (1985) tabulate well-behaved power at `K ≥ 50` and use `K ≥ 30` as
-  the conventional minimum; in `K ∈ [10, 30]` the parametric `caar`
-  is under-powered, and the `bmp_test` / `corrado_rank_test` siblings
-  only partly mitigate.
-- **`MIN_PORTFOLIO_PERIODS = 5`** in `top_concentration` and
-  `ts_quantile_spread`, and **`MIN_OOS_PERIODS = 5`** in
-  `multi_split_oos_decay`, are diagnostic floors. Five-point series do
-  not give meaningful inference; treat the corresponding outputs as
-  descriptive — the formal `verdict()` reading should rely on the
-  cell-canonical metric, not these auxiliaries, until the underlying
-  series is materially longer.
+- **`MIN_EVENTS_HARD = 4` / `MIN_EVENTS_WARN = 30`** for the
+  event-study CAAR `t`. Brown & Warner (1985) tabulate well-behaved
+  power at `K ≥ 50` and use `K ≥ 30` as the conventional minimum; in
+  `K ∈ [4, 30)` the parametric `caar` is under-powered and
+  `WarningCode.FEW_EVENTS_BROWN_WARNER` fires. The `bmp_test` /
+  `corrado_rank_test` siblings only partly mitigate.
+- **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
+  in `top_concentration` and `ts_quantile_spread`. Below 3 there is
+  no spread / concentration t to compute; in `[3, 20)` the metric
+  returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`.
+  **`MIN_OOS_PERIODS = 5`** in `multi_split_oos_decay` remains
+  single-tier — the metric is now descriptive-only (no `p_value` in
+  metadata), so a literature power floor is moot. Treat its output as
+  descriptive; the formal `verdict()` reading should rely on the
+  cell-canonical metric until the underlying series is materially
+  longer.
 
 ## Below-threshold behaviour
 

@@ -124,11 +124,15 @@ class _FMContPanelProcedure:
     ) -> FactorProfile:
         import numpy as np
 
-        from factrix._codes import StatCode
+        from factrix._codes import StatCode, WarningCode
         from factrix._profile import FactorProfile
         from factrix._stats import _newey_west_t_test, _resolve_nw_lags
         from factrix._stats.constants import auto_bartlett
-        from factrix.metrics.fama_macbeth import compute_fm_betas
+        from factrix.metrics.fama_macbeth import (
+            MIN_FM_PERIODS_HARD,
+            MIN_FM_PERIODS_WARN,
+            compute_fm_betas,
+        )
 
         beta_values = compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
         n_periods = len(beta_values)
@@ -143,12 +147,19 @@ class _FMContPanelProcedure:
         lambda_mean = float(np.mean(beta_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(beta_values, lags=nw_lags)
 
+        warning_codes: frozenset[WarningCode] = (
+            frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
+            if MIN_FM_PERIODS_HARD <= n_periods < MIN_FM_PERIODS_WARN
+            else frozenset()
+        )
+
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=n_periods,
             n_assets=n_assets,
+            warnings=warning_codes,
             stats={
                 StatCode.FM_LAMBDA_MEAN: lambda_mean,
                 StatCode.FM_LAMBDA_T_NW: t_stat,
@@ -195,13 +206,23 @@ class _CAARSparsePanelProcedure:
     ) -> FactorProfile:
         import polars as pl
 
-        from factrix._codes import StatCode
+        from factrix._codes import StatCode, WarningCode
         from factrix._profile import FactorProfile
         from factrix._stats import _newey_west_t_test, _resolve_nw_lags
         from factrix._stats.constants import auto_bartlett
+        from factrix._types import MIN_EVENTS_HARD, MIN_EVENTS_WARN
+        from factrix.metrics._helpers import _is_sparse_magnitude_weighted
         from factrix.metrics.caar import compute_caar
 
+        warning_codes: set[WarningCode] = set()
+        if _is_sparse_magnitude_weighted(raw, "factor"):
+            warning_codes.add(WarningCode.SPARSE_MAGNITUDE_WEIGHTED)
+
         event_caar = compute_caar(raw)
+        n_event_dates = event_caar.height
+        if MIN_EVENTS_HARD <= n_event_dates < MIN_EVENTS_WARN:
+            warning_codes.add(WarningCode.FEW_EVENTS_BROWN_WARNER)
+
         all_dates = raw.select(pl.col("date").unique().sort())
         dense = (
             all_dates.join(event_caar, on="date", how="left")
@@ -234,6 +255,7 @@ class _CAARSparsePanelProcedure:
             primary_p=p_value,
             n_obs=n_periods,
             n_assets=n_assets,
+            warnings=frozenset(warning_codes),
             stats={
                 StatCode.CAAR_MEAN: event_mean,
                 StatCode.CAAR_T_NW: t_stat,
@@ -293,8 +315,9 @@ class _CommonSparsePanelProcedure:
         from factrix._errors import InsufficientSampleError
         from factrix._stats.constants import (
             MIN_BROADCAST_EVENTS_HARD,
-            MIN_BROADCAST_EVENTS_RELIABLE,
+            MIN_BROADCAST_EVENTS_WARN,
         )
+        from factrix.metrics._helpers import _is_sparse_magnitude_weighted
 
         # Broadcast factor is the same per date across assets; count
         # event dates by collapsing to one row per date first.
@@ -326,11 +349,12 @@ class _CommonSparsePanelProcedure:
                 required_periods=MIN_BROADCAST_EVENTS_HARD,
             )
 
-        extra_warnings: frozenset[WarningCode] = (
-            frozenset({WarningCode.SPARSE_COMMON_FEW_EVENTS})
-            if n_events < MIN_BROADCAST_EVENTS_RELIABLE
-            else frozenset()
-        )
+        extra_codes: set[WarningCode] = set()
+        if n_events < MIN_BROADCAST_EVENTS_WARN:
+            extra_codes.add(WarningCode.SPARSE_COMMON_FEW_EVENTS)
+        if _is_sparse_magnitude_weighted(raw, "factor"):
+            extra_codes.add(WarningCode.SPARSE_MAGNITUDE_WEIGHTED)
+        extra_warnings: frozenset[WarningCode] = frozenset(extra_codes)
         return _compute_common_panel(
             raw,
             config,
@@ -424,7 +448,7 @@ class _TSBetaContTimeseriesProcedure:
     Plan §5.2 TIMESERIES continuous: OLS ``y_t = α + β·factor_t + ε`` with
     NW HAC SE on β; ADF on factor surfaces persistence (CONTINUOUS-only
     diagnostic per I6). n_periods-stratified per I5: below ``MIN_PERIODS_HARD`` raise
-    ``InsufficientSampleError``; in ``[MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE)``
+    ``InsufficientSampleError``; in ``[MIN_PERIODS_HARD, MIN_PERIODS_WARN)``
     emit verdict + ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``.
     """
 
@@ -443,7 +467,7 @@ class _TSBetaContTimeseriesProcedure:
         from factrix._stats import _adf, _ols_nw_slope_t, _resolve_nw_lags
         from factrix._stats.constants import (
             MIN_PERIODS_HARD,
-            MIN_PERIODS_RELIABLE,
+            MIN_PERIODS_WARN,
             auto_bartlett,
         )
 
@@ -477,7 +501,7 @@ class _TSBetaContTimeseriesProcedure:
         _adf_tau, adf_p = _adf(x)
 
         warnings: set[WarningCode] = set()
-        if n_periods < MIN_PERIODS_RELIABLE:
+        if n_periods < MIN_PERIODS_WARN:
             warnings.add(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
         # I6: ADF persistence diagnostic is CONTINUOUS-only. The 0.10
         # cutoff matches plan §5.2 — a non-rejection at the 10% level
@@ -518,7 +542,7 @@ class _TSDummySparseTimeseriesProcedure:
     2. Ljung-Box on residual ε_t (auto-lag ``min(10, n_periods//10)``)
     3. ``event_temporal_hhi`` Herfindahl on equal-time bin shares —
        surfaces clustering of events along the calendar axis
-    4. ``UNRELIABLE_SE_SHORT_PERIODS`` for ``n_periods < MIN_PERIODS_RELIABLE``
+    4. ``UNRELIABLE_SE_SHORT_PERIODS`` for ``n_periods < MIN_PERIODS_WARN``
        (n_periods < ``MIN_PERIODS_HARD`` raises ``InsufficientSampleError`` upstream)
     """
 
@@ -541,7 +565,7 @@ class _TSDummySparseTimeseriesProcedure:
         )
         from factrix._stats.constants import (
             MIN_PERIODS_HARD,
-            MIN_PERIODS_RELIABLE,
+            MIN_PERIODS_WARN,
             auto_bartlett,
         )
 
@@ -572,7 +596,7 @@ class _TSDummySparseTimeseriesProcedure:
         overlap = _has_event_window_overlap(d, config.forward_periods)
 
         warnings: set[WarningCode] = set()
-        if n_periods < MIN_PERIODS_RELIABLE:
+        if n_periods < MIN_PERIODS_WARN:
             warnings.add(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
         if ljung_box_p < 0.05:
             warnings.add(WarningCode.SERIAL_CORRELATION_DETECTED)

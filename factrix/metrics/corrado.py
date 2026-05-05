@@ -28,7 +28,7 @@ import numpy as np
 import polars as pl
 
 from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
-from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
+from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
 
@@ -99,12 +99,12 @@ def corrado_rank_test(
     events = ranked.filter(pl.col(factor_col) != 0)
     n_events = len(events)
 
-    if n_events < MIN_EVENTS:
+    if n_events < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "corrado_rank",
             "insufficient_events",
             n_observed=n_events,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     u_event = events["_rank_u"].to_numpy() * np.sign(events[factor_col].to_numpy())

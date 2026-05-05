@@ -21,10 +21,12 @@ Matrix-row: compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency | 
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import polars as pl
 
+from factrix._codes import WarningCode
 from factrix._stats import (
     _newey_west_t_test,
     _p_value_from_t,
@@ -33,7 +35,13 @@ from factrix._stats import (
 from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
 from factrix.metrics._helpers import _short_circuit_output
 
-MIN_FM_PERIODS: int = 20
+# Two-tier sample-size guard on the FM β series. ``T < HARD`` short-
+# circuits — NW HAC SE on a 3-period series is undefined. ``HARD ≤ T <
+# WARN`` returns the stat with ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``
+# attached (literature floor: Fama-MacBeth originally used T~30+; below
+# that the asymptotic t is borderline). ``T ≥ WARN`` is silent.
+MIN_FM_PERIODS_HARD: int = 4
+MIN_FM_PERIODS_WARN: int = 30
 
 
 # ---------------------------------------------------------------------------
@@ -190,12 +198,24 @@ def fama_macbeth(
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
-    if n < MIN_FM_PERIODS:
+    if n < MIN_FM_PERIODS_HARD:
         return _short_circuit_output(
             "fm_beta",
             "insufficient_fm_periods",
             n_observed=n,
-            min_required=MIN_FM_PERIODS,
+            min_required=MIN_FM_PERIODS_HARD,
+        )
+
+    warning_codes: list[str] = []
+    if n < MIN_FM_PERIODS_WARN:
+        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
+        warnings.warn(
+            f"fama_macbeth: n_periods={n} below MIN_FM_PERIODS_WARN="
+            f"{MIN_FM_PERIODS_WARN}; NW HAC SE on a short β series is "
+            f"borderline (Fama-MacBeth convention is T≥30). t-stat is "
+            f"returned but read p-values cautiously.",
+            UserWarning,
+            stacklevel=2,
         )
 
     from factrix._stats import _resolve_nw_lags
@@ -218,6 +238,8 @@ def fama_macbeth(
         "forward_periods": forward_periods,
         "is_estimated_factor": is_estimated_factor,
     }
+    if warning_codes:
+        metadata["warning_codes"] = warning_codes
 
     if is_estimated_factor:
         sigma2_f = (

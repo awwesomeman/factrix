@@ -35,9 +35,30 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # Renamed from MIN_IC_PERIODS in #18 — the "PERIODS" suffix was misleading;
 # the value has always been checked against per-date asset counts.
 MIN_ASSETS_PER_DATE_IC: int = 10
-MIN_EVENTS: int = 10
+
+# Two-tier event-count guard for CAAR / Brown-Warner-family tests.
+# ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricOutput (math floor —
+# below 4 events the per-event-date series cannot support a meaningful
+# t-statistic). ``MIN_EVENTS_HARD ≤ n < MIN_EVENTS_WARN`` returns the
+# stat AND emits ``WarningCode.FEW_EVENTS_BROWN_WARNER`` so the caller
+# knows power is thin (Brown-Warner 1985 convention is ~30 events for
+# the asymptotic t to be honest). Descriptive event-quality / horizon /
+# clustering metrics use only the HARD floor — they have no formal
+# hypothesis test, so the WARN tier would be noise.
+MIN_EVENTS_HARD: int = 4
+MIN_EVENTS_WARN: int = 30
+
 MIN_OOS_PERIODS: int = 5
-MIN_PORTFOLIO_PERIODS: int = 5
+
+# Two-tier portfolio-period guard for portfolio-level inference (top
+# concentration t-test). ``n < MIN_PORTFOLIO_PERIODS_HARD`` short-circuits
+# (with 3 dates the cross-time t-test on the per-date ratio is undefined);
+# ``HARD ≤ n < WARN`` returns the stat with
+# ``WarningCode.BORDERLINE_PORTFOLIO_PERIODS`` and a Python ``UserWarning``.
+# Descriptive quantile / asymmetry diagnostics use only HARD.
+MIN_PORTFOLIO_PERIODS_HARD: int = 3
+MIN_PORTFOLIO_PERIODS_WARN: int = 20
+
 MIN_MONOTONICITY_PERIODS: int = 5
 
 

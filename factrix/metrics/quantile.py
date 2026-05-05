@@ -22,7 +22,7 @@ import polars as pl
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
-    MIN_PORTFOLIO_PERIODS,
+    MIN_PORTFOLIO_PERIODS_HARD,
     MetricOutput,
 )
 from factrix.metrics._helpers import (
@@ -162,12 +162,12 @@ def quantile_spread(
     )
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
-    if n < MIN_PORTFOLIO_PERIODS:
+    if n < MIN_PORTFOLIO_PERIODS_HARD:
         return _short_circuit_output(
             "quantile_spread",
             "insufficient_portfolio_periods",
             n_observed=n,
-            min_required=MIN_PORTFOLIO_PERIODS,
+            min_required=MIN_PORTFOLIO_PERIODS_HARD,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
         )
@@ -268,7 +268,7 @@ def quantile_spread_vw(
     Returns:
         MetricOutput with per-period mean VW spread, t-stat, and p-value.
         Short-circuits if ``weight_col`` is missing or post-sampling n <
-        ``MIN_PORTFOLIO_PERIODS``.
+        ``MIN_PORTFOLIO_PERIODS_HARD``.
 
     Notes:
         Per non-overlapping date ``t``, per bucket ``b in {bot, top}``::
@@ -334,12 +334,12 @@ def quantile_spread_vw(
 
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
-    if n < MIN_PORTFOLIO_PERIODS:
+    if n < MIN_PORTFOLIO_PERIODS_HARD:
         return _short_circuit_output(
             "quantile_spread_vw",
             "insufficient_portfolio_periods",
             n_observed=n,
-            min_required=MIN_PORTFOLIO_PERIODS,
+            min_required=MIN_PORTFOLIO_PERIODS_HARD,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
         )

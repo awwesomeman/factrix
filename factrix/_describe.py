@@ -20,9 +20,9 @@ from factrix._registry import (
     _ScopeCollapsedSentinel,
 )
 from factrix._stats.constants import (
-    MIN_ASSETS_RELIABLE,
+    MIN_ASSETS_WARN,
     MIN_PERIODS_HARD,
-    MIN_PERIODS_RELIABLE,
+    MIN_PERIODS_WARN,
 )
 
 # Sparsity threshold above which `factor` is treated as an event series.
@@ -336,7 +336,7 @@ def suggest_config(
     n_tier = cross_section_tier(n_assets) if mode is Mode.PANEL else None
     if n_tier is not None:
         mode_reason += (
-            f" (n_assets < MIN_ASSETS_RELIABLE = {MIN_ASSETS_RELIABLE} → "
+            f" (n_assets < MIN_ASSETS_WARN = {MIN_ASSETS_WARN} → "
             f"cross-asset df low, see WarningCode.{n_tier.name})"
         )
 
@@ -361,7 +361,7 @@ def suggest_config(
     }
 
     warnings: list[WarningCode] = []
-    if mode is Mode.TIMESERIES and MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
+    if mode is Mode.TIMESERIES and MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_WARN:
         warnings.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
     if n_tier is not None:
         warnings.append(n_tier)

@@ -83,7 +83,9 @@ class TestMultiSplitOOSDecay:
         assert isinstance(result, MetricOutput)
         assert result.name == "oos_decay"
         assert result.stat is None  # descriptive, not hypothesis test
-        assert result.metadata["p_value"] == 1.0
+        # Descriptive-only: no p_value emitted (would invite mis-routing
+        # the diagnostic into BHY / gate logic).
+        assert "p_value" not in result.metadata
         assert result.metadata["method"] == "multi-split OOS decay"
 
     def test_per_split_shape(self, ic_series_positive):

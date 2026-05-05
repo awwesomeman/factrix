@@ -104,7 +104,8 @@ class TestGateCMethodBSkip:
 
 class TestSampleFloor:
     def test_short_series_short_circuits(self):
-        T = 4
+        # MIN_PORTFOLIO_PERIODS_HARD = 3; T=2 trips the floor.
+        T = 2
         rng = np.random.default_rng(0)
         f = rng.standard_normal(T)
         r = rng.standard_normal(T)

@@ -119,8 +119,9 @@ class TestGateAFactorVariation:
 
 class TestSampleFloor:
     def test_short_series_short_circuits(self):
+        # MIN_PORTFOLIO_PERIODS_HARD = 3; T=2 trips the floor.
         rng = np.random.default_rng(0)
-        T = 4
+        T = 2
         f = rng.standard_normal(T)
         r = rng.standard_normal(T)
         out = ts_quantile_spread(_series_panel(f, r), n_groups=5)

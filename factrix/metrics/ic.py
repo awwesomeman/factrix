@@ -14,6 +14,7 @@ Matrix-row: compute_ic, ic, ic_newey_west, ic_ir, regime_ic, multi_horizon_ic | 
 from __future__ import annotations
 
 import math
+import warnings as _warnings
 
 import polars as pl
 
@@ -29,11 +30,44 @@ from factrix._types import (
     MetricOutput,
 )
 from factrix.metrics._helpers import (
+    TIE_RATIO_WARN_THRESHOLD,
     _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
 )
 from factrix.stats import bhy_adjusted_p
+
+
+def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
+    """Median of the per-date ``tie_ratio`` column, or ``nan`` if absent/empty."""
+    if "tie_ratio" not in ic_df.columns:
+        return float("nan")
+    med = ic_df["tie_ratio"].median()
+    return float("nan") if med is None else float(med)
+
+
+def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
+    """Emit ``UserWarning`` when median tie_ratio exceeds the global threshold.
+
+    Returns the median for caller to stash in metadata. The Spearman ρ on
+    average ranks is biased relative to the tie-corrected formula
+    (Kendall-Stuart §31) at high tie densities — a bucketed / categorical
+    factor will look like it has IC ≈ 0 even if the bucketing is
+    informative. Threshold reuses the global ``TIE_RATIO_WARN_THRESHOLD``
+    (0.3) shared with the quantile-bucketing diagnostics.
+    """
+    med = _median_tie_ratio(ic_df)
+    if not math.isnan(med) and med > TIE_RATIO_WARN_THRESHOLD:
+        _warnings.warn(
+            f"{metric_name}: median tie_ratio={med:.3f} exceeds "
+            f"{TIE_RATIO_WARN_THRESHOLD:.2f}. Spearman ρ on average ranks is "
+            f"biased on bucketed / categorical factors; treat the IC "
+            f"magnitude as a lower bound and consider a tie-corrected "
+            f"correlation or a continuous transform of the factor.",
+            UserWarning,
+            stacklevel=2,
+        )
+    return med
 
 
 def compute_ic(
@@ -47,8 +81,10 @@ def compute_ic(
         df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
 
     Returns:
-        DataFrame with columns ``date, ic`` sorted by date.
+        DataFrame with columns ``date, ic, tie_ratio`` sorted by date.
         Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are dropped.
+        ``tie_ratio`` is the per-date factor tie density
+        $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
 
     Notes:
         Per-date Spearman IC is
@@ -57,10 +93,16 @@ def compute_ic(
         average rank (``method="average"``).
 
         At high tie rates Spearman $\rho$ on average ranks is biased
-        relative to the tie-corrected formula (Kendall-Stuart §31).
-        factrix does not surface ``tie_ratio`` from this primitive; if
-        you suspect a bucketed / categorical signal, inspect tie density
-        on the input before reporting IC.
+        relative to the tie-corrected formula (Kendall-Stuart §31). The
+        per-date factor ``tie_ratio`` is surfaced alongside ``ic`` so
+        downstream callers can detect bucketed / categorical signals
+        without re-inspecting the input; ``ic`` / ``ic_newey_west`` /
+        ``ic_ir`` aggregate it as the median across dates and stash it in
+        ``MetricOutput.metadata["tie_ratio"]``. When the median exceeds
+        ``TIE_RATIO_WARN_THRESHOLD`` (0.3) those aggregators also emit a
+        ``UserWarning``: treat the IC magnitude as a lower bound and
+        consider a tie-corrected correlation or a continuous transform
+        of the factor.
 
         factrix drops dates whose cross-section has fewer than
         ``MIN_ASSETS_PER_DATE_IC`` assets — undersized panels yield
@@ -83,10 +125,11 @@ def compute_ic(
         .agg(
             pl.corr("_rank_factor", "_rank_return").alias("ic"),
             pl.len().alias("n"),
+            (1.0 - pl.col(factor_col).n_unique() / pl.len()).alias("tie_ratio"),
         )
         .filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
         .sort("date")
-        .select("date", "ic")
+        .select("date", "ic", "tie_ratio")
     )
 
 
@@ -121,6 +164,7 @@ def ic(
         returns carry MA(K-1) autocorrelation — the motivation for the
         non-overlap stride used here.
     """
+    median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     raw_min = _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, forward_periods)
@@ -158,6 +202,7 @@ def ic(
             "stat_type": "t",
             "h0": "mu=0",
             "method": "non-overlapping t-test",
+            "tie_ratio": median_tie,
         },
     )
 
@@ -194,6 +239,7 @@ def ic_newey_west(
         [Newey-West 1994][newey-west-1994]: data-adaptive lag-selection
         alternative; cited as background.
     """
+    median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_newey_west")
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
     n = len(ic_vals)
     if n < MIN_ASSETS_PER_DATE_IC:
@@ -221,6 +267,7 @@ def ic_newey_west(
             "method": "Newey-West HAC t-test on overlapping IC series",
             "newey_west_lags": lags,
             "forward_periods": forward_periods,
+            "tie_ratio": median_tie,
         },
     )
 
@@ -255,6 +302,7 @@ def ic_ir(
         [Grinold 1989][grinold-1989]: ICIR is the time-stability
         normalisation that completes the IR decomposition.
     """
+    median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
     if n < MIN_ASSETS_PER_DATE_IC:
@@ -280,7 +328,12 @@ def ic_ir(
     return MetricOutput(
         name="ic_ir",
         value=ratio,
-        metadata={"mean_ic": mean_ic, "std_ic": std_ic, "n_periods": n},
+        metadata={
+            "mean_ic": mean_ic,
+            "std_ic": std_ic,
+            "n_periods": n,
+            "tie_ratio": median_tie,
+        },
     )
 
 

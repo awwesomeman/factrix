@@ -44,8 +44,97 @@ class TestComputeIC:
 
     def test_output_schema(self, noisy_panel):
         result = compute_ic(noisy_panel)
-        assert result.columns == ["date", "ic"]
+        assert result.columns == ["date", "ic", "tie_ratio"]
         assert result["date"].dtype == pl.Datetime("ms")
+
+    def test_tie_ratio_zero_on_unique_factor(self, noisy_panel):
+        result = compute_ic(noisy_panel)
+        # noisy_panel factor is continuous noise — no per-date ties expected.
+        assert result["tie_ratio"].max() == pytest.approx(0.0)
+
+    def test_tie_ratio_detects_bucketed_factor(self):
+        """Bucketed factor → tie_ratio surfaces non-trivially per date."""
+        n_assets = 12
+        dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(5)]
+        rows = [
+            {
+                "date": dt,
+                "asset_id": f"A{i}",
+                "factor": float(i % 3),  # 3 buckets → ties
+                "forward_return": float(i) * 0.01,
+            }
+            for dt in dates
+            for i in range(n_assets)
+        ]
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = compute_ic(df)
+        # 12 obs, 3 unique → tie_ratio = 1 - 3/12 = 0.75
+        assert result["tie_ratio"].max() == pytest.approx(0.75)
+        assert result["tie_ratio"].min() == pytest.approx(0.75)
+
+    def test_tie_ratio_propagated_to_metadata(self, noisy_panel):
+        from factrix.metrics.ic import ic, ic_ir, ic_newey_west
+
+        ic_df = compute_ic(noisy_panel)
+        for out in (
+            ic(ic_df, forward_periods=1),
+            ic_newey_west(ic_df, forward_periods=1),
+            ic_ir(ic_df),
+        ):
+            assert "tie_ratio" in out.metadata
+            assert 0.0 <= out.metadata["tie_ratio"] <= 1.0
+
+    def test_high_tie_ratio_emits_warning(self):
+        """ic / ic_newey_west / ic_ir warn when median tie_ratio > threshold."""
+        import warnings
+
+        from factrix.metrics.ic import ic, ic_ir, ic_newey_west
+
+        # 12 assets bucketed into 2 buckets per date → tie_ratio = 1 - 2/12
+        # ≈ 0.83 (well above the 0.3 threshold).
+        n_assets = 12
+        dates = [datetime(2024, 1, 1) + timedelta(days=d) for d in range(40)]
+        rows = [
+            {
+                "date": dt,
+                "asset_id": f"A{i}",
+                "factor": float(i % 2),
+                "forward_return": float(i) * 0.01,
+            }
+            for dt in dates
+            for i in range(n_assets)
+        ]
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        ic_df = compute_ic(df)
+        for fn in (
+            lambda d: ic(d, forward_periods=1),
+            lambda d: ic_newey_west(d, forward_periods=1),
+            ic_ir,
+        ):
+            with pytest.warns(UserWarning, match="tie_ratio"):
+                fn(ic_df)
+
+        # Low-tie panel must not trigger the warning.
+        rng = np.random.default_rng(0)
+        clean_rows = [
+            {
+                "date": dt,
+                "asset_id": f"A{i}",
+                "factor": float(rng.standard_normal()),
+                "forward_return": float(rng.standard_normal()) * 0.01,
+            }
+            for dt in dates
+            for i in range(n_assets)
+        ]
+        clean = pl.DataFrame(clean_rows).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        clean_ic = compute_ic(clean)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            ic(clean_ic, forward_periods=1)
+            ic_newey_west(clean_ic, forward_periods=1)
+            ic_ir(clean_ic)
 
 
 class TestIC:
