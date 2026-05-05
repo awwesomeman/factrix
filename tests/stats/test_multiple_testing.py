@@ -151,9 +151,9 @@ class TestNTotal:
         """n_total < len(p) is incoherent — BHY assumes submitted is a
         subset of the full family."""
         p = np.array([0.01, 0.02, 0.03, 0.04, 0.05])
-        with pytest.raises(ValueError, match="n_total .* must be >="):
+        with pytest.raises(ValueError, match=r"n_total .* must be >="):
             bhy_adjust(p, n_total=2)
-        with pytest.raises(ValueError, match="n_total .* must be >="):
+        with pytest.raises(ValueError, match=r"n_total .* must be >="):
             bhy_adjusted_p(p, n_total=2)
 
     def test_adjusted_p_monotone_in_n_total(self):

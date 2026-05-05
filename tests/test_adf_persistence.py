@@ -32,7 +32,7 @@ def test_adf_highly_persistent_ar1_flags_as_unit_root_ish(rng):
     y = np.zeros(400)
     for t in range(1, 400):
         y[t] = rho * y[t - 1] + eps[t]
-    tau, p = _adf(y)
+    _tau, p = _adf(y)
     assert p > 0.05, f"ρ=0.98 should not reject at 5%, got p={p}"
 
 
