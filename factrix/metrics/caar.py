@@ -51,18 +51,23 @@ def compute_caar(
         ``n_event_dates``-length CAAR series feeds a downstream NW HAC
         $t$-test on the mean.
 
-    Magnitude is preserved — no ``.sign()`` coercion. The statistic that
-    emerges depends on the input form (general primitive $\{0, R\}$;
-    special cases $\{0, 1\}$ and $\{-1, 0, +1\}$ reduce naturally):
+    Magnitude is preserved — no ``.sign()`` coercion. factrix accepts
+    two input contracts; everything else (including signed
+    $\{-1, 0, +1\}$) is just a special case of the second:
 
     | Input ``factor`` | ``signed_car`` reduces to | Statistic tested |
     |---|---|---|
     | $\{0, 1\}$ | $\text{return}$ on event rows | Average event-day return |
     | $\{0, R\}$, $R \in \mathbb{R}$ | $\text{return} \times R$ | Magnitude-weighted CAAR |
-    | $\{-1, 0, +1\}$ | $\text{return} \times \pm 1$ | Signed CAAR (literature std.) |
 
-    If the caller wants ternary semantics on a non-ternary input, apply
-    ``.sign()`` to the input column before calling.
+    Caveat on $\{-1, 0, +1\}$: it lands in the second row as a
+    weight-$\pm 1$ case, which gives a magnitude-weighted CAAR, **not**
+    the textbook MacKinlay (1997) signed CAAR (the latter averages
+    direction-flipped abnormal returns and is a different estimator at
+    finite samples when the negative-leg vol differs from the positive-
+    leg vol). If literature-standard signed CAAR is what you want,
+    pre-compute it externally; factrix's primitive treats $\pm 1$ as
+    weights, not as direction labels.
 
     Scale:
         CAAR magnitude tracks the units of ``factor`` (bps, z-score,
