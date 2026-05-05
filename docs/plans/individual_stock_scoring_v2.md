@@ -131,7 +131,7 @@ Dimension_Score = Σ(metric_score × adaptive_weight) / Σ(adaptive_weight)
 adaptive_weight = 1.0 × sigmoid(k × (|t_stat| - τ))
 ```
 
-這沿用 v1 已驗證的機制（`factorlib/scoring/scorer.py`），不引入新參數。
+這沿用 v1 已驗證的機制（`factrix/scoring/scorer.py`），不引入新參數。
 
 ---
 
@@ -370,7 +370,7 @@ v2 新增 Effective_Breadth  → Profitability 維度（容量代理指標，衡
 
 ## 9. 資料前處理流水線
 
-**來源：** `factorlib/engine.py` — `prepare_factor_data()`
+**來源：** `factrix/engine.py` — `prepare_factor_data()`
 
 | 步驟 | 公式 | 說明 | 必要性 |
 |------|------|------|--------|

@@ -49,11 +49,11 @@ survivors = fl.evaluate_batch(
 
 ## 2. 現況（source-code 驗證）
 
-- `factorlib/_api.py:336-469` — `evaluate_batch` 當前 sequential loop，
+- `factrix/_api.py:336-469` — `evaluate_batch` 當前 sequential loop，
   每個因子都跑完整 pipeline
-- `factorlib/_api.py:_evaluate_one` (Phase 3 polish) — 單因子管線已抽成
+- `factrix/_api.py:_evaluate_one` (Phase 3 polish) — 單因子管線已抽成
   可重用的 helper
-- `factorlib/evaluation/profile_set.py:232-317` —
+- `factrix/evaluation/profile_set.py:232-317` —
   `multiple_testing_correct(p_source, fdr)` 對**整個 ProfileSet** 做 BHY，
   `p_values = np.array([float(p.canonical_p) for p in self._profiles])`
 - BHY 前提：**同家族檢定的 p-values**。若 Stage 1 淘汰掉一批因子，它們的
@@ -238,7 +238,7 @@ peak = Stage 1 階段的 1000 × cheap intermediates + Stage 2 的 50 × full。
   README 主 Quick Start 不提，開獨立 "Large-batch screening" 段落
 - **跟 Phase 2 `with_extra_columns` 的互動**：survivors ProfileSet 可以
   加自訂欄位，cheap profiles DataFrame 是 polars DataFrame 也可以。
-  兩者 join 是使用者責任，**不要在 factorlib 內 merge**
+  兩者 join 是使用者責任，**不要在 factrix 內 merge**
 
 ---
 

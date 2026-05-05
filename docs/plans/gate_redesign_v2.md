@@ -8,7 +8,7 @@
 
 ## 1. Context
 
-factorlib 的研究 UX 目前以 **Gate**（pass/fail 決策鏈）為核心抽象。`gate_redesign.md` 的討論揭露了這個抽象的多重張力：
+factrix 的研究 UX 目前以 **Gate**（pass/fail 決策鏈）為核心抽象。`gate_redesign.md` 的討論揭露了這個抽象的多重張力：
 
 - gate 內部的 OR 邏輯（IC OR spread）汙染 primary_p 的統計解釋（`min(p)` 違反 BHY 均勻零分佈假設）。
 - AND chain short-circuit 讓使用者看不到後續 gate 的資訊（研究情境的資訊損失）。
@@ -155,7 +155,7 @@ class CrossSectionalProfile:
 
 使用者拍板「gate 可以直接全部退場」。不留 deprecation wrapper。
 
-- 刪除：`factorlib/evaluation/gates/` 目錄整包。
+- 刪除：`factrix/evaluation/gates/` 目錄整包。
 - 刪除：`GateFn`、`GateResult`、`GateStatus`、`default_gates_for()`。
 - **刪除 `EvaluationResult` 整個 wrapper**：status / diagnose / artifacts 全部住在 profile 上；top-level API 直接回 `FactorProfile`。
 - 無 fallback 期；詳見 `plan_gate_redesign.md` 的 2-phase 計畫。
@@ -242,7 +242,7 @@ class CrossSectionalProfile:
 從 gate 抽離，成為獨立 module：
 
 ```python
-# factorlib/stats/multiple_testing.py
+# factrix/stats/multiple_testing.py
 def bhy_adjust(p_values: np.ndarray, fdr: float = 0.05) -> np.ndarray: ...
 ```
 
@@ -308,9 +308,9 @@ class ProfileSet(Generic[P]):
 
 | 現有 | 動作 |
 |------|------|
-| `factorlib/evaluation/gates/` 目錄 | **刪除** |
-| `factorlib/evaluation/presets.py` | **刪除** |
-| `factorlib/evaluation/_caution.py` | **刪除**（邏輯搬進 profile.diagnose()） |
+| `factrix/evaluation/gates/` 目錄 | **刪除** |
+| `factrix/evaluation/presets.py` | **刪除** |
+| `factrix/evaluation/_caution.py` | **刪除**（邏輯搬進 profile.diagnose()） |
 | `GateFn` / `GateResult` / `GateStatus` / `default_gates_for` | **刪除** |
 | `EvaluationResult.gate_results` / `.caution_reasons` | **刪除**（隨 wrapper 消失） |
 
@@ -319,7 +319,7 @@ class ProfileSet(Generic[P]):
 | 新增 | 動作 |
 |------|------|
 | `ProfileSet[P]`（polars-native）| **新增** |
-| `factorlib/stats/multiple_testing.bhy_adjust()` | **新增** |
+| `factrix/stats/multiple_testing.bhy_adjust()` | **新增** |
 | `_stats.bhy_threshold()` | **刪除**（by `factor_screening` plan） |
 
 使用者 breaking changes 一覽（release notes）：`EvaluationResult` 不再存在、`.profile.metrics` 改為直接欄位存取、`gate_results` 消失、`quick_check` / `compare` 刪除。遷移對照見情境 7。
@@ -328,7 +328,7 @@ class ProfileSet(Generic[P]):
 
 ## 7. 使用者情境範例
 
-以下情境描述設計落地後，使用者程式碼的典型樣貌。對應 factorlib 三大價值主張：
+以下情境描述設計落地後，使用者程式碼的典型樣貌。對應 factrix 三大價值主張：
 - (a) **能力探索**：使用者知道某類因子有哪些工具可用
 - (b) **快速篩選**：從 N 個候選因子中挑出潛在有效者
 - (c) **深入分析**：對單一因子做細部剖析 / 策略建構
@@ -338,7 +338,7 @@ class ProfileSet(Generic[P]):
 ### 情境 1：探索因子類型支援哪些指標 — 解決 (a)
 
 ```python
-import factorlib as fl
+import factrix as fl
 
 # 列出支援的因子類型（programmatic）
 fl.list_factor_types()
@@ -373,12 +373,12 @@ fl.describe_profile("cross_sectional")
 #     .verdict(t=2.0)   → EvaluationStatus
 #     .diagnose()       → list[Diagnostic]
 #
-#   Deep-dive (from factorlib.plots):
+#   Deep-dive (from factrix.plots):
 #     plot_ic_timeseries(profile, artifacts)
 #     plot_quantile_returns(profile, artifacts)
 
 # IDE 路徑：直接 help()
-from factorlib.evaluation.profiles import CrossSectionalProfile
+from factrix.evaluation.profiles import CrossSectionalProfile
 help(CrossSectionalProfile)
 ```
 
@@ -387,7 +387,7 @@ help(CrossSectionalProfile)
 ### 情境 2：研究員手動快篩單一因子 — 解決 (b)、(c)
 
 ```python
-import factorlib as fl
+import factrix as fl
 
 # 單因子評估（前處理 + 算 profile）→ 直接回 FactorProfile（無 wrapper）
 profile = fl.evaluate(df, "momentum_12_1", factor_type="cross_sectional")
@@ -418,7 +418,7 @@ profile.diagnose()        # [Diagnostic(severity="warn", message="...")]
 
 # 深入分析（Layer 4）。artifacts 需要時另行取得
 artifacts = fl.Artifacts.from_raw(df, "momentum_12_1", config)
-from factorlib.plots import plot_ic_timeseries
+from factrix.plots import plot_ic_timeseries
 plot_ic_timeseries(profile, artifacts)
 ```
 
@@ -427,7 +427,7 @@ plot_ic_timeseries(profile, artifacts)
 ### 情境 3：批次篩 200 個候選因子 + BHY FDR 控制 — 解決 (b)
 
 ```python
-import factorlib as fl
+import factrix as fl
 import polars as pl
 
 # 批次評估（不保留 artifacts 省記憶體）→ 直接回 ProfileSet
@@ -483,7 +483,7 @@ candidates.multiple_testing_correct(p_source="min_p")
 ### 情境 4：AI Agent 的批次分析 workflow
 
 ```python
-import factorlib as fl
+import factrix as fl
 
 # AI 遍歷候選因子（stop_on_error=False → 失敗的因子不進 ProfileSet）
 profiles = fl.evaluate_batch(

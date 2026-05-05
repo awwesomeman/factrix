@@ -8,9 +8,9 @@
 
 > 狀態：已實作
 > 日期：2026-04-16
-> 前置：P0–P3.5 routing 重構已完成（`refactor_factorlib_routing.md` v8）
+> 前置：P0–P3.5 routing 重構已完成（`refactor_factrix_routing.md` v8）
 > 優先序：Future A（已完成）
-> 設計依據：`refactor_factorlib_routing.md` §1–§3（指標對照表 + 統計備註）
+> 設計依據：`refactor_factrix_routing.md` §1–§3（指標對照表 + 統計備註）
 
 ---
 
@@ -48,7 +48,7 @@ routing 重構已提供：
 ## 3. 新增檔案
 
 ```
-factorlib/
+factrix/
 ├── metrics/
 │   └── fama_macbeth.py        # FM β + Pooled OLS + Newey-West SE
 ├── evaluation/

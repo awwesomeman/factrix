@@ -19,7 +19,7 @@ Benchmark 顯示 CPU 37%（§2.3 填好），技術上有並行空間，但：
 3. **Maintenance 成本高**：pickle 失敗、worker OOM、Ctrl-C 清理、闭包
    picklable 限制——每個都是長期 bug 磁鐵（§6 已列）。
 4. **使用者有替代路徑**：orchestration 層切成 N 個 Python process 各
-   跑 subset，**零 factorlib 改動**，達到同樣加速。
+   跑 subset，**零 factrix 改動**，達到同樣加速。
 5. **Polars 會自己改善**：每個 release 都在擠 thread utilization；半年
    後可能自然變 60%+，現在加 `n_jobs` 將來反而是 over-parallelism。
 
@@ -128,7 +128,7 @@ threads 搶 16 核。必須在子進程 `os.environ["POLARS_MAX_THREADS"] = "4"`
 
 ### 3.3 子進程啟動成本分攤
 
-Spawn 成本 ≈ 500ms-2s（import polars + factorlib）。單因子 sequential
+Spawn 成本 ≈ 500ms-2s（import polars + factrix）。單因子 sequential
 算需要 3s。**worker 啟動成本 < 單因子時間才划算**。
 
 **建議**：`n_jobs=2/4` 默認用 persistent worker pool（不是 per-call
@@ -173,7 +173,7 @@ Worker 死了怎麼辦？
 ## 4. 非目標
 
 - **分散式運算**（Dask / Ray）：out of scope。如果使用者到這個規模，
-  應該自己在 airflow/ray 層呼叫 factorlib，而不是讓 factorlib 變成分散
+  應該自己在 airflow/ray 層呼叫 factrix，而不是讓 factrix 變成分散
   式框架
 - **GPU**：OLS / IC 都是 Polars / NumPy，沒有 GPU 收益
 - **自動調 `n_jobs`**：根據 panel 大小、因子數量自動決定。**過度工程**，

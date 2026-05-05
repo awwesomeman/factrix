@@ -235,9 +235,9 @@ DISPLAY_NAMES = {
 
 ### 影響範圍
 
-- `factorlib/tools/**/*.py` — 所有函式 rename
-- `factorlib/tools/_typing.py` — MetricOutput name 常量或文件化約定
-- `factorlib/gates/` — profile, pipeline, significance 讀取 metric name 的地方
-- `factorlib/dashboard/` — display name mapping
+- `factrix/tools/**/*.py` — 所有函式 rename
+- `factrix/tools/_typing.py` — MetricOutput name 常量或文件化約定
+- `factrix/gates/` — profile, pipeline, significance 讀取 metric name 的地方
+- `factrix/dashboard/` — display name mapping
 - `tests/` — 所有 assert name == "..." 更新
 - `experiments/` — notebook + .py 的 import 和顯示

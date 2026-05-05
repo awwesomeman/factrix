@@ -20,7 +20,7 @@
 
 ## 1. 資料前處理
 
-**來源**: `factorlib/engine.py` — `prepare_factor_data()`
+**來源**: `factrix/engine.py` — `prepare_factor_data()`
 
 | 步驟 | 公式 | 說明 |
 |------|------|------|
@@ -36,7 +36,7 @@
 
 ## 2. 四維度評分架構
 
-**來源**: `factorlib/scoring/config.py` — `FACTOR_CONFIGS["individual_stock"]`
+**來源**: `factrix/scoring/config.py` — `FACTOR_CONFIGS["individual_stock"]`
 
 | 維度 | 權重 | 包含指標 |
 |------|------|---------|
@@ -45,7 +45,7 @@
 | Robustness (穩健性) | 0.25 | OOS_Decay, IC_Stability, Hit_Rate |
 | Tradability (可交易性) | 0.10 | Turnover |
 
-**評分公式**（`factorlib/scoring/scorer.py` — `FactorScorer.compute()`）：
+**評分公式**（`factrix/scoring/scorer.py` — `FactorScorer.compute()`）：
 
 ```
 dimension_score = Σ(metric_score × adaptive_weight) / Σ(adaptive_weight)
@@ -68,7 +68,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 3.1 IC_IR（資訊比率）
 
-**來源**: `factorlib/scoring/selection.py` — `calc_ic_ir()`
+**來源**: `factrix/scoring/selection.py` — `calc_ic_ir()`
 
 | 項目 | 內容 |
 |------|------|
@@ -81,7 +81,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 3.2 Monotonicity（分組單調性）
 
-**來源**: `factorlib/scoring/selection.py` — `calc_monotonicity()`
+**來源**: `factrix/scoring/selection.py` — `calc_monotonicity()`
 
 | 項目 | 內容 |
 |------|------|
@@ -96,7 +96,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 4.1 Long_Alpha（Q1 超額報酬）
 
-**來源**: `factorlib/scoring/selection.py` — `calc_long_alpha()`
+**來源**: `factrix/scoring/selection.py` — `calc_long_alpha()`
 
 | 項目 | 內容 |
 |------|------|
@@ -108,7 +108,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 4.2 MDD（最大回撤）
 
-**來源**: `factorlib/scoring/timing.py` — `calc_mdd()`
+**來源**: `factrix/scoring/timing.py` — `calc_mdd()`
 
 | 項目 | 內容 |
 |------|------|
@@ -126,7 +126,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 5.1 OOS_Decay（樣本外衰減）
 
-**來源**: `factorlib/scoring/selection.py` — `calc_oos_decay()`
+**來源**: `factrix/scoring/selection.py` — `calc_oos_decay()`
 
 | 項目 | 內容 |
 |------|------|
@@ -138,7 +138,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 5.2 IC_Stability（IC 穩定性）
 
-**來源**: `factorlib/scoring/selection.py` — `calc_ic_stability()`
+**來源**: `factrix/scoring/selection.py` — `calc_ic_stability()`
 
 | 項目 | 內容 |
 |------|------|
@@ -150,7 +150,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 5.3 Hit_Rate（勝率）
 
-**來源**: `factorlib/scoring/timing.py` — `calc_hit_rate()`
+**來源**: `factrix/scoring/timing.py` — `calc_hit_rate()`
 
 | 項目 | 內容 |
 |------|------|
@@ -164,7 +164,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ### 6.1 Turnover（換手率）
 
-**來源**: `factorlib/scoring/timing.py` — `calc_turnover()`
+**來源**: `factrix/scoring/timing.py` — `calc_turnover()`
 
 | 項目 | 內容 |
 |------|------|
@@ -180,7 +180,7 @@ adaptive_weight = w_base × sigmoid(k × (|t_stat| - τ))
 
 ## 7. 總分計算與 VETO 機制
 
-**來源**: `factorlib/scoring/scorer.py` — `FactorScorer.compute()`
+**來源**: `factrix/scoring/scorer.py` — `FactorScorer.compute()`
 
 ### 總分公式
 
@@ -201,7 +201,7 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 
 ### 8.1 IC 累積圖 & 滾動 IC 圖
 
-**來源**: `factorlib/builders.py` — `build_ic_artifact()`
+**來源**: `factrix/builders.py` — `build_ic_artifact()`
 
 | 數據欄位 | 計算方式 |
 |----------|---------|
@@ -210,13 +210,13 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 | `rolling_ic` | `rolling_mean(ic, window=63)` — 63 日（約 3 個月）滾動平均 |
 | IS/OOS 分界 | 垂直線標記 80/20 切分點 |
 
-**圖表呈現**（`factorlib/dashboard/charts.py`）：
+**圖表呈現**（`factrix/dashboard/charts.py`）：
 - 上方面板：Cumulative IC 折線圖，含 IS/OOS 垂直分界線
 - 下方面板：Rolling IC 折線圖，反映不同時期因子效力
 
 ### 8.2 NAV 淨值圖
 
-**來源**: `factorlib/builders.py` — `build_nav_artifact()`
+**來源**: `factrix/builders.py` — `build_nav_artifact()`
 
 | 數據欄位 | 計算方式 |
 |----------|---------|
@@ -228,7 +228,7 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 
 ### 8.3 維度雷達圖
 
-**來源**: `factorlib/dashboard/charts.py`
+**來源**: `factrix/dashboard/charts.py`
 
 - 四軸雷達圖，範圍 0–100
 - 軸向：Predictability、Profitability、Robustness、Tradability
@@ -236,7 +236,7 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 
 ### 8.4 指標明細表
 
-**來源**: `factorlib/dashboard/app.py`
+**來源**: `factrix/dashboard/app.py`
 
 | 欄位 | 說明 |
 |------|------|
@@ -252,7 +252,7 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 
 ## 9. 關鍵常數
 
-**來源**: `factorlib/scoring/_utils.py`
+**來源**: `factrix/scoring/_utils.py`
 
 | 常數 | 值 | 用途 |
 |------|-----|------|
@@ -269,7 +269,7 @@ Total = Predictability × 0.40 + Profitability × 0.25 + Robustness × 0.25 + Tr
 
 ## 附錄：分數映射函式 (linear_map)
 
-**來源**: `factorlib/scoring/registry.py`
+**來源**: `factrix/scoring/registry.py`
 
 ```
 linear_map(value, min, max) → [0, 100]

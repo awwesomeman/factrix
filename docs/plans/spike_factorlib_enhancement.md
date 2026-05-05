@@ -1,4 +1,4 @@
-# Spike — factorlib 改善計畫
+# Spike — factrix 改善計畫
 
 > **狀態**：P0 + P1 + P2 + P3 + 所有 COV 項目全部實作完畢（2026-04-20）。
 > **來源**：資深 Quant 審查（第一輪 2026-04-20）+ 第二輪深度審查（2026-04-20）+ 第三輪實地驗證（2026-04-20，user 角度）；已修 `8f15db8` / `85b81e3` / `26762b7` / `dcbe346` 後的剩餘項目
@@ -17,8 +17,8 @@
 >   - Phase 3c P2 + COV demo UX 補完：見下一個 commit（含 P2-A/C/E/F/H/J + COV-A/B/E/F/G/J）
 >   - Phase 3d P3-A 8 個 doc SUPERSEDED headers + P3-B/COV-C README：見下一個 commit
 > **關聯審查報告**：
->   - 第一輪：`brain/c8b31922.../factorlib_review.md`
->   - 第二輪：`brain/1f62e351.../factorlib_review_2.md`（含 NEW-A~F / COV-G~J）
+>   - 第一輪：`brain/c8b31922.../factrix_review.md`
+>   - 第二輪：`brain/1f62e351.../factrix_review_2.md`（含 NEW-A~F / COV-G~J）
 >
 > **2026-04-20 第三輪驗證修正**（對照 source + demo.ipynb）：
 >   - **刪除 P2-D**：`fl.factor()` docstring 實際上只示範 `factor_type=` 單參數（`_api.py:459-463`），查無「同時傳兩者」的錯誤
@@ -116,7 +116,7 @@ basis_df = raw_demo.with_columns(
 日）版本的 DataFrame 時，此盲點最容易觸發。Demo `§2.3` 展示了兩種不同 config
 但沒有明確警示這個風險。
 
-**修改位置**：`factorlib/_api.py`（strict gate 邏輯）+ `demo.ipynb §2.3`（加警示 comment）
+**修改位置**：`factrix/_api.py`（strict gate 邏輯）+ `demo.ipynb §2.3`（加警示 comment）
 
 **修法**：在 preprocessed DataFrame 嵌入 `forward_periods` metadata，strict gate 讀取並比對。
 
@@ -152,10 +152,10 @@ if embedded_fp != config.forward_periods:
 同一 Factor session 裡 `f.ic(forward_periods=10)` 和 `f.ic_ir()`（無 override）共用同
 一 IC series，但給出的 p-value 語意不同，邏輯矛盾且無任何警示。
 
-**影響範圍**：`factorlib/factor.py::CrossSectionalFactor.ic()` 的 override 路徑；
+**影響範圍**：`factrix/factor.py::CrossSectionalFactor.ic()` 的 override 路徑；
 `hit_rate()` 有相同設計，同樣受影響。
 
-**修改位置**：`factorlib/factor.py`（`ic()` / `hit_rate()`）
+**修改位置**：`factrix/factor.py`（`ic()` / `hit_rate()`）
 
 **修法：移除 `forward_periods=` 參數**——此 override 本質是 API 誤導，假裝能切換
 展望期但實際只改 dof。北極星 U4（統計正確）+ U2（易用）都指向「不該讓使用者
@@ -205,9 +205,9 @@ Factor session 上存在，Profile / evaluate_batch 路徑不受影響）；docs
 `ic_trend` 共 key——跨 factor_type 碰撞風險）。
 
 **影響範圍**：
-- `factorlib/factor.py::EventFactor.caar_trend`（`:540-544`）
-- `factorlib/factor.py::MacroPanelFactor.beta_trend`（`:609-616`）
-- `factorlib/metrics/trend.py::ic_trend`（primitive）
+- `factrix/factor.py::EventFactor.caar_trend`（`:540-544`）
+- `factrix/factor.py::MacroPanelFactor.beta_trend`（`:609-616`）
+- `factrix/metrics/trend.py::ic_trend`（primitive）
 
 **修法**：讓 primitive 接 `name=` 參數，方法各自傳入自己的名字：
 
@@ -283,8 +283,8 @@ cache key 是 `"mfe_mae"`（由 primitive `MetricOutput.name` 決定）而非方
 `KeyError`。
 
 **影響範圍**：
-- `factorlib/factor.py::EventFactor.mfe_mae_summary`（`:507`）
-- `factorlib/metrics/mfe_mae.py::mfe_mae_summary` primitive（`:160` `name="mfe_mae"`）
+- `factrix/factor.py::EventFactor.mfe_mae_summary`（`:507`）
+- `factrix/metrics/mfe_mae.py::mfe_mae_summary` primitive（`:160` `name="mfe_mae"`）
 
 **修法**：改 primitive 的 `MetricOutput.name` 為 `"mfe_mae_summary"`，
 cache key 同步更新，Profile / demo prose 同步對齊三點統一。
@@ -309,8 +309,8 @@ return self._cached_or_compute("mfe_mae_summary", ...)  # 原 "mfe_mae"
 cache key 是 `"bmp_sar"`，Profile 字段為 `bmp_sar_p`，但方法名是 `bmp_test()`。
 
 **影響範圍**：
-- `factorlib/factor.py::EventFactor.bmp_test`（`:412`）
-- `factorlib/metrics/caar.py::bmp_test` primitive（`:227` `name="bmp_sar"`）
+- `factrix/factor.py::EventFactor.bmp_test`（`:412`）
+- `factrix/metrics/caar.py::bmp_test` primitive（`:227` `name="bmp_sar"`）
 - EventProfile 欄位 `bmp_sar_p`
 
 **修法（統一用 `bmp_test`）**：
@@ -337,7 +337,7 @@ cache key 是 `"bmp_sar"`，Profile 字段為 `bmp_sar_p`，但方法名是 `bmp
 
 ```python
 # 現況（內部路徑）
-from factorlib.evaluation.pipeline import build_artifacts
+from factrix.evaluation.pipeline import build_artifacts
 artifacts = build_artifacts(prepared, cfg_charts)
 artifacts.factor_name = 'Mom_20D'   # 容易忘記
 
@@ -504,7 +504,7 @@ arts    = f.artifacts           # 直接取
 但使用者最自然的路徑是 `profile = fl.evaluate(df, name, config=cfg)`（預設不回 artifacts）。
 初次使用者幾乎必然碰壁——第二個參數從何而來？
 
-**修改位置**：`factorlib/reporting.py::describe_profile_values`
+**修改位置**：`factrix/reporting.py::describe_profile_values`
 
 **實作修法**（2026-04-20，`66bd6db`）：**移除 `artifacts` 參數**，`describe_profile_values(profile)` 單參數從 Profile dataclass 直接渲染。detail sections 從函式移除，成為 power-user 直接讀 `arts.metric_outputs[key].metadata` 的路徑。
 
@@ -555,7 +555,7 @@ def describe_profile_values(profile: FactorProfile) -> None:
 
 | 文件 | 殘留名 |
 |------|--------|
-| `refactor_factorlib_routing.md` | `q1_q5_spread` / `q1_concentration` |
+| `refactor_factrix_routing.md` | `q1_q5_spread` / `q1_concentration` |
 | `plan_gate_redesign.md` | `q1_q5_spread` / `q1_concentration` |
 | `spike_orthogonalize.md` | `q1_q5_spread` |
 | `spike_fast_track_batch.md` | `q1_concentration` |
@@ -571,7 +571,7 @@ def describe_profile_values(profile: FactorProfile) -> None:
 Demo 只用 `fl.preprocess`，但 `fl.preprocess_cs_factor` 也在 `__init__` re-export。
 使用者不知道兩者的差異和適用場景。
 
-**建議**：在 `factorlib/README.md` 的 API 一覽表加一行說明，或在
+**建議**：在 `factrix/README.md` 的 API 一覽表加一行說明，或在
 `demo.ipynb §0`（setup cell）加一行 comment 解釋。
 
 ### P3-C：`greedy_forward_selection` 未示範 ✅ IMPLEMENTED
@@ -595,7 +595,7 @@ Demo 只用 `fl.preprocess`，但 `fl.preprocess_cs_factor` 也在 `__init__` re
 
 *Done:* Phase 3c (cell 10 now lists all generate_* via dir)
 
-`factorlib.factors` 有 13 個 generator，demo 只用了 `generate_momentum` /
+`factrix.factors` 有 13 個 generator，demo 只用了 `generate_momentum` /
 `generate_volatility`。使用者以為只有這兩個選項，完全不知道有：
 `generate_amihud`、`generate_rsi`、`generate_market_beta`、
 `generate_overnight_return`、`generate_52w_high_ratio` 等。
@@ -608,7 +608,7 @@ technical / liquidity / event）。
 
 *Done:* Phase 3c
 
-`factorlib.metrics.quantile_spread_vw` 在 `__all__` 暴露，但 demo 從未呼叫。
+`factrix.metrics.quantile_spread_vw` 在 `__all__` 暴露，但 demo 從未呼叫。
 使用者不知道有 equal-weight 以外的選項，在有流動性差異的市場（如 TW）
 VW spread 更貼近實際可執行的 PnL。
 
@@ -624,7 +624,7 @@ f.quantile_spread_vw(weight_col='market_cap')   # value-weighted spread
 Power user 需要自訂分組統計的入口，但 demo 完全不提，讓使用者以為
 只能走 Profile 的黑箱路徑。
 
-**建議**：在 `factorlib/README.md` 的 "low-level primitives" 段補一行說明。
+**建議**：在 `factrix/README.md` 的 "low-level primitives" 段補一行說明。
 
 ### COV-D：`EventFactor.corrado_rank_test` 未示範 ✅ IMPLEMENTED
 
