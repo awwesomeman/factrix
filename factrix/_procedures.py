@@ -19,6 +19,7 @@ from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey, register
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
+    from factrix._codes import WarningCode
     from factrix._profile import FactorProfile
 
 
@@ -530,7 +531,6 @@ class _TSDummySparseTimeseriesProcedure:
         raw: Any,
         config: "AnalysisConfig",
     ) -> "FactorProfile":
-
         from factrix._codes import StatCode, WarningCode
         from factrix._errors import InsufficientSampleError
         from factrix._profile import FactorProfile

@@ -44,7 +44,6 @@ class TestNewyWestTForwardPeriods:
         rng = np.random.default_rng(42)
         x = np.cumsum(rng.standard_normal(200)) * 0.1 + 0.05
         se_default = _newey_west_se(x)
-        se_h5 = _newey_west_se(x, forward_periods=5)
         # forward_periods=5 forces larger lags than default floor(200^(1/3))=5,
         # so with h-1=4, already dominated by default; pick larger h to test.
         se_h20 = _newey_west_se(x, forward_periods=20)
