@@ -1,0 +1,23 @@
+<!-- GENERATED FILE — DO NOT EDIT.
+     SSOT lives at factrix/llms.txt; regenerated on every mkdocs build
+     by scripts/sync_llms_txt.py. Edits here will be overwritten. -->
+
+# factrix
+
+> Polars-native factor signal validator. Tests one factor. Screens a thousand.
+> Source: https://github.com/awwesomeman/factrix
+> Docs: https://awwesomeman.github.io/factrix/
+
+## Pages
+
+- [Get Started](https://awwesomeman.github.io/factrix/getting-started/): installation, quickstart, three-axis concepts
+- [Concepts](https://awwesomeman.github.io/factrix/getting-started/concepts/): FactorScope / Signal / Metric / Mode explained
+- [Quickstart](https://awwesomeman.github.io/factrix/getting-started/quickstart/): five-minute end-to-end example
+- [Guides](https://awwesomeman.github.io/factrix/guides/): PANEL vs TIMESERIES, BHY batch screening, choosing a metric
+- [API — AnalysisConfig](https://awwesomeman.github.io/factrix/api/analysis-config/): four factory methods, from_dict / to_dict
+- [API — evaluate](https://awwesomeman.github.io/factrix/api/evaluate/): single-factor dispatch entry point
+- [API — FactorProfile](https://awwesomeman.github.io/factrix/api/factor-profile/): result schema, verdict(), diagnose()
+- [API — multi_factor](https://awwesomeman.github.io/factrix/api/multi-factor/): bhy() FDR-corrected screening
+- [Reference — warning codes](https://awwesomeman.github.io/factrix/reference/warning-codes/): WarningCode / InfoCode / StatCode / Verdict enums
+- [Reference — metric applicability](https://awwesomeman.github.io/factrix/reference/metric-applicability/): which metrics apply to which axis combinations
+- [Full LLM reference](https://awwesomeman.github.io/factrix/llms-full.txt): single-fetch file covering concepts + API + usage patterns

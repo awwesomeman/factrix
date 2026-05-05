@@ -2858,6 +2858,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#llm-agent-reference-同步" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM agent reference 同步
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3339,6 +3350,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#llm-agent-reference-同步" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM agent reference 同步
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3738,6 +3760,19 @@ PR 不該 merge</strong>——先 fix 再繼續。</p>
 </ol>
 <p>範例（inline 公式）：<code>ts_beta.ts_beta_sign_consistency</code>
 範例（Formula block）：<code>fama_macbeth.pooled_ols</code>、<code>_helpers._sample_non_overlapping</code></p>
+<h3 id="llm-agent-reference-同步">LLM agent reference 同步<a class="headerlink" href="#llm-agent-reference-同步" title="Permanent link">&para;</a></h3>
+<p>SSOT 在 <code>factrix/llms.txt</code> 與 <code>factrix/llms-full.txt</code>（隨 wheel 出貨；mkdocs
+hook 在 build 時鏡像到 site root）。內容與 mkdocs 站部分重疊但<strong>不互為
+SSOT</strong>——agent 要密度、人類要漸進披露，目標結構性互斥，所以雙軌維護。</p>
+<p>下列任一變更落地時，同 PR 內同步 <code>factrix/llms*.txt</code>（無 CI 守門）：</p>
+<ul>
+<li><code>factrix/__init__.py</code> <code>__all__</code> 增刪</li>
+<li>公開 API signature 變更（factory、<code>evaluate</code>、<code>bhy</code>、<code>FactorProfile</code>）</li>
+<li><code>WarningCode</code> / <code>InfoCode</code> / <code>StatCode</code> 新增 / 改名 / 描述改寫</li>
+<li>Mode dispatch 規則或 canonical panel schema 改變</li>
+</ul>
+<p>PR 前 self-check：跑過三個 code block、<code>uv run mkdocs build --strict</code> 乾淨、
+<code>tiktoken</code> cl100k count &lt; 8000。</p>
 <hr />
 <h2 id="7-版本管理與發布-semver--release">7. 版本管理與發布 (SemVer &amp; Release)<a class="headerlink" href="#7-版本管理與發布-semver--release" title="Permanent link">&para;</a></h2>
 <p>目前 factrix 在 <strong>pre-1.0</strong>（v0.x.x）——公開 API <strong>可能在 MINOR bump 裡
