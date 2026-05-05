@@ -60,6 +60,18 @@ def compute_spread_series(
 
     Returns:
         DataFrame with ``date, spread, top_return, bottom_return, universe_return``.
+
+    Notes:
+        Per non-overlapping date ``t``::
+
+            top_return[t]    = mean_{i in Q_top} return[i, t]
+            bottom_return[t] = mean_{i in Q_bot} return[i, t]
+            spread[t]        = top_return[t] - bottom_return[t]
+
+        factrix uses non-overlap sub-sampling (stride ``forward_periods``)
+        before bucketing, not overlapping panel re-balancing — keeps the
+        spread series free of MA(h-1) autocorrelation so downstream
+        non-overlap t-tests are valid without HAC.
     """
     sampled = _sample_non_overlapping(df, forward_periods)
 
@@ -118,6 +130,21 @@ def quantile_spread(
 
     Returns:
         MetricOutput with per-period mean spread, t-stat from non-overlapping periods.
+
+    Notes:
+        ``t = mean(spread) / (std(spread) / sqrt(n))`` on the non-overlap
+        spread series. H0: ``E[spread] = 0``. Long/short alpha decomposition
+        runs the same t-test on ``top_return - universe_return`` and
+        ``universe_return - bottom_return`` so callers can attribute the
+        spread to long-side vs short-side excess.
+
+        factrix performs the t-test on the non-overlap series rather than
+        applying NW HAC on an overlapping series; the two approaches are
+        sibling routes — overlap variants live alongside ``ic_newey_west``.
+
+    References:
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
+        autocorrelation, motivating the non-overlap stride.
     """
     # Compute tie_ratio on the sampled subset (what bucketing actually sees)
     # rather than the full panel — ~N/forward_periods smaller scan.
@@ -233,6 +260,20 @@ def quantile_spread_vw(
         Short-circuits if ``weight_col`` is missing or post-sampling n <
         ``MIN_PORTFOLIO_PERIODS``.
 
+    Notes:
+        Per non-overlapping date ``t``, per bucket ``b in {bot, top}``::
+
+            vw_b[t] = sum_{i in b} w[i, t-1] * return[i, t -> t+h]
+                      / sum_{i in b} w[i, t-1]
+            spread[t] = vw_top[t] - vw_bot[t]
+            value = mean_t spread[t];  t = sqrt(n) * value / std(spread)
+
+        factrix lags weights by one **sampled** period per asset by default
+        (not one raw bar) so the lag aligns with the rebalance stride;
+        contemporaneous ``weight × forward_return`` would embed look-ahead
+        bias from market-cap moves that the forward return has not yet
+        realized.
+
     References:
         Hou, Xue & Zhang (2020): ~65% of factors disappear under VW.
     """
@@ -329,6 +370,14 @@ def compute_group_returns(
     Returns:
         DataFrame with ``group, mean_return`` sorted ascending by group.
         Group 0 = lowest factor rank, n_groups-1 = highest.
+
+    Notes:
+        ``mean_return[g] = mean over (date, asset) where _group=g of
+        return_col`` — equal-weighted across all observations in the
+        bucket pooled across dates. Use ``compute_spread_series`` if you
+        want per-date bucket means averaged afterwards (the IC/IR-style
+        aggregation order); the two differ when bucket cardinality moves
+        across dates.
     """
     sampled = _sample_non_overlapping(df, forward_periods)
     grouped = _assign_quantile_groups(

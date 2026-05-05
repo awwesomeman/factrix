@@ -91,6 +91,32 @@ def ts_asymmetry(
         ``date`` column, missing ``factor`` / return column, fewer
         than ``MIN_PORTFOLIO_PERIODS`` per-date rows, or no two-sided
         factor variation).
+
+    Notes:
+        Aggregate to per-date ``(_f, _r)`` then fit two NW-HAC OLS
+        specifications on the resulting time series::
+
+            Method A: r_t = beta_long*I(f>0) + beta_short*I(f<0)
+                          + beta_zero*I(f=0)
+                      H0: beta_long + beta_short = 0   (Wald, two-sided)
+
+            Method B: r_t = alpha + beta_pos*max(f, 0) + beta_neg*min(f, 0)
+                      H0: beta_pos = beta_neg          (Wald)
+
+        ``value = beta_long + beta_short`` (method A); 0 under perfect
+        symmetry, positive when the long side dominates in magnitude.
+
+        factrix runs both methods under NW HAC + Wald (not Welch t)
+        because ``forward_periods > 1`` breaks the iid assumption Welch
+        relies on, and using one estimator family across A and B keeps
+        cross-method p-values comparable.
+
+    References:
+        [Newey-West 1987][newey-west-1987]: HAC covariance underpinning
+        the Wald tests for both methods.
+        [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``.
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
+        floor for overlapping returns.
     """
     if "date" not in df.columns:
         return _short_circuit_output(

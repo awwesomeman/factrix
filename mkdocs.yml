@@ -36,11 +36,14 @@ theme:
 
 hooks:
   - scripts/gen_metric_matrix.py
+  - scripts/sync_examples.py
 
 plugins:
   - search:
       lang:
         - en
+  - autorefs:
+      resolve_closest: true
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -111,19 +114,49 @@ nav:
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
       - Batch screening (BHY): guides/batch-screening.md
       - Choosing a metric: guides/choosing-metric.md
-      - Examples: examples/demo.ipynb
   - Reference:
-      - Methodology: reference/methodology.md
-      - Statistical methods: reference/statistical-methods.md
       - Metric applicability: reference/metric-applicability.md
       - Standalone metrics: reference/standalone-metrics.md
-      - API:
-          - AnalysisConfig: reference/api/analysis-config.md
-          - evaluate: reference/api/evaluate.md
-          - FactorProfile: reference/api/factor-profile.md
-          - multi_factor: reference/api/multi-factor.md
-          - datasets: reference/api/datasets.md
+      - Statistical methods: reference/statistical-methods.md
+      - Warning / info / stat codes: reference/warning-codes.md
+      - Bibliography: reference/bibliography.md
+  - API:
+      - AnalysisConfig: api/analysis-config.md
+      - evaluate: api/evaluate.md
+      - FactorProfile: api/factor-profile.md
+      - MetricOutput: api/metric-output.md
+      - multi_factor: api/multi-factor.md
+      - datasets: api/datasets.md
+      - Metrics:
+          - api/metrics/index.md
+          - Individual continuous:
+              - ic: api/metrics/ic.md
+              - fama_macbeth: api/metrics/fama_macbeth.md
+              - quantile: api/metrics/quantile.md
+              - monotonicity: api/metrics/monotonicity.md
+              - concentration: api/metrics/concentration.md
+              - tradability: api/metrics/tradability.md
+              - spanning: api/metrics/spanning.md
+          - Individual sparse:
+              - caar: api/metrics/caar.md
+              - event_quality: api/metrics/event_quality.md
+              - event_horizon: api/metrics/event_horizon.md
+              - mfe_mae: api/metrics/mfe_mae.md
+              - clustering: api/metrics/clustering.md
+              - corrado: api/metrics/corrado.md
+          - Common continuous:
+              - ts_beta: api/metrics/ts_beta.md
+              - ts_quantile: api/metrics/ts_quantile.md
+              - ts_asymmetry: api/metrics/ts_asymmetry.md
+          - Series tools:
+              - hit_rate: api/metrics/hit_rate.md
+              - trend: api/metrics/trend.md
+              - oos: api/metrics/oos.md
+  - Examples:
+      - examples/index.md
+      - End-to-end walkthrough: examples/demo.ipynb
   - Development:
       - Architecture: development/architecture.md
+      - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
       - Changelog: development/changelog.md

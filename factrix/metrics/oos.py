@@ -79,20 +79,36 @@ def multi_split_oos_decay(
 
     Returns:
         MetricOutput with:
-          - ``name``: "oos_decay"
-          - ``value``: median survival ratio across splits (0.0 on short-circuit)
-          - ``stat``: None (descriptive statistic, not a hypothesis test)
-          - ``metadata``:
-              - ``sign_flipped`` (bool): any split had sign flip
-              - ``status`` ("PASS" | "VETOED")
-              - ``per_split`` (list[dict]): see ``SplitDetail.to_dict``
-              - ``p_value`` (float): 1.0 (not a hypothesis test; conservative
-                default so downstream BHY doesn't treat descriptive stats as
-                significant by omission)
-              - ``method`` (str): "multi-split OOS decay"
-              - ``survival_threshold`` (float)
-              - ``reason`` (str, short-circuit only): "insufficient_oos_periods"
-                or "no_valid_splits"
+
+        - ``name``: "oos_decay"
+        - ``value``: median survival ratio across splits (0.0 on short-circuit)
+        - ``stat``: None (descriptive statistic, not a hypothesis test)
+        - ``metadata``:
+
+            - ``sign_flipped`` (bool): any split had sign flip
+            - ``status`` ("PASS" | "VETOED")
+            - ``per_split`` (list[dict]): see ``SplitDetail.to_dict``
+            - ``p_value`` (float): 1.0 (not a hypothesis test; conservative
+              default so downstream BHY doesn't treat descriptive stats as
+              significant by omission)
+            - ``method`` (str): "multi-split OOS decay"
+            - ``survival_threshold`` (float)
+            - ``reason`` (str, short-circuit only): "insufficient_oos_periods"
+              or "no_valid_splits"
+
+    Notes:
+        For each split fraction ``f``, partition the sorted series into
+        IS (first ``f·n``) and OOS (remainder). Per-split survival ratio
+        is ``s_f = |mean_OOS| / |mean_IS|``; reported headline is
+        ``median_f s_f``. A split is flagged as ``sign_flipped`` when
+        ``mean_IS`` and ``mean_OOS`` have opposite signs — any such split
+        sets ``status = VETOED``.
+
+        factrix reports the **median** across splits rather than mean:
+        a single regime change landing inside one split distorts the
+        mean disproportionately. Descriptive only — no formal H0 is
+        attached and ``p_value`` is set to 1.0 so downstream BHY does
+        not treat the diagnostic as a significant test.
 
     References:
         - McLean & Pontiff (2016): average OOS decay ~32%.

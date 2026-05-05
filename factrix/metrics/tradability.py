@@ -97,6 +97,22 @@ def turnover(
         ``rank @ t_{k·h}``), so the per-pair ρ's have weak positive
         dependence and the true SE is marginally larger. For publication
         grade inference, use a HAC variance estimator.
+
+    Notes:
+        For each non-overlap pair ``(t, t+h)``, compute
+        ``rho_t = Spearman(rank_t, rank_{t+h})`` over assets present in
+        both cross-sections; ``turnover = 1 - mean_t rho_t``. With the
+        optional tail filter, ``rho_t`` is restricted to the union of top-
+        and bottom-q assets at either endpoint.
+
+        factrix exposes this metric as a **rank-stability diagnostic**
+        only — it is not a notional turnover and should not be fed into
+        ``breakeven_cost`` / ``net_spread``. Use ``notional_turnover()``
+        for those.
+
+    References:
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: justifies the
+        ``2h + 1`` minimum-date floor for non-overlap pair stride ``h``.
     """
     if quantile is not None and not 0.0 < quantile < 0.5:
         raise ValueError(
@@ -224,10 +240,19 @@ def notional_turnover(
         a short universe), ``method``.
 
     Notes:
-        Names dropped from ``Q_top_{t-1}`` / ``Q_bot_{t-1}`` by delisting
-        before ``t`` (not present in ``df`` at ``t``) are silently missed
-        on the sell side — real portfolios would book that liquidation
-        cost. The bias is typically small but grows with universe churn.
+        Per rebalance date ``t``::
+
+            top_churn = 1 - |Q_top(t) ∩ Q_top(t-1)| / |Q_top(t)|
+            bot_churn = 1 - |Q_bot(t) ∩ Q_bot(t-1)| / |Q_bot(t)|
+            turnover_t = (top_churn + bot_churn) / 2
+            value = mean_t turnover_t
+
+        factrix averages the two legs (rather than summing) to keep the
+        ``× 2`` factor in ``breakeven_cost = spread / (2 × turnover)``
+        consistent with single-leg rather than round-trip cost
+        accounting. Names dropped from ``Q_top(t-1)`` / ``Q_bot(t-1)`` by
+        delisting before ``t`` are silently missed on the sell side — a
+        real portfolio would still book that liquidation cost.
 
     References:
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their
@@ -365,6 +390,18 @@ def breakeven_cost(
     Returns:
         MetricOutput with value = breakeven cost in bps.
 
+    Notes:
+        ``breakeven_bps = (gross_spread × forward_periods) /
+        (2 × turnover) × 1e4``. Multiplying spread by ``forward_periods``
+        lifts the per-period spread to the per-rebalance scale matching
+        ``turnover``; ``× 2`` is the long+short single-leg pair; ``× 1e4``
+        converts to bps.
+
+        factrix expects ``turnover`` to be a notional fraction in [0, 1]
+        (output of ``notional_turnover``); feeding the rank-stability
+        ``turnover()`` value will mis-state breakeven by a factor that
+        grows with mid-rank churn.
+
     References:
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
     """
@@ -436,6 +473,17 @@ def net_spread(
 
     Returns:
         MetricOutput with value = net spread (per-period).
+
+    Notes:
+        ``net = gross_spread - 2 × (cost_bps / 1e4) × turnover /
+        forward_periods``. Cost is incurred once per ``forward_periods``-
+        period rebalance, so dividing by ``forward_periods`` amortises it
+        back to the per-period scale of ``gross_spread``. Without the
+        amortisation any factor with ``h >= 2`` is over-charged by ``h x``.
+
+        factrix expects ``turnover`` to be a notional fraction (output of
+        ``notional_turnover``); rank-stability ``turnover()`` over-states
+        the cost drag.
 
     References:
         DeMiguel, Martin-Utrera, Nogales & Uppal (2020), "A

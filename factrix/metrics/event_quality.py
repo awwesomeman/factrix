@@ -42,14 +42,21 @@ def event_hit_rate(
 ) -> MetricOutput:
     """Fraction of events where signed abnormal return > 0.
 
-    Uses binomial score test: H₀: p = 0.5 (random direction).
-    z = (hits - n*p0) / sqrt(n*p0*(1-p0))
-
     Args:
         df: Panel with event signal and forward return.
 
     Returns:
         MetricOutput with value=hit_rate, stat=z from binomial test.
+
+    Notes:
+        ``hits = sum_i 1{signed_car_i > 0}``, ``rate = hits / N``.
+        Two-sided binomial test against ``H0: p = 0.5``: exact below
+        ``_BINOMIAL_EXACT_CUTOFF``, normal-approximation z above
+        (``z = (hits - N/2) / (sqrt(N) / 2)``).
+
+        factrix publishes ``stat`` consistent with the test branch
+        (raw hit count for the exact path, z for the normal path) so an
+        exact-binomial p is never paired with a Gaussian z label.
     """
     events = df.filter(pl.col(factor_col) != 0)
 
@@ -112,6 +119,17 @@ def event_ic(
 
     Returns:
         MetricOutput with value=Spearman rho, stat=z from Fisher transform.
+
+    Notes:
+        ``rho = Spearman(|factor|, signed_car)`` over event rows; Fisher
+        z-transform ``z = atanh(rho) * sqrt(N - 3)`` against ``H0: rho =
+        0``. Direction is already absorbed into ``signed_car`` so this
+        isolates the magnitude-of-signal → magnitude-of-return link.
+
+        factrix short-circuits ``"not_applicable_discrete_signal"`` when
+        ``|factor|`` lacks variance (e.g. ``{0, ±1}`` events): event-IC
+        is undefined without magnitude variation, distinct from "too few
+        events".
     """
     from scipy import stats as sp_stats
 
@@ -176,6 +194,17 @@ def profit_factor(
 
     Returns:
         MetricOutput with value=profit_factor.
+
+    Notes:
+        ``PF = sum(signed_car > 0) / |sum(signed_car < 0)|``. Descriptive
+        only; no formal H0 (the ratio's sampling distribution lacks a
+        clean closed-form null without distributional assumptions).
+        ``PF > 1`` means gross gains exceed gross losses across all
+        events; the metric ignores per-event variance.
+
+        factrix returns ``0.0`` rather than infinity when total losses
+        are below ``EPSILON`` so downstream aggregators do not propagate
+        non-finite floats.
     """
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
@@ -225,6 +254,18 @@ def event_skewness(
 
     Returns:
         MetricOutput with value=skewness, stat=z from D'Agostino test.
+
+    Notes:
+        ``skew = m_3 / m_2^(3/2)`` (Fisher, bias-corrected via
+        ``scipy.stats.skew(bias=False)``); D'Agostino skew test gives
+        ``z`` with ``H0: skew = 0`` when ``N >= 20``. Below 20 events,
+        the test is not produced (``stat=None``) but the descriptive
+        skewness is still returned.
+
+        factrix gates the inference branch at ``N >= 20`` because the
+        D'Agostino-Pearson normal approximation degrades sharply on
+        small samples; reporting an unreliable z would invite
+        false-positive significance.
     """
     from scipy import stats as sp_stats
 
@@ -286,6 +327,16 @@ def signal_density(
 
     Returns:
         MetricOutput with value = mean bars-per-event across assets.
+
+    Notes:
+        Per asset ``i``: ``bars_per_event_i = total_bars_i / n_events_i``;
+        the headline is the cross-asset mean of this ratio. This is an
+        inverse-frequency measure, **not** the mean of inter-event gaps:
+        clustered and evenly-spaced events at the same total count map to
+        the same value.
+
+        factrix exposes ``clustering_diagnostic`` for event-date
+        concentration; pair the two when independence assumptions matter.
     """
     events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
     n_events = len(events)

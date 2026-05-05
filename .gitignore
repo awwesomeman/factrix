@@ -43,3 +43,9 @@ package-lock.json
 
 # MkDocs build output
 site/
+
+# MkDocs caches
+.cache/
+
+# MkDocs build-time artifacts (synced from SSOT by hooks; see scripts/)
+docs/examples/*.ipynb

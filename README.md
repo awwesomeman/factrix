@@ -1,35 +1,43 @@
+<div align="center">
+
 # factrix
 
-> **Factor Matrix Library** — Polars-native Factor Signal Validator
+</div>
 
-Factrix 只回答：**「這個因子在統計上真的有效嗎？」**
+<p align="center">
+    <a href="https://github.com/awwesomeman/factrix/releases" title="Version">
+        <img src="https://img.shields.io/github/v/release/awwesomeman/factrix?color=3670A0&label=version" />
+    </a>
+    <a href="https://www.python.org/downloads/" title="Python versions">
+        <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" />
+    </a>
+    <a href="https://pola.rs/" title="Polars-native">
+        <img src="https://img.shields.io/badge/polars-native-CD792C?logo=polars&logoColor=white" />
+    </a>
+    <a href="https://github.com/awwesomeman/factrix/blob/main/LICENSE" title="License">
+        <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" />
+    </a>
+    <a href="https://awwesomeman.github.io/factrix/" title="Documentation">
+        <img src="https://img.shields.io/badge/docs-mkdocs--material-526CFE?logo=materialformkdocs&logoColor=white" />
+    </a>
+    <a href="https://github.com/awwesomeman/factrix/stargazers" title="Stars">
+        <img src="https://img.shields.io/github/stars/awwesomeman/factrix?style=flat" />
+    </a>
+</p>
 
-請帶著 `primary_p` 與 `verdict()` 去下游做回測 / 配置 — `factrix` 不做那些。
+<h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
 
-📖 **[Documentation](https://awwesomeman.github.io/factrix/)** | [GitHub](https://github.com/awwesomeman/factrix)
+A polars-native factor signal validator, **factrix**. It answers a single core question — **Does this factor carry statistical edge?** 
 
----
-
-## 安裝
+## Installation
 
 ```bash
-# uv（推薦）
 uv pip install git+https://github.com/awwesomeman/factrix.git
-
-# conda / pip
-pip install git+https://github.com/awwesomeman/factrix.git
 ```
 
-開發者安裝：
+See the [installation guide](https://awwesomeman.github.io/factrix/getting-started/install/) for `pip` / `conda`, version pinning, and development setup.
 
-```bash
-git clone https://github.com/awwesomeman/factrix.git && cd factrix
-uv sync --extra dev
-```
-
----
-
-## 30-second smoke test
+## Quickstart
 
 ```python
 import factrix as fl
@@ -45,51 +53,13 @@ print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
 # → pass | primary_p = 0.0
 ```
 
-> `forward_periods` counts rows, not calendar time. factrix is frequency-agnostic.
+## Documentation
 
----
-
-## Research question → factory
-
-| 你想問的問題 | Factory |
-|---|---|
-| Per-asset 因子能否預測 cross-section 排序？ | `individual_continuous(metric=fl.Metric.IC)` |
-| Per-asset 因子的報酬溢酬是多少？ | `individual_continuous(metric=fl.Metric.FM)` |
-| 個股事件有沒有 abnormal return？ | `individual_sparse()` |
-| Macro 因子對 cross-section 有沒有 systematic exposure？ | `common_continuous()` |
-| Macro 事件有沒有市場效應？ | `common_sparse()` |
-
----
-
-## Batch screening with BHY
-
-```python
-candidates = ["mom_5d", "mom_20d", "mom_60d"]
-cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
-
-profiles  = [fl.evaluate(panel.with_columns(pl.col(c).alias("factor")), cfg) for c in candidates]
-survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
-```
-
----
-
-## Non-goals
-
-factrix 不做（也不打算做）：portfolio optimization、ML signal、backtest / execution、HFT tick-level。Feed `primary_p` survivors into `skfolio` / `vectorbt` / `zipline` downstream.
-
----
-
-## 文件
-
-| 想知道 | 看 |
-|---|---|
-| 安裝、quickstart、三軸概念 | [Get Started](https://awwesomeman.github.io/factrix/getting-started/) |
-| PANEL/TIMESERIES、BHY、metric 選擇 | [Guides](https://awwesomeman.github.io/factrix/guides/) |
-| 精確公式 / 演算法 / API | [Reference](https://awwesomeman.github.io/factrix/reference/methodology/) |
-| 內部架構 / 開發流程 | [Development](https://awwesomeman.github.io/factrix/development/architecture/) |
-
----
+- [**Get Started**](https://awwesomeman.github.io/factrix/getting-started/) — install, quickstart, three-axis concepts
+- [**Guides**](https://awwesomeman.github.io/factrix/guides/) — PANEL vs TIMESERIES, BHY batch screening, choosing a metric
+- [**Reference**](https://awwesomeman.github.io/factrix/reference/metric-applicability/) — applicability tables, formulas, statistical methods
+- [**Development**](https://awwesomeman.github.io/factrix/development/architecture/) — architecture, contributing
 
 ## License
 
-[Apache License 2.0](LICENSE)
+Released under the [Apache License 2.0](LICENSE).

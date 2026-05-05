@@ -1,6 +1,6 @@
 # factrix Architecture
 
-Current-state snapshot — describes the v0.5 library as it stands.
+Current-state snapshot of the public API surface and internal layout.
 
 ---
 
@@ -24,9 +24,9 @@ flowchart TD
     REG["Registry\n_registry.py SSOT\n7 cells"]
     MODE{"Mode\nN = panel.asset_id.n_unique()"}
 
-    P1["_ICPanelProcedure\nindividual × continuous × IC"]
-    P2["_FMPanelProcedure\nindividual × continuous × FM"]
-    P3["_CAARPanelProcedure\nindividual × sparse"]
+    P1["_ICContPanelProcedure\nindividual × continuous × IC"]
+    P2["_FMContPanelProcedure\nindividual × continuous × FM"]
+    P3["_CAARSparsePanelProcedure\nindividual × sparse"]
     P4["_CommonContPanelProcedure\ncommon × continuous"]
     P5["_CommonSparsePanelProcedure\ncommon × sparse"]
     T1["_TSBetaContTimeseriesProcedure\ncommon × continuous · N=1"]
@@ -65,7 +65,7 @@ Plus introspection / error / enum re-exports:
 - `fl.suggest_config(panel)` — heuristic factory call from a raw panel
 - `fl.ConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError` — exception hierarchy
 
-`__version__ = "0.5.0"`.
+`__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
 ---
 
@@ -83,8 +83,8 @@ axis `Mode` is **derived at evaluate-time** from `panel["asset_id"].n_unique()`:
 
 Five legal `(scope, signal, metric)` triples × two modes give seven legal
 `(scope, signal, metric, mode)` cells (TIMESERIES narrows to three triples; the
-remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel — see §5.4.1
-of the refactor plan).
+remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel defined in
+`factrix/_axis.py`).
 
 ---
 
@@ -127,9 +127,9 @@ table is the SSOT for what each procedure computes.
 
 | `(scope, signal, metric, mode)`                         | Procedure class                                  |
 |---------------------------------------------------------|--------------------------------------------------|
-| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICPanelProcedure`                              |
-| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMPanelProcedure`                              |
-| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARPanelProcedure`                            |
+| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICContPanelProcedure`                          |
+| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMContPanelProcedure`                          |
+| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARSparsePanelProcedure`                      |
 | `(COMMON, CONTINUOUS, None, PANEL)`                      | `_CommonContPanelProcedure`                      |
 | `(COMMON, SPARSE, None, PANEL)`                          | `_CommonSparsePanelProcedure`                    |
 | `(COMMON, CONTINUOUS, None, TIMESERIES)`                 | `_TSBetaContTimeseriesProcedure`                 |
@@ -190,47 +190,36 @@ to the resulting profile so the routing is auditable.
 
 ## Sample guards
 
-`factrix/_stats/constants.py`:
-
-- `MIN_PERIODS_HARD = 20` — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`
-- `MIN_PERIODS_RELIABLE = 30` — `n_periods < MIN_PERIODS_RELIABLE` adds `WarningCode.UNRELIABLE_SE_SHORT_PERIODS`
-- `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule
-- Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` — ensures NW lag covers MA(h-1) structure from overlapping forward returns
-
-`factrix/_types.py` keeps the older per-metric thresholds (`MIN_ASSETS_PER_DATE_IC = 10`,
-`MIN_EVENTS = 10`, etc.) used internally by the metric primitives that
-procedures wrap.
-
-### Cross-sectional guards (`n_assets`)
+User-facing tier semantics (hard block / soft warning / clean) live in
+[Guides § PANEL vs TIMESERIES — Sample guards](../guides/panel-timeseries.md#sample-guards).
+This section catalogues the **internal constants** that back those tiers.
 
 `factrix/_stats/constants.py`:
 
-- `MIN_ASSETS = 10` — `n_assets < MIN_ASSETS` emits `WarningCode.SMALL_CROSS_SECTION_N`
-  from the `common_continuous` PANEL procedure and from `suggest_config`.
-  df = `n_assets` − 1 → t_crit at `n_assets` = 3 ≈ 4.30 (+119% vs asymptotic 1.96),
-  at `n_assets` = 5 ≈ 2.78 (+42%). Test still runs; warning surfaces the
-  inflation so caller can collect more cross-section before trusting reject
-  decisions.
-- `MIN_ASSETS_RELIABLE = 30` — `MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE`
-  emits `WarningCode.BORDERLINE_CROSS_SECTION_N`. df → t_crit at
-  `n_assets` = 10 ≈ 2.26 (+15%), at `n_assets` = 20 ≈ 2.09 (+7%). The gross
-  failure tier is cleared, but residual t-stat inflation matters for borderline
-  p-values (e.g. p ≈ 0.04 should be read as "borderline at this `n_assets`",
-  not "rejected").
+- `MIN_PERIODS_HARD = 20`, `MIN_PERIODS_RELIABLE = 30` — the two-tier `n_periods` thresholds.
+- `MIN_ASSETS = 10`, `MIN_ASSETS_RELIABLE = 30` — the two-tier `n_assets` thresholds. The
+  `n_assets` axis never raises (cross-asset t-test on E[β] is mathematically defined for
+  `n_assets ≥ 2`), so constant naming deliberately drops the `_HARD` suffix to avoid
+  implying a raise.
+- `auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))` — Newey-West (1994) auto lag rule.
+- Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` —
+  ensures NW lag covers MA(h-1) structure from overlapping forward returns.
 
-Symmetric with the `n_periods` two-tier (`MIN_PERIODS_HARD = 20` raises
-`InsufficientSampleError`; `MIN_PERIODS_RELIABLE = 30` emits
-`UNRELIABLE_SE_SHORT_PERIODS`). The `n_assets` axis never raises because
-the cross-asset t-test on E[β] is mathematically well-defined for
-`n_assets ≥ 2` — only its statistical power degrades. Constant naming
-deliberately drops the `_HARD` suffix on `MIN_ASSETS` to avoid implying a
-raise; `_RELIABLE` mirrors the `n_periods` semantics.
+`factrix/_types.py` keeps the older per-metric thresholds used internally by the metric
+primitives that procedures wrap:
 
-`MIN_ASSETS_PER_DATE_IC = 10` (in `factrix/_types.py`) drops dates with
-fewer than 10 assets from `compute_ic`. At `n_assets` < 10 the IC procedure
-short-circuits to NaN because every date is dropped. `compute_fm_betas`
-carries an inline `if len(y) < 3: continue` guard but no per-date min
-above 3.
+- `MIN_ASSETS_PER_DATE_IC = 10` — `compute_ic` drops dates with fewer than 10 assets;
+  at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
+- `MIN_EVENTS = 10` — sparse-cell event-count floor.
+- `compute_fm_betas` carries an inline `if len(y) < 3: continue` guard, no per-date min above 3.
+
+### Inflation cost at low `n_assets`
+
+For interpreting borderline p-values when `n_assets` falls in the warning bands:
+df = `n_assets` − 1 → t_crit at `n_assets` = 3 ≈ 4.30 (+119% vs asymptotic 1.96),
+at 5 ≈ 2.78 (+42%), at 10 ≈ 2.26 (+15%), at 20 ≈ 2.09 (+7%). The test still
+runs; the warning surfaces the inflation so callers can read p ≈ 0.04 as
+"borderline at this `n_assets`" rather than "rejected".
 
 ---
 
@@ -239,6 +228,13 @@ above 3.
 The 7 registered procedures differ in **aggregation order** — which axis is
 collapsed first determines small-sample failure modes and the N=1 collapse
 behavior. The user-facing factory chosen determines which pipeline runs.
+
+The two universal `n_periods` floors apply to every panel/timeseries pipeline
+listed below — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`,
+`MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` emits
+`UNRELIABLE_SE_SHORT_PERIODS`. The per-procedure "Failure modes" lists below
+record only the **procedure-specific** failures; for the user-facing tier
+matrix see [Guides § PANEL vs TIMESERIES](../guides/panel-timeseries.md).
 
 ### Terminology — aggregation regime
 
@@ -268,8 +264,6 @@ per-date Spearman across n_assets         (cross-section step)
 Failure modes:
 
 - `n_assets` < 10 → `MIN_ASSETS_PER_DATE_IC` drops every date → output is NaN.
-- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 
 ### `individual_continuous(FM)` — cross-section first
 
@@ -313,8 +307,6 @@ reflect the dense series.
 Failure modes:
 
 - `n_events < MIN_EVENTS` → event series too short → primary_p reverts to insufficient.
-- `n_periods < MIN_PERIODS_HARD` (overall panel length) → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 
 ### `common_continuous` — time-series first
 
@@ -354,12 +346,13 @@ Failure modes:
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
 - `n_assets` two-tier guard same as `common_continuous` (`SMALL_CROSS_SECTION_N` /
   `BORDERLINE_CROSS_SECTION_N`).
-- The procedure does not currently impose a `n_events` floor on the
-  broadcast dummy — very-few-event factors can produce point estimates
-  driven by a single observation.
-- Cross-asset SE assumes asset-level independence (plan §4.3 spec); under
-  contemporaneous return correlation the standard t over-states
-  significance — Petersen (2009) clustered SE deferred per plan §11.
+- Two-tier event-count guard (`factrix/_stats/constants.py`):
+  `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
+  `5 ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE = 20` emits
+  `SPARSE_COMMON_FEW_EVENTS`.
+- Cross-asset SE assumes asset-level independence; under contemporaneous
+  return correlation the standard t over-states significance — Petersen
+  (2009) clustered SE deferred.
 
 ### `common_continuous` (TIMESERIES, N=1) — time-series only
 
@@ -375,8 +368,6 @@ PANEL form.
 
 Failure modes:
 
-- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 - ADF p > 0.10 → `WarningCode.PERSISTENT_REGRESSOR`.
 
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
@@ -398,8 +389,6 @@ preserved (no `.sign()` coercion at this layer).
 
 Failure modes:
 
-- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 - Ljung-Box p < 0.05 on residuals → `WarningCode.SERIAL_CORRELATION_DETECTED`.
 - Consecutive event gap < 2·`forward_periods` → `WarningCode.EVENT_WINDOW_OVERLAP`.
 
@@ -424,7 +413,7 @@ horizon-agnostic — one procedure per cell). User does **not** pass a group key
 same-test-family is enforced mechanically.
 
 Cross-family aggregation (e.g. horizon-shopping correction) is the user's
-responsibility — see README §批次評估與 BHY for the FWER-then-BHY recipe.
+responsibility — see [Guides § Batch screening (BHY)](../guides/batch-screening.md) for the FWER-then-BHY recipe.
 
 ---
 
@@ -492,8 +481,11 @@ factrix/
 ├── _stats/
 │   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
 │   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_RELIABLE / auto_bartlett
-├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_*_PERIODS
+├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
+│                            #   MIN_EVENTS, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS, ...
 ├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
+│                            # per-cell thresholds (MIN_FM_PERIODS, MIN_TS_OBS) live
+│                            # alongside the procedures that enforce them
 └── datasets.py              # synthetic CS / event panels
 ```
 
@@ -518,9 +510,10 @@ Hard constraints — violating these breaks the API contract:
 
 ## Testing
 
-`tests/` covers the v0.5 surface only — v0.4 tests were removed in the §8.2
-deletion sweep. Fixtures are fully synthetic (`tests/conftest.py` +
-`factrix.datasets`); no test reads real market data from disk.
+`tests/` covers the current public surface only — historical pre-v0.5 tests
+were removed in the §8.2 deletion sweep. Fixtures are fully synthetic
+(`tests/conftest.py` + `factrix.datasets`); no test reads real market data
+from disk.
 
 Run: `uv run pytest`
 

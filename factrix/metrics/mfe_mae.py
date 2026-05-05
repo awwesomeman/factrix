@@ -88,6 +88,23 @@ def compute_mfe_mae(
         DataFrame with ``date, asset_id, mfe, mae, mfe_z, mae_z,
         est_sigma, bars_to_mfe, bars_to_mae``. Empty DataFrame if
         ``price_col`` not present.
+
+    Notes:
+        For each event with entry price ``P_0 = price[t_event]`` and
+        post-event window ``P_{1..W}``::
+
+            r_k       = direction * (P_k / P_0 - 1)        for k = 1..W
+            mfe       = max_k r_k;       mae = min_k r_k
+            est_sigma = std(daily_return) over the prior estimation_window
+            mfe_z     = mfe / (est_sigma * sqrt(W))
+            mae_z     = mae / (est_sigma * sqrt(W))
+
+        factrix scales by ``sqrt(W)`` because MFE/MAE are order
+        statistics whose expected magnitude grows as ``sqrt(W * sigma^2)``
+        — comparing raw MFE across horizons or vol regimes conflates
+        time-scale with signal strength. ``est_sigma`` excludes the
+        event-day bar to avoid feeding the signal back into its own
+        denominator.
     """
     if min_estimation_samples < 2:
         raise ValueError(
@@ -203,6 +220,18 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         data (empty input or fewer than ``MIN_EVENTS`` rows), returns a
         short-circuit MetricOutput (``value=NaN``, ``metadata["reason"]``
         set) so all metrics share a single return contract.
+
+    Notes:
+        Headline ``ratio = quantile(mfe, 0.50) / |quantile(mae, 0.75)|``.
+        Z-normalised siblings ``mfe_z_p50`` / ``mae_z_p75`` /
+        ``mfe_mae_ratio_z`` are reported when ``mfe_z`` / ``mae_z`` are
+        present and pass the same minimum-events threshold.
+
+        factrix pairs the MFE median against the MAE 75th percentile
+        (not the median) because the asymmetric quantile pair captures
+        risk-adjusted favourability: a strategy with median favourable
+        excursion that exceeds typical adverse excursion in the worst
+        quartile is the practically useful regime.
     """
     if mfe_mae_df.is_empty():
         return _short_circuit_output(

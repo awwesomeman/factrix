@@ -65,9 +65,27 @@ def corrado_rank_test(
     Returns:
         MetricOutput with value=mean rank deviation, stat=z.
 
+    Notes:
+        For each asset ``i``, rank ``return`` across the full sample,
+        transform to ``U_{i,t} = rank / (T+1) - 0.5`` (centered at 0),
+        and on event rows form ``U_event * sign(factor)``. Test statistic
+        ``z = mean(U_event_signed) / (std(U_all) / sqrt(N_events))``.
+
+        factrix uses the **pooled** std of ``U_all`` across all
+        ``(asset, date)`` cells in the denominator instead of the
+        time-series std of the cross-sectional mean used by Corrado
+        (1989) eq. (5). The two coincide under iid ranks but diverge
+        when event-date clustering is present; treat this as a
+        robustness screen against parametric BMP / CAAR rather than a
+        substitute for a reference event-study package when strict size
+        control matters.
+
     References:
-        Corrado (1989), "A Nonparametric Test for Abnormal Security-
-        Price Performance in Event Studies."
+        [Corrado 1989][corrado-1989]: nonparametric rank test for
+        event-window abnormal returns.
+        [Corrado-Zivney 1992][corrado-zivney-1992]: source of the
+        direction-adjustment idea factrix adopts for two-sided
+        signals.
     """
     ranked = df.with_columns(
         (

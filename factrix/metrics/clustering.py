@@ -46,6 +46,17 @@ def clustering_diagnostic(
     Returns:
         MetricOutput with value=HHI, metadata includes effective_n_dates
         and concentration ratio.
+
+    Notes:
+        ``HHI = sum_d s_d^2`` where ``s_d = (events on date d) / total``;
+        ranges from ``1/D`` (uniform across ``D`` event dates) to ``1.0``
+        (all events on a single date). ``effective_n_dates = 1 / HHI``;
+        ``hhi_normalized = (HHI - 1/D) / (1 - 1/D)`` rescales to ``[0, 1]``.
+
+        factrix reports HHI as a descriptive concentration index — no
+        formal H0 — because the natural follow-up correction
+        (cross-sectional dependence in CAAR / BMP) is delegated to
+        ``bmp_test(kolari_pynnonen_adjust=True)``.
     """
     events = df.filter(pl.col(factor_col) != 0)
     n_events = len(events)
