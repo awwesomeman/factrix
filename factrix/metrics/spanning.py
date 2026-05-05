@@ -15,6 +15,8 @@ Both use factor return time series (quantile spread series), not IC.
 References:
     Barillas & Shanken (2017), "Which Alpha?"
     Feng, Giglio & Xiu (2020), "Taming the Factor Zoo."
+
+Matrix-row: spanning_alpha, greedy_forward_selection | factor-return-series consumer (post-PANEL pipeline) | TS-only | NW HAC / OLS t | _p_value_from_t, _significance_marker, _short_circuit_output, _ols_alpha
 """
 
 from __future__ import annotations

@@ -13,6 +13,8 @@ References:
     Fama & MacBeth (1973), "Risk, Return, and Equilibrium."
     Newey & West (1987), "HAC Covariance Matrix."
     Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."
+
+Matrix-row: compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency | (INDIVIDUAL, CONTINUOUS, FM, PANEL) | CS-first | NW HAC / clustered t | _newey_west_t_test, _p_value_from_t, _significance_marker, _short_circuit_output
 """
 
 from __future__ import annotations

@@ -6,6 +6,8 @@ series; binomial test against `p = 0.5`.
 Input: DataFrame with ``date, value`` or a 1-D array.
 Output: proportion of periods where the value satisfies a condition
 (default: value > 0).
+
+Matrix-row: hit_rate | (*, CONTINUOUS, *, TIMESERIES) | TS-only | binomial | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _sample_non_overlapping
 """
 
 from __future__ import annotations

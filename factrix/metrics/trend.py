@@ -8,6 +8,8 @@ Output: slope + confidence interval for trend detection.
 
 Theil-Sen is preferred over OLS because it has a breakdown point of 29.3%,
 making it robust to outliers (e.g. COVID-era IC spikes).
+
+Matrix-row: ic_trend | (*, CONTINUOUS, *, TIMESERIES) | TS-only | Theil-Sen rank-based CI | _significance_marker, _short_circuit_output, _adf, _p_value_from_t
 """
 
 from __future__ import annotations

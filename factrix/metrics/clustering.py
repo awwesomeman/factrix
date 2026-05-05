@@ -11,6 +11,8 @@ quantifies this concentration.
 
 Only meaningful for multi-asset panels (N > 1). For single-asset
 event studies, clustering across assets is not applicable.
+
+Matrix-row: clustering_diagnostic | (*, SPARSE, *, PANEL) | static CS | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations

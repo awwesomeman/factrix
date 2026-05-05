@@ -12,6 +12,8 @@ Metrics:
     compute_event_returns — per-event, per-offset raw return data
     event_around_return   — return profile summary at each offset
     multi_horizon_hit_rate — win rate at multiple holding periods
+
+Matrix-row: compute_event_returns, event_around_return, multi_horizon_hit_rate | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output, _significance_marker
 """
 
 from __future__ import annotations

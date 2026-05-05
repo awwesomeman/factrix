@@ -14,6 +14,8 @@ DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricOutput``
 Metrics:
     compute_mfe_mae   — per-event MFE/MAE/Bars_to_MFE/Bars_to_MAE
     mfe_mae_summary   — aggregate summary (p50, p75, ratio)
+
+Matrix-row: compute_mfe_mae, mfe_mae_summary | (*, SPARSE, *, PANEL) | per-event | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations

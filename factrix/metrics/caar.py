@@ -13,6 +13,8 @@ References:
     MacKinlay (1997), "Event Studies in Economics and Finance"
     Boehmer, Musumeci & Poulsen (1991), "Event-study methodology
         under conditions of event-induced variance"
+
+Matrix-row: compute_caar, caar, bmp_test | (*, SPARSE, *, PANEL) | per-event | non-overlapping t / z | _calc_t_stat, _p_value_from_t, _p_value_from_z, _significance_marker, _sample_non_overlapping, _short_circuit_output
 """
 
 from __future__ import annotations

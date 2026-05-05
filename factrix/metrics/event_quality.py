@@ -15,6 +15,8 @@ Metrics:
     signal_density — average time gap between events
     profit_factor  — sum(gains) / sum(losses)
     event_skewness — skewness of signed_car distribution
+
+Matrix-row: event_hit_rate, event_ic, profit_factor, event_skewness, signal_density | (*, SPARSE, *, PANEL) | per-event | binomial / nonparametric rank | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _signed_car
 """
 
 from __future__ import annotations

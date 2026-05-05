@@ -18,6 +18,8 @@ Standalone metric — not in the default profile. Available via:
 References:
     Corrado (1989), "A nonparametric test for abnormal security-price
         performance in event studies"
+
+Matrix-row: corrado_rank_test | (*, SPARSE, *, PANEL) | per-event | nonparametric rank | _calc_t_stat, _p_value_from_z, _significance_marker, _short_circuit_output
 """
 
 from __future__ import annotations

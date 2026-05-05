@@ -492,3 +492,34 @@ deletion sweep. Fixtures are fully synthetic (`tests/conftest.py` +
 `factrix.datasets`); no test reads real market data from disk.
 
 Run: `uv run pytest`
+
+### Docs SSOT strategy (Option B — issue #42)
+
+`docs/reference/standalone-metrics.md` no longer contains a hand-written
+matrix. The matrix is generated at build time from machine-readable
+`Matrix-row:` tags embedded in each `factrix/metrics/*.py` module docstring.
+
+**How it works:**
+
+- Each public metric module carries one or more `Matrix-row:` lines at the
+  end of its module-level docstring, with five pipe-separated fields:
+  `public_functions | cell_scope | aggregation_order | inference_se | primitives`.
+- `scripts/gen_metric_matrix.py` (also a MkDocs `hooks:` entry) parses every
+  public module with `ast`, extracts the tags, and writes
+  `docs/reference/_generated_metric_matrix.md` before each docs build.
+- `standalone-metrics.md` includes the generated file via
+  `--8<-- "docs/reference/_generated_metric_matrix.md"` (pymdownx.snippets).
+
+**CI coverage (`tests/test_docs_matrix.py`):**
+
+- Every public metric module has at least one `Matrix-row:` tag.
+- Every tag has exactly 5 pipe-separated fields.
+- `_generated_metric_matrix.md` exists and is non-empty (skipped if absent,
+  so CI that only runs pytest without a prior build does not false-positive).
+
+**Why Option B over Option C (pure CI guard):** Option C only checked
+presence/absence of module references; drift in any of the five data columns
+(scope, aggregation order, inference SE, primitives) was invisible to CI.
+Option B makes the docstring the single source of truth for all six matrix
+columns — adding a module without a `Matrix-row:` tag fails the test, and
+editing the tag automatically updates the rendered docs on the next build.

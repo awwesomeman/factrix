@@ -8,6 +8,8 @@ Output: spread series, long/short alpha decomposition.
 
 All spread series are time-indexed (``date, value``) and can be fed
 into any ``series/`` tool.
+
+Matrix-row: compute_spread_series, quantile_spread, quantile_spread_vw, compute_group_returns | (INDIVIDUAL, CONTINUOUS, *, PANEL) | CS-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio, _lag_within_asset
 """
 
 from __future__ import annotations

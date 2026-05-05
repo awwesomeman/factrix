@@ -9,6 +9,8 @@ Per-date: split into n_groups by factor rank, compute mean return per group,
 Spearman corr between group index and return.
 
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
+
+Matrix-row: monotonicity | (INDIVIDUAL, CONTINUOUS, *, PANEL) | CS-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio
 """
 
 from __future__ import annotations

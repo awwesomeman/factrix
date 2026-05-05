@@ -20,6 +20,9 @@ measures — they belong in Profile, not in Gates.
 
 Input for Turnover: DataFrame with ``date, asset_id, factor``.
 Input for Breakeven/Net Spread: pre-computed spread and turnover values.
+
+Matrix-row: notional_turnover, breakeven_cost, net_spread | (INDIVIDUAL, CONTINUOUS, *, PANEL) | CS-first | no formal H₀ | _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups
+Matrix-row: turnover | (INDIVIDUAL, CONTINUOUS, *, PANEL) | TS-only (rank autocorrelation across consecutive dates) | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations

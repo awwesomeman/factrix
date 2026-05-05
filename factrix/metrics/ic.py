@@ -7,6 +7,8 @@ regime / multi-horizon variants slice or repeat the same pipeline.
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
 Output: time-indexed IC series (``date, ic``) that can be fed into
 any ``series/`` tool (oos, trend, significance, hit_rate).
+
+Matrix-row: compute_ic, ic, ic_newey_west, ic_ir, regime_ic, multi_horizon_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | CS-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
 """
 
 from __future__ import annotations

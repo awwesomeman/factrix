@@ -12,6 +12,8 @@ each asset's sensitivity (β) to the common factor.
 ``ts_beta``: cross-sectional test on the β distribution.
 ``mean_r_squared``: average explanatory power across assets.
 ``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
+
+Matrix-row: compute_ts_betas, ts_beta, mean_r_squared, compute_rolling_mean_beta, ts_beta_sign_consistency, ts_beta_single_asset_fallback | (COMMON, CONTINUOUS, *, PANEL) | TS-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _short_circuit_output
 """
 
 from __future__ import annotations

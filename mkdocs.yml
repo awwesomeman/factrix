@@ -34,6 +34,9 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
 
+hooks:
+  - scripts/gen_metric_matrix.py
+
 plugins:
   - search:
       lang:

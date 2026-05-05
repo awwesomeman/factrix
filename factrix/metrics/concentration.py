@@ -9,6 +9,8 @@ stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
 inverse.
 
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
+
+Matrix-row: top_concentration | (INDIVIDUAL, CONTINUOUS, *, PANEL) | CS-first | across-time t (one-sided H₀: ratio ≥ 0.5) | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _compute_tie_ratio
 """
 
 from __future__ import annotations
