@@ -2617,6 +2617,42 @@ above it. This decouples per-PR cadence from per-tag cadence — see
 CONTRIBUTING §7 (Release workflow).</p>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong><code>bmp_test(include_prediction_error_variance=False)</code></strong> — opt-in
+  strict BMP (1991) denominator <span class="arithmatex">\(\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}\)</span>
+  for the mean-adjusted residual forecast. Default off preserves the
+  prior simplified denominator. Under a single <code>estimation_window</code>
+  the correction scales every SAR by the same constant, so
+  <code>mean_SAR</code> / <code>std_SAR</code> shrink by the same ratio but the <span class="arithmatex">\(z\)</span>
+  statistic is invariant; the flag documents the strict standardiser
+  rather than moving inference. Per-event <span class="arithmatex">\(T_i\)</span> variation (which
+  would move <span class="arithmatex">\(z\)</span>) requires a market-model extension and remains out
+  of scope. (#48)</li>
+<li><strong><code>WarningCode.SPARSE_MAGNITUDE_WEIGHTED</code></strong> — emitted by
+  <code>compute_caar</code> (as a <code>UserWarning</code> on the primitive) and surfaced
+  in <code>FactorProfile.warnings</code> from the <code>(INDIVIDUAL, SPARSE, PANEL)</code>
+  / <code>(COMMON, SPARSE, PANEL)</code> procedures when the sparse <code>factor</code>
+  column is mixed-sign and not a clean ±1 ternary
+  (e.g. <code>{-2.5, 0, +1.3}</code>). The CAAR / sparse-panel statistic in
+  that regime is the Sefcik-Thompson (1986) magnitude-weighted
+  variant rather than the MacKinlay (1997) signed CAAR — a different
+  estimator at finite samples when negative- and positive-leg vols
+  disagree. <code>{-1, 0, +1}</code> does not trigger (sign and weight
+  coincide numerically); all-non-negative inputs do not trigger (no
+  flip ambiguity). Helper <code>_is_sparse_magnitude_weighted</code> (single
+  <code>.unique()</code> + sign distribution) is the shared check. (#48)</li>
+<li><strong><code>compute_ic</code> per-date <code>tie_ratio</code> column</strong> — output schema widened
+  from <code>(date, ic)</code> to <code>(date, ic, tie_ratio)</code>, where
+  <code>tie_ratio = 1 - n_unique / n</code> per date in <code>[0, 1]</code>. Aggregated as
+  the median across dates and surfaced via
+  <code>MetricOutput.metadata["tie_ratio"]</code> for <code>ic</code>, <code>ic_newey_west</code>, and
+  <code>ic_ir</code>. Motivation: at high tie rates Spearman ρ on average ranks
+  is biased relative to the tie-corrected formula (Kendall-Stuart
+  §31), and the previous primitive contract gave callers no way to
+  detect bucketed / categorical signals without re-inspecting the
+  raw input. Parallels the existing <code>top_concentration</code> tie diagnostic.
+  <strong>Migration:</strong> code that asserts the exact column list of
+  <code>compute_ic</code> output (e.g. <code>df.columns == ["date", "ic"]</code>) needs to
+  accept the third column; column-by-name access is unaffected. (#48)</li>
 <li><strong><code>WarningCode.SMALL_CROSS_SECTION_N</code></strong> + <strong><code>BORDERLINE_CROSS_SECTION_N</code></strong>
   — emitted by the <code>common_continuous</code> PANEL procedure and by
   <code>suggest_config</code> based on <code>n_assets</code>. <code>2 ≤ n_assets &lt; 10</code> → SMALL
@@ -2648,6 +2684,39 @@ CONTRIBUTING §7 (Release workflow).</p>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>Two-tier sample-size guards on <code>fama_macbeth</code>, <code>caar</code>, and
+  <code>top_concentration</code>.</strong> Each now distinguishes a math-validity floor
+  (<code>_HARD</code> → short-circuit to NaN <code>MetricOutput</code>) from a
+  literature/power floor (<code>_WARN</code> → return the stat with a Python
+  <code>UserWarning</code> and the relevant <code>WarningCode.value</code> surfaced in
+  <code>metadata["warning_codes"]</code>). Pre-#48 these primitives short-
+  circuited at a single conservative threshold, refusing to report
+  anything in the borderline regime — UX regression every user hit
+  when fewer than ~30 events / periods were available even though the
+  math was perfectly defined. The new contract is <em>warn, don't
+  refuse</em>. Constants: <code>MIN_FM_PERIODS = 20</code> →
+  <code>MIN_FM_PERIODS_HARD = 4</code> / <code>MIN_FM_PERIODS_WARN = 30</code>;
+  <code>MIN_EVENTS = 10</code> → <code>MIN_EVENTS_HARD = 4</code> /
+  <code>MIN_EVENTS_WARN = 30</code> (Brown-Warner 1985 convention);
+  <code>MIN_PORTFOLIO_PERIODS = 5</code> → <code>MIN_PORTFOLIO_PERIODS_HARD = 3</code>
+  / <code>MIN_PORTFOLIO_PERIODS_WARN = 20</code>. Two new <code>WarningCode</code>
+  values: <code>FEW_EVENTS_BROWN_WARNER</code> (caar) and
+  <code>BORDERLINE_PORTFOLIO_PERIODS</code> (top_concentration); FM reuses the
+  existing <code>UNRELIABLE_SE_SHORT_PERIODS</code>. Descriptive metrics
+  (<code>clustering</code> / <code>corrado</code> / <code>event_horizon</code> / <code>event_quality</code>
+  / <code>mfe_mae</code> / <code>quantile</code> / <code>ts_quantile</code> / <code>ts_asymmetry</code>)
+  switch to the new <code>_HARD</code> constant only — they have no formal H0
+  so the WARN tier would be noise; they now accept smaller-n inputs
+  they previously refused, by design. (#48)</li>
+<li><strong><code>multi_split_oos_decay</code> is descriptive-only.</strong> <code>stat</code> is
+  <code>None</code> (was already), and <code>metadata["p_value"]</code> is now omitted
+  entirely (was <code>1.0</code>) — the multi-split decomposition (<code>per_split</code></li>
+<li><code>sign_flipped</code> + <code>status</code>) is the message, and a t-stat at
+  <code>MIN_OOS_PERIODS = 5</code> would have power ≈ 0. Dropping <code>p_value</code>
+  prevents callers from accidentally routing the diagnostic into BHY
+  / gate logic that expects a probability. <code>MIN_OOS_PERIODS</code> stays
+  single-tier (no HARD/WARN split needed when there is no hypothesis
+  test). (#48)</li>
 <li><strong><code>compute_caar</code> per-row formula: <code>return × sign(factor)</code> →
   <code>return × factor</code>.</strong> Magnitude is now preserved as a weight rather
   than being silently dropped via <code>.sign()</code> coercion. <code>{0, 1}</code> and

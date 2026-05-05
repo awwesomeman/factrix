@@ -2988,7 +2988,7 @@ Default: <code>[(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]</code>.</p>
             <td>
               <div class="doc-md-description">
                 <ul>
-<li><code>value</code>: median survival ratio across splits (0.0 on short-circuit)</li>
+<li><code>value</code>: median survival ratio across splits (NaN on short-circuit)</li>
 </ul>
               </div>
             </td>
@@ -3005,7 +3005,7 @@ Default: <code>[(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]</code>.</p>
             <td>
               <div class="doc-md-description">
                 <ul>
-<li><code>stat</code>: None (descriptive statistic, not a hypothesis test)</li>
+<li><code>stat</code>: None — descriptive only (no hypothesis test attached; a t-stat at <code>MIN_OOS_PERIODS = 5</code> would have power ≈ 0 and invite mis-reading the diagnostic as a significance test).</li>
 </ul>
               </div>
             </td>
@@ -3030,9 +3030,6 @@ Default: <code>[(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]</code>.</p>
 </li>
 <li><code>status</code> ("PASS" | "VETOED")</li>
 <li><code>per_split</code> (list[dict]): see <code>SplitDetail.to_dict</code></li>
-<li><code>p_value</code> (float): 1.0 (not a hypothesis test; conservative
-  default so downstream BHY doesn't treat descriptive stats as
-  significant by omission)</li>
 <li><code>method</code> (str): "multi-split OOS decay"</li>
 <li><code>survival_threshold</code> (float)</li>
 <li><code>reason</code> (str, short-circuit only): "insufficient_oos_periods"
@@ -3055,9 +3052,10 @@ is <code>s_f = |mean_OOS| / |mean_IS|</code>; reported headline is
 sets <code>status = VETOED</code>.</p>
 <p>factrix reports the <strong>median</strong> across splits rather than mean:
 a single regime change landing inside one split distorts the
-mean disproportionately. Descriptive only — no formal H0 is
-attached and <code>p_value</code> is set to 1.0 so downstream BHY does
-not treat the diagnostic as a significant test.</p>
+mean disproportionately. Descriptive only — no <code>p_value</code> is
+emitted (the multi-split structure already conveys the
+signal-decay message; running a t-test at the
+<code>MIN_OOS_PERIODS</code> floor would have power ≈ 0).</p>
 </details>
 
 <details class="references" open>

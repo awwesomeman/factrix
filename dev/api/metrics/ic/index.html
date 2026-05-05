@@ -3527,7 +3527,7 @@ rule motivating the per-horizon stride.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>DataFrame with columns <code>date, ic</code> sorted by date.</p>
+                <p>DataFrame with columns <code>date, ic, tie_ratio</code> sorted by date.</p>
               </div>
             </td>
           </tr>
@@ -3538,6 +3538,26 @@ rule motivating the per-horizon stride.</p>
             <td>
               <div class="doc-md-description">
                 <p>Dates with fewer than <code>MIN_ASSETS_PER_DATE_IC</code> assets are dropped.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>tie_ratio</code> is the per-date factor tie density</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="polars.DataFrame">DataFrame</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><span class="arithmatex">\(1 - n_{\mathrm{unique}} / n\)</span> in <span class="arithmatex">\([0, 1]\)</span>.</p>
               </div>
             </td>
           </tr>
@@ -3552,10 +3572,16 @@ rule motivating the per-horizon stride.</p>
 over the cross-section at date <span class="arithmatex">\(t\)</span>; rank ties are broken with
 average rank (<code>method="average"</code>).</p>
 <p>At high tie rates Spearman <span class="arithmatex">\(\rho\)</span> on average ranks is biased
-relative to the tie-corrected formula (Kendall-Stuart §31).
-factrix does not surface <code>tie_ratio</code> from this primitive; if
-you suspect a bucketed / categorical signal, inspect tie density
-on the input before reporting IC.</p>
+relative to the tie-corrected formula (Kendall-Stuart §31). The
+per-date factor <code>tie_ratio</code> is surfaced alongside <code>ic</code> so
+downstream callers can detect bucketed / categorical signals
+without re-inspecting the input; <code>ic</code> / <code>ic_newey_west</code> /
+<code>ic_ir</code> aggregate it as the median across dates and stash it in
+<code>MetricOutput.metadata["tie_ratio"]</code>. When the median exceeds
+<code>TIE_RATIO_WARN_THRESHOLD</code> (0.3) those aggregators also emit a
+<code>UserWarning</code>: treat the IC magnitude as a lower bound and
+consider a tie-corrected correlation or a continuous transform
+of the factor.</p>
 <p>factrix drops dates whose cross-section has fewer than
 <code>MIN_ASSETS_PER_DATE_IC</code> assets — undersized panels yield
 rank-correlation estimates with degenerate variance.</p>

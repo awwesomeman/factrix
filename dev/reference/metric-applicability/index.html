@@ -936,10 +936,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#caveats-on-the-headline-thresholds" class="md-nav__link">
+  <a href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Caveats on the headline thresholds
+        Sample-size sensitivity — the two-tier _HARD / _WARN model
       
     </span>
   </a>
@@ -2683,10 +2683,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#caveats-on-the-headline-thresholds" class="md-nav__link">
+  <a href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Caveats on the headline thresholds
+        Sample-size sensitivity — the two-tier _HARD / _WARN model
       
     </span>
   </a>
@@ -2803,7 +2803,7 @@ across Modes, only the sample axis that constrains it.</p>
 <td>Individual × Continuous</td>
 <td>Cell-canonical (FM)</td>
 <td><code>T</code> (λ series)</td>
-<td><code>T ≥ MIN_FM_PERIODS</code> (= 20)</td>
+<td><code>T ≥ MIN_FM_PERIODS_HARD</code> (= 4); warn if <code>T &lt; MIN_FM_PERIODS_WARN</code> (= 30)</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="pooled_ols" href="../../api/metrics/fama_macbeth/#factrix.metrics.fama_macbeth.pooled_ols"><code>pooled_ols</code></a></td>
@@ -2817,14 +2817,14 @@ across Modes, only the sample axis that constrains it.</p>
 <td>Individual × Continuous</td>
 <td>Per-period β-sign hit rate</td>
 <td><code>T</code> (β series)</td>
-<td><code>T ≥ MIN_FM_PERIODS</code></td>
+<td><code>T ≥ MIN_FM_PERIODS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="quantile_spread" href="../../api/metrics/quantile/#factrix.metrics.quantile.quantile_spread"><code>quantile_spread</code></a></td>
 <td>Individual × Continuous</td>
 <td>Top-minus-bottom spread t</td>
 <td><code>T/h</code></td>
-<td><code>T/h ≥ MIN_PORTFOLIO_PERIODS</code> (= 5); per-date <code>N ≥ n_groups</code></td>
+<td><code>T/h ≥ MIN_PORTFOLIO_PERIODS_HARD</code> (= 3); warn if <code>T/h &lt; MIN_PORTFOLIO_PERIODS_WARN</code> (= 20); per-date <code>N ≥ n_groups</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="quantile_spread_vw" href="../../api/metrics/quantile/#factrix.metrics.quantile.quantile_spread_vw"><code>quantile_spread_vw</code></a></td>
@@ -2845,7 +2845,7 @@ across Modes, only the sample axis that constrains it.</p>
 <td>Individual × Continuous</td>
 <td>Top-bucket HHI ratio</td>
 <td><code>T/h</code></td>
-<td><code>T/h ≥ MIN_PORTFOLIO_PERIODS</code></td>
+<td><code>T/h ≥ MIN_PORTFOLIO_PERIODS_HARD</code>; warn if <code>T/h &lt; MIN_PORTFOLIO_PERIODS_WARN</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="turnover" href="../../api/metrics/tradability/#factrix.metrics.tradability.turnover"><code>turnover</code></a></td>
@@ -2894,42 +2894,42 @@ across Modes, only the sample axis that constrains it.</p>
 <td>Individual × Sparse</td>
 <td>Cell-canonical</td>
 <td><code>K/h</code> (non-overlap)</td>
-<td><code>K/h ≥ MIN_EVENTS</code> (= 10) via <code>_scaled_min_periods(MIN_EVENTS, h)</code></td>
+<td><code>K/h ≥ MIN_EVENTS_HARD</code> (= 4); warn if <code>K/h &lt; MIN_EVENTS_WARN</code> (= 30) via <code>_scaled_min_periods(MIN_EVENTS_HARD, h)</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="bmp_test" href="../../api/metrics/caar/#factrix.metrics.caar.bmp_test"><code>bmp_test</code></a></td>
 <td>Individual × Sparse</td>
 <td>Variance-robust sibling</td>
 <td><code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code>; <code>estimation_window</code> periods per asset</td>
+<td><code>K ≥ MIN_EVENTS_HARD</code>; <code>estimation_window</code> periods per asset</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="event_hit_rate" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_hit_rate"><code>event_hit_rate</code></a></td>
 <td>Individual × Sparse</td>
 <td>Per-event sign hit rate</td>
 <td><code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="event_ic" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_ic"><code>event_ic</code></a></td>
 <td>Individual × Sparse</td>
 <td>Strength → return Spearman</td>
 <td><code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="profit_factor" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.profit_factor"><code>profit_factor</code></a></td>
 <td>Individual × Sparse</td>
 <td><code>Σ gains / Σ losses</code></td>
 <td><code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="event_skewness" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_skewness"><code>event_skewness</code></a></td>
 <td>Individual × Sparse</td>
 <td>Per-event return skewness</td>
 <td><code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="signal_density" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.signal_density"><code>signal_density</code></a></td>
@@ -2943,35 +2943,35 @@ across Modes, only the sample axis that constrains it.</p>
 <td>Individual × Sparse</td>
 <td>Per-offset return profile</td>
 <td>per-offset <code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="multi_horizon_hit_rate" href="../../api/metrics/event_horizon/#factrix.metrics.event_horizon.multi_horizon_hit_rate"><code>multi_horizon_hit_rate</code></a></td>
 <td>Individual × Sparse</td>
 <td>Per-horizon binomial hit</td>
 <td>per-horizon <code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="mfe_mae_summary" href="../../api/metrics/mfe_mae/#factrix.metrics.mfe_mae.mfe_mae_summary"><code>mfe_mae_summary</code></a></td>
 <td>Individual × Sparse</td>
 <td>Path-excursion summary</td>
 <td><code>K</code></td>
-<td><code>K ≥ MIN_EVENTS</code>; <code>price</code> column required</td>
+<td><code>K ≥ MIN_EVENTS_HARD</code>; <code>price</code> column required</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="clustering_diagnostic" href="../../api/metrics/clustering/#factrix.metrics.clustering.clustering_diagnostic"><code>clustering_diagnostic</code></a></td>
 <td>Individual × Sparse (<code>N ≥ 2</code>)</td>
 <td>Event-date HHI</td>
 <td><code>K</code>, <code>N</code></td>
-<td><code>N ≥ 2</code>; <code>K ≥ MIN_EVENTS</code></td>
+<td><code>N ≥ 2</code>; <code>K ≥ MIN_EVENTS_HARD</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="corrado_rank_test" href="../../api/metrics/corrado/#factrix.metrics.corrado.corrado_rank_test"><code>corrado_rank_test</code></a></td>
 <td>Individual × Sparse</td>
 <td>Nonparametric rank test</td>
 <td><code>K</code> × estimation window</td>
-<td><code>K ≥ MIN_EVENTS</code>; per-asset <code>T ≥ 30</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code>; per-asset <code>T ≥ 30</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="ts_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.ts_beta"><code>ts_beta</code></a></td>
@@ -3006,7 +3006,7 @@ across Modes, only the sample axis that constrains it.</p>
 <td>Common × Continuous</td>
 <td>Quantile-bucketed Wald</td>
 <td><code>T</code></td>
-<td><code>T ≥ MIN_PORTFOLIO_PERIODS</code>; factor <code>n_unique ≥ n_groups × 2</code></td>
+<td><code>T ≥ MIN_PORTFOLIO_PERIODS_HARD</code>; factor <code>n_unique ≥ n_groups × 2</code></td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="ts_asymmetry" href="../../api/metrics/ts_asymmetry/#factrix.metrics.ts_asymmetry.ts_asymmetry"><code>ts_asymmetry</code></a></td>
@@ -3038,46 +3038,72 @@ across Modes, only the sample axis that constrains it.</p>
 </tr>
 </tbody>
 </table>
-<p>Constants in the <code>Min sample</code> column come from three locations:</p>
+<p>Constants in the <code>Min sample</code> column come from three locations and follow
+a two-tier <code>_HARD</code> / <code>_WARN</code> model (see "Sample-size sensitivity" below):</p>
 <ul>
 <li><code>factrix._types</code> — cross-metric defaults (<code>MIN_ASSETS_PER_DATE_IC</code>,
-  <code>MIN_EVENTS</code>, <code>MIN_OOS_PERIODS</code>, <code>MIN_PORTFOLIO_PERIODS</code>,
+  <code>MIN_EVENTS_HARD = 4</code>, <code>MIN_EVENTS_WARN = 30</code>, <code>MIN_OOS_PERIODS = 5</code>,
+  <code>MIN_PORTFOLIO_PERIODS_HARD = 3</code>, <code>MIN_PORTFOLIO_PERIODS_WARN = 20</code>,
   <code>MIN_MONOTONICITY_PERIODS</code>).</li>
 <li><code>factrix._stats.constants</code> — procedure-level guards
-  (<code>MIN_PERIODS_HARD = 20</code>, <code>MIN_PERIODS_RELIABLE = 30</code>,
-  <code>MIN_BROADCAST_EVENTS_HARD = 5</code>, <code>MIN_BROADCAST_EVENTS_RELIABLE = 20</code>).</li>
+  (<code>MIN_PERIODS_HARD = 20</code>, <code>MIN_PERIODS_WARN = 30</code>,
+  <code>MIN_BROADCAST_EVENTS_HARD = 5</code>, <code>MIN_BROADCAST_EVENTS_WARN = 20</code>,
+  <code>MIN_ASSETS = 10</code>, <code>MIN_ASSETS_WARN = 30</code>).</li>
 <li>The metric module itself for cell-specific thresholds:
-  <code>MIN_FM_PERIODS = 20</code> in <code>factrix.metrics.fama_macbeth</code>,
-  <code>MIN_TS_OBS = 20</code> in <code>factrix.metrics.ts_beta</code>.</li>
+  <code>MIN_FM_PERIODS_HARD = 4</code> / <code>MIN_FM_PERIODS_WARN = 30</code> in
+  <code>factrix.metrics.fama_macbeth</code>, <code>MIN_TS_OBS = 20</code> in
+  <code>factrix.metrics.ts_beta</code>.</li>
 </ul>
 <p>For non-overlapping metrics (<code>ic</code>, <code>caar</code>, …) the effective floor is
 <code>_scaled_min_periods(base, forward_periods)</code> (in
 <code>factrix.metrics._helpers</code>), which scales the base constant by the
 forward-return horizon <code>h</code>.</p>
-<h2 id="caveats-on-the-headline-thresholds">Caveats on the headline thresholds<a class="headerlink" href="#caveats-on-the-headline-thresholds" title="Permanent link">&para;</a></h2>
-<p>The constants above are the <strong>floors at which a metric will run</strong>, not
-the sample sizes at which the inferential statement is well-calibrated.
-A few specific caveats worth flagging:</p>
+<h2 id="sample-size-sensitivity--the-two-tier-_hard--_warn-model">Sample-size sensitivity — the two-tier <code>_HARD</code> / <code>_WARN</code> model<a class="headerlink" href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model" title="Permanent link">&para;</a></h2>
+<p>Inferential metrics enforce two separate floors:</p>
 <ul>
-<li><strong><code>MIN_FM_PERIODS = 20</code></strong> for <code>fama_macbeth</code> is the floor at which
-  the NW HAC <code>t</code> is computed. With the Andrews <code>T^(1/3)</code> bandwidth at
-  <code>T = 20</code>, the kernel uses 2 lags and the small-sample HAC is known
-  to <strong>over-reject</strong>; treat <em>p</em>-values from <code>T ∈ [20, 30]</code> as
+<li><strong><code>_HARD</code></strong> — the <strong>mathematical floor</strong>. Below it, the statistic is
+  not defined (e.g. <code>t = (μ − 0) / (s / √n)</code> requires <code>n ≥ 2</code>; the FM
+  small-sample HAC needs at least a few lagged covariances). <code>n &lt; HARD</code>
+  short-circuits to <code>MetricOutput(value=NaN, metadata={"reason": ...})</code>.</li>
+<li><strong><code>_WARN</code></strong> — the <strong>literature / power floor</strong>. The statistic <em>is</em>
+  computable, but the SE is biased small or power is poor; the metric
+  returns the stat, emits a <code>UserWarning</code>, and adds a <code>WarningCode</code> to
+  <code>MetricOutput.metadata["warning_codes"]</code> so <code>FactorProfile.warnings</code>
+  can propagate it. <code>n ≥ WARN</code> is silent.</li>
+</ul>
+<p><strong>Descriptive metrics</strong> (<code>clustering_diagnostic</code>, <code>corrado_rank_test</code>,
+<code>event_around_return</code>, <code>multi_horizon_hit_rate</code>, <code>event_hit_rate</code>,
+<code>event_ic</code>, <code>profit_factor</code>, <code>event_skewness</code>, <code>mfe_mae_summary</code>,
+<code>quantile_spread</code>, <code>ts_quantile_spread</code>, <code>ts_asymmetry</code>, <code>bmp_test</code>)
+enforce <strong><code>_HARD</code> only</strong> — they have no formal H₀ under which power
+can be characterised, so the literature <code>_WARN</code> tier is undefined
+for them. They accept smaller-<code>n</code> inputs than the inferential
+canonicals.</p>
+<p>A few specific caveats worth flagging:</p>
+<ul>
+<li><strong><code>MIN_FM_PERIODS_HARD = 4</code> / <code>MIN_FM_PERIODS_WARN = 30</code></strong> for
+  <code>fama_macbeth</code>. <code>T = 4</code> is the math floor at which the NW HAC <code>t</code>
+  is computable; the small-sample HAC is known to <strong>over-reject</strong>, so
+  in <code>T ∈ [4, 30)</code> the metric emits
+  <code>WarningCode.UNRELIABLE_SE_SHORT_PERIODS</code> and treats <em>p</em>-values as
   anti-conservative. Forty periods is the practical floor in the
   panel-econometrics literature.</li>
-<li><strong><code>MIN_EVENTS = 10</code></strong> for the event-study CAAR <code>t</code> is the floor at
-  which the cross-sectional <code>t</code> is even computable. Brown &amp; Warner
-  (1985) tabulate well-behaved power at <code>K ≥ 50</code> and use <code>K ≥ 30</code> as
-  the conventional minimum; in <code>K ∈ [10, 30]</code> the parametric <code>caar</code>
-  is under-powered, and the <code>bmp_test</code> / <code>corrado_rank_test</code> siblings
-  only partly mitigate.</li>
-<li><strong><code>MIN_PORTFOLIO_PERIODS = 5</code></strong> in <code>top_concentration</code> and
-  <code>ts_quantile_spread</code>, and <strong><code>MIN_OOS_PERIODS = 5</code></strong> in
-  <code>multi_split_oos_decay</code>, are diagnostic floors. Five-point series do
-  not give meaningful inference; treat the corresponding outputs as
-  descriptive — the formal <code>verdict()</code> reading should rely on the
-  cell-canonical metric, not these auxiliaries, until the underlying
-  series is materially longer.</li>
+<li><strong><code>MIN_EVENTS_HARD = 4</code> / <code>MIN_EVENTS_WARN = 30</code></strong> for the
+  event-study CAAR <code>t</code>. Brown &amp; Warner (1985) tabulate well-behaved
+  power at <code>K ≥ 50</code> and use <code>K ≥ 30</code> as the conventional minimum; in
+  <code>K ∈ [4, 30)</code> the parametric <code>caar</code> is under-powered and
+  <code>WarningCode.FEW_EVENTS_BROWN_WARNER</code> fires. The <code>bmp_test</code> /
+  <code>corrado_rank_test</code> siblings only partly mitigate.</li>
+<li><strong><code>MIN_PORTFOLIO_PERIODS_HARD = 3</code> / <code>MIN_PORTFOLIO_PERIODS_WARN = 20</code></strong>
+  in <code>top_concentration</code> and <code>ts_quantile_spread</code>. Below 3 there is
+  no spread / concentration t to compute; in <code>[3, 20)</code> the metric
+  returns the stat with <code>WarningCode.BORDERLINE_PORTFOLIO_PERIODS</code>.
+  <strong><code>MIN_OOS_PERIODS = 5</code></strong> in <code>multi_split_oos_decay</code> remains
+  single-tier — the metric is now descriptive-only (no <code>p_value</code> in
+  metadata), so a literature power floor is moot. Treat its output as
+  descriptive; the formal <code>verdict()</code> reading should rely on the
+  cell-canonical metric until the underlying series is materially
+  longer.</li>
 </ul>
 <h2 id="below-threshold-behaviour">Below-threshold behaviour<a class="headerlink" href="#below-threshold-behaviour" title="Permanent link">&para;</a></h2>
 <p>When the input fails a sample threshold, factrix never silently

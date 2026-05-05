@@ -2833,7 +2833,7 @@ Boehmer, Musumeci &amp; Poulsen (1991), "Event-study methodology
 
 
 <a href="#factrix.metrics.caar.bmp_test" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bmp_test</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">factor_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="n">return_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;forward_return&#39;</span><span class="p">,</span> <span class="n">estimation_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="n">forward_periods</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">kolari_pynnonen_adjust</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricOutput</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bmp_test</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">factor_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;factor&#39;</span><span class="p">,</span> <span class="n">return_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;forward_return&#39;</span><span class="p">,</span> <span class="n">estimation_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="n">forward_periods</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">kolari_pynnonen_adjust</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">include_prediction_error_variance</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricOutput</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2948,6 +2948,42 @@ otherwise expect same-date shock sharing.</p>
                   <code>False</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>include_prediction_error_variance</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>When True, inflate the
+per-event standardiser by <span class="arithmatex">\(\sqrt{1 + 1/T_{\mathrm{est}}}\)</span>
+(with <span class="arithmatex">\(T_{\mathrm{est}}\)</span> = <code>estimation_window</code>) to absorb
+the prediction-error variance of the mean-adjusted residual
+forecast — the strict BMP (1991) denominator. Default is
+False, preserving the prior factrix denominator (residual
+std only). Under mean-adjusted residuals + a single
+<code>estimation_window</code> the correction scales every SAR by
+the same constant, so <code>mean_SAR</code> and <code>std_SAR</code> shrink
+by <span class="arithmatex">\(1/\sqrt{1 + 1/T_{\mathrm{est}}}\)</span> but the <span class="arithmatex">\(z\)</span> statistic
+is invariant: the flag documents the strict standardiser,
+it does not move inference in this regime. Per-event <span class="arithmatex">\(T_i\)</span>
+variation (which would move <span class="arithmatex">\(z\)</span>) requires a market-model
+extension and is out of scope here.</p>
+<p>Caveat: <code>rolling_std(min_samples=20)</code> accepts events with
+as few as 20 prior returns, so the effective <span class="arithmatex">\(T_i\)</span> for
+early-history events can be smaller than <code>estimation_window</code>.
+The constant correction is therefore an approximation in
+that regime; ensure every event has at least
+<code>estimation_window</code> prior returns when the strict denominator
+matters.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -2993,7 +3029,9 @@ With <code>kolari_pynnonen_adjust=True</code>, scale <span class="arithmatex">\(
 error term from the standardiser (using mean-adjusted residuals
 rather than market-model residuals) — adequate for the default
 Brown-Warner / MacKinlay event-study path; pair with the K-P
-adjustment when <code>clustering_hhi</code> flags same-date shock sharing.</p>
+adjustment when <code>clustering_hhi</code> flags same-date shock sharing.
+Pass <code>include_prediction_error_variance=True</code> for the strict
+BMP denominator <span class="arithmatex">\(\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}\)</span>.</p>
 </details>
 
 <details class="references" open>
@@ -3302,6 +3340,17 @@ regression-slope ancestor of the magnitude-weighted CAAR
 produced when <code>factor</code> is continuous.
 <a class="autorefs autorefs-internal" title="Brown & Warner (1985)" href="../../../reference/bibliography/#brown-warner-1985">Brown-Warner 1985</a>: daily event-study
 methodology backing the parametric-test path.</p>
+</details>
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>When <code>factor_col</code> triggers <code>_is_sparse_magnitude_weighted</code>
+the primitive emits a Python <code>UserWarning</code> directly. The
+sparse PANEL procedures additionally attach
+<code>WarningCode.SPARSE_MAGNITUDE_WEIGHTED</code> to
+<code>FactorProfile.warnings</code> independently — the dual emission is
+deliberate so batch runs that silence Python warnings still
+surface the regime-switch through the structured channel.</p>
 </details>
 
     </div>

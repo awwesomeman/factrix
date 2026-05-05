@@ -3526,8 +3526,8 @@ to the resulting profile so the routing is auditable.</p>
 This section catalogues the <strong>internal constants</strong> that back those tiers.</p>
 <p><code>factrix/_stats/constants.py</code>:</p>
 <ul>
-<li><code>MIN_PERIODS_HARD = 20</code>, <code>MIN_PERIODS_RELIABLE = 30</code> — the two-tier <code>n_periods</code> thresholds.</li>
-<li><code>MIN_ASSETS = 10</code>, <code>MIN_ASSETS_RELIABLE = 30</code> — the two-tier <code>n_assets</code> thresholds. The
+<li><code>MIN_PERIODS_HARD = 20</code>, <code>MIN_PERIODS_WARN = 30</code> — the two-tier <code>n_periods</code> thresholds.</li>
+<li><code>MIN_ASSETS = 10</code>, <code>MIN_ASSETS_WARN = 30</code> — the two-tier <code>n_assets</code> thresholds. The
   <code>n_assets</code> axis never raises (cross-asset t-test on E[β] is mathematically defined for
   <code>n_assets ≥ 2</code>), so constant naming deliberately drops the <code>_HARD</code> suffix to avoid
   implying a raise.</li>
@@ -3540,7 +3540,9 @@ primitives that procedures wrap:</p>
 <ul>
 <li><code>MIN_ASSETS_PER_DATE_IC = 10</code> — <code>compute_ic</code> drops dates with fewer than 10 assets;
   at <code>n_assets</code> &lt; 10 the IC procedure short-circuits to NaN because every date is dropped.</li>
-<li><code>MIN_EVENTS = 10</code> — sparse-cell event-count floor.</li>
+<li><code>MIN_EVENTS_HARD = 4</code>, <code>MIN_EVENTS_WARN = 30</code> — two-tier sparse-cell
+  event-count floor. <code>n &lt; HARD</code> short-circuits the CAAR / event-quality
+  primitives; <code>HARD ≤ n &lt; WARN</code> emits <code>WarningCode.FEW_EVENTS_BROWN_WARNER</code>.</li>
 <li><code>compute_fm_betas</code> carries an inline <code>if len(y) &lt; 3: continue</code> guard, no per-date min above 3.</li>
 </ul>
 <h3 id="inflation-cost-at-low-n_assets">Inflation cost at low <code>n_assets</code><a class="headerlink" href="#inflation-cost-at-low-n_assets" title="Permanent link">&para;</a></h3>
@@ -3556,7 +3558,7 @@ collapsed first determines small-sample failure modes and the N=1 collapse
 behavior. The user-facing factory chosen determines which pipeline runs.</p>
 <p>The two universal <code>n_periods</code> floors apply to every panel/timeseries pipeline
 listed below — <code>n_periods &lt; MIN_PERIODS_HARD</code> raises <code>InsufficientSampleError</code>,
-<code>MIN_PERIODS_HARD ≤ n_periods &lt; MIN_PERIODS_RELIABLE</code> emits
+<code>MIN_PERIODS_HARD ≤ n_periods &lt; MIN_PERIODS_WARN</code> emits
 <code>UNRELIABLE_SE_SHORT_PERIODS</code>. The per-procedure "Failure modes" lists below
 record only the <strong>procedure-specific</strong> failures; for the user-facing tier
 matrix see <a href="../../guides/panel-timeseries/">Guides § PANEL vs TIMESERIES</a>.</p>
@@ -3593,7 +3595,11 @@ to keep the regime unambiguous.</p>
 <ul>
 <li>per-date <code>n_assets</code> &lt; 3 → date dropped (<code>if len(y) &lt; 3: continue</code>).</li>
 <li>per-date <code>n_assets</code> small but ≥ 3 → df = <code>n_assets</code> − 2 minimal, β unstable.</li>
-<li><code>n_periods &lt; MIN_FM_PERIODS = 20</code> → short-circuit to insufficient.</li>
+<li><code>n_periods &lt; MIN_FM_PERIODS_HARD = 4</code> → short-circuit to insufficient
+  (math floor — NW HAC <code>t</code> undefined below).</li>
+<li><code>MIN_FM_PERIODS_HARD ≤ n_periods &lt; MIN_FM_PERIODS_WARN = 30</code> → returns
+  the FM <code>t</code>/<code>p</code> but emits <code>WarningCode.UNRELIABLE_SE_SHORT_PERIODS</code> and
+  the borderline propagates into <code>FactorProfile.warnings</code>.</li>
 </ul>
 <h3 id="individual_sparse-caar-panel--cross-section-first-events"><code>individual_sparse</code> (CAAR PANEL) — cross-section first (events)<a class="headerlink" href="#individual_sparse-caar-panel--cross-section-first-events" title="Permanent link">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>per-event-date mean of signed_car = return × factor      (cross-section step)
@@ -3617,7 +3623,11 @@ mean (the average effect on event days); <code>n_obs</code> and <code>NW_LAGS_US
 reflect the dense series.</p>
 <p>Failure modes:</p>
 <ul>
-<li><code>n_events &lt; MIN_EVENTS</code> → event series too short → primary_p reverts to insufficient.</li>
+<li><code>n_events &lt; MIN_EVENTS_HARD = 4</code> → event series too short →
+  primary_p reverts to insufficient.</li>
+<li><code>MIN_EVENTS_HARD ≤ n_events &lt; MIN_EVENTS_WARN = 30</code> → CAAR <code>t</code> is
+  returned but <code>WarningCode.FEW_EVENTS_BROWN_WARNER</code> fires and the
+  <code>_CAARSparsePanelProcedure</code> propagates it into <code>FactorProfile.warnings</code>.</li>
 </ul>
 <h3 id="common_continuous--time-series-first"><code>common_continuous</code> — time-series first<a class="headerlink" href="#common_continuous--time-series-first" title="Permanent link">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
@@ -3628,7 +3638,7 @@ reflect the dense series.</p>
 <ul>
 <li>per-asset <code>n_periods &lt; MIN_TS_OBS = 20</code> → asset dropped.</li>
 <li><code>n_assets &lt; MIN_ASSETS = 10</code> → <code>WarningCode.SMALL_CROSS_SECTION_N</code> (still runs).</li>
-<li><code>MIN_ASSETS ≤ n_assets &lt; MIN_ASSETS_RELIABLE = 30</code> → <code>WarningCode.BORDERLINE_CROSS_SECTION_N</code>.</li>
+<li><code>MIN_ASSETS ≤ n_assets &lt; MIN_ASSETS_WARN = 30</code> → <code>WarningCode.BORDERLINE_CROSS_SECTION_N</code>.</li>
 <li><code>n_assets = 1</code> → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, <strong>not</strong> E[β] = 0). The
   <code>StatCode.TS_BETA</code> identifier is shared across the two modes, so the
@@ -3652,7 +3662,7 @@ per I6 (sparse regressors are not unit-root candidates).</p>
   <code>BORDERLINE_CROSS_SECTION_N</code>).</li>
 <li>Two-tier event-count guard (<code>factrix/_stats/constants.py</code>):
   <code>n_events &lt; MIN_BROADCAST_EVENTS_HARD = 5</code> raises <code>InsufficientSampleError</code>;
-  <code>5 ≤ n_events &lt; MIN_BROADCAST_EVENTS_RELIABLE = 20</code> emits
+  <code>5 ≤ n_events &lt; MIN_BROADCAST_EVENTS_WARN = 20</code> emits
   <code>SPARSE_COMMON_FEW_EVENTS</code>.</li>
 <li>Cross-asset SE assumes asset-level independence; under contemporaneous
   return correlation the standard t over-states significance — Petersen
@@ -3784,13 +3794,14 @@ themselves if FDR control is needed across a batch of standalone runs.</p>
 </span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>├── multi_factor.py          # public namespace (re-exports bhy)
 </span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>├── _stats/
 </span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>│   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_RELIABLE / auto_bartlett
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_WARN / auto_bartlett
 </span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
-</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>│                            #   MIN_EVENTS, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS, ...
-</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
-</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>│                            # per-cell thresholds (MIN_FM_PERIODS, MIN_TS_OBS) live
-</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>│                            # alongside the procedures that enforce them
-</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>└── datasets.py              # synthetic CS / event panels
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>│                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS,
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>│                            #   MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
+</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_OBS) live
+</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>│                            # alongside the procedures that enforce them
+</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>└── datasets.py              # synthetic CS / event panels
 </span></code></pre></div>
 <hr />
 <h2 id="invariants">Invariants<a class="headerlink" href="#invariants" title="Permanent link">&para;</a></h2>
