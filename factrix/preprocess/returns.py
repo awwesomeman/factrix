@@ -98,6 +98,7 @@ def compute_abnormal_return(df: pl.DataFrame) -> pl.DataFrame:
         DataFrame with ``abnormal_return`` column appended.
     """
     return df.with_columns(
-        (pl.col("forward_return") - pl.col("forward_return").mean().over("date"))
-        .alias("abnormal_return")
+        (pl.col("forward_return") - pl.col("forward_return").mean().over("date")).alias(
+            "abnormal_return"
+        )
     )

@@ -76,7 +76,10 @@ def monotonicity(
     _warn_high_tie_ratio(tie_ratio, "monotonicity", tie_policy)
 
     grouped = _assign_quantile_groups(
-        filtered, factor_col, n_groups, tie_policy=tie_policy,
+        filtered,
+        factor_col,
+        n_groups,
+        tie_policy=tie_policy,
     )
 
     # Mean return per group per date
@@ -88,8 +91,9 @@ def monotonicity(
 
     # WHY: Spearman(group_index, returns) = Pearson(group_index, rank(returns))
     mono_df = (
-        group_returns
-        .filter(pl.col("group_ret").is_not_null() & pl.col("group_ret").is_not_nan())
+        group_returns.filter(
+            pl.col("group_ret").is_not_null() & pl.col("group_ret").is_not_nan()
+        )
         .with_columns(
             pl.col("group_ret").rank(method="average").over("date").alias("_ret_rank")
         )
@@ -108,9 +112,13 @@ def monotonicity(
 
     if len(mono_df) < MIN_MONOTONICITY_PERIODS:
         return _short_circuit_output(
-            "monotonicity", "insufficient_monotonicity_periods",
-            n_observed=len(mono_df), min_required=MIN_MONOTONICITY_PERIODS,
-            n_groups=n_groups, tie_ratio=tie_ratio, tie_policy=tie_policy,
+            "monotonicity",
+            "insufficient_monotonicity_periods",
+            n_observed=len(mono_df),
+            min_required=MIN_MONOTONICITY_PERIODS,
+            n_groups=n_groups,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
         )
 
     mono_arr = mono_df["mono"].to_numpy()

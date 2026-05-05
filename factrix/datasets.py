@@ -37,7 +37,10 @@ def _daily_date_index(start_date: str, n_dates: int) -> pl.Series:
     start = datetime.fromisoformat(start_date)
     end = start + timedelta(days=n_dates - 1)
     return pl.datetime_range(
-        start=start, end=end, interval="1d", eager=True,
+        start=start,
+        end=end,
+        interval="1d",
+        eager=True,
     ).cast(pl.Datetime("ms"))
 
 
@@ -51,7 +54,9 @@ def _zscore_cs(x: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     # factrix/preprocess/normalize.py. Needed here so the Pearson
     # correlation identity Corr(ρ·z(y) + √(1-ρ²)·z(η), y) = ρ holds
     # exactly at target; swapping in MAD-z breaks the calibration.
-    return (x - x.mean(axis=-1, keepdims=True)) / (x.std(axis=-1, ddof=0, keepdims=True) + eps)
+    return (x - x.mean(axis=-1, keepdims=True)) / (
+        x.std(axis=-1, ddof=0, keepdims=True) + eps
+    )
 
 
 def make_cs_panel(
@@ -135,8 +140,8 @@ def make_cs_panel(
     noise = rng.standard_normal((n_dates, n_assets))
 
     factor = noise.copy()
-    factor[:last_valid] = (
-        rho * _zscore_cs(fr) + np.sqrt(1.0 - rho * rho) * _zscore_cs(noise[:last_valid])
+    factor[:last_valid] = rho * _zscore_cs(fr) + np.sqrt(1.0 - rho * rho) * _zscore_cs(
+        noise[:last_valid]
     )
 
     return _to_long_panel(

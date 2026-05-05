@@ -24,7 +24,11 @@ from factrix._stats.constants import auto_bartlett
 
 
 def _make_panel(
-    *, n_dates: int, n_assets: int, seed: int, factor_strength: float,
+    *,
+    n_dates: int,
+    n_assets: int,
+    seed: int,
+    factor_strength: float,
 ) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     start = dt.date(2024, 1, 1)
@@ -35,11 +39,14 @@ def _make_panel(
         noise = rng.standard_normal(n_assets)
         factor = factor_strength * fwd + (1.0 - factor_strength) * noise
         for j in range(n_assets):
-            rows.append({
-                "date": d, "asset_id": f"A{j:03d}",
-                "factor": float(factor[j]),
-                "forward_return": float(fwd[j]),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": float(factor[j]),
+                    "forward_return": float(fwd[j]),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -51,7 +58,10 @@ def fm_config() -> AnalysisConfig:
 class TestRegistryWiring:
     def test_registered_procedure_is_real_implementation(self) -> None:
         key = _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM, Mode.PANEL,
+            FactorScope.INDIVIDUAL,
+            Signal.CONTINUOUS,
+            Metric.FM,
+            Mode.PANEL,
         )
         proc = _DISPATCH_REGISTRY[key].procedure
         assert isinstance(proc, _FMContPanelProcedure)
@@ -60,7 +70,10 @@ class TestRegistryWiring:
         schema = _FMContPanelProcedure.INPUT_SCHEMA
         assert isinstance(schema, InputSchema)
         assert set(schema.required_columns) == {
-            "date", "asset_id", "factor", "forward_return",
+            "date",
+            "asset_id",
+            "factor",
+            "forward_return",
         }
 
 
@@ -68,7 +81,10 @@ class TestStrongFactor:
     @pytest.fixture(scope="class")
     def profile(self, fm_config: AnalysisConfig) -> FactorProfile:
         panel = _make_panel(
-            n_dates=60, n_assets=30, seed=42, factor_strength=0.95,
+            n_dates=60,
+            n_assets=30,
+            seed=42,
+            factor_strength=0.95,
         )
         return _FMContPanelProcedure().compute(panel, fm_config)
 
@@ -88,7 +104,8 @@ class TestStrongFactor:
         assert profile.primary_p < 0.01
 
     def test_lambda_mean_near_factor_strength(
-        self, profile: FactorProfile,
+        self,
+        profile: FactorProfile,
     ) -> None:
         # factor = 0.95 * fwd + 0.05 * noise → OLS slope of fwd on factor
         # is dominated by the 0.95 component; λ should land in (0.5, 1.5).
@@ -107,7 +124,9 @@ class TestStrongFactor:
         assert profile.primary_p == profile.stats[StatCode.FM_LAMBDA_P]
 
     def test_nw_lags_floor_at_forward_periods_minus_one(
-        self, profile: FactorProfile, fm_config: AnalysisConfig,
+        self,
+        profile: FactorProfile,
+        fm_config: AnalysisConfig,
     ) -> None:
         expected = float(max(auto_bartlett(60), fm_config.forward_periods - 1))
         assert profile.stats[StatCode.NW_LAGS_USED] == expected
@@ -119,12 +138,16 @@ class TestRandomFactor:
         # T=120, seed=10 — same clean-null seed used by the IC random
         # test (factor independent of returns → λ-mean ≈ 0, p well > 0.10).
         panel = _make_panel(
-            n_dates=120, n_assets=30, seed=10, factor_strength=0.0,
+            n_dates=120,
+            n_assets=30,
+            seed=10,
+            factor_strength=0.0,
         )
         return _FMContPanelProcedure().compute(panel, fm_config)
 
     def test_random_factor_fails_at_default_threshold(
-        self, profile: FactorProfile,
+        self,
+        profile: FactorProfile,
     ) -> None:
         assert profile.verdict() is Verdict.FAIL
         assert profile.primary_p > 0.10
@@ -135,10 +158,14 @@ class TestRandomFactor:
 
 class TestEndToEndViaEvaluate:
     def test_evaluate_dispatches_to_fm_procedure(
-        self, fm_config: AnalysisConfig,
+        self,
+        fm_config: AnalysisConfig,
     ) -> None:
         panel = _make_panel(
-            n_dates=40, n_assets=20, seed=123, factor_strength=0.9,
+            n_dates=40,
+            n_assets=20,
+            seed=123,
+            factor_strength=0.9,
         )
         profile = _evaluate(panel, fm_config)
         assert isinstance(profile, FactorProfile)

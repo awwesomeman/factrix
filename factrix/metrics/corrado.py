@@ -101,20 +101,21 @@ def corrado_rank_test(
 
     if n_events < MIN_EVENTS:
         return _short_circuit_output(
-            "corrado_rank", "insufficient_events",
-            n_observed=n_events, min_required=MIN_EVENTS,
+            "corrado_rank",
+            "insufficient_events",
+            n_observed=n_events,
+            min_required=MIN_EVENTS,
         )
 
-    u_event = (
-        events["_rank_u"].to_numpy() * np.sign(events[factor_col].to_numpy())
-    )
+    u_event = events["_rank_u"].to_numpy() * np.sign(events[factor_col].to_numpy())
 
     u_all = ranked["_rank_u"].to_numpy()
     std_u = float(np.std(u_all))
 
     if std_u < EPSILON:
         return _short_circuit_output(
-            "corrado_rank", "degenerate_rank_variance",
+            "corrado_rank",
+            "degenerate_rank_variance",
             std_u=std_u,
         )
 

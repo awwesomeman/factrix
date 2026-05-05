@@ -41,6 +41,7 @@ class TestTheilSenSlope:
     def test_adf_flags_random_walk(self):
         """Unit-root series (random walk) should trip the ADF guard."""
         import numpy as np
+
         rng = np.random.default_rng(0)
         walk = np.cumsum(rng.standard_normal(200)).tolist()
         result = ic_trend(_make_series(walk))
@@ -50,6 +51,7 @@ class TestTheilSenSlope:
     def test_adf_clears_stationary_noise(self):
         """IID Gaussian noise should not trip the ADF guard."""
         import numpy as np
+
         rng = np.random.default_rng(1)
         noise = rng.standard_normal(200).tolist()
         result = ic_trend(_make_series(noise))
@@ -66,6 +68,7 @@ class TestTheilSenSlope:
         permissive threshold (0.50) should frequently flag the same series.
         Verifies the parameter actually plumbs into the unit-root decision."""
         import numpy as np
+
         rng = np.random.default_rng(7)
         noise = rng.standard_normal(200).tolist()
         strict = ic_trend(_make_series(noise), adf_threshold=0.01)
@@ -87,6 +90,7 @@ class TestTheilSenSlope:
         """Regression: NaN-heavy IC series (e.g. from a constant factor)
         must short-circuit, not flow into lstsq and trip LAPACK DLASCL."""
         import math
+
         result = ic_trend(_make_series([math.nan] * 30))
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_trend_periods"

@@ -27,11 +27,7 @@ _MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
 
 def _public_metric_modules() -> set[str]:
     """Return stem names of all public metric modules."""
-    return {
-        p.stem
-        for p in METRICS_DIR.glob("*.py")
-        if not p.stem.startswith("_")
-    }
+    return {p.stem for p in METRICS_DIR.glob("*.py") if not p.stem.startswith("_")}
 
 
 def _matrix_rows_for(stem: str) -> list[str]:

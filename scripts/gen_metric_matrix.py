@@ -30,8 +30,7 @@ _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
 
 _TABLE_HEADER = (
-    "| Module | Cell scope | Aggregation order | Inference SE |\n"
-    "|---|---|---|---|\n"
+    "| Module | Cell scope | Aggregation order | Inference SE |\n|---|---|---|---|\n"
 )
 
 _MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
@@ -39,11 +38,7 @@ _MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
 
 def _public_metric_modules() -> list[pathlib.Path]:
     """Return sorted list of public metric module paths."""
-    return sorted(
-        p
-        for p in _METRICS_DIR.glob("*.py")
-        if not p.stem.startswith("_")
-    )
+    return sorted(p for p in _METRICS_DIR.glob("*.py") if not p.stem.startswith("_"))
 
 
 def _extract_matrix_rows(path: pathlib.Path) -> list[str]:
@@ -54,7 +49,6 @@ def _extract_matrix_rows(path: pathlib.Path) -> list[str]:
         return []
     doc = ast.get_docstring(tree) or ""
     return [m.group(1).strip() for m in _MATRIX_ROW_RE.finditer(doc)]
-
 
 
 def _build_table_row(module_path: pathlib.Path, row_value: str) -> str:
@@ -75,9 +69,7 @@ def _build_table_row(module_path: pathlib.Path, row_value: str) -> str:
     stem = module_path.stem
     module_cell = f"[`metrics.{stem}`][factrix.metrics.{stem}]"
 
-    return (
-        f"| {module_cell} | `{cell_scope}` | {agg_order} | {inference_se} |\n"
-    )
+    return f"| {module_cell} | `{cell_scope}` | {agg_order} | {inference_se} |\n"
 
 
 def generate() -> None:

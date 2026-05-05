@@ -105,31 +105,40 @@ def ts_quantile_spread(
     """
     if "date" not in df.columns:
         return _short_circuit_output(
-            "ts_quantile_spread", "no_date_column",
+            "ts_quantile_spread",
+            "no_date_column",
         )
     for col in (factor_col, return_col):
         if col not in df.columns:
             return _short_circuit_output(
-                "ts_quantile_spread", f"no_{col}_column",
+                "ts_quantile_spread",
+                f"no_{col}_column",
             )
 
     per_date = _aggregate_to_per_date(
-        df, factor_col=factor_col, return_col=return_col,
+        df,
+        factor_col=factor_col,
+        return_col=return_col,
     )
     n_periods = len(per_date)
 
     if n_periods < MIN_PORTFOLIO_PERIODS:
         return _short_circuit_output(
-            "ts_quantile_spread", "insufficient_portfolio_periods",
-            n_observed=n_periods, min_required=MIN_PORTFOLIO_PERIODS,
+            "ts_quantile_spread",
+            "insufficient_portfolio_periods",
+            n_observed=n_periods,
+            min_required=MIN_PORTFOLIO_PERIODS,
             n_groups=n_groups,
         )
 
     n_distinct = int(per_date["_f"].n_unique())
     if n_distinct < n_groups * 2:
         return _short_circuit_output(
-            "ts_quantile_spread", "insufficient_factor_variation",
-            n_distinct=n_distinct, n_groups=n_groups, n_periods=n_periods,
+            "ts_quantile_spread",
+            "insufficient_factor_variation",
+            n_distinct=n_distinct,
+            n_groups=n_groups,
+            n_periods=n_periods,
             hint=(
                 "factor has too few distinct values for quantile cuts. "
                 "Reduce n_groups, or for binary / sparse signals use "
@@ -171,8 +180,7 @@ def ts_quantile_spread(
 
     spread_var = float((R @ V_hac @ R.T)[0, 0])
     spread_t = (
-        spread_value / float(np.sqrt(spread_var))
-        if spread_var >= EPSILON else 0.0
+        spread_value / float(np.sqrt(spread_var)) if spread_var >= EPSILON else 0.0
     )
 
     counts = np.bincount(bucket_idx, minlength=n_groups).astype(int)

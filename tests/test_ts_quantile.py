@@ -16,12 +16,14 @@ def _series_panel(
     forward_return: np.ndarray,
 ) -> pl.DataFrame:
     T = len(factor)
-    return pl.DataFrame({
-        "date": list(range(T)),
-        "asset_id": [0] * T,
-        "factor": factor,
-        "forward_return": forward_return,
-    })
+    return pl.DataFrame(
+        {
+            "date": list(range(T)),
+            "asset_id": [0] * T,
+            "factor": factor,
+            "forward_return": forward_return,
+        }
+    )
 
 
 class TestLinearDgp:
@@ -148,11 +150,15 @@ class TestPerBucketWarning:
 
 class TestMissingColumns:
     def test_missing_date_short_circuits(self):
-        df = pl.DataFrame({"asset_id": [0, 0], "factor": [1.0, 2.0], "forward_return": [0.1, 0.2]})
+        df = pl.DataFrame(
+            {"asset_id": [0, 0], "factor": [1.0, 2.0], "forward_return": [0.1, 0.2]}
+        )
         out = ts_quantile_spread(df)
         assert out.metadata["reason"] == "no_date_column"
 
     def test_missing_factor_short_circuits(self):
-        df = pl.DataFrame({"date": [0, 1], "asset_id": [0, 0], "forward_return": [0.1, 0.2]})
+        df = pl.DataFrame(
+            {"date": [0, 1], "asset_id": [0, 0], "forward_return": [0.1, 0.2]}
+        )
         out = ts_quantile_spread(df)
         assert out.metadata["reason"] == "no_factor_column"

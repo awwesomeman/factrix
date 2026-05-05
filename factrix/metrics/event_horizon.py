@@ -22,7 +22,7 @@ import numpy as np
 import polars as pl
 
 from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
-from factrix._stats import _p_value_from_z, _significance_marker
+from factrix._stats import _significance_marker
 from factrix.metrics._helpers import _short_circuit_output
 
 
@@ -70,8 +70,10 @@ def compute_event_returns(
     # this result back without another cast.
     date_dtype = df.schema["date"]
     empty_schema = {
-        "offset": pl.Int32, "date": date_dtype,
-        "asset_id": pl.String, "signed_return": pl.Float64,
+        "offset": pl.Int32,
+        "date": date_dtype,
+        "asset_id": pl.String,
+        "signed_return": pl.Float64,
     }
 
     if price_col not in df.columns:
@@ -125,12 +127,14 @@ def compute_event_returns(
                     continue
                 signed_ret = float(prices[bar_idx] / prices[prev_idx] - 1)
 
-            rows.append({
-                "offset": k,
-                "date": edate,
-                "asset_id": aid,
-                "signed_return": signed_ret,
-            })
+            rows.append(
+                {
+                    "offset": k,
+                    "date": edate,
+                    "asset_id": aid,
+                    "signed_return": signed_ret,
+                }
+            )
 
     if not rows:
         return pl.DataFrame(schema=empty_schema)
@@ -181,12 +185,17 @@ def event_around_return(
         offsets = [-6, -3, -1, 1, 6, 12, 24]
 
     event_rets = compute_event_returns(
-        df, offsets=offsets, factor_col=factor_col, price_col=price_col,
+        df,
+        offsets=offsets,
+        factor_col=factor_col,
+        price_col=price_col,
     )
 
     if event_rets.is_empty():
         return _short_circuit_output(
-            "event_around_return", "no_price_data", per_offset={},
+            "event_around_return",
+            "no_price_data",
+            per_offset={},
         )
 
     per_offset: dict[int, dict] = {}
@@ -266,13 +275,18 @@ def multi_horizon_hit_rate(
         horizons = [1, 6, 12, 24]
 
     event_rets = compute_event_returns(
-        df, offsets=horizons, factor_col=factor_col, price_col=price_col,
+        df,
+        offsets=horizons,
+        factor_col=factor_col,
+        price_col=price_col,
     )
 
     if event_rets.is_empty():
         return _short_circuit_output(
-            "multi_horizon_hit_rate", "no_price_data",
-            per_horizon={}, horizons=horizons,
+            "multi_horizon_hit_rate",
+            "no_price_data",
+            per_horizon={},
+            horizons=horizons,
         )
 
     per_horizon: dict[int, dict] = {}

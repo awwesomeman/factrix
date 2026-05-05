@@ -65,6 +65,24 @@ all = ["factrix[charts,mlflow,jupyter]"]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["factrix", "tests", "examples", "scripts"]
+
+[tool.ruff.lint]
+# Baseline only — pyflakes (F) + critical pycodestyle errors (E4/E7/E9).
+# Mainstream rule set (I, B, UP, SIM, RUF) is tracked separately and
+# requires bulk migration; keep this minimal until that lands.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Notebook-style cell scripts have intentional non-top imports between
+# `# %%` cells; the section-marker pattern in test_registry.py is the
+# same shape.
+"examples/demo.py" = ["E402"]
+"tests/test_registry.py" = ["E402"]
+
 [tool.setuptools.packages.find]
 include = ["factrix*"]
 namespaces = false

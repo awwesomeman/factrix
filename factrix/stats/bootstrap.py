@@ -72,9 +72,7 @@ def stationary_bootstrap_resamples(
     if block_length is None:
         block_length = _default_block_length(n)
     if block_length < 1.0:
-        raise ValueError(
-            f"block_length must be >= 1.0, got {block_length!r}"
-        )
+        raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
 
     rng = np.random.default_rng(seed)
     # Probability of starting a new block at each step = 1/L.
@@ -125,8 +123,10 @@ def bootstrap_mean_ci(
         raise ValueError(f"ci must be in (0, 1), got {ci!r}")
     values = np.asarray(values, dtype=float)
     resamples = stationary_bootstrap_resamples(
-        values, n_bootstrap=n_bootstrap,
-        block_length=block_length, seed=seed,
+        values,
+        n_bootstrap=n_bootstrap,
+        block_length=block_length,
+        seed=seed,
     )
     # Fast path for the default (mean): native axis reduction beats
     # apply_along_axis by 10-100× on large resample matrices. Custom

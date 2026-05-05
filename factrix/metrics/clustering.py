@@ -67,8 +67,10 @@ def clustering_diagnostic(
 
     if n_events < MIN_EVENTS:
         return _short_circuit_output(
-            "clustering_hhi", "insufficient_events",
-            n_observed=n_events, min_required=MIN_EVENTS,
+            "clustering_hhi",
+            "insufficient_events",
+            n_observed=n_events,
+            min_required=MIN_EVENTS,
         )
 
     # Count events per date
@@ -76,7 +78,7 @@ def clustering_diagnostic(
     counts = per_date["count"].to_numpy().astype(float)
     shares = counts / counts.sum()
 
-    hhi = float(np.sum(shares ** 2))
+    hhi = float(np.sum(shares**2))
 
     # Effective number of independent dates = 1/HHI
     effective_n = 1.0 / hhi if hhi > 0 else 0.0
@@ -84,9 +86,7 @@ def clustering_diagnostic(
     n_dates = len(per_date)
     # Normalized HHI: (HHI - 1/D) / (1 - 1/D), ranges 0 to 1
     hhi_min = 1.0 / n_dates if n_dates > 0 else 0.0
-    hhi_normalized = (
-        (hhi - hhi_min) / (1.0 - hhi_min) if n_dates > 1 else 0.0
-    )
+    hhi_normalized = (hhi - hhi_min) / (1.0 - hhi_min) if n_dates > 1 else 0.0
 
     return MetricOutput(
         name="clustering_hhi",

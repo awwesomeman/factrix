@@ -3,26 +3,91 @@ name: test
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "latest"
+          version: "0.5.x"
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.12
+      - name: Install dev tooling
+        run: uv sync --python 3.12 --all-extras
+
+      - name: ruff check
+        run: uv run ruff check .
+
+      - name: ruff format --check
+        run: uv run ruff format --check .
+
+  test:
+    name: pytest (py${{ matrix.python }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.x"
+          enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --python ${{ matrix.python }} --all-extras
 
       - name: Run pytest
-        run: uv run pytest
+        run: uv run --python ${{ matrix.python }} pytest
+
+  build:
+    name: wheel build + import smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.x"
+          enable-cache: true
+
+      - name: Build wheel + sdist
+        run: uv build --python 3.12
+
+      - name: Import-from-wheel smoke
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python --quiet dist/factrix-*.whl
+          /tmp/smoke/bin/python -c "
+          import factrix as fl
+          import importlib.resources as ir
+          assert fl.__version__
+          assert ir.files('factrix').joinpath('llms-full.txt').is_file()
+          assert ir.files('factrix').joinpath('llms.txt').is_file()
+          print(f'OK factrix {fl.__version__}; llms-full.txt shipped in wheel')
+          "

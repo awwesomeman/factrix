@@ -48,10 +48,14 @@ def _make_panel(
         noise = rng.standard_normal(n_assets)
         factor = factor_strength * fwd + (1.0 - factor_strength) * noise
         for a, f, r in zip(assets, factor, fwd):
-            rows.append({
-                "date": d, "asset_id": a,
-                "factor": float(f), "forward_return": float(r),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": a,
+                    "factor": float(f),
+                    "forward_return": float(r),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -63,7 +67,10 @@ def ic_config() -> AnalysisConfig:
 class TestRegistryWiring:
     def test_registered_procedure_is_real_implementation(self) -> None:
         key = _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL,
+            FactorScope.INDIVIDUAL,
+            Signal.CONTINUOUS,
+            Metric.IC,
+            Mode.PANEL,
         )
         proc = _DISPATCH_REGISTRY[key].procedure
         assert isinstance(proc, _ICContPanelProcedure)
@@ -72,7 +79,10 @@ class TestRegistryWiring:
         schema = _ICContPanelProcedure.INPUT_SCHEMA
         assert isinstance(schema, InputSchema)
         assert set(schema.required_columns) == {
-            "date", "asset_id", "factor", "forward_return",
+            "date",
+            "asset_id",
+            "factor",
+            "forward_return",
         }
 
 
@@ -80,7 +90,10 @@ class TestStrongFactor:
     @pytest.fixture(scope="class")
     def profile(self, ic_config: AnalysisConfig) -> FactorProfile:
         panel = _make_panel(
-            n_dates=60, n_assets=30, seed=42, factor_strength=0.95,
+            n_dates=60,
+            n_assets=30,
+            seed=42,
+            factor_strength=0.95,
         )
         return _ICContPanelProcedure().compute(panel, ic_config)
 
@@ -115,7 +128,9 @@ class TestStrongFactor:
         assert profile.primary_p == profile.stats[StatCode.IC_P]
 
     def test_nw_lags_floor_at_forward_periods_minus_one(
-        self, profile: FactorProfile, ic_config: AnalysisConfig,
+        self,
+        profile: FactorProfile,
+        ic_config: AnalysisConfig,
     ) -> None:
         # auto_bartlett(60)=3, forward_periods-1=4 → HH floor binds.
         expected = float(max(auto_bartlett(60), ic_config.forward_periods - 1))
@@ -131,12 +146,16 @@ class TestRandomFactor:
         # from the rejection band. seed=10 lands at primary_p ≈ 0.92,
         # ic_mean ≈ -0.002 — uncontroversially null.
         panel = _make_panel(
-            n_dates=120, n_assets=30, seed=10, factor_strength=0.0,
+            n_dates=120,
+            n_assets=30,
+            seed=10,
+            factor_strength=0.0,
         )
         return _ICContPanelProcedure().compute(panel, ic_config)
 
     def test_random_factor_fails_at_default_threshold(
-        self, profile: FactorProfile,
+        self,
+        profile: FactorProfile,
     ) -> None:
         assert profile.verdict() is Verdict.FAIL
         assert profile.primary_p > 0.10
@@ -147,10 +166,14 @@ class TestRandomFactor:
 
 class TestProfileConfigPassthrough:
     def test_config_attached_to_profile(
-        self, ic_config: AnalysisConfig,
+        self,
+        ic_config: AnalysisConfig,
     ) -> None:
         panel = _make_panel(
-            n_dates=20, n_assets=15, seed=7, factor_strength=0.5,
+            n_dates=20,
+            n_assets=15,
+            seed=7,
+            factor_strength=0.5,
         )
         profile = _ICContPanelProcedure().compute(panel, ic_config)
         assert profile.config is ic_config
@@ -158,20 +181,29 @@ class TestProfileConfigPassthrough:
 
 class TestSparsePanelDropsThinDates:
     def test_thin_dates_dropped_via_min_ic_periods(
-        self, ic_config: AnalysisConfig,
+        self,
+        ic_config: AnalysisConfig,
     ) -> None:
         # Build 30 dates × 30 assets, then drop assets on the first 10
         # dates so they fall below MIN_ASSETS_PER_DATE_IC=10.
         panel = _make_panel(
-            n_dates=30, n_assets=30, seed=11, factor_strength=0.7,
+            n_dates=30,
+            n_assets=30,
+            seed=11,
+            factor_strength=0.7,
         )
         first_10 = panel["date"].unique().sort()[:10].to_list()
-        thinned = pl.concat([
-            panel.filter(~pl.col("date").is_in(first_10)),
-            panel.filter(pl.col("date").is_in(first_10)).group_by(
-                "date", maintain_order=True,
-            ).head(5),
-        ]).sort("date", "asset_id")
+        thinned = pl.concat(
+            [
+                panel.filter(~pl.col("date").is_in(first_10)),
+                panel.filter(pl.col("date").is_in(first_10))
+                .group_by(
+                    "date",
+                    maintain_order=True,
+                )
+                .head(5),
+            ]
+        ).sort("date", "asset_id")
 
         profile = _ICContPanelProcedure().compute(thinned, ic_config)
         assert profile.n_obs == 20

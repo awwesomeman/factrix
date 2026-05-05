@@ -46,6 +46,7 @@ MIN_MONOTONICITY_PERIODS: int = 5
 # Unified output type for metric primitives
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class MetricOutput:
     """Return type for ``factrix.metrics.*`` primitives.

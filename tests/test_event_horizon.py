@@ -19,6 +19,7 @@ from factrix.metrics.event_quality import signal_density
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _make_event_with_price(
     n_assets: int = 20,
     n_dates: int = 300,
@@ -39,11 +40,16 @@ def _make_event_with_price(
             daily_ret = rng.normal(0, 0.015)
             if is_event:
                 daily_ret += signal_strength * direction
-            price *= (1 + daily_ret)
-            rows.append({
-                "date": d, "asset_id": a, "factor": direction,
-                "forward_return": daily_ret, "price": price,
-            })
+            price *= 1 + daily_ret
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": a,
+                    "factor": direction,
+                    "forward_return": daily_ret,
+                    "price": price,
+                }
+            )
 
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
@@ -63,6 +69,7 @@ def no_price_data(event_data) -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 # compute_event_returns
 # ---------------------------------------------------------------------------
+
 
 class TestComputeEventReturns:
     def test_returns_expected_columns(self, event_data):
@@ -87,16 +94,12 @@ class TestComputeEventReturns:
         assert result["signed_return"].mean() > 0
 
     def test_output_date_dtype_mirrors_input_us(self, event_data):
-        df_us = event_data.with_columns(
-            pl.col("date").cast(pl.Datetime("us"))
-        )
+        df_us = event_data.with_columns(pl.col("date").cast(pl.Datetime("us")))
         result = compute_event_returns(df_us, offsets=[1, 6])
         assert result.schema["date"] == pl.Datetime("us")
 
     def test_output_date_dtype_mirrors_tz_aware(self, event_data):
-        df_utc = event_data.with_columns(
-            pl.col("date").dt.replace_time_zone("UTC")
-        )
+        df_utc = event_data.with_columns(pl.col("date").dt.replace_time_zone("UTC"))
         result = compute_event_returns(df_utc, offsets=[1, 6])
         assert result.schema["date"] == pl.Datetime("ms", time_zone="UTC")
 
@@ -104,6 +107,7 @@ class TestComputeEventReturns:
 # ---------------------------------------------------------------------------
 # event_around_return
 # ---------------------------------------------------------------------------
+
 
 class TestEventAroundReturn:
     def test_returns_metric_output(self, event_data):
@@ -136,6 +140,7 @@ class TestEventAroundReturn:
 # multi_horizon_hit_rate
 # ---------------------------------------------------------------------------
 
+
 class TestMultiHorizonHitRate:
     def test_returns_metric_output(self, event_data):
         result = multi_horizon_hit_rate(event_data, horizons=[1, 6, 12])
@@ -161,6 +166,7 @@ class TestMultiHorizonHitRate:
 # ---------------------------------------------------------------------------
 # signal_density
 # ---------------------------------------------------------------------------
+
 
 class TestSignalDensity:
     def test_returns_metric_output(self, event_data):
@@ -190,13 +196,22 @@ class TestSignalDensity:
 # Standalone import
 # ---------------------------------------------------------------------------
 
+
 class TestImports:
     def test_all_importable(self):
         from factrix.metrics import (
-            compute_event_returns, event_around_return,
-            multi_horizon_hit_rate, signal_density,
+            compute_event_returns,
+            event_around_return,
+            multi_horizon_hit_rate,
+            signal_density,
         )
-        assert all(callable(f) for f in [
-            compute_event_returns, event_around_return,
-            multi_horizon_hit_rate, signal_density,
-        ])
+
+        assert all(
+            callable(f)
+            for f in [
+                compute_event_returns,
+                event_around_return,
+                multi_horizon_hit_rate,
+                signal_density,
+            ]
+        )

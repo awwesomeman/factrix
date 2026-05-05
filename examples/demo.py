@@ -65,13 +65,17 @@ for row in modes_json:
 
 # %%
 raw = fl.datasets.make_cs_panel(
-    n_assets=100, n_dates=500, ic_target=0.08, seed=2024,
+    n_assets=100,
+    n_dates=500,
+    ic_target=0.08,
+    seed=2024,
 )
 panel = compute_forward_return(raw, forward_periods=5)
 print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")
 
 cfg_ic = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.IC, forward_periods=5,
+    metric=fl.Metric.IC,
+    forward_periods=5,
 )
 prof_ic = fl.evaluate(panel, cfg_ic)
 
@@ -87,6 +91,7 @@ print(f"nw_lags_used = {prof_ic.stats[fl.StatCode.NW_LAGS_USED]:.0f}")
 
 # %%
 import json
+
 print(json.dumps(prof_ic.diagnose(), indent=2, default=str))
 
 # %% [markdown]
@@ -97,7 +102,8 @@ print(json.dumps(prof_ic.diagnose(), indent=2, default=str))
 
 # %%
 cfg_fm = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.FM, forward_periods=5,
+    metric=fl.Metric.FM,
+    forward_periods=5,
 )
 prof_fm = fl.evaluate(panel, cfg_fm)
 print(f"verdict       = {prof_fm.verdict()}")
@@ -112,9 +118,12 @@ print(f"λ_t_nw        = {prof_fm.stats[fl.StatCode.FM_LAMBDA_T_NW]:+.2f}")
 
 # %%
 ev_raw = fl.datasets.make_event_panel(
-    n_assets=80, n_dates=400,
-    event_rate=0.02, post_event_drift_bps=15.0,
-    signal_horizon=5, seed=42,
+    n_assets=80,
+    n_dates=400,
+    event_rate=0.02,
+    post_event_drift_bps=15.0,
+    signal_horizon=5,
+    seed=42,
 )
 ev_panel = compute_forward_return(ev_raw, forward_periods=5)
 
@@ -132,9 +141,12 @@ print(f"warnings  = {sorted(w.value for w in prof_caar.warnings)}")
 # 每個 date 上所有 asset 共享同一 factor 值。Per-asset TS β → cross-asset
 # t-test on `E[β]`。
 
+
 # %%
 def make_broadcast_panel(
-    n_assets: int = 30, n_dates: int = 300, seed: int = 11,
+    n_assets: int = 30,
+    n_dates: int = 300,
+    seed: int = 11,
 ) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     dates = [datetime(2023, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -143,11 +155,14 @@ def make_broadcast_panel(
     for t, d in enumerate(dates):
         for i in range(n_assets):
             r = 0.4 * f_t[t] * 0.01 + 0.01 * rng.standard_normal()
-            rows.append({
-                "date": d, "asset_id": f"a{i:02d}",
-                "factor": float(f_t[t]),
-                "forward_return": float(r),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"a{i:02d}",
+                    "factor": float(f_t[t]),
+                    "forward_return": float(r),
+                }
+            )
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
     )
@@ -156,8 +171,10 @@ def make_broadcast_panel(
 bcast = make_broadcast_panel()
 # 驗證 broadcast 性質：每個 date 上 factor 值唯一
 is_broadcast = bool(
-    bcast.group_by("date").agg(pl.col("factor").n_unique().alias("u"))
-    .select((pl.col("u") == 1).all()).item()
+    bcast.group_by("date")
+    .agg(pl.col("factor").n_unique().alias("u"))
+    .select((pl.col("u") == 1).all())
+    .item()
 )
 print(f"broadcast verified: {is_broadcast}  N={bcast['asset_id'].n_unique()}")
 
@@ -170,6 +187,7 @@ print(f"E[β]          = {prof_cc.stats[fl.StatCode.TS_BETA]:+.4f}")
 # %% [markdown]
 # ## 7. COMMON × SPARSE — broadcast event (FOMC-like)
 
+
 # %%
 def make_broadcast_event_panel(seed: int = 23) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
@@ -180,11 +198,14 @@ def make_broadcast_event_panel(seed: int = 23) -> pl.DataFrame:
     for t, d in enumerate(dates):
         for i in range(n_assets):
             r = 0.005 * d_t[t] + 0.01 * rng.standard_normal()
-            rows.append({
-                "date": d, "asset_id": f"a{i:02d}",
-                "factor": float(d_t[t]),
-                "forward_return": float(r),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"a{i:02d}",
+                    "factor": float(d_t[t]),
+                    "forward_return": float(r),
+                }
+            )
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
     )
@@ -221,21 +242,21 @@ print(f"warnings  = {sorted(w.value for w in prof_b.warnings)}")
 # %%
 single_event = cs_event.filter(pl.col("asset_id") == "a00")
 prof_collapsed = fl.evaluate(
-    single_event, fl.AnalysisConfig.common_sparse(forward_periods=1),
+    single_event,
+    fl.AnalysisConfig.common_sparse(forward_periods=1),
 )
 print(f"info_notes = {sorted(i.value for i in prof_collapsed.info_notes)}")
 
 # 兩個入口在 N=1 等價
 prof_via_individual = fl.evaluate(
-    single_event, fl.AnalysisConfig.individual_sparse(forward_periods=1),
+    single_event,
+    fl.AnalysisConfig.individual_sparse(forward_periods=1),
 )
 print(
-    f"individual_sparse(N=1) primary_p = "
-    f"{prof_via_individual.primary_p:.4g}",
+    f"individual_sparse(N=1) primary_p = {prof_via_individual.primary_p:.4g}",
 )
 print(
-    f"common_sparse(N=1)     primary_p = "
-    f"{prof_collapsed.primary_p:.4g}",
+    f"common_sparse(N=1)     primary_p = {prof_collapsed.primary_p:.4g}",
 )
 
 # %% [markdown]
@@ -285,8 +306,11 @@ except fl.IncompatibleAxisError as e:
 # BHY 控制**同一 family 內**的 FDR。下面這個批次是「同一個 cell 評估多個
 # candidate」的正確用法：
 
+
 # %%
-def make_factor_variant(panel: pl.DataFrame, noise_scale: float, seed: int) -> pl.DataFrame:
+def make_factor_variant(
+    panel: pl.DataFrame, noise_scale: float, seed: int
+) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     return panel.with_columns(
         pl.Series(
@@ -301,9 +325,7 @@ candidates = {
     f"variant_{i}": make_factor_variant(panel, noise_scale=0.5 + 0.3 * i, seed=100 + i)
     for i in range(5)
 }
-profiles = [
-    fl.evaluate(p, cfg_ic) for p in candidates.values()
-]
+profiles = [fl.evaluate(p, cfg_ic) for p in candidates.values()]
 for name, prof in zip(candidates, profiles):
     print(f"  {name:12s} primary_p={prof.primary_p:.4g}  verdict={prof.verdict()}")
 
@@ -331,7 +353,7 @@ print(f"warnings raised: {[str(w.message) for w in caught]}")
 # %%
 suggestion = fl.suggest_config(panel)
 print(f"suggested  : {suggestion.suggested}")
-print(f"reasoning  :")
+print("reasoning  :")
 for axis, why in suggestion.reasoning.items():
     print(f"  {axis:8s}: {why}")
 print(f"warnings   : {[w.value for w in suggestion.warnings]}")

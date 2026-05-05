@@ -49,12 +49,9 @@ class TestComputeHitRate:
         result = hit_rate(series, forward_periods=1)
         assert result.metadata["method"] == "binomial exact test"
         # Exact p for 15/15 successes under H₀: p=0.5 is 2 * 0.5**15.
-        assert result.metadata["p_value"] == pytest.approx(2 * 0.5 ** 15)
+        assert result.metadata["p_value"] == pytest.approx(2 * 0.5**15)
 
     def test_large_n_uses_normal_approximation(self):
         series = _make_series([0.01] * 100 + [-0.01] * 100)
         result = hit_rate(series, forward_periods=1)
-        assert (
-            result.metadata["method"]
-            == "binomial score test (normal approximation)"
-        )
+        assert result.metadata["method"] == "binomial score test (normal approximation)"

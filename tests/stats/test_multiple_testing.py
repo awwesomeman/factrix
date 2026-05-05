@@ -140,8 +140,8 @@ class TestNTotal:
         mask_tight = bhy_adjust(p, fdr=0.05, n_total=3)
         mask_loose = bhy_adjust(p, fdr=0.05, n_total=1000)
         assert mask_tight.sum() >= mask_loose.sum()
-        assert mask_tight[0]          # p=0.001 survives at n=3
-        assert not mask_loose[0]      # but not at n=1000
+        assert mask_tight[0]  # p=0.001 survives at n=3
+        assert not mask_loose[0]  # but not at n=1000
 
         adj_tight = bhy_adjusted_p(p, n_total=3)
         adj_loose = bhy_adjusted_p(p, n_total=1000)

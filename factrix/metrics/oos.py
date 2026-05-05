@@ -123,7 +123,8 @@ def multi_split_oos_decay(
 
     if n < MIN_OOS_PERIODS * 2:
         return _short_circuit_output(
-            "oos_decay", "insufficient_oos_periods",
+            "oos_decay",
+            "insufficient_oos_periods",
             n_observed=n,
             min_required=MIN_OOS_PERIODS * 2,
             sign_flipped=False,
@@ -156,17 +157,20 @@ def multi_split_oos_decay(
         else:
             survival = abs(mean_oos) / abs(mean_is)
 
-        split_details.append(SplitDetail(
-            is_ratio=is_frac,
-            mean_is=mean_is,
-            mean_oos=mean_oos,
-            survival_ratio=survival,
-            sign_flipped=sign_flip,
-        ))
+        split_details.append(
+            SplitDetail(
+                is_ratio=is_frac,
+                mean_is=mean_is,
+                mean_oos=mean_oos,
+                survival_ratio=survival,
+                sign_flipped=sign_flip,
+            )
+        )
 
     if not split_details:
         return _short_circuit_output(
-            "oos_decay", "no_valid_splits",
+            "oos_decay",
+            "no_valid_splits",
             sign_flipped=False,
             status="VETOED",
             per_split=[],

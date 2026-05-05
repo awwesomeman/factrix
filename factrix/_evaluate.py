@@ -21,7 +21,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from factrix._analysis_config import _FALLBACK_MAP
-from factrix._axis import Mode, Signal
+from factrix._axis import Mode
 from factrix._codes import InfoCode
 from factrix._errors import ModeAxisError
 from factrix._registry import (
@@ -75,7 +75,8 @@ def _evaluate(raw: Any, config: "AnalysisConfig") -> "FactorProfile":
     routed_scope = _route_scope(config.scope, config.signal, mode)
     extra_info: frozenset[InfoCode] = (
         frozenset({InfoCode.SCOPE_AXIS_COLLAPSED})
-        if routed_scope is not config.scope else frozenset()
+        if routed_scope is not config.scope
+        else frozenset()
     )
     key = _DispatchKey(routed_scope, config.signal, config.metric, mode)
     entry = _DISPATCH_REGISTRY.get(key)
@@ -93,6 +94,7 @@ def _evaluate(raw: Any, config: "AnalysisConfig") -> "FactorProfile":
     profile = entry.procedure.compute(raw, config)
     if extra_info:
         profile = dataclasses.replace(
-            profile, info_notes=profile.info_notes | extra_info,
+            profile,
+            info_notes=profile.info_notes | extra_info,
         )
     return profile

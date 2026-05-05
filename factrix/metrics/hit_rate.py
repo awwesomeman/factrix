@@ -60,8 +60,10 @@ def hit_rate(
     n = len(vals)
     if n < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
-            "hit_rate", "insufficient_hit_rate_samples",
-            n_observed=n, min_required=MIN_ASSETS_PER_DATE_IC,
+            "hit_rate",
+            "insufficient_hit_rate_samples",
+            n_observed=n,
+            min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
     hits = int((vals > 0).sum())

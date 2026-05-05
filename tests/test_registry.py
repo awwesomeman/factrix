@@ -21,7 +21,6 @@ from factrix._registry import (
     _DISPATCH_REGISTRY,
     _SCOPE_COLLAPSED,
     _DispatchKey,
-    _RegistryEntry,
     _ScopeCollapsedSentinel,
     matches_user_axis,
     register,
@@ -39,8 +38,12 @@ class TestRegistryShape:
 
     def test_panel_entries_present(self) -> None:
         for key in (
-            _DispatchKey(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL),
-            _DispatchKey(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM, Mode.PANEL),
+            _DispatchKey(
+                FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL
+            ),
+            _DispatchKey(
+                FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM, Mode.PANEL
+            ),
             _DispatchKey(FactorScope.INDIVIDUAL, Signal.SPARSE, None, Mode.PANEL),
             _DispatchKey(FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.PANEL),
             _DispatchKey(FactorScope.COMMON, Signal.SPARSE, None, Mode.PANEL),
@@ -49,19 +52,37 @@ class TestRegistryShape:
 
     def test_timeseries_entries_present(self) -> None:
         # COMMON × CONTINUOUS legal at N=1; sparse cell uses sentinel.
-        assert _DispatchKey(
-            FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.TIMESERIES,
-        ) in _DISPATCH_REGISTRY
-        assert _DispatchKey(
-            _SCOPE_COLLAPSED, Signal.SPARSE, None, Mode.TIMESERIES,
-        ) in _DISPATCH_REGISTRY
+        assert (
+            _DispatchKey(
+                FactorScope.COMMON,
+                Signal.CONTINUOUS,
+                None,
+                Mode.TIMESERIES,
+            )
+            in _DISPATCH_REGISTRY
+        )
+        assert (
+            _DispatchKey(
+                _SCOPE_COLLAPSED,
+                Signal.SPARSE,
+                None,
+                Mode.TIMESERIES,
+            )
+            in _DISPATCH_REGISTRY
+        )
 
     def test_individual_continuous_timeseries_absent(self) -> None:
         # §5.5 — undefined at N=1; raises ModeAxisError at evaluate time.
         for metric in (Metric.IC, Metric.FM):
-            assert _DispatchKey(
-                FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric, Mode.TIMESERIES,
-            ) not in _DISPATCH_REGISTRY
+            assert (
+                _DispatchKey(
+                    FactorScope.INDIVIDUAL,
+                    Signal.CONTINUOUS,
+                    metric,
+                    Mode.TIMESERIES,
+                )
+                not in _DISPATCH_REGISTRY
+            )
 
     def test_every_entry_has_use_case_and_refs(self) -> None:
         for entry in _DISPATCH_REGISTRY.values():
@@ -284,7 +305,9 @@ class TestMatchesUserAxis:
         # Direct PANEL entry exists; sentinel TIMESERIES entry would
         # also accept INDIVIDUAL via the collapse rule.
         assert matches_user_axis(
-            FactorScope.INDIVIDUAL, Signal.SPARSE, None,
+            FactorScope.INDIVIDUAL,
+            Signal.SPARSE,
+            None,
         )
 
 
@@ -299,18 +322,33 @@ from factrix._registry import _route_scope
 class TestRouteScope:
     def test_sparse_timeseries_collapses(self) -> None:
         for scope in (FactorScope.INDIVIDUAL, FactorScope.COMMON):
-            assert _route_scope(
-                scope, Signal.SPARSE, Mode.TIMESERIES,
-            ) is _SCOPE_COLLAPSED
+            assert (
+                _route_scope(
+                    scope,
+                    Signal.SPARSE,
+                    Mode.TIMESERIES,
+                )
+                is _SCOPE_COLLAPSED
+            )
 
     def test_continuous_passes_through_at_any_mode(self) -> None:
         for mode in (Mode.PANEL, Mode.TIMESERIES):
-            assert _route_scope(
-                FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode,
-            ) is FactorScope.INDIVIDUAL
-            assert _route_scope(
-                FactorScope.COMMON, Signal.CONTINUOUS, mode,
-            ) is FactorScope.COMMON
+            assert (
+                _route_scope(
+                    FactorScope.INDIVIDUAL,
+                    Signal.CONTINUOUS,
+                    mode,
+                )
+                is FactorScope.INDIVIDUAL
+            )
+            assert (
+                _route_scope(
+                    FactorScope.COMMON,
+                    Signal.CONTINUOUS,
+                    mode,
+                )
+                is FactorScope.COMMON
+            )
 
     def test_sparse_panel_passes_through(self) -> None:
         # PANEL sparse keeps the user scope — only TIMESERIES collapses.
@@ -334,7 +372,10 @@ class TestRegisterSentinelMetricGuard:
                 raise NotImplementedError
 
         bad_key = _DispatchKey(
-            _SCOPE_COLLAPSED, Signal.SPARSE, Metric.IC, Mode.TIMESERIES,
+            _SCOPE_COLLAPSED,
+            Signal.SPARSE,
+            Metric.IC,
+            Mode.TIMESERIES,
         )
         with pytest.raises(ValueError, match="metric=None"):
             register(bad_key, _Stub(), use_case="illegal — should never land")
@@ -352,5 +393,6 @@ class TestRegistryBootstrapInvariant:
         deletion of a register() call or a circular-import regression
         that would prevent _procedures from running to completion."""
         from factrix._registry import _EXPECTED_REGISTRY_SIZE
+
         assert _EXPECTED_REGISTRY_SIZE == 7
         assert len(_DISPATCH_REGISTRY) == _EXPECTED_REGISTRY_SIZE

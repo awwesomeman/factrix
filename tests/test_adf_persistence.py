@@ -55,4 +55,3 @@ def test_adf_pvalue_interpolation_ranges(tau, expected_range):
     lo, hi = expected_range
     p = _adf_pvalue_interp(tau)
     assert lo <= p <= hi, f"τ={tau}: p={p} outside {expected_range}"
-

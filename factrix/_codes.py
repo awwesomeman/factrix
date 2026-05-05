@@ -43,29 +43,24 @@ class WarningCode(StrEnum):
 _WARNING_DESCRIPTIONS: dict["WarningCode", str] = {}
 
 
-_WARNING_DESCRIPTIONS.update({
-    WarningCode.UNRELIABLE_SE_SHORT_PERIODS:
-        "n_periods is below MIN_PERIODS_RELIABLE=30; NW HAC SE may be biased.",
-    WarningCode.EVENT_WINDOW_OVERLAP:
-        "Adjacent events sit within forward_periods; AR windows overlap.",
-    WarningCode.PERSISTENT_REGRESSOR:
-        "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
-    WarningCode.SERIAL_CORRELATION_DETECTED:
-        "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
-    WarningCode.SMALL_CROSS_SECTION_N:
-        "PANEL cross-asset t-test with n_assets < MIN_ASSETS (10); "
+_WARNING_DESCRIPTIONS.update(
+    {
+        WarningCode.UNRELIABLE_SE_SHORT_PERIODS: "n_periods is below MIN_PERIODS_RELIABLE=30; NW HAC SE may be biased.",
+        WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
+        WarningCode.PERSISTENT_REGRESSOR: "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
+        WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
+        WarningCode.SMALL_CROSS_SECTION_N: "PANEL cross-asset t-test with n_assets < MIN_ASSETS (10); "
         "df=n_assets-1 too low — t_crit at n_assets=3 ≈ 4.30 "
         "(+119% vs asymptotic 1.96).",
-    WarningCode.BORDERLINE_CROSS_SECTION_N:
-        "PANEL cross-asset t-test with MIN_ASSETS ≤ n_assets < "
+        WarningCode.BORDERLINE_CROSS_SECTION_N: "PANEL cross-asset t-test with MIN_ASSETS ≤ n_assets < "
         "MIN_ASSETS_RELIABLE (10..29); residual t_crit inflation "
         "5–15% — read borderline p-values cautiously.",
-    WarningCode.SPARSE_COMMON_FEW_EVENTS:
-        "(COMMON, SPARSE, PANEL) broadcast dummy has "
+        WarningCode.SPARSE_COMMON_FEW_EVENTS: "(COMMON, SPARSE, PANEL) broadcast dummy has "
         "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE "
         "(5..19); per-asset β estimable but cross-event averaging too thin "
         "for asymptotic t.",
-})
+    }
+)
 
 
 def cross_section_tier(n_assets: int) -> WarningCode | None:
@@ -97,8 +92,7 @@ class InfoCode(StrEnum):
 
 
 _INFO_DESCRIPTIONS: dict["InfoCode", str] = {
-    InfoCode.SCOPE_AXIS_COLLAPSED:
-        "N=1 collapsed scope axis; routed via _SCOPE_COLLAPSED sentinel.",
+    InfoCode.SCOPE_AXIS_COLLAPSED: "N=1 collapsed scope axis; routed via _SCOPE_COLLAPSED sentinel.",
 }
 
 

@@ -64,12 +64,14 @@ def _make_common_panel(
         d = start + dt.timedelta(days=t)
         for j in range(n_assets):
             noise = float(rng.standard_normal())
-            rows.append({
-                "date": d,
-                "asset_id": f"A{j:03d}",
-                "factor": float(factor[t]),
-                "forward_return": float(asset_betas[j] * factor[t] + noise),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": float(factor[t]),
+                    "forward_return": float(asset_betas[j] * factor[t] + noise),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -91,23 +93,32 @@ def cfg_sparse() -> AnalysisConfig:
 class TestRegistryWiring:
     def test_continuous_panel_registered(self) -> None:
         key = _DispatchKey(
-            FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.PANEL,
+            FactorScope.COMMON,
+            Signal.CONTINUOUS,
+            None,
+            Mode.PANEL,
         )
         assert isinstance(
-            _DISPATCH_REGISTRY[key].procedure, _CommonContPanelProcedure,
+            _DISPATCH_REGISTRY[key].procedure,
+            _CommonContPanelProcedure,
         )
 
     def test_sparse_panel_registered(self) -> None:
         key = _DispatchKey(
-            FactorScope.COMMON, Signal.SPARSE, None, Mode.PANEL,
+            FactorScope.COMMON,
+            Signal.SPARSE,
+            None,
+            Mode.PANEL,
         )
         assert isinstance(
-            _DISPATCH_REGISTRY[key].procedure, _CommonSparsePanelProcedure,
+            _DISPATCH_REGISTRY[key].procedure,
+            _CommonSparsePanelProcedure,
         )
 
     def test_continuous_input_schema(self) -> None:
         assert isinstance(
-            _CommonContPanelProcedure.INPUT_SCHEMA, InputSchema,
+            _CommonContPanelProcedure.INPUT_SCHEMA,
+            InputSchema,
         )
         assert "asset_id" in _CommonContPanelProcedure.INPUT_SCHEMA.required_columns
 
@@ -121,8 +132,11 @@ class TestContinuousStrong:
     @pytest.fixture(scope="class")
     def profile(self, cfg_continuous: AnalysisConfig) -> FactorProfile:
         panel = _make_common_panel(
-            n_dates=80, n_assets=20, seed=42,
-            true_beta=0.6, factor_kind="iid",
+            n_dates=80,
+            n_assets=20,
+            seed=42,
+            true_beta=0.6,
+            factor_kind="iid",
         )
         return _CommonContPanelProcedure().compute(panel, cfg_continuous)
 
@@ -154,11 +168,16 @@ class TestContinuousStrong:
 
 class TestContinuousRandom:
     def test_zero_true_beta_fails(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         panel = _make_common_panel(
-            n_dates=80, n_assets=20, seed=10,
-            true_beta=0.0, beta_dispersion=0.05, factor_kind="iid",
+            n_dates=80,
+            n_assets=20,
+            seed=10,
+            true_beta=0.0,
+            beta_dispersion=0.05,
+            factor_kind="iid",
         )
         profile = _CommonContPanelProcedure().compute(panel, cfg_continuous)
         assert profile.verdict() is Verdict.FAIL
@@ -166,11 +185,15 @@ class TestContinuousRandom:
 
 class TestContinuousPersistentFactor:
     def test_random_walk_factor_warns(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         panel = _make_common_panel(
-            n_dates=80, n_assets=15, seed=7,
-            true_beta=0.0, factor_kind="rw",
+            n_dates=80,
+            n_assets=15,
+            seed=7,
+            true_beta=0.0,
+            factor_kind="rw",
         )
         profile = _CommonContPanelProcedure().compute(panel, cfg_continuous)
         assert WarningCode.PERSISTENT_REGRESSOR in profile.warnings
@@ -186,8 +209,11 @@ class TestSparseStrong:
     @pytest.fixture(scope="class")
     def profile(self, cfg_sparse: AnalysisConfig) -> FactorProfile:
         panel = _make_common_panel(
-            n_dates=80, n_assets=20, seed=43,
-            true_beta=1.5, factor_kind="sparse",
+            n_dates=80,
+            n_assets=20,
+            seed=43,
+            true_beta=1.5,
+            factor_kind="sparse",
             sparse_event_density=0.10,
         )
         return _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
@@ -211,11 +237,16 @@ class TestSparseStrong:
 
 class TestSparseRandom:
     def test_zero_true_beta_fails(
-        self, cfg_sparse: AnalysisConfig,
+        self,
+        cfg_sparse: AnalysisConfig,
     ) -> None:
         panel = _make_common_panel(
-            n_dates=80, n_assets=20, seed=11,
-            true_beta=0.0, beta_dispersion=0.05, factor_kind="sparse",
+            n_dates=80,
+            n_assets=20,
+            seed=11,
+            true_beta=0.0,
+            beta_dispersion=0.05,
+            factor_kind="sparse",
             sparse_event_density=0.08,
         )
         profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
@@ -231,21 +262,28 @@ class TestSparseRandom:
 class TestEndToEndViaEvaluate:
     def test_continuous_e2e(self, cfg_continuous: AnalysisConfig) -> None:
         panel = _make_common_panel(
-            n_dates=60, n_assets=15, seed=99,
-            true_beta=0.5, factor_kind="iid",
+            n_dates=60,
+            n_assets=15,
+            seed=99,
+            true_beta=0.5,
+            factor_kind="iid",
         )
         profile = _evaluate(panel, cfg_continuous)
         assert profile.mode is Mode.PANEL
         assert profile.verdict() is Verdict.PASS
 
     def test_sparse_panel_does_not_collapse(
-        self, cfg_sparse: AnalysisConfig,
+        self,
+        cfg_sparse: AnalysisConfig,
     ) -> None:
         from factrix._codes import InfoCode
 
         panel = _make_common_panel(
-            n_dates=60, n_assets=15, seed=88,
-            true_beta=1.2, factor_kind="sparse",
+            n_dates=60,
+            n_assets=15,
+            seed=88,
+            true_beta=1.2,
+            factor_kind="sparse",
             sparse_event_density=0.10,
         )
         profile = _evaluate(panel, cfg_sparse)
@@ -267,7 +305,8 @@ class TestEmptyPanelFallback:
     N == 0 branch in ``_compute_common_panel``."""
 
     def test_continuous_empty_returns_p_one(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         empty = pl.DataFrame(
             schema={
@@ -283,7 +322,8 @@ class TestEmptyPanelFallback:
         assert profile.stats[StatCode.TS_BETA] == 0.0
 
     def test_sparse_empty_raises_insufficient_events(
-        self, cfg_sparse: AnalysisConfig,
+        self,
+        cfg_sparse: AnalysisConfig,
     ) -> None:
         # n_events=0 trips the MIN_EVENTS_HARD guard before any β fitting.
         # Empty panels should not silently return p=1.0 here — the procedure
@@ -310,19 +350,28 @@ class TestSparseCommonEventCountGuard:
 
         # density=0.05 × n_dates=60 → max(2, 3) = 3 events < MIN_EVENTS_HARD=5.
         panel = _make_common_panel(
-            n_dates=60, n_assets=15, seed=51, true_beta=0.0,
-            factor_kind="sparse", sparse_event_density=0.05,
+            n_dates=60,
+            n_assets=15,
+            seed=51,
+            true_beta=0.0,
+            factor_kind="sparse",
+            sparse_event_density=0.05,
         )
         with pytest.raises(InsufficientSampleError):
             _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
 
     def test_ten_events_emits_borderline_warning(
-        self, cfg_sparse: AnalysisConfig,
+        self,
+        cfg_sparse: AnalysisConfig,
     ) -> None:
         # 10 events, in [MIN_EVENTS_HARD=5, MIN_EVENTS_RELIABLE=20) → warn.
         panel = _make_common_panel(
-            n_dates=60, n_assets=15, seed=52, true_beta=0.0,
-            factor_kind="sparse", sparse_event_density=10 / 60,
+            n_dates=60,
+            n_assets=15,
+            seed=52,
+            true_beta=0.0,
+            factor_kind="sparse",
+            sparse_event_density=10 / 60,
         )
         profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
         assert WarningCode.SPARSE_COMMON_FEW_EVENTS in profile.warnings
@@ -330,8 +379,12 @@ class TestSparseCommonEventCountGuard:
     def test_thirty_events_silent(self, cfg_sparse: AnalysisConfig) -> None:
         # 30 events ≥ MIN_EVENTS_RELIABLE=20 → no event-count warning.
         panel = _make_common_panel(
-            n_dates=60, n_assets=15, seed=53, true_beta=0.0,
-            factor_kind="sparse", sparse_event_density=0.5,
+            n_dates=60,
+            n_assets=15,
+            seed=53,
+            true_beta=0.0,
+            factor_kind="sparse",
+            sparse_event_density=0.5,
         )
         profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
         assert WarningCode.SPARSE_COMMON_FEW_EVENTS not in profile.warnings
@@ -347,36 +400,45 @@ class TestCrossSectionNWarnings:
     """
 
     def _profile_for(
-        self, n_assets: int, cfg_continuous: AnalysisConfig,
+        self,
+        n_assets: int,
+        cfg_continuous: AnalysisConfig,
     ) -> FactorProfile:
         panel = _make_common_panel(
-            n_dates=60, n_assets=n_assets, seed=11, true_beta=0.5,
+            n_dates=60,
+            n_assets=n_assets,
+            seed=11,
+            true_beta=0.5,
         )
         return _CommonContPanelProcedure().compute(panel, cfg_continuous)
 
     def test_emits_small_at_n5(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         profile = self._profile_for(5, cfg_continuous)
         assert WarningCode.SMALL_CROSS_SECTION_N in profile.warnings
         assert WarningCode.BORDERLINE_CROSS_SECTION_N not in profile.warnings
 
     def test_only_small_at_n9(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         profile = self._profile_for(9, cfg_continuous)
         assert WarningCode.SMALL_CROSS_SECTION_N in profile.warnings
         assert WarningCode.BORDERLINE_CROSS_SECTION_N not in profile.warnings
 
     def test_emits_borderline_at_n15(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         profile = self._profile_for(15, cfg_continuous)
         assert WarningCode.BORDERLINE_CROSS_SECTION_N in profile.warnings
         assert WarningCode.SMALL_CROSS_SECTION_N not in profile.warnings
 
     def test_no_warning_at_n35(
-        self, cfg_continuous: AnalysisConfig,
+        self,
+        cfg_continuous: AnalysisConfig,
     ) -> None:
         profile = self._profile_for(35, cfg_continuous)
         assert WarningCode.SMALL_CROSS_SECTION_N not in profile.warnings

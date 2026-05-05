@@ -16,7 +16,11 @@ from factrix._errors import (
     InsufficientSampleError,
     ModeAxisError,
 )
-from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE, auto_bartlett
+from factrix._stats.constants import (
+    MIN_PERIODS_HARD,
+    MIN_PERIODS_RELIABLE,
+    auto_bartlett,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +131,9 @@ class TestExceptionHierarchy:
 
     def test_suggested_fix_defaults_to_none(self) -> None:
         err = InsufficientSampleError(
-            "T below floor", actual_periods=10, required_periods=20,
+            "T below floor",
+            actual_periods=10,
+            required_periods=20,
         )
         assert err.suggested_fix is None
         assert err.actual_periods == 10 and err.required_periods == 20
@@ -144,6 +150,7 @@ class TestPublicSurface:
         __all__ prevents 'fl.Mode' from showing up as a public symbol
         users are tempted to plug into AnalysisConfig."""
         import factrix as fl
+
         assert "Mode" not in fl.__all__
         # Still importable from the private module for advanced uses.
         from factrix._axis import Mode  # noqa: F401
@@ -155,9 +162,12 @@ class TestIncompatibleAxisErrorMessage:
         tuple enumeration so users debugging an error see what to call,
         not what's wrong."""
         from factrix._analysis_config import _validate_axis_compat
+
         with pytest.raises(IncompatibleAxisError) as exc:
             _validate_axis_compat(
-                FactorScope.INDIVIDUAL, Signal.SPARSE, Metric.IC,
+                FactorScope.INDIVIDUAL,
+                Signal.SPARSE,
+                Metric.IC,
             )
         msg = str(exc.value)
         factories_idx = msg.find("Use one of the four factory methods")
@@ -294,7 +304,8 @@ def legal_config(request: pytest.FixtureRequest) -> AnalysisConfig:
 
 class TestRoundTrip:
     def test_to_dict_then_from_dict(
-        self, legal_config: AnalysisConfig,
+        self,
+        legal_config: AnalysisConfig,
     ) -> None:
         assert AnalysisConfig.from_dict(legal_config.to_dict()) == legal_config
 
@@ -312,21 +323,25 @@ class TestRoundTrip:
         # Validates that __post_init__ is the single source of truth —
         # from_dict cannot bypass axis validation.
         with pytest.raises(IncompatibleAxisError):
-            AnalysisConfig.from_dict({
-                "scope": "individual",
-                "signal": "sparse",
-                "metric": "ic",
-                "forward_periods": 5,
-            })
+            AnalysisConfig.from_dict(
+                {
+                    "scope": "individual",
+                    "signal": "sparse",
+                    "metric": "ic",
+                    "forward_periods": 5,
+                }
+            )
 
     def test_from_dict_unknown_enum_value_raises(self) -> None:
         # StrEnum constructor raises ValueError on unknown member.
         with pytest.raises(ValueError):
-            AnalysisConfig.from_dict({
-                "scope": "not_a_scope",
-                "signal": "continuous",
-                "metric": "ic",
-            })
+            AnalysisConfig.from_dict(
+                {
+                    "scope": "not_a_scope",
+                    "signal": "continuous",
+                    "metric": "ic",
+                }
+            )
 
 
 # ---------------------------------------------------------------------------

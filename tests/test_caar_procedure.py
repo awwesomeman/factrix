@@ -53,12 +53,14 @@ def _make_event_panel(
     for t in range(n_dates):
         d = start + dt.timedelta(days=t)
         for j in range(n_assets):
-            rows.append({
-                "date": d,
-                "asset_id": f"A{j:03d}",
-                "factor": float(factor[t, j]),
-                "forward_return": float(fwd[t, j]),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": float(factor[t, j]),
+                    "forward_return": float(fwd[t, j]),
+                }
+            )
     return pl.DataFrame(rows)
 
 
@@ -70,7 +72,10 @@ def cfg() -> AnalysisConfig:
 class TestRegistryWiring:
     def test_registered_procedure_is_real(self) -> None:
         key = _DispatchKey(
-            FactorScope.INDIVIDUAL, Signal.SPARSE, None, Mode.PANEL,
+            FactorScope.INDIVIDUAL,
+            Signal.SPARSE,
+            None,
+            Mode.PANEL,
         )
         assert isinstance(
             _DISPATCH_REGISTRY[key].procedure,
@@ -81,7 +86,10 @@ class TestRegistryWiring:
         schema = _CAARSparsePanelProcedure.INPUT_SCHEMA
         assert isinstance(schema, InputSchema)
         assert set(schema.required_columns) == {
-            "date", "asset_id", "factor", "forward_return",
+            "date",
+            "asset_id",
+            "factor",
+            "forward_return",
         }
 
 
@@ -89,7 +97,10 @@ class TestStrongCaar:
     @pytest.fixture(scope="class")
     def profile(self, cfg: AnalysisConfig) -> FactorProfile:
         panel = _make_event_panel(
-            n_dates=80, n_assets=20, seed=42, beta=1.0,
+            n_dates=80,
+            n_assets=20,
+            seed=42,
+            beta=1.0,
         )
         return _CAARSparsePanelProcedure().compute(panel, cfg)
 
@@ -116,7 +127,8 @@ class TestStrongCaar:
             assert key in profile.stats
 
     def test_primary_p_matches_caar_p_stat(
-        self, profile: FactorProfile,
+        self,
+        profile: FactorProfile,
     ) -> None:
         assert profile.primary_p == profile.stats[StatCode.CAAR_P]
 
@@ -128,10 +140,14 @@ class TestStrongCaar:
 
 class TestRandomCaar:
     def test_zero_beta_fails_at_default_threshold(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         panel = _make_event_panel(
-            n_dates=80, n_assets=20, seed=10, beta=0.0,
+            n_dates=80,
+            n_assets=20,
+            seed=10,
+            beta=0.0,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
         assert profile.verdict() is Verdict.FAIL
@@ -139,10 +155,15 @@ class TestRandomCaar:
 
 class TestNwLagFloor:
     def test_nw_lags_floor_at_forward_periods_minus_one(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         panel = _make_event_panel(
-            n_dates=80, n_assets=20, seed=4, beta=0.5, event_prob=0.10,
+            n_dates=80,
+            n_assets=20,
+            seed=4,
+            beta=0.5,
+            event_prob=0.10,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
         T = profile.n_obs
@@ -153,7 +174,10 @@ class TestNwLagFloor:
 class TestEndToEndViaEvaluate:
     def test_evaluate_dispatches_to_caar(self, cfg: AnalysisConfig) -> None:
         panel = _make_event_panel(
-            n_dates=80, n_assets=20, seed=99, beta=0.8,
+            n_dates=80,
+            n_assets=20,
+            seed=99,
+            beta=0.8,
         )
         profile = _evaluate(panel, cfg)
         assert profile.mode is Mode.PANEL
@@ -188,32 +212,39 @@ def _make_panel_with_event_dates(
                 f = float(rng.choice([-1.0, 1.0]))
             else:
                 f = 0.0
-            rows.append({
-                "date": d,
-                "asset_id": f"A{j:03d}",
-                "factor": f,
-                "forward_return": float(beta * f + rng.standard_normal()),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": f,
+                    "forward_return": float(beta * f + rng.standard_normal()),
+                }
+            )
     return pl.DataFrame(rows)
 
 
 class TestCalendarTimeRegimes:
     def test_sparse_regime_n_obs_is_calendar_count(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         # 4 events on a 120-day panel → n_obs is the dense-series length.
         start = dt.date(2024, 1, 1)
         all_dates = [start + dt.timedelta(days=i) for i in range(120)]
         event_dates = [start + dt.timedelta(days=30 * k) for k in range(4)]
         panel = _make_panel_with_event_dates(
-            event_dates=event_dates, all_dates=all_dates,
-            n_assets=10, seed=7, beta=0.0,
+            event_dates=event_dates,
+            all_dates=all_dates,
+            n_assets=10,
+            seed=7,
+            beta=0.0,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
         assert profile.n_obs == 120
 
     def test_sparse_regime_caar_mean_uses_event_only_average(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         # CAAR_MEAN must be the per-event-date mean (≈ β=1.0), not the
         # zero-diluted dense mean (≈ 0.033 = β × n_event/n_calendar).
@@ -221,14 +252,18 @@ class TestCalendarTimeRegimes:
         all_dates = [start + dt.timedelta(days=i) for i in range(120)]
         event_dates = [start + dt.timedelta(days=30 * k) for k in range(4)]
         panel = _make_panel_with_event_dates(
-            event_dates=event_dates, all_dates=all_dates,
-            n_assets=40, seed=11, beta=1.0,
+            event_dates=event_dates,
+            all_dates=all_dates,
+            n_assets=40,
+            seed=11,
+            beta=1.0,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
         assert 0.6 < profile.stats[StatCode.CAAR_MEAN] < 1.4
 
     def test_dense_regime_matches_event_only_when_every_date_is_event(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         # When every date carries an event, the dense reindex is a no-op —
         # the procedure should agree with a hand-rolled NW HAC on the
@@ -240,8 +275,11 @@ class TestCalendarTimeRegimes:
         start = dt.date(2024, 1, 1)
         all_dates = [start + dt.timedelta(days=i) for i in range(80)]
         panel = _make_panel_with_event_dates(
-            event_dates=all_dates, all_dates=all_dates,
-            n_assets=20, seed=23, beta=0.5,
+            event_dates=all_dates,
+            all_dates=all_dates,
+            n_assets=20,
+            seed=23,
+            beta=0.5,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
 
@@ -253,20 +291,22 @@ class TestCalendarTimeRegimes:
         assert profile.stats[StatCode.CAAR_P] == pytest.approx(ref_p)
 
     def test_clustered_regime_picks_up_overlap_via_nw_hac(
-        self, cfg: AnalysisConfig,
+        self,
+        cfg: AnalysisConfig,
     ) -> None:
         # Two clusters of 4 consecutive event days within forward_periods=5;
         # estimator must produce a finite p without collapsing.
         start = dt.date(2024, 1, 1)
         all_dates = [start + dt.timedelta(days=i) for i in range(60)]
-        clusters = [
-            start + dt.timedelta(days=10 + k) for k in range(4)
-        ] + [
+        clusters = [start + dt.timedelta(days=10 + k) for k in range(4)] + [
             start + dt.timedelta(days=40 + k) for k in range(4)
         ]
         panel = _make_panel_with_event_dates(
-            event_dates=clusters, all_dates=all_dates,
-            n_assets=15, seed=31, beta=0.5,
+            event_dates=clusters,
+            all_dates=all_dates,
+            n_assets=15,
+            seed=31,
+            beta=0.5,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
         assert 0.0 <= profile.stats[StatCode.CAAR_P] <= 1.0

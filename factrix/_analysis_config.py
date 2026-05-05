@@ -32,8 +32,11 @@ _FALLBACK_MAP: dict[
     tuple[FactorScope, Signal, Mode],
     Callable[[], "AnalysisConfig"],
 ] = {
-    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Mode.TIMESERIES):
-        lambda: AnalysisConfig.common_continuous(),
+    (
+        FactorScope.INDIVIDUAL,
+        Signal.CONTINUOUS,
+        Mode.TIMESERIES,
+    ): lambda: AnalysisConfig.common_continuous(),
 }
 
 
@@ -120,7 +123,9 @@ class AnalysisConfig:
             ``(INDIVIDUAL, CONTINUOUS, metric)`` cell.
         """
         return cls(
-            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric,
+            FactorScope.INDIVIDUAL,
+            Signal.CONTINUOUS,
+            metric,
             forward_periods=forward_periods,
         )
 
@@ -141,7 +146,9 @@ class AnalysisConfig:
             ``(INDIVIDUAL, SPARSE, None)`` cell.
         """
         return cls(
-            FactorScope.INDIVIDUAL, Signal.SPARSE, None,
+            FactorScope.INDIVIDUAL,
+            Signal.SPARSE,
+            None,
             forward_periods=forward_periods,
         )
 
@@ -161,7 +168,9 @@ class AnalysisConfig:
             ``(COMMON, CONTINUOUS, None)`` cell.
         """
         return cls(
-            FactorScope.COMMON, Signal.CONTINUOUS, None,
+            FactorScope.COMMON,
+            Signal.CONTINUOUS,
+            None,
             forward_periods=forward_periods,
         )
 
@@ -181,7 +190,9 @@ class AnalysisConfig:
             ``(COMMON, SPARSE, None)`` cell.
         """
         return cls(
-            FactorScope.COMMON, Signal.SPARSE, None,
+            FactorScope.COMMON,
+            Signal.SPARSE,
+            None,
             forward_periods=forward_periods,
         )
 

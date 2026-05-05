@@ -23,10 +23,21 @@ def _make_ortho_data(n_dates: int = 10, n_assets: int = 20, seed: int = 42):
         for i in range(n_assets):
             aid = f"A{i}"
             rows_factor.append({"date": d, "asset_id": aid, "factor": float(factor[i])})
-            rows_base.append({"date": d, "asset_id": aid, "size": float(size[i]), "value": float(value[i])})
+            rows_base.append(
+                {
+                    "date": d,
+                    "asset_id": aid,
+                    "size": float(size[i]),
+                    "value": float(value[i]),
+                }
+            )
 
-    factor_df = pl.DataFrame(rows_factor).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-    base_df = pl.DataFrame(rows_base).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    factor_df = pl.DataFrame(rows_factor).with_columns(
+        pl.col("date").cast(pl.Datetime("ms"))
+    )
+    base_df = pl.DataFrame(rows_base).with_columns(
+        pl.col("date").cast(pl.Datetime("ms"))
+    )
     return factor_df, base_df
 
 

@@ -49,12 +49,14 @@ def noisy_panel() -> pl.DataFrame:
         noise = rng.standard_normal(n_assets)
         r = 0.3 * f + 0.7 * noise
         for i, a in enumerate(assets):
-            rows.append({
-                "date": d,
-                "asset_id": a,
-                "factor": float(f[i]),
-                "forward_return": float(r[i]),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": a,
+                    "factor": float(f[i]),
+                    "forward_return": float(r[i]),
+                }
+            )
 
     return pl.DataFrame(rows).with_columns(
         pl.col("date").cast(pl.Datetime("ms")),
@@ -68,10 +70,12 @@ def ic_series_positive() -> pl.DataFrame:
     values = rng.normal(0.05, 0.02, 50)
     values = np.abs(values)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(50)]
-    return pl.DataFrame({
-        "date": dates,
-        "value": values,
-    }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return pl.DataFrame(
+        {
+            "date": dates,
+            "value": values,
+        }
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
 @pytest.fixture
@@ -83,14 +87,19 @@ def ic_series_sign_flip() -> pl.DataFrame:
     neg = -np.abs(rng.normal(0.03, 0.01, 20))
     values = np.concatenate([pos, neg])
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(40)]
-    return pl.DataFrame({
-        "date": dates,
-        "value": values,
-    }).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+    return pl.DataFrame(
+        {
+            "date": dates,
+            "value": values,
+        }
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
 def make_macro_panel(
-    n_dates: int, n_countries: int, signal: float, seed: int,
+    n_dates: int,
+    n_countries: int,
+    signal: float,
+    seed: int,
 ) -> pl.DataFrame:
     """Macro-panel factor panel (public — shared by parity tests)."""
     rng = np.random.default_rng(seed)
@@ -100,8 +109,12 @@ def make_macro_panel(
         fvals = rng.standard_normal(n_countries)
         for i in range(n_countries):
             r = signal * fvals[i] + (1 - abs(signal)) * rng.standard_normal()
-            rows.append({
-                "date": d, "asset_id": f"c{i}",
-                "factor": float(fvals[i]), "forward_return": float(r),
-            })
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"c{i}",
+                    "factor": float(fvals[i]),
+                    "forward_return": float(r),
+                }
+            )
     return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
