@@ -1,0 +1,2686 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/development/architecture/">
+      
+      
+        <link rel="prev" href="../../reference/api/datasets/">
+      
+      
+        <link rel="next" href="../contributing/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Architecture - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#factrix-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/methodology/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../guides/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/panel-timeseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PANEL vs TIMESERIES
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/batch-screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch screening (BHY)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/choosing-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a metric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/statistical-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metric-applicability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/standalone-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standalone metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/analysis-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnalysisConfig
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/factor-profile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FactorProfile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/multi-factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    multi_factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#positioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Positioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-api-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public API surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-orthogonal-axes--mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three orthogonal axes + Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registry-ssot-dispatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry SSOT dispatch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factorprocedure-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FactorProcedure protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factorprofile-dataclass-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FactorProfile dataclass contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#panel--timeseries-equivalence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PANEL / TIMESERIES equivalence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-guards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample guards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sample guards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cross-sectional-guards-n_assets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-sectional guards (n_assets)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#procedure-pipelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Procedure pipelines
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Procedure pipelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terminology--aggregation-regime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology — aggregation regime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual_continuousic--cross-section-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        individual_continuous(IC) — cross-section first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual_continuousfm--cross-section-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        individual_continuous(FM) — cross-section first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual_sparse-caar-panel--cross-section-first-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        individual_sparse (CAAR PANEL) — cross-section first (events)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common_continuous--time-series-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        common_continuous — time-series first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common_sparse-panel--time-series-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        common_sparse (PANEL) — time-series first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common_continuous-timeseries-n1--time-series-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        common_continuous (TIMESERIES, N=1) — time-series only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-sparse---n1-ts-dummy--time-series-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (*, SPARSE, *) × N=1 (TS dummy) — time-series only
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bhy-family-partitioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BHY family partitioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registry-procedure-vs-standalone-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry procedure vs standalone metric
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Registry procedure vs standalone metric">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to register
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-add-a-standalone-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to add a standalone metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#standalone-metric-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone metric contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#docs-ssot-strategy-option-b--issue-42" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs SSOT strategy (Option B — issue #42)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#positioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Positioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#global-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Global architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#public-api-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public API surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#three-orthogonal-axes--mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Three orthogonal axes + Mode
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registry-ssot-dispatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry SSOT dispatch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factorprocedure-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FactorProcedure protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#factorprofile-dataclass-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FactorProfile dataclass contract
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#panel--timeseries-equivalence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PANEL / TIMESERIES equivalence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-guards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample guards
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sample guards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cross-sectional-guards-n_assets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cross-sectional guards (n_assets)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#procedure-pipelines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Procedure pipelines
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Procedure pipelines">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#terminology--aggregation-regime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminology — aggregation regime
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual_continuousic--cross-section-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        individual_continuous(IC) — cross-section first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual_continuousfm--cross-section-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        individual_continuous(FM) — cross-section first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#individual_sparse-caar-panel--cross-section-first-events" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        individual_sparse (CAAR PANEL) — cross-section first (events)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common_continuous--time-series-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        common_continuous — time-series first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common_sparse-panel--time-series-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        common_sparse (PANEL) — time-series first
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common_continuous-timeseries-n1--time-series-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        common_continuous (TIMESERIES, N=1) — time-series only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-sparse---n1-ts-dummy--time-series-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        (*, SPARSE, *) × N=1 (TS dummy) — time-series only
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bhy-family-partitioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BHY family partitioning
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#registry-procedure-vs-standalone-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Registry procedure vs standalone metric
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Registry procedure vs standalone metric">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-to-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to register
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-add-a-standalone-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to add a standalone metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#standalone-metric-contract" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standalone metric contract
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#docs-ssot-strategy-option-b--issue-42" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Docs SSOT strategy (Option B — issue #42)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/development/architecture.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="factrix-architecture">factrix Architecture<a class="headerlink" href="#factrix-architecture" title="Permanent link">&para;</a></h1>
+<p>Current-state snapshot — describes the v0.5 library as it stands.</p>
+<hr />
+<h2 id="positioning">Positioning<a class="headerlink" href="#positioning" title="Permanent link">&para;</a></h2>
+<p><strong>factrix is a Factor Signal Validator, not a backtest engine.</strong></p>
+<p>The library produces a single <code>primary_p</code> per factor cell from a NW HAC-corrected
+canonical procedure (IC / FM-λ / CAAR / TS-β). Realistic execution simulation,
+tradability proxies, and portfolio construction are out of scope — feed
+screened factors into Zipline / Backtrader / <code>vectorbt</code> downstream.</p>
+<hr />
+<h2 id="global-architecture">Global architecture<a class="headerlink" href="#global-architecture" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart TD
+    User["User\n(scope / signal / metric)"]
+    AC["AnalysisConfig\n4 factory methods"]
+    REG["Registry\n_registry.py SSOT\n7 cells"]
+    MODE{"Mode\nN = panel.asset_id.n_unique()"}
+
+    P1["_ICPanelProcedure\nindividual × continuous × IC"]
+    P2["_FMPanelProcedure\nindividual × continuous × FM"]
+    P3["_CAARPanelProcedure\nindividual × sparse"]
+    P4["_CommonContPanelProcedure\ncommon × continuous"]
+    P5["_CommonSparsePanelProcedure\ncommon × sparse"]
+    T1["_TSBetaContTimeseriesProcedure\ncommon × continuous · N=1"]
+    T2["_TSDummySparseTimeseriesProcedure\nsparse · N=1 (_SCOPE_COLLAPSED)"]
+
+    FP["FactorProfile\nprimary_p · verdict() · diagnose()"]
+    BHY["multi_factor.bhy()\nBHY FDR correction"]
+
+    User --&gt;|"AnalysisConfig.factory(...)"| AC
+    AC --&gt;|"evaluate(panel, config)"| REG
+    REG --&gt; MODE
+    MODE --&gt;|"N ≥ 2 → PANEL"| P1 &amp; P2 &amp; P3 &amp; P4 &amp; P5
+    MODE --&gt;|"N = 1 → TIMESERIES"| T1 &amp; T2
+    P1 &amp; P2 &amp; P3 &amp; P4 &amp; P5 &amp; T1 &amp; T2 --&gt; FP
+    FP --&gt;|"batch"| BHY</code></pre>
+<hr />
+<h2 id="public-api-surface">Public API surface<a class="headerlink" href="#public-api-surface" title="Permanent link">&para;</a></h2>
+<p>Three entry points, all in <code>factrix.__init__</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Symbol</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fl.AnalysisConfig</code></td>
+<td>Three-axis frozen dataclass; construct via 4 factory methods</td>
+</tr>
+<tr>
+<td><code>fl.evaluate(panel, config)</code></td>
+<td>Dispatch to the registered procedure → <code>FactorProfile</code></td>
+</tr>
+<tr>
+<td><code>fl.multi_factor.bhy(profiles, *, threshold=0.05)</code></td>
+<td>Benjamini-Yekutieli FDR correction across a profile batch</td>
+</tr>
+</tbody>
+</table>
+<p>Plus introspection / error / enum re-exports:</p>
+<ul>
+<li><code>fl.FactorScope</code>, <code>fl.Signal</code>, <code>fl.Metric</code>, <code>fl.Mode</code> — three user-facing axes + the evaluate-time-derived fourth</li>
+<li><code>fl.WarningCode</code>, <code>fl.InfoCode</code>, <code>fl.StatCode</code>, <code>fl.Verdict</code> — structured codes carried on <code>FactorProfile</code></li>
+<li><code>fl.FactorProfile</code> — single unified result type</li>
+<li><code>fl.describe_analysis_modes(format="text"|"json")</code> — registry-reflected cell catalogue</li>
+<li><code>fl.suggest_config(panel)</code> — heuristic factory call from a raw panel</li>
+<li><code>fl.ConfigError</code>, <code>fl.IncompatibleAxisError</code>, <code>fl.ModeAxisError</code>, <code>fl.InsufficientSampleError</code> — exception hierarchy</li>
+</ul>
+<p><code>__version__ = "0.5.0"</code>.</p>
+<hr />
+<h2 id="three-orthogonal-axes--mode">Three orthogonal axes + Mode<a class="headerlink" href="#three-orthogonal-axes--mode" title="Permanent link">&para;</a></h2>
+<p>The user-facing axis triple is <code>(FactorScope, Signal, Metric)</code>. A fourth
+axis <code>Mode</code> is <strong>derived at evaluate-time</strong> from <code>panel["asset_id"].n_unique()</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Axis</th>
+<th>Values</th>
+<th>User-facing?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FactorScope</code></td>
+<td><code>INDIVIDUAL</code> / <code>COMMON</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>Signal</code></td>
+<td><code>CONTINUOUS</code> / <code>SPARSE</code></td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>Metric</code></td>
+<td><code>IC</code> / <code>FM</code> / <code>None</code></td>
+<td>yes (only <code>(INDIVIDUAL, CONTINUOUS)</code> accepts a non-None metric)</td>
+</tr>
+<tr>
+<td><code>Mode</code></td>
+<td><code>PANEL</code> (N≥2) / <code>TIMESERIES</code> (N=1)</td>
+<td>no — derived</td>
+</tr>
+</tbody>
+</table>
+<p>Five legal <code>(scope, signal, metric)</code> triples × two modes give seven legal
+<code>(scope, signal, metric, mode)</code> cells (TIMESERIES narrows to three triples; the
+remaining tuples are routed via the <code>_SCOPE_COLLAPSED</code> sentinel — see §5.4.1
+of the refactor plan).</p>
+<hr />
+<h2 id="registry-ssot-dispatch">Registry SSOT dispatch<a class="headerlink" href="#registry-ssot-dispatch" title="Permanent link">&para;</a></h2>
+<p><code>factrix/_registry.py</code> holds <strong>the</strong> source of truth:</p>
+<ul>
+<li><code>_DispatchKey(scope, signal, metric, mode)</code> — the cell coordinate</li>
+<li><code>_RegistryEntry(key, procedure, canonical_use_case, references)</code> — procedure + docs metadata</li>
+<li><code>_DISPATCH_REGISTRY: dict[_DispatchKey, _RegistryEntry]</code></li>
+<li><code>register(key, procedure, *, use_case, refs)</code> — append-only; duplicate keys raise</li>
+<li><code>matches_user_axis(scope, signal, metric)</code> — reverse query for <code>AnalysisConfig</code> validation</li>
+<li><code>_SCOPE_COLLAPSED: _ScopeCollapsedSentinel</code> — internal routing token for <code>(*, SPARSE, N=1)</code>; not exposed as a <code>FactorScope</code> enum value to keep the user-facing axis narrow</li>
+</ul>
+<p>Bootstrap order: <code>_registry</code> defines <code>register</code> / <code>_DispatchKey</code>, then imports
+<code>_procedures</code> at the bottom of the module so all 7 cells <code>register(...)</code> at
+import time. Every introspection/validation path reverse-queries this dict —
+no parallel rule table.</p>
+<p>Adding a cell touches one <code>register(...)</code> call.</p>
+<hr />
+<h2 id="factorprocedure-protocol">FactorProcedure protocol<a class="headerlink" href="#factorprocedure-protocol" title="Permanent link">&para;</a></h2>
+<p><code>factrix/_procedures.py</code> defines the seven procedure classes. Each implements:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">FactorProcedure</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">INPUT_SCHEMA</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">InputSchema</span><span class="p">]</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">compute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">AnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FactorProfile</span><span class="p">:</span> <span class="o">...</span>
+</span></code></pre></div>
+<p><code>InputSchema</code> lists <code>required_columns</code> — currently <code>("date", "asset_id", "factor", "forward_return")</code> for all 7 cells.</p>
+<p>The seven cells (cell tuple ↔ procedure class). For the user-facing factory
+mapping and per-cell canonical statistic / references, see
+<a href="../../getting-started/concepts/#five-analysis-scenarios">Concepts §Five analysis scenarios</a> — that
+table is the SSOT for what each procedure computes.</p>
+<table>
+<thead>
+<tr>
+<th><code>(scope, signal, metric, mode)</code></th>
+<th>Procedure class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(INDIVIDUAL, CONTINUOUS, IC, PANEL)</code></td>
+<td><code>_ICPanelProcedure</code></td>
+</tr>
+<tr>
+<td><code>(INDIVIDUAL, CONTINUOUS, FM, PANEL)</code></td>
+<td><code>_FMPanelProcedure</code></td>
+</tr>
+<tr>
+<td><code>(INDIVIDUAL, SPARSE, None, PANEL)</code></td>
+<td><code>_CAARPanelProcedure</code></td>
+</tr>
+<tr>
+<td><code>(COMMON, CONTINUOUS, None, PANEL)</code></td>
+<td><code>_CommonContPanelProcedure</code></td>
+</tr>
+<tr>
+<td><code>(COMMON, SPARSE, None, PANEL)</code></td>
+<td><code>_CommonSparsePanelProcedure</code></td>
+</tr>
+<tr>
+<td><code>(COMMON, CONTINUOUS, None, TIMESERIES)</code></td>
+<td><code>_TSBetaContTimeseriesProcedure</code></td>
+</tr>
+<tr>
+<td><code>(_SCOPE_COLLAPSED, SPARSE, None, TIMESERIES)</code></td>
+<td><code>_TSDummySparseTimeseriesProcedure</code></td>
+</tr>
+</tbody>
+</table>
+<p>The two timeseries cells share the NW HAC + auto-Bartlett-with-Hansen-Hodrick-floor
+lag rule from <code>factrix/_stats/constants.py</code>.</p>
+<hr />
+<h2 id="factorprofile-dataclass-contract">FactorProfile dataclass contract<a class="headerlink" href="#factorprofile-dataclass-contract" title="Permanent link">&para;</a></h2>
+<p><code>factrix/_profile.py</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">slots</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">FactorProfile</span><span class="p">:</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">AnalysisConfig</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n">Mode</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">primary_p</span><span class="p">:</span> <span class="nb">float</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">n_obs</span><span class="p">:</span> <span class="nb">int</span>          <span class="c1"># cell-canonical effective N (T / events / assets)</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">n_assets</span><span class="p">:</span> <span class="nb">int</span>       <span class="c1"># raw panel cross-section width (always available)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">warnings</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">WarningCode</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">info_notes</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="n">InfoCode</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">stats</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="n">StatCode</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>n_obs</code> semantics vary by cell — T for IC/FM/TS-β, event count for
+CAAR, asset count for COMMON×* PANEL. <code>n_assets</code> is always
+<code>raw["asset_id"].n_unique()</code>; reading both side by side disambiguates
+"small effective sample" between short series vs thin cross-section.</p>
+<ul>
+<li><code>verdict(*, threshold=0.05, gate=None) -&gt; Verdict</code> — <code>gate=None</code> uses <code>primary_p</code>; supplying a <code>StatCode</code> swaps the gate (raises <code>KeyError</code> if not populated)</li>
+<li><code>diagnose() -&gt; dict[str, Any]</code> — flatten <code>mode / n_obs / primary_p / warnings / info_notes / stats</code> for human or AI agent triage</li>
+</ul>
+<p>Single dataclass, no per-cell subclass proliferation. Cell-specific scalars live
+in <code>stats: Mapping[StatCode, float]</code> keyed by enum, not by string.</p>
+<hr />
+<h2 id="panel--timeseries-equivalence">PANEL / TIMESERIES equivalence<a class="headerlink" href="#panel--timeseries-equivalence" title="Permanent link">&para;</a></h2>
+<p>Both modes produce real <code>primary_p</code> values — neither is degraded.</p>
+<p><code>(INDIVIDUAL, CONTINUOUS, *) × N=1</code> is mathematically undefined (no
+cross-sectional dispersion → IC and per-date OLS undefined). <code>_evaluate</code>
+raises <code>ModeAxisError</code> with <code>suggested_fix=AnalysisConfig.common_continuous(...)</code>
+drawn from <code>_FALLBACK_MAP</code> in <code>factrix/_analysis_config.py</code>. Explicit
+user-correctable, never silent rewrite.</p>
+<p><code>(*, SPARSE, *) × N=1</code> is well-defined but the <code>INDIVIDUAL</code> / <code>COMMON</code>
+distinction collapses (one asset → no scope axis). Both user-facing factory
+calls route to the same <code>_TSDummySparseTimeseriesProcedure</code> via the
+<code>_SCOPE_COLLAPSED</code> sentinel, with <code>InfoCode.SCOPE_AXIS_COLLAPSED</code> attached
+to the resulting profile so the routing is auditable.</p>
+<hr />
+<h2 id="sample-guards">Sample guards<a class="headerlink" href="#sample-guards" title="Permanent link">&para;</a></h2>
+<p><code>factrix/_stats/constants.py</code>:</p>
+<ul>
+<li><code>MIN_PERIODS_HARD = 20</code> — <code>n_periods &lt; MIN_PERIODS_HARD</code> raises <code>InsufficientSampleError</code></li>
+<li><code>MIN_PERIODS_RELIABLE = 30</code> — <code>n_periods &lt; MIN_PERIODS_RELIABLE</code> adds <code>WarningCode.UNRELIABLE_SE_SHORT_PERIODS</code></li>
+<li><code>auto_bartlett(T) = max(1, int(4 * (T/100)**(2/9)))</code> — Newey-West (1994) auto lag rule</li>
+<li>Hansen-Hodrick (1980) overlap floor: <code>max(auto_bartlett(T), forward_periods - 1)</code> — ensures NW lag covers MA(h-1) structure from overlapping forward returns</li>
+</ul>
+<p><code>factrix/_types.py</code> keeps the older per-metric thresholds (<code>MIN_ASSETS_PER_DATE_IC = 10</code>,
+<code>MIN_EVENTS = 10</code>, etc.) used internally by the metric primitives that
+procedures wrap.</p>
+<h3 id="cross-sectional-guards-n_assets">Cross-sectional guards (<code>n_assets</code>)<a class="headerlink" href="#cross-sectional-guards-n_assets" title="Permanent link">&para;</a></h3>
+<p><code>factrix/_stats/constants.py</code>:</p>
+<ul>
+<li><code>MIN_ASSETS = 10</code> — <code>n_assets &lt; MIN_ASSETS</code> emits <code>WarningCode.SMALL_CROSS_SECTION_N</code>
+  from the <code>common_continuous</code> PANEL procedure and from <code>suggest_config</code>.
+  df = <code>n_assets</code> − 1 → t_crit at <code>n_assets</code> = 3 ≈ 4.30 (+119% vs asymptotic 1.96),
+  at <code>n_assets</code> = 5 ≈ 2.78 (+42%). Test still runs; warning surfaces the
+  inflation so caller can collect more cross-section before trusting reject
+  decisions.</li>
+<li><code>MIN_ASSETS_RELIABLE = 30</code> — <code>MIN_ASSETS ≤ n_assets &lt; MIN_ASSETS_RELIABLE</code>
+  emits <code>WarningCode.BORDERLINE_CROSS_SECTION_N</code>. df → t_crit at
+  <code>n_assets</code> = 10 ≈ 2.26 (+15%), at <code>n_assets</code> = 20 ≈ 2.09 (+7%). The gross
+  failure tier is cleared, but residual t-stat inflation matters for borderline
+  p-values (e.g. p ≈ 0.04 should be read as "borderline at this <code>n_assets</code>",
+  not "rejected").</li>
+</ul>
+<p>Symmetric with the <code>n_periods</code> two-tier (<code>MIN_PERIODS_HARD = 20</code> raises
+<code>InsufficientSampleError</code>; <code>MIN_PERIODS_RELIABLE = 30</code> emits
+<code>UNRELIABLE_SE_SHORT_PERIODS</code>). The <code>n_assets</code> axis never raises because
+the cross-asset t-test on E[β] is mathematically well-defined for
+<code>n_assets ≥ 2</code> — only its statistical power degrades. Constant naming
+deliberately drops the <code>_HARD</code> suffix on <code>MIN_ASSETS</code> to avoid implying a
+raise; <code>_RELIABLE</code> mirrors the <code>n_periods</code> semantics.</p>
+<p><code>MIN_ASSETS_PER_DATE_IC = 10</code> (in <code>factrix/_types.py</code>) drops dates with
+fewer than 10 assets from <code>compute_ic</code>. At <code>n_assets</code> &lt; 10 the IC procedure
+short-circuits to NaN because every date is dropped. <code>compute_fm_betas</code>
+carries an inline <code>if len(y) &lt; 3: continue</code> guard but no per-date min
+above 3.</p>
+<hr />
+<h2 id="procedure-pipelines">Procedure pipelines<a class="headerlink" href="#procedure-pipelines" title="Permanent link">&para;</a></h2>
+<p>The 7 registered procedures differ in <strong>aggregation order</strong> — which axis is
+collapsed first determines small-sample failure modes and the N=1 collapse
+behavior. The user-facing factory chosen determines which pipeline runs.</p>
+<h3 id="terminology--aggregation-regime">Terminology — aggregation regime<a class="headerlink" href="#terminology--aggregation-regime" title="Permanent link">&para;</a></h3>
+<p>Two regimes, each with concrete sub-forms. Pipeline pseudocode tags each
+step with <code>(cross-section step)</code> or <code>(time-series step)</code> inline:</p>
+<ul>
+<li><strong>cross-section step</strong> — aggregate over assets at a fixed date</li>
+<li><code>per-date</code> — applied to every date (continuous panel)</li>
+<li><code>per-event-date</code> — restricted to dates where <code>factor != 0</code> (sparse cells)</li>
+<li><strong>time-series step</strong> — aggregate over the time axis</li>
+<li><code>per-asset</code> — fix one asset, aggregate its full date sequence
+    (<code>filter(asset_id == X)</code>)</li>
+<li>on a previously-built time-indexed series — e.g. NW HAC t-test on
+    <code>IC[t]</code> or <code>β[i]</code> after the upstream step has produced the series</li>
+</ul>
+<p>Unqualified <code>per-event</code> is <strong>not</strong> used — always written as <code>per-event-date</code>
+to keep the regime unambiguous.</p>
+<h3 id="individual_continuousic--cross-section-first"><code>individual_continuous(IC)</code> — cross-section first<a class="headerlink" href="#individual_continuousic--cross-section-first" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>per-date Spearman across n_assets         (cross-section step)
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                                       →  n_periods-length IC time series
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                                       →  NW HAC t-test on mean(IC)        (time-series step)
+</span></code></pre></div>
+<p>Failure modes:</p>
+<ul>
+<li><code>n_assets</code> &lt; 10 → <code>MIN_ASSETS_PER_DATE_IC</code> drops every date → output is NaN.</li>
+<li><code>n_periods &lt; MIN_PERIODS_HARD</code> → <code>InsufficientSampleError</code>.</li>
+<li><code>MIN_PERIODS_HARD ≤ n_periods &lt; MIN_PERIODS_RELIABLE</code> → <code>UNRELIABLE_SE_SHORT_PERIODS</code>.</li>
+</ul>
+<h3 id="individual_continuousfm--cross-section-first"><code>individual_continuous(FM)</code> — cross-section first<a class="headerlink" href="#individual_continuousfm--cross-section-first" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>per-date OLS R = α + β·Signal across n_assets   (cross-section step)
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>                                              →  n_periods-length λ time series
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>                                              →  NW HAC t-test on mean(λ)   (time-series step)
+</span></code></pre></div>
+<p>Failure modes:</p>
+<ul>
+<li>per-date <code>n_assets</code> &lt; 3 → date dropped (<code>if len(y) &lt; 3: continue</code>).</li>
+<li>per-date <code>n_assets</code> small but ≥ 3 → df = <code>n_assets</code> − 2 minimal, β unstable.</li>
+<li><code>n_periods &lt; MIN_FM_PERIODS = 20</code> → short-circuit to insufficient.</li>
+</ul>
+<h3 id="individual_sparse-caar-panel--cross-section-first-events"><code>individual_sparse</code> (CAAR PANEL) — cross-section first (events)<a class="headerlink" href="#individual_sparse-caar-panel--cross-section-first-events" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>per-event-date mean of signed_car = return × factor      (cross-section step)
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>                                                       →  event-date-indexed CAAR
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>reindex to dense calendar, zero-fill non-event dates   →  n_periods-length CAAR series
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>                                                       →  NW HAC t-test on mean(CAAR)   (time-series step)
+</span></code></pre></div>
+<p>The CAAR series is <strong>calendar-indexed</strong>: <code>compute_caar</code> produces an
+event-date-indexed primitive (filter <code>factor != 0</code>), which the procedure
+then reindexes against the full date set with zero-fill. This is the
+calendar-time portfolio approach (Jaffe 1974, Mandelker 1974; Fama 1998
+§2) — restores the lag rule's "consecutive observations are 1 calendar
+period apart" assumption that an event-only series would otherwise
+break. With it, sparse events let zero-padding zero out spurious
+autocovariance terms and clustered events get the real MA(h-1) overlap
+weighted correctly. Pipeline parity with IC / FM / common-sparse PANEL.</p>
+<p>Magnitude is preserved as a weight in <code>signed_car</code> (no <code>.sign()</code> coercion
+at this layer — <code>compute_caar</code>'s docstring carries the input-form
+behaviour table). User-facing <code>CAAR_MEAN</code> reports the per-event-date
+mean (the average effect on event days); <code>n_obs</code> and <code>NW_LAGS_USED</code>
+reflect the dense series.</p>
+<p>Failure modes:</p>
+<ul>
+<li><code>n_events &lt; MIN_EVENTS</code> → event series too short → primary_p reverts to insufficient.</li>
+<li><code>n_periods &lt; MIN_PERIODS_HARD</code> (overall panel length) → <code>InsufficientSampleError</code>.</li>
+<li><code>MIN_PERIODS_HARD ≤ n_periods &lt; MIN_PERIODS_RELIABLE</code> → <code>UNRELIABLE_SE_SHORT_PERIODS</code>.</li>
+</ul>
+<h3 id="common_continuous--time-series-first"><code>common_continuous</code> — time-series first<a class="headerlink" href="#common_continuous--time-series-first" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>                                                         →  n_assets-length β vector
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                                                         →  cross-asset t-test on E[β]   (cross-section step)
+</span></code></pre></div>
+<p>Failure modes:</p>
+<ul>
+<li>per-asset <code>n_periods &lt; MIN_TS_OBS = 20</code> → asset dropped.</li>
+<li><code>n_assets &lt; MIN_ASSETS = 10</code> → <code>WarningCode.SMALL_CROSS_SECTION_N</code> (still runs).</li>
+<li><code>MIN_ASSETS ≤ n_assets &lt; MIN_ASSETS_RELIABLE = 30</code> → <code>WarningCode.BORDERLINE_CROSS_SECTION_N</code>.</li>
+<li><code>n_assets = 1</code> → degenerate cross-asset test → mode auto-routed to
+  TIMESERIES single-series β test (null: β = 0, <strong>not</strong> E[β] = 0). The
+  <code>StatCode.TS_BETA</code> identifier is shared across the two modes, so the
+  same field on <code>FactorProfile</code> carries different statistical meaning
+  depending on <code>profile.mode</code>; see §PANEL/TIMESERIES equivalence.</li>
+</ul>
+<h3 id="common_sparse-panel--time-series-first"><code>common_sparse</code> (PANEL) — time-series first<a class="headerlink" href="#common_sparse-panel--time-series-first" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>per-asset OLS R_i = α_i + β_i·D over all n_periods dates   (time-series step)
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                                                         →  n_assets-length β vector
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                                                         →  cross-asset t-test on E[β]   (cross-section step)
+</span></code></pre></div>
+<p>Same shape as <code>common_continuous</code>; the broadcast <code>D ∈ {-1, 0, +1}</code> dummy
+replaces the continuous regressor. Factor magnitudes are <strong>preserved</strong> in
+the OLS (no <code>.sign()</code> coercion at this layer — distinct from the
+<code>individual_sparse</code> PANEL pipeline). ADF persistence diagnostic is skipped
+per I6 (sparse regressors are not unit-root candidates).</p>
+<p>Failure modes:</p>
+<ul>
+<li>per-asset <code>n_periods &lt; MIN_TS_OBS = 20</code> → asset dropped.</li>
+<li><code>n_assets</code> two-tier guard same as <code>common_continuous</code> (<code>SMALL_CROSS_SECTION_N</code> /
+  <code>BORDERLINE_CROSS_SECTION_N</code>).</li>
+<li>The procedure does not currently impose a <code>n_events</code> floor on the
+  broadcast dummy — very-few-event factors can produce point estimates
+  driven by a single observation.</li>
+<li>Cross-asset SE assumes asset-level independence (plan §4.3 spec); under
+  contemporaneous return correlation the standard t over-states
+  significance — Petersen (2009) clustered SE deferred per plan §11.</li>
+</ul>
+<h3 id="common_continuous-timeseries-n1--time-series-only"><code>common_continuous</code> (TIMESERIES, N=1) — time-series only<a class="headerlink" href="#common_continuous-timeseries-n1--time-series-only" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>single-asset OLS y_t = α + β·F_t + ε   (time-series step)
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>                                     →  NW HAC t-test on β
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>                                     +  ADF persistence diagnostic on F
+</span></code></pre></div>
+<p>The N=1 collapse of <code>common_continuous</code>. Null is <code>β = 0</code> for the single
+series, not <code>E[β] = 0</code> across assets — semantically distinct from the
+PANEL form.</p>
+<p>Failure modes:</p>
+<ul>
+<li><code>n_periods &lt; MIN_PERIODS_HARD</code> → <code>InsufficientSampleError</code>.</li>
+<li><code>MIN_PERIODS_HARD ≤ n_periods &lt; MIN_PERIODS_RELIABLE</code> → <code>UNRELIABLE_SE_SHORT_PERIODS</code>.</li>
+<li>ADF p &gt; 0.10 → <code>WarningCode.PERSISTENT_REGRESSOR</code>.</li>
+</ul>
+<h3 id="-sparse---n1-ts-dummy--time-series-only"><code>(*, SPARSE, *) × N=1</code> (TS dummy) — time-series only<a class="headerlink" href="#-sparse---n1-ts-dummy--time-series-only" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>single-asset OLS y_t = α + β·D_t + ε on calendar-dense series   (time-series step)
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>                                                              →  NW HAC t-test on β
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>                                                              +  Ljung-Box on residual
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>                                                              +  event_temporal_hhi
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>                                                              +  event-window-overlap check
+</span></code></pre></div>
+<p>Reached from both <code>individual_sparse</code> and <code>common_sparse</code> at N=1 via the
+<code>_SCOPE_COLLAPSED</code> sentinel — at N=1 the two scopes are statistically
+equivalent (plan §5.4.1). The series is the <strong>full calendar grid</strong> with
+zero-padding on non-event dates (distinct from the PANEL CAAR pipeline,
+which works on the event-date-only series). Factor magnitudes are
+preserved (no <code>.sign()</code> coercion at this layer).</p>
+<p>Failure modes:</p>
+<ul>
+<li><code>n_periods &lt; MIN_PERIODS_HARD</code> → <code>InsufficientSampleError</code>.</li>
+<li><code>MIN_PERIODS_HARD ≤ n_periods &lt; MIN_PERIODS_RELIABLE</code> → <code>UNRELIABLE_SE_SHORT_PERIODS</code>.</li>
+<li>Ljung-Box p &lt; 0.05 on residuals → <code>WarningCode.SERIAL_CORRELATION_DETECTED</code>.</li>
+<li>Consecutive event gap &lt; 2·<code>forward_periods</code> → <code>WarningCode.EVENT_WINDOW_OVERLAP</code>.</li>
+</ul>
+<hr />
+<h2 id="bhy-family-partitioning">BHY family partitioning<a class="headerlink" href="#bhy-family-partitioning" title="Permanent link">&para;</a></h2>
+<p><code>factrix/_multi_factor.py::bhy(profiles, *, threshold=0.05, gate=None)</code>:</p>
+<ol>
+<li>partitions <code>profiles</code> by <code>_family_key(profile) -&gt; _FamilyKey(dispatch, forward_periods)</code>:</li>
+<li><code>dispatch: _DispatchKey</code> derived from <code>(scope, signal, metric, mode)</code> with the
+     <code>_SCOPE_COLLAPSED</code> collapse rule applied so PANEL and TIMESERIES sparse profiles
+     aggregate consistently</li>
+<li><code>forward_periods</code> from <code>profile.config.forward_periods</code> — split into separate families
+     because each horizon carries its own null distribution and effective sample size;
+     pooling horizons dilutes the step-up threshold <code>q × k / N</code> and silently inflates FDR</li>
+<li>within each family, runs Benjamini-Yekutieli step-up correction at the
+   given FDR threshold and returns the survivors.</li>
+</ol>
+<p><code>_FamilyKey</code> is kept distinct from <code>_DispatchKey</code> (the registry SSOT must remain
+horizon-agnostic — one procedure per cell). User does <strong>not</strong> pass a group key —
+same-test-family is enforced mechanically.</p>
+<p>Cross-family aggregation (e.g. horizon-shopping correction) is the user's
+responsibility — see README §批次評估與 BHY for the FWER-then-BHY recipe.</p>
+<hr />
+<h2 id="registry-procedure-vs-standalone-metric">Registry procedure vs standalone metric<a class="headerlink" href="#registry-procedure-vs-standalone-metric" title="Permanent link">&para;</a></h2>
+<p>Two-tier metric organisation. Choosing the right tier when adding a new metric:</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Lives in</th>
+<th>Count today</th>
+<th>Definition</th>
+<th>Surfaces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Registry procedure</strong></td>
+<td><code>factrix/_procedures.py</code> (<code>register(...)</code> at module bottom)</td>
+<td>exactly 7 (one per legal cell)</td>
+<td>The <strong>canonical PASS/FAIL test</strong> for one <code>(scope, signal, metric, mode)</code> cell</td>
+<td><code>evaluate()</code> dispatch, <code>FactorProfile.verdict()</code>, BHY family key</td>
+</tr>
+<tr>
+<td><strong>Standalone metric</strong></td>
+<td><code>factrix/metrics/*.py</code></td>
+<td>~19 modules</td>
+<td><strong>Diagnostic / second-look / multi-statistic</strong> decomposition. User imports and calls directly.</td>
+<td><code>from factrix.metrics import X</code> returning <code>MetricOutput</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="when-to-register">When to register<a class="headerlink" href="#when-to-register" title="Permanent link">&para;</a></h3>
+<p>Add a registry procedure <strong>only</strong> when introducing a new legal cell on the axis
+(<code>FactorScope × Signal × Metric × Mode</code>). The 7-cell invariant (<code>_registry.py::_EXPECTED_REGISTRY_SIZE</code>)
+is a load-bearing assert — adding to the registry without adding a new cell would
+mean two canonical procedures compete for the same dispatch, breaking the SSOT
+contract.</p>
+<h3 id="when-to-add-a-standalone-metric">When to add a standalone metric<a class="headerlink" href="#when-to-add-a-standalone-metric" title="Permanent link">&para;</a></h3>
+<p>Everything else. Specifically:</p>
+<ul>
+<li><strong>Same cell already has a canonical procedure</strong> but you want to surface a different angle
+  (non-linearity, asymmetry, decomposition, regime split). Example precedent:
+  <code>event_quality.py</code> (hit_rate / profit_factor / event_skewness / signal_density) all
+  supplement the registered CAAR procedure for <code>(INDIVIDUAL, SPARSE, None, PANEL)</code>.</li>
+<li><strong>Descriptive diagnostic without a formal H₀</strong> (concentration HHI, tradability, OOS decay).</li>
+<li><strong>Multi-factor relationship</strong> outside the single-factor verdict frame (<code>spanning.py</code>).</li>
+</ul>
+<h3 id="standalone-metric-contract">Standalone metric contract<a class="headerlink" href="#standalone-metric-contract" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Take <code>pl.DataFrame</code> with the cell's standard schema (<code>date, asset_id, factor, forward_return</code>)
+  plus any optional columns</li>
+<li>Return <code>MetricOutput</code> (<code>factrix/_types.py</code>) — <code>name</code>, <code>value</code>, optional <code>stat</code>, <code>significance</code>,
+  and a <code>metadata</code> dict for cell-specific scalars</li>
+<li>Use <code>_short_circuit_output(...)</code> for sample-floor failures rather than raising</li>
+<li>Reuse <code>_stats/</code> primitives (<code>_p_value_from_t</code>, <code>_calc_t_stat</code>, NW HAC helpers) so the
+  statistical treatment matches the registered procedures — most notably <strong>NW HAC SE
+  for any inference on overlapping forward returns</strong>, never iid Welch / OLS SE</li>
+</ul>
+<p>A standalone metric never enters BHY automatically (no <code>FactorProfile</code>, no canonical
+<code>primary_p</code>); the user is responsible for collecting comparable p-values into a family
+themselves if FDR control is needed across a batch of standalone runs.</p>
+<hr />
+<h2 id="module-layout">Module layout<a class="headerlink" href="#module-layout" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>factrix/
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>├── __init__.py              # public surface
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>├── _axis.py                 # FactorScope / Signal / Metric / Mode StrEnums
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>├── _codes.py                # WarningCode / InfoCode / StatCode / Verdict StrEnums
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>├── _errors.py               # FactrixError → ConfigError → {IncompatibleAxisError, ModeAxisError, InsufficientSampleError}
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>├── _analysis_config.py      # AnalysisConfig + 4 factories + _FALLBACK_MAP
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>├── _registry.py             # _DispatchKey, _RegistryEntry, _SCOPE_COLLAPSED, register()
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>├── _procedures.py           # 7 FactorProcedure classes; bootstrap-registered at import
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>├── _profile.py              # FactorProfile dataclass + verdict / diagnose
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>├── _evaluate.py             # _derive_mode + _evaluate dispatch wrapper
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>├── _multi_factor.py         # bhy with family partitioning
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>├── multi_factor.py          # public namespace (re-exports bhy)
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>├── _stats/
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>│   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_RELIABLE / auto_bartlett
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_*_PERIODS
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>└── datasets.py              # synthetic CS / event panels
+</span></code></pre></div>
+<hr />
+<h2 id="invariants">Invariants<a class="headerlink" href="#invariants" title="Permanent link">&para;</a></h2>
+<p>Hard constraints — violating these breaks the API contract:</p>
+<ol>
+<li><code>AnalysisConfig</code> is <code>frozen=True, slots=True</code>; every construction path goes through <code>__post_init__ → _validate_axis_compat</code> (factory, direct, <code>from_dict</code> all hit the same gate).</li>
+<li><code>FactorProfile</code> is <code>frozen=True, slots=True</code>. One unified type — no per-cell subclass.</li>
+<li>The registry is the SSOT for "which cells exist". <code>_validate_axis_compat</code>, <code>describe_analysis_modes</code>, <code>suggest_config</code>, BHY family partitioning all reverse-query it; no parallel rule table.</li>
+<li><code>_SCOPE_COLLAPSED</code> is an internal sentinel. It never appears in a user-facing <code>AnalysisConfig</code> — <code>evaluate()</code> rewrites the routed scope at dispatch time and reports the collapse via <code>InfoCode.SCOPE_AXIS_COLLAPSED</code>.</li>
+<li><code>FactorProfile.primary_p</code> is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate <code>primary_p = 1.0</code>.</li>
+<li><code>verdict()</code> reads <code>primary_p</code> (or a user-supplied <code>StatCode</code> gate); <code>warnings</code> and <code>info_notes</code> never auto-rebind it.</li>
+<li>BHY family key = <code>_FamilyKey(_DispatchKey, forward_periods)</code>, derived mechanically from the profile, not user-supplied. Horizons split into separate families to preserve nominal FDR control.</li>
+<li><code>register(...)</code> is append-only at import time. Duplicate keys raise <code>ValueError</code>.</li>
+<li>NW HAC lag selection in panel-aggregation cells uses <code>max(auto_bartlett(T), forward_periods - 1)</code> — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.</li>
+<li><code>T &lt; MIN_PERIODS_HARD</code> raises <code>InsufficientSampleError</code>; procedures never silently produce a result on under-sample data.</li>
+</ol>
+<hr />
+<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
+<p><code>tests/</code> covers the v0.5 surface only — v0.4 tests were removed in the §8.2
+deletion sweep. Fixtures are fully synthetic (<code>tests/conftest.py</code> +
+<code>factrix.datasets</code>); no test reads real market data from disk.</p>
+<p>Run: <code>uv run pytest</code></p>
+<h3 id="docs-ssot-strategy-option-b--issue-42">Docs SSOT strategy (Option B — issue #42)<a class="headerlink" href="#docs-ssot-strategy-option-b--issue-42" title="Permanent link">&para;</a></h3>
+<p><code>docs/reference/standalone-metrics.md</code> no longer contains a hand-written
+matrix. The matrix is generated at build time from machine-readable
+<code>Matrix-row:</code> tags embedded in each <code>factrix/metrics/*.py</code> module docstring.</p>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Each public metric module carries one or more <code>Matrix-row:</code> lines at the
+  end of its module-level docstring, with five pipe-separated fields:
+  <code>public_functions | cell_scope | aggregation_order | inference_se | primitives</code>.</li>
+<li><code>scripts/gen_metric_matrix.py</code> (also a MkDocs <code>hooks:</code> entry) parses every
+  public module with <code>ast</code>, extracts the tags, and writes
+  <code>docs/reference/_generated_metric_matrix.md</code> before each docs build.</li>
+<li><code>standalone-metrics.md</code> includes the generated file via
+  <code>--8&lt;-- "docs/reference/_generated_metric_matrix.md"</code> (pymdownx.snippets).</li>
+</ul>
+<p><strong>CI coverage (<code>tests/test_docs_matrix.py</code>):</strong></p>
+<ul>
+<li>Every public metric module has at least one <code>Matrix-row:</code> tag.</li>
+<li>Every tag has exactly 5 pipe-separated fields.</li>
+<li><code>_generated_metric_matrix.md</code> exists and is non-empty (skipped if absent,
+  so CI that only runs pytest without a prior build does not false-positive).</li>
+</ul>
+<p><strong>Why Option B over Option C (pure CI guard):</strong> Option C only checked
+presence/absence of module references; drift in any of the five data columns
+(scope, aggregation order, inference SE, primitives) was invisible to CI.
+Option B makes the docstring the single source of truth for all six matrix
+columns — adding a module without a <code>Matrix-row:</code> tag fails the test, and
+editing the tag automatically updates the rendered docs on the next build.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

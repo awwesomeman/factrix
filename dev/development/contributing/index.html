@@ -1,0 +1,2665 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/development/contributing/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../changelog/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Contributing - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#contributing-to-factrix" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Contributing
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/methodology/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../guides/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/panel-timeseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PANEL vs TIMESERIES
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/batch-screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch screening (BHY)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/choosing-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a metric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/methodology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Methodology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/statistical-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metric-applicability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/standalone-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standalone metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/analysis-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnalysisConfig
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/factor-profile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FactorProfile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/multi-factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    multi_factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-兩種開發模式" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 兩種開發模式
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. 兩種開發模式">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mode-a--standalone-development推薦多數情況" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode A — Standalone development（推薦多數情況）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-b--in-workspace-developmentvia-submodule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode B — In-workspace development（via submodule）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-環境設置" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 環境設置
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. 環境設置">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#依賴安裝與-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        依賴安裝與 Extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#常用環境指令" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        常用環境指令
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-hookspre-push-changelog-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git hooks（pre-push CHANGELOG check）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-開發循環branch--test--commit--push--pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 開發循環（branch → test → commit → push → PR）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. 開發循環（branch → test → commit → push → PR）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branch-命名" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch 命名
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commit-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit message
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commit message">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#變更-signed-off-by-簽名名稱與信箱" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        變更 Signed-off-by 簽名名稱與信箱
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-mode-b-的三個關鍵陷阱" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Mode B 的三個關鍵陷阱
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Mode B 的三個關鍵陷阱">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#g1-submodule--detached-head最大的坑" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G1. Submodule = detached HEAD（最大的坑）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g2-editable-install-對-jupyter-有限制" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G2. Editable install 對 Jupyter 有限制
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g3-workspace-不會自動追蹤-factrix-更新" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G3. Workspace 不會自動追蹤 factrix 更新
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-submodule-sync-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Submodule sync reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Submodule sync reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-cheat-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Cheat sheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-心智模型" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 心智模型
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-常見情境" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 常見情境
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-搞不清楚時先做兩件事" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 搞不清楚時先做兩件事
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-測試規範" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. 測試規範
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. 測試規範">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#synthetic-fixtures-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synthetic fixtures only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#新-feature-必帶測試" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        新 feature 必帶測試
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-必綠" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI 必綠
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metric-docstring-風格" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metric docstring 風格
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-版本管理與發布-semver--release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 版本管理與發布 (SemVer &amp; Release)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. 版本管理與發布 (SemVer &amp; Release)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#release-cadence--release-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release cadence — release train
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#release-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bc-change-特別注意" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BC change 特別注意
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workspace-不跟最新-main只跟-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workspace 不跟最新 main，只跟 tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-架構--設計決策" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 架構 / 設計決策
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-問問題--決策溝通" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. 問問題 / 決策溝通
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-授權與貢獻條款licensing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. 授權與貢獻條款（Licensing）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-兩種開發模式" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 兩種開發模式
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. 兩種開發模式">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mode-a--standalone-development推薦多數情況" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode A — Standalone development（推薦多數情況）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-b--in-workspace-developmentvia-submodule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode B — In-workspace development（via submodule）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-環境設置" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 環境設置
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. 環境設置">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#依賴安裝與-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        依賴安裝與 Extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#常用環境指令" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        常用環境指令
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#git-hookspre-push-changelog-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Git hooks（pre-push CHANGELOG check）
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-開發循環branch--test--commit--push--pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 開發循環（branch → test → commit → push → PR）
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. 開發循環（branch → test → commit → push → PR）">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#branch-命名" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch 命名
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commit-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit message
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commit message">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#變更-signed-off-by-簽名名稱與信箱" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        變更 Signed-off-by 簽名名稱與信箱
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-mode-b-的三個關鍵陷阱" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Mode B 的三個關鍵陷阱
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Mode B 的三個關鍵陷阱">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#g1-submodule--detached-head最大的坑" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G1. Submodule = detached HEAD（最大的坑）
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g2-editable-install-對-jupyter-有限制" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G2. Editable install 對 Jupyter 有限制
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#g3-workspace-不會自動追蹤-factrix-更新" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        G3. Workspace 不會自動追蹤 factrix 更新
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-submodule-sync-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Submodule sync reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Submodule sync reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-cheat-sheet" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Cheat sheet
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-心智模型" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 心智模型
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-常見情境" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 常見情境
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-搞不清楚時先做兩件事" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 搞不清楚時先做兩件事
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-測試規範" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. 測試規範
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. 測試規範">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#synthetic-fixtures-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synthetic fixtures only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#新-feature-必帶測試" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        新 feature 必帶測試
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ci-必綠" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CI 必綠
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#metric-docstring-風格" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metric docstring 風格
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-版本管理與發布-semver--release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 版本管理與發布 (SemVer &amp; Release)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. 版本管理與發布 (SemVer &amp; Release)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#release-cadence--release-train" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release cadence — release train
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#release-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bc-change-特別注意" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BC change 特別注意
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#workspace-不跟最新-main只跟-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workspace 不跟最新 main，只跟 tag
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-架構--設計決策" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 架構 / 設計決策
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-問問題--決策溝通" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. 問問題 / 決策溝通
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-授權與貢獻條款licensing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. 授權與貢獻條款（Licensing）
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/development/contributing.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="contributing-to-factrix">Contributing to factrix<a class="headerlink" href="#contributing-to-factrix" title="Permanent link">&para;</a></h1>
+<p>本文件描述 factrix 的開發流程。主要讀者是<strong>作者本人 + 未來的 AI agent</strong>
+——private repo，所以省略 licensing / DCO / CLA 等 OSS 慣例，聚焦在<strong>實際
+開發模式與陷阱</strong>。</p>
+<hr />
+<h2 id="1-兩種開發模式">1. 兩種開發模式<a class="headerlink" href="#1-兩種開發模式" title="Permanent link">&para;</a></h2>
+<h3 id="mode-a--standalone-development推薦多數情況">Mode A — Standalone development（推薦多數情況）<a class="headerlink" href="#mode-a--standalone-development推薦多數情況" title="Permanent link">&para;</a></h3>
+<p>直接 clone factrix repo，獨立 venv，cycle 最快：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/awwesomeman/factrix.git
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>factrix
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>sync
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w">        </span><span class="c1"># 驗證 baseline 綠</span>
+</span></code></pre></div>
+<p><strong>什麼時候用</strong>：新 feature / 大 refactor / SemVer bump / release。
+隔離環境、不會誤動到下游 research、測試 cycle 最短。</p>
+<h3 id="mode-b--in-workspace-developmentvia-submodule">Mode B — In-workspace development（via submodule）<a class="headerlink" href="#mode-b--in-workspace-developmentvia-submodule" title="Permanent link">&para;</a></h3>
+<p>從下游 workspace（<code>factor-analysis</code>）的 <code>external/factorlib/</code> 編輯——
+可以邊改 factrix、邊在真實 research notebook 看效果：</p>
+<blockquote>
+<p><strong>注意</strong>：submodule 的磁碟資料夾名稱取決於 parent workspace 的
+<code>.gitmodules</code> 設定，目前實際路徑仍為 <strong><code>external/factorlib/</code></strong>。
+待 parent workspace 將 submodule path rename 後，路徑才會改為
+<code>external/factrix/</code>。以下指令以當前磁碟路徑為準。</p>
+</blockquote>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>~/Desktop/dst/code/factor-analysis
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>external/factorlib
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># edit factrix source</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># 回 workspace 跑 notebook 驗證 end-to-end</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="nb">cd</span><span class="w"> </span>../..
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>uv<span class="w"> </span>run<span class="w"> </span>jupyter<span class="w"> </span>notebook
+</span></code></pre></div>
+<p><strong>什麼時候用</strong>：
+- Debug 「只在 research 環境出現的 bug」——必須真實資料 context 才重現
+- 為某個已知下游需求改 API，想即時驗證
+- 小範圍 tweak（&lt; 10 行），不值得 Mode A 的 setup overhead</p>
+<p><strong>注意</strong>：Mode B 有三個關鍵陷阱，見下方 §4。</p>
+<hr />
+<h2 id="2-環境設置">2. 環境設置<a class="headerlink" href="#2-環境設置" title="Permanent link">&para;</a></h2>
+<p>factrix 用 <strong>uv</strong> 管理 Python venv 與 lockfile。<code>pyproject.toml</code> 與
+<code>uv.lock</code> 是唯一權威——不要用 <code>pip install</code> 直接裝任何東西進 <code>.venv/</code>。</p>
+<p>Python 版本鎖定在 <strong>3.12+</strong>（定義於 <code>pyproject.toml</code> 的 <code>requires-python</code>）。</p>
+<h3 id="依賴安裝與-extras">依賴安裝與 Extras<a class="headerlink" href="#依賴安裝與-extras" title="Permanent link">&para;</a></h3>
+<p>根據開發需求，你可以使用 <code>--extra</code> 增減所需模組：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uv<span class="w"> </span>sync<span class="w">                              </span><span class="c1"># 僅安裝 Core 依賴 (polars, numpy, pandera)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w">                  </span><span class="c1"># +pytest, commitizen 等開發工具 (寫 Code 必裝)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>charts<span class="w">               </span><span class="c1"># +plotly 圖表繪製</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-extras<span class="w">                 </span><span class="c1"># charts + mlflow + jupyter（功能 extras）</span>
+</span></code></pre></div>
+<blockquote>
+<p><strong>注意</strong>：<code>dev</code> extra 不屬於 <code>all</code>（工具鏈與功能 extras 刻意分開），
+因此 <code>--all-extras</code> <strong>不會</strong>安裝 pytest / commitizen 等開發工具。
+開發者請使用：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-extras<span class="w"> </span>--extra<span class="w"> </span>dev<span class="w">   </span><span class="c1"># 功能 extras + 開發工具，一次裝齊</span>
+</span></code></pre></div>
+</blockquote>
+<h3 id="常用環境指令">常用環境指令<a class="headerlink" href="#常用環境指令" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uv<span class="w"> </span>run<span class="w"> </span>&lt;cmd&gt;<span class="w">         </span><span class="c1"># 在 venv 內執行（例如: uv run pytest）</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>add<span class="w"> </span>&lt;pkg&gt;<span class="w">         </span><span class="c1"># 新增 dep，同步更新 pyproject + uv.lock</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>uv<span class="w"> </span>lock<span class="w"> </span>--upgrade<span class="w">    </span><span class="c1"># 升 lock 到當前 pyproject constraint 的最新版</span>
+</span></code></pre></div>
+<h3 id="git-hookspre-push-changelog-check">Git hooks（pre-push CHANGELOG check）<a class="headerlink" href="#git-hookspre-push-changelog-check" title="Permanent link">&para;</a></h3>
+<p>Repo 根目錄下的 <code>.githooks/</code> 收受版控的 hook script。fresh clone 後跑
+一次：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>config<span class="w"> </span>core.hooksPath<span class="w"> </span>.githooks
+</span></code></pre></div>
+<p>這條 config 是 per-clone local，不會跨機器自動同步，所以每個 clone /
+新機器都要跑一次。</p>
+<p>目前唯一的 hook 是 <code>pre-push</code>：當 push 含 <code>chore(release): vX.Y.Z</code>
+（亦即 <code>cz bump</code> 產出的 release commit），會檢查 <code>CHANGELOG.md</code> 中對
+應 <code>## vX.Y.Z</code> section 的非空白行數 ≥ 25。低於門檻 → block push，逼
+你補 WHY narrative（BREAKING migration、行為方向、動機）再 push。
+真要繞過：<code>git push --no-verify</code>。</p>
+<p>調整門檻（per-shell）：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">CHANGELOG_MIN_LINES</span><span class="o">=</span><span class="m">10</span><span class="w"> </span>git<span class="w"> </span>push
+</span></code></pre></div>
+<p>設計理由見 §7 「Release workflow」對 cz auto-CHANGELOG 的限制說明。</p>
+<hr />
+<h2 id="3-開發循環branch--test--commit--push--pr">3. 開發循環（branch → test → commit → push → PR）<a class="headerlink" href="#3-開發循環branch--test--commit--push--pr" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># 1. 從 main 開 branch（不要直接在 main 上 commit）</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>main<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>&lt;type&gt;/&lt;short-desc&gt;<span class="w">     </span><span class="c1"># e.g. feat/redundancy-heatmap</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># 2. 開發 + 頻繁跑測試</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># ...edit...</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w">                            </span><span class="c1"># 必須全綠才 commit</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/test_&lt;file&gt;.py<span class="w"> </span>-v<span class="w">   </span><span class="c1"># 聚焦單一 module 快速迭代</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># 3. Commit（Conventional Commits + 互動式生成）</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>git<span class="w"> </span>add<span class="w"> </span>&lt;specific-files&gt;<span class="w">                 </span><span class="c1"># 不用 -A</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>cz<span class="w"> </span>commit<span class="w"> </span>--<span class="w"> </span>-s<span class="w">                          </span><span class="c1"># 使用 Commitizen 產出標準格式並附加簽名檔</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="c1"># 4. Push + 開 PR</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>feat/redundancy-heatmap
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>gh<span class="w"> </span>pr<span class="w"> </span>create<span class="w"> </span>--title<span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span>--body<span class="w"> </span><span class="s2">&quot;...&quot;</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+</span><span id="__span-7-18"><a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="c1"># 5. CI 綠後 merge（目前是 solo → squash-merge 或 rebase-merge）</span>
+</span><span id="__span-7-19"><a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>gh<span class="w"> </span>pr<span class="w"> </span>merge<span class="w"> </span>--squash
+</span></code></pre></div>
+<blockquote>
+<p><strong>重要</strong>：merge 完 <strong>不</strong> 跑 <code>cz bump</code>。版號與 tag 走 release-train
+節奏（見 §7）——多個 PR 累積後才一次性 release。每個 PR 在自己的
+改動寫進 <code>CHANGELOG.md</code> 的 <code>## [Unreleased]</code> 段（含 <code>### Added</code> /
+<code>### Changed</code> / <code>### Fixed</code> / <code>### Migration</code> 子段，視適用情況），release
+時 <code>cz bump --changelog</code> 會把該段固化成下一個版本標題。</p>
+</blockquote>
+<h3 id="branch-命名">Branch 命名<a class="headerlink" href="#branch-命名" title="Permanent link">&para;</a></h3>
+<p><code>&lt;type&gt;/&lt;short-desc&gt;</code>，全小寫連字號：</p>
+<ul>
+<li><code>feat/...</code> — 新 feature</li>
+<li><code>fix/...</code> — bug fix</li>
+<li><code>refactor/...</code> — 重構（行為不變）</li>
+<li><code>docs/...</code> — 文件</li>
+<li><code>chore/...</code> — 打包 / CI / lock 維護</li>
+</ul>
+<h3 id="commit-message">Commit message<a class="headerlink" href="#commit-message" title="Permanent link">&para;</a></h3>
+<p>專案採用 <strong>Commitizen</strong> 與 <strong>Conventional Commits</strong> 規範。<strong>請一律使用 <code>cz commit</code> 進行互動式提交</strong>，程式會自動檢驗標題長短等規則。</p>
+<p><strong>規則提醒</strong>：
+- Description 長度 <code>&lt; 50 字元</code>
+- Body 採用 <code>-</code> 條列式，只寫「為什麼做」+「主要做了什麼」——不複述 diff，每行建議 <code>&lt; 72 字元</code>
+- 禁用 AI co-author 署名、emoji、句末句號
+- 透過 <code>cz commit -- -s</code> 中的 <code>-s</code> 來附加 Signed-off-by</p>
+<h4 id="變更-signed-off-by-簽名名稱與信箱">變更 <code>Signed-off-by</code> 簽名名稱與信箱<a class="headerlink" href="#變更-signed-off-by-簽名名稱與信箱" title="Permanent link">&para;</a></h4>
+<p><code>git commit -s</code> 生成的簽名是讀取 Git 環境設定中的 <code>user.name</code> 和 <code>user.email</code> 欄位。如果你需要更改簽名，請執行以下指令：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># 僅限當前專案生效</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>git<span class="w"> </span>config<span class="w"> </span>user.name<span class="w"> </span><span class="s2">&quot;你的新名字&quot;</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>git<span class="w"> </span>config<span class="w"> </span>user.email<span class="w"> </span><span class="s2">&quot;你的新信箱@example.com&quot;</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># 全域設定 (所有專案預設生效)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>git<span class="w"> </span>config<span class="w"> </span>--global<span class="w"> </span>user.name<span class="w"> </span><span class="s2">&quot;你的新名字&quot;</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>git<span class="w"> </span>config<span class="w"> </span>--global<span class="w"> </span>user.email<span class="w"> </span><span class="s2">&quot;你的新信箱@example.com&quot;</span>
+</span></code></pre></div>
+<hr />
+<h2 id="4-mode-b-的三個關鍵陷阱">4. Mode B 的三個關鍵陷阱<a class="headerlink" href="#4-mode-b-的三個關鍵陷阱" title="Permanent link">&para;</a></h2>
+<h3 id="g1-submodule--detached-head最大的坑">G1. Submodule = detached HEAD（最大的坑）<a class="headerlink" href="#g1-submodule--detached-head最大的坑" title="Permanent link">&para;</a></h3>
+<p>從 workspace 進 <code>external/factrix/</code> 時，submodule 預設是 <strong>detached HEAD</strong>。
+在 detached HEAD 上 commit 的 commits <strong>不屬於任何 branch</strong>——下次
+<code>git submodule update --remote</code> 會直接覆蓋，commit 消失（reflog 不記）。</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># 丟 commit 的寫法（錯誤示範）</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">cd</span><span class="w"> </span>external/factrix
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="c1"># ...edit...</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>git<span class="w"> </span>commit<span class="w"> </span>-am<span class="w"> </span><span class="s2">&quot;feat: xxx&quot;</span><span class="w">              </span><span class="c1"># detached — commit 沒家</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--remote<span class="w">           </span><span class="c1"># GONE</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># 正確：先 branch</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="nb">cd</span><span class="w"> </span>external/factrix
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>git<span class="w"> </span>checkout<span class="w"> </span>-b<span class="w"> </span>feat/xxx<span class="w">                </span><span class="c1"># 建 branch</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="c1"># ...edit...</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>git<span class="w"> </span>commit<span class="w"> </span>-am<span class="w"> </span><span class="s2">&quot;feat: xxx&quot;</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>feat/xxx
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>gh<span class="w"> </span>pr<span class="w"> </span>create<span class="w">                            </span><span class="c1"># 在 factrix repo 開 PR</span>
+</span></code></pre></div>
+<h3 id="g2-editable-install-對-jupyter-有限制">G2. Editable install 對 Jupyter 有限制<a class="headerlink" href="#g2-editable-install-對-jupyter-有限制" title="Permanent link">&para;</a></h3>
+<p>Workspace 的 <code>uv sync</code> 把 factrix 裝成 editable，所以改 submodule
+source 會立刻反映到 <code>import factrix</code>——但 Jupyter kernel 有例外：</p>
+<ul>
+<li>Function body 改動 → <code>%autoreload 2</code> 能抓到</li>
+<li><code>__init__.py</code> 的 imports / dataclass 定義 / module-level 常數 → 必須 <strong>restart kernel</strong></li>
+</ul>
+<p>不確定時 restart kernel 是最穩的選擇。</p>
+<h3 id="g3-workspace-不會自動追蹤-factrix-更新">G3. Workspace 不會自動追蹤 factrix 更新<a class="headerlink" href="#g3-workspace-不會自動追蹤-factrix-更新" title="Permanent link">&para;</a></h3>
+<p>factrix main 合了 PR 之後，workspace 的 submodule 指針<strong>不會自動 bump</strong>。
+這是 feature 不是 bug——workspace 的每個 commit 綁定明確的 factrix SHA，
+研究結果可重現。</p>
+<p>手動 bump：</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>external/factrix<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>fetch<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>checkout<span class="w"> </span>main<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nb">cd</span><span class="w"> </span>../..<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>add<span class="w"> </span>external/factrix
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;chore: bump factrix to &lt;short-sha&gt;: &lt;why&gt;&quot;</span>
+</span></code></pre></div>
+<hr />
+<h2 id="5-submodule-sync-reference">5. Submodule sync reference<a class="headerlink" href="#5-submodule-sync-reference" title="Permanent link">&para;</a></h2>
+<p>Mode B 與 consumer workspace 日常操作的指令索引。90% 情境看 cheat sheet
+就夠，看不懂再往下讀心智模型與情境說明。</p>
+<h3 id="51-cheat-sheet">5.1 Cheat sheet<a class="headerlink" href="#51-cheat-sheet" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>想做的事</th>
+<th>指令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>看 workspace pin 的 SHA</td>
+<td><code>git submodule status</code></td>
+</tr>
+<tr>
+<td>看 submodule actual HEAD</td>
+<td><code>cd external/factrix &amp;&amp; git rev-parse --short HEAD</code></td>
+</tr>
+<tr>
+<td>拉 factrix main 最新到 actual</td>
+<td><code>git submodule update --remote</code></td>
+</tr>
+<tr>
+<td>切到特定 tag</td>
+<td><code>cd external/factrix &amp;&amp; git fetch --tags &amp;&amp; git checkout vX.Y.Z</code></td>
+</tr>
+<tr>
+<td>固化 actual 到 pin</td>
+<td><code>git add external/factrix &amp;&amp; git commit -m "chore: bump..."</code></td>
+</tr>
+<tr>
+<td>放棄 actual 改動，reset 回 pin</td>
+<td><code>git submodule update</code></td>
+</tr>
+<tr>
+<td>Fresh clone 初始化 submodule</td>
+<td><code>git submodule update --init --recursive</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-心智模型">5.2 心智模型<a class="headerlink" href="#52-心智模型" title="Permanent link">&para;</a></h3>
+<p>workspace 有 <code>pin</code>（記在 workspace commit 裡的 SHA），submodule 自己
+有 <code>actual HEAD</code>（實際 checkout 的 SHA）。兩者可能不同——<code>git status</code>
+會顯示 submodule 是 <code>modified</code>。<strong>Python editable install 讀的是 actual
+HEAD</strong>，所以 import 拿到的版本取決於 actual，不是 pin。</p>
+<h3 id="53-常見情境">5.3 常見情境<a class="headerlink" href="#53-常見情境" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>自己改 factrix 要 sync 回 workspace</strong>：走 §3 + §4（dev 流程），完成後
+  cheat sheet 第 5 列固化</li>
+<li><strong>別人 push 了 factrix，我要跟上</strong>：cheat sheet 第 3 列 + 第 5 列</li>
+<li><strong>Pin 到 tag（推薦，見 §8）</strong>：cheat sheet 第 4 列 + 第 5 列</li>
+<li><strong>切 branch 後 submodule 亂掉</strong>：cheat sheet 第 6 列 reset</li>
+</ul>
+<h3 id="54-搞不清楚時先做兩件事">5.4 搞不清楚時先做兩件事<a class="headerlink" href="#54-搞不清楚時先做兩件事" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>git submodule status</code> 看 pin</li>
+<li><code>cd external/factrix &amp;&amp; git rev-parse HEAD</code> 看 actual</li>
+</ol>
+<p>兩個 SHA 一樣 = 乾淨；不一樣就決定：要 bump pin（第 5 列）還是 reset
+actual（第 6 列）。</p>
+<hr />
+<h2 id="6-測試規範">6. 測試規範<a class="headerlink" href="#6-測試規範" title="Permanent link">&para;</a></h2>
+<h3 id="synthetic-fixtures-only">Synthetic fixtures only<a class="headerlink" href="#synthetic-fixtures-only" title="Permanent link">&para;</a></h3>
+<p><strong>factrix tests 不得 load 真實市場資料</strong>——所有 fixture 必須是
+<code>tests/conftest.py</code> 或 test module 內 numpy / polars 程式化構造。
+這個 invariant 讓 tests 可以在任何環境跑（CI / 新機器 / fresh clone），
+也避免 repo 被資料污染。</p>
+<p>Pattern（見 <code>tests/conftest.py</code>）：</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nd">@pytest</span><span class="o">.</span><span class="n">fixture</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">clean_panel</span><span class="p">():</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="k">return</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>        <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">],</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>        <span class="s2">&quot;asset_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">],</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>        <span class="s2">&quot;factor_value&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">),</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>        <span class="s2">&quot;forward_return&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.01</span><span class="p">,</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>    <span class="p">})</span>
+</span></code></pre></div>
+<h3 id="新-feature-必帶測試">新 feature 必帶測試<a class="headerlink" href="#新-feature-必帶測試" title="Permanent link">&para;</a></h3>
+<p>新的 metric / Profile field / API parameter → 對應的 test case 必須同一個
+PR 加入。PR reviewer（現在是你 + Claude）應 block PR 如果沒測試。</p>
+<h3 id="ci-必綠">CI 必綠<a class="headerlink" href="#ci-必綠" title="Permanent link">&para;</a></h3>
+<p><code>.github/workflows/test.yml</code> 在每次 push / PR 跑 full pytest。<strong>CI 紅的
+PR 不該 merge</strong>——先 fix 再繼續。</p>
+<h3 id="metric-docstring-風格">Metric docstring 風格<a class="headerlink" href="#metric-docstring-風格" title="Permanent link">&para;</a></h3>
+<p><code>factrix/metrics/*.py</code> 的 docstring 是各 metric 「精確公式 / 演算法」的
+<strong>authoritative source</strong>。文件整體分工（what goes where）見 README 的
+「下一步看哪裡」表 — 單一來源，此處不複述。格式：</p>
+<ol>
+<li><strong>第一行 tldr</strong> — 一句話說明這個 metric 量什麼，可含簡短公式
+   （例：<code>IC_IR = mean(IC) / std(IC).</code>）</li>
+<li><strong>公式</strong>：</li>
+<li><strong>單行公式</strong> → inline 帶過，格式 <code>value = &lt;expr&gt;</code></li>
+<li><strong>多行 algorithm / sandwich SE / 非平凡演算法</strong> → <code>Formula:</code> block +
+     縮排等式，讓掃 <code>help()</code> 的人可以讀 display math</li>
+<li><strong>Args / Returns</strong> block 保留（Google-style）</li>
+<li><strong>Short-circuit 條件</strong>最後一段說明（哪些 input 會短路成 NaN、
+   對應 <code>metadata["reason"]</code> 是什麼）</li>
+<li>引用論文走 <code>References:</code> block（選配；複雜方法才需要，簡單診斷
+   指標不用）</li>
+</ol>
+<p>範例（inline 公式）：<code>ts_beta.ts_beta_sign_consistency</code>
+範例（Formula block）：<code>fama_macbeth.pooled_ols</code>、<code>_helpers._sample_non_overlapping</code></p>
+<hr />
+<h2 id="7-版本管理與發布-semver--release">7. 版本管理與發布 (SemVer &amp; Release)<a class="headerlink" href="#7-版本管理與發布-semver--release" title="Permanent link">&para;</a></h2>
+<p>目前 factrix 在 <strong>pre-1.0</strong>（v0.x.x）——公開 API <strong>可能在 MINOR bump 裡
+BC 變動</strong>。Consumer（如 <code>factor-analysis</code> workspace）應該透過 <strong>git
+submodule SHA pin</strong> 而非 version range，直到 1.0.0 穩定為止。</p>
+<p><strong>專案採用 Commitizen 進行全自動升版與 Changelog 生成，搭配 release-train
+節奏：PR 隨時 merge，但 release（bump + tag）獨立排程。</strong></p>
+<h3 id="release-cadence--release-train">Release cadence — release train<a class="headerlink" href="#release-cadence--release-train" title="Permanent link">&para;</a></h3>
+<p>PR 與 release 解耦：</p>
+<ul>
+<li><strong>PR cadence</strong>：高頻、原子。merge 完 <strong>不</strong> bump，<strong>不</strong> tag。</li>
+<li><strong>Release cadence</strong>：低頻、彙總。當以下任一條件達到才開 release：</li>
+<li>累積 ≥ 3 個 user-facing <code>feat:</code> / <code>fix:</code></li>
+<li>距上一個 tag ≥ 2 週</li>
+<li>有對下游 workspace 的緊急 bug fix（單獨 PATCH 隨時可切）</li>
+<li>為了讓某人 / 某 demo 拉到具名版本</li>
+</ul>
+<p>每個 PR 自己負責把 WHY narrative 寫進 <code>CHANGELOG.md</code> 的 <code>## [Unreleased]</code>
+段（<code>### Added</code> / <code>### Changed</code> / <code>### Fixed</code> / <code>### Migration</code> 子段）。
+這樣 release 時不用回頭重建敘事——<code>cz bump --changelog</code> 把整段固化成下
+一個版本標題即可。</p>
+<h3 id="release-workflow">Release workflow<a class="headerlink" href="#release-workflow" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># 1. 在 factrix repo main 分支確保最新</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>git<span class="w"> </span>checkout<span class="w"> </span>main<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>pull
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># 2. 驗證 CI 綠 + 本地 pytest 全綠</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># 3. 自動改版與打標籤</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="c1"># cz 根據自上一個 tag 以來的 commits 推導 (feat=MINOR, fix=PATCH)，</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="c1"># 把 [Unreleased] 段改名為新版本標題，新增空白 [Unreleased] 段，</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># 更新 pyproject.toml，自動 commit + tag。</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>cz<span class="w"> </span>bump<span class="w"> </span>--changelog
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="c1"># 4. （選配）手動潤飾 release 段——補 BREAKING migration / 方向 / 動機</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="c1">#    至 ≥ 25 非空白行，否則 pre-push 會 block（見 §2 hook）。</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="c1">#    潤完用 git commit --amend 收回 release commit，刪舊 tag 重建：</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a>git<span class="w"> </span>commit<span class="w"> </span>--amend<span class="w"> </span>--no-edit
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>git<span class="w"> </span>tag<span class="w"> </span>-d<span class="w"> </span>v&lt;X.Y.Z&gt;<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>tag<span class="w"> </span>v&lt;X.Y.Z&gt;
+</span><span id="__span-12-18"><a id="__codelineno-12-18" name="__codelineno-12-18" href="#__codelineno-12-18"></a>
+</span><span id="__span-12-19"><a id="__codelineno-12-19" name="__codelineno-12-19" href="#__codelineno-12-19"></a><span class="c1"># 5. Push</span>
+</span><span id="__span-12-20"><a id="__codelineno-12-20" name="__codelineno-12-20" href="#__codelineno-12-20"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main
+</span><span id="__span-12-21"><a id="__codelineno-12-21" name="__codelineno-12-21" href="#__codelineno-12-21"></a>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>v&lt;X.Y.Z&gt;
+</span><span id="__span-12-22"><a id="__codelineno-12-22" name="__codelineno-12-22" href="#__codelineno-12-22"></a>
+</span><span id="__span-12-23"><a id="__codelineno-12-23" name="__codelineno-12-23" href="#__codelineno-12-23"></a><span class="c1"># 6. 回 workspace bump submodule</span>
+</span><span id="__span-12-24"><a id="__codelineno-12-24" name="__codelineno-12-24" href="#__codelineno-12-24"></a><span class="nb">cd</span><span class="w"> </span>~/Desktop/dst/code/factor-analysis
+</span><span id="__span-12-25"><a id="__codelineno-12-25" name="__codelineno-12-25" href="#__codelineno-12-25"></a><span class="nb">cd</span><span class="w"> </span>external/factrix<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>fetch<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>checkout<span class="w"> </span>v&lt;X.Y.Z&gt;
+</span><span id="__span-12-26"><a id="__codelineno-12-26" name="__codelineno-12-26" href="#__codelineno-12-26"></a><span class="nb">cd</span><span class="w"> </span>../..<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>add<span class="w"> </span>external/factrix
+</span><span id="__span-12-27"><a id="__codelineno-12-27" name="__codelineno-12-27" href="#__codelineno-12-27"></a>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;chore: bump factrix to v&lt;X.Y.Z&gt;&quot;</span>
+</span><span id="__span-12-28"><a id="__codelineno-12-28" name="__codelineno-12-28" href="#__codelineno-12-28"></a>git<span class="w"> </span>push
+</span></code></pre></div>
+<h3 id="bc-change-特別注意">BC change 特別注意<a class="headerlink" href="#bc-change-特別注意" title="Permanent link">&para;</a></h3>
+<p>例：<code>q1_q5_spread → long_short_spread</code>（已於 workspace 歷史發生過）
+這種 rename 屬 BC change。開發者在利用 <code>cz commit</code> 提交時，必須選擇 Breaking Change，並在 Prompt 中<strong>明確寫出 migration path</strong>（舊名 → 新名、影響哪些欄位）。這樣下游 workspace 才能從自動生成的 CHANGELOG 中找到升級指南。</p>
+<h3 id="workspace-不跟最新-main只跟-tag">Workspace 不跟最新 main，只跟 tag<a class="headerlink" href="#workspace-不跟最新-main只跟-tag" title="Permanent link">&para;</a></h3>
+<p>下游 research workspace 原則上 <strong>pin 到 tag</strong>（而非 main HEAD），這樣
+每個 workspace commit 對應一個清楚的 factrix 版本、可重現。</p>
+<p>Main HEAD 只在 Mode B 開發中暫時用（debug 流程），完成後 merge 回
+factrix main、打 tag，再讓 workspace bump 到 tag。</p>
+<hr />
+<h2 id="9-架構--設計決策">9. 架構 / 設計決策<a class="headerlink" href="#9-架構--設計決策" title="Permanent link">&para;</a></h2>
+<p>新 feature 或大改動前建議先讀：</p>
+<ul>
+<li><code>ARCHITECTURE.md</code> — 套件現況 snapshot（positioning、public API、
+  4 種 factor types、Profile contract、Artifacts、invariants）</li>
+<li><code>CHANGELOG.md</code> — 歷史 BC changes + caveats</li>
+</ul>
+<p><code>ARCHITECTURE.md</code> 是<strong>當下狀態</strong>描述，不是設計歷程。如果要看「為什麼
+設計成這樣」的過程紀錄，去 <code>awwesomeman/factor-analysis</code> workspace 的
+<code>docs/spike_*.md</code> / <code>docs/refactor_*.md</code>（pre-extraction 歷史保留於彼處）。</p>
+<hr />
+<h2 id="10-問問題--決策溝通">10. 問問題 / 決策溝通<a class="headerlink" href="#10-問問題--決策溝通" title="Permanent link">&para;</a></h2>
+<p>作者 + AI agent 自用 repo，所以沒有 issue template / discussion board。
+決策記錄管道：</p>
+<ul>
+<li><strong>小改動</strong>：PR description 寫清楚 why + 有無 BC</li>
+<li><strong>大改動 / 架構決策</strong>：在 workspace repo 的 <code>docs/</code> 下新增 <code>spike_*.md</code>
+  設計文件（跟歷史 spike 一致），factrix PR 引用它</li>
+<li><strong>Invariant 級規則變更</strong>：更新 <code>ARCHITECTURE.md</code> 的 <code>Invariants</code> 區塊</li>
+</ul>
+<hr />
+<h2 id="11-授權與貢獻條款licensing">11. 授權與貢獻條款（Licensing）<a class="headerlink" href="#11-授權與貢獻條款licensing" title="Permanent link">&para;</a></h2>
+<p>本專案採用 <a href="LICENSE">Apache License 2.0</a>。</p>
+<p><strong>Inbound = Outbound</strong>：依 Apache-2.0 §5，凡你向本 repo 提交（PR、patch、issue 附帶程式碼等）的內容，<strong>預設視為以 Apache-2.0 同等條款授權回本專案</strong>，除非你在提交時明確聲明其他條款。送 PR 前請確認：</p>
+<ul>
+<li>你對該段程式碼擁有授權權利（自行撰寫，或來源相容於 Apache-2.0）</li>
+<li>引用第三方程式碼時，於檔案 header 或 PR description 標註原始授權</li>
+<li>涉及專利的演算法（如：你個人或所屬組織持有專利的方法），請在 PR description 主動揭露</li>
+</ul>
+<p>不接受 GPL/AGPL 等具強制 copyleft 的程式碼合併進主程式碼樹（會污染下游使用者的授權義務）。</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

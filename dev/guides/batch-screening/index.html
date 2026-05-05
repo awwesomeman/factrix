@@ -10,25 +10,31 @@
       
       
       
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/guides/batch-screening/">
       
+      
+        <link rel="prev" href="../panel-timeseries/">
+      
+      
+        <link rel="next" href="../choosing-metric/">
       
       
         
       
       
-      <link rel="icon" href="/factrix/latest/assets/images/favicon.png">
+      <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>factrix</title>
+        <title>Batch screening (BHY) - factrix</title>
       
     
     
-      <link rel="stylesheet" href="/factrix/latest/assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="/factrix/latest/assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -47,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="/factrix/latest/assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("/factrix/latest",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -73,6 +79,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#batch-screening-with-bhy" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -87,7 +98,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/factrix/latest/." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+    <a href="../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -107,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Batch screening (BHY)
             
           </span>
         </div>
@@ -220,7 +231,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="/factrix/latest/." class="md-tabs__link">
+      <a href="../.." class="md-tabs__link">
         
   
   
@@ -241,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/factrix/latest/getting-started/" class="md-tabs__link">
+        <a href="../../getting-started/" class="md-tabs__link">
           
   
   
@@ -259,11 +270,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="/factrix/latest/guides/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -285,7 +298,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/factrix/latest/reference/methodology/" class="md-tabs__link">
+        <a href="../../reference/methodology/" class="md-tabs__link">
           
   
   
@@ -307,7 +320,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="/factrix/latest/development/architecture/" class="md-tabs__link">
+        <a href="../../development/architecture/" class="md-tabs__link">
           
   
   
@@ -343,7 +356,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/factrix/latest/." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+    <a href="../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -373,7 +386,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/." class="md-nav__link">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -429,7 +442,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="/factrix/latest/getting-started/" class="md-nav__link ">
+            <a href="../../getting-started/" class="md-nav__link ">
               
   
   
@@ -473,7 +486,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/getting-started/install/" class="md-nav__link">
+      <a href="../../getting-started/install/" class="md-nav__link">
         
   
   
@@ -501,7 +514,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/getting-started/quickstart/" class="md-nav__link">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -529,7 +542,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/getting-started/concepts/" class="md-nav__link">
+      <a href="../../getting-started/concepts/" class="md-nav__link">
         
   
   
@@ -561,6 +574,8 @@
       
   
   
+    
+  
   
   
     
@@ -582,20 +597,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="/factrix/latest/guides/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -613,13 +631,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -639,7 +657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/guides/panel-timeseries/" class="md-nav__link">
+      <a href="../panel-timeseries/" class="md-nav__link">
         
   
   
@@ -664,10 +682,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/factrix/latest/guides/batch-screening/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch screening (BHY)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -683,6 +728,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#horizon-shopping-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Horizon-shopping correction
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -695,7 +782,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/guides/choosing-metric/" class="md-nav__link">
+      <a href="../choosing-metric/" class="md-nav__link">
         
   
   
@@ -723,7 +810,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/examples/demo/" class="md-nav__link">
+      <a href="../../examples/demo/" class="md-nav__link">
         
   
   
@@ -822,7 +909,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/methodology/" class="md-nav__link">
+      <a href="../../reference/methodology/" class="md-nav__link">
         
   
   
@@ -850,7 +937,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/statistical-methods/" class="md-nav__link">
+      <a href="../../reference/statistical-methods/" class="md-nav__link">
         
   
   
@@ -878,7 +965,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/metric-applicability/" class="md-nav__link">
+      <a href="../../reference/metric-applicability/" class="md-nav__link">
         
   
   
@@ -906,7 +993,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/standalone-metrics/" class="md-nav__link">
+      <a href="../../reference/standalone-metrics/" class="md-nav__link">
         
   
   
@@ -998,7 +1085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/api/analysis-config/" class="md-nav__link">
+      <a href="../../reference/api/analysis-config/" class="md-nav__link">
         
   
   
@@ -1026,7 +1113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/api/evaluate/" class="md-nav__link">
+      <a href="../../reference/api/evaluate/" class="md-nav__link">
         
   
   
@@ -1054,7 +1141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/api/factor-profile/" class="md-nav__link">
+      <a href="../../reference/api/factor-profile/" class="md-nav__link">
         
   
   
@@ -1082,7 +1169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/api/multi-factor/" class="md-nav__link">
+      <a href="../../reference/api/multi-factor/" class="md-nav__link">
         
   
   
@@ -1110,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/reference/api/datasets/" class="md-nav__link">
+      <a href="../../reference/api/datasets/" class="md-nav__link">
         
   
   
@@ -1213,7 +1300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/development/architecture/" class="md-nav__link">
+      <a href="../../development/architecture/" class="md-nav__link">
         
   
   
@@ -1241,7 +1328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/development/contributing/" class="md-nav__link">
+      <a href="../../development/contributing/" class="md-nav__link">
         
   
   
@@ -1269,7 +1356,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/factrix/latest/development/changelog/" class="md-nav__link">
+      <a href="../../development/changelog/" class="md-nav__link">
         
   
   
@@ -1314,6 +1401,38 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#basic-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#horizon-shopping-correction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Horizon-shopping correction
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1326,8 +1445,73 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
 
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/guides/batch-screening.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="batch-screening-with-bhy">Batch Screening with BHY<a class="headerlink" href="#batch-screening-with-bhy" title="Permanent link">&para;</a></h1>
+<p>BHY controls FDR <strong>within a statistical family</strong>: evaluate multiple candidate factors under the same procedure, then apply step-up correction on the resulting p-values. <strong>Do not mix families</strong> — p-values from IC / FM / TS-β carry different null distributions and cannot be pooled.</p>
+<h2 id="basic-usage">Basic usage<a class="headerlink" href="#basic-usage" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;mom_5d&quot;</span><span class="p">,</span> <span class="s2">&quot;mom_20d&quot;</span><span class="p">,</span> <span class="s2">&quot;mom_60d&quot;</span><span class="p">]</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">cfg</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">profiles</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">&quot;factor&quot;</span><span class="p">)),</span> <span class="n">cfg</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">candidates</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">]</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">survivors</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">profiles</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>bhy()</code> automatically partitions by <code>(procedure, forward_periods)</code> — you do not pass a group key. Same-procedure, same-horizon profiles form one family. Different horizons always split: each horizon carries its own null distribution and effective sample size; pooling dilutes the step-up threshold and silently inflates FDR.</p>
+<p>If any family degenerates to size=1 (typical misuse: one factor evaluated across multiple scenarios), <code>bhy()</code> emits a <code>RuntimeWarning</code> — at size=1 BHY equals the raw threshold and provides no FDR correction.</p>
+<h2 id="horizon-shopping-correction">Horizon-shopping correction<a class="headerlink" href="#horizon-shopping-correction" title="Permanent link">&para;</a></h2>
+<p><code>bhy()</code> controls FDR within a horizon. If you sweep multiple horizons per factor and pick the minimum p, the horizon selection itself is hidden multiple testing (K = number of horizons). You must collapse the horizon dimension first with a FWER procedure, then feed the result into BHY.</p>
+<p><strong>Recommended FWER procedures:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Procedure</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bonferroni (<code>p × K</code>)</td>
+<td>K small (≤ 5), horizons approximately independent</td>
+</tr>
+<tr>
+<td>Holm (step-down)</td>
+<td>K larger, or p-values vary widely in strength</td>
+</tr>
+</tbody>
+</table>
+<p>Do <strong>not</strong> use BHY as the inner procedure: (1) picking one representative p is a FWER problem, not FDR; (2) BHY ∘ BHY has no composition theorem; (3) for small K, BHY's <code>c(m)</code> factor makes it more conservative than Bonferroni.</p>
+<blockquote>
+<p>Do not flatten K factors × H horizons into K×H profiles and call <code>bhy()</code> directly. BHY partitions by horizon into H families of K — correct for "pick factors within each horizon" — but wrong for "pick best horizon per factor."</p>
+</blockquote>
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -1370,10 +1554,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "/factrix/latest", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "/factrix/latest/assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="/factrix/latest/assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
