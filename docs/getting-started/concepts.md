@@ -61,10 +61,10 @@ Choose by research question, not data shape:
 
 | Factory | Procedure | Literature |
 |---------|-----------|------------|
-| `individual_continuous(metric=IC)` | per-date Spearman ρ → NW HAC t on E[IC] | Grinold (1989); Newey & West (1987) |
-| `individual_continuous(metric=FM)` | per-date OLS λₜ → NW HAC t on E[λ] | Fama & MacBeth (1973) |
-| `individual_sparse()` | per-event AR → CAAR → cross-event t | Brown & Warner (1985) |
-| `common_continuous()` | per-asset TS β → cross-asset t on E[β] | Black-Jensen-Scholes (1972) |
+| `individual_continuous(metric=IC)` | per-date Spearman ρ → NW HAC t on E[IC] | [Grinold 1989][grinold-1989]; [Newey-West 1987][newey-west-1987] |
+| `individual_continuous(metric=FM)` | per-date OLS λₜ → NW HAC t on E[λ] | [Fama-MacBeth 1973][fama-macbeth-1973] |
+| `individual_sparse()` | per-event AR → CAAR → cross-event t | [Brown-Warner 1985][brown-warner-1985] |
+| `common_continuous()` | per-asset TS β → cross-asset t on E[β] | [Black-Jensen-Scholes 1972][black-jensen-scholes-1972] |
 | `common_sparse()` | per-asset TS β on dummy → cross-asset t | TS-β + event-study hybrid |
 
 ## Mode: PANEL vs TIMESERIES

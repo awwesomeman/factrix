@@ -38,14 +38,14 @@ def corrado_rank_test(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricOutput:
-    """Corrado nonparametric rank test for event abnormal returns.
+    r"""Corrado nonparametric rank test for event abnormal returns.
 
     For each asset:
         1. Rank ``return_col`` across the full time series (event + non-event).
-        2. Transform ranks to U_it = rank / (T+1) - 0.5 (centered at 0).
-        3. Extract U values at event dates.
+        2. Transform ranks to $U_{it} = \mathrm{rank} / (T+1) - 0.5$ (centered at 0).
+        3. Extract $U$ values at event dates.
     Across all event observations:
-        4. z = mean(U_event × sign(factor)) / (std(U_all) / √N_events)
+        4. $z = \mathrm{mean}(U_{\text{event}} \times \mathrm{sign}(\text{factor})) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
 
     Deviation from Corrado (1989) eq.(5):
         The paper computes the denominator as the time-series std of the
@@ -66,10 +66,11 @@ def corrado_rank_test(
         MetricOutput with value=mean rank deviation, stat=z.
 
     Notes:
-        For each asset ``i``, rank ``return`` across the full sample,
-        transform to ``U_{i,t} = rank / (T+1) - 0.5`` (centered at 0),
-        and on event rows form ``U_event * sign(factor)``. Test statistic
-        ``z = mean(U_event_signed) / (std(U_all) / sqrt(N_events))``.
+        For each asset $i$, rank ``return`` across the full sample,
+        transform to $U_{i,t} = \mathrm{rank} / (T+1) - 0.5$ (centered at 0),
+        and on event rows form $U_{\text{event}} \cdot \mathrm{sign}(\text{factor})$.
+        Test statistic
+        $z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
 
         factrix uses the **pooled** std of ``U_all`` across all
         ``(asset, date)`` cells in the denominator instead of the

@@ -41,11 +41,11 @@ deterministic bandwidth, applied by `ic_newey_west`, `fama_macbeth`,
 
 The bandwidth rule is
 
-```
-L = max(⌊T^(1/3)⌋,  forward_periods − 1)
-```
+$$
+L = \max\!\left(\lfloor T^{1/3} \rfloor,\; h - 1\right)
+$$
 
-The first term is the [Andrews 1991][andrews-1991] optimal Bartlett
+with $h$ = `forward_periods`. The first term is the [Andrews 1991][andrews-1991] optimal Bartlett
 growth rate; the second is the
 [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
 the kernel covers the MA(`h − 1`) structure of overlapping returns.
@@ -73,14 +73,16 @@ is itself an estimated quantity (rolling β, PCA score, ML predictor),
 [`fama_macbeth(is_estimated_factor=True)`](../api/metrics/fama_macbeth.md)
 applies the [Kan-Zhang 1999][kan-zhang-1999] single-factor
 simplification of the [Shanken 1992][shanken-1992] errors-in-variables
-correction, scaling SE by `√(1 + λ̂² / σ²_f)`. The full Shanken
-variance has an additional `+σ²_f / T` term that factrix omits: at
-finite `T` the omission **understates** the EIV inflation and so
-**overstates** the resulting `t`. The simplification is honest only
-when `T` is large enough that the dropped term is negligible.
+correction, scaling SE by $\sqrt{1 + \hat\lambda^2 / \sigma^2_f}$. The
+full Shanken variance has an additional $+\sigma^2_f / T$ term that
+factrix omits: at finite $T$ the omission **understates** the EIV
+inflation and so **overstates** the resulting $t$. The simplification
+is honest only when $T$ is large enough that the dropped term is
+negligible.
 
 When `factor_return_var` is not supplied, factrix falls back to
-`var(β̂_t)` as a proxy for `σ²_f`. Because `β̂_t` already absorbs
+$\mathrm{var}(\hat\beta_t)$ as a proxy for $\sigma^2_f$. Because
+$\hat\beta_t$ already absorbs
 estimation noise from the upstream factor score, this proxy
 **inflates the denominator** of the EIV factor and so **further
 deflates** the correction. Treat the
@@ -103,9 +105,9 @@ Factor pools are dependent by construction: 200 momentum variants on
 the same return panel correlate, and a Bonferroni step that assumes
 independence over-corrects. factrix's `multi_factor.bhy` wrapper
 implements [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001] FDR
-control with the `c(m) = Σ_{i=1..m} 1/i` dependence correction —
+control with the dependence correction $c(m) = \sum_{i=1}^{m} 1/i$ —
 valid under arbitrary positive or negative dependence at the cost of
-a `1/ln(m)` shrinkage relative to plain BH.
+a $1/\ln m$ shrinkage relative to plain BH.
 
 [Benjamini-Hochberg 1995][benjamini-hochberg-1995] BH is *not* the
 default because the typical factor-pool dependence violates its PRDS
@@ -116,7 +118,7 @@ Three positions on multiple testing that the literature has converged
 on and factrix takes:
 
 - The [Harvey-Liu-Zhu 2016][harvey-liu-zhu-2016] case for raising
-  t-thresholds is taken seriously. `verdict()` defaults to `t ≥ 2.0`
+  t-thresholds is taken seriously. `verdict()` defaults to $t \geq 2.0$
   but exposes the BHY-adjusted `q` so users can apply a stricter
   threshold for new factor proposals.
 - The [Harvey 2017][harvey-2017] case against ad-hoc p-hacking is the
@@ -144,7 +146,7 @@ intended as a diagnostic, not a hypothesis test.
 
 factrix preprocesses cross-sectional factor exposures with
 **MAD-based winsorisation**: per date, clip values to
-`median ± k · MAD · 1.4826`. The `1.4826` factor restores Gaussian
+$\text{median} \pm k \cdot \mathrm{MAD} \cdot 1.4826$. The $1.4826$ factor restores Gaussian
 consistency of the median absolute deviation as a scale estimator
 ([Huber 1964][huber-1964], textbook treatment in
 [Huber 1981][huber-1981]). This avoids letting the same outlier that
@@ -181,11 +183,11 @@ language is [Hampel 1974][hampel-1974].
 
 Predictive regressions with persistent regressors carry the
 [Stambaugh 1999][stambaugh-1999] bias: when the regressor's
-innovation correlates with the dependent return innovation, OLS β̂
-carries a finite-sample bias of order `O(1/T)` that does not vanish
-at conventional research sample sizes (β̂ is consistent
+innovation correlates with the dependent return innovation, OLS $\hat\beta$
+carries a finite-sample bias of order $O(1/T)$ that does not vanish
+at conventional research sample sizes ($\hat\beta$ is consistent
 asymptotically, but the bias is large enough to flip inference at
-`T ≈ 10–30` years of monthly data). The textbook corrections
+$T \approx 10\text{–}30$ years of monthly data). The textbook corrections
 ([Campbell-Yogo 2006][campbell-yogo-2006] Bonferroni Q,
 [Phillips-Magdalinos 2009][phillips-magdalinos-2009] /
 [Kostakis-Magdalinos-Stamatogiannis 2015][kostakis-magdalinos-stamatogiannis-2015]

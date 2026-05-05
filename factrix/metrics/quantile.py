@@ -224,13 +224,17 @@ def quantile_spread_vw(
     tie_policy: str = "ordinal",
     lag_weights: bool = True,
 ) -> MetricOutput:
-    """Value-weighted long-short spread — alpha concentration diagnostic.
+    r"""Value-weighted long-short spread — alpha concentration diagnostic.
 
-    Formula (per non-overlapping date t):
-        For bucket b ∈ {bottom, top}:
-            vw_b[t] = Σ_{i∈b} w[i,t−1] · return[i, t→t+h] / Σ_{i∈b} w[i,t−1]
-        spread[t] = vw_top[t] − vw_bottom[t]
-        value = mean_t spread[t];  t-stat = √n · value / std(spread);  DDOF=1
+    Formula (per non-overlapping date $t$):
+
+    $$
+    \begin{aligned}
+    \text{vw}_b[t] &= \frac{\sum_{i \in b} w_{i,t-1} \cdot \text{return}_{i, t \to t+h}}{\sum_{i \in b} w_{i,t-1}}, \quad b \in \{\text{bottom}, \text{top}\} \\
+    \text{spread}[t] &= \text{vw}_{\text{top}}[t] - \text{vw}_{\text{bottom}}[t] \\
+    \text{value} &= \mathrm{mean}_t\, \text{spread}[t], \quad t = \sqrt{n} \cdot \text{value} / \mathrm{std}(\text{spread}), \quad \text{DDOF}=1
+    \end{aligned}
+    $$
 
     Weights are **lagged by one sampled period per asset** by default
     (``lag_weights=True``): a portfolio rebalanced at date t uses the

@@ -50,24 +50,27 @@ def compute_mfe_mae(
     factor_col: str = "factor",
     price_col: str = "price",
 ) -> pl.DataFrame:
-    """Per-event Maximum Favorable/Adverse Excursion.
+    r"""Per-event Maximum Favorable/Adverse Excursion.
 
-    For each event (factor != 0), examines the ``window`` subsequent bars
-    to find the peak gain (MFE) and peak loss (MAE) relative to event
-    entry price, adjusted for signal direction.
+    For each event ($\text{factor} \neq 0$), examines the ``window``
+    subsequent bars to find the peak gain (MFE) and peak loss (MAE)
+    relative to event entry price, adjusted for signal direction.
 
     Also reports an estimation-window-normalised z-score per event:
 
-        ``mfe_z = mfe / (est_sigma · √window)``
-        ``mae_z = mae / (est_sigma · √window)``
+    $$
+    z_{\mathrm{mfe}} = \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}), \quad
+    z_{\mathrm{mae}} = \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
+    $$
 
-    where ``est_sigma`` is the daily-return std over the ``estimation_window``
-    bars preceding the event. MFE/MAE are order statistics whose expected
-    magnitude grows as ``√(window · σ²)``; comparing raw MFE across
-    horizons or vol regimes conflates time-scale with signal strength.
-    The z-scored versions are the apples-to-apples quantity for
-    cross-setup comparisons (Campbell-Lo-MacKinlay 1997 Ch 4 on horizon
-    scaling of order statistics).
+    where $\hat\sigma$ is the daily-return std over the
+    ``estimation_window`` bars preceding the event. MFE/MAE are order
+    statistics whose expected magnitude grows as
+    $\sqrt{W \cdot \sigma^2}$; comparing raw MFE across horizons or vol
+    regimes conflates time-scale with signal strength. The z-scored
+    versions are the apples-to-apples quantity for cross-setup
+    comparisons (Campbell-Lo-MacKinlay 1997 Ch 4 on horizon scaling of
+    order statistics).
 
     Args:
         df: Panel with ``date, asset_id, factor, price``.
@@ -90,21 +93,25 @@ def compute_mfe_mae(
         ``price_col`` not present.
 
     Notes:
-        For each event with entry price ``P_0 = price[t_event]`` and
-        post-event window ``P_{1..W}``::
+        For each event with entry price $P_0 = \text{price}[t_{\text{event}}]$
+        and post-event window $P_{1 \ldots W}$:
 
-            r_k       = direction * (P_k / P_0 - 1)        for k = 1..W
-            mfe       = max_k r_k;       mae = min_k r_k
-            est_sigma = std(daily_return) over the prior estimation_window
-            mfe_z     = mfe / (est_sigma * sqrt(W))
-            mae_z     = mae / (est_sigma * sqrt(W))
+        $$
+        \begin{aligned}
+        r_k       &= \text{direction} \cdot (P_k / P_0 - 1) \quad \text{for } k = 1 \ldots W \\
+        \mathrm{mfe}       &= \max_k r_k, \quad \mathrm{mae} = \min_k r_k \\
+        \hat\sigma &= \mathrm{std}(r_d) \text{ over the prior estimation window} \\
+        z_{\mathrm{mfe}}     &= \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}) \\
+        z_{\mathrm{mae}}     &= \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
+        \end{aligned}
+        $$
 
-        factrix scales by ``sqrt(W)`` because MFE/MAE are order
-        statistics whose expected magnitude grows as ``sqrt(W * sigma^2)``
-        — comparing raw MFE across horizons or vol regimes conflates
-        time-scale with signal strength. ``est_sigma`` excludes the
-        event-day bar to avoid feeding the signal back into its own
-        denominator.
+        factrix scales by $\sqrt{W}$ because MFE/MAE are order
+        statistics whose expected magnitude grows as
+        $\sqrt{W \cdot \sigma^2}$ — comparing raw MFE across horizons
+        or vol regimes conflates time-scale with signal strength.
+        $\hat\sigma$ excludes the event-day bar to avoid feeding the
+        signal back into its own denominator.
     """
     if min_estimation_samples < 2:
         raise ValueError(

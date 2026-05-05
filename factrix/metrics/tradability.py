@@ -44,9 +44,9 @@ def turnover(
     forward_periods: int = 1,
     quantile: float | None = None,
 ) -> MetricOutput:
-    """Factor rank-stability via non-overlapping rank autocorrelation.
+    r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
-    ``turnover = 1 - mean(rank_autocorrelation)``
+    $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 
     **What this measures.** Sensitivity of the *full* cross-section rank
     vector to reshuffling between ``t`` and ``t + forward_periods``. Mid-rank
@@ -99,11 +99,12 @@ def turnover(
         grade inference, use a HAC variance estimator.
 
     Notes:
-        For each non-overlap pair ``(t, t+h)``, compute
-        ``rho_t = Spearman(rank_t, rank_{t+h})`` over assets present in
-        both cross-sections; ``turnover = 1 - mean_t rho_t``. With the
-        optional tail filter, ``rho_t`` is restricted to the union of top-
-        and bottom-q assets at either endpoint.
+        For each non-overlap pair $(t, t+h)$, compute
+        $\rho_t = \mathrm{Spearman}(\mathrm{rank}_t, \mathrm{rank}_{t+h})$
+        over assets present in both cross-sections;
+        $\text{turnover} = 1 - \mathrm{mean}_t \rho_t$. With the optional
+        tail filter, $\rho_t$ is restricted to the union of top- and
+        bottom-q assets at either endpoint.
 
         factrix exposes this metric as a **rank-stability diagnostic**
         only — it is not a notional turnover and should not be fed into

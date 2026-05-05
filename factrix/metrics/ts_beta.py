@@ -140,22 +140,23 @@ def compute_ts_betas(
 # ---------------------------------------------------------------------------
 
 def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
-    """N=1 fallback: report the single-asset regression's own t-stat.
+    r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
 
-    The cross-sectional t-test in ``ts_beta`` needs N≥2 assets. With a
-    single asset, both ``MacroCommonProfile.from_artifacts`` and
+    The cross-sectional $t$-test in ``ts_beta`` needs $N \geq 2$ assets.
+    With a single asset, both ``MacroCommonProfile.from_artifacts`` and
     ``MacroCommonFactor.ts_beta`` want the same degenerate-case output:
     take the row's per-asset beta + t_stat, mark ``p_value=1.0`` so the
     row is suppressed from BHY, and label the method. Centralizing here
     keeps Profile and Factor paths bit-identical.
 
-    Statistical caveat: the returned t-stat tests the **time-series**
-    hypothesis ``H₀: β_i = 0 for this asset``, which is **not** the
-    ``ts_beta`` cross-sectional hypothesis ``H₀: mean(β) = 0 across
-    assets``. The two are not exchangeable — a single-asset t-stat of
-    2.5 says that asset's β differs from zero over time, it does not
-    say the common factor is priced. ``p_value=1.0`` enforces this by
-    keeping the row out of BHY adjudication.
+    Statistical caveat: the returned $t$-stat tests the **time-series**
+    hypothesis $H_0: \beta_i = 0$ for this asset, which is **not** the
+    ``ts_beta`` cross-sectional hypothesis
+    $H_0: \mathrm{mean}(\beta) = 0$ across assets. The two are not
+    exchangeable — a single-asset $t$-stat of 2.5 says that asset's
+    $\beta$ differs from zero over time, it does not say the common
+    factor is priced. ``p_value=1.0`` enforces this by keeping the row
+    out of BHY adjudication.
 
     Notes:
         N=1 path: ``value = beta_1``, ``stat = t_1`` from the single
@@ -181,15 +182,16 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
 
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
-    """Test H₀: mean(β) = 0 across assets.
+    r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
 
     Uses the cross-sectional distribution of per-asset betas.
 
     Notes:
-        Stage 2 of the BJS aggregation: ``mean_beta = mean_i beta_i``;
-        ``t = mean_beta / (std(beta) / sqrt(N))`` with ``H0: E[beta] = 0``
-        across assets. The std is the sample cross-sectional std with
-        ``ddof=1``.
+        Stage 2 of the BJS aggregation:
+        $\overline{\beta} = \mathrm{mean}_i \beta_i$;
+        $t = \overline{\beta} / (\mathrm{std}(\beta) / \sqrt{N})$
+        with $H_0: \mathbb{E}[\beta] = 0$ across assets. The std is the
+        sample cross-sectional std with ``ddof=1``.
 
         factrix uses an iid cross-asset t at this stage rather than a
         clustered/HAC variant: per-asset betas come from non-overlapping
@@ -237,23 +239,25 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 # ---------------------------------------------------------------------------
 
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
-    """Average R² across per-asset TS regressions — `value = mean_i R²_i`.
+    r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
 
-    R²_i comes from asset i's regression R_{i,t} = α_i + β_i·F_t + ε
-    (computed upstream in ``compute_ts_betas``). Metadata carries
-    ``median_r_squared`` as well — useful when a few high-R² assets
-    pull the mean. Low values (< 0.05) indicate the factor is too
+    $R^2_i$ comes from asset $i$'s regression
+    $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ (computed
+    upstream in ``compute_ts_betas``). Metadata carries
+    ``median_r_squared`` as well — useful when a few high-$R^2$ assets
+    pull the mean. Low values ($< 0.05$) indicate the factor is too
     weak or noisy to drive individual-asset returns even when its
-    cross-asset mean β looks nonzero.
+    cross-asset mean $\beta$ looks nonzero.
 
-    Short-circuits to NaN when no assets have a non-null R².
+    Short-circuits to NaN when no assets have a non-null $R^2$.
 
     Notes:
-        ``value = mean_i R^2_i`` and ``median_r_squared = median_i R^2_i``
-        on the per-asset OLS fits from ``compute_ts_betas``. Pure
-        descriptive statistic — no formal H0.
+        ``value`` $= \mathrm{mean}_i R^2_i$ and ``median_r_squared``
+        $= \mathrm{median}_i R^2_i$ on the per-asset OLS fits from
+        ``compute_ts_betas``. Pure descriptive statistic — no formal
+        $H_0$.
 
-        factrix reports both mean and median because a few high-R^2
+        factrix reports both mean and median because a few high-$R^2$
         assets can dominate the mean; large mean-vs-median gaps signal
         the factor explains a small subset of assets rather than the
         cross-section as a whole.

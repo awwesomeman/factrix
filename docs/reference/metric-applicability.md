@@ -43,7 +43,7 @@ across Modes, only the sample axis that constrains it.
 | [`turnover`][factrix.metrics.tradability.turnover] | Individual × Continuous | Rank-stability (`1 − ρ`) | `T` | `T ≥ 2·forward_periods + 1` |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | Individual × Continuous | Q1/Qn replacement fraction | `T` | as `turnover` |
 | [`breakeven_cost`][factrix.metrics.tradability.breakeven_cost] | Individual × Continuous | bps cost where α → 0 | scalar | `notional_turnover > 0` |
-| [`net_spread`][factrix.metrics.tradability.net_spread] | Individual × Continuous | Spread − cost × τ | scalar | spread + cost provided |
+| [`net_spread`][factrix.metrics.tradability.net_spread] | Individual × Continuous | $\text{spread} - \text{cost} \cdot \tau$ | scalar | spread + cost provided |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | Spread-series consumer | Single-factor α post base | `T` | aligned spread series |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | Spread-series consumer | Diagnostic — not for inference | `T` | as `spanning_alpha` |
 | [`caar`][factrix.metrics.caar.caar] | Individual × Sparse | Cell-canonical | `K/h` (non-overlap) | `K/h ≥ MIN_EVENTS` (= 10) via `_scaled_min_periods(MIN_EVENTS, h)` |

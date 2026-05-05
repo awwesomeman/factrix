@@ -30,13 +30,14 @@ def clustering_diagnostic(
     factor_col: str = "factor",
     cluster_window: int = 3,
 ) -> MetricOutput:
-    """Event clustering Herfindahl index on event dates.
+    r"""Event clustering Herfindahl index on event dates.
 
-    Computes HHI = sum(s_d²) where s_d = (events on date d) / (total events).
-    HHI ranges from 1/D (uniform) to 1.0 (all events on one date).
+    Computes $\mathrm{HHI} = \sum_d s_d^2$ where
+    $s_d = (\text{events on date } d) / (\text{total events})$. HHI
+    ranges from $1/D$ (uniform) to $1.0$ (all events on one date).
 
     High HHI → events concentrate in few dates → cross-event independence
-    assumption violated → CAAR t-stat may be inflated.
+    assumption violated → CAAR $t$-stat may be inflated.
 
     Args:
         df: Panel with ``date, asset_id, factor``.
@@ -48,13 +49,16 @@ def clustering_diagnostic(
         and concentration ratio.
 
     Notes:
-        ``HHI = sum_d s_d^2`` where ``s_d = (events on date d) / total``;
-        ranges from ``1/D`` (uniform across ``D`` event dates) to ``1.0``
-        (all events on a single date). ``effective_n_dates = 1 / HHI``;
-        ``hhi_normalized = (HHI - 1/D) / (1 - 1/D)`` rescales to ``[0, 1]``.
+        $\mathrm{HHI} = \sum_d s_d^2$ where
+        $s_d = (\text{events on date } d) / \text{total}$; ranges from
+        $1/D$ (uniform across $D$ event dates) to $1.0$ (all events on
+        a single date).
+        ``effective_n_dates`` $= 1 / \mathrm{HHI}$;
+        ``hhi_normalized`` $= (\mathrm{HHI} - 1/D) / (1 - 1/D)$ rescales
+        to $[0, 1]$.
 
         factrix reports HHI as a descriptive concentration index — no
-        formal H0 — because the natural follow-up correction
+        formal $H_0$ — because the natural follow-up correction
         (cross-sectional dependence in CAAR / BMP) is delegated to
         ``bmp_test(kolari_pynnonen_adjust=True)``.
     """

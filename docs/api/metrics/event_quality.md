@@ -12,3 +12,9 @@ nonparametric — descriptive elsewhere.
         - profit_factor
         - event_skewness
         - signal_density
+
+## See also
+
+- [Reference § Metric applicability](../../reference/metric-applicability.md) — when this metric applies and sample-size guards.
+- [Reference § Statistical methods](../../reference/statistical-methods.md) — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.
+- [Individual sparse landing page](individual-sparse.md) — adjacent event-study metrics.
