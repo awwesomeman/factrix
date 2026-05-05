@@ -4,6 +4,14 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'factrix/**/*.py'
+      - '.github/workflows/docs.yml'
+      - 'scripts/gen_metric_matrix.py'
+      - 'scripts/sync_examples.py'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +22,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  build:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install docs dependencies
+        run: uv sync --extra docs
+
+      - name: Strict build
+        run: uv run mkdocs build --strict
+
   deploy:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
