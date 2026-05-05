@@ -916,6 +916,7 @@ dev = [
 ]
 docs = [
     { name = "mike" },
+    { name = "mkdocs" },
     { name = "mkdocs-jupyter" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
@@ -944,6 +945,7 @@ requires-dist = [
     { name = "jupyter", marker = "extra == 'jupyter'", specifier = ">=1.0.0" },
     { name = "jupyterlab", marker = "extra == 'jupyter'", specifier = ">=3.4.0" },
     { name = "mike", marker = "extra == 'docs'", specifier = ">=2.1" },
+    { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.5.0,<2.0" },
     { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = ">=0.25" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.26" },

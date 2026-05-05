@@ -56,6 +56,7 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.26",
     "mkdocs-jupyter>=0.25",
+    "mkdocs>=1.5.0,<2.0",
     "mike>=2.1",
 ]
 all = ["factrix[charts,mlflow,jupyter]"]
