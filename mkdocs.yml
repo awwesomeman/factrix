@@ -136,6 +136,7 @@ nav:
       - Metrics:
           - api/metrics/index.md
           - Individual continuous:
+              - api/metrics/individual-continuous.md
               - ic: api/metrics/ic.md
               - fama_macbeth: api/metrics/fama_macbeth.md
               - quantile: api/metrics/quantile.md
@@ -144,6 +145,7 @@ nav:
               - tradability: api/metrics/tradability.md
               - spanning: api/metrics/spanning.md
           - Individual sparse:
+              - api/metrics/individual-sparse.md
               - caar: api/metrics/caar.md
               - event_quality: api/metrics/event_quality.md
               - event_horizon: api/metrics/event_horizon.md
@@ -151,10 +153,12 @@ nav:
               - clustering: api/metrics/clustering.md
               - corrado: api/metrics/corrado.md
           - Common continuous:
+              - api/metrics/common-continuous.md
               - ts_beta: api/metrics/ts_beta.md
               - ts_quantile: api/metrics/ts_quantile.md
               - ts_asymmetry: api/metrics/ts_asymmetry.md
           - Series tools:
+              - api/metrics/series-tools.md
               - hit_rate: api/metrics/hit_rate.md
               - trend: api/metrics/trend.md
               - oos: api/metrics/oos.md

@@ -13,3 +13,9 @@ via NW HAC or non-overlapping cross-asset *t*.
         - regime_ic
         - multi_horizon_ic
         - compute_ic
+
+## See also
+
+- [Reference § Metric applicability](../../reference/metric-applicability.md) — when this metric applies and sample-size guards.
+- [Reference § Statistical methods](../../reference/statistical-methods.md) — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.
+- [Individual continuous landing page](individual-continuous.md) — adjacent metrics in the same cell.
