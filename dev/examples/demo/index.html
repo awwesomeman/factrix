@@ -3681,10 +3681,9 @@ evaluate-time 自動推導，不是 user-facing。</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
-
-<span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess.returns</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_forward_return</span>
 
 <span class="n">pl</span><span class="o">.</span><span class="n">Config</span><span class="o">.</span><span class="n">set_tbl_rows</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
@@ -3695,10 +3694,9 @@ evaluate-time 自動推導，不是 user-facing。</p>
 import warnings
 from datetime import datetime, timedelta
 
+import factrix as fl
 import numpy as np
 import polars as pl
-
-import factrix as fl
 from factrix.preprocess.returns import compute_forward_return
 
 pl.Config.set_tbl_rows(8)
@@ -4842,7 +4840,7 @@ candidate」的正確用法：</p>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
 <span class="p">}</span>
 <span class="n">profiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">prof</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">profiles</span><span class="p">):</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">prof</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">profiles</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">12s</span><span class="si">}</span><span class="s2"> primary_p=</span><span class="si">{</span><span class="n">prof</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">  verdict=</span><span class="si">{</span><span class="n">prof</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
 <span class="n">survivors</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">profiles</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
@@ -4866,7 +4864,7 @@ candidates = {
     for i in range(5)
 }
 profiles = [fl.evaluate(p, cfg_ic) for p in candidates.values()]
-for name, prof in zip(candidates, profiles):
+for name, prof in zip(candidates, profiles, strict=False):
     print(f"  {name:12s} primary_p={prof.primary_p:.4g}  verdict={prof.verdict()}")
 
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
