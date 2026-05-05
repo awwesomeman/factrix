@@ -325,7 +325,7 @@ candidates = {
     for i in range(5)
 }
 profiles = [fl.evaluate(p, cfg_ic) for p in candidates.values()]
-for name, prof in zip(candidates, profiles):
+for name, prof in zip(candidates, profiles, strict=False):
     print(f"  {name:12s} primary_p={prof.primary_p:.4g}  verdict={prof.verdict()}")
 
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)

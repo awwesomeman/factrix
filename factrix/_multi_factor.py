@@ -167,5 +167,7 @@ def bhy(
             dtype=np.float64,
         )
         mask = bhy_adjust(p_array, fdr=threshold)
-        survivors.extend(fp for fp, accept in zip(family_profiles, mask) if accept)
+        survivors.extend(
+            fp for fp, accept in zip(family_profiles, mask, strict=False) if accept
+        )
     return survivors

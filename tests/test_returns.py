@@ -102,5 +102,5 @@ class TestComputeAbnormalReturn:
         result = compute_abnormal_return(df)
         expected = [-0.01, 0.0, 0.01]
         actual = result["abnormal_return"].to_list()
-        for a, e in zip(actual, expected):
+        for a, e in zip(actual, expected, strict=False):
             assert a == pytest.approx(e)

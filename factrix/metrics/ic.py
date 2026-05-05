@@ -396,7 +396,7 @@ def regime_ic(
     # with the BHY adjuster's positional output.
     raw_p_list = [d["p_value"] for d in per_regime.values()]
     adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []
-    for entry, ap in zip(per_regime.values(), adj_p):
+    for entry, ap in zip(per_regime.values(), adj_p, strict=False):
         entry["p_adjusted_bhy"] = float(ap)
 
     mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
@@ -532,7 +532,7 @@ def multi_horizon_ic(
     horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]
     raw_h_p = [per_horizon[h]["p_value"] for h in horizon_keys]
     adj_h_p = bhy_adjusted_p(raw_h_p) if raw_h_p else []
-    for h, ap in zip(horizon_keys, adj_h_p):
+    for h, ap in zip(horizon_keys, adj_h_p, strict=False):
         per_horizon[h]["p_adjusted_bhy"] = float(ap)
 
     mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))

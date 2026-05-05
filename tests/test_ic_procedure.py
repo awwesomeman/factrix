@@ -46,7 +46,7 @@ def _make_panel(
         fwd = rng.standard_normal(n_assets)
         noise = rng.standard_normal(n_assets)
         factor = factor_strength * fwd + (1.0 - factor_strength) * noise
-        for a, f, r in zip(assets, factor, fwd):
+        for a, f, r in zip(assets, factor, fwd, strict=False):
             rows.append(
                 {
                     "date": d,

@@ -172,7 +172,7 @@ def spanning_alpha(
     ols = _ols_alpha(candidate_arr, base_matrix)
 
     base_names = list(base_arrays.keys())
-    beta_dict = dict(zip(base_names, ols.betas)) if base_names else {}
+    beta_dict = dict(zip(base_names, ols.betas, strict=False)) if base_names else {}
     n_obs = len(candidate_arr)
     p = _p_value_from_t(ols.alpha_t, n_obs)
 
@@ -302,7 +302,7 @@ def greedy_forward_selection(
     result = ForwardSelectionResult()
     remaining = set(candidate_arrays.keys())
 
-    for step in range(max_factors):
+    for _step in range(max_factors):
         if not remaining:
             break
 

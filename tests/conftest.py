@@ -27,7 +27,7 @@ def tiny_panel() -> pl.DataFrame:
 
     rows = []
     for d in dates:
-        for a, f, r in zip(assets, factors, returns):
+        for a, f, r in zip(assets, factors, returns, strict=False):
             rows.append({"date": d, "asset_id": a, "factor": f, "forward_return": r})
 
     return pl.DataFrame(rows).with_columns(

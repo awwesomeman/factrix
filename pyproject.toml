@@ -74,7 +74,7 @@ src = ["factrix", "tests", "examples", "scripts"]
 # Baseline + isort. Remaining mainstream rules (UP, B, SIM, RUF) land
 # in subsequent atomic commits per #52 — one rule per commit keeps the
 # bulk-migration churn isolated and blame-readable.
-select = ["E4", "E7", "E9", "F", "I", "UP"]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
 # Notebook-style cell scripts have intentional non-top imports between
