@@ -489,10 +489,7 @@ def pooled_ols(
         non_psd_fallback = True
     se_slope = float(np.sqrt(max(v_slope, 0.0)))
 
-    if se_slope < EPSILON:
-        t_stat = 0.0
-    else:
-        t_stat = slope / se_slope
+    t_stat = 0.0 if se_slope < EPSILON else slope / se_slope
 
     p = _p_value_from_t(t_stat, df_t)
 

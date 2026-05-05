@@ -152,10 +152,7 @@ def multi_split_oos_decay(
         if sign_flip:
             any_sign_flip = True
 
-        if abs(mean_is) < EPSILON:
-            survival = 0.0
-        else:
-            survival = abs(mean_oos) / abs(mean_is)
+        survival = 0.0 if abs(mean_is) < EPSILON else abs(mean_oos) / abs(mean_is)
 
         split_details.append(
             SplitDetail(

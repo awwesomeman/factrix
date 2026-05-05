@@ -207,10 +207,7 @@ def _make_panel_with_event_dates(
     for d in all_dates:
         is_event = d in set(event_dates)
         for j in range(n_assets):
-            if is_event:
-                f = float(rng.choice([-1.0, 1.0]))
-            else:
-                f = 0.0
+            f = float(rng.choice([-1.0, 1.0])) if is_event else 0.0
             rows.append(
                 {
                     "date": d,

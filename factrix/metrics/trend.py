@@ -122,10 +122,7 @@ def ic_trend(
     # WHY: 從 CI 推導近似 t-stat 供顯著性標記使用
     # slope ± margin = CI → margin = (high - low) / 2 → SE ≈ margin / 1.96
     margin = (high_slope - low_slope) / 2
-    if margin > 0:
-        approx_t = slope / (margin / 1.96)
-    else:
-        approx_t = 0.0
+    approx_t = slope / (margin / 1.96) if margin > 0 else 0.0
 
     p = _p_value_from_t(approx_t, n)
     metadata: dict = {
