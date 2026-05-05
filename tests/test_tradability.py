@@ -2,6 +2,7 @@
 
 import math
 from datetime import datetime, timedelta
+from typing import ClassVar
 
 import polars as pl
 import pytest
@@ -103,7 +104,7 @@ class TestComputeTurnover:
 
 
 class TestNotionalTurnover:
-    TEN_ASSETS = [chr(ord("A") + i) for i in range(10)]
+    TEN_ASSETS: ClassVar[list[str]] = [chr(ord("A") + i) for i in range(10)]
 
     def test_static_factor(self):
         """Same tail sets every day → notional turnover = 0."""

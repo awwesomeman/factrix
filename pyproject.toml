@@ -71,10 +71,20 @@ line-length = 88
 src = ["factrix", "tests", "examples", "scripts"]
 
 [tool.ruff.lint]
-# Baseline + isort. Remaining mainstream rules (UP, B, SIM, RUF) land
-# in subsequent atomic commits per #52 — one rule per commit keeps the
-# bulk-migration churn isolated and blame-readable.
-select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM"]
+# Mainstream rule set per #52 — pycodestyle (E/W), pyflakes (F),
+# isort (I), bugbear (B), pyupgrade (UP), simplify (SIM),
+# ruff-specific (RUF). Line length is left to the formatter.
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF"]
+ignore = [
+    "E501",   # line too long — formatter handles
+    # Ambiguous-character lints fire on intentional math/scientific
+    # notation (ρ, ×, −, en-dash) used in docstrings and comments
+    # throughout the metrics modules. Disabling avoids polluting prose
+    # with `# noqa` markers on every Greek letter.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Notebook-style cell scripts have intentional non-top imports between
@@ -82,6 +92,11 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM"]
 # same shape.
 "examples/demo.py" = ["E402"]
 "tests/test_registry.py" = ["E402"]
+# `__all__` is grouped by section comments (Configuration, Errors,
+# Profile + dispatch, …) for human readers; alphabetical sort would
+# break that grouping.
+"factrix/__init__.py" = ["RUF022"]
+"factrix/metrics/__init__.py" = ["RUF022"]
 
 [tool.setuptools.packages.find]
 include = ["factrix*"]

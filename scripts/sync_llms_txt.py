@@ -43,7 +43,7 @@ def sync() -> None:
         print(f"sync_llms_txt: wrote {dst.relative_to(_REPO_ROOT)}")
 
 
-def on_pre_build(config):  # noqa: ANN001, ARG001 — mkdocs hook signature
+def on_pre_build(config):
     """MkDocs ``on_pre_build`` hook — runs before each build."""
     sync()
 

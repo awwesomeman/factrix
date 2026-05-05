@@ -72,7 +72,7 @@ class _ICContPanelProcedure:
         # ``pl.corr`` returns null for zero-variance dates (degenerate
         # factor / tied returns) so the explicit drop is reachable.
         ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
-        n_periods = int(len(ic_values))
+        n_periods = len(ic_values)
         n_assets = int(raw["asset_id"].n_unique())
         # Plan §5.2 picks NW1994 auto_bartlett as the default lag, but
         # h-period forward returns force MA(h-1) structure on the IC
@@ -131,7 +131,7 @@ class _FMContPanelProcedure:
         from factrix.metrics.fama_macbeth import compute_fm_betas
 
         beta_values = compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
-        n_periods = int(len(beta_values))
+        n_periods = len(beta_values)
         n_assets = int(raw["asset_id"].n_unique())
         nw_lags = (
             _resolve_nw_lags(
@@ -209,7 +209,7 @@ class _CAARSparsePanelProcedure:
             .sort("date")
         )
         caar_dense = dense["caar"].to_numpy()
-        n_periods = int(len(caar_dense))
+        n_periods = len(caar_dense)
         n_assets = int(raw["asset_id"].n_unique())
 
         event_mean = (
@@ -367,7 +367,7 @@ def _compute_common_panel(
 
     betas_df = compute_ts_betas(raw)
     betas = betas_df["beta"].drop_nulls().to_numpy()
-    N = int(len(betas))
+    N = len(betas)
 
     if N == 0:
         beta_mean = 0.0

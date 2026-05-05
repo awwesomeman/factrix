@@ -35,7 +35,7 @@ def sync() -> None:
     print(f"sync_examples: copied {len(notebooks)} notebook(s) to {_DST_DIR}")
 
 
-def on_pre_build(config: object) -> None:  # noqa: ARG001
+def on_pre_build(config: object) -> None:
     """MkDocs hook: re-sync example notebooks before every build."""
     sync()
 
