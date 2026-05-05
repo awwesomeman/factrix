@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/api/metrics/ts_beta/">
       
       
-        <link rel="prev" href="../corrado/">
+        <link rel="prev" href="../common-continuous/">
       
       
         <link rel="next" href="../ts_quantile/">
@@ -1333,6 +1333,8 @@
       
         
       
+        
+      
     
     
     
@@ -1377,6 +1379,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1603,6 +1633,8 @@
       
         
       
+        
+      
     
     
     
@@ -1647,6 +1679,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1841,6 +1901,8 @@
       
         
       
+        
+      
     
     
     
@@ -1885,6 +1947,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2024,6 +2114,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2112,6 +2213,8 @@
       
         
       
+        
+      
     
     
     
@@ -2156,6 +2259,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2647,6 +2778,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2736,16 +2878,17 @@ each asset's sensitivity (β) to the common factor.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Test H₀: mean(β) = 0 across assets.</p>
+        <p>Test <span class="arithmatex">\(H_0: \mathrm{mean}(\beta) = 0\)</span> across assets.</p>
 <p>Uses the cross-sectional distribution of per-asset betas.</p>
 
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Stage 2 of the BJS aggregation: <code>mean_beta = mean_i beta_i</code>;
-<code>t = mean_beta / (std(beta) / sqrt(N))</code> with <code>H0: E[beta] = 0</code>
-across assets. The std is the sample cross-sectional std with
-<code>ddof=1</code>.</p>
+  <p>Stage 2 of the BJS aggregation:
+<span class="arithmatex">\(\overline{\beta} = \mathrm{mean}_i \beta_i\)</span>;
+<span class="arithmatex">\(t = \overline{\beta} / (\mathrm{std}(\beta) / \sqrt{N})\)</span>
+with <span class="arithmatex">\(H_0: \mathbb{E}[\beta] = 0\)</span> across assets. The std is the
+sample cross-sectional std with <code>ddof=1</code>.</p>
 <p>factrix uses an iid cross-asset t at this stage rather than a
 clustered/HAC variant: per-asset betas come from non-overlapping
 time-series fits in <code>compute_ts_betas</code>, so the betas are
@@ -2776,22 +2919,24 @@ cross-asset t on E[beta] this function implements.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Average R² across per-asset TS regressions — <code>value = mean_i R²_i</code>.</p>
-<p>R²_i comes from asset i's regression R_{i,t} = α_i + β_i·F_t + ε
-(computed upstream in <code>compute_ts_betas</code>). Metadata carries
-<code>median_r_squared</code> as well — useful when a few high-R² assets
-pull the mean. Low values (&lt; 0.05) indicate the factor is too
+        <p>Average <span class="arithmatex">\(R^2\)</span> across per-asset TS regressions — <code>value</code> <span class="arithmatex">\(= \mathrm{mean}_i R^2_i\)</span>.</p>
+<p><span class="arithmatex">\(R^2_i\)</span> comes from asset <span class="arithmatex">\(i\)</span>'s regression
+<span class="arithmatex">\(R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon\)</span> (computed
+upstream in <code>compute_ts_betas</code>). Metadata carries
+<code>median_r_squared</code> as well — useful when a few high-<span class="arithmatex">\(R^2\)</span> assets
+pull the mean. Low values (<span class="arithmatex">\(&lt; 0.05\)</span>) indicate the factor is too
 weak or noisy to drive individual-asset returns even when its
-cross-asset mean β looks nonzero.</p>
-<p>Short-circuits to NaN when no assets have a non-null R².</p>
+cross-asset mean <span class="arithmatex">\(\beta\)</span> looks nonzero.</p>
+<p>Short-circuits to NaN when no assets have a non-null <span class="arithmatex">\(R^2\)</span>.</p>
 
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p><code>value = mean_i R^2_i</code> and <code>median_r_squared = median_i R^2_i</code>
-on the per-asset OLS fits from <code>compute_ts_betas</code>. Pure
-descriptive statistic — no formal H0.</p>
-<p>factrix reports both mean and median because a few high-R^2
+  <p><code>value</code> <span class="arithmatex">\(= \mathrm{mean}_i R^2_i\)</span> and <code>median_r_squared</code>
+<span class="arithmatex">\(= \mathrm{median}_i R^2_i\)</span> on the per-asset OLS fits from
+<code>compute_ts_betas</code>. Pure descriptive statistic — no formal
+<span class="arithmatex">\(H_0\)</span>.</p>
+<p>factrix reports both mean and median because a few high-<span class="arithmatex">\(R^2\)</span>
 assets can dominate the mean; large mean-vs-median gaps signal
 the factor explains a small subset of assets rather than the
 cross-section as a whole.</p>
@@ -3070,7 +3215,12 @@ order this two-stage path mirrors.</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../common-continuous/">Common continuous landing page</a> — adjacent macro-factor metrics.</li>
+</ul>
 
 
 
@@ -3130,6 +3280,10 @@ order this two-stage path mirrors.</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

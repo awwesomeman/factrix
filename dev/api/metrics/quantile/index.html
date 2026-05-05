@@ -1335,6 +1335,8 @@
       
         
       
+        
+      
     
     
     
@@ -1379,6 +1381,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1563,6 +1593,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1713,6 +1754,8 @@
       
         
       
+        
+      
     
     
     
@@ -1757,6 +1800,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1949,6 +2020,8 @@
       
         
       
+        
+      
     
     
     
@@ -1993,6 +2066,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2101,6 +2202,8 @@
       
         
       
+        
+      
     
     
     
@@ -2145,6 +2248,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2625,6 +2756,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2826,11 +2968,14 @@ autocorrelation, motivating the non-overlap stride.</p>
     <div class="doc doc-contents ">
 
         <p>Value-weighted long-short spread — alpha concentration diagnostic.</p>
-<p>Formula (per non-overlapping date t):
-    For bucket b ∈ {bottom, top}:
-        vw_b[t] = Σ_{i∈b} w[i,t−1] · return[i, t→t+h] / Σ_{i∈b} w[i,t−1]
-    spread[t] = vw_top[t] − vw_bottom[t]
-    value = mean_t spread[t];  t-stat = √n · value / std(spread);  DDOF=1</p>
+<p>Formula (per non-overlapping date <span class="arithmatex">\(t\)</span>):</p>
+<div class="arithmatex">\[
+\begin{aligned}
+\text{vw}_b[t] &amp;= \frac{\sum_{i \in b} w_{i,t-1} \cdot \text{return}_{i, t \to t+h}}{\sum_{i \in b} w_{i,t-1}}, \quad b \in \{\text{bottom}, \text{top}\} \\
+\text{spread}[t] &amp;= \text{vw}_{\text{top}}[t] - \text{vw}_{\text{bottom}}[t] \\
+\text{value} &amp;= \mathrm{mean}_t\, \text{spread}[t], \quad t = \sqrt{n} \cdot \text{value} / \mathrm{std}(\text{spread}), \quad \text{DDOF}=1
+\end{aligned}
+\]</div>
 <p>Weights are <strong>lagged by one sampled period per asset</strong> by default
 (<code>lag_weights=True</code>): a portfolio rebalanced at date t uses the
 market-cap observed at the previous rebalance, not at t. Pairing
@@ -3202,7 +3347,12 @@ across dates.</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-continuous/">Individual continuous landing page</a> — adjacent metrics in the same cell.</li>
+</ul>
 
 
 
@@ -3262,6 +3412,10 @@ across dates.</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

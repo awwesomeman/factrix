@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/api/metrics/caar/">
       
       
-        <link rel="prev" href="../spanning/">
+        <link rel="prev" href="../individual-sparse/">
       
       
         <link rel="next" href="../event_quality/">
@@ -1333,6 +1333,8 @@
       
         
       
+        
+      
     
     
     
@@ -1377,6 +1379,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1605,6 +1635,8 @@
       
         
       
+        
+      
     
     
     
@@ -1649,6 +1681,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1763,6 +1823,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1938,6 +2009,8 @@
       
         
       
+        
+      
     
     
     
@@ -1982,6 +2055,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2090,6 +2191,8 @@
       
         
       
+        
+      
     
     
     
@@ -2134,6 +2237,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2603,6 +2734,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2648,16 +2790,13 @@ event-induced variance).</p>
 
         <p>CAAR (Cumulative Average Abnormal Return) significance tests.</p>
 <p>Aggregation: per-event-date weighted abnormal return (per-event-date
-step) then non-overlapping cross-event sample; t-test on CAAR, or BMP
-standardized AR z-test for event-induced variance.</p>
+step) then non-overlapping cross-event sample; <span class="arithmatex">\(t\)</span>-test on CAAR, or BMP
+standardized AR <span class="arithmatex">\(z\)</span>-test for event-induced variance.</p>
+<p>Tests <span class="arithmatex">\(H_0\)</span>: event abnormal return = 0, using two complementary methods:
+    compute_caar — per-event-date weighted abnormal return series
+    caar         — CAAR t-test (parametric, non-overlapping sampling)
+    bmp_test     — BMP standardized AR test (robust to event-induced variance)</p>
 
-
-<details class="tests-h₀" open>
-  <summary>event abnormal return = 0, using two complementary methods:</summary>
-  <p>compute_caar — per-event-date weighted abnormal return series
-caar         — CAAR t-test (parametric, non-overlapping sampling)
-bmp_test     — BMP standardized AR test (robust to event-induced variance)</p>
-</details>
 
 <details class="references" open>
   <summary>References</summary>
@@ -2702,17 +2841,18 @@ Boehmer, Musumeci &amp; Poulsen (1991), "Event-study methodology
         <p>Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.</p>
 <p>Standardizes each event's abnormal return by the asset's pre-event
 residual volatility, making the test robust to event-induced variance
-inflation that biases the ordinary CAAR t-test.</p>
+inflation that biases the ordinary CAAR <span class="arithmatex">\(t\)</span>-test.</p>
 
 
 <details class="steps" open>
   <summary>Steps</summary>
   <ol>
-<li>For each event (factor ≠ 0), look back <code>estimation_window</code>
-   periods of the same asset's returns to estimate σ_i.</li>
-<li>Scale σ_i to match the forward_return horizon.</li>
-<li>SAR_i = signed_AR_i / σ_scaled_i</li>
-<li>z = mean(SAR) / (std(SAR) / √N)</li>
+<li>For each event (<span class="arithmatex">\(\text{factor} \neq 0\)</span>), look back
+   <code>estimation_window</code> periods of the same asset's returns to
+   estimate <span class="arithmatex">\(\sigma_i\)</span>.</li>
+<li>Scale <span class="arithmatex">\(\sigma_i\)</span> to match the forward_return horizon.</li>
+<li><span class="arithmatex">\(\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma^{\text{scaled}}_i\)</span>.</li>
+<li><span class="arithmatex">\(z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})\)</span>.</li>
 </ol>
 </details>        <p>Uses <code>price</code> column for estimation-window volatility if available;
 falls back to per-asset historical <code>forward_return</code> std otherwise.</p>
@@ -2793,8 +2933,9 @@ When using price-derived daily vol, scales by
               <div class="doc-md-description">
                 <p>When True, apply the Kolari-Pynnönen
 (2010) adjustment for cross-sectional correlation of SAR:
-<code>z_KP = z_BMP · √((1 − r̂) / (1 + (N_eff − 1)·r̂))</code> where
-<code>r̂</code> is the ICC-style within-date correlation of SAR and
+<span class="arithmatex">\(z_{\mathrm{KP}} = z_{\mathrm{BMP}} \cdot \sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1) \cdot \hat r)}\)</span>
+where <span class="arithmatex">\(\hat r\)</span> is the ICC-style within-date correlation of
+SAR and
 <code>N_eff</code> is the average events per event date. Vanilla BMP
 overstates significance when events cluster on the same
 date (earnings season, macro release), inflating z by
@@ -2841,12 +2982,13 @@ otherwise expect same-date shock sharing.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>For each event <code>i</code>: estimate pre-event vol <code>sigma_i</code> over the
+  <p>For each event <span class="arithmatex">\(i\)</span>: estimate pre-event vol <span class="arithmatex">\(\sigma_i\)</span> over the
 <code>estimation_window</code>, scaled to the forward horizon by
-<code>1/sqrt(forward_periods)</code> when daily prices are available;
-<code>SAR_i = signed_AR_i / sigma_i</code>; aggregate to <code>z = mean(SAR) /
-(std(SAR) / sqrt(N))</code>. With <code>kolari_pynnonen_adjust=True</code>,
-scale <code>z</code> by <code>sqrt((1 - r_hat) / (1 + (N_eff - 1) r_hat))</code>.</p>
+<span class="arithmatex">\(1/\sqrt{h}\)</span> (with <span class="arithmatex">\(h\)</span> = <code>forward_periods</code>) when daily prices are available;
+<span class="arithmatex">\(\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma_i\)</span>; aggregate to
+<span class="arithmatex">\(z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})\)</span>.
+With <code>kolari_pynnonen_adjust=True</code>, scale <span class="arithmatex">\(z\)</span> by
+<span class="arithmatex">\(\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\, \hat r)}\)</span>.</p>
 <p>factrix simplifies the original BMP by omitting the prediction-
 error term from the standardiser (using mean-adjusted residuals
 rather than market-model residuals) — adequate for the default
@@ -2963,9 +3105,10 @@ in <code>compute_forward_return</code>. Distinct from
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p><code>t = mean(CAAR) / (std(CAAR) / sqrt(n))</code> on a non-overlap
-subsample (stride <code>forward_periods</code>) of the per-event-date
-<code>CAAR</code> series; <code>H0: E[CAAR] = 0</code>.</p>
+  <p><span class="arithmatex">\(t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})\)</span>
+on a non-overlap subsample (stride <code>forward_periods</code>) of the
+per-event-date <span class="arithmatex">\(\mathrm{CAAR}\)</span> series;
+<span class="arithmatex">\(H_0: \mathbb{E}[\mathrm{CAAR}] = 0\)</span>.</p>
 <p>factrix uses non-overlap resampling rather than NW HAC for the
 default CAAR test — the same convention as <code>ic</code> — and exposes
 <code>bmp_test</code> as the variance-robust sibling for event-induced
@@ -3002,12 +3145,12 @@ t-test specification at standard sample sizes.
 <details class="aggregation" open>
   <summary>Aggregation</summary>
   <p>CS-first. For each event date, take the cross-sectional mean of
-<code>signed_car = return × factor</code> across event rows
-(<code>factor ≠ 0</code>); the resulting <code>n_event_dates</code>-length CAAR
-series feeds a downstream NW HAC t-test on the mean.</p>
-</details>        <p>Magnitude is preserved — no <code>.sign()</code> coercion. The statistic that
-emerges depends on the input form (general primitive <code>{0, R}</code>;
-special cases <code>{0, 1}</code> and <code>{-1, 0, +1}</code> reduce naturally):</p>
+<code>signed_car</code> <span class="arithmatex">\(= r \times f\)</span> across event rows where <span class="arithmatex">\(f \neq 0\)</span>;
+the resulting <code>n_event_dates</code>-length CAAR series feeds a
+downstream NW HAC <span class="arithmatex">\(t\)</span>-test on the mean.</p>
+</details>        <p>Magnitude is preserved — no <code>.sign()</code> coercion. factrix accepts
+two input contracts; everything else (including signed
+<span class="arithmatex">\(\{-1, 0, +1\}\)</span>) is just a special case of the second:</p>
 <table>
 <thead>
 <tr>
@@ -3018,24 +3161,25 @@ special cases <code>{0, 1}</code> and <code>{-1, 0, +1}</code> reduce naturally)
 </thead>
 <tbody>
 <tr>
-<td><code>{0, 1}</code></td>
-<td><code>return</code> on event rows</td>
+<td><span class="arithmatex">\(\{0, 1\}\)</span></td>
+<td><span class="arithmatex">\(\text{return}\)</span> on event rows</td>
 <td>Average event-day return</td>
 </tr>
 <tr>
-<td><code>{0, R}</code>, <code>R ∈ ℝ</code></td>
-<td><code>return × R</code></td>
+<td><span class="arithmatex">\(\{0, R\}\)</span>, <span class="arithmatex">\(R \in \mathbb{R}\)</span></td>
+<td><span class="arithmatex">\(\text{return} \times R\)</span></td>
 <td>Magnitude-weighted CAAR</td>
-</tr>
-<tr>
-<td><code>{-1, 0, +1}</code></td>
-<td><code>return × ±1</code></td>
-<td>Signed CAAR (literature std.)</td>
 </tr>
 </tbody>
 </table>
-<p>If the caller wants ternary semantics on a non-ternary input, apply
-<code>.sign()</code> to the input column before calling.</p>
+<p>Caveat on <span class="arithmatex">\(\{-1, 0, +1\}\)</span>: it lands in the second row as a
+weight-<span class="arithmatex">\(\pm 1\)</span> case, which gives a magnitude-weighted CAAR, <strong>not</strong>
+the textbook MacKinlay (1997) signed CAAR (the latter averages
+direction-flipped abnormal returns and is a different estimator at
+finite samples when the negative-leg vol differs from the positive-
+leg vol). If literature-standard signed CAAR is what you want,
+pre-compute it externally; factrix's primitive treats <span class="arithmatex">\(\pm 1\)</span> as
+weights, not as direction labels.</p>
 
 
 <details class="scale" open>
@@ -3136,9 +3280,10 @@ in the per-row product; only zero rows are filtered.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Per event date <code>d</code>, <code>CAAR_d = mean_{i in events(d)} (return_i ×
-factor_i)</code>. Magnitude of <code>factor</code> is preserved as a weight; only
-rows with <code>factor == 0</code> are dropped.</p>
+  <p>Per event date <span class="arithmatex">\(d\)</span>,
+<span class="arithmatex">\(\mathrm{CAAR}_d = \mathrm{mean}_{i \in \mathrm{events}(d)} (\mathrm{return}_i \times \mathrm{factor}_i)\)</span>.
+Magnitude of <code>factor</code> is preserved as a weight; only rows with
+<code>factor == 0</code> are dropped.</p>
 <p>factrix follows the MacKinlay (1997) event-window vocabulary
 (factor as the event indicator / sign on the announcement date)
 but generalises <code>signed_car</code> to numeric factor magnitude. With
@@ -3169,7 +3314,12 @@ methodology backing the parametric-test path.</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-sparse/">Individual sparse landing page</a> — adjacent event-study metrics.</li>
+</ul>
 
 
 
@@ -3229,6 +3379,10 @@ methodology backing the parametric-test path.</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

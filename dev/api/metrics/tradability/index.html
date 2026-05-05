@@ -1335,6 +1335,8 @@
       
         
       
+        
+      
     
     
     
@@ -1379,6 +1381,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1647,6 +1677,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1713,6 +1754,8 @@
       
         
       
+        
+      
     
     
     
@@ -1757,6 +1800,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1949,6 +2020,8 @@
       
         
       
+        
+      
     
     
     
@@ -1993,6 +2066,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2101,6 +2202,8 @@
       
         
       
+        
+      
     
     
     
@@ -2145,6 +2248,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2625,6 +2756,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2966,7 +3108,7 @@ Trading Costs."</p>
     <div class="doc doc-contents ">
 
         <p>Factor rank-stability via non-overlapping rank autocorrelation.</p>
-<p><code>turnover = 1 - mean(rank_autocorrelation)</code></p>
+<p><span class="arithmatex">\(\text{turnover} = 1 - \mathrm{mean}(\bar\rho)\)</span> where <span class="arithmatex">\(\bar\rho\)</span> is the mean rank autocorrelation</p>
 <p><strong>What this measures.</strong> Sensitivity of the <em>full</em> cross-section rank
 vector to reshuffling between <code>t</code> and <code>t + forward_periods</code>. Mid-rank
 churn (names moving between e.g. Q4 ↔ Q5 in a 10-group split) counts
@@ -3240,11 +3382,12 @@ only against other tail-filtered estimates at the same q.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>For each non-overlap pair <code>(t, t+h)</code>, compute
-<code>rho_t = Spearman(rank_t, rank_{t+h})</code> over assets present in
-both cross-sections; <code>turnover = 1 - mean_t rho_t</code>. With the
-optional tail filter, <code>rho_t</code> is restricted to the union of top-
-and bottom-q assets at either endpoint.</p>
+  <p>For each non-overlap pair <span class="arithmatex">\((t, t+h)\)</span>, compute
+<span class="arithmatex">\(\rho_t = \mathrm{Spearman}(\mathrm{rank}_t, \mathrm{rank}_{t+h})\)</span>
+over assets present in both cross-sections;
+<span class="arithmatex">\(\text{turnover} = 1 - \mathrm{mean}_t \rho_t\)</span>. With the optional
+tail filter, <span class="arithmatex">\(\rho_t\)</span> is restricted to the union of top- and
+bottom-q assets at either endpoint.</p>
 <p>factrix exposes this metric as a <strong>rank-stability diagnostic</strong>
 only — it is not a notional turnover and should not be fed into
 <code>breakeven_cost</code> / <code>net_spread</code>. Use <code>notional_turnover()</code>
@@ -3571,7 +3714,12 @@ Characteristics." <em>Review of Financial Studies</em> 33(5).</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-continuous/">Individual continuous landing page</a> — adjacent metrics in the same cell.</li>
+</ul>
 
 
 
@@ -3631,6 +3779,10 @@ Characteristics." <em>Review of Financial Studies</em> 33(5).</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

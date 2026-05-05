@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/api/metrics/ic/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../individual-continuous/">
       
       
         <link rel="next" href="../fama_macbeth/">
@@ -1335,6 +1335,8 @@
       
         
       
+        
+      
     
     
     
@@ -1379,6 +1381,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1526,6 +1556,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1735,6 +1776,8 @@
       
         
       
+        
+      
     
     
     
@@ -1779,6 +1822,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1971,6 +2042,8 @@
       
         
       
+        
+      
     
     
     
@@ -2015,6 +2088,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2123,6 +2224,8 @@
       
         
       
+        
+      
     
     
     
@@ -2167,6 +2270,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2669,6 +2800,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2834,9 +2976,10 @@ any <code>series/</code> tool (oos, trend, significance, hit_rate).</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Given the per-date IC series <code>IC_t</code>, significance is
-<code>t = mean(IC) / (std(IC) / sqrt(n))</code> computed on a non-overlapping
-subsample (every <code>forward_periods</code>-th date). H0: <code>E[IC] = 0</code>.</p>
+  <p>Given the per-date IC series <span class="arithmatex">\(\mathrm{IC}_t\)</span>, significance is
+<span class="arithmatex">\(t = \mathrm{mean}(\mathrm{IC}) / (\mathrm{std}(\mathrm{IC}) / \sqrt{n})\)</span>
+computed on a non-overlapping subsample (every
+<code>forward_periods</code>-th date). <span class="arithmatex">\(H_0: \mathbb{E}[\mathrm{IC}] = 0\)</span>.</p>
 <p>factrix uses non-overlapping resampling rather than Newey-West HAC
 for the default <code>ic</code> test to avoid the lag floor implied by
 overlapping forward returns; the HAC route is offered separately
@@ -2869,8 +3012,8 @@ non-overlap stride used here.</p>
 
     <div class="doc doc-contents ">
 
-        <p>IC mean significance via Newey-West HAC t-test on the overlapping series.</p>
-<p>Sibling of <code>ic()</code>: same null hypothesis (H0: mean IC = 0), but
+        <p>IC mean significance via Newey-West HAC <span class="arithmatex">\(t\)</span>-test on the overlapping series.</p>
+<p>Sibling of <code>ic()</code>: same null hypothesis (<span class="arithmatex">\(H_0\)</span>: mean IC = 0), but
 keeps every observation and absorbs the autocorrelation induced by
 overlapping <code>forward_periods</code>-day returns through HAC standard
 errors rather than dropping samples.</p>
@@ -2878,21 +3021,22 @@ errors rather than dropping samples.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p><code>t = mean(IC) / NW_SE(IC)</code> on the full overlapping IC series.
-Lag selection: <code>L = max(floor(T^(1/3)), forward_periods - 1)</code> —
-the Andrews (1991) Bartlett growth rate, floored against the
-Hansen-Hodrick MA(h-1) overlap horizon so the kernel covers the
-induced dependence.</p>
+  <p><span class="arithmatex">\(t = \mathrm{mean}(\mathrm{IC}) / \mathrm{SE}_{\mathrm{NW}}(\mathrm{IC})\)</span>
+on the full overlapping IC series. Lag selection:
+<span class="arithmatex">\(L = \max(\lfloor T^{1/3} \rfloor, h - 1)\)</span> (with <span class="arithmatex">\(h\)</span> = <code>forward_periods</code>)
+— the Andrews (1991) Bartlett growth rate, floored against the
+Hansen-Hodrick MA(<span class="arithmatex">\(h-1\)</span>) overlap horizon so the kernel covers
+the induced dependence.</p>
 <p>factrix uses the Andrews fixed-rate rule rather than the
 Newey-West (1994) data-adaptive bandwidth — simpler, deterministic
-across reruns, and adequate at the typical T of factor research.</p>
+across reruns, and adequate at the typical <span class="arithmatex">\(T\)</span> of factor research.</p>
 </details>
 
 <details class="references" open>
   <summary>References</summary>
   <p><a class="autorefs autorefs-internal" title="Newey & West (1987)" href="../../../reference/bibliography/#newey-west-1987">Newey-West 1987</a>: HAC variance estimator.
 <a class="autorefs autorefs-internal" title="Andrews (1991)" href="../../../reference/bibliography/#andrews-1991">Andrews 1991</a>: optimal Bartlett growth rate
-<code>T^(1/3)</code> underlying the default lag rule.
+<span class="arithmatex">\(T^{1/3}\)</span> underlying the default lag rule.
 <a class="autorefs autorefs-internal" title="Hansen & Hodrick (1980)" href="../../../reference/bibliography/#hansen-hodrick-1980">Hansen-Hodrick 1980</a>: <code>forward_periods - 1</code>
 floor for overlapping returns.
 <a class="autorefs autorefs-internal" title="Newey & West (1994)" href="../../../reference/bibliography/#newey-west-1994">Newey-West 1994</a>: data-adaptive lag-selection
@@ -2916,7 +3060,7 @@ alternative; cited as background.</p>
 
     <div class="doc doc-contents ">
 
-        <p>IC_IR = mean(IC) / std(IC).</p>
+        <p><span class="arithmatex">\(\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})\)</span>.</p>
 <p>Signed ratio — positive when IC is consistently positive, negative
 when consistently negative.  Analogous to a Sharpe ratio for the
 factor signal.</p>
@@ -2985,11 +3129,12 @@ For significance testing, use <code>ic()</code>.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p><code>IC_IR = mean(IC) / std(IC)</code> over the per-date IC series — a
-Sharpe-style ratio describing time-series stability of the signal.
-Reported as a descriptive statistic; no inference is attached
-because the HAC-corrected significance test on <code>mean(IC)</code> lives
-in <code>ic</code> / <code>ic_newey_west</code>.</p>
+  <p><span class="arithmatex">\(\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})\)</span>
+over the per-date IC series — a Sharpe-style ratio describing
+time-series stability of the signal. Reported as a descriptive
+statistic; no inference is attached because the HAC-corrected
+significance test on <span class="arithmatex">\(\mathrm{mean}(\mathrm{IC})\)</span> lives in <code>ic</code>
+/ <code>ic_newey_west</code>.</p>
 </details>
 
 <details class="references" open>
@@ -3018,8 +3163,9 @@ normalisation that completes the IR decomposition.</p>
         <p>IC conditioned on regime labels.</p>
 <p>Answers "is the factor stable across market environments?"
 unlike OOS decay which tests overfitting.</p>
-<p>Each regime's t-stat is an independent test (H₀: mean IC = 0 within
-that regime); sweeping k regimes manufactures k implicit tests.
+<p>Each regime's <span class="arithmatex">\(t\)</span>-stat is an independent test (<span class="arithmatex">\(H_0\)</span>: mean IC = 0
+within that regime); sweeping <span class="arithmatex">\(k\)</span> regimes manufactures <span class="arithmatex">\(k\)</span> implicit
+tests.
 Each per-regime entry in <code>per_regime</code> metadata reports <code>p_value</code>
 (raw) alongside <code>p_adjusted_bhy</code> (BHY-corrected across the k
 regimes); top-level metadata also surfaces <code>p_value_bhy_adjusted</code>
@@ -3134,10 +3280,11 @@ If None, falls back to time bisection (first half / second half).</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Within each regime <code>g</code>, <code>t_g = mean(IC_g) / (std(IC_g) /
-sqrt(n_g))</code> with H0: <code>E[IC_g] = 0</code>. Sweeping <code>k</code> regimes is
-<code>k</code> implicit tests on the same null family, so per-regime raw p
-is accompanied by a BHY-adjusted p across regimes.</p>
+  <p>Within each regime <span class="arithmatex">\(g\)</span>,
+<span class="arithmatex">\(t_g = \mathrm{mean}(\mathrm{IC}_g) / (\mathrm{std}(\mathrm{IC}_g) / \sqrt{n_g})\)</span>
+with <span class="arithmatex">\(H_0: \mathbb{E}[\mathrm{IC}_g] = 0\)</span>. Sweeping <span class="arithmatex">\(k\)</span> regimes
+is <span class="arithmatex">\(k\)</span> implicit tests on the same null family, so per-regime raw
+<span class="arithmatex">\(p\)</span> is accompanied by a BHY-adjusted <span class="arithmatex">\(p\)</span> across regimes.</p>
 <p>factrix uses BHY rather than Benjamini-Hochberg because per-regime
 IC samples are typically dependent (overlapping market states).
 The conservative summary reports the weakest regime's |t|: if the
@@ -3295,10 +3442,10 @@ and <code>factor</code> columns. Output of <code>preprocess_cs_factor</code>.</p
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>For each horizon <code>h</code>, run <code>compute_ic</code> against
+  <p>For each horizon <span class="arithmatex">\(h\)</span>, run <code>compute_ic</code> against
 <code>forward_return(h)</code> and apply the <code>ic</code> non-overlapping
-t-test at stride <code>h</code>. Sweeping <code>k</code> horizons is <code>k</code> implicit
-tests, so per-horizon p-values are also reported BHY-adjusted.</p>
+<span class="arithmatex">\(t\)</span>-test at stride <span class="arithmatex">\(h\)</span>. Sweeping <span class="arithmatex">\(k\)</span> horizons is <span class="arithmatex">\(k\)</span> implicit
+tests, so per-horizon <span class="arithmatex">\(p\)</span>-values are also reported BHY-adjusted.</p>
 <p>factrix sub-samples per horizon at its own stride rather than
 applying NW HAC across horizons — the overlap structure differs
 by <code>h</code> and a unified HAC kernel would be misspecified.</p>
@@ -3400,14 +3547,15 @@ rule motivating the per-horizon stride.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Per-date Spearman IC is <code>IC_t = corr(rank(f_t), rank(r_t))</code> over
-the cross-section at date <code>t</code>; rank ties are broken with average
-rank (<code>method="average"</code>).</p>
-<p>At high tie rates Spearman ρ on average ranks is biased relative
-to the tie-corrected formula (Kendall-Stuart §31). factrix does
-not surface <code>tie_ratio</code> from this primitive; if you suspect a
-bucketed / categorical signal, inspect tie density on the input
-before reporting IC.</p>
+  <p>Per-date Spearman IC is
+<span class="arithmatex">\(\mathrm{IC}_t = \mathrm{corr}(\mathrm{rank}(f_t), \mathrm{rank}(r_t))\)</span>
+over the cross-section at date <span class="arithmatex">\(t\)</span>; rank ties are broken with
+average rank (<code>method="average"</code>).</p>
+<p>At high tie rates Spearman <span class="arithmatex">\(\rho\)</span> on average ranks is biased
+relative to the tie-corrected formula (Kendall-Stuart §31).
+factrix does not surface <code>tie_ratio</code> from this primitive; if
+you suspect a bucketed / categorical signal, inspect tie density
+on the input before reporting IC.</p>
 <p>factrix drops dates whose cross-section has fewer than
 <code>MIN_ASSETS_PER_DATE_IC</code> assets — undersized panels yield
 rank-correlation estimates with degenerate variance.</p>
@@ -3415,7 +3563,9 @@ rank-correlation estimates with degenerate variance.</p>
 
 <details class="references" open>
   <summary>References</summary>
-  <p><a class="autorefs autorefs-internal" title="Grinold (1989)" href="../../../reference/bibliography/#grinold-1989">Grinold 1989</a>: <code>IR ≈ IC × sqrt(breadth)</code> motivates
+  <p><a class="autorefs autorefs-internal" title="Grinold (1989)" href="../../../reference/bibliography/#grinold-1989">Grinold 1989</a>:
+<span class="arithmatex">\(\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}\)</span>
+motivates
 IC as the canonical signal-quality measure (the formal
 decomposition is older — see <a class="autorefs autorefs-internal" title="Treynor & Black (1973)" href="../../../reference/bibliography/#treynor-black-1973">Treynor-Black
 1973</a>).</p>
@@ -3431,7 +3581,12 @@ decomposition is older — see <a class="autorefs autorefs-internal" title="Trey
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-continuous/">Individual continuous landing page</a> — adjacent metrics in the same cell.</li>
+</ul>
 
 
 
@@ -3491,6 +3646,10 @@ decomposition is older — see <a class="autorefs autorefs-internal" title="Trey
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

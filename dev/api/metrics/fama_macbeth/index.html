@@ -1335,6 +1335,8 @@
       
         
       
+        
+      
     
     
     
@@ -1379,6 +1381,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1532,6 +1562,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1713,6 +1754,8 @@
       
         
       
+        
+      
     
     
     
@@ -1757,6 +1800,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1949,6 +2020,8 @@
       
         
       
+        
+      
     
     
     
@@ -1993,6 +2066,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2101,6 +2202,8 @@
       
         
       
+        
+      
     
     
     
@@ -2145,6 +2248,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2625,6 +2756,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2670,9 +2812,9 @@ consistency check.</p>
 
         <p>Fama-MacBeth regression — FM-canonical metric for the
 <code>Individual × Continuous</code> cell.</p>
-<p>Aggregation: per-date cross-sectional OLS slope λ (cross-section step)
-→ time series of λ, then NW HAC t on its mean; pooled OLS variant
-clusters SE by date.</p>
+<p>Aggregation: per-date cross-sectional OLS slope <span class="arithmatex">\(\lambda\)</span>
+(cross-section step) → time series of <span class="arithmatex">\(\lambda\)</span>, then NW HAC <span class="arithmatex">\(t\)</span> on
+its mean; pooled OLS variant clusters SE by date.</p>
 <p><code>compute_fm_betas</code>: per-date cross-sectional OLS → (date, beta) DataFrame.
 <code>fama_macbeth</code>: Newey-West t-test on the beta series.
 <code>pooled_ols</code>: pooled OLS with clustered SE by date.
@@ -2719,7 +2861,7 @@ Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."</p>
 
     <div class="doc doc-contents ">
 
-        <p>Newey-West t-test on FM beta series. H₀: mean(β) = 0.</p>
+        <p>Newey-West t-test on FM beta series. <span class="arithmatex">\(H_0: \mathrm{mean}(\beta) = 0\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2758,7 +2900,7 @@ Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Number of NW lags. Defaults to floor(T^(1/3)).</p>
+                <p>Number of NW lags. Defaults to <span class="arithmatex">\(\lfloor T^{1/3} \rfloor\)</span>.</p>
               </div>
             </td>
             <td>
@@ -2777,7 +2919,7 @@ Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."</p>
                 <p>Overlap horizon of the regression's forward
 return. When set, the NW bandwidth is floored at
 <code>forward_periods - 1</code> so the kernel is consistent under
-the MA(h-1) overlap structure of h-period returns.</p>
+the MA(<span class="arithmatex">\(h-1\)</span>) overlap structure of <span class="arithmatex">\(h\)</span>-period returns.</p>
               </div>
             </td>
             <td>
@@ -2795,17 +2937,18 @@ the MA(h-1) overlap structure of h-period returns.</p>
               <div class="doc-md-description">
                 <p>Set True when the <code>Signal_i</code> column used by
 <code>compute_fm_betas</code> is itself an <strong>estimated</strong> quantity
-(rolling OLS β to another factor, PCA score, ML-predicted
-score, residual from a first-stage regression). Shanken
-(1992) shows the naive FM SE ignores sampling error in the
-regressor, inflating t-stats. <strong>Do NOT</strong> set this on raw
-characteristics (book-to-market, momentum price signal,
-accounting ratios) — those are observed, not estimated, and
-enabling the correction will spuriously deflate t-stats.</p>
+(rolling OLS <span class="arithmatex">\(\beta\)</span> to another factor, PCA score,
+ML-predicted score, residual from a first-stage regression).
+Shanken (1992) shows the naive FM SE ignores sampling error
+in the regressor, inflating <span class="arithmatex">\(t\)</span>-stats. <strong>Do NOT</strong> set this
+on raw characteristics (book-to-market, momentum price
+signal, accounting ratios) — those are observed, not
+estimated, and enabling the correction will spuriously
+deflate <span class="arithmatex">\(t\)</span>-stats.</p>
 <p>Implementation: Kan-Zhang (1999) single-factor simplification
-— the NW SE is scaled by <code>√(1 + λ̂²/σ²_f)</code>. This <em>omits</em> the
-additive <code>+σ²_f/T</code> term of the full Shanken variance and
-is therefore only honest for large T.</p>
+— the NW SE is scaled by <span class="arithmatex">\(\sqrt{1 + \hat\lambda^2/\sigma^2_f}\)</span>.
+This <em>omits</em> the additive <span class="arithmatex">\(+\sigma^2_f/T\)</span> term of the full
+Shanken variance and is therefore only honest for large <span class="arithmatex">\(T\)</span>.</p>
               </div>
             </td>
             <td>
@@ -2821,19 +2964,20 @@ is therefore only honest for large T.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>σ²_f, the time-series variance of the factor-
-mimicking portfolio return. Prefer supplying this when you
-have a spread-portfolio return series (the long-short spread
-actually traded on the signal). When <code>None</code> and
-<code>is_estimated_factor=True</code>, falls back to <code>var(β_t)</code> as a
-rough placeholder — β̂_t is <em>not</em> the factor-mimicking return
-but is usually the only readily-available series. Because
-<code>var(β̂_t)</code> already absorbs upstream estimation noise, it
-inflates the denominator of the EIV factor and so deflates
-the SE correction; treat the <code>betas_timeseries_proxy</code>
-result as a <strong>lower bound on the true SE inflation</strong> — i.e.
-an <strong>upper bound on the reported t-stat</strong> — not a precise
-estimate.</p>
+                <p><span class="arithmatex">\(\sigma^2_f\)</span>, the time-series variance of the
+factor-mimicking portfolio return. Prefer supplying this when
+you have a spread-portfolio return series (the long-short
+spread actually traded on the signal). When <code>None</code> and
+<code>is_estimated_factor=True</code>, falls back to
+<span class="arithmatex">\(\mathrm{var}(\beta_t)\)</span> as a rough placeholder —
+<span class="arithmatex">\(\hat\beta_t\)</span> is <em>not</em> the factor-mimicking return but is
+usually the only readily-available series. Because
+<span class="arithmatex">\(\mathrm{var}(\hat\beta_t)\)</span> already absorbs upstream
+estimation noise, it inflates the denominator of the EIV
+factor and so deflates the SE correction; treat the
+<code>betas_timeseries_proxy</code> result as a <strong>lower bound on the
+true SE inflation</strong> — i.e. an <strong>upper bound on the reported
+<span class="arithmatex">\(t\)</span>-stat</strong> — not a precise estimate.</p>
               </div>
             </td>
             <td>
@@ -2846,17 +2990,20 @@ estimate.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Stage 2 of FM: <code>mean_beta = mean_t beta_t</code>; <code>t = mean_beta /
-NW_SE(beta)</code> with kernel lag <code>L = max(floor(T^(1/3)),
-forward_periods - 1)</code>. With <code>is_estimated_factor=True</code>, the
-Shanken-Kan-Zhang single-factor correction scales SE by
-<code>sqrt(1 + mean_beta^2 / sigma^2_f)</code>.</p>
-<p>factrix uses the Andrews (1991) <code>T^(1/3)</code> bandwidth floored
+  <p>Stage 2 of FM:
+<span class="arithmatex">\(\overline{\beta} = \mathrm{mean}_t\,\beta_t\)</span>;
+<span class="arithmatex">\(t = \overline{\beta} / \mathrm{SE}_{\mathrm{NW}}(\beta)\)</span>
+with kernel lag
+<span class="arithmatex">\(L = \max(\lfloor T^{1/3} \rfloor,\, h - 1)\)</span>.
+With <code>is_estimated_factor=True</code>, the Shanken-Kan-Zhang
+single-factor correction scales SE by
+<span class="arithmatex">\(\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}\)</span>.</p>
+<p>factrix uses the Andrews (1991) <span class="arithmatex">\(T^{1/3}\)</span> bandwidth floored
 against the Hansen-Hodrick overlap horizon rather than the
 Newey-West (1994) data-adaptive plug-in — simpler, deterministic,
-and adequate at typical research T. The Kan-Zhang simplification
-omits the additive <code>+sigma^2_f / T</code> term of full Shanken EIV,
-so the correction is honest only for large T.</p>
+and adequate at typical research <span class="arithmatex">\(T\)</span>. The Kan-Zhang simplification
+omits the additive <span class="arithmatex">\(+\sigma^2_f / T\)</span> term of full Shanken EIV,
+so the correction is honest only for large <span class="arithmatex">\(T\)</span>.</p>
 </details>
 
 <details class="references" open>
@@ -2895,31 +3042,42 @@ of the Shanken EIV correction that factrix actually applies.</p>
 
 <details class="formula" open>
   <summary>Formula</summary>
-  <p>Point estimate:
-    [α̂, β̂] = (X'X)⁻¹ X'R   where X = [1, Signal] stacked across
-                            all (date, asset) observations</p>
-<p>Single-way clustered sandwich SE (default, cluster on <code>cluster_col</code>):
-    meat_g = Σ_g (X_g' e_g)(X_g' e_g)'   over groups g
-    V = c · (X'X)⁻¹ · meat_g · (X'X)⁻¹
-    c = G/(G−1) · (N−1)/(N−K)    (finite-sample correction)
-    SE(β̂) = √V[1,1];  t = β̂ / SE;  df = G − 1</p>
+  <p>Point estimate:</p>
+<div class="arithmatex">\[
+[\hat\alpha, \hat\beta] = (X'X)^{-1} X'R
+\]</div>
+<p>where <span class="arithmatex">\(X = [1, \text{Signal}]\)</span> stacked across all
+<span class="arithmatex">\((\text{date}, \text{asset})\)</span> observations.</p>
+<p>Single-way clustered sandwich SE (default, cluster on
+<code>cluster_col</code>):</p>
+<div class="arithmatex">\[
+\mathrm{meat}_g = \sum_g (X_g' e_g)(X_g' e_g)', \quad
+V = c \cdot (X'X)^{-1} \cdot \mathrm{meat}_g \cdot (X'X)^{-1},
+\]</div>
+<p>with finite-sample correction
+<span class="arithmatex">\(c = \tfrac{G}{G-1} \cdot \tfrac{N-1}{N-K}\)</span>,
+<span class="arithmatex">\(\mathrm{SE}(\hat\beta) = \sqrt{V_{1,1}}\)</span>,
+<span class="arithmatex">\(t = \hat\beta / \mathrm{SE}\)</span>, <span class="arithmatex">\(\mathrm{df} = G - 1\)</span>.</p>
 <p>Two-way clustered sandwich SE (when <code>two_way_cluster_col</code> is
-set — Cameron-Gelbach-Miller 2011 / Petersen 2009):
-    V_two_way = V_A + V_B − V_A∩B
-where V_A, V_B, V_A∩B are single-way variances clustered on A,
-on B, and on the intersection cells (A, B). Each component uses
-its own finite-sample correction. df = min(G_A, G_B) − 1
-(Thompson 2011).</p>
+set — Cameron-Gelbach-Miller 2011 / Petersen 2009):</p>
+<div class="arithmatex">\[
+V_{\text{two-way}} = V_A + V_B - V_{A \cap B}
+\]</div>
+<p>where <span class="arithmatex">\(V_A\)</span>, <span class="arithmatex">\(V_B\)</span>, <span class="arithmatex">\(V_{A \cap B}\)</span> are single-way variances
+clustered on <span class="arithmatex">\(A\)</span>, on <span class="arithmatex">\(B\)</span>, and on the intersection cells
+<span class="arithmatex">\((A, B)\)</span>. Each component uses its own finite-sample correction.
+<span class="arithmatex">\(\mathrm{df} = \min(G_A, G_B) - 1\)</span> (Thompson 2011).</p>
 </details>        <p>Clustering on date alone catches contemporaneous cross-sectional
 dependence but misses asset-level persistence; on asset alone the
 reverse. Petersen (2009) shows panel data usually has both —
 single-way clusters understate SE by 20-50% in that regime.</p>
 <p>FM and single-way share the same point estimate under a balanced
-panel but typically disagree on SE; when β̂ and FM λ̂ have <strong>opposite
-signs</strong>, <code>profile.diagnose()</code> flags an FM/pooled sign-mismatch —
-a red flag for misspecification.</p>
-<p>Short-circuits when N &lt; 10 (no regression), returns stat=None with
-p=1.0 when the effective <code>G &lt; 3</code> (SE undefined with &lt; 3 clusters).</p>
+panel but typically disagree on SE; when <span class="arithmatex">\(\hat\beta\)</span> and FM
+<span class="arithmatex">\(\hat\lambda\)</span> have <strong>opposite signs</strong>, <code>profile.diagnose()</code>
+flags an FM/pooled sign-mismatch — a red flag for misspecification.</p>
+<p>Short-circuits when <span class="arithmatex">\(N &lt; 10\)</span> (no regression), returns <code>stat=None</code>
+with <span class="arithmatex">\(p=1.0\)</span> when the effective <span class="arithmatex">\(G &lt; 3\)</span> (SE undefined with &lt; 3
+clusters).</p>
 
 
 <details class="notes" open>
@@ -2965,22 +3123,22 @@ Cluster by Both Firm and Time."</p>
 
     <div class="doc doc-contents ">
 
-        <p>Fraction of FM per-date βs carrying the expected sign — <code>value = mean_t 1{sign(β_t) == expected_sign}</code>.</p>
-<p>β_t is the per-date OLS β from <code>compute_fm_betas</code>. Range [0, 1];
-1.0 = β always has the expected sign across periods. Unlike
-<code>ts_beta_sign_consistency</code> (which symmetrizes via
-<code>max(pos%, 1-pos%)</code>), this one is directional — you must supply
-the a-priori expected sign. Typical use: paired with a prior on
-factor direction to check stability.</p>
-<p>Short-circuits to NaN when no non-null β observations exist.</p>
+        <p>Fraction of FM per-date <span class="arithmatex">\(\beta\)</span>s carrying the expected sign — <code>value</code> <span class="arithmatex">\(= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}\)</span>.</p>
+<p><span class="arithmatex">\(\beta_t\)</span> is the per-date OLS <span class="arithmatex">\(\beta\)</span> from <code>compute_fm_betas</code>.
+Range <span class="arithmatex">\([0, 1]\)</span>; <span class="arithmatex">\(1.0\)</span> = <span class="arithmatex">\(\beta\)</span> always has the expected sign across
+periods. Unlike <code>ts_beta_sign_consistency</code> (which symmetrizes via
+<span class="arithmatex">\(\max(p, 1-p)\)</span> where <span class="arithmatex">\(p\)</span> is the positive-sign fraction), this one is directional —
+you must supply the a-priori expected sign. Typical use: paired with
+a prior on factor direction to check stability.</p>
+<p>Short-circuits to NaN when no non-null <span class="arithmatex">\(\beta\)</span> observations exist.</p>
 
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p><code>value = mean_t 1{sign(beta_t) == expected_sign}</code> over the FM
-per-date beta series. Range <code>[0, 1]</code>; <code>1.0</code> = beta always
-agrees with the prior. Descriptive (no formal H0); pair with
-<code>fama_macbeth</code> for inferential significance.</p>
+  <p><code>value</code> <span class="arithmatex">\(= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}\)</span>
+over the FM per-date beta series. Range <span class="arithmatex">\([0, 1]\)</span>; <span class="arithmatex">\(1.0\)</span> = beta
+always agrees with the prior. Descriptive (no formal <span class="arithmatex">\(H_0\)</span>);
+pair with <code>fama_macbeth</code> for inferential significance.</p>
 <p>factrix splits this directional check from the symmetric
 <code>ts_beta_sign_consistency</code> so the two answer different
 questions: this one requires the caller to commit to a prior
@@ -3004,7 +3162,7 @@ sign; the symmetric variant tests cross-asset agreement only.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Per-date cross-sectional OLS: R_i = α + β · Signal_i + ε.</p>
+        <p>Per-date cross-sectional OLS: <span class="arithmatex">\(R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon\)</span>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3115,9 +3273,10 @@ sign; the symmetric variant tests cross-asset agreement only.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Per date <code>t</code>, solve the cross-sectional OLS <code>R_{i,t} = alpha_t
-+ beta_t * Signal_{i,t} + eps_{i,t}</code> and emit the slope
-<code>beta_t</code>. The output series feeds the stage-2 NW HAC t-test in
+  <p>Per date <span class="arithmatex">\(t\)</span>, solve the cross-sectional OLS
+<span class="arithmatex">\(R_{i,t} = \alpha_t + \beta_t \cdot \text{Signal}_{i,t} + \varepsilon_{i,t}\)</span>
+and emit the slope <span class="arithmatex">\(\beta_t\)</span>. The output series feeds the
+stage-2 NW HAC <span class="arithmatex">\(t\)</span>-test in
 <code>fama_macbeth</code>.</p>
 <p>factrix drops dates with fewer than 3 cross-sectional
 observations or a singular design rather than coercing to NaN —
@@ -3141,7 +3300,12 @@ sectional regression at stage 1 of the FM procedure.</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-continuous/">Individual continuous landing page</a> — adjacent metrics in the same cell.</li>
+</ul>
 
 
 
@@ -3201,6 +3365,10 @@ sectional regression at stage 1 of the FM procedure.</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

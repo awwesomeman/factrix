@@ -2386,6 +2386,8 @@
       
         
       
+        
+      
     
     
     
@@ -2430,6 +2432,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2656,6 +2686,8 @@
       
         
       
+        
+      
     
     
     
@@ -2700,6 +2732,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2892,6 +2952,8 @@
       
         
       
+        
+      
     
     
     
@@ -2936,6 +2998,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3044,6 +3134,8 @@
       
         
       
+        
+      
     
     
     
@@ -3088,6 +3180,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -4569,13 +4689,13 @@ Covariance Matrix Estimation." <em>Review of Economic Studies</em> 61(4),
 631–653.</p>
 <p>Data-adaptive plug-in bandwidth selection. Cited as background;
 factrix uses the simpler Andrews (1991) Bartlett growth rate
-<code>⌊T^(1/3)⌋</code> floored against the Hansen-Hodrick overlap rule.</p>
+<span class="arithmatex">\(\lfloor T^{1/3} \rfloor\)</span> floored against the Hansen-Hodrick overlap rule.</p>
 <h3 id="andrews-1991_1">Andrews (1991)<a class="headerlink" href="#andrews-1991_1" title="Permanent link">&para;</a></h3>
 <p><a href="" id="andrews-1991"></a></p>
 <p>Andrews, D. W. K. (1991). "Heteroskedasticity and Autocorrelation
 Consistent Covariance Matrix Estimation." <em>Econometrica</em> 59(3),
 817–858.</p>
-<p>Optimal Bartlett growth rate <code>T^(1/3)</code>; the basis of factrix's default
+<p>Optimal Bartlett growth rate <span class="arithmatex">\(T^{1/3}\)</span>; the basis of factrix's default
 NW lag rule.</p>
 <h3 id="andrews--monahan-1992">Andrews &amp; Monahan (1992)<a class="headerlink" href="#andrews--monahan-1992" title="Permanent link">&para;</a></h3>
 <p><a href="" id="andrews-monahan-1992"></a></p>
@@ -4607,13 +4727,13 @@ HAC. Cited as background.</p>
 <p>Treynor, J. L. &amp; Black, F. (1973). "How to Use Security Analysis to
 Improve Portfolio Selection." <em>Journal of Business</em> 46(1), 66–86.</p>
 <p>Original derivation of the alpha-vs-residual-risk active-management
-optimisation that yields the <code>IR ≈ IC × √breadth</code> decomposition that
+optimisation that yields the <span class="arithmatex">\(\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}\)</span> decomposition that
 <a class="autorefs autorefs-internal" title="Grinold (1989)" href="#grinold-1989">Grinold 1989</a> later popularised.</p>
 <h3 id="grinold-1989_1">Grinold (1989)<a class="headerlink" href="#grinold-1989_1" title="Permanent link">&para;</a></h3>
 <p><a href="" id="grinold-1989"></a></p>
 <p>Grinold, R. C. (1989). "The Fundamental Law of Active Management."
 <em>Journal of Portfolio Management</em> 15(3), 30–37.</p>
-<p><code>IR ≈ IC × √breadth</code>; motivates IC as the canonical signal-quality
+<p><span class="arithmatex">\(\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}\)</span>; motivates IC as the canonical signal-quality
 measure and IR/ICIR as its time-stability normalisation.</p>
 <h3 id="grinold--kahn-2000">Grinold &amp; Kahn (2000)<a class="headerlink" href="#grinold--kahn-2000" title="Permanent link">&para;</a></h3>
 <p><a href="" id="grinold-kahn-2000"></a></p>
@@ -4670,9 +4790,10 @@ when <code>is_estimated_factor=True</code>.</p>
 <p><a href="" id="kan-zhang-1999"></a></p>
 <p>Kan, R. &amp; Zhang, C. (1999). "Two-Pass Tests of Asset Pricing Models
 with Useless Factors." <em>Journal of Finance</em> 54(1), 203–235.</p>
-<p>Single-factor simplification <code>SE × √(1 + λ̂²/σ²_f)</code> of the full
-Shanken EIV correction; the form factrix actually applies (omits
-the additive <code>+σ²_f/T</code> term and is therefore honest only for large T).</p>
+<p>Single-factor simplification <span class="arithmatex">\(\mathrm{SE} \times \sqrt{1 + \hat\lambda^2/\sigma^2_f}\)</span>
+of the full Shanken EIV correction; the form factrix actually applies
+(omits the additive <span class="arithmatex">\(+\sigma^2_f/T\)</span> term and is therefore honest only
+for large <span class="arithmatex">\(T\)</span>).</p>
 <h3 id="fama--french-1992">Fama &amp; French (1992)<a class="headerlink" href="#fama--french-1992" title="Permanent link">&para;</a></h3>
 <p><a href="" id="fama-french-1992"></a></p>
 <p>Fama, E. F. &amp; French, K. R. (1992). "The Cross-Section of Expected
@@ -4899,7 +5020,7 @@ breakdown-robust slope.</p>
 <p>Dickey, D. A. &amp; Fuller, W. A. (1979). "Distribution of the Estimators
 for Autoregressive Time Series with a Unit Root." <em>Journal of the
 American Statistical Association</em> 74(366), 427–431.</p>
-<p>ADF test on <code>H₀: β = 0</code> in <code>Δy_t = α + β y_{t-1} + ε</code>; the basis of
+<p>ADF test on <span class="arithmatex">\(H_0: \beta = 0\)</span> in <span class="arithmatex">\(\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon\)</span>; the basis of
 factrix's <code>_adf</code> persistence diagnostic.</p>
 <h3 id="said--dickey-1984">Said &amp; Dickey (1984)<a class="headerlink" href="#said--dickey-1984" title="Permanent link">&para;</a></h3>
 <p><a href="" id="said-dickey-1984"></a></p>
@@ -4919,7 +5040,7 @@ linear interpolation against the constant-only specification.</p>
 <p><a href="" id="stambaugh-1999"></a></p>
 <p>Stambaugh, R. F. (1999). "Predictive Regressions." <em>Journal of
 Financial Economics</em> 54(3), 375–421.</p>
-<p>Bias of OLS β̂ in predictive regressions when the predictor is
+<p>Bias of OLS <span class="arithmatex">\(\hat\beta\)</span> in predictive regressions when the predictor is
 persistent; factrix flags via ADF rather than auto-correcting.</p>
 <h3 id="campbell--yogo-2006">Campbell &amp; Yogo (2006)<a class="headerlink" href="#campbell--yogo-2006" title="Permanent link">&para;</a></h3>
 <p><a href="" id="campbell-yogo-2006"></a></p>
@@ -5059,7 +5180,7 @@ benchmark above factrix's per-date Spearman <code>monotonicity</code> metric.</p
 <p><a href="" id="novy-marx-velikov-2016"></a></p>
 <p>Novy-Marx, R. &amp; Velikov, M. (2016). "A Taxonomy of Anomalies and
 Their Trading Costs." <em>Review of Financial Studies</em> 29(1), 104–147.</p>
-<p>Notional-turnover τ and breakeven-cost framework; the source of
+<p>Notional-turnover <span class="arithmatex">\(\tau\)</span> and breakeven-cost framework; the source of
 <code>notional_turnover</code> and <code>breakeven_cost</code>.</p>
 <h3 id="demiguel-martin-utrera-nogales--uppal-2020">DeMiguel, Martin-Utrera, Nogales &amp; Uppal (2020)<a class="headerlink" href="#demiguel-martin-utrera-nogales--uppal-2020" title="Permanent link">&para;</a></h3>
 <p><a href="" id="demiguel-martin-utrera-nogales-uppal-2020"></a></p>
@@ -5088,7 +5209,7 @@ its scope boundary.</p>
 <p>Ambachtsheer, K. P. (1977). "Where Are the Customers' Alphas?"
 <em>Journal of Portfolio Management</em> 4(1), 52–56.</p>
 <p>Early operational use of IC-based alpha attribution in pension-fund
-performance discussion; the formal <code>IR ≈ IC × √breadth</code>
+performance discussion; the formal <span class="arithmatex">\(\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}\)</span>
 decomposition itself traces to Treynor &amp; Black (1973) and is
 canonically stated in <a class="autorefs autorefs-internal" title="Grinold (1989)" href="#grinold-1989">Grinold 1989</a>.</p>
 <hr />
@@ -5183,6 +5304,10 @@ Foreign Trade</em>. University of California Press.</p>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

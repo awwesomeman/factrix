@@ -1419,6 +1419,8 @@
       
         
       
+        
+      
     
     
     
@@ -1463,6 +1465,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1689,6 +1719,8 @@
       
         
       
+        
+      
     
     
     
@@ -1733,6 +1765,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1925,6 +1985,8 @@
       
         
       
+        
+      
     
     
     
@@ -1969,6 +2031,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2077,6 +2167,8 @@
       
         
       
+        
+      
     
     
     
@@ -2121,6 +2213,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2645,9 +2765,10 @@ When NW HAC is selected, factrix uses the
 deterministic bandwidth, applied by <code>ic_newey_west</code>, <code>fama_macbeth</code>,
 <code>pooled_ols</code>, <code>ts_quantile_spread</code>, and <code>ts_asymmetry</code>.</p>
 <p>The bandwidth rule is</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>L = max(⌊T^(1/3)⌋,  forward_periods − 1)
-</span></code></pre></div>
-<p>The first term is the <a class="autorefs autorefs-internal" title="Andrews (1991)" href="../bibliography/#andrews-1991">Andrews 1991</a> optimal Bartlett
+<div class="arithmatex">\[
+L = \max\!\left(\lfloor T^{1/3} \rfloor,\; h - 1\right)
+\]</div>
+<p>with <span class="arithmatex">\(h\)</span> = <code>forward_periods</code>. The first term is the <a class="autorefs autorefs-internal" title="Andrews (1991)" href="../bibliography/#andrews-1991">Andrews 1991</a> optimal Bartlett
 growth rate; the second is the
 <a class="autorefs autorefs-internal" title="Hansen & Hodrick (1980)" href="../bibliography/#hansen-hodrick-1980">Hansen-Hodrick 1980</a> overlap floor that ensures
 the kernel covers the MA(<code>h − 1</code>) structure of overlapping returns.
@@ -2673,13 +2794,15 @@ is itself an estimated quantity (rolling β, PCA score, ML predictor),
 <a href="../../api/metrics/fama_macbeth/"><code>fama_macbeth(is_estimated_factor=True)</code></a>
 applies the <a class="autorefs autorefs-internal" title="Kan & Zhang (1999)" href="../bibliography/#kan-zhang-1999">Kan-Zhang 1999</a> single-factor
 simplification of the <a class="autorefs autorefs-internal" title="Shanken (1992)" href="../bibliography/#shanken-1992">Shanken 1992</a> errors-in-variables
-correction, scaling SE by <code>√(1 + λ̂² / σ²_f)</code>. The full Shanken
-variance has an additional <code>+σ²_f / T</code> term that factrix omits: at
-finite <code>T</code> the omission <strong>understates</strong> the EIV inflation and so
-<strong>overstates</strong> the resulting <code>t</code>. The simplification is honest only
-when <code>T</code> is large enough that the dropped term is negligible.</p>
+correction, scaling SE by <span class="arithmatex">\(\sqrt{1 + \hat\lambda^2 / \sigma^2_f}\)</span>. The
+full Shanken variance has an additional <span class="arithmatex">\(+\sigma^2_f / T\)</span> term that
+factrix omits: at finite <span class="arithmatex">\(T\)</span> the omission <strong>understates</strong> the EIV
+inflation and so <strong>overstates</strong> the resulting <span class="arithmatex">\(t\)</span>. The simplification
+is honest only when <span class="arithmatex">\(T\)</span> is large enough that the dropped term is
+negligible.</p>
 <p>When <code>factor_return_var</code> is not supplied, factrix falls back to
-<code>var(β̂_t)</code> as a proxy for <code>σ²_f</code>. Because <code>β̂_t</code> already absorbs
+<span class="arithmatex">\(\mathrm{var}(\hat\beta_t)\)</span> as a proxy for <span class="arithmatex">\(\sigma^2_f\)</span>. Because
+<span class="arithmatex">\(\hat\beta_t\)</span> already absorbs
 estimation noise from the upstream factor score, this proxy
 <strong>inflates the denominator</strong> of the EIV factor and so <strong>further
 deflates</strong> the correction. Treat the
@@ -2698,9 +2821,9 @@ panels often prefer NW.</p>
 the same return panel correlate, and a Bonferroni step that assumes
 independence over-corrects. factrix's <code>multi_factor.bhy</code> wrapper
 implements <a class="autorefs autorefs-internal" title="Benjamini & Yekutieli (2001)" href="../bibliography/#benjamini-yekutieli-2001">Benjamini-Yekutieli 2001</a> FDR
-control with the <code>c(m) = Σ_{i=1..m} 1/i</code> dependence correction —
+control with the dependence correction <span class="arithmatex">\(c(m) = \sum_{i=1}^{m} 1/i\)</span> —
 valid under arbitrary positive or negative dependence at the cost of
-a <code>1/ln(m)</code> shrinkage relative to plain BH.</p>
+a <span class="arithmatex">\(1/\ln m\)</span> shrinkage relative to plain BH.</p>
 <p><a class="autorefs autorefs-internal" title="Benjamini & Hochberg (1995)" href="../bibliography/#benjamini-hochberg-1995">Benjamini-Hochberg 1995</a> BH is <em>not</em> the
 default because the typical factor-pool dependence violates its PRDS
 assumption; factrix offers BHY as the safe choice and surfaces the
@@ -2709,7 +2832,7 @@ adjusted <code>q</code>-values rather than a binary pass/fail at a fixed <code>�
 on and factrix takes:</p>
 <ul>
 <li>The <a class="autorefs autorefs-internal" title="Harvey, Liu & Zhu (2016)" href="../bibliography/#harvey-liu-zhu-2016">Harvey-Liu-Zhu 2016</a> case for raising
-  t-thresholds is taken seriously. <code>verdict()</code> defaults to <code>t ≥ 2.0</code>
+  t-thresholds is taken seriously. <code>verdict()</code> defaults to <span class="arithmatex">\(t \geq 2.0\)</span>
   but exposes the BHY-adjusted <code>q</code> so users can apply a stricter
   threshold for new factor proposals.</li>
 <li>The <a class="autorefs autorefs-internal" title="Harvey (2017)" href="../bibliography/#harvey-2017">Harvey 2017</a> case against ad-hoc p-hacking is the
@@ -2734,7 +2857,7 @@ intended as a diagnostic, not a hypothesis test.</p>
 <h2 id="3-robust-scale-and-outlier-handling">3. Robust scale and outlier handling<a class="headerlink" href="#3-robust-scale-and-outlier-handling" title="Permanent link">&para;</a></h2>
 <p>factrix preprocesses cross-sectional factor exposures with
 <strong>MAD-based winsorisation</strong>: per date, clip values to
-<code>median ± k · MAD · 1.4826</code>. The <code>1.4826</code> factor restores Gaussian
+<span class="arithmatex">\(\text{median} \pm k \cdot \mathrm{MAD} \cdot 1.4826\)</span>. The <span class="arithmatex">\(1.4826\)</span> factor restores Gaussian
 consistency of the median absolute deviation as a scale estimator
 (<a class="autorefs autorefs-internal" title="Huber (1964)" href="../bibliography/#huber-1964">Huber 1964</a>, textbook treatment in
 <a class="autorefs autorefs-internal" title="Huber (1981)" href="../bibliography/#huber-1981">Huber 1981</a>). This avoids letting the same outlier that
@@ -2766,11 +2889,11 @@ language is <a class="autorefs autorefs-internal" title="Hampel (1974)" href="..
 <h2 id="4-persistence-diagnostics-under-near-unit-root-predictors">4. Persistence diagnostics under near-unit-root predictors<a class="headerlink" href="#4-persistence-diagnostics-under-near-unit-root-predictors" title="Permanent link">&para;</a></h2>
 <p>Predictive regressions with persistent regressors carry the
 <a class="autorefs autorefs-internal" title="Stambaugh (1999)" href="../bibliography/#stambaugh-1999">Stambaugh 1999</a> bias: when the regressor's
-innovation correlates with the dependent return innovation, OLS β̂
-carries a finite-sample bias of order <code>O(1/T)</code> that does not vanish
-at conventional research sample sizes (β̂ is consistent
+innovation correlates with the dependent return innovation, OLS <span class="arithmatex">\(\hat\beta\)</span>
+carries a finite-sample bias of order <span class="arithmatex">\(O(1/T)\)</span> that does not vanish
+at conventional research sample sizes (<span class="arithmatex">\(\hat\beta\)</span> is consistent
 asymptotically, but the bias is large enough to flip inference at
-<code>T ≈ 10–30</code> years of monthly data). The textbook corrections
+<span class="arithmatex">\(T \approx 10\text{–}30\)</span> years of monthly data). The textbook corrections
 (<a class="autorefs autorefs-internal" title="Campbell & Yogo (2006)" href="../bibliography/#campbell-yogo-2006">Campbell-Yogo 2006</a> Bonferroni Q,
 <a class="autorefs autorefs-internal" title="Kostakis, Magdalinos & Stamatogiannis (2015)" href="../bibliography/#kostakis-magdalinos--stamatogiannis-2015">Phillips-Magdalinos 2009</a> /
 <a class="autorefs autorefs-internal" title="Kostakis, Magdalinos & Stamatogiannis (2015)" href="../bibliography/#kostakis-magdalinos-stamatogiannis-2015">Kostakis-Magdalinos-Stamatogiannis 2015</a>
@@ -2857,6 +2980,10 @@ Adding HAC there would advertise robustness factrix does not deliver.</p>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

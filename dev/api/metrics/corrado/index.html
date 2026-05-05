@@ -16,7 +16,7 @@
         <link rel="prev" href="../clustering/">
       
       
-        <link rel="next" href="../ts_beta/">
+        <link rel="next" href="../common-continuous/">
       
       
         
@@ -1333,6 +1333,8 @@
       
         
       
+        
+      
     
     
     
@@ -1377,6 +1379,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1605,6 +1635,8 @@
       
         
       
+        
+      
     
     
     
@@ -1649,6 +1681,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1884,6 +1944,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1909,6 +1980,8 @@
   
     
     
+      
+        
       
         
       
@@ -1960,6 +2033,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2068,6 +2169,8 @@
       
         
       
+        
+      
     
     
     
@@ -2112,6 +2215,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2559,6 +2690,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2662,11 +2804,11 @@ of the original one-directional test).</p>
   <summary>For each asset</summary>
   <ol>
 <li>Rank <code>return_col</code> across the full time series (event + non-event).</li>
-<li>Transform ranks to U_it = rank / (T+1) - 0.5 (centered at 0).</li>
-<li>Extract U values at event dates.</li>
+<li>Transform ranks to <span class="arithmatex">\(U_{it} = \mathrm{rank} / (T+1) - 0.5\)</span> (centered at 0).</li>
+<li>Extract <span class="arithmatex">\(U\)</span> values at event dates.</li>
 </ol>
 </details>        <p>Across all event observations:
-    4. z = mean(U_event × sign(factor)) / (std(U_all) / √N_events)</p>
+    4. <span class="arithmatex">\(z = \mathrm{mean}(U_{\text{event}} \times \mathrm{sign}(\text{factor})) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})\)</span>.</p>
 <p>Deviation from Corrado (1989) eq.(5):
     The paper computes the denominator as the time-series std of the
     <strong>cross-sectional mean</strong> of rank deviations across the combined
@@ -2741,10 +2883,11 @@ Must include non-event rows for ranking.</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>For each asset <code>i</code>, rank <code>return</code> across the full sample,
-transform to <code>U_{i,t} = rank / (T+1) - 0.5</code> (centered at 0),
-and on event rows form <code>U_event * sign(factor)</code>. Test statistic
-<code>z = mean(U_event_signed) / (std(U_all) / sqrt(N_events))</code>.</p>
+  <p>For each asset <span class="arithmatex">\(i\)</span>, rank <code>return</code> across the full sample,
+transform to <span class="arithmatex">\(U_{i,t} = \mathrm{rank} / (T+1) - 0.5\)</span> (centered at 0),
+and on event rows form <span class="arithmatex">\(U_{\text{event}} \cdot \mathrm{sign}(\text{factor})\)</span>.
+Test statistic
+<span class="arithmatex">\(z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})\)</span>.</p>
 <p>factrix uses the <strong>pooled</strong> std of <code>U_all</code> across all
 <code>(asset, date)</code> cells in the denominator instead of the
 time-series std of the cross-sectional mean used by Corrado
@@ -2774,7 +2917,12 @@ signals.</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-sparse/">Individual sparse landing page</a> — adjacent event-study metrics.</li>
+</ul>
 
 
 
@@ -2834,6 +2982,10 @@ signals.</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

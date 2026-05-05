@@ -1241,6 +1241,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#call-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Call shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#factrix.multi_factor.bhy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1389,6 +1400,8 @@
       
         
       
+        
+      
     
     
     
@@ -1433,6 +1446,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1659,6 +1700,8 @@
       
         
       
+        
+      
     
     
     
@@ -1703,6 +1746,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1895,6 +1966,8 @@
       
         
       
+        
+      
     
     
     
@@ -1939,6 +2012,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2047,6 +2148,8 @@
       
         
       
+        
+      
     
     
     
@@ -2091,6 +2194,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2511,6 +2642,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#call-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Call shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#factrix.multi_factor.bhy" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2547,10 +2689,28 @@
 
 
 <h1 id="multi_factor">multi_factor<a class="headerlink" href="#multi_factor" title="Permanent link">&para;</a></h1>
-<p>Collection-level FDR control across factor profiles. Currently exposes
-<code>bhy</code> only. See <a href="../../reference/statistical-methods/">Statistical methods</a> for
-the underlying Benjamini-Hochberg-Yekutieli procedure and its
-assumptions.</p>
+<p>Collection-level FDR control across factor profiles. Use after
+<code>evaluate</code> has produced one profile per candidate factor — <code>bhy</code>
+adjusts the per-factor <span class="arithmatex">\(p\)</span>-values for multiple testing under arbitrary
+dependence (factor pools are dependent by construction: 200 momentum
+variants on the same return panel correlate, and a Bonferroni step
+that assumes independence over-corrects).</p>
+<h2 id="call-shape">Call shape<a class="headerlink" href="#call-shape" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">profiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel_i</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span> <span class="k">for</span> <span class="n">panel_i</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">]</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">adjusted</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">profiles</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Returns the collection with <code>p_value_bhy_adjusted</code> populated on each
+profile; per-factor <code>verdict()</code> reads the adjusted <span class="arithmatex">\(p\)</span> when present.</p>
+<p><code>bhy</code> implements the Benjamini-Yekutieli (2001) procedure with the
+<span class="arithmatex">\(c(m) = \sum_{i=1}^{m} 1/i\)</span> dependence correction, valid under
+arbitrary positive or negative dependence at the cost of a <span class="arithmatex">\(1/\ln m\)</span>
+shrinkage relative to plain BH. Plain Benjamini-Hochberg (1995) is
+<strong>not</strong> offered: typical factor-pool dependence violates its PRDS
+assumption.</p>
+<p>For the design rationale (BHY rather than Bayesian or
+reality-check / SPA bootstraps) see
+<a href="../../reference/statistical-methods/#2-multiple-testing-under-dependence">Reference § Statistical methods § Multiple-testing</a>
+and <a href="../../development/design-notes/#5-bhy-rather-than-bayesian-multiple-testing">Development § Design notes § BHY</a>.</p>
 
 
 <div class="doc doc-object doc-function">
@@ -2807,6 +2967,10 @@ BHY on n=1 provides no correction beyond a raw cutoff.</p>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

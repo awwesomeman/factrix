@@ -1333,6 +1333,8 @@
       
         
       
+        
+      
     
     
     
@@ -1377,6 +1379,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1605,6 +1635,8 @@
       
         
       
+        
+      
     
     
     
@@ -1649,6 +1681,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1839,6 +1899,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1927,6 +1998,8 @@
       
         
       
+        
+      
     
     
     
@@ -1971,6 +2044,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2079,6 +2180,8 @@
       
         
       
+        
+      
     
     
     
@@ -2123,6 +2226,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2581,6 +2712,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2675,20 +2817,22 @@ mfe_mae_summary   — aggregate summary (p50, p75, ratio)</p>
     <div class="doc doc-contents ">
 
         <p>Per-event Maximum Favorable/Adverse Excursion.</p>
-<p>For each event (factor != 0), examines the <code>window</code> subsequent bars
-to find the peak gain (MFE) and peak loss (MAE) relative to event
-entry price, adjusted for signal direction.</p>
+<p>For each event (<span class="arithmatex">\(\text{factor} \neq 0\)</span>), examines the <code>window</code>
+subsequent bars to find the peak gain (MFE) and peak loss (MAE)
+relative to event entry price, adjusted for signal direction.</p>
 <p>Also reports an estimation-window-normalised z-score per event:</p>
-<div class="language-text highlight"><pre><span></span><code>``mfe_z = mfe / (est_sigma · √window)``
-``mae_z = mae / (est_sigma · √window)``
-</code></pre></div>
-<p>where <code>est_sigma</code> is the daily-return std over the <code>estimation_window</code>
-bars preceding the event. MFE/MAE are order statistics whose expected
-magnitude grows as <code>√(window · σ²)</code>; comparing raw MFE across
-horizons or vol regimes conflates time-scale with signal strength.
-The z-scored versions are the apples-to-apples quantity for
-cross-setup comparisons (Campbell-Lo-MacKinlay 1997 Ch 4 on horizon
-scaling of order statistics).</p>
+<div class="arithmatex">\[
+z_{\mathrm{mfe}} = \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}), \quad
+z_{\mathrm{mae}} = \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
+\]</div>
+<p>where <span class="arithmatex">\(\hat\sigma\)</span> is the daily-return std over the
+<code>estimation_window</code> bars preceding the event. MFE/MAE are order
+statistics whose expected magnitude grows as
+<span class="arithmatex">\(\sqrt{W \cdot \sigma^2}\)</span>; comparing raw MFE across horizons or vol
+regimes conflates time-scale with signal strength. The z-scored
+versions are the apples-to-apples quantity for cross-setup
+comparisons (Campbell-Lo-MacKinlay 1997 Ch 4 on horizon scaling of
+order statistics).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -2854,20 +2998,23 @@ threshold, <code>mfe_z</code> / <code>mae_z</code> report <code>NaN</code>. Must
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>For each event with entry price <code>P_0 = price[t_event]</code> and
-post-event window <code>P_{1..W}</code>::</p>
-<div class="language-text highlight"><pre><span></span><code>r_k       = direction * (P_k / P_0 - 1)        for k = 1..W
-mfe       = max_k r_k;       mae = min_k r_k
-est_sigma = std(daily_return) over the prior estimation_window
-mfe_z     = mfe / (est_sigma * sqrt(W))
-mae_z     = mae / (est_sigma * sqrt(W))
-</code></pre></div>
-<p>factrix scales by <code>sqrt(W)</code> because MFE/MAE are order
-statistics whose expected magnitude grows as <code>sqrt(W * sigma^2)</code>
-— comparing raw MFE across horizons or vol regimes conflates
-time-scale with signal strength. <code>est_sigma</code> excludes the
-event-day bar to avoid feeding the signal back into its own
-denominator.</p>
+  <p>For each event with entry price <span class="arithmatex">\(P_0 = \text{price}[t_{\text{event}}]\)</span>
+and post-event window <span class="arithmatex">\(P_{1 \ldots W}\)</span>:</p>
+<div class="arithmatex">\[
+\begin{aligned}
+r_k       &amp;= \text{direction} \cdot (P_k / P_0 - 1) \quad \text{for } k = 1 \ldots W \\
+\mathrm{mfe}       &amp;= \max_k r_k, \quad \mathrm{mae} = \min_k r_k \\
+\hat\sigma &amp;= \mathrm{std}(r_d) \text{ over the prior estimation window} \\
+z_{\mathrm{mfe}}     &amp;= \mathrm{mfe} / (\hat\sigma \cdot \sqrt{W}) \\
+z_{\mathrm{mae}}     &amp;= \mathrm{mae} / (\hat\sigma \cdot \sqrt{W})
+\end{aligned}
+\]</div>
+<p>factrix scales by <span class="arithmatex">\(\sqrt{W}\)</span> because MFE/MAE are order
+statistics whose expected magnitude grows as
+<span class="arithmatex">\(\sqrt{W \cdot \sigma^2}\)</span> — comparing raw MFE across horizons
+or vol regimes conflates time-scale with signal strength.
+<span class="arithmatex">\(\hat\sigma\)</span> excludes the event-day bar to avoid feeding the
+signal back into its own denominator.</p>
 </details>
 
     </div>
@@ -3019,7 +3166,12 @@ quartile is the practically useful regime.</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-sparse/">Individual sparse landing page</a> — adjacent event-study metrics.</li>
+</ul>
 
 
 
@@ -3079,6 +3231,10 @@ quartile is the practically useful regime.</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

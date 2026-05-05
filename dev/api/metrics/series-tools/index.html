@@ -10,31 +10,31 @@
       
       
       
-        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/api/evaluate/">
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/api/metrics/series-tools/">
       
       
-        <link rel="prev" href="../analysis-config/">
+        <link rel="prev" href="../ts_asymmetry/">
       
       
-        <link rel="next" href="../factor-profile/">
+        <link rel="next" href="../hit_rate/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/images/favicon.png">
+      <link rel="icon" href="../../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>evaluate - factrix</title>
+        <title>Series tools - factrix</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,9 +53,9 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#evaluate" class="md-skip">
+        <a href="#series-tools" class="md-skip">
           Skip to content
         </a>
       
@@ -98,7 +98,7 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+    <a href="../../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              evaluate
+              Series tools
             
           </span>
         </div>
@@ -231,7 +231,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href="../../.." class="md-tabs__link">
         
   
   
@@ -252,7 +252,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../getting-started/" class="md-tabs__link">
+        <a href="../../../getting-started/" class="md-tabs__link">
           
   
   
@@ -274,7 +274,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../guides/" class="md-tabs__link">
+        <a href="../../../guides/" class="md-tabs__link">
           
   
   
@@ -296,7 +296,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../reference/metric-applicability/" class="md-tabs__link">
+        <a href="../../../reference/metric-applicability/" class="md-tabs__link">
           
   
   
@@ -320,7 +320,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../analysis-config/" class="md-tabs__link">
+        <a href="../../analysis-config/" class="md-tabs__link">
           
   
   
@@ -342,7 +342,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../examples/" class="md-tabs__link">
+        <a href="../../../examples/" class="md-tabs__link">
           
   
   
@@ -364,7 +364,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../development/architecture/" class="md-tabs__link">
+        <a href="../../../development/architecture/" class="md-tabs__link">
           
   
   
@@ -400,7 +400,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+    <a href="../../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
@@ -430,7 +430,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -486,7 +486,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../getting-started/" class="md-nav__link ">
+            <a href="../../../getting-started/" class="md-nav__link ">
               
   
   
@@ -530,7 +530,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/install/" class="md-nav__link">
+      <a href="../../../getting-started/install/" class="md-nav__link">
         
   
   
@@ -558,7 +558,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/quickstart/" class="md-nav__link">
+      <a href="../../../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -586,7 +586,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/concepts/" class="md-nav__link">
+      <a href="../../../getting-started/concepts/" class="md-nav__link">
         
   
   
@@ -650,7 +650,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../guides/" class="md-nav__link ">
+            <a href="../../../guides/" class="md-nav__link ">
               
   
   
@@ -694,7 +694,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/panel-timeseries/" class="md-nav__link">
+      <a href="../../../guides/panel-timeseries/" class="md-nav__link">
         
   
   
@@ -722,7 +722,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/batch-screening/" class="md-nav__link">
+      <a href="../../../guides/batch-screening/" class="md-nav__link">
         
   
   
@@ -750,7 +750,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/choosing-metric/" class="md-nav__link">
+      <a href="../../../guides/choosing-metric/" class="md-nav__link">
         
   
   
@@ -849,7 +849,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/metric-applicability/" class="md-nav__link">
+      <a href="../../../reference/metric-applicability/" class="md-nav__link">
         
   
   
@@ -877,7 +877,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/standalone-metrics/" class="md-nav__link">
+      <a href="../../../reference/standalone-metrics/" class="md-nav__link">
         
   
   
@@ -905,7 +905,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/statistical-methods/" class="md-nav__link">
+      <a href="../../../reference/statistical-methods/" class="md-nav__link">
         
   
   
@@ -933,7 +933,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/warning-codes/" class="md-nav__link">
+      <a href="../../../reference/warning-codes/" class="md-nav__link">
         
   
   
@@ -961,7 +961,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/bibliography/" class="md-nav__link">
+      <a href="../../../reference/bibliography/" class="md-nav__link">
         
   
   
@@ -1069,7 +1069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../analysis-config/" class="md-nav__link">
+      <a href="../../analysis-config/" class="md-nav__link">
         
   
   
@@ -1094,37 +1094,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    evaluate
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../evaluate/" class="md-nav__link">
         
   
   
@@ -1140,48 +1113,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#call-shape" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Call shape
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#factrix.evaluate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        evaluate
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1194,7 +1125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../factor-profile/" class="md-nav__link">
+      <a href="../../factor-profile/" class="md-nav__link">
         
   
   
@@ -1222,7 +1153,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metric-output/" class="md-nav__link">
+      <a href="../../metric-output/" class="md-nav__link">
         
   
   
@@ -1250,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../multi-factor/" class="md-nav__link">
+      <a href="../../multi-factor/" class="md-nav__link">
         
   
   
@@ -1278,7 +1209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../datasets/" class="md-nav__link">
+      <a href="../../datasets/" class="md-nav__link">
         
   
   
@@ -1303,8 +1234,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1332,15 +1265,15 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../metrics/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -1364,7 +1297,7 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1454,7 +1387,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/individual-continuous/" class="md-nav__link">
+      <a href="../individual-continuous/" class="md-nav__link">
         
   
   
@@ -1482,7 +1415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/ic/" class="md-nav__link">
+      <a href="../ic/" class="md-nav__link">
         
   
   
@@ -1510,7 +1443,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/fama_macbeth/" class="md-nav__link">
+      <a href="../fama_macbeth/" class="md-nav__link">
         
   
   
@@ -1538,7 +1471,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/quantile/" class="md-nav__link">
+      <a href="../quantile/" class="md-nav__link">
         
   
   
@@ -1566,7 +1499,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/monotonicity/" class="md-nav__link">
+      <a href="../monotonicity/" class="md-nav__link">
         
   
   
@@ -1594,7 +1527,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/concentration/" class="md-nav__link">
+      <a href="../concentration/" class="md-nav__link">
         
   
   
@@ -1622,7 +1555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/tradability/" class="md-nav__link">
+      <a href="../tradability/" class="md-nav__link">
         
   
   
@@ -1650,7 +1583,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/spanning/" class="md-nav__link">
+      <a href="../spanning/" class="md-nav__link">
         
   
   
@@ -1754,7 +1687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/individual-sparse/" class="md-nav__link">
+      <a href="../individual-sparse/" class="md-nav__link">
         
   
   
@@ -1782,7 +1715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/caar/" class="md-nav__link">
+      <a href="../caar/" class="md-nav__link">
         
   
   
@@ -1810,7 +1743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/event_quality/" class="md-nav__link">
+      <a href="../event_quality/" class="md-nav__link">
         
   
   
@@ -1838,7 +1771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/event_horizon/" class="md-nav__link">
+      <a href="../event_horizon/" class="md-nav__link">
         
   
   
@@ -1866,7 +1799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/mfe_mae/" class="md-nav__link">
+      <a href="../mfe_mae/" class="md-nav__link">
         
   
   
@@ -1894,7 +1827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/clustering/" class="md-nav__link">
+      <a href="../clustering/" class="md-nav__link">
         
   
   
@@ -1922,7 +1855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/corrado/" class="md-nav__link">
+      <a href="../corrado/" class="md-nav__link">
         
   
   
@@ -2020,7 +1953,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/common-continuous/" class="md-nav__link">
+      <a href="../common-continuous/" class="md-nav__link">
         
   
   
@@ -2048,7 +1981,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/ts_beta/" class="md-nav__link">
+      <a href="../ts_beta/" class="md-nav__link">
         
   
   
@@ -2076,7 +2009,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/ts_quantile/" class="md-nav__link">
+      <a href="../ts_quantile/" class="md-nav__link">
         
   
   
@@ -2104,7 +2037,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/ts_asymmetry/" class="md-nav__link">
+      <a href="../ts_asymmetry/" class="md-nav__link">
         
   
   
@@ -2137,8 +2070,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -2159,11 +2094,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7_5" checked>
         
           
           <label class="md-nav__link" for="__nav_5_7_5" id="__nav_5_7_5_label" tabindex="0">
@@ -2184,7 +2119,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_7_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -2199,10 +2134,19 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../metrics/series-tools/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -2218,6 +2162,7 @@
   
 
       </a>
+      
     </li>
   
 
@@ -2230,7 +2175,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/hit_rate/" class="md-nav__link">
+      <a href="../hit_rate/" class="md-nav__link">
         
   
   
@@ -2258,7 +2203,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/trend/" class="md-nav__link">
+      <a href="../trend/" class="md-nav__link">
         
   
   
@@ -2286,7 +2231,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics/oos/" class="md-nav__link">
+      <a href="../oos/" class="md-nav__link">
         
   
   
@@ -2362,7 +2307,7 @@
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../examples/" class="md-nav__link ">
+            <a href="../../../examples/" class="md-nav__link ">
               
   
   
@@ -2406,7 +2351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../examples/demo/" class="md-nav__link">
+      <a href="../../../examples/demo/" class="md-nav__link">
         
   
   
@@ -2503,7 +2448,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/architecture/" class="md-nav__link">
+      <a href="../../../development/architecture/" class="md-nav__link">
         
   
   
@@ -2531,7 +2476,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/design-notes/" class="md-nav__link">
+      <a href="../../../development/design-notes/" class="md-nav__link">
         
   
   
@@ -2559,7 +2504,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/contributing/" class="md-nav__link">
+      <a href="../../../development/contributing/" class="md-nav__link">
         
   
   
@@ -2587,7 +2532,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../development/changelog/" class="md-nav__link">
+      <a href="../../../development/changelog/" class="md-nav__link">
         
   
   
@@ -2635,36 +2580,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#call-shape" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Call shape
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#factrix.evaluate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        evaluate
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -2680,7 +2595,7 @@
 
 
   
-    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/api/evaluate.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/api/metrics/series-tools.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2688,165 +2603,41 @@
   
 
 
-<h1 id="evaluate">evaluate<a class="headerlink" href="#evaluate" title="Permanent link">&para;</a></h1>
-<p>Single-factor evaluation entry point. Routes a
-<code>(raw, AnalysisConfig)</code> pair to the procedure registered for the
-dispatch cell and returns a <a href="../factor-profile/"><code>FactorProfile</code></a>.</p>
-<h2 id="call-shape">Call shape<a class="headerlink" href="#call-shape" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">config</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span><span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">profile</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">raw_panel</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">profile</span><span class="o">.</span><span class="n">diagnose</span><span class="p">()</span>
-</span></code></pre></div>
-<p><code>raw_panel</code> is a long DataFrame with at least <code>date, asset_id, factor</code>
-plus the columns the chosen cell needs (<code>forward_return</code> for most
-panels; <code>price</code> for event-window metrics). <code>config</code> selects the cell
-(<code>Scope × Signal × Metric</code>); <code>evaluate</code> looks up the procedure
-registered for that cell, runs the registered metrics, and packages
-the outputs as a <code>FactorProfile</code>.</p>
-<p>Dispatch is <strong>explicit</strong> — there is no auto-fallback when the panel
-shape does not match the cell. <code>N == 1</code> is the one exception:
-<code>Common × Continuous</code> auto-routes to the TIMESERIES single-series path
-(<code>profile.mode == "TIMESERIES"</code>) so single-asset macro factors still
-flow through.</p>
-<p>For an end-to-end walkthrough see
-<a href="../../examples/demo/">Examples § End-to-end walkthrough</a>.</p>
-
-
-<div class="doc doc-object doc-function">
-
-
-<h2 id="factrix.evaluate" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">factrix.evaluate</span>
-
-
-<a href="#factrix.evaluate" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate</span><span class="p">(</span><span class="n">raw</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="s1">&#39;AnalysisConfig&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s1">&#39;FactorProfile&#39;</span>
-</span></code></pre></div>
-
-    <div class="doc doc-contents first">
-
-        <p>Dispatch <code>config + raw</code> to the registered procedure.</p>
-<p>Mode is derived from <code>raw</code> (<code>N == 1</code> → <code>TIMESERIES</code>, else
-<code>PANEL</code>). Sparse signals at <code>N == 1</code> collapse the scope axis
-so <code>individual_sparse</code> and <code>common_sparse</code> route to the same
-cell, tagged with <code>InfoCode.SCOPE_AXIS_COLLAPSED</code> on the
-returned profile.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>raw</code>
-            </td>
-            <td>
-                  <code><span title="typing.Any">Any</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Canonical-column panel (<code>date, asset_id, factor,
-forward_return</code>). Schema is validated downstream by the
-registered procedure.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>config</code>
-            </td>
-            <td>
-                  <code>&#39;AnalysisConfig&#39;</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Validated <code>AnalysisConfig</code> produced by one of the
-four factory methods.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code>&#39;FactorProfile&#39;</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>FactorProfile</code> populated by the procedure registered for</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code>&#39;FactorProfile&#39;</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the routed dispatch cell.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="factrix._errors.ModeAxisError">ModeAxisError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the routed cell has no registered procedure
-under the derived mode (e.g. <code>(INDIVIDUAL, CONTINUOUS, *)</code>
-at <code>N == 1</code>); the error carries a nearest-legal
-<code>suggested_fix</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    </div>
-
-</div>
+<h1 id="series-tools">Series tools<a class="headerlink" href="#series-tools" title="Permanent link">&para;</a></h1>
+<p>Axis-agnostic metrics that operate on any <code>(date, value)</code> series
+produced by an upstream cell metric — IC time series, <span class="arithmatex">\(\beta\)</span> time
+series, CAAR time series, an external factor return, etc. They do not
+care which cell produced the series.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Role</th>
+<th>Page</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Out-of-sample decay across multiple splits</td>
+<td>Robustness</td>
+<td><a href="../oos/"><code>oos</code></a></td>
+</tr>
+<tr>
+<td>Theil-Sen monotonic trend with ADF persistence flag</td>
+<td>Diagnostic</td>
+<td><a href="../trend/"><code>trend</code></a></td>
+</tr>
+<tr>
+<td>Sign-consistency / hit rate of the series</td>
+<td>Diagnostic</td>
+<td><a href="../hit_rate/"><code>hit_rate</code></a></td>
+</tr>
+</tbody>
+</table>
+<p>Use these against the IC series from <a href="../ic/"><code>ic.compute_ic</code></a>, the
+CAAR series from <a href="../caar/"><code>caar.compute_caar</code></a>, or any externally
+constructed <code>(date, value)</code> DataFrame to layer decay, drift, and
+sign-stability checks on top of the cell's primary inferential test.</p>
 
 
 
@@ -2902,12 +2693,12 @@ at <code>N == 1</code>); the error carries a nearest-legal
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
-        <script src="../../javascripts/mathjax.js"></script>
+        <script src="../../../javascripts/mathjax.js"></script>
       
         <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       

@@ -1335,6 +1335,8 @@
       
         
       
+        
+      
     
     
     
@@ -1379,6 +1381,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1586,6 +1616,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1680,6 +1721,8 @@
       
         
       
+        
+      
     
     
     
@@ -1724,6 +1767,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1916,6 +1987,8 @@
       
         
       
+        
+      
     
     
     
@@ -1960,6 +2033,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2068,6 +2169,8 @@
       
         
       
+        
+      
     
     
     
@@ -2112,6 +2215,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series tools
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2559,6 +2690,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2773,12 +2915,15 @@ top 20%).</p>
 
 <details class="notes" open>
   <summary>Notes</summary>
-  <p>Per non-overlap date <code>t</code> with top-bucket members <code>Q_top(t)</code>
-(size <code>n_top</code>), define weights <code>w_i</code> by <code>weight_by</code> and form
-the Herfindahl <code>HHI_t = sum_i (w_i / sum_j w_j)^2</code>. Effective
-independent bets <code>eff_n_t = 1 / HHI_t</code>. Per-date diversification
-ratio <code>r_t = eff_n_t / n_top</code> is averaged and tested one-sided
-against <code>H0: E[r] &gt;= 0.5</code>: rejecting flags concentration.</p>
+  <p>Per non-overlap date <span class="arithmatex">\(t\)</span> with top-bucket members <span class="arithmatex">\(Q^{\mathrm{top}}(t)\)</span>
+(size <span class="arithmatex">\(n^{\mathrm{top}}\)</span>), define weights <span class="arithmatex">\(w_i\)</span> by <code>weight_by</code>
+and form the Herfindahl
+<span class="arithmatex">\(\mathrm{HHI}_t = \sum_i (w_i / \sum_j w_j)^2\)</span>. Effective
+independent bets <span class="arithmatex">\(n^{\mathrm{eff}}_t = 1 / \mathrm{HHI}_t\)</span>.
+Per-date diversification ratio
+<span class="arithmatex">\(r_t = n^{\mathrm{eff}}_t / n^{\mathrm{top}}\)</span> is averaged and tested
+one-sided against <span class="arithmatex">\(H_0: \mathbb{E}[r] \geq 0.5\)</span>: rejecting flags
+concentration.</p>
 <p>factrix uses <code>rank(method="average")</code> for the top-bucket cutoff
 — <code>tie_policy</code> from Config does not apply because HHI measures
 concentration <em>among</em> the selected stocks, not their bucketing.
@@ -2797,7 +2942,12 @@ re-rankings).</p>
 
     </div>
 
-</div>
+</div><h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../../reference/metric-applicability/">Reference § Metric applicability</a> — when this metric applies and sample-size guards.</li>
+<li><a href="../../../reference/statistical-methods/">Reference § Statistical methods</a> — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.</li>
+<li><a href="../individual-continuous/">Individual continuous landing page</a> — adjacent metrics in the same cell.</li>
+</ul>
 
 
 
@@ -2857,6 +3007,10 @@ re-rankings).</p>
     
     
       <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>

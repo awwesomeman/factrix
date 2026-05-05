@@ -45,6 +45,10 @@
          <lastmod>2026-05-05</lastmod>
     </url>
     <url>
+         <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/common-continuous/</loc>
+         <lastmod>2026-05-05</lastmod>
+    </url>
+    <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/concentration/</loc>
          <lastmod>2026-05-05</lastmod>
     </url>
@@ -73,6 +77,14 @@
          <lastmod>2026-05-05</lastmod>
     </url>
     <url>
+         <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/individual-continuous/</loc>
+         <lastmod>2026-05-05</lastmod>
+    </url>
+    <url>
+         <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/individual-sparse/</loc>
+         <lastmod>2026-05-05</lastmod>
+    </url>
+    <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/mfe_mae/</loc>
          <lastmod>2026-05-05</lastmod>
     </url>
@@ -86,6 +98,10 @@
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/quantile/</loc>
+         <lastmod>2026-05-05</lastmod>
+    </url>
+    <url>
+         <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/series-tools/</loc>
          <lastmod>2026-05-05</lastmod>
     </url>
     <url>
