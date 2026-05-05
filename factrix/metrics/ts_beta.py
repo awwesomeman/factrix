@@ -69,7 +69,7 @@ def compute_ts_betas(
         per-asset diagnostic without affecting stage-2 inference.
 
     References:
-        [Black-Jensen-Scholes 1972](../../reference/bibliography.md#black-jensen-scholes-1972): per-
+        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]: per-
         asset time-series beta then cross-asset aggregation; the
         order this two-stage path mirrors.
     """
@@ -198,7 +198,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         latent common factor links them.
 
     References:
-        [Black-Jensen-Scholes 1972](../../reference/bibliography.md#black-jensen-scholes-1972): the
+        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]: the
         cross-asset t on E[beta] this function implements.
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()

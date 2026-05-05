@@ -137,7 +137,7 @@ def spanning_alpha(
 
     References:
         Barillas & Shanken (2017), "Which Alpha?"
-        [White 1980](../../reference/bibliography.md#white-1980): heteroskedasticity-consistent SE
+        [White 1980][white-1980]: heteroskedasticity-consistent SE
         ancestor of the HAC variants applicable when overlap is added.
     """
     if base_spreads is None:

@@ -75,9 +75,9 @@ def ic_trend(
         Sen (1968), "Estimates of the Regression Coefficient Based on Kendall's Tau."
         Lou & Polk (2022), "Comomentum" — factor crowding/decay framework.
         Stock & Watson (1988), "Variable Trends in Economic Time Series."
-        [Dickey-Fuller 1979](../../reference/bibliography.md#dickey-fuller-1979): ADF persistence
+        [Dickey-Fuller 1979][dickey-fuller-1979]: ADF persistence
         diagnostic on the input series.
-        [MacKinnon 1996](../../reference/bibliography.md#mackinnon-1996): ADF p-value response surface
+        [MacKinnon 1996][mackinnon-1996]: ADF p-value response surface
         used by ``_adf_pvalue_interp``.
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):

@@ -96,11 +96,11 @@ def ts_quantile_spread(
         relies on.
 
     References:
-        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC covariance under-pinning
+        [Newey-West 1987][newey-west-1987]: HAC covariance under-pinning
         the Wald test.
-        [Andrews 1991](../../reference/bibliography.md#andrews-1991): Bartlett growth rate ``T^(1/3)``
+        [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``
         used for the default lag.
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): ``forward_periods - 1``
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
     """
     if "date" not in df.columns:

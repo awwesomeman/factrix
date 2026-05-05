@@ -5,7 +5,7 @@ the four factory methods on the class — direct construction works but
 runs the same `__post_init__` validation, so the factories are the
 documented user surface.
 
-See [Methodology](../development/methodology.md) for the axis taxonomy
+See [Concepts](../getting-started/concepts.md) for the axis taxonomy
 and [Statistical methods](../reference/statistical-methods.md) for procedure
 selection rationale.
 

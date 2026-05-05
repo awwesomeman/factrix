@@ -143,7 +143,7 @@ def quantile_spread(
         sibling routes — overlap variants live alongside ``ic_newey_west``.
 
     References:
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): overlapping-return
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
         autocorrelation, motivating the non-overlap stride.
     """
     # Compute tie_ratio on the sampled subset (what bucketing actually sees)

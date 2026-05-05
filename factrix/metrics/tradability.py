@@ -111,7 +111,7 @@ def turnover(
         for those.
 
     References:
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): justifies the
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: justifies the
         ``2h + 1`` minimum-date floor for non-overlap pair stride ``h``.
     """
     if quantile is not None and not 0.0 < quantile < 0.5:

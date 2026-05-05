@@ -60,7 +60,7 @@ def compute_ic(
         rank-correlation estimates with degenerate variance.
 
     References:
-        [Grinold 1989](../../reference/bibliography.md#grinold-1989): ``IR ≈ IC × sqrt(breadth)`` motivates
+        [Grinold 1989][grinold-1989]: ``IR ≈ IC × sqrt(breadth)`` motivates
         IC as the canonical signal-quality measure.
     """
     ranked = df.with_columns(
@@ -104,9 +104,9 @@ def ic(
         as ``ic_newey_west`` for callers who prefer to keep every sample.
 
     References:
-        [Grinold 1989](../../reference/bibliography.md#grinold-1989): IC as the canonical signal-quality
+        [Grinold 1989][grinold-1989]: IC as the canonical signal-quality
         measure under the Fundamental Law of Active Management.
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): K-period overlapping
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: K-period overlapping
         returns carry MA(K-1) autocorrelation — the motivation for the
         non-overlap stride used here.
     """
@@ -170,12 +170,12 @@ def ic_newey_west(
         across reruns, and adequate at the typical T of factor research.
 
     References:
-        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC variance estimator.
-        [Andrews 1991](../../reference/bibliography.md#andrews-1991): optimal Bartlett growth rate
+        [Newey-West 1987][newey-west-1987]: HAC variance estimator.
+        [Andrews 1991][andrews-1991]: optimal Bartlett growth rate
         ``T^(1/3)`` underlying the default lag rule.
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): ``forward_periods - 1``
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
-        [Newey-West 1994](../../reference/bibliography.md#newey-west-1994): data-adaptive lag-selection
+        [Newey-West 1994][newey-west-1994]: data-adaptive lag-selection
         alternative; cited as background.
     """
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
@@ -232,7 +232,7 @@ def ic_ir(
         in ``ic`` / ``ic_newey_west``.
 
     References:
-        [Grinold 1989](../../reference/bibliography.md#grinold-1989): ICIR is the time-stability
+        [Grinold 1989][grinold-1989]: ICIR is the time-stability
         normalisation that completes the IR decomposition.
     """
     ic_vals = ic_df["ic"].drop_nulls()
@@ -299,7 +299,7 @@ def regime_ic(
 
     References:
         Chen & Zimmermann (2022): report sub-period t-stats separately.
-        [Benjamini-Yekutieli 2001](../../reference/bibliography.md#benjamini-yekutieli-2001): FDR control
+        [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]: FDR control
         under arbitrary dependence; the BHY adjustment used here.
     """
     if len(ic_df) < MIN_ASSETS_PER_DATE_IC:
@@ -428,11 +428,11 @@ def multi_horizon_ic(
         by ``h`` and a unified HAC kernel would be misspecified.
 
     References:
-        [Grinold 1989](../../reference/bibliography.md#grinold-1989): motivates IC as the canonical
+        [Grinold 1989][grinold-1989]: motivates IC as the canonical
         signal-quality summary across horizons.
-        [Benjamini-Yekutieli 2001](../../reference/bibliography.md#benjamini-yekutieli-2001): BHY adjustment
+        [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]: BHY adjustment
         used to control FDR across the horizon sweep.
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): per-horizon overlap
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: per-horizon overlap
         rule motivating the per-horizon stride.
     """
     if periods is None:

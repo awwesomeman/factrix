@@ -70,7 +70,7 @@ def compute_fm_betas(
         series with no NaN propagation in the NW kernel.
 
     References:
-        [Fama-MacBeth 1973](../../reference/bibliography.md#fama-macbeth-1973): the per-date cross-
+        [Fama-MacBeth 1973][fama-macbeth-1973]: the per-date cross-
         sectional regression at stage 1 of the FM procedure.
     """
     dates = df["date"].unique().sort()
@@ -161,11 +161,11 @@ def fama_macbeth(
         so the correction is honest only for large T.
 
     References:
-        [Fama-MacBeth 1973](../../reference/bibliography.md#fama-macbeth-1973): two-stage lambda
+        [Fama-MacBeth 1973][fama-macbeth-1973]: two-stage lambda
         procedure underlying this test.
-        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC variance estimator.
-        [Andrews 1991](../../reference/bibliography.md#andrews-1991): optimal Bartlett growth rate.
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): overlap horizon
+        [Newey-West 1987][newey-west-1987]: HAC variance estimator.
+        [Andrews 1991][andrews-1991]: optimal Bartlett growth rate.
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlap horizon
         flooring the kernel.
         Shanken (1992), "On the Estimation of Beta-Pricing Models."
         Kan-Zhang (1999), "Two-Pass Tests of Asset Pricing Models with
@@ -318,9 +318,9 @@ def pooled_ols(
         motivated using clustered SE in the first place.
 
     References:
-        [Petersen 2009](../../reference/bibliography.md#petersen-2009): comparison of FM, clustered, and
+        [Petersen 2009][petersen-2009]: comparison of FM, clustered, and
         two-way SE under firm/time correlation.
-        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC variance ancestor of the
+        [Newey-West 1987][newey-west-1987]: HAC variance ancestor of the
         sandwich form used here.
         Cameron, Gelbach & Miller (2011), "Robust Inference With
         Multiway Clustering."

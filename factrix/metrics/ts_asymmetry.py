@@ -112,10 +112,10 @@ def ts_asymmetry(
         cross-method p-values comparable.
 
     References:
-        [Newey-West 1987](../../reference/bibliography.md#newey-west-1987): HAC covariance underpinning
+        [Newey-West 1987][newey-west-1987]: HAC covariance underpinning
         the Wald tests for both methods.
-        [Andrews 1991](../../reference/bibliography.md#andrews-1991): Bartlett growth rate ``T^(1/3)``.
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): ``forward_periods - 1``
+        [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``.
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
     """
     if "date" not in df.columns:

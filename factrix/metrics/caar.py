@@ -91,9 +91,9 @@ def compute_caar(
         primitive.
 
     References:
-        [MacKinlay 1997](../../reference/bibliography.md#mackinlay-1997): standardised event-window /
+        [MacKinlay 1997][mackinlay-1997]: standardised event-window /
         estimation-window vocabulary inherited by ``EventConfig``.
-        [Brown-Warner 1985](../../reference/bibliography.md#brown-warner-1985): daily event-study
+        [Brown-Warner 1985][brown-warner-1985]: daily event-study
         methodology backing the parametric-test path.
     """
     return (
@@ -135,9 +135,9 @@ def caar(
         variance regimes.
 
     References:
-        [Brown-Warner 1985](../../reference/bibliography.md#brown-warner-1985): daily event-study
+        [Brown-Warner 1985][brown-warner-1985]: daily event-study
         t-test specification at standard sample sizes.
-        [MacKinlay 1997](../../reference/bibliography.md#mackinlay-1997): event-window vocabulary.
+        [MacKinlay 1997][mackinlay-1997]: event-window vocabulary.
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
@@ -239,7 +239,7 @@ def bmp_test(
         adjustment when ``clustering_hhi`` flags same-date shock sharing.
 
     References:
-        [Boehmer-Musumeci-Poulsen 1991](../../reference/bibliography.md#boehmer-musumeci-poulsen-1991):
+        [Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]:
         the BMP standardised AR test.
         Kolari & Pynnönen (2010), "Event Study Testing with Cross-
         Sectional Correlation of Abnormal Returns."

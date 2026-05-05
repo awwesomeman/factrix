@@ -42,6 +42,8 @@ plugins:
   - search:
       lang:
         - en
+  - autorefs:
+      resolve_closest: true
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -153,6 +155,6 @@ nav:
       - End-to-end walkthrough: examples/demo.ipynb
   - Development:
       - Architecture: development/architecture.md
-      - Methodology: development/methodology.md
+      - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
       - Changelog: development/changelog.md

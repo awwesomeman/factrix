@@ -51,7 +51,7 @@ def hit_rate(
         autocorrelation from overlapping forward returns does not leak in.
 
     References:
-        [Hansen-Hodrick 1980](../../reference/bibliography.md#hansen-hodrick-1980): overlapping-return
+        [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
         autocorrelation horizon motivating the non-overlap stride.
     """
     sampled = _sample_non_overlapping(series, forward_periods)
