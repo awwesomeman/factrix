@@ -29,8 +29,6 @@ _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
 
-_GITHUB_BASE = "https://github.com/awwesomeman/factrix/blob/main/"
-
 _TABLE_HEADER = (
     "| Module | Cell scope | Aggregation order | Inference SE |\n"
     "|---|---|---|---|\n"
@@ -75,8 +73,7 @@ def _build_table_row(module_path: pathlib.Path, row_value: str) -> str:
     _public_fns, cell_scope, agg_order, inference_se, _primitives = parts
 
     stem = module_path.stem
-    github_url = _GITHUB_BASE + f"factrix/metrics/{stem}.py"
-    module_cell = f"[`metrics/{stem}.py`]({github_url})"
+    module_cell = f"[`metrics.{stem}`][factrix.metrics.{stem}]"
 
     return (
         f"| {module_cell} | `{cell_scope}` | {agg_order} | {inference_se} |\n"
