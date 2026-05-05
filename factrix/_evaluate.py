@@ -45,7 +45,7 @@ def _derive_mode(raw: Any) -> Mode:
     return Mode.TIMESERIES if raw["asset_id"].n_unique() <= 1 else Mode.PANEL
 
 
-def _evaluate(raw: Any, config: "AnalysisConfig") -> "FactorProfile":
+def _evaluate(raw: Any, config: AnalysisConfig) -> FactorProfile:
     """Dispatch ``config + raw`` to the registered procedure.
 
     Mode is derived from ``raw`` (``N == 1`` → ``TIMESERIES``, else

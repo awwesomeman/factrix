@@ -39,8 +39,8 @@ class FactorProcedure(Protocol):
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile": ...
+        config: AnalysisConfig,
+    ) -> FactorProfile: ...
 
 
 class _ICContPanelProcedure:
@@ -58,8 +58,8 @@ class _ICContPanelProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         import numpy as np
 
         from factrix._codes import StatCode
@@ -120,8 +120,8 @@ class _FMContPanelProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         import numpy as np
 
         from factrix._codes import StatCode
@@ -191,8 +191,8 @@ class _CAARSparsePanelProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         import polars as pl
 
         from factrix._codes import StatCode
@@ -258,8 +258,8 @@ class _CommonContPanelProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         return _compute_common_panel(raw, config, with_adf=True)
 
 
@@ -285,8 +285,8 @@ class _CommonSparsePanelProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         import polars as pl
 
         from factrix._codes import WarningCode
@@ -341,11 +341,11 @@ class _CommonSparsePanelProcedure:
 
 def _compute_common_panel(
     raw: Any,
-    config: "AnalysisConfig",
+    config: AnalysisConfig,
     *,
     with_adf: bool,
-    extra_warnings: "frozenset[WarningCode]" = frozenset(),
-) -> "FactorProfile":
+    extra_warnings: frozenset[WarningCode] = frozenset(),
+) -> FactorProfile:
     """Shared core for the two ``(COMMON, *, None, PANEL)`` procedures.
 
     The two cells differ only in (a) whether ADF persistence is run on
@@ -435,8 +435,8 @@ class _TSBetaContTimeseriesProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         from factrix._codes import StatCode, WarningCode
         from factrix._errors import InsufficientSampleError
         from factrix._profile import FactorProfile
@@ -529,8 +529,8 @@ class _TSDummySparseTimeseriesProcedure:
     def compute(
         self,
         raw: Any,
-        config: "AnalysisConfig",
-    ) -> "FactorProfile":
+        config: AnalysisConfig,
+    ) -> FactorProfile:
         from factrix._codes import StatCode, WarningCode
         from factrix._errors import InsufficientSampleError
         from factrix._profile import FactorProfile

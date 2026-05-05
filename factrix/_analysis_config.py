@@ -29,7 +29,7 @@ from factrix._registry import matches_user_axis
 # not encode the suggestion at the ``raise`` site.
 _FALLBACK_MAP: dict[
     tuple[FactorScope, Signal, Mode],
-    Callable[[], "AnalysisConfig"],
+    Callable[[], AnalysisConfig],
 ] = {
     (
         FactorScope.INDIVIDUAL,

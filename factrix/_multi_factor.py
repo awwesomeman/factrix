@@ -49,7 +49,7 @@ class _FamilyKey:
     forward_periods: int
 
 
-def _family_key(profile: "FactorProfile") -> _FamilyKey:
+def _family_key(profile: FactorProfile) -> _FamilyKey:
     """Derive the BHY family key from a ``FactorProfile``.
 
     Reuses ``_route_scope`` so the sparse-N=1 collapse mirrors
@@ -75,7 +75,7 @@ def _family_key(profile: "FactorProfile") -> _FamilyKey:
 
 
 def _gate_p_value(
-    profile: "FactorProfile",
+    profile: FactorProfile,
     gate: StatCode | None,
 ) -> float:
     """Return ``primary_p`` (default) or ``stats[gate]`` for the BHY input.
@@ -92,11 +92,11 @@ def _gate_p_value(
 
 
 def bhy(
-    profiles: Iterable["FactorProfile"],
+    profiles: Iterable[FactorProfile],
     *,
     threshold: float = 0.05,
     gate: StatCode | None = None,
-) -> list["FactorProfile"]:
+) -> list[FactorProfile]:
     """BHY step-up FDR within each family; return the surviving subset.
 
     Profiles are grouped by family key (= dispatch cell × forward
@@ -138,7 +138,7 @@ def bhy(
             "(e.g. StatCode.IC_P, StatCode.FM_LAMBDA_P) or omit `gate=` "
             "to use the procedure-canonical primary_p.",
         )
-    families: dict[_FamilyKey, list["FactorProfile"]] = defaultdict(list)
+    families: dict[_FamilyKey, list[FactorProfile]] = defaultdict(list)
     for profile in profiles:
         families[_family_key(profile)].append(profile)
 
@@ -158,7 +158,7 @@ def bhy(
             stacklevel=2,
         )
 
-    survivors: list["FactorProfile"] = []
+    survivors: list[FactorProfile] = []
     for family_profiles in families.values():
         if not family_profiles:
             continue
