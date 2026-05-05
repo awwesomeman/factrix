@@ -55,7 +55,7 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
 
 ## `profile.diagnose()` and warnings
 
-`diagnose()` returns a flat dict for human inspection or AI agent triage:
+[`diagnose()`][factrix.FactorProfile.diagnose] returns a flat dict for human inspection or AI agent triage:
 
 ```python
 {
@@ -77,6 +77,6 @@ The most common warnings:
 | `EVENT_WINDOW_OVERLAP` | event windows overlap (CAAR / sparse) |
 | `SERIAL_CORRELATION_DETECTED` | Ljung-Box p < 0.05 on residuals |
 
-`warnings` does **not** affect `verdict()` — it is a risk flag. The user
-decides whether to filter on warnings before BHY. `verdict()` reads only
-`primary_p < threshold`.
+`warnings` does **not** affect [`verdict()`][factrix.FactorProfile.verdict] —
+it is a risk flag. The user decides whether to filter on warnings before
+BHY. `verdict()` reads only `primary_p < threshold`.

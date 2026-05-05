@@ -2,9 +2,9 @@
 
 ## Three orthogonal axes
 
-`AnalysisConfig` is defined by three user-facing axes. They are
-**orthogonal**: each supported combination maps to one specific statistical
-test.
+[`AnalysisConfig`][factrix.AnalysisConfig] is defined by three user-facing
+axes. They are **orthogonal**: each supported combination maps to one
+specific statistical test.
 
 | Axis | Values | What it asks |
 |------|--------|--------------|

@@ -18,7 +18,7 @@ profiles = [
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 ```
 
-`bhy()` automatically partitions by `(procedure, forward_periods)` — you do not pass a group key. Same-procedure, same-horizon profiles form one family. Different horizons always split: each horizon carries its own null distribution and effective sample size; pooling dilutes the step-up threshold and silently inflates FDR.
+[`bhy()`][factrix.multi_factor.bhy] automatically partitions by `(procedure, forward_periods)` — you do not pass a group key. Same-procedure, same-horizon profiles form one family. Different horizons always split: each horizon carries its own null distribution and effective sample size; pooling dilutes the step-up threshold and silently inflates FDR.
 
 If any family degenerates to size=1 (typical misuse: one factor evaluated across multiple scenarios), `bhy()` emits a `RuntimeWarning` — at size=1 BHY equals the raw threshold and provides no FDR correction.
 
