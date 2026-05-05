@@ -95,7 +95,7 @@ def generate() -> None:
 # ---------------------------------------------------------------------------
 
 
-def on_pre_build(config: object) -> None:  # noqa: ARG001
+def on_pre_build(config: object) -> None:
     """MkDocs hook: regenerate the matrix before every build."""
     generate()
 

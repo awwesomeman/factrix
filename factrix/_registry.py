@@ -141,7 +141,7 @@ def matches_user_axis(
 # usage of any helper defined below would create a circular-import
 # deadlock that will not surface until import time of a downstream
 # package — fail loudly here instead with the post-import assert below.
-from factrix import _procedures as _procedures  # noqa: E402, F401
+from factrix import _procedures as _procedures  # noqa: E402
 
 # Post-bootstrap invariant: 7 cells (5 PANEL + 2 TIMESERIES). Catches
 # accidental deletion of a register(...) call or a circular-import
