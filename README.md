@@ -8,6 +8,12 @@
     <a href="https://github.com/awwesomeman/factrix/releases" title="Version">
         <img src="https://img.shields.io/github/v/release/awwesomeman/factrix?color=3670A0&label=version" />
     </a>
+    <a href="https://github.com/awwesomeman/factrix/actions/workflows/test.yml" title="test workflow">
+        <img src="https://github.com/awwesomeman/factrix/actions/workflows/test.yml/badge.svg?branch=main" />
+    </a>
+    <a href="https://github.com/awwesomeman/factrix/actions/workflows/docs.yml" title="docs workflow">
+        <img src="https://github.com/awwesomeman/factrix/actions/workflows/docs.yml/badge.svg?branch=main" />
+    </a>
     <a href="https://www.python.org/downloads/" title="Python versions">
         <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" />
     </a>
