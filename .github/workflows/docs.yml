@@ -70,7 +70,15 @@ jobs:
 
       - name: Deploy dev (main branch)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: uv run mike deploy --push dev
+        run: |
+          uv run mike deploy --push dev
+          # Bootstrap the root redirect on a fresh gh-pages: point to dev
+          # until a release tag publishes 'latest' (which then claims the
+          # default in the tag job below). Idempotent: once 'latest'
+          # exists, this branch is skipped so we don't clobber it.
+          if ! uv run mike list 2>/dev/null | awk '{print $1}' | grep -qx latest; then
+            uv run mike set-default --push dev
+          fi
 
       - name: Deploy release (tag)
         if: startsWith(github.ref, 'refs/tags/v')
