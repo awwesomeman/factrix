@@ -2,7 +2,6 @@
 
 import numpy as np
 import pytest
-
 from factrix._stats import (
     _calc_t_stat,
     _significance_marker,

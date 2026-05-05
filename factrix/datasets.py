@@ -29,7 +29,6 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 
-
 _DEFAULT_START = "2020-01-02"
 
 

@@ -1,8 +1,8 @@
 """Tests for factrix.metrics.concentration."""
 
-import polars as pl
 from datetime import datetime, timedelta
 
+import polars as pl
 from factrix.metrics.concentration import top_concentration
 
 

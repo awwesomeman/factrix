@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import pytest
-
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
-from factrix._multi_factor import _FamilyKey, _family_key, bhy
+from factrix._multi_factor import _family_key, _FamilyKey, bhy
 from factrix._profile import FactorProfile
 from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey
 

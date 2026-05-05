@@ -18,6 +18,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
+from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS,
@@ -30,7 +31,6 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_high_tie_ratio,
 )
-from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 
 
 def monotonicity(

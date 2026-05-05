@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
 
 

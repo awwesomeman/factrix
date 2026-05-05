@@ -1,8 +1,8 @@
 """Tests for factrix.metrics.oos."""
 
 import math
-import pytest
 
+import pytest
 from factrix.metrics.oos import SplitDetail, multi_split_oos_decay
 
 
@@ -20,8 +20,9 @@ class TestMultiSplitOOSDecay:
         assert result.metadata["sign_flipped"] is True
 
     def test_insufficient_data(self):
-        import polars as pl
         from datetime import datetime, timedelta
+
+        import polars as pl
 
         # Only 6 rows — below MIN_OOS_PERIODS * 2 = 10
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(6)]
@@ -38,9 +39,10 @@ class TestMultiSplitOOSDecay:
         assert len(result.metadata["per_split"]) == 1
 
     def test_survival_below_threshold_vetoed(self):
-        import polars as pl
         from datetime import datetime, timedelta
+
         import numpy as np
+        import polars as pl
 
         rng = np.random.default_rng(99)
         # IS strong, OOS very weak
@@ -58,9 +60,10 @@ class TestMultiSplitOOSDecay:
 
     def test_median_not_mean(self):
         """Verify value is median of per-split ratios, not mean."""
-        import polars as pl
         from datetime import datetime, timedelta
+
         import numpy as np
+        import polars as pl
 
         rng = np.random.default_rng(123)
         values = rng.normal(0.05, 0.02, 60)

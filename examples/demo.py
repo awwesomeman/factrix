@@ -31,10 +31,9 @@ from __future__ import annotations
 import warnings
 from datetime import datetime, timedelta
 
+import factrix as fl
 import numpy as np
 import polars as pl
-
-import factrix as fl
 from factrix.preprocess.returns import compute_forward_return
 
 pl.Config.set_tbl_rows(8)

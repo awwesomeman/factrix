@@ -39,7 +39,12 @@ typical usage patterns in a single fetch. Two access paths::
 
 from factrix import datasets, multi_factor
 from factrix._analysis_config import AnalysisConfig
-from factrix._axis import FactorScope, Metric, Mode, Signal  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
+from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
+    FactorScope,
+    Metric,
+    Mode,
+    Signal,
+)
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
 from factrix._describe import (
     SuggestConfigResult,

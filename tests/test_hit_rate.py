@@ -1,10 +1,10 @@
 """Tests for factrix.metrics.hit_rate."""
 
 import math
-import polars as pl
-import pytest
 from datetime import datetime, timedelta
 
+import polars as pl
+import pytest
 from factrix.metrics.hit_rate import hit_rate
 
 

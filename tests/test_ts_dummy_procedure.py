@@ -13,7 +13,6 @@ import datetime as dt
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
@@ -21,9 +20,9 @@ from factrix._errors import InsufficientSampleError
 from factrix._evaluate import _evaluate
 from factrix._procedures import (
     InputSchema,
-    _TSDummySparseTimeseriesProcedure,
     _event_temporal_hhi,
     _has_event_window_overlap,
+    _TSDummySparseTimeseriesProcedure,
 )
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _SCOPE_COLLAPSED, _DispatchKey

@@ -34,69 +34,69 @@ Series tools — axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, multi_split_oos_decay
 """
 
-from factrix.metrics.ic import (
-    compute_ic,
-    ic,
-    ic_ir,
-    regime_ic,
-    multi_horizon_ic,
-)
-from factrix.metrics.hit_rate import hit_rate
-from factrix.metrics.trend import ic_trend
-from factrix.metrics.oos import multi_split_oos_decay
-from factrix.metrics.quantile import (
-    compute_spread_series,
-    quantile_spread,
-    quantile_spread_vw,
-    compute_group_returns,
-)
-from factrix.metrics.monotonicity import monotonicity
-from factrix.metrics.concentration import top_concentration
-from factrix.metrics.tradability import (
-    turnover,
-    notional_turnover,
-    breakeven_cost,
-    net_spread,
-)
-from factrix.metrics.spanning import spanning_alpha, greedy_forward_selection
 from factrix.metrics.caar import (
-    compute_caar,
-    caar,
     bmp_test,
+    caar,
+    compute_caar,
 )
-from factrix.metrics.event_quality import (
-    event_hit_rate,
-    event_ic,
-    profit_factor,
-    event_skewness,
-    signal_density,
-)
+from factrix.metrics.clustering import clustering_diagnostic
+from factrix.metrics.concentration import top_concentration
+from factrix.metrics.corrado import corrado_rank_test
 from factrix.metrics.event_horizon import (
     compute_event_returns,
     event_around_return,
     multi_horizon_hit_rate,
 )
+from factrix.metrics.event_quality import (
+    event_hit_rate,
+    event_ic,
+    event_skewness,
+    profit_factor,
+    signal_density,
+)
+from factrix.metrics.fama_macbeth import (
+    beta_sign_consistency,
+    compute_fm_betas,
+    fama_macbeth,
+    pooled_ols,
+)
+from factrix.metrics.hit_rate import hit_rate
+from factrix.metrics.ic import (
+    compute_ic,
+    ic,
+    ic_ir,
+    multi_horizon_ic,
+    regime_ic,
+)
 from factrix.metrics.mfe_mae import (
     compute_mfe_mae,
     mfe_mae_summary,
 )
-from factrix.metrics.clustering import clustering_diagnostic
-from factrix.metrics.corrado import corrado_rank_test
-from factrix.metrics.fama_macbeth import (
-    compute_fm_betas,
-    fama_macbeth,
-    pooled_ols,
-    beta_sign_consistency,
+from factrix.metrics.monotonicity import monotonicity
+from factrix.metrics.oos import multi_split_oos_decay
+from factrix.metrics.quantile import (
+    compute_group_returns,
+    compute_spread_series,
+    quantile_spread,
+    quantile_spread_vw,
 )
+from factrix.metrics.spanning import greedy_forward_selection, spanning_alpha
+from factrix.metrics.tradability import (
+    breakeven_cost,
+    net_spread,
+    notional_turnover,
+    turnover,
+)
+from factrix.metrics.trend import ic_trend
+from factrix.metrics.ts_asymmetry import ts_asymmetry
 from factrix.metrics.ts_beta import (
-    compute_ts_betas,
-    ts_beta,
-    mean_r_squared,
     compute_rolling_mean_beta,
+    compute_ts_betas,
+    mean_r_squared,
+    ts_beta,
     ts_beta_sign_consistency,
 )
 from factrix.metrics.ts_quantile import ts_quantile_spread
-from factrix.metrics.ts_asymmetry import ts_asymmetry
 
 __all__ = [
     "compute_ic",

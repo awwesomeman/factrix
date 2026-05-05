@@ -24,13 +24,13 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
     _binomial_test_method_name,
     _binomial_two_sided_p,
     _significance_marker,
 )
+from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
 

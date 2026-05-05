@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import polars as pl
 import pytest
-
 from factrix import datasets
 
 

@@ -6,14 +6,12 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix.metrics.caar import (
-    compute_caar,
-    caar,
     bmp_test,
+    caar,
+    compute_caar,
 )
 from factrix.metrics.event_quality import event_hit_rate, event_ic
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

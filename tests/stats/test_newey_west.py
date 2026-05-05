@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-
 from factrix._stats import (
     _newey_west_se,
     _newey_west_t_test,

@@ -16,15 +16,14 @@ from factrix._evaluate import _derive_mode
 from factrix._registry import (
     _DISPATCH_REGISTRY,
     _DispatchKey,
-    _ScopeCollapsedSentinel,
     _route_scope,
+    _ScopeCollapsedSentinel,
 )
 from factrix._stats.constants import (
     MIN_ASSETS_RELIABLE,
     MIN_PERIODS_HARD,
     MIN_PERIODS_RELIABLE,
 )
-
 
 # Sparsity threshold above which `factor` is treated as an event series.
 _SPARSITY_THRESHOLD: float = 0.5

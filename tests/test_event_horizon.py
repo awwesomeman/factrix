@@ -6,14 +6,12 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix.metrics.event_horizon import (
     compute_event_returns,
     event_around_return,
     multi_horizon_hit_rate,
 )
 from factrix.metrics.event_quality import signal_density
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

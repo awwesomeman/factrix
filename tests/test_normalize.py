@@ -1,8 +1,8 @@
 """Tests for factrix.preprocess.normalize."""
 
-import polars as pl
 from datetime import datetime
 
+import polars as pl
 from factrix.preprocess.normalize import cross_sectional_zscore, mad_winsorize
 
 

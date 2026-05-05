@@ -7,7 +7,6 @@ import datetime as dt
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric
 from factrix._codes import WarningCode
@@ -18,7 +17,6 @@ from factrix._describe import (
     suggest_config,
 )
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE
-
 
 # ---------------------------------------------------------------------------
 # describe_analysis_modes

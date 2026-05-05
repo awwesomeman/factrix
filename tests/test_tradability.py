@@ -1,15 +1,15 @@
 """Tests for factrix.metrics.tradability."""
 
 import math
-import polars as pl
-import pytest
 from datetime import datetime, timedelta
 
+import polars as pl
+import pytest
 from factrix.metrics.tradability import (
     breakeven_cost,
     net_spread,
-    turnover,
     notional_turnover,
+    turnover,
 )
 
 

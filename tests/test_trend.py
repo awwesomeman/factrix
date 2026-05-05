@@ -1,10 +1,10 @@
 """Tests for factrix.metrics.trend."""
 
 import math
-import polars as pl
-import pytest
 from datetime import datetime, timedelta
 
+import polars as pl
+import pytest
 from factrix.metrics.trend import ic_trend
 
 

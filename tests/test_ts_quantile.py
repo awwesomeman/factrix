@@ -7,7 +7,6 @@ import warnings
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix.metrics import ts_quantile_spread
 
 

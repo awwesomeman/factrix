@@ -18,9 +18,9 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
+from factrix._stats import _adf, _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
-from factrix._stats import _adf, _p_value_from_t, _significance_marker
 
 
 def ic_trend(

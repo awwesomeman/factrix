@@ -22,13 +22,13 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._types import DDOF, EPSILON, KPSource, MIN_EVENTS, MetricOutput
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
     _p_value_from_z,
     _significance_marker,
 )
+from factrix._types import DDOF, EPSILON, MIN_EVENTS, KPSource, MetricOutput
 from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_min_periods,
