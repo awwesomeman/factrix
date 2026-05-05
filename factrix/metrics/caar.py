@@ -19,17 +19,28 @@ Matrix-row: compute_caar, caar, bmp_test | (*, SPARSE, *, PANEL) | per-event | n
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import polars as pl
 
+from factrix._codes import WarningCode
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
     _p_value_from_z,
     _significance_marker,
 )
-from factrix._types import DDOF, EPSILON, MIN_EVENTS, KPSource, MetricOutput
+from factrix._types import (
+    DDOF,
+    EPSILON,
+    MIN_EVENTS_HARD,
+    MIN_EVENTS_WARN,
+    KPSource,
+    MetricOutput,
+)
 from factrix.metrics._helpers import (
+    _is_sparse_magnitude_weighted,
     _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
@@ -106,7 +117,26 @@ def compute_caar(
         produced when ``factor`` is continuous.
         [Brown-Warner 1985][brown-warner-1985]: daily event-study
         methodology backing the parametric-test path.
+
+    Note:
+        When ``factor_col`` triggers ``_is_sparse_magnitude_weighted``
+        the primitive emits a Python ``UserWarning`` directly. The
+        sparse PANEL procedures additionally attach
+        ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED`` to
+        ``FactorProfile.warnings`` independently — the dual emission is
+        deliberate so batch runs that silence Python warnings still
+        surface the regime-switch through the structured channel.
     """
+    if _is_sparse_magnitude_weighted(df, factor_col):
+        warnings.warn(
+            "compute_caar: factor column is mixed-sign and not a clean ±1 "
+            "ternary. The result is the Sefcik-Thompson (1986) "
+            "magnitude-weighted CAAR, not the textbook MacKinlay (1997) "
+            "signed CAAR; apply .sign() to the column before calling for "
+            "sign-flip semantics.",
+            UserWarning,
+            stacklevel=2,
+        )
     return (
         df.filter(pl.col(factor_col) != 0)
         .with_columns((pl.col(return_col) * pl.col(factor_col)).alias("_signed_car"))
@@ -151,14 +181,27 @@ def caar(
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
-    raw_min = _scaled_min_periods(MIN_EVENTS, forward_periods)
-    if n < raw_min:
+    raw_min_hard = _scaled_min_periods(MIN_EVENTS_HARD, forward_periods)
+    raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
+    if n < raw_min_hard:
         return _short_circuit_output(
             "caar",
             "insufficient_event_dates",
             n_observed=n,
-            min_required=raw_min,
+            min_required=raw_min_hard,
             forward_periods=forward_periods,
+        )
+
+    warning_codes: list[str] = []
+    if n < raw_min_warn:
+        warning_codes.append(WarningCode.FEW_EVENTS_BROWN_WARNER.value)
+        warnings.warn(
+            f"caar: n_event_dates={n} below MIN_EVENTS_WARN-scaled floor="
+            f"{raw_min_warn}; Brown-Warner (1985) convention treats sub-30 "
+            f"events as power-thin for the asymptotic t-distribution. "
+            f"t-stat returned but read p-values cautiously.",
+            UserWarning,
+            stacklevel=2,
         )
 
     mean_caar = float(vals.mean())
@@ -172,19 +215,23 @@ def caar(
     )
     p = _p_value_from_t(t, n_sampled)
 
+    metadata: dict = {
+        "n_event_dates": n,
+        "n_sampled": n_sampled,
+        "p_value": p,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "method": "non-overlapping t-test",
+    }
+    if warning_codes:
+        metadata["warning_codes"] = warning_codes
+
     return MetricOutput(
         name="caar",
         value=mean_caar,
         stat=t,
         significance=_significance_marker(p),
-        metadata={
-            "n_event_dates": n,
-            "n_sampled": n_sampled,
-            "p_value": p,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "method": "non-overlapping t-test",
-        },
+        metadata=metadata,
     )
 
 
@@ -196,6 +243,7 @@ def bmp_test(
     estimation_window: int = 60,
     forward_periods: int = 5,
     kolari_pynnonen_adjust: bool = False,
+    include_prediction_error_variance: bool = False,
 ) -> MetricOutput:
     r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
 
@@ -234,6 +282,28 @@ def bmp_test(
             factors of 1.5-2×. Enable this when the event-study
             ``clustering_hhi`` diagnostic is high (≥ 0.3) or when you
             otherwise expect same-date shock sharing.
+        include_prediction_error_variance: When True, inflate the
+            per-event standardiser by $\sqrt{1 + 1/T_{\mathrm{est}}}$
+            (with $T_{\mathrm{est}}$ = ``estimation_window``) to absorb
+            the prediction-error variance of the mean-adjusted residual
+            forecast — the strict BMP (1991) denominator. Default is
+            False, preserving the prior factrix denominator (residual
+            std only). Under mean-adjusted residuals + a single
+            ``estimation_window`` the correction scales every SAR by
+            the same constant, so ``mean_SAR`` and ``std_SAR`` shrink
+            by $1/\sqrt{1 + 1/T_{\mathrm{est}}}$ but the $z$ statistic
+            is invariant: the flag documents the strict standardiser,
+            it does not move inference in this regime. Per-event $T_i$
+            variation (which would move $z$) requires a market-model
+            extension and is out of scope here.
+
+            Caveat: ``rolling_std(min_samples=20)`` accepts events with
+            as few as 20 prior returns, so the effective $T_i$ for
+            early-history events can be smaller than ``estimation_window``.
+            The constant correction is therefore an approximation in
+            that regime; ensure every event has at least
+            ``estimation_window`` prior returns when the strict denominator
+            matters.
 
     Returns:
         MetricOutput(name="bmp_test", value=mean_SAR, stat=z_bmp, ...).
@@ -252,6 +322,8 @@ def bmp_test(
         rather than market-model residuals) — adequate for the default
         Brown-Warner / MacKinlay event-study path; pair with the K-P
         adjustment when ``clustering_hhi`` flags same-date shock sharing.
+        Pass ``include_prediction_error_variance=True`` for the strict
+        BMP denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$.
 
     References:
         [Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]:
@@ -274,6 +346,13 @@ def bmp_test(
     else:
         sorted_df = sorted_df.with_columns(pl.col(return_col).alias("_daily_ret"))
         vol_scale = 1.0
+
+    # Strict BMP (1991) denominator for mean-adjusted residuals: a
+    # forecast SE is √(1 + 1/T) larger than the in-sample residual std.
+    # Off by default — flipping it shifts every z by a known factor and
+    # downstream callers may calibrate against the simpler denominator.
+    if include_prediction_error_variance:
+        vol_scale *= float(np.sqrt(1.0 + 1.0 / estimation_window))
 
     # WHY: no .shift(1) needed — forward_return already starts at t+1
     # (compute_forward_return uses t+1 entry), so the estimation window
@@ -305,12 +384,12 @@ def bmp_test(
     )
 
     n_valid = len(valid)
-    if n_valid < MIN_EVENTS:
+    if n_valid < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "bmp_test",
             "insufficient_estimation_window",
             n_observed=n_valid,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     valid = valid.with_columns(
@@ -330,6 +409,7 @@ def bmp_test(
         "stat_type": "z",
         "h0": "mu_SAR=0",
         "method": "BMP standardized cross-sectional test",
+        "include_prediction_error_variance": include_prediction_error_variance,
     }
 
     if kolari_pynnonen_adjust:

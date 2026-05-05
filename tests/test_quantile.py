@@ -37,7 +37,7 @@ class TestQuantileSpread:
 
         import polars as pl
 
-        # 2 dates < MIN_PORTFOLIO_PERIODS=5
+        # 2 dates < MIN_PORTFOLIO_PERIODS_HARD=3
         df = pl.DataFrame(
             {
                 "date": [datetime(2024, 1, 1)] * 5 + [datetime(2024, 1, 2)] * 5,

@@ -30,7 +30,7 @@ from factrix._stats import (
     _binomial_two_sided_p,
     _significance_marker,
 )
-from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
+from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
 
@@ -61,12 +61,12 @@ def event_hit_rate(
     events = df.filter(pl.col(factor_col) != 0)
 
     n = len(events)
-    if n < MIN_EVENTS:
+    if n < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "event_hit_rate",
             "insufficient_events",
             n_observed=n,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -138,12 +138,12 @@ def event_ic(
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
 
-    if n < MIN_EVENTS:
+    if n < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "event_ic",
             "insufficient_events",
             n_observed=n,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     abs_signal = np.abs(events[factor_col].to_numpy())
@@ -212,12 +212,12 @@ def profit_factor(
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
 
-    if n < MIN_EVENTS:
+    if n < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "profit_factor",
             "insufficient_events",
             n_observed=n,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     signed = _signed_car(events, factor_col, return_col)
@@ -277,12 +277,12 @@ def event_skewness(
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
 
-    if n < MIN_EVENTS:
+    if n < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "event_skewness",
             "insufficient_events",
             n_observed=n,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     signed = _signed_car(events, factor_col, return_col)

@@ -23,7 +23,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
+from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
@@ -231,7 +231,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
 
     Returns:
         MetricOutput with value=MFE_p50/|MAE_p75| ratio. On insufficient
-        data (empty input or fewer than ``MIN_EVENTS`` rows), returns a
+        data (empty input or fewer than ``MIN_EVENTS_HARD`` rows), returns a
         short-circuit MetricOutput (``value=NaN``, ``metadata["reason"]``
         set) so all metrics share a single return contract.
 
@@ -255,12 +255,12 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         )
 
     n = len(mfe_mae_df)
-    if n < MIN_EVENTS:
+    if n < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "mfe_mae_summary",
             "insufficient_events",
             n_events=n,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     mfe_p50 = float(mfe_mae_df["mfe"].quantile(0.50))
@@ -287,7 +287,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     if "mfe_z" in mfe_mae_df.columns:
         mfe_z = mfe_mae_df["mfe_z"].drop_nulls().drop_nans()
         mae_z = mfe_mae_df["mae_z"].drop_nulls().drop_nans()
-        if len(mfe_z) >= MIN_EVENTS and len(mae_z) >= MIN_EVENTS:
+        if len(mfe_z) >= MIN_EVENTS_HARD and len(mae_z) >= MIN_EVENTS_HARD:
             mfe_z_p50 = float(mfe_z.quantile(0.50))
             mae_z_p75 = float(mae_z.quantile(0.75))
             metadata["mfe_z_p50"] = mfe_z_p50

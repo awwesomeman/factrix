@@ -11,7 +11,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._types import MetricOutput
+from factrix._types import EPSILON, MetricOutput
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -285,6 +285,37 @@ def _warn_high_tie_ratio(
         UserWarning,
         stacklevel=3,
     )
+
+
+def _is_sparse_magnitude_weighted(
+    df: pl.DataFrame,
+    factor_col: str = "factor",
+) -> bool:
+    """``True`` iff ``factor_col`` is mixed-sign and not a clean ±1 ternary.
+
+    Sparse procedures and ``compute_caar`` accept ``{0, 1}`` event
+    indicators or ``{0, R}, R ∈ ℝ`` magnitude-weighted columns. Mixed
+    signs with non-unit magnitudes (e.g. ``{-2.5, 0, +1.3}``) yield the
+    Sefcik-Thompson (1986) magnitude-weighted statistic rather than the
+    MacKinlay (1997) signed CAAR — a different estimator at finite
+    samples when the negative- and positive-leg vols disagree.
+    ``{-1, 0, +1}`` does not trigger (sign and weight semantics coincide
+    numerically); all-non-negative columns do not trigger (no flip
+    ambiguity).
+    """
+    nz = df.filter(pl.col(factor_col) != 0)[factor_col].unique().to_list()
+    if not nz:
+        return False
+    has_neg = any(v < 0 for v in nz)
+    has_pos = any(v > 0 for v in nz)
+    if not (has_neg and has_pos):
+        return False
+    # Tolerance check on |v|=1: upstream casts (e.g. .sign() composed
+    # with floating-point arithmetic) can produce values like
+    # ``-1.0000001`` that should still register as the clean ±1
+    # ternary regime. Reuses the project-wide numerical noise floor
+    # ``EPSILON``.
+    return not all(abs(abs(v) - 1.0) < EPSILON for v in nz)
 
 
 def _median_universe_size(df: pl.DataFrame) -> int:

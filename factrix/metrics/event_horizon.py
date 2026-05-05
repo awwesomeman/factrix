@@ -22,7 +22,7 @@ import numpy as np
 import polars as pl
 
 from factrix._stats import _significance_marker
-from factrix._types import EPSILON, MIN_EVENTS, MetricOutput
+from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
 
@@ -295,7 +295,7 @@ def multi_horizon_hit_rate(
     for h in horizons:
         subset = event_rets.filter(pl.col("offset") == h)["signed_return"]
         n = len(subset)
-        if n < MIN_EVENTS:
+        if n < MIN_EVENTS_HARD:
             per_horizon[h] = {"hit_rate": None, "n": n}
             continue
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._types import MIN_EVENTS, MetricOutput
+from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
 
@@ -65,12 +65,12 @@ def clustering_diagnostic(
     events = df.filter(pl.col(factor_col) != 0)
     n_events = len(events)
 
-    if n_events < MIN_EVENTS:
+    if n_events < MIN_EVENTS_HARD:
         return _short_circuit_output(
             "clustering_hhi",
             "insufficient_events",
             n_observed=n_events,
-            min_required=MIN_EVENTS,
+            min_required=MIN_EVENTS_HARD,
         )
 
     # Count events per date

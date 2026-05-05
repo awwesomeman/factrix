@@ -1,6 +1,7 @@
 """Tests for factrix.metrics.caar — CAAR, BMP, event_hit_rate, event_ic."""
 
 import math
+import warnings
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -181,6 +182,29 @@ class TestComputeCaarInputForms:
         assert len(result) == 1
         assert result["caar"][0] == pytest.approx(0.01)
 
+    def test_warns_on_mixed_sign_non_ternary(self):
+        df = _two_event_panel(2.5, -3.0, 0.01, 0.02)
+        with pytest.warns(UserWarning, match="magnitude-weighted CAAR"):
+            compute_caar(df)
+
+    def test_no_warn_on_clean_ternary(self):
+        df = _two_event_panel(-1.0, 1.0, -0.02, 0.03)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            compute_caar(df)  # must not raise
+
+    def test_no_warn_on_all_non_negative(self):
+        df = _two_event_panel(2.5, 3.0, 0.01, 0.02)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            compute_caar(df)
+
+    def test_no_warn_on_indicator_zero_one(self):
+        df = _two_event_panel(1.0, 1.0, 0.02, -0.01)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            compute_caar(df)
+
     def test_caller_can_opt_into_ternary_via_sign(self):
         df = pl.DataFrame(
             {
@@ -271,6 +295,61 @@ class TestBmpTest:
         # Scaling factor ≤ 1 always (r ∈ [0,1]), so |z_adj| ≤ |z_raw|.
         assert abs(adj.stat) <= abs(raw.stat) + 1e-9
         assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
+
+    def test_prediction_error_variance_default_off(self, strong_signal):
+        result = bmp_test(strong_signal)
+        assert result.metadata["include_prediction_error_variance"] is False
+
+    def test_prediction_error_variance_scales_value_and_std(self, strong_signal):
+        """Strict denominator √(1+1/T) shrinks each SAR uniformly; z is invariant."""
+        T = 60
+        ratio = 1.0 / math.sqrt(1.0 + 1.0 / T)
+        raw = bmp_test(strong_signal, estimation_window=T)
+        strict = bmp_test(
+            strong_signal,
+            estimation_window=T,
+            include_prediction_error_variance=True,
+        )
+        assert strict.metadata["include_prediction_error_variance"] is True
+        # Uniform SAR rescaling → mean and std scale by the same ratio,
+        # leaving z = mean / (std / √N) invariant. This is the expected
+        # property of BMP under mean-adjusted residuals + a single
+        # estimation_window; the flag exists to document the strict
+        # standardiser, not to alter inference in this regime.
+        assert strict.stat == pytest.approx(raw.stat, rel=1e-6)
+        assert strict.value == pytest.approx(raw.value * ratio, rel=1e-6)
+        assert strict.metadata["std_sar"] == pytest.approx(
+            raw.metadata["std_sar"] * ratio, rel=1e-6
+        )
+
+    def test_pe_variance_composes_with_kolari_pynnonen(self, strong_signal):
+        """Both flags on: PE scales SAR uniformly; KP shrinks z. No interference."""
+        T = 60
+        ratio = 1.0 / math.sqrt(1.0 + 1.0 / T)
+        base = bmp_test(strong_signal, estimation_window=T)
+        pe = bmp_test(
+            strong_signal,
+            estimation_window=T,
+            include_prediction_error_variance=True,
+        )
+        both = bmp_test(
+            strong_signal,
+            estimation_window=T,
+            include_prediction_error_variance=True,
+            kolari_pynnonen_adjust=True,
+        )
+        # PE alone leaves z untouched (uniform SAR rescaling).
+        assert pe.stat == pytest.approx(base.stat, rel=1e-6)
+        # PE+KP composition: value tracks PE rescaling; z is the KP-shrunk
+        # version of the (PE-invariant) BMP z, recoverable from
+        # stat_uncorrected.
+        assert both.metadata["include_prediction_error_variance"] is True
+        assert both.value == pytest.approx(base.value * ratio, rel=1e-6)
+        if both.metadata.get("kolari_pynnonen_applied"):
+            assert abs(both.stat) <= abs(both.metadata["stat_uncorrected"]) + 1e-9
+            assert both.metadata["stat_uncorrected"] == pytest.approx(
+                base.stat, rel=1e-6
+            )
 
     def test_kolari_pynnonen_skipped_without_clusters(self):
         """No multi-event dates → r̂ undefined → correction bypassed."""

@@ -26,6 +26,42 @@ CONTRIBUTING §7 (Release workflow).
 
 ### Added
 
+- **`bmp_test(include_prediction_error_variance=False)`** — opt-in
+  strict BMP (1991) denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$
+  for the mean-adjusted residual forecast. Default off preserves the
+  prior simplified denominator. Under a single ``estimation_window``
+  the correction scales every SAR by the same constant, so
+  ``mean_SAR`` / ``std_SAR`` shrink by the same ratio but the $z$
+  statistic is invariant; the flag documents the strict standardiser
+  rather than moving inference. Per-event $T_i$ variation (which
+  would move $z$) requires a market-model extension and remains out
+  of scope. (#48)
+- **`WarningCode.SPARSE_MAGNITUDE_WEIGHTED`** — emitted by
+  `compute_caar` (as a `UserWarning` on the primitive) and surfaced
+  in `FactorProfile.warnings` from the `(INDIVIDUAL, SPARSE, PANEL)`
+  / `(COMMON, SPARSE, PANEL)` procedures when the sparse `factor`
+  column is mixed-sign and not a clean ±1 ternary
+  (e.g. `{-2.5, 0, +1.3}`). The CAAR / sparse-panel statistic in
+  that regime is the Sefcik-Thompson (1986) magnitude-weighted
+  variant rather than the MacKinlay (1997) signed CAAR — a different
+  estimator at finite samples when negative- and positive-leg vols
+  disagree. ``{-1, 0, +1}`` does not trigger (sign and weight
+  coincide numerically); all-non-negative inputs do not trigger (no
+  flip ambiguity). Helper `_is_sparse_magnitude_weighted` (single
+  `.unique()` + sign distribution) is the shared check. (#48)
+- **`compute_ic` per-date `tie_ratio` column** — output schema widened
+  from `(date, ic)` to `(date, ic, tie_ratio)`, where
+  `tie_ratio = 1 - n_unique / n` per date in `[0, 1]`. Aggregated as
+  the median across dates and surfaced via
+  `MetricOutput.metadata["tie_ratio"]` for `ic`, `ic_newey_west`, and
+  `ic_ir`. Motivation: at high tie rates Spearman ρ on average ranks
+  is biased relative to the tie-corrected formula (Kendall-Stuart
+  §31), and the previous primitive contract gave callers no way to
+  detect bucketed / categorical signals without re-inspecting the
+  raw input. Parallels the existing `top_concentration` tie diagnostic.
+  **Migration:** code that asserts the exact column list of
+  `compute_ic` output (e.g. `df.columns == ["date", "ic"]`) needs to
+  accept the third column; column-by-name access is unaffected. (#48)
 - **`WarningCode.SMALL_CROSS_SECTION_N`** + **`BORDERLINE_CROSS_SECTION_N`**
   — emitted by the `common_continuous` PANEL procedure and by
   `suggest_config` based on `n_assets`. `2 ≤ n_assets < 10` → SMALL
@@ -57,6 +93,39 @@ CONTRIBUTING §7 (Release workflow).
 
 ### Changed
 
+- **Two-tier sample-size guards on `fama_macbeth`, `caar`, and
+  `top_concentration`.** Each now distinguishes a math-validity floor
+  (``_HARD`` → short-circuit to NaN ``MetricOutput``) from a
+  literature/power floor (``_WARN`` → return the stat with a Python
+  ``UserWarning`` and the relevant ``WarningCode.value`` surfaced in
+  ``metadata["warning_codes"]``). Pre-#48 these primitives short-
+  circuited at a single conservative threshold, refusing to report
+  anything in the borderline regime — UX regression every user hit
+  when fewer than ~30 events / periods were available even though the
+  math was perfectly defined. The new contract is *warn, don't
+  refuse*. Constants: ``MIN_FM_PERIODS = 20`` →
+  ``MIN_FM_PERIODS_HARD = 4`` / ``MIN_FM_PERIODS_WARN = 30``;
+  ``MIN_EVENTS = 10`` → ``MIN_EVENTS_HARD = 4`` /
+  ``MIN_EVENTS_WARN = 30`` (Brown-Warner 1985 convention);
+  ``MIN_PORTFOLIO_PERIODS = 5`` → ``MIN_PORTFOLIO_PERIODS_HARD = 3``
+  / ``MIN_PORTFOLIO_PERIODS_WARN = 20``. Two new ``WarningCode``
+  values: ``FEW_EVENTS_BROWN_WARNER`` (caar) and
+  ``BORDERLINE_PORTFOLIO_PERIODS`` (top_concentration); FM reuses the
+  existing ``UNRELIABLE_SE_SHORT_PERIODS``. Descriptive metrics
+  (``clustering`` / ``corrado`` / ``event_horizon`` / ``event_quality``
+  / ``mfe_mae`` / ``quantile`` / ``ts_quantile`` / ``ts_asymmetry``)
+  switch to the new ``_HARD`` constant only — they have no formal H0
+  so the WARN tier would be noise; they now accept smaller-n inputs
+  they previously refused, by design. (#48)
+- **`multi_split_oos_decay` is descriptive-only.** ``stat`` is
+  ``None`` (was already), and ``metadata["p_value"]`` is now omitted
+  entirely (was ``1.0``) — the multi-split decomposition (``per_split``
+  + ``sign_flipped`` + ``status``) is the message, and a t-stat at
+  ``MIN_OOS_PERIODS = 5`` would have power ≈ 0. Dropping ``p_value``
+  prevents callers from accidentally routing the diagnostic into BHY
+  / gate logic that expects a probability. ``MIN_OOS_PERIODS`` stays
+  single-tier (no HARD/WARN split needed when there is no hypothesis
+  test). (#48)
 - **`compute_caar` per-row formula: `return × sign(factor)` →
   `return × factor`.** Magnitude is now preserved as a weight rather
   than being silently dropped via `.sign()` coercion. `{0, 1}` and

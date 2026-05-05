@@ -32,7 +32,7 @@ from factrix._stats import (
     _significance_marker,
     _wald_p_linear,
 )
-from factrix._types import EPSILON, MIN_PORTFOLIO_PERIODS, MetricOutput
+from factrix._types import EPSILON, MIN_PORTFOLIO_PERIODS_HARD, MetricOutput
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _short_circuit_output,
@@ -78,7 +78,7 @@ def ts_quantile_spread(
         spread; bucket detail and the Spearman monotonicity diagnostic
         live in ``metadata``. Short-circuits with a reason code when
         input shape is insufficient (no ``date`` / factor / return
-        column, fewer than ``MIN_PORTFOLIO_PERIODS`` rows, or factor
+        column, fewer than ``MIN_PORTFOLIO_PERIODS_HARD`` rows, or factor
         variation below ``n_groups * 2`` distinct values).
 
     Notes:
@@ -122,12 +122,12 @@ def ts_quantile_spread(
     )
     n_periods = len(per_date)
 
-    if n_periods < MIN_PORTFOLIO_PERIODS:
+    if n_periods < MIN_PORTFOLIO_PERIODS_HARD:
         return _short_circuit_output(
             "ts_quantile_spread",
             "insufficient_portfolio_periods",
             n_observed=n_periods,
-            min_required=MIN_PORTFOLIO_PERIODS,
+            min_required=MIN_PORTFOLIO_PERIODS_HARD,
             n_groups=n_groups,
         )
 

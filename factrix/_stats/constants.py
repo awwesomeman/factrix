@@ -11,9 +11,9 @@ from __future__ import annotations
 # trusted at all).
 MIN_PERIODS_HARD: int = 20
 
-# ``MIN_PERIODS_HARD <= T < MIN_PERIODS_RELIABLE`` → verdict still emitted, but
+# ``MIN_PERIODS_HARD <= T < MIN_PERIODS_WARN`` → verdict still emitted, but
 # tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_PERIODS`.
-MIN_PERIODS_RELIABLE: int = 30
+MIN_PERIODS_WARN: int = 30
 
 # ``n_assets < MIN_ASSETS`` → :attr:`factrix._codes.WarningCode.SMALL_CROSS_SECTION_N`
 # from PANEL ``common_continuous`` and from ``suggest_config``. The cross-asset
@@ -24,11 +24,11 @@ MIN_PERIODS_RELIABLE: int = 30
 # the n_periods ``_HARD`` (which means "raise") would be misleading.
 MIN_ASSETS: int = 10
 
-# ``MIN_ASSETS <= n_assets < MIN_ASSETS_RELIABLE`` →
+# ``MIN_ASSETS <= n_assets < MIN_ASSETS_WARN`` →
 # :attr:`factrix._codes.WarningCode.BORDERLINE_CROSS_SECTION_N`. Mirrors
-# ``MIN_PERIODS_RELIABLE`` semantically: residual t_crit inflation 5–15%
+# ``MIN_PERIODS_WARN`` semantically: residual t_crit inflation 5–15%
 # (n_assets=10 → +15%, n_assets=20 → +7%, n_assets=30 → +5%).
-MIN_ASSETS_RELIABLE: int = 30
+MIN_ASSETS_WARN: int = 30
 
 
 # Broadcast-dummy event count for the ``(COMMON, SPARSE, None, PANEL)``
@@ -45,11 +45,11 @@ MIN_ASSETS_RELIABLE: int = 30
 # slope and its SE are both dominated by individual points).
 MIN_BROADCAST_EVENTS_HARD: int = 5
 
-# ``MIN_BROADCAST_EVENTS_HARD <= n_events < MIN_BROADCAST_EVENTS_RELIABLE`` →
+# ``MIN_BROADCAST_EVENTS_HARD <= n_events < MIN_BROADCAST_EVENTS_WARN`` →
 # :attr:`factrix._codes.WarningCode.SPARSE_COMMON_FEW_EVENTS`. Aligns with
 # the ``MIN_TS_OBS = 20`` philosophy: slope is estimable but cross-event
 # averaging is too thin for the asymptotic t-distribution to be trusted.
-MIN_BROADCAST_EVENTS_RELIABLE: int = 20
+MIN_BROADCAST_EVENTS_WARN: int = 20
 
 
 def auto_bartlett(T: int) -> int:

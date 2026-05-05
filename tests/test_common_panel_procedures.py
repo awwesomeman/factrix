@@ -363,7 +363,7 @@ class TestSparseCommonEventCountGuard:
         self,
         cfg_sparse: AnalysisConfig,
     ) -> None:
-        # 10 events, in [MIN_EVENTS_HARD=5, MIN_EVENTS_RELIABLE=20) → warn.
+        # 10 events, in [MIN_EVENTS_HARD=5, MIN_EVENTS_WARN=20) → warn.
         panel = _make_common_panel(
             n_dates=60,
             n_assets=15,
@@ -376,7 +376,7 @@ class TestSparseCommonEventCountGuard:
         assert WarningCode.SPARSE_COMMON_FEW_EVENTS in profile.warnings
 
     def test_thirty_events_silent(self, cfg_sparse: AnalysisConfig) -> None:
-        # 30 events ≥ MIN_EVENTS_RELIABLE=20 → no event-count warning.
+        # 30 events ≥ MIN_EVENTS_WARN=20 → no event-count warning.
         panel = _make_common_panel(
             n_dates=60,
             n_assets=15,
@@ -387,6 +387,47 @@ class TestSparseCommonEventCountGuard:
         )
         profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
         assert WarningCode.SPARSE_COMMON_FEW_EVENTS not in profile.warnings
+
+
+class TestSparseMagnitudeWeightedWarning:
+    """Common×Sparse procedure surfaces magnitude-weighted contract warning."""
+
+    def test_mixed_sign_non_ternary_emits_warning(
+        self,
+        cfg_sparse: AnalysisConfig,
+    ) -> None:
+        # Build a sparse panel then perturb non-zero events to non-unit
+        # magnitudes so the {-1, 0, +1} contract is broken.
+        panel = _make_common_panel(
+            n_dates=60,
+            n_assets=15,
+            seed=71,
+            true_beta=0.0,
+            factor_kind="sparse",
+            sparse_event_density=0.5,
+        )
+        perturbed = panel.with_columns(
+            pl.when(pl.col("factor") > 0)
+            .then(2.5)
+            .when(pl.col("factor") < 0)
+            .then(-1.7)
+            .otherwise(0.0)
+            .alias("factor")
+        )
+        profile = _CommonSparsePanelProcedure().compute(perturbed, cfg_sparse)
+        assert WarningCode.SPARSE_MAGNITUDE_WEIGHTED in profile.warnings
+
+    def test_clean_ternary_silent(self, cfg_sparse: AnalysisConfig) -> None:
+        panel = _make_common_panel(
+            n_dates=60,
+            n_assets=15,
+            seed=72,
+            true_beta=0.0,
+            factor_kind="sparse",
+            sparse_event_density=0.5,
+        )
+        profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
+        assert WarningCode.SPARSE_MAGNITUDE_WEIGHTED not in profile.warnings
 
 
 class TestCrossSectionNWarnings:

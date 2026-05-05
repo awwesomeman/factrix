@@ -30,10 +30,31 @@ class WarningCode(StrEnum):
     BORDERLINE_CROSS_SECTION_N = "borderline_cross_section_n"
     # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
     # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
-    # MIN_BROADCAST_EVENTS_RELIABLE. Per-asset β is identifiable but
+    # MIN_BROADCAST_EVENTS_WARN. Per-asset β is identifiable but
     # the cross-event averaging is too thin for asymptotic t to be
     # trusted. Below the HARD floor raises InsufficientSampleError instead.
     SPARSE_COMMON_FEW_EVENTS = "sparse_common_few_events"
+    # Fired when a sparse ``factor`` column carries mixed signs but is
+    # not a clean ±1 ternary (e.g. ``{-2.5, 0, +1.3}``). The CAAR /
+    # sparse-panel statistic is the magnitude-weighted Sefcik-Thompson
+    # (1986) variant, which differs from the textbook MacKinlay (1997)
+    # signed CAAR at finite samples when negative- and positive-leg
+    # vols disagree. ``{-1, 0, +1}`` does not trigger — sign and weight
+    # semantics coincide numerically. All-non-negative columns
+    # (``{0, 1}`` / ``{0, R≥0}``) do not trigger — no flip ambiguity.
+    SPARSE_MAGNITUDE_WEIGHTED = "sparse_magnitude_weighted"
+    # Fired by ``caar`` (significance test) when the per-event-date series
+    # length sits in ``[MIN_EVENTS_HARD, MIN_EVENTS_WARN)`` — the t-stat
+    # is returned but the Brown-Warner (1985) convention treats sub-30
+    # event-date counts as power-thin for the asymptotic t-distribution.
+    # Below the HARD floor the primitive short-circuits to NaN instead.
+    FEW_EVENTS_BROWN_WARNER = "few_events_brown_warner"
+    # Fired by ``top_concentration`` when the per-date ratio series sits
+    # in ``[MIN_PORTFOLIO_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_WARN)`` —
+    # the one-sided t-test on the diversification ratio is returned but
+    # ``df = n - 1 < 19`` inflates t_crit relative to the asymptotic
+    # cutoff. Below the HARD floor the primitive short-circuits to NaN.
+    BORDERLINE_PORTFOLIO_PERIODS = "borderline_portfolio_periods"
 
     @property
     def description(self) -> str:
@@ -45,7 +66,9 @@ _WARNING_DESCRIPTIONS: dict[WarningCode, str] = {}
 
 _WARNING_DESCRIPTIONS.update(
     {
-        WarningCode.UNRELIABLE_SE_SHORT_PERIODS: "n_periods is below MIN_PERIODS_RELIABLE=30; NW HAC SE may be biased.",
+        WarningCode.UNRELIABLE_SE_SHORT_PERIODS: "n_periods is below the WARN floor (~30); NW HAC SE may be biased. "
+        "Reused across panel time-series guards (MIN_PERIODS_WARN) and "
+        "primitive inference (MIN_FM_PERIODS_WARN); both default to 30.",
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
@@ -53,12 +76,24 @@ _WARNING_DESCRIPTIONS.update(
         "df=n_assets-1 too low — t_crit at n_assets=3 ≈ 4.30 "
         "(+119% vs asymptotic 1.96).",
         WarningCode.BORDERLINE_CROSS_SECTION_N: "PANEL cross-asset t-test with MIN_ASSETS ≤ n_assets < "
-        "MIN_ASSETS_RELIABLE (10..29); residual t_crit inflation "
+        "MIN_ASSETS_WARN (10..29); residual t_crit inflation "
         "5–15% — read borderline p-values cautiously.",
         WarningCode.SPARSE_COMMON_FEW_EVENTS: "(COMMON, SPARSE, PANEL) broadcast dummy has "
-        "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE "
+        "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_WARN "
         "(5..19); per-asset β estimable but cross-event averaging too thin "
         "for asymptotic t.",
+        WarningCode.SPARSE_MAGNITUDE_WEIGHTED: "Sparse factor column is mixed-sign and not a "
+        "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
+        "rather than textbook MacKinlay signed CAAR — apply .sign() before "
+        "calling for sign-flip semantics.",
+        WarningCode.FEW_EVENTS_BROWN_WARNER: "CAAR significance test with MIN_EVENTS_HARD ≤ "
+        "n_event_dates < MIN_EVENTS_WARN (4..29); t-stat returned but "
+        "Brown-Warner (1985) convention treats sub-30 events as power-thin "
+        "for the asymptotic t-distribution — read borderline p-values cautiously.",
+        WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
+        "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
+        "on the per-date diversification ratio is returned but df=n-1 inflates "
+        "t_crit relative to the asymptotic cutoff.",
     }
 )
 
@@ -69,14 +104,14 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     Tiers are mutually exclusive — SMALL is strictly more severe than
     BORDERLINE — so callers can membership-check the more severe code
     without an else branch. Returns ``None`` at ``n_assets ≥
-    MIN_ASSETS_RELIABLE`` (clean) or ``n_assets < 2`` (PANEL impossible
+    MIN_ASSETS_WARN`` (clean) or ``n_assets < 2`` (PANEL impossible
     by upstream mode routing; defensive).
     """
-    from factrix._stats.constants import MIN_ASSETS, MIN_ASSETS_RELIABLE
+    from factrix._stats.constants import MIN_ASSETS, MIN_ASSETS_WARN
 
     if 2 <= n_assets < MIN_ASSETS:
         return WarningCode.SMALL_CROSS_SECTION_N
-    if MIN_ASSETS <= n_assets < MIN_ASSETS_RELIABLE:
+    if MIN_ASSETS <= n_assets < MIN_ASSETS_WARN:
         return WarningCode.BORDERLINE_CROSS_SECTION_N
     return None
 

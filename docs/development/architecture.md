@@ -196,8 +196,8 @@ This section catalogues the **internal constants** that back those tiers.
 
 `factrix/_stats/constants.py`:
 
-- `MIN_PERIODS_HARD = 20`, `MIN_PERIODS_RELIABLE = 30` — the two-tier `n_periods` thresholds.
-- `MIN_ASSETS = 10`, `MIN_ASSETS_RELIABLE = 30` — the two-tier `n_assets` thresholds. The
+- `MIN_PERIODS_HARD = 20`, `MIN_PERIODS_WARN = 30` — the two-tier `n_periods` thresholds.
+- `MIN_ASSETS = 10`, `MIN_ASSETS_WARN = 30` — the two-tier `n_assets` thresholds. The
   `n_assets` axis never raises (cross-asset t-test on E[β] is mathematically defined for
   `n_assets ≥ 2`), so constant naming deliberately drops the `_HARD` suffix to avoid
   implying a raise.
@@ -210,7 +210,9 @@ primitives that procedures wrap:
 
 - `MIN_ASSETS_PER_DATE_IC = 10` — `compute_ic` drops dates with fewer than 10 assets;
   at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
-- `MIN_EVENTS = 10` — sparse-cell event-count floor.
+- `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
+  event-count floor. `n < HARD` short-circuits the CAAR / event-quality
+  primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS_BROWN_WARNER`.
 - `compute_fm_betas` carries an inline `if len(y) < 3: continue` guard, no per-date min above 3.
 
 ### Inflation cost at low `n_assets`
@@ -231,7 +233,7 @@ behavior. The user-facing factory chosen determines which pipeline runs.
 
 The two universal `n_periods` floors apply to every panel/timeseries pipeline
 listed below — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`,
-`MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` emits
+`MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_WARN` emits
 `UNRELIABLE_SE_SHORT_PERIODS`. The per-procedure "Failure modes" lists below
 record only the **procedure-specific** failures; for the user-facing tier
 matrix see [Guides § PANEL vs TIMESERIES](../guides/panel-timeseries.md).
@@ -277,7 +279,11 @@ Failure modes:
 
 - per-date `n_assets` < 3 → date dropped (`if len(y) < 3: continue`).
 - per-date `n_assets` small but ≥ 3 → df = `n_assets` − 2 minimal, β unstable.
-- `n_periods < MIN_FM_PERIODS = 20` → short-circuit to insufficient.
+- `n_periods < MIN_FM_PERIODS_HARD = 4` → short-circuit to insufficient
+  (math floor — NW HAC `t` undefined below).
+- `MIN_FM_PERIODS_HARD ≤ n_periods < MIN_FM_PERIODS_WARN = 30` → returns
+  the FM `t`/`p` but emits `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` and
+  the borderline propagates into `FactorProfile.warnings`.
 
 ### `individual_sparse` (CAAR PANEL) — cross-section first (events)
 
@@ -306,7 +312,11 @@ reflect the dense series.
 
 Failure modes:
 
-- `n_events < MIN_EVENTS` → event series too short → primary_p reverts to insufficient.
+- `n_events < MIN_EVENTS_HARD = 4` → event series too short →
+  primary_p reverts to insufficient.
+- `MIN_EVENTS_HARD ≤ n_events < MIN_EVENTS_WARN = 30` → CAAR `t` is
+  returned but `WarningCode.FEW_EVENTS_BROWN_WARNER` fires and the
+  `_CAARSparsePanelProcedure` propagates it into `FactorProfile.warnings`.
 
 ### `common_continuous` — time-series first
 
@@ -320,7 +330,7 @@ Failure modes:
 
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
 - `n_assets < MIN_ASSETS = 10` → `WarningCode.SMALL_CROSS_SECTION_N` (still runs).
-- `MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N`.
+- `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N`.
 - `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
   `StatCode.TS_BETA` identifier is shared across the two modes, so the
@@ -348,7 +358,7 @@ Failure modes:
   `BORDERLINE_CROSS_SECTION_N`).
 - Two-tier event-count guard (`factrix/_stats/constants.py`):
   `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
-  `5 ≤ n_events < MIN_BROADCAST_EVENTS_RELIABLE = 20` emits
+  `5 ≤ n_events < MIN_BROADCAST_EVENTS_WARN = 20` emits
   `SPARSE_COMMON_FEW_EVENTS`.
 - Cross-asset SE assumes asset-level independence; under contemporaneous
   return correlation the standard t over-states significance — Petersen
@@ -480,11 +490,12 @@ factrix/
 ├── multi_factor.py          # public namespace (re-exports bhy)
 ├── _stats/
 │   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
-│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_RELIABLE / auto_bartlett
+│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_WARN / auto_bartlett
 ├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
-│                            #   MIN_EVENTS, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS, ...
+│                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS,
+│                            #   MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
-│                            # per-cell thresholds (MIN_FM_PERIODS, MIN_TS_OBS) live
+│                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_OBS) live
 │                            # alongside the procedures that enforce them
 └── datasets.py              # synthetic CS / event panels
 ```

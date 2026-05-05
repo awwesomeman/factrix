@@ -14,7 +14,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import StatCode, Verdict
+from factrix._codes import StatCode, Verdict, WarningCode
 from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _FMContPanelProcedure
 from factrix._profile import FactorProfile
@@ -170,3 +170,31 @@ class TestEndToEndViaEvaluate:
         assert isinstance(profile, FactorProfile)
         assert StatCode.FM_LAMBDA_P in profile.stats
         assert profile.verdict() is Verdict.PASS
+
+
+class TestFMShortPeriodsWarning:
+    """`(INDIVIDUAL, CONTINUOUS, FM, PANEL)` propagates short-periods warning."""
+
+    def test_borderline_periods_emits_warning(
+        self,
+        fm_config: AnalysisConfig,
+    ) -> None:
+        # MIN_FM_PERIODS_HARD=4 ≤ n_periods=10 < MIN_FM_PERIODS_WARN=30
+        panel = _make_panel(
+            n_dates=10,
+            n_assets=15,
+            seed=99,
+            factor_strength=0.5,
+        )
+        profile = _FMContPanelProcedure().compute(panel, fm_config)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in profile.warnings
+
+    def test_long_periods_silent(self, fm_config: AnalysisConfig) -> None:
+        panel = _make_panel(
+            n_dates=60,
+            n_assets=15,
+            seed=100,
+            factor_strength=0.5,
+        )
+        profile = _FMContPanelProcedure().compute(panel, fm_config)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings

@@ -26,7 +26,7 @@ from factrix._procedures import (
 )
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _SCOPE_COLLAPSED, _DispatchKey
-from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_RELIABLE
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 
 
 def _make_sparse_ts(
@@ -278,7 +278,7 @@ class TestSampleSizeStratification:
         cfg_individual: AnalysisConfig,
     ) -> None:
         ts = _make_sparse_ts(
-            n_dates=MIN_PERIODS_RELIABLE,
+            n_dates=MIN_PERIODS_WARN,
             seed=3,
             event_positions=list(range(4, 30, 5)),
             beta=1.0,

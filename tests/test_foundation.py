@@ -17,7 +17,7 @@ from factrix._errors import (
 )
 from factrix._stats.constants import (
     MIN_PERIODS_HARD,
-    MIN_PERIODS_RELIABLE,
+    MIN_PERIODS_WARN,
     auto_bartlett,
 )
 
@@ -86,12 +86,32 @@ class TestCodeEnums:
 
 class TestStatsConstants:
     def test_thresholds_ordered(self) -> None:
-        assert MIN_PERIODS_HARD < MIN_PERIODS_RELIABLE
+        assert MIN_PERIODS_HARD < MIN_PERIODS_WARN
 
     def test_threshold_values(self) -> None:
         # Pinned per §5.2 — these are statistical contract, not a default.
         assert MIN_PERIODS_HARD == 20
-        assert MIN_PERIODS_RELIABLE == 30
+        assert MIN_PERIODS_WARN == 30
+
+    def test_two_tier_thresholds_ordered(self) -> None:
+        # Issue #48 D: every two-tier (HARD, WARN) pair must satisfy
+        # HARD < WARN; otherwise the borderline tier is empty and
+        # callers either short-circuit or run silently with no warning
+        # tier in between.
+        from factrix._types import (
+            MIN_EVENTS_HARD,
+            MIN_EVENTS_WARN,
+            MIN_PORTFOLIO_PERIODS_HARD,
+            MIN_PORTFOLIO_PERIODS_WARN,
+        )
+        from factrix.metrics.fama_macbeth import (
+            MIN_FM_PERIODS_HARD,
+            MIN_FM_PERIODS_WARN,
+        )
+
+        assert MIN_FM_PERIODS_HARD < MIN_FM_PERIODS_WARN
+        assert MIN_EVENTS_HARD < MIN_EVENTS_WARN
+        assert MIN_PORTFOLIO_PERIODS_HARD < MIN_PORTFOLIO_PERIODS_WARN
 
     def test_auto_bartlett_floor(self) -> None:
         assert auto_bartlett(1) == 1

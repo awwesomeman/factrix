@@ -24,7 +24,7 @@ from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
 from factrix._stats.constants import (
     MIN_PERIODS_HARD,
-    MIN_PERIODS_RELIABLE,
+    MIN_PERIODS_WARN,
     auto_bartlett,
 )
 
@@ -171,7 +171,7 @@ class TestSampleSizeStratification:
             _TSBetaContTimeseriesProcedure().compute(ts, cfg)
 
     def test_T_in_warning_band_emits_warning(self, cfg: AnalysisConfig) -> None:
-        # MIN_PERIODS_HARD <= T < MIN_PERIODS_RELIABLE → verdict + UNRELIABLE_SE warn.
+        # MIN_PERIODS_HARD <= T < MIN_PERIODS_WARN → verdict + UNRELIABLE_SE warn.
         ts = _make_ts(n_dates=MIN_PERIODS_HARD, seed=2, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in profile.warnings
@@ -181,7 +181,7 @@ class TestSampleSizeStratification:
         self,
         cfg: AnalysisConfig,
     ) -> None:
-        ts = _make_ts(n_dates=MIN_PERIODS_RELIABLE, seed=3, beta=0.5)
+        ts = _make_ts(n_dates=MIN_PERIODS_WARN, seed=3, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
 
