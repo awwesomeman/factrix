@@ -146,7 +146,7 @@ def spanning_alpha(
 
     if base_spreads:
         all_series = {"_candidate_": factor_spread, **base_spreads}
-        common_dates, arrays = _align_spread_series(all_series)
+        _common_dates, arrays = _align_spread_series(all_series)
         if "_candidate_" not in arrays:
             return _short_circuit_output(
                 "spanning_alpha",

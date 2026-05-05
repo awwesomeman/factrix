@@ -474,7 +474,7 @@ class _TSBetaContTimeseriesProcedure:
         # extra nulls.
         y, x = y[:n_periods], x[:n_periods]
         beta, t_stat, p_value, _ = _ols_nw_slope_t(y, x, lags=nw_lags)
-        adf_tau, adf_p = _adf(x)
+        _adf_tau, adf_p = _adf(x)
 
         warnings: set[WarningCode] = set()
         if n_periods < MIN_PERIODS_RELIABLE:
