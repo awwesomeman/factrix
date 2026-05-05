@@ -112,19 +112,20 @@ nav:
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
       - Batch screening (BHY): guides/batch-screening.md
       - Choosing a metric: guides/choosing-metric.md
-  - Examples:
-      - examples/index.md
-      - End-to-end walkthrough: examples/demo.ipynb
   - Reference:
       - Metric applicability: reference/metric-applicability.md
       - Standalone metrics: reference/standalone-metrics.md
       - Statistical methods: reference/statistical-methods.md
-      - API:
-          - AnalysisConfig: reference/api/analysis-config.md
-          - evaluate: reference/api/evaluate.md
-          - FactorProfile: reference/api/factor-profile.md
-          - multi_factor: reference/api/multi-factor.md
-          - datasets: reference/api/datasets.md
+      - Bibliography: reference/bibliography.md
+  - API:
+      - AnalysisConfig: api/analysis-config.md
+      - evaluate: api/evaluate.md
+      - FactorProfile: api/factor-profile.md
+      - multi_factor: api/multi-factor.md
+      - datasets: api/datasets.md
+  - Examples:
+      - examples/index.md
+      - End-to-end walkthrough: examples/demo.ipynb
   - Development:
       - Architecture: development/architecture.md
       - Methodology: development/methodology.md
