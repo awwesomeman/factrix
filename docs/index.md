@@ -2,19 +2,17 @@
 
 Polars-native **factor signal validation toolkit** for quantitative finance.
 
-factrix screens whether individual factors carry statistical edge using IC,
-Fama-Macbeth, CAAR, or timeseries β procedures, and applies multi-testing
-correction (BHY) across factor families. It is a *signal validator*, not a
-backtest engine — feed surviving factors into downstream portfolio
-constructors.
+factrix answers one question: **「這個因子在統計上真的有效嗎？」** It produces a single `primary_p` per factor cell from a NW HAC-corrected canonical procedure (IC / FM-λ / CAAR / TS-β), then applies Benjamini-Yekutieli FDR correction across factor families. It is a *signal validator*, not a backtest engine — feed surviving factors into downstream portfolio constructors.
 
-## Documentation
+[![GitHub](https://img.shields.io/badge/GitHub-factrix-blue?logo=github)](https://github.com/awwesomeman/factrix)
 
-- [Methodology reference](reference/methodology.md) — IC / FM / CAAR / TS-β derivations.
-- [Statistical methods](reference/statistical-methods.md) — NW HAC, test selection, BHY.
-- [Metric applicability](reference/metric-applicability.md) — when to use each metric, N/T thresholds.
+## Quick links
 
-## Source
-
-- Repository: [github.com/awwesomeman/factrix](https://github.com/awwesomeman/factrix)
-- Install + smoke test: see the [README](https://github.com/awwesomeman/factrix#readme).
+| Want to | Go to |
+|---------|-------|
+| Install and run a smoke test | [Get Started](getting-started/index.md) |
+| Understand the three-axis design | [Concepts](getting-started/concepts.md) |
+| Screen a batch of factors with BHY | [Batch screening](guides/batch-screening.md) |
+| See API formulas and applicability | [Reference](reference/methodology.md) |
+| Browse an end-to-end notebook | [Examples](examples/demo.ipynb) |
+| Understand the internal architecture | [Architecture](development/architecture.md) |

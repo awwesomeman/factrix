@@ -248,7 +248,7 @@ and a registry-SSOT dispatch (`factrix/_registry.py`). PANEL (panel,
 N≥2) and TIMESERIES (N=1) are now first-class equals — `(COMMON,
 *, N=1)` and `(INDIVIDUAL, SPARSE, N=1)` produce real `primary_p`,
 no longer pinned to `1.0`. Single-phase rip-and-replace per
-[`docs/plans/refactor_api.md`](docs/plans/refactor_api.md) §8 — no alias
+`docs/plans/refactor_api.md` §8 — no alias
 or deprecation cycle.
 
 ### BREAKING CHANGE

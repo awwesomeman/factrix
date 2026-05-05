@@ -15,6 +15,37 @@ screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
 ---
 
+## Global architecture
+
+```mermaid
+flowchart TD
+    User["User\n(scope / signal / metric)"]
+    AC["AnalysisConfig\n4 factory methods"]
+    REG["Registry\n_registry.py SSOT\n7 cells"]
+    MODE{"Mode\nN = panel.asset_id.n_unique()"}
+
+    P1["_ICPanelProcedure\nindividual × continuous × IC"]
+    P2["_FMPanelProcedure\nindividual × continuous × FM"]
+    P3["_CAARPanelProcedure\nindividual × sparse"]
+    P4["_CommonContPanelProcedure\ncommon × continuous"]
+    P5["_CommonSparsePanelProcedure\ncommon × sparse"]
+    T1["_TSBetaContTimeseriesProcedure\ncommon × continuous · N=1"]
+    T2["_TSDummySparseTimeseriesProcedure\nsparse · N=1 (_SCOPE_COLLAPSED)"]
+
+    FP["FactorProfile\nprimary_p · verdict() · diagnose()"]
+    BHY["multi_factor.bhy()\nBHY FDR correction"]
+
+    User -->|"AnalysisConfig.factory(...)"| AC
+    AC -->|"evaluate(panel, config)"| REG
+    REG --> MODE
+    MODE -->|"N ≥ 2 → PANEL"| P1 & P2 & P3 & P4 & P5
+    MODE -->|"N = 1 → TIMESERIES"| T1 & T2
+    P1 & P2 & P3 & P4 & P5 & T1 & T2 --> FP
+    FP -->|"batch"| BHY
+```
+
+---
+
 ## Public API surface
 
 Three entry points, all in `factrix.__init__`:
@@ -91,7 +122,7 @@ class FactorProcedure(Protocol):
 
 The seven cells (cell tuple ↔ procedure class). For the user-facing factory
 mapping and per-cell canonical statistic / references, see
-[README §5 種支援的分析情境](README.md#5-種支援的分析情境--對應檢定方法) — that
+[Concepts §Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) — that
 table is the SSOT for what each procedure computes.
 
 | `(scope, signal, metric, mode)`                         | Procedure class                                  |

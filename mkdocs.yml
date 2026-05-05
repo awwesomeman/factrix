@@ -101,6 +101,17 @@ exclude_docs: |
 
 nav:
   - Home: index.md
+  - Get Started:
+      - getting-started/index.md
+      - Installation: getting-started/install.md
+      - Quickstart: getting-started/quickstart.md
+      - Concepts: getting-started/concepts.md
+  - Guides:
+      - guides/index.md
+      - PANEL vs TIMESERIES: guides/panel-timeseries.md
+      - Batch screening (BHY): guides/batch-screening.md
+      - Choosing a metric: guides/choosing-metric.md
+      - Examples: examples/demo.ipynb
   - Reference:
       - Methodology: reference/methodology.md
       - Statistical methods: reference/statistical-methods.md
@@ -112,3 +123,7 @@ nav:
           - FactorProfile: reference/api/factor-profile.md
           - multi_factor: reference/api/multi-factor.md
           - datasets: reference/api/datasets.md
+  - Development:
+      - Architecture: development/architecture.md
+      - Contributing: development/contributing.md
+      - Changelog: development/changelog.md
