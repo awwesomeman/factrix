@@ -15,7 +15,6 @@ from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._errors import IncompatibleAxisError
 from factrix._registry import matches_user_axis
 
-
 # Nearest-legal cell suggested when an evaluate-time mode/sample check
 # fails (§4.5 A4). Keyed by ``(scope, signal, mode)``; values are
 # zero-arg factories so cycles via ``AnalysisConfig`` resolve lazily

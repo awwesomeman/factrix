@@ -7,7 +7,6 @@ import datetime as dt
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict
@@ -186,7 +185,7 @@ class TestFallbackNoneBranch:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from factrix import _evaluate as evaluate_mod
-        from factrix._registry import _DispatchKey, _DISPATCH_REGISTRY
+        from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
 
         # Pop the live (COMMON, CONTINUOUS, PANEL) entry so a real
         # call with that config produces a registry miss. _FALLBACK_MAP

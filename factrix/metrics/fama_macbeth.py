@@ -25,13 +25,13 @@ import math
 import numpy as np
 import polars as pl
 
-from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
-from factrix.metrics._helpers import _short_circuit_output
 from factrix._stats import (
     _newey_west_t_test,
     _p_value_from_t,
     _significance_marker,
 )
+from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
+from factrix.metrics._helpers import _short_circuit_output
 
 MIN_FM_PERIODS: int = 20
 

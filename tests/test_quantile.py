@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix.metrics.quantile import (
     compute_spread_series,
     quantile_spread,
@@ -34,8 +33,9 @@ class TestQuantileSpread:
         assert series["spread"].null_count() == 0
 
     def test_insufficient_periods(self):
-        import polars as pl
         from datetime import datetime
+
+        import polars as pl
 
         # 2 dates < MIN_PORTFOLIO_PERIODS=5
         df = pl.DataFrame(

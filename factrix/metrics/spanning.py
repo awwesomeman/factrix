@@ -29,9 +29,9 @@ import numpy as np
 import polars as pl
 
 from factrix._ols import ols_alpha as _ols_alpha
+from factrix._stats import _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
-from factrix._stats import _p_value_from_t, _significance_marker
 
 logger = logging.getLogger(__name__)
 

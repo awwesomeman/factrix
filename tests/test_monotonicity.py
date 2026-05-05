@@ -1,8 +1,8 @@
 """Tests for factrix.metrics.monotonicity."""
 
 import math
-import pytest
 
+import pytest
 from factrix.metrics.monotonicity import monotonicity
 
 
@@ -31,8 +31,9 @@ class TestComputeMonotonicity:
         assert result.metadata["mean_signed"] == pytest.approx(-1.0)
 
     def test_insufficient_periods(self):
-        import polars as pl
         from datetime import datetime
+
+        import polars as pl
 
         df = pl.DataFrame(
             {

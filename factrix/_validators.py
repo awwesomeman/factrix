@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import polars as pl
 
-
 # Minimum "max per-date N" for each factor_type. Values below this at
 # the per-date level would make the canonical test mathematically
 # undefined on every date.

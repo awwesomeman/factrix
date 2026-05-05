@@ -1,10 +1,10 @@
 """Tests for factrix.preprocess.orthogonalize."""
 
+from datetime import datetime, timedelta
+
 import numpy as np
 import polars as pl
 import pytest
-from datetime import datetime, timedelta
-
 from factrix.preprocess.orthogonalize import orthogonalize_factor
 
 

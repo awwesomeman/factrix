@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-
 from factrix.stats.bootstrap import (
     _default_block_length,
     bootstrap_mean_ci,

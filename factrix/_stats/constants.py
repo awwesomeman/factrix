@@ -6,7 +6,6 @@ Centralised per refactor_api.md §5.2 (A3): no literal ``20`` / ``30`` /
 
 from __future__ import annotations
 
-
 # ``T < MIN_PERIODS_HARD`` → :class:`factrix._errors.InsufficientSampleError`
 # (no verdict — NW HAC SE biased beyond the floor where verdict can be
 # trusted at all).

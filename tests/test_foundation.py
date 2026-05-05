@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from factrix._analysis_config import _FALLBACK_MAP, AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
@@ -21,7 +20,6 @@ from factrix._stats.constants import (
     MIN_PERIODS_RELIABLE,
     auto_bartlett,
 )
-
 
 # ---------------------------------------------------------------------------
 # Enums

@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import ClassVar
 
 import pytest
-
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
@@ -25,7 +24,6 @@ from factrix._registry import (
     matches_user_axis,
     register,
 )
-
 
 # ---------------------------------------------------------------------------
 # Registry shape

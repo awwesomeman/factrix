@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import stats as sp_stats
 
-from factrix._types import EPSILON, DDOF
+from factrix._types import DDOF, EPSILON
 
 
 def _calc_t_stat(mean: float, std: float, n: int) -> float:

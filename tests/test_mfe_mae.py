@@ -6,16 +6,14 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
-
+from factrix.metrics.event_quality import (
+    event_skewness,
+    profit_factor,
+)
 from factrix.metrics.mfe_mae import (
     compute_mfe_mae,
     mfe_mae_summary,
 )
-from factrix.metrics.event_quality import (
-    profit_factor,
-    event_skewness,
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-
 from factrix._stats import _ols_nw_multivariate, _wald_p_linear
 
 

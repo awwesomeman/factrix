@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix.metrics.ic import compute_ic, ic, ic_ir, regime_ic
 
 

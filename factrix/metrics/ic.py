@@ -17,6 +17,12 @@ import math
 
 import polars as pl
 
+from factrix._stats import (
+    _calc_t_stat,
+    _newey_west_t_test,
+    _p_value_from_t,
+    _significance_marker,
+)
 from factrix._types import (
     EPSILON,
     MIN_ASSETS_PER_DATE_IC,
@@ -26,12 +32,6 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
-)
-from factrix._stats import (
-    _calc_t_stat,
-    _newey_west_t_test,
-    _p_value_from_t,
-    _significance_marker,
 )
 from factrix.stats import bhy_adjusted_p
 

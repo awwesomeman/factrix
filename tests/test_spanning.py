@@ -6,13 +6,12 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
-
 from factrix.metrics.spanning import (
-    spanning_alpha,
-    greedy_forward_selection,
     ForwardSelectionResult,
     SpanningResult,
     _ols_alpha,
+    greedy_forward_selection,
+    spanning_alpha,
 )
 
 
