@@ -231,7 +231,7 @@ Output: 資產權重
 - [ ] Safety minimum 4.2：`factor_type` mismatch 明確 raise
 - [ ] Safety minimum 4.3：`P_VALUE_FIELDS` invariant test
 - [ ] 建立 `../../docs/friction_log.md` 空檔（parent repo）
-- [ ] 開跑第一個 P1 研究（候選：跨國 CAPE + Momentum 驗證，對應 parent repo [`docs/study/regional_equity_allocation.md`](../../docs/study/regional_equity_allocation.md) 第五節）
+- [ ] 開跑第一個 P1 研究（候選：跨國 CAPE + Momentum 驗證，對應 parent repo `docs/study/regional_equity_allocation.md` 第五節）
 - [ ] 4–8 週後回來 review friction log，重審第 7 節待定決策
 
 ---
