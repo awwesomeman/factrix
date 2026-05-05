@@ -413,8 +413,5 @@ def _estimate_sar_icc(
     sigma2_between = float(np.var(date_means, ddof=DDOF))
 
     total = sigma2_between + sigma2_within
-    if total < EPSILON:
-        r_hat = 0.0
-    else:
-        r_hat = max(0.0, min(1.0, sigma2_between / total))
+    r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
     return r_hat, n_eff, "icc"

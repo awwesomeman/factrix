@@ -164,10 +164,7 @@ def event_ic(
     rho = float(rho)
     p = float(p)
 
-    if abs(rho) < 1.0 - 1e-10 and n > 3:
-        z = np.arctanh(rho) * np.sqrt(n - 3)
-    else:
-        z = 0.0
+    z = np.arctanh(rho) * np.sqrt(n - 3) if abs(rho) < 1.0 - 1e-10 and n > 3 else 0.0
 
     return MetricOutput(
         name="event_ic",

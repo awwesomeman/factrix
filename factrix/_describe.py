@@ -361,9 +361,8 @@ def suggest_config(
     }
 
     warnings: list[WarningCode] = []
-    if mode is Mode.TIMESERIES:
-        if MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
-            warnings.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
+    if mode is Mode.TIMESERIES and MIN_PERIODS_HARD <= n_periods < MIN_PERIODS_RELIABLE:
+        warnings.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS)
     if n_tier is not None:
         warnings.append(n_tier)
 
