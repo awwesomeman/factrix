@@ -3552,8 +3552,12 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>config<span class="w"> </span>core.hooksPath<span class="w"> </span>.githooks
 </span></code></pre></div>
 <p>這條 config 是 per-clone local，不會跨機器自動同步，所以每個 clone /
-新機器都要跑一次。</p>
-<p>目前唯一的 hook 是 <code>pre-push</code>：當 push 含 <code>chore(release): vX.Y.Z</code>
+新機器都要跑一次。設好之後下面所有 hook 自動生效，無需個別 install。</p>
+<p><code>pre-commit</code> — 當 staged changes 含 <code>*.py</code> 時，跑 <code>ruff check</code> +
+<code>ruff format --check</code>（鏡像 CI 的 <code>lint</code> job）。失敗 → block commit；
+fix-then-commit 或 <code>git commit --no-verify</code> 繞過。Scope 限定 staged
+檔案，touch YAML / Markdown / .txt 的 commit 完全不觸發。</p>
+<p><code>pre-push</code> — 當 push 含 <code>chore(release): vX.Y.Z</code>
 （亦即 <code>cz bump</code> 產出的 release commit），會檢查 <code>CHANGELOG.md</code> 中對
 應 <code>## vX.Y.Z</code> section 的非空白行數 ≥ 25。低於門檻 → block push，逼
 你補 WHY narrative（BREAKING migration、行為方向、動機）再 push。
