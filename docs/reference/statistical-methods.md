@@ -1,5 +1,11 @@
 # factrix 統計方法與參考文獻
 
+> See also:
+> [Development § Architecture](../development/architecture.md) for how the
+> registered procedures wire these methods into `evaluate()`, and
+> [Development § Methodology](../development/methodology.md) for the design
+> rationale (why HAC, why BHY, why this lag rule) behind the choices below.
+
 factrix 的每個指標都對應業界 / 學界認可的方法。本文列出所有**實際採用**的方法、**經評估但刻意未實作**的部分、以及完整文獻清單，方便你把結果帶進研究或報告時能明確交代技術背景。
 
 > 本文職責：metric 的**論文依據**與**採用取捨**（含與論文的 deviation）。**公式細節**不在這裡 — 請讀對應 `.py` module 的 docstring（`help(factrix.metrics.<name>)`）。文件整體分工見 [README.md](https://github.com/awwesomeman/factrix/blob/main/README.md)。

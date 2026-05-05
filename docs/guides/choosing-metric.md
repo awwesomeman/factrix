@@ -23,6 +23,9 @@ Both apply to `(INDIVIDUAL, CONTINUOUS)`. Choose by research question:
 
 Use IC when you care about rank ordering (stock selection). Use FM when you need an economically interpretable premium estimate (risk premia, factor pricing).
 
+For the lookup table — which metrics are supported under which `(scope, signal)` cell, with sample-size floors and warning codes — see
+[Reference § Metric applicability](../reference/metric-applicability.md).
+
 ## Standalone metrics vs `evaluate()`
 
 `evaluate()` runs the canonical PASS/FAIL procedure for a cell. Standalone metrics in `factrix.metrics` provide supplementary diagnostics without a formal PASS/FAIL verdict:

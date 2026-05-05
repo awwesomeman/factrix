@@ -1,6 +1,6 @@
 # factrix Architecture
 
-Current-state snapshot — describes the v0.5 library as it stands.
+Current-state snapshot of the public API surface and internal layout.
 
 ---
 
@@ -65,7 +65,7 @@ Plus introspection / error / enum re-exports:
 - `fl.suggest_config(panel)` — heuristic factory call from a raw panel
 - `fl.ConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError` — exception hierarchy
 
-`__version__ = "0.5.0"`.
+`__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
 ---
 
@@ -229,6 +229,13 @@ The 7 registered procedures differ in **aggregation order** — which axis is
 collapsed first determines small-sample failure modes and the N=1 collapse
 behavior. The user-facing factory chosen determines which pipeline runs.
 
+The two universal `n_periods` floors apply to every panel/timeseries pipeline
+listed below — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`,
+`MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` emits
+`UNRELIABLE_SE_SHORT_PERIODS`. The per-procedure "Failure modes" lists below
+record only the **procedure-specific** failures; for the user-facing tier
+matrix see [Guides § PANEL vs TIMESERIES](../guides/panel-timeseries.md).
+
 ### Terminology — aggregation regime
 
 Two regimes, each with concrete sub-forms. Pipeline pseudocode tags each
@@ -257,8 +264,6 @@ per-date Spearman across n_assets         (cross-section step)
 Failure modes:
 
 - `n_assets` < 10 → `MIN_ASSETS_PER_DATE_IC` drops every date → output is NaN.
-- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 
 ### `individual_continuous(FM)` — cross-section first
 
@@ -302,8 +307,6 @@ reflect the dense series.
 Failure modes:
 
 - `n_events < MIN_EVENTS` → event series too short → primary_p reverts to insufficient.
-- `n_periods < MIN_PERIODS_HARD` (overall panel length) → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 
 ### `common_continuous` — time-series first
 
@@ -364,8 +367,6 @@ PANEL form.
 
 Failure modes:
 
-- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 - ADF p > 0.10 → `WarningCode.PERSISTENT_REGRESSOR`.
 
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
@@ -387,8 +388,6 @@ preserved (no `.sign()` coercion at this layer).
 
 Failure modes:
 
-- `n_periods < MIN_PERIODS_HARD` → `InsufficientSampleError`.
-- `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_RELIABLE` → `UNRELIABLE_SE_SHORT_PERIODS`.
 - Ljung-Box p < 0.05 on residuals → `WarningCode.SERIAL_CORRELATION_DETECTED`.
 - Consecutive event gap < 2·`forward_periods` → `WarningCode.EVENT_WINDOW_OVERLAP`.
 
@@ -413,7 +412,7 @@ horizon-agnostic — one procedure per cell). User does **not** pass a group key
 same-test-family is enforced mechanically.
 
 Cross-family aggregation (e.g. horizon-shopping correction) is the user's
-responsibility — see README §批次評估與 BHY for the FWER-then-BHY recipe.
+responsibility — see [Guides § Batch screening (BHY)](../guides/batch-screening.md) for the FWER-then-BHY recipe.
 
 ---
 
@@ -507,9 +506,10 @@ Hard constraints — violating these breaks the API contract:
 
 ## Testing
 
-`tests/` covers the v0.5 surface only — v0.4 tests were removed in the §8.2
-deletion sweep. Fixtures are fully synthetic (`tests/conftest.py` +
-`factrix.datasets`); no test reads real market data from disk.
+`tests/` covers the current public surface only — historical pre-v0.5 tests
+were removed in the §8.2 deletion sweep. Fixtures are fully synthetic
+(`tests/conftest.py` + `factrix.datasets`); no test reads real market data
+from disk.
 
 Run: `uv run pytest`
 

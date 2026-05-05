@@ -116,10 +116,9 @@ nav:
       - examples/index.md
       - End-to-end walkthrough: examples/demo.ipynb
   - Reference:
-      - Methodology: reference/methodology.md
-      - Statistical methods: reference/statistical-methods.md
       - Metric applicability: reference/metric-applicability.md
       - Standalone metrics: reference/standalone-metrics.md
+      - Statistical methods: reference/statistical-methods.md
       - API:
           - AnalysisConfig: reference/api/analysis-config.md
           - evaluate: reference/api/evaluate.md
@@ -128,5 +127,6 @@ nav:
           - datasets: reference/api/datasets.md
   - Development:
       - Architecture: development/architecture.md
+      - Methodology: development/methodology.md
       - Contributing: development/contributing.md
       - Changelog: development/changelog.md
