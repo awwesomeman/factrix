@@ -1,9 +1,9 @@
-"""Fama-MacBeth regression — FM-canonical metric for the
+r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
-Aggregation: per-date cross-sectional OLS slope λ (cross-section step)
-→ time series of λ, then NW HAC t on its mean; pooled OLS variant
-clusters SE by date.
+Aggregation: per-date cross-sectional OLS slope $\lambda$
+(cross-section step) → time series of $\lambda$, then NW HAC $t$ on
+its mean; pooled OLS variant clusters SE by date.
 
 ``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
 ``fama_macbeth``: Newey-West t-test on the beta series.
@@ -46,7 +46,7 @@ def compute_fm_betas(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Per-date cross-sectional OLS: R_i = α + β · Signal_i + ε.
+    r"""Per-date cross-sectional OLS: $R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon$.
 
     Args:
         df: Long panel with ``date, asset_id, factor, forward_return``.
@@ -59,9 +59,10 @@ def compute_fm_betas(
         a singular design are dropped).
 
     Notes:
-        Per date ``t``, solve the cross-sectional OLS ``R_{i,t} = alpha_t
-        + beta_t * Signal_{i,t} + eps_{i,t}`` and emit the slope
-        ``beta_t``. The output series feeds the stage-2 NW HAC t-test in
+        Per date $t$, solve the cross-sectional OLS
+        $R_{i,t} = \alpha_t + \beta_t \cdot \text{Signal}_{i,t} + \varepsilon_{i,t}$
+        and emit the slope $\beta_t$. The output series feeds the
+        stage-2 NW HAC $t$-test in
         ``fama_macbeth``.
 
         factrix drops dates with fewer than 3 cross-sectional
@@ -111,57 +112,62 @@ def fama_macbeth(
     is_estimated_factor: bool = False,
     factor_return_var: float | None = None,
 ) -> MetricOutput:
-    """Newey-West t-test on FM beta series. H₀: mean(β) = 0.
+    r"""Newey-West t-test on FM beta series. $H_0: \mathrm{mean}(\beta) = 0$.
 
     Args:
         beta_df: DataFrame with ``date, beta`` columns (from compute_fm_betas).
-        newey_west_lags: Number of NW lags. Defaults to floor(T^(1/3)).
+        newey_west_lags: Number of NW lags. Defaults to $\lfloor T^{1/3} \rfloor$.
         forward_periods: Overlap horizon of the regression's forward
             return. When set, the NW bandwidth is floored at
             ``forward_periods - 1`` so the kernel is consistent under
-            the MA(h-1) overlap structure of h-period returns.
+            the MA($h-1$) overlap structure of $h$-period returns.
         is_estimated_factor: Set True when the ``Signal_i`` column used by
             ``compute_fm_betas`` is itself an **estimated** quantity
-            (rolling OLS β to another factor, PCA score, ML-predicted
-            score, residual from a first-stage regression). Shanken
-            (1992) shows the naive FM SE ignores sampling error in the
-            regressor, inflating t-stats. **Do NOT** set this on raw
-            characteristics (book-to-market, momentum price signal,
-            accounting ratios) — those are observed, not estimated, and
-            enabling the correction will spuriously deflate t-stats.
+            (rolling OLS $\beta$ to another factor, PCA score,
+            ML-predicted score, residual from a first-stage regression).
+            Shanken (1992) shows the naive FM SE ignores sampling error
+            in the regressor, inflating $t$-stats. **Do NOT** set this
+            on raw characteristics (book-to-market, momentum price
+            signal, accounting ratios) — those are observed, not
+            estimated, and enabling the correction will spuriously
+            deflate $t$-stats.
 
             Implementation: Kan-Zhang (1999) single-factor simplification
-            — the NW SE is scaled by ``√(1 + λ̂²/σ²_f)``. This *omits* the
-            additive ``+σ²_f/T`` term of the full Shanken variance and
-            is therefore only honest for large T.
+            — the NW SE is scaled by $\sqrt{1 + \hat\lambda^2/\sigma^2_f}$.
+            This *omits* the additive $+\sigma^2_f/T$ term of the full
+            Shanken variance and is therefore only honest for large $T$.
 
-        factor_return_var: σ²_f, the time-series variance of the factor-
-            mimicking portfolio return. Prefer supplying this when you
-            have a spread-portfolio return series (the long-short spread
-            actually traded on the signal). When ``None`` and
-            ``is_estimated_factor=True``, falls back to ``var(β_t)`` as a
-            rough placeholder — β̂_t is *not* the factor-mimicking return
-            but is usually the only readily-available series. Because
-            ``var(β̂_t)`` already absorbs upstream estimation noise, it
-            inflates the denominator of the EIV factor and so deflates
-            the SE correction; treat the ``betas_timeseries_proxy``
-            result as a **lower bound on the true SE inflation** — i.e.
-            an **upper bound on the reported t-stat** — not a precise
-            estimate.
+        factor_return_var: $\sigma^2_f$, the time-series variance of the
+            factor-mimicking portfolio return. Prefer supplying this when
+            you have a spread-portfolio return series (the long-short
+            spread actually traded on the signal). When ``None`` and
+            ``is_estimated_factor=True``, falls back to
+            $\mathrm{var}(\beta_t)$ as a rough placeholder —
+            $\hat\beta_t$ is *not* the factor-mimicking return but is
+            usually the only readily-available series. Because
+            $\mathrm{var}(\hat\beta_t)$ already absorbs upstream
+            estimation noise, it inflates the denominator of the EIV
+            factor and so deflates the SE correction; treat the
+            ``betas_timeseries_proxy`` result as a **lower bound on the
+            true SE inflation** — i.e. an **upper bound on the reported
+            $t$-stat** — not a precise estimate.
 
     Notes:
-        Stage 2 of FM: ``mean_beta = mean_t beta_t``; ``t = mean_beta /
-        NW_SE(beta)`` with kernel lag ``L = max(floor(T^(1/3)),
-        forward_periods - 1)``. With ``is_estimated_factor=True``, the
-        Shanken-Kan-Zhang single-factor correction scales SE by
-        ``sqrt(1 + mean_beta^2 / sigma^2_f)``.
+        Stage 2 of FM:
+        $\overline{\beta} = \mathrm{mean}_t\,\beta_t$;
+        $t = \overline{\beta} / \mathrm{NW\_SE}(\beta)$
+        with kernel lag
+        $L = \max(\lfloor T^{1/3} \rfloor,\, \text{forward\_periods} - 1)$.
+        With ``is_estimated_factor=True``, the Shanken-Kan-Zhang
+        single-factor correction scales SE by
+        $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
 
-        factrix uses the Andrews (1991) ``T^(1/3)`` bandwidth floored
+        factrix uses the Andrews (1991) $T^{1/3}$ bandwidth floored
         against the Hansen-Hodrick overlap horizon rather than the
         Newey-West (1994) data-adaptive plug-in — simpler, deterministic,
-        and adequate at typical research T. The Kan-Zhang simplification
-        omits the additive ``+sigma^2_f / T`` term of full Shanken EIV,
-        so the correction is honest only for large T.
+        and adequate at typical research $T$. The Kan-Zhang simplification
+        omits the additive $+\sigma^2_f / T$ term of full Shanken EIV,
+        so the correction is honest only for large $T$.
 
     References:
         [Fama-MacBeth 1973][fama-macbeth-1973]: two-stage lambda
@@ -252,7 +258,7 @@ def fama_macbeth(
 def _cluster_meat(
     X: np.ndarray, resid: np.ndarray, clusters: np.ndarray,
 ) -> tuple[np.ndarray, int]:
-    """Σ_g (X_g' e_g)(X_g' e_g)' over the groups encoded by ``clusters``.
+    r"""$\sum_g (X_g' e_g)(X_g' e_g)'$ over the groups encoded by ``clusters``.
 
     Returns ``(meat, G)`` where ``G`` is the number of distinct clusters.
     """
@@ -274,26 +280,42 @@ def pooled_ols(
     cluster_col: str = "date",
     two_way_cluster_col: str | None = None,
 ) -> MetricOutput:
-    """Pooled OLS with clustered SE — robustness check against FM.
+    r"""Pooled OLS with clustered SE — robustness check against FM.
 
     Formula:
         Point estimate:
-            [α̂, β̂] = (X'X)⁻¹ X'R   where X = [1, Signal] stacked across
-                                    all (date, asset) observations
 
-        Single-way clustered sandwich SE (default, cluster on ``cluster_col``):
-            meat_g = Σ_g (X_g' e_g)(X_g' e_g)'   over groups g
-            V = c · (X'X)⁻¹ · meat_g · (X'X)⁻¹
-            c = G/(G−1) · (N−1)/(N−K)    (finite-sample correction)
-            SE(β̂) = √V[1,1];  t = β̂ / SE;  df = G − 1
+        $$
+        [\hat\alpha, \hat\beta] = (X'X)^{-1} X'R
+        $$
+
+        where $X = [1, \text{Signal}]$ stacked across all
+        $(\text{date}, \text{asset})$ observations.
+
+        Single-way clustered sandwich SE (default, cluster on
+        ``cluster_col``):
+
+        $$
+        \mathrm{meat}_g = \sum_g (X_g' e_g)(X_g' e_g)', \quad
+        V = c \cdot (X'X)^{-1} \cdot \mathrm{meat}_g \cdot (X'X)^{-1},
+        $$
+
+        with finite-sample correction
+        $c = \tfrac{G}{G-1} \cdot \tfrac{N-1}{N-K}$,
+        $\mathrm{SE}(\hat\beta) = \sqrt{V_{1,1}}$,
+        $t = \hat\beta / \mathrm{SE}$, $\mathrm{df} = G - 1$.
 
         Two-way clustered sandwich SE (when ``two_way_cluster_col`` is
         set — Cameron-Gelbach-Miller 2011 / Petersen 2009):
-            V_two_way = V_A + V_B − V_A∩B
-        where V_A, V_B, V_A∩B are single-way variances clustered on A,
-        on B, and on the intersection cells (A, B). Each component uses
-        its own finite-sample correction. df = min(G_A, G_B) − 1
-        (Thompson 2011).
+
+        $$
+        V_{\text{two-way}} = V_A + V_B - V_{A \cap B}
+        $$
+
+        where $V_A$, $V_B$, $V_{A \cap B}$ are single-way variances
+        clustered on $A$, on $B$, and on the intersection cells
+        $(A, B)$. Each component uses its own finite-sample correction.
+        $\mathrm{df} = \min(G_A, G_B) - 1$ (Thompson 2011).
 
     Clustering on date alone catches contemporaneous cross-sectional
     dependence but misses asset-level persistence; on asset alone the
@@ -301,12 +323,13 @@ def pooled_ols(
     single-way clusters understate SE by 20-50% in that regime.
 
     FM and single-way share the same point estimate under a balanced
-    panel but typically disagree on SE; when β̂ and FM λ̂ have **opposite
-    signs**, ``profile.diagnose()`` flags an FM/pooled sign-mismatch —
-    a red flag for misspecification.
+    panel but typically disagree on SE; when $\hat\beta$ and FM
+    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
+    flags an FM/pooled sign-mismatch — a red flag for misspecification.
 
-    Short-circuits when N < 10 (no regression), returns stat=None with
-    p=1.0 when the effective ``G < 3`` (SE undefined with < 3 clusters).
+    Short-circuits when $N < 10$ (no regression), returns ``stat=None``
+    with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
+    clusters).
 
     Notes:
         Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +
@@ -475,22 +498,22 @@ def beta_sign_consistency(
     *,
     expected_sign: int = 1,
 ) -> MetricOutput:
-    """Fraction of FM per-date βs carrying the expected sign — `value = mean_t 1{sign(β_t) == expected_sign}`.
+    r"""Fraction of FM per-date $\beta$s carrying the expected sign — $\text{value} = \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = \text{expected\_sign}\}$.
 
-    β_t is the per-date OLS β from ``compute_fm_betas``. Range [0, 1];
-    1.0 = β always has the expected sign across periods. Unlike
-    ``ts_beta_sign_consistency`` (which symmetrizes via
-    ``max(pos%, 1-pos%)``), this one is directional — you must supply
-    the a-priori expected sign. Typical use: paired with a prior on
-    factor direction to check stability.
+    $\beta_t$ is the per-date OLS $\beta$ from ``compute_fm_betas``.
+    Range $[0, 1]$; $1.0$ = $\beta$ always has the expected sign across
+    periods. Unlike ``ts_beta_sign_consistency`` (which symmetrizes via
+    $\max(\text{pos\%}, 1 - \text{pos\%})$), this one is directional —
+    you must supply the a-priori expected sign. Typical use: paired with
+    a prior on factor direction to check stability.
 
-    Short-circuits to NaN when no non-null β observations exist.
+    Short-circuits to NaN when no non-null $\beta$ observations exist.
 
     Notes:
-        ``value = mean_t 1{sign(beta_t) == expected_sign}`` over the FM
-        per-date beta series. Range ``[0, 1]``; ``1.0`` = beta always
-        agrees with the prior. Descriptive (no formal H0); pair with
-        ``fama_macbeth`` for inferential significance.
+        $\text{value} = \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = \text{expected\_sign}\}$
+        over the FM per-date beta series. Range $[0, 1]$; $1.0$ = beta
+        always agrees with the prior. Descriptive (no formal $H_0$);
+        pair with ``fama_macbeth`` for inferential significance.
 
         factrix splits this directional check from the symmetric
         ``ts_beta_sign_consistency`` so the two answer different

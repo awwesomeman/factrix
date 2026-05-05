@@ -41,7 +41,7 @@ def top_concentration(
     return_col: str = "forward_return",
     weight_by: ConcentrationWeight = "abs_factor",
 ) -> MetricOutput:
-    """Top-bucket concentration via HHI inverse.
+    r"""Top-bucket concentration via HHI inverse.
 
     Per date, selects top ``q_top`` stocks by factor rank, computes
     HHI of their weights, and returns 1/HHI as the effective number of
@@ -71,12 +71,15 @@ def top_concentration(
         Higher = more diversified top bucket.
 
     Notes:
-        Per non-overlap date ``t`` with top-bucket members ``Q_top(t)``
-        (size ``n_top``), define weights ``w_i`` by ``weight_by`` and form
-        the Herfindahl ``HHI_t = sum_i (w_i / sum_j w_j)^2``. Effective
-        independent bets ``eff_n_t = 1 / HHI_t``. Per-date diversification
-        ratio ``r_t = eff_n_t / n_top`` is averaged and tested one-sided
-        against ``H0: E[r] >= 0.5``: rejecting flags concentration.
+        Per non-overlap date $t$ with top-bucket members $Q_{\text{top}}(t)$
+        (size $n_{\text{top}}$), define weights $w_i$ by ``weight_by``
+        and form the Herfindahl
+        $\mathrm{HHI}_t = \sum_i (w_i / \sum_j w_j)^2$. Effective
+        independent bets $\mathrm{eff\_n}_t = 1 / \mathrm{HHI}_t$.
+        Per-date diversification ratio
+        $r_t = \mathrm{eff\_n}_t / n_{\text{top}}$ is averaged and tested
+        one-sided against $H_0: \mathbb{E}[r] \geq 0.5$: rejecting flags
+        concentration.
 
         factrix uses ``rank(method="average")`` for the top-bucket cutoff
         — ``tie_policy`` from Config does not apply because HHI measures

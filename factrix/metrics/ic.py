@@ -41,7 +41,7 @@ def compute_ic(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Per-date Spearman Rank IC.
+    r"""Per-date Spearman Rank IC.
 
     Args:
         df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
@@ -51,22 +51,25 @@ def compute_ic(
         Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are dropped.
 
     Notes:
-        Per-date Spearman IC is ``IC_t = corr(rank(f_t), rank(r_t))`` over
-        the cross-section at date ``t``; rank ties are broken with average
-        rank (``method="average"``).
+        Per-date Spearman IC is
+        $\mathrm{IC}_t = \mathrm{corr}(\mathrm{rank}(f_t), \mathrm{rank}(r_t))$
+        over the cross-section at date $t$; rank ties are broken with
+        average rank (``method="average"``).
 
-        At high tie rates Spearman ρ on average ranks is biased relative
-        to the tie-corrected formula (Kendall-Stuart §31). factrix does
-        not surface ``tie_ratio`` from this primitive; if you suspect a
-        bucketed / categorical signal, inspect tie density on the input
-        before reporting IC.
+        At high tie rates Spearman $\rho$ on average ranks is biased
+        relative to the tie-corrected formula (Kendall-Stuart §31).
+        factrix does not surface ``tie_ratio`` from this primitive; if
+        you suspect a bucketed / categorical signal, inspect tie density
+        on the input before reporting IC.
 
         factrix drops dates whose cross-section has fewer than
         ``MIN_ASSETS_PER_DATE_IC`` assets — undersized panels yield
         rank-correlation estimates with degenerate variance.
 
     References:
-        [Grinold 1989][grinold-1989]: ``IR ≈ IC × sqrt(breadth)`` motivates
+        [Grinold 1989][grinold-1989]:
+        $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
+        motivates
         IC as the canonical signal-quality measure (the formal
         decomposition is older — see [Treynor-Black
         1973][treynor-black-1973]).
@@ -92,7 +95,7 @@ def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> MetricOutput:
-    """IC mean significance: is mean IC significantly different from zero?
+    r"""IC mean significance: is mean IC significantly different from zero?
 
     Args:
         ic_df: Output of ``compute_ic()``.
@@ -102,9 +105,10 @@ def ic(
         MetricOutput with value=mean IC, t_stat from non-overlapping sampling.
 
     Notes:
-        Given the per-date IC series ``IC_t``, significance is
-        ``t = mean(IC) / (std(IC) / sqrt(n))`` computed on a non-overlapping
-        subsample (every ``forward_periods``-th date). H0: ``E[IC] = 0``.
+        Given the per-date IC series $\mathrm{IC}_t$, significance is
+        $t = \mathrm{mean}(\mathrm{IC}) / (\mathrm{std}(\mathrm{IC}) / \sqrt{n})$
+        computed on a non-overlapping subsample (every
+        ``forward_periods``-th date). $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
 
         factrix uses non-overlapping resampling rather than Newey-West HAC
         for the default ``ic`` test to avoid the lag floor implied by
@@ -159,28 +163,29 @@ def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> MetricOutput:
-    """IC mean significance via Newey-West HAC t-test on the overlapping series.
+    r"""IC mean significance via Newey-West HAC $t$-test on the overlapping series.
 
-    Sibling of ``ic()``: same null hypothesis (H0: mean IC = 0), but
+    Sibling of ``ic()``: same null hypothesis ($H_0$: mean IC = 0), but
     keeps every observation and absorbs the autocorrelation induced by
     overlapping ``forward_periods``-day returns through HAC standard
     errors rather than dropping samples.
 
     Notes:
-        ``t = mean(IC) / NW_SE(IC)`` on the full overlapping IC series.
-        Lag selection: ``L = max(floor(T^(1/3)), forward_periods - 1)`` —
-        the Andrews (1991) Bartlett growth rate, floored against the
-        Hansen-Hodrick MA(h-1) overlap horizon so the kernel covers the
-        induced dependence.
+        $t = \mathrm{mean}(\mathrm{IC}) / \mathrm{NW\_SE}(\mathrm{IC})$
+        on the full overlapping IC series. Lag selection:
+        $L = \max(\lfloor T^{1/3} \rfloor, \text{forward\_periods} - 1)$
+        — the Andrews (1991) Bartlett growth rate, floored against the
+        Hansen-Hodrick MA($h-1$) overlap horizon so the kernel covers
+        the induced dependence.
 
         factrix uses the Andrews fixed-rate rule rather than the
         Newey-West (1994) data-adaptive bandwidth — simpler, deterministic
-        across reruns, and adequate at the typical T of factor research.
+        across reruns, and adequate at the typical $T$ of factor research.
 
     References:
         [Newey-West 1987][newey-west-1987]: HAC variance estimator.
         [Andrews 1991][andrews-1991]: optimal Bartlett growth rate
-        ``T^(1/3)`` underlying the default lag rule.
+        $T^{1/3}$ underlying the default lag rule.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
         [Newey-West 1994][newey-west-1994]: data-adaptive lag-selection
@@ -217,7 +222,7 @@ def ic_newey_west(
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricOutput:
-    """IC_IR = mean(IC) / std(IC).
+    r"""$\mathrm{IC\_IR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
     Signed ratio — positive when IC is consistently positive, negative
     when consistently negative.  Analogous to a Sharpe ratio for the
@@ -233,11 +238,12 @@ def ic_ir(
         MetricOutput with value=IC_IR (signed), t_stat=None.
 
     Notes:
-        ``IC_IR = mean(IC) / std(IC)`` over the per-date IC series — a
-        Sharpe-style ratio describing time-series stability of the signal.
-        Reported as a descriptive statistic; no inference is attached
-        because the HAC-corrected significance test on ``mean(IC)`` lives
-        in ``ic`` / ``ic_newey_west``.
+        $\mathrm{IC\_IR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
+        over the per-date IC series — a Sharpe-style ratio describing
+        time-series stability of the signal. Reported as a descriptive
+        statistic; no inference is attached because the HAC-corrected
+        significance test on $\mathrm{mean}(\mathrm{IC})$ lives in ``ic``
+        / ``ic_newey_west``.
 
     References:
         [Grinold 1989][grinold-1989]: ICIR is the time-stability
@@ -272,13 +278,14 @@ def regime_ic(
     ic_df: pl.DataFrame,
     regime_labels: pl.DataFrame | None = None,
 ) -> MetricOutput:
-    """IC conditioned on regime labels.
+    r"""IC conditioned on regime labels.
 
     Answers "is the factor stable across market environments?"
     unlike OOS decay which tests overfitting.
 
-    Each regime's t-stat is an independent test (H₀: mean IC = 0 within
-    that regime); sweeping k regimes manufactures k implicit tests.
+    Each regime's $t$-stat is an independent test ($H_0$: mean IC = 0
+    within that regime); sweeping $k$ regimes manufactures $k$ implicit
+    tests.
     Each per-regime entry in ``per_regime`` metadata reports ``p_value``
     (raw) alongside ``p_adjusted_bhy`` (BHY-corrected across the k
     regimes); top-level metadata also surfaces ``p_value_bhy_adjusted``
@@ -295,10 +302,11 @@ def regime_ic(
         Per-regime details in metadata, each with raw and BHY-adjusted p.
 
     Notes:
-        Within each regime ``g``, ``t_g = mean(IC_g) / (std(IC_g) /
-        sqrt(n_g))`` with H0: ``E[IC_g] = 0``. Sweeping ``k`` regimes is
-        ``k`` implicit tests on the same null family, so per-regime raw p
-        is accompanied by a BHY-adjusted p across regimes.
+        Within each regime $g$,
+        $t_g = \mathrm{mean}(\mathrm{IC}_g) / (\mathrm{std}(\mathrm{IC}_g) / \sqrt{n_g})$
+        with $H_0: \mathbb{E}[\mathrm{IC}_g] = 0$. Sweeping $k$ regimes
+        is $k$ implicit tests on the same null family, so per-regime raw
+        $p$ is accompanied by a BHY-adjusted $p$ across regimes.
 
         factrix uses BHY rather than Benjamini-Hochberg because per-regime
         IC samples are typically dependent (overlapping market states).
@@ -426,10 +434,10 @@ def multi_horizon_ic(
         Per-horizon details in metadata.
 
     Notes:
-        For each horizon ``h``, run ``compute_ic`` against
+        For each horizon $h$, run ``compute_ic`` against
         ``forward_return(h)`` and apply the ``ic`` non-overlapping
-        t-test at stride ``h``. Sweeping ``k`` horizons is ``k`` implicit
-        tests, so per-horizon p-values are also reported BHY-adjusted.
+        $t$-test at stride $h$. Sweeping $k$ horizons is $k$ implicit
+        tests, so per-horizon $p$-values are also reported BHY-adjusted.
 
         factrix sub-samples per horizon at its own stride rather than
         applying NW HAC across horizons — the overlap structure differs

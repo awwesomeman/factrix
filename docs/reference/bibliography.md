@@ -34,7 +34,7 @@ Covariance Matrix Estimation." *Review of Economic Studies* 61(4),
 
 Data-adaptive plug-in bandwidth selection. Cited as background;
 factrix uses the simpler Andrews (1991) Bartlett growth rate
-`⌊T^(1/3)⌋` floored against the Hansen-Hodrick overlap rule.
+$\lfloor T^{1/3} \rfloor$ floored against the Hansen-Hodrick overlap rule.
 
 ### Andrews (1991)
 [](){ #andrews-1991 }
@@ -43,7 +43,7 @@ Andrews, D. W. K. (1991). "Heteroskedasticity and Autocorrelation
 Consistent Covariance Matrix Estimation." *Econometrica* 59(3),
 817–858.
 
-Optimal Bartlett growth rate `T^(1/3)`; the basis of factrix's default
+Optimal Bartlett growth rate $T^{1/3}$; the basis of factrix's default
 NW lag rule.
 
 ### Andrews & Monahan (1992)
@@ -89,7 +89,7 @@ Treynor, J. L. & Black, F. (1973). "How to Use Security Analysis to
 Improve Portfolio Selection." *Journal of Business* 46(1), 66–86.
 
 Original derivation of the alpha-vs-residual-risk active-management
-optimisation that yields the `IR ≈ IC × √breadth` decomposition that
+optimisation that yields the $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$ decomposition that
 [Grinold 1989][grinold-1989] later popularised.
 
 ### Grinold (1989)
@@ -98,7 +98,7 @@ optimisation that yields the `IR ≈ IC × √breadth` decomposition that
 Grinold, R. C. (1989). "The Fundamental Law of Active Management."
 *Journal of Portfolio Management* 15(3), 30–37.
 
-`IR ≈ IC × √breadth`; motivates IC as the canonical signal-quality
+$\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$; motivates IC as the canonical signal-quality
 measure and IR/ICIR as its time-stability normalisation.
 
 ### Grinold & Kahn (2000)
@@ -179,9 +179,10 @@ when `is_estimated_factor=True`.
 Kan, R. & Zhang, C. (1999). "Two-Pass Tests of Asset Pricing Models
 with Useless Factors." *Journal of Finance* 54(1), 203–235.
 
-Single-factor simplification `SE × √(1 + λ̂²/σ²_f)` of the full
-Shanken EIV correction; the form factrix actually applies (omits
-the additive `+σ²_f/T` term and is therefore honest only for large T).
+Single-factor simplification $\mathrm{SE} \times \sqrt{1 + \hat\lambda^2/\sigma^2_f}$
+of the full Shanken EIV correction; the form factrix actually applies
+(omits the additive $+\sigma^2_f/T$ term and is therefore honest only
+for large $T$).
 
 ### Fama & French (1992)
 [](){ #fama-french-1992 }
@@ -509,7 +510,7 @@ Dickey, D. A. & Fuller, W. A. (1979). "Distribution of the Estimators
 for Autoregressive Time Series with a Unit Root." *Journal of the
 American Statistical Association* 74(366), 427–431.
 
-ADF test on `H₀: β = 0` in `Δy_t = α + β y_{t-1} + ε`; the basis of
+ADF test on $H_0: \beta = 0$ in $\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the basis of
 factrix's `_adf` persistence diagnostic.
 
 ### Said & Dickey (1984)
@@ -538,7 +539,7 @@ linear interpolation against the constant-only specification.
 Stambaugh, R. F. (1999). "Predictive Regressions." *Journal of
 Financial Economics* 54(3), 375–421.
 
-Bias of OLS β̂ in predictive regressions when the predictor is
+Bias of OLS $\hat\beta$ in predictive regressions when the predictor is
 persistent; factrix flags via ADF rather than auto-correcting.
 
 ### Campbell & Yogo (2006)
@@ -739,7 +740,7 @@ benchmark above factrix's per-date Spearman `monotonicity` metric.
 Novy-Marx, R. & Velikov, M. (2016). "A Taxonomy of Anomalies and
 Their Trading Costs." *Review of Financial Studies* 29(1), 104–147.
 
-Notional-turnover τ and breakeven-cost framework; the source of
+Notional-turnover $\tau$ and breakeven-cost framework; the source of
 `notional_turnover` and `breakeven_cost`.
 
 ### DeMiguel, Martin-Utrera, Nogales & Uppal (2020)
@@ -780,7 +781,7 @@ Ambachtsheer, K. P. (1977). "Where Are the Customers' Alphas?"
 *Journal of Portfolio Management* 4(1), 52–56.
 
 Early operational use of IC-based alpha attribution in pension-fund
-performance discussion; the formal `IR ≈ IC × √breadth`
+performance discussion; the formal $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
 decomposition itself traces to Treynor & Black (1973) and is
 canonically stated in [Grinold 1989][grinold-1989].
 

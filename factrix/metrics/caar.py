@@ -1,10 +1,10 @@
-"""CAAR (Cumulative Average Abnormal Return) significance tests.
+r"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
 Aggregation: per-event-date weighted abnormal return (per-event-date
-step) then non-overlapping cross-event sample; t-test on CAAR, or BMP
-standardized AR z-test for event-induced variance.
+step) then non-overlapping cross-event sample; $t$-test on CAAR, or BMP
+standardized AR $z$-test for event-induced variance.
 
-Tests H₀: event abnormal return = 0, using two complementary methods:
+Tests $H_0$: event abnormal return = 0, using two complementary methods:
     compute_caar — per-event-date weighted abnormal return series
     caar         — CAAR t-test (parametric, non-overlapping sampling)
     bmp_test     — BMP standardized AR test (robust to event-induced variance)
@@ -42,23 +42,24 @@ def compute_caar(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Per-event-date weighted abnormal return series.
+    r"""Per-event-date weighted abnormal return series.
 
     Aggregation:
         CS-first. For each event date, take the cross-sectional mean of
-        ``signed_car = return × factor`` across event rows
-        (``factor ≠ 0``); the resulting ``n_event_dates``-length CAAR
-        series feeds a downstream NW HAC t-test on the mean.
+        $\text{signed\_car} = \text{return} \times \text{factor}$ across
+        event rows ($\text{factor} \neq 0$); the resulting
+        ``n_event_dates``-length CAAR series feeds a downstream NW HAC
+        $t$-test on the mean.
 
     Magnitude is preserved — no ``.sign()`` coercion. The statistic that
-    emerges depends on the input form (general primitive ``{0, R}``;
-    special cases ``{0, 1}`` and ``{-1, 0, +1}`` reduce naturally):
+    emerges depends on the input form (general primitive $\{0, R\}$;
+    special cases $\{0, 1\}$ and $\{-1, 0, +1\}$ reduce naturally):
 
-    | Input ``factor``      | ``signed_car`` reduces to | Statistic tested              |
-    |-----------------------|---------------------------|-------------------------------|
-    | ``{0, 1}``            | ``return`` on event rows  | Average event-day return      |
-    | ``{0, R}``, ``R ∈ ℝ`` | ``return × R``            | Magnitude-weighted CAAR       |
-    | ``{-1, 0, +1}``       | ``return × ±1``           | Signed CAAR (literature std.) |
+    | Input ``factor`` | ``signed_car`` reduces to | Statistic tested |
+    |---|---|---|
+    | $\{0, 1\}$ | $\text{return}$ on event rows | Average event-day return |
+    | $\{0, R\}$, $R \in \mathbb{R}$ | $\text{return} \times R$ | Magnitude-weighted CAAR |
+    | $\{-1, 0, +1\}$ | $\text{return} \times \pm 1$ | Signed CAAR (literature std.) |
 
     If the caller wants ternary semantics on a non-ternary input, apply
     ``.sign()`` to the input column before calling.
@@ -80,9 +81,10 @@ def compute_caar(
         DataFrame with columns ``date, caar`` sorted by date.
 
     Notes:
-        Per event date ``d``, ``CAAR_d = mean_{i in events(d)} (return_i ×
-        factor_i)``. Magnitude of ``factor`` is preserved as a weight; only
-        rows with ``factor == 0`` are dropped.
+        Per event date $d$,
+        $\mathrm{CAAR}_d = \mathrm{mean}_{i \in \mathrm{events}(d)} (\mathrm{return}_i \times \mathrm{factor}_i)$.
+        Magnitude of ``factor`` is preserved as a weight; only rows with
+        ``factor == 0`` are dropped.
 
         factrix follows the MacKinlay (1997) event-window vocabulary
         (factor as the event indicator / sign on the announcement date)
@@ -117,7 +119,7 @@ def caar(
     *,
     forward_periods: int = 5,
 ) -> MetricOutput:
-    """CAAR significance: is mean CAAR significantly different from zero?
+    r"""CAAR significance: is mean CAAR significantly different from zero?
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar``.
@@ -130,9 +132,10 @@ def caar(
         MetricOutput with value=mean CAAR, stat=t from non-overlapping sampling.
 
     Notes:
-        ``t = mean(CAAR) / (std(CAAR) / sqrt(n))`` on a non-overlap
-        subsample (stride ``forward_periods``) of the per-event-date
-        ``CAAR`` series; ``H0: E[CAAR] = 0``.
+        $t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})$
+        on a non-overlap subsample (stride ``forward_periods``) of the
+        per-event-date $\mathrm{CAAR}$ series;
+        $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
 
         factrix uses non-overlap resampling rather than NW HAC for the
         default CAAR test — the same convention as ``ic`` — and exposes
@@ -190,18 +193,19 @@ def bmp_test(
     forward_periods: int = 5,
     kolari_pynnonen_adjust: bool = False,
 ) -> MetricOutput:
-    """Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
+    r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
 
     Standardizes each event's abnormal return by the asset's pre-event
     residual volatility, making the test robust to event-induced variance
-    inflation that biases the ordinary CAAR t-test.
+    inflation that biases the ordinary CAAR $t$-test.
 
     Steps:
-        1. For each event (factor ≠ 0), look back ``estimation_window``
-           periods of the same asset's returns to estimate σ_i.
-        2. Scale σ_i to match the forward_return horizon.
-        3. SAR_i = signed_AR_i / σ_scaled_i
-        4. z = mean(SAR) / (std(SAR) / √N)
+        1. For each event ($\text{factor} \neq 0$), look back
+           ``estimation_window`` periods of the same asset's returns to
+           estimate $\sigma_i$.
+        2. Scale $\sigma_i$ to match the forward_return horizon.
+        3. $\mathrm{SAR}_i = \mathrm{signed\_AR}_i / \sigma^{\text{scaled}}_i$.
+        4. $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
 
     Uses ``price`` column for estimation-window volatility if available;
     falls back to per-asset historical ``forward_return`` std otherwise.
@@ -217,8 +221,9 @@ def bmp_test(
             ``1/sqrt(forward_periods)`` to match per-period forward_return.
         kolari_pynnonen_adjust: When True, apply the Kolari-Pynnönen
             (2010) adjustment for cross-sectional correlation of SAR:
-            ``z_KP = z_BMP · √((1 − r̂) / (1 + (N_eff − 1)·r̂))`` where
-            ``r̂`` is the ICC-style within-date correlation of SAR and
+            $z_{\mathrm{KP}} = z_{\mathrm{BMP}} \cdot \sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1) \cdot \hat r)}$
+            where $\hat r$ is the ICC-style within-date correlation of
+            SAR and
             ``N_eff`` is the average events per event date. Vanilla BMP
             overstates significance when events cluster on the same
             date (earnings season, macro release), inflating z by
@@ -230,12 +235,13 @@ def bmp_test(
         MetricOutput(name="bmp_test", value=mean_SAR, stat=z_bmp, ...).
 
     Notes:
-        For each event ``i``: estimate pre-event vol ``sigma_i`` over the
+        For each event $i$: estimate pre-event vol $\sigma_i$ over the
         ``estimation_window``, scaled to the forward horizon by
-        ``1/sqrt(forward_periods)`` when daily prices are available;
-        ``SAR_i = signed_AR_i / sigma_i``; aggregate to ``z = mean(SAR) /
-        (std(SAR) / sqrt(N))``. With ``kolari_pynnonen_adjust=True``,
-        scale ``z`` by ``sqrt((1 - r_hat) / (1 + (N_eff - 1) r_hat))``.
+        $1/\sqrt{\text{forward\_periods}}$ when daily prices are available;
+        $\mathrm{SAR}_i = \mathrm{signed\_AR}_i / \sigma_i$; aggregate to
+        $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
+        With ``kolari_pynnonen_adjust=True``, scale $z$ by
+        $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\, \hat r)}$.
 
         factrix simplifies the original BMP by omitting the prediction-
         error term from the standardiser (using mean-adjusted residuals
@@ -355,7 +361,7 @@ def bmp_test(
 def _estimate_sar_icc(
     sar_by_date: pl.DataFrame,
 ) -> tuple[float | None, float, KPSource]:
-    """ICC-style within-date correlation r̂ of SAR and average cluster size.
+    r"""ICC-style within-date correlation $\hat r$ of SAR and average cluster size.
 
     Args:
         sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
@@ -363,13 +369,15 @@ def _estimate_sar_icc(
 
     Returns ``(r_hat, n_eff, source)`` where ``source`` is one of:
         - ``"icc"``: standard between/within decomposition across event
-          dates with n_k ≥ 2 events each.
+          dates with $n_k \geq 2$ events each.
         - ``"no_multi_event_dates"``: not enough date-clusters to
-          estimate within-variance; r_hat is ``None``.
+          estimate within-variance; $\hat r$ is ``None``.
 
-    Uses ``σ²_between = var(date_mean_SAR)`` and ``σ²_within =`` the
-    pooled within-date variance (weighted by ``n_k − 1``).
-    ``r̂ = σ²_between / (σ²_between + σ²_within)`` clipped to ``[0, 1]``.
+    Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\mathrm{date\_mean\_SAR})$
+    and $\sigma^2_{\mathrm{within}}$ = the pooled within-date variance
+    (weighted by $n_k - 1$).
+    $\hat r = \sigma^2_{\mathrm{between}} / (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$
+    clipped to $[0, 1]$.
     """
     per_date = sar_by_date.group_by("date").agg(
         pl.col("_sar").mean().alias("m"),
