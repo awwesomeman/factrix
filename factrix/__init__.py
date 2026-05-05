@@ -25,6 +25,16 @@ Schema reflection::
 
     print(fl.describe_analysis_modes())
     print(fl.suggest_config(panel))
+
+LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
+typical usage patterns in a single fetch. Two access paths::
+
+    # Web — deployed at the docs site root
+    https://awwesomeman.github.io/factrix/llms-full.txt
+
+    # Local — shipped inside the wheel as package data
+    import importlib.resources
+    text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
 
 from factrix import datasets, multi_factor

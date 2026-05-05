@@ -1,0 +1,312 @@
+# factrix — LLM reference
+
+> factrix is a polars-native Python library that answers one question for a given
+> factor signal: **Does this factor carry statistical edge?** It runs the
+> appropriate statistical procedure (IC regression, Fama-MacBeth, CAAR event
+> study, or timeseries beta) based on a three-axis config, returns a structured
+> result with a p-value and warning flags, and screens large candidate sets with
+> per-family BHY FDR correction. Install:
+> `uv pip install git+https://github.com/awwesomeman/factrix.git`
+
+Source: https://github.com/awwesomeman/factrix
+Docs: https://awwesomeman.github.io/factrix/
+Full index: https://awwesomeman.github.io/factrix/llms.txt
+
+---
+
+## Core concept: three axes
+
+Every analysis is specified by three orthogonal axes that together select the
+statistical procedure.
+
+**FactorScope** — who carries the factor value:
+- `INDIVIDUAL` — each asset has its own factor value per date (cross-sectional
+  signal, e.g. P/B ratio)
+- `COMMON` — a single factor value is broadcast to all assets per date (macro
+  signal, e.g. VIX)
+
+**Signal** — the value type:
+- `CONTINUOUS` — real-valued (returns, z-scores, raw fundamentals)
+- `SPARSE` — categorical trigger in `{-1, 0, +1}` (event flags, regime dummies)
+
+**Metric** — the statistical procedure. Only meaningful for the
+`(INDIVIDUAL, CONTINUOUS)` cell:
+- `Metric.IC` — Information Coefficient (Spearman rank correlation, Newey-West)
+- `Metric.FM` — Fama-MacBeth cross-sectional regression lambda
+
+For all other cells (`INDIVIDUAL × SPARSE`, `COMMON × CONTINUOUS`,
+`COMMON × SPARSE`) the procedure is uniquely determined by `scope × signal`,
+so `metric=None`.
+
+**Mode** — derived at evaluate time, never set by the user:
+- `PANEL` — `n_assets > 1`
+- `TIMESERIES` — `n_assets == 1`
+
+`SPARSE × TIMESERIES` collapses the scope axis at dispatch time and tags the
+returned profile with `InfoCode.SCOPE_AXIS_COLLAPSED`.
+`(INDIVIDUAL, CONTINUOUS) × TIMESERIES` is **not** registered — the dispatch
+raises `ModeAxisError` carrying a `suggested_fix` `AnalysisConfig`.
+
+---
+
+## Canonical panel schema
+
+Every `evaluate()` call expects a polars DataFrame with these columns:
+
+| Column          | Required at | Built by                        |
+|-----------------|-------------|---------------------------------|
+| `date`          | input       | caller                          |
+| `asset_id`      | input       | caller                          |
+| `factor`        | input       | caller (the signal under test)  |
+| `price`         | input       | caller                          |
+| `forward_return`| evaluate    | `compute_forward_return`        |
+
+Synthetic panels: `fl.datasets.make_cs_panel(...)` for CONTINUOUS,
+`fl.datasets.make_event_panel(...)` for SPARSE. Both require `n_assets >= 2`.
+
+---
+
+## Typical usage
+
+### 1. Single-factor IC evaluation
+
+```python
+import factrix as fl
+from factrix.preprocess.returns import compute_forward_return
+
+# raw has columns ["date", "asset_id", "price", "factor"]
+raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+panel = compute_forward_return(raw, forward_periods=5)   # appends `forward_return`
+
+cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+profile = fl.evaluate(panel, cfg)
+
+print(profile.verdict())             # Verdict.PASS | Verdict.FAIL
+print(profile.primary_p)             # procedure-canonical p-value (float)
+print(profile.diagnose())            # dict — see FactorProfile below
+print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, etc.
+```
+
+### 2. Multi-factor BHY screening
+
+```python
+import factrix as fl
+from factrix.preprocess.returns import compute_forward_return
+
+raw_panels = [
+    fl.datasets.make_cs_panel(n_assets=80, n_dates=400, ic_target=ic, seed=s)
+    for ic, s in [(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)]
+]
+cfg       = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+profiles  = [fl.evaluate(compute_forward_return(p, forward_periods=5), cfg)
+             for p in raw_panels]
+
+survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+# survivors: list[FactorProfile] passing per-family BHY step-up at FDR 0.05.
+# Profiles are auto-partitioned into families by (dispatch cell, forward horizon);
+# BHY runs independently inside each family.
+```
+
+### 3. Single-asset panel — `ModeAxisError` with `suggested_fix`
+
+`(INDIVIDUAL, CONTINUOUS)` has no procedure when `n_assets == 1` (no
+cross-section to compute IC across). `evaluate` raises `ModeAxisError` carrying
+the nearest-legal config:
+
+```python
+import factrix as fl
+
+panel = build_single_asset_panel()   # n_assets == 1, columns as in §schema
+cfg   = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+
+try:
+    profile = fl.evaluate(panel, cfg)
+except fl.ModeAxisError as exc:
+    cfg = exc.suggested_fix           # AnalysisConfig.common_continuous(forward_periods=5)
+    profile = fl.evaluate(panel, cfg)
+
+# profile.mode == Mode.TIMESERIES; primary_p is the timeseries-beta p-value
+print(profile.stats[fl.StatCode.TS_BETA])
+```
+
+For `SPARSE × TIMESERIES` the dispatch silently collapses the scope axis
+instead of raising; the resulting profile carries
+`InfoCode.SCOPE_AXIS_COLLAPSED` in `info_notes`.
+
+---
+
+## Public API
+
+### `AnalysisConfig`
+
+Three-axis frozen dataclass. Construct via the four factory methods —
+direct construction works but every path runs through the same axis-validation
+gate. **All factory parameters are keyword-only.**
+
+```
+AnalysisConfig.individual_continuous(*, metric: Metric = Metric.IC,
+                                     forward_periods: int = 5) -> AnalysisConfig
+AnalysisConfig.individual_sparse(*, forward_periods: int = 5) -> AnalysisConfig
+                                     # CAAR event study
+AnalysisConfig.common_continuous(*, forward_periods: int = 5) -> AnalysisConfig
+                                     # timeseries beta on broadcast factor
+AnalysisConfig.common_sparse(*, forward_periods: int = 5) -> AnalysisConfig
+                                     # CAAR on broadcast event flag
+```
+
+Serialisation: `cfg.to_dict()` → `dict`; `AnalysisConfig.from_dict(d)` →
+`AnalysisConfig` (re-runs validation).
+
+`forward_periods` counts **rows** of the time axis, not calendar days. Daily
+panel + `forward_periods=5` = 5 trading days; weekly = 5 weeks.
+
+---
+
+### `evaluate`
+
+```
+factrix.evaluate(raw: polars.DataFrame, config: AnalysisConfig) -> FactorProfile
+```
+
+Single dispatch entry. Derives mode from `raw["asset_id"].n_unique()`, applies
+scope-collapse for `SPARSE × TIMESERIES`, and routes to the registered
+procedure. Raises:
+- `IncompatibleAxisError` — config axes form an illegal cell
+- `ModeAxisError` — the routed cell has no procedure under the derived mode;
+  the exception carries `.suggested_fix: AnalysisConfig | None` with the
+  nearest-legal config
+
+---
+
+### `FactorProfile`
+
+Frozen dataclass. All fields are read-only.
+
+```
+profile.config        : AnalysisConfig
+profile.mode          : Mode                       # PANEL or TIMESERIES (derived)
+profile.primary_p     : float                      # procedure-canonical p-value
+profile.n_obs         : int                        # effective sample size
+profile.n_assets      : int                        # cross-section width
+profile.warnings      : frozenset[WarningCode]
+profile.info_notes    : frozenset[InfoCode]
+profile.stats         : Mapping[StatCode, float]   # cell-specific scalars
+
+profile.verdict(*, threshold: float = 0.05, gate: StatCode | None = None) -> Verdict
+    # PASS if primary_p (or stats[gate]) < threshold
+
+profile.diagnose() -> dict[str, Any]
+    # {"mode", "n_obs", "n_assets", "primary_p",
+    #  "warnings": [str, ...],          # sorted WarningCode .value strings
+    #  "info_notes": [str, ...],        # sorted InfoCode .value strings
+    #  "stats": {str: float, ...}}      # StatCode .value → float
+```
+
+---
+
+### `multi_factor.bhy`
+
+```
+factrix.multi_factor.bhy(
+    profiles: Iterable[FactorProfile],
+    *,
+    threshold: float = 0.05,
+    gate: StatCode | None = None,
+) -> list[FactorProfile]
+```
+
+Per-family BHY step-up FDR. Profiles auto-partition into families keyed by
+`(dispatch cell, forward_periods)`; BHY runs independently within each family
+and the surviving subsets concat in input order. Cross-family aggregation is
+the caller's responsibility (deliberately not done here).
+
+`gate=` overrides which p-value drives BHY; only `StatCode`s where
+`is_p_value` is `True` are accepted (BHY math requires probabilities). A
+`ValueError` fires for non-p-value gates; a `KeyError` fires if a profile in a
+family lacks the gated key.
+
+---
+
+### `describe_analysis_modes` / `suggest_config`
+
+```
+factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
+                                ) -> str | list[dict[str, Any]]
+    # Enumerate legal analysis cells with PANEL / TIMESERIES routing.
+
+factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
+    # Inspect a panel; propose an AnalysisConfig + structured reasoning + warnings.
+    # Suggestion is never auto-applied — caller (or agent) reads .reasoning.
+```
+
+---
+
+### Preprocessing
+
+```python
+from factrix.preprocess.returns import compute_forward_return
+
+panel = compute_forward_return(
+    df,                                # cols: date, asset_id, price (sorted, regular spacing)
+    forward_periods: int = 5,          # row-count horizon, not calendar days
+) -> polars.DataFrame                  # appends `forward_return`; drops null rows;
+                                       # entry at t+1, exit at t+1+N; per-period normalised
+```
+
+Frequency / regular spacing is the caller's responsibility — factrix never
+inspects the `date` dtype.
+
+---
+
+## WarningCode reference (verbatim from `factrix._codes`)
+
+| WarningCode | Description (canonical) |
+|---|---|
+| `unreliable_se_short_periods` | `n_periods` is below `MIN_PERIODS_RELIABLE=30`; NW HAC SE may be biased. |
+| `event_window_overlap` | Adjacent events sit within `forward_periods`; AR windows overlap. |
+| `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
+| `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
+| `small_cross_section_n` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS (10)`; df too low. |
+| `borderline_cross_section_n` | PANEL cross-asset t-test with `MIN_ASSETS ≤ n_assets < MIN_ASSETS_RELIABLE` (10..29); residual t_crit inflation 5–15%. |
+| `sparse_common_few_events` | `(COMMON, SPARSE, PANEL)` broadcast dummy has 5..19 events; per-asset β estimable but cross-event averaging too thin for asymptotic t. |
+
+`InfoCode.SCOPE_AXIS_COLLAPSED` — `N=1` collapsed scope axis; routed via the
+`_SCOPE_COLLAPSED` sentinel (only fires for `SPARSE × TIMESERIES`).
+
+Read live descriptions programmatically:
+`fl.WarningCode.PERSISTENT_REGRESSOR.description`.
+
+---
+
+## StatCode reference
+
+`StatCode.is_p_value` is `True` iff the value name ends in `_p` (the only
+codes `bhy(gate=...)` accepts).
+
+| StatCode | Set by | Meaning |
+|---|---|---|
+| `IC_MEAN`            | IC procedure   | Mean cross-sectional IC |
+| `IC_T_NW`            | IC procedure   | Newey-West t-stat for IC |
+| `IC_P`               | IC procedure   | p-value (= `primary_p` for IC cell) |
+| `FM_LAMBDA_MEAN`     | FM procedure   | Mean Fama-MacBeth lambda |
+| `FM_LAMBDA_T_NW`     | FM procedure   | Newey-West t-stat |
+| `FM_LAMBDA_P`        | FM procedure   | p-value (= `primary_p` for FM cell) |
+| `TS_BETA`            | TS / COMMON    | Timeseries beta |
+| `TS_BETA_T_NW`       | TS / COMMON    | Newey-West t-stat |
+| `TS_BETA_P`          | TS / COMMON    | p-value |
+| `CAAR_MEAN`          | CAAR procedure | Mean cumulative abnormal return |
+| `CAAR_T_NW`          | CAAR procedure | Newey-West t-stat |
+| `CAAR_P`             | CAAR procedure | p-value |
+| `FACTOR_ADF_P`       | all procedures | Diagnostic: factor ADF unit-root p-value |
+| `LJUNG_BOX_P`        | IC / FM        | Diagnostic: residual autocorrelation p-value |
+| `EVENT_TEMPORAL_HHI` | CAAR           | Temporal concentration HHI (0–1) |
+| `NW_LAGS_USED`       | NW-adjusted    | Actual Newey-West lag count used |
+
+---
+
+## Links
+
+- Docs: https://awwesomeman.github.io/factrix/
+- Source: https://github.com/awwesomeman/factrix
+- Issues: https://github.com/awwesomeman/factrix/issues
+- llms.txt index: https://awwesomeman.github.io/factrix/llms.txt

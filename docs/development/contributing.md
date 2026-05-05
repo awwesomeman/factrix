@@ -323,6 +323,22 @@ PR 不該 merge**——先 fix 再繼續。
 範例（inline 公式）：`ts_beta.ts_beta_sign_consistency`
 範例（Formula block）：`fama_macbeth.pooled_ols`、`_helpers._sample_non_overlapping`
 
+### LLM agent reference 同步
+
+SSOT 在 `factrix/llms.txt` 與 `factrix/llms-full.txt`（隨 wheel 出貨；mkdocs
+hook 在 build 時鏡像到 site root）。內容與 mkdocs 站部分重疊但**不互為
+SSOT**——agent 要密度、人類要漸進披露，目標結構性互斥，所以雙軌維護。
+
+下列任一變更落地時，同 PR 內同步 `factrix/llms*.txt`（無 CI 守門）：
+
+- `factrix/__init__.py` `__all__` 增刪
+- 公開 API signature 變更（factory、`evaluate`、`bhy`、`FactorProfile`）
+- `WarningCode` / `InfoCode` / `StatCode` 新增 / 改名 / 描述改寫
+- Mode dispatch 規則或 canonical panel schema 改變
+
+PR 前 self-check：跑過三個 code block、`uv run mkdocs build --strict` 乾淨、
+`tiktoken` cl100k count < 8000。
+
 ---
 
 ## 7. 版本管理與發布 (SemVer & Release)

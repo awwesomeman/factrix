@@ -37,6 +37,12 @@ theme:
 hooks:
   - scripts/gen_metric_matrix.py
   - scripts/sync_examples.py
+  - scripts/sync_llms_txt.py
+
+watch:
+  - factrix
+  - examples
+  - scripts
 
 plugins:
   - search:
