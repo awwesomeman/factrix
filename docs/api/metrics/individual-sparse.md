@@ -2,8 +2,10 @@
 
 Metrics for the `Individual × Sparse` cell — event signals where most
 `(date, asset_id)` cells carry `factor == 0` and the few non-zero cells
-mark events. The default contract is `factor ∈ {-1, 0, +1}` for signed
-events; magnitude-weighted continuous values also flow through (see
+mark events. The schema is `{0, R}` — zero on non-event entries,
+arbitrary real magnitude otherwise. Canonical example: signed
+`{-1, 0, +1}` ternary; magnitude-weighted continuous values
+(`{0, R≥0}`, `{-R, 0, +R}`) also flow through (see
 [`caar`](caar.md) for the input-form table).
 
 | Metric | Role | Page |

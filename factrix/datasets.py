@@ -162,12 +162,15 @@ def make_event_panel(
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
-    """Synthetic event-signal panel (factor ∈ ``{-1, 0, +1}``).
+    """Synthetic event-signal panel — sparse ``{0, R}`` schema, emitted
+    here as the canonical signed ternary ``factor ∈ {-1, 0, +1}``.
 
     Construction:
         1. Baseline returns as in ``make_cs_panel``.
         2. Independent ``Bernoulli(event_rate)`` per ``(t, i)``; sign
-           ``±1`` with equal probability. Non-event cells get ``0``.
+           ``±1`` with equal probability (this generator's chosen
+           magnitude under the broader ``{0, R}`` sparse schema).
+           Non-event cells get ``0``.
         3. Post-event drift: for each event with sign ``s``, add
            ``s · post_event_drift_bps / 1e4 / signal_horizon`` to the
            ``signal_horizon`` bars ``t+2 .. t+1+H`` of that asset — the
