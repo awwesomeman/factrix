@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2889,8 +2889,8 @@ membership (cross-section step), then time-series mean; descriptive
 measures — they belong in Profile, not in Gates.</p>
 <p>Input for Turnover: DataFrame with <code>date, asset_id, factor</code>.
 Input for Breakeven/Net Spread: pre-computed spread and turnover values.</p>
-<p>Matrix-row: notional_turnover, breakeven_cost, net_spread | (INDIVIDUAL, CONTINUOUS, <em>, PANEL) | CS-first | no formal H₀ | _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups
-Matrix-row: turnover | (INDIVIDUAL, CONTINUOUS, </em>, PANEL) | TS-only (rank autocorrelation across consecutive dates) | no formal H₀ | _short_circuit_output</p>
+<p>Matrix-row: notional_turnover, breakeven_cost, net_spread | (INDIVIDUAL, CONTINUOUS, <em>, PANEL) | cs-first | no formal H₀ | _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups
+Matrix-row: turnover | (INDIVIDUAL, CONTINUOUS, </em>, PANEL) | ts-only (rank autocorrelation across consecutive dates) | no formal H₀ | _short_circuit_output</p>
 
 
 

@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2701,9 +2701,9 @@ TIMESERIES single-series test (null: <span class="arithmatex">\(\beta = 0\)</spa
 statistical meaning — see
 <a href="../../factor-profile/"><code>profile.mode</code></a> for which path ran.</p>
 <p>The <code>Common × Sparse</code> cell shares the time-series-first aggregation
-shape but with a <code>{-1, 0, +1}</code> broadcast dummy in place of the
-continuous regressor; metrics live under
-<a href="../individual-sparse/">Individual sparse</a>.</p>
+shape but with a <code>{0, R}</code> broadcast event dummy (canonical
+<code>{-1, 0, +1}</code>) in place of the continuous regressor; metrics live
+under <a href="../individual-sparse/">Individual sparse</a>.</p>
 
 
 

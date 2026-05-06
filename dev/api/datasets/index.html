@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2997,7 +2997,8 @@ time-scale, not a bug).</p>
 
     <div class="doc doc-contents first">
 
-        <p>Synthetic event-signal panel (factor ∈ <code>{-1, 0, +1}</code>).</p>
+        <p>Synthetic event-signal panel — sparse <code>{0, R}</code> schema, emitted
+here as the canonical signed ternary <code>factor ∈ {-1, 0, +1}</code>.</p>
 
 
 <details class="construction" open>
@@ -3005,7 +3006,9 @@ time-scale, not a bug).</p>
   <ol>
 <li>Baseline returns as in <code>make_cs_panel</code>.</li>
 <li>Independent <code>Bernoulli(event_rate)</code> per <code>(t, i)</code>; sign
-   <code>±1</code> with equal probability. Non-event cells get <code>0</code>.</li>
+   <code>±1</code> with equal probability (this generator's chosen
+   magnitude under the broader <code>{0, R}</code> sparse schema).
+   Non-event cells get <code>0</code>.</li>
 <li>Post-event drift: for each event with sign <code>s</code>, add
    <code>s · post_event_drift_bps / 1e4 / signal_horizon</code> to the
    <code>signal_horizon</code> bars <code>t+2 .. t+1+H</code> of that asset — the

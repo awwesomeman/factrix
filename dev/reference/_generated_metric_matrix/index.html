@@ -873,7 +873,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2649,13 +2649,13 @@
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.clustering" href="../../api/metrics/clustering/#factrix.metrics.clustering"><code>metrics.clustering</code></a></td>
 <td><code>(*, SPARSE, *, PANEL)</code></td>
-<td>static CS</td>
+<td>static-cs</td>
 <td>no formal H₀</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.concentration" href="../../api/metrics/concentration/#factrix.metrics.concentration"><code>metrics.concentration</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, *, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>across-time t (one-sided H₀: ratio ≥ 0.5)</td>
 </tr>
 <tr>
@@ -2679,19 +2679,19 @@
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.fama_macbeth" href="../../api/metrics/fama_macbeth/#factrix.metrics.fama_macbeth"><code>metrics.fama_macbeth</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, FM, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>NW HAC / clustered t</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.hit_rate" href="../../api/metrics/hit_rate/#factrix.metrics.hit_rate"><code>metrics.hit_rate</code></a></td>
 <td><code>(*, CONTINUOUS, *, TIMESERIES)</code></td>
-<td>TS-only</td>
+<td>ts-only</td>
 <td>binomial</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.ic" href="../../api/metrics/ic/#factrix.metrics.ic"><code>metrics.ic</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, IC, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>NW HAC / cross-asset t</td>
 </tr>
 <tr>
@@ -2703,61 +2703,61 @@
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.monotonicity" href="../../api/metrics/monotonicity/#factrix.metrics.monotonicity"><code>metrics.monotonicity</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, *, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>cross-asset t</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.oos" href="../../api/metrics/oos/#factrix.metrics.oos"><code>metrics.oos</code></a></td>
 <td><code>(*, CONTINUOUS, *, TIMESERIES)</code></td>
-<td>TS-only</td>
+<td>ts-only</td>
 <td>no formal H₀</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.quantile" href="../../api/metrics/quantile/#factrix.metrics.quantile"><code>metrics.quantile</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, *, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>cross-asset t</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.spanning" href="../../api/metrics/spanning/#factrix.metrics.spanning"><code>metrics.spanning</code></a></td>
 <td><code>factor-return-series consumer (post-PANEL pipeline)</code></td>
-<td>TS-only</td>
+<td>ts-only</td>
 <td>NW HAC / OLS t</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.tradability" href="../../api/metrics/tradability/#factrix.metrics.tradability"><code>metrics.tradability</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, *, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>no formal H₀</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.tradability" href="../../api/metrics/tradability/#factrix.metrics.tradability"><code>metrics.tradability</code></a></td>
 <td><code>(INDIVIDUAL, CONTINUOUS, *, PANEL)</code></td>
-<td>TS-only (rank autocorrelation across consecutive dates)</td>
+<td>ts-only (rank autocorrelation across consecutive dates)</td>
 <td>no formal H₀</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.trend" href="../../api/metrics/trend/#factrix.metrics.trend"><code>metrics.trend</code></a></td>
 <td><code>(*, CONTINUOUS, *, TIMESERIES)</code></td>
-<td>TS-only</td>
+<td>ts-only</td>
 <td>Theil-Sen rank-based CI</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.ts_asymmetry" href="../../api/metrics/ts_asymmetry/#factrix.metrics.ts_asymmetry"><code>metrics.ts_asymmetry</code></a></td>
 <td><code>(COMMON, CONTINUOUS, *, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>NW HAC Wald</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.ts_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta"><code>metrics.ts_beta</code></a></td>
 <td><code>(COMMON, CONTINUOUS, *, PANEL)</code></td>
-<td>TS-first</td>
+<td>ts-first</td>
 <td>cross-asset t</td>
 </tr>
 <tr>
 <td><a class="autorefs autorefs-internal" title="factrix.metrics.ts_quantile" href="../../api/metrics/ts_quantile/#factrix.metrics.ts_quantile"><code>metrics.ts_quantile</code></a></td>
 <td><code>(COMMON, CONTINUOUS, *, PANEL)</code></td>
-<td>CS-first</td>
+<td>cs-first</td>
 <td>NW HAC Wald</td>
 </tr>
 </tbody>

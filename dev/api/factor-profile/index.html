@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -3328,31 +3328,31 @@ on any registered cell's output is supported.</p>
 <tbody>
 <tr>
 <td><code>(individual, continuous, ic, panel)</code></td>
-<td><code>T</code> — number of dates contributing to the per-date IC series</td>
+<td>number of dates contributing to the per-date IC series</td>
 </tr>
 <tr>
 <td><code>(individual, continuous, fm, panel)</code></td>
-<td><code>T</code> — number of dates with a valid OLS slope</td>
+<td>number of dates with a valid OLS slope</td>
 </tr>
 <tr>
 <td><code>(individual, sparse, None, panel)</code></td>
-<td><code>T</code> — densified panel-period count (unique dates in the panel) after CAAR event-date back-fill</td>
+<td>densified panel-period count (unique dates in the panel) after CAAR event-date back-fill</td>
 </tr>
 <tr>
 <td><code>(common, continuous, None, panel)</code></td>
-<td><code>N</code> — number of assets entering the cross-asset t-test on <code>E[β]</code></td>
+<td>number of assets entering the cross-asset t-test on <code>E[β]</code></td>
 </tr>
 <tr>
 <td><code>(common, sparse, None, panel)</code></td>
-<td><code>N</code></td>
+<td>number of assets entering the cross-asset event-dummy t-test</td>
 </tr>
 <tr>
 <td><code>(common, continuous, None, timeseries)</code></td>
-<td><code>T</code> — single-series sample length</td>
+<td>single-series sample length</td>
 </tr>
 <tr>
 <td><code>(*, sparse, None, timeseries)</code></td>
-<td><code>T</code> — period count of the dummy regression</td>
+<td>period count of the dummy regression</td>
 </tr>
 </tbody>
 </table>
@@ -3407,8 +3407,8 @@ with Hansen-Hodrick overlap floor). Cross-asset aggregations
 (<code>common_*</code> PANEL) use a plain cross-section t-test and therefore
 have no <code>NW_LAGS_USED</code> entry.</p>
 <p><code>FACTOR_ADF_P</code> is a CONTINUOUS-only persistence diagnostic — sparse
-cells skip it because the <code>{−1, 0, +1}</code>-style signal makes the unit-
-root null degenerate.</p>
+cells skip it because the <code>{0, R}</code> event-trigger signal (zero on
+non-event entries) makes the unit-root null degenerate.</p>
 <h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
 <p>A worked <code>diagnose()</code> call with rendered output lives in
 <a href="../../getting-started/quickstart/#profilediagnose-and-warnings">Quickstart § <code>profile.diagnose()</code> and warnings</a>.

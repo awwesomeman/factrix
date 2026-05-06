@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2730,7 +2730,7 @@ with <code>_</code> are not rendered.</p>
 <td><a href="quantile/"><code>quantile</code></a>, <a href="monotonicity/"><code>monotonicity</code></a></td>
 </tr>
 <tr>
-<td>Sparse <code>±1</code> event signal, CAAR / abnormal-return test</td>
+<td>Sparse <code>{0, R}</code> event signal (canonical <code>±1</code>), CAAR / abnormal-return test</td>
 <td><a href="caar/"><code>caar</code></a>, <a href="event_quality/"><code>event_quality</code></a></td>
 </tr>
 <tr>
@@ -2815,7 +2815,7 @@ modules plus a fourth axis-agnostic group</strong>:</p>
 <tr>
 <td><code>Individual × Sparse</code></td>
 <td><strong>Individual sparse</strong></td>
-<td>Per-event tests on <code>(date, asset_id, factor ∈ {-1, 0, +1})</code>. Domain shorthand: <em>event signal</em>.</td>
+<td>Per-event tests on <code>(date, asset_id, factor)</code> with sparse <code>{0, R}</code> schema (zero on non-event entries; canonical <code>{-1, 0, +1}</code>). Domain shorthand: <em>event signal</em>.</td>
 </tr>
 <tr>
 <td><code>Common × Sparse</code></td>

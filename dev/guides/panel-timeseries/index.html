@@ -997,7 +997,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2895,7 +2895,16 @@
 </tbody>
 </table>
 <h2 id="aggregation-order">Aggregation order<a class="headerlink" href="#aggregation-order" title="Permanent link">&para;</a></h2>
-<p>PANEL procedures split into <strong>cross-section first</strong> (<code>individual_continuous</code> IC / FM, sparse CAAR) and <strong>time-series first</strong> (<code>common_continuous</code>, <code>common_sparse</code>). The order determines small-sample failure modes and the N=1 collapse behaviour: <code>common_continuous</code> at N=1 degenerates to a single-series β test (null: β=0, not E[β]=0), which is still well-defined; <code>individual_continuous</code> at N=1 has no cross-section to aggregate over, so it raises.</p>
+<p>PANEL procedures split into <strong>cross-section first</strong> (<code>cs-first</code> —
+<code>individual_continuous</code> IC / FM, sparse CAAR) and <strong>time-series first</strong>
+(<code>ts-first</code> — <code>common_continuous</code>, <code>common_sparse</code>). The order determines
+small-sample failure modes and the N=1 collapse behaviour: <code>common_continuous</code>
+at N=1 degenerates to a single-series β test (null: β=0, not E[β]=0), which is
+still well-defined; <code>individual_continuous</code> at N=1 has no cross-section to
+aggregate over, so it raises. The <code>cs-first</code> / <code>ts-first</code> / <code>ts-only</code> /
+<code>static-cs</code> / <code>per-event</code> shorthand is the canonical vocabulary used across
+the metric matrix and <code>list_metrics()</code> output — see
+<a href="../../reference/standalone-metrics/#aggregation-vocabulary">Reference § Metric pipelines § Aggregation vocabulary</a>.</p>
 <p>Full per-procedure pseudocode for all 7 registered pipelines lives in <a href="../../development/architecture/#procedure-pipelines">Development § Procedure pipelines</a>.</p>
 <h2 id="introspection">Introspection<a class="headerlink" href="#introspection" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># heuristic config suggestion + risk warnings</span>

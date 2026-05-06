@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -3710,8 +3710,9 @@ reflect the dense series.</p>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>                                                         →  n_assets-length β vector
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>                                                         →  cross-asset t-test on E[β]   (cross-section step)
 </span></code></pre></div>
-<p>Same shape as <code>common_continuous</code>; the broadcast <code>D ∈ {-1, 0, +1}</code> dummy
-replaces the continuous regressor. Factor magnitudes are <strong>preserved</strong> in
+<p>Same shape as <code>common_continuous</code>; the broadcast <code>D</code> carries the
+sparse <code>{0, R}</code> schema (canonical <code>{-1, 0, +1}</code>) and replaces the
+continuous regressor. Factor magnitudes are <strong>preserved</strong> in
 the OLS (no <code>.sign()</code> coercion at this layer — distinct from the
 <code>individual_sparse</code> PANEL pipeline). ADF persistence diagnostic is skipped
 per I6 (sparse regressors are not unit-root candidates).</p>

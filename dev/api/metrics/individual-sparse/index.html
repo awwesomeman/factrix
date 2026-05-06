@@ -884,7 +884,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2666,8 +2666,10 @@
 <h1 id="individual-sparse">Individual sparse<a class="headerlink" href="#individual-sparse" title="Permanent link">&para;</a></h1>
 <p>Metrics for the <code>Individual × Sparse</code> cell — event signals where most
 <code>(date, asset_id)</code> cells carry <code>factor == 0</code> and the few non-zero cells
-mark events. The default contract is <code>factor ∈ {-1, 0, +1}</code> for signed
-events; magnitude-weighted continuous values also flow through (see
+mark events. The schema is <code>{0, R}</code> — zero on non-event entries,
+arbitrary real magnitude otherwise. Canonical example: signed
+<code>{-1, 0, +1}</code> ternary; magnitude-weighted continuous values
+(<code>{0, R≥0}</code>, <code>{-R, 0, +R}</code>) also flow through (see
 <a href="../caar/"><code>caar</code></a> for the input-form table).</p>
 <table>
 <thead>

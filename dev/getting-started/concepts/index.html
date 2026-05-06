@@ -1019,7 +1019,7 @@
   <span class="md-ellipsis">
     
   
-    Standalone metrics
+    Metric pipelines
   
 
     
@@ -2889,7 +2889,7 @@ specific statistical test.</p>
 <tr>
 <td><code>signal</code></td>
 <td><code>CONTINUOUS</code> / <code>SPARSE</code></td>
-<td>Real-valued signal, or <code>{−1, 0, +1}</code> trigger?</td>
+<td>Real-valued signal, or <code>{0, R}</code> event trigger (zero on non-events; canonical <code>{−1, 0, +1}</code>)?</td>
 </tr>
 <tr>
 <td><code>metric</code></td>
@@ -2912,7 +2912,10 @@ axis, not the panel layout itself:</p>
 <h3 id="signal">signal<a class="headerlink" href="#signal" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong><code>CONTINUOUS</code></strong> — real-valued (z-score, percentile, momentum, …).</li>
-<li><strong><code>SPARSE</code></strong> — <code>{−1, 0, +1}</code> trigger; expect ≥ 50% zeros.</li>
+<li><strong><code>SPARSE</code></strong> — <code>{0, R}</code> event trigger: zero on non-event entries,
+  arbitrary real magnitude otherwise; expect ≥ 50% zeros. Canonical
+  examples: <code>{−1, 0, +1}</code> (signed dummy), <code>{0, 1}</code> (event flag),
+  <code>{0, R≥0}</code> (intensity).</li>
 </ul>
 <h3 id="metric-only-for-individual--continuous">metric (only for <code>INDIVIDUAL × CONTINUOUS</code>)<a class="headerlink" href="#metric-only-for-individual--continuous" title="Permanent link">&para;</a></h3>
 <ul>
