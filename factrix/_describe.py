@@ -309,6 +309,28 @@ def _build_suggested(
     return AnalysisConfig.common_continuous(forward_periods=forward_periods)
 
 
+def _estimate_common_panel_inference_n(raw: Any) -> int:
+    """Mirror ``compute_ts_betas``' MIN_TS_OBS filter for the suggest_config preview.
+
+    Row-aligned non-null on ``(factor, forward_return)`` is a close
+    approximation; ``compute_ts_betas`` itself drops nulls per column
+    independently then takes ``min(len)`` positionally — equivalent on
+    aligned panels, mildly tighter when nulls are non-overlapping.
+    Falls back to factor-only if ``forward_return`` is not yet present.
+    """
+    import polars as pl
+
+    from factrix.metrics.ts_beta import MIN_TS_OBS
+
+    cond = pl.col("factor").is_not_null()
+    if "forward_return" in raw.columns:
+        cond = cond & pl.col("forward_return").is_not_null()
+    counts = raw.filter(cond).group_by("asset_id").len()
+    if len(counts) == 0:
+        return 0
+    return int((counts["len"] >= MIN_TS_OBS).sum())
+
+
 def suggest_config(
     raw: Any,
     *,
@@ -331,12 +353,25 @@ def suggest_config(
         f"n_assets = {n_assets} detected → "
         f"{'TIMESERIES' if mode is Mode.TIMESERIES else 'PANEL'}"
     )
-    n_tier = cross_section_tier(n_assets) if mode is Mode.PANEL else None
+    if mode is Mode.PANEL and scope is FactorScope.COMMON:
+        n_inference = _estimate_common_panel_inference_n(raw)
+    else:
+        n_inference = n_assets
+    n_tier = cross_section_tier(n_inference) if mode is Mode.PANEL else None
     if n_tier is not None:
-        mode_reason += (
-            f" (n_assets < MIN_ASSETS_WARN = {MIN_ASSETS_WARN} → "
-            f"cross-asset df low, see WarningCode.{n_tier.name})"
-        )
+        if n_inference != n_assets:
+            mode_reason += (
+                f" (post-MIN_TS_OBS filter n_inference = {n_inference} "
+                f"< MIN_ASSETS_WARN = {MIN_ASSETS_WARN}; union n_assets "
+                f"= {n_assets} would be optimistic — see "
+                f"WarningCode.{n_tier.name})"
+            )
+        else:
+            mode_reason += (
+                f" (n_inference = {n_inference} < MIN_ASSETS_WARN = "
+                f"{MIN_ASSETS_WARN} → cross-asset df low, see "
+                f"WarningCode.{n_tier.name})"
+            )
 
     suggested = _build_suggested(scope, signal, forward_periods=forward_periods)
 

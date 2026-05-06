@@ -99,7 +99,16 @@ _WARNING_DESCRIPTIONS.update(
 
 
 def cross_section_tier(n_assets: int) -> WarningCode | None:
-    """Map ``n_assets`` to the appropriate cross-asset N warning code.
+    """Map an inference-stage cross-asset N to the appropriate warning code.
+
+    The argument is the **inference-stage** N — the count of assets
+    actually entering the cross-asset test, not the panel-union
+    ``FactorProfile.n_assets`` surface field. For ``(COMMON, *, None,
+    PANEL)`` cells the two differ: ``compute_ts_betas`` drops assets
+    with fewer than ``MIN_TS_OBS`` non-null observations, so the union
+    can be materially larger than the post-filter count that drives
+    ``primary_p``'s ``dof = N - 1``. Callers (``suggest_config``,
+    ``_compute_common_panel``) therefore pre-filter before calling.
 
     Tiers are mutually exclusive — SMALL is strictly more severe than
     BORDERLINE — so callers can membership-check the more severe code

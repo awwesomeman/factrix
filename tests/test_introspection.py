@@ -328,6 +328,95 @@ class TestSuggestConfigCrossSectionNWarnings:
         assert "SMALL_CROSS_SECTION_N" in result.reasoning["mode"]
 
 
+class TestSuggestConfigCommonPanelInferenceN:
+    """Issue #83 — COMMON × * PANEL warning must reflect the post-filter
+    inference-stage N, not the panel-union ``n_assets``.
+
+    ``compute_ts_betas`` drops assets with fewer than ``MIN_TS_OBS = 20``
+    non-null factor / forward-return rows. A panel can have a wide union
+    (say 50 assets) but a small inference-stage cross-section if most
+    assets only enter for a short tail. The pre-fix preview optimistically
+    cleared the warning; the fix routes the filtered count to
+    ``cross_section_tier``.
+    """
+
+    @staticmethod
+    def _short_history_panel(
+        *,
+        n_full_history_assets: int,
+        n_short_history_assets: int,
+        n_dates: int = 60,
+        seed: int = 91,
+    ) -> pl.DataFrame:
+        """Broadcast factor; only the first ``n_full_history_assets`` have
+        ≥MIN_TS_OBS rows of valid (factor, forward_return). The rest only
+        enter on the final 5 dates — well below the per-asset filter."""
+        rng = np.random.default_rng(seed)
+        rows: list[dict[str, object]] = []
+        for t in range(n_dates):
+            d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
+            f_t = float(rng.standard_normal())
+            for j in range(n_full_history_assets):
+                rows.append(
+                    {
+                        "date": d,
+                        "asset_id": f"FULL{j:03d}",
+                        "factor": f_t,
+                        "forward_return": float(rng.standard_normal()),
+                    }
+                )
+            if t >= n_dates - 5:
+                for j in range(n_short_history_assets):
+                    rows.append(
+                        {
+                            "date": d,
+                            "asset_id": f"SHORT{j:03d}",
+                            "factor": f_t,
+                            "forward_return": float(rng.standard_normal()),
+                        }
+                    )
+        return pl.DataFrame(rows)
+
+    def test_optimistic_warning_caught_when_union_is_large(self) -> None:
+        # Union n_assets = 5 + 40 = 45 (would be clean at MIN_ASSETS_WARN=30);
+        # inference-stage N = 5 (only FULL assets clear MIN_TS_OBS).
+        panel = self._short_history_panel(
+            n_full_history_assets=5,
+            n_short_history_assets=40,
+        )
+        result = suggest_config(panel)
+        assert result.detected["n_assets"] == 45
+        assert WarningCode.SMALL_CROSS_SECTION_N in result.warnings
+
+    def test_borderline_inference_n_emits_borderline(self) -> None:
+        # Union = 50, inference-stage = 15 → BORDERLINE.
+        panel = self._short_history_panel(
+            n_full_history_assets=15,
+            n_short_history_assets=35,
+        )
+        result = suggest_config(panel)
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N in result.warnings
+        assert WarningCode.SMALL_CROSS_SECTION_N not in result.warnings
+
+    def test_clean_when_inference_n_is_high(self) -> None:
+        # Union = 35, inference-stage = 35 → no tier warning.
+        panel = self._short_history_panel(
+            n_full_history_assets=35,
+            n_short_history_assets=0,
+        )
+        result = suggest_config(panel)
+        assert WarningCode.SMALL_CROSS_SECTION_N not in result.warnings
+        assert WarningCode.BORDERLINE_CROSS_SECTION_N not in result.warnings
+
+    def test_mode_reason_flags_filter_when_union_diverges(self) -> None:
+        panel = self._short_history_panel(
+            n_full_history_assets=5,
+            n_short_history_assets=40,
+        )
+        result = suggest_config(panel)
+        assert "post-MIN_TS_OBS filter" in result.reasoning["mode"]
+
+
 # ---------------------------------------------------------------------------
 # suggest_config — detected (issue #20)
 # ---------------------------------------------------------------------------
