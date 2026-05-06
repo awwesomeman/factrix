@@ -3811,6 +3811,7 @@ several PRs accumulate. Each PR writes its own changes into the
 applicable); at release time, <code>cz bump --changelog</code> freezes that
 section into the next version heading.</p>
 </blockquote>
+<p><strong>CHANGELOG formatting</strong>: paragraphs and bullets are not hard-wrapped — each paragraph is one line, each bullet one line. The 72-char wrap convention applies to commit messages, not to CHANGELOG prose; GitHub Release notes treat single newlines as <code>&lt;br&gt;</code>, so source-level wrapping leaks into the rendered output. Aligns with Polars / ruff / Pydantic.</p>
 <h3 id="branch-naming">Branch naming<a class="headerlink" href="#branch-naming" title="Permanent link">&para;</a></h3>
 <p><code>&lt;type&gt;/&lt;short-desc&gt;</code>, all lowercase with hyphens:</p>
 <ul>
