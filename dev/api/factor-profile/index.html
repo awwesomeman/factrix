@@ -1217,6 +1217,67 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#diagnose-return-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diagnose() return schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="diagnose() return schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#top-level-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top-level keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#n_obs-semantics-by-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        n_obs semantics by cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stats-keys-by-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stats keys by cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2715,6 +2776,67 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#diagnose-return-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diagnose() return schema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="diagnose() return schema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#top-level-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top-level keys
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#n_obs-semantics-by-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        n_obs semantics by cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#stats-keys-by-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stats keys by cell
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3100,7 +3222,186 @@ interpreted by the caller.</p>
 
     </div>
 
-</div>
+</div><h2 id="diagnose-return-schema"><code>diagnose()</code> return schema<a class="headerlink" href="#diagnose-return-schema" title="Permanent link">&para;</a></h2>
+<p><code>profile.diagnose()</code> returns a flat <code>dict[str, Any]</code> for human triage
+and AI-agent consumption. The top-level keys are stable across every
+registered cell; the <code>stats</code> sub-dict varies by procedure.</p>
+<h3 id="top-level-keys">Top-level keys<a class="headerlink" href="#top-level-keys" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Source</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td><code>str</code></td>
+<td><code>profile.mode.value</code></td>
+<td><code>"panel"</code> or <code>"timeseries"</code></td>
+</tr>
+<tr>
+<td><code>n_obs</code></td>
+<td><code>int</code></td>
+<td><code>profile.n_obs</code></td>
+<td>Cell-canonical effective sample size — see <a href="#n_obs-semantics-by-cell">§ <code>n_obs</code> semantics</a></td>
+</tr>
+<tr>
+<td><code>n_assets</code></td>
+<td><code>int</code></td>
+<td><code>profile.n_assets</code></td>
+<td><code>panel["asset_id"].n_unique()</code> of the input</td>
+</tr>
+<tr>
+<td><code>primary_p</code></td>
+<td><code>float</code></td>
+<td><code>profile.primary_p</code></td>
+<td>Procedure-canonical p-value used by <code>verdict()</code> and <code>multi_factor.bhy</code></td>
+</tr>
+<tr>
+<td><code>warnings</code></td>
+<td><code>list[str]</code></td>
+<td><code>sorted(w.value for w in profile.warnings)</code></td>
+<td>Sorted <a href="../../reference/warning-codes/#warningcode"><code>WarningCode</code></a> string values</td>
+</tr>
+<tr>
+<td><code>info_notes</code></td>
+<td><code>list[str]</code></td>
+<td><code>sorted(i.value for i in profile.info_notes)</code></td>
+<td>Sorted <a href="../../reference/warning-codes/#infocode"><code>InfoCode</code></a> string values</td>
+</tr>
+<tr>
+<td><code>stats</code></td>
+<td><code>dict[str, float]</code></td>
+<td><code>{k.value: v for k, v in profile.stats.items()}</code></td>
+<td><a href="../../reference/warning-codes/#statcode"><code>StatCode</code></a> string keys; per-cell content varies</td>
+</tr>
+</tbody>
+</table>
+<p>The dict is JSON-serialisable as long as <code>stats</code> values are plain
+<code>float</code> (procedures populate it that way; downstream wrappers are
+expected to preserve this). Calling <code>json.dumps(profile.diagnose())</code>
+on any registered cell's output is supported.</p>
+<h3 id="n_obs-semantics-by-cell"><code>n_obs</code> semantics by cell<a class="headerlink" href="#n_obs-semantics-by-cell" title="Permanent link">&para;</a></h3>
+<p><code>n_obs</code> is the <em>cell-canonical</em> sample size — the denominator behind
+<code>primary_p</code>. It is <strong>not</strong> always <code>len(panel)</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Dispatch cell</th>
+<th><code>n_obs</code> is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(individual, continuous, ic, panel)</code></td>
+<td><code>T</code> — number of dates contributing to the per-date IC series</td>
+</tr>
+<tr>
+<td><code>(individual, continuous, fm, panel)</code></td>
+<td><code>T</code> — number of dates with a valid OLS slope</td>
+</tr>
+<tr>
+<td><code>(individual, sparse, None, panel)</code></td>
+<td><code>T</code> — calendar length after CAAR densification</td>
+</tr>
+<tr>
+<td><code>(common, continuous, None, panel)</code></td>
+<td><code>N</code> — number of assets entering the cross-asset t-test on <code>E[β]</code></td>
+</tr>
+<tr>
+<td><code>(common, sparse, None, panel)</code></td>
+<td><code>N</code></td>
+</tr>
+<tr>
+<td><code>(common, continuous, None, timeseries)</code></td>
+<td><code>T</code> — single-series sample length</td>
+</tr>
+<tr>
+<td><code>(*, sparse, None, timeseries)</code></td>
+<td><code>T</code> — calendar length of the dummy regression</td>
+</tr>
+</tbody>
+</table>
+<p>Reading <code>n_obs</code> together with <code>n_assets</code> disambiguates whether a small
+<code>n_obs</code> came from a short series (low <code>T</code>) or a thin cross-section
+(low <code>N</code>).</p>
+<h3 id="stats-keys-by-cell"><code>stats</code> keys by cell<a class="headerlink" href="#stats-keys-by-cell" title="Permanent link">&para;</a></h3>
+<p>Every cell populates the keys for its primary statistic (<code>*_MEAN</code>,
+<code>*_T_NW</code>, <code>*_P</code>) plus diagnostic keys specific to its procedure. Keys
+appear in <code>stats</code> as <code>StatCode.value</code> strings (e.g. <code>"ic_mean"</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Dispatch cell</th>
+<th><code>stats</code> keys populated</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(individual, continuous, ic, panel)</code></td>
+<td><code>IC_MEAN</code>, <code>IC_T_NW</code>, <code>IC_P</code>, <code>NW_LAGS_USED</code></td>
+</tr>
+<tr>
+<td><code>(individual, continuous, fm, panel)</code></td>
+<td><code>FM_LAMBDA_MEAN</code>, <code>FM_LAMBDA_T_NW</code>, <code>FM_LAMBDA_P</code>, <code>NW_LAGS_USED</code></td>
+</tr>
+<tr>
+<td><code>(individual, sparse, None, panel)</code></td>
+<td><code>CAAR_MEAN</code>, <code>CAAR_T_NW</code>, <code>CAAR_P</code>, <code>NW_LAGS_USED</code></td>
+</tr>
+<tr>
+<td><code>(common, continuous, None, panel)</code></td>
+<td><code>TS_BETA</code>, <code>TS_BETA_T_NW</code>, <code>TS_BETA_P</code>, <code>FACTOR_ADF_P</code></td>
+</tr>
+<tr>
+<td><code>(common, sparse, None, panel)</code></td>
+<td><code>TS_BETA</code>, <code>TS_BETA_T_NW</code>, <code>TS_BETA_P</code></td>
+</tr>
+<tr>
+<td><code>(common, continuous, None, timeseries)</code></td>
+<td><code>TS_BETA</code>, <code>TS_BETA_T_NW</code>, <code>TS_BETA_P</code>, <code>FACTOR_ADF_P</code>, <code>NW_LAGS_USED</code></td>
+</tr>
+<tr>
+<td><code>(*, sparse, None, timeseries)</code> (sentinel)</td>
+<td><code>TS_BETA</code>, <code>TS_BETA_T_NW</code>, <code>TS_BETA_P</code>, <code>LJUNG_BOX_P</code>, <code>EVENT_TEMPORAL_HHI</code>, <code>NW_LAGS_USED</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>NW_LAGS_USED</code> appears whenever a procedure aggregates a time series
+through a Newey-West HAC kernel (Bartlett, Newey-West 1994 auto-lag
+with Hansen-Hodrick overlap floor). Cross-asset aggregations
+(<code>common_*</code> PANEL) use a plain cross-section t-test and therefore
+have no <code>NW_LAGS_USED</code> entry.</p>
+<p><code>FACTOR_ADF_P</code> is a CONTINUOUS-only persistence diagnostic — sparse
+cells skip it because the <code>{−1, 0, +1}</code>-style signal makes the unit-
+root null degenerate.</p>
+<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
+<p>A worked <code>diagnose()</code> call with rendered output lives in
+<a href="../../getting-started/quickstart/#profilediagnose-and-warnings">Quickstart § <code>profile.diagnose()</code> and warnings</a>.
+For reference, the JSON shape on the IC PANEL cell is:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;panel&quot;</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">&quot;n_obs&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">494</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">&quot;n_assets&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">&quot;primary_p&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.13e-40</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">&quot;warnings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">&quot;info_notes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">&quot;stats&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">&quot;ic_mean&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0722</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">&quot;ic_t_nw&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">14.60</span><span class="p">,</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">&quot;ic_p&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">2.13e-40</span><span class="p">,</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">&quot;nw_lags_used&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">5.0</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>For the meaning of each <code>StatCode</code> see the
+<a href="../../reference/warning-codes/#statcode"><code>StatCode</code> reference</a>; for
+<code>WarningCode</code> / <code>InfoCode</code> triggers see
+<a href="../../development/architecture/#procedure-pipelines">Architecture § Procedure pipelines</a>.</p>
 
 
 

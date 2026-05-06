@@ -2729,6 +2729,13 @@ CONTRIBUTING §7 (Release workflow).</p>
   drift source. CI gains an <code>examples</code> job that executes every recipe
   via <code>nbconvert --execute</code> so API drift breaks the build before
   reaching docs. (#14)</li>
+<li><strong><code>docs/api/factor-profile.md</code> documents the <code>diagnose()</code> return
+  schema.</strong> Top-level dict shape (key, type, source field), <code>n_obs</code>
+  semantics by cell (it is <code>T</code> for IC/FM/CAAR/TS but <code>N</code> for
+  <code>common_*</code> PANEL — easy to mis-read), and the per-cell <code>stats</code> key
+  matrix (which <code>StatCode</code> values appear in each of the 7 registered
+  cells). Closes the gap where AI agents and pipeline gates consuming
+  <code>diagnose()</code> had to read source to learn the contract. (#68)</li>
 <li><strong>Two-tier sample-size guards on <code>fama_macbeth</code>, <code>caar</code>, and
   <code>top_concentration</code>.</strong> Each now distinguishes a math-validity floor
   (<code>_HARD</code> → short-circuit to NaN <code>MetricOutput</code>) from a
