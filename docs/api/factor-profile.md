@@ -68,9 +68,22 @@ per-date IC series feeding the NW HAC `t`-test), not `15000`. The
 `primary_p` itself read the second-stage value.
 
 `n_assets` is the raw panel width (`panel["asset_id"].n_unique()`)
-with fixed semantics across cells. It is the test denominator **only**
-in cross-asset cells (`(common, *, None, panel)`); elsewhere it is
-metadata for warnings (`MIN_ASSETS` guards) and routing.
+with fixed semantics across cells. It is a **sample-period union**,
+not a per-date count, so it does not bias `primary_p` for time-series-
+axis tests where the cross-section is not the test denominator.
+
+In cross-asset cells (`(common, *, None, panel)`) the cross-asset
+t-test reads its own inference-stage `N` — the count of assets
+surviving the `compute_ts_betas` per-asset filter (≥`MIN_TS_OBS`
+non-null observations) — which can be materially smaller than the
+union when assets enter the panel late or with sparse history. The
+`SMALL_CROSS_SECTION_N` / `BORDERLINE_CROSS_SECTION_N` guards in
+`_compute_common_panel` threshold on that filtered N (matching the
+test's actual `dof = N - 1`); reading the warning together with
+`primary_p` is the canonical signal. Reading `n_assets` alone is
+optimistic in this corner — `suggest_config` mirrors the same
+pre-filter so its preview warning agrees with what `evaluate()` will
+emit.
 
 #### Consumers
 
