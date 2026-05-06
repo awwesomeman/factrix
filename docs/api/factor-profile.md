@@ -83,6 +83,39 @@ have no `NW_LAGS_USED` entry.
 cells skip it because the `{0, R}` event-trigger signal (zero on
 non-event entries) makes the unit-root null degenerate.
 
+### `stats` provenance — two paths
+
+`profile.stats` is populated by **one path only**: the procedure that
+ran inside `evaluate()`. The keys above are the full enumeration —
+nothing else is auto-merged.
+
+| Path | Lives in | What it produces | Pluggable? |
+|---|---|---|---|
+| **Procedure-internal** | `factrix/_stats/` helpers (`_newey_west_t_test`, `_adf`, `_ljung_box_p`, …) invoked from `factrix/_procedures.py` | The `StatCode` keys listed above on `profile.stats` | No — the per-cell stat set is hard-coded by the registered procedure. |
+| **Standalone metrics** | `factrix/metrics/*.py`, listed by [`list_metrics`](list-metrics.md) | A separate [`MetricOutput`](metric-output.md) per call, returned to the user | Yes — call any number after `evaluate()` returns. |
+
+The user-invoked path is **independent**: a call like
+`fl.metrics.quantile_spread(...)` returns a `MetricOutput` to the
+caller. It does not mutate `profile.stats`. To layer follow-up metrics
+into a single agent-readable payload, the caller assembles them
+explicitly (typically a `dict` of `MetricOutput` keyed by metric name).
+
+#### `StatCode` → statistical method
+
+Each procedure-internal `StatCode` maps to one section of
+[Statistical methods](../reference/statistical-methods.md):
+
+| `StatCode` | Method |
+|---|---|
+| `IC_MEAN`, `IC_T_NW`, `IC_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West HAC `t` on the per-date IC series |
+| `FM_LAMBDA_MEAN`, `FM_LAMBDA_T_NW`, `FM_LAMBDA_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — NW HAC `t` on the per-date Fama-MacBeth λ series |
+| `CAAR_MEAN`, `CAAR_T_NW`, `CAAR_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — non-overlapping `t` / BMP `z` on the per-event-date CAAR series |
+| `TS_BETA`, `TS_BETA_T_NW`, `TS_BETA_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — cross-asset `t` on `E[β]` (PANEL) or NW HAC single-series `t` (TIMESERIES) |
+| `NW_LAGS_USED` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West 1994 auto-lag with Hansen-Hodrick overlap floor |
+| `FACTOR_ADF_P` | [Persistence diagnostics under near-unit-root predictors](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) — ADF unit-root test on the continuous factor |
+| `LJUNG_BOX_P` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Ljung-Box on the TS-dummy single-asset residual |
+| `EVENT_TEMPORAL_HHI` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Herfindahl concentration of event dates over the calendar grid |
+
 ### Example
 
 A worked `diagnose()` call with rendered output lives in
