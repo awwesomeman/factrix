@@ -33,7 +33,7 @@
 
 <h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
 
-A polars-native factor signal validator, **factrix**. It answers a single core question — **Does this factor carry statistical edge?** 
+A polars-native factor signal validator. It answers the core question — **Does this factor possess predictive edge?** 
 
 ## Installation
 
