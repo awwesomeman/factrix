@@ -283,9 +283,9 @@ actual（第 6 列）。
 | Source（SSOT） | Docs 目的地 | 機制 |
 |---|---|---|
 | `factrix/**/*.py` docstring | `docs/api/**/*.md` 內 `:::` 指令處 | mkdocstrings plugin |
-| `factrix/metrics/*.py` 的 `Matrix-row:` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/gen_metric_matrix.py` |
-| `examples/*.ipynb` | `docs/examples/` | hook: `scripts/sync_examples.py` |
-| `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/sync_llms_txt.py` |
+| `factrix/metrics/*.py` 的 `Matrix-row:` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/mkdocs_hooks/gen_metric_matrix.py` |
+| `examples/*.ipynb` | `docs/examples/` | hook: `scripts/mkdocs_hooks/sync_examples.py` |
+| `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
 
 ### 仍需手動維護的 docs
 

@@ -8,7 +8,7 @@ site so they also deploy at the public URL root.
 
 Usage (manual)::
 
-    python scripts/sync_llms_txt.py
+    python scripts/mkdocs_hooks/sync_llms_txt.py
 
 MkDocs hook usage (automatic, via ``hooks:`` in mkdocs.yml)::
 
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pathlib
 
-_REPO_ROOT = pathlib.Path(__file__).parent.parent
+_REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _SRC_DIR = _REPO_ROOT / "factrix"
 _DST_DIR = _REPO_ROOT / "docs"
 _FILES = ("llms.txt", "llms-full.txt")
@@ -28,7 +28,7 @@ _FILES = ("llms.txt", "llms-full.txt")
 _BANNER = (
     "<!-- GENERATED FILE — DO NOT EDIT.\n"
     "     SSOT lives at factrix/{name}; regenerated on every mkdocs build\n"
-    "     by scripts/sync_llms_txt.py. Edits here will be overwritten. -->\n"
+    "     by scripts/mkdocs_hooks/sync_llms_txt.py. Edits here will be overwritten. -->\n"
     "\n"
 )
 

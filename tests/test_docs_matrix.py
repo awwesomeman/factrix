@@ -72,7 +72,7 @@ def test_generated_matrix_exists_and_nonempty() -> None:
     if not GENERATED_MATRIX.exists():
         pytest.skip(
             f"{GENERATED_MATRIX} not found — run "
-            "'python scripts/gen_metric_matrix.py' or 'mkdocs build' first."
+            "'python scripts/mkdocs_hooks/gen_metric_matrix.py' or 'mkdocs build' first."
         )
     lines = [
         ln
