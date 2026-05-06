@@ -57,6 +57,59 @@ Reading `n_obs` together with `n_assets` disambiguates whether a small
 `n_obs` came from a short series (low `T`) or a thin cross-section
 (low `N`).
 
+#### Inference-stage denominator, not raw `N × T`
+
+`n_obs` reports the **second-stage** sample size — the denominator
+behind the inference test that produces `primary_p`. It is never raw
+`N × T`. factrix procedures aggregate in two stages
+([Architecture § Terminology — aggregation regime](../development/architecture.md#terminology--aggregation-regime)):
+the first stage reduces the panel to a per-date or per-asset series,
+the second stage runs the inferential test over that series.
+
+Concretely, an IC PANEL run with `T = 30` dates and `N = 500` assets
+per date has `n_obs = 30` (the per-date IC series feeding the NW HAC
+`t`-test), not `15000`. Treating `n_obs` as a raw cell count would
+overstate degrees of freedom by orders of magnitude — the warning
+guards (`MIN_PERIODS_HARD`, `UNRELIABLE_SE_SHORT_PERIODS`) and the
+`primary_p` itself read the second-stage value.
+
+#### `n_assets` is the raw panel width
+
+`n_assets = panel["asset_id"].n_unique()` is computed once on the
+input and has fixed semantics across cells — the cross-section width
+of the union over the sample period. It is the test denominator
+**only** in cells where the second stage is a cross-asset aggregation
+(`(common, continuous, None, panel)`, `(common, sparse, None, panel)`);
+elsewhere it is metadata for warnings and routing, not for inference.
+
+#### Consumers
+
+| Consumer | Reads `n_obs` | Reads `n_assets` |
+|---|---|---|
+| `profile.diagnose()` payload | yes | yes |
+| `MIN_PERIODS_HARD` / `UNRELIABLE_SE_SHORT_PERIODS` guards | yes | — |
+| `MIN_ASSETS` guards (`SMALL_CROSS_SECTION_N`, `BORDERLINE_CROSS_SECTION_N`) | — | yes |
+| `InsufficientSampleError.actual_periods` | yes | — |
+| `verdict()` | — | — |
+| `multi_factor.bhy` family partition | — | — |
+
+Neither `verdict()` nor `multi_factor.bhy` reads these fields:
+`verdict()` thresholds on `primary_p`; BHY partitions families on
+`(dispatch cell, forward horizon)` and runs step-up on p-values.
+
+#### Why one polymorphic `n_obs` instead of split `n_periods` + `n_cs`
+
+Every registered cell runs **one** primary test with **one**
+denominator. Splitting `n_obs` into `n_periods` and `n_cs` would
+force every consumer (`diagnose()` printers, warning-code interpreters,
+`InsufficientSampleError` recovery code) to dispatch on cell to pick
+which field to read — and the field that matters is always the test
+denominator. The polymorphic-`n_obs` design surfaces that field
+directly; the per-cell semantic table above resolves "which axis am
+I looking at" in one place when needed. `n_assets` stays as a raw
+panel descriptor for the cross-asset cells and for `MIN_ASSETS`
+guards.
+
 ### `stats` keys by cell
 
 Every cell populates the keys for its primary statistic (`*_MEAN`,
