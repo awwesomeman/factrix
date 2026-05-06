@@ -129,6 +129,7 @@ nav:
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
       - Batch screening (BHY): guides/batch-screening.md
       - Choosing a metric: guides/choosing-metric.md
+      - Standalone metrics: guides/standalone-metrics.md
   - Reference:
       - Metric applicability: reference/metric-applicability.md
       - Metric pipelines: reference/standalone-metrics.md
