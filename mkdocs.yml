@@ -173,7 +173,8 @@ nav:
               - oos: api/metrics/oos.md
   - Examples:
       - examples/index.md
-      - End-to-end walkthrough: examples/demo.ipynb
+      - Multi-factor screening: examples/multi_factor_screening.ipynb
+      - Stock factor evaluation: examples/stock_factor_evaluation.ipynb
   - Development:
       - Architecture: development/architecture.md
       - Design notes: development/design-notes.md
