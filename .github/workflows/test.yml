@@ -63,6 +63,37 @@ jobs:
       - name: Run pytest
         run: uv run --python ${{ matrix.python }} pytest
 
+  examples:
+    name: example notebooks execute
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.5.x"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --python 3.12 --all-extras
+
+      - name: Execute examples/*.ipynb
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          notebooks=(examples/*.ipynb)
+          if [ ${#notebooks[@]} -eq 0 ]; then
+            echo "No notebooks found under examples/" >&2
+            exit 1
+          fi
+          for nb in "${notebooks[@]}"; do
+            echo "::group::$nb"
+            uv run jupyter nbconvert --to notebook --execute "$nb" --output-dir /tmp
+            echo "::endgroup::"
+          done
+
   build:
     name: wheel build + import smoke
     runs-on: ubuntu-latest
