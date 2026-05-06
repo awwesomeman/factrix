@@ -2752,126 +2752,16 @@ flow through.</p>
 
 
 <a href="#factrix.evaluate" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate</span><span class="p">(</span><span class="n">raw</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">AnalysisConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FactorProfile</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">evaluate</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Dispatch <code>config + raw</code> to the registered procedure.</p>
-<p>Mode is derived from <code>raw</code> (<code>N == 1</code> → <code>TIMESERIES</code>, else
-<code>PANEL</code>). Sparse signals at <code>N == 1</code> collapse the scope axis
-so <code>individual_sparse</code> and <code>common_sparse</code> route to the same
-cell, tagged with <code>InfoCode.SCOPE_AXIS_COLLAPSED</code> on the
-returned profile.</p>
-
-
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                <code>raw</code>
-            </td>
-            <td>
-                  <code><span title="typing.Any">Any</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Canonical-column panel (<code>date, asset_id, factor,
-forward_return</code>). Schema is validated downstream by the
-registered procedure.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                <code>config</code>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="factrix._analysis_config.AnalysisConfig" href="../analysis-config/#factrix.AnalysisConfig">AnalysisConfig</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Validated <code>AnalysisConfig</code> produced by one of the
-four factory methods.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="factrix._profile.FactorProfile" href="../factor-profile/#factrix.FactorProfile">FactorProfile</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>FactorProfile</code> populated by the procedure registered for</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="factrix._profile.FactorProfile" href="../factor-profile/#factrix.FactorProfile">FactorProfile</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the routed dispatch cell.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="factrix._errors.ModeAxisError">ModeAxisError</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the routed cell has no registered procedure
-under the derived mode (e.g. <code>(INDIVIDUAL, CONTINUOUS, *)</code>
-at <code>N == 1</code>); the error carries a nearest-legal
-<code>suggested_fix</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <p>Dispatch <code>raw</code> through the cell selected by <code>config</code>.</p>
+<p>Thin public wrapper around the private <code>_evaluate</code> dispatcher.
+Intercepts the common onboarding miss — <code>evaluate(panel)</code> — with
+a friendly :class:<code>MissingConfigError</code> pointing at
+:func:<code>suggest_config</code> and the Get Started guide.</p>
 
 
     </div>
