@@ -227,7 +227,7 @@ family lacks the gated key.
 
 ---
 
-### `describe_analysis_modes` / `suggest_config`
+### `describe_analysis_modes` / `suggest_config` / `list_metrics`
 
 ```
 factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
@@ -237,6 +237,15 @@ factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
 factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
     # Inspect a panel; propose an AnalysisConfig + structured reasoning + warnings.
     # Suggestion is never auto-applied — caller (or agent) reads .reasoning.
+
+factrix.list_metrics(scope: FactorScope, signal: Signal,
+                     *, format: Literal["text", "json"] = "text"
+                     ) -> list[str] | list[dict[str, Any]]
+    # Standalone metrics applicable to a (scope, signal) cell.
+    # text → list[str] sorted by (module, name); json → rows with
+    # {name, module, cell, agg_order, inference_se}. Mode is not an input —
+    # applicability does not change across PANEL / TIMESERIES.
+    # Raises IncompatibleAxisError if the pair has no registered metrics.
 ```
 
 ---

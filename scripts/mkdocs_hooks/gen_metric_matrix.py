@@ -1,8 +1,9 @@
 """Build-time generator for the standalone-metrics matrix table.
 
-Parses every public ``factrix/metrics/*.py`` module, extracts
-``Matrix-row:`` lines from each module docstring, and writes a
-Markdown table to ``docs/reference/_generated_metric_matrix.md``.
+Renders a Markdown table to ``docs/reference/_generated_metric_matrix.md``
+from the parsed ``Matrix-row:`` tags exposed by
+:mod:`factrix._metric_index` (single source of truth, also consumed at
+runtime by ``factrix.list_metrics``).
 
 Usage (manual)::
 
@@ -16,93 +17,39 @@ MkDocs hook usage (automatic, via ``hooks:`` in mkdocs.yml)::
 
 from __future__ import annotations
 
-import ast
 import pathlib
-import re
 
-# ---------------------------------------------------------------------------
-# Paths (relative to repo root — resolved at call time so the script works
-# when invoked from any working directory, including inside mkdocs).
-# ---------------------------------------------------------------------------
+from factrix._metric_index import MatrixEntry, matrix_entries
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
-_METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
 
 _TABLE_HEADER = (
     "| Module | Cell scope | Aggregation order | Inference SE |\n|---|---|---|---|\n"
 )
 
-_MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
 
-
-def _public_metric_modules() -> list[pathlib.Path]:
-    """Return sorted list of public metric module paths."""
-    return sorted(p for p in _METRICS_DIR.glob("*.py") if not p.stem.startswith("_"))
-
-
-def _extract_matrix_rows(path: pathlib.Path) -> list[str]:
-    """Return raw Matrix-row values (one per tag) from a module's docstring."""
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except SyntaxError:
-        return []
-    doc = ast.get_docstring(tree) or ""
-    return [m.group(1).strip() for m in _MATRIX_ROW_RE.finditer(doc)]
-
-
-def _build_table_row(module_path: pathlib.Path, row_value: str) -> str:
-    """Convert one Matrix-row: value into a Markdown table row string.
-
-    Renders 4 user-facing columns (Module | Cell scope | Aggregation order |
-    Inference SE); public_functions and primitives are kept in the docstring
-    for developers but omitted from the overview table.
-    """
-    parts = [p.strip() for p in row_value.split("|")]
-    if len(parts) != 5:
-        raise ValueError(
-            f"{module_path.name}: Matrix-row has {len(parts)} pipe-separated"
-            f" fields (expected 5): {row_value!r}"
-        )
-    _public_fns, cell_scope, agg_order, inference_se, _primitives = parts
-
-    stem = module_path.stem
-    module_cell = f"[`metrics.{stem}`][factrix.metrics.{stem}]"
-
-    return f"| {module_cell} | `{cell_scope}` | {agg_order} | {inference_se} |\n"
+def _render_row(entry: MatrixEntry) -> str:
+    module_cell = f"[`metrics.{entry.module}`][factrix.metrics.{entry.module}]"
+    return (
+        f"| {module_cell} | `{entry.cell.raw}` | "
+        f"{entry.agg_order} | {entry.inference_se} |\n"
+    )
 
 
 def generate() -> None:
     """Generate ``_generated_metric_matrix.md`` from module docstrings."""
-    lines: list[str] = [_TABLE_HEADER]
-
-    for module_path in _public_metric_modules():
-        row_values = _extract_matrix_rows(module_path)
-        if not row_values:
-            # Skip modules with no Matrix-row tags silently; test coverage
-            # in test_docs_matrix.py will catch missing tags.
-            continue
-        for row_value in row_values:
-            lines.append(_build_table_row(module_path, row_value))
-
+    entries = matrix_entries()
+    lines = [_TABLE_HEADER, *(_render_row(e) for e in entries)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     _OUT_FILE.write_text("".join(lines), encoding="utf-8")
-    print(f"gen_metric_matrix: wrote {len(lines) - 1} row(s) to {_OUT_FILE}")
-
-
-# ---------------------------------------------------------------------------
-# MkDocs hook entry point (mkdocs 1.4+)
-# ---------------------------------------------------------------------------
+    print(f"gen_metric_matrix: wrote {len(entries)} row(s) to {_OUT_FILE}")
 
 
 def on_pre_build(config: object) -> None:
     """MkDocs hook: regenerate the matrix before every build."""
     generate()
 
-
-# ---------------------------------------------------------------------------
-# CLI entry point
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     generate()

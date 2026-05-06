@@ -138,6 +138,7 @@ nav:
   - API:
       - AnalysisConfig: api/analysis-config.md
       - evaluate: api/evaluate.md
+      - list_metrics: api/list-metrics.md
       - FactorProfile: api/factor-profile.md
       - MetricOutput: api/metric-output.md
       - multi_factor: api/multi-factor.md

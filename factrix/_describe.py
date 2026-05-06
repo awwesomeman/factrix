@@ -12,7 +12,9 @@ from typing import Any, Literal
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import WarningCode, cross_section_tier
+from factrix._errors import IncompatibleAxisError
 from factrix._evaluate import _derive_mode
+from factrix._metric_index import user_facing_rows
 from factrix._registry import (
     _DISPATCH_REGISTRY,
     _dispatch_key_for,
@@ -377,3 +379,58 @@ def suggest_config(
         reasoning=reasoning,
         warnings=warnings,
     )
+
+
+# ---------------------------------------------------------------------------
+# list_metrics
+# ---------------------------------------------------------------------------
+
+
+def list_metrics(
+    scope: FactorScope,
+    signal: Signal,
+    *,
+    format: Literal["text", "json"] = "text",
+) -> list[str] | list[dict[str, Any]]:
+    """Return standalone metrics applicable to ``(scope, signal)``.
+
+    Mode is intentionally not an input — applicability does not change
+    across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
+    Source of truth is the ``Matrix-row:`` tag in each metric module's
+    docstring, parsed by :mod:`factrix._metric_index`.
+
+    Parameters
+    ----------
+    scope, signal
+        Cell axes to filter on.
+    format
+        ``"text"`` (default) returns ``list[str]`` of metric names sorted
+        by ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
+        with keys ``name``, ``module``, ``cell``, ``agg_order``,
+        ``inference_se`` — JSON-serialisable, suitable for tooling that
+        needs the structured row.
+
+    Raises
+    ------
+    IncompatibleAxisError
+        ``(scope, signal)`` matches no registered metric. In practice
+        all four combos are populated, so this is defensive.
+    """
+    rows = [r for r in user_facing_rows() if r.cell.matches(scope, signal)]
+    if not rows:
+        raise IncompatibleAxisError(
+            f"no standalone metrics registered for "
+            f"(scope={scope.value}, signal={signal.value})"
+        )
+    if format == "json":
+        return [
+            {
+                "name": r.name,
+                "module": r.module,
+                "cell": r.cell.raw,
+                "agg_order": r.agg_order,
+                "inference_se": r.inference_se,
+            }
+            for r in rows
+        ]
+    return [r.name for r in rows]

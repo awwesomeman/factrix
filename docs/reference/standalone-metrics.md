@@ -32,4 +32,6 @@ For per-module formula derivations, read each module's top-level
 docstring (linked above); for the underlying paper references and
 inference-SE rationale, see [Statistical methods](statistical-methods.md);
 for `n_obs` / `n_assets` thresholds per metric, see
-[Metric applicability](metric-applicability.md).
+[Metric applicability](metric-applicability.md). For the runtime API
+that returns the same data filtered by `(scope, signal)`, see
+[`list_metrics`](../api/list-metrics.md).

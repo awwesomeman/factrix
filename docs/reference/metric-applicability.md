@@ -5,7 +5,9 @@ where it is in scope, the canonical inferential role it plays in
 that cell, and the sample-size threshold that gates it. Per-metric
 formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
-cross-metric overview.
+cross-metric overview. For the runtime API that returns the per-cell
+metric list programmatically, see
+[`list_metrics`](../api/list-metrics.md).
 
 ## Sample dimensions
 
