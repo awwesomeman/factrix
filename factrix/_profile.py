@@ -35,8 +35,8 @@ class FactorProfile:
         primary_p: Procedure-canonical p-value used by ``verdict()``
             and ``multi_factor.bhy``.
         n_obs: Cell-canonical effective sample size (T for IC/FM/TS,
-            event count for CAAR, asset count for ``COMMON × *``
-            PANEL).
+            densified panel-period count for CAAR, asset count for
+            ``COMMON × *`` PANEL).
         n_assets: Cross-section width of the raw panel
             (``panel["asset_id"].n_unique()``).
         warnings: ``WarningCode`` flags emitted by the procedure.
