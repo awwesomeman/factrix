@@ -59,28 +59,18 @@ Reading `n_obs` together with `n_assets` disambiguates whether a small
 
 #### Inference-stage denominator, not raw `N × T`
 
-`n_obs` reports the **second-stage** sample size — the denominator
-behind the inference test that produces `primary_p`. It is never raw
-`N × T`. factrix procedures aggregate in two stages
-([Architecture § Terminology — aggregation regime](../development/architecture.md#terminology--aggregation-regime)):
-the first stage reduces the panel to a per-date or per-asset series,
-the second stage runs the inferential test over that series.
-
-Concretely, an IC PANEL run with `T = 30` dates and `N = 500` assets
-per date has `n_obs = 30` (the per-date IC series feeding the NW HAC
-`t`-test), not `15000`. Treating `n_obs` as a raw cell count would
-overstate degrees of freedom by orders of magnitude — the warning
-guards (`MIN_PERIODS_HARD`, `UNRELIABLE_SE_SHORT_PERIODS`) and the
+`n_obs` is the second-stage denominator behind `primary_p`, never raw
+`N × T` (factrix procedures aggregate in two stages — see
+[Architecture § Terminology — aggregation regime](../development/architecture.md#terminology--aggregation-regime)).
+An IC PANEL run with `T = 30` and `N = 500` has `n_obs = 30` (the
+per-date IC series feeding the NW HAC `t`-test), not `15000`. The
+`MIN_PERIODS_HARD` / `UNRELIABLE_SE_SHORT_PERIODS` guards and
 `primary_p` itself read the second-stage value.
 
-#### `n_assets` is the raw panel width
-
-`n_assets = panel["asset_id"].n_unique()` is computed once on the
-input and has fixed semantics across cells — the cross-section width
-of the union over the sample period. It is the test denominator
-**only** in cells where the second stage is a cross-asset aggregation
-(`(common, continuous, None, panel)`, `(common, sparse, None, panel)`);
-elsewhere it is metadata for warnings and routing, not for inference.
+`n_assets` is the raw panel width (`panel["asset_id"].n_unique()`)
+with fixed semantics across cells. It is the test denominator **only**
+in cross-asset cells (`(common, *, None, panel)`); elsewhere it is
+metadata for warnings (`MIN_ASSETS` guards) and routing.
 
 #### Consumers
 
@@ -93,22 +83,18 @@ elsewhere it is metadata for warnings and routing, not for inference.
 | `verdict()` | — | — |
 | `multi_factor.bhy` family partition | — | — |
 
-Neither `verdict()` nor `multi_factor.bhy` reads these fields:
-`verdict()` thresholds on `primary_p`; BHY partitions families on
-`(dispatch cell, forward horizon)` and runs step-up on p-values.
+`verdict()` thresholds on `primary_p`; BHY partitions on
+`(dispatch cell, forward horizon)` and runs step-up on p-values —
+neither path reads these fields.
 
 #### Why one polymorphic `n_obs` instead of split `n_periods` + `n_cs`
 
-Every registered cell runs **one** primary test with **one**
-denominator. Splitting `n_obs` into `n_periods` and `n_cs` would
-force every consumer (`diagnose()` printers, warning-code interpreters,
-`InsufficientSampleError` recovery code) to dispatch on cell to pick
-which field to read — and the field that matters is always the test
-denominator. The polymorphic-`n_obs` design surfaces that field
-directly; the per-cell semantic table above resolves "which axis am
-I looking at" in one place when needed. `n_assets` stays as a raw
-panel descriptor for the cross-asset cells and for `MIN_ASSETS`
-guards.
+Every registered cell runs one primary test with one denominator.
+Splitting `n_obs` would force every consumer (`diagnose()` printers,
+warning-code interpreters, `InsufficientSampleError` recovery) to
+dispatch on cell to pick which field is the test denominator. The
+polymorphic field surfaces it directly; the per-cell table above
+resolves the axis when needed.
 
 ### `stats` keys by cell
 
@@ -138,20 +124,16 @@ non-event entries) makes the unit-root null degenerate.
 
 ### `stats` provenance — two paths
 
-`profile.stats` is populated by **one path only**: the procedure that
-ran inside `evaluate()`. The keys above are the full enumeration —
-nothing else is auto-merged.
+`profile.stats` is populated only by the procedure that ran inside
+`evaluate()`; the keys above are the full enumeration.
 
 | Path | Lives in | What it produces | Pluggable? |
 |---|---|---|---|
 | **Procedure-internal** | `factrix/_stats/` helpers (`_newey_west_t_test`, `_adf`, `_ljung_box_p`, …) invoked from `factrix/_procedures.py` | The `StatCode` keys listed above on `profile.stats` | No — the per-cell stat set is hard-coded by the registered procedure. |
 | **Standalone metrics** | `factrix/metrics/*.py`, listed by [`list_metrics`](list-metrics.md) | A separate [`MetricOutput`](metric-output.md) per call, returned to the user | Yes — call any number after `evaluate()` returns. |
 
-The user-invoked path is **independent**: a call like
-`fl.metrics.quantile_spread(...)` returns a `MetricOutput` to the
-caller. It does not mutate `profile.stats`. To layer follow-up metrics
-into a single agent-readable payload, the caller assembles them
-explicitly (typically a `dict` of `MetricOutput` keyed by metric name).
+`fl.metrics.quantile_spread(...)` and friends return a `MetricOutput`
+to the caller; they do not mutate `profile.stats`.
 
 #### `StatCode` → statistical method
 
