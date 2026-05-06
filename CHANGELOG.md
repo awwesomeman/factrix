@@ -170,17 +170,20 @@ CONTRIBUTING §7 (Release workflow).
   wanting ternary semantics on a non-ternary input apply `.sign()` to
   the input column themselves before calling. See `compute_caar`
   docstring for the input-form behaviour table. (#12)
-- README §樣本守門 重寫：新增「factory × `n_assets` regime 行為矩陣」表 +
-  「計算順序對照」段 + 「兩軸守門對稱」表，明確區分
-  `individual_continuous`（cross-section first → time-series）與
-  `common_continuous`（time-series first → cross-asset）的計算順序差異——
-  使用者誤以為兩者皆「先橫斷面再時序」是 `common_continuous` N=1 退化
-  與 small-`n_assets` 結果不可信的根因。修正先前 L247「`n_assets` < 10
-  切 FM」誤導建議——FM 在 `n_assets` = 2..9 同樣不可靠。 (#16)
-- ARCHITECTURE.md 增補 §Cross-sectional guards (`n_assets`)（two-tier
-  threshold 設計理由 + t_crit 衰減表）與 §Procedure pipelines（每個 PANEL
-  continuous procedure 的計算管線、small-`n_assets` failure mode、threshold
-  對應），把行為矩陣背後的 statistical rationale 集中到一處。 (#16)
+- README §Sample gating rewritten: added a `factory × n_assets` regime
+  behaviour matrix, a computation-order comparison section, and a
+  two-axis gating symmetry table. Clarifies that `individual_continuous`
+  runs cross-section first then time-series, while `common_continuous`
+  runs time-series first then cross-asset — the common misconception that
+  both are cross-section-first is the root cause of `common_continuous`
+  N=1 degradation and unreliable small-`n_assets` results. Corrects the
+  misleading prior suggestion to switch to FM at `n_assets` < 10; FM is
+  equally unreliable at `n_assets` = 2..9. (#16)
+- ARCHITECTURE.md gains §Cross-sectional guards (`n_assets`) (two-tier
+  threshold rationale + t_crit decay table) and §Procedure pipelines
+  (per-procedure computation pipeline, small-`n_assets` failure modes,
+  threshold mapping), consolidating the statistical rationale behind the
+  behaviour matrix in one place. (#16)
 - **`MIN_IC_PERIODS` → `MIN_ASSETS_PER_DATE_IC`** (in `factrix/_types.py`).
   The "PERIODS" suffix was misleading — the value has always been
   checked against per-date asset counts, not period counts. **Migration:**
@@ -316,7 +319,7 @@ step-up threshold.
   U-shape / inverted-U / extreme-only response via top-bottom bucket
   Wald, the second catches long-side ≠ short-side via either
   conditional means (method A) or piecewise slopes (method B). Three
-  applicability gates (`distinct ≥ n_groups×2`, `兩側存在`, `雙側內變異`)
+  applicability gates (`distinct ≥ n_groups×2`, `both_sides_present`, `within_side_variance`)
   short-circuit with `metadata["reason"]` + redirect hint instead of
   silent NaN.
 - **NW HAC multivariate OLS + Wald helpers** (`factrix/_stats/__init__.py`)
@@ -325,7 +328,7 @@ step-up threshold.
   `ts_quantile_spread`, `ts_asymmetry`) emit p-values from the same
   framework and stay cross-metric comparable.
 - **`docs/metric_applicability.md`** §`ts_quantile_spread / ts_asymmetry`
-  applicability matrix and gate definitions; **README** §文件導引 link
+  applicability matrix and gate definitions; **README** §Document guide link
   to the new section.
 - **README** use-case → factory reverse-lookup table for users not yet
   fluent in the three-axis vocabulary, plus a worked Bonferroni-then-BHY
