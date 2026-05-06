@@ -136,6 +136,7 @@ nav:
       - Warning / info / stat codes: reference/warning-codes.md
       - Bibliography: reference/bibliography.md
   - API:
+      - api/index.md
       - AnalysisConfig: api/analysis-config.md
       - evaluate: api/evaluate.md
       - list_metrics: api/list-metrics.md
