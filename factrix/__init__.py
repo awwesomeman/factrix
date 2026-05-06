@@ -56,11 +56,31 @@ from factrix._errors import (
     FactrixError,
     IncompatibleAxisError,
     InsufficientSampleError,
+    MissingConfigError,
     ModeAxisError,
 )
-from factrix._evaluate import _evaluate as evaluate
+from factrix._evaluate import _evaluate as _evaluate
 from factrix._profile import FactorProfile
 from factrix._types import MetricOutput
+
+
+def evaluate(raw, config=None, /):
+    """Dispatch ``raw`` through the cell selected by ``config``.
+
+    Thin public wrapper around the private ``_evaluate`` dispatcher.
+    Intercepts the common onboarding miss — ``evaluate(panel)`` — with
+    a friendly :class:`MissingConfigError` pointing at
+    :func:`suggest_config` and the Get Started guide.
+    """
+    if config is None:
+        raise MissingConfigError(
+            "evaluate() requires an AnalysisConfig. "
+            "Call factrix.suggest_config(raw) for a recommendation, "
+            "or see the Get Started guide: "
+            "https://awwesomeman.github.io/factrix/getting-started/"
+        )
+    return _evaluate(raw, config)
+
 
 __version__ = "0.7.0"
 
@@ -83,6 +103,7 @@ __all__ = [
     "FactrixError",
     "IncompatibleAxisError",
     "InsufficientSampleError",
+    "MissingConfigError",
     "ModeAxisError",
     # Profile + dispatch
     "FactorProfile",

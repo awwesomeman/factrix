@@ -38,6 +38,15 @@ class ConfigError(FactrixError):
         self.suggested_fix = suggested_fix
 
 
+class MissingConfigError(ConfigError):
+    """``evaluate(raw)`` called without an ``AnalysisConfig``.
+
+    Friendly replacement for the bare ``TypeError`` from the private
+    ``_evaluate`` signature. ``suggested_fix`` stays ``None`` — call
+    ``factrix.suggest_config(raw)`` to get a concrete recommendation.
+    """
+
+
 class IncompatibleAxisError(ConfigError):
     """``(scope, signal, metric)`` tuple is not a legal analysis cell.
 
