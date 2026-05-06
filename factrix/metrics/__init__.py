@@ -6,7 +6,7 @@ Grouping below follows the ``Scope × Signal`` cells defined in
 ``factrix._axis`` — *not* ``Mode`` (which is a derived sample regime,
 ``PANEL`` for ``N ≥ 2`` and ``TIMESERIES`` for ``N == 1``). Every
 cell can run in either Mode; the dispatch registry handles that.
-Series tools are axis-agnostic and operate on any ``(date, value)``
+Series diagnostics are axis-agnostic and operate on any ``(date, value)``
 series produced upstream.
 
 Individual × Continuous:
@@ -30,7 +30,7 @@ Common × Continuous:
     compute_rolling_mean_beta, ts_beta_sign_consistency,
     ts_quantile_spread, ts_asymmetry
 
-Series tools — axis-agnostic on ``(date, value)``:
+Series diagnostics — axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, multi_split_oos_decay
 """
 

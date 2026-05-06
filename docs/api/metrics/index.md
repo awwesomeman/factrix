@@ -55,9 +55,10 @@ modules plus a fourth axis-agnostic group**:
 | `Common × Sparse` | **Individual sparse** (shared metric modules) | Has its own dispatch procedure (`_CommonSparsePanelProcedure`: per-asset OLS β on the broadcast dummy → cross-asset *t*) — not the CAAR per-event flow used by `Individual × Sparse`. The two cells share the SPARSE column contract and the event-quality / clustering / corrado helper metrics, so factrix groups them on this nav. |
 | `Common × Continuous` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
 
-**Series tools** (`hit_rate`, `trend`, `oos`) are axis-agnostic — they
-operate on any `(date, value)` series produced by the upstream cell
-metrics and are not bound to a specific cell.
+**Series diagnostics** (`hit_rate`, `trend`, `oos`) are axis-agnostic —
+they operate on any `(date, value)` series produced by the upstream
+cell metrics and are not bound to a specific cell. Distinct from
+`Mode.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
 
 ## How to read a metric page
 

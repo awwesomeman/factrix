@@ -9,4 +9,4 @@ detection (29.3% breakdown point) on IC or other diagnostic series.
 
 - [Reference § Metric applicability](../../reference/metric-applicability.md) — when this metric applies and sample-size guards.
 - [Reference § Statistical methods](../../reference/statistical-methods.md) — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.
-- [Series tools landing page](series-tools.md) — other axis-agnostic series diagnostics.
+- [Series diagnostics landing page](series-tools.md) — other axis-agnostic series diagnostics.
