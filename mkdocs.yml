@@ -168,7 +168,7 @@ nav:
               - ts_beta: api/metrics/ts_beta.md
               - ts_quantile: api/metrics/ts_quantile.md
               - ts_asymmetry: api/metrics/ts_asymmetry.md
-          - Series tools:
+          - Series diagnostics:
               - api/metrics/series-tools.md
               - hit_rate: api/metrics/hit_rate.md
               - trend: api/metrics/trend.md
