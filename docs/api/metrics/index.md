@@ -13,7 +13,7 @@ Reverse index — match your situation to the likely landing page:
 | Continuous factor, ~30+ dates × ~10+ assets, canonical IC test | [`ic`](ic.md) (and `ic_newey_west` for HAC) |
 | Continuous factor, per-date OLS slope test | [`fama_macbeth`](fama_macbeth.md) |
 | Long-short spread sized by factor quintiles | [`quantile`](quantile.md), [`monotonicity`](monotonicity.md) |
-| Sparse `±1` event signal, CAAR / abnormal-return test | [`caar`](caar.md), [`event_quality`](event_quality.md) |
+| Sparse `{0, R}` event signal (canonical `±1`), CAAR / abnormal-return test | [`caar`](caar.md), [`event_quality`](event_quality.md) |
 | Sparse signal, suspect event-induced variance | `caar.bmp_test` (check [`clustering`](clustering.md) first) |
 | Sparse signal, non-parametric robustness check | [`corrado`](corrado.md) |
 | Common time-series factor (one signal × N assets, e.g. VIX) | [`ts_beta`](ts_beta.md), [`ts_quantile`](ts_quantile.md) |
@@ -51,7 +51,7 @@ modules plus a fourth axis-agnostic group**:
 | Cell | Group on this nav | Notes |
 |---|---|---|
 | `Individual × Continuous` | **Individual continuous** | Both `IC` and `FM` primary metrics live in this cell; ancillary metrics (`quantile`, `monotonicity`, `concentration`, `tradability`, `spanning`) are shared across both. |
-| `Individual × Sparse` | **Individual sparse** | Per-event tests on `(date, asset_id, factor ∈ {-1, 0, +1})`. Domain shorthand: *event signal*. |
+| `Individual × Sparse` | **Individual sparse** | Per-event tests on `(date, asset_id, factor)` with sparse `{0, R}` schema (zero on non-event entries; canonical `{-1, 0, +1}`). Domain shorthand: *event signal*. |
 | `Common × Sparse` | **Individual sparse** (shared metric modules) | Has its own dispatch procedure (`_CommonSparsePanelProcedure`: per-asset OLS β on the broadcast dummy → cross-asset *t*) — not the CAAR per-event flow used by `Individual × Sparse`. The two cells share the SPARSE column contract and the event-quality / clustering / corrado helper metrics, so factrix groups them on this nav. |
 | `Common × Continuous` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
 

@@ -27,7 +27,8 @@ statistical procedure.
 
 **Signal** — the value type:
 - `CONTINUOUS` — real-valued (returns, z-scores, raw fundamentals)
-- `SPARSE` — categorical trigger in `{-1, 0, +1}` (event flags, regime dummies)
+- `SPARSE` — `{0, R}` event trigger: zero on non-event entries, arbitrary real
+  magnitude otherwise (event flags, regime dummies; canonical `{-1, 0, +1}`)
 
 **Metric** — the statistical procedure. Only meaningful for the
 `(INDIVIDUAL, CONTINUOUS)` cell:

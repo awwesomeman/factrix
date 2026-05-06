@@ -80,8 +80,8 @@ with Hansen-Hodrick overlap floor). Cross-asset aggregations
 have no `NW_LAGS_USED` entry.
 
 `FACTOR_ADF_P` is a CONTINUOUS-only persistence diagnostic — sparse
-cells skip it because the `{−1, 0, +1}`-style signal makes the unit-
-root null degenerate.
+cells skip it because the `{0, R}` event-trigger signal (zero on
+non-event entries) makes the unit-root null degenerate.
 
 ### Example
 

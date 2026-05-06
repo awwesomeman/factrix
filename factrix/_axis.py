@@ -5,7 +5,8 @@ Three orthogonal user-facing axes describe an analysis cell:
 - ``FactorScope``  — does the factor vary per-asset (``INDIVIDUAL``) or
   carry a single value broadcast to every asset (``COMMON``)?
 - ``Signal``       — continuous numeric exposure (``CONTINUOUS``) vs.
-  ``{-1, 0, +1}`` event triggers (``SPARSE``)?
+  ``{0, R}`` event triggers (``SPARSE`` — zero on non-event entries,
+  arbitrary real magnitude otherwise; canonical example ``{-1, 0, +1}``)?
 - ``Metric``       — procedure-canonical scalar (``IC`` or ``FM``).
   Only meaningful for ``INDIVIDUAL × CONTINUOUS``; ``None`` for the
   remaining cells.
@@ -28,7 +29,11 @@ class FactorScope(StrEnum):
 
 
 class Signal(StrEnum):
-    """Continuous numeric exposure vs. ``{-1, 0, +1}`` event trigger."""
+    """Continuous numeric exposure vs. ``{0, R}`` sparse event trigger.
+
+    Sparse columns are zero on non-event entries with arbitrary real
+    magnitude otherwise (canonical example ``{-1, 0, +1}``).
+    """
 
     CONTINUOUS = "continuous"
     SPARSE = "sparse"

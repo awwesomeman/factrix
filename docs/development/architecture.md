@@ -345,8 +345,9 @@ per-asset OLS R_i = α_i + β_i·D over all n_periods dates   (time-series step)
                                                          →  cross-asset t-test on E[β]   (cross-section step)
 ```
 
-Same shape as `common_continuous`; the broadcast `D ∈ {-1, 0, +1}` dummy
-replaces the continuous regressor. Factor magnitudes are **preserved** in
+Same shape as `common_continuous`; the broadcast `D` carries the
+sparse `{0, R}` schema (canonical `{-1, 0, +1}`) and replaces the
+continuous regressor. Factor magnitudes are **preserved** in
 the OLS (no `.sign()` coercion at this layer — distinct from the
 `individual_sparse` PANEL pipeline). ADF persistence diagnostic is skipped
 per I6 (sparse regressors are not unit-root candidates).

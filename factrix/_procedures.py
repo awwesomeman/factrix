@@ -288,8 +288,9 @@ class _CommonContPanelProcedure:
 class _CommonSparsePanelProcedure:
     """``(COMMON, SPARSE, None, PANEL)`` — broadcast event-dummy β panel.
 
-    Per-asset OLS β_i on a broadcast {-1, 0, +1} dummy, aggregated to
-    a cross-asset t-test on ``E[β]``. Plan §4.3: same per-asset β →
+    Per-asset OLS β_i on a broadcast sparse ``{0, R}`` dummy
+    (canonical ``{-1, 0, +1}``), aggregated to a cross-asset t-test
+    on ``E[β]``. Plan §4.3: same per-asset β →
     cross-asset t-test pattern as COMMON × CONTINUOUS, with the dummy
     replacing the continuous factor. ADF skipped (I6).
 
@@ -331,8 +332,8 @@ class _CommonSparsePanelProcedure:
             if n_events == 0:
                 detail = (
                     "the broadcast factor has no non-zero observations; ensure "
-                    "events are encoded as ±1 on event dates (zero on non-event "
-                    "dates) before dispatching"
+                    "events are encoded with non-zero magnitude on event dates "
+                    "(zero on non-event dates; canonical ±1) before dispatching"
                 )
             else:
                 detail = (
