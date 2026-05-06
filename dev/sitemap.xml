@@ -2,210 +2,210 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/plan_factrix/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/analysis-config/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/datasets/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/evaluate/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/factor-profile/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metric-output/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/multi-factor/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/caar/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/clustering/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/common-continuous/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/concentration/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/corrado/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/event_horizon/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/event_quality/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/fama_macbeth/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/hit_rate/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/ic/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/individual-continuous/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/individual-sparse/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/mfe_mae/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/monotonicity/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/oos/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/quantile/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/series-tools/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/spanning/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/tradability/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/trend/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/ts_asymmetry/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/ts_beta/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/api/metrics/ts_quantile/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/development/architecture/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/development/changelog/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/development/contributing/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/development/design-notes/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/examples/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/examples/demo/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/getting-started/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/getting-started/concepts/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/getting-started/install/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/getting-started/quickstart/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/guides/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/guides/batch-screening/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/guides/choosing-metric/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/guides/panel-timeseries/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/_generated_metric_matrix/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/bibliography/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/metric-applicability/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/standalone-metrics/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/statistical-methods/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
     <url>
          <loc>https://awwesomeman.github.io/factrix/latest/reference/warning-codes/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <lastmod>2026-05-06</lastmod>
     </url>
 </urlset>
