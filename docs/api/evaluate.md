@@ -27,7 +27,7 @@ shape does not match the cell. `N == 1` is the one exception:
 (`profile.mode == "TIMESERIES"`) so single-asset macro factors still
 flow through.
 
-For an end-to-end walkthrough see
-[Examples § End-to-end walkthrough](../examples/demo.ipynb).
+For runnable recipes see
+[Examples](../examples/index.md).
 
 ::: factrix.evaluate
