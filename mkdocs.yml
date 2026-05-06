@@ -35,8 +35,11 @@ theme:
         name: Switch to light mode
 
 hooks:
+  # factrix/metrics/*.py Matrix-row: -> docs/reference/_generated_metric_matrix.md
   - scripts/gen_metric_matrix.py
+  # examples/*.ipynb -> docs/examples/
   - scripts/sync_examples.py
+  # factrix/llms*.txt -> site root llms*.txt
   - scripts/sync_llms_txt.py
 
 watch:

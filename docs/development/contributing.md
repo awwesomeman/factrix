@@ -274,7 +274,28 @@ actual（第 6 列）。
 
 ---
 
-## 6. 測試規範
+## 6. Docs 同步邊界（Source of Truth）
+
+修改 `factrix/` 後，下表告訴你哪些 `docs/` 會自動跟上、哪些需要手動維護。
+
+### 自動同步管道
+
+| Source（SSOT） | Docs 目的地 | 機制 |
+|---|---|---|
+| `factrix/**/*.py` docstring | `docs/api/**/*.md` 內 `:::` 指令處 | mkdocstrings plugin |
+| `factrix/metrics/*.py` 的 `Matrix-row:` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/gen_metric_matrix.py` |
+| `examples/*.ipynb` | `docs/examples/` | hook: `scripts/sync_examples.py` |
+| `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/sync_llms_txt.py` |
+
+### 仍需手動維護的 docs
+
+- `docs/api/**/*.md`（30 支）：每支含手寫 2–5 行敘事 intro + 一行 `:::` 指令；新增公開 metric 需手建檔並更新 `mkdocs.yml` `nav:`
+- `docs/getting-started/`、`docs/guides/`、`docs/development/`、首頁 `index.md`、各區 `index.md`：純敘事
+- `docs/reference/standalone-metrics.md`、`statistical-methods.md`、`warning-codes.md`、`bibliography.md`：敘事性彙整（非 matrix）
+
+---
+
+## 7. 測試規範
 
 ### Synthetic fixtures only
 
@@ -346,7 +367,7 @@ PR 前 self-check：跑過三個 code block、`uv run mkdocs build --strict` 乾
 
 ---
 
-## 7. 版本管理與發布 (SemVer & Release)
+## 8. 版本管理與發布 (SemVer & Release)
 
 目前 factrix 在 **pre-1.0**（v0.x.x）——公開 API **可能在 MINOR bump 裡
 BC 變動**。Consumer（如 `factor-analysis` workspace）應該透過 **git
