@@ -159,6 +159,8 @@ gh pr merge --squash
 > applicable); at release time, `cz bump --changelog` freezes that
 > section into the next version heading.
 
+**CHANGELOG formatting**: paragraphs and bullets are not hard-wrapped — each paragraph is one line, each bullet one line. The 72-char wrap convention applies to commit messages, not to CHANGELOG prose; GitHub Release notes treat single newlines as `<br>`, so source-level wrapping leaks into the rendered output. Aligns with Polars / ruff / Pydantic.
+
 ### Branch naming
 
 `<type>/<short-desc>`, all lowercase with hyphens:
