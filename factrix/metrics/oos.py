@@ -180,10 +180,12 @@ def multi_split_oos_decay(
         out.metadata.pop("p_value", None)
         return out
 
-    # WHY: 取中位數而非均值，對單一 regime change 落在某 split 點更穩健
+    # WHY: median over mean — robust when a single regime change lands on
+    # one split point.
     median_survival = float(np.median([d.survival_ratio for d in split_details]))
 
-    # WHY: sign flip 任一 split 發生即 VETOED — IC 翻轉代表因子在 OOS 預測反了
+    # WHY: any sign flip across splits → VETOED. IC sign flip means the
+    # factor predicts the wrong direction OOS.
     if any_sign_flip:
         status: GateStatus = "VETOED"
     elif median_survival >= survival_threshold:

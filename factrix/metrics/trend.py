@@ -105,21 +105,22 @@ def ic_trend(
             min_required=10,
         )
 
-    # WHY: 使用序號而非日期差，因為非重疊取樣後日期間距可能不均
+    # WHY: index by sequence rather than date difference — non-overlapping
+    # sampling can leave irregular gaps between dates.
     x = np.arange(n, dtype=float)
 
     result = sp_stats.theilslopes(vals, x)
     slope = float(result.slope)
-    # WHY: scipy theilslopes 回傳 (slope, intercept, low_slope, high_slope)
+    # WHY: scipy theilslopes returns (slope, intercept, low_slope, high_slope).
     low_slope = float(result.low_slope)
     high_slope = float(result.high_slope)
 
-    # WHY: 如果 CI 不跨零，slope 顯著
+    # WHY: slope is significant when the CI does not cross zero.
     ci_excludes_zero = (low_slope > 0 and high_slope > 0) or (
         low_slope < 0 and high_slope < 0
     )
 
-    # WHY: 從 CI 推導近似 t-stat 供顯著性標記使用
+    # WHY: derive an approximate t-stat from the CI for the significance flag.
     # slope ± margin = CI → margin = (high - low) / 2 → SE ≈ margin / 1.96
     margin = (high_slope - low_slope) / 2
     approx_t = slope / (margin / 1.96) if margin > 0 else 0.0

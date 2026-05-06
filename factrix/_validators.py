@@ -70,7 +70,7 @@ def validate_n_assets(df: pl.DataFrame, factor_type: str) -> None:
                 f"auto-falls back to per-asset OLS t-test at N=1\n"
                 f"factrix currently has no first-class canonical test for "
                 f"'continuous factor × single asset' (see "
-                f"docs/plan_direction.md §7 待定決策)."
+                f"docs/plan_direction.md §7 — open decision)."
             )
         # macro_panel
         raise ValueError(
