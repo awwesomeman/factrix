@@ -2939,8 +2939,8 @@ and <code>multi_factor.bhy</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>Cell-canonical effective sample size (T for IC/FM/TS,
-event count for CAAR, asset count for <code>COMMON × *</code>
-PANEL).</p>
+densified panel-period count for CAAR, asset count for
+<code>COMMON × *</code> PANEL).</p>
               </div>
             </td>
           </tr>
@@ -3306,7 +3306,7 @@ on any registered cell's output is supported.</p>
 </tr>
 <tr>
 <td><code>(individual, sparse, None, panel)</code></td>
-<td><code>T</code> — calendar length after CAAR densification</td>
+<td><code>T</code> — densified panel-period count (unique dates in the panel) after CAAR event-date back-fill</td>
 </tr>
 <tr>
 <td><code>(common, continuous, None, panel)</code></td>
@@ -3322,7 +3322,7 @@ on any registered cell's output is supported.</p>
 </tr>
 <tr>
 <td><code>(*, sparse, None, timeseries)</code></td>
-<td><code>T</code> — calendar length of the dummy regression</td>
+<td><code>T</code> — period count of the dummy regression</td>
 </tr>
 </tbody>
 </table>
