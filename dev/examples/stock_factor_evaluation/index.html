@@ -10,10 +10,10 @@
       
       
       
-        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/examples/demo/">
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/examples/stock_factor_evaluation/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../multi_factor_screening/">
       
       
         <link rel="next" href="../../development/architecture/">
@@ -27,7 +27,7 @@
     
     
       
-        <title>End-to-end walkthrough - factrix</title>
+        <title>Stock factor evaluation - factrix</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#factrix-v05-demo" class="md-skip">
+        <a href="#stock-factor-evaluation" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              End-to-end walkthrough
+              Stock factor evaluation
             
           </span>
         </div>
@@ -2270,6 +2270,8 @@
       
         
       
+        
+      
     
     
     
@@ -2331,6 +2333,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi_factor_screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-factor screening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -2350,7 +2380,7 @@
   <span class="md-ellipsis">
     
   
-    End-to-end walkthrough
+    Stock factor evaluation
   
 
     
@@ -2368,7 +2398,7 @@
   <span class="md-ellipsis">
     
   
-    End-to-end walkthrough
+    Stock factor evaluation
   
 
     
@@ -2394,6 +2424,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#factor-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factor type
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-this-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use this when
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output to read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2405,10 +2479,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-cell" class="md-nav__link">
+  <a href="#2-synthesise-a-cross-sectional-panel" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. 合法 cell 一覽
+        2. Synthesise a cross-sectional panel
       
     </span>
   </a>
@@ -2416,10 +2490,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-individual-continuous-ic-ic" class="md-nav__link">
+  <a href="#3-evaluate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. INDIVIDUAL × CONTINUOUS × IC — 選股 IC
+        3. Evaluate
       
     </span>
   </a>
@@ -2427,10 +2501,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-individual-continuous-fm-fama-macbeth" class="md-nav__link">
+  <a href="#4-inspect-the-full-diagnose-dict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. INDIVIDUAL × CONTINUOUS × FM — Fama-MacBeth λ
+        4. Inspect the full diagnose dict
       
     </span>
   </a>
@@ -2438,87 +2512,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-individual-sparse-caar" class="md-nav__link">
+  <a href="#5-sample-guard-edge-cases" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. INDIVIDUAL × SPARSE — 事件研究 (CAAR)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-common-continuous-broadcast-factor-vix-like" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. COMMON × CONTINUOUS — broadcast factor (VIX-like)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#7-common-sparse-broadcast-event-fomc-like" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. COMMON × SPARSE — broadcast event (FOMC-like)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#8-timeseries-n1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        8. TIMESERIES — N=1 自動降維為時序
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#9-actionable-diagnostics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        9. 錯誤路徑 — actionable diagnostics
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#10-bhy-fdr" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        10. 批次評估 + BHY FDR
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#11-factory-call" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        11. — 從資料反向給 factory call
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#12" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        12. 收尾
+        5. Sample-guard edge cases
       
     </span>
   </a>
@@ -2749,6 +2746,50 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#factor-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Factor type
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-this-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use this when
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it tests
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-to-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output to read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#1-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2760,10 +2801,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-cell" class="md-nav__link">
+  <a href="#2-synthesise-a-cross-sectional-panel" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. 合法 cell 一覽
+        2. Synthesise a cross-sectional panel
       
     </span>
   </a>
@@ -2771,10 +2812,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-individual-continuous-ic-ic" class="md-nav__link">
+  <a href="#3-evaluate" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. INDIVIDUAL × CONTINUOUS × IC — 選股 IC
+        3. Evaluate
       
     </span>
   </a>
@@ -2782,10 +2823,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-individual-continuous-fm-fama-macbeth" class="md-nav__link">
+  <a href="#4-inspect-the-full-diagnose-dict" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. INDIVIDUAL × CONTINUOUS × FM — Fama-MacBeth λ
+        4. Inspect the full diagnose dict
       
     </span>
   </a>
@@ -2793,87 +2834,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-individual-sparse-caar" class="md-nav__link">
+  <a href="#5-sample-guard-edge-cases" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. INDIVIDUAL × SPARSE — 事件研究 (CAAR)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-common-continuous-broadcast-factor-vix-like" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. COMMON × CONTINUOUS — broadcast factor (VIX-like)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#7-common-sparse-broadcast-event-fomc-like" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. COMMON × SPARSE — broadcast event (FOMC-like)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#8-timeseries-n1" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        8. TIMESERIES — N=1 自動降維為時序
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#9-actionable-diagnostics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        9. 錯誤路徑 — actionable diagnostics
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#10-bhy-fdr" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        10. 批次評估 + BHY FDR
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#11-factory-call" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        11. — 從資料反向給 factory call
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#12" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        12. 收尾
+        5. Sample-guard edge cases
       
     </span>
   </a>
@@ -2897,7 +2861,7 @@
 
 
   
-    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/examples/demo.ipynb" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/examples/stock_factor_evaluation.ipynb" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -3626,28 +3590,67 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
 </style>
 <!-- End of mermaid configuration --><div class="jupyter-wrapper">
 <div class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f18b325b">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=10606bfb">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="factrix-v05-demo">factrix v0.5 demo<a class="anchor-link" href="#factrix-v05-demo">¶</a></h1><p>v0.5 user surface ＝ <code>AnalysisConfig</code>（4 factories）→ <code>evaluate</code> →
-<code>FactorProfile</code> → <code>multi_factor.bhy</code>。其餘 <code>describe_analysis_modes</code>
-/ <code>suggest_config</code> 是 introspection helpers。</p>
-<p>三條軸：</p>
-<ul>
-<li><code>FactorScope</code>：因子值是 per-asset (<code>INDIVIDUAL</code>) 還是 broadcast (<code>COMMON</code>)</li>
-<li><code>Signal</code>：實數 (<code>CONTINUOUS</code>) 還是稀疏觸發 (<code>SPARSE</code>)</li>
-<li><code>Metric</code>：只在 <code>(INDIVIDUAL, CONTINUOUS)</code> 細分 IC vs FM</li>
+<h1 id="stock-factor-evaluation">Stock factor evaluation<a class="anchor-link" href="#stock-factor-evaluation">¶</a></h1><p>Evaluate whether a per-stock factor (one value per <code>(date, asset_id)</code>)
+carries cross-sectional return predictability.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=f6476384">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="factor-type">Factor type<a class="anchor-link" href="#factor-type">¶</a></h2><p>This recipe uses
+<code>AnalysisConfig.individual_continuous(metric=Metric.IC)</code> —
+axes <code>(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC)</code>.</p>
+<p>Procedure: per-date Spearman ρ between factor and forward return,
+aggregated to a Newey-West HAC t-statistic on <code>E[IC]</code>. PANEL mode
+(<code>N ≥ 2</code>); <code>N = 1</code> raises <code>ModeAxisError</code> since there is no
+cross-section to rank within.</p>
+<p>Literature: <a href="../reference/bibliography.md">Grinold (1989)</a>;
+<a href="../reference/bibliography.md">Newey &amp; West (1987)</a>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=8e66de9e">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="use-this-when">Use this when<a class="anchor-link" href="#use-this-when">¶</a></h2><ul>
+<li>Factor varies across assets at each date (per-stock signal, e.g.
+momentum, value, quality).</li>
+<li>Cross-section is wide (<code>N ≥ 30</code> for clean inference; <code>10 ≤ N &lt; 30</code>
+emits <code>BORDERLINE_CROSS_SECTION_N</code>).</li>
+<li>Time series is at least 30 periods (<code>T &lt; 20</code> is hard-blocked).</li>
 </ul>
-<p>第四條軸 <code>Mode</code> 由資料的 <code>N = panel["asset_id"].n_unique()</code> 在
-evaluate-time 自動推導，不是 user-facing。</p>
+<h2 id="what-it-tests">What it tests<a class="anchor-link" href="#what-it-tests">¶</a></h2><p>Null hypothesis <code>E[IC] = 0</code> — the factor has no rank-based
+predictive ordering of forward returns across assets, on average
+across dates. Standard error is NW HAC over the per-date IC series.</p>
+<h2 id="output-to-read">Output to read<a class="anchor-link" href="#output-to-read">¶</a></h2><ol>
+<li><code>profile.verdict()</code> — <code>pass</code> / <code>fail</code> against <code>primary_p &lt; 0.05</code>.</li>
+<li><code>profile.primary_p</code> — directly the IC NW HAC p-value.</li>
+<li><code>profile.stats[StatCode.IC_MEAN]</code> — sign + magnitude of average IC.</li>
+<li><code>profile.stats[StatCode.IC_T_NW]</code> — the t-statistic that produced
+the p-value. Compare to ±2 as a rough sanity check.</li>
+<li><code>profile.warnings</code> — <code>UNRELIABLE_SE_SHORT_PERIODS</code> etc. flag risks
+that do <em>not</em> enter <code>verdict()</code> but should change interpretation.</li>
+</ol>
 </div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=eec0b9c2">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=df665ec4">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -3658,7 +3661,7 @@ evaluate-time 自動推導，不是 user-facing。</p>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=320dd94b">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=36a976ff">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -3678,28 +3681,16 @@ evaluate-time 自動推導，不是 user-facing。</p>
 </div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
-
 <span class="kn">import</span><span class="w"> </span><span class="nn">factrix</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fl</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">factrix.preprocess.returns</span><span class="w"> </span><span class="kn">import</span> <span class="n">compute_forward_return</span>
 
-<span class="n">pl</span><span class="o">.</span><span class="n">Config</span><span class="o">.</span><span class="n">set_tbl_rows</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"factrix version:"</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
 </pre></div>
 <div class="clipboard-copy-txt" id="cell-1">from __future__ import annotations
 
-import warnings
-from datetime import datetime, timedelta
-
 import factrix as fl
-import numpy as np
-import polars as pl
 from factrix.preprocess.returns import compute_forward_return
 
-pl.Config.set_tbl_rows(8)
 print("factrix version:", fl.__version__)</div>
 </div>
 </div>
@@ -3712,7 +3703,7 @@ print("factrix version:", fl.__version__)</div>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>factrix version: 0.5.0
+<pre>factrix version: 0.7.0
 </pre>
 </div>
 </div>
@@ -3720,19 +3711,20 @@ print("factrix version:", fl.__version__)</div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=891ede3a">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b07bd7e1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="2-cell">2. 合法 cell 一覽<a class="anchor-link" href="#2-cell">¶</a></h2><p><code>describe_analysis_modes()</code> reverse-query registry SSOT，列出所有合法
-<code>(scope, signal, metric)</code> cell × PANEL/TIMESERIES 路由 + 文獻基礎。</p>
+<h2 id="2-synthesise-a-cross-sectional-panel">2. Synthesise a cross-sectional panel<a class="anchor-link" href="#2-synthesise-a-cross-sectional-panel">¶</a></h2><p><code>make_cs_panel</code> produces a canonical panel with a target IC built
+in. <code>ic_target=0.08</code> is a realistic effect size for a working
+single-factor strategy.</p>
 </div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=e72080b9">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=4475e1b0">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -3750,9 +3742,23 @@ print("factrix version:", fl.__version__)</div>
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">fl</span><span class="o">.</span><span class="n">describe_analysis_modes</span><span class="p">())</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">raw</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span>
+    <span class="n">n_assets</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="n">n_dates</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="n">ic_target</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span>
+    <span class="n">seed</span><span class="o">=</span><span class="mi">2024</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"panel shape=</span><span class="si">{</span><span class="n">panel</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">  N=</span><span class="si">{</span><span class="n">panel</span><span class="p">[</span><span class="s1">'asset_id'</span><span class="p">]</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-2">print(fl.describe_analysis_modes())</div>
+<div class="clipboard-copy-txt" id="cell-2">raw = fl.datasets.make_cs_panel(
+    n_assets=100,
+    n_dates=500,
+    ic_target=0.08,
+    seed=2024,
+)
+panel = compute_forward_return(raw, forward_periods=5)
+print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")</div>
 </div>
 </div>
 </div>
@@ -3764,38 +3770,7 @@ print("factrix version:", fl.__version__)</div>
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Cell: (common, continuous, None)
-  Factory: AnalysisConfig.common_continuous()
-  PANEL: Per-asset β on broadcast factor + cross-asset t on E[β].
-    refs: Black, Jensen &amp; Scholes (1972); Fama &amp; French (1993)
-  TIMESERIES: Single-asset OLS β on broadcast factor + NW HAC SE. — single-series test (null differs from PANEL)
-    refs: Newey &amp; West (1987, 1994); Stambaugh (1999)
-
-Cell: (common, sparse, None)
-  Factory: AnalysisConfig.common_sparse()
-  PANEL: Per-asset β on broadcast event dummy + cross-asset t.
-    refs: MacKinlay (1997)
-  TIMESERIES: Single-asset calendar-time TS dummy regression + NW HAC SE. — scope axis collapsed at N=1
-    refs: Newey &amp; West (1994); Ljung &amp; Box (1978)
-
-Cell: (individual, continuous, fm)
-  Factory: AnalysisConfig.individual_continuous(metric=Metric.FM)
-  PANEL: Fama-MacBeth λ on per-date OLS slope.
-    refs: Fama &amp; MacBeth (1973); Petersen (2009)
-  TIMESERIES: raises ModeAxisError; see _FALLBACK_MAP
-
-Cell: (individual, continuous, ic)
-  Factory: AnalysisConfig.individual_continuous(metric=Metric.IC)
-  PANEL: Per-date Spearman IC across the asset cross-section.
-    refs: Grinold (1989); Newey &amp; West (1987)
-  TIMESERIES: raises ModeAxisError; see _FALLBACK_MAP
-
-Cell: (individual, sparse, None)
-  Factory: AnalysisConfig.individual_sparse()
-  PANEL: Cross-event CAAR with t-test on per-event AR aggregate.
-    refs: Brown &amp; Warner (1985); MacKinlay (1997)
-  TIMESERIES: Single-asset calendar-time TS dummy regression + NW HAC SE. — scope axis collapsed at N=1
-    refs: Newey &amp; West (1994); Ljung &amp; Box (1978)
+<pre>panel shape=(49400, 5)  N=100
 </pre>
 </div>
 </div>
@@ -3803,18 +3778,20 @@ Cell: (individual, sparse, None)
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=407b88b9">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=6e344fb3">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>JSON 形式給 AI agent / 工具拿：</p>
+<h2 id="3-evaluate">3. Evaluate<a class="anchor-link" href="#3-evaluate">¶</a></h2><p>One factory call, one <code>evaluate()</code>. The factory commits to the
+three axes; <code>evaluate()</code> derives <code>Mode</code> from the panel shape and
+dispatches to the registered procedure.</p>
 </div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=28964707">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=50ffb0d0">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -3832,15 +3809,31 @@ Cell: (individual, sparse, None)
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">modes_json</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">describe_analysis_modes</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">"json"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">modes_json</span><span class="p">)</span><span class="si">}</span><span class="s2"> legal cells:"</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">modes_json</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  (</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">'scope'</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">'signal'</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">'metric'</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">cfg</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span>
+    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">,</span>
+    <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">profile</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict      = </span><span class="si">{</span><span class="n">profile</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p    = </span><span class="si">{</span><span class="n">profile</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"mode         = </span><span class="si">{</span><span class="n">profile</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ic_mean      = </span><span class="si">{</span><span class="n">profile</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">IC_MEAN</span><span class="p">]</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ic_t_nw      = </span><span class="si">{</span><span class="n">profile</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">IC_T_NW</span><span class="p">]</span><span class="si">:</span><span class="s2">+.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"nw_lags_used = </span><span class="si">{</span><span class="n">profile</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">NW_LAGS_USED</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-3">modes_json = fl.describe_analysis_modes(format="json")
-print(f"{len(modes_json)} legal cells:")
-for row in modes_json:
-    print(f"  ({row['scope']}, {row['signal']}, {row['metric']})")</div>
+<div class="clipboard-copy-txt" id="cell-3">cfg = fl.AnalysisConfig.individual_continuous(
+    metric=fl.Metric.IC,
+    forward_periods=5,
+)
+profile = fl.evaluate(panel, cfg)
+
+print(f"verdict      = {profile.verdict()}")
+print(f"primary_p    = {profile.primary_p:.4g}")
+print(f"mode         = {profile.mode}")
+print(f"ic_mean      = {profile.stats[fl.StatCode.IC_MEAN]:+.4f}")
+print(f"ic_t_nw      = {profile.stats[fl.StatCode.IC_T_NW]:+.2f}")
+print(f"nw_lags_used = {profile.stats[fl.StatCode.NW_LAGS_USED]:.0f}")</div>
 </div>
 </div>
 </div>
@@ -3852,12 +3845,12 @@ for row in modes_json:
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>5 legal cells:
-  (common, continuous, None)
-  (common, sparse, None)
-  (individual, continuous, fm)
-  (individual, continuous, ic)
-  (individual, sparse, None)
+<pre>verdict      = pass
+primary_p    = 2.129e-40
+mode         = panel
+ic_mean      = +0.0722
+ic_t_nw      = +14.60
+nw_lags_used = 5
 </pre>
 </div>
 </div>
@@ -3865,18 +3858,20 @@ for row in modes_json:
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=d6f77d6b">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=613ef289">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="3-individual-continuous-ic-ic">3. INDIVIDUAL × CONTINUOUS × IC — 選股 IC<a class="anchor-link" href="#3-individual-continuous-ic-ic">¶</a></h2><p>個股因子（每股自己的訊號），rank-based predictive ordering。</p>
+<h2 id="4-inspect-the-full-diagnose-dict">4. Inspect the full diagnose dict<a class="anchor-link" href="#4-inspect-the-full-diagnose-dict">¶</a></h2><p><code>diagnose()</code> is the structured triage interface — same content the
+verdict and individual-stat reads above derive from, in one dict
+for human inspection or AI agent consumption.</p>
 </div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=f9fb2c3a">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=311e6ff1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -3894,110 +3889,13 @@ for row in modes_json:
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">raw</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_cs_panel</span><span class="p">(</span>
-    <span class="n">n_assets</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-    <span class="n">n_dates</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
-    <span class="n">ic_target</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">2024</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"panel shape=</span><span class="si">{</span><span class="n">panel</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">  N=</span><span class="si">{</span><span class="n">panel</span><span class="p">[</span><span class="s1">'asset_id'</span><span class="p">]</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-<span class="n">cfg_ic</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span>
-    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">,</span>
-    <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">prof_ic</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict      = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p    = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"mode         = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ic_mean      = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">IC_MEAN</span><span class="p">]</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ic_t_nw      = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">IC_T_NW</span><span class="p">]</span><span class="si">:</span><span class="s2">+.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"nw_lags_used = </span><span class="si">{</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">NW_LAGS_USED</span><span class="p">]</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-4">raw = fl.datasets.make_cs_panel(
-    n_assets=100,
-    n_dates=500,
-    ic_target=0.08,
-    seed=2024,
-)
-panel = compute_forward_return(raw, forward_periods=5)
-print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")
-
-cfg_ic = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.IC,
-    forward_periods=5,
-)
-prof_ic = fl.evaluate(panel, cfg_ic)
-
-print(f"verdict      = {prof_ic.verdict()}")
-print(f"primary_p    = {prof_ic.primary_p:.4g}")
-print(f"mode         = {prof_ic.mode}")
-print(f"ic_mean      = {prof_ic.stats[fl.StatCode.IC_MEAN]:+.4f}")
-print(f"ic_t_nw      = {prof_ic.stats[fl.StatCode.IC_T_NW]:+.2f}")
-print(f"nw_lags_used = {prof_ic.stats[fl.StatCode.NW_LAGS_USED]:.0f}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>panel shape=(49400, 5)  N=100
-verdict      = pass
-primary_p    = 2.129e-40
-mode         = panel
-ic_mean      = +0.0722
-ic_t_nw      = +14.60
-nw_lags_used = 5
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a00bbe00">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><code>profile.diagnose()</code> 一次拿全部，給人讀也給 AI agent 拿：</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=ec88b867">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-5">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
 <div class="highlight-ipynb hl-python"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">prof_ic</span><span class="o">.</span><span class="n">diagnose</span><span class="p">(),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">profile</span><span class="o">.</span><span class="n">diagnose</span><span class="p">(),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">str</span><span class="p">))</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-5">import json
+<div class="clipboard-copy-txt" id="cell-4">import json
 
-print(json.dumps(prof_ic.diagnose(), indent=2, default=str))</div>
+print(json.dumps(profile.diagnose(), indent=2, default=str))</div>
 </div>
 </div>
 </div>
@@ -4030,1030 +3928,35 @@ print(json.dumps(prof_ic.diagnose(), indent=2, default=str))</div>
 </div>
 </div>
 </div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=48219783">
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=df0a1d0a">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="4-individual-continuous-fm-fama-macbeth">4. INDIVIDUAL × CONTINUOUS × FM — Fama-MacBeth λ<a class="anchor-link" href="#4-individual-continuous-fm-fama-macbeth">¶</a></h2><p><code>(INDIVIDUAL, CONTINUOUS)</code> 兩 metric 回答不同研究問題，選擇依研究問題
-決定，不依資料形狀決定。</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=dc1f7c94">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [6]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-6">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">cfg_fm</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_continuous</span><span class="p">(</span>
-    <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">FM</span><span class="p">,</span>
-    <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">prof_fm</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg_fm</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict       = </span><span class="si">{</span><span class="n">prof_fm</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p     = </span><span class="si">{</span><span class="n">prof_fm</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"λ_mean        = </span><span class="si">{</span><span class="n">prof_fm</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">FM_LAMBDA_MEAN</span><span class="p">]</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"λ_t_nw        = </span><span class="si">{</span><span class="n">prof_fm</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">FM_LAMBDA_T_NW</span><span class="p">]</span><span class="si">:</span><span class="s2">+.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-6">cfg_fm = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.FM,
-    forward_periods=5,
-)
-prof_fm = fl.evaluate(panel, cfg_fm)
-print(f"verdict       = {prof_fm.verdict()}")
-print(f"primary_p     = {prof_fm.primary_p:.4g}")
-print(f"λ_mean        = {prof_fm.stats[fl.StatCode.FM_LAMBDA_MEAN]:+.4f}")
-print(f"λ_t_nw        = {prof_fm.stats[fl.StatCode.FM_LAMBDA_T_NW]:+.2f}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>verdict       = pass
-primary_p     = 1.05e-45
-λ_mean        = +0.0007
-λ_t_nw        = +15.78
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a61fe055">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="5-individual-sparse-caar">5. INDIVIDUAL × SPARSE — 事件研究 (CAAR)<a class="anchor-link" href="#5-individual-sparse-caar">¶</a></h2><p>個股事件觸發 <code>{−1, 0, +1}</code>，沒 metric 細分。</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=6dbd72f9">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [7]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-7">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">ev_raw</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">datasets</span><span class="o">.</span><span class="n">make_event_panel</span><span class="p">(</span>
-    <span class="n">n_assets</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span>
-    <span class="n">n_dates</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
-    <span class="n">event_rate</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>
-    <span class="n">post_event_drift_bps</span><span class="o">=</span><span class="mf">15.0</span><span class="p">,</span>
-    <span class="n">signal_horizon</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-    <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">ev_panel</span> <span class="o">=</span> <span class="n">compute_forward_return</span><span class="p">(</span><span class="n">ev_raw</span><span class="p">,</span> <span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-
-<span class="n">cfg_caar</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
-<span class="n">prof_caar</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">ev_panel</span><span class="p">,</span> <span class="n">cfg_caar</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict   = </span><span class="si">{</span><span class="n">prof_caar</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p = </span><span class="si">{</span><span class="n">prof_caar</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CAAR      = </span><span class="si">{</span><span class="n">prof_caar</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">CAAR_MEAN</span><span class="p">]</span><span class="si">:</span><span class="s2">+.5f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"caar_t_nw = </span><span class="si">{</span><span class="n">prof_caar</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">CAAR_T_NW</span><span class="p">]</span><span class="si">:</span><span class="s2">+.2f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warnings  = </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">prof_caar</span><span class="o">.</span><span class="n">warnings</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-7">ev_raw = fl.datasets.make_event_panel(
-    n_assets=80,
-    n_dates=400,
-    event_rate=0.02,
-    post_event_drift_bps=15.0,
-    signal_horizon=5,
-    seed=42,
-)
-ev_panel = compute_forward_return(ev_raw, forward_periods=5)
-
-cfg_caar = fl.AnalysisConfig.individual_sparse(forward_periods=5)
-prof_caar = fl.evaluate(ev_panel, cfg_caar)
-print(f"verdict   = {prof_caar.verdict()}")
-print(f"primary_p = {prof_caar.primary_p:.4g}")
-print(f"CAAR      = {prof_caar.stats[fl.StatCode.CAAR_MEAN]:+.5f}")
-print(f"caar_t_nw = {prof_caar.stats[fl.StatCode.CAAR_T_NW]:+.2f}")
-print(f"warnings  = {sorted(w.value for w in prof_caar.warnings)}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>verdict   = fail
-primary_p = 0.2227
-CAAR      = +0.00050
-caar_t_nw = +1.22
-warnings  = []
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=e0e490d1">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="6-common-continuous-broadcast-factor-vix-like">6. COMMON × CONTINUOUS — broadcast factor (VIX-like)<a class="anchor-link" href="#6-common-continuous-broadcast-factor-vix-like">¶</a></h2><p>每個 date 上所有 asset 共享同一 factor 值。Per-asset TS β → cross-asset
-t-test on <code>E[β]</code>。</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=917ebb37">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [8]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-8">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_broadcast_panel</span><span class="p">(</span>
-    <span class="n">n_assets</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
-    <span class="n">n_dates</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
-    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">11</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-    <span class="n">dates</span> <span class="o">=</span> <span class="p">[</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_dates</span><span class="p">)]</span>
-    <span class="n">f_t</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="n">n_dates</span><span class="p">)</span>  <span class="c1"># broadcast factor</span>
-    <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dates</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_assets</span><span class="p">):</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="mf">0.4</span> <span class="o">*</span> <span class="n">f_t</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.01</span> <span class="o">+</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">()</span>
-            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">{</span>
-                    <span class="s2">"date"</span><span class="p">:</span> <span class="n">d</span><span class="p">,</span>
-                    <span class="s2">"asset_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"a</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-                    <span class="s2">"factor"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">f_t</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span>
-                    <span class="s2">"forward_return"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
-                <span class="p">}</span>
-            <span class="p">)</span>
-    <span class="k">return</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-        <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">(</span><span class="s2">"ms"</span><span class="p">)),</span>
-    <span class="p">)</span>
-
-
-<span class="n">bcast</span> <span class="o">=</span> <span class="n">make_broadcast_panel</span><span class="p">()</span>
-<span class="c1"># 驗證 broadcast 性質：每個 date 上 factor 值唯一</span>
-<span class="n">is_broadcast</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span>
-    <span class="n">bcast</span><span class="o">.</span><span class="n">group_by</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"factor"</span><span class="p">)</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="o">.</span><span class="n">alias</span><span class="p">(</span><span class="s2">"u"</span><span class="p">))</span>
-    <span class="o">.</span><span class="n">select</span><span class="p">((</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"u"</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-    <span class="o">.</span><span class="n">item</span><span class="p">()</span>
-<span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"broadcast verified: </span><span class="si">{</span><span class="n">is_broadcast</span><span class="si">}</span><span class="s2">  N=</span><span class="si">{</span><span class="n">bcast</span><span class="p">[</span><span class="s1">'asset_id'</span><span class="p">]</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-<span class="n">cfg_cc</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">common_continuous</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">prof_cc</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">bcast</span><span class="p">,</span> <span class="n">cfg_cc</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict       = </span><span class="si">{</span><span class="n">prof_cc</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p     = </span><span class="si">{</span><span class="n">prof_cc</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"E[β]          = </span><span class="si">{</span><span class="n">prof_cc</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">TS_BETA</span><span class="p">]</span><span class="si">:</span><span class="s2">+.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-8">def make_broadcast_panel(
-    n_assets: int = 30,
-    n_dates: int = 300,
-    seed: int = 11,
-) -&gt; pl.DataFrame:
-    rng = np.random.default_rng(seed)
-    dates = [datetime(2023, 1, 1) + timedelta(days=i) for i in range(n_dates)]
-    f_t = rng.standard_normal(n_dates)  # broadcast factor
-    rows = []
-    for t, d in enumerate(dates):
-        for i in range(n_assets):
-            r = 0.4 * f_t[t] * 0.01 + 0.01 * rng.standard_normal()
-            rows.append(
-                {
-                    "date": d,
-                    "asset_id": f"a{i:02d}",
-                    "factor": float(f_t[t]),
-                    "forward_return": float(r),
-                }
-            )
-    return pl.DataFrame(rows).with_columns(
-        pl.col("date").cast(pl.Datetime("ms")),
-    )
-
-
-bcast = make_broadcast_panel()
-# 驗證 broadcast 性質：每個 date 上 factor 值唯一
-is_broadcast = bool(
-    bcast.group_by("date")
-    .agg(pl.col("factor").n_unique().alias("u"))
-    .select((pl.col("u") == 1).all())
-    .item()
-)
-print(f"broadcast verified: {is_broadcast}  N={bcast['asset_id'].n_unique()}")
-
-cfg_cc = fl.AnalysisConfig.common_continuous(forward_periods=1)
-prof_cc = fl.evaluate(bcast, cfg_cc)
-print(f"verdict       = {prof_cc.verdict()}")
-print(f"primary_p     = {prof_cc.primary_p:.4g}")
-print(f"E[β]          = {prof_cc.stats[fl.StatCode.TS_BETA]:+.4f}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>broadcast verified: True  N=30
-</pre>
-</div>
-</div>
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>verdict       = pass
-primary_p     = 2.99e-27
-E[β]          = +0.0041
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=9053abe5">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="7-common-sparse-broadcast-event-fomc-like">7. COMMON × SPARSE — broadcast event (FOMC-like)<a class="anchor-link" href="#7-common-sparse-broadcast-event-fomc-like">¶</a></h2>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=3ff6f653">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [9]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-9">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_broadcast_event_panel</span><span class="p">(</span><span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">23</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-    <span class="n">n_dates</span><span class="p">,</span> <span class="n">n_assets</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">30</span>
-    <span class="n">dates</span> <span class="o">=</span> <span class="p">[</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2023</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_dates</span><span class="p">)]</span>
-    <span class="n">d_t</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">n_dates</span><span class="p">)</span>
-    <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dates</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_assets</span><span class="p">):</span>
-            <span class="n">r</span> <span class="o">=</span> <span class="mf">0.005</span> <span class="o">*</span> <span class="n">d_t</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">()</span>
-            <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">{</span>
-                    <span class="s2">"date"</span><span class="p">:</span> <span class="n">d</span><span class="p">,</span>
-                    <span class="s2">"asset_id"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"a</span><span class="si">{</span><span class="n">i</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-                    <span class="s2">"factor"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">d_t</span><span class="p">[</span><span class="n">t</span><span class="p">]),</span>
-                    <span class="s2">"forward_return"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">r</span><span class="p">),</span>
-                <span class="p">}</span>
-            <span class="p">)</span>
-    <span class="k">return</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">)</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-        <span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"date"</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Datetime</span><span class="p">(</span><span class="s2">"ms"</span><span class="p">)),</span>
-    <span class="p">)</span>
-
-
-<span class="n">cs_event</span> <span class="o">=</span> <span class="n">make_broadcast_event_panel</span><span class="p">()</span>
-<span class="n">cfg_cs</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">common_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="n">prof_cs</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">cs_event</span><span class="p">,</span> <span class="n">cfg_cs</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"verdict   = </span><span class="si">{</span><span class="n">prof_cs</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p = </span><span class="si">{</span><span class="n">prof_cs</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"E[β]      = </span><span class="si">{</span><span class="n">prof_cs</span><span class="o">.</span><span class="n">stats</span><span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">StatCode</span><span class="o">.</span><span class="n">TS_BETA</span><span class="p">]</span><span class="si">:</span><span class="s2">+.5f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-9">def make_broadcast_event_panel(seed: int = 23) -&gt; pl.DataFrame:
-    rng = np.random.default_rng(seed)
-    n_dates, n_assets = 300, 30
-    dates = [datetime(2023, 1, 1) + timedelta(days=i) for i in range(n_dates)]
-    d_t = rng.choice([-1.0, 0.0, 0.0, 0.0, 0.0, 1.0], size=n_dates)
-    rows = []
-    for t, d in enumerate(dates):
-        for i in range(n_assets):
-            r = 0.005 * d_t[t] + 0.01 * rng.standard_normal()
-            rows.append(
-                {
-                    "date": d,
-                    "asset_id": f"a{i:02d}",
-                    "factor": float(d_t[t]),
-                    "forward_return": float(r),
-                }
-            )
-    return pl.DataFrame(rows).with_columns(
-        pl.col("date").cast(pl.Datetime("ms")),
-    )
-
-
-cs_event = make_broadcast_event_panel()
-cfg_cs = fl.AnalysisConfig.common_sparse(forward_periods=1)
-prof_cs = fl.evaluate(cs_event, cfg_cs)
-print(f"verdict   = {prof_cs.verdict()}")
-print(f"primary_p = {prof_cs.primary_p:.4g}")
-print(f"E[β]      = {prof_cs.stats[fl.StatCode.TS_BETA]:+.5f}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>verdict   = pass
-primary_p = 7.895e-23
-E[β]      = +0.00512
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=239c3b6a">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="8-timeseries-n1">8. TIMESERIES — N=1 自動降維為時序<a class="anchor-link" href="#8-timeseries-n1">¶</a></h2><p><code>Mode</code> 不是 user-facing 軸，由 <code>N = n_unique(asset_id)</code> 決定。N=1 時
-<code>(COMMON, *)</code> 與 <code>(INDIVIDUAL, SPARSE)</code> 都走真正的時序 procedure，
-<code>primary_p</code> 給真實值不壓 1.0。</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=7620e049">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [10]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-10">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">single_asset</span> <span class="o">=</span> <span class="n">bcast</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"asset_id"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"a00"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"N = </span><span class="si">{</span><span class="n">single_asset</span><span class="p">[</span><span class="s1">'asset_id'</span><span class="p">]</span><span class="o">.</span><span class="n">n_unique</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-<span class="n">prof_b</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">single_asset</span><span class="p">,</span> <span class="n">cfg_cc</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"mode      = </span><span class="si">{</span><span class="n">prof_b</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"primary_p = </span><span class="si">{</span><span class="n">prof_b</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">  (TIMESERIES 真實值)"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warnings  = </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">prof_b</span><span class="o">.</span><span class="n">warnings</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-10">single_asset = bcast.filter(pl.col("asset_id") == "a00")
-print(f"N = {single_asset['asset_id'].n_unique()}")
-
-prof_b = fl.evaluate(single_asset, cfg_cc)
-print(f"mode      = {prof_b.mode}")
-print(f"primary_p = {prof_b.primary_p:.4g}  (TIMESERIES 真實值)")
-print(f"warnings  = {sorted(w.value for w in prof_b.warnings)}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>N = 1
-mode      = timeseries
-primary_p = 8.342e-12  (TIMESERIES 真實值)
-warnings  = []
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=5317d725">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><code>(*, SPARSE) × N=1</code> 時 scope 軸自然 collapse — <code>individual_sparse</code> 與
-<code>common_sparse</code> 在 N=1 路由到同一個 timeseries dummy procedure，
-<code>info_notes</code> 留下 <code>SCOPE_AXIS_COLLAPSED</code> audit trail。</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=f6f60979">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [11]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-11">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">single_event</span> <span class="o">=</span> <span class="n">cs_event</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">col</span><span class="p">(</span><span class="s2">"asset_id"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"a00"</span><span class="p">)</span>
-<span class="n">prof_collapsed</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-    <span class="n">single_event</span><span class="p">,</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">common_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-<span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"info_notes = </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">prof_collapsed</span><span class="o">.</span><span class="n">info_notes</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-<span class="c1"># 兩個入口在 N=1 等價</span>
-<span class="n">prof_via_individual</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-    <span class="n">single_event</span><span class="p">,</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="o">.</span><span class="n">individual_sparse</span><span class="p">(</span><span class="n">forward_periods</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
-<span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span>
-    <span class="sa">f</span><span class="s2">"individual_sparse(N=1) primary_p = </span><span class="si">{</span><span class="n">prof_via_individual</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span>
-    <span class="sa">f</span><span class="s2">"common_sparse(N=1)     primary_p = </span><span class="si">{</span><span class="n">prof_collapsed</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-11">single_event = cs_event.filter(pl.col("asset_id") == "a00")
-prof_collapsed = fl.evaluate(
-    single_event,
-    fl.AnalysisConfig.common_sparse(forward_periods=1),
-)
-print(f"info_notes = {sorted(i.value for i in prof_collapsed.info_notes)}")
-
-# 兩個入口在 N=1 等價
-prof_via_individual = fl.evaluate(
-    single_event,
-    fl.AnalysisConfig.individual_sparse(forward_periods=1),
-)
-print(
-    f"individual_sparse(N=1) primary_p = {prof_via_individual.primary_p:.4g}",
-)
-print(
-    f"common_sparse(N=1)     primary_p = {prof_collapsed.primary_p:.4g}",
-)</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>info_notes = ['scope_axis_collapsed']
-individual_sparse(N=1) primary_p = 6.338e-07
-common_sparse(N=1)     primary_p = 6.338e-07
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=90e4df35">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="9-actionable-diagnostics">9. 錯誤路徑 — actionable diagnostics<a class="anchor-link" href="#9-actionable-diagnostics">¶</a></h2><p><code>(INDIVIDUAL, CONTINUOUS) × N=1</code> 數學上不存在 — <code>evaluate()</code> raise
-<code>ModeAxisError</code> 並附 <code>suggested_fix</code>：</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=d862eeca">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [12]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-12">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">try</span><span class="p">:</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">single_asset</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span>
-<span class="k">except</span> <span class="n">fl</span><span class="o">.</span><span class="n">ModeAxisError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"ModeAxisError raised"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  message       : </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  suggested_fix : </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">suggested_fix</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-12">try:
-    fl.evaluate(single_asset, cfg_ic)
-except fl.ModeAxisError as e:
-    print("ModeAxisError raised")
-    print(f"  message       : {e}")
-    print(f"  suggested_fix : {e.suggested_fix}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>ModeAxisError raised
-  message       : (individual, continuous, ic) is undefined under mode=timeseries. Suggested fix: AnalysisConfig(scope=&lt;FactorScope.COMMON: 'common'&gt;, signal=&lt;Signal.CONTINUOUS: 'continuous'&gt;, metric=None, forward_periods=5)
-  suggested_fix : AnalysisConfig(scope=&lt;FactorScope.COMMON: 'common'&gt;, signal=&lt;Signal.CONTINUOUS: 'continuous'&gt;, metric=None, forward_periods=5)
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=598bf88e">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p><code>T &lt; MIN_PERIODS_HARD = 20</code> raise <code>InsufficientSampleError</code> 並帶 <code>actual_periods</code>/
-<code>required_periods</code> 給 caller 程式化 recover：</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=20cd18b4">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [13]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-13">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">short</span> <span class="o">=</span> <span class="n">single_asset</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">15</span><span class="p">)</span>
-<span class="k">try</span><span class="p">:</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">short</span><span class="p">,</span> <span class="n">cfg_cc</span><span class="p">)</span>
-<span class="k">except</span> <span class="n">fl</span><span class="o">.</span><span class="n">InsufficientSampleError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"actual_periods   = </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">actual_periods</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"required_periods = </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">required_periods</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"message    : </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-13">short = single_asset.head(15)
-try:
-    fl.evaluate(short, cfg_cc)
-except fl.InsufficientSampleError as e:
-    print(f"actual_periods   = {e.actual_periods}")
-    print(f"required_periods = {e.required_periods}")
-    print(f"message    : {e}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>actual_periods   = 15
-required_periods = 20
-message    : T=15 below MIN_PERIODS_HARD=20; NW HAC SE is too biased for primary_p to be trustworthy at this floor. Extend the time series to ≥20 rows or aggregate to a lower frequency.
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b4598924">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>違反三軸組合（如 SPARSE 配 IC）在建構 <code>AnalysisConfig</code> 階段就 raise，
-不會跑到 evaluate：</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=163b155f">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [14]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-14">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">try</span><span class="p">:</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">AnalysisConfig</span><span class="p">(</span>
-        <span class="n">scope</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">FactorScope</span><span class="o">.</span><span class="n">INDIVIDUAL</span><span class="p">,</span>
-        <span class="n">signal</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Signal</span><span class="o">.</span><span class="n">SPARSE</span><span class="p">,</span>
-        <span class="n">metric</span><span class="o">=</span><span class="n">fl</span><span class="o">.</span><span class="n">Metric</span><span class="o">.</span><span class="n">IC</span><span class="p">,</span>
-    <span class="p">)</span>
-<span class="k">except</span> <span class="n">fl</span><span class="o">.</span><span class="n">IncompatibleAxisError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"IncompatibleAxisError: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-14">try:
-    fl.AnalysisConfig(
-        scope=fl.FactorScope.INDIVIDUAL,
-        signal=fl.Signal.SPARSE,
-        metric=fl.Metric.IC,
-    )
-except fl.IncompatibleAxisError as e:
-    print(f"IncompatibleAxisError: {e}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>IncompatibleAxisError: (individual, sparse, ic) is not a legal analysis cell. Use one of the four factory methods:
-  AnalysisConfig.individual_continuous(metric=Metric.IC|Metric.FM)
-  AnalysisConfig.individual_sparse()
-  AnalysisConfig.common_continuous()
-  AnalysisConfig.common_sparse()
-(legal tuples: (individual, continuous, ic), (individual, continuous, fm), (individual, sparse, None), (common, continuous, None), (common, sparse, None).)
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=4bc3c5c8">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="10-bhy-fdr">10. 批次評估 + BHY FDR<a class="anchor-link" href="#10-bhy-fdr">¶</a></h2><p>BHY 控制<strong>同一 family 內</strong>的 FDR。下面這個批次是「同一個 cell 評估多個
-candidate」的正確用法：</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=a1352fde">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [15]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-15">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_factor_variant</span><span class="p">(</span>
-    <span class="n">panel</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">noise_scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
-    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">panel</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
-        <span class="n">pl</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
-            <span class="s2">"factor"</span><span class="p">,</span>
-            <span class="n">panel</span><span class="p">[</span><span class="s2">"factor"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-            <span class="o">+</span> <span class="n">noise_scale</span> <span class="o">*</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">(</span><span class="n">panel</span><span class="o">.</span><span class="n">height</span><span class="p">),</span>
-        <span class="p">),</span>
-    <span class="p">)</span>
-
-
-<span class="n">candidates</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="sa">f</span><span class="s2">"variant_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="n">make_factor_variant</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">noise_scale</span><span class="o">=</span><span class="mf">0.5</span> <span class="o">+</span> <span class="mf">0.3</span> <span class="o">*</span> <span class="n">i</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">100</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
-    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-<span class="p">}</span>
-<span class="n">profiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">candidates</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
-<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">prof</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">profiles</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">12s</span><span class="si">}</span><span class="s2"> primary_p=</span><span class="si">{</span><span class="n">prof</span><span class="o">.</span><span class="n">primary_p</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2">  verdict=</span><span class="si">{</span><span class="n">prof</span><span class="o">.</span><span class="n">verdict</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-<span class="n">survivors</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">profiles</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">BHY survivors: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">survivors</span><span class="p">)</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">profiles</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-15">def make_factor_variant(
-    panel: pl.DataFrame, noise_scale: float, seed: int
-) -&gt; pl.DataFrame:
-    rng = np.random.default_rng(seed)
-    return panel.with_columns(
-        pl.Series(
-            "factor",
-            panel["factor"].to_numpy()
-            + noise_scale * rng.standard_normal(panel.height),
-        ),
-    )
-
-
-candidates = {
-    f"variant_{i}": make_factor_variant(panel, noise_scale=0.5 + 0.3 * i, seed=100 + i)
-    for i in range(5)
-}
-profiles = [fl.evaluate(p, cfg_ic) for p in candidates.values()]
-for name, prof in zip(candidates, profiles, strict=False):
-    print(f"  {name:12s} primary_p={prof.primary_p:.4g}  verdict={prof.verdict()}")
-
-survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
-print(f"\nBHY survivors: {len(survivors)} / {len(profiles)}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>  variant_0    primary_p=2.136e-39  verdict=pass
-  variant_1    primary_p=4.052e-26  verdict=pass
-  variant_2    primary_p=6.682e-22  verdict=pass
-  variant_3    primary_p=3.987e-17  verdict=pass
-  variant_4    primary_p=7.407e-14  verdict=pass
-
-BHY survivors: 5 / 5
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=8ddfeea3">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<p>跨 family 混批會 emit <code>RuntimeWarning</code> — 多個 size=1 family 的 BHY
-等於 raw threshold，沒有 FDR 校正力：</p>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=a330aa4c">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [16]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-16">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">mixed</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg_ic</span><span class="p">),</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">panel</span><span class="p">,</span> <span class="n">cfg_fm</span><span class="p">),</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">bcast</span><span class="p">,</span> <span class="n">cfg_cc</span><span class="p">),</span>
-<span class="p">]</span>
-<span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">(</span><span class="n">record</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">as</span> <span class="n">caught</span><span class="p">:</span>
-    <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">"always"</span><span class="p">)</span>
-    <span class="n">fl</span><span class="o">.</span><span class="n">multi_factor</span><span class="o">.</span><span class="n">bhy</span><span class="p">(</span><span class="n">mixed</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warnings raised: </span><span class="si">{</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">message</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">caught</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-16">mixed = [
-    fl.evaluate(panel, cfg_ic),
-    fl.evaluate(panel, cfg_fm),
-    fl.evaluate(bcast, cfg_cc),
-]
-with warnings.catch_warnings(record=True) as caught:
-    warnings.simplefilter("always")
-    fl.multi_factor.bhy(mixed, threshold=0.05)
-print(f"warnings raised: {[str(w.message) for w in caught]}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>warnings raised: ['bhy: 3 of 3 families contain a single profile — BHY on n=1 is identical to a raw threshold and provides no FDR correction. Group ≥2 same-family profiles per call for meaningful control.']
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=1726cc3f">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="11-suggest_config-factory-call">11. <code>suggest_config</code> — 從資料反向給 factory call<a class="anchor-link" href="#11-suggest_config-factory-call">¶</a></h2>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=bc099a2f">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [17]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="CodeMirror cm-s-jupyter">
-<div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-17">
-<div>
-<span class="notice" hidden="">Copied!</span>
-<svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
-<path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-<path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z" fill="currentColor" fill-rule="evenodd"></path>
-</svg>
-</div>
-</clipboard-copy>
-</div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="n">suggestion</span> <span class="o">=</span> <span class="n">fl</span><span class="o">.</span><span class="n">suggest_config</span><span class="p">(</span><span class="n">panel</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"suggested  : </span><span class="si">{</span><span class="n">suggestion</span><span class="o">.</span><span class="n">suggested</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">"reasoning  :"</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">axis</span><span class="p">,</span> <span class="n">why</span> <span class="ow">in</span> <span class="n">suggestion</span><span class="o">.</span><span class="n">reasoning</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">axis</span><span class="si">:</span><span class="s2">8s</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">why</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"warnings   : </span><span class="si">{</span><span class="p">[</span><span class="n">w</span><span class="o">.</span><span class="n">value</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">suggestion</span><span class="o">.</span><span class="n">warnings</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-<div class="clipboard-copy-txt" id="cell-17">suggestion = fl.suggest_config(panel)
-print(f"suggested  : {suggestion.suggested}")
-print("reasoning  :")
-for axis, why in suggestion.reasoning.items():
-    print(f"  {axis:8s}: {why}")
-print(f"warnings   : {[w.value for w in suggestion.warnings]}")</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>suggested  : AnalysisConfig(scope=&lt;FactorScope.INDIVIDUAL: 'individual'&gt;, signal=&lt;Signal.CONTINUOUS: 'continuous'&gt;, metric=&lt;Metric.IC: 'ic'&gt;, forward_periods=5)
-reasoning  :
-  scope   : factor varies across assets at given date: YES → INDIVIDUAL
-  signal  : sparsity ratio = 0.00 (threshold 0.5): → CONTINUOUS
-  metric  : scope=INDIVIDUAL × signal=CONTINUOUS: defaulting metric=IC (rank predictive ordering)
-  mode    : n_assets = 100 detected → PANEL
-warnings   : []
-</pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=dbb51d76">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
-</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h2 id="12">12. 收尾<a class="anchor-link" href="#12">¶</a></h2><p>v0.5 的 user surface 就到此 — 4 個 factory + <code>evaluate</code> + <code>multi_factor.bhy</code></p>
+<h2 id="5-sample-guard-edge-cases">5. Sample-guard edge cases<a class="anchor-link" href="#5-sample-guard-edge-cases">¶</a></h2><p>This recipe runs the happy path. For the full <code>n_assets</code> × factory
+behaviour matrix (small-N warnings, <code>N=1</code> fallbacks, <code>T&lt;20</code> hard
+block) see
+<a href="../guides/panel-timeseries.md">Guides § PANEL vs TIMESERIES</a>.
+Two notes for this cell specifically:</p>
 <ul>
-<li>兩個 introspection helper。其餘進階用法（<code>gate=</code> 自訂 BHY 軸、自訂
-<code>WarningCode</code> 過濾邏輯、跨 cell 集合操作）請見 <code>help(fl.FactorProfile)</code>、
-<code>help(fl.multi_factor.bhy)</code>、<code>ARCHITECTURE.md</code>。</li>
+<li><code>N &lt; 30</code> emits <code>BORDERLINE_CROSS_SECTION_N</code> / <code>SMALL_CROSS_SECTION_N</code>.</li>
+<li><code>N = 1</code> raises <code>ModeAxisError</code> with <code>suggested_fix=common_continuous(...)</code>
+— the factor would no longer be cross-sectional.</li>
 </ul>
 </div>
 </div>
 </div>
 </div><div class="jp-Cell jp-CodeCell jp-Notebook-cell">
-<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=f6459011">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=0ed123b8">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [18]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [5]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="CodeMirror cm-s-jupyter">
 <div class="zeroclipboard-container">
-<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-18">
+<clipboard-copy ,="" aria-label="Copy to Clipboard" for="cell-5">
 <div>
 <span class="notice" hidden="">Copied!</span>
 <svg aria-hidden="true" class="clipboard-copy-icon" data-view-component="true" height="20" version="1.1" viewbox="0 0 16 16" width="20">
@@ -5063,9 +3966,9 @@ warnings   : []
 </div>
 </clipboard-copy>
 </div>
-<div class="highlight-ipynb hl-python"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">"demo OK — factrix"</span><span class="p">,</span> <span class="n">fl</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+<div class="highlight-ipynb hl-python"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">"stock_factor_evaluation: ok"</span><span class="p">)</span>
 </pre></div>
-<div class="clipboard-copy-txt" id="cell-18">print("demo OK — factrix", fl.__version__)</div>
+<div class="clipboard-copy-txt" id="cell-5">print("stock_factor_evaluation: ok")</div>
 </div>
 </div>
 </div>
@@ -5077,7 +3980,7 @@ warnings   : []
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>demo OK — factrix 0.5.0
+<pre>stock_factor_evaluation: ok
 </pre>
 </div>
 </div>
