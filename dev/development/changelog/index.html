@@ -2858,6 +2858,17 @@ CONTRIBUTING §7 (Release workflow).</p>
   membership-checks <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code>; on <code>{0, R}</code>
   inputs, <code>compute_caar</code> now does the right thing without warning. (#12)</li>
 </ul>
+<h3 id="docs">Docs<a class="headerlink" href="#docs" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>English-only convention enforced across the published surface.</strong>
+  <code>docs/development/contributing.md</code> translated from mixed Chinese /
+  English to English; <code># WHY:</code> rationale comments in <code>factrix/</code>
+  (<code>_types.py</code>, <code>_validators.py</code>, <code>metrics/{trend,oos,tradability}.py</code>,
+  <code>preprocess/orthogonalize.py</code>) translated in place. New §11 in
+  contributing documents the single-language rule and the <code>docs/plans/</code>
+  exception. Public docstrings, README, CHANGELOG, and examples were
+  already English; no behaviour change. (#74)</li>
+</ul>
 <h2 id="v070-2026-05-04">v0.7.0 (2026-05-04)<a class="headerlink" href="#v070-2026-05-04" title="Permanent link">&para;</a></h2>
 <p>Closes the silent-coercion gap in sparse-procedure dispatch. Until now,
 a user feeding a sparse-but-continuous signal (SUE z-score, ratings
