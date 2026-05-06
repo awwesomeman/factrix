@@ -2700,485 +2700,126 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h1 id="changelog_1">Changelog<a class="headerlink" href="#changelog_1" title="Permanent link">&para;</a></h1>
 <p>All notable changes to <strong>factrix</strong> will be documented in this file.</p>
-<p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
-and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>:</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>, and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>:</p>
 <ul>
 <li><strong>MAJOR</strong>: API-breaking changes (field rename, signature change, removed metric)</li>
 <li><strong>MINOR</strong>: New metrics, new Profile fields, new optional parameters</li>
 <li><strong>PATCH</strong>: Bug fixes, docstring/test fixes, internal refactors</li>
 </ul>
-<p>While the version is below <code>1.0.0</code>, the public API should be considered
-unstable — breaking changes may occur in <strong>MINOR</strong> bumps. Consumers are
-expected to pin by commit SHA (e.g., via git submodule) rather than relying
-on semver range constraints until <code>1.0.0</code> is cut.</p>
+<p>While the version is below <code>1.0.0</code>, the public API should be considered unstable — breaking changes may occur in <strong>MINOR</strong> bumps. Consumers are expected to pin by commit SHA (e.g., via git submodule) rather than relying on semver range constraints until <code>1.0.0</code> is cut.</p>
 <hr />
 <h2 id="unreleased">[Unreleased]<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
-<p>PRs accumulate WHY-narrative bullets here under <code>### Added</code> / <code>### Changed</code> /
-<code>### Fixed</code> / <code>### Migration</code>. A release commit (<code>cz bump --changelog</code>) renames
-this section to the next versioned heading and adds a fresh <code>[Unreleased]</code>
-above it. This decouples per-PR cadence from per-tag cadence — see
-CONTRIBUTING §7 (Release workflow).</p>
+<p>PRs accumulate WHY-narrative bullets here under <code>### Added</code> / <code>### Changed</code> / <code>### Fixed</code> / <code>### Migration</code>. A release commit (<code>cz bump --changelog</code>) renames this section to the next versioned heading and adds a fresh <code>[Unreleased]</code> above it. This decouples per-PR cadence from per-tag cadence — see CONTRIBUTING §7 (Release workflow).</p>
 <h3 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>factrix.list_metrics(scope, signal, *, format="text" | "json")</code></strong> —
-  programmatic discovery of standalone metrics applicable to a given
-  analysis cell. Closes the gap left by <code>describe_analysis_modes()</code>,
-  which only surfaces the cell's primary procedure (IC / FM / CAAR /
-  TS-β); <code>list_metrics</code> returns the full set of standalone callables
-  under <code>factrix.metrics</code> that the user can additionally invoke (e.g.
-  <code>monotonicity</code>, <code>quantile_spread</code>, <code>turnover</code>, <code>event_hit_rate</code>).
-  Source of truth is the <code>Matrix-row:</code> tag already parsed by the docs
-  matrix generator — extracted into <code>factrix._metric_index</code> so the
-  runtime API and the docs render share one parser. <code>Mode</code> is not an
-  input because applicability does not change across PANEL /
-  TIMESERIES. (#76)</li>
-<li><strong><code>bmp_test(include_prediction_error_variance=False)</code></strong> — opt-in
-  strict BMP (1991) denominator <span class="arithmatex">\(\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}\)</span>
-  for the mean-adjusted residual forecast. Default off preserves the
-  prior simplified denominator. Under a single <code>estimation_window</code>
-  the correction scales every SAR by the same constant, so
-  <code>mean_SAR</code> / <code>std_SAR</code> shrink by the same ratio but the <span class="arithmatex">\(z\)</span>
-  statistic is invariant; the flag documents the strict standardiser
-  rather than moving inference. Per-event <span class="arithmatex">\(T_i\)</span> variation (which
-  would move <span class="arithmatex">\(z\)</span>) requires a market-model extension and remains out
-  of scope. (#48)</li>
-<li><strong><code>WarningCode.SPARSE_MAGNITUDE_WEIGHTED</code></strong> — emitted by
-  <code>compute_caar</code> (as a <code>UserWarning</code> on the primitive) and surfaced
-  in <code>FactorProfile.warnings</code> from the <code>(INDIVIDUAL, SPARSE, PANEL)</code>
-  / <code>(COMMON, SPARSE, PANEL)</code> procedures when the sparse <code>factor</code>
-  column is mixed-sign and not a clean ±1 ternary
-  (e.g. <code>{-2.5, 0, +1.3}</code>). The CAAR / sparse-panel statistic in
-  that regime is the Sefcik-Thompson (1986) magnitude-weighted
-  variant rather than the MacKinlay (1997) signed CAAR — a different
-  estimator at finite samples when negative- and positive-leg vols
-  disagree. <code>{-1, 0, +1}</code> does not trigger (sign and weight
-  coincide numerically); all-non-negative inputs do not trigger (no
-  flip ambiguity). Helper <code>_is_sparse_magnitude_weighted</code> (single
-  <code>.unique()</code> + sign distribution) is the shared check. (#48)</li>
-<li><strong><code>compute_ic</code> per-date <code>tie_ratio</code> column</strong> — output schema widened
-  from <code>(date, ic)</code> to <code>(date, ic, tie_ratio)</code>, where
-  <code>tie_ratio = 1 - n_unique / n</code> per date in <code>[0, 1]</code>. Aggregated as
-  the median across dates and surfaced via
-  <code>MetricOutput.metadata["tie_ratio"]</code> for <code>ic</code>, <code>ic_newey_west</code>, and
-  <code>ic_ir</code>. Motivation: at high tie rates Spearman ρ on average ranks
-  is biased relative to the tie-corrected formula (Kendall-Stuart
-  §31), and the previous primitive contract gave callers no way to
-  detect bucketed / categorical signals without re-inspecting the
-  raw input. Parallels the existing <code>top_concentration</code> tie diagnostic.
-  <strong>Migration:</strong> code that asserts the exact column list of
-  <code>compute_ic</code> output (e.g. <code>df.columns == ["date", "ic"]</code>) needs to
-  accept the third column; column-by-name access is unaffected. (#48)</li>
-<li><strong><code>WarningCode.SMALL_CROSS_SECTION_N</code></strong> + <strong><code>BORDERLINE_CROSS_SECTION_N</code></strong>
-  — emitted by the <code>common_continuous</code> PANEL procedure and by
-  <code>suggest_config</code> based on <code>n_assets</code>. <code>2 ≤ n_assets &lt; 10</code> → SMALL
-  (df=<code>n_assets</code>-1 ≤ 8, t_crit inflated 18%–548% vs asymptotic 1.96);
-  <code>10 ≤ n_assets &lt; 30</code> → BORDERLINE (residual inflation 5%–15%);
-  <code>n_assets ≥ 30</code> → no warning. Two-tier mirrors the existing
-  <code>n_periods</code> structure (<code>MIN_PERIODS_HARD</code> / <code>MIN_PERIODS_RELIABLE</code>).
-  SMALL implies BORDERLINE so only the more severe code emits per
-  profile. Procedure still runs at all <code>n_assets ≥ 2</code> — warnings
-  surface the inference-power decay rather than blocking execution.
-  (#17)</li>
-<li><code>MIN_ASSETS = 10</code> and <code>MIN_ASSETS_RELIABLE = 30</code> constants in
-  <code>factrix/_stats/constants.py</code>, alongside <code>MIN_PERIODS_HARD</code> /
-  <code>MIN_PERIODS_RELIABLE</code>. Naming deliberately omits <code>_HARD</code> for
-  <code>MIN_ASSETS</code> because the <code>n_assets</code> axis only warns — re-using the
-  <code>n_periods</code> <code>_HARD</code> (which means "raise") would mislead. (#17)</li>
-<li><strong><code>factrix.metrics</code></strong> module docstring gains a fifth category,
-  Time-Series / Standalone Diagnostic, listing the <code>ts_beta</code> family +
-  <code>ts_quantile_spread</code> + <code>ts_asymmetry</code>. <code>help(factrix.metrics)</code> now
-  surfaces them; previously the docstring categorisation hid them
-  despite being fully exported. (#19)</li>
-<li><strong><code>SuggestConfigResult.detected: dict[str, Any]</code></strong> — new field
-  carrying the structured panel observations behind the suggestion
-  (<code>scope</code>, <code>signal</code>, <code>mode</code>, <code>n_assets</code>, <code>n_periods</code>, <code>sparsity</code>).
-  All keys always present, type-stable. AI agents and pipeline gates
-  branch on these without parsing the <code>reasoning</code> strings or
-  re-deriving observations from the raw panel. <code>reasoning</code>
-  (human-readable narrative) and <code>warnings</code> unchanged. (#21)</li>
+<li><strong><code>factrix.list_metrics(scope, signal, *, format="text" | "json")</code></strong> — programmatic discovery of standalone metrics applicable to a given analysis cell. Closes the gap left by <code>describe_analysis_modes()</code>, which only surfaces the cell's primary procedure (IC / FM / CAAR / TS-β); <code>list_metrics</code> returns the full set of standalone callables under <code>factrix.metrics</code> that the user can additionally invoke (e.g. <code>monotonicity</code>, <code>quantile_spread</code>, <code>turnover</code>, <code>event_hit_rate</code>). Source of truth is the <code>Matrix-row:</code> tag already parsed by the docs matrix generator — extracted into <code>factrix._metric_index</code> so the runtime API and the docs render share one parser. <code>Mode</code> is not an input because applicability does not change across PANEL / TIMESERIES. (#76)</li>
+<li><strong><code>bmp_test(include_prediction_error_variance=False)</code></strong> — opt-in strict BMP (1991) denominator <span class="arithmatex">\(\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}\)</span> for the mean-adjusted residual forecast. Default off preserves the prior simplified denominator. Under a single <code>estimation_window</code> the correction scales every SAR by the same constant, so <code>mean_SAR</code> / <code>std_SAR</code> shrink by the same ratio but the <span class="arithmatex">\(z\)</span> statistic is invariant; the flag documents the strict standardiser rather than moving inference. Per-event <span class="arithmatex">\(T_i\)</span> variation (which would move <span class="arithmatex">\(z\)</span>) requires a market-model extension and remains out of scope. (#48)</li>
+<li><strong><code>WarningCode.SPARSE_MAGNITUDE_WEIGHTED</code></strong> — emitted by <code>compute_caar</code> (as a <code>UserWarning</code> on the primitive) and surfaced in <code>FactorProfile.warnings</code> from the <code>(INDIVIDUAL, SPARSE, PANEL)</code> / <code>(COMMON, SPARSE, PANEL)</code> procedures when the sparse <code>factor</code> column is mixed-sign and not a clean ±1 ternary (e.g. <code>{-2.5, 0, +1.3}</code>). The CAAR / sparse-panel statistic in that regime is the Sefcik-Thompson (1986) magnitude-weighted variant rather than the MacKinlay (1997) signed CAAR — a different estimator at finite samples when negative- and positive-leg vols disagree. <code>{-1, 0, +1}</code> does not trigger (sign and weight coincide numerically); all-non-negative inputs do not trigger (no flip ambiguity). Helper <code>_is_sparse_magnitude_weighted</code> (single <code>.unique()</code> + sign distribution) is the shared check. (#48)</li>
+<li><strong><code>compute_ic</code> per-date <code>tie_ratio</code> column</strong> — output schema widened from <code>(date, ic)</code> to <code>(date, ic, tie_ratio)</code>, where <code>tie_ratio = 1 - n_unique / n</code> per date in <code>[0, 1]</code>. Aggregated as the median across dates and surfaced via <code>MetricOutput.metadata["tie_ratio"]</code> for <code>ic</code>, <code>ic_newey_west</code>, and <code>ic_ir</code>. Motivation: at high tie rates Spearman ρ on average ranks is biased relative to the tie-corrected formula (Kendall-Stuart §31), and the previous primitive contract gave callers no way to detect bucketed / categorical signals without re-inspecting the raw input. Parallels the existing <code>top_concentration</code> tie diagnostic. <strong>Migration:</strong> code that asserts the exact column list of <code>compute_ic</code> output (e.g. <code>df.columns == ["date", "ic"]</code>) needs to accept the third column; column-by-name access is unaffected. (#48)</li>
+<li><strong><code>WarningCode.SMALL_CROSS_SECTION_N</code></strong> + <strong><code>BORDERLINE_CROSS_SECTION_N</code></strong> — emitted by the <code>common_continuous</code> PANEL procedure and by <code>suggest_config</code> based on <code>n_assets</code>. <code>2 ≤ n_assets &lt; 10</code> → SMALL (df=<code>n_assets</code>-1 ≤ 8, t_crit inflated 18%–548% vs asymptotic 1.96); <code>10 ≤ n_assets &lt; 30</code> → BORDERLINE (residual inflation 5%–15%); <code>n_assets ≥ 30</code> → no warning. Two-tier mirrors the existing <code>n_periods</code> structure (<code>MIN_PERIODS_HARD</code> / <code>MIN_PERIODS_RELIABLE</code>). SMALL implies BORDERLINE so only the more severe code emits per profile. Procedure still runs at all <code>n_assets ≥ 2</code> — warnings surface the inference-power decay rather than blocking execution. (#17)</li>
+<li><code>MIN_ASSETS = 10</code> and <code>MIN_ASSETS_RELIABLE = 30</code> constants in <code>factrix/_stats/constants.py</code>, alongside <code>MIN_PERIODS_HARD</code> / <code>MIN_PERIODS_RELIABLE</code>. Naming deliberately omits <code>_HARD</code> for <code>MIN_ASSETS</code> because the <code>n_assets</code> axis only warns — re-using the <code>n_periods</code> <code>_HARD</code> (which means "raise") would mislead. (#17)</li>
+<li><strong><code>factrix.metrics</code></strong> module docstring gains a fifth category, Time-Series / Standalone Diagnostic, listing the <code>ts_beta</code> family + <code>ts_quantile_spread</code> + <code>ts_asymmetry</code>. <code>help(factrix.metrics)</code> now surfaces them; previously the docstring categorisation hid them despite being fully exported. (#19)</li>
+<li><strong><code>SuggestConfigResult.detected: dict[str, Any]</code></strong> — new field carrying the structured panel observations behind the suggestion (<code>scope</code>, <code>signal</code>, <code>mode</code>, <code>n_assets</code>, <code>n_periods</code>, <code>sparsity</code>). All keys always present, type-stable. AI agents and pipeline gates branch on these without parsing the <code>reasoning</code> strings or re-deriving observations from the raw panel. <code>reasoning</code> (human-readable narrative) and <code>warnings</code> unchanged. (#21)</li>
 </ul>
 <h3 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>examples/</code> reorganised from monolithic demo into focused per-recipe
-  notebooks.</strong> <code>demo.py</code> (369-line <code># %%</code>-script) and <code>demo.ipynb</code>
-  (separately generated by a 531-line <code>scripts/build_demo.py</code>) collapsed
-  into hand-edited SSOT notebooks: <code>multi_factor_screening.ipynb</code> (BHY
-  family partitioning + cross-family pitfall — only learnable from
-  example) and <code>stock_factor_evaluation.ipynb</code> (<code>individual_continuous</code>
-  IC, ~80% use case). Each notebook's first markdown cell carries a
-  <code>Factor type</code> block (factory call + three-axis enum values) and the
-  standardised three-label header (<code>Use this when</code> / <code>What it tests</code> /
-  <code>Output to read</code>). <code>scripts/sync_examples.py</code> regenerates
-  <code>docs/examples/index.md</code> from each notebook's H1 + first
-  <code>Use this when</code> bullet, eliminating the hand-maintained listing as a
-  drift source. CI gains an <code>examples</code> job that executes every recipe
-  via <code>nbconvert --execute</code> so API drift breaks the build before
-  reaching docs. (#14)</li>
-<li><strong><code>docs/api/factor-profile.md</code> documents the <code>diagnose()</code> return
-  schema.</strong> Top-level dict shape (key, type, source field), <code>n_obs</code>
-  semantics by cell (it is <code>T</code> for IC/FM/CAAR/TS but <code>N</code> for
-  <code>common_*</code> PANEL — easy to mis-read), and the per-cell <code>stats</code> key
-  matrix (which <code>StatCode</code> values appear in each of the 7 registered
-  cells). Closes the gap where AI agents and pipeline gates consuming
-  <code>diagnose()</code> had to read source to learn the contract. (#68)</li>
-<li><strong>Two-tier sample-size guards on <code>fama_macbeth</code>, <code>caar</code>, and
-  <code>top_concentration</code>.</strong> Each now distinguishes a math-validity floor
-  (<code>_HARD</code> → short-circuit to NaN <code>MetricOutput</code>) from a
-  literature/power floor (<code>_WARN</code> → return the stat with a Python
-  <code>UserWarning</code> and the relevant <code>WarningCode.value</code> surfaced in
-  <code>metadata["warning_codes"]</code>). Pre-#48 these primitives short-
-  circuited at a single conservative threshold, refusing to report
-  anything in the borderline regime — UX regression every user hit
-  when fewer than ~30 events / periods were available even though the
-  math was perfectly defined. The new contract is <em>warn, don't
-  refuse</em>. Constants: <code>MIN_FM_PERIODS = 20</code> →
-  <code>MIN_FM_PERIODS_HARD = 4</code> / <code>MIN_FM_PERIODS_WARN = 30</code>;
-  <code>MIN_EVENTS = 10</code> → <code>MIN_EVENTS_HARD = 4</code> /
-  <code>MIN_EVENTS_WARN = 30</code> (Brown-Warner 1985 convention);
-  <code>MIN_PORTFOLIO_PERIODS = 5</code> → <code>MIN_PORTFOLIO_PERIODS_HARD = 3</code>
-  / <code>MIN_PORTFOLIO_PERIODS_WARN = 20</code>. Two new <code>WarningCode</code>
-  values: <code>FEW_EVENTS_BROWN_WARNER</code> (caar) and
-  <code>BORDERLINE_PORTFOLIO_PERIODS</code> (top_concentration); FM reuses the
-  existing <code>UNRELIABLE_SE_SHORT_PERIODS</code>. Descriptive metrics
-  (<code>clustering</code> / <code>corrado</code> / <code>event_horizon</code> / <code>event_quality</code>
-  / <code>mfe_mae</code> / <code>quantile</code> / <code>ts_quantile</code> / <code>ts_asymmetry</code>)
-  switch to the new <code>_HARD</code> constant only — they have no formal H0
-  so the WARN tier would be noise; they now accept smaller-n inputs
-  they previously refused, by design. (#48)</li>
-<li><strong><code>multi_split_oos_decay</code> is descriptive-only.</strong> <code>stat</code> is
-  <code>None</code> (was already), and <code>metadata["p_value"]</code> is now omitted
-  entirely (was <code>1.0</code>) — the multi-split decomposition (<code>per_split</code></li>
-<li><code>sign_flipped</code> + <code>status</code>) is the message, and a t-stat at
-  <code>MIN_OOS_PERIODS = 5</code> would have power ≈ 0. Dropping <code>p_value</code>
-  prevents callers from accidentally routing the diagnostic into BHY
-  / gate logic that expects a probability. <code>MIN_OOS_PERIODS</code> stays
-  single-tier (no HARD/WARN split needed when there is no hypothesis
-  test). (#48)</li>
-<li><strong><code>compute_caar</code> per-row formula: <code>return × sign(factor)</code> →
-  <code>return × factor</code>.</strong> Magnitude is now preserved as a weight rather
-  than being silently dropped via <code>.sign()</code> coercion. <code>{0, 1}</code> and
-  <code>{-1, 0, +1}</code> callers see no behaviour change (sign was identity);
-  <code>{0, R}</code> non-ternary callers — previously flagged by
-  <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code> as wrong — now get the
-  magnitude-weighted statistic they were trying to compute. Callers
-  wanting ternary semantics on a non-ternary input apply <code>.sign()</code> to
-  the input column themselves before calling. See <code>compute_caar</code>
-  docstring for the input-form behaviour table. (#12)</li>
-<li>README §Sample gating rewritten: added a <code>factory × n_assets</code> regime
-  behaviour matrix, a computation-order comparison section, and a
-  two-axis gating symmetry table. Clarifies that <code>individual_continuous</code>
-  runs cross-section first then time-series, while <code>common_continuous</code>
-  runs time-series first then cross-asset — the common misconception that
-  both are cross-section-first is the root cause of <code>common_continuous</code>
-  N=1 degradation and unreliable small-<code>n_assets</code> results. Corrects the
-  misleading prior suggestion to switch to FM at <code>n_assets</code> &lt; 10; FM is
-  equally unreliable at <code>n_assets</code> = 2..9. (#16)</li>
-<li>ARCHITECTURE.md gains §Cross-sectional guards (<code>n_assets</code>) (two-tier
-  threshold rationale + t_crit decay table) and §Procedure pipelines
-  (per-procedure computation pipeline, small-<code>n_assets</code> failure modes,
-  threshold mapping), consolidating the statistical rationale behind the
-  behaviour matrix in one place. (#16)</li>
-<li><strong><code>MIN_IC_PERIODS</code> → <code>MIN_ASSETS_PER_DATE_IC</code></strong> (in <code>factrix/_types.py</code>).
-  The "PERIODS" suffix was misleading — the value has always been
-  checked against per-date asset counts, not period counts. <strong>Migration:</strong>
-  update the import; no deprecation alias kept (pre-1.0 + single-consumer
-  convention; the factor-analysis workspace pins by SHA). (#19)</li>
-<li><strong><code>WarningCode.UNRELIABLE_SE_SHORT_SERIES</code> → <code>UNRELIABLE_SE_SHORT_PERIODS</code></strong>.
-  Vocabulary aligned with the <code>n_periods</code> parameter name canonicalised in
-  PR #16. Both Python identifier and serialised string value change to
-  <code>"unreliable_se_short_periods"</code>. <strong>Migration:</strong> update imports + any
-  string-based filters / log queries that match the old serialised value;
-  no alias kept. (#19)</li>
+<li><strong><code>examples/</code> reorganised from monolithic demo into focused per-recipe notebooks.</strong> <code>demo.py</code> (369-line <code># %%</code>-script) and <code>demo.ipynb</code> (separately generated by a 531-line <code>scripts/build_demo.py</code>) collapsed into hand-edited SSOT notebooks: <code>multi_factor_screening.ipynb</code> (BHY family partitioning + cross-family pitfall — only learnable from example) and <code>stock_factor_evaluation.ipynb</code> (<code>individual_continuous</code> IC, ~80% use case). Each notebook's first markdown cell carries a <code>Factor type</code> block (factory call + three-axis enum values) and the standardised three-label header (<code>Use this when</code> / <code>What it tests</code> / <code>Output to read</code>). <code>scripts/sync_examples.py</code> regenerates <code>docs/examples/index.md</code> from each notebook's H1 + first <code>Use this when</code> bullet, eliminating the hand-maintained listing as a drift source. CI gains an <code>examples</code> job that executes every recipe via <code>nbconvert --execute</code> so API drift breaks the build before reaching docs. (#14)</li>
+<li><strong><code>docs/api/factor-profile.md</code> documents the <code>diagnose()</code> return schema.</strong> Top-level dict shape (key, type, source field), <code>n_obs</code> semantics by cell (it is <code>T</code> for IC/FM/CAAR/TS but <code>N</code> for <code>common_*</code> PANEL — easy to mis-read), and the per-cell <code>stats</code> key matrix (which <code>StatCode</code> values appear in each of the 7 registered cells). Closes the gap where AI agents and pipeline gates consuming <code>diagnose()</code> had to read source to learn the contract. (#68)</li>
+<li><strong>Two-tier sample-size guards on <code>fama_macbeth</code>, <code>caar</code>, and <code>top_concentration</code>.</strong> Each now distinguishes a math-validity floor (<code>_HARD</code> → short-circuit to NaN <code>MetricOutput</code>) from a literature/power floor (<code>_WARN</code> → return the stat with a Python <code>UserWarning</code> and the relevant <code>WarningCode.value</code> surfaced in <code>metadata["warning_codes"]</code>). Pre-#48 these primitives short- circuited at a single conservative threshold, refusing to report anything in the borderline regime — UX regression every user hit when fewer than ~30 events / periods were available even though the math was perfectly defined. The new contract is <em>warn, don't refuse</em>. Constants: <code>MIN_FM_PERIODS = 20</code> → <code>MIN_FM_PERIODS_HARD = 4</code> / <code>MIN_FM_PERIODS_WARN = 30</code>; <code>MIN_EVENTS = 10</code> → <code>MIN_EVENTS_HARD = 4</code> / <code>MIN_EVENTS_WARN = 30</code> (Brown-Warner 1985 convention); <code>MIN_PORTFOLIO_PERIODS = 5</code> → <code>MIN_PORTFOLIO_PERIODS_HARD = 3</code> / <code>MIN_PORTFOLIO_PERIODS_WARN = 20</code>. Two new <code>WarningCode</code> values: <code>FEW_EVENTS_BROWN_WARNER</code> (caar) and <code>BORDERLINE_PORTFOLIO_PERIODS</code> (top_concentration); FM reuses the existing <code>UNRELIABLE_SE_SHORT_PERIODS</code>. Descriptive metrics (<code>clustering</code> / <code>corrado</code> / <code>event_horizon</code> / <code>event_quality</code> / <code>mfe_mae</code> / <code>quantile</code> / <code>ts_quantile</code> / <code>ts_asymmetry</code>) switch to the new <code>_HARD</code> constant only — they have no formal H0 so the WARN tier would be noise; they now accept smaller-n inputs they previously refused, by design. (#48)</li>
+<li><strong><code>multi_split_oos_decay</code> is descriptive-only.</strong> <code>stat</code> is <code>None</code> (was already), and <code>metadata["p_value"]</code> is now omitted entirely (was <code>1.0</code>) — the multi-split decomposition (<code>per_split</code> + <code>sign_flipped</code> + <code>status</code>) is the message, and a t-stat at <code>MIN_OOS_PERIODS = 5</code> would have power ≈ 0. Dropping <code>p_value</code> prevents callers from accidentally routing the diagnostic into BHY / gate logic that expects a probability. <code>MIN_OOS_PERIODS</code> stays single-tier (no HARD/WARN split needed when there is no hypothesis test). (#48)</li>
+<li><strong><code>compute_caar</code> per-row formula: <code>return × sign(factor)</code> → <code>return × factor</code>.</strong> Magnitude is now preserved as a weight rather than being silently dropped via <code>.sign()</code> coercion. <code>{0, 1}</code> and <code>{-1, 0, +1}</code> callers see no behaviour change (sign was identity); <code>{0, R}</code> non-ternary callers — previously flagged by <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code> as wrong — now get the magnitude-weighted statistic they were trying to compute. Callers wanting ternary semantics on a non-ternary input apply <code>.sign()</code> to the input column themselves before calling. See <code>compute_caar</code> docstring for the input-form behaviour table. (#12)</li>
+<li>README §Sample gating rewritten: added a <code>factory × n_assets</code> regime behaviour matrix, a computation-order comparison section, and a two-axis gating symmetry table. Clarifies that <code>individual_continuous</code> runs cross-section first then time-series, while <code>common_continuous</code> runs time-series first then cross-asset — the common misconception that both are cross-section-first is the root cause of <code>common_continuous</code> N=1 degradation and unreliable small-<code>n_assets</code> results. Corrects the misleading prior suggestion to switch to FM at <code>n_assets</code> &lt; 10; FM is equally unreliable at <code>n_assets</code> = 2..9. (#16)</li>
+<li>ARCHITECTURE.md gains §Cross-sectional guards (<code>n_assets</code>) (two-tier threshold rationale + t_crit decay table) and §Procedure pipelines (per-procedure computation pipeline, small-<code>n_assets</code> failure modes, threshold mapping), consolidating the statistical rationale behind the behaviour matrix in one place. (#16)</li>
+<li><strong><code>MIN_IC_PERIODS</code> → <code>MIN_ASSETS_PER_DATE_IC</code></strong> (in <code>factrix/_types.py</code>). The "PERIODS" suffix was misleading — the value has always been checked against per-date asset counts, not period counts. <strong>Migration:</strong> update the import; no deprecation alias kept (pre-1.0 + single-consumer convention; the factor-analysis workspace pins by SHA). (#19)</li>
+<li><strong><code>WarningCode.UNRELIABLE_SE_SHORT_SERIES</code> → <code>UNRELIABLE_SE_SHORT_PERIODS</code></strong>. Vocabulary aligned with the <code>n_periods</code> parameter name canonicalised in PR #16. Both Python identifier and serialised string value change to <code>"unreliable_se_short_periods"</code>. <strong>Migration:</strong> update imports + any string-based filters / log queries that match the old serialised value; no alias kept. (#19)</li>
 </ul>
 <h3 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>(INDIVIDUAL, SPARSE, None, PANEL)</code> NW HAC lag rule.</strong> The procedure
-  previously fed <code>compute_caar</code>'s event-date-indexed series straight into
-  NW HAC, but the <code>forward_periods - 1</code> lag floor assumes consecutive
-  observations are 1 calendar period apart. On the event-only filtered
-  series that assumption breaks: sparse events (calendar gap &gt;
-  <code>forward_periods</code>) over-corrected an MA(h-1) overlap that did not
-  exist (deflating t / inflating p); clustered events
-  (gap &lt; <code>forward_periods</code>) under-corrected the real overlap structure
-  (inflating t / deflating p). The procedure now reindexes the CAAR
-  series to the full calendar and zero-fills non-event dates before NW
-  HAC — the <strong>calendar-time portfolio approach</strong> (Jaffe 1974; Mandelker
-  1974; Fama 1998 §2). Mathematically the t-statistic is invariant to
-  the dense reframing in the iid limit (<code>mean_dense × n_total =
-  mean_event × n_event</code>), so the canonical p is unchanged where the lag
-  rule was already valid; only the previously-biased regimes shift. All
-  four NW-HAC PANEL procedures (IC / FM / CAAR / common-sparse) now run
-  on calendar-dense series with the same <code>_resolve_nw_lags</code> machinery.
-  <strong>Output contract:</strong> <code>FactorProfile.n_obs</code> and
-  <code>StatCode.NW_LAGS_USED</code> now report the dense-series counts (was
-  event-date counts); <code>StatCode.CAAR_MEAN</code> continues to report the
-  per-event-date mean (user-facing statistic unchanged). (#24)</li>
-<li><strong><code>(COMMON, SPARSE, None, PANEL)</code> event-count guard.</strong> The procedure
-  previously checked only <code>n_periods</code> (via per-asset
-  <code>MIN_TS_OBS = 20</code> in <code>compute_ts_betas</code>); a broadcast dummy with
-  a single non-zero event would still produce a β driven entirely by
-  that one observation, with no warning. Two-tier guard added on the
-  event count: <code>n_events &lt; MIN_BROADCAST_EVENTS_HARD = 5</code> raises
-  <code>InsufficientSampleError</code>;
-  <code>MIN_BROADCAST_EVENTS_HARD ≤ n_events &lt; MIN_BROADCAST_EVENTS_RELIABLE = 20</code>
-  emits the new <code>WarningCode.SPARSE_COMMON_FEW_EVENTS</code>. Mirrors the
-  existing <code>n_periods</code> two-tier (<code>MIN_PERIODS_HARD</code> / <code>_RELIABLE</code>).
-  Constants live in <code>factrix/_stats/constants.py</code>; the
-  <code>BROADCAST_</code> prefix disambiguates from the CAAR
-  <code>MIN_EVENTS = 10</code> in <code>factrix/_types.py</code> (different statistic).
-  Empty-panel sparse-PANEL behaviour shifts from silent
-  <code>primary_p = 1.0</code> to an explicit raise. (#29)</li>
+<li><strong><code>(INDIVIDUAL, SPARSE, None, PANEL)</code> NW HAC lag rule.</strong> The procedure previously fed <code>compute_caar</code>'s event-date-indexed series straight into NW HAC, but the <code>forward_periods - 1</code> lag floor assumes consecutive observations are 1 calendar period apart. On the event-only filtered series that assumption breaks: sparse events (calendar gap &gt; <code>forward_periods</code>) over-corrected an MA(h-1) overlap that did not exist (deflating t / inflating p); clustered events (gap &lt; <code>forward_periods</code>) under-corrected the real overlap structure (inflating t / deflating p). The procedure now reindexes the CAAR series to the full calendar and zero-fills non-event dates before NW HAC — the <strong>calendar-time portfolio approach</strong> (Jaffe 1974; Mandelker 1974; Fama 1998 §2). Mathematically the t-statistic is invariant to the dense reframing in the iid limit (<code>mean_dense × n_total = mean_event × n_event</code>), so the canonical p is unchanged where the lag rule was already valid; only the previously-biased regimes shift. All four NW-HAC PANEL procedures (IC / FM / CAAR / common-sparse) now run on calendar-dense series with the same <code>_resolve_nw_lags</code> machinery. <strong>Output contract:</strong> <code>FactorProfile.n_obs</code> and <code>StatCode.NW_LAGS_USED</code> now report the dense-series counts (was event-date counts); <code>StatCode.CAAR_MEAN</code> continues to report the per-event-date mean (user-facing statistic unchanged). (#24)</li>
+<li><strong><code>(COMMON, SPARSE, None, PANEL)</code> event-count guard.</strong> The procedure previously checked only <code>n_periods</code> (via per-asset <code>MIN_TS_OBS = 20</code> in <code>compute_ts_betas</code>); a broadcast dummy with a single non-zero event would still produce a β driven entirely by that one observation, with no warning. Two-tier guard added on the event count: <code>n_events &lt; MIN_BROADCAST_EVENTS_HARD = 5</code> raises <code>InsufficientSampleError</code>; <code>MIN_BROADCAST_EVENTS_HARD ≤ n_events &lt; MIN_BROADCAST_EVENTS_RELIABLE = 20</code> emits the new <code>WarningCode.SPARSE_COMMON_FEW_EVENTS</code>. Mirrors the existing <code>n_periods</code> two-tier (<code>MIN_PERIODS_HARD</code> / <code>_RELIABLE</code>). Constants live in <code>factrix/_stats/constants.py</code>; the <code>BROADCAST_</code> prefix disambiguates from the CAAR <code>MIN_EVENTS = 10</code> in <code>factrix/_types.py</code> (different statistic). Empty-panel sparse-PANEL behaviour shifts from silent <code>primary_p = 1.0</code> to an explicit raise. (#29)</li>
 </ul>
 <h3 id="removed">Removed<a class="headerlink" href="#removed" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code></strong> enum value + description.
-  The warning existed to flag callers that the dispatched sparse
-  procedure would drop magnitude via <code>.sign()</code>. With the
-  <code>compute_caar</code> semantic shift above, no routing drops magnitude any
-  more — the warning has nothing left to warn about. (#12)</li>
-<li><strong><code>SuggestConfigResult.detected["magnitude_dropped"]</code></strong> key removed;
-  <code>DETECTED_KEYS</code> reduced from 7 to 6. <code>_detect_signal</code> returns a
-  3-tuple <code>(signal, reason, sparsity)</code> (was 4-tuple including
-  <code>has_nonternary_magnitudes</code>). The <code>suggest_config</code> <code>magnitude_dropped</code>
-  predicate, scope/mode gating, and <code>reasoning["signal"]</code> <code>.sign()</code>
-  addendum are all gone — same root cause. <strong>Migration:</strong> delete any
-  branch that reads <code>result.detected["magnitude_dropped"]</code> or
-  membership-checks <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code>; on <code>{0, R}</code>
-  inputs, <code>compute_caar</code> now does the right thing without warning. (#12)</li>
+<li><strong><code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code></strong> enum value + description. The warning existed to flag callers that the dispatched sparse procedure would drop magnitude via <code>.sign()</code>. With the <code>compute_caar</code> semantic shift above, no routing drops magnitude any more — the warning has nothing left to warn about. (#12)</li>
+<li><strong><code>SuggestConfigResult.detected["magnitude_dropped"]</code></strong> key removed; <code>DETECTED_KEYS</code> reduced from 7 to 6. <code>_detect_signal</code> returns a 3-tuple <code>(signal, reason, sparsity)</code> (was 4-tuple including <code>has_nonternary_magnitudes</code>). The <code>suggest_config</code> <code>magnitude_dropped</code> predicate, scope/mode gating, and <code>reasoning["signal"]</code> <code>.sign()</code> addendum are all gone — same root cause. <strong>Migration:</strong> delete any branch that reads <code>result.detected["magnitude_dropped"]</code> or membership-checks <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code>; on <code>{0, R}</code> inputs, <code>compute_caar</code> now does the right thing without warning. (#12)</li>
 </ul>
 <h3 id="docs">Docs<a class="headerlink" href="#docs" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>English-only convention enforced across the published surface.</strong>
-  <code>docs/development/contributing.md</code> translated from mixed Chinese /
-  English to English; <code># WHY:</code> rationale comments in <code>factrix/</code>
-  (<code>_types.py</code>, <code>_validators.py</code>, <code>metrics/{trend,oos,tradability}.py</code>,
-  <code>preprocess/orthogonalize.py</code>) translated in place. New §11 in
-  contributing documents the single-language rule and the <code>docs/plans/</code>
-  exception. Public docstrings, README, CHANGELOG, and examples were
-  already English; no behaviour change. (#74)</li>
+<li><strong>English-only convention enforced across the published surface.</strong> <code>docs/development/contributing.md</code> translated from mixed Chinese / English to English; <code># WHY:</code> rationale comments in <code>factrix/</code> (<code>_types.py</code>, <code>_validators.py</code>, <code>metrics/{trend,oos,tradability}.py</code>, <code>preprocess/orthogonalize.py</code>) translated in place. New §11 in contributing documents the single-language rule and the <code>docs/plans/</code> exception. Public docstrings, README, CHANGELOG, and examples were already English; no behaviour change. (#74)</li>
 </ul>
 <h2 id="v070-2026-05-04">v0.7.0 (2026-05-04)<a class="headerlink" href="#v070-2026-05-04" title="Permanent link">&para;</a></h2>
-<p>Closes the silent-coercion gap in sparse-procedure dispatch. Until now,
-a user feeding a sparse-but-continuous signal (SUE z-score, ratings
-notch delta, event-day return, order-flow imbalance burst, earnings
-revision delta — anything where magnitude is the research target) was
-silently routed to <code>Signal.SPARSE</code> purely on zero-ratio, then had their
-magnitude information discarded inside <code>compute_caar</code> / <code>bmp_test</code> via
-<code>pl.col(factor).sign()</code>. No warning, no info note, no way to know
-without reading the source. This release makes the coercion <em>visible</em>
-without changing it; the broader axis-design question — whether to add
-a magnitude-weighted sparse procedure family — is tracked separately
-(#12) and intentionally <strong>not</strong> bundled here.</p>
+<p>Closes the silent-coercion gap in sparse-procedure dispatch. Until now, a user feeding a sparse-but-continuous signal (SUE z-score, ratings notch delta, event-day return, order-flow imbalance burst, earnings revision delta — anything where magnitude is the research target) was silently routed to <code>Signal.SPARSE</code> purely on zero-ratio, then had their magnitude information discarded inside <code>compute_caar</code> / <code>bmp_test</code> via <code>pl.col(factor).sign()</code>. No warning, no info note, no way to know without reading the source. This release makes the coercion <em>visible</em> without changing it; the broader axis-design question — whether to add a magnitude-weighted sparse procedure family — is tracked separately (#12) and intentionally <strong>not</strong> bundled here.</p>
 <h3 id="added_1">Added<a class="headerlink" href="#added_1" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code></strong> — emitted by
-  <code>suggest_config(...)</code> when <code>_detect_signal</code> detects a SPARSE-shaped
-  factor whose non-zero values are not strictly in {-1, +1}. Users see,
-  before running anything, that CAAR / BMP will collapse magnitude to
-  sign, and can rescale to ±1, route to a continuous procedure, or
-  knowingly accept the sign-only semantics (#8).</li>
+<li><strong><code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code></strong> — emitted by <code>suggest_config(...)</code> when <code>_detect_signal</code> detects a SPARSE-shaped factor whose non-zero values are not strictly in {-1, +1}. Users see, before running anything, that CAAR / BMP will collapse magnitude to sign, and can rescale to ±1, route to a continuous procedure, or knowingly accept the sign-only semantics (#8).</li>
 </ul>
 <h3 id="changed-docs">Changed (docs)<a class="headerlink" href="#changed-docs" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>compute_caar</code> docstring</strong> now states the <code>.sign()</code> coercion in a
-  dedicated <code>Note:</code> block and updates the <code>factor_col</code> argument
-  description. Behavior is unchanged — the sign-only semantics has
-  always been the contract; the docstring just no longer hides it.</li>
+<li><strong><code>compute_caar</code> docstring</strong> now states the <code>.sign()</code> coercion in a dedicated <code>Note:</code> block and updates the <code>factor_col</code> argument description. Behavior is unchanged — the sign-only semantics has always been the contract; the docstring just no longer hides it.</li>
 </ul>
 <h3 id="migration">Migration<a class="headerlink" href="#migration" title="Permanent link">&para;</a></h3>
-<p>No code changes required. If <code>suggest_config(...).warnings</code> now
-contains <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code>, your factor is being
-treated sign-only by CAAR / BMP — this was already the behavior in
-prior releases, you just couldn't see it. To preserve sign-only
-semantics: ignore the warning. To use magnitude: pre-multiply your
-factor to ±1 by another rule, or wait for the magnitude-weighted
-sparse procedure tracked in #12.</p>
+<p>No code changes required. If <code>suggest_config(...).warnings</code> now contains <code>WarningCode.SPARSE_MAGNITUDE_DROPPED</code>, your factor is being treated sign-only by CAAR / BMP — this was already the behavior in prior releases, you just couldn't see it. To preserve sign-only semantics: ignore the warning. To use magnitude: pre-multiply your factor to ±1 by another rule, or wait for the magnitude-weighted sparse procedure tracked in #12.</p>
 <h2 id="v060-2026-05-03">v0.6.0 (2026-05-03)<a class="headerlink" href="#v060-2026-05-03" title="Permanent link">&para;</a></h2>
-<p>Time-series shape diagnostics + a statistical infrastructure layer that
-makes them, and future Wald-based metrics, p-value-comparable with the
-existing <code>ts_beta</code> family. Plus a quiet but load-bearing FDR-control
-fix for batch BHY: <code>forward_periods</code> is now part of the family key, so
-mixing horizons in a single <code>bhy()</code> call no longer silently dilutes the
-step-up threshold.</p>
+<p>Time-series shape diagnostics + a statistical infrastructure layer that makes them, and future Wald-based metrics, p-value-comparable with the existing <code>ts_beta</code> family. Plus a quiet but load-bearing FDR-control fix for batch BHY: <code>forward_periods</code> is now part of the family key, so mixing horizons in a single <code>bhy()</code> call no longer silently dilutes the step-up threshold.</p>
 <h3 id="added_2">Added<a class="headerlink" href="#added_2" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>ts_quantile_spread</code> + <code>ts_asymmetry</code></strong> standalone diagnostics for
-  <code>(COMMON, CONTINUOUS, *)</code> cells (#5). Both supplement the linear,
-  symmetric OLS β assumed by <code>ts_beta_t_nw</code> — the first catches
-  U-shape / inverted-U / extreme-only response via top-bottom bucket
-  Wald, the second catches long-side ≠ short-side via either
-  conditional means (method A) or piecewise slopes (method B). Three
-  applicability gates (<code>distinct ≥ n_groups×2</code>, <code>both_sides_present</code>, <code>within_side_variance</code>)
-  short-circuit with <code>metadata["reason"]</code> + redirect hint instead of
-  silent NaN.</li>
-<li><strong>NW HAC multivariate OLS + Wald helpers</strong> (<code>factrix/_stats/__init__.py</code>)
-  — the joint-regression infrastructure under the new diagnostics, with
-  HAC variance and joint Wald χ² so all three (<code>ts_beta_t_nw</code>,
-  <code>ts_quantile_spread</code>, <code>ts_asymmetry</code>) emit p-values from the same
-  framework and stay cross-metric comparable.</li>
-<li><strong><code>docs/metric_applicability.md</code></strong> §<code>ts_quantile_spread / ts_asymmetry</code>
-  applicability matrix and gate definitions; <strong>README</strong> §Document guide link
-  to the new section.</li>
-<li><strong>README</strong> use-case → factory reverse-lookup table for users not yet
-  fluent in the three-axis vocabulary, plus a worked Bonferroni-then-BHY
-  recipe for horizon-shopping correction.</li>
+<li><strong><code>ts_quantile_spread</code> + <code>ts_asymmetry</code></strong> standalone diagnostics for <code>(COMMON, CONTINUOUS, *)</code> cells (#5). Both supplement the linear, symmetric OLS β assumed by <code>ts_beta_t_nw</code> — the first catches U-shape / inverted-U / extreme-only response via top-bottom bucket Wald, the second catches long-side ≠ short-side via either conditional means (method A) or piecewise slopes (method B). Three applicability gates (<code>distinct ≥ n_groups×2</code>, <code>both_sides_present</code>, <code>within_side_variance</code>) short-circuit with <code>metadata["reason"]</code> + redirect hint instead of silent NaN.</li>
+<li><strong>NW HAC multivariate OLS + Wald helpers</strong> (<code>factrix/_stats/__init__.py</code>) — the joint-regression infrastructure under the new diagnostics, with HAC variance and joint Wald χ² so all three (<code>ts_beta_t_nw</code>, <code>ts_quantile_spread</code>, <code>ts_asymmetry</code>) emit p-values from the same framework and stay cross-metric comparable.</li>
+<li><strong><code>docs/metric_applicability.md</code></strong> §<code>ts_quantile_spread / ts_asymmetry</code> applicability matrix and gate definitions; <strong>README</strong> §Document guide link to the new section.</li>
+<li><strong>README</strong> use-case → factory reverse-lookup table for users not yet fluent in the three-axis vocabulary, plus a worked Bonferroni-then-BHY recipe for horizon-shopping correction.</li>
 </ul>
 <h3 id="fixed_1">Fixed<a class="headerlink" href="#fixed_1" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong><code>multi_factor.bhy()</code> family partitioning</strong> now splits on
-  <code>forward_periods</code> in addition to <code>(scope, signal, metric)</code>. Each
-  horizon has its own null distribution and effective sample size;
-  pooling them across horizons silently broke FDR control. Mixing
-  horizons in one <code>bhy()</code> call now produces correctly-partitioned
-  families.</li>
+<li><strong><code>multi_factor.bhy()</code> family partitioning</strong> now splits on <code>forward_periods</code> in addition to <code>(scope, signal, metric)</code>. Each horizon has its own null distribution and effective sample size; pooling them across horizons silently broke FDR control. Mixing horizons in one <code>bhy()</code> call now produces correctly-partitioned families.</li>
 </ul>
 <h3 id="changed-docs_1">Changed (docs)<a class="headerlink" href="#changed-docs_1" title="Permanent link">&para;</a></h3>
 <ul>
-<li>Clarified that <code>forward_periods</code> is <strong>rows on the time axis</strong>, not
-  calendar time — factrix is frequency-agnostic and shifts by row count.
-  Aligned wording across README smoke-test callout, <code>AnalysisConfig</code>
-  class + attribute docstrings, and <code>compute_forward_return</code> so IDE
-  hover and README give the same answer. (Frequent confusion: users
-  defaulted to a daily reading even on weekly / intraday panels.)</li>
-<li>Documented the <strong>metric tier convention</strong> (registry procedure vs
-  standalone diagnostic) and softened user-facing terminology around
-  cells / modes.</li>
+<li>Clarified that <code>forward_periods</code> is <strong>rows on the time axis</strong>, not calendar time — factrix is frequency-agnostic and shifts by row count. Aligned wording across README smoke-test callout, <code>AnalysisConfig</code> class + attribute docstrings, and <code>compute_forward_return</code> so IDE hover and README give the same answer. (Frequent confusion: users defaulted to a daily reading even on weekly / intraday panels.)</li>
+<li>Documented the <strong>metric tier convention</strong> (registry procedure vs standalone diagnostic) and softened user-facing terminology around cells / modes.</li>
 </ul>
 <h2 id="v050-2026-05-01">v0.5.0 (2026-05-01)<a class="headerlink" href="#v050-2026-05-01" title="Permanent link">&para;</a></h2>
-<p>Three-axis orthogonal API rewrite. Replaces the four <code>factor_type</code> strings
-+ four parallel <code>Profile</code> dataclasses + <code>preprocess</code> / <code>factor</code> session /
-<code>ProfileSet</code> triad with a single <code>AnalysisConfig</code> (4 factory methods over
-<code>FactorScope × Signal × Metric</code>), a single <code>FactorProfile</code> result type,
-and a registry-SSOT dispatch (<code>factrix/_registry.py</code>). PANEL (panel,
-N≥2) and TIMESERIES (N=1) are now first-class equals — <code>(COMMON,
-*, N=1)</code> and <code>(INDIVIDUAL, SPARSE, N=1)</code> produce real <code>primary_p</code>,
-no longer pinned to <code>1.0</code>. Single-phase rip-and-replace per
-<code>docs/plans/refactor_api.md</code> §8 — no alias
-or deprecation cycle.</p>
+<p>Three-axis orthogonal API rewrite. Replaces the four <code>factor_type</code> strings + four parallel <code>Profile</code> dataclasses + <code>preprocess</code> / <code>factor</code> session / <code>ProfileSet</code> triad with a single <code>AnalysisConfig</code> (4 factory methods over <code>FactorScope × Signal × Metric</code>), a single <code>FactorProfile</code> result type, and a registry-SSOT dispatch (<code>factrix/_registry.py</code>). PANEL (panel, N≥2) and TIMESERIES (N=1) are now first-class equals — <code>(COMMON, *, N=1)</code> and <code>(INDIVIDUAL, SPARSE, N=1)</code> produce real <code>primary_p</code>, no longer pinned to <code>1.0</code>. Single-phase rip-and-replace per <code>docs/plans/refactor_api.md</code> §8 — no alias or deprecation cycle.</p>
 <h3 id="breaking-change">BREAKING CHANGE<a class="headerlink" href="#breaking-change" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Public surface</strong>: removed <code>fl.preprocess</code>, <code>fl.evaluate_batch</code>,
-  <code>fl.factor()</code>, <code>fl.adapt</code>, <code>fl.validate_factor_data</code>,
-  <code>fl.describe_profile</code>, <code>fl.describe_profile_values</code>, <code>fl.ProfileSet</code>,
-  <code>fl.register_rule</code> / <code>fl.clear_custom_rules</code>. The new minimal surface
-  is <code>fl.AnalysisConfig</code> + <code>fl.evaluate(panel, config)</code> +
-  <code>fl.multi_factor.bhy(profiles, *, threshold=0.05)</code>.</li>
-<li><strong>Config</strong>: <code>CrossSectionalConfig</code> / <code>EventConfig</code> / <code>MacroPanelConfig</code>
-  / <code>MacroCommonConfig</code> removed. Construct via <code>AnalysisConfig.individual_continuous(metric=Metric.IC|Metric.FM)</code>,
-  <code>.individual_sparse()</code>, <code>.common_continuous()</code>, <code>.common_sparse()</code>.
-  <code>metric=Metric.FM</code> replaces <code>factor_type="macro_panel"</code> (the old name
-  conflated data shape with research question).</li>
-<li><strong>New cell</strong>: <code>(COMMON, SPARSE, None)</code> (<code>AnalysisConfig.common_sparse()</code>)
-  was a coverage hole in v0.4 — now first-class for FOMC / policy / index
-  rebalance broadcast events.</li>
-<li><strong>Profile</strong>: <code>CrossSectionalProfile</code> / <code>EventProfile</code> /
-  <code>MacroPanelProfile</code> / <code>MacroCommonProfile</code> collapsed into a single
-  <code>FactorProfile</code> dataclass. Cell-specific scalars now live in
-  <code>profile.stats: Mapping[StatCode, float]</code> keyed by enum (not string).</li>
-<li><strong>Field rename</strong>: <code>Profile.canonical_p</code> → <code>FactorProfile.primary_p</code>.
-  <code>Diagnostic</code> / <code>DiagnosticSeverity</code> removed; structured warnings now
-  travel as <code>frozenset[WarningCode]</code> on <code>profile.warnings</code> (verdict-neutral).</li>
-<li><strong>Verdict</strong>: <code>PASS_WITH_WARNINGS</code> removed. <code>Verdict</code> is binary <code>PASS</code>
-  / <code>FAIL</code>. <code>warnings</code> / <code>info_notes</code> are surfacing-only — they never
-  auto-rebind <code>primary_p</code> or upgrade <code>verdict()</code>.</li>
-<li><strong>TIMESERIES first class</strong>: <code>(COMMON, *, N=1)</code> and <code>(INDIVIDUAL, SPARSE, N=1)</code>
-  no longer return <code>primary_p = 1.0</code>. Real NW HAC t-tests on the
-  underlying time series; <code>(INDIVIDUAL, SPARSE)</code> with the same N=1 user
-  config and <code>(COMMON, SPARSE)</code> with N=1 collapse to the same procedure
-  via the internal <code>_SCOPE_COLLAPSED</code> sentinel and tag the profile with
-  <code>InfoCode.SCOPE_AXIS_COLLAPSED</code>.</li>
-<li><strong>PANEL invalid combos</strong>: <code>(INDIVIDUAL, CONTINUOUS, *) × N=1</code> is
-  mathematically undefined and now raises <code>ModeAxisError</code> with
-  <code>suggested_fix=AnalysisConfig.common_continuous(...)</code> instead of
-  silently degrading. <code>(INDIVIDUAL, *)</code> no longer accepts N=1 panels for
-  CONTINUOUS metrics.</li>
-<li><strong>BHY</strong>: <code>ProfileSet.multiple_testing_correct(p_source=, fdr=)</code> →
-  <code>fl.multi_factor.bhy(profiles, *, threshold=0.05, gate=None)</code>.
-  Family partitioning is automatic from the config triple — user no
-  longer passes a group key; cross-family p mixing is structurally
-  prevented.</li>
-<li><strong>Sample guards</strong>: per-metric <code>MIN_FM_PERIODS = 20</code> / <code>MIN_TS_OBS = 20</code>
-  unified into <code>MIN_PERIODS_HARD = 20</code> (raise <code>InsufficientSampleError</code>) and
-  <code>MIN_PERIODS_RELIABLE = 30</code> (warn <code>UNRELIABLE_SE_SHORT_SERIES</code>) in
-  <code>factrix/_stats/constants.py</code>. Procedures never silently produce a
-  result on <code>n_periods &lt; MIN_PERIODS_HARD</code>.</li>
-<li><strong>Errors</strong>: <code>FactrixError</code> hierarchy — <code>ConfigError</code> →
-  <code>{IncompatibleAxisError, ModeAxisError, InsufficientSampleError}</code>.</li>
-<li><strong>Removed v0.4 modules</strong>: <code>_api.py</code>, <code>factor.py</code>, <code>config.py</code>,
-  <code>validation.py</code>, <code>reporting.py</code>, <code>evaluation/pipeline.py</code>,
-  <code>evaluation/profiles/</code>, <code>evaluation/profile_set.py</code>,
-  <code>evaluation/diagnostics/</code>, <code>preprocess/pipeline.py</code>, <code>factors/</code>,
-  <code>integrations/</code>, <code>charts/</code>, <code>metrics/redundancy.py</code>. <code>factrix/metrics/*</code>
-  primitives kept — they back the v0.5 procedures.</li>
+<li><strong>Public surface</strong>: removed <code>fl.preprocess</code>, <code>fl.evaluate_batch</code>, <code>fl.factor()</code>, <code>fl.adapt</code>, <code>fl.validate_factor_data</code>, <code>fl.describe_profile</code>, <code>fl.describe_profile_values</code>, <code>fl.ProfileSet</code>, <code>fl.register_rule</code> / <code>fl.clear_custom_rules</code>. The new minimal surface is <code>fl.AnalysisConfig</code> + <code>fl.evaluate(panel, config)</code> + <code>fl.multi_factor.bhy(profiles, *, threshold=0.05)</code>.</li>
+<li><strong>Config</strong>: <code>CrossSectionalConfig</code> / <code>EventConfig</code> / <code>MacroPanelConfig</code> / <code>MacroCommonConfig</code> removed. Construct via <code>AnalysisConfig.individual_continuous(metric=Metric.IC|Metric.FM)</code>, <code>.individual_sparse()</code>, <code>.common_continuous()</code>, <code>.common_sparse()</code>. <code>metric=Metric.FM</code> replaces <code>factor_type="macro_panel"</code> (the old name conflated data shape with research question).</li>
+<li><strong>New cell</strong>: <code>(COMMON, SPARSE, None)</code> (<code>AnalysisConfig.common_sparse()</code>) was a coverage hole in v0.4 — now first-class for FOMC / policy / index rebalance broadcast events.</li>
+<li><strong>Profile</strong>: <code>CrossSectionalProfile</code> / <code>EventProfile</code> / <code>MacroPanelProfile</code> / <code>MacroCommonProfile</code> collapsed into a single <code>FactorProfile</code> dataclass. Cell-specific scalars now live in <code>profile.stats: Mapping[StatCode, float]</code> keyed by enum (not string).</li>
+<li><strong>Field rename</strong>: <code>Profile.canonical_p</code> → <code>FactorProfile.primary_p</code>. <code>Diagnostic</code> / <code>DiagnosticSeverity</code> removed; structured warnings now travel as <code>frozenset[WarningCode]</code> on <code>profile.warnings</code> (verdict-neutral).</li>
+<li><strong>Verdict</strong>: <code>PASS_WITH_WARNINGS</code> removed. <code>Verdict</code> is binary <code>PASS</code> / <code>FAIL</code>. <code>warnings</code> / <code>info_notes</code> are surfacing-only — they never auto-rebind <code>primary_p</code> or upgrade <code>verdict()</code>.</li>
+<li><strong>TIMESERIES first class</strong>: <code>(COMMON, *, N=1)</code> and <code>(INDIVIDUAL, SPARSE, N=1)</code> no longer return <code>primary_p = 1.0</code>. Real NW HAC t-tests on the underlying time series; <code>(INDIVIDUAL, SPARSE)</code> with the same N=1 user config and <code>(COMMON, SPARSE)</code> with N=1 collapse to the same procedure via the internal <code>_SCOPE_COLLAPSED</code> sentinel and tag the profile with <code>InfoCode.SCOPE_AXIS_COLLAPSED</code>.</li>
+<li><strong>PANEL invalid combos</strong>: <code>(INDIVIDUAL, CONTINUOUS, *) × N=1</code> is mathematically undefined and now raises <code>ModeAxisError</code> with <code>suggested_fix=AnalysisConfig.common_continuous(...)</code> instead of silently degrading. <code>(INDIVIDUAL, *)</code> no longer accepts N=1 panels for CONTINUOUS metrics.</li>
+<li><strong>BHY</strong>: <code>ProfileSet.multiple_testing_correct(p_source=, fdr=)</code> → <code>fl.multi_factor.bhy(profiles, *, threshold=0.05, gate=None)</code>. Family partitioning is automatic from the config triple — user no longer passes a group key; cross-family p mixing is structurally prevented.</li>
+<li><strong>Sample guards</strong>: per-metric <code>MIN_FM_PERIODS = 20</code> / <code>MIN_TS_OBS = 20</code> unified into <code>MIN_PERIODS_HARD = 20</code> (raise <code>InsufficientSampleError</code>) and <code>MIN_PERIODS_RELIABLE = 30</code> (warn <code>UNRELIABLE_SE_SHORT_SERIES</code>) in <code>factrix/_stats/constants.py</code>. Procedures never silently produce a result on <code>n_periods &lt; MIN_PERIODS_HARD</code>.</li>
+<li><strong>Errors</strong>: <code>FactrixError</code> hierarchy — <code>ConfigError</code> → <code>{IncompatibleAxisError, ModeAxisError, InsufficientSampleError}</code>.</li>
+<li><strong>Removed v0.4 modules</strong>: <code>_api.py</code>, <code>factor.py</code>, <code>config.py</code>, <code>validation.py</code>, <code>reporting.py</code>, <code>evaluation/pipeline.py</code>, <code>evaluation/profiles/</code>, <code>evaluation/profile_set.py</code>, <code>evaluation/diagnostics/</code>, <code>preprocess/pipeline.py</code>, <code>factors/</code>, <code>integrations/</code>, <code>charts/</code>, <code>metrics/redundancy.py</code>. <code>factrix/metrics/*</code> primitives kept — they back the v0.5 procedures.</li>
 </ul>
 <h3 id="added_3">Added<a class="headerlink" href="#added_3" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>API</strong>: <code>factrix.AnalysisConfig</code> — three-axis frozen dataclass with
-  4 type-safe factory methods. <code>__post_init__</code> runs every construction
-  path (factory, direct, <code>from_dict</code>) through one validation gate.</li>
-<li><strong>API</strong>: <code>factrix.evaluate(panel, config) -&gt; FactorProfile</code> — single
-  dispatch entry point. Panel schema: <code>(date, asset_id, factor, forward_return)</code>;
-  Mode is derived from <code>panel["asset_id"].n_unique()</code>.</li>
-<li><strong>API</strong>: <code>factrix.multi_factor.bhy</code> — Benjamini-Yekutieli step-up FDR
-  correction with automatic family partitioning. Same-test-family
-  enforced by config triple, not user discipline.</li>
-<li><strong>Introspection</strong>: <code>factrix.describe_analysis_modes(format="text"|"json")</code>
-  reverse-queries the registry to print all legal cells + procedures +
-  references. <code>factrix.suggest_config(panel)</code> heuristic-picks a factory
-  call from a raw panel.</li>
-<li><strong>Codes</strong>: <code>WarningCode</code>, <code>InfoCode</code>, <code>StatCode</code>, <code>Verdict</code> StrEnums
-  (<code>factrix/_codes.py</code>) — structured replacements for stringly-typed
-  diagnostic / metadata payloads.</li>
-<li><strong>Registry SSOT</strong>: <code>_DispatchKey(scope, signal, metric, mode)</code> →
-  <code>_RegistryEntry(procedure, use_case, refs)</code> mapping. Adding a cell
-  touches one <code>register(...)</code> call. Bootstrap import at the bottom of
-  <code>_registry.py</code> populates the registry before any first query.</li>
-<li><strong>Procedures</strong>: 7 <code>FactorProcedure</code> classes in <code>factrix/_procedures.py</code>
-  covering 5 PANEL cells (IC, FM, CAAR, COMMON×CONT, COMMON×SPARSE) +
-  2 TIMESERIES cells (TS-β CONTINUOUS, TS dummy SPARSE via
-  <code>_SCOPE_COLLAPSED</code>).</li>
-<li><strong>Stats</strong>: Hansen-Hodrick (1980) overlap floor
-  <code>max(auto_bartlett(T), forward_periods - 1)</code> applied across all panel
-  and timeseries cells with overlapping forward returns. Newey-West (1994)
-  <code>auto_bartlett(T) = max(1, int(4 · (T/100)^(2/9)))</code> lag rule.</li>
+<li><strong>API</strong>: <code>factrix.AnalysisConfig</code> — three-axis frozen dataclass with 4 type-safe factory methods. <code>__post_init__</code> runs every construction path (factory, direct, <code>from_dict</code>) through one validation gate.</li>
+<li><strong>API</strong>: <code>factrix.evaluate(panel, config) -&gt; FactorProfile</code> — single dispatch entry point. Panel schema: <code>(date, asset_id, factor, forward_return)</code>; Mode is derived from <code>panel["asset_id"].n_unique()</code>.</li>
+<li><strong>API</strong>: <code>factrix.multi_factor.bhy</code> — Benjamini-Yekutieli step-up FDR correction with automatic family partitioning. Same-test-family enforced by config triple, not user discipline.</li>
+<li><strong>Introspection</strong>: <code>factrix.describe_analysis_modes(format="text"|"json")</code> reverse-queries the registry to print all legal cells + procedures + references. <code>factrix.suggest_config(panel)</code> heuristic-picks a factory call from a raw panel.</li>
+<li><strong>Codes</strong>: <code>WarningCode</code>, <code>InfoCode</code>, <code>StatCode</code>, <code>Verdict</code> StrEnums (<code>factrix/_codes.py</code>) — structured replacements for stringly-typed diagnostic / metadata payloads.</li>
+<li><strong>Registry SSOT</strong>: <code>_DispatchKey(scope, signal, metric, mode)</code> → <code>_RegistryEntry(procedure, use_case, refs)</code> mapping. Adding a cell touches one <code>register(...)</code> call. Bootstrap import at the bottom of <code>_registry.py</code> populates the registry before any first query.</li>
+<li><strong>Procedures</strong>: 7 <code>FactorProcedure</code> classes in <code>factrix/_procedures.py</code> covering 5 PANEL cells (IC, FM, CAAR, COMMON×CONT, COMMON×SPARSE) + 2 TIMESERIES cells (TS-β CONTINUOUS, TS dummy SPARSE via <code>_SCOPE_COLLAPSED</code>).</li>
+<li><strong>Stats</strong>: Hansen-Hodrick (1980) overlap floor <code>max(auto_bartlett(T), forward_periods - 1)</code> applied across all panel and timeseries cells with overlapping forward returns. Newey-West (1994) <code>auto_bartlett(T) = max(1, int(4 · (T/100)^(2/9)))</code> lag rule.</li>
 </ul>
 <h3 id="hardened-post-cut-review-fixes">Hardened (post-cut review fixes)<a class="headerlink" href="#hardened-post-cut-review-fixes" title="Permanent link">&para;</a></h3>
 <p>Applied during the v0.5 cut window before the surface was made public:</p>
 <ul>
-<li><code>FactorProfile.n_assets: int</code> — panel cross-section width surfaced
-  alongside <code>n_obs</code>. Disambiguates "small effective sample" between
-  short series and thin cross-section. Visible in <code>diagnose()</code>.</li>
-<li><code>multi_factor.bhy(gate=...)</code> requires a p-value <code>StatCode</code> and raises
-  <code>ValueError</code> otherwise. Closes a footgun where <code>gate=StatCode.IC_T_NW</code>
-  silently fed t-stats into BHY step-up. New <code>StatCode.is_p_value</code>
-  property supports the validation.</li>
-<li><code>multi_factor.bhy</code> emits <code>RuntimeWarning</code> when a batch yields ≥2
-  size-1 families (= no FDR correction power) — surfaces the
-  cross-family no-op anti-pattern.</li>
-<li><code>WarningCode</code> / <code>InfoCode</code> gain <code>.description</code> glosses,
-  <code>IncompatibleAxisError</code> leads with the actionable factory list,
-  registry adds a <code>_SCOPE_COLLAPSED</code> metric guard + post-import
-  invariant assert (catches silent registration drift).</li>
-<li><code>_route_scope(scope, signal, mode)</code> SSOT for the §5.4.1 sparse-
-  TIMESERIES scope-collapse rule; <code>_evaluate</code>, <code>_describe</code>, and
-  <code>_multi_factor.bhy</code> all reverse-call it (no parallel implementations).</li>
+<li><code>FactorProfile.n_assets: int</code> — panel cross-section width surfaced alongside <code>n_obs</code>. Disambiguates "small effective sample" between short series and thin cross-section. Visible in <code>diagnose()</code>.</li>
+<li><code>multi_factor.bhy(gate=...)</code> requires a p-value <code>StatCode</code> and raises <code>ValueError</code> otherwise. Closes a footgun where <code>gate=StatCode.IC_T_NW</code> silently fed t-stats into BHY step-up. New <code>StatCode.is_p_value</code> property supports the validation.</li>
+<li><code>multi_factor.bhy</code> emits <code>RuntimeWarning</code> when a batch yields ≥2 size-1 families (= no FDR correction power) — surfaces the cross-family no-op anti-pattern.</li>
+<li><code>WarningCode</code> / <code>InfoCode</code> gain <code>.description</code> glosses, <code>IncompatibleAxisError</code> leads with the actionable factory list, registry adds a <code>_SCOPE_COLLAPSED</code> metric guard + post-import invariant assert (catches silent registration drift).</li>
+<li><code>_route_scope(scope, signal, mode)</code> SSOT for the §5.4.1 sparse- TIMESERIES scope-collapse rule; <code>_evaluate</code>, <code>_describe</code>, and <code>_multi_factor.bhy</code> all reverse-call it (no parallel implementations).</li>
 </ul>
 <h3 id="renamed-terminology-disambiguation">Renamed (terminology disambiguation)<a class="headerlink" href="#renamed-terminology-disambiguation" title="Permanent link">&para;</a></h3>
 <p>Pre-1.0 readability sweep — no behaviour change:</p>
 <ul>
-<li><code>MIN_T_HARD</code> / <code>MIN_T_RELIABLE</code> → <code>MIN_PERIODS_HARD</code> /
-  <code>MIN_PERIODS_RELIABLE</code>. <code>InsufficientSampleError</code> kwargs <code>actual_T</code> /
-  <code>required_T</code> → <code>actual_periods</code> / <code>required_periods</code>. Disambiguates
-  <code>T</code> (time-series length) from <code>t</code> (Student's t-statistic) used in
-  <code>*_T_NW</code> <code>StatCode</code> enums. <code>auto_bartlett(T)</code> and <code>*_T_NW</code> keep the
-  literal <code>T</code> (direct citations of NW1994 and Student's t).</li>
-<li><code>describe_analysis_modes(format="json")</code> row keys
-  <code>mode_a_panel</code> / <code>mode_b_timeseries</code> → <code>panel</code> / <code>timeseries</code>,
-  matching the <code>Mode.PANEL</code> / <code>Mode.TIMESERIES</code> enum values that
-  already drove dispatch.</li>
-<li>README / ARCHITECTURE / docstrings drop the <code>Mode A</code> / <code>Mode B</code>
-  marketing label in favour of the enum names; procedure code uses
-  <code>n_periods</code> / <code>n_assets</code> consistently for dimension counts.</li>
+<li><code>MIN_T_HARD</code> / <code>MIN_T_RELIABLE</code> → <code>MIN_PERIODS_HARD</code> / <code>MIN_PERIODS_RELIABLE</code>. <code>InsufficientSampleError</code> kwargs <code>actual_T</code> / <code>required_T</code> → <code>actual_periods</code> / <code>required_periods</code>. Disambiguates <code>T</code> (time-series length) from <code>t</code> (Student's t-statistic) used in <code>*_T_NW</code> <code>StatCode</code> enums. <code>auto_bartlett(T)</code> and <code>*_T_NW</code> keep the literal <code>T</code> (direct citations of NW1994 and Student's t).</li>
+<li><code>describe_analysis_modes(format="json")</code> row keys <code>mode_a_panel</code> / <code>mode_b_timeseries</code> → <code>panel</code> / <code>timeseries</code>, matching the <code>Mode.PANEL</code> / <code>Mode.TIMESERIES</code> enum values that already drove dispatch.</li>
+<li>README / ARCHITECTURE / docstrings drop the <code>Mode A</code> / <code>Mode B</code> marketing label in favour of the enum names; procedure code uses <code>n_periods</code> / <code>n_assets</code> consistently for dimension counts.</li>
 </ul>
 <h3 id="migration_1">Migration<a class="headerlink" href="#migration_1" title="Permanent link">&para;</a></h3>
 <table>
@@ -3252,131 +2893,60 @@ or deprecation cycle.</p>
 </tbody>
 </table>
 <h3 id="note">Note<a class="headerlink" href="#note" title="Permanent link">&para;</a></h3>
-<p>v0.4 → v0.5 was a single-phase rip-and-replace breaking change with no
-alias or deprecation cycle. Pin to commit SHA across the boundary.</p>
+<p>v0.4 → v0.5 was a single-phase rip-and-replace breaking change with no alias or deprecation cycle. Pin to commit SHA across the boundary.</p>
 <hr />
 <h3 id="note_1">Note<a class="headerlink" href="#note_1" title="Permanent link">&para;</a></h3>
-<p>First standalone release. Extracted from the <code>awwesomeman/factor-analysis</code>
-research workspace via <code>git filter-repo</code>; 149 commits of prior development
-history are preserved in this repository's git log.</p>
-<p>Earlier version tags (<code>3.x</code>) existed only in the originating workspace and
-are not reproduced here — version numbering restarts from <code>0.1.0</code> to
-honestly reflect that the API is still iterating. The pre-extraction
-snapshot is anchored in the source workspace as the tag
-<code>pre-extraction-backup</code>.</p>
+<p>First standalone release. Extracted from the <code>awwesomeman/factor-analysis</code> research workspace via <code>git filter-repo</code>; 149 commits of prior development history are preserved in this repository's git log.</p>
+<p>Earlier version tags (<code>3.x</code>) existed only in the originating workspace and are not reproduced here — version numbering restarts from <code>0.1.0</code> to honestly reflect that the API is still iterating. The pre-extraction snapshot is anchored in the source workspace as the tag <code>pre-extraction-backup</code>.</p>
 <h3 id="state-at-extraction">State at extraction<a class="headerlink" href="#state-at-extraction" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>555 tests passing</strong> across four factor types (cross-sectional, event
-  signal, macro panel, macro common)</li>
+<li><strong>555 tests passing</strong> across four factor types (cross-sectional, event signal, macro panel, macro common)</li>
 <li><code>fl.evaluate</code> / <code>fl.evaluate_batch</code> / <code>fl.factor()</code> public API</li>
-<li>Typed <code>Profile</code> dataclasses (<code>frozen=True, slots=True</code>) with binary
-  <code>verdict()</code> (PASS / FAILED) and <code>diagnose()</code> diagnostic list</li>
-<li><code>ProfileSet</code> container with BHY multiple-testing correction
-  (<code>multiple_testing_correct</code>)</li>
+<li>Typed <code>Profile</code> dataclasses (<code>frozen=True, slots=True</code>) with binary <code>verdict()</code> (PASS / FAILED) and <code>diagnose()</code> diagnostic list</li>
+<li><code>ProfileSet</code> container with BHY multiple-testing correction (<code>multiple_testing_correct</code>)</li>
 <li>Artifacts retention via <code>return_artifacts=True</code> and <code>evaluate_batch(keep_artifacts=, compact=)</code></li>
 <li>External rule registration: <code>register_rule</code> / <code>clear_custom_rules</code></li>
 <li><code>on_result</code> callback supports <code>bool | None</code> early-stopping</li>
-<li>Level 2 helpers integrated into Profile pipeline: <code>regime_ic</code>,
-  <code>multi_horizon_ic</code>, <code>spanning_alpha</code>, orthogonalization</li>
-<li>Shared tradability primitives (<code>turnover</code> / <code>breakeven_cost</code> /
-  <code>net_spread</code>) hoisted to <code>Factor</code> base class with per-call override
-  support</li>
+<li>Level 2 helpers integrated into Profile pipeline: <code>regime_ic</code>, <code>multi_horizon_ic</code>, <code>spanning_alpha</code>, orthogonalization</li>
+<li>Shared tradability primitives (<code>turnover</code> / <code>breakeven_cost</code> / <code>net_spread</code>) hoisted to <code>Factor</code> base class with per-call override support</li>
 </ul>
 <h3 id="known-caveats">Known caveats<a class="headerlink" href="#known-caveats" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>examples/demo.ipynb</code> stored outputs may reflect earlier quantile-spread
-  field names (<code>q1_q5_spread</code>, then <code>long_short_spread</code> — rename landed
-  2026-04-20). Current field is <code>quantile_spread</code> / <code>spread_tstat</code> /
-  <code>spread_p</code>; rerun the notebook to regenerate outputs against live code.</li>
-<li><code>Factor Signal Analyzer</code> positioning: <code>turnover</code> / <code>breakeven_cost</code> /
-  <code>net_spread</code> are idealized proxies (equal-weight, zero slippage) and do
-  not represent tradable returns</li>
+<li><code>examples/demo.ipynb</code> stored outputs may reflect earlier quantile-spread field names (<code>q1_q5_spread</code>, then <code>long_short_spread</code> — rename landed 2026-04-20). Current field is <code>quantile_spread</code> / <code>spread_tstat</code> / <code>spread_p</code>; rerun the notebook to regenerate outputs against live code.</li>
+<li><code>Factor Signal Analyzer</code> positioning: <code>turnover</code> / <code>breakeven_cost</code> / <code>net_spread</code> are idealized proxies (equal-weight, zero slippage) and do not represent tradable returns</li>
 </ul>
 <h2 id="v040-2026-04-25">v0.4.0 (2026-04-25)<a class="headerlink" href="#v040-2026-04-25" title="Permanent link">&para;</a></h2>
-<p>Trading-cost arithmetic overhaul: separates rank-stability turnover
-from notional position turnover, fixes per-period vs per-rebalance
-unit mismatch in the bps formulas, and renames <code>turnover_jaccard</code> →
-<code>notional_turnover</code> to describe the concept (Novy-Marx &amp; Velikov τ)
-rather than the implementation (Jaccard set-similarity).</p>
+<p>Trading-cost arithmetic overhaul: separates rank-stability turnover from notional position turnover, fixes per-period vs per-rebalance unit mismatch in the bps formulas, and renames <code>turnover_jaccard</code> → <code>notional_turnover</code> to describe the concept (Novy-Marx &amp; Velikov τ) rather than the implementation (Jaccard set-similarity).</p>
 <h3 id="breaking-change_1">BREAKING CHANGE<a class="headerlink" href="#breaking-change_1" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>breakeven_cost</code> / <code>net_spread</code> now require <code>forward_periods</code>
-  (kw-only) so per-period spread and per-rebalance turnover stay on
-  the same time scale. Without it, h ≥ 2 factors were over-charged
-  by N× and breakeven understated by N×. No default — a default of
-  1 would silently reproduce the buggy answer.</li>
-<li><code>breakeven_cost</code> / <code>net_spread</code> numeric values shift on every
-  factor that previously hit the rank-stability-turnover bug
-  (CrossSectionalProfile from prior release; MacroPanelProfile and
-  <code>Factor.evaluate()</code> in this release). Direction is optimistic for
-  CS (breakeven rises) and pessimistic for MP (breakeven falls,
-  because the rank-stability turnover overstated churn). Consumers
-  comparing against stored thresholds must re-calibrate.</li>
-<li><code>MacroPanelProfile</code> gains a required <code>notional_turnover: float</code>
-  field; direct kwarg-construction breaks until callers add it.</li>
-<li>Identifier rename across the public API:
-  <code>turnover_jaccard</code> → <code>notional_turnover</code> (primitive, MetricOutput
-  name / cache key, <code>Factor</code> session method, Profile dataclass fields
-  on both CS and MP, public export). Migration is mechanical
-  find-and-replace.</li>
-<li>Rule code rename: <code>cs.high_turnover_jaccard</code> →
-  <code>cs.high_notional_turnover</code>; <code>macro_panel.high_turnover_jaccard</code> →
-  <code>macro_panel.high_notional_turnover</code>.</li>
+<li><code>breakeven_cost</code> / <code>net_spread</code> now require <code>forward_periods</code> (kw-only) so per-period spread and per-rebalance turnover stay on the same time scale. Without it, h ≥ 2 factors were over-charged by N× and breakeven understated by N×. No default — a default of 1 would silently reproduce the buggy answer.</li>
+<li><code>breakeven_cost</code> / <code>net_spread</code> numeric values shift on every factor that previously hit the rank-stability-turnover bug (CrossSectionalProfile from prior release; MacroPanelProfile and <code>Factor.evaluate()</code> in this release). Direction is optimistic for CS (breakeven rises) and pessimistic for MP (breakeven falls, because the rank-stability turnover overstated churn). Consumers comparing against stored thresholds must re-calibrate.</li>
+<li><code>MacroPanelProfile</code> gains a required <code>notional_turnover: float</code> field; direct kwarg-construction breaks until callers add it.</li>
+<li>Identifier rename across the public API: <code>turnover_jaccard</code> → <code>notional_turnover</code> (primitive, MetricOutput name / cache key, <code>Factor</code> session method, Profile dataclass fields on both CS and MP, public export). Migration is mechanical find-and-replace.</li>
+<li>Rule code rename: <code>cs.high_turnover_jaccard</code> → <code>cs.high_notional_turnover</code>; <code>macro_panel.high_turnover_jaccard</code> → <code>macro_panel.high_notional_turnover</code>.</li>
 </ul>
 <h3 id="feat">Feat<a class="headerlink" href="#feat" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>tradability</strong>: <code>notional_turnover</code> (Novy-Marx &amp; Velikov 2016 τ)
-  separated from rank-stability <code>turnover</code> (1 − Spearman ρ). The two
-  measure different things — middle-rank shuffling counts as turnover
-  but not as notional churn — so only <code>notional_turnover</code>'s units
-  align with the bps cost arithmetic. (Originally landed as
-  <code>turnover_jaccard</code> in 2d005ff; renamed in this release.)</li>
-<li><strong>tradability</strong>: <code>Factor.notional_turnover()</code> session method with
-  the standard <code>n_groups</code> override + cache shape; mirrors
-  <code>quantile_spread</code>. <code>n_groups</code> override on <code>breakeven_cost</code> /
-  <code>net_spread</code> now also reroutes the turnover bucketing so spread
-  and turnover stay consistent during a sensitivity sweep.</li>
-<li><strong>tradability</strong>: <code>notional_turnover</code> exported from
-  <code>factrix.metrics.__all__</code> (the prior <code>turnover_jaccard</code> name was
-  never threaded into the public surface).</li>
-<li><strong>diagnostics</strong>: <code>cs.high_notional_turnover</code> and
-  <code>macro_panel.high_notional_turnover</code> rules (severity <code>warn</code>,
-  threshold <code>notional_turnover &gt; 0.5</code>). Sibling to the existing
-  <code>cs.high_turnover</code>; both rules can fire independently — a factor
-  with high mid-rank noise but stable Q1/Qn has high <code>turnover</code> yet
-  low <code>notional_turnover</code> (still implementable).</li>
+<li><strong>tradability</strong>: <code>notional_turnover</code> (Novy-Marx &amp; Velikov 2016 τ) separated from rank-stability <code>turnover</code> (1 − Spearman ρ). The two measure different things — middle-rank shuffling counts as turnover but not as notional churn — so only <code>notional_turnover</code>'s units align with the bps cost arithmetic. (Originally landed as <code>turnover_jaccard</code> in 2d005ff; renamed in this release.)</li>
+<li><strong>tradability</strong>: <code>Factor.notional_turnover()</code> session method with the standard <code>n_groups</code> override + cache shape; mirrors <code>quantile_spread</code>. <code>n_groups</code> override on <code>breakeven_cost</code> / <code>net_spread</code> now also reroutes the turnover bucketing so spread and turnover stay consistent during a sensitivity sweep.</li>
+<li><strong>tradability</strong>: <code>notional_turnover</code> exported from <code>factrix.metrics.__all__</code> (the prior <code>turnover_jaccard</code> name was never threaded into the public surface).</li>
+<li><strong>diagnostics</strong>: <code>cs.high_notional_turnover</code> and <code>macro_panel.high_notional_turnover</code> rules (severity <code>warn</code>, threshold <code>notional_turnover &gt; 0.5</code>). Sibling to the existing <code>cs.high_turnover</code>; both rules can fire independently — a factor with high mid-rank noise but stable Q1/Qn has high <code>turnover</code> yet low <code>notional_turnover</code> (still implementable).</li>
 </ul>
 <h3 id="fix">Fix<a class="headerlink" href="#fix" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>tradability</strong>: per-period vs per-rebalance unit mismatch in the
-  bps formulas. <code>gross_spread</code> (per-period) was being subtracted
-  from <code>2·cost·turnover</code> (per-N-period rebalance) — different time
-  scales. <code>breakeven_cost ×= forward_periods</code>, <code>net_spread</code>'s
-  <code>cost_drag /= forward_periods</code> to align both sides on the
-  per-period scale.</li>
-<li><strong>tradability</strong>: <code>MacroPanelProfile.from_artifacts</code> and
-  <code>Factor.breakeven_cost</code> / <code>Factor.net_spread</code> were still feeding
-  rank-stability <code>turnover</code> into the bps formulas despite the
-  primitive's docstring forbidding it. Routed through
-  <code>notional_turnover</code> instead — completes the wiring that 2d005ff
-  applied only to CrossSectionalProfile.</li>
-<li><strong>tradability</strong>: <code>MacroPanelProfile.turnover</code> is now sampled at
-  <code>config.forward_periods</code> stride (was defaulting to lag-1).
-  Mirrors <code>CrossSectionalProfile</code>. Diagnostic-only field; bps
-  formulas are unaffected (they consume <code>notional_turnover</code>).</li>
+<li><strong>tradability</strong>: per-period vs per-rebalance unit mismatch in the bps formulas. <code>gross_spread</code> (per-period) was being subtracted from <code>2·cost·turnover</code> (per-N-period rebalance) — different time scales. <code>breakeven_cost ×= forward_periods</code>, <code>net_spread</code>'s <code>cost_drag /= forward_periods</code> to align both sides on the per-period scale.</li>
+<li><strong>tradability</strong>: <code>MacroPanelProfile.from_artifacts</code> and <code>Factor.breakeven_cost</code> / <code>Factor.net_spread</code> were still feeding rank-stability <code>turnover</code> into the bps formulas despite the primitive's docstring forbidding it. Routed through <code>notional_turnover</code> instead — completes the wiring that 2d005ff applied only to CrossSectionalProfile.</li>
+<li><strong>tradability</strong>: <code>MacroPanelProfile.turnover</code> is now sampled at <code>config.forward_periods</code> stride (was defaulting to lag-1). Mirrors <code>CrossSectionalProfile</code>. Diagnostic-only field; bps formulas are unaffected (they consume <code>notional_turnover</code>).</li>
 </ul>
 <h3 id="refactor">Refactor<a class="headerlink" href="#refactor" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>tradability</strong>: rename <code>turnover_jaccard</code> → <code>notional_turnover</code>
-  throughout the public API. Renamed mechanically; no logic change.
-  See BREAKING above for migration surface.</li>
+<li><strong>tradability</strong>: rename <code>turnover_jaccard</code> → <code>notional_turnover</code> throughout the public API. Renamed mechanically; no logic change. See BREAKING above for migration surface.</li>
 </ul>
 <h2 id="v030-2026-04-23">v0.3.0 (2026-04-23)<a class="headerlink" href="#v030-2026-04-23" title="Permanent link">&para;</a></h2>
 <h3 id="breaking-change_2">BREAKING CHANGE<a class="headerlink" href="#breaking-change_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li>callers passing adf_check=False must migrate to
-adf_threshold=None; callers passing adf_check=True can drop the
-argument (default unchanged) or pass adf_threshold=0.10.</li>
+adf_threshold=None; callers passing adf_check=True can drop the argument (default unchanged) or pass adf_threshold=0.10.</li>
 <li>metadata n_dates -&gt; n_pairs; short-circuit reason
 no_valid_rank_autocorrelation -&gt; insufficient_pairs.</li>
 </ul>
@@ -3413,12 +2983,9 @@ no_valid_rank_autocorrelation -&gt; insufficient_pairs.</li>
 <li>consumers must update <code>import factorlib</code> →
 <code>import factrix</code> and <code>pip install factorlib</code> → <code>pip install factrix</code>.</li>
 <li>prepared panels now carry _fl_preprocess_sig (String)
-instead of _fl_forward_periods (Int32). Downstream code reading that
-specific column name must update.</li>
+instead of _fl_forward_periods (Int32). Downstream code reading that specific column name must update.</li>
 <li>fl.datasets.make_cs_panel(..., forward_periods=5)
-and fl.datasets.make_event_panel(..., forward_periods=5) must be
-updated to signal_horizon=5. Package is at 0.1.0 with no external
-users.</li>
+and fl.datasets.make_event_panel(..., forward_periods=5) must be updated to signal_horizon=5. Package is at 0.1.0 with no external users.</li>
 </ul>
 <h3 id="feat_2">Feat<a class="headerlink" href="#feat_2" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3442,45 +3009,28 @@ users.</li>
 <h3 id="breaking-change_4">BREAKING CHANGE<a class="headerlink" href="#breaking-change_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li>describe_profile_values(profile, artifacts, *,
-include_detail) -&gt; describe_profile_values(profile). Call-sites in
-tests / demo / README / docstrings updated to the single-arg form.
-Demo notebook rerun end-to-end: 56/56 cells green.</li>
+include_detail) -&gt; describe_profile_values(profile). Call-sites in tests / demo / README / docstrings updated to the single-arg form. Demo notebook rerun end-to-end: 56/56 cells green.</li>
 <li>EventProfile field bmp_sar_mean renamed to
-bmp_test_mean; metric_outputs cache keys "mfe_mae" -&gt; "mfe_mae_summary"
-and "bmp_sar" -&gt; "bmp_test".</li>
+bmp_test_mean; metric_outputs cache keys "mfe_mae" -&gt; "mfe_mae_summary" and "bmp_sar" -&gt; "bmp_test".</li>
 <li>Artifacts.metric_outputs cache keys renamed from
-"ic_trend" to "caar_trend" (EventProfile) and "beta_trend"
-(MacroPanel/MacroCommon). CrossSectionalProfile unaffected.</li>
+"ic_trend" to "caar_trend" (EventProfile) and "beta_trend" (MacroPanel/MacroCommon). CrossSectionalProfile unaffected.</li>
 <li>Profile fields long_short_spread / long_short_spread_vw
-renamed to quantile_spread / quantile_spread_vw. Cache keys and
-MetricOutput.name identifiers renamed in lockstep.</li>
+renamed to quantile_spread / quantile_spread_vw. Cache keys and MetricOutput.name identifiers renamed in lockstep.</li>
 <li>to test a different forward_periods, rebuild the
 Factor session with a new config (fl.preprocess + fl.factor).</li>
 <li>q1_q5_spread → long_short_spread, q1_concentration →
-top_concentration, plus intermediate columns q1_return/q5_return →
-top_return/bottom_return. Old names hard-coded Q1/Q5 but n_groups is
-configurable (CS default 10) — a quant reading q1_q5_spread under
-n_groups=10 was literally wrong. Prose / charts / diagnose messages
-propagated.</li>
+top_concentration, plus intermediate columns q1_return/q5_return → top_return/bottom_return. Old names hard-coded Q1/Q5 but n_groups is configurable (CS default 10) — a quant reading q1_q5_spread under n_groups=10 was literally wrong. Prose / charts / diagnose messages propagated.</li>
 <li>metrics/oos.multi_split_oos_decay returns MetricOutput
-(was OOSResult); event_around_return/multi_horizon_hit_rate/mfe_mae_summary
-return short-circuit MetricOutput instead of None.</li>
+(was OOSResult); event_around_return/multi_horizon_hit_rate/mfe_mae_summary return short-circuit MetricOutput instead of None.</li>
 <li><code>validate_factor_data</code> previously required the date
-column to be exactly <code>pl.Datetime("ms")</code> naive; it now accepts <code>pl.Date</code>
-or any <code>pl.Datetime(time_unit, time_zone)</code> variant. Callers relying on
-the strict-ms rejection must pre-cast themselves.</li>
+column to be exactly <code>pl.Datetime("ms")</code> naive; it now accepts <code>pl.Date</code> or any <code>pl.Datetime(time_unit, time_zone)</code> variant. Callers relying on the strict-ms rejection must pre-cast themselves.</li>
 <li><code>CrossSectionalConfig.q_top</code> removed. <code>q1_concentration</code>
-now uses <code>q_top=1/n_groups</code> so its Q1 bucket matches the Q1 in
-<code>q1_q5_spread</code>. Previously the default <code>n_groups=10</code> + <code>q_top=0.2</code> made
-the two Q1 metrics disagree (concentration used top 20%, spread used
-top 10%) — a silent inconsistency that users had to notice and tune out.</li>
+now uses <code>q_top=1/n_groups</code> so its Q1 bucket matches the Q1 in <code>q1_q5_spread</code>. Previously the default <code>n_groups=10</code> + <code>q_top=0.2</code> made the two Q1 metrics disagree (concentration used top 20%, spread used top 10%) — a silent inconsistency that users had to notice and tune out.</li>
 <li><code>Profile.from_artifacts(artifacts)</code> now returns
-<code>tuple[Self, dict[str, MetricOutput]]</code> instead of <code>Self</code>. Direct callers
-(subclass authors, test helpers) must tuple-unpack.</li>
+<code>tuple[Self, dict[str, MetricOutput]]</code> instead of <code>Self</code>. Direct callers (subclass authors, test helpers) must tuple-unpack.</li>
 <li>BaseConfig.multi_horizon_periods removed.</li>
 <li>CrossSectionalConfig.orthogonalize removed;
-CrossSectionalProfile.orthogonalize_applied removed;
-cs.orthogonalize_not_applied diagnose rule removed.</li>
+CrossSectionalProfile.orthogonalize_applied removed; cs.orthogonalize_not_applied diagnose rule removed.</li>
 </ul>
 <h3 id="feat_3">Feat<a class="headerlink" href="#feat_3" title="Permanent link">&para;</a></h3>
 <ul>
