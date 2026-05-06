@@ -420,8 +420,8 @@ def breakeven_cost(
             },
         )
 
-    # WHY: ×2 因為 long-short 雙邊交易；×forward_periods 把 per-period spread
-    # 升到 per-rebalance 與 turnover 對齊；×10000 轉 bps。
+    # WHY: ×2 because long-short trades both sides; ×forward_periods lifts the
+    # per-period spread to per-rebalance to align with turnover; ×10000 → bps.
     be_bps = (gross_spread * forward_periods / (2 * turnover)) * 10000
 
     return MetricOutput(

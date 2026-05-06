@@ -68,7 +68,7 @@ def orthogonalize_factor(
         )
         return OrthogonalizeResult(df=factor_df)
 
-    # WHY: join 確保 date × asset_id 對齊
+    # WHY: join enforces date × asset_id alignment.
     merged = factor_df.join(
         base_factors.select(["date", "asset_id", *base_cols]),
         on=["date", "asset_id"],
@@ -93,11 +93,12 @@ def orthogonalize_factor(
         y = chunk[factor_col].to_numpy().astype(np.float64)
         X = chunk.select(base_cols).to_numpy().astype(np.float64)
 
-        # WHY: 加截距項讓回歸去均值
+        # WHY: intercept term de-means the regression.
         ones = np.ones((len(y), 1))
         X_with_intercept = np.hstack([ones, X])
 
-        # WHY: 處理共線性或全零列（某日某產業無觀測）
+        # WHY: handle collinearity or all-zero columns (e.g. a sector with no
+        # observations on that date).
         try:
             beta, _, _, _ = np.linalg.lstsq(X_with_intercept, y, rcond=None)
             residual = y - X_with_intercept @ beta
@@ -125,7 +126,7 @@ def orthogonalize_factor(
 
     residuals_df = pl.concat(residuals_list)
 
-    # WHY: 保留正交化前的原始值供比較分析
+    # WHY: keep the pre-orthogonalisation values for comparison analysis.
     result = (
         factor_df.with_columns(pl.col(factor_col).alias("factor_pre_ortho"))
         .join(residuals_df, on=["date", "asset_id"], how="left")

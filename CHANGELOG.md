@@ -236,6 +236,17 @@ CONTRIBUTING §7 (Release workflow).
   membership-checks `WarningCode.SPARSE_MAGNITUDE_DROPPED`; on `{0, R}`
   inputs, `compute_caar` now does the right thing without warning. (#12)
 
+### Docs
+
+- **English-only convention enforced across the published surface.**
+  `docs/development/contributing.md` translated from mixed Chinese /
+  English to English; `# WHY:` rationale comments in `factrix/`
+  (`_types.py`, `_validators.py`, `metrics/{trend,oos,tradability}.py`,
+  `preprocess/orthogonalize.py`) translated in place. New §11 in
+  contributing documents the single-language rule and the `docs/plans/`
+  exception. Public docstrings, README, CHANGELOG, and examples were
+  already English; no behaviour change. (#74)
+
 ## v0.7.0 (2026-05-04)
 
 Closes the silent-coercion gap in sparse-procedure dispatch. Until now,

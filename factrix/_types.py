@@ -16,14 +16,15 @@ from typing import Literal, NewType
 # Numerical constants
 # ---------------------------------------------------------------------------
 
-# WHY: 統一除零保護門檻，避免 std ≈ 0 時 t-stat 膨脹至天文數字
+# WHY: shared zero-division floor so std ≈ 0 doesn't inflate t-stat to absurd magnitudes.
 EPSILON: float = 1e-9
 
-# WHY: ddof=1 為樣本標準差（業界主流），全專案統一避免跨指標比較產生系統性偏差
-# Polars .std() 預設 ddof=1，NumPy 需顯式傳入
+# WHY: ddof=1 is the sample-std convention (industry standard); fixing it project-wide
+# avoids systematic bias across cross-metric comparisons.
+# Polars .std() defaults to ddof=1; NumPy requires it explicitly.
 DDOF: int = 1
 
-# WHY: 1.4826 = 1/Φ⁻¹(0.75)，使 MAD 成為常態分佈下 σ 的無偏估計量
+# WHY: 1.4826 = 1/Φ⁻¹(0.75); makes MAD an unbiased estimator of σ under normality.
 MAD_CONSISTENCY_CONSTANT: float = 1.4826
 
 
