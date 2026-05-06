@@ -56,7 +56,7 @@ def compute_caar(
     r"""Per-event-date weighted abnormal return series.
 
     Aggregation:
-        CS-first. For each event date, take the cross-sectional mean of
+        cs-first. For each event date, take the cross-sectional mean of
         ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
         the resulting ``n_event_dates``-length CAAR series feeds a
         downstream NW HAC $t$-test on the mean.

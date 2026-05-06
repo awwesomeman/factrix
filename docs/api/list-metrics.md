@@ -40,7 +40,7 @@ fl.list_metrics(
 #         "name": "ic",
 #         "module": "ic",
 #         "cell": "(INDIVIDUAL, CONTINUOUS, IC, PANEL)",
-#         "agg_order": "CS-first",
+#         "agg_order": "cs-first",
 #         "inference_se": "NW HAC / cross-asset t",
 #     },
 #     ...
@@ -57,7 +57,7 @@ parser MkDocs uses to render
 | `name` | Function name as exported under `factrix.metrics` |
 | `module` | Submodule stem (e.g. `ic`, `fama_macbeth`) |
 | `cell` | Raw cell string from the `Matrix-row:` tag |
-| `agg_order` | Aggregation order (`CS-first`, `TS-first`, `per-event`, `TS-only`, `static CS`) |
+| `agg_order` | Aggregation order (`cs-first`, `ts-first`, `ts-only`, `static-cs`, `per-event`) |
 | `inference_se` | Inference / SE method or `no formal H₀` for descriptive metrics |
 
 ## Errors
