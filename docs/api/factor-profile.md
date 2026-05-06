@@ -47,11 +47,11 @@ on any registered cell's output is supported.
 |---------------|------------|
 | `(individual, continuous, ic, panel)` | `T` — number of dates contributing to the per-date IC series |
 | `(individual, continuous, fm, panel)` | `T` — number of dates with a valid OLS slope |
-| `(individual, sparse, None, panel)` | `T` — calendar length after CAAR densification |
+| `(individual, sparse, None, panel)` | `T` — densified panel-period count (unique dates in the panel) after CAAR event-date back-fill |
 | `(common, continuous, None, panel)` | `N` — number of assets entering the cross-asset t-test on `E[β]` |
 | `(common, sparse, None, panel)` | `N` |
 | `(common, continuous, None, timeseries)` | `T` — single-series sample length |
-| `(*, sparse, None, timeseries)` | `T` — calendar length of the dummy regression |
+| `(*, sparse, None, timeseries)` | `T` — period count of the dummy regression |
 
 Reading `n_obs` together with `n_assets` disambiguates whether a small
 `n_obs` came from a short series (low `T`) or a thin cross-section
