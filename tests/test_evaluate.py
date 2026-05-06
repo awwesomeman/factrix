@@ -184,7 +184,6 @@ class TestFallbackNoneBranch:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from factrix import _evaluate as evaluate_mod
         from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
 
         # Pop the live (COMMON, CONTINUOUS, PANEL) entry so a real
@@ -202,7 +201,7 @@ class TestFallbackNoneBranch:
         try:
             panel = _build_panel(n_dates=30, n_assets=20, seed=11)
             with pytest.raises(ModeAxisError) as exc:
-                evaluate_mod._evaluate(
+                _evaluate(
                     panel,
                     AnalysisConfig.common_continuous(),
                 )
