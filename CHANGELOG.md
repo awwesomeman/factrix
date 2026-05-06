@@ -26,6 +26,18 @@ CONTRIBUTING §7 (Release workflow).
 
 ### Added
 
+- **`factrix.list_metrics(scope, signal, *, format="text" | "json")`** —
+  programmatic discovery of standalone metrics applicable to a given
+  analysis cell. Closes the gap left by `describe_analysis_modes()`,
+  which only surfaces the cell's primary procedure (IC / FM / CAAR /
+  TS-β); `list_metrics` returns the full set of standalone callables
+  under `factrix.metrics` that the user can additionally invoke (e.g.
+  `monotonicity`, `quantile_spread`, `turnover`, `event_hit_rate`).
+  Source of truth is the `Matrix-row:` tag already parsed by the docs
+  matrix generator — extracted into `factrix._metric_index` so the
+  runtime API and the docs render share one parser. `Mode` is not an
+  input because applicability does not change across PANEL /
+  TIMESERIES. (#76)
 - **`bmp_test(include_prediction_error_variance=False)`** — opt-in
   strict BMP (1991) denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$
   for the mean-adjusted residual forecast. Default off preserves the
