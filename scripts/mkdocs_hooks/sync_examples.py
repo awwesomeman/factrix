@@ -17,7 +17,7 @@ recipe cannot drift from the listing.
 
 Usage (manual)::
 
-    python scripts/sync_examples.py
+    python scripts/mkdocs_hooks/sync_examples.py
 
 MkDocs hook usage (automatic, via ``hooks:`` in mkdocs.yml)::
 
@@ -33,7 +33,7 @@ import re
 import shutil
 from dataclasses import dataclass
 
-_REPO_ROOT = pathlib.Path(__file__).parent.parent
+_REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _SRC_DIR = _REPO_ROOT / "examples"
 _DST_DIR = _REPO_ROOT / "docs" / "examples"
 

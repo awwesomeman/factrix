@@ -6,7 +6,7 @@ Markdown table to ``docs/reference/_generated_metric_matrix.md``.
 
 Usage (manual)::
 
-    python scripts/gen_metric_matrix.py
+    python scripts/mkdocs_hooks/gen_metric_matrix.py
 
 MkDocs hook usage (automatic, via ``hooks:`` in mkdocs.yml)::
 
@@ -25,7 +25,7 @@ import re
 # when invoked from any working directory, including inside mkdocs).
 # ---------------------------------------------------------------------------
 
-_REPO_ROOT = pathlib.Path(__file__).parent.parent
+_REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
 

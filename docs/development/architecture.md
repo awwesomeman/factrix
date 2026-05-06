@@ -539,7 +539,7 @@ matrix. The matrix is generated at build time from machine-readable
 - Each public metric module carries one or more `Matrix-row:` lines at the
   end of its module-level docstring, with five pipe-separated fields:
   `public_functions | cell_scope | aggregation_order | inference_se | primitives`.
-- `scripts/gen_metric_matrix.py` (also a MkDocs `hooks:` entry) parses every
+- `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) parses every
   public module with `ast`, extracts the tags, and writes
   `docs/reference/_generated_metric_matrix.md` before each docs build.
 - `standalone-metrics.md` includes the generated file via
