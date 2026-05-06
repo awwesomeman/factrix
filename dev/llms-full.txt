@@ -1,6 +1,6 @@
 <!-- GENERATED FILE — DO NOT EDIT.
      SSOT lives at factrix/llms-full.txt; regenerated on every mkdocs build
-     by scripts/sync_llms_txt.py. Edits here will be overwritten. -->
+     by scripts/mkdocs_hooks/sync_llms_txt.py. Edits here will be overwritten. -->
 
 # factrix — LLM reference
 
