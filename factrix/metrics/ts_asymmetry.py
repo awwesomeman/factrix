@@ -32,7 +32,7 @@ Gates (issue #5):
 
 Standalone metric — does not enter the registry.
 
-Matrix-row: ts_asymmetry | (COMMON, CONTINUOUS, *, PANEL) | CS-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear
+Matrix-row: ts_asymmetry | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear
 """
 
 from __future__ import annotations

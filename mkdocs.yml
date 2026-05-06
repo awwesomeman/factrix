@@ -131,7 +131,7 @@ nav:
       - Choosing a metric: guides/choosing-metric.md
   - Reference:
       - Metric applicability: reference/metric-applicability.md
-      - Standalone metrics: reference/standalone-metrics.md
+      - Metric pipelines: reference/standalone-metrics.md
       - Statistical methods: reference/statistical-methods.md
       - Warning / info / stat codes: reference/warning-codes.md
       - Bibliography: reference/bibliography.md

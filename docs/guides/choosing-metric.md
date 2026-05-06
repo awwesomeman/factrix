@@ -36,4 +36,4 @@ For the lookup table — which metrics are supported under which `(scope, signal
 | BHY family input (needs [`FactorProfile`][factrix.FactorProfile]) | Multi-statistic decomposition |
 | Primary screening gate | OOS decay, tradability, concentration |
 
-See [Standalone metrics](../reference/standalone-metrics.md) for the full module list.
+See [Metric pipelines](../reference/standalone-metrics.md) for the full module list.

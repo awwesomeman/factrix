@@ -10,7 +10,7 @@ detail in ``metadata``.
 This tool is agnostic to what the series represents — it only knows
 about IS/OOS splits on a time-indexed numeric sequence.
 
-Matrix-row: multi_split_oos_decay | (*, CONTINUOUS, *, TIMESERIES) | TS-only | no formal H₀ | _short_circuit_output
+Matrix-row: multi_split_oos_decay | (*, CONTINUOUS, *, TIMESERIES) | ts-only | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations

@@ -15,7 +15,7 @@ Standalone metric — does not enter the registry. See
 distinction. SPARSE / binary signals are out of scope; the input gate
 redirects to `event_quality` helpers.
 
-Matrix-row: ts_quantile_spread | (COMMON, CONTINUOUS, *, PANEL) | CS-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear
+Matrix-row: ts_quantile_spread | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear
 """
 
 from __future__ import annotations
