@@ -314,7 +314,7 @@ class TestMatchesUserAxis:
 # ---------------------------------------------------------------------------
 
 
-from factrix._registry import _route_scope
+from factrix._registry import _dispatch_key_for, _route_scope
 
 
 class TestRouteScope:
@@ -352,6 +352,65 @@ class TestRouteScope:
         # PANEL sparse keeps the user scope — only TIMESERIES collapses.
         for scope in (FactorScope.INDIVIDUAL, FactorScope.COMMON):
             assert _route_scope(scope, Signal.SPARSE, Mode.PANEL) is scope
+
+
+# ---------------------------------------------------------------------------
+# Issue #7: _dispatch_key_for SSOT for routed-scope + key construction
+# ---------------------------------------------------------------------------
+
+
+class TestDispatchKeyFor:
+    def test_panel_continuous_no_collapse(self) -> None:
+        key = _dispatch_key_for(
+            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL
+        )
+        assert key == _DispatchKey(
+            FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, Mode.PANEL
+        )
+
+    def test_sparse_timeseries_collapses_both_user_scopes(self) -> None:
+        for user_scope in (FactorScope.INDIVIDUAL, FactorScope.COMMON):
+            key = _dispatch_key_for(user_scope, Signal.SPARSE, None, Mode.TIMESERIES)
+            assert key.scope is _SCOPE_COLLAPSED
+            assert key == _DispatchKey(
+                _SCOPE_COLLAPSED, Signal.SPARSE, None, Mode.TIMESERIES
+            )
+
+    def test_sparse_panel_does_not_collapse(self) -> None:
+        # Only TIMESERIES sparse collapses; PANEL sparse keeps user scope.
+        key = _dispatch_key_for(FactorScope.INDIVIDUAL, Signal.SPARSE, None, Mode.PANEL)
+        assert key.scope is FactorScope.INDIVIDUAL
+
+    def test_routes_to_actual_registry_entries_for_every_legal_axis(
+        self,
+    ) -> None:
+        # Every (scope, signal, metric) the public factories produce must
+        # round-trip through _dispatch_key_for to a registered entry under
+        # at least one mode — the helper *is* the routing.
+        legal = [
+            (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
+            (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM),
+            (FactorScope.INDIVIDUAL, Signal.SPARSE, None),
+            (FactorScope.COMMON, Signal.CONTINUOUS, None),
+            (FactorScope.COMMON, Signal.SPARSE, None),
+        ]
+        for scope, signal, metric in legal:
+            assert any(
+                _dispatch_key_for(scope, signal, metric, m) in _DISPATCH_REGISTRY
+                for m in (Mode.PANEL, Mode.TIMESERIES)
+            )
+
+    def test_matches_inline_construction(self) -> None:
+        # Helper output is byte-identical to manual construction —
+        # callers swapping in the helper cannot change routing.
+        for scope, signal, metric, mode in [
+            (FactorScope.COMMON, Signal.SPARSE, None, Mode.TIMESERIES),
+            (FactorScope.INDIVIDUAL, Signal.SPARSE, None, Mode.PANEL),
+            (FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.TIMESERIES),
+        ]:
+            assert _dispatch_key_for(scope, signal, metric, mode) == _DispatchKey(
+                _route_scope(scope, signal, mode), signal, metric, mode
+            )
 
 
 # ---------------------------------------------------------------------------

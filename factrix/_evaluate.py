@@ -26,8 +26,8 @@ from factrix._codes import InfoCode
 from factrix._errors import ModeAxisError
 from factrix._registry import (
     _DISPATCH_REGISTRY,
-    _DispatchKey,
-    _route_scope,
+    _SCOPE_COLLAPSED,
+    _dispatch_key_for,
 )
 
 if TYPE_CHECKING:
@@ -72,13 +72,12 @@ def _evaluate(raw: Any, config: AnalysisConfig) -> FactorProfile:
             ``suggested_fix``.
     """
     mode = _derive_mode(raw)
-    routed_scope = _route_scope(config.scope, config.signal, mode)
+    key = _dispatch_key_for(config.scope, config.signal, config.metric, mode)
     extra_info: frozenset[InfoCode] = (
         frozenset({InfoCode.SCOPE_AXIS_COLLAPSED})
-        if routed_scope is not config.scope
+        if key.scope is _SCOPE_COLLAPSED
         else frozenset()
     )
-    key = _DispatchKey(routed_scope, config.signal, config.metric, mode)
     entry = _DISPATCH_REGISTRY.get(key)
     if entry is None:
         fallback = _FALLBACK_MAP.get((config.scope, config.signal, mode))

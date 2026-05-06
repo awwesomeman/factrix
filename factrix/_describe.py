@@ -15,8 +15,7 @@ from factrix._codes import WarningCode, cross_section_tier
 from factrix._evaluate import _derive_mode
 from factrix._registry import (
     _DISPATCH_REGISTRY,
-    _DispatchKey,
-    _route_scope,
+    _dispatch_key_for,
     _ScopeCollapsedSentinel,
 )
 from factrix._stats.constants import (
@@ -87,10 +86,7 @@ def _entry_for(
     mode: Mode,
 ) -> Any:
     """Return the registry entry routing this user-facing axis at ``mode``."""
-    routed_scope = _route_scope(scope, signal, mode)
-    return _DISPATCH_REGISTRY.get(
-        _DispatchKey(routed_scope, signal, metric, mode),
-    )
+    return _DISPATCH_REGISTRY.get(_dispatch_key_for(scope, signal, metric, mode))
 
 
 def _row_for_tuple(

@@ -111,6 +111,28 @@ def _route_scope(
     return scope
 
 
+def _dispatch_key_for(
+    scope: FactorScope,
+    signal: Signal,
+    metric: Metric | None,
+    mode: Mode,
+) -> _DispatchKey:
+    """Build the routed ``_DispatchKey`` for a user-facing axis at ``mode``.
+
+    Folds ``_route_scope`` + ``_DispatchKey`` construction into one call
+    so ``_evaluate``, ``_describe``, and ``_multi_factor`` cannot drift
+    in how they assemble lookup keys (the ``mirrors _evaluate exactly``
+    comment that previously guarded ``_multi_factor._family_key`` was a
+    drift hazard, not a guarantee).
+    """
+    return _DispatchKey(
+        scope=_route_scope(scope, signal, mode),
+        signal=signal,
+        metric=metric,
+        mode=mode,
+    )
+
+
 def matches_user_axis(
     scope: FactorScope,
     signal: Signal,
@@ -136,7 +158,8 @@ def matches_user_axis(
 # ``_procedures`` calls ``register(...)`` at module bottom, populating
 # ``_DISPATCH_REGISTRY`` before any first query lands. ``_procedures``
 # imports from us only the names defined above this line (``register``,
-# ``_DispatchKey``, ``_route_scope``, ``_SCOPE_COLLAPSED``,
+# ``_DispatchKey``, ``_route_scope``, ``_dispatch_key_for``,
+# ``_SCOPE_COLLAPSED``,
 # ``_ScopeCollapsedSentinel``). Adding a top-level ``_procedures``
 # usage of any helper defined below would create a circular-import
 # deadlock that will not surface until import time of a downstream

@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from factrix._codes import StatCode
-from factrix._registry import _DispatchKey, _route_scope
+from factrix._registry import _dispatch_key_for, _DispatchKey
 from factrix.stats.multiple_testing import bhy_adjust
 
 if TYPE_CHECKING:
@@ -52,21 +52,17 @@ class _FamilyKey:
 def _family_key(profile: FactorProfile) -> _FamilyKey:
     """Derive the BHY family key from a ``FactorProfile``.
 
-    Reuses ``_route_scope`` so the sparse-N=1 collapse mirrors
-    ``_evaluate`` exactly — ``individual_sparse`` and ``common_sparse``
-    profiles at N=1 sit in the same dispatch cell (§5.4.1 / §5.6) and
-    therefore the same family *at matching ``forward_periods``*.
+    Routes through ``_dispatch_key_for`` so the sparse-N=1 collapse and
+    key construction stay byte-identical to ``_evaluate`` — sharing the
+    helper, not a copy of its body, is what makes
+    ``individual_sparse`` / ``common_sparse`` profiles at N=1 land in the
+    same family at matching ``forward_periods`` (§5.4.1 / §5.6).
     """
-    scope = _route_scope(
+    dispatch = _dispatch_key_for(
         profile.config.scope,
         profile.config.signal,
+        profile.config.metric,
         profile.mode,
-    )
-    dispatch = _DispatchKey(
-        scope=scope,
-        signal=profile.config.signal,
-        metric=profile.config.metric,
-        mode=profile.mode,
     )
     return _FamilyKey(
         dispatch=dispatch,
