@@ -68,22 +68,21 @@ jobs:
 
       - name: Extract CHANGELOG section
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          python3 - <<PYEOF
+          python3 - <<'PYEOF'
           import re, os, sys
-          version = os.environ["VERSION"]
+          tag = os.environ["GITHUB_REF_NAME"]          # e.g. "v0.8.0"
+          version = tag.lstrip("v")                    # e.g. "0.8.0"
           with open("CHANGELOG.md") as f:
               content = f.read()
-          pattern = rf"## \[{re.escape(version)}\].*?(?=\n## \[|\Z)"
+          # Matches "## v0.8.0 (2026-05-07)" style headings (no brackets, with date).
+          pattern = rf"(?m)^## v{re.escape(version)} [^\n]+\n(.*?)(?=^## v[0-9]|\Z)"
           match = re.search(pattern, content, re.DOTALL)
           if not match:
-              print(f"No CHANGELOG section found for {version}", file=sys.stderr)
+              print(f"No CHANGELOG section found for v{version}", file=sys.stderr)
               sys.exit(1)
           with open("/tmp/release_notes.md", "w") as f:
-              f.write(match.group(0).strip())
+              f.write(match.group(1).strip())
           PYEOF
-        env:
-          VERSION: ${{ github.ref_name }}
 
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
@@ -99,4 +98,5 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             --notes-file /tmp/release_notes.md \
+            --latest \
             dist/*
