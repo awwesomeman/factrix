@@ -78,6 +78,14 @@ class TestCodeEnums:
         assert StatCode.CAAR_MEAN.value == "caar_mean"
         assert StatCode.NW_LAGS_USED.value == "nw_lags_used"
 
+    def test_stat_descriptions_cover_every_member(self) -> None:
+        # Symmetry with WarningCode / InfoCode: every StatCode has a
+        # human-readable gloss so agents reading diagnose()["stats"]
+        # can resolve a key like "factor_adf_p" without grepping
+        # _procedures.py.
+        for code in StatCode:
+            assert code.description, f"{code} missing description"
+
 
 # ---------------------------------------------------------------------------
 # Stats constants
