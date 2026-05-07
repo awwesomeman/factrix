@@ -244,6 +244,12 @@ the caller's responsibility (deliberately not done here).
 `ValueError` fires for non-p-value gates; a `KeyError` fires if a profile in a
 family lacks the gated key.
 
+Identity caveat: `FactorProfile` has no `name` / `label` field, and `bhy()`
+returns surviving profiles only — not their source labels. To map survivors
+back to factor names, hold a `dict[name, profile]` yourself and compare with
+`is` (identity), e.g. `[n for n, p in by_name.items() if any(p is s for s in survivors)]`.
+Equality is unsafe: two factors with coincident stats compare equal.
+
 ---
 
 ### `describe_analysis_modes` / `suggest_config` / `list_metrics`
