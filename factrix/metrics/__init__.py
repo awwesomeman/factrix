@@ -80,6 +80,7 @@ from factrix.metrics.quantile import (
     quantile_spread,
     quantile_spread_vw,
 )
+from factrix.metrics.regime import by_regime
 from factrix.metrics.spanning import greedy_forward_selection, spanning_alpha
 from factrix.metrics.tradability import (
     breakeven_cost,
@@ -102,6 +103,7 @@ __all__ = [
     "beta_sign_consistency",
     "bmp_test",
     "breakeven_cost",
+    "by_regime",
     "caar",
     "clustering_diagnostic",
     "compute_caar",

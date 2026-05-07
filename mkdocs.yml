@@ -131,6 +131,7 @@ nav:
       - guides/index.md
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
       - Batch screening (BHY): guides/batch-screening.md
+      - Regime analysis: guides/regime-analysis.md
       - Choosing a metric: guides/choosing-metric.md
       - Standalone metrics: guides/standalone-metrics.md
   - Reference:
@@ -145,6 +146,7 @@ nav:
       - api/index.md
       - AnalysisConfig: api/analysis-config.md
       - evaluate: api/evaluate.md
+      - by_regime: api/by-regime.md
       - list_metrics: api/list-metrics.md
       - FactorProfile: api/factor-profile.md
       - MetricOutput: api/metric-output.md
