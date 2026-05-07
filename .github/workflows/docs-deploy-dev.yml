@@ -8,14 +8,16 @@ on:
       - 'mkdocs.yml'
       - 'factrix/**'
       - 'scripts/**'
-      - '.github/workflows/docs.yml'
+      - 'examples/**'
+      - '.github/workflows/docs-deploy-dev.yml'
   pull_request:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'factrix/**'
       - 'scripts/**'
-      - '.github/workflows/docs.yml'
+      - 'examples/**'
+      - '.github/workflows/docs-deploy-dev.yml'
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,9 @@ jobs:
       - name: Strict build
         run: uv run mkdocs build --strict
 
+      - name: Check generated metric matrix is committed
+        run: git diff --exit-code -- docs/reference/_generated_metric_matrix.md
+
   build-main:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -63,3 +68,6 @@ jobs:
 
       - name: Strict build
         run: uv run mkdocs build --strict
+
+      - name: Check generated metric matrix is committed
+        run: git diff --exit-code -- docs/reference/_generated_metric_matrix.md
