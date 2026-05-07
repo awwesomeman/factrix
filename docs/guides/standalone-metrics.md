@@ -10,6 +10,21 @@ This guide covers the three things a user needs to wire them in:
 which metrics apply to a given cell, what input shape each one
 expects, and where they sit in a screening pipeline.
 
+## Scope
+
+factrix evaluates **factor signal validity** — predictive power
+(IC, FM λ), robustness (NW HAC, BHY, regime stability), and event
+shape (CAAR, BMP, Corrado). It does **not** compute portfolio-level
+performance: no Sharpe / drawdown / Sortino / Calmar / return
+attribution. Those metrics belong downstream of factor selection
+and live in dedicated backtest libraries (e.g.
+[`vectorbt`](https://vectorbt.dev/) or an internal framework).
+
+The closest crossover inside factrix is `ic_ir` — the information
+ratio of the per-date IC series. It is explicitly a *signal-quality*
+IR (mean / std of IC), **not** a portfolio Sharpe (mean / std of
+realised returns).
+
 For the cross-module matrix (every module, aggregation pattern,
 inference SE), see
 [Reference § Metric pipelines](../reference/standalone-metrics.md).
