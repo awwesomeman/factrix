@@ -122,7 +122,7 @@ Adjust the threshold (per-shell):
 CHANGELOG_MIN_LINES=10 git push
 ```
 
-Rationale: see §7 "Release workflow" on the limits of cz's
+Rationale: see §9 "Release workflow" on the limits of cz's
 auto-CHANGELOG.
 
 ---
@@ -152,7 +152,7 @@ gh pr merge --squash
 ```
 
 > **Important**: do **not** run `cz bump` after merge. Versions and tags
-> follow the release-train cadence (see §7)—a single release fires after
+> follow the release-train cadence (see §9)—a single release fires after
 > several PRs accumulate. Each PR writes its own changes into the
 > `## [Unreleased]` section of `CHANGELOG.md` (under `### Added` /
 > `### Changed` / `### Fixed` / `### Migration` subsections as
@@ -288,7 +288,7 @@ version follows actual, not pin.
   (dev workflow), then freeze with cheat sheet row 5
 - **Someone else pushed factrix; I need to catch up**: cheat sheet rows
   3 + 5
-- **Pinning to a tag (recommended, see §8)**: cheat sheet rows 4 + 5
+- **Pinning to a tag (recommended, see §9)**: cheat sheet rows 4 + 5
 - **Submodule looks broken after switching branches**: reset via cheat
   sheet row 6
 
@@ -329,7 +329,79 @@ files auto-update and which need manual maintenance.
 
 ---
 
-## 7. Testing rules
+## 7. Drift management
+
+Documentation, generated reference material, and example notebooks drift
+away from the code they describe. The project's working policy:
+**automate symbol-level drift, leave narrative/conceptual drift to
+review, and run a manual half-hour pass at every release-train cut.**
+The framing below is heuristic — when a new "should I add a test for
+this drift?" question arises, judge it by whether the cost of
+automating exceeds the cost of missing.
+
+### 7.1 Automated drift checks
+
+Enforced by tests and CI — a regression fails the PR build.
+
+| Drift class | Enforced by |
+|---|---|
+| Generated docs freshness (metric matrix, registry cells, examples sync) | `tests/test_docs_matrix.py`, `tests/test_docs_registry_cells.py`, plus the `git diff --exit-code` step in `.github/workflows/docs-deploy-dev.yml` |
+| Public-surface mention coverage in `factrix/llms-full.txt` | `tests/test_docs_llms.py` |
+| Public-surface mention coverage across all docs pages | `tests/test_docs_pages.py` |
+| README quickstart end-to-end | `tests/test_readme_quickstart.py` |
+| mkdocs nav / link integrity | `uv run mkdocs build --strict` (run in `.github/workflows/docs-deploy-dev.yml`) |
+
+### 7.2 Drift left to human review
+
+Deliberately not automated, because machine-judgement cost > miss cost:
+
+- **Architecture narrative vs current code design**
+  (`docs/development/architecture.md`) — accuracy hinges on whether the
+  prose still captures the *spirit* of the design; a string match
+  cannot judge that.
+- **Conceptual / explanatory text in guides**
+  (`docs/guides/*.md`, `docs/getting-started/*.md`) — wording quality
+  and pedagogical ordering are reviewer calls; a stale phrasing often
+  parses fine.
+- **Editorial choices in `factrix/llms-full.txt`** — depth of context,
+  ordering, and what to omit are agent-UX decisions, not symbol
+  coverage (which §7.1 already enforces).
+
+Rule of thumb: if the drift can be detected by a string match or a
+function call, automate it; if catching it requires reading prose for
+meaning, leave it to release-train review.
+
+### 7.3 Release-train drift audit
+
+Before running `cz bump --changelog` (see §9), run this checklist on
+`main`:
+
+```bash
+# 1. Search for known-deprecated symbol names that may have leaked back in.
+#    Extend the pattern per release with names retired since the last tag.
+git grep -nE 'q1_q5_spread'
+
+# 2. Full test suite — covers every check listed in §7.1.
+uv run pytest -q
+
+# 3. Strict docs build — surfaces broken nav, links, and generated-file drift.
+uv run mkdocs build --strict
+
+# 4. Public-surface coverage spot-check (also run by step 2; explicit run
+#    is cheap and isolates failures).
+uv run pytest tests/test_docs_llms.py tests/test_docs_pages.py -q
+
+# 5. Skim the [Unreleased] CHANGELOG section for stale paths / kwargs
+#    that drifted since the entry was written.
+sed -n '/## \[Unreleased\]/,/^## /p' CHANGELOG.md
+```
+
+A failure on any step is a release blocker — fix on `main` (or revert
+the offending PR) before bumping.
+
+---
+
+## 8. Testing rules
 
 ### Synthetic fixtures only
 
@@ -413,7 +485,7 @@ PR self-check: run all three code blocks, `uv run mkdocs build
 
 ---
 
-## 8. Versioning and release (SemVer & Release)
+## 9. Versioning and release (SemVer & Release)
 
 factrix is currently in **pre-1.0** (v0.x.x)—the public API **may
 break in MINOR bumps**. Consumers (e.g. the `factor-analysis`
@@ -499,7 +571,7 @@ workspace bump to the tag.
 
 ---
 
-## 9. Architecture / design decisions
+## 10. Architecture / design decisions
 
 Before a new feature or large change, read:
 
@@ -516,7 +588,7 @@ preserved there).
 
 ---
 
-## 10. Asking questions / decision communication
+## 11. Asking questions / decision communication
 
 Self-use repo for the author + AI agents, so there is no issue
 template / discussion board. Decision-record channels:
@@ -530,7 +602,7 @@ template / discussion board. Decision-record channels:
 
 ---
 
-## 11. Style — single language
+## 12. Style — single language
 
 All issue / PR titles + bodies, commit messages, CHANGELOG entries,
 and any content under `factrix/` and `docs/` (excluding `docs/plans/`)
@@ -547,7 +619,7 @@ README, and CHANGELOG.
 
 ---
 
-## 12. Licensing and contribution terms
+## 13. Licensing and contribution terms
 
 This project is released under the [Apache License 2.0](LICENSE).
 
