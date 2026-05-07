@@ -68,6 +68,32 @@ K-period forecast residuals carry MA(K−1) structure; the source of
 the `forward_periods − 1` lag floor that factrix combines with the
 Andrews rule under overlapping forward returns.
 
+### Hodrick (1992)
+[](){ #hodrick-1992 }
+
+Hodrick, R. J. (1992). "Dividend Yields and Expected Stock Returns:
+Alternative Procedures for Inference and Measurement." *Review of
+Financial Studies* 5(3), 357–386.
+
+Reverse-regression *t*-statistic for long-horizon return
+predictability with persistent regressors. The "1B" form solves the
+size distortion of NW / Hansen-Hodrick (1980) under heavy overlap
+(`h / T` not small) by re-expressing the long-horizon regression as
+a one-period regression on a moving-average of the predictor — the
+test statistic is then size-correct in finite samples even when the
+implied MA(h−1) overlap is severe.
+
+Cited as background, not implemented. Hodrick 1B reformulates the
+long-horizon regression as a one-period regression of `r_{t,t+1}` on
+the predictor sum `X_t = Σ_{j=0}^{h-1} x_{t-j}`, swapping which side
+carries the moving average. The coefficient has a different
+interpretation than the standard `r_{t,t+h} ~ x_t` slope, and factrix
+prefers non-overlapping resampling on the `Individual × Continuous`
+cell as the literature-standard mitigation for overlap-driven size
+distortion. See
+[Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns)
+for the comparison among NW / HH-1980 / Hodrick-1992.
+
 ### White (1980)
 [](){ #white-1980 }
 
