@@ -278,8 +278,13 @@ factrix.list_metrics(scope: FactorScope, signal: Signal,
                      ) -> list[str] | list[dict[str, Any]]
     # Standalone metrics applicable to a (scope, signal) cell.
     # text → list[str] sorted by (module, name); json → rows with
-    # {name, module, cell, agg_order, inference_se}. Mode is not an input —
-    # applicability does not change across PANEL / TIMESERIES.
+    # {name, module, cell, agg_order, inference_se, import_path,
+    #  input_kind, docs_anchor, emitted_name}. docs_anchor is a
+    # docs-root-relative path + mkdocstrings symbol fragment;
+    # emitted_name is the literal MetricOutput.name (usually equals
+    # name, but a few metrics emit a different label — fama_macbeth
+    # → fm_beta, etc.). Mode is not an input — applicability does
+    # not change across PANEL / TIMESERIES.
     # Raises IncompatibleAxisError if the pair has no registered metrics.
 ```
 

@@ -39,6 +39,8 @@ theme:
 hooks:
   # factrix/metrics/*.py Matrix-row: -> docs/reference/_generated_metric_matrix.md
   - scripts/mkdocs_hooks/gen_metric_matrix.py
+  # factrix/metrics/*.py Matrix-row: -> docs/reference/_generated_metric_name_index.md
+  - scripts/mkdocs_hooks/gen_metric_name_index.py
   # factrix/_registry._DISPATCH_REGISTRY -> docs/development/_generated_registry_cells.md
   - scripts/mkdocs_hooks/gen_registry_cells.py
   # examples/*.ipynb -> docs/examples/

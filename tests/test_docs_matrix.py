@@ -21,6 +21,7 @@ import pytest
 
 METRICS_DIR = pathlib.Path("factrix/metrics")
 GENERATED_MATRIX = pathlib.Path("docs/reference/_generated_metric_matrix.md")
+GENERATED_NAME_INDEX = pathlib.Path("docs/reference/_generated_metric_name_index.md")
 
 _MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
 
@@ -82,4 +83,80 @@ def test_generated_matrix_exists_and_nonempty() -> None:
     # At minimum: header row + at least one data row
     assert len(lines) >= 2, (
         f"{GENERATED_MATRIX} appears empty (only {len(lines)} table line(s))."
+    )
+
+
+def test_emitted_name_overrides_match_source() -> None:
+    """``_EMITTED_NAME_OVERRIDES`` must reflect every divergent literal.
+
+    AST-grep every ``MetricOutput(name="<lit>")`` in
+    ``factrix/metrics/*.py``; for each registered user-facing function
+    name, the literal must equal either the function name or the
+    override map's value. Catches the case where someone adds a new
+    metric that emits a non-matching ``name=`` and forgets to update
+    the override map (#125 SSOT contract).
+    """
+    from factrix._metric_index import _EMITTED_NAME_OVERRIDES, user_facing_rows
+
+    fn_to_emitted: dict[str, str] = {}
+    for path in METRICS_DIR.glob("*.py"):
+        if path.stem.startswith("_"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for fn in ast.walk(tree):
+            if not isinstance(fn, ast.FunctionDef):
+                continue
+            for ret in ast.walk(fn):
+                if (
+                    isinstance(ret, ast.Call)
+                    and isinstance(ret.func, ast.Name)
+                    and ret.func.id == "MetricOutput"
+                ):
+                    for kw in ret.keywords:
+                        if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                            fn_to_emitted.setdefault(fn.name, kw.value.value)
+
+    user_fns = {r.name for r in user_facing_rows()}
+    mismatches: list[str] = []
+    for fn, emitted in fn_to_emitted.items():
+        if fn not in user_fns or emitted == fn:
+            continue
+        expected = _EMITTED_NAME_OVERRIDES.get(fn)
+        if expected != emitted:
+            mismatches.append(
+                f"{fn}: emits MetricOutput(name={emitted!r}) but override map says {expected!r}"
+            )
+    assert not mismatches, (
+        "Emitted MetricOutput.name does not match _EMITTED_NAME_OVERRIDES:\n  "
+        + "\n  ".join(mismatches)
+    )
+
+
+def test_generated_name_index_matches_renderer() -> None:
+    """Generated name-index file must match what the renderer produces.
+
+    Drift guard for #125: catches a stale checked-in file that no longer
+    reflects the ``Matrix-row:`` SSOT (e.g. a metric was added but mkdocs
+    wasn't rerun before commit).
+    """
+    if not GENERATED_NAME_INDEX.exists():
+        pytest.skip(
+            f"{GENERATED_NAME_INDEX} not found — run "
+            "'python scripts/mkdocs_hooks/gen_metric_name_index.py' "
+            "or 'mkdocs build' first."
+        )
+    from factrix._metric_index import user_facing_rows
+    from scripts.mkdocs_hooks.gen_metric_name_index import (
+        _TABLE_HEADER,
+        _render_row,
+    )
+
+    expected = _TABLE_HEADER + "".join(
+        _render_row(r) for r in sorted(user_facing_rows(), key=lambda r: r.emitted_name)
+    )
+    actual = GENERATED_NAME_INDEX.read_text(encoding="utf-8")
+    assert actual == expected, (
+        f"{GENERATED_NAME_INDEX} is stale — re-run "
+        "'python scripts/mkdocs_hooks/gen_metric_name_index.py' "
+        "(or 'mkdocs build') to regenerate."
     )

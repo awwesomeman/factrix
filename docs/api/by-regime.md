@@ -84,10 +84,7 @@ pre-aggregated scalars and have no date column to slice on:
 
 ```python
 import factrix as fl
-from factrix.metrics import (
-    by_regime, caar, fama_macbeth,
-    compute_caar, compute_fm_betas,
-)
+from factrix.metrics import by_regime, caar, fama_macbeth, compute_caar, compute_fm_betas
 
 candidates = [
     r["name"]

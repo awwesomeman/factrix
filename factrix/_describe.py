@@ -478,8 +478,15 @@ def list_metrics(
         ``"text"`` (default) returns metric names sorted by
         ``(module, name)``. ``"json"`` returns ``list[dict]`` rows with
         keys ``name``, ``module``, ``cell``, ``agg_order``,
-        ``inference_se``, ``import_path``, ``input_kind`` —
-        JSON-serialisable, suitable for tooling.
+        ``inference_se``, ``import_path``, ``input_kind``,
+        ``docs_anchor``, ``emitted_name`` — JSON-serialisable, suitable
+        for tooling. ``docs_anchor`` is a docs-root-relative path +
+        mkdocstrings symbol fragment
+        (``api/metrics/<module>.md#factrix.metrics.<module>.<name>``).
+        ``emitted_name`` is the literal ``MetricOutput.name`` value at
+        runtime — usually equal to ``name`` (the function name), but
+        differs for a small set of historical exceptions. Consumers
+        holding a ``MetricOutput`` should resolve via ``emitted_name``.
     with_import
         ``"text"`` only. When ``True``, returns a two-column
         ``"name → factrix.metrics.<module>"`` list so each row is
@@ -517,6 +524,8 @@ def list_metrics(
                 "inference_se": r.inference_se,
                 "import_path": r.import_path,
                 "input_kind": r.input_kind,
+                "docs_anchor": r.docs_anchor,
+                "emitted_name": r.emitted_name,
             }
             for r in rows
         ]

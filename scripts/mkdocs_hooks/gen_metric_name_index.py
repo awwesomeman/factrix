@@ -1,0 +1,60 @@
+"""Build-time generator for the ``MetricOutput.name`` reverse index.
+
+Renders a Markdown table to
+``docs/reference/_generated_metric_name_index.md`` mapping every
+emitted ``MetricOutput.name`` value back to its source module, import
+path, and API-page anchor. Driven by the same ``Matrix-row:`` SSOT as
+``gen_metric_matrix.py`` and ``factrix.list_metrics``.
+
+Closes the asymmetry called out in #125: a consumer holding a
+``MetricOutput`` value (in a downstream pipeline, an agent loop, a
+report renderer) can mechanically resolve ``output.name`` to the
+metric's docs page without grepping the codebase or guessing URL
+conventions.
+
+Usage (manual)::
+
+    python scripts/mkdocs_hooks/gen_metric_name_index.py
+
+MkDocs hook usage (automatic, via ``hooks:`` in mkdocs.yml)::
+
+    The ``on_pre_build(config)`` function is called by MkDocs before
+    each build.
+"""
+
+from __future__ import annotations
+
+import pathlib
+
+from factrix._metric_index import MetricRow, user_facing_rows
+
+_REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
+_OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_name_index.md"
+
+_TABLE_HEADER = (
+    "| `MetricOutput.name` | Function | Source module | API page |\n|---|---|---|---|\n"
+)
+
+
+def _render_row(row: MetricRow) -> str:
+    page_link = f"[`{row.name}`](../{row.docs_anchor})"
+    module_link = f"[`{row.import_path}`][{row.import_path}]"
+    return f"| `{row.emitted_name}` | `{row.name}` | {module_link} | {page_link} |\n"
+
+
+def generate() -> None:
+    """Generate ``_generated_metric_name_index.md`` from Matrix-row SSOT."""
+    rows = sorted(user_facing_rows(), key=lambda r: r.emitted_name)
+    lines = [_TABLE_HEADER, *(_render_row(r) for r in rows)]
+    _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _OUT_FILE.write_text("".join(lines), encoding="utf-8")
+    print(f"gen_metric_name_index: wrote {len(rows)} row(s) to {_OUT_FILE}")
+
+
+def on_pre_build(config: object) -> None:
+    """MkDocs hook: regenerate the name index before every build."""
+    generate()
+
+
+if __name__ == "__main__":
+    generate()
