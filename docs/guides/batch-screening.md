@@ -10,9 +10,12 @@ import factrix as fl
 candidates = ["mom_5d", "mom_20d", "mom_60d"]
 cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
 
-profiles = [fl.evaluate(panel, cfg, factor_col=name) for name in candidates]
-survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+by_name = {name: fl.evaluate(panel, cfg, factor_col=name) for name in candidates}
+survivors = fl.multi_factor.bhy(list(by_name.values()), threshold=0.05)
+survivor_names = [n for n, p in by_name.items() if any(p is s for s in survivors)]
 ```
+
+`FactorProfile` is a frozen dataclass with no `name` / `label` field — `bhy()` neither accepts nor returns one. Map survivors back to factor names by holding the `name → profile` dict yourself and comparing with `is` (identity), as above. Equality (`==`) is unsafe: two factors with coincident stats compare equal.
 
 Each `evaluate` call repays the per-date cross-section overhead
 (sort / group-by / rank) on its own — that cost is intrinsic to
