@@ -1,6 +1,6 @@
 <div align="center">
 
-# factrix
+<img src="docs/assets/factrix_banner_light.png" alt="factrix" />
 
 </div>
 

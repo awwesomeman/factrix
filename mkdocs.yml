@@ -7,6 +7,8 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  logo: assets/factrix_icon_light.svg
+  favicon: assets/factrix_icon_light.svg
   language: en
   features:
     - navigation.tabs
