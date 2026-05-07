@@ -47,6 +47,7 @@ Magnitude-preserving CAAR semantics, programmatic metric discovery, and a calend
 
 - **`WarningCode.SPARSE_MAGNITUDE_DROPPED`** — warned that `compute_caar` would collapse magnitude via `.sign()`; with the magnitude-preserving rewrite, no routing drops magnitude. Migration: remove membership checks for this enum value; `compute_caar` on `{0, R}` inputs now preserves magnitude. (#12)
 - **`SuggestConfigResult.detected["magnitude_dropped"]`** key — same root cause as `SPARSE_MAGNITUDE_DROPPED`; `_detect_signal` reduced to a 3-tuple. Migration: delete any branch reading this key. (#12)
+- **`factrix[charts]` and `factrix[mlflow]` optional extras** — the corresponding source modules were already stripped in v0.5.0; the extras remained as install-only stubs pulling `plotly` / `mlflow` with no factrix code consuming them. Migration: install `plotly` or `mlflow` directly if your project needs them; integration adapter patterns are tracked in #88.
 
 ## v0.7.0 (2026-05-04)
 

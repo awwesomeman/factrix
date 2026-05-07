@@ -33,8 +33,6 @@ Issues = "https://github.com/awwesomeman/factrix/issues"
 Changelog = "https://github.com/awwesomeman/factrix/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-charts = ["plotly>=6.0"]
-mlflow = ["mlflow>=3.10"]
 jupyter = [
     "jupyter>=1.0.0",
     "jupyterlab>=3.4.0",
@@ -59,7 +57,7 @@ docs = [
     "mkdocs>=1.5.0,<2.0",
     "mike>=2.1",
 ]
-all = ["factrix[charts,mlflow,jupyter]"]
+all = ["factrix[jupyter]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
