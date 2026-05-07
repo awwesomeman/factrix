@@ -85,6 +85,20 @@ are not per-(scope, signal) cell metrics."""
 # it isn't.
 _SCALAR_INPUT_METRICS: frozenset[str] = frozenset({"breakeven_cost", "net_spread"})
 
+# Function name → emitted ``MetricOutput.name`` literal, where the two
+# diverge. Most metrics emit ``name=<function_name>``; the entries here
+# are the historical exceptions and the source of truth for the
+# ``MetricOutput.name`` reverse index (#125). Audit against
+# ``factrix/metrics/*.py``: every ``MetricOutput(name="X")`` literal in
+# a registered metric must either match the function name or appear here.
+_EMITTED_NAME_OVERRIDES: dict[str, str] = {
+    "clustering_diagnostic": "clustering_hhi",
+    "corrado_rank_test": "corrado_rank",
+    "fama_macbeth": "fm_beta",
+    "multi_split_oos_decay": "oos_decay",
+    "pooled_ols": "pooled_beta",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Cell:
@@ -131,6 +145,15 @@ class MetricRow:
     distinguishes the standard date-keyed-DataFrame contract (``"panel"``)
     from pre-aggregated-scalar utilities (``"scalar"``); only ``"panel"``
     metrics are eligible for date-slicing dispatchers like ``by_regime``.
+    ``docs_anchor`` is the docs-root-relative path + mkdocstrings symbol
+    anchor (``api/metrics/<module>.md#factrix.metrics.<module>.<name>``),
+    so a consumer holding the function name can resolve the API page
+    without scraping module conventions. ``emitted_name`` is the literal
+    string the metric writes into ``MetricOutput.name`` at runtime; for
+    most metrics this matches ``name``, but a small set of historical
+    exceptions (e.g. ``fama_macbeth`` → ``fm_beta``) emit a different
+    label. Consumers holding a ``MetricOutput`` value should look up
+    by ``emitted_name``.
     """
 
     name: str
@@ -140,6 +163,8 @@ class MetricRow:
     inference_se: str
     import_path: str
     input_kind: Literal["panel", "scalar"]
+    docs_anchor: str
+    emitted_name: str
 
 
 def _parse_axis(token: str, enum_cls: type) -> object | None:
@@ -248,6 +273,10 @@ def all_rows() -> list[MetricRow]:
             inference_se=entry.inference_se,
             import_path=f"factrix.metrics.{entry.module}",
             input_kind="scalar" if name in _SCALAR_INPUT_METRICS else "panel",
+            docs_anchor=(
+                f"api/metrics/{entry.module}.md#factrix.metrics.{entry.module}.{name}"
+            ),
+            emitted_name=_EMITTED_NAME_OVERRIDES.get(name, name),
         )
         for entry in matrix_entries()
         for name in entry.names
