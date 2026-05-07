@@ -2,9 +2,9 @@
 
 Synthetic panel generators for examples, tests, and documentation.
 Both emit raw canonical-column panels (`date, asset_id, price,
-factor`); attach `forward_return` (e.g. via
-`factrix.preprocess.returns.compute_forward_return`) before passing
-to [`evaluate`](evaluate.md).
+factor`); attach `forward_return` via
+[`factrix.preprocess.compute_forward_return`](preprocess.md) before
+passing to [`evaluate`](evaluate.md).
 
 The dataset's `signal_horizon` is a property of the generated
 synthetic signal, not a pipeline parameter. When

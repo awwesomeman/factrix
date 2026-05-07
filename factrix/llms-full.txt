@@ -73,7 +73,7 @@ Synthetic panels: `fl.datasets.make_cs_panel(...)` for CONTINUOUS,
 
 ```python
 import factrix as fl
-from factrix.preprocess.returns import compute_forward_return
+from factrix.preprocess import compute_forward_return
 
 # raw has columns ["date", "asset_id", "price", "factor"]
 raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
@@ -92,7 +92,7 @@ print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, et
 
 ```python
 import factrix as fl
-from factrix.preprocess.returns import compute_forward_return
+from factrix.preprocess import compute_forward_return
 
 raw_panels = [
     fl.datasets.make_cs_panel(n_assets=80, n_dates=400, ic_target=ic, seed=s)
@@ -254,7 +254,7 @@ factrix.list_metrics(scope: FactorScope, signal: Signal,
 ### Preprocessing
 
 ```python
-from factrix.preprocess.returns import compute_forward_return
+from factrix.preprocess import compute_forward_return
 
 panel = compute_forward_return(
     df,                                # cols: date, asset_id, price (sorted, regular spacing)
