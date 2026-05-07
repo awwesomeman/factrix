@@ -45,7 +45,12 @@ def _derive_mode(raw: Any) -> Mode:
     return Mode.TIMESERIES if raw["asset_id"].n_unique() <= 1 else Mode.PANEL
 
 
-def _evaluate(raw: Any, config: AnalysisConfig) -> FactorProfile:
+def _evaluate(
+    raw: Any,
+    config: AnalysisConfig,
+    *,
+    factor_col: str = "factor",
+) -> FactorProfile:
     """Dispatch ``config + raw`` to the registered procedure.
 
     Mode is derived from ``raw`` (``N == 1`` → ``TIMESERIES``, else
@@ -60,17 +65,45 @@ def _evaluate(raw: Any, config: AnalysisConfig) -> FactorProfile:
             registered procedure.
         config: Validated ``AnalysisConfig`` produced by one of the
             four factory methods.
+        factor_col: Name of the signal column on ``raw``. Default
+            ``"factor"``; pass any other column name when the panel's
+            signal is named differently. The column is renamed to
+            ``"factor"`` internally before dispatch so procedures
+            keep their canonical schema. Single-factor convenience
+            only — for evaluating multiple signals on the same panel
+            use ``factrix.multi_factor`` rather than calling
+            ``evaluate`` in a loop with different ``factor_col``
+            values (each call repays the per-date cross-section
+            overhead).
 
     Returns:
         A ``FactorProfile`` populated by the procedure registered for
         the routed dispatch cell.
 
     Raises:
+        ValueError: If ``factor_col`` is not present on ``raw``, or if
+            ``factor_col != "factor"`` while ``raw`` already carries a
+            different ``"factor"`` column (ambiguous which is the
+            signal).
         ModeAxisError: If the routed cell has no registered procedure
             under the derived mode (e.g. ``(INDIVIDUAL, CONTINUOUS, *)``
             at ``N == 1``); the error carries a nearest-legal
             ``suggested_fix``.
     """
+    if factor_col != "factor":
+        if factor_col not in raw.columns:
+            raise ValueError(
+                f"factor_col={factor_col!r} not found in raw columns: "
+                f"{list(raw.columns)}. Pass the actual signal column "
+                f"name, or rename the column to 'factor' before calling."
+            )
+        if "factor" in raw.columns:
+            raise ValueError(
+                f"raw carries both 'factor' and {factor_col!r} columns; "
+                f"ambiguous which is the signal under test. Drop the "
+                f"unused column before calling evaluate."
+            )
+        raw = raw.rename({factor_col: "factor"})
     mode = _derive_mode(raw)
     key = _dispatch_key_for(config.scope, config.signal, config.metric, mode)
     extra_info: frozenset[InfoCode] = (

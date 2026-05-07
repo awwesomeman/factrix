@@ -111,10 +111,11 @@ specific contracts that apply when factrix routes here.
 ### `factor`
 
 The signal column. Same role as Alphalens "factor", Barra "exposure",
-or generic "alpha score" / "predictor". factrix expects the column
-literally named `factor`; today this is enforced at procedure-level
-INPUT_SCHEMA (a `factor_col=` argument to `evaluate()` is on the
-roadmap — see #85).
+or generic "alpha score" / "predictor". The procedure-level
+`INPUT_SCHEMA` consumes a column literally named `factor`; pass
+`evaluate(..., factor_col="alpha")` to use a differently-named
+column without renaming the panel first
+([`evaluate.md` § factor_col=](../api/evaluate.md#factor_col--non-default-signal-column-name)).
 
 ### `forward_return`
 

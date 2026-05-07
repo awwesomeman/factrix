@@ -37,6 +37,8 @@ typical usage patterns in a single fetch. Two access paths::
     text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
 
+from typing import Any
+
 from factrix import datasets, multi_factor, preprocess
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
@@ -65,13 +67,27 @@ from factrix._profile import FactorProfile
 from factrix._types import MetricOutput
 
 
-def evaluate(raw, config=None, /):
+def evaluate(
+    raw: Any,
+    config: AnalysisConfig | None = None,
+    /,
+    *,
+    factor_col: str = "factor",
+) -> FactorProfile:
     """Dispatch ``raw`` through the cell selected by ``config``.
 
     Thin public wrapper around the private ``_evaluate`` dispatcher.
     Intercepts the common onboarding miss — ``evaluate(panel)`` — with
     a friendly :class:`MissingConfigError` pointing at
     :func:`suggest_config` and the Get Started guide.
+
+    Args:
+        raw: Long-format panel.
+        config: Validated ``AnalysisConfig``.
+        factor_col: Name of the signal column on ``raw`` (default
+            ``"factor"``). The column is renamed to ``"factor"``
+            internally before dispatch — single-factor convenience
+            only; for multi-signal panels use ``factrix.multi_factor``.
     """
     if config is None:
         raise MissingConfigError(
@@ -80,7 +96,7 @@ def evaluate(raw, config=None, /):
             "or see the Get Started guide: "
             "https://awwesomeman.github.io/factrix/getting-started/"
         )
-    return _evaluate(raw, config)
+    return _evaluate(raw, config, factor_col=factor_col)
 
 
 __version__ = "0.8.0"

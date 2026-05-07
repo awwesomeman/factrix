@@ -166,16 +166,22 @@ panel + `forward_periods=5` = 5 trading days; weekly = 5 weeks.
 ### `evaluate`
 
 ```
-factrix.evaluate(raw: polars.DataFrame, config: AnalysisConfig) -> FactorProfile
+factrix.evaluate(raw: polars.DataFrame, config: AnalysisConfig,
+                 *, factor_col: str = "factor") -> FactorProfile
 ```
 
 Single dispatch entry. Derives mode from `raw["asset_id"].n_unique()`, applies
 scope-collapse for `SPARSE × TIMESERIES`, and routes to the registered
-procedure. Raises:
+procedure. `factor_col=` lets a panel with a non-default signal column
+name (e.g. `"alpha"`) be evaluated without renaming first — single-factor
+convenience only; for multi-signal panels use `factrix.multi_factor`.
+Raises:
 - `IncompatibleAxisError` — config axes form an illegal cell
 - `ModeAxisError` — the routed cell has no procedure under the derived mode;
   the exception carries `.suggested_fix: AnalysisConfig | None` with the
   nearest-legal config
+- `ValueError` — `factor_col` not present on `raw`, or both `"factor"` and
+  `factor_col` present (ambiguous which is the signal)
 
 ---
 
