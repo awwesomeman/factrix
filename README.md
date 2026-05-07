@@ -11,8 +11,8 @@
     <a href="https://github.com/awwesomeman/factrix/actions/workflows/test.yml" title="test workflow">
         <img src="https://github.com/awwesomeman/factrix/actions/workflows/test.yml/badge.svg?branch=main" />
     </a>
-    <a href="https://github.com/awwesomeman/factrix/actions/workflows/docs.yml" title="docs workflow">
-        <img src="https://github.com/awwesomeman/factrix/actions/workflows/docs.yml/badge.svg?branch=main" />
+    <a href="https://github.com/awwesomeman/factrix/actions/workflows/docs-deploy-release.yml" title="docs workflow">
+        <img src="https://github.com/awwesomeman/factrix/actions/workflows/docs-deploy-release.yml/badge.svg?branch=main" />
     </a>
     <a href="https://www.python.org/downloads/" title="Python versions">
         <img src="https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white" />
