@@ -47,8 +47,11 @@ jobs:
       - name: Strict build
         run: uv run mkdocs build --strict
 
-      - name: Check generated metric matrix is committed
-        run: git diff --exit-code -- docs/reference/_generated_metric_matrix.md
+      - name: Check generated docs files are committed
+        run: |
+          git diff --exit-code -- \
+            docs/reference/_generated_metric_matrix.md \
+            docs/development/_generated_registry_cells.md
 
   build-main:
     if: github.event_name != 'pull_request'
@@ -69,5 +72,8 @@ jobs:
       - name: Strict build
         run: uv run mkdocs build --strict
 
-      - name: Check generated metric matrix is committed
-        run: git diff --exit-code -- docs/reference/_generated_metric_matrix.md
+      - name: Check generated docs files are committed
+        run: |
+          git diff --exit-code -- \
+            docs/reference/_generated_metric_matrix.md \
+            docs/development/_generated_registry_cells.md
