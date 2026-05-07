@@ -17,9 +17,9 @@ uv add factrix
 ## Version pinning
 
 ```bash
-pip install factrix==0.7.0
+pip install factrix==0.8.0
 # or
-uv add factrix==0.7.0
+uv add factrix==0.8.0
 ```
 
 ## Local development
