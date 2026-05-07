@@ -148,8 +148,8 @@ def multi_split_oos_decay(
         is_vals = vals[:split_idx]
         oos_vals = vals[split_idx:]
 
-        mean_is = float(is_vals.mean())
-        mean_oos = float(oos_vals.mean())
+        mean_is = float(is_vals.mean())  # type: ignore[arg-type]
+        mean_oos = float(oos_vals.mean())  # type: ignore[arg-type]
 
         sign_flip = (mean_is > 0 and mean_oos < 0) or (mean_is < 0 and mean_oos > 0)
         if sign_flip:

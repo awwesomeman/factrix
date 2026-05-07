@@ -394,8 +394,8 @@ def signal_density(
         (pl.col("total_bars") / pl.col("n")).alias("bars_per_event")
     )
 
-    mean_gap = float(per_asset["bars_per_event"].mean())
-    events_per_asset = float(per_asset["n"].mean())
+    mean_gap = float(per_asset["bars_per_event"].mean())  # type: ignore[arg-type]
+    events_per_asset = float(per_asset["n"].mean())  # type: ignore[arg-type]
 
     return MetricOutput(
         name="signal_density",

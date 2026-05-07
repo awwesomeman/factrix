@@ -43,7 +43,7 @@ def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
     if "tie_ratio" not in ic_df.columns:
         return float("nan")
     med = ic_df["tie_ratio"].median()
-    return float("nan") if med is None else float(med)
+    return float("nan") if med is None else float(med)  # type: ignore[arg-type]
 
 
 def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
@@ -177,7 +177,7 @@ def ic(
             forward_periods=forward_periods,
         )
 
-    mean_ic = float(ic_vals.mean())
+    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
     sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
     n_sampled = len(sampled)
     if n_sampled < MIN_ASSETS_PER_DATE_IC:
@@ -188,7 +188,7 @@ def ic(
             min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
-    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
+    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
     p = _p_value_from_t(t, n_sampled)
 
     return MetricOutput(
@@ -313,8 +313,8 @@ def ic_ir(
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
-    mean_ic = float(ic_vals.mean())
-    std_ic = float(ic_vals.std())
+    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
+    std_ic = float(ic_vals.std())  # type: ignore[arg-type]
 
     if std_ic < EPSILON:
         return _short_circuit_output(
@@ -433,31 +433,31 @@ def regime_ic(
     # per_regime is insertion-ordered, so iterating .values() lines up
     # with the BHY adjuster's positional output.
     raw_p_list = [d["p_value"] for d in per_regime.values()]
-    adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []
+    adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []  # type: ignore[arg-type,var-annotated]
     for entry, ap in zip(per_regime.values(), adj_p, strict=False):
         entry["p_adjusted_bhy"] = float(ap)
 
-    mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
+    mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))  # type: ignore[misc]
 
     # Conservative summary: if the weakest regime is significant, all are.
-    min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))
+    min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))  # type: ignore[arg-type]
     min_t = min_abs_t_regime["stat"]
     min_p = min_abs_t_regime["p_value"]
     min_p_adjusted = float(max(adj_p)) if len(adj_p) else 1.0
 
     # WHY: filter near-zero means before checking direction consistency —
     # a regime with IC ≈ 0 has no signal, not a "consistent direction"
-    nonzero = [d["mean_ic"] for d in per_regime.values() if abs(d["mean_ic"]) > EPSILON]
+    nonzero = [d["mean_ic"] for d in per_regime.values() if abs(d["mean_ic"]) > EPSILON]  # type: ignore[arg-type]
     if nonzero:
-        consistent = all(v > 0 for v in nonzero) or all(v < 0 for v in nonzero)
+        consistent = all(v > 0 for v in nonzero) or all(v < 0 for v in nonzero)  # type: ignore[operator]
     else:
         consistent = False
 
     return MetricOutput(
         name="regime_ic",
         value=mean_all,
-        stat=min_t,
-        significance=_significance_marker(min_p),
+        stat=min_t,  # type: ignore[arg-type]
+        significance=_significance_marker(min_p),  # type: ignore[arg-type]
         metadata={
             "p_value": min_p,
             "p_value_bhy_adjusted": min_p_adjusted,
@@ -534,13 +534,13 @@ def multi_horizon_ic(
         # Scale the raw threshold to land with ≥ MIN_ASSETS_PER_DATE_IC after
         # the p-period non-overlap sub-sampling below.
         if n_ic >= _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, p):
-            mean_ic = float(ic_vals.mean())
+            mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
             # WHY: use non-overlapping sampling for t-stat to avoid
             # autocorrelation inflation from overlapping forward returns
             sampled = _sample_non_overlapping(ic_series, p)["ic"].drop_nulls()
             n_sampled = len(sampled)
             if n_sampled >= 2:
-                t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
+                t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
             else:
                 t = 0.0
             p_val = _p_value_from_t(t, n_sampled)
@@ -558,7 +558,7 @@ def multi_horizon_ic(
                 "n_periods": n_ic,
             }
 
-    valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
+    valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]  # type: ignore[arg-type]
     if not valid_horizons:
         return _short_circuit_output(
             "multi_horizon_ic",
@@ -567,15 +567,15 @@ def multi_horizon_ic(
         )
 
     # BHY across horizons: sweeping k horizons is k implicit tests.
-    horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]
+    horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]  # type: ignore[arg-type]
     raw_h_p = [per_horizon[h]["p_value"] for h in horizon_keys]
-    adj_h_p = bhy_adjusted_p(raw_h_p) if raw_h_p else []
+    adj_h_p = bhy_adjusted_p(raw_h_p) if raw_h_p else []  # type: ignore[arg-type,var-annotated]
     for h, ap in zip(horizon_keys, adj_h_p, strict=False):
         per_horizon[h]["p_adjusted_bhy"] = float(ap)
 
-    mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))
+    mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))  # type: ignore[misc]
 
-    weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))
+    weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))  # type: ignore[arg-type]
     min_t = weakest["stat"]
     min_p = weakest["p_value"]
     min_p_adjusted = float(max(adj_h_p)) if len(adj_h_p) else 1.0
@@ -583,8 +583,8 @@ def multi_horizon_ic(
     return MetricOutput(
         name="multi_horizon_ic",
         value=mean_all,
-        stat=min_t,
-        significance=_significance_marker(min_p),
+        stat=min_t,  # type: ignore[arg-type]
+        significance=_significance_marker(min_p),  # type: ignore[arg-type]
         metadata={
             "p_value": min_p,
             "p_value_bhy_adjusted": min_p_adjusted,

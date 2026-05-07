@@ -267,7 +267,7 @@ class _CAARSparsePanelProcedure:
         n_assets = int(raw["asset_id"].n_unique())
 
         event_mean = (
-            float(event_caar["caar"].drop_nulls().mean())
+            float(event_caar["caar"].drop_nulls().mean())  # type: ignore[arg-type]
             if event_caar.height > 0
             else 0.0
         )
