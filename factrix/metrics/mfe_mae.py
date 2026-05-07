@@ -34,14 +34,14 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     users with Datetime('us') or TZ-aware inputs get a joinable result."""
     return {
         "date": date_dtype,
-        "asset_id": pl.String,
-        "mfe": pl.Float64,
-        "mae": pl.Float64,
-        "mfe_z": pl.Float64,
-        "mae_z": pl.Float64,
-        "est_sigma": pl.Float64,
-        "bars_to_mfe": pl.Int32,
-        "bars_to_mae": pl.Int32,
+        "asset_id": pl.String(),
+        "mfe": pl.Float64(),
+        "mae": pl.Float64(),
+        "mfe_z": pl.Float64(),
+        "mae_z": pl.Float64(),
+        "est_sigma": pl.Float64(),
+        "bars_to_mfe": pl.Int32(),
+        "bars_to_mae": pl.Int32(),
     }
 
 
