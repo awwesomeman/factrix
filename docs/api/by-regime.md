@@ -40,11 +40,6 @@ Common families shown — for the full eligible set, use
 [`list_metrics`](list-metrics.md) with
 `format="json"` and filter on `input_kind == "panel"`.
 
-If you pass the raw panel where a `compute_*` output is expected,
-the metric raises on missing columns (e.g. `ic` looks for the
-per-date `ic` column, not `factor` / `forward_return`). Run the
-prep step first.
-
 If `regime_labels` is omitted, falls back to time-bisection labelled
 `first_half` / `second_half` and emits a `UserWarning` — that path is
 a structural-break sanity check, not a regime test.

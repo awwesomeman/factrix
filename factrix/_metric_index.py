@@ -99,6 +99,14 @@ _EMITTED_NAME_OVERRIDES: dict[str, str] = {
     "pooled_ols": "pooled_beta",
 }
 
+# Canonical reverse-index URL convention for ``MetricRow.docs_anchor``
+# (#125): docs-root-relative path + mkdocstrings symbol fragment.
+# Centralised here so a future docs URL change touches one literal —
+# external prose in ``factrix._describe.list_metrics`` and
+# ``docs/api/metric-output.md`` cite this constant by name rather
+# than restating the string.
+DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
+
 
 @dataclass(frozen=True, slots=True)
 class Cell:
@@ -273,9 +281,7 @@ def all_rows() -> list[MetricRow]:
             inference_se=entry.inference_se,
             import_path=f"factrix.metrics.{entry.module}",
             input_kind="scalar" if name in _SCALAR_INPUT_METRICS else "panel",
-            docs_anchor=(
-                f"api/metrics/{entry.module}.md#factrix.metrics.{entry.module}.{name}"
-            ),
+            docs_anchor=DOCS_ANCHOR_FMT.format(module=entry.module, name=name),
             emitted_name=_EMITTED_NAME_OVERRIDES.get(name, name),
         )
         for entry in matrix_entries()

@@ -19,9 +19,9 @@ back to the metric's API page two ways:
 - **Programmatic** —
   [`list_metrics(..., format="json")`](list-metrics.md) rows carry an
   `emitted_name` field (the literal `MetricOutput.name` value) and a
-  `docs_anchor` field
-  (`api/metrics/<module>.md#factrix.metrics.<module>.<name>`),
-  resolvable without scraping.
+  `docs_anchor` field following the `DOCS_ANCHOR_FMT` convention
+  defined in `factrix._metric_index` (docs-root-relative path +
+  mkdocstrings symbol fragment), resolvable without scraping.
 - **Static** — the auto-generated table below maps every emitted
   `MetricOutput.name` value to the function that produced it and the
   API page anchor. Regenerated from the same `Matrix-row:` SSOT on

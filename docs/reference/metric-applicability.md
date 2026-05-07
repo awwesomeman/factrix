@@ -33,17 +33,17 @@ across Modes, only the sample axis that constrains it.
 
 | Metric | Cell | Canonical role | Sample axis | Min sample |
 |---|---|---|---|---|
-| [`ic`][factrix.metrics.ic.ic] | Individual × Continuous | Cell-canonical (IC) | `T/h` (non-overlap) | `T/h ≥ MIN_ASSETS_PER_DATE_IC` (= 10) via `_scaled_min_periods(MIN_ASSETS_PER_DATE_IC, h)` |
+| [`ic`][factrix.metrics.ic.ic] | Individual × Continuous | Cell-canonical (IC) | `T/h` (non-overlap) | `T/h ≥ MIN_ASSETS_PER_DATE_IC` via `_scaled_min_periods(MIN_ASSETS_PER_DATE_IC, h)` |
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | Individual × Continuous | HAC variant of `ic` | `T` (full series) | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | Individual × Continuous | IR / ICIR | `T` | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`regime_ic`][factrix.metrics.ic.regime_ic] | Individual × Continuous | Regime-stratified IC | `T` per regime | per-regime `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`multi_horizon_ic`][factrix.metrics.ic.multi_horizon_ic] | Individual × Continuous | Per-horizon IC + BHY | `T` per horizon | per-horizon `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
-| [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | Individual × Continuous | Cell-canonical (FM) | `T` (λ series) | `T ≥ MIN_FM_PERIODS_HARD` (= 4); warn if `T < MIN_FM_PERIODS_WARN` (= 30) |
+| [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | Individual × Continuous | Cell-canonical (FM) | `T` (λ series) | `T ≥ MIN_FM_PERIODS_HARD`; warn if `T < MIN_FM_PERIODS_WARN` |
 | [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | Individual × Continuous | Pooled OLS sibling of FM | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
 | [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | Individual × Continuous | Per-period β-sign hit rate | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | Individual × Continuous | Top-minus-bottom spread t | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD` (= 3); per-date `N ≥ n_groups` |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | Individual × Continuous | Top-minus-bottom spread t | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | Individual × Continuous | Value-weighted spread | `T/h` | as `quantile_spread` |
-| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Individual × Continuous | Group-rank monotonicity | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS` (= 5) |
+| [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Individual × Continuous | Group-rank monotonicity | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS` |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | Individual × Continuous | Top-bucket HHI ratio | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 | [`turnover`][factrix.metrics.tradability.turnover] | Individual × Continuous | Rank-stability (`1 − ρ`) | `T` | `T ≥ 2·forward_periods + 1` |
 | [`notional_turnover`][factrix.metrics.tradability.notional_turnover] | Individual × Continuous | Q1/Qn replacement fraction | `T` | as `turnover` |
@@ -51,7 +51,7 @@ across Modes, only the sample axis that constrains it.
 | [`net_spread`][factrix.metrics.tradability.net_spread] | Individual × Continuous | $\text{spread} - \text{cost} \cdot \tau$ | scalar | spread + cost provided |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | Spread-series consumer | Single-factor α post base | `T` | aligned spread series |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | Spread-series consumer | Diagnostic — not for inference | `T` | as `spanning_alpha` |
-| [`caar`][factrix.metrics.caar.caar] | Individual × Sparse | Cell-canonical | `K/h` (non-overlap) | `K/h ≥ MIN_EVENTS_HARD` (= 4); warn if `K/h < MIN_EVENTS_WARN` (= 30) via `_scaled_min_periods(MIN_EVENTS_HARD, h)` |
+| [`caar`][factrix.metrics.caar.caar] | Individual × Sparse | Cell-canonical | `K/h` (non-overlap) | `K/h ≥ MIN_EVENTS_HARD`; warn if `K/h < MIN_EVENTS_WARN` via `_scaled_min_periods(MIN_EVENTS_HARD, h)` |
 | [`bmp_test`][factrix.metrics.caar.bmp_test] | Individual × Sparse | Variance-robust sibling | `K` | `K ≥ MIN_EVENTS_HARD`; `estimation_window` periods per asset |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | Individual × Sparse | Per-event sign hit rate | `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | Individual × Sparse | Strength → return Spearman | `K` | `K ≥ MIN_EVENTS_HARD` |
@@ -63,7 +63,7 @@ across Modes, only the sample axis that constrains it.
 | [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | Individual × Sparse | Path-excursion summary | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | Individual × Sparse (`N ≥ 2`) | Event-date HHI | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
 | [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | Individual × Sparse | Nonparametric rank test | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
-| [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | Common × Continuous | Cell-canonical | `N` (β distribution) | `N ≥ 2`; per-asset `T ≥ MIN_TS_OBS` (= 20) |
+| [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | Common × Continuous | Cell-canonical | `N` (β distribution) | `N ≥ 2`; per-asset `T ≥ MIN_TS_OBS` |
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | Common × Continuous | Avg explanatory R² | `N` | as `ts_beta` |
 | [`compute_rolling_mean_beta`][factrix.metrics.ts_beta.compute_rolling_mean_beta] | Common × Continuous | β stability over time | `T` per window | window ≥ `MIN_TS_OBS` |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | Common × Continuous | Cross-asset β-sign rate | `N` | `N ≥ 2` |
@@ -71,7 +71,7 @@ across Modes, only the sample axis that constrains it.
 | [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | Common × Continuous | Long/short slope asymmetry | `T` | factor has both signs (Gate B); each side `n_unique ≥ 2` for method B (Gate C) |
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | Series-tools | Binomial hit rate | series length | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Series-tools | Theil-Sen slope + ADF flag | `T` | `T ≥ 10` (literal floor) |
-| [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | Series-tools | Median IS/OOS survival | `T` | `T ≥ 2 × MIN_OOS_PERIODS` (= 10) |
+| [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | Series-tools | Median IS/OOS survival | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
 
 ## Sample-size constants
 [](){ #sample-size-constants }
