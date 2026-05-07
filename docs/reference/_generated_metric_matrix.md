@@ -13,6 +13,7 @@
 | [`metrics.monotonicity`][factrix.metrics.monotonicity] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | cs-first | cross-asset t |
 | [`metrics.oos`][factrix.metrics.oos] | `(*, CONTINUOUS, *, TIMESERIES)` | ts-only | no formal H₀ |
 | [`metrics.quantile`][factrix.metrics.quantile] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | cs-first | cross-asset t |
+| [`metrics.regime`][factrix.metrics.regime] | `(*, *, *, *)` | dispatcher | none (no cross-regime test) |
 | [`metrics.spanning`][factrix.metrics.spanning] | `factor-return-series consumer (post-PANEL pipeline)` | ts-only | NW HAC / OLS t |
 | [`metrics.tradability`][factrix.metrics.tradability] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | cs-first | no formal H₀ |
 | [`metrics.tradability`][factrix.metrics.tradability] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | ts-only (rank autocorrelation across consecutive dates) | no formal H₀ |

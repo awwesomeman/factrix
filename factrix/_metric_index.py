@@ -65,6 +65,16 @@ _STAGE1_HELPERS: frozenset[str] = frozenset(
     }
 )
 
+# Cross-cutting infrastructure published from ``factrix.metrics`` that
+# is **not** a per-(scope, signal) cell metric — e.g. ``by_regime`` is a
+# dispatcher that wraps any registered metric. Listed in ``Matrix-row:``
+# with ``(*, *, *, *)`` so the primitive graph is complete, but excluded
+# from per-cell ``list_metrics`` output and the applicability table
+# (which catalogue per-cell metrics, not infra).
+_INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime"})
+"""Cross-cutting dispatchers published from ``factrix.metrics`` that
+are not per-(scope, signal) cell metrics."""
+
 
 @dataclass(frozen=True, slots=True)
 class Cell:
@@ -225,5 +235,6 @@ def all_rows() -> list[MetricRow]:
 
 
 def user_facing_rows() -> list[MetricRow]:
-    """Return parsed rows excluding stage-1 aggregation helpers."""
-    return [r for r in all_rows() if r.name not in _STAGE1_HELPERS]
+    """Return parsed rows excluding stage-1 helpers and cross-cutting infra."""
+    excluded = _STAGE1_HELPERS | _INFRASTRUCTURE
+    return [r for r in all_rows() if r.name not in excluded]
