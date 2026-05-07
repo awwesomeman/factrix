@@ -49,7 +49,7 @@ exact dataframe you handed to `evaluate()`:
 import factrix as fl
 
 raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
-panel = fl.preprocess.returns.compute_forward_return(raw, forward_periods=5)
+panel = fl.preprocess.compute_forward_return(raw, forward_periods=5)
 profile = fl.evaluate(panel, fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC))
 
 spread = fl.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)
@@ -66,7 +66,7 @@ also valid: `{0, R≥0}` or `{-R, 0, +R}`). Build via
 
 ```python
 events = fl.datasets.make_event_panel(n_assets=80, n_dates=500, event_rate=0.05, seed=7)
-events = fl.preprocess.returns.compute_forward_return(events, periods=5)
+events = fl.preprocess.compute_forward_return(events, forward_periods=5)
 
 profile = fl.evaluate(events, fl.AnalysisConfig.individual_sparse(forward_periods=5))
 
