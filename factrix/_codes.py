@@ -186,6 +186,49 @@ class StatCode(StrEnum):
         """
         return self.value.endswith("_p")
 
+    @property
+    def description(self) -> str:
+        """Short gloss for ``profile.diagnose()`` consumers.
+
+        Symmetric with ``WarningCode.description`` / ``InfoCode.description``;
+        agents reading ``diagnose()["stats"]`` can resolve a key like
+        ``"factor_adf_p"`` to its statistical meaning without grepping
+        ``_procedures.py``.
+        """
+        return _STAT_DESCRIPTIONS[self]
+
+
+_STAT_DESCRIPTIONS: dict[StatCode, str] = {
+    StatCode.IC_MEAN: "Per-date Spearman IC, mean over the time series.",
+    StatCode.IC_T_NW: "NW HAC t-stat on the IC mean (Bartlett kernel, "
+    "auto-bandwidth with Hansen-Hodrick overlap floor).",
+    StatCode.IC_P: "Two-sided p-value from the NW HAC t-test on IC.",
+    StatCode.FM_LAMBDA_MEAN: "Fama-MacBeth λ — per-date OLS slope of "
+    "forward_return on factor, averaged over time.",
+    StatCode.FM_LAMBDA_T_NW: "NW HAC t-stat on the FM λ mean.",
+    StatCode.FM_LAMBDA_P: "Two-sided p-value from the NW HAC t-test on FM λ.",
+    StatCode.TS_BETA: "Per-asset OLS β on the broadcast factor; "
+    "PANEL = cross-asset mean of β_i, TIMESERIES = single-series β.",
+    StatCode.TS_BETA_T_NW: "PANEL: cross-asset t on E[β]. "
+    "TIMESERIES: NW HAC t on the single-series β.",
+    StatCode.TS_BETA_P: "Two-sided p-value from the TS_BETA t-test.",
+    StatCode.CAAR_MEAN: "Per-event-date weighted abnormal return, "
+    "averaged across event dates (event-only mean — see _procedures for "
+    "the dense-calendar t-stat).",
+    StatCode.CAAR_T_NW: "NW HAC t-stat on the dense-calendar CAAR series "
+    "(zero-fill on non-event dates; Hansen-Hodrick overlap floor).",
+    StatCode.CAAR_P: "Two-sided p-value from the NW HAC t-test on CAAR.",
+    StatCode.FACTOR_ADF_P: "ADF unit-root test p-value on the factor input "
+    "series (MacKinnon 1996 response-surface; constant-only specification). "
+    "p > 0.05 flags persistent regressor regime.",
+    StatCode.LJUNG_BOX_P: "Ljung-Box p-value on residual autocorrelation "
+    "(TS-dummy single-asset path); p < 0.05 flags under-set NW lag.",
+    StatCode.EVENT_TEMPORAL_HHI: "Herfindahl concentration of event dates "
+    "over the calendar grid; high values flag temporal event clustering.",
+    StatCode.NW_LAGS_USED: "NW HAC lag count selected by the auto-bandwidth "
+    "rule for the cell's primary t-test.",
+}
+
 
 class Verdict(StrEnum):
     """Procedure-canonical pass/fail outcome of ``Profile.verdict()``."""
