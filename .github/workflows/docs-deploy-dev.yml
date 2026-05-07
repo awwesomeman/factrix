@@ -45,16 +45,12 @@ jobs:
       - name: Strict build
         run: uv run mkdocs build --strict
 
-  deploy:
+  build-main:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -65,12 +61,5 @@ jobs:
       - name: Install docs dependencies
         run: uv sync --python 3.12 --extra docs
 
-      - name: Configure git for mike
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Deploy dev
-        run: |
-          uv run mike deploy --push dev
-          uv run mike set-default --push latest
+      - name: Strict build
+        run: uv run mkdocs build --strict
