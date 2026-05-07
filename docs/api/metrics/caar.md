@@ -4,6 +4,13 @@ Cumulative Average Abnormal Return tests for event signals. CAAR
 *t*-test (parametric) and BMP standardised AR *z*-test (robust to
 event-induced variance).
 
+!!! info "Event-study contracts"
+    `signed_car`, the `estimation_window` consumed by `bmp_test`, and
+    factrix's confounded-event handling are documented in
+    [Metric applicability § Event-study contracts](../../reference/metric-applicability.md#event-study-contracts).
+    factrix computes **CAR** (sum of per-period abnormal returns), not
+    BHAR; see the same section for the distinction.
+
 ::: factrix.metrics.caar
 
 ## See also

@@ -4,6 +4,16 @@ Per-event quality summaries computed on `signed_car`: hit rate, IC,
 profit factor, skewness, signal density. Inference is binomial or
 nonparametric — descriptive elsewhere.
 
+!!! info "Event-study contracts"
+    These metrics use the **sign-only** form `signed_car =
+    forward_return × sign(factor)` — distinct from `caar`'s
+    magnitude-weighted `forward_return × factor`. See the
+    [abnormal-return table](../../reference/metric-applicability.md#abnormal-return-definition-per-metric)
+    for the full per-metric contract and the
+    [confounded-event note](../../reference/metric-applicability.md#confounded-event-handling)
+    for how the binomial / Spearman nulls behave under within-asset
+    event clustering.
+
 ::: factrix.metrics.event_quality
     options:
       members:

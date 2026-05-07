@@ -4,6 +4,16 @@ Corrado (1989) nonparametric rank test on event abnormal returns.
 Robust to extreme returns, non-normality, and cross-asset
 heteroscedasticity. Direction-adjusted for two-sided signals.
 
+!!! info "Event-study contracts"
+    Corrado's primitive is `signed_rank = uniform_rank(forward_return) ×
+    sign(factor)` — note that the direction adjustment is on the rank,
+    not on the return itself. The
+    [Event-study contracts table](../../reference/metric-applicability.md#abnormal-return-definition-per-metric)
+    contrasts this with `caar` (magnitude-weighted) and `event_quality`
+    (sign-only on the raw return). The
+    [`estimation_window`](../../reference/metric-applicability.md#estimation_window)
+    section specifies the per-asset baseline this test ranks against.
+
 ::: factrix.metrics.corrado
 
 ## See also

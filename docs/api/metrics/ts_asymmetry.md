@@ -5,6 +5,12 @@ Two methods — conditional means and piecewise slopes — both fit by OLS
 with NW HAC and tested by Wald χ², so cross-method *p*-values stay
 comparable under overlapping forward returns.
 
+!!! info "TIMESERIES-mode conventions"
+    `FACTOR_ADF_P` persistence diagnostic, plain stage-1 SE rationale,
+    and the `forward_periods` vs `signal_horizon` bias framing apply
+    here as for the rest of the TS-mode family. See
+    [TIMESERIES-mode conventions](../../reference/ts-mode-conventions.md).
+
 ::: factrix.metrics.ts_asymmetry
 
 ## See also

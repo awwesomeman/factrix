@@ -97,6 +97,28 @@ the advantage of exact rather than asymptotic-Gaussian inference at
 the cost of a factor of `h` in effective sample size; users with long
 panels often prefer NW.
 
+### NW vs HH-1980 vs Hodrick-1992 — when to use which
+
+The three procedures all target overlap-induced SE distortion but at
+different points in the bias-variance trade-off:
+
+| Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
+|---|---|---|---|---|
+| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(⌊T^{1/3}⌋, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic_newey_west`, `fama_macbeth` stage 2, `pooled_ols`, `ts_quantile_spread`, `ts_asymmetry`. |
+| **Hansen-Hodrick (1980)** | MA(`h−1`) overlap-aware lag floor on NW. | Guarantees the kernel covers the residual structure; cheap addition to NW. | Still asymptotic; the rule itself does not solve size distortion under `h/T → 1`. | Embedded inside the NW bandwidth rule above (`h − 1` floor). |
+| **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
+
+Practical rule of thumb:
+
+- `h ≤ 1`: NW with the Andrews rule is fine; the HH-1980 floor is
+  inactive.
+- `1 < h, h/T ≤ 0.05`: NW + HH-1980 floor is the factrix default; the
+  finite-sample bias is small enough.
+- `h/T > 0.05`: prefer non-overlapping resampling (`ic`, `caar`
+  defaults) over NW. If a slope estimate is needed and resampling
+  burns too much sample, Hodrick-1992 1B is the literature-preferred
+  alternative; pre-compute externally.
+
 ---
 
 ## 2. Multiple-testing under dependence
