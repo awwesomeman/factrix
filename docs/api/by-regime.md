@@ -49,6 +49,10 @@ factrix provides Layer B wrappers — see
 `by_regime` directly when no Layer B wrapper exists or when you want
 raw per-regime outputs to compose your own analysis.
 
+**As of v0.9.0, `regime_ic` is the only Layer B wrapper.** `regime_caar`
+and `regime_fama_macbeth` are tracked in
+[#107 Phase 2](https://github.com/awwesomeman/factrix/issues/107).
+
 ## Which metrics work
 
 Any metric whose primary first argument is a DataFrame with a `date`

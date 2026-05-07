@@ -13,6 +13,8 @@ Regime analysis asks "is this factor stable across market environments?" — a d
 
 **Use Layer B when:** a curated wrapper exists for your metric and the bundled second-layer test matches your research question.
 
+> **Layer B coverage as of v0.9.0:** only [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) ships. `regime_caar` and `regime_fama_macbeth` are tracked in [#107 Phase 2](https://github.com/awwesomeman/factrix/issues/107). Until then, `by_regime(compute_caar, df, ...)` and `by_regime(fama_macbeth, df, ...)` return per-regime values without a cross-regime statistic — useful for descriptive comparison, not for inference.
+
 ## Why no generic cross-regime test
 
 A single dispatcher carrying a single second-layer test would silently over-claim. The appropriate test depends on the metric family:
