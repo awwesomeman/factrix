@@ -170,16 +170,17 @@ factrix.evaluate(raw: polars.DataFrame, config: AnalysisConfig,
                  *, factor_col: str = "factor") -> FactorProfile
 ```
 
-Single dispatch entry. Derives mode from `raw["asset_id"].n_unique()`, applies
-scope-collapse for `SPARSE × TIMESERIES`, and routes to the registered
 procedure. `factor_col=` lets a panel with a non-default signal column
-name (e.g. `"alpha"`) be evaluated without renaming first — single-factor
-convenience only; for multi-signal panels use `factrix.multi_factor`.
-Raises:
+name (e.g. `"alpha"`) be evaluated without renaming first; looping over
+candidates with different `factor_col=` values is the canonical multi-
+factor pattern. Raises (subclasses of `FactrixError`; see `## Errors`
+below for the full hierarchy + recovery payloads):
+- `MissingConfigError` — `evaluate(raw)` called without an `AnalysisConfig`
 - `IncompatibleAxisError` — config axes form an illegal cell
-- `ModeAxisError` — the routed cell has no procedure under the derived mode;
-  the exception carries `.suggested_fix: AnalysisConfig | None` with the
-  nearest-legal config
+- `ModeAxisError` — legal cell has no procedure under the derived mode;
+  carries `.suggested_fix: AnalysisConfig | None`
+- `InsufficientSampleError` — `T` below the procedure's `MIN_PERIODS_HARD`
+  floor; carries `.actual_periods` / `.required_periods`
 - `ValueError` — `factor_col` not present on `raw`, or both `"factor"` and
   `factor_col` present (ambiguous which is the signal)
 
@@ -208,6 +209,12 @@ profile.diagnose() -> dict[str, Any]
     #  "info_notes": [str, ...],        # sorted InfoCode .value strings
     #  "stats": {str: float, ...}}      # StatCode .value → float
 ```
+
+`WarningCode`, `InfoCode`, and `StatCode` each expose a `.description`
+property — agents reading `diagnose()["stats"]` / `["warnings"]` /
+`["info_notes"]` can resolve a key like `"factor_adf_p"` or
+`"persistent_regressor"` to its statistical meaning without grepping
+`_codes.py` or `_procedures.py`.
 
 ---
 
@@ -244,6 +251,22 @@ factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
 factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
     # Inspect a panel; propose an AnalysisConfig + structured reasoning + warnings.
     # Suggestion is never auto-applied — caller (or agent) reads .reasoning.
+    # SuggestConfigResult fields:
+    #   .suggested  : AnalysisConfig
+    #   .detected   : dict[str, Any]      # scope/signal/mode/n_assets/n_periods/sparsity
+    #   .reasoning  : dict[str, str]      # per-axis human-readable rationale
+    #   .warnings   : list[WarningCode]   # Python ergonomic — keep enum identity
+    #
+    # SuggestConfigResult.diagnose() -> dict[str, Any]
+    #   # JSON-shape, symmetric with FactorProfile.diagnose():
+    #   # {"suggested": {...to_dict()...},
+    #   #  "detected":  {...},
+    #   #  "reasoning": {...},
+    #   #  "warnings":  [str, ...]}        # sorted WarningCode .value strings
+    #
+    # Wire-format rule: Python callers read .warnings (enum-typed);
+    # cross-wire / JSON / log consumers call .diagnose() — same
+    # convention as FactorProfile.
 
 factrix.list_metrics(scope: FactorScope, signal: Signal,
                      *, format: Literal["text", "json"] = "text"
@@ -290,9 +313,21 @@ FactrixError                       # base — all factrix-raised errors
                                    # carries .actual_periods / .required_periods
 ```
 
-`InsufficientSampleError` and `ModeAxisError` carry recovery payloads
-(numbers / nearest-legal config) so callers can branch programmatically
-without parsing message strings.
+Recovery payloads — what each subclass carries beyond `.args[0]`:
+
+| Exception                | `.suggested_fix` | Extra fields                              |
+|--------------------------|:----------------:|-------------------------------------------|
+| `ConfigError` (base)     | optional         | —                                         |
+| `MissingConfigError`     | always `None`    | (call `factrix.suggest_config(raw)` to recover) |
+| `IncompatibleAxisError`  | optional         | —                                         |
+| `ModeAxisError`          | typically set    | —                                         |
+| `InsufficientSampleError`| optional         | `.actual_periods: int`, `.required_periods: int` |
+
+Agents can branch on these payloads without parsing message strings; the
+canonical pattern is `except fl.FactrixError as exc:` followed by
+`isinstance(exc, …)` dispatch on the subclass. `MissingConfigError` is the
+only subclass with `.suggested_fix` always `None` (the recovery path is
+calling `factrix.suggest_config(raw)`).
 
 ---
 
