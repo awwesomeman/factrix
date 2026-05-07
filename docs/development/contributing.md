@@ -402,27 +402,13 @@ the offending PR) before bumping.
 
 ### 7.4 Type-checking conventions
 
-`uv run mypy factrix` is enforced in CI. Two recurring patterns when
-adding new code:
+`uv run mypy factrix` is enforced in CI. Three recurring patterns:
 
-- **Polars aggregation results** (`pl.Series.median()`, `.mean()`,
-  `.std()`, `.quantile()`, `.item()`) annotate as a broad union that
-  includes non-numeric branches. mypy cannot narrow without runtime
-  knowledge that our series are numeric. Suppress per call site with
-  a trailing `# type: ignore[arg-type]`. `warn_unused_ignores = true`
-  in `pyproject.toml` will flag any suppression that becomes
-  redundant if Polars stubs improve.
+- Polars scalar aggregations (`.median() / .mean() / .std() / .quantile() / .item()`) annotate as a broad union; suppress per call site with `# type: ignore[arg-type]`. `warn_unused_ignores = true` self-cleans these if stubs improve.
+- Polars schema dicts typed `dict[str, pl.DataType]` need **instances** (`pl.String()`), not class references (`pl.String`). Both work at runtime; only instances satisfy the annotation.
+- scipy / pandas: routed through `[[tool.mypy.overrides]] ignore_missing_imports = true`. New stub-less third-party deps must extend that override.
 
-- **scipy / pandas missing stubs.** Routed through
-  `[[tool.mypy.overrides]] ignore_missing_imports = true` in
-  `pyproject.toml`. Do not add new third-party imports that lack
-  stubs without extending that override or adding a community stub
-  package as a dev dependency.
-
-Polars schema dicts annotated as `dict[str, pl.DataType]` need
-**instances** (`pl.String()`, `pl.Float64()`), not class references
-(`pl.String`, `pl.Float64`). Both forms work at runtime; only the
-instance form satisfies the type annotation.
+For hand-written nested dicts (e.g. per-regime / per-horizon stats), prefer a `TypedDict` over scattered suppressions — those errors point at a typing gap, not a Polars one.
 
 ---
 
