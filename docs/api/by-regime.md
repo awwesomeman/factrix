@@ -53,14 +53,21 @@ raw per-regime outputs to compose your own analysis.
 
 Any metric whose primary first argument is a DataFrame with a `date`
 column. Discover the eligible set via
-[`list_metrics`](list-metrics.md) — pick a metric that matches your
-`(scope, signal)` cell and pass its callable straight in:
+[`list_metrics`](list-metrics.md) and filter on `input_kind == "panel"`
+— scalar-input utilities like `breakeven_cost` / `net_spread` consume
+pre-aggregated scalars and have no date column to slice on:
 
 ```python
 import factrix as fl
 from factrix.metrics import by_regime, caar, monotonicity, fama_macbeth
 
-fl.list_metrics(fl.FactorScope.INDIVIDUAL, fl.Signal.SPARSE)
+candidates = [
+    r["name"]
+    for r in fl.list_metrics(
+        fl.FactorScope.INDIVIDUAL, fl.Signal.SPARSE, format="json",
+    )
+    if r["input_kind"] == "panel"
+]
 # ['caar', 'event_ic', ...]
 
 per_regime = by_regime(caar, caar_df, regime_labels=labels)

@@ -35,6 +35,7 @@ import functools
 import pathlib
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from factrix._axis import FactorScope, Metric, Mode, Signal
 
@@ -75,6 +76,15 @@ _INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime"})
 """Cross-cutting dispatchers published from ``factrix.metrics`` that
 are not per-(scope, signal) cell metrics."""
 
+# Scalar-input metrics: pre-aggregated-scalar utilities that consume
+# scalars (``gross_spread: float``, ``turnover: float``, ...) rather
+# than the standard ``(date-keyed DataFrame, **kwargs) -> MetricOutput``
+# panel contract. Not eligible for date-slicing dispatchers like
+# ``by_regime``. Hard-coded exception set rather than a Matrix-row tag
+# extension — the population is small and stable; YAGNI applies until
+# it isn't.
+_SCALAR_INPUT_METRICS: frozenset[str] = frozenset({"breakeven_cost", "net_spread"})
+
 
 @dataclass(frozen=True, slots=True)
 class Cell:
@@ -113,13 +123,23 @@ class MatrixEntry:
 
 @dataclass(frozen=True, slots=True)
 class MetricRow:
-    """One ``(metric_name, module, cell)`` triple parsed from ``Matrix-row:``."""
+    """One ``(metric_name, module, cell)`` triple parsed from ``Matrix-row:``.
+
+    ``import_path`` is the fully-qualified submodule (``factrix.metrics.<module>``)
+    — every public metric is also re-exported from ``factrix.metrics``,
+    so ``from factrix.metrics import <name>`` works regardless. ``input_kind``
+    distinguishes the standard date-keyed-DataFrame contract (``"panel"``)
+    from pre-aggregated-scalar utilities (``"scalar"``); only ``"panel"``
+    metrics are eligible for date-slicing dispatchers like ``by_regime``.
+    """
 
     name: str
     module: str
     cell: Cell
     agg_order: str
     inference_se: str
+    import_path: str
+    input_kind: Literal["panel", "scalar"]
 
 
 def _parse_axis(token: str, enum_cls: type) -> object | None:
@@ -226,6 +246,8 @@ def all_rows() -> list[MetricRow]:
             cell=entry.cell,
             agg_order=entry.agg_order,
             inference_se=entry.inference_se,
+            import_path=f"factrix.metrics.{entry.module}",
+            input_kind="scalar" if name in _SCALAR_INPUT_METRICS else "panel",
         )
         for entry in matrix_entries()
         for name in entry.names

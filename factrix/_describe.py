@@ -461,6 +461,7 @@ def list_metrics(
     signal: Signal,
     *,
     format: Literal["text", "json"] = "text",
+    with_import: bool = False,
 ) -> list[str] | list[dict[str, Any]]:
     """Return standalone metrics applicable to ``(scope, signal)``.
 
@@ -474,17 +475,31 @@ def list_metrics(
     scope, signal
         Cell axes to filter on.
     format
-        ``"text"`` (default) returns ``list[str]`` of metric names sorted
-        by ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
-        with keys ``name``, ``module``, ``cell``, ``agg_order``,
-        ``inference_se`` — JSON-serialisable, suitable for tooling that
-        needs the structured row.
+        ``"text"`` (default) returns metric names sorted by
+        ``(module, name)``. ``"json"`` returns ``list[dict]`` rows with
+        keys ``name``, ``module``, ``cell``, ``agg_order``,
+        ``inference_se``, ``import_path``, ``input_kind`` —
+        JSON-serialisable, suitable for tooling.
+    with_import
+        ``"text"`` only. When ``True``, returns a two-column
+        ``"name → factrix.metrics.<module>"`` list so each row is
+        copy-paste-ready into ``from factrix.metrics import <name>``.
+        Ignored under ``format="json"`` (the ``import_path`` field is
+        always present there).
 
     Raises
     ------
     IncompatibleAxisError
         ``(scope, signal)`` matches no registered metric. In practice
         all four combos are populated, so this is defensive.
+
+    Notes
+    -----
+    Filter ``input_kind == "panel"`` on the JSON form to find candidates
+    for date-slicing dispatchers like
+    :func:`factrix.metrics.by_regime`; ``"scalar"`` rows
+    (``breakeven_cost``, ``net_spread``) consume pre-aggregated scalars
+    and are not eligible.
     """
     rows = [r for r in user_facing_rows() if r.cell.matches(scope, signal)]
     if not rows:
@@ -500,7 +515,12 @@ def list_metrics(
                 "cell": r.cell.raw,
                 "agg_order": r.agg_order,
                 "inference_se": r.inference_se,
+                "import_path": r.import_path,
+                "input_kind": r.input_kind,
             }
             for r in rows
         ]
+    if with_import:
+        width = max(len(r.name) for r in rows)
+        return [f"{r.name:<{width}} → {r.import_path}" for r in rows]
     return [r.name for r in rows]
