@@ -622,3 +622,33 @@ class TestEmitsStatsDrift:
             f"{label}: actual stats {sorted(s.value for s in actual - declared)} "
             f"not in declared EMITS_STATS"
         )
+
+
+class TestSuggestConfigResultDiagnose:
+    def test_diagnose_shape(self) -> None:
+        # Symmetric with FactorProfile.diagnose(): JSON-shape dict with
+        # str-valued warnings for wire / log / agent consumption.
+        result = suggest_config(_make_individual_continuous_panel())
+        d = result.diagnose()
+        assert set(d.keys()) == {"suggested", "detected", "reasoning", "warnings"}
+        assert d["suggested"] == result.suggested.to_dict()
+        assert d["detected"] == result.detected
+        assert d["reasoning"] == result.reasoning
+        assert d["warnings"] == sorted(w.value for w in result.warnings)
+
+    def test_diagnose_warnings_are_strings(self) -> None:
+        # Even when warnings list is non-empty, diagnose() emits .value
+        # strings, not enum members — agents reading JSON should never
+        # see Python enum repr.
+        ts = _make_timeseries(n_dates=80, sparse=False, seed=11)
+        d = suggest_config(ts).diagnose()
+        for w in d["warnings"]:
+            assert isinstance(w, str)
+
+    def test_diagnose_is_jsonable(self) -> None:
+        # End-to-end: diagnose() output round-trips through json.dumps
+        # without a custom encoder (this is the canonical wire format).
+        import json
+
+        result = suggest_config(_make_common_continuous_panel())
+        json.dumps(result.diagnose())
