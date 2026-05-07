@@ -148,6 +148,11 @@ non-event entries) makes the unit-root null degenerate.
 `fl.metrics.quantile_spread(...)` and friends return a `MetricOutput`
 to the caller; they do not mutate `profile.stats`.
 
+See also [Stat keys by metric](../reference/stat-keys-by-metric.md)
+for the per-metric `MetricOutput.metadata` schema (primary vs
+auxiliary keys) — the standalone-metrics analogue of this section's
+per-cell `StatCode` table.
+
 #### `StatCode` → statistical method
 
 Each procedure-internal `StatCode` maps to one section of
