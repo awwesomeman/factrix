@@ -88,8 +88,6 @@ class TestDescribeAnalysisModes:
     def test_stats_keys_match_emits_stats(self) -> None:
         # JSON output must reflect the procedure's declared EMITS_STATS
         # — round-trip via describe_analysis_modes against the registry.
-        from factrix._registry import _DISPATCH_REGISTRY
-
         rows = describe_analysis_modes(format="json")
         cc_row = next(
             r for r in rows if r["scope"] == "common" and r["signal"] == "continuous"
@@ -101,7 +99,6 @@ class TestDescribeAnalysisModes:
         # The (COMMON, CONTINUOUS, TIMESERIES) procedure also emits
         # NW_LAGS_USED in addition to FACTOR_ADF_P.
         assert "nw_lags_used" in cc_row["timeseries"]["stats_keys"]
-        del _DISPATCH_REGISTRY  # reference imported above; satisfies linter
 
     def test_sparse_rows_flag_scope_collapse_at_n1(self) -> None:
         rows = describe_analysis_modes(format="json")
