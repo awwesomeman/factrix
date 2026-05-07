@@ -74,22 +74,16 @@ cases:
 - Both `"factor"` and `factor_col` present and they differ → `ValueError`
   flagging the ambiguity. Drop the unused column before calling.
 
-!!! warning "Single-factor convenience only"
-    `factor_col=` is for panels with one signal whose column happens
-    to be named differently. **Do not** use it to evaluate multiple
-    signals on the same panel via a comprehension:
-
-    ```python
-    # Anti-pattern: re-pays per-date cross-section overhead per signal.
-    results = {f: fl.evaluate(panel, config, factor_col=f)
-               for f in factor_names}
-    ```
-
-    Each `evaluate` call repeats the per-date cross-section work
-    (sort / group-by / rank / HHI), so this scales as
-    `O(n_factors × per_date_cost)`. For multi-signal panels use
-    [`factrix.multi_factor`](multi-factor.md) — it shares the
-    cross-section cost across signals and produces one
-    `FactorProfile` per factor.
+For wide multi-factor panels, looping `evaluate` with different
+`factor_col=` values per candidate is the canonical pattern; the
+[batch screening guide](../guides/batch-screening.md) walks through it
+end-to-end with the BHY FDR step. Each `evaluate` call repeats the
+per-date cross-section work (sort / group-by / rank / HHI) on its own,
+so the cost scales as `O(n_factors × per_date_cost)` — there is no
+shared-pass primitive in factrix today; that cost is intrinsic to
+producing one `FactorProfile` per signal.
+[`factrix.multi_factor.bhy`](multi-factor.md) operates on the
+resulting profile list for FDR control; it does **not** reduce the
+per-signal evaluation cost.
 
 ::: factrix.evaluate

@@ -14,11 +14,11 @@ profiles = [fl.evaluate(panel, cfg, factor_col=name) for name in candidates]
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 ```
 
-This per-factor loop pays the per-date cross-section overhead (sort /
-group-by / rank) once per candidate. For dense candidate sets where
-that overhead dominates, prefer
-[`factrix.multi_factor`](../api/multi-factor.md) which shares the
-cross-section pass across signals.
+Each `evaluate` call repays the per-date cross-section overhead
+(sort / group-by / rank) on its own — that cost is intrinsic to
+producing one `FactorProfile` per signal in factrix today. `bhy()`
+operates on the resulting list for FDR control; it does not reduce
+the per-signal evaluation cost.
 
 [`bhy()`][factrix.multi_factor.bhy] automatically partitions by `(procedure, forward_periods)` — you do not pass a group key. Same-procedure, same-horizon profiles form one family. Different horizons always split: each horizon carries its own null distribution and effective sample size; pooling dilutes the step-up threshold and silently inflates FDR.
 

@@ -67,14 +67,13 @@ def _evaluate(
             four factory methods.
         factor_col: Name of the signal column on ``raw``. Default
             ``"factor"``; pass any other column name when the panel's
-            signal is named differently. The column is renamed to
-            ``"factor"`` internally before dispatch so procedures
-            keep their canonical schema. Single-factor convenience
-            only — for evaluating multiple signals on the same panel
-            use ``factrix.multi_factor`` rather than calling
-            ``evaluate`` in a loop with different ``factor_col``
-            values (each call repays the per-date cross-section
-            overhead).
+            signal is named differently, or when looping over multiple
+            candidate signals on a wide panel. The column is renamed
+            to ``"factor"`` internally before dispatch so procedures
+            keep their canonical schema. Each call repays the per-date
+            cross-section work; ``factrix.multi_factor.bhy`` controls
+            FDR on the resulting profile list but does not share
+            computation across signals.
 
     Returns:
         A ``FactorProfile`` populated by the procedure registered for
