@@ -223,8 +223,9 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "p > 0.05 flags persistent regressor regime.",
     StatCode.LJUNG_BOX_P: "Ljung-Box p-value on residual autocorrelation "
     "(TS-dummy single-asset path); p < 0.05 flags under-set NW lag.",
-    StatCode.EVENT_TEMPORAL_HHI: "Herfindahl concentration of event dates "
-    "over the calendar grid; high values flag temporal event clustering.",
+    StatCode.EVENT_TEMPORAL_HHI: "Herfindahl concentration of event counts "
+    "across calendar bins (cross-sectional / time-axis); high values flag "
+    "calendar-time clumping. Does not measure within-asset event clustering.",
     StatCode.NW_LAGS_USED: "NW HAC lag count selected by the auto-bandwidth "
     "rule for the cell's primary t-test.",
 }
