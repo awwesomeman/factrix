@@ -120,9 +120,24 @@ def _render_index(metas: list[_RecipeMeta]) -> str:
 
 
 def sync() -> None:
-    """Copy notebooks and regenerate ``docs/examples/index.md``."""
+    """Copy notebooks and regenerate ``docs/examples/index.md``.
+
+    Prunes ``*.ipynb`` files in ``_DST_DIR`` that no longer exist in
+    ``_SRC_DIR`` before copying — covers retired notebooks (e.g.
+    ``examples/demo.ipynb`` was replaced in v0.8.0 but lingered in
+    ``docs/examples/`` across builds, surfacing as a "not in nav"
+    warning until manual cleanup).
+    """
     _DST_DIR.mkdir(parents=True, exist_ok=True)
     notebooks = sorted(_SRC_DIR.glob("*.ipynb"))
+    source_names = {nb.name for nb in notebooks}
+
+    pruned: list[str] = []
+    for stale in _DST_DIR.glob("*.ipynb"):
+        if stale.name not in source_names:
+            stale.unlink()
+            pruned.append(stale.name)
+
     metas: list[_RecipeMeta] = []
     for src in notebooks:
         dst = _DST_DIR / src.name
@@ -130,7 +145,10 @@ def sync() -> None:
         metas.append(_collect(src))
 
     (_DST_DIR / "index.md").write_text(_render_index(metas), encoding="utf-8")
-    print(f"sync_examples: synced {len(notebooks)} notebook(s) + index to {_DST_DIR}")
+    msg = f"sync_examples: synced {len(notebooks)} notebook(s) + index to {_DST_DIR}"
+    if pruned:
+        msg += f" (pruned: {', '.join(pruned)})"
+    print(msg)
 
 
 def on_pre_build(config: object) -> None:
