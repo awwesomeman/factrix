@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
+from typing import NotRequired, TypedDict
 
 import polars as pl
 
@@ -36,6 +37,24 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 from factrix.stats import bhy_adjusted_p
+
+
+class _RegimeICEntry(TypedDict):
+    mean_ic: float
+    std_ic: float
+    stat: float
+    p_value: float
+    significance: str
+    n_periods: int
+    p_adjusted_bhy: NotRequired[float]
+
+
+class _HorizonICEntry(TypedDict):
+    mean_ic: float
+    stat: float
+    p_value: float
+    n_periods: int
+    p_adjusted_bhy: NotRequired[float]
 
 
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
@@ -413,7 +432,7 @@ def regime_ic(
             min_required_per_regime=2,
         )
 
-    per_regime: dict[str, dict[str, object]] = {}
+    per_regime: dict[str, _RegimeICEntry] = {}
     for row in regime_stats.iter_rows(named=True):
         t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
         p = _p_value_from_t(t, row["n"])
@@ -433,31 +452,31 @@ def regime_ic(
     # per_regime is insertion-ordered, so iterating .values() lines up
     # with the BHY adjuster's positional output.
     raw_p_list = [d["p_value"] for d in per_regime.values()]
-    adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []  # type: ignore[arg-type,var-annotated]
+    adj_p = bhy_adjusted_p(raw_p_list)
     for entry, ap in zip(per_regime.values(), adj_p, strict=False):
         entry["p_adjusted_bhy"] = float(ap)
 
-    mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))  # type: ignore[misc]
+    mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
 
     # Conservative summary: if the weakest regime is significant, all are.
-    min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))  # type: ignore[arg-type]
+    min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))
     min_t = min_abs_t_regime["stat"]
     min_p = min_abs_t_regime["p_value"]
     min_p_adjusted = float(max(adj_p)) if len(adj_p) else 1.0
 
     # WHY: filter near-zero means before checking direction consistency —
     # a regime with IC ≈ 0 has no signal, not a "consistent direction"
-    nonzero = [d["mean_ic"] for d in per_regime.values() if abs(d["mean_ic"]) > EPSILON]  # type: ignore[arg-type]
+    nonzero = [d["mean_ic"] for d in per_regime.values() if abs(d["mean_ic"]) > EPSILON]
     if nonzero:
-        consistent = all(v > 0 for v in nonzero) or all(v < 0 for v in nonzero)  # type: ignore[operator]
+        consistent = all(v > 0 for v in nonzero) or all(v < 0 for v in nonzero)
     else:
         consistent = False
 
     return MetricOutput(
         name="regime_ic",
         value=mean_all,
-        stat=min_t,  # type: ignore[arg-type]
-        significance=_significance_marker(min_p),  # type: ignore[arg-type]
+        stat=min_t,
+        significance=_significance_marker(min_p),
         metadata={
             "p_value": min_p,
             "p_value_bhy_adjusted": min_p_adjusted,
@@ -511,7 +530,7 @@ def multi_horizon_ic(
     if periods is None:
         periods = [1, 5, 10, 20]
 
-    per_horizon: dict[int, dict[str, object]] = {}
+    per_horizon: dict[int, _HorizonICEntry] = {}
 
     sorted_df = df.sort(["asset_id", "date"])
     all_returns = sorted_df.with_columns(
@@ -558,7 +577,7 @@ def multi_horizon_ic(
                 "n_periods": n_ic,
             }
 
-    valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]  # type: ignore[arg-type]
+    valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
     if not valid_horizons:
         return _short_circuit_output(
             "multi_horizon_ic",
@@ -567,15 +586,15 @@ def multi_horizon_ic(
         )
 
     # BHY across horizons: sweeping k horizons is k implicit tests.
-    horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]  # type: ignore[arg-type]
+    horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]
     raw_h_p = [per_horizon[h]["p_value"] for h in horizon_keys]
-    adj_h_p = bhy_adjusted_p(raw_h_p) if raw_h_p else []  # type: ignore[arg-type,var-annotated]
+    adj_h_p = bhy_adjusted_p(raw_h_p)
     for h, ap in zip(horizon_keys, adj_h_p, strict=False):
         per_horizon[h]["p_adjusted_bhy"] = float(ap)
 
-    mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))  # type: ignore[misc]
+    mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))
 
-    weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))  # type: ignore[arg-type]
+    weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))
     min_t = weakest["stat"]
     min_p = weakest["p_value"]
     min_p_adjusted = float(max(adj_h_p)) if len(adj_h_p) else 1.0
@@ -583,8 +602,8 @@ def multi_horizon_ic(
     return MetricOutput(
         name="multi_horizon_ic",
         value=mean_all,
-        stat=min_t,  # type: ignore[arg-type]
-        significance=_significance_marker(min_p),  # type: ignore[arg-type]
+        stat=min_t,
+        significance=_significance_marker(min_p),
         metadata={
             "p_value": min_p,
             "p_value_bhy_adjusted": min_p_adjusted,
