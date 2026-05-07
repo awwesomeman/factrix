@@ -4,6 +4,9 @@ Corrado (1989) nonparametric rank test on event abnormal returns.
 Robust to extreme returns, non-normality, and cross-asset
 heteroscedasticity. Direction-adjusted for two-sided signals.
 
+→ Formula and references:
+[Corrado nonparametric rank](../../reference/statistical-methods.md#corrado-rank).
+
 !!! info "Event-study contracts"
     Corrado's primitive is `signed_rank = uniform_rank(forward_return) ×
     sign(factor)` — note that the direction adjustment is on the rank,

@@ -4,6 +4,11 @@ Per-date cross-sectional OLS slope λ then NW HAC *t* on the λ series
 (Fama-MacBeth 1973). Pooled OLS variant with date-clustered SE; β-sign
 consistency check.
 
+→ Formula and references: stage-2 HAC SE on E[λ] —
+[NW HAC](../../reference/statistical-methods.md#nw-hac)
+(includes the Kan-Zhang / Shanken EIV correction invoked by
+`is_estimated_factor=True`).
+
 ::: factrix.metrics.fama_macbeth
     options:
       members:
