@@ -30,6 +30,31 @@ Reasoning summarised in
 address. Stage 2 cross-asset inference handles whatever residual
 time-axis structure leaks through the β distribution.
 
+The choice is best understood against the three textbook
+"corrected SE" alternatives, each of which fixes a different
+residual-level problem but **none of which touches the
+coefficient**:
+
+| SE variant | Fixes (residual-level) | Coefficient bias under persistent predictor |
+|---|---|---|
+| HC0 / HC1 ([White 1980][white-1980]) | Residual heteroskedasticity (variance varies across observations) | Untouched |
+| HAC / Newey-West ([Newey-West 1987][newey-west-1987]) | Heteroskedasticity + autocorrelation (incl. MA(`h−1`) overlap) | Untouched |
+| Cluster-robust ([Petersen 2009][petersen-2009] / [Cameron-Gelbach-Miller 2011][cameron-gelbach-miller-2011]) | Within-group residual correlation (e.g. firm or date clusters) | Untouched |
+| **plain OLS SE** (factrix stage-1 choice) | — (no robustness claim) | Untouched (and acknowledged) |
+
+Adopting any of the robust variants in stage-1 would advertise a
+robustness factrix does not deliver: the SE would *look* fixed, but
+β̂ would still carry Stambaugh bias. Plain SE is therefore an
+honesty signal — the reported uncertainty does not claim to fix what
+the SE level cannot fix anyway. Cluster-robust SE on a per-asset
+stage-1 is additionally moot (each regression already conditions on a
+single asset; there is no within-group axis left to cluster on).
+
+[white-1980]: bibliography.md#white-1980
+[newey-west-1987]: bibliography.md#newey-west-1987
+[petersen-2009]: bibliography.md#petersen-2009
+[cameron-gelbach-miller-2011]: bibliography.md#cameron-gelbach-miller-2011
+
 **TIMESERIES dispatch (`N == 1`) is different.** With no
 cross-section to aggregate over, the single-series path
 (`_TSBetaContTimeseriesProcedure`) **does** apply NW HAC directly via
