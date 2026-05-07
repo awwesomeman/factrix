@@ -85,9 +85,10 @@ def evaluate(
         raw: Long-format panel.
         config: Validated ``AnalysisConfig``.
         factor_col: Name of the signal column on ``raw`` (default
-            ``"factor"``). The column is renamed to ``"factor"``
-            internally before dispatch — single-factor convenience
-            only; for multi-signal panels use ``factrix.multi_factor``.
+            ``"factor"``). Renamed to ``"factor"`` internally before
+            dispatch. Looping over candidates with different
+            ``factor_col=`` values is the canonical multi-factor
+            pattern; see the batch screening guide.
     """
     if config is None:
         raise MissingConfigError(
