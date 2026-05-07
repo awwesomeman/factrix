@@ -12,6 +12,14 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Type-checking gate enforced in CI** — `uv run mypy factrix` now runs in the lint job. No public-API change; previously-broken Polars schema annotation in `compute_mfe_mae` is fixed (class references → dtype instances), and Polars aggregation results that mypy could not narrow are suppressed per call site with `warn_unused_ignores = true` to self-clean if Polars stubs improve. Conventions documented in `CONTRIBUTING.md` §7.4. (#114)
+
+---
+
 ## v0.9.0 (2026-05-07)
 
 Regime-stratified analysis without re-implementing every metric, plus completion of the introspection symmetry started in v0.8.0. The headline `factrix.by_regime` is a generic dispatcher: hand it any panel-input metric and a regime labelling and it returns per-regime results without baking regime semantics into each metric's signature. Layer-A (`by_regime`) intentionally emits **no** cross-regime test — a generic χ²/Wald would over-claim for non-t-stat metrics like Sharpe, turnover, hit_rate, or monotonicity ρ. Cross-regime inference lives in metric-specific Layer-B wrappers; only `regime_ic` ships in v0.9.0.
