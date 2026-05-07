@@ -11,7 +11,7 @@ For per-metric formulae and signatures see the
 behind which disciplines factrix does *not* implement, see
 [Development § Design notes](../development/design-notes.md).
 
-The four sections are the only first-class disciplines in factrix:
+The five sections are the only first-class disciplines in factrix:
 
 1. **HAC SE under overlapping returns** — Newey-West with a
    deterministic bandwidth rule.
@@ -21,10 +21,13 @@ The four sections are the only first-class disciplines in factrix:
    with the consistency factor; Theil-Sen for slope.
 4. **Persistence diagnostics under near-unit-root predictors** —
    ADF flag, no auto-correction.
+5. **Event-study cross-sectional inference** — CAAR cross-event $t$,
+   BMP-style standardised AR, Corrado rank.
 
 ---
 
 ## 1. HAC SE under overlapping returns
+[](){ #nw-hac }
 
 When forward returns span `h > 1` periods, consecutive observations
 inherit MA(`h − 1`) structure. Two standard responses, with different
@@ -122,6 +125,7 @@ Practical rule of thumb:
 ---
 
 ## 2. Multiple-testing under dependence
+[](){ #bhy }
 
 Factor pools are dependent by construction: 200 momentum variants on
 the same return panel correlate, and a Bonferroni step that assumes
@@ -241,3 +245,50 @@ deliberately retains plain OLS SE rather than HAC: the Stambaugh bias
 arises from the predictor's persistence, not from SE estimation, and
 HAC fixes only the SE while leaving the coefficient bias untouched.
 Adding HAC there would advertise robustness factrix does not deliver.
+
+---
+
+## 5. Event-study cross-sectional inference
+
+The `individual_sparse` cell aggregates per-event abnormal returns
+across assets. Three estimators are exposed, each making a different
+assumption about the cross-event distribution:
+
+### CAAR cross-event t
+[](){ #caar-cross-event-t }
+
+Default for `caar`. Per event date, take the cross-sectional mean of
+$\text{return} \times \text{factor}$ across event rows; the resulting
+CAAR series feeds a downstream NW HAC $t$ on the mean. Specification
+follows [Brown-Warner 1985][brown-warner-1985]; the
+[Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor in §1
+governs the NW lag when the event window induces overlap. The test is
+correctly sized under no event-induced variance; under variance
+inflation around the event date it is mis-specified — the documented
+motivation for switching to the BMP-style estimator below.
+
+### BMP standardised AR
+[](){ #bmp-standardised-ar }
+
+`bmp_test`. Standardises each event's abnormal return by its
+estimation-window standard deviation before taking the cross-event
+mean, restoring size under event-induced variance
+([Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]).
+factrix's implementation is a **BMP-style simplification**: by
+default it uses mean-adjusted abnormal returns and omits the original
+BMP prediction-error correction, so results do not match a textbook
+BMP implementation byte-for-byte. The strict denominator is
+available via `bmp_test(..., include_prediction_error_variance=True)`
+when the textbook form is required.
+
+### Corrado nonparametric rank
+[](){ #corrado-rank }
+
+`corrado_rank_test`. Replaces returns with their uniform rank within
+the (estimation ∪ event) window, then runs the cross-event $t$ on the
+ranks ([Corrado 1989][corrado-1989]). Robust to extreme returns,
+non-normality, and cross-asset heteroscedasticity. factrix adds the
+direction adjustment of [Corrado-Zivney 1992][corrado-zivney-1992]
+for two-sided signed signals — the rank itself is signed by
+$\text{sign}(\text{factor})$ before the cross-event aggregation, not
+the underlying return.

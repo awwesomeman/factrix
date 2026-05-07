@@ -4,6 +4,12 @@ Information Coefficient (Spearman rank correlation between factor and
 forward return) and its variants. Cross-sectional first; significance
 via NW HAC or non-overlapping cross-asset *t*.
 
+→ Formula and references:
+[NW HAC](../../reference/statistical-methods.md#nw-hac)
+(`ic_newey_west`),
+[BHY across regimes](../../reference/statistical-methods.md#bhy)
+(`regime_ic`, `multi_horizon_ic`).
+
 ::: factrix.metrics.ic
     options:
       members:

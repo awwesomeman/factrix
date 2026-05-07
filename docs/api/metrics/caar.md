@@ -4,6 +4,12 @@ Cumulative Average Abnormal Return tests for event signals. CAAR
 *t*-test (parametric) and BMP standardised AR *z*-test (robust to
 event-induced variance).
 
+→ Formula and references:
+[CAAR cross-event t](../../reference/statistical-methods.md#caar-cross-event-t)
+(`caar`),
+[BMP standardised AR](../../reference/statistical-methods.md#bmp-standardised-ar)
+(`bmp_test`).
+
 !!! info "Event-study contracts"
     `signed_car`, the `estimation_window` consumed by `bmp_test`, and
     factrix's confounded-event handling are documented in
