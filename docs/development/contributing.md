@@ -350,6 +350,7 @@ Enforced by tests and CI — a regression fails the PR build.
 | Public-surface mention coverage across all docs pages | `tests/test_docs_pages.py` |
 | README quickstart end-to-end | `tests/test_readme_quickstart.py` |
 | mkdocs nav / link integrity | `uv run mkdocs build --strict` (run in `.github/workflows/docs-deploy-dev.yml`) |
+| Type-checking gate (`mypy factrix`) | `uv run mypy factrix` (lint job in `.github/workflows/test.yml`) |
 
 ### 7.2 Drift left to human review
 
@@ -398,6 +399,30 @@ sed -n '/## \[Unreleased\]/,/^## /p' CHANGELOG.md
 
 A failure on any step is a release blocker — fix on `main` (or revert
 the offending PR) before bumping.
+
+### 7.4 Type-checking conventions
+
+`uv run mypy factrix` is enforced in CI. Two recurring patterns when
+adding new code:
+
+- **Polars aggregation results** (`pl.Series.median()`, `.mean()`,
+  `.std()`, `.quantile()`, `.item()`) annotate as a broad union that
+  includes non-numeric branches. mypy cannot narrow without runtime
+  knowledge that our series are numeric. Suppress per call site with
+  a trailing `# type: ignore[arg-type]`. `warn_unused_ignores = true`
+  in `pyproject.toml` will flag any suppression that becomes
+  redundant if Polars stubs improve.
+
+- **scipy / pandas missing stubs.** Routed through
+  `[[tool.mypy.overrides]] ignore_missing_imports = true` in
+  `pyproject.toml`. Do not add new third-party imports that lack
+  stubs without extending that override or adding a community stub
+  package as a dev dependency.
+
+Polars schema dicts annotated as `dict[str, pl.DataType]` need
+**instances** (`pl.String()`, `pl.Float64()`), not class references
+(`pl.String`, `pl.Float64`). Both forms work at runtime; only the
+instance form satisfies the type annotation.
 
 ---
 
