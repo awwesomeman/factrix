@@ -1,25 +1,25 @@
 # Installation
 
-factrix installs directly from GitHub. The core module depends only on
-`polars` and `numpy`.
+factrix requires Python 3.12+. The core module depends only on `polars` and `numpy`.
+
+## With `pip`
+
+```bash
+pip install factrix
+```
 
 ## With `uv` (recommended)
 
 ```bash
-uv venv --python 3.12 --clear
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-uv pip install git+https://github.com/awwesomeman/factrix.git
-
-# Pin to a release tag for production
-# uv pip install git+https://github.com/awwesomeman/factrix.git@v0.6.0
+uv add factrix
 ```
 
-## With `pip` / `conda`
+## Version pinning
 
 ```bash
-conda create -n factrix python=3.12 -y
-conda activate factrix
-pip install git+https://github.com/awwesomeman/factrix.git
+pip install factrix==0.7.0
+# or
+uv add factrix==0.7.0
 ```
 
 ## Local development
