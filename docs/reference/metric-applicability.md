@@ -28,6 +28,9 @@ across Modes, only the sample axis that constrains it.
 
 ## Cross-metric matrix
 
+`MIN_*` constants in the `Min sample` column resolve to values in the
+[Sample-size constants table](#sample-size-constants) below.
+
 | Metric | Cell | Canonical role | Sample axis | Min sample |
 |---|---|---|---|---|
 | [`ic`][factrix.metrics.ic.ic] | Individual × Continuous | Cell-canonical (IC) | `T/h` (non-overlap) | `T/h ≥ MIN_ASSETS_PER_DATE_IC` (= 10) via `_scaled_min_periods(MIN_ASSETS_PER_DATE_IC, h)` |
@@ -38,7 +41,7 @@ across Modes, only the sample axis that constrains it.
 | [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | Individual × Continuous | Cell-canonical (FM) | `T` (λ series) | `T ≥ MIN_FM_PERIODS_HARD` (= 4); warn if `T < MIN_FM_PERIODS_WARN` (= 30) |
 | [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | Individual × Continuous | Pooled OLS sibling of FM | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
 | [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | Individual × Continuous | Per-period β-sign hit rate | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | Individual × Continuous | Top-minus-bottom spread t | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD` (= 3); warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` (= 20); per-date `N ≥ n_groups` |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | Individual × Continuous | Top-minus-bottom spread t | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD` (= 3); per-date `N ≥ n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | Individual × Continuous | Value-weighted spread | `T/h` | as `quantile_spread` |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | Individual × Continuous | Group-rank monotonicity | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS` (= 5) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | Individual × Continuous | Top-bucket HHI ratio | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
@@ -70,21 +73,50 @@ across Modes, only the sample axis that constrains it.
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Series-tools | Theil-Sen slope + ADF flag | `T` | `T ≥ 10` (literal floor) |
 | [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | Series-tools | Median IS/OOS survival | `T` | `T ≥ 2 × MIN_OOS_PERIODS` (= 10) |
 
-Constants in the `Min sample` column come from three locations and follow
-a two-tier `_HARD` / `_WARN` model (see "Sample-size sensitivity" below):
+## Sample-size constants
+[](){ #sample-size-constants }
 
-- `factrix._types` — cross-metric defaults (`MIN_ASSETS_PER_DATE_IC`,
-  `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30`, `MIN_OOS_PERIODS = 5`,
-  `MIN_PORTFOLIO_PERIODS_HARD = 3`, `MIN_PORTFOLIO_PERIODS_WARN = 20`,
-  `MIN_MONOTONICITY_PERIODS`).
-- `factrix._stats.constants` — procedure-level guards
-  (`MIN_PERIODS_HARD = 20`, `MIN_PERIODS_WARN = 30`,
-  `MIN_BROADCAST_EVENTS_HARD = 5`, `MIN_BROADCAST_EVENTS_WARN = 20`,
-  `MIN_ASSETS = 10`, `MIN_ASSETS_WARN = 30`).
-- The metric module itself for cell-specific thresholds:
-  `MIN_FM_PERIODS_HARD = 4` / `MIN_FM_PERIODS_WARN = 30` in
-  `factrix.metrics.fama_macbeth`, `MIN_TS_OBS = 20` in
-  `factrix.metrics.ts_beta`.
+Every `MIN_*` constant referenced in the `Min sample` column above,
+consolidated here so the value, axis, tier, and consumer set are
+visible at one glance instead of three source files. The two-tier
+`_HARD` / `_WARN` model and the descriptive-only single-tier rule
+are described in [Sample-size sensitivity](#sample-size-sensitivity--the-two-tier-_hard--_warn-model)
+below.
+
+| Constant | Value | Axis | Tier | Source module | Used by |
+|---|---|---|---|---|---|
+| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `regime_ic`, `multi_horizon_ic`, `hit_rate` |
+| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `multi_horizon_hit_rate`, `mfe_mae_summary`, `clustering_diagnostic`, `corrado_rank_test` |
+| `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
+| `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `multi_split_oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
+| `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
+| `MIN_PORTFOLIO_PERIODS_WARN` | 20 | `T/h` | warn | `factrix/_types.py` | `top_concentration` only (`quantile_spread` and the `ts_*` siblings are descriptive at the WARN tier and gate on HARD only) |
+| `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
+| `MIN_PERIODS_HARD` | 20 | `T` (TIMESERIES) | hard | `factrix/_stats/constants.py` | TIMESERIES procedures (`individual_continuous` / `common_continuous` at `N == 1`); raises `InsufficientSampleError` |
+| `MIN_PERIODS_WARN` | 30 | `T` (TIMESERIES) | warn | `factrix/_stats/constants.py` | same procedures; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
+| `MIN_ASSETS` | 10 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous` and `suggest_config`; tags `WarningCode.SMALL_CROSS_SECTION_N` |
+| `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.BORDERLINE_CROSS_SECTION_N` |
+| `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
+| `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
+| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fama_macbeth.py` | `fama_macbeth`, `beta_sign_consistency` |
+| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fama_macbeth` (NW HAC over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
+| `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `compute_rolling_mean_beta`, `ts_beta_sign_consistency` |
+
+Naming caveats:
+
+- `MIN_ASSETS_PER_DATE_IC` (10) and `MIN_ASSETS` (10) are different
+  constants with the same value: the first gates **per-date** asset
+  count for IC; the second gates **panel-wide** `N` for the
+  cross-asset *t* on E[β]. The IC variant was renamed from
+  `MIN_IC_PERIODS` because the historical "PERIODS" suffix did not
+  match the per-date axis it actually checks.
+- `MIN_ASSETS = 10` deliberately omits the `_HARD` suffix — the `N`
+  axis only **warns** (small `N` is well-defined statistics, just
+  weak), so the `_HARD` convention (which means "raise") would
+  mislead.
+- `MIN_BROADCAST_EVENTS_*` is named after its procedure domain to
+  avoid colliding with `MIN_EVENTS_*` in `_types.py` (CAAR statistic
+  vs broadcast-dummy regression — different gates).
 
 For non-overlapping metrics (`ic`, `caar`, …) the effective floor is
 `_scaled_min_periods(base, forward_periods)` (in
