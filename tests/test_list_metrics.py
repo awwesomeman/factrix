@@ -126,7 +126,71 @@ def test_json_format_round_trips() -> None:
     decoded = json.loads(text)
     assert decoded == rows
     sample = rows[0]
-    assert set(sample) == {"name", "module", "cell", "agg_order", "inference_se"}
+    assert set(sample) == {
+        "name",
+        "module",
+        "cell",
+        "agg_order",
+        "inference_se",
+        "import_path",
+        "input_kind",
+    }
+
+
+def test_json_carries_import_path_and_input_kind() -> None:
+    rows = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
+    by_name = {r["name"]: r for r in rows}
+
+    # ``ic`` is the canonical panel-input metric.
+    assert by_name["ic"]["import_path"] == "factrix.metrics.ic"
+    assert by_name["ic"]["input_kind"] == "panel"
+
+    # ``breakeven_cost`` / ``net_spread`` are the scalar-input utilities.
+    assert by_name["breakeven_cost"]["import_path"] == "factrix.metrics.tradability"
+    assert by_name["breakeven_cost"]["input_kind"] == "scalar"
+    assert by_name["net_spread"]["input_kind"] == "scalar"
+
+    # Every other row is panel-input.
+    panels = {r["name"] for r in rows if r["input_kind"] == "panel"}
+    scalars = {r["name"] for r in rows if r["input_kind"] == "scalar"}
+    assert scalars == {"breakeven_cost", "net_spread"}
+    assert panels.isdisjoint(scalars)
+
+
+def test_import_path_resolves_for_every_row() -> None:
+    # Walk every cell so the assertion covers cross-cell rows too.
+    import importlib
+
+    seen: set[str] = set()
+    for scope in FactorScope:
+        for signal in Signal:
+            for r in fl.list_metrics(scope, signal, format="json"):
+                if r["name"] in seen:
+                    continue
+                seen.add(r["name"])
+                module = importlib.import_module(r["import_path"])
+                assert hasattr(module, r["name"]), (
+                    f"{r['import_path']} is missing {r['name']}"
+                )
+
+
+def test_with_import_renders_two_column_text() -> None:
+    rendered = fl.list_metrics(
+        FactorScope.INDIVIDUAL, Signal.CONTINUOUS, with_import=True
+    )
+    assert all(" → factrix.metrics." in line for line in rendered)
+    # Same row order as the plain text output — only the rendering changes.
+    plain = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
+    assert [line.split(" → ", 1)[0].rstrip() for line in rendered] == plain
+
+
+def test_with_import_is_ignored_under_json_format() -> None:
+    # ``with_import`` is a text-only knob; JSON always carries the field.
+    a = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
+    b = fl.list_metrics(
+        FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json", with_import=True
+    )
+    assert a == b
 
 
 def test_json_output_is_stable_across_calls() -> None:
@@ -182,6 +246,8 @@ def test_metric_row_dataclass_fields_are_serialisable() -> None:
             "cell": row.cell.raw,
             "agg_order": row.agg_order,
             "inference_se": row.inference_se,
+            "import_path": row.import_path,
+            "input_kind": row.input_kind,
         }
     )
     assert json.loads(serialised)["name"] == row.name

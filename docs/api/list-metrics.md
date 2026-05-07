@@ -27,6 +27,33 @@ across PANEL / TIMESERIES (see
 [Metric applicability](../reference/metric-applicability.md) for the
 underlying matrix).
 
+## Discover-then-import workflow
+
+Pass `with_import=True` to render a copy-paste-ready two-column view
+that pairs each metric with its submodule path:
+
+```python
+print("\n".join(fl.list_metrics(
+    fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS, with_import=True,
+)))
+# ic                       → factrix.metrics.ic
+# ic_ir                    → factrix.metrics.ic
+# fama_macbeth             → factrix.metrics.fama_macbeth
+# breakeven_cost           → factrix.metrics.tradability
+# ...
+```
+
+Every name on the right is also re-exported from `factrix.metrics`,
+so the canonical wire-up is always:
+
+```python
+from factrix.metrics import ic, fama_macbeth, breakeven_cost
+```
+
+The submodule path is shown so you know *where the implementation
+lives* — useful when reading source, jumping in an IDE, or checking
+the module-level `Matrix-row:` tag.
+
 ## Structured output for tooling
 
 ```python
@@ -42,6 +69,8 @@ fl.list_metrics(
 #         "cell": "(INDIVIDUAL, CONTINUOUS, IC, PANEL)",
 #         "agg_order": "cs-first",
 #         "inference_se": "NW HAC / cross-asset t",
+#         "import_path": "factrix.metrics.ic",
+#         "input_kind": "panel",
 #     },
 #     ...
 # ]
@@ -59,6 +88,29 @@ parser MkDocs uses to render
 | `cell` | Raw cell string from the `Matrix-row:` tag |
 | `agg_order` | Aggregation order (`cs-first`, `ts-first`, `ts-only`, `static-cs`, `per-event`) |
 | `inference_se` | Inference / SE method or `no formal H₀` for descriptive metrics |
+| `import_path` | Fully-qualified submodule (`factrix.metrics.<module>`) — also re-exported from `factrix.metrics` |
+| `input_kind` | `"panel"` for the standard `(date-keyed DataFrame, **kwargs) -> MetricOutput` contract; `"scalar"` for pre-aggregated-scalar utilities |
+
+### `panel` vs `scalar` — and why it matters
+
+Most metrics take a date-keyed DataFrame as their first positional
+argument; a few (`breakeven_cost`, `net_spread` in
+`factrix.metrics.tradability`) consume pre-aggregated scalars
+(`gross_spread: float`, `turnover: float`, …) and return a
+`MetricOutput` directly. Date-slicing dispatchers like
+[`by_regime`](by-regime.md) only accept the `panel` shape — there is
+no date column in a scalar to slice on.
+
+Filter the JSON output to enumerate `by_regime`-eligible metrics:
+
+```python
+panel_metrics = [
+    r for r in fl.list_metrics(
+        fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS, format="json",
+    )
+    if r["input_kind"] == "panel"
+]
+```
 
 ## Errors
 

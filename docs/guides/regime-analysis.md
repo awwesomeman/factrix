@@ -54,6 +54,29 @@ If `regime_labels=None`, factrix applies a time-bisection fallback
 structural-break check, **not** a regime test — domain-driven labels
 are required for any defensible regime claim.
 
+## Discovering eligible metrics
+
+Layer A only accepts metrics whose primary input is a date-keyed
+DataFrame. Use [`list_metrics`](../api/list-metrics.md) with
+`format="json"` and filter on `input_kind == "panel"` to enumerate the
+candidate set for your `(scope, signal)` cell:
+
+```python
+import factrix as fl
+
+panel_metrics = [
+    r["name"]
+    for r in fl.list_metrics(
+        fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS, format="json",
+    )
+    if r["input_kind"] == "panel"
+]
+```
+
+Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded —
+they consume pre-aggregated scalars and have no date column to slice
+on.
+
 ## Worked example: IC across volatility regimes
 
 ```python
