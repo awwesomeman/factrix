@@ -24,6 +24,27 @@ The first argument is the **metric callable** (e.g. `ic`, `caar`,
 DataFrame; remaining keyword args (`forward_periods=...`, etc.)
 forward unchanged on every per-regime call.
 
+## Input contract
+
+`by_regime`'s second argument is the metric's **primary date-keyed
+input** — typically the output of a `compute_*` step, not the raw
+panel. Each metric family has its own prep:
+
+| Metric family | Prep step | Pass to `by_regime` |
+|---|---|---|
+| `ic`, `ic_ir`, `multi_horizon_ic` | `ic_df = compute_ic(panel)` | `ic_df` |
+| `caar` | `caar_df = compute_caar(panel)` | `caar_df` |
+| `fama_macbeth` | `beta_df = compute_fm_betas(panel)` | `beta_df` |
+
+Common families shown — for the full eligible set, use
+[`list_metrics`](list-metrics.md) with
+`format="json"` and filter on `input_kind == "panel"`.
+
+If you pass the raw panel where a `compute_*` output is expected,
+the metric raises on missing columns (e.g. `ic` looks for the
+per-date `ic` column, not `factor` / `forward_return`). Run the
+prep step first.
+
 If `regime_labels` is omitted, falls back to time-bisection labelled
 `first_half` / `second_half` and emits a `UserWarning` — that path is
 a structural-break sanity check, not a regime test.
@@ -63,7 +84,10 @@ pre-aggregated scalars and have no date column to slice on:
 
 ```python
 import factrix as fl
-from factrix.metrics import by_regime, caar, monotonicity, fama_macbeth
+from factrix.metrics import (
+    by_regime, caar, fama_macbeth,
+    compute_caar, compute_fm_betas,
+)
 
 candidates = [
     r["name"]
@@ -74,8 +98,10 @@ candidates = [
 ]
 # ['caar', 'event_ic', ...]
 
+caar_df = compute_caar(panel)              # raw panel → per-date CAAR series
+beta_df = compute_fm_betas(panel)          # raw panel → per-date β series
+
 per_regime = by_regime(caar, caar_df, regime_labels=labels)
-per_regime = by_regime(monotonicity, spread_df, regime_labels=labels)
 per_regime = by_regime(fama_macbeth, beta_df, regime_labels=labels)
 ```
 
