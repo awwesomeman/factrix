@@ -70,6 +70,39 @@ class TestDescribeAnalysisModes:
         # No collapse on common × continuous.
         assert cc_row["timeseries"]["scope_collapsed"] is False
 
+    def test_stats_keys_present_per_mode(self) -> None:
+        # Every PANEL / TIMESERIES sub-row carries a sorted list of
+        # StatCode .value strings; agents pre-validate verdict(gate=...)
+        # / bhy(gate=...) reachability against this set.
+        rows = describe_analysis_modes(format="json")
+        for r in rows:
+            for mode_dict in (r["panel"], r["timeseries"]):
+                if not isinstance(mode_dict, dict):
+                    continue
+                keys = mode_dict["stats_keys"]
+                assert isinstance(keys, list)
+                assert keys == sorted(keys)
+                assert all(isinstance(k, str) for k in keys)
+                assert keys, "stats_keys should not be empty"
+
+    def test_stats_keys_match_emits_stats(self) -> None:
+        # JSON output must reflect the procedure's declared EMITS_STATS
+        # — round-trip via describe_analysis_modes against the registry.
+        from factrix._registry import _DISPATCH_REGISTRY
+
+        rows = describe_analysis_modes(format="json")
+        cc_row = next(
+            r for r in rows if r["scope"] == "common" and r["signal"] == "continuous"
+        )
+        # PANEL entry of (COMMON, CONTINUOUS) is _CommonContPanelProcedure
+        # which emits TS_BETA / TS_BETA_T_NW / TS_BETA_P / FACTOR_ADF_P.
+        assert "factor_adf_p" in cc_row["panel"]["stats_keys"]
+        assert "ts_beta_p" in cc_row["panel"]["stats_keys"]
+        # The (COMMON, CONTINUOUS, TIMESERIES) procedure also emits
+        # NW_LAGS_USED in addition to FACTOR_ADF_P.
+        assert "nw_lags_used" in cc_row["timeseries"]["stats_keys"]
+        del _DISPATCH_REGISTRY  # reference imported above; satisfies linter
+
     def test_sparse_rows_flag_scope_collapse_at_n1(self) -> None:
         rows = describe_analysis_modes(format="json")
         for r in rows:
@@ -181,6 +214,27 @@ def _make_sparse_panel(seed: int = 3) -> pl.DataFrame:
                     "date": d,
                     "asset_id": f"A{j:03d}",
                     "factor": float(factor[t, j]),
+                    "forward_return": float(rng.standard_normal()),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def _make_common_sparse_panel(seed: int = 4) -> pl.DataFrame:
+    """Broadcast sparse — same {-1, 0, +1} value for every asset on a date."""
+    rng = np.random.default_rng(seed)
+    n_dates, n_assets = 60, 15
+    factor = rng.choice([-1.0, 0.0, 1.0], size=n_dates, p=[0.10, 0.80, 0.10])
+    rows: list[dict[str, object]] = []
+    for t in range(n_dates):
+        d = dt.date(2024, 1, 1) + dt.timedelta(days=t)
+        f_t = float(factor[t])
+        for j in range(n_assets):
+            rows.append(
+                {
+                    "date": d,
+                    "asset_id": f"A{j:03d}",
+                    "factor": f_t,
                     "forward_return": float(rng.standard_normal()),
                 }
             )
@@ -488,3 +542,83 @@ class TestSuggestConfigResultImmutability:
         assert isinstance(result, SuggestConfigResult)
         with pytest.raises(dataclasses.FrozenInstanceError):
             result.suggested = AnalysisConfig.common_continuous()  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# EMITS_STATS drift guard — every procedure's actually-emitted stats keys
+# must be a subset of its declared EMITS_STATS, otherwise describe_*'s
+# stats_keys field lies to agents pre-validating verdict()/bhy() gates.
+# ---------------------------------------------------------------------------
+
+
+def _emits_stats_cases() -> list[tuple[str, AnalysisConfig, pl.DataFrame]]:
+    """One (cell-label, config, panel) per registered procedure."""
+    return [
+        (
+            "ind_cont_ic_panel",
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+            _make_individual_continuous_panel(),
+        ),
+        (
+            "ind_cont_fm_panel",
+            AnalysisConfig.individual_continuous(metric=Metric.FM),
+            _make_individual_continuous_panel(),
+        ),
+        (
+            "ind_sparse_panel",
+            AnalysisConfig.individual_sparse(),
+            _make_sparse_panel(),
+        ),
+        (
+            "com_cont_panel",
+            AnalysisConfig.common_continuous(),
+            _make_common_continuous_panel(),
+        ),
+        (
+            "com_sparse_panel",
+            AnalysisConfig.common_sparse(),
+            _make_common_sparse_panel(),
+        ),
+        (
+            "com_cont_timeseries",
+            AnalysisConfig.common_continuous(),
+            _make_timeseries(n_dates=80, sparse=False, seed=11),
+        ),
+        (
+            "sparse_timeseries_collapsed",
+            AnalysisConfig.common_sparse(),
+            _make_timeseries(n_dates=80, sparse=True, seed=12),
+        ),
+    ]
+
+
+class TestEmitsStatsDrift:
+    @pytest.mark.parametrize(
+        "label,config,panel",
+        _emits_stats_cases(),
+        ids=lambda v: v if isinstance(v, str) else "",
+    )
+    def test_actual_stats_subset_of_declared(
+        self,
+        label: str,
+        config: AnalysisConfig,
+        panel: pl.DataFrame,
+    ) -> None:
+        # Dispatch through the registry, then verify the procedure's
+        # populated profile.stats keys are a subset of its declared
+        # EMITS_STATS. Catches drift if a new stats[StatCode.X] = ...
+        # is added in compute() without updating the class constant.
+        from factrix._evaluate import _derive_mode
+        from factrix._registry import _DISPATCH_REGISTRY, _dispatch_key_for
+
+        mode = _derive_mode(panel)
+        key = _dispatch_key_for(config.scope, config.signal, config.metric, mode)
+        entry = _DISPATCH_REGISTRY[key]
+
+        profile = entry.procedure.compute(panel, config)
+        actual = set(profile.stats.keys())
+        declared = entry.procedure.EMITS_STATS
+        assert actual <= declared, (
+            f"{label}: actual stats {sorted(s.value for s in actual - declared)} "
+            f"not in declared EMITS_STATS"
+        )

@@ -91,6 +91,17 @@ def _entry_for(
     return _DISPATCH_REGISTRY.get(_dispatch_key_for(scope, signal, metric, mode))
 
 
+def _stats_keys_for(entry: Any) -> list[str]:
+    """Sorted ``.value`` strings for the procedure's possible-stats set.
+
+    Pulled from ``FactorProcedure.EMITS_STATS`` (declared per-class at
+    procedure-definition time). Returns the **possible-set** —
+    always-emitted ∪ conditionally-emitted — so agents can branch on
+    "is this gate reachable?" without running the procedure.
+    """
+    return sorted(s.value for s in entry.procedure.EMITS_STATS)
+
+
 def _row_for_tuple(
     scope: FactorScope,
     signal: Signal,
@@ -106,6 +117,7 @@ def _row_for_tuple(
             {
                 "use_case": panel.canonical_use_case,
                 "references": list(panel.references),
+                "stats_keys": _stats_keys_for(panel),
             }
             if panel is not None
             else None
@@ -115,6 +127,7 @@ def _row_for_tuple(
                 "use_case": timeseries.canonical_use_case,
                 "references": list(timeseries.references),
                 "scope_collapsed": (signal is Signal.SPARSE),
+                "stats_keys": _stats_keys_for(timeseries),
             }
             if timeseries is not None
             else "raises ModeAxisError; see _FALLBACK_MAP"
