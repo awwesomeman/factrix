@@ -125,15 +125,7 @@ mapping and per-cell canonical statistic / references, see
 [Concepts §Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) — that
 table is the SSOT for what each procedure computes.
 
-| `(scope, signal, metric, mode)`                         | Procedure class                                  |
-|---------------------------------------------------------|--------------------------------------------------|
-| `(INDIVIDUAL, CONTINUOUS, IC, PANEL)`                    | `_ICContPanelProcedure`                          |
-| `(INDIVIDUAL, CONTINUOUS, FM, PANEL)`                    | `_FMContPanelProcedure`                          |
-| `(INDIVIDUAL, SPARSE, None, PANEL)`                      | `_CAARSparsePanelProcedure`                      |
-| `(COMMON, CONTINUOUS, None, PANEL)`                      | `_CommonContPanelProcedure`                      |
-| `(COMMON, SPARSE, None, PANEL)`                          | `_CommonSparsePanelProcedure`                    |
-| `(COMMON, CONTINUOUS, None, TIMESERIES)`                 | `_TSBetaContTimeseriesProcedure`                 |
-| `(_SCOPE_COLLAPSED, SPARSE, None, TIMESERIES)`           | `_TSDummySparseTimeseriesProcedure`              |
+--8<-- "docs/development/_generated_registry_cells.md"
 
 The two timeseries cells share the NW HAC + auto-Bartlett-with-Hansen-Hodrick-floor
 lag rule from `factrix/_stats/constants.py`.
