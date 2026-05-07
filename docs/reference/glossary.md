@@ -127,7 +127,7 @@ The forward return column consumed by every dispatch cell. factrix's
 forward_return[t] = (price[t+1+N] / price[t+1] − 1) / N
 ```
 
-Two non-textbook choices to internalise:
+Two non-textbook choices to internalize:
 
 - **`t+1` entry, not `t`**: signal at `t` is computed from data up to
   and including `price[t]`, so trading at `price[t]` would assume
