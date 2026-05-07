@@ -42,6 +42,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.tag }}"
+            TAG="${TAG#v}"
           else
             TAG="${GITHUB_REF#refs/tags/v}"
           fi
