@@ -248,6 +248,28 @@ class SuggestConfigResult:
     reasoning: dict[str, str]
     warnings: list[WarningCode] = field(default_factory=list)
 
+    def diagnose(self) -> dict[str, Any]:
+        """JSON-shaped view, symmetric with ``FactorProfile.diagnose()``.
+
+        Python callers continue to read ``.warnings`` as a list of
+        ``WarningCode`` enums. Cross-wire / log / agent consumers call
+        ``diagnose()`` to get a fully serialisable dict where
+        ``warnings`` is a sorted list of ``.value`` strings (matching
+        the shape produced by ``FactorProfile.diagnose()``).
+
+        Returns:
+            A plain-Python dict with the suggested config serialised
+            via ``AnalysisConfig.to_dict()``, the detected observations,
+            the per-axis reasoning strings, and warnings as a sorted
+            list of ``.value`` strings.
+        """
+        return {
+            "suggested": self.suggested.to_dict(),
+            "detected": dict(self.detected),
+            "reasoning": dict(self.reasoning),
+            "warnings": sorted(w.value for w in self.warnings),
+        }
+
 
 def _detect_signal(raw: Any) -> tuple[Signal, str, float]:
     """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
