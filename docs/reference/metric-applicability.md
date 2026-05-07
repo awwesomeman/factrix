@@ -7,7 +7,9 @@ formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
 cross-metric overview. For the runtime API that returns the per-cell
 metric list programmatically, see
-[`list_metrics`](../api/list-metrics.md).
+[`list_metrics`](../api/list-metrics.md). For the schema of the
+`MetricOutput` each metric returns — primary vs auxiliary
+`metadata` keys — see [Stat keys by metric](stat-keys-by-metric.md).
 
 ## Sample dimensions
 
