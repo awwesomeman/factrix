@@ -1,4 +1,4 @@
-"""factrix — Single-factor evaluation toolkit (v0.8).
+"""factrix — Single-factor evaluation toolkit.
 
 Three orthogonal user-facing axes — ``FactorScope``, ``Signal``,
 ``Metric`` — plus an evaluate-time-derived ``Mode`` define the analysis
