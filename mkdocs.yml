@@ -119,7 +119,6 @@ validation:
 
 exclude_docs: |
   plans/
-  plan_factorlib.md
 
 nav:
   - Home: index.md
