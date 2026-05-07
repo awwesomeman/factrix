@@ -21,81 +21,34 @@ Three checks:
 Bare references like ``StatCode.IC_MEAN`` (no ``fl.`` / ``factrix.``
 prefix) are intentionally not validated — too many false positives
 against ``profile.X`` style attribute talk in prose.
+
+Sibling test ``test_docs_pages.py`` runs the resolution checks
+against every ``docs/**/*.md`` page; this file remains specific to
+the curated llms snapshot (because of the ``__all__``-coverage check).
 """
 
 from __future__ import annotations
 
-import importlib
 import pathlib
 import re
 
 import factrix
 
+from tests._doc_validation import (
+    import_resolves,
+    imports,
+    referenced_chains,
+    resolves,
+)
+
 LLMS_FULL = pathlib.Path("factrix/llms-full.txt")
 LLMS_INDEX = pathlib.Path("factrix/llms.txt")
-
-# Negative lookbehind excludes URL paths (`github.com/awwesomeman/factrix`)
-# and dotted continuations from a non-factrix root.
-_REF_RE = re.compile(
-    r"(?<![/.:])\b(?:factrix|fl)\."
-    r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)"
-)
-_IMPORT_RE = re.compile(
-    r"^from\s+(factrix(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s+import\s+(.+)$",
-    re.MULTILINE,
-)
-# `import factrix` / `import factrix.metrics [as fl]` — bare-import form.
-_BARE_IMPORT_RE = re.compile(
-    r"^import\s+(factrix(?:\.[A-Za-z_][A-Za-z0-9_]*)*)(?:\s+as\s+\w+)?\s*$",
-    re.MULTILINE,
-)
-
-
-def _referenced_chains(text: str) -> set[tuple[str, ...]]:
-    return {tuple(m.group(1).split(".")) for m in _REF_RE.finditer(text)}
-
-
-def _imports(text: str) -> list[tuple[str, str | None]]:
-    """Return ``[(module_path, imported_name_or_None), ...]``.
-
-    ``None`` for bare ``import factrix.X`` forms (only the module needs
-    to resolve; no attribute to check).
-    """
-    out: list[tuple[str, str | None]] = []
-    for m in _IMPORT_RE.finditer(text):
-        module = m.group(1)
-        # Strip trailing comments before splitting on commas.
-        names_str = m.group(2).split("#", 1)[0]
-        for raw in names_str.split(","):
-            name = raw.strip().split(" as ")[0].strip()
-            if name:
-                out.append((module, name))
-    for m in _BARE_IMPORT_RE.finditer(text):
-        out.append((m.group(1), None))
-    return out
-
-
-def _resolves(chain: tuple[str, ...]) -> bool:
-    """Walk attribute chain from ``factrix``, falling back to submodule
-    import for lazy-loaded subpackages (e.g. ``factrix.metrics``)."""
-    obj: object = factrix
-    walked: list[str] = []
-    for part in chain:
-        try:
-            obj = getattr(obj, part)
-        except AttributeError:
-            try:
-                obj = importlib.import_module("factrix." + ".".join([*walked, part]))
-            except ImportError:
-                return False
-        walked.append(part)
-    return True
 
 
 def test_every_referenced_symbol_resolves() -> None:
     text = LLMS_FULL.read_text(encoding="utf-8")
     failures = sorted(
-        ".".join(chain) for chain in _referenced_chains(text) if not _resolves(chain)
+        ".".join(chain) for chain in referenced_chains(text) if not resolves(chain)
     )
     assert not failures, (
         "Unresolvable factrix.* references in llms-full.txt:\n  "
@@ -105,15 +58,11 @@ def test_every_referenced_symbol_resolves() -> None:
 
 def test_every_imported_name_resolves() -> None:
     text = LLMS_FULL.read_text(encoding="utf-8")
-    failures: list[str] = []
-    for module_path, name in _imports(text):
-        try:
-            module = importlib.import_module(module_path)
-        except ImportError:
-            failures.append(f"{module_path} (module not importable)")
-            continue
-        if name is not None and not hasattr(module, name):
-            failures.append(f"{module_path}.{name}")
+    failures = [
+        f"{module}.{name}" if name else f"{module} (module not importable)"
+        for module, name in imports(text)
+        if not import_resolves(module, name)
+    ]
     assert not failures, (
         "Imports in llms-full.txt that do not resolve:\n  " + "\n  ".join(failures)
     )
