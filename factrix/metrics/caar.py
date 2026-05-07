@@ -204,12 +204,12 @@ def caar(
             stacklevel=2,
         )
 
-    mean_caar = float(vals.mean())
+    mean_caar = float(vals.mean())  # type: ignore[arg-type]
     sampled = _sample_non_overlapping(caar_df, forward_periods)["caar"].drop_nulls()
     n_sampled = len(sampled)
 
     t = (
-        _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
+        _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
         if n_sampled >= 2
         else 0.0
     )
@@ -483,11 +483,11 @@ def _estimate_sar_icc(
     if multi.height < 2:
         fallback_n_eff = float(per_date["n"].sum() / per_date.height)
         return None, fallback_n_eff, "no_multi_event_dates"
-    n_eff = float(multi["n"].mean())
+    n_eff = float(multi["n"].mean())  # type: ignore[arg-type]
 
     w_num = (multi["v"] * (multi["n"] - 1)).sum()
     w_den = (multi["n"] - 1).sum()
-    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0
+    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator]
 
     date_means = multi["m"].to_numpy()
     sigma2_between = float(np.var(date_means, ddof=DDOF))

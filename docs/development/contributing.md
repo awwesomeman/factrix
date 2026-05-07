@@ -350,6 +350,7 @@ Enforced by tests and CI — a regression fails the PR build.
 | Public-surface mention coverage across all docs pages | `tests/test_docs_pages.py` |
 | README quickstart end-to-end | `tests/test_readme_quickstart.py` |
 | mkdocs nav / link integrity | `uv run mkdocs build --strict` (run in `.github/workflows/docs-deploy-dev.yml`) |
+| Type-checking gate (`mypy factrix`) | `uv run mypy factrix` (lint job in `.github/workflows/test.yml`) |
 
 ### 7.2 Drift left to human review
 
@@ -398,6 +399,16 @@ sed -n '/## \[Unreleased\]/,/^## /p' CHANGELOG.md
 
 A failure on any step is a release blocker — fix on `main` (or revert
 the offending PR) before bumping.
+
+### 7.4 Type-checking conventions
+
+`uv run mypy factrix` is enforced in CI. Three recurring patterns:
+
+- Polars scalar aggregations (`.median() / .mean() / .std() / .quantile() / .item()`) annotate as a broad union; suppress per call site with `# type: ignore[arg-type]`. `warn_unused_ignores = true` self-cleans these if stubs improve.
+- Polars schema dicts typed `dict[str, pl.DataType]` need **instances** (`pl.String()`), not class references (`pl.String`). Both work at runtime; only instances satisfy the annotation.
+- scipy / pandas: routed through `[[tool.mypy.overrides]] ignore_missing_imports = true`. New stub-less third-party deps must extend that override.
+
+For hand-written nested dicts (e.g. per-regime / per-horizon stats), prefer a `TypedDict` over scattered suppressions — those errors point at a typing gap, not a Polars one.
 
 ---
 

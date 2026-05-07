@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
+from typing import NotRequired, TypedDict
 
 import polars as pl
 
@@ -38,12 +39,30 @@ from factrix.metrics._helpers import (
 from factrix.stats import bhy_adjusted_p
 
 
+class _RegimeICEntry(TypedDict):
+    mean_ic: float
+    std_ic: float
+    stat: float
+    p_value: float
+    significance: str
+    n_periods: int
+    p_adjusted_bhy: NotRequired[float]
+
+
+class _HorizonICEntry(TypedDict):
+    mean_ic: float
+    stat: float
+    p_value: float
+    n_periods: int
+    p_adjusted_bhy: NotRequired[float]
+
+
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
     """Median of the per-date ``tie_ratio`` column, or ``nan`` if absent/empty."""
     if "tie_ratio" not in ic_df.columns:
         return float("nan")
     med = ic_df["tie_ratio"].median()
-    return float("nan") if med is None else float(med)
+    return float("nan") if med is None else float(med)  # type: ignore[arg-type]
 
 
 def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
@@ -177,7 +196,7 @@ def ic(
             forward_periods=forward_periods,
         )
 
-    mean_ic = float(ic_vals.mean())
+    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
     sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
     n_sampled = len(sampled)
     if n_sampled < MIN_ASSETS_PER_DATE_IC:
@@ -188,7 +207,7 @@ def ic(
             min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
-    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
+    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
     p = _p_value_from_t(t, n_sampled)
 
     return MetricOutput(
@@ -313,8 +332,8 @@ def ic_ir(
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
-    mean_ic = float(ic_vals.mean())
-    std_ic = float(ic_vals.std())
+    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
+    std_ic = float(ic_vals.std())  # type: ignore[arg-type]
 
     if std_ic < EPSILON:
         return _short_circuit_output(
@@ -413,7 +432,7 @@ def regime_ic(
             min_required_per_regime=2,
         )
 
-    per_regime: dict[str, dict[str, object]] = {}
+    per_regime: dict[str, _RegimeICEntry] = {}
     for row in regime_stats.iter_rows(named=True):
         t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
         p = _p_value_from_t(t, row["n"])
@@ -433,7 +452,7 @@ def regime_ic(
     # per_regime is insertion-ordered, so iterating .values() lines up
     # with the BHY adjuster's positional output.
     raw_p_list = [d["p_value"] for d in per_regime.values()]
-    adj_p = bhy_adjusted_p(raw_p_list) if raw_p_list else []
+    adj_p = bhy_adjusted_p(raw_p_list)
     for entry, ap in zip(per_regime.values(), adj_p, strict=False):
         entry["p_adjusted_bhy"] = float(ap)
 
@@ -511,7 +530,7 @@ def multi_horizon_ic(
     if periods is None:
         periods = [1, 5, 10, 20]
 
-    per_horizon: dict[int, dict[str, object]] = {}
+    per_horizon: dict[int, _HorizonICEntry] = {}
 
     sorted_df = df.sort(["asset_id", "date"])
     all_returns = sorted_df.with_columns(
@@ -534,13 +553,13 @@ def multi_horizon_ic(
         # Scale the raw threshold to land with ≥ MIN_ASSETS_PER_DATE_IC after
         # the p-period non-overlap sub-sampling below.
         if n_ic >= _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, p):
-            mean_ic = float(ic_vals.mean())
+            mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
             # WHY: use non-overlapping sampling for t-stat to avoid
             # autocorrelation inflation from overlapping forward returns
             sampled = _sample_non_overlapping(ic_series, p)["ic"].drop_nulls()
             n_sampled = len(sampled)
             if n_sampled >= 2:
-                t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)
+                t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
             else:
                 t = 0.0
             p_val = _p_value_from_t(t, n_sampled)
@@ -569,7 +588,7 @@ def multi_horizon_ic(
     # BHY across horizons: sweeping k horizons is k implicit tests.
     horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]
     raw_h_p = [per_horizon[h]["p_value"] for h in horizon_keys]
-    adj_h_p = bhy_adjusted_p(raw_h_p) if raw_h_p else []
+    adj_h_p = bhy_adjusted_p(raw_h_p)
     for h, ap in zip(horizon_keys, adj_h_p, strict=False):
         per_horizon[h]["p_adjusted_bhy"] = float(ap)
 

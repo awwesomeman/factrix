@@ -182,7 +182,7 @@ def turnover(
     rc_arr = rc_per_date["rc"].to_numpy()
     mean_rc = float(np.mean(rc_arr))
     std_rc = float(np.std(rc_arr, ddof=DDOF))
-    n_cs_mean = float(rc_per_date["n_pair"].mean())
+    n_cs_mean = float(rc_per_date["n_pair"].mean())  # type: ignore[arg-type]
 
     return MetricOutput(
         name="turnover",

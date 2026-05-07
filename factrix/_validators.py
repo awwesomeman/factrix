@@ -84,7 +84,7 @@ def validate_n_assets(df: pl.DataFrame, factor_type: str) -> None:
     # test's structural minimum, so EVERY date would be dropped.
     min_req = _PER_DATE_MIN[factor_type]
     max_per_date = int(
-        df.group_by("date")
+        df.group_by("date")  # type: ignore[arg-type]
         .agg(pl.col("asset_id").n_unique().alias("_n"))
         .get_column("_n")
         .max()

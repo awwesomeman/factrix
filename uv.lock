@@ -672,7 +672,7 @@ requires-dist = [
     { name = "mkdocs-jupyter", marker = "extra == 'docs'", specifier = ">=0.25" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.26" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.20" },
     { name = "nbformat", marker = "extra == 'jupyter'", specifier = ">=4.2.0" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandera", specifier = ">=0.29" },

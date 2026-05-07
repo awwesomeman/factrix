@@ -77,13 +77,13 @@ def compute_event_returns(
     }
 
     if price_col not in df.columns:
-        return pl.DataFrame(schema=empty_schema)
+        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
 
     sorted_df = df.sort(["asset_id", "date"])
     events = sorted_df.filter(pl.col(factor_col) != 0)
 
     if len(events) == 0:
-        return pl.DataFrame(schema=empty_schema)
+        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
 
     # Build per-asset price lookup
     event_assets = set(events["asset_id"].unique().to_list())
@@ -137,7 +137,7 @@ def compute_event_returns(
             )
 
     if not rows:
-        return pl.DataFrame(schema=empty_schema)
+        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
 
     return pl.DataFrame(rows).with_columns(
         pl.col("offset").cast(pl.Int32),

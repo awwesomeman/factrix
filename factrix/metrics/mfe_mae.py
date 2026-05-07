@@ -34,14 +34,14 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     users with Datetime('us') or TZ-aware inputs get a joinable result."""
     return {
         "date": date_dtype,
-        "asset_id": pl.String,
-        "mfe": pl.Float64,
-        "mae": pl.Float64,
-        "mfe_z": pl.Float64,
-        "mae_z": pl.Float64,
-        "est_sigma": pl.Float64,
-        "bars_to_mfe": pl.Int32,
-        "bars_to_mae": pl.Int32,
+        "asset_id": pl.String(),
+        "mfe": pl.Float64(),
+        "mae": pl.Float64(),
+        "mfe_z": pl.Float64(),
+        "mae_z": pl.Float64(),
+        "est_sigma": pl.Float64(),
+        "bars_to_mfe": pl.Int32(),
+        "bars_to_mae": pl.Int32(),
     }
 
 
@@ -263,14 +263,14 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
             min_required=MIN_EVENTS_HARD,
         )
 
-    mfe_p50 = float(mfe_mae_df["mfe"].quantile(0.50))
-    mae_p75 = float(mfe_mae_df["mae"].quantile(0.75))
-    mae_p95 = float(mfe_mae_df["mae"].quantile(0.95))
+    mfe_p50 = float(mfe_mae_df["mfe"].quantile(0.50))  # type: ignore[arg-type]
+    mae_p75 = float(mfe_mae_df["mae"].quantile(0.75))  # type: ignore[arg-type]
+    mae_p95 = float(mfe_mae_df["mae"].quantile(0.95))  # type: ignore[arg-type]
 
     ratio = mfe_p50 / abs(mae_p75) if abs(mae_p75) > EPSILON else 0.0
 
-    bars_to_mfe_mean = float(mfe_mae_df["bars_to_mfe"].mean())
-    bars_to_mae_mean = float(mfe_mae_df["bars_to_mae"].mean())
+    bars_to_mfe_mean = float(mfe_mae_df["bars_to_mfe"].mean())  # type: ignore[arg-type]
+    bars_to_mae_mean = float(mfe_mae_df["bars_to_mae"].mean())  # type: ignore[arg-type]
 
     metadata: dict = {
         "mfe_p50": mfe_p50,
@@ -288,8 +288,8 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         mfe_z = mfe_mae_df["mfe_z"].drop_nulls().drop_nans()
         mae_z = mfe_mae_df["mae_z"].drop_nulls().drop_nans()
         if len(mfe_z) >= MIN_EVENTS_HARD and len(mae_z) >= MIN_EVENTS_HARD:
-            mfe_z_p50 = float(mfe_z.quantile(0.50))
-            mae_z_p75 = float(mae_z.quantile(0.75))
+            mfe_z_p50 = float(mfe_z.quantile(0.50))  # type: ignore[arg-type]
+            mae_z_p75 = float(mae_z.quantile(0.75))  # type: ignore[arg-type]
             metadata["mfe_z_p50"] = mfe_z_p50
             metadata["mae_z_p75"] = mae_z_p75
             metadata["mfe_mae_ratio_z"] = (

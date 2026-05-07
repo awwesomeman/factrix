@@ -212,7 +212,7 @@ def _assign_quantile_groups(
     Returns:
         DataFrame with ``_group`` column appended.
     """
-    rank_expr = pl.col(factor_col).rank(method=tie_policy).over("date").alias("_rank")
+    rank_expr = pl.col(factor_col).rank(method=tie_policy).over("date").alias("_rank")  # type: ignore[arg-type]
     return (
         df.with_columns(
             rank_expr,
@@ -256,7 +256,7 @@ def _compute_tie_ratio(
         )
     )
     med = per_date["_tr"].median()
-    return float("nan") if med is None else float(med)
+    return float("nan") if med is None else float(med)  # type: ignore[arg-type]
 
 
 def _warn_high_tie_ratio(
@@ -321,7 +321,7 @@ def _is_sparse_magnitude_weighted(
 def _median_universe_size(df: pl.DataFrame) -> int:
     """Median number of unique assets per date."""
     return int(
-        df.group_by("date").agg(pl.col("asset_id").n_unique().alias("n"))["n"].median()
+        df.group_by("date").agg(pl.col("asset_id").n_unique().alias("n"))["n"].median()  # type: ignore[arg-type]
     )
 
 
