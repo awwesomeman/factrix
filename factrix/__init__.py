@@ -88,7 +88,31 @@ def evaluate(
             ``"factor"``). Renamed to ``"factor"`` internally before
             dispatch. Looping over candidates with different
             ``factor_col=`` values is the canonical multi-factor
-            pattern; see the batch screening guide.
+            pattern; downstream aggregation goes through
+            :func:`factrix.multi_factor.bhy` (auto-partitions families
+            by dispatch cell × ``forward_periods``) — not the low-level
+            ``factrix.stats.bhy_adjusted_p`` primitive. See the batch
+            screening guide.
+
+    Raises:
+        MissingConfigError: ``evaluate(raw)`` called without an
+            ``AnalysisConfig``. Recovery: call
+            :func:`factrix.suggest_config`.
+        IncompatibleAxisError: ``config`` axes form an illegal cell.
+        ModeAxisError: Legal cell has no procedure under the derived
+            ``Mode``. Carries ``.suggested_fix: AnalysisConfig | None``
+            with the nearest-legal config.
+        InsufficientSampleError: ``T`` below the procedure's
+            ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
+            ``.required_periods``.
+        ValueError: ``factor_col`` not present on ``raw``, or both
+            ``"factor"`` and ``factor_col`` present (ambiguous which is
+            the signal).
+
+    All factrix-raised errors inherit from :class:`FactrixError`.
+
+    See ``llms-full.txt`` for the full API reference and dispatch
+    table: https://awwesomeman.github.io/factrix/llms-full.txt
     """
     if config is None:
         raise MissingConfigError(

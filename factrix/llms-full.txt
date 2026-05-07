@@ -173,7 +173,12 @@ factrix.evaluate(raw: polars.DataFrame, config: AnalysisConfig,
 procedure. `factor_col=` lets a panel with a non-default signal column
 name (e.g. `"alpha"`) be evaluated without renaming first; looping over
 candidates with different `factor_col=` values is the canonical multi-
-factor pattern. Raises (subclasses of `FactrixError`; see `## Errors`
+factor pattern. Downstream aggregation goes through
+`factrix.multi_factor.bhy(profiles)`, which auto-partitions families
+by `(dispatch cell, forward_periods)`; do **not** reach into
+`factrix.stats.bhy_adjusted_p` directly — that is a low-level primitive
+that requires re-implementing the family split by hand.
+Raises (subclasses of `FactrixError`; see `## Errors`
 below for the full hierarchy + recovery payloads):
 - `MissingConfigError` — `evaluate(raw)` called without an `AnalysisConfig`
 - `IncompatibleAxisError` — config axes form an illegal cell
