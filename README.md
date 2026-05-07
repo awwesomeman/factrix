@@ -23,7 +23,7 @@
     <a href="https://github.com/awwesomeman/factrix/blob/main/LICENSE" title="License">
         <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" />
     </a>
-    <a href="https://awwesomeman.github.io/factrix/" title="Documentation">
+    <a href="https://awwesomeman.github.io/factrix/latest/" title="Documentation">
         <img src="https://img.shields.io/badge/docs-mkdocs--material-526CFE?logo=materialformkdocs&logoColor=white" />
     </a>
     <a href="https://github.com/awwesomeman/factrix/stargazers" title="Stars">
@@ -41,7 +41,7 @@ A polars-native factor validator. It answers the core question — **Does this f
 uv pip install git+https://github.com/awwesomeman/factrix.git
 ```
 
-See the [installation guide](https://awwesomeman.github.io/factrix/getting-started/install/) for `pip` / `conda`, version pinning, and development setup.
+See the [installation guide](https://awwesomeman.github.io/factrix/latest/getting-started/install/) for `pip` / `conda`, version pinning, and development setup.
 
 ## Typical usage
 
@@ -78,10 +78,10 @@ print(profile.stats.get(fl.StatCode.TS_BETA))
 
 ## Documentation
 
-- [**Get Started**](https://awwesomeman.github.io/factrix/getting-started/) — install, quickstart, three-axis concepts
-- [**Guides**](https://awwesomeman.github.io/factrix/guides/) — PANEL vs TIMESERIES, BHY batch screening, choosing a metric
-- [**Reference**](https://awwesomeman.github.io/factrix/reference/metric-applicability/) — applicability tables, formulas, statistical methods
-- [**Development**](https://awwesomeman.github.io/factrix/development/architecture/) — architecture, contributing
+- [**Get Started**](https://awwesomeman.github.io/factrix/latest/getting-started/) — install, quickstart, three-axis concepts
+- [**Guides**](https://awwesomeman.github.io/factrix/latest/guides/) — PANEL vs TIMESERIES, BHY batch screening, choosing a metric
+- [**Reference**](https://awwesomeman.github.io/factrix/latest/reference/metric-applicability/) — applicability tables, formulas, statistical methods
+- [**Development**](https://awwesomeman.github.io/factrix/latest/development/architecture/) — architecture, contributing
 
 ## License
 

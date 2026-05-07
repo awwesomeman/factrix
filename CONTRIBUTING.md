@@ -1,6 +1,6 @@
 # Contributing to factrix
 
-Quick-start guide. Full contributing reference: **[docs/development/contributing](https://awwesomeman.github.io/factrix/development/contributing/)**.
+Quick-start guide. Full contributing reference: **[docs/development/contributing](https://awwesomeman.github.io/factrix/latest/development/contributing/)**.
 
 ## Setup
 
@@ -30,4 +30,4 @@ gh pr create
 - Add WHY narrative to `CHANGELOG.md § [Unreleased]` in each PR; version bumps happen on release-train cadence, not per-PR
 - `uv run pytest` must be green before pushing
 
-For architecture decisions, submodule workflow, and release process → see the [full contributing guide](https://awwesomeman.github.io/factrix/development/contributing/).
+For architecture decisions, submodule workflow, and release process → see the [full contributing guide](https://awwesomeman.github.io/factrix/latest/development/contributing/).

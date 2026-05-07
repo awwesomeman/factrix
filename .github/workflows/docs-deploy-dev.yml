@@ -1,4 +1,4 @@
-name: docs
+name: docs-deploy-dev
 
 on:
   push:
@@ -73,4 +73,4 @@ jobs:
       - name: Deploy dev
         run: |
           uv run mike deploy --push dev
-          uv run mike set-default --push dev
+          uv run mike set-default --push latest

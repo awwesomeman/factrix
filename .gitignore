@@ -44,8 +44,11 @@ package-lock.json
 # MkDocs build output
 site/
 
-# MkDocs caches
+# Caches
 .cache/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
 
 # MkDocs build-time artifacts (synced from SSOT by hooks; see scripts/)
 docs/examples/*.ipynb
