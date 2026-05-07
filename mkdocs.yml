@@ -147,6 +147,7 @@ nav:
       - MetricOutput: api/metric-output.md
       - multi_factor: api/multi-factor.md
       - datasets: api/datasets.md
+      - preprocess: api/preprocess.md
       - Metrics:
           - api/metrics/index.md
           - Individual continuous:

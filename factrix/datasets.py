@@ -2,13 +2,13 @@
 
 Both generators emit **raw canonical-column panels** (``date, asset_id,
 price, factor``). Callers attach ``forward_return`` (e.g. via
-``factrix.preprocess.returns.compute_forward_return``) before calling
+``factrix.preprocess.compute_forward_return``) before calling
 ``fl.evaluate(panel, cfg)``.
 
 Usage:
 
     import factrix as fl
-    from factrix.preprocess.returns import compute_forward_return
+    from factrix.preprocess import compute_forward_return
 
     raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500)
     panel = compute_forward_return(raw, forward_periods=5)
@@ -115,7 +115,7 @@ def make_cs_panel(
     Returns:
         Long DataFrame with ``date, asset_id, price, factor`` and
         ``date`` dtype ``pl.Datetime("ms")``. Attach ``forward_return``
-        (e.g. via ``factrix.preprocess.returns.compute_forward_return``)
+        (e.g. via ``factrix.preprocess.compute_forward_return``)
         before passing to ``fl.evaluate``.
     """
     if n_assets < 2:
@@ -204,7 +204,7 @@ def make_event_panel(
         Long DataFrame with ``date, asset_id, price, factor``. Factor
         is ``Float64`` with values in ``{-1.0, 0.0, +1.0}``. Attach
         ``forward_return`` (e.g. via
-        ``factrix.preprocess.returns.compute_forward_return``) before
+        ``factrix.preprocess.compute_forward_return``) before
         passing to ``fl.evaluate``.
     """
     if n_assets < 1:

@@ -51,7 +51,7 @@ See the [installation guide](https://awwesomeman.github.io/factrix/latest/gettin
 
 ```python
 import factrix as fl
-from factrix.preprocess.returns import compute_forward_return
+from factrix.preprocess import compute_forward_return
 
 raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)

@@ -37,7 +37,7 @@ typical usage patterns in a single fetch. Two access paths::
     text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
 
-from factrix import datasets, multi_factor
+from factrix import datasets, multi_factor, preprocess
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
     FactorScope,
@@ -119,4 +119,6 @@ __all__ = [
     "multi_factor",
     # Synthetic panels
     "datasets",
+    # Forward-return preprocessing
+    "preprocess",
 ]
