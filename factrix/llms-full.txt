@@ -268,6 +268,40 @@ inspects the `date` dtype.
 
 ---
 
+## Errors
+
+All factrix exceptions inherit from `FactrixError`, so agents can write
+`except fl.FactrixError:` to catch every library-raised failure.
+
+```
+FactrixError                       # base — all factrix-raised errors
+└── ConfigError                    # AnalysisConfig validation / dispatch
+    ├── MissingConfigError         # evaluate(raw) called without a config
+    ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
+    ├── ModeAxisError              # legal cell, no procedure at runtime mode;
+    │                              # carries .suggested_fix: AnalysisConfig | None
+    └── InsufficientSampleError    # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
+                                   # carries .actual_periods / .required_periods
+```
+
+`InsufficientSampleError` and `ModeAxisError` carry recovery payloads
+(numbers / nearest-legal config) so callers can branch programmatically
+without parsing message strings.
+
+---
+
+## MetricOutput
+
+Return type for the standalone `factrix.metrics.*` primitives invoked
+directly (outside of `evaluate`). Frozen dataclass: `name` (metric id),
+`value` (raw scalar), `stat` (test statistic when applicable),
+`significance` (`***` / `**` / `*` / `""` derived from
+`metadata["p_value"]`). The structured-procedure path returns
+`FactorProfile`; only callers reaching into `factrix.metrics.<module>`
+directly see `MetricOutput`.
+
+---
+
 ## WarningCode reference (verbatim from `factrix._codes`)
 
 | WarningCode | Description (canonical) |
