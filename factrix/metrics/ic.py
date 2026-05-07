@@ -389,24 +389,9 @@ def regime_ic(
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
-    if regime_labels is not None:
-        merged = ic_df.join(
-            regime_labels.select("date", "regime"), on="date", how="inner"
-        )
-    else:
-        # Fallback: time bisection
-        sorted_ic = ic_df.sort("date")
-        mid = len(sorted_ic) // 2
-        merged = (
-            sorted_ic.with_row_index("_idx")
-            .with_columns(
-                pl.when(pl.col("_idx") < mid)
-                .then(pl.lit("first_half"))
-                .otherwise(pl.lit("second_half"))
-                .alias("regime")
-            )
-            .drop("_idx")
-        )
+    from factrix.metrics.regime import _slice_by_regime
+
+    merged = _slice_by_regime(ic_df, regime_labels)
 
     # Single-pass group_by instead of per-regime Python loop
     regime_stats = (
