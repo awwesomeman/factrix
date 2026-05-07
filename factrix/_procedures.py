@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._codes import StatCode
 from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey, register
 
 if TYPE_CHECKING:
@@ -32,9 +33,17 @@ class InputSchema:
 
 @runtime_checkable
 class FactorProcedure(Protocol):
-    """Pure-compute contract: raw data + config → populated profile."""
+    """Pure-compute contract: raw data + config → populated profile.
+
+    ``EMITS_STATS`` is the **possible-set** of ``StatCode`` keys the
+    procedure can populate on ``FactorProfile.stats`` (always-emitted ∪
+    conditionally-emitted). ``describe_analysis_modes(format="json")``
+    surfaces this so agents can pre-validate ``verdict(gate=...)`` /
+    ``bhy(gate=...)`` choices without running the procedure.
+    """
 
     INPUT_SCHEMA: ClassVar[InputSchema]
+    EMITS_STATS: ClassVar[frozenset[StatCode]]
 
     def compute(
         self,
@@ -53,6 +62,14 @@ class _ICContPanelProcedure:
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.IC_MEAN,
+            StatCode.IC_T_NW,
+            StatCode.IC_P,
+            StatCode.NW_LAGS_USED,
+        }
     )
 
     def compute(
@@ -115,6 +132,14 @@ class _FMContPanelProcedure:
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.FM_LAMBDA_MEAN,
+            StatCode.FM_LAMBDA_T_NW,
+            StatCode.FM_LAMBDA_P,
+            StatCode.NW_LAGS_USED,
+        }
     )
 
     def compute(
@@ -198,6 +223,14 @@ class _CAARSparsePanelProcedure:
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
     )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.CAAR_MEAN,
+            StatCode.CAAR_T_NW,
+            StatCode.CAAR_P,
+            StatCode.NW_LAGS_USED,
+        }
+    )
 
     def compute(
         self,
@@ -276,6 +309,14 @@ class _CommonContPanelProcedure:
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
     )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.TS_BETA,
+            StatCode.TS_BETA_T_NW,
+            StatCode.TS_BETA_P,
+            StatCode.FACTOR_ADF_P,
+        }
+    )
 
     def compute(
         self,
@@ -303,6 +344,13 @@ class _CommonSparsePanelProcedure:
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.TS_BETA,
+            StatCode.TS_BETA_T_NW,
+            StatCode.TS_BETA_P,
+        }
     )
 
     def compute(
@@ -456,6 +504,15 @@ class _TSBetaContTimeseriesProcedure:
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
     )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.TS_BETA,
+            StatCode.TS_BETA_T_NW,
+            StatCode.TS_BETA_P,
+            StatCode.FACTOR_ADF_P,
+            StatCode.NW_LAGS_USED,
+        }
+    )
 
     def compute(
         self,
@@ -549,6 +606,16 @@ class _TSDummySparseTimeseriesProcedure:
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
         required_columns=("date", "asset_id", "factor", "forward_return"),
+    )
+    EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
+        {
+            StatCode.TS_BETA,
+            StatCode.TS_BETA_T_NW,
+            StatCode.TS_BETA_P,
+            StatCode.LJUNG_BOX_P,
+            StatCode.EVENT_TEMPORAL_HHI,
+            StatCode.NW_LAGS_USED,
+        }
     )
 
     def compute(
