@@ -30,4 +30,29 @@ flow through.
 For runnable recipes see
 [Examples](../examples/index.md).
 
+## Required columns per cell
+
+Every procedure declared in the dispatch registry imposes the same
+floor at `INPUT_SCHEMA` — `(date, asset_id, factor, forward_return)`.
+Some downstream metrics within a cell consume **optional** columns; if
+the optional column is absent, those specific metrics short-circuit
+gracefully (returning `NaN` with a `reason`) and the rest of the cell
+runs normally.
+
+| Cell | Required | Optional column → enables |
+|---|---|---|
+| Individual × Continuous (`ic`, `fama_macbeth`) | `date, asset_id, factor, forward_return` | `market_cap` (or any column passed as `weight_col=`) → `quantile_spread_vw` value-weighting |
+| Individual × Sparse (event studies) | `date, asset_id, factor, forward_return` | `price` → `event_around_return`, `multi_horizon_hit_rate`, `mfe_mae_summary` (degrade gracefully if absent) |
+| Common × Continuous (broadcast macro factor) | `date, asset_id, factor, forward_return` | — |
+| Common × Sparse (broadcast event dummy) | `date, asset_id, factor, forward_return` | — |
+
+`forward_return` is treated as part of the input contract rather than
+computed inside `evaluate`. Attach it via
+[`compute_forward_return`](preprocess.md) before the call so the
+horizon (`h`) is explicit in the panel and aligned with
+`AnalysisConfig.forward_periods`. The two synthetic dataset
+generators (`make_cs_panel`, `make_event_panel`) emit
+`(date, asset_id, factor, price)` and require the same preprocessing
+step.
+
 ::: factrix.evaluate
