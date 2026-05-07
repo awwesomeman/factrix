@@ -4,12 +4,14 @@ Per-asset time-series β to a macro common factor (VIX, USD index,
 etc.), then cross-asset *t* on the β distribution. Includes mean R²,
 rolling-window β stability, and sign consistency.
 
-!!! info "TIMESERIES-mode conventions"
-    Stage-1 per-asset OLS uses **plain SE**, not HAC — the dominant
-    bias under a persistent predictor is Stambaugh coefficient bias,
-    which HAC does not address. `FACTOR_ADF_P` is emitted on the input
-    series; non-overlap resampling is **not** applied. See
-    [TIMESERIES-mode conventions](../../reference/ts-mode-conventions.md)
+!!! info "TS-regression conventions"
+    PANEL stage-1 per-asset OLS uses **plain SE**, not HAC — the
+    dominant bias under a persistent predictor is Stambaugh
+    coefficient bias, which HAC does not address. TIMESERIES dispatch
+    (`N == 1`) instead applies NW HAC directly on the single series.
+    `FACTOR_ADF_P` is emitted in both modes; non-overlap resampling
+    is not applied in either. See
+    [TS-regression conventions](../../reference/ts-mode-conventions.md)
     for the full rationale.
 
 ::: factrix.metrics.ts_beta

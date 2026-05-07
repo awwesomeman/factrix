@@ -137,7 +137,7 @@ nav:
       - Metric applicability: reference/metric-applicability.md
       - Metric pipelines: reference/standalone-metrics.md
       - Statistical methods: reference/statistical-methods.md
-      - TIMESERIES-mode conventions: reference/ts-mode-conventions.md
+      - TS-regression conventions: reference/ts-mode-conventions.md
       - Warning / info / stat codes: reference/warning-codes.md
       - Bibliography: reference/bibliography.md
   - API:

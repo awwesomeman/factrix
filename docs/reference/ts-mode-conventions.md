@@ -1,18 +1,27 @@
-# TIMESERIES-mode conventions
+# TS-regression conventions
 
-`Common × Continuous` evaluations on a single time series (`ts_beta`,
-`ts_quantile`, `ts_asymmetry` and their variants) inherit four shared
-conventions that are not visible from the per-metric API page. Each
-metric page links here so the rationale is reachable without
+The `Common × Continuous` cell (and its `ts_beta` / `ts_quantile` /
+`ts_asymmetry` family of metrics) is built on a per-asset
+**time-series regression**: `forward_return ~ factor` fitted by OLS on
+each asset independently. PANEL aggregates the per-asset slopes into
+a cross-asset *t* on `E[β]`; TIMESERIES (`N == 1`) is the degenerate
+case of the same regression — one series, no aggregation step.
+
+This page collects four conventions that govern the family. *"TS"
+here means time-series regression, the estimator pattern, not
+`Mode.TIMESERIES` dispatch* — most conventions apply to both PANEL
+and TIMESERIES dispatch and the differences are flagged per section.
+Each metric page links here so the rationale is reachable without
 source-diving.
 
-## Plain SE in stage-1 per-asset OLS
+## Plain SE in PANEL stage-1 per-asset OLS
 
-`ts_beta` is a two-stage estimator: stage 1 is a per-asset OLS of
-`forward_return ~ factor`, stage 2 is the cross-asset distribution of
-the resulting β. **Stage 1 deliberately retains plain OLS SE rather
-than NW / HAC** in TIMESERIES mode even when `forward_periods > 1`
-introduces overlap.
+PANEL `Common × Continuous` is a two-stage estimator
+([`_compute_common_panel`](../development/architecture.md)): stage 1
+fits per-asset OLS via `compute_ts_betas`; stage 2 takes the
+cross-asset *t* on the resulting β distribution. **Stage 1
+deliberately retains plain OLS SE rather than NW / HAC** even when
+`forward_periods > 1` introduces overlap.
 
 Reasoning summarised in
 [Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns)
@@ -21,19 +30,27 @@ Reasoning summarised in
 address. Stage 2 cross-asset inference handles whatever residual
 time-axis structure leaks through the β distribution.
 
-If overlap-induced SE inflation is the binding concern, prefer
-`ic_newey_west` on the same series (Individual × Continuous cell)
-where the HAC adjustment is the canonical inferential primitive.
+**TIMESERIES dispatch (`N == 1`) is different.** With no
+cross-section to aggregate over, the single-series path
+(`_TSBetaContTimeseriesProcedure`) **does** apply NW HAC directly via
+`_ols_nw_slope_t` — the Hansen-Hodrick floor on the bandwidth absorbs
+the MA(h−1) overlap structure on the one available series. The
+plain-SE rationale above is therefore PANEL-stage-1 specific and does
+not extend to the TIMESERIES single-series test.
+
+If overlap-induced SE inflation is the binding concern in PANEL
+mode, prefer `ic_newey_west` on the same series (Individual ×
+Continuous cell) where HAC is the canonical inferential primitive.
 
 [stambaugh-1999]: bibliography.md#stambaugh-1999
 
 ## `FACTOR_ADF_P` persistence diagnostic
 
-Every TIMESERIES-mode procedure emits `FACTOR_ADF_P` on the input
-factor series (see `_procedures.py`). A failed unit-root rejection
-(`FACTOR_ADF_P > 0.05`) does not short-circuit the metric — the slope
-is still returned — but the diagnostic surfaces on the profile and
-slope significance should be read with that caveat.
+Every `Common × Continuous` procedure (PANEL and TIMESERIES alike)
+emits `FACTOR_ADF_P` on the input factor series. A failed unit-root
+rejection (`FACTOR_ADF_P > 0.05`) does not short-circuit the metric
+— the slope is still returned — but the diagnostic surfaces on the
+profile and slope significance should be read with that caveat.
 
 Full derivation, threshold rationale, and interpolation accuracy live
 in
@@ -42,8 +59,8 @@ The
 [`FactorProfile` StatCode → method table](../api/factor-profile.md#statcode--statistical-method)
 maps `FACTOR_ADF_P` to that section directly. The
 `unit_root_suspected=True` flag is `ic_trend` metadata only — the
-TIMESERIES-mode cells expose the raw `FACTOR_ADF_P` *p*-value and
-leave the threshold call to the caller.
+`Common × Continuous` cells expose the raw `FACTOR_ADF_P` *p*-value
+and leave the threshold call to the caller.
 
 The diagnostic is on the *input* factor, not the regression residual.
 
@@ -52,35 +69,42 @@ The diagnostic is on the *input* factor, not the regression residual.
 The cell-canonical `Individual × Continuous` metrics (`ic`, `caar`)
 use **non-overlapping resampling** as the inferential default
 ([Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns)).
-TIMESERIES mode inverts this: the per-asset stage-1 regression runs
-on the **full** overlapping series — TIMESERIES lacks the
-cross-section axis to "burn" `h` periods of samples, so
-non-overlapping resampling at stage 1 would leave inadequate `T` for
-the per-asset OLS at typical horizons.
+The TS-regression family inverts this in **both dispatch modes**: the
+per-asset (or single-asset) regression runs on the **full**
+overlapping series. The asset axis cannot be used to "burn" `h`
+periods of samples in either case — at PANEL each asset's stage-1 has
+its own short series; at TIMESERIES there is only the one series — so
+non-overlapping resampling would leave inadequate `T` for OLS at
+typical horizons.
+
+The two modes mitigate the resulting overlap differently: PANEL
+absorbs it through stage-2 cross-asset aggregation (see plain-SE
+section above), TIMESERIES absorbs it through the NW HAC bandwidth
+on the single series.
 
 When the dataset's `signal_horizon` differs from
 `AnalysisConfig.forward_periods`
 ([`datasets.md`](../api/datasets.md) frames the *decay* side of this),
-the realised TIMESERIES-mode signal is also **biased**, not only
-decayed. Two distinct sources compound:
+the realised signal is also **biased**, not only decayed. Two
+distinct sources compound:
 
 - **Overlap structure**: `h ≠ signal_horizon` produces an MA(h−1)
   residual whose autocovariance is no longer the simple Bartlett
   approximation HAC assumes. The Hansen-Hodrick floor in NW absorbs
-  this for HAC-using metrics; the plain-SE stage-1 in `ts_beta` does
-  not.
+  this for HAC-using metrics (TIMESERIES single-series; `ic_newey_west`);
+  the plain-SE PANEL stage-1 does not.
 - **Stambaugh-style coefficient bias**: when the predictor is
   persistent (the typical regime flagged by `FACTOR_ADF_P`),
   `forward_periods ≠ signal_horizon` shifts the OLS coefficient
-  itself, not only its SE.
+  itself, not only its SE — present in both PANEL and TIMESERIES.
 
 Treat `forward_periods == signal_horizon` as the regime where
-TIMESERIES-mode inference is calibrated; other horizons are
+TS-regression inference is calibrated; other horizons are
 exploratory and the reported *p*-values should be discounted
 accordingly. This is a **bias** caveat distinct from the IC-decay
 framing on the synthetic datasets page.
 
-## Single-series null
+## Single-series null (TIMESERIES dispatch only)
 
 TIMESERIES dispatch routes `Common × Continuous` to a single-asset β
 whose null is `H₀: β = 0` for the one series — **not** the PANEL null
