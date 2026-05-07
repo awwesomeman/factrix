@@ -1,5 +1,12 @@
 # Concepts
 
+## What factrix is for
+
+factrix evaluates factor **signal validity**, not portfolio
+performance — see
+[Guides § Standalone metrics — Scope](../guides/standalone-metrics.md#scope)
+for the full boundary (what is in, what is downstream).
+
 ## Three orthogonal axes
 
 [`AnalysisConfig`][factrix.AnalysisConfig] is defined by three user-facing
