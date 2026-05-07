@@ -38,10 +38,12 @@ A polars-native factor validator. It answers the core question — **Does this f
 ## Installation
 
 ```bash
-uv pip install git+https://github.com/awwesomeman/factrix.git
+pip install factrix
+# or
+uv add factrix
 ```
 
-See the [installation guide](https://awwesomeman.github.io/factrix/latest/getting-started/install/) for `pip` / `conda`, version pinning, and development setup.
+See the [installation guide](https://awwesomeman.github.io/factrix/latest/getting-started/install/) for version pinning and development setup.
 
 ## Typical usage
 
