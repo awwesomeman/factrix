@@ -480,9 +480,9 @@ def list_metrics(
         keys ``name``, ``module``, ``cell``, ``agg_order``,
         ``inference_se``, ``import_path``, ``input_kind``,
         ``docs_anchor``, ``emitted_name`` — JSON-serialisable, suitable
-        for tooling. ``docs_anchor`` is a docs-root-relative path +
-        mkdocstrings symbol fragment
-        (``api/metrics/<module>.md#factrix.metrics.<module>.<name>``).
+        for tooling. ``docs_anchor`` follows
+        :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a docs-root-relative
+        path + mkdocstrings symbol fragment).
         ``emitted_name`` is the literal ``MetricOutput.name`` value at
         runtime — usually equal to ``name`` (the function name), but
         differs for a small set of historical exceptions. Consumers
