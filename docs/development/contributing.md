@@ -410,6 +410,17 @@ the offending PR) before bumping.
 
 For hand-written nested dicts (e.g. per-regime / per-horizon stats), prefer a `TypedDict` over scattered suppressions — those errors point at a typing gap, not a Polars one.
 
+### 7.5 Design proposals — use issues, not files
+
+New design proposals go in a **GitHub issue** (label: `design`), not a markdown file under `docs/plans/`. Issues give threaded discussion, edit history, cross-links to PRs / commits, and zero file-maintenance overhead. The `docs/plans/archive/` directory is the frozen pre-v0.10 plan corpus — read-only history; never add to it.
+
+Exceptions where a file-form plan still earns its keep:
+
+- Multi-thousand-line specs with heavy LaTeX / diagrams that strain GitHub markdown
+- Plans that go through ≥3 numbered revisions where commit history of the file itself is the record
+
+In those cases, file under `docs/plans/active/<short-slug>.md` and open a tracking issue that links to it. Once shipped or superseded, the same PR that lands the work moves the file to `docs/plans/archive/`.
+
 ---
 
 ## 8. Testing rules
