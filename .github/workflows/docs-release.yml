@@ -1,0 +1,55 @@
+name: docs-release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to deploy (e.g. 0.7.0)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.5.x"
+          enable-cache: true
+
+      - name: Install docs dependencies
+        run: uv sync --python 3.12 --extra docs
+
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+          fi
+          MINOR=$(echo "$TAG" | cut -d. -f1,2)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy release
+        run: |
+          uv run mike deploy --push --update-aliases "${{ steps.ver.outputs.tag }}" "${{ steps.ver.outputs.minor }}" latest
+          uv run mike set-default --push latest
