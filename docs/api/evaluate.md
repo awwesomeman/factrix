@@ -55,4 +55,41 @@ generators (`make_cs_panel`, `make_event_panel`) emit
 `(date, asset_id, factor, price)` and require the same preprocessing
 step.
 
+## `factor_col=` — non-default signal column name
+
+Panels often arrive with the signal column named something other than
+`"factor"` — e.g. `"alpha"`, `"score"`, or a domain-specific label.
+Pass `factor_col=` to evaluate without renaming first:
+
+```python
+profile = fl.evaluate(panel, config, factor_col="alpha")
+```
+
+Internally the column is renamed to `"factor"` before dispatch so the
+procedure's `INPUT_SCHEMA` still sees the canonical schema. Two error
+cases:
+
+- `factor_col` not present on the panel → `ValueError` listing the
+  panel's actual columns.
+- Both `"factor"` and `factor_col` present and they differ → `ValueError`
+  flagging the ambiguity. Drop the unused column before calling.
+
+!!! warning "Single-factor convenience only"
+    `factor_col=` is for panels with one signal whose column happens
+    to be named differently. **Do not** use it to evaluate multiple
+    signals on the same panel via a comprehension:
+
+    ```python
+    # Anti-pattern: re-pays per-date cross-section overhead per signal.
+    results = {f: fl.evaluate(panel, config, factor_col=f)
+               for f in factor_names}
+    ```
+
+    Each `evaluate` call repeats the per-date cross-section work
+    (sort / group-by / rank / HHI), so this scales as
+    `O(n_factors × per_date_cost)`. For multi-signal panels use
+    [`factrix.multi_factor`](multi-factor.md) — it shares the
+    cross-section cost across signals and produces one
+    `FactorProfile` per factor.
+
 ::: factrix.evaluate

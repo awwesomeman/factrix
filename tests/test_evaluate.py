@@ -249,3 +249,65 @@ class TestNAssetsExposure:
         d = profile.diagnose()
         assert d["n_assets"] == 15
         assert d["n_obs"] != d["n_assets"]
+
+
+class TestFactorColumnAlias:
+    def test_default_factor_col_unchanged(self) -> None:
+        # Default factor_col="factor" goes through the existing happy path
+        # — no rename, no validation overhead. Sanity against accidental
+        # regression on the canonical schema.
+        panel = _build_panel(n_dates=60, n_assets=15, seed=10)
+        profile = _evaluate(
+            panel,
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+        )
+        assert StatCode.IC_MEAN in profile.stats
+
+    def test_aliased_factor_col_renamed_internally(self) -> None:
+        # Non-default factor_col is renamed to "factor" before dispatch;
+        # the resulting stats are identical to the default-named panel.
+        panel = _build_panel(n_dates=60, n_assets=15, seed=11)
+        renamed = panel.rename({"factor": "alpha"})
+        profile = _evaluate(
+            renamed,
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+            factor_col="alpha",
+        )
+        assert StatCode.IC_MEAN in profile.stats
+
+    def test_factor_col_missing_raises(self) -> None:
+        panel = _build_panel(n_dates=30, n_assets=10, seed=12)
+        with pytest.raises(ValueError, match="factor_col='alpha' not found"):
+            _evaluate(
+                panel,
+                AnalysisConfig.individual_continuous(metric=Metric.IC),
+                factor_col="alpha",
+            )
+
+    def test_factor_col_collision_with_factor_raises(self) -> None:
+        # Panel carries both 'factor' and 'alpha'; user passes
+        # factor_col="alpha" — ambiguous which is the signal under test.
+        panel = _build_panel(n_dates=30, n_assets=10, seed=13)
+        ambig = panel.with_columns(pl.col("factor").alias("alpha"))
+        with pytest.raises(ValueError, match="ambiguous which is the signal"):
+            _evaluate(
+                ambig,
+                AnalysisConfig.individual_continuous(metric=Metric.IC),
+                factor_col="alpha",
+            )
+
+    def test_public_evaluate_threads_factor_col(self) -> None:
+        # The public factrix.evaluate wrapper must thread factor_col
+        # through to _evaluate; without that, the rename never happens
+        # and the procedure-level INPUT_SCHEMA check would fail loudly.
+        import factrix as fl
+
+        panel = _build_panel(n_dates=60, n_assets=15, seed=14)
+        renamed = panel.rename({"factor": "alpha"})
+        profile = fl.evaluate(
+            renamed,
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+            factor_col="alpha",
+        )
+        assert isinstance(profile, FactorProfile)
+        assert StatCode.IC_MEAN in profile.stats

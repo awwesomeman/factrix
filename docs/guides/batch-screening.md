@@ -6,17 +6,19 @@ BHY controls FDR **within a statistical family**: evaluate multiple candidate fa
 
 ```python
 import factrix as fl
-import polars as pl
 
 candidates = ["mom_5d", "mom_20d", "mom_60d"]
 cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
 
-profiles = [
-    fl.evaluate(panel.with_columns(pl.col(name).alias("factor")), cfg)
-    for name in candidates
-]
+profiles = [fl.evaluate(panel, cfg, factor_col=name) for name in candidates]
 survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
 ```
+
+This per-factor loop pays the per-date cross-section overhead (sort /
+group-by / rank) once per candidate. For dense candidate sets where
+that overhead dominates, prefer
+[`factrix.multi_factor`](../api/multi-factor.md) which shares the
+cross-section pass across signals.
 
 [`bhy()`][factrix.multi_factor.bhy] automatically partitions by `(procedure, forward_periods)` — you do not pass a group key. Same-procedure, same-horizon profiles form one family. Different horizons always split: each horizon carries its own null distribution and effective sample size; pooling dilutes the step-up threshold and silently inflates FDR.
 
