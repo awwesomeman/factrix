@@ -12,6 +12,40 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ---
 
+## v0.9.0 (2026-05-07)
+
+Regime-stratified analysis without re-implementing every metric, plus completion of the introspection symmetry started in v0.8.0. The headline `factrix.by_regime` is a generic dispatcher: hand it any panel-input metric and a regime labelling and it returns per-regime results without baking regime semantics into each metric's signature. Layer-A (`by_regime`) intentionally emits **no** cross-regime test — a generic χ²/Wald would over-claim for non-t-stat metrics like Sharpe, turnover, hit_rate, or monotonicity ρ. Cross-regime inference lives in metric-specific Layer-B wrappers; only `regime_ic` ships in v0.9.0.
+
+### Added
+
+- **`factrix.by_regime(metric, df, *, regime_col="regime", ...)`** — generic regime dispatcher for any panel-input metric. Convention-based: positional `metric` callable + `df` + forwarded kwargs. Inner-join semantics drop unlabeled dates rather than coercing them; explicit `TypeError` on scalar-input metrics (e.g., `breakeven_cost`, `net_spread`) directing users to compose inputs first. Time-bisection fallback when `regime_col` is absent emits a `UserWarning` with `stacklevel=3` so warnings surface at the user's call site. NW HAC and the v0.8 calendar-time reindex fix (#37) still apply per slice; no double-counting risk. (#112)
+- **`factrix.metrics.regime_ic`** — Layer-B regime-aware IC with cross-regime Wald test, sharing an internal `_slice_by_regime` primitive with `by_regime` so the time-bisection fallback never diverges between the two layers. (#112)
+- **`factrix.compute_forward_return(df, forward_periods=5)`** — promoted to public API. Pipelines that `adapt()` then call non-default preprocess (winsorize, abnormal return) needed a stable public entry point. Contract: panel in, panel with `forward_return` appended out; null-forward rows dropped. No internal kwargs leak. (#91)
+- **`factrix.list_metrics` `import_path` + `input_kind` fields** — closes the v0.8 gap where `list_metrics` named the metric but not how to import it. `input_kind ∈ {"panel", "scalar"}` is the discriminator a user needs to decide whether `by_regime(metric, df, ...)` is even legal; `import_path` is `factrix.metrics.<module>`, copy-paste-ready for agent-driven pipeline wiring. (#113)
+- **`evaluate(panel, config, *, factor_col=...)`** — signal-column alias for batch screening. Loop `evaluate(panel, cfg, factor_col=name)` over candidate columns without per-iteration `.rename()`. Hard `ValueError` on collision with an existing `"factor"` column — no silent shadowing.
+- **`SuggestConfigResult.diagnose()`** — code-resolution helper completing the symmetry with `evaluate()`'s diagnose path. Renders WHY for any code key (warning, info, stat) without grepping `_procedures.py`.
+- **`StatCode.description`** — final leg of the description-on-every-code-enum symmetry started in v0.8.0 (`WarningCode.description`, `InfoCode.description`).
+- **Per-cell `stats_keys` in `describe_analysis_modes(format="json")`** — drawn from each `FactorProcedure.EMITS_STATS` (always-emitted ∪ conditionally-emitted possible-set). Agents can answer "is this gate reachable?" without running the procedure. Drift guard in tests ensures actually-emitted ⊆ declared.
+
+### Changed
+
+- **`compute_ic` regime slicing extracted to `_slice_by_regime`** — internal refactor consumed by both `compute_ic`'s regime path and `by_regime`. No user-facing signature change; eliminates the silent-divergence risk that two near-identical implementations would invite. (#112)
+- **`docs/api/by-regime.md` + `docs/guides/regime-analysis.md`** — API page and analysis guide for the new dispatcher, including the explicit Layer-A / Layer-B contract decision and the reasoning behind the absent generic cross-regime test.
+- **Architecture page registry cell table auto-generated from `_registry`** — replaces the hand-curated table that drifted twice in the v0.7 → v0.8 window. The doc renderer now reads the registry directly. (#95)
+- **`docs/llms-full.txt` error-coverage expansion** — `WarningCode` / `InfoCode` / `StatCode` and `diagnose()` contracts are now fully covered, so downstream LLM consumers see the same surface as the Python API.
+- **`CONTRIBUTING.md` drift-management section** — codifies the CI drift gates added in this release. (#104)
+- **Python 3.13 classifier in `pyproject.toml`** — environment is tested on 3.12 and 3.13.
+- **README logo** — replaced legacy SVG with a transparent PNG that renders correctly on both light and dark GitHub themes.
+
+### Fixed
+
+- **Public-surface validator extended to all docs pages** (#102) and to `llms-full.txt` (#96) — drift between registered cells and rendered docs is now caught pre-merge instead of in review.
+- **Matrix drift / trigger-gap CI gate** (#89) — fails the build when the metric × cell matrix in docs falls behind `_registry` or when a registered procedure has no docs trigger.
+- **Stale `preprocess` import path and `forward_periods` kwarg in guides** (#97) — guides referenced the v0.4 module path; updated to the v0.5+ surface.
+- **Stale notebooks pruned from `docs/examples` on build** (#103) — removed notebooks no longer reachable from the docs nav were still being shipped.
+- **Persona cross-cuts review followups** — event-study + TIMESERIES contracts (#105), equity-researcher input-schema + glossary (#106), final review pass (#110).
+- **GitHub Release job** — CHANGELOG regex fix and `--latest` flag so release notes pick up the correct CHANGELOG slice and the GitHub Release "Latest" badge tracks the most recent tag.
+
 ## v0.8.0 (2026-05-07)
 
 Magnitude-preserving CAAR semantics, programmatic metric discovery, and a calendar-time NW HAC fix. The `compute_caar` per-row formula now weights by factor magnitude rather than collapsing to sign — resolving the silent discrepancy flagged by `SPARSE_MAGNITUDE_DROPPED` (removed). Inference guardrails extended to the cross-asset axis (`n_assets` two-tier guard) to mirror the existing `n_periods` structure.
