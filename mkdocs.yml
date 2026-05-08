@@ -43,6 +43,8 @@ hooks:
   - scripts/mkdocs_hooks/gen_metric_name_index.py
   # factrix/_registry._DISPATCH_REGISTRY -> docs/development/_generated_registry_cells.md
   - scripts/mkdocs_hooks/gen_registry_cells.py
+  # factrix/_registry._DISPATCH_REGISTRY -> docs/reference/_generated_evaluate_metric_table.md
+  - scripts/mkdocs_hooks/gen_evaluate_metric_table.py
   # examples/*.ipynb -> docs/examples/
   - scripts/mkdocs_hooks/sync_examples.py
   # factrix/llms*.txt -> site root llms*.txt
