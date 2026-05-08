@@ -457,29 +457,33 @@ sources. The full bibliography lives in
 [reference/bibliography.md](reference/bibliography.md); this
 section names the most load-bearing ones.
 
-- **Goodhart, C. (1984).** *Monetary Theory and Practice*. Origin
-  of the Goodhart's-law argument used by design-notes §1.
-- **DeMiguel, V., Garlappi, L., Uppal, R. (2009).** "Optimal versus
-  naive diversification: How inefficient is the 1/N portfolio
-  strategy?" *Review of Financial Studies* — equal-weight beats
-  optimised under estimation error; cited in the no-composite
-  position.
-- **Harvey, C. R. (2017).** "Presidential address: The scientific
-  outlook in financial economics." *Journal of Finance* — argues
-  for pre-registered per-metric audit trails over unified
-  statistics.
-- **Bailey, D. H., López de Prado, M. (2014).** "The Deflated
-  Sharpe Ratio." Roadmap target for the §7 PSR row.
-- **Harvey, C. R., Liu, Y., Zhu, H. (2016).** "...and the
-  cross-section of expected returns." *Review of Financial Studies* —
-  multiple-testing inflation in the factor zoo; motivates BHY.
-- **Hou, K., Xue, C., Zhang, L. (2020).** "Replicating anomalies."
-  *Review of Financial Studies* — the replication context for the
-  §7.2 weakness disclosure.
-- **Brown, S. J., Warner, J. B. (1985).** "Using daily stock
-  returns: The case of event studies." *Journal of Financial
-  Economics* — the canonical event-study reference behind CAAR.
-- **MacKinlay, A. C. (1997).** "Event studies in economics and
-  finance." *Journal of Economic Literature* — vocabulary used
-  in the event subsection of [§1](#1-what-factrix-is) and
-  [§4.5](#45-vs-eventstudy).
+- [**Goodhart (1984)**](reference/bibliography.md#goodhart-1984) —
+  *Monetary Theory and Practice*. Origin of the Goodhart's-law
+  argument used by design-notes §1.
+- [**DeMiguel, Garlappi & Uppal (2009)**](reference/bibliography.md#demiguel-garlappi-uppal-2009) —
+  "Optimal versus naive diversification." *Review of Financial
+  Studies*. Equal-weight beats optimised under estimation error;
+  cited in the no-composite position.
+- [**Harvey (2017)**](reference/bibliography.md#harvey-2017) —
+  "Presidential address: The scientific outlook in financial
+  economics." *Journal of Finance*. Argues for pre-registered
+  per-metric audit trails over unified statistics.
+- **Bailey & López de Prado (2014)** — "The Deflated Sharpe
+  Ratio." *Journal of Portfolio Management*. Roadmap target for
+  the §7 PSR row. (Not yet in bibliography; will land alongside
+  the Deflated-Sharpe roadmap work.)
+- [**Harvey, Liu & Zhu (2016)**](reference/bibliography.md#harvey-liu-zhu-2016) —
+  "…and the cross-section of expected returns." *Review of
+  Financial Studies*. Multiple-testing inflation in the factor
+  zoo; motivates BHY.
+- [**Hou, Xue & Zhang (2020)**](reference/bibliography.md#hou-xue-zhang-2020) —
+  "Replicating anomalies." *Review of Financial Studies*. The
+  replication context for the §7.2 weakness disclosure.
+- [**Brown & Warner (1985)**](reference/bibliography.md#brown-warner-1985) —
+  "Using daily stock returns: The case of event studies."
+  *Journal of Financial Economics*. The canonical event-study
+  reference behind CAAR.
+- [**MacKinlay (1997)**](reference/bibliography.md#mackinlay-1997) —
+  "Event studies in economics and finance." *Journal of
+  Economic Literature*. Vocabulary used in
+  [§1](#1-what-factrix-is) and [§4.5](#45-vs-eventstudy).
