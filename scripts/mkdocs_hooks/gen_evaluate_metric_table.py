@@ -31,7 +31,7 @@ _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_evaluate_metric_table.md"
 
 _TABLE_HEADER = (
-    "| Cell `(scope, signal, metric, mode)` | Run by `evaluate()` | "
+    "| Dispatch key `(scope, signal, metric, mode)` | Run by `evaluate()` | "
     "Procedure summary | Literature |\n|---|---|---|---|\n"
 )
 
@@ -45,7 +45,10 @@ def _format_cell(key: _DispatchKey) -> str:
 def _render_row(entry: _RegistryEntry, import_path_by_name: dict[str, str]) -> str:
     cell = _format_cell(entry.key)
     name = entry.evaluate_metric_name
-    metric = f"[`{name}`][{import_path_by_name[name]}]"
+    # Function-level mkdocstrings ID lands the cold reader on the metric
+    # callable's API page, not the module index — symmetric with
+    # metric-applicability and stat-keys-by-metric tables.
+    metric = f"[`{name}`][{import_path_by_name[name]}.{name}]"
     refs = ", ".join(entry.references) if entry.references else "—"
     return f"| `{cell}` | {metric} | {entry.canonical_use_case} | {refs} |\n"
 
