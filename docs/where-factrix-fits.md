@@ -146,3 +146,194 @@ predictor; Stambaugh requires a specified innovation-correlation
 sign. Auto-correcting would mask the modelling choice. Reach for
 [arch](https://github.com/bashtage/arch) or R `ivx` when the flag
 fires.
+
+## 4. vs same-purpose peers
+
+Six peers occupy the *factor-evaluation / hypothesis-test* space.
+Each subsection follows the same shape: positioning, where the peer
+wins, where factrix wins, and the user profile that should pick the
+peer instead. Code side-by-side snippets are tracked separately as
+[#143](https://github.com/awwesomeman/factrix/issues/143) and will
+land here once the migration examples are validated against the same
+input panel both ways.
+
+### 4.1 vs alphalens-reloaded
+
+**Positioning** — alphalens-reloaded is the canonical pandas
+tear-sheet for cross-sectional factors; the `get_clean_factor_and_
+forward_returns` → `create_full_tear_sheet` flow is the vocabulary
+most working quants recognise on sight. factrix targets the same
+*hypothesis-test* slot but extends past CS-only and past
+pandas-bound performance.
+
+**Where alphalens wins**
+
+- Tear-sheet vocabulary every quant recognises; fastest path to a
+  publishable chart pack from a notebook.
+- pandas-native — drops into existing notebooks without a polars
+  conversion step.
+- Six years of community examples and Stack Overflow answers.
+
+**Where factrix wins**
+
+- IC inference uses NW HAC with a Hansen-Hodrick lag floor for
+  overlapping forward returns; alphalens applies a naive
+  `scipy.stats.ttest_1samp` on the IC time series ([source](https://github.com/stefan-jansen/alphalens-reloaded)),
+  which is biased when forward windows overlap.
+- Multiple-testing correction (BHY) is built into the screening
+  surface; alphalens has no batch-level FDR control by design.
+- Type-routed dispatch — alphalens is CS-only by design; factrix
+  also covers event and common-factor hypotheses without the user
+  re-implementing the test machinery.
+
+**When to pick alphalens instead** — you have a single CS factor,
+your existing toolchain is pandas-only, and the tear-sheet
+vocabulary matters more than the inference rigour.
+
+### 4.2 vs qlib factor layer
+
+**Positioning** — qlib is a full alpha → model → backtest → live
+platform. Its factor-evaluation surface (`qlib.contrib.eva.alpha`)
+is a thin utility under that platform, not the product.
+
+**Where qlib wins**
+
+- Industrial-scale data layer with caching and an integrated
+  backtest engine — pick qlib when you want one tool for the whole
+  pipeline.
+- Alpha158 / Alpha360 baselines and RD-Agent integration give an
+  ML-first research workflow.
+- Largest active community among peers in this list.
+
+**Where factrix wins**
+
+- qlib's `calc_ic` / `calc_all_ic` apply uniform IC + Rank-IC
+  across **every** factor regardless of type ([source](https://github.com/microsoft/qlib/blob/main/qlib/contrib/eva/alpha.py)).
+  factrix dispatches IC, FM, CAAR, or ts-β by factor type.
+- factrix is decoupled from any data store, signal-mining DSL, or
+  backtest engine. You can drop it into an existing pipeline; qlib
+  expects you to adopt its data layout.
+- factrix ships per-metric NW HAC, BHY FDR, and persistent-predictor
+  flagging as first-class outputs of `evaluate()`; in qlib these
+  live in scattered helper functions or are absent.
+
+**When to pick qlib instead** — you want one integrated platform
+covering data → factor → ML model → backtest → live, and the
+opinionated qlib data store is acceptable.
+
+### 4.3 vs linearmodels
+
+**Positioning** — linearmodels (Kevin Sheppard, statsmodels core)
+is the reference Python implementation of panel econometrics:
+HAC kernels (Bartlett / Parzen / QS with auto-bandwidth),
+clustered SE, and a correctly-implemented Fama-MacBeth
+second-stage SE. It is a primitive, not a framework.
+
+**Where linearmodels wins**
+
+- Best-in-class HAC and clustered SE coverage; correct FM
+  second-stage variance (most homebrew loops are wrong by a
+  constant factor).
+- Maintained by an econometrics-credible author with frequent
+  releases.
+
+**Where factrix wins**
+
+- linearmodels is a panel-econometrics toolkit; it has no factor
+  tear-sheet, no IC surface, no event-study path, no batch
+  multiple-testing layer. The user must already have a panel and
+  know which test to run.
+- factrix consumes linearmodels-class machinery via `arch` for
+  HAC and treats FM as one routed metric among several. You are
+  not asked to assemble the workflow.
+
+**When to pick linearmodels instead** — you only need correct
+Fama-MacBeth standard errors on a panel you have already
+constructed, and you do not need IC, CAAR, BHY, or any of the
+verdict surfaces.
+
+### 4.4 vs AlphaEval
+
+**Positioning** — AlphaEval ([modeltester.py](https://github.com/LeoDingggg/AlphaEval/blob/main/backtest/modeltester.py))
+is a *post-processing ranker for formula-mined alphas*: input
+qlib expression-DSL formulas, compose them via `WeightCalculator`,
+score the composite across five dimensions including an
+OpenAI-LLM-as-judge for "financial logic". Its target user mines
+1000 GP/GA formulas and needs to rank them.
+
+This is the design path factrix considered and rejected with
+literature backing — see
+[design notes §1](development/design-notes.md#1-no-composite-factor-score)
+and
+[§7](development/design-notes.md#7-per-metric-registered-procedures-rather-than-a-unified-test).
+
+**Where AlphaEval wins**
+
+- Purpose-built for formula-mining workflows; LLM-judged
+  "financial logic" dimension is unique.
+- Composite ranker is the right tool when the input is a *pool*
+  of mined alphas rather than a small set of hypothesised
+  factors.
+
+**Where factrix wins**
+
+- factrix evaluates one factor (or batch with FDR) against an
+  explicit null and surfaces per-metric pass/fail rather than a
+  weighted scalar. The two libraries answer different questions.
+- Composite scoring becomes its own optimisation target the
+  moment it ships (Goodhart 1984); per-metric verdict keeps the
+  null distributions distinct.
+
+**When to pick AlphaEval instead** — you mine formula alphas
+with GP/GA and need to rank thousands by an aggregate score for
+downstream selection.
+
+### 4.5 vs eventstudy
+
+**Positioning** — `eventstudy` is the only dedicated event-study
+Python package. It implements the standard parametric / BMP /
+Patell tests on event windows. The package self-describes as
+alpha-quality with a frequently-changing API.
+
+**Where eventstudy wins**
+
+- BMP / Patell standardised tests for event-window inference are
+  shipped with vocabulary that matches MacKinlay (1997).
+
+**Where factrix wins**
+
+- factrix integrates event CAAR with NW HAC and an overlap
+  diagnostic on the dense event-time calendar; eventstudy treats
+  events in isolation.
+- Event verdict lives in the same `FactorProfile` shape as CS and
+  common-factor verdicts; one pipeline screens all three with
+  shared FDR control.
+
+**When to pick eventstudy instead** — you only do M&A or
+earnings event studies in isolation and do not need integration
+with cross-sectional or macro work.
+
+### 4.6 vs mlfinlab
+
+**Positioning** — mlfinlab is the López de Prado reference
+implementation of deflated / probabilistic / Haircut Sharpe,
+PBO via combinatorial CV, BHY-adjusted p-values, and a
+structural-break suite (Chow / CUSUM / SADF). It went
+commercial in 2022; the public PyPI package was removed and the
+public repo has been dormant since 2021-12.
+
+**Where mlfinlab wins**
+
+- The only library shipping deflated / probabilistic / Haircut
+  Sharpe end-to-end. If your firm has the licence, this is the
+  shortest path to those metrics.
+
+**Where factrix wins**
+
+- Open source (Apache-2.0); `pip install factrix` works.
+- Active maintenance and a published changelog cadence.
+- Deflated Sharpe / PSR is on the factrix roadmap and is the
+  highest-priority OSS gap; see [§7](#7-honest-weaknesses).
+
+**When to pick mlfinlab instead** — your firm pays for the
+licence and you need deflated Sharpe today.
