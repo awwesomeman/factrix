@@ -1,10 +1,10 @@
 # Quickstart
 
-> **`forward_periods` counts rows, not calendar time.** factrix is
-> frequency-agnostic — it only shifts row indices. `forward_periods=5` on a
-> daily panel means 5 trading days; on a weekly panel, 5 weeks. The caller is
-> responsible for ensuring the panel is sorted per asset and has regular time
-> spacing.
+!!! warning "`forward_periods` counts rows, not calendar time"
+    factrix is frequency-agnostic — it only shifts row indices.
+    `forward_periods=5` on a daily panel means 5 trading days; on a
+    weekly panel, 5 weeks. The caller is responsible for ensuring the
+    panel is sorted per asset and has regular time spacing.
 
 ## 30-second smoke test
 
@@ -49,10 +49,10 @@ The five supported research questions and their factory calls live in
 factory. For task-oriented help on **picking** the right factory (IC vs FM,
 when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 
-> **N = 1 (single asset / series):** `Mode` auto-switches to `TIMESERIES`. The
-> `common_continuous` and `*_sparse` factories work as-is.
-> `individual_continuous` at N=1 raises `ModeAxisError` with
-> `suggested_fix=common_continuous(...)`.
+!!! note "N = 1 (single asset / series)"
+    `Mode` auto-switches to `TIMESERIES`. The `common_continuous` and
+    `*_sparse` factories work as-is. `individual_continuous` at N=1 raises
+    `ModeAxisError` with `suggested_fix=common_continuous(...)`.
 
 ## `profile.diagnose()` and warnings
 
