@@ -5,10 +5,10 @@ produced by an upstream cell metric — IC time series, $\beta$ time
 series, CAAR time series, an external factor return, etc. They do not
 care which cell produced the series.
 
-> *Not the same as `Mode.TIMESERIES`.* `Mode.TIMESERIES` is the
-> dispatch regime for `n_assets == 1` (set on `FactorProfile.mode`);
-> the metrics on this page run on a `(date, value)` series regardless
-> of which mode produced it.
+!!! warning "Not the same as `Mode.TIMESERIES`"
+    `Mode.TIMESERIES` is the dispatch regime for `n_assets == 1` (set on
+    `FactorProfile.mode`); the metrics on this page run on a
+    `(date, value)` series regardless of which mode produced it.
 
 | Metric | Role | Page |
 |---|---|---|

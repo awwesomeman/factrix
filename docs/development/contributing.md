@@ -30,11 +30,12 @@ Edit from the downstream workspace (`factor-analysis`) under
 `external/factorlib/`—you can change factrix and observe the effect in
 a real research notebook simultaneously:
 
-> **Note**: the submodule directory name on disk depends on the parent
-> workspace's `.gitmodules` setting; the actual path is currently
-> **`external/factorlib/`**. Once the parent workspace renames the
-> submodule path, it will become `external/factrix/`. Commands below
-> follow the current on-disk path.
+!!! note "Submodule path"
+    The submodule directory name on disk depends on the parent workspace's
+    `.gitmodules` setting; the actual path is currently
+    **`external/factorlib/`**. Once the parent workspace renames the
+    submodule path, it will become `external/factrix/`. Commands below
+    follow the current on-disk path.
 
 ```bash
 cd ~/Desktop/dst/code/factor-analysis
@@ -75,13 +76,14 @@ uv sync --extra charts               # +plotly for charts
 uv sync --all-extras                 # charts + mlflow + jupyter (feature extras)
 ```
 
-> **Note**: the `dev` extra is **not** part of `all` (toolchain and
-> feature extras are deliberately separated), so `--all-extras` does
-> **not** install pytest / commitizen. Developers should use:
->
-> ```bash
-> uv sync --all-extras --extra dev   # feature extras + dev tools in one shot
-> ```
+!!! note "`dev` extra is separate from `all`"
+    The `dev` extra is **not** part of `all` (toolchain and feature extras
+    are deliberately separated), so `--all-extras` does **not** install
+    pytest / commitizen. Developers should use:
+
+    ```bash
+    uv sync --all-extras --extra dev   # feature extras + dev tools in one shot
+    ```
 
 ### Common environment commands
 ```bash
@@ -151,13 +153,13 @@ gh pr create --title "..." --body "..."
 gh pr merge --squash
 ```
 
-> **Important**: do **not** run `cz bump` after merge. Versions and tags
-> follow the release-train cadence (see §9)—a single release fires after
-> several PRs accumulate. Each PR writes its own changes into the
-> `## [Unreleased]` section of `CHANGELOG.md` (under `### Added` /
-> `### Changed` / `### Fixed` / `### Migration` subsections as
-> applicable); at release time, `cz bump --changelog` freezes that
-> section into the next version heading.
+!!! warning "Do not run `cz bump` after merge"
+    Versions and tags follow the release-train cadence (see §9) — a single
+    release fires after several PRs accumulate. Each PR writes its own
+    changes into the `## [Unreleased]` section of `CHANGELOG.md` (under
+    `### Added` / `### Changed` / `### Fixed` / `### Migration` subsections
+    as applicable); at release time, `cz bump --changelog` freezes that
+    section into the next version heading.
 
 **CHANGELOG formatting**: paragraphs and bullets are not hard-wrapped — each paragraph is one line, each bullet one line. The 72-char wrap convention applies to commit messages, not to CHANGELOG prose; GitHub Release notes treat single newlines as `<br>`, so source-level wrapping leaks into the rendered output. Aligns with Polars / ruff / Pydantic.
 
