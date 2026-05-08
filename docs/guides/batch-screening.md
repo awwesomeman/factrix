@@ -1,6 +1,9 @@
 # Batch Screening with BHY
 
-BHY controls FDR **within a statistical family**: evaluate multiple candidate factors under the same procedure, then apply step-up correction on the resulting p-values. **Do not mix families** — p-values from IC / FM / TS-β carry different null distributions and cannot be pooled.
+BHY controls FDR **within a statistical family**: evaluate multiple candidate factors under the same procedure, then apply step-up correction on the resulting p-values.
+
+!!! warning "Do not mix families"
+    p-values from IC / FM / TS-β carry different null distributions and cannot be pooled. `bhy()` partitions automatically — see below — but if you assemble the input list yourself across procedures, the FDR guarantee breaks.
 
 ## Basic usage
 
@@ -15,7 +18,8 @@ survivors = fl.multi_factor.bhy(list(by_name.values()), threshold=0.05)
 survivor_names = [n for n, p in by_name.items() if any(p is s for s in survivors)]
 ```
 
-`FactorProfile` is a frozen dataclass with no `name` / `label` field — `bhy()` neither accepts nor returns one. Map survivors back to factor names by holding the `name → profile` dict yourself and comparing with `is` (identity), as above. Equality (`==`) is unsafe: two factors with coincident stats compare equal.
+!!! warning "Identity caveat — survivor → name mapping"
+    `FactorProfile` is a frozen dataclass with no `name` / `label` field; `bhy()` neither accepts nor returns one. Map survivors back to factor names by holding the `name → profile` dict yourself and comparing with `is` (identity), as in the snippet above. Equality (`==`) is unsafe: two factors with coincident stats compare equal.
 
 Each `evaluate` call repays the per-date cross-section overhead
 (sort / group-by / rank) on its own — that cost is intrinsic to
@@ -38,6 +42,8 @@ If any family degenerates to size=1 (typical misuse: one factor evaluated across
 | Bonferroni (`p × K`) | K small (≤ 5), horizons approximately independent |
 | Holm (step-down) | K larger, or p-values vary widely in strength |
 
-Do **not** use BHY as the inner procedure: (1) picking one representative p is a FWER problem, not FDR; (2) BHY ∘ BHY has no composition theorem; (3) for small K, BHY's `c(m)` factor makes it more conservative than Bonferroni.
+!!! warning "Do not use BHY as the inner procedure"
+    (1) Picking one representative p is a FWER problem, not FDR. (2) BHY ∘ BHY has no composition theorem. (3) For small K, BHY's `c(m)` factor makes it more conservative than Bonferroni anyway.
 
-> Do not flatten K factors × H horizons into K×H profiles and call `bhy()` directly. BHY partitions by horizon into H families of K — correct for "pick factors within each horizon" — but wrong for "pick best horizon per factor."
+!!! warning "Do not flatten K × H profiles into one `bhy()` call"
+    Flattening K factors × H horizons into K×H profiles and feeding them to `bhy()` directly is wrong. BHY partitions by horizon into H families of K — correct for "pick factors within each horizon" — but wrong for "pick best horizon per factor."

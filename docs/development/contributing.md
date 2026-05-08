@@ -505,6 +505,21 @@ PR (no CI gate):
 PR self-check: run all three code blocks, `uv run mkdocs build
 --strict` clean, `tiktoken` cl100k count < 8000.
 
+### Docs callout conventions
+
+Use mkdocs-material admonitions to elevate content that breaks from the
+surrounding flow (different audience or different urgency). Default to
+plain prose; reach for a callout only when the elevation earns it.
+
+- `!!! abstract "Answers"` — top-of-page scope statement on reference pages.
+- `!!! warning` — gotcha / data-validity precondition the reader must check first; surface invariants whose violation breaks the analysis silently.
+- `!!! note` — orthogonal context that helps but isn't required (e.g. mode-axis edge cases).
+- `!!! info` — contract / convention block (e.g. event-study contracts, TS-mode conventions).
+- `!!! example` — minimal worked code that surrounding prose references.
+- `??? note "..."` (collapsible) — long content for a subset of readers (derivations, full enum tables).
+
+Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
+
 ---
 
 ## 9. Versioning and release (SemVer & Release)
