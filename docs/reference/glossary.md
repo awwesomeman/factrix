@@ -108,6 +108,26 @@ specific contracts that apply when factrix routes here.
 
 ## Other terms
 
+### the metric `evaluate()` runs
+
+Every `(scope, signal, metric, mode)` dispatch cell maps to exactly one
+metric callable that [`evaluate()`](../api/evaluate.md) runs internally
+— `ic`, `fama_macbeth`, `caar`, or `ts_beta` — and that metric's
+p-value becomes [`FactorProfile.primary_p`](../api/factor-profile.md).
+Defined by the
+`factrix._registry._DISPATCH_REGISTRY`. Other metrics applicable to
+the same cell are called separately via
+[`list_metrics`](../api/list-metrics.md) and the per-metric callable;
+they do not enter the `FactorProfile`.
+
+The cell-keyed reverse-index lives at
+[Metric applicability § Cell to evaluate-metric](metric-applicability.md#cell-to-evaluate-metric).
+
+**Legacy synonyms** (pre-#144 docs and source comments): `procedure-canonical`,
+`cell-canonical`, `primary metric`, `canonical metric`. New content uses the
+behavioral phrasing above; legacy occurrences are phased out via the ratchet
+test in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.
+
 ### `factor`
 
 The signal column. Same role as Alphalens "factor", Barra "exposure",

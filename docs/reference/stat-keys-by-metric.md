@@ -1,17 +1,19 @@
 # Stat keys by metric
 
-Per-metric schema of the [`MetricOutput`](../api/metric-output.md)
-returned by every public callable in `factrix.metrics` — which
-`metadata` key is the primary inference target, which are auxiliary,
-and what the headline `MetricOutput.stat` carries.
+!!! abstract "Answers"
+    `MetricOutput` schema — which `metadata` key is the primary inference target, which are auxiliary, what the headline `stat` carries.
+    For applicability gates, see [Metric applicability](metric-applicability.md).
+    For computation pipeline, see [Metric pipelines](metric-pipelines.md).
 
-For "is this metric in scope for my cell" see
-[Metric applicability](metric-applicability.md). For the SE / test
-machinery itself see [Statistical methods](statistical-methods.md).
-For the `MetricOutput.name` → docs-page reverse index see
+Per-metric schema of the [`MetricOutput`](../api/metric-output.md)
+returned by every public callable in `factrix.metrics`.
+
+For the SE / test machinery itself see
+[Statistical methods](statistical-methods.md). For the
+`MetricOutput.name` → docs-page reverse index see
 [`MetricOutput`](../api/metric-output.md#name-index). The
-`evaluate()` procedure-canonical equivalent — `FactorProfile.stats`
-keyed by `StatCode` — lives at
+`evaluate()`-side equivalent — `FactorProfile.stats` keyed by
+`StatCode` — lives at
 [`FactorProfile` § `stats` keys by cell](../api/factor-profile.md#stats-keys-by-cell).
 
 `metadata` keys are tagged by role in the per-metric subsections

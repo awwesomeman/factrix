@@ -43,6 +43,8 @@ hooks:
   - scripts/mkdocs_hooks/gen_metric_name_index.py
   # factrix/_registry._DISPATCH_REGISTRY -> docs/development/_generated_registry_cells.md
   - scripts/mkdocs_hooks/gen_registry_cells.py
+  # factrix/_registry._DISPATCH_REGISTRY -> docs/reference/_generated_evaluate_metric_table.md
+  - scripts/mkdocs_hooks/gen_evaluate_metric_table.py
   # examples/*.ipynb -> docs/examples/
   - scripts/mkdocs_hooks/sync_examples.py
   # factrix/llms*.txt -> site root llms*.txt
@@ -140,7 +142,7 @@ nav:
   - Reference:
       - Glossary: reference/glossary.md
       - Metric applicability: reference/metric-applicability.md
-      - Metric pipelines: reference/standalone-metrics.md
+      - Metric pipelines: reference/metric-pipelines.md
       - Stat keys by metric: reference/stat-keys-by-metric.md
       - Statistical methods: reference/statistical-methods.md
       - TIMESERIES-mode conventions: reference/ts-mode-conventions.md

@@ -27,7 +27,7 @@ realised returns).
 
 For the cross-module matrix (every module, aggregation pattern,
 inference SE), see
-[Reference § Metric pipelines](../reference/standalone-metrics.md).
+[Reference § Metric pipelines](../reference/metric-pipelines.md).
 For the `(scope, signal)` filter at runtime, see
 [`list_metrics`](../api/list-metrics.md).
 

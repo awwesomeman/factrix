@@ -52,11 +52,15 @@ class _RegistryEntry:
 
     ``canonical_use_case`` and ``references`` feed
     ``describe_analysis_modes()`` directly — no parallel docs table.
+    ``evaluate_metric_name`` names the standalone metric callable that
+    backs this cell's procedure and powers the build-time
+    evaluate-metric reference table.
     """
 
     key: _DispatchKey
     procedure: FactorProcedure
     canonical_use_case: str
+    evaluate_metric_name: str
     references: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -69,6 +73,7 @@ def register(
     *,
     use_case: str,
     refs: tuple[str, ...] = (),
+    evaluate_metric_name: str,
 ) -> None:
     """Register a procedure under ``key``.
 
@@ -92,6 +97,7 @@ def register(
         procedure=procedure,
         canonical_use_case=use_case,
         references=refs,
+        evaluate_metric_name=evaluate_metric_name,
     )
 
 

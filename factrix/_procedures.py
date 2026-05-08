@@ -739,40 +739,47 @@ register(
     _ICContPanelProcedure(),
     use_case="Per-date Spearman IC across the asset cross-section.",
     refs=("Grinold (1989)", "Newey & West (1987)"),
+    evaluate_metric_name="ic",
 )
 register(
     _DispatchKey(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM, Mode.PANEL),
     _FMContPanelProcedure(),
     use_case="Fama-MacBeth λ on per-date OLS slope.",
     refs=("Fama & MacBeth (1973)", "Petersen (2009)"),
+    evaluate_metric_name="fama_macbeth",
 )
 register(
     _DispatchKey(FactorScope.INDIVIDUAL, Signal.SPARSE, None, Mode.PANEL),
     _CAARSparsePanelProcedure(),
     use_case="Cross-event CAAR with t-test on per-event AR aggregate.",
     refs=("Brown & Warner (1985)", "MacKinlay (1997)"),
+    evaluate_metric_name="caar",
 )
 register(
     _DispatchKey(FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.PANEL),
     _CommonContPanelProcedure(),
     use_case="Per-asset β on broadcast factor + cross-asset t on E[β].",
     refs=("Black, Jensen & Scholes (1972)", "Fama & French (1993)"),
+    evaluate_metric_name="ts_beta",
 )
 register(
     _DispatchKey(FactorScope.COMMON, Signal.SPARSE, None, Mode.PANEL),
     _CommonSparsePanelProcedure(),
     use_case="Per-asset β on broadcast event dummy + cross-asset t.",
     refs=("MacKinlay (1997)",),
+    evaluate_metric_name="ts_beta",
 )
 register(
     _DispatchKey(FactorScope.COMMON, Signal.CONTINUOUS, None, Mode.TIMESERIES),
     _TSBetaContTimeseriesProcedure(),
     use_case="Single-asset OLS β on broadcast factor + NW HAC SE.",
     refs=("Newey & West (1987, 1994)", "Stambaugh (1999)"),
+    evaluate_metric_name="ts_beta",
 )
 register(
     _DispatchKey(_SCOPE_COLLAPSED, Signal.SPARSE, None, Mode.TIMESERIES),
     _TSDummySparseTimeseriesProcedure(),
     use_case="Single-asset calendar-time TS dummy regression + NW HAC SE.",
     refs=("Newey & West (1994)", "Ljung & Box (1978)"),
+    evaluate_metric_name="ts_beta",
 )

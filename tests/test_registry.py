@@ -123,6 +123,7 @@ class TestRegisterIdempotency:
                 existing_key,
                 _NoopProcedure(),
                 use_case="dup",
+                evaluate_metric_name="dup",
             )
 
 
@@ -435,7 +436,12 @@ class TestRegisterSentinelMetricGuard:
             Mode.TIMESERIES,
         )
         with pytest.raises(ValueError, match="metric=None"):
-            register(bad_key, _Stub(), use_case="illegal — should never land")
+            register(
+                bad_key,
+                _Stub(),
+                use_case="illegal — should never land",
+                evaluate_metric_name="illegal",
+            )
 
 
 # ---------------------------------------------------------------------------
