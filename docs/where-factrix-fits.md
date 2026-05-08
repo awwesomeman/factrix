@@ -243,9 +243,10 @@ second-stage SE. It is a primitive, not a framework.
   tear-sheet, no IC surface, no event-study path, no batch
   multiple-testing layer. The user must already have a panel and
   know which test to run.
-- factrix consumes linearmodels-class machinery via `arch` for
-  HAC and treats FM as one routed metric among several. You are
-  not asked to assemble the workflow.
+- factrix uses `arch` for HAC kernels (Kevin Sheppard maintains
+  both `arch` and `linearmodels`; their HAC implementations are
+  functionally equivalent) and treats FM as one routed metric
+  among several. You are not asked to assemble the workflow.
 
 **When to pick linearmodels instead** — you only need correct
 Fama-MacBeth standard errors on a panel you have already
@@ -359,13 +360,20 @@ ecosystem rather than a walled garden.
 
 ### 5.2 Integration sketches
 
-Stage 1 → factrix: a zipline Pipeline output drops straight into
-`evaluate()` once it is in `(date, asset, value, fwd_ret)` shape.
+Stage 1 → factrix: zipline Pipeline outputs a pandas MultiIndex
+`(date, asset)`, which converts to the polars panel factrix
+expects in two lines.
 
 ```python
+import polars as pl
 import factrix as fl
+from factrix.preprocess import compute_forward_return
 
-# panel: polars DataFrame from zipline Pipeline output
+# zipline_out: pandas DataFrame with MultiIndex (date, asset),
+# columns include the factor value and the realised return.
+panel = pl.from_pandas(zipline_out.reset_index())
+panel = compute_forward_return(panel, forward_periods=5)
+
 cfg = fl.AnalysisConfig.individual_continuous(
     metric=fl.Metric.IC, forward_periods=5,
 )
@@ -404,9 +412,11 @@ flowchart TD
     A[What stage of the alpha pipeline?] --> F[Verdict / screening on a factor]
     A --> W[Optimise weights for trusted factors]
     A --> E[Backtest or deploy a strategy]
+    A --> R[Returns-level tear-sheet on a P&L series]
     F --> FX[<b>factrix</b>]
     W --> WX[skfolio · PyPortfolioOpt · riskfolio-lib]
-    E --> EX[vectorbt · zipline-reloaded · lumibot · nautilus_trader]
+    E --> EX[zipline-reloaded · backtrader · bt · vectorbt · nautilus_trader]
+    R --> RX[pyfolio-reloaded · QuantStats]
 ```
 
 ## 7. Honest weaknesses
@@ -420,8 +430,8 @@ self-defeating once they read the source.
 | Capability | factrix today | Closest peer | Status / roadmap |
 |---|---|---|---|
 | CS IC/IR tear-sheet | yes | alphalens (legacy, pandas) | parity on visualization vocabulary |
-| Event CAAR + HAC | yes | eventstudy (alpha-quality) / linearmodels (manual) | first integrated implementation in Python |
-| Macro panel | yes | linearmodels (manual) | first packaged surface |
+| Event CAAR + HAC | yes | eventstudy (alpha-quality) / linearmodels (manual) | event CAAR with NW HAC out of the box |
+| Macro panel | yes | linearmodels (manual) | packaged macro-factor evaluation surface |
 | Multi-test FDR (BHY) | yes | mlfinlab (commercial-gated) | only OSS implementation post-mlfinlab paywall |
 | NW HAC | yes | linearmodels / arch | depend on `arch`, do not reimplement |
 | Type-routed primary metric (CS / Event / Macro) | yes | none | factrix's core differentiation |
