@@ -35,6 +35,69 @@
 
 A polars-native factor validator. It answers the core question — **Does this factor possess predictive edge?** 
 
+## Where factrix fits
+
+**factrix is the first Python framework to dispatch primary
+statistical tests by factor type** — cross-sectional, event, and
+common factor each get the test that fits their data-generating
+process.
+
+```
+factor construction  →  factrix (verdict)  →  strategy construction  →  backtest  →  live trading
+                            ▲ you are here
+```
+
+For each candidate factor factrix answers — *is the predictive
+power real?* — and corrects for multiple testing when you screen
+at scale. Kill fakes before they cost you a backtest.
+
+### Why factrix?
+
+- **Type-routed evaluation** — Information Coefficient + Fama-MacBeth
+  for cross-sectional factors; Cumulative Average Abnormal Return for
+  events; dedicated protocol for common factors. Each type also ships
+  its own multi-metric diagnostic battery.
+- **Batch factor screening** — rank hundreds of candidate factors
+  with cross-test multiple-testing correction in a single API call.
+- **Financial statistics built in** — autocorrelation-robust standard
+  errors (Newey-West), overlapping-forward-return correction,
+  persistent-predictor flagging (Stambaugh bias), false-discovery-rate
+  control across batches (Benjamini-Hochberg-Yekutieli). Most
+  hand-rolled Information Coefficient loops miss at least one.
+- **Polars-native** — modern replacement for the pandas-based,
+  single-maintainer alphalens.
+
+factrix stops at the verdict — primary test plus diagnostic battery.
+It does not size positions, model slippage, optimise weights, or
+compose alphas; those belong to the later stages of the pipeline above.
+
+### Is factrix the right tool?
+
+| You want to… | Use this |
+|---|---|
+| Verdict on a factor (cross-sectional / event / common factor) | **factrix** |
+| Screen many factors with multiple-testing correction | **factrix** |
+| Backtest with positions / slippage / margin | [vectorbt][vectorbt], [zipline-reloaded][zipline], [backtrader][backtrader] |
+| Optimise portfolio weights | [skfolio][skfolio], [riskfolio-lib][riskfolio] |
+| Returns-level tear-sheet (P&L diagnostics) | [pyfolio-reloaded][pyfolio], [QuantStats][quantstats] |
+| Familiar cross-sectional tear-sheet | [alphalens-reloaded][alphalens] |
+| End-to-end machine-learning pipeline | [qlib][qlib] |
+| Deflated / probabilistic Sharpe today (commercial) | [mlfinlab][mlfinlab] |
+
+[Where factrix fits — full comparison →][full-comparison]
+
+[alphalens]: https://github.com/stefan-jansen/alphalens-reloaded
+[vectorbt]: https://github.com/polakowo/vectorbt
+[zipline]: https://github.com/stefan-jansen/zipline-reloaded
+[backtrader]: https://github.com/mementum/backtrader
+[skfolio]: https://skfolio.org/
+[riskfolio]: https://github.com/dcajasn/Riskfolio-Lib
+[pyfolio]: https://github.com/stefan-jansen/pyfolio-reloaded
+[quantstats]: https://github.com/ranaroussi/quantstats
+[qlib]: https://github.com/microsoft/qlib
+[mlfinlab]: https://github.com/hudson-and-thames/mlfinlab
+[full-comparison]: https://awwesomeman.github.io/factrix/latest/where-factrix-fits/
+
 ## Installation
 
 ```bash
