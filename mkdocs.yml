@@ -142,7 +142,7 @@ nav:
   - Reference:
       - Glossary: reference/glossary.md
       - Metric applicability: reference/metric-applicability.md
-      - Metric pipelines: reference/standalone-metrics.md
+      - Metric pipelines: reference/metric-pipelines.md
       - Stat keys by metric: reference/stat-keys-by-metric.md
       - Statistical methods: reference/statistical-methods.md
       - TIMESERIES-mode conventions: reference/ts-mode-conventions.md

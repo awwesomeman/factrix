@@ -33,7 +33,7 @@ still well-defined; `individual_continuous` at N=1 has no cross-section to
 aggregate over, so it raises. The `cs-first` / `ts-first` / `ts-only` /
 `static-cs` / `per-event` shorthand is the canonical vocabulary used across
 the metric matrix and `list_metrics()` output — see
-[Reference § Metric pipelines § Aggregation vocabulary](../reference/standalone-metrics.md#aggregation-vocabulary).
+[Reference § Metric pipelines § Aggregation vocabulary](../reference/metric-pipelines.md#aggregation-vocabulary).
 
 Full per-procedure pseudocode for all 7 registered pipelines lives in [Development § Procedure pipelines](../development/architecture.md#procedure-pipelines).
 

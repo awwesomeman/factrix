@@ -1,5 +1,10 @@
 # Metric applicability
 
+!!! abstract "Answers"
+    Can my data run this? — applicability gates and sample-size thresholds per metric.
+    For computation pipeline (aggregation order, inference SE), see [Metric pipelines](metric-pipelines.md).
+    For output schema and metadata keys, see [Stat keys by metric](stat-keys-by-metric.md).
+
 A single matrix that maps each public metric to the analysis cell
 where it is in scope, the canonical inferential role it plays in
 that cell, and the sample-size threshold that gates it. Per-metric
@@ -7,9 +12,20 @@ formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
 cross-metric overview. For the runtime API that returns the per-cell
 metric list programmatically, see
-[`list_metrics`](../api/list-metrics.md). For the schema of the
-`MetricOutput` each metric returns — primary vs auxiliary
-`metadata` keys — see [Stat keys by metric](stat-keys-by-metric.md).
+[`list_metrics`](../api/list-metrics.md).
+
+## Cell to evaluate-metric
+
+Each `(scope, signal, metric, mode)` cell maps to exactly one metric
+that [`evaluate()`](../api/evaluate.md) runs. This section is the
+cell-keyed reverse-index; the rest of the page is metric-keyed.
+
+--8<-- "docs/reference/_generated_evaluate_metric_table.md"
+
+Cells absent from the table raise `ModeAxisError` (e.g.
+`(INDIVIDUAL, CONTINUOUS) × TIMESERIES`); `(SPARSE × TIMESERIES)`
+collapses scope and tags `InfoCode.SCOPE_AXIS_COLLAPSED` — see
+[TIMESERIES-mode conventions](ts-mode-conventions.md).
 
 ## Sample dimensions
 

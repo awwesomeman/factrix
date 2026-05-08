@@ -79,7 +79,7 @@ fl.list_metrics(
 The JSON form is the single-source-of-truth row produced by parsing
 the `Matrix-row:` tag in each metric module's docstring (the same
 parser MkDocs uses to render
-[the cross-metric matrix](../reference/standalone-metrics.md)). Keys:
+[the cross-metric matrix](../reference/metric-pipelines.md)). Keys:
 
 | Key | Meaning |
 |---|---|

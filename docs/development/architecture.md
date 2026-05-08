@@ -523,7 +523,7 @@ Run: `uv run pytest`
 
 ### Docs SSOT strategy (Option B — issue #42)
 
-`docs/reference/standalone-metrics.md` no longer contains a hand-written
+`docs/reference/metric-pipelines.md` no longer contains a hand-written
 matrix. The matrix is generated at build time from machine-readable
 `Matrix-row:` tags embedded in each `factrix/metrics/*.py` module docstring.
 
@@ -535,7 +535,7 @@ matrix. The matrix is generated at build time from machine-readable
 - `scripts/mkdocs_hooks/gen_metric_matrix.py` (a MkDocs `hooks:` entry) parses every
   public module with `ast`, extracts the tags, and writes
   `docs/reference/_generated_metric_matrix.md` before each docs build.
-- `standalone-metrics.md` includes the generated file via
+- `metric-pipelines.md` includes the generated file via
   `--8<-- "docs/reference/_generated_metric_matrix.md"` (pymdownx.snippets).
 
 **CI coverage (`tests/test_docs_matrix.py`):**

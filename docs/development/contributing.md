@@ -323,7 +323,7 @@ files auto-update and which need manual maintenance.
   new file plus a `nav:` entry in `mkdocs.yml`
 - `docs/getting-started/`, `docs/guides/`, `docs/development/`, the
   homepage `index.md`, and per-section `index.md`: pure narrative
-- `docs/reference/standalone-metrics.md`, `statistical-methods.md`,
+- `docs/reference/metric-pipelines.md`, `statistical-methods.md`,
   `warning-codes.md`, `bibliography.md`: narrative roll-ups (not
   matrices)
 
