@@ -55,17 +55,18 @@ at scale. Kill fakes before they cost you a backtest.
 
 - **Type-routed evaluation** — Information Coefficient + Fama-MacBeth
   for cross-sectional factors; Cumulative Average Abnormal Return for
-  events; dedicated protocol for common factors. Each type also ships
-  its own multi-metric diagnostic battery.
-- **Batch factor screening** — rank hundreds of candidate factors
+  events. Each type ships its own multi-metric diagnostic battery.
+- **Batch factor screening** — screen hundreds of candidate factors
   with cross-test multiple-testing correction in a single API call.
 - **Financial statistics built in** — autocorrelation-robust standard
   errors (Newey-West), overlapping-forward-return correction,
   persistent-predictor flagging (Stambaugh bias), false-discovery-rate
-  control across batches (Benjamini-Hochberg-Yekutieli). Most
-  hand-rolled Information Coefficient loops miss at least one.
-- **Polars-native** — modern replacement for the pandas-based,
-  single-maintainer alphalens.
+  control across batches (Benjamini-Hochberg-Yekutieli). Hand-rolled
+  Information Coefficient loops typically run `scipy.stats.ttest_1samp`
+  on the IC series and ignore the autocorrelation induced by
+  overlapping forward returns.
+- **Polars-native** — modern Polars alternative to the pandas-based
+  alphalens.
 
 factrix stops at the verdict — primary test plus diagnostic battery.
 It does not size positions, model slippage, optimise weights, or
@@ -77,7 +78,7 @@ compose alphas; those belong to the later stages of the pipeline above.
 |---|---|
 | Verdict on a factor (cross-sectional / event / common factor) | **factrix** |
 | Screen many factors with multiple-testing correction | **factrix** |
-| Backtest with positions / slippage / margin | [vectorbt][vectorbt], [zipline-reloaded][zipline], [backtrader][backtrader] |
+| Backtest with positions / slippage / margin | [zipline-reloaded][zipline], [backtrader][backtrader], [bt][bt], [vectorbt][vectorbt], [nautilus_trader][nautilus] |
 | Optimise portfolio weights | [skfolio][skfolio], [riskfolio-lib][riskfolio] |
 | Returns-level tear-sheet (P&L diagnostics) | [pyfolio-reloaded][pyfolio], [QuantStats][quantstats] |
 | Familiar cross-sectional tear-sheet | [alphalens-reloaded][alphalens] |
@@ -90,6 +91,8 @@ compose alphas; those belong to the later stages of the pipeline above.
 [vectorbt]: https://github.com/polakowo/vectorbt
 [zipline]: https://github.com/stefan-jansen/zipline-reloaded
 [backtrader]: https://github.com/mementum/backtrader
+[bt]: https://github.com/pmorissette/bt
+[nautilus]: https://github.com/nautechsystems/nautilus_trader
 [skfolio]: https://skfolio.org/
 [riskfolio]: https://github.com/dcajasn/Riskfolio-Lib
 [pyfolio]: https://github.com/stefan-jansen/pyfolio-reloaded
