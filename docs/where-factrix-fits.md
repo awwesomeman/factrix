@@ -87,7 +87,7 @@ flowchart LR
 
 The dispatch arrow is the single line that distinguishes factrix
 from peers that apply one uniform formula across factor types
-(see [§4](#4-vs-same-purpose-peers)).
+(see [§4](#4-same-purpose-peers)).
 
 ## 3. Scope boundaries
 
@@ -108,7 +108,7 @@ first.
 | Backtest / execution / slippage / margin | [vectorbt](https://github.com/polakowo/vectorbt), [bt](https://github.com/pmorissette/bt), [zipline-reloaded](https://github.com/stefan-jansen/zipline-reloaded), backtrader |
 | Intraday / HFT (tick-level) | dedicated tooling |
 | Cross-factor signal combiner | self-roll, scikit-learn |
-| Composite factor scoring across dimensions | [AlphaEval](https://github.com/LeoDingggg/AlphaEval) (different design philosophy — see [§4.4](#44-vs-alphaeval)) |
+| Composite factor scoring across dimensions | [AlphaEval](https://github.com/LeoDingggg/AlphaEval) (different design philosophy — see [§4.4](#44-alphaeval)) |
 | Deflated / probabilistic / Haircut Sharpe | [mlfinlab](https://github.com/hudson-and-thames/mlfinlab) (commercial); roadmap gap for factrix — see [§7](#7-honest-weaknesses) |
 | Cross-sectional factor *construction* DSL | [zipline-reloaded Pipeline](https://github.com/stefan-jansen/zipline-reloaded); factrix consumes Pipeline output |
 | Returns-level tear-sheet (downstream of factrix) | [pyfolio-reloaded](https://github.com/stefan-jansen/pyfolio-reloaded) |
@@ -147,7 +147,7 @@ sign. Auto-correcting would mask the modelling choice. Reach for
 [arch](https://github.com/bashtage/arch) or R `ivx` when the flag
 fires.
 
-## 4. vs same-purpose peers
+## 4. Same-purpose peers
 
 Six peers occupy the *factor-evaluation / hypothesis-test* space.
 Each subsection follows the same shape: positioning, where the peer
@@ -157,7 +157,7 @@ peer instead. Code side-by-side snippets are tracked separately as
 land here once the migration examples are validated against the same
 input panel both ways.
 
-### 4.1 vs alphalens-reloaded
+### 4.1 alphalens-reloaded
 
 **Positioning** — alphalens-reloaded is the canonical pandas
 tear-sheet for cross-sectional factors; the `get_clean_factor_and_
@@ -190,7 +190,7 @@ pandas-bound performance.
 your existing toolchain is pandas-only, and the tear-sheet
 vocabulary matters more than the inference rigour.
 
-### 4.2 vs qlib factor layer
+### 4.2 qlib factor layer
 
 **Positioning** — qlib is a full alpha → model → backtest → live
 platform. Its factor-evaluation surface (`qlib.contrib.eva.alpha`)
@@ -221,7 +221,7 @@ is a thin utility under that platform, not the product.
 covering data → factor → ML model → backtest → live, and the
 opinionated qlib data store is acceptable.
 
-### 4.3 vs linearmodels
+### 4.3 linearmodels
 
 **Positioning** — linearmodels (Kevin Sheppard, statsmodels core)
 is the reference Python implementation of panel econometrics:
@@ -253,7 +253,7 @@ Fama-MacBeth standard errors on a panel you have already
 constructed, and you do not need IC, CAAR, BHY, or any of the
 verdict surfaces.
 
-### 4.4 vs AlphaEval
+### 4.4 AlphaEval
 
 **Positioning** — AlphaEval ([modeltester.py](https://github.com/LeoDingggg/AlphaEval/blob/main/backtest/modeltester.py))
 is a *post-processing ranker for formula-mined alphas*: input
@@ -289,7 +289,7 @@ and
 with GP/GA and need to rank thousands by an aggregate score for
 downstream selection.
 
-### 4.5 vs eventstudy
+### 4.5 eventstudy
 
 **Positioning** — `eventstudy` is the only dedicated event-study
 Python package. It implements the standard parametric / BMP /
@@ -314,7 +314,7 @@ alpha-quality with a frequently-changing API.
 earnings event studies in isolation and do not need integration
 with cross-sectional or macro work.
 
-### 4.6 vs mlfinlab
+### 4.6 mlfinlab
 
 **Positioning** — mlfinlab is the López de Prado reference
 implementation of deflated / probabilistic / Haircut Sharpe,
@@ -441,7 +441,7 @@ self-defeating once they read the source.
 
 ### 7.2 Non-capability weaknesses
 
-- **Smaller community** vs alphalens / qlib — factrix is a newer
+- **Smaller community** compared with alphalens / qlib — factrix is a newer
   project with fewer Stack Overflow answers. Expect to read source
   for edge cases that alphalens has been asked about for six years.
 - **No published replication of a canonical anomaly study yet** —
@@ -486,4 +486,4 @@ section names the most load-bearing ones.
 - [**MacKinlay (1997)**](reference/bibliography.md#mackinlay-1997) —
   "Event studies in economics and finance." *Journal of
   Economic Literature*. Vocabulary used in
-  [§1](#1-what-factrix-is) and [§4.5](#45-vs-eventstudy).
+  [§1](#1-what-factrix-is) and [§4.5](#45-eventstudy).
