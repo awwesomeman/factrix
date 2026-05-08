@@ -337,3 +337,139 @@ public repo has been dormant since 2021-12.
 
 **When to pick mlfinlab instead** — your firm pays for the
 licence and you need deflated Sharpe today.
+
+## 5. Adjacent tools and integration
+
+The tools below are not peers; they sit upstream, downstream, or
+underneath factrix. The point of this section is to make the
+integration surface explicit so factrix reads as a citizen of the
+ecosystem rather than a walled garden.
+
+### 5.1 Per-tool role
+
+| Tool | Role relative to factrix |
+|---|---|
+| [zipline-reloaded Pipeline](https://github.com/stefan-jansen/zipline-reloaded) | Upstream CS factor *construction* DSL; factrix consumes Pipeline output |
+| [arch](https://github.com/bashtage/arch) | Reference HAC kernel implementation; factrix depends on it, does not reimplement |
+| [statsmodels](https://www.statsmodels.org/) | General econometrics primitives (regression / time-series); used internally |
+| [empyrical-reloaded](https://github.com/stefan-jansen/empyrical-reloaded) | Low-level return-stat primitives (Sharpe, Sortino, drawdown); dependency layer |
+| [pyfolio-reloaded](https://github.com/stefan-jansen/pyfolio-reloaded) | Downstream returns-level tear-sheet; consumes strategy P&L, not factor signal |
+| [vectorbt](https://github.com/polakowo/vectorbt) | Stage 3 parameter-grid backtest engine; pairs with factrix BHY for honest workflow |
+| [skfolio](https://skfolio.org/) / [PyPortfolioOpt](https://github.com/robertmartin8/PyPortfolioOpt) / [riskfolio-lib](https://github.com/dcajasn/Riskfolio-Lib) | Stage 2 portfolio construction; consume factrix-validated factors as input |
+
+### 5.2 Integration sketches
+
+Stage 1 → factrix: a zipline Pipeline output drops straight into
+`evaluate()` once it is in `(date, asset, value, fwd_ret)` shape.
+
+```python
+import factrix as fl
+
+# panel: polars DataFrame from zipline Pipeline output
+cfg = fl.AnalysisConfig.individual_continuous(
+    metric=fl.Metric.IC, forward_periods=5,
+)
+profile = fl.evaluate(panel, cfg)
+verdict = profile.verdict()
+```
+
+factrix → Stage 2: surviving profiles after BHY feed a portfolio
+optimiser.
+
+```python
+import factrix as fl
+
+profiles  = [fl.evaluate(p, cfg) for p in panels]
+survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+
+# survivors is a list[FactorProfile]; pass the underlying factor
+# panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input
+```
+
+The integration story matters because it answers the implicit
+"what do I do with the verdict" question — factrix is an
+intermediate stage, not an endpoint.
+
+## 6. When factrix is NOT the right tool
+
+If you are not at the verdict / screening stage, factrix is the
+wrong tool. The chart below routes you to the canonical
+alternative for each adjacent stage. Construction (upstream) is
+intentionally not branched: readers reach this chart asking
+*given I have a factor, what do I do next*, not *how do I build
+one*.
+
+```mermaid
+flowchart TD
+    A[What stage of the alpha pipeline?] --> F[Verdict / screening on a factor]
+    A --> W[Optimise weights for trusted factors]
+    A --> E[Backtest or deploy a strategy]
+    F --> FX[<b>factrix</b>]
+    W --> WX[skfolio · PyPortfolioOpt · riskfolio-lib]
+    E --> EX[vectorbt · zipline-reloaded · lumibot · nautilus_trader]
+```
+
+## 7. Honest weaknesses
+
+This section is the disclosure surface. It is meant to be cited
+verbatim by skeptical readers — soft-pedalling the gaps would be
+self-defeating once they read the source.
+
+### 7.1 Capability matrix and roadmap
+
+| Capability | factrix today | Closest peer | Status / roadmap |
+|---|---|---|---|
+| CS IC/IR tear-sheet | yes | alphalens (legacy, pandas) | parity on visualization vocabulary |
+| Event CAAR + HAC | yes | eventstudy (alpha-quality) / linearmodels (manual) | first integrated implementation in Python |
+| Macro panel | yes | linearmodels (manual) | first packaged surface |
+| Multi-test FDR (BHY) | yes | mlfinlab (commercial-gated) | only OSS implementation post-mlfinlab paywall |
+| NW HAC | yes | linearmodels / arch | depend on `arch`, do not reimplement |
+| Type-routed primary metric (CS / Event / Macro) | yes | none | factrix's core differentiation |
+| **Deflated Sharpe / PSR / PBO** | **no** | mlfinlab (commercial-gated) | **roadmap priority** — most painful OSS gap |
+| ML pipeline integration | no (out of scope) | qlib | document interop; leave to qlib |
+| Live trading / execution | no (out of scope) | lumibot / nautilus_trader | document boundary; leave out |
+
+### 7.2 Non-capability weaknesses
+
+- **Smaller community** vs alphalens / qlib — factrix is a newer
+  project with fewer Stack Overflow answers. Expect to read source
+  for edge cases that alphalens has been asked about for six years.
+- **No published replication of a canonical anomaly study yet** —
+  a factor-zoo skeptic will ask whether factrix's verdicts agree
+  with the published record on a known-good factor. That
+  replication is on the roadmap and is a credibility gap until it
+  ships.
+
+## 8. Citations
+
+The methodological choices on this page anchor in the following
+sources. The full bibliography lives in
+[reference/bibliography.md](reference/bibliography.md); this
+section names the most load-bearing ones.
+
+- **Goodhart, C. (1984).** *Monetary Theory and Practice*. Origin
+  of the Goodhart's-law argument used by design-notes §1.
+- **DeMiguel, V., Garlappi, L., Uppal, R. (2009).** "Optimal versus
+  naive diversification: How inefficient is the 1/N portfolio
+  strategy?" *Review of Financial Studies* — equal-weight beats
+  optimised under estimation error; cited in the no-composite
+  position.
+- **Harvey, C. R. (2017).** "Presidential address: The scientific
+  outlook in financial economics." *Journal of Finance* — argues
+  for pre-registered per-metric audit trails over unified
+  statistics.
+- **Bailey, D. H., López de Prado, M. (2014).** "The Deflated
+  Sharpe Ratio." Roadmap target for the §7 PSR row.
+- **Harvey, C. R., Liu, Y., Zhu, H. (2016).** "...and the
+  cross-section of expected returns." *Review of Financial Studies* —
+  multiple-testing inflation in the factor zoo; motivates BHY.
+- **Hou, K., Xue, C., Zhang, L. (2020).** "Replicating anomalies."
+  *Review of Financial Studies* — the replication context for the
+  §7.2 weakness disclosure.
+- **Brown, S. J., Warner, J. B. (1985).** "Using daily stock
+  returns: The case of event studies." *Journal of Financial
+  Economics* — the canonical event-study reference behind CAAR.
+- **MacKinlay, A. C. (1997).** "Event studies in economics and
+  finance." *Journal of Economic Literature* — vocabulary used
+  in the event subsection of [§1](#1-what-factrix-is) and
+  [§4.5](#45-vs-eventstudy).
