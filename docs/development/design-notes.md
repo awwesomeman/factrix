@@ -6,7 +6,11 @@ Reading this page is the fastest way to understand what factrix is
 *not*: it explains the negative space around the scope so contributors
 do not re-litigate settled boundaries. Positive design lives in
 [Architecture](architecture.md); the literature targets are in the
-[Bibliography](../reference/bibliography.md).
+[Bibliography](../reference/bibliography.md). For the user-facing
+positioning of these decisions against peer libraries, see
+[Where factrix fits](../where-factrix-fits.md) — §1 and §3.1 anchor
+the no-composite and IVX-flag-only choices in the §1/§7 rationale
+below.
 
 The seven sections below correspond to the seven structural
 "considered but not done" decisions that recur in design discussions.

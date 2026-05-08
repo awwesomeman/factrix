@@ -129,6 +129,7 @@ nav:
       - Installation: getting-started/install.md
       - Quickstart: getting-started/quickstart.md
       - Concepts: getting-started/concepts.md
+  - Where factrix fits: where-factrix-fits.md
   - Guides:
       - guides/index.md
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
