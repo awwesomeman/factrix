@@ -88,3 +88,61 @@ flowchart LR
 The dispatch arrow is the single line that distinguishes factrix
 from peers that apply one uniform formula across factor types
 (see [§4](#4-vs-same-purpose-peers)).
+
+## 3. Scope boundaries
+
+What factrix deliberately does **not** do, and the canonical tool for
+each. This is a commitment, not a TODO. To expand factrix scope,
+update
+[ARCHITECTURE.md Invariants](development/architecture.md#invariants)
+first.
+
+| Out of scope | Use instead |
+|---|---|
+| Portfolio optimisation (MVO / HRP / risk parity) | [skfolio](https://skfolio.org/), [PyPortfolioOpt](https://github.com/robertmartin8/PyPortfolioOpt), [riskfolio-lib](https://github.com/dcajasn/Riskfolio-Lib), cvxpy |
+| ML signal layer | xgboost + shap |
+| Regime detection methodology (HMM / threshold) | [hmmlearn](https://hmmlearn.readthedocs.io/), self-roll |
+| Structural break detection (Chow / Bai-Perron) | [ruptures](https://centre-borelli.github.io/ruptures-docs/) |
+| GARCH / wild-bootstrap SE | [arch](https://github.com/bashtage/arch) |
+| Persistent-predictor auto-correction (IVX / Stambaugh) | [arch](https://github.com/bashtage/arch), R `ivx` (factrix flags via ADF; does not auto-correct) |
+| Backtest / execution / slippage / margin | [vectorbt](https://github.com/polakowo/vectorbt), [bt](https://github.com/pmorissette/bt), [zipline-reloaded](https://github.com/stefan-jansen/zipline-reloaded), backtrader |
+| Intraday / HFT (tick-level) | dedicated tooling |
+| Cross-factor signal combiner | self-roll, scikit-learn |
+| Composite factor scoring across dimensions | [AlphaEval](https://github.com/LeoDingggg/AlphaEval) (different design philosophy — see [§4.4](#44-vs-alphaeval)) |
+| Deflated / probabilistic / Haircut Sharpe | [mlfinlab](https://github.com/hudson-and-thames/mlfinlab) (commercial); roadmap gap for factrix — see [§7](#7-honest-weaknesses) |
+| Cross-sectional factor *construction* DSL | [zipline-reloaded Pipeline](https://github.com/stefan-jansen/zipline-reloaded); factrix consumes Pipeline output |
+| Returns-level tear-sheet (downstream of factrix) | [pyfolio-reloaded](https://github.com/stefan-jansen/pyfolio-reloaded) |
+
+### 3.1 Rationale for the controversial rows
+
+Three rows surprise readers most often. Their rationale is anchored
+in design notes rather than restated here.
+
+**Composite factor scoring** — rejected for the reason a single
+weighted score becomes its own target the instant it ships
+(Goodhart 1984), and weighted aggregation across heterogeneous
+nulls implicitly prices each null without disclosing the price.
+factrix exposes per-metric pass/fail and keeps the user in the
+inference loop. See
+[design notes §1](development/design-notes.md#1-no-composite-factor-score).
+
+**ML signal layer** — out of scope as a deliberate boundary. The
+signal-generation problem is well served by xgboost + shap, and
+folding model fit into factrix would change the page's hero claim
+from "verdict on a hypothesised factor" to "verdict on a fitted
+model" — those need different statistical machinery (cross-validation
+schemes, leakage tests). qlib already covers the integrated
+pipeline; we leave that branch to qlib.
+
+**Persistent-predictor flagging only, not auto-correction** —
+when the cross-sectional or time-series predictor is highly
+persistent (ADF p > 0.10), factrix raises
+`PERSISTENT_REGRESSOR` and notes that the β estimate may carry
+Stambaugh (1999) bias. It does not silently swap in IVX
+(Phillips-Magdalinos), Stambaugh-correction, or sign-restricted
+inference, because the right correction depends on the
+researcher's economic prior — IVX assumes a near-unit-root
+predictor; Stambaugh requires a specified innovation-correlation
+sign. Auto-correcting would mask the modelling choice. Reach for
+[arch](https://github.com/bashtage/arch) or R `ivx` when the flag
+fires.
