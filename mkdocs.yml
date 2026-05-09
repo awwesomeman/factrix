@@ -152,6 +152,7 @@ nav:
       - api/index.md
       - AnalysisConfig: api/analysis-config.md
       - evaluate: api/evaluate.md
+      - by_slice: api/by-slice.md
       - by_regime: api/by-regime.md
       - list_metrics: api/list-metrics.md
       - FactorProfile: api/factor-profile.md

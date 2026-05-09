@@ -1,5 +1,11 @@
 # by_regime
 
+!!! warning "Deprecated since v0.10.0"
+    `by_regime` is superseded by the axis-agnostic
+    [`by_slice`](by-slice.md). Importing or calling `by_regime` emits
+    a `DeprecationWarning`. Behaviour is unchanged for the deprecation
+    window (at least one minor) — see [Migration](#migration) below.
+
 Cross-cutting research dispatcher. Slices any metric's date-keyed
 input by regime label and runs the metric per slice. Returns
 `dict[regime_label, MetricOutput]`.
@@ -102,6 +108,53 @@ the metric's own job. Each per-regime call inherits the metric's
 existing guards (sample-size short-circuits, `IncompatibleAxisError`,
 warnings); you see the same signals you would see calling the metric
 directly on each slice.
+
+## Migration
+
+Replace every `by_regime` call with `by_slice` plus an explicit join
+(or pre-existing column).
+
+```python
+# Before (deprecated since v0.10.0)
+from factrix.metrics import by_regime
+results = by_regime(ic, ic_df, regime_labels=regime_df)
+
+# After
+from factrix.metrics import by_slice
+results = by_slice(
+    ic,
+    ic_df.join(regime_df, on="date", how="inner"),  # match by_regime's inner-join
+    label="regime",
+)
+```
+
+The time-bisection fallback (`regime_labels=None` → `first_half` /
+`second_half`) has **no `by_slice` equivalent**. That path is a
+structural-break sanity check, not a regime test, and the deprecation
+is the right moment to make that explicit. If you still want the
+median-date split, compose the label yourself:
+
+```python
+import polars as pl
+
+mid = df.get_column("date").quantile(0.5)
+df = df.with_columns(
+    pl.when(pl.col("date") < mid).then(pl.lit("first_half"))
+      .otherwise(pl.lit("second_half"))
+      .alias("regime")
+)
+by_slice(ic, df, label="regime")
+```
+
+This is more honest than the old fallback: the caller picks the split
+point and accepts that this is structural-break diagnostics, not
+regime analysis. Genuine regime work needs a domain-driven
+classification (NBER recession dating, volatility-state classifier,
+etc.), which neither `by_regime` nor `by_slice` ships.
+
+Layer-B wrappers (`regime_ic`, `regime_caar`, ...) are unchanged —
+they remain the right entry point when you need a metric-family-aware
+cross-regime test.
 
 ## API reference
 
