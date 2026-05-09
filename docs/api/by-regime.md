@@ -66,14 +66,19 @@ the metric family:
 | Turnover, hit_rate, monotonicity ρ | no canonical cross-regime test |
 
 For curated families that have a defensible second-layer test,
-factrix provides Layer B wrappers — see
+factrix provides curated wrappers — see
 [`regime_ic`](metrics/ic.md#factrix.metrics.ic.regime_ic) for the IC family. Use
-`by_regime` directly when no Layer B wrapper exists or when you want
+`by_regime` directly when no curated wrapper exists or when you want
 raw per-regime outputs to compose your own analysis.
 
-**As of v0.9.0, `regime_ic` is the only Layer B wrapper.** `regime_caar`
+**As of v0.9.0, `regime_ic` is the only curated wrapper.** `regime_caar`
 and `regime_fama_macbeth` are tracked in
 [#107 Phase 2](https://github.com/awwesomeman/factrix/issues/107).
+
+> Earlier docs called the dispatcher "Layer A" and curated wrappers
+> "Layer B"; renamed in
+> [#157](https://github.com/awwesomeman/factrix/issues/157). Roles
+> unchanged.
 
 ## Which metrics work
 
@@ -152,7 +157,7 @@ regime analysis. Genuine regime work needs a domain-driven
 classification (NBER recession dating, volatility-state classifier,
 etc.), which neither `by_regime` nor `by_slice` ships.
 
-Layer-B wrappers (`regime_ic`, `regime_caar`, ...) are unchanged —
+Curated wrappers (`regime_ic`, `regime_caar`, ...) are unchanged —
 they remain the right entry point when you need a metric-family-aware
 cross-regime test.
 

@@ -1,19 +1,21 @@
-"""Regime analysis: Layer A dispatcher (no second-layer inference).
+"""Regime analysis: dispatcher (no second-layer inference).
 
-Two-layer split (issue #107):
+Two roles (issue #107; previously called Layer-A / Layer-B, renamed
+per #157):
 
-* Layer A — :func:`by_regime` slices the metric input by regime label
-  and applies a metric callable per slice. Returns
+* **Dispatcher** — :func:`by_regime` slices the metric input by regime
+  label and applies a metric callable per slice. Returns
   ``dict[str, MetricOutput]``. **Performs no cross-regime statistical
   test.** A generic second-layer test would silently over-claim for
   non-t-stat metrics (Sharpe, turnover, hit_rate, monotonicity rho) —
   different metric families need bespoke cross-regime tests, or none
   at all.
-* Layer B — curated ``regime_<metric>`` wrappers (e.g. ``regime_ic``)
-  add a metric-appropriate second-layer on top of Layer A's slicing
-  primitive. They live in their respective metric modules.
+* **Curated wrapper** — ``regime_<metric>`` wrappers (e.g.
+  ``regime_ic``) add a metric-appropriate second-layer on top of the
+  dispatcher's slicing primitive. They live in their respective metric
+  modules.
 
-Both layers share :func:`_slice_by_regime` so the time-bisection
+Both roles share :func:`_slice_by_regime` so the time-bisection
 fallback and label-join semantics live in one place.
 
 Matrix-row: by_regime | (*, *, *, *) | dispatcher | none (no cross-regime test) | _slice_by_regime
@@ -103,7 +105,7 @@ def by_regime(
     Returns:
         ``{regime_label: metric(slice, **kwargs)}``. **No cross-regime
         statistic is computed** — consumers that need one must compose
-        a Layer B wrapper appropriate to the metric family (see e.g.
+        a curated wrapper appropriate to the metric family (see e.g.
         ``regime_ic``).
 
     Raises:

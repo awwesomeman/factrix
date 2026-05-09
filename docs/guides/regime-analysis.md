@@ -1,19 +1,22 @@
 # Regime Analysis
 
-Regime analysis asks "is this factor stable across market environments?" — a different question from out-of-sample decay (overfitting) and from cross-asset robustness (specification). factrix splits regime analysis into two layers because **slicing by regime** and **testing significance across regimes** are different jobs that need different APIs.
+Regime analysis asks "is this factor stable across market environments?" — a different question from out-of-sample decay (overfitting) and from cross-asset robustness (specification). factrix splits regime analysis into two roles because **slicing by regime** and **testing significance across regimes** are different jobs that need different APIs.
 
-## The two layers
+!!! note "Terminology"
+    These two roles were called **Layer A** and **Layer B** in #107 / #152 / #154 / #153 design discussions. They are now called **dispatcher** and **curated wrapper** ([#157](https://github.com/awwesomeman/factrix/issues/157)). Public API names (`by_regime`, `by_slice`, `regime_ic`, ...) are unchanged.
 
-| Layer | Function | What it does | What it does not do |
+## The two roles
+
+| Role | Function | What it does | What it does not do |
 |---|---|---|---|
-| A — slicing | [`by_regime(metric, df, *, regime_labels, **kwargs)`](../api/by-regime.md) | Slices `df` by regime label, calls `metric` per slice, returns `dict[regime, MetricOutput]` | **No cross-regime statistical test** |
-| B — bespoke inference | `regime_<metric>` (e.g. [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic)) | Layer A + a metric-appropriate cross-regime test (BHY, min-\|t\|, etc.) | Only exists for curated metrics |
+| Dispatcher | [`by_regime(metric, df, *, regime_labels, **kwargs)`](../api/by-regime.md) | Slices `df` by regime label, calls `metric` per slice, returns `dict[regime, MetricOutput]` | **No cross-regime statistical test** |
+| Curated wrapper | `regime_<metric>` (e.g. [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic)) | Dispatcher + a metric-appropriate cross-regime test (BHY, min-\|t\|, etc.) | Only exists for curated metrics |
 
-**Use Layer A when:** you want raw per-regime numbers, or you want to compose your own cross-regime test, or no Layer B wrapper exists for the metric you care about.
+**Use the dispatcher when:** you want raw per-regime numbers, or you want to compose your own cross-regime test, or no curated wrapper exists for the metric you care about.
 
-**Use Layer B when:** a curated wrapper exists for your metric and the bundled second-layer test matches your research question.
+**Use a curated wrapper when:** one exists for your metric and the bundled second-layer test matches your research question.
 
-!!! info "Layer B coverage as of v0.9.0"
+!!! info "Curated wrapper coverage as of v0.9.0"
     Only [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) ships. `regime_caar` and `regime_fama_macbeth` are tracked in [#107 Phase 2](https://github.com/awwesomeman/factrix/issues/107). Until then, `by_regime(compute_caar, df, ...)` and `by_regime(fama_macbeth, df, ...)` return per-regime values without a cross-regime statistic — useful for descriptive comparison, not for inference.
 
 ## Why no generic cross-regime test
@@ -25,7 +28,7 @@ A single dispatcher carrying a single second-layer test would silently over-clai
 - **CAAR** — per-regime clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
 - **Turnover, hit_rate, monotonicity ρ** — no canonical cross-regime test; differences are descriptive.
 
-Bundling BHY into a generic dispatcher would apply it to all of these, including the cases where it is wrong. We chose explicit Layer B wrappers per metric family instead.
+Bundling BHY into a generic dispatcher would apply it to all of these, including the cases where it is wrong. We chose explicit curated wrappers per metric family instead.
 
 ## Constructing regime labels
 
@@ -59,7 +62,7 @@ are required for any defensible regime claim.
 
 ## Discovering eligible metrics
 
-Layer A only accepts metrics whose primary input is a date-keyed
+The dispatcher only accepts metrics whose primary input is a date-keyed
 DataFrame. Use [`list_metrics`](../api/list-metrics.md) with
 `format="json"` and filter on `input_kind == "panel"` to enumerate the
 candidate set for your `(scope, signal)` cell:
@@ -87,12 +90,12 @@ from factrix.metrics import by_regime, compute_ic, ic, regime_ic
 
 ic_df = compute_ic(panel, factor_col="value", return_col="forward_return")
 
-# Layer A — raw per-regime IC summaries
+# Dispatcher — raw per-regime IC summaries
 per_regime = by_regime(ic, ic_df, regime_labels=vol_labels)
 for label, out in per_regime.items():
     print(label, out.value, out.stat)
 
-# Layer B — IC-specific cross-regime second layer (BHY + min-|t|)
+# Curated wrapper — IC-specific cross-regime second layer (BHY + min-|t|)
 result = regime_ic(ic_df, regime_labels=vol_labels)
 result.metadata["per_regime"]              # raw + BHY-adjusted p per regime
 result.metadata["p_value_bhy_adjusted"]    # worst adjusted p (aggregate)
@@ -101,6 +104,6 @@ result.metadata["direction_consistent"]    # sign agreement across regimes
 
 ## Related
 
-- [`by_regime`](../api/by-regime.md) — Layer A surface and registered metrics.
-- [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) — Layer B wrapper for IC.
+- [`by_regime`](../api/by-regime.md) — dispatcher surface and registered metrics.
+- [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) — curated wrapper for IC.
 - [Batch screening with BHY](batch-screening.md) — the same BHY family-correction principle, applied to factor candidates rather than regimes.

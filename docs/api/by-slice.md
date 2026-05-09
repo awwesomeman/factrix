@@ -1,8 +1,13 @@
 # by_slice
 
-Axis-agnostic Layer-A research dispatcher. Slices any metric's
-date-keyed input by a column already present in the DataFrame and runs
-the metric per slice. Returns `dict[label_value, MetricOutput]`.
+Axis-agnostic research dispatcher. Slices any metric's date-keyed
+input by a column already present in the DataFrame and runs the metric
+per slice. Returns `dict[label_value, MetricOutput]`.
+
+> Earlier docs called this role "Layer A" and curated wrappers
+> "Layer B"; renamed in
+> [#157](https://github.com/awwesomeman/factrix/issues/157). Roles
+> unchanged.
 
 `by_slice` supersedes [`by_regime`](by-regime.md) (deprecated since
 v0.10.0) and generalises it to any cross-section axis — market,
@@ -52,7 +57,7 @@ not a defensible cross-regime selection rule. A generic second-layer test
 (BHY adjustment, Sharpe-diff Wald, paired-difference NW, etc.) cannot
 be applied honestly across the metric matrix — the appropriate test
 depends on the metric family. Curated families that have a defensible
-second-layer test are exposed as Layer-B wrappers (e.g.
+second-layer test are exposed as curated wrappers (e.g.
 [`regime_ic`](metrics/ic.md#factrix.metrics.ic.regime_ic) for the IC
 family).
 
