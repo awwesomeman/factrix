@@ -39,6 +39,19 @@ class FactorProfile:
             ``COMMON × *`` PANEL).
         n_assets: Cross-section width of the raw panel
             (``panel["asset_id"].n_unique()``).
+        identity: ``(factor_id, forward_periods)`` hypothesis tuple.
+            Defines "what hypothesis this profile tests"; consumed by
+            ``factrix.multi_factor.bhy`` for family partitioning.
+            Stamped by ``_evaluate`` from ``factor_col`` and
+            ``config.forward_periods``.
+        context: Sample-restriction / conditioning dimensions
+            (``universe_id``, ``regime_id``, future axes). Empty by
+            default; populated by higher-level verbs (``by_slice`` /
+            ``by_regime`` consumers, future ``run_metrics``). The
+            split from ``identity`` is the v1 anti-shopping defense:
+            multi-horizon factor research's family forms naturally
+            from ``identity``, while sample restrictions stay
+            queryable via ``profile.context[key]``.
         warnings: ``WarningCode`` flags emitted by the procedure.
         info_notes: ``InfoCode`` annotations (e.g. axis collapses).
         stats: Cell-specific scalars keyed by ``StatCode`` (t-stats,
@@ -50,9 +63,19 @@ class FactorProfile:
     primary_p: float
     n_obs: int
     n_assets: int
+    identity: tuple[str, int] = ("factor", 0)
+    context: Mapping[str, Any] = field(default_factory=dict)
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
     stats: Mapping[StatCode, float] = field(default_factory=dict)
+
+    @property
+    def factor_id(self) -> str:
+        return self.identity[0]
+
+    @property
+    def forward_periods(self) -> int:
+        return self.identity[1]
 
     def verdict(
         self,
@@ -93,6 +116,11 @@ class FactorProfile:
             string values.
         """
         return {
+            "identity": {
+                "factor_id": self.factor_id,
+                "forward_periods": self.forward_periods,
+            },
+            "context": dict(self.context),
             "mode": self.mode.value,
             "n_obs": self.n_obs,
             "n_assets": self.n_assets,
