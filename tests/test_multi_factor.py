@@ -1,135 +1,48 @@
-"""v0.5 ``multi_factor.bhy`` — family partitioning + step-up FDR."""
+"""v0.5 ``multi_factor.bhy`` — _resolve_family-backed step-up FDR (#161)."""
 
 from __future__ import annotations
 
+import warnings
+
 import pytest
 from factrix._analysis_config import AnalysisConfig
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import Metric, Mode
 from factrix._codes import StatCode
-from factrix._multi_factor import _family_key, _FamilyKey, bhy
+from factrix._errors import UserInputError
+from factrix._multi_factor import bhy
 from factrix._profile import FactorProfile
-from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey
 
 
 def _profile(
     *,
-    config: AnalysisConfig,
-    mode: Mode,
+    factor_id: str = "factor",
+    forward_periods: int = 5,
     primary_p: float,
+    context: dict[str, object] | None = None,
     stats: dict[StatCode, float] | None = None,
+    metric: Metric = Metric.IC,
+    mode: Mode = Mode.PANEL,
 ) -> FactorProfile:
-    """Build a ``FactorProfile`` for BHY testing without running compute."""
+    cfg = AnalysisConfig.individual_continuous(
+        metric=metric, forward_periods=forward_periods
+    )
     base_stats: dict[StatCode, float] = {StatCode.IC_P: primary_p}
     if stats:
         base_stats.update(stats)
     return FactorProfile(
-        config=config,
+        config=cfg,
         mode=mode,
         primary_p=primary_p,
         n_obs=100,
-        n_assets=1 if mode is Mode.TIMESERIES else 30,
+        n_assets=30,
+        factor_id=factor_id,
+        context=context or {},
         stats=base_stats,
     )
 
 
 # ---------------------------------------------------------------------------
-# Family-key derivation (§5.6)
-# ---------------------------------------------------------------------------
-
-
-class TestFamilyKey:
-    def test_panel_ic_family_key(self) -> None:
-        prof = _profile(
-            config=AnalysisConfig.individual_continuous(metric=Metric.IC),
-            mode=Mode.PANEL,
-            primary_p=0.01,
-        )
-        assert _family_key(prof) == _FamilyKey(
-            dispatch=_DispatchKey(
-                FactorScope.INDIVIDUAL,
-                Signal.CONTINUOUS,
-                Metric.IC,
-                Mode.PANEL,
-            ),
-            forward_periods=5,
-        )
-
-    def test_panel_fm_distinct_from_panel_ic(self) -> None:
-        prof_ic = _profile(
-            config=AnalysisConfig.individual_continuous(metric=Metric.IC),
-            mode=Mode.PANEL,
-            primary_p=0.01,
-        )
-        prof_fm = _profile(
-            config=AnalysisConfig.individual_continuous(metric=Metric.FM),
-            mode=Mode.PANEL,
-            primary_p=0.02,
-        )
-        assert _family_key(prof_ic) != _family_key(prof_fm)
-
-    def test_sparse_n1_individual_and_common_share_family(self) -> None:
-        prof_i = _profile(
-            config=AnalysisConfig.individual_sparse(),
-            mode=Mode.TIMESERIES,
-            primary_p=0.03,
-        )
-        prof_c = _profile(
-            config=AnalysisConfig.common_sparse(),
-            mode=Mode.TIMESERIES,
-            primary_p=0.04,
-        )
-        assert _family_key(prof_i) == _family_key(prof_c)
-        assert _family_key(prof_i).dispatch.scope is _SCOPE_COLLAPSED
-
-    def test_panel_sparse_does_not_collapse(self) -> None:
-        prof = _profile(
-            config=AnalysisConfig.individual_sparse(),
-            mode=Mode.PANEL,
-            primary_p=0.05,
-        )
-        assert _family_key(prof).dispatch.scope is FactorScope.INDIVIDUAL
-
-    def test_distinct_horizons_get_distinct_families(self) -> None:
-        # Same dispatch cell, different forward_periods → different
-        # families. Pooling horizons would dilute the BHY step-up
-        # threshold and silently inflate FDR.
-        prof_h5 = _profile(
-            config=AnalysisConfig.individual_continuous(
-                metric=Metric.IC,
-                forward_periods=5,
-            ),
-            mode=Mode.PANEL,
-            primary_p=0.01,
-        )
-        prof_h20 = _profile(
-            config=AnalysisConfig.individual_continuous(
-                metric=Metric.IC,
-                forward_periods=20,
-            ),
-            mode=Mode.PANEL,
-            primary_p=0.01,
-        )
-        assert _family_key(prof_h5) != _family_key(prof_h20)
-        assert _family_key(prof_h5).dispatch == _family_key(prof_h20).dispatch
-        assert _family_key(prof_h5).forward_periods == 5
-        assert _family_key(prof_h20).forward_periods == 20
-
-    def test_panel_and_timeseries_not_same_family(self) -> None:
-        prof_a = _profile(
-            config=AnalysisConfig.common_continuous(),
-            mode=Mode.PANEL,
-            primary_p=0.01,
-        )
-        prof_b = _profile(
-            config=AnalysisConfig.common_continuous(),
-            mode=Mode.TIMESERIES,
-            primary_p=0.01,
-        )
-        assert _family_key(prof_a) != _family_key(prof_b)
-
-
-# ---------------------------------------------------------------------------
-# bhy partitioning + step-up correctness
+# Step-up basics
 # ---------------------------------------------------------------------------
 
 
@@ -139,241 +52,223 @@ class TestBhyEmpty:
 
 
 class TestBhyStepUp:
-    def test_low_p_values_pass_at_default_threshold(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+    def test_low_p_values_pass_at_default_q(self) -> None:
         profiles = [
-            _profile(config=cfg, mode=Mode.PANEL, primary_p=p)
-            for p in [0.001, 0.002, 0.003]
+            _profile(factor_id=f"f{i}", primary_p=p)
+            for i, p in enumerate([0.001, 0.002, 0.003])
         ]
-        survivors = bhy(profiles)
-        assert len(survivors) == 3
+        assert len(bhy(profiles)) == 3
 
     def test_high_p_values_fail(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
         profiles = [
-            _profile(config=cfg, mode=Mode.PANEL, primary_p=p) for p in [0.5, 0.7, 0.9]
+            _profile(factor_id=f"f{i}", primary_p=p)
+            for i, p in enumerate([0.5, 0.7, 0.9])
         ]
-        survivors = bhy(profiles)
-        assert survivors == []
+        assert bhy(profiles) == []
 
-
-class TestBhyFamilyIsolation:
-    def test_families_evaluated_independently(self) -> None:
-        # Tiny p in family A; only large p in family B. A passes, B fails.
-        cfg_a = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        cfg_b = AnalysisConfig.individual_continuous(metric=Metric.FM)
-        profiles = [
-            _profile(config=cfg_a, mode=Mode.PANEL, primary_p=0.001),
-            _profile(config=cfg_a, mode=Mode.PANEL, primary_p=0.002),
-            _profile(config=cfg_b, mode=Mode.PANEL, primary_p=0.50),
-            _profile(config=cfg_b, mode=Mode.PANEL, primary_p=0.80),
-        ]
-        survivors = bhy(profiles)
-        # Only family A's two profiles survive.
-        assert len(survivors) == 2
-        for s in survivors:
-            assert s.config.metric is Metric.IC
-
-    def test_horizons_isolated_within_same_cell(self) -> None:
-        # Two horizons of the same cell. If pooled, h=20's large p's
-        # would borrow h=5's strong evidence and inflate the survivor
-        # count beyond the per-horizon truth.
-        cfg_h5 = AnalysisConfig.individual_continuous(
-            metric=Metric.IC,
-            forward_periods=5,
-        )
-        cfg_h20 = AnalysisConfig.individual_continuous(
-            metric=Metric.IC,
-            forward_periods=20,
-        )
-        profiles = [
-            _profile(config=cfg_h5, mode=Mode.PANEL, primary_p=0.001),
-            _profile(config=cfg_h5, mode=Mode.PANEL, primary_p=0.002),
-            _profile(config=cfg_h20, mode=Mode.PANEL, primary_p=0.60),
-            _profile(config=cfg_h20, mode=Mode.PANEL, primary_p=0.80),
-        ]
-        survivors = bhy(profiles)
-        assert len(survivors) == 2
-        for s in survivors:
-            assert s.config.forward_periods == 5
-
-    def test_sparse_n1_individual_and_common_pool_into_one_family(self) -> None:
-        # Three profiles sharing the sentinel family; their p-values
-        # are jointly evaluated even though two come from
-        # individual_sparse() and one from common_sparse().
-        profiles = [
-            _profile(
-                config=AnalysisConfig.individual_sparse(),
-                mode=Mode.TIMESERIES,
-                primary_p=0.001,
-            ),
-            _profile(
-                config=AnalysisConfig.individual_sparse(),
-                mode=Mode.TIMESERIES,
-                primary_p=0.002,
-            ),
-            _profile(
-                config=AnalysisConfig.common_sparse(),
-                mode=Mode.TIMESERIES,
-                primary_p=0.003,
-            ),
-        ]
-        keys = {_family_key(p) for p in profiles}
-        assert len(keys) == 1
-        survivors = bhy(profiles)
-        assert len(survivors) == 3
+    def test_q_loosens_decision(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.04)
+        assert bhy([prof], q=0.05) == [prof]
+        assert bhy([prof], q=0.01) == []
 
 
 # ---------------------------------------------------------------------------
-# threshold + gate
+# expand_over: per-bucket independent step-up (BB2014)
 # ---------------------------------------------------------------------------
 
 
-class TestThreshold:
-    def test_threshold_loosens_decision(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        # Single test, p=0.04: passes at threshold=0.05, fails at 0.01.
-        prof = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.04)
-        assert bhy([prof], threshold=0.05) == [prof]
-        assert bhy([prof], threshold=0.01) == []
+class TestExpandOver:
+    def test_buckets_evaluated_independently(self) -> None:
+        # bucket "bull": all tiny p → both pass
+        # bucket "bear": all large p → both fail
+        profiles = [
+            _profile(factor_id="f1", primary_p=0.001, context={"regime": "bull"}),
+            _profile(factor_id="f2", primary_p=0.002, context={"regime": "bull"}),
+            _profile(factor_id="f1", primary_p=0.5, context={"regime": "bear"}),
+            _profile(factor_id="f2", primary_p=0.6, context={"regime": "bear"}),
+        ]
+        survivors = bhy(profiles, expand_over=["regime"])
+        assert len(survivors) == 2
+        assert {s.context["regime"] for s in survivors} == {"bull"}
+
+    def test_no_expand_over_pools_all_into_one_family(self) -> None:
+        # Distinct identities → all pass dedup; one step-up over 4 entries.
+        profiles = [
+            _profile(factor_id=f"f{i}", primary_p=p)
+            for i, p in enumerate([0.001, 0.002, 0.5, 0.6])
+        ]
+        survivors = bhy(profiles)
+        # All 4 in one family; only the small p's survive step-up.
+        assert {s.factor_id for s in survivors} == {"f0", "f1"}
+
+    def test_unknown_expand_over_raises(self) -> None:
+        profiles = [_profile(factor_id="f1", primary_p=0.01, context={"regime": "x"})]
+        with pytest.raises(UserInputError):
+            bhy(profiles, expand_over=["regiem"])
+
+    def test_singleton_buckets_warn(self) -> None:
+        profiles = [
+            _profile(factor_id="f1", primary_p=0.04, context={"regime": "a"}),
+            _profile(factor_id="f1", primary_p=0.04, context={"regime": "b"}),
+            _profile(factor_id="f1", primary_p=0.04, context={"regime": "c"}),
+        ]
+        with pytest.warns(RuntimeWarning, match="single profile"):
+            bhy(profiles, expand_over=["regime"])
 
 
-class TestGateOverride:
-    def test_gate_reads_from_stats_not_primary_p(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        # primary_p=0.99 (would FAIL); stats[FM_LAMBDA_P]=0.001 (would PASS)
+# ---------------------------------------------------------------------------
+# p_stat alternate p-value
+# ---------------------------------------------------------------------------
+
+
+class TestPStat:
+    def test_p_stat_reads_from_stats_not_primary_p(self) -> None:
         prof = _profile(
-            config=cfg,
-            mode=Mode.PANEL,
+            factor_id="f1",
             primary_p=0.99,
             stats={StatCode.FM_LAMBDA_P: 0.001},
         )
-        assert bhy([prof], gate=StatCode.FM_LAMBDA_P) == [prof]
+        assert bhy([prof], p_stat=StatCode.FM_LAMBDA_P) == [prof]
 
-    def test_missing_gate_raises_keyerror(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        prof = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.001)
-        # CAAR_P never populated for an IC profile.
-        with pytest.raises(KeyError):
-            bhy([prof], gate=StatCode.CAAR_P)
-
-
-# ---------------------------------------------------------------------------
-# UX-2 review fix: cross-family no-op warning
-# ---------------------------------------------------------------------------
-
-
-class TestSingletonFamilyWarning:
-    def test_warns_on_multiple_singleton_families(self) -> None:
-        """README's BHY-of-the-day bug: 3 distinct cells × 1 profile each
-        produces 3 size-1 families — BHY ≡ raw threshold, no FDR control."""
-        ic = _profile(
-            config=AnalysisConfig.individual_continuous(metric=Metric.IC),
-            mode=Mode.PANEL,
-            primary_p=0.04,
-        )
-        fm = _profile(
-            config=AnalysisConfig.individual_continuous(metric=Metric.FM),
-            mode=Mode.PANEL,
-            primary_p=0.04,
-        )
-        common = _profile(
-            config=AnalysisConfig.common_continuous(),
-            mode=Mode.PANEL,
-            primary_p=0.04,
-        )
-        with pytest.warns(RuntimeWarning, match="single profile"):
-            bhy([ic, fm, common], threshold=0.05)
-
-    def test_silent_on_single_family(self) -> None:
-        """One family with one profile is the legitimate single-candidate
-        case — the cross-family no-op heuristic does not fire."""
+    def test_non_p_stat_rejected(self) -> None:
         prof = _profile(
-            config=AnalysisConfig.individual_continuous(metric=Metric.IC),
-            mode=Mode.PANEL,
-            primary_p=0.04,
-        )
-        import warnings as _warnings
-
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
-            bhy([prof], threshold=0.05)
-
-    def test_silent_when_all_families_have_two_plus(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        a = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.01)
-        b = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.02)
-        import warnings as _warnings
-
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
-            bhy([a, b], threshold=0.05)
-
-
-# ---------------------------------------------------------------------------
-# bhy gate validation: must be a p-value StatCode
-# ---------------------------------------------------------------------------
-
-
-class TestBhyGateValidation:
-    def test_non_p_gate_rejected(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        prof = _profile(
-            config=cfg,
-            mode=Mode.PANEL,
+            factor_id="f1",
             primary_p=0.04,
             stats={StatCode.IC_T_NW: 2.5},
         )
-        # IC_T_NW is a t-stat, not a probability — BHY step-up math
-        # would silently corrupt if fed t-stats.
-        with pytest.raises(ValueError, match="requires p-value input"):
-            bhy([prof], threshold=0.05, gate=StatCode.IC_T_NW)
+        with pytest.raises(UserInputError, match="not a probability"):
+            bhy([prof], p_stat=StatCode.IC_T_NW)
 
-    def test_p_gate_accepted(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+    def test_missing_p_stat_raises_user_error(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.001)
+        with pytest.raises(UserInputError):
+            bhy([prof], p_stat=StatCode.CAAR_P)
+
+
+# ---------------------------------------------------------------------------
+# Identity uniqueness (#160 anti-shopping defense, family layer)
+# ---------------------------------------------------------------------------
+
+
+class TestIdentityUniqueness:
+    def test_duplicate_identity_raises(self) -> None:
+        # Default factor_id="factor" on both → same identity → duplicate.
+        # v0.4 auto-cell-split would have hidden this; v0.5 surfaces it.
+        profiles = [
+            _profile(primary_p=0.01, metric=Metric.IC),
+            _profile(primary_p=0.02, metric=Metric.FM),
+        ]
+        with pytest.raises(UserInputError, match="duplicate"):
+            bhy(profiles)
+
+
+# ---------------------------------------------------------------------------
+# Deprecated v0.4 kwargs (threshold= → q=, gate= → p_stat=)
+# ---------------------------------------------------------------------------
+
+
+class TestDeprecatedKwargs:
+    def test_threshold_alias_warns(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.04)
+        with pytest.warns(DeprecationWarning, match="threshold"):
+            survivors = bhy([prof], threshold=0.05)
+        assert survivors == [prof]
+
+    def test_gate_alias_warns(self) -> None:
         prof = _profile(
-            config=cfg,
-            mode=Mode.PANEL,
+            factor_id="f1",
             primary_p=0.99,
             stats={StatCode.FM_LAMBDA_P: 0.001},
         )
-        survivors = bhy(
-            [prof],
-            threshold=0.05,
-            gate=StatCode.FM_LAMBDA_P,
-        )
+        with pytest.warns(DeprecationWarning, match="gate"):
+            survivors = bhy([prof], gate=StatCode.FM_LAMBDA_P)
         assert survivors == [prof]
 
-    def test_default_gate_uses_primary_p(self) -> None:
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        prof = _profile(config=cfg, mode=Mode.PANEL, primary_p=0.01)
-        # No exception even though stats has no *_P; primary_p is used.
-        assert bhy([prof], threshold=0.05) == [prof]
-
-
-class TestStatCodeIsPValue:
-    def test_p_codes_marked(self) -> None:
-        for code in (
-            StatCode.IC_P,
-            StatCode.FM_LAMBDA_P,
-            StatCode.TS_BETA_P,
-            StatCode.CAAR_P,
-            StatCode.FACTOR_ADF_P,
-            StatCode.LJUNG_BOX_P,
+    def test_threshold_and_q_collide(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.04)
+        with (
+            pytest.raises(TypeError, match="not both"),
+            warnings.catch_warnings(),
         ):
-            assert code.is_p_value, f"{code.name} should be flagged as p-value"
+            warnings.simplefilter("ignore", DeprecationWarning)
+            bhy([prof], threshold=0.05, q=0.01)
 
-    def test_non_p_codes_unmarked(self) -> None:
-        for code in (
-            StatCode.IC_MEAN,
-            StatCode.IC_T_NW,
-            StatCode.FM_LAMBDA_MEAN,
-            StatCode.FM_LAMBDA_T_NW,
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.CAAR_MEAN,
-            StatCode.CAAR_T_NW,
-            StatCode.EVENT_TEMPORAL_HHI,
-            StatCode.NW_LAGS_USED,
+    def test_gate_and_p_stat_collide(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.04)
+        with (
+            pytest.raises(TypeError, match="not both"),
+            warnings.catch_warnings(),
         ):
-            assert not code.is_p_value, f"{code.name} should NOT be flagged as p-value"
+            warnings.simplefilter("ignore", DeprecationWarning)
+            bhy([prof], gate=StatCode.IC_P, p_stat=StatCode.IC_P)
+
+    def test_unknown_kwarg_raises(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.04)
+        with pytest.raises(TypeError, match="unexpected keyword"):
+            bhy([prof], wibble=1)
+
+
+# ---------------------------------------------------------------------------
+# Mixed-horizon migration foot-gun (v0.4 → v0.5)
+# ---------------------------------------------------------------------------
+
+
+class TestMixedHorizonWarning:
+    def test_mixed_forward_periods_without_expand_over_warns(self) -> None:
+        # v0.4 auto-isolated horizons; v0.5 caller must split. Warn loud
+        # so a sweep that previously enjoyed implicit isolation does not
+        # silently inflate FDR after upgrade.
+        profiles = [
+            _profile(factor_id="f1", forward_periods=5, primary_p=0.001),
+            _profile(factor_id="f2", forward_periods=20, primary_p=0.001),
+        ]
+        with pytest.warns(RuntimeWarning, match="forward_periods"):
+            bhy(profiles)
+
+    def test_mixed_horizons_silent_when_expand_over_set(self) -> None:
+        # Caller has explicitly declared per-bucket families; mixed-
+        # horizon warning is suppressed even though horizons differ.
+        profiles = [
+            _profile(
+                factor_id="f1",
+                forward_periods=5,
+                primary_p=0.001,
+                context={"regime": "a"},
+            ),
+            _profile(
+                factor_id="f2",
+                forward_periods=20,
+                primary_p=0.001,
+                context={"regime": "a"},
+            ),
+        ]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            bhy(profiles, expand_over=["regime"])
+
+    def test_uniform_horizon_silent(self) -> None:
+        profiles = [
+            _profile(factor_id="f1", forward_periods=5, primary_p=0.001),
+            _profile(factor_id="f2", forward_periods=5, primary_p=0.001),
+        ]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", RuntimeWarning)
+            bhy(profiles)
+
+
+# ---------------------------------------------------------------------------
+# Duplicate-identity error message includes actionable hint
+# ---------------------------------------------------------------------------
+
+
+class TestDuplicateIdentityHint:
+    def test_error_message_suggests_factor_id_or_expand_over(self) -> None:
+        profiles = [
+            _profile(factor_id="factor", primary_p=0.01),
+            _profile(factor_id="factor", primary_p=0.02),
+        ]
+        with pytest.raises(UserInputError) as exc:
+            bhy(profiles)
+        msg = str(exc.value)
+        assert "factor_id" in msg
+        assert "expand_over" in msg

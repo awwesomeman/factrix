@@ -93,6 +93,19 @@ def _resolve_family(
             failures (unknown ``expand_over`` / hits identity / duplicate
             partition key / missing ``p_stat``).
     """
+    if p_stat is not None and not p_stat.is_p_value:
+        raise UserInputError(
+            verb=verb,
+            field="p_stat",
+            value=p_stat.name,
+            expected=(
+                f"p-value StatCode (is_p_value=True); {p_stat.name} is "
+                "not a probability and family step-up math would be "
+                "incoherent on it"
+            ),
+            docs_path=f"api/{verb}#p_stat",
+        )
+
     keys = list(expand_over) if expand_over else []
     for name in keys:
         if name in _IDENTITY_FIELDS:
@@ -117,7 +130,10 @@ def _resolve_family(
                 value=partition_key,
                 expected=(
                     "unique partition key across input; duplicate first "
-                    f"seen at index {seen[partition_key]}, again at {idx}"
+                    f"seen at index {seen[partition_key]}, again at {idx}. "
+                    "Set distinct factor_id per profile, or pass "
+                    "expand_over=[<context key>] to declare per-bucket "
+                    "families"
                 ),
                 docs_path=f"api/{verb}#partition-key",
             )

@@ -126,10 +126,8 @@ def _dispatch_key_for(
     """Build the routed ``_DispatchKey`` for a user-facing axis at ``mode``.
 
     Folds ``_route_scope`` + ``_DispatchKey`` construction into one call
-    so ``_evaluate``, ``_describe``, and ``_multi_factor`` cannot drift
-    in how they assemble lookup keys (the ``mirrors _evaluate exactly``
-    comment that previously guarded ``_multi_factor._family_key`` was a
-    drift hazard, not a guarantee).
+    so ``_evaluate`` and ``_describe`` cannot drift in how they assemble
+    lookup keys.
     """
     return _DispatchKey(
         scope=_route_scope(scope, signal, mode),

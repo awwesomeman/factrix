@@ -151,12 +151,12 @@ class StatCode(StrEnum):
       / ``TS_BETA_P`` / ``CAAR_P`` plus the diagnostic-only
       ``FACTOR_ADF_P`` / ``LJUNG_BOX_P``). ``is_p_value`` returns
       ``True``. These are the only codes ``multi_factor.bhy`` will
-      accept as a ``gate=`` override (BHY step-up requires probabilities
-      — feeding it t-stats yields nonsense FDR control).
+      accept as a ``p_stat=`` override (BHY step-up requires
+      probabilities — feeding it t-stats yields nonsense FDR control).
     - **t-stats** / effect-size means / lag counts / HHI: ``is_p_value``
       returns ``False``. ``profile.verdict(gate=...)`` accepts these
       (the comparison is generic ``value < threshold`` — interpretation
-      is the caller's call) but ``bhy(gate=...)`` rejects them.
+      is the caller's call) but ``bhy(p_stat=...)`` rejects them.
     """
 
     IC_MEAN = "ic_mean"
@@ -180,9 +180,10 @@ class StatCode(StrEnum):
     def is_p_value(self) -> bool:
         """``True`` iff this stat is a probability in [0, 1].
 
-        Used by ``multi_factor.bhy`` to gatekeep the ``gate=`` override
-        — BHY step-up math requires p-values, so feeding a t-stat would
-        silently corrupt FDR control.
+        Used by ``multi_factor.bhy`` (and the shared family resolution
+        layer) to gatekeep the ``p_stat=`` override — BHY step-up math
+        requires p-values, so feeding a t-stat would silently corrupt
+        FDR control.
         """
         return self.value.endswith("_p")
 

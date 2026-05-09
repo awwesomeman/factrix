@@ -19,7 +19,7 @@ Single-factor::
 Batch + BHY::
 
     profiles = [fl.evaluate(panel, cfg) for cfg in candidate_configs]
-    survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+    survivors = fl.multi_factor.bhy(profiles, q=0.05)
 
 Schema reflection::
 
