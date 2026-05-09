@@ -63,7 +63,7 @@ Plus introspection / error / enum re-exports:
 - `fl.FactorProfile` — single unified result type
 - `fl.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
 - `fl.suggest_config(panel)` — heuristic factory call from a raw panel
-- `fl.ConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError` — exception hierarchy
+- `fl.FactrixError`, `fl.ConfigError`, `fl.MissingConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError`, `fl.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
@@ -214,6 +214,91 @@ df = `n_assets` − 1 → t_crit at `n_assets` = 3 ≈ 4.30 (+119% vs asymptotic
 at 5 ≈ 2.78 (+42%), at 10 ≈ 2.26 (+15%), at 20 ≈ 2.09 (+7%). The test still
 runs; the warning surfaces the inflation so callers can read p ≈ 0.04 as
 "borderline at this `n_assets`" rather than "rejected".
+
+---
+
+## Error UX contract
+
+User-facing raises follow a single canonical message format so callers
+learn to read factrix errors once and recover programmatically across
+all verbs.
+
+### Hierarchy
+
+```
+FactrixError                       # base — all factrix-raised errors
+├── ConfigError                    # AnalysisConfig validation / dispatch
+│   ├── MissingConfigError
+│   ├── IncompatibleAxisError
+│   ├── ModeAxisError              # carries .suggested_fix
+│   └── InsufficientSampleError    # carries .actual_periods / .required_periods
+└── UserInputError                 # named-set typo / type mismatch
+```
+
+`UserInputError` is the marker for "user typed the wrong thing"
+(unknown metric / `p_stat` / `expand_over` key, column not in panel,
+wrong type). Catch it separately from `ConfigError` (axis miswire) and
+`InsufficientSampleError` (data limitation) when those branches need
+different recovery.
+
+### Three required fields
+
+Every user-facing raise that takes a named input must carry:
+
+1. **Trigger**: the kwarg / column name and the value received
+2. **Diagnostic**: either fuzzy candidates (named-set error) or an
+   expected-shape string (type error)
+3. **Docs link**: deployed-docs anchor for the verb
+
+### Constructor
+
+`UserInputError` is keyword-only and renders its own message:
+
+```python
+UserInputError(
+    *,
+    verb: str,
+    field: str,
+    value: object,
+    candidates: Iterable[object] | None = None,   # named-set typo
+    expected: str | None = None,                  # type / shape mismatch
+    docs_path: str,                               # "api/<verb>#<anchor>"
+)
+```
+
+- Exactly one of `candidates` / `expected` carries the diagnostic.
+- Fuzzy match: `difflib.get_close_matches(str(value), candidates, n=3, cutoff=0.6)`.
+- Non-string candidates are coerced via `str(...)` so `Enum` members or
+  type objects work without pre-conversion at the call site.
+- `docs_path` is appended to `https://awwesomeman.github.io/factrix/`
+  so the deployed base URL lives in one place
+  (`factrix._errors._DOCS_BASE`).
+- Long candidate lists truncate to the first 15 with a
+  `Available (15 of N, see Docs):` header; long `value` reprs cap at
+  120 chars to keep messages readable when callers pass DataFrames or
+  polars expressions.
+- Language: English (consistent with docstrings; errors land in
+  stack traces / CI output).
+
+### Structured attributes
+
+Sub-issues and downstream consumers (LLM agents, screening loops)
+recover via attributes, not message substrings:
+
+- `.verb`, `.field`, `.value`, `.expected`, `.docs_url`
+- `.candidates: tuple[str, ...]` — sorted, `()` in the type-mismatch branch
+- `.suggestions: tuple[str, ...]` — difflib top-3, `()` when none above cutoff
+
+`UserInputError` multi-inherits from `ValueError` so generic ecosystem
+code (`pytest.raises(ValueError)`, broad `except ValueError`) still
+catches it.
+
+### Adoption
+
+The contract is opt-in for new user-facing raises. Each v1 verb
+sub-issue (#147 / #160 / #161 / #162) declares conformance in its
+own DoD; retrofit of pre-contract raise sites is tracked separately
+so the helper itself can land without forcing a sweep.
 
 ---
 

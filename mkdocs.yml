@@ -160,6 +160,7 @@ nav:
       - multi_factor: api/multi-factor.md
       - datasets: api/datasets.md
       - preprocess: api/preprocess.md
+      - Errors: api/errors.md
       - Metrics:
           - api/metrics/index.md
           - Individual continuous:
