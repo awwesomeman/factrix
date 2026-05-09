@@ -185,7 +185,6 @@ def _make_profile(
 ) -> FactorProfile:
     return FactorProfile(
         config=AnalysisConfig.individual_continuous(),
-        identity=("factor", 0),
         mode=Mode.PANEL,
         primary_p=primary_p,
         n_obs=100,
@@ -234,7 +233,6 @@ class TestProfileImmutability:
     def test_default_collections_empty(self) -> None:
         prof = FactorProfile(
             config=AnalysisConfig.common_continuous(),
-            identity=("factor", 0),
             mode=Mode.TIMESERIES,
             primary_p=0.5,
             n_obs=50,

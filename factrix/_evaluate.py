@@ -125,7 +125,7 @@ def _evaluate(
     profile = entry.procedure.compute(raw, config)
     profile = dataclasses.replace(
         profile,
-        identity=(factor_col, config.forward_periods),
+        factor_id=factor_col,
         info_notes=profile.info_notes | extra_info,
     )
     return profile

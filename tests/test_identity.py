@@ -10,6 +10,7 @@ import polars as pl
 import pytest
 from factrix import AnalysisConfig, Metric, evaluate
 from factrix._axis import Mode
+from factrix._codes import InfoCode, WarningCode
 from factrix._profile import FactorProfile
 
 
@@ -46,43 +47,50 @@ def _cfg(forward_periods: int = 5) -> AnalysisConfig:
     )
 
 
-def test_identity_is_required_no_silent_default() -> None:
-    with pytest.raises(TypeError, match="identity"):
-        FactorProfile(  # type: ignore[call-arg]
-            config=_cfg(),
-            mode=Mode.PANEL,
-            primary_p=0.04,
-            n_obs=60,
-            n_assets=20,
-        )
-
-
-def test_identity_accessors_read_tuple_elements() -> None:
-    p = FactorProfile(
+def _bare_profile(**overrides) -> FactorProfile:
+    base = dict(
         config=_cfg(),
         mode=Mode.PANEL,
         primary_p=0.04,
         n_obs=60,
         n_assets=20,
-        identity=("alpha_x", 5),
     )
-    assert p.factor_id == "alpha_x"
-    assert p.forward_periods == 5
+    base.update(overrides)
+    return FactorProfile(**base)
+
+
+def test_factor_id_defaults_to_canonical_factor_name() -> None:
+    p = _bare_profile()
+    assert p.factor_id == "factor"
+    assert p.forward_periods == _cfg().forward_periods
+    assert p.identity == ("factor", _cfg().forward_periods)
     assert dict(p.context) == {}
 
 
-def test_evaluate_stamps_identity_from_factor_col() -> None:
-    panel = _panel()
-    cfg = _cfg(forward_periods=5)
-    profile = evaluate(panel, cfg, factor_col="momentum_12_1")
+def test_forward_periods_derives_from_config_not_storage() -> None:
+    p1 = _bare_profile(config=_cfg(forward_periods=5))
+    p2 = dataclasses.replace(p1, config=_cfg(forward_periods=21))
+    assert p1.forward_periods == 5
+    assert p2.forward_periods == 21
+
+
+def test_replace_factor_id_works_via_real_field() -> None:
+    p1 = _bare_profile(factor_id="alpha")
+    p2 = dataclasses.replace(p1, factor_id="beta")
+    assert p1.factor_id == "alpha"
+    assert p2.factor_id == "beta"
+    assert p2.identity == ("beta", _cfg().forward_periods)
+
+
+def test_evaluate_stamps_factor_id_from_factor_col() -> None:
+    profile = evaluate(_panel(), _cfg(forward_periods=5), factor_col="momentum_12_1")
     assert profile.identity == ("momentum_12_1", 5)
     assert profile.factor_id == "momentum_12_1"
     assert profile.forward_periods == 5
 
 
 def test_evaluate_default_factor_col_stamps_canonical_name() -> None:
-    panel = _panel(factor_col="factor")
-    profile = evaluate(panel, _cfg())
+    profile = evaluate(_panel(factor_col="factor"), _cfg())
     assert profile.factor_id == "factor"
 
 
@@ -109,15 +117,11 @@ def test_replace_preserves_identity_when_only_other_fields_change() -> None:
 
 
 def test_distinct_factor_cols_yield_distinct_identity() -> None:
-    panel = _panel().with_columns(
-        pl.lit(0.0).alias("noise"),
-    )
+    panel = _panel().with_columns(pl.lit(0.0).alias("noise"))
     cfg = _cfg()
     p1 = evaluate(panel, cfg, factor_col="momentum_12_1")
     p2 = evaluate(panel, cfg, factor_col="noise")
     assert p1.identity != p2.identity
-    assert p1.factor_id == "momentum_12_1"
-    assert p2.factor_id == "noise"
 
 
 @pytest.mark.parametrize("forward_periods", [1, 5, 21])
@@ -137,29 +141,47 @@ def test_context_can_be_extended_via_replace() -> None:
     assert p2.identity == p1.identity
 
 
-def test_repr_omits_empty_context_and_warnings() -> None:
-    profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
-    text = repr(profile)
-    assert text.startswith("FactorProfile(")
-    assert "factor_id='momentum_12_1'" in text
-    assert "primary_p=" in text
-    assert "context=" not in text
-    assert "warnings=" not in text
+def test_factor_profile_is_explicitly_unhashable() -> None:
+    p = _bare_profile()
+    assert FactorProfile.__hash__ is None
+    with pytest.raises(TypeError):
+        hash(p)
 
 
-def test_repr_includes_context_when_set() -> None:
+@pytest.mark.parametrize(
+    "context_extra,warning_set,expects_context,expects_warnings",
+    [
+        ({}, frozenset(), False, False),
+        ({"universe_id": "us_large_cap"}, frozenset(), True, False),
+        ({}, frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS}), False, True),
+        (
+            {"regime_id": "low_vol"},
+            frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS}),
+            True,
+            True,
+        ),
+    ],
+)
+def test_repr_includes_context_and_warnings_only_when_set(
+    context_extra: dict,
+    warning_set: frozenset,
+    expects_context: bool,
+    expects_warnings: bool,
+) -> None:
     p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
-    p2 = dataclasses.replace(p, context={"universe_id": "us_large_cap"})
-    text = repr(p2)
-    assert "context=" in text
-    assert "universe_id" in text
+    p = dataclasses.replace(p, context=context_extra, warnings=warning_set)
+    text = repr(p)
+    assert text.startswith("FactorProfile(")
+    assert (
+        "context.universe_id=" in text or "context.regime_id=" in text
+    ) is expects_context
+    assert ("warnings=" in text) is expects_warnings
 
 
 def test_repr_html_renders_identity_table() -> None:
     profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
     html = profile._repr_html_()
     assert "<table" in html
-    assert "</table>" in html
     assert "factor_id" in html
     assert "momentum_12_1" in html
     assert "primary_p" in html
@@ -176,25 +198,28 @@ def test_repr_html_lists_context_rows_when_set() -> None:
     assert "context.regime_id" in html
 
 
-def test_repr_html_escapes_user_supplied_strings() -> None:
+def test_repr_html_renders_warnings_row_when_set() -> None:
     p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
-    p2 = dataclasses.replace(p, context={"universe_id": "<script>alert(1)</script>"})
-    html = p2._repr_html_()
-    assert "<script>alert(1)</script>" not in html
-    assert "&lt;script&gt;" in html
-
-
-def test_repr_html_escapes_factor_id() -> None:
-    p = FactorProfile(
-        config=_cfg(),
-        mode=Mode.PANEL,
-        primary_p=0.05,
-        n_obs=60,
-        n_assets=20,
-        identity=("</td><script>x</script>", 5),
+    p2 = dataclasses.replace(
+        p, warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
     )
-    html = p._repr_html_()
-    assert "<script>x</script>" not in html
+    html = p2._repr_html_()
+    assert "warnings" in html
+    assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in html
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("factor_id", "</td><script>x</script>"),
+        ("context", {"universe_id": "<script>alert(1)</script>"}),
+    ],
+)
+def test_repr_html_escapes_user_supplied_strings(field: str, value: object) -> None:
+    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p2 = dataclasses.replace(p, **{field: value})
+    html = p2._repr_html_()
+    assert "<script>" not in html
     assert "&lt;script&gt;" in html
 
 
@@ -206,7 +231,5 @@ def test_evaluate_preserves_info_notes_alongside_identity() -> None:
         (pl.col("factor") * (pl.col("factor").abs() > 0.8)).alias("factor")
     )
     profile = evaluate(panel, cfg)
-    from factrix._codes import InfoCode
-
     assert profile.identity == ("factor", 5)
     assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes

@@ -201,9 +201,9 @@ profile.mode            : Mode                       # PANEL or TIMESERIES (deri
 profile.primary_p       : float                      # procedure-canonical p-value
 profile.n_obs           : int                        # effective sample size
 profile.n_assets        : int                        # cross-section width
-profile.identity        : tuple[str, int]            # (factor_id, forward_periods)
-profile.factor_id       : str                        # identity[0] convenience accessor
-profile.forward_periods : int                        # identity[1] convenience accessor
+profile.factor_id       : str                        # user-supplied factor name (default "factor")
+profile.forward_periods : int                        # derived from config.forward_periods
+profile.identity        : tuple[str, int]            # (factor_id, forward_periods); read-only view
 profile.context         : Mapping[str, Any]          # universe_id / regime_id / ...
 profile.warnings        : frozenset[WarningCode]
 profile.info_notes      : frozenset[InfoCode]
@@ -261,9 +261,12 @@ the caller's responsibility (deliberately not done here).
 family lacks the gated key.
 
 Survivor → factor mapping reads `profile.factor_id` (no external dict
-needed): `[s.factor_id for s in survivors]`. Equality across profiles
-remains stats-driven (frozen-dataclass auto-`__eq__`), but identity-
-based filtering is unambiguous via the dedicated tuple.
+needed): `[s.factor_id for s in survivors]`. `bhy` itself still
+partitions families by `(_DispatchKey, forward_periods)` in v0.10;
+identity-based partitioning lands with `_resolve_family` (#161).
+`FactorProfile` is intentionally not hashable (`__hash__ = None`)
+because `context` defaults to a dict; equality remains field-by-field
+via the auto-generated `__eq__`.
 
 ---
 

@@ -31,32 +31,23 @@ class FactorProfile:
 
     Attributes:
         config: The ``AnalysisConfig`` that produced this profile.
-        mode: Evaluation mode derived from raw data; ``PANEL`` when
-            ``n_assets > 1``, ``TIMESERIES`` at ``N == 1``.
-        primary_p: Procedure-canonical p-value used by ``verdict()``
+        mode: Evaluation mode (``PANEL`` / ``TIMESERIES``).
+        primary_p: Procedure-canonical p-value driving ``verdict()``
             and ``multi_factor.bhy``.
-        n_obs: Cell-canonical effective sample size (T for IC/FM/TS,
-            densified panel-period count for CAAR, asset count for
-            ``COMMON × *`` PANEL).
-        n_assets: Cross-section width of the raw panel
-            (``panel["asset_id"].n_unique()``).
-        identity: ``(factor_id, forward_periods)`` hypothesis tuple.
-            Defines "what hypothesis this profile tests"; consumed by
-            ``factrix.multi_factor.bhy`` for family partitioning.
-            Stamped by ``_evaluate`` from ``factor_col`` and
-            ``config.forward_periods``.
+        n_obs: Cell-canonical effective sample size.
+        n_assets: Cross-section width of the raw panel.
+        factor_id: User-supplied factor name; stamped by ``_evaluate``
+            from ``factor_col``. Defaults to ``"factor"`` when a
+            profile is constructed directly.
         context: Sample-restriction / conditioning dimensions
-            (``universe_id``, ``regime_id``, future axes). Empty by
-            default; populated by higher-level verbs (``by_slice`` /
-            ``by_regime`` consumers, future ``run_metrics``). The
-            split from ``identity`` is the v1 anti-shopping defense:
-            multi-horizon factor research's family forms naturally
-            from ``identity``, while sample restrictions stay
-            queryable via ``profile.context[key]``.
-        warnings: ``WarningCode`` flags emitted by the procedure.
-        info_notes: ``InfoCode`` annotations (e.g. axis collapses).
-        stats: Cell-specific scalars keyed by ``StatCode`` (t-stats,
-            secondary p-values, HHI, etc.).
+            (``universe_id``, ``regime_id``, future axes). Populated
+            by higher-level verbs via ``dataclasses.replace``.
+        warnings, info_notes, stats: per-procedure flags / scalars.
+
+    Hashing is disabled (``__hash__ = None``) because ``context``
+    defaults to ``dict`` (unhashable). Equality is field-by-field via
+    the auto-generated ``__eq__``; bhy family partitioning uses
+    ``identity`` directly without needing the profile to be hashable.
     """
 
     config: AnalysisConfig
@@ -64,19 +55,21 @@ class FactorProfile:
     primary_p: float
     n_obs: int
     n_assets: int
-    identity: tuple[str, int]
+    factor_id: str = "factor"
     context: Mapping[str, Any] = field(default_factory=dict)
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
     stats: Mapping[StatCode, float] = field(default_factory=dict)
 
-    @property
-    def factor_id(self) -> str:
-        return self.identity[0]
+    __hash__ = None  # type: ignore[assignment]
 
     @property
     def forward_periods(self) -> int:
-        return self.identity[1]
+        return self.config.forward_periods
+
+    @property
+    def identity(self) -> tuple[str, int]:
+        return (self.factor_id, self.forward_periods)
 
     def verdict(
         self,
@@ -107,22 +100,7 @@ class FactorProfile:
         p = self.primary_p if gate is None else self.stats[gate]
         return Verdict.PASS if p < threshold else Verdict.FAIL
 
-    def __repr__(self) -> str:
-        parts = [
-            f"factor_id={self.factor_id!r}",
-            f"forward_periods={self.forward_periods}",
-            f"mode={self.mode.value}",
-            f"primary_p={self.primary_p:.4g}",
-            f"n_obs={self.n_obs}",
-            f"n_assets={self.n_assets}",
-        ]
-        if self.context:
-            parts.append(f"context={dict(self.context)!r}")
-        if self.warnings:
-            parts.append(f"warnings={sorted(w.value for w in self.warnings)!r}")
-        return f"FactorProfile({', '.join(parts)})"
-
-    def _repr_html_(self) -> str:
+    def _summary_rows(self) -> list[tuple[str, Any]]:
         rows: list[tuple[str, Any]] = [
             ("factor_id", self.factor_id),
             ("forward_periods", self.forward_periods),
@@ -135,10 +113,17 @@ class FactorProfile:
             rows.append((f"context.{k}", self.context[k]))
         if self.warnings:
             rows.append(("warnings", ", ".join(sorted(w.value for w in self.warnings))))
+        return rows
+
+    def __repr__(self) -> str:
+        parts = [f"{k}={v!r}" for k, v in self._summary_rows()]
+        return f"FactorProfile({', '.join(parts)})"
+
+    def _repr_html_(self) -> str:
         body = "".join(
             f"<tr><th style='text-align:left'>{html.escape(str(k))}</th>"
             f"<td>{html.escape(str(v))}</td></tr>"
-            for k, v in rows
+            for k, v in self._summary_rows()
         )
         return (
             "<table class='factrix-factor-profile'>"
