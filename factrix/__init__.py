@@ -61,6 +61,8 @@ from factrix._errors import (
     InsufficientSampleError,
     MissingConfigError,
     ModeAxisError,
+    UserInputError,
+    format_user_error,
 )
 from factrix._evaluate import _evaluate as _evaluate
 from factrix._profile import FactorProfile
@@ -147,6 +149,8 @@ __all__ = [
     "InsufficientSampleError",
     "MissingConfigError",
     "ModeAxisError",
+    "UserInputError",
+    "format_user_error",
     # Profile + dispatch
     "FactorProfile",
     "MetricOutput",

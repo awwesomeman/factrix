@@ -320,14 +320,23 @@ All factrix exceptions inherit from `FactrixError`, so agents can write
 
 ```
 FactrixError                       # base — all factrix-raised errors
-└── ConfigError                    # AnalysisConfig validation / dispatch
-    ├── MissingConfigError         # evaluate(raw) called without a config
-    ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
-    ├── ModeAxisError              # legal cell, no procedure at runtime mode;
-    │                              # carries .suggested_fix: AnalysisConfig | None
-    └── InsufficientSampleError    # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
-                                   # carries .actual_periods / .required_periods
+├── ConfigError                    # AnalysisConfig validation / dispatch
+│   ├── MissingConfigError         # evaluate(raw) called without a config
+│   ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
+│   ├── ModeAxisError              # legal cell, no procedure at runtime mode;
+│   │                              # carries .suggested_fix: AnalysisConfig | None
+│   └── InsufficientSampleError    # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
+│                                  # carries .actual_periods / .required_periods
+└── UserInputError                 # user-supplied input does not match expected
+                                   # names or types (typo in named-set kwarg,
+                                   # column not in panel, wrong type)
 ```
+
+User-facing raises that take a named input render their message via
+`factrix.format_user_error(...)` — keyword-only helper that returns a
+canonical string (verb / field / value, fuzzy suggestion via
+`difflib.get_close_matches`, sorted candidate list, docs URL). Used
+in conjunction with `UserInputError`.
 
 Recovery payloads — what each subclass carries beyond `.args[0]`:
 
