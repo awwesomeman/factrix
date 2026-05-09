@@ -34,6 +34,7 @@ Series diagnostics — axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, multi_split_oos_decay
 """
 
+from factrix.metrics._slice import by_slice
 from factrix.metrics.caar import (
     bmp_test,
     caar,
@@ -104,6 +105,7 @@ __all__ = [
     "bmp_test",
     "breakeven_cost",
     "by_regime",
+    "by_slice",
     "caar",
     "clustering_diagnostic",
     "compute_caar",
