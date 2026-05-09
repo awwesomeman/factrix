@@ -108,6 +108,7 @@ class _ICContPanelProcedure:
 
         return FactorProfile(
             config=config,
+            identity=("factor", config.forward_periods),
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=n_periods,
@@ -180,6 +181,7 @@ class _FMContPanelProcedure:
 
         return FactorProfile(
             config=config,
+            identity=("factor", config.forward_periods),
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=n_periods,
@@ -284,6 +286,7 @@ class _CAARSparsePanelProcedure:
 
         return FactorProfile(
             config=config,
+            identity=("factor", config.forward_periods),
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=n_periods,
@@ -482,6 +485,7 @@ def _compute_common_panel(
     # of which cell produced the profile.
     return FactorProfile(
         config=config,
+        identity=("factor", config.forward_periods),
         mode=Mode.PANEL,
         primary_p=p_value,
         n_obs=N,
@@ -569,6 +573,7 @@ class _TSBetaContTimeseriesProcedure:
 
         return FactorProfile(
             config=config,
+            identity=("factor", config.forward_periods),
             mode=Mode.TIMESERIES,
             primary_p=p_value,
             n_obs=n_periods,
@@ -673,6 +678,7 @@ class _TSDummySparseTimeseriesProcedure:
 
         return FactorProfile(
             config=config,
+            identity=("factor", config.forward_periods),
             mode=Mode.TIMESERIES,
             primary_p=p_value,
             n_obs=n_periods,

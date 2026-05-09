@@ -22,13 +22,13 @@ silently changes which hypotheses are considered "the same family" by
 multiple-testing correction — and lets researchers walk the family
 boundary until something looks significant.
 
-| Spec-search variant | API-level guard |
-|---|---|
-| Estimator shopping (swap SE method until significant) | Cell → procedure 1:1 (registry SSOT) |
-| Stat shopping (swap `p_stat` per factor) | Study-level `p_stat=` only; per-factor not allowed |
-| Universe shopping (swap large-cap → small-cap) | `context["universe_id"]` is a sample restriction, not a hypothesis dimension; promotion to family member requires explicit `expand_over=` |
-| Family-scope shopping (multiplicative → per-slice) | No implicit default — `expand_over=` must be explicit |
-| **Horizon shopping** (run every `forward_periods` ∈ {1d, 5d, 1m, 3m, 6m, 12m}, report the smallest p) | `forward_periods` is part of `identity`; `bhy(profiles)` over a horizon sweep auto-forms the full family |
+| Spec-search variant | API-level guard | Status |
+|---|---|---|
+| Estimator shopping (swap SE method until significant) | Cell → procedure 1:1 (registry SSOT) | shipped |
+| Stat shopping (swap `p_stat` per factor) | Study-level `p_stat=` only; per-factor not allowed | shipped |
+| Universe shopping (swap large-cap → small-cap) | `context["universe_id"]` is a sample restriction, not a hypothesis dimension; promotion to family member requires explicit `expand_over=` | partial — context split shipped; `expand_over=` lands in [#161](https://github.com/awwesomeman/factrix/issues/161) |
+| Family-scope shopping (multiplicative → per-slice) | No implicit default — `expand_over=` must be explicit | [#161](https://github.com/awwesomeman/factrix/issues/161) |
+| **Horizon shopping** (run every `forward_periods` ∈ {1d, 5d, 1m, 3m, 6m, 12m}, report the smallest p) | `forward_periods` is part of `identity`; `bhy(profiles)` over a horizon sweep auto-forms the full family | shipped (BHY family already partitions on `forward_periods`) |
 
 The path of least resistance — `[evaluate(panel, cfg) for cfg in
 horizon_grid]` followed by `bhy(profiles)` — is also the statistically
@@ -50,7 +50,10 @@ profile.forward_periods  # cfg.forward_periods
 - `forward_periods` ← `cfg.forward_periods`
 
 Procedures themselves stay schema-agnostic; the stamp happens once at
-the dispatch boundary inside `_evaluate`.
+the dispatch boundary inside `_evaluate`. `factor_id` and
+`forward_periods` are read-only properties that proxy `identity[0]` /
+`identity[1]` — `dataclasses.replace(p, identity=(new_id, fwd))` is
+the way to override them; `replace(p, factor_id=...)` does not work.
 
 ## How context is populated
 

@@ -46,18 +46,29 @@ def _cfg(forward_periods: int = 5) -> AnalysisConfig:
     )
 
 
-def test_identity_default_when_constructed_directly() -> None:
+def test_identity_is_required_no_silent_default() -> None:
+    with pytest.raises(TypeError, match="identity"):
+        FactorProfile(  # type: ignore[call-arg]
+            config=_cfg(),
+            mode=Mode.PANEL,
+            primary_p=0.04,
+            n_obs=60,
+            n_assets=20,
+        )
+
+
+def test_identity_accessors_read_tuple_elements() -> None:
     p = FactorProfile(
         config=_cfg(),
         mode=Mode.PANEL,
         primary_p=0.04,
         n_obs=60,
         n_assets=20,
+        identity=("alpha_x", 5),
     )
-    assert p.identity == ("factor", 0)
+    assert p.factor_id == "alpha_x"
+    assert p.forward_periods == 5
     assert dict(p.context) == {}
-    assert p.factor_id == "factor"
-    assert p.forward_periods == 0
 
 
 def test_evaluate_stamps_identity_from_factor_col() -> None:
@@ -163,3 +174,39 @@ def test_repr_html_lists_context_rows_when_set() -> None:
     assert "context.universe_id" in html
     assert "us_large" in html
     assert "context.regime_id" in html
+
+
+def test_repr_html_escapes_user_supplied_strings() -> None:
+    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p2 = dataclasses.replace(p, context={"universe_id": "<script>alert(1)</script>"})
+    html = p2._repr_html_()
+    assert "<script>alert(1)</script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_repr_html_escapes_factor_id() -> None:
+    p = FactorProfile(
+        config=_cfg(),
+        mode=Mode.PANEL,
+        primary_p=0.05,
+        n_obs=60,
+        n_assets=20,
+        identity=("</td><script>x</script>", 5),
+    )
+    html = p._repr_html_()
+    assert "<script>x</script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_evaluate_preserves_info_notes_alongside_identity() -> None:
+    panel = _panel(factor_col="alpha", n_assets=1, n_dates=120)
+    cfg = AnalysisConfig.individual_sparse(forward_periods=5)
+    panel = panel.with_columns(pl.col("alpha").alias("factor")).drop("alpha")
+    panel = panel.with_columns(
+        (pl.col("factor") * (pl.col("factor").abs() > 0.8)).alias("factor")
+    )
+    profile = evaluate(panel, cfg)
+    from factrix._codes import InfoCode
+
+    assert profile.identity == ("factor", 5)
+    assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes

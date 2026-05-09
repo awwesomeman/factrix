@@ -24,6 +24,7 @@ def _profile(
         base_stats.update(stats)
     return FactorProfile(
         config=config,
+        identity=("factor", 0),
         mode=mode,
         primary_p=primary_p,
         n_obs=100,

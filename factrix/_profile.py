@@ -9,6 +9,7 @@ schema (§7.5).
 
 from __future__ import annotations
 
+import html
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -63,7 +64,7 @@ class FactorProfile:
     primary_p: float
     n_obs: int
     n_assets: int
-    identity: tuple[str, int] = ("factor", 0)
+    identity: tuple[str, int]
     context: Mapping[str, Any] = field(default_factory=dict)
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
@@ -135,7 +136,8 @@ class FactorProfile:
         if self.warnings:
             rows.append(("warnings", ", ".join(sorted(w.value for w in self.warnings))))
         body = "".join(
-            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
+            f"<tr><th style='text-align:left'>{html.escape(str(k))}</th>"
+            f"<td>{html.escape(str(v))}</td></tr>"
             for k, v in rows
         )
         return (
