@@ -22,41 +22,90 @@ from factrix._metric_index import _STAGE1_HELPERS, MetricRow, user_facing_rows
 _APPLICABILITY_DOC = pathlib.Path("docs/reference/metric-applicability.md")
 
 
+# Cell-canonical primaries: SSOT moved to the auto-generated dispatch
+# table at the top of metric-applicability.md (#142), whose tuple keys
+# are dispatch-keyed and broader than authoring scope (e.g. ts_beta
+# dispatches on (COMMON, SPARSE, *, PANEL) but its Matrix-row authoring
+# cell is (COMMON, CONTINUOUS, *, PANEL); list_metrics returns the
+# authoring set). Inject primaries by their authoring cell rather than
+# parse the dispatch table — adding a primary requires updating one
+# literal here, the same cadence as updating Matrix-row tags.
+_PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, Signal]]] = {
+    "ic": [(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)],
+    "fama_macbeth": [(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)],
+    "caar": [
+        (FactorScope.INDIVIDUAL, Signal.SPARSE),
+        (FactorScope.COMMON, Signal.SPARSE),
+    ],
+    "ts_beta": [(FactorScope.COMMON, Signal.CONTINUOUS)],
+}
+
+# Family-subsection cell-name → (scope, signal) cells.
+_CELL_HEADING_MAP: dict[str, list[tuple[FactorScope, Signal]]] = {
+    "Individual × Continuous": [(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)],
+    "Common × Continuous": [(FactorScope.COMMON, Signal.CONTINUOUS)],
+    # Matrix-row tags use ``(*, SPARSE, *, PANEL)``: wildcard scope.
+    "Individual × Sparse": [
+        (FactorScope.INDIVIDUAL, Signal.SPARSE),
+        (FactorScope.COMMON, Signal.SPARSE),
+    ],
+    "Common × Sparse": [(FactorScope.COMMON, Signal.SPARSE)],
+}
+
+# Not-cell-bound family-name → cells. Spread-series consumers operate on
+# the Individual × Continuous quantile spread output; series-tools are
+# wildcard-scope, ``(*, CONTINUOUS, *, TIMESERIES)``.
+_NOT_CELL_BOUND_MAP: dict[str, list[tuple[FactorScope, Signal]]] = {
+    "Spread-series consumers": [(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)],
+    "Series-tools": [
+        (FactorScope.INDIVIDUAL, Signal.CONTINUOUS),
+        (FactorScope.COMMON, Signal.CONTINUOUS),
+    ],
+}
+
+
 def _parse_applicability_doc() -> dict[tuple[FactorScope, Signal], set[str]]:
-    """Build per-cell expected name sets from the applicability matrix."""
+    """Build per-cell expected name sets from the applicability matrix.
+
+    Walks the family subsections under ``## Other metrics by family``:
+    each ``### <Family> — Cell: <CellName>`` heading sets the active
+    cell list; subsequent ``| [`name`]...`` table rows are assigned to
+    it. ``### <Family> — not cell-bound`` activates the wildcard
+    families (spread-series / series-tools). Cell-canonical primaries
+    are injected from :data:`_PRIMARY_METRIC_CELLS`. Each new ``##``
+    heading clears the active list so rows in unrelated sections
+    (event-study contracts, sample-size constants) are ignored.
+    """
     expected: dict[tuple[FactorScope, Signal], set[str]] = {
         (FactorScope.INDIVIDUAL, Signal.CONTINUOUS): set(),
         (FactorScope.COMMON, Signal.CONTINUOUS): set(),
         (FactorScope.INDIVIDUAL, Signal.SPARSE): set(),
         (FactorScope.COMMON, Signal.SPARSE): set(),
     }
+    for name, cells in _PRIMARY_METRIC_CELLS.items():
+        for cell in cells:
+            expected[cell].add(name)
+
     text = _APPLICABILITY_DOC.read_text(encoding="utf-8")
-    row_re = re.compile(r"^\|\s*\[`([^`]+)`\][^|]*\|\s*([^|]+?)\s*\|", re.MULTILINE)
-    for match in row_re.finditer(text):
-        name, cell = match.group(1), match.group(2)
-        # Drop the leading symbol on the metric name when present
-        # (table syntax already strips backticks).
-        targets: list[tuple[FactorScope, Signal]] = []
-        if cell.startswith("Individual × Continuous") or cell.startswith(
-            "Spread-series consumer"
-        ):
-            targets = [(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)]
-        elif cell.startswith("Common × Continuous"):
-            targets = [(FactorScope.COMMON, Signal.CONTINUOUS)]
-        elif cell.startswith("Individual × Sparse"):
-            # Matrix-row tags use ``(*, SPARSE, *, PANEL)``: wildcard scope.
-            targets = [
-                (FactorScope.INDIVIDUAL, Signal.SPARSE),
-                (FactorScope.COMMON, Signal.SPARSE),
-            ]
-        elif cell.startswith("Series-tools"):
-            # ``(*, CONTINUOUS, *, TIMESERIES)``: wildcard scope.
-            targets = [
-                (FactorScope.INDIVIDUAL, Signal.CONTINUOUS),
-                (FactorScope.COMMON, Signal.CONTINUOUS),
-            ]
-        for t in targets:
-            expected[t].add(name)
+    cell_re = re.compile(r"^###\s+(.+?)\s+—\s+Cell:\s+(.+?)\s*$")
+    nocell_re = re.compile(r"^###\s+(.+?)\s+—\s+not cell-bound\s*$")
+    row_re = re.compile(r"^\|\s*\[`([^`]+)`\]")
+    h2_re = re.compile(r"^##\s")
+
+    active: list[tuple[FactorScope, Signal]] = []
+    for line in text.splitlines():
+        if h2_re.match(line):
+            active = []
+            continue
+        if m := cell_re.match(line):
+            active = _CELL_HEADING_MAP.get(m.group(2).strip(), [])
+            continue
+        if m := nocell_re.match(line):
+            active = _NOT_CELL_BOUND_MAP.get(m.group(1).strip(), [])
+            continue
+        if active and (m := row_re.match(line)):
+            for cell in active:
+                expected[cell].add(m.group(1))
     return expected
 
 
