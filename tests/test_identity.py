@@ -124,3 +124,42 @@ def test_context_can_be_extended_via_replace() -> None:
     p2 = dataclasses.replace(p1, context={"universe_id": "us_large_cap"})
     assert p2.context["universe_id"] == "us_large_cap"
     assert p2.identity == p1.identity
+
+
+def test_repr_omits_empty_context_and_warnings() -> None:
+    profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    text = repr(profile)
+    assert text.startswith("FactorProfile(")
+    assert "factor_id='momentum_12_1'" in text
+    assert "primary_p=" in text
+    assert "context=" not in text
+    assert "warnings=" not in text
+
+
+def test_repr_includes_context_when_set() -> None:
+    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p2 = dataclasses.replace(p, context={"universe_id": "us_large_cap"})
+    text = repr(p2)
+    assert "context=" in text
+    assert "universe_id" in text
+
+
+def test_repr_html_renders_identity_table() -> None:
+    profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    html = profile._repr_html_()
+    assert "<table" in html
+    assert "</table>" in html
+    assert "factor_id" in html
+    assert "momentum_12_1" in html
+    assert "primary_p" in html
+
+
+def test_repr_html_lists_context_rows_when_set() -> None:
+    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p2 = dataclasses.replace(
+        p, context={"universe_id": "us_large", "regime_id": "low_vol"}
+    )
+    html = p2._repr_html_()
+    assert "context.universe_id" in html
+    assert "us_large" in html
+    assert "context.regime_id" in html

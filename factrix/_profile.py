@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class FactorProfile:
     """Procedure-canonical analysis result for one factor.
 
@@ -105,6 +105,44 @@ class FactorProfile:
         """
         p = self.primary_p if gate is None else self.stats[gate]
         return Verdict.PASS if p < threshold else Verdict.FAIL
+
+    def __repr__(self) -> str:
+        parts = [
+            f"factor_id={self.factor_id!r}",
+            f"forward_periods={self.forward_periods}",
+            f"mode={self.mode.value}",
+            f"primary_p={self.primary_p:.4g}",
+            f"n_obs={self.n_obs}",
+            f"n_assets={self.n_assets}",
+        ]
+        if self.context:
+            parts.append(f"context={dict(self.context)!r}")
+        if self.warnings:
+            parts.append(f"warnings={sorted(w.value for w in self.warnings)!r}")
+        return f"FactorProfile({', '.join(parts)})"
+
+    def _repr_html_(self) -> str:
+        rows: list[tuple[str, Any]] = [
+            ("factor_id", self.factor_id),
+            ("forward_periods", self.forward_periods),
+            ("mode", self.mode.value),
+            ("primary_p", f"{self.primary_p:.4g}"),
+            ("n_obs", self.n_obs),
+            ("n_assets", self.n_assets),
+        ]
+        for k in sorted(self.context):
+            rows.append((f"context.{k}", self.context[k]))
+        if self.warnings:
+            rows.append(("warnings", ", ".join(sorted(w.value for w in self.warnings))))
+        body = "".join(
+            f"<tr><th style='text-align:left'>{k}</th><td>{v}</td></tr>"
+            for k, v in rows
+        )
+        return (
+            "<table class='factrix-factor-profile'>"
+            "<caption>FactorProfile</caption>"
+            f"{body}</table>"
+        )
 
     def diagnose(self) -> dict[str, Any]:
         """Secondary stats + flag sets for human / AI agent triage.
