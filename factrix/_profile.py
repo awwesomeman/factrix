@@ -9,6 +9,7 @@ schema (§7.5).
 
 from __future__ import annotations
 
+import html
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, repr=False)
 class FactorProfile:
     """Procedure-canonical analysis result for one factor.
 
@@ -30,19 +31,23 @@ class FactorProfile:
 
     Attributes:
         config: The ``AnalysisConfig`` that produced this profile.
-        mode: Evaluation mode derived from raw data; ``PANEL`` when
-            ``n_assets > 1``, ``TIMESERIES`` at ``N == 1``.
-        primary_p: Procedure-canonical p-value used by ``verdict()``
+        mode: Evaluation mode (``PANEL`` / ``TIMESERIES``).
+        primary_p: Procedure-canonical p-value driving ``verdict()``
             and ``multi_factor.bhy``.
-        n_obs: Cell-canonical effective sample size (T for IC/FM/TS,
-            densified panel-period count for CAAR, asset count for
-            ``COMMON × *`` PANEL).
-        n_assets: Cross-section width of the raw panel
-            (``panel["asset_id"].n_unique()``).
-        warnings: ``WarningCode`` flags emitted by the procedure.
-        info_notes: ``InfoCode`` annotations (e.g. axis collapses).
-        stats: Cell-specific scalars keyed by ``StatCode`` (t-stats,
-            secondary p-values, HHI, etc.).
+        n_obs: Cell-canonical effective sample size.
+        n_assets: Cross-section width of the raw panel.
+        factor_id: User-supplied factor name; stamped by ``_evaluate``
+            from ``factor_col``. Defaults to ``"factor"`` when a
+            profile is constructed directly.
+        context: Sample-restriction / conditioning dimensions
+            (``universe_id``, ``regime_id``, future axes). Populated
+            by higher-level verbs via ``dataclasses.replace``.
+        warnings, info_notes, stats: per-procedure flags / scalars.
+
+    Hashing is disabled (``__hash__ = None``) because ``context``
+    defaults to ``dict`` (unhashable). Equality is field-by-field via
+    the auto-generated ``__eq__``; bhy family partitioning uses
+    ``identity`` directly without needing the profile to be hashable.
     """
 
     config: AnalysisConfig
@@ -50,9 +55,21 @@ class FactorProfile:
     primary_p: float
     n_obs: int
     n_assets: int
+    factor_id: str = "factor"
+    context: Mapping[str, Any] = field(default_factory=dict)
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
     stats: Mapping[StatCode, float] = field(default_factory=dict)
+
+    __hash__ = None  # type: ignore[assignment]
+
+    @property
+    def forward_periods(self) -> int:
+        return self.config.forward_periods
+
+    @property
+    def identity(self) -> tuple[str, int]:
+        return (self.factor_id, self.forward_periods)
 
     def verdict(
         self,
@@ -83,6 +100,37 @@ class FactorProfile:
         p = self.primary_p if gate is None else self.stats[gate]
         return Verdict.PASS if p < threshold else Verdict.FAIL
 
+    def _summary_rows(self) -> list[tuple[str, Any]]:
+        rows: list[tuple[str, Any]] = [
+            ("factor_id", self.factor_id),
+            ("forward_periods", self.forward_periods),
+            ("mode", self.mode.value),
+            ("primary_p", f"{self.primary_p:.4g}"),
+            ("n_obs", self.n_obs),
+            ("n_assets", self.n_assets),
+        ]
+        for k in sorted(self.context):
+            rows.append((f"context.{k}", self.context[k]))
+        if self.warnings:
+            rows.append(("warnings", ", ".join(sorted(w.value for w in self.warnings))))
+        return rows
+
+    def __repr__(self) -> str:
+        parts = [f"{k}={v!r}" for k, v in self._summary_rows()]
+        return f"FactorProfile({', '.join(parts)})"
+
+    def _repr_html_(self) -> str:
+        body = "".join(
+            f"<tr><th style='text-align:left'>{html.escape(str(k))}</th>"
+            f"<td>{html.escape(str(v))}</td></tr>"
+            for k, v in self._summary_rows()
+        )
+        return (
+            "<table class='factrix-factor-profile'>"
+            "<caption>FactorProfile</caption>"
+            f"{body}</table>"
+        )
+
     def diagnose(self) -> dict[str, Any]:
         """Secondary stats + flag sets for human / AI agent triage.
 
@@ -93,6 +141,11 @@ class FactorProfile:
             string values.
         """
         return {
+            "identity": {
+                "factor_id": self.factor_id,
+                "forward_periods": self.forward_periods,
+            },
+            "context": dict(self.context),
             "mode": self.mode.value,
             "n_obs": self.n_obs,
             "n_assets": self.n_assets,

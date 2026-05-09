@@ -156,6 +156,7 @@ nav:
       - by_regime: api/by-regime.md
       - list_metrics: api/list-metrics.md
       - FactorProfile: api/factor-profile.md
+      - Identity / context: api/identity.md
       - MetricOutput: api/metric-output.md
       - multi_factor: api/multi-factor.md
       - datasets: api/datasets.md

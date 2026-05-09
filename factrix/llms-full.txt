@@ -196,24 +196,40 @@ below for the full hierarchy + recovery payloads):
 Frozen dataclass. All fields are read-only.
 
 ```
-profile.config        : AnalysisConfig
-profile.mode          : Mode                       # PANEL or TIMESERIES (derived)
-profile.primary_p     : float                      # procedure-canonical p-value
-profile.n_obs         : int                        # effective sample size
-profile.n_assets      : int                        # cross-section width
-profile.warnings      : frozenset[WarningCode]
-profile.info_notes    : frozenset[InfoCode]
-profile.stats         : Mapping[StatCode, float]   # cell-specific scalars
+profile.config          : AnalysisConfig
+profile.mode            : Mode                       # PANEL or TIMESERIES (derived)
+profile.primary_p       : float                      # procedure-canonical p-value
+profile.n_obs           : int                        # effective sample size
+profile.n_assets        : int                        # cross-section width
+profile.factor_id       : str                        # user-supplied factor name (default "factor")
+profile.forward_periods : int                        # derived from config.forward_periods
+profile.identity        : tuple[str, int]            # (factor_id, forward_periods); read-only view
+profile.context         : Mapping[str, Any]          # universe_id / regime_id / ...
+profile.warnings        : frozenset[WarningCode]
+profile.info_notes      : frozenset[InfoCode]
+profile.stats           : Mapping[StatCode, float]   # cell-specific scalars
 
 profile.verdict(*, threshold: float = 0.05, gate: StatCode | None = None) -> Verdict
     # PASS if primary_p (or stats[gate]) < threshold
 
 profile.diagnose() -> dict[str, Any]
-    # {"mode", "n_obs", "n_assets", "primary_p",
+    # {"identity": {"factor_id", "forward_periods"},
+    #  "context": {...},                # sample / conditioning dimensions
+    #  "mode", "n_obs", "n_assets", "primary_p",
     #  "warnings": [str, ...],          # sorted WarningCode .value strings
     #  "info_notes": [str, ...],        # sorted InfoCode .value strings
     #  "stats": {str: float, ...}}      # StatCode .value → float
 ```
+
+`identity` and `context` split hypothesis dimensions (factor_id × horizon)
+from sample-restriction dimensions (universe / regime / future axes).
+The split is the v1 anti-shopping defense: multi-horizon factor research's
+MTC family forms naturally over `identity` (running every horizon → BHY
+is the path of least resistance), while sample restrictions stay queryable
+via `profile.context[key]`. `_evaluate` stamps `identity` from the
+user-supplied `factor_col` and `config.forward_periods`; `context` is
+empty by default and populated by higher-level verbs (slice / regime
+consumers).
 
 `WarningCode`, `InfoCode`, and `StatCode` each expose a `.description`
 property — agents reading `diagnose()["stats"]` / `["warnings"]` /
@@ -244,11 +260,13 @@ the caller's responsibility (deliberately not done here).
 `ValueError` fires for non-p-value gates; a `KeyError` fires if a profile in a
 family lacks the gated key.
 
-Identity caveat: `FactorProfile` has no `name` / `label` field, and `bhy()`
-returns surviving profiles only — not their source labels. To map survivors
-back to factor names, hold a `dict[name, profile]` yourself and compare with
-`is` (identity), e.g. `[n for n, p in by_name.items() if any(p is s for s in survivors)]`.
-Equality is unsafe: two factors with coincident stats compare equal.
+Survivor → factor mapping reads `profile.factor_id` (no external dict
+needed): `[s.factor_id for s in survivors]`. `bhy` itself still
+partitions families by `(_DispatchKey, forward_periods)` in v0.10;
+identity-based partitioning lands with `_resolve_family` (#161).
+`FactorProfile` is intentionally not hashable (`__hash__ = None`)
+because `context` defaults to a dict; equality remains field-by-field
+via the auto-generated `__eq__`.
 
 ---
 

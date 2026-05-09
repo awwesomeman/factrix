@@ -123,9 +123,9 @@ def _evaluate(
         )
 
     profile = entry.procedure.compute(raw, config)
-    if extra_info:
-        profile = dataclasses.replace(
-            profile,
-            info_notes=profile.info_notes | extra_info,
-        )
+    profile = dataclasses.replace(
+        profile,
+        factor_id=factor_col,
+        info_notes=profile.info_notes | extra_info,
+    )
     return profile

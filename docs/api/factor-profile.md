@@ -25,6 +25,8 @@ registered cell; the `stats` sub-dict varies by procedure.
 
 | Key | Type | Source | Notes |
 |-----|------|--------|-------|
+| `identity` | `dict[str, Any]` | `{"factor_id", "forward_periods"}` | Hypothesis tuple — see [Identity vs context](identity.md) |
+| `context` | `dict[str, Any]` | `dict(profile.context)` | Sample-restriction dimensions (`universe_id` / `regime_id` / ...) |
 | `mode` | `str` | `profile.mode.value` | `"panel"` or `"timeseries"` |
 | `n_obs` | `int` | `profile.n_obs` | Cell-canonical effective sample size — see [§ `n_obs` semantics](#n_obs-semantics-by-cell) |
 | `n_assets` | `int` | `profile.n_assets` | `panel["asset_id"].n_unique()` of the input |
