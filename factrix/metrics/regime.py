@@ -115,6 +115,16 @@ def by_regime(
         >>> ic_df = compute_ic(panel)
         >>> per_regime = by_regime(ic, ic_df, regime_labels=labels)
     """
+    _warnings.warn(
+        "factrix.metrics.by_regime is deprecated since v0.10.0; use "
+        "factrix.metrics.by_slice instead. With regime_labels, replace "
+        "by_regime(metric, df, regime_labels=labels) with "
+        "by_slice(metric, df.join(labels, on='date'), label='regime'). "
+        "Without regime_labels (time-bisection fallback), compose the "
+        "label yourself — see docs/api/by-regime.md migration block.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if not isinstance(df, pl.DataFrame):
         raise TypeError(
             f"by_regime expects a polars DataFrame as the second arg; "
@@ -131,9 +141,6 @@ def by_regime(
             "by_regime: no rows survived the regime-label join — "
             "likely a date-range or dtype mismatch between df and regime_labels"
         )
-    return {
-        str(regime): metric(slice_df, **kwargs)
-        for (regime,), slice_df in annotated.partition_by(
-            "regime", as_dict=True, include_key=False
-        ).items()
-    }
+    from factrix.metrics._slice import by_slice
+
+    return by_slice(metric, annotated, label="regime", **kwargs)

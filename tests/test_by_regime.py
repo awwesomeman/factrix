@@ -9,6 +9,10 @@ from factrix._types import MetricOutput
 from factrix.metrics import by_regime, ic, ic_ir
 from factrix.metrics.regime import _slice_by_regime
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:factrix.metrics.by_regime is deprecated:DeprecationWarning"
+)
+
 
 def _ic_series(n: int = 30, mean: float = 0.05, seed: int = 42) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
@@ -140,3 +144,12 @@ class TestByRegimeDispatcher:
         ic_df = _ic_series(40)
         with pytest.warns(UserWarning, match="time-bisection"):
             by_regime(ic, ic_df)
+
+
+class TestByRegimeDeprecation:
+    @pytest.mark.filterwarnings("default")
+    def test_emits_deprecation_warning(self):
+        ic_df = _ic_series(40)
+        labels = _labels(ic_df["date"].to_list(), ["bull"] * 20 + ["bear"] * 20)
+        with pytest.warns(DeprecationWarning, match="by_slice"):
+            by_regime(ic, ic_df, regime_labels=labels)
