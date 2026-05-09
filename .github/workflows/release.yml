@@ -46,6 +46,8 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   github-release:
     needs: [build, publish]
@@ -55,16 +57,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
-
-      - name: Fail if release already exists
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          if gh release view "$TAG" &>/dev/null; then
-            echo "Release $TAG already exists — refusing to overwrite" >&2
-            exit 1
-          fi
 
       - name: Extract CHANGELOG section
         run: |
@@ -90,13 +82,18 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes-file /tmp/release_notes.md \
-            --latest \
-            dist/*
+          if gh release view "$TAG" &>/dev/null; then
+            gh release edit "$TAG" --title "$TAG" --notes-file /tmp/release_notes.md --latest
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file /tmp/release_notes.md \
+              --latest \
+              dist/*
+          fi
