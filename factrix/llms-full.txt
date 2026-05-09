@@ -332,11 +332,12 @@ FactrixError                       # base — all factrix-raised errors
                                    # column not in panel, wrong type)
 ```
 
-User-facing raises that take a named input render their message via
-`factrix.format_user_error(...)` — keyword-only helper that returns a
-canonical string (verb / field / value, fuzzy suggestion via
-`difflib.get_close_matches`, sorted candidate list, docs URL). Used
-in conjunction with `UserInputError`.
+`UserInputError` is keyword-constructed and renders its own canonical
+message; structured attributes (`.verb`, `.field`, `.value`,
+`.candidates`, `.suggestions`, `.expected`, `.docs_url`) carry the
+diagnostic so callers (LLM agents, screening loops) recover without
+parsing `.args[0]`. Multi-inherits from `ValueError` for ecosystem
+compatibility.
 
 Recovery payloads — what each subclass carries beyond `.args[0]`:
 

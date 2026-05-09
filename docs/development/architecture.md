@@ -63,7 +63,7 @@ Plus introspection / error / enum re-exports:
 - `fl.FactorProfile` — single unified result type
 - `fl.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
 - `fl.suggest_config(panel)` — heuristic factory call from a raw panel
-- `fl.ConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError` — exception hierarchy
+- `fl.FactrixError`, `fl.ConfigError`, `fl.MissingConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError`, `fl.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
@@ -250,30 +250,48 @@ Every user-facing raise that takes a named input must carry:
    expected-shape string (type error)
 3. **Docs link**: deployed-docs anchor for the verb
 
-### Helper
+### Constructor
 
-`factrix.format_user_error(...)` renders the canonical string:
+`UserInputError` is keyword-only and renders its own message:
 
 ```python
-format_user_error(
+UserInputError(
     *,
     verb: str,
     field: str,
     value: object,
-    candidates: Sequence[str] | None = None,   # named-set typo
-    expected: str | None = None,               # type / shape mismatch
-    docs_path: str,                            # "api/<verb>#<anchor>"
-) -> str
+    candidates: Iterable[object] | None = None,   # named-set typo
+    expected: str | None = None,                  # type / shape mismatch
+    docs_path: str,                               # "api/<verb>#<anchor>"
+)
 ```
 
-- Exactly one of `candidates` / `expected` carries the diagnostic;
-  `candidates` wins when both are passed.
-- Fuzzy match: `difflib.get_close_matches(value, candidates, n=3, cutoff=0.6)`.
+- Exactly one of `candidates` / `expected` carries the diagnostic.
+- Fuzzy match: `difflib.get_close_matches(str(value), candidates, n=3, cutoff=0.6)`.
+- Non-string candidates are coerced via `str(...)` so `Enum` members or
+  type objects work without pre-conversion at the call site.
 - `docs_path` is appended to `https://awwesomeman.github.io/factrix/`
   so the deployed base URL lives in one place
   (`factrix._errors._DOCS_BASE`).
+- Long candidate lists truncate to the first 15 with a
+  `Available (15 of N, see Docs):` header; long `value` reprs cap at
+  120 chars to keep messages readable when callers pass DataFrames or
+  polars expressions.
 - Language: English (consistent with docstrings; errors land in
   stack traces / CI output).
+
+### Structured attributes
+
+Sub-issues and downstream consumers (LLM agents, screening loops)
+recover via attributes, not message substrings:
+
+- `.verb`, `.field`, `.value`, `.expected`, `.docs_url`
+- `.candidates: tuple[str, ...]` — sorted, `()` in the type-mismatch branch
+- `.suggestions: tuple[str, ...]` — difflib top-3, `()` when none above cutoff
+
+`UserInputError` multi-inherits from `ValueError` so generic ecosystem
+code (`pytest.raises(ValueError)`, broad `except ValueError`) still
+catches it.
 
 ### Adoption
 

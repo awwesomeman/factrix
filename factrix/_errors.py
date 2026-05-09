@@ -9,7 +9,7 @@ so the user — or a calling AI agent — can recover programmatically.
 from __future__ import annotations
 
 import difflib
-from collections.abc import Sequence
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,59 +17,92 @@ if TYPE_CHECKING:
 
 
 _DOCS_BASE = "https://awwesomeman.github.io/factrix/"
+_VALUE_REPR_CAP = 120
+_AVAILABLE_PREVIEW = 15
+
+
+def _truncate_repr(value: object) -> str:
+    text = repr(value)
+    if len(text) <= _VALUE_REPR_CAP:
+        return text
+    return text[: _VALUE_REPR_CAP - 3] + "..."
+
+
+def _render_available(candidates: tuple[str, ...]) -> str:
+    if len(candidates) <= _AVAILABLE_PREVIEW:
+        return f"  Available: {list(candidates)!r}"
+    preview = list(candidates[:_AVAILABLE_PREVIEW])
+    return (
+        f"  Available ({_AVAILABLE_PREVIEW} of {len(candidates)}, "
+        f"see Docs): {preview!r}"
+    )
 
 
 class FactrixError(Exception):
     """Base for all factrix-raised errors."""
 
 
-class UserInputError(FactrixError):
+class UserInputError(FactrixError, ValueError):
     """User-supplied input does not match expected names or types.
 
     Raised for typos in named-set kwargs (metric / p_stat / context key
-    / column name) or input-type mismatches. Distinct from
-    :class:`ConfigError` (axis miswire) and :class:`InsufficientSampleError`
-    (data limitation): catch ``UserInputError`` to handle the
-    "user typed the wrong thing" branch separately from internal
-    config / sample failures.
+    / column name) or input-type mismatches. Multi-inherits from
+    :class:`ValueError` so ecosystem code (`pytest.raises(ValueError)`,
+    generic `except ValueError`) keeps working.
+
+    Structured attributes carry the diagnostic so callers (sub-issue
+    raises, LLM agents) do not parse the rendered message:
+
+    - ``verb``: the calling verb name (no parens)
+    - ``field``: the kwarg / column name that failed validation
+    - ``value``: the value the caller passed in
+    - ``candidates``: tuple of legal names (named-set branch); empty otherwise
+    - ``suggestions``: difflib top-3 fuzzy matches against ``candidates``
+    - ``expected``: human-readable shape (type-mismatch branch); ``None`` otherwise
+    - ``docs_url``: deployed-docs URL for the verb
     """
 
-
-def format_user_error(
-    *,
-    verb: str,
-    field: str,
-    value: object,
-    candidates: Sequence[str] | None = None,
-    expected: str | None = None,
-    docs_path: str,
-) -> str:
-    """Render the canonical user-facing error message.
-
-    Exactly one of ``candidates`` (named-set typo) or ``expected``
-    (type / shape mismatch) carries the diagnostic; ``candidates`` wins
-    when both are passed. ``docs_path`` is appended to
-    ``https://awwesomeman.github.io/factrix/`` so the deployed base URL
-    is configured in one place.
-    """
-    if not candidates and not expected:
-        raise ValueError("format_user_error requires candidates= or expected=")
-
-    lines: list[str] = []
-    if candidates:
-        lines.append(f"{verb}(): unknown {field}={value!r}")
-        suggestions = difflib.get_close_matches(
-            str(value), list(candidates), n=3, cutoff=0.6
+    def __init__(
+        self,
+        *,
+        verb: str,
+        field: str,
+        value: object,
+        candidates: Iterable[object] | None = None,
+        expected: str | None = None,
+        docs_path: str,
+    ) -> None:
+        if not candidates and not expected:
+            raise ValueError("UserInputError requires candidates= or expected=")
+        ordered = tuple(sorted(str(c) for c in candidates)) if candidates else ()
+        suggestions = (
+            tuple(difflib.get_close_matches(str(value), ordered, n=3, cutoff=0.6))
+            if ordered
+            else ()
         )
-        if suggestions:
-            quoted = ", ".join(f'"{s}"' for s in suggestions)
-            lines.append(f"  Did you mean: {quoted}?")
-        lines.append(f"  Available: {sorted(candidates)!r}")
-    else:
-        lines.append(f"{verb}(): invalid {field}={value!r}")
-        lines.append(f"  Expected: {expected}")
-    lines.append(f"  Docs: {_DOCS_BASE}{docs_path.lstrip('/')}")
-    return "\n".join(lines)
+        self.verb = verb
+        self.field = field
+        self.value = value
+        self.candidates: tuple[str, ...] = ordered
+        self.suggestions: tuple[str, ...] = suggestions
+        self.expected = expected
+        self.docs_url = f"{_DOCS_BASE}{docs_path.lstrip('/')}"
+        super().__init__(self._render())
+
+    def _render(self) -> str:
+        value_repr = _truncate_repr(self.value)
+        lines: list[str] = []
+        if self.candidates:
+            lines.append(f"{self.verb}(): unknown {self.field}={value_repr}")
+            if self.suggestions:
+                quoted = ", ".join(f'"{s}"' for s in self.suggestions)
+                lines.append(f"  Did you mean: {quoted}?")
+            lines.append(_render_available(self.candidates))
+        else:
+            lines.append(f"{self.verb}(): invalid {self.field}={value_repr}")
+            lines.append(f"  Expected: {self.expected}")
+        lines.append(f"  Docs: {self.docs_url}")
+        return "\n".join(lines)
 
 
 class ConfigError(FactrixError):
