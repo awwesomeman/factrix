@@ -12,6 +12,47 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ---
 
+## v0.10.0 (2026-05-09)
+
+Generalises v0.9.0's regime-only dispatch primitive into an axis-agnostic `by_slice` (market / sector / decile / regime / any user-defined column), and demotes `by_regime` to a thin deprecation wrapper. The shape of the partition primitive turned out to be axis-independent — the only thing the regime layer added was an inner-join + time-bisection annotation step — so generalising preserved the v0.9.0 behaviour while opening up cross-section axes that previously required hand-rolled `partition_by` loops.
+
+The deprecation also makes a long-standing semantic distinction explicit: the time-bisection fallback diagnoses a **structural break**, not a regime — a regime is a hypothesised latent state with cross-period recurrence, while structural-break dating is a one-shot change-point detection. `by_slice` requires users to compose their own label so that distinction surfaces at the call site, rather than being silently absorbed by a fallback.
+
+### Added
+
+- **`factrix.by_slice(metric, df, *, slice_col, how="left", ...)`** — axis-agnostic dispatcher for any panel-input metric (market / sector / decile / regime / any user-defined column). (#154)
+  - **Label-on-panel convention** — the slice key is an existing column on the metric input rather than a separate `labels` DataFrame. Users typically already carry the partition key on the panel, and the join shape (date-keyed vs asset-keyed) varies by axis; demanding a separate frame would have made the common path harder than the niche one.
+  - **Universe-overlap composition is user-side** — superset / multi-membership / hierarchical / sliding-window / cross-product patterns are expected to be composed via `pl.concat` rather than dispatcher kwargs. Baking helpers into the API would multiply parameter surface for niche cases without simplifying the common path; reference idioms are documented in `docs/api/by-slice.md`.
+  - **Null-label safety** — null values in `slice_col` raise rather than silently bucket into a `"None"` slice that would collide with literal `"None"` labels. Numeric label columns are stringified by `partition_by` and documented as such.
+  - **Layered with v0.9.0 inference fixes** — NW HAC and the v0.8 calendar-time reindex fix (#37) still apply per slice; no double-counting risk introduced by the dispatcher.
+
+### Deprecated
+
+- **`factrix.by_regime`** — emits `DeprecationWarning`; removal scheduled for a future minor (tracked in a separate sub-issue).
+  - **Internal shape** — now a thin wrapper that performs the inner-join + time-bisection regime annotation, then delegates partition + dispatch to `by_slice`. One shared `_slice_by_regime` primitive eliminates the silent-divergence risk between two near-identical dispatchers over the deprecation window.
+  - **Layer-B unaffected** — `regime_ic` / `regime_caar` consume the private annotator directly and never trip the warning, so per-regime inference workflows do not need migration in this release.
+
+  Migration:
+
+  ```python
+  # before
+  by_regime(metric, df, regime_col="regime", ...)
+  # after — explicit inner-join preserves the old semantics
+  by_slice(metric, df.join(regimes, on="date", how="inner"), slice_col="regime", ...)
+  ```
+
+  See `docs/api/by-regime.md` for the full migration recipe, including why the time-bisection fallback (kept for behavioural compatibility) is structural-break diagnostics rather than a regime test. (#154)
+
+### Fixed
+
+- **`compute_mfe_mae` Polars schema dict** — dtypes were passed as class references (`pl.Float64`) rather than instances (`pl.Float64()`), which Polars 0.20+ rejects in `schema=` kwargs.
+  - Surfaced under the v0.9.0 mypy gate (#114) before reaching users; no behavioural change for callers, but unblocks future Polars upgrades that tightened the runtime check.
+
+### Changed
+
+- **`compute_ic` per-regime / per-horizon return shape typed as `TypedDict`** — internal-only refactor, no signature change.
+  - Replaces ad-hoc `dict[str, Any]` return annotations with structured types so downstream Layer-B callers (`regime_ic`, future `regime_fama_macbeth`) get IDE / mypy support without runtime cost.
+
 ## v0.9.0 (2026-05-07)
 
 Regime-stratified analysis without re-implementing every metric, plus completion of the introspection symmetry started in v0.8.0. The headline `factrix.by_regime` is a generic dispatcher: hand it any panel-input metric and a regime labelling and it returns per-regime results without baking regime semantics into each metric's signature. Layer-A (`by_regime`) intentionally emits **no** cross-regime test — a generic χ²/Wald would over-claim for non-t-stat metrics like Sharpe, turnover, hit_rate, or monotonicity ρ. Cross-regime inference lives in metric-specific Layer-B wrappers; only `regime_ic` ships in v0.9.0.
