@@ -12,6 +12,14 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Terminology**: rename "Layer A" / "Layer B" to **dispatcher** / **curated wrapper** in module docstrings and user-facing docs. Public API names are unchanged. Older CHANGELOG entries below retain the original wording. (#157)
+
+---
+
 ## v0.10.0 (2026-05-09)
 
 Generalises v0.9.0's regime-only dispatch primitive into an axis-agnostic `by_slice` (market / sector / decile / regime / any user-defined column), and demotes `by_regime` to a thin deprecation wrapper. The shape of the partition primitive turned out to be axis-independent — the only thing the regime layer added was an inner-join + time-bisection annotation step — so generalising preserved the v0.9.0 behaviour while opening up cross-section axes that previously required hand-rolled `partition_by` loops.

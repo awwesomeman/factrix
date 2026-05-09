@@ -1,10 +1,12 @@
-"""Axis-agnostic Layer-A slice dispatcher.
+"""Axis-agnostic slice dispatcher.
 
 Public :func:`by_slice` partitions a metric's date-keyed input on an
 existing column and applies the metric per slice. Private
 :func:`_slice_by_label` is the partition primitive shared with
-Layer-B wrappers. Universe-overlap composition is user-side; see
+curated wrappers. Universe-overlap composition is user-side; see
 ``docs/api/by-slice.md`` for reference patterns.
+
+(Previously called Layer-A; renamed per #157.)
 
 Matrix-row: by_slice | (*, *, *, *) | dispatcher | none (no cross-slice test) | _slice_by_label
 """
@@ -103,7 +105,7 @@ def by_slice(
     the API page for reference patterns. ``by_slice`` does no
     cross-slice statistical inference; for IC use
     :func:`factrix.metrics.regime_ic` (or a future ``by_<scope>_<metric>``
-    Layer-B wrapper) instead.
+    curated wrapper) instead.
     """
     sliced = _slice_by_label(df, label)
     return {key: metric(sub_df, **kwargs) for key, sub_df in sliced.items()}

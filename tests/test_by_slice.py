@@ -1,4 +1,4 @@
-"""Tests for factrix.metrics.by_slice — axis-agnostic Layer-A dispatcher."""
+"""Tests for factrix.metrics.by_slice — axis-agnostic dispatcher."""
 
 from datetime import datetime, timedelta
 

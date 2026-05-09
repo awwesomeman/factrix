@@ -1,4 +1,4 @@
-"""Tests for factrix.metrics.regime — Layer A dispatcher."""
+"""Tests for factrix.metrics.regime — dispatcher."""
 
 from datetime import datetime, timedelta
 
@@ -64,7 +64,7 @@ class TestByRegimeDispatcher:
             assert v.name == "ic"
 
     def test_no_cross_regime_aggregation(self):
-        """Layer A returns per-regime outputs only — no top-level summary."""
+        """Dispatcher returns per-regime outputs only — no top-level summary."""
         ic_df = _ic_series(40)
         out = by_regime(ic, ic_df)
         for v in out.values():
