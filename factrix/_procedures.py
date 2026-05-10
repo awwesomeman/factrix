@@ -61,6 +61,54 @@ def _hhi_metadata(n_bins: int) -> dict[StatCode, Mapping[str, Any]]:
     return {StatCode.EVENT_HHI_VALUE: {"n_bins": n_bins}}
 
 
+def _hh_metadata(clamped: bool) -> dict[StatCode, Mapping[str, Any]]:
+    """HH-pure rectangular-kernel HAC → ``P_HH`` reproducibility record.
+
+    ``variance_clamped=True`` mirrors the ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``
+    flag (γ₀ + 2 Σγⱼ < 0 → SE clamped to 0 → p_HH = 1.0). The lag count
+    ``h - 1`` is derivable from ``profile.config.forward_periods`` so it
+    is not duplicated here.
+    """
+    return {
+        StatCode.P_HH: {"kernel": "rectangular", "variance_clamped": clamped},
+    }
+
+
+def _emit_hh_p(
+    values: Any,
+    *,
+    forward_periods: int,
+    stats: dict[StatCode, float],
+    metadata: dict[StatCode, Mapping[str, Any]],
+    warnings: frozenset[WarningCode],
+) -> frozenset[WarningCode]:
+    """Compute and stitch the HH t-test result into a procedure's outputs.
+
+    No-op when ``forward_periods <= 1`` (no overlap → HH collapses to
+    iid SE; ``HansenHodrick`` lands on the missing-stat error). Otherwise
+    populates ``stats[P_HH]``, merges ``_hh_metadata``, and folds in
+    ``RECT_KERNEL_NEGATIVE_VARIANCE`` when the rectangular-kernel sum
+    came out negative. The series is consumed as-is (post-null-drop):
+    same compromise NW makes — strictly the MA(h-1) structure assumes
+    1-calendar-unit spacing, but null IC / FM dates are rare zero-variance
+    cases and re-densifying would distort the mean.
+    """
+    from factrix._codes import WarningCode
+    from factrix._stats import _hansen_hodrick_t_test
+
+    if forward_periods <= 1:
+        return warnings
+
+    _, p_hh, _, hh_clamped = _hansen_hodrick_t_test(
+        values, forward_periods=forward_periods
+    )
+    stats[StatCode.P_HH] = p_hh
+    metadata.update(_hh_metadata(hh_clamped))
+    if hh_clamped:
+        warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
+    return warnings
+
+
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
     from factrix._codes import WarningCode
@@ -112,6 +160,9 @@ class _ICContPanelProcedure:
             StatCode.MEAN,
             StatCode.T_NW,
             StatCode.P,
+            # Conditionally emitted when ``config.forward_periods > 1``
+            # (overlap exists). HansenHodrick estimator dispatches here.
+            StatCode.P_HH,
         }
     )
 
@@ -122,7 +173,7 @@ class _ICContPanelProcedure:
     ) -> FactorProfile:
         import numpy as np
 
-        from factrix._codes import StatCode
+        from factrix._codes import StatCode, WarningCode
         from factrix._profile import FactorProfile
         from factrix._stats import _newey_west_t_test, _resolve_nw_lags
         from factrix._stats.constants import auto_bartlett
@@ -149,18 +200,29 @@ class _ICContPanelProcedure:
         ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0
         t_stat, p_value, _ = _newey_west_t_test(ic_values, lags=nw_lags)
 
+        stats: dict[StatCode, float] = {
+            StatCode.MEAN: ic_mean,
+            StatCode.T_NW: t_stat,
+            StatCode.P: p_value,
+        }
+        metadata = _nw_metadata(nw_lags)
+        warnings = _emit_hh_p(
+            ic_values,
+            forward_periods=config.forward_periods,
+            stats=stats,
+            metadata=metadata,
+            warnings=frozenset[WarningCode](),
+        )
+
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
             n_obs=n_periods,
             n_assets=n_assets,
-            stats={
-                StatCode.MEAN: ic_mean,
-                StatCode.T_NW: t_stat,
-                StatCode.P: p_value,
-            },
-            metadata=_nw_metadata(nw_lags),
+            warnings=warnings,
+            stats=stats,
+            metadata=metadata,
         )
 
 
@@ -181,6 +243,8 @@ class _FMContPanelProcedure:
             StatCode.MEAN,
             StatCode.T_NW,
             StatCode.P,
+            # Conditionally emitted when ``config.forward_periods > 1``.
+            StatCode.P_HH,
         }
     )
 
@@ -220,6 +284,20 @@ class _FMContPanelProcedure:
             else frozenset()
         )
 
+        stats: dict[StatCode, float] = {
+            StatCode.MEAN: lambda_mean,
+            StatCode.T_NW: t_stat,
+            StatCode.P: p_value,
+        }
+        metadata = _nw_metadata(nw_lags)
+        warning_codes = _emit_hh_p(
+            beta_values,
+            forward_periods=config.forward_periods,
+            stats=stats,
+            metadata=metadata,
+            warnings=warning_codes,
+        )
+
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
@@ -227,12 +305,8 @@ class _FMContPanelProcedure:
             n_obs=n_periods,
             n_assets=n_assets,
             warnings=warning_codes,
-            stats={
-                StatCode.MEAN: lambda_mean,
-                StatCode.T_NW: t_stat,
-                StatCode.P: p_value,
-            },
-            metadata=_nw_metadata(nw_lags),
+            stats=stats,
+            metadata=metadata,
         )
 
 
