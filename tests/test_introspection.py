@@ -93,10 +93,10 @@ class TestDescribeAnalysisModes:
             r for r in rows if r["scope"] == "common" and r["signal"] == "continuous"
         )
         # PANEL entry of (COMMON, CONTINUOUS) is _CommonContPanelProcedure
-        # which emits MEAN / T_NW / P / FACTOR_ADF_TAU / FACTOR_ADF_P.
+        # which emits MEAN / T_NW / P_NW / FACTOR_ADF_TAU / FACTOR_ADF_P.
         assert "factor_adf_p" in cc_row["panel"]["stats_keys"]
         assert "factor_adf_tau" in cc_row["panel"]["stats_keys"]
-        assert "p" in cc_row["panel"]["stats_keys"]
+        assert "p_nw" in cc_row["panel"]["stats_keys"]
         # The (COMMON, CONTINUOUS, TIMESERIES) procedure also emits
         # FACTOR_ADF_TAU alongside FACTOR_ADF_P.
         assert "factor_adf_tau" in cc_row["timeseries"]["stats_keys"]

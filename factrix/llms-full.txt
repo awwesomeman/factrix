@@ -473,7 +473,9 @@ Read live descriptions programmatically:
 ## StatCode reference
 
 `StatCode.is_p_value` is `True` iff the value tokens (split on `_`)
-contain `"p"`. Used by `profile.verdict(gate=...)` consumers; the
+contain the token `p` (so `P_NW` → `["p", "nw"]` qualifies, as do
+`P_HH` / `P_GMM` / `FACTOR_ADF_P` / `RESID_LJUNG_BOX_P`). Used by
+`profile.verdict(gate=...)` consumers; the
 family-verb `estimator=` override (#170) dispatches via
 `Estimator.emits_for` and does not gate on `is_p_value` directly.
 
@@ -486,9 +488,9 @@ sits outside `config`.
 |---|---|---|
 | `MEAN`              | every cell      | Cell primary point estimate (IC mean / FM λ / E[β] / β / CAAR event-only mean) |
 | `T_NW`              | every cell      | NW HAC t-stat on the primary estimate |
-| `P`                 | every cell      | NW HAC p-value (= `primary_p`) |
-| `P_HH`              | reserved (#184) | Hansen-Hodrick p-value (rectangular kernel) |
-| `P_GMM`             | reserved        | GMM J-test p-value |
+| `P_NW`              | every cell      | NW HAC p-value (= `primary_p`) |
+| `T_HH` / `P_HH`     | IC / FM PANEL when `forward_periods > 1` | Hansen-Hodrick rectangular-kernel HAC pair |
+| `P_GMM`             | reserved (#191) | GMM J-test p-value (paired with `J_GMM` chi-square statistic, lands in #191) |
 | `FACTOR_ADF_TAU`    | COMMON / TS β   | Diagnostic: ADF τ statistic on factor input |
 | `FACTOR_ADF_P`      | COMMON / TS β   | Diagnostic: ADF p-value on factor input |
 | `RESID_LJUNG_BOX_Q` | TS-dummy        | Diagnostic: Ljung-Box Q on residuals |

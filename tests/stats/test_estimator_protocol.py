@@ -29,7 +29,7 @@ class _Stub:
     def emits_for(
         self, scope: FactorScope, signal: Signal, metric: Metric | None
     ) -> StatCode:
-        return StatCode.P
+        return StatCode.P_NW
 
 
 class _MissingEmitsFor:
@@ -60,5 +60,6 @@ def test_member_calls_route_through_protocol() -> None:
     assert e.applicable_to(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
     assert not e.applicable_to(FactorScope.COMMON, Signal.SPARSE)
     assert (
-        e.emits_for(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC) is StatCode.P
+        e.emits_for(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC)
+        is StatCode.P_NW
     )

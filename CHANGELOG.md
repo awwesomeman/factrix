@@ -23,23 +23,31 @@ While the version is below `1.0.0`, the public API should be considered unstable
 - **`factrix.stats.HansenHodrick`** — Hansen-Hodrick (1980) rectangular-kernel HAC `Estimator` for the IC PANEL / FM PANEL cells where overlapping h-period forward returns induce MA(h-1) structure. Closed-form `Var(mean) = (γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n`. Cell-agnostic dispatch via `StatCode.P_HH`; `applicable_to` restricted to `(INDIVIDUAL, CONTINUOUS)`. Procedure-side gate skips the emission when `forward_periods == 1` (no overlap → HH collapses to iid SE), so `bhy(estimator=HansenHodrick())` on a non-overlapping profile lands on a missing-stat error instead of aliasing NW. (#184)
 - **`StatCode.T_HH`** — Hansen-Hodrick t-statistic, sibling of `T_NW`. Emitted as a pair with `P_HH` so HH inference reproducibility is symmetric with NW. (#184)
 - **`WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`** — fired by HH (and any future rectangular-kernel HAC variant) when the variance estimate `γ₀ + 2 Σγⱼ` comes out negative on short / mildly anti-correlated samples (no PSD guarantee, Andrews 1991 §3). The primitive clamps variance to 0 → SE=0 → t=0 → p=1.0 (the conservative "cannot reject" direction); the procedure surfaces the flag in `profile.warnings` and mirrors `{"variance_clamped": True}` under both `metadata[StatCode.T_HH]` and `metadata[StatCode.P_HH]`. Generic name (rather than `HH_*`) so future rectangular-kernel HAC variants can reuse it. (#184)
-- **IC PANEL / FM PANEL procedures emit the `(T_HH, P_HH)` pair when `forward_periods > 1`** — populates HH-pure t-stat + p-value alongside the existing NW-derived `(T_NW, P)`, with shared `metadata = {"kernel": "rectangular", "variance_clamped": <bool>}` mirrored under both StatCode keys. `EMITS_STATS` lists both as conditionally emitted; downstream readers should consult `profile.stats` membership rather than assume universal presence. (#184)
+- **IC PANEL / FM PANEL procedures emit the `(T_HH, P_HH)` pair when `forward_periods > 1`** — populates HH-pure t-stat + p-value alongside the existing NW-derived `(T_NW, P_NW)`, with shared `metadata = {"kernel": "rectangular", "variance_clamped": <bool>}` mirrored under both StatCode keys. `EMITS_STATS` lists both as conditionally emitted; downstream readers should consult `profile.stats` membership rather than assume universal presence. (#184)
 - **`StatCode` grammar locked in for inference primary stats** — module docstring now spells out the `<TEST_STAT_KIND>_<ALGO>` / `P_<ALGO>` shape (`T_NW` / `T_HH`, `P_NW` / `P_HH` / `P_GMM`, future `J_GMM` / `WALD` / `F` / `LR`) and a redesign trigger: when ≥ 4 inference algorithms ship concurrently or ≥ 3 distinct test-statistic KINDs coexist, the flat enum yields to a structured `profile.inference[Algo.X]` shape. Below those thresholds the flat enum stays cheaper. (#184)
 
 - **`FactorProfile.metadata: Mapping[StatCode, Mapping[str, Any]]`** — new field carrying hyperparameter records for each populated stat (#188). Symmetric with `stats`: for any populated entry, `stats[code]` is the value and `metadata[code]` is the inner dict of hyperparameters that produced it. Examples by cell:
 
   | Cell | Populated `metadata` keys | Inner |
   |---|---|---|
-  | IC / FM / CAAR PANEL | `T_NW`, `P` | `{"nw_lags": <resolved bandwidth>}` |
+  | IC / FM / CAAR PANEL | `T_NW`, `P_NW` | `{"nw_lags": <resolved bandwidth>}` |
   | COMMON CONTINUOUS PANEL | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | `{"lag_order": 0}` |
-  | COMMON CONTINUOUS TIMESERIES | `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW lags + ADF lag_order |
-  | TS-dummy SPARSE TIMESERIES | `T_NW`, `P`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW lags + Ljung-Box `lag_h` + HHI `n_bins` |
+  | COMMON CONTINUOUS TIMESERIES | `T_NW`, `P_NW`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW lags + ADF lag_order |
+  | TS-dummy SPARSE TIMESERIES | `T_NW`, `P_NW`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW lags + Ljung-Box `lag_h` + HHI `n_bins` |
 
-  Stats with no hyperparameter (`MEAN`) are absent from the mapping rather than mapping to an empty dict. Tests that share a hyperparameter (NW populates `T_NW` + `P` from one bandwidth; Ljung-Box populates `Q` + `P` from one `lag_h`) duplicate the inner dict under both keys to keep single-key lookup honest. `profile.diagnose()["metadata"]` serialises with `StatCode.value` strings as outer keys and plain dicts inside.
+  Stats with no hyperparameter (`MEAN`) are absent from the mapping rather than mapping to an empty dict. Tests that share a hyperparameter (NW populates `T_NW` + `P_NW` from one bandwidth; Ljung-Box populates `Q` + `P` from one `lag_h`) duplicate the inner dict under both keys to keep single-key lookup honest. `profile.diagnose()["metadata"]` serialises with `StatCode.value` strings as outer keys and plain dicts inside.
 
   This restores reproducibility for the NW lag count after #187 removed `StatCode.NW_LAGS_USED`, and surfaces previously-discarded hyperparameters (ADF `lag_order`, Ljung-Box `lag_h`, HHI `n_bins`) under the same uniform schema. The `_ljung_box` internal helper now returns `(h, Q, p)` instead of `(Q, p)` so callers receive the resolved lag count alongside the test output. (#188)
 
 ### Changed
+
+- **`StatCode.P` renamed to `StatCode.P_NW`** (breaking, #192). Primary inference codes are now uniformly `P_<algo>` (`P_NW` / `P_HH` / `P_GMM`), parallel to the existing `T_<algo>` convention (`T_NW` / `T_HH`). The bare `P` was the odd one out — algorithm provenance was implicit in the name and only carried by the description string, which fails grep / IDE auto-complete and rots silently. Migration: replace every `StatCode.P` lookup with `StatCode.P_NW`; `profile.diagnose()` JSON keys move from `"p"` to `"p_nw"`. Family verbs (`bhy(profiles)` without explicit `estimator=`) drive off `primary_p` and are unaffected; `bhy(profiles, estimator=NeweyWest())` continues to work because `NeweyWest.emits_for` was retargeted to `P_NW`.
+
+  | Before | After |
+  |---|---|
+  | `StatCode.P` (value `"p"`) | `StatCode.P_NW` (value `"p_nw"`) |
+
+  Out of scope (unchanged): `StatCode.MEAN` (no algorithm axis), `StatCode.T_NW` (already correctly named), diagnostic codes `FACTOR_ADF_P` / `RESID_LJUNG_BOX_P` (grammar `<TARGET>_<TEST>_P` is structural — TARGET distinguishes factor input / residual / event distribution; the asymmetry with primary `P_<algo>` is documented in the `StatCode` module docstring). (#192)
 
 - **`factrix.multi_factor.bhy` accepts `estimator: Estimator | None` instead of `p_stat: StatCode | None`** (breaking, #170). The previous `p_stat=` kwarg was a placeholder landed in v0.10 alongside the family-verb refactor and is removed in v0.11. Migration:
 

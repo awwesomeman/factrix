@@ -114,7 +114,7 @@ resolves the axis when needed.
 ### `stats` keys by cell
 
 After #187's flattening, every cell populates the same primary keys
-(`MEAN`, `T_NW`, `P`); cell identity lives on `profile.config`
+(`MEAN`, `T_NW`, `P_NW`); cell identity lives on `profile.config`
 (`scope` / `signal` / `metric`), so the StatCode no longer encodes it.
 Diagnostic keys carry an explicit `FACTOR_` / `RESID_` / `EVENT_`
 prefix because their target sits outside `config`. Keys appear in
@@ -122,13 +122,13 @@ prefix because their target sits outside `config`. Keys appear in
 
 | Dispatch cell | `stats` keys populated |
 |---------------|------------------------|
-| `(individual, continuous, ic, panel)` | `MEAN`, `T_NW`, `P` |
-| `(individual, continuous, fm, panel)` | `MEAN`, `T_NW`, `P` |
-| `(individual, sparse, None, panel)` | `MEAN`, `T_NW`, `P` |
-| `(common, continuous, None, panel)` | `MEAN`, `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` |
-| `(common, sparse, None, panel)` | `MEAN`, `T_NW`, `P` |
-| `(common, continuous, None, timeseries)` | `MEAN`, `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` |
-| `(*, sparse, None, timeseries)` (sentinel) | `MEAN`, `T_NW`, `P`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` |
+| `(individual, continuous, ic, panel)` | `MEAN`, `T_NW`, `P_NW` |
+| `(individual, continuous, fm, panel)` | `MEAN`, `T_NW`, `P_NW` |
+| `(individual, sparse, None, panel)` | `MEAN`, `T_NW`, `P_NW` |
+| `(common, continuous, None, panel)` | `MEAN`, `T_NW`, `P_NW`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` |
+| `(common, sparse, None, panel)` | `MEAN`, `T_NW`, `P_NW` |
+| `(common, continuous, None, timeseries)` | `MEAN`, `T_NW`, `P_NW`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` |
+| `(*, sparse, None, timeseries)` (sentinel) | `MEAN`, `T_NW`, `P_NW`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` |
 
 `FACTOR_ADF_*` is a CONTINUOUS-only persistence diagnostic — sparse
 cells skip it because the `{0, R}` event-trigger signal (zero on
@@ -145,16 +145,16 @@ the test produced.
 
 | Cell | Populated `metadata` keys | Inner dict |
 |---|---|---|
-| IC / FM / CAAR PANEL | `T_NW`, `P` | `{"nw_lags": <resolved bandwidth>}` |
+| IC / FM / CAAR PANEL | `T_NW`, `P_NW` | `{"nw_lags": <resolved bandwidth>}` |
 | `(common, continuous, None, panel)` | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | `{"lag_order": 0}` |
-| `(common, continuous, None, timeseries)` | `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW `nw_lags` + ADF `lag_order` |
-| `(*, sparse, None, timeseries)` | `T_NW`, `P`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW `nw_lags` + Ljung-Box `lag_h` + HHI `n_bins` |
+| `(common, continuous, None, timeseries)` | `T_NW`, `P_NW`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW `nw_lags` + ADF `lag_order` |
+| `(*, sparse, None, timeseries)` | `T_NW`, `P_NW`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW `nw_lags` + Ljung-Box `lag_h` + HHI `n_bins` |
 | `(common, sparse, None, panel)` | (none — cross-asset t has no hyperparam) | — |
 
 `profile.diagnose()["metadata"]` serialises with `StatCode.value`
-strings as outer keys (e.g. `"p"`) and plain dicts inside. Reading
-order pattern: `profile.stats[StatCode.P]` for the value, then
-`profile.metadata[StatCode.P]` for "how was this computed".
+strings as outer keys (e.g. `"p_nw"`) and plain dicts inside. Reading
+order pattern: `profile.stats[StatCode.P_NW]` for the value, then
+`profile.metadata[StatCode.P_NW]` for "how was this computed".
 
 ### `stats` provenance — two paths
 
@@ -181,7 +181,7 @@ Each procedure-internal `StatCode` maps to one section of
 
 | `StatCode` | Method |
 |---|---|
-| `MEAN`, `T_NW`, `P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West HAC `t` on the cell primary series (IC mean / FM λ / CAAR / E[β] / β); convention selected by the procedure dispatched for `profile.config` |
+| `MEAN`, `T_NW`, `P_NW` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West HAC `t` on the cell primary series (IC mean / FM λ / CAAR / E[β] / β); convention selected by the procedure dispatched for `profile.config` |
 | `P_HH` | Reserved (#184) — Hansen-Hodrick rectangular-kernel HAC p-value |
 | `P_GMM` | Reserved — Hansen (1982) GMM J-test p-value |
 | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | [Persistence diagnostics under near-unit-root predictors](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) — ADF τ statistic and unit-root p-value on the continuous factor |
@@ -205,7 +205,7 @@ For reference, the JSON shape on the IC PANEL cell is:
   "stats": {
     "mean": 0.0722,
     "t_nw": 14.60,
-    "p": 2.13e-40
+    "p_nw": 2.13e-40
   }
 }
 ```

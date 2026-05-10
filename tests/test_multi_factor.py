@@ -29,7 +29,7 @@ def _profile(
     cfg = AnalysisConfig.individual_continuous(
         metric=metric, forward_periods=forward_periods
     )
-    base_stats: dict[StatCode, float] = {StatCode.P: primary_p}
+    base_stats: dict[StatCode, float] = {StatCode.P_NW: primary_p}
     if stats:
         base_stats.update(stats)
     return FactorProfile(
@@ -132,12 +132,12 @@ class TestEstimatorOverride:
             factor_id="f1",
             metric=Metric.FM,
             primary_p=0.99,
-            stats={StatCode.P: 0.001},
+            stats={StatCode.P_NW: 0.001},
         )
         assert bhy([prof], estimator=NeweyWest()).profiles == [prof]
 
     def test_missing_dispatched_stat_raises_user_error(self) -> None:
-        # NeweyWest dispatches to StatCode.P; a profile without P in
+        # NeweyWest dispatches to StatCode.P_NW; a profile without P in
         # stats must surface the missing-key error.
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC, forward_periods=5)
         prof = FactorProfile(
@@ -159,7 +159,7 @@ class TestEstimatorOverride:
     def test_legacy_p_stat_kwarg_is_unrecognised(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
         with pytest.raises(TypeError, match="p_stat"):
-            bhy([prof], p_stat=StatCode.P)
+            bhy([prof], p_stat=StatCode.P_NW)
 
 
 # ---------------------------------------------------------------------------

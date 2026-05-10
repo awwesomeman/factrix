@@ -110,11 +110,11 @@ class TestStrongFactor:
         assert 0.5 < profile.stats[StatCode.MEAN] < 1.5
 
     def test_required_stats_keys_present(self, profile: FactorProfile) -> None:
-        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P):
+        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P_NW):
             assert key in profile.stats
 
     def test_primary_p_matches_fm_p_stat(self, profile: FactorProfile) -> None:
-        assert profile.primary_p == profile.stats[StatCode.P]
+        assert profile.primary_p == profile.stats[StatCode.P_NW]
 
 
 class TestRandomFactor:
@@ -154,7 +154,7 @@ class TestEndToEndViaEvaluate:
         )
         profile = _evaluate(panel, fm_config)
         assert isinstance(profile, FactorProfile)
-        assert StatCode.P in profile.stats
+        assert StatCode.P_NW in profile.stats
         assert profile.verdict() is Verdict.PASS
 
 

@@ -25,7 +25,7 @@ print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
 print(profile.diagnose())
 # {'mode': 'panel', 'n_obs': 494, 'n_assets': 100,
 #  'primary_p': 2.13e-40, 'warnings': [], 'info_notes': [],
-#  'stats': {'mean': 0.0722, 't_nw': 14.60, 'p': 2.13e-40}}
+#  'stats': {'mean': 0.0722, 't_nw': 14.60, 'p_nw': 2.13e-40}}
 ```
 
 If you are not sure which factory to use, let factrix infer it from the
@@ -65,7 +65,7 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
     "primary_p": 0.0001,
     "warnings": ["unreliable_se_short_periods"],
     "info_notes": [],
-    "stats": {"mean": 0.082, "t_nw": 4.21, "p": 0.0001},
+    "stats": {"mean": 0.082, "t_nw": 4.21, "p_nw": 0.0001},
 }
 ```
 

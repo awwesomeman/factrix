@@ -1,7 +1,7 @@
 """``NeweyWest`` reference Estimator tests (#170, #187).
 
 Validates the cell-agnostic dispatch surface (`emits_for` always returns
-`StatCode.P`) and applicability across user-facing cells. Numerical
+`StatCode.P_NW`) and applicability across user-facing cells. Numerical
 correctness of the underlying NW HAC math is owned by
 ``tests/stats/test_newey_west.py``.
 """
@@ -47,7 +47,7 @@ def test_emits_for_returns_flat_p(
     signal: Signal,
     metric: Metric | None,
 ) -> None:
-    assert NeweyWest().emits_for(scope, signal, metric) is StatCode.P
+    assert NeweyWest().emits_for(scope, signal, metric) is StatCode.P_NW
 
 
 @pytest.mark.parametrize(
@@ -66,14 +66,14 @@ def test_applicable_to_all_user_facing_cells(
 
 
 def test_panel_procedures_emit_the_dispatched_code() -> None:
-    # Every PANEL procedure must populate StatCode.P, since NeweyWest
+    # Every PANEL procedure must populate StatCode.P_NW, since NeweyWest
     # dispatches there cell-agnostically. Drift would surface as a
     # runtime KeyError on bhy(estimator=NeweyWest()).
     for key, entry in _DISPATCH_REGISTRY.items():
         if key.mode is not Mode.PANEL:
             continue
-        assert StatCode.P in entry.procedure.EMITS_STATS, (
+        assert StatCode.P_NW in entry.procedure.EMITS_STATS, (
             f"PANEL procedure for ({key.scope}, {key.signal}, {key.metric}) "
-            f"does not emit StatCode.P: "
+            f"does not emit StatCode.P_NW: "
             f"{sorted(s.name for s in entry.procedure.EMITS_STATS)}"
         )
