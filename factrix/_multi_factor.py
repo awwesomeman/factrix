@@ -27,7 +27,7 @@ import numpy as np
 
 from factrix._codes import StatCode
 from factrix._family import _resolve_family
-from factrix.stats.multiple_testing import bhy_adjust
+from factrix.stats.multiple_testing import bhy_adjusted_p
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
@@ -163,7 +163,7 @@ def bhy(
     p_stat: StatCode | None = None,
     q: float | None = None,
     **deprecated: Any,
-) -> list[FactorProfile]:
+) -> Survivors:
     """BHY step-up FDR within one declared family; return the survivors.
 
     The input list is treated as a single family. When ``expand_over``
@@ -189,7 +189,10 @@ def bhy(
             ``q / sum(1/k for k in 1..n)``. Default ``0.05``.
 
     Returns:
-        Survivors in input order.
+        ``Survivors`` container in input order; ``adj_q`` carries the
+        bucket-local BHY-adjusted p-value and the survivor set is
+        defined as ``adj_q <= q`` (single source of truth — no separate
+        rejection mask path).
 
     Raises:
         UserInputError: On any family-resolution invariant failure
@@ -211,10 +214,17 @@ def bhy(
     expand_over, p_stat, q = _apply_deprecated_kwargs(
         expand_over=expand_over, p_stat=p_stat, q=q, deprecated=deprecated
     )
+    expand_over_tuple: tuple[str, ...] = tuple(expand_over) if expand_over else ()
 
     profile_list = list(profiles)
     if not profile_list:
-        return []
+        return Survivors(
+            profiles=[],
+            adj_q=np.zeros(0, dtype=np.float64),
+            q=q,
+            expand_over=expand_over_tuple,
+            n_total={},
+        )
 
     _warn_on_mixed_horizons(profile_list, expand_over=expand_over)
 
@@ -236,14 +246,21 @@ def bhy(
             stacklevel=2,
         )
 
-    survivor_idxs: list[int] = []
-    for ix in buckets.values():
+    adj_q_all = np.full(len(entries), np.nan, dtype=np.float64)
+    n_total: dict[tuple[Any, ...], int] = {}
+    for bucket_key, ix in buckets.items():
         p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
-        mask = bhy_adjust(p_array, fdr=q)
-        survivor_idxs.extend(i for i, accept in zip(ix, mask, strict=True) if accept)
+        adj_q_all[ix] = bhy_adjusted_p(p_array)
+        n_total[bucket_key] = len(ix)
 
-    survivor_idxs.sort()
-    return [entries[i].profile for i in survivor_idxs]
+    survivor_idxs = np.flatnonzero(adj_q_all <= q)
+    return Survivors(
+        profiles=[entries[i].profile for i in survivor_idxs],
+        adj_q=adj_q_all[survivor_idxs],
+        q=q,
+        expand_over=expand_over_tuple,
+        n_total=n_total,
+    )
 
 
 def _warn_on_mixed_horizons(

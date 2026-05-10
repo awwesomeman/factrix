@@ -50,7 +50,9 @@ def _profile(
 
 class TestBhyEmpty:
     def test_empty_input_returns_empty(self) -> None:
-        assert bhy([]) == []
+        result = bhy([])
+        assert result.profiles == []
+        assert len(result.adj_q) == 0
 
 
 class TestBhyStepUp:
@@ -66,12 +68,12 @@ class TestBhyStepUp:
             _profile(factor_id=f"f{i}", primary_p=p)
             for i, p in enumerate([0.5, 0.7, 0.9])
         ]
-        assert bhy(profiles) == []
+        assert bhy(profiles).profiles == []
 
     def test_q_loosens_decision(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
-        assert bhy([prof], q=0.05) == [prof]
-        assert bhy([prof], q=0.01) == []
+        assert bhy([prof], q=0.05).profiles == [prof]
+        assert bhy([prof], q=0.01).profiles == []
 
 
 # ---------------------------------------------------------------------------
@@ -89,9 +91,9 @@ class TestExpandOver:
             _profile(factor_id="f1", primary_p=0.5, context={"regime": "bear"}),
             _profile(factor_id="f2", primary_p=0.6, context={"regime": "bear"}),
         ]
-        survivors = bhy(profiles, expand_over=["regime"])
-        assert len(survivors) == 2
-        assert {s.context["regime"] for s in survivors} == {"bull"}
+        result = bhy(profiles, expand_over=["regime"])
+        assert len(result) == 2
+        assert {p.context["regime"] for p in result.profiles} == {"bull"}
 
     def test_no_expand_over_pools_all_into_one_family(self) -> None:
         # Distinct identities → all pass dedup; one step-up over 4 entries.
@@ -99,9 +101,9 @@ class TestExpandOver:
             _profile(factor_id=f"f{i}", primary_p=p)
             for i, p in enumerate([0.001, 0.002, 0.5, 0.6])
         ]
-        survivors = bhy(profiles)
+        result = bhy(profiles)
         # All 4 in one family; only the small p's survive step-up.
-        assert {s.factor_id for s in survivors} == {"f0", "f1"}
+        assert {p.factor_id for p in result.profiles} == {"f0", "f1"}
 
     def test_unknown_expand_over_raises(self) -> None:
         profiles = [_profile(factor_id="f1", primary_p=0.01, context={"regime": "x"})]
@@ -130,7 +132,7 @@ class TestPStat:
             primary_p=0.99,
             stats={StatCode.FM_LAMBDA_P: 0.001},
         )
-        assert bhy([prof], p_stat=StatCode.FM_LAMBDA_P) == [prof]
+        assert bhy([prof], p_stat=StatCode.FM_LAMBDA_P).profiles == [prof]
 
     def test_non_p_stat_rejected(self) -> None:
         prof = _profile(
@@ -174,8 +176,8 @@ class TestDeprecatedKwargs:
     def test_threshold_alias_warns(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
         with pytest.warns(DeprecationWarning, match="threshold"):
-            survivors = bhy([prof], threshold=0.05)
-        assert survivors == [prof]
+            result = bhy([prof], threshold=0.05)
+        assert result.profiles == [prof]
 
     def test_gate_alias_warns(self) -> None:
         prof = _profile(
@@ -184,8 +186,8 @@ class TestDeprecatedKwargs:
             stats={StatCode.FM_LAMBDA_P: 0.001},
         )
         with pytest.warns(DeprecationWarning, match="gate"):
-            survivors = bhy([prof], gate=StatCode.FM_LAMBDA_P)
-        assert survivors == [prof]
+            result = bhy([prof], gate=StatCode.FM_LAMBDA_P)
+        assert result.profiles == [prof]
 
     def test_threshold_and_q_collide(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
@@ -280,6 +282,92 @@ class TestDuplicateIdentityHint:
 # ---------------------------------------------------------------------------
 # Survivors container (#171, batch 1: dataclass + repr/HTML, no bhy plumb yet)
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Survivors contract: bhy producer-side (#171, batch 2)
+# ---------------------------------------------------------------------------
+
+
+class TestBhyReturnsSurvivors:
+    def test_return_type_is_survivors(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.001)
+        assert isinstance(bhy([prof]), Survivors)
+
+    def test_adj_q_matches_bhy_adjusted_p_and_mask_definitional(self) -> None:
+        # Single contract: survivor set == {i: adj_q[i] <= q}, and
+        # adj_q values come from bhy_adjusted_p of the bucket-local
+        # p_array. Both halves of the duality in one assertion block.
+        from factrix.stats.multiple_testing import bhy_adjusted_p
+
+        ps = [0.001, 0.02, 0.04, 0.5]
+        profiles = [_profile(factor_id=f"f{i}", primary_p=p) for i, p in enumerate(ps)]
+        q = 0.05
+        result = bhy(profiles, q=q)
+        full_adj = bhy_adjusted_p(np.array(ps))
+        expected_ids = [profiles[i].factor_id for i, a in enumerate(full_adj) if a <= q]
+        assert [p.factor_id for p in result.profiles] == expected_ids
+        np.testing.assert_allclose(
+            result.adj_q,
+            [full_adj[i] for i in range(len(ps)) if full_adj[i] <= q],
+            rtol=1e-12,
+        )
+        assert (result.adj_q <= q).all()
+
+    def test_n_total_and_adj_q_per_bucket(self) -> None:
+        # Multi-bucket: n_total per bucket AND adj_q per surviving
+        # profile equals bhy_adjusted_p of that profile's own bucket
+        # slice (not pooled across buckets).
+        from factrix.stats.multiple_testing import bhy_adjusted_p
+
+        bull_ps = [0.001, 0.002, 0.003]
+        profiles = [
+            _profile(factor_id="f1", primary_p=bull_ps[0], context={"regime": "bull"}),
+            _profile(factor_id="f2", primary_p=bull_ps[1], context={"regime": "bull"}),
+            _profile(factor_id="f3", primary_p=bull_ps[2], context={"regime": "bull"}),
+            _profile(factor_id="f1", primary_p=0.5, context={"regime": "bear"}),
+        ]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            result = bhy(profiles, expand_over=["regime"])
+
+        assert result.n_total == {("bull",): 3, ("bear",): 1}
+
+        bull_adj = bhy_adjusted_p(np.array(bull_ps))
+        for prof, adj in zip(result.profiles, result.adj_q, strict=True):
+            assert prof.context["regime"] == "bull"  # bear bucket fails
+            bull_idx = ["f1", "f2", "f3"].index(prof.factor_id)
+            assert adj == pytest.approx(bull_adj[bull_idx], rel=1e-12)
+
+    def test_ties_in_p_handled(self) -> None:
+        # Tied p-values are a known step-up edge: adj_q stays a
+        # function of bhy_adjusted_p only — no separate tie-handling
+        # path drift.
+        from factrix.stats.multiple_testing import bhy_adjusted_p
+
+        ps = [0.01, 0.01, 0.5]
+        profiles = [_profile(factor_id=f"f{i}", primary_p=p) for i, p in enumerate(ps)]
+        result = bhy(profiles, q=0.05)
+        full_adj = bhy_adjusted_p(np.array(ps))
+        np.testing.assert_allclose(
+            result.adj_q,
+            [full_adj[i] for i in range(len(ps)) if full_adj[i] <= 0.05],
+            rtol=1e-12,
+        )
+
+    def test_expand_over_tuple_reflects_input(self) -> None:
+        profiles = [_profile(factor_id="f1", primary_p=0.001)]
+        assert bhy(profiles).expand_over == ()
+        profiles_x = [
+            _profile(factor_id="f1", primary_p=0.001, context={"u": "a"}),
+            _profile(factor_id="f2", primary_p=0.001, context={"u": "a"}),
+        ]
+        assert bhy(profiles_x, expand_over=["u"]).expand_over == ("u",)
+
+    def test_q_field_records_nominal_target(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.001)
+        assert bhy([prof], q=0.1).q == 0.1
+        assert bhy([prof]).q == 0.05  # default
 
 
 @pytest.fixture
