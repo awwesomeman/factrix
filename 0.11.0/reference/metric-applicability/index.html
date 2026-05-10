@@ -1,0 +1,4331 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Polars-native factor signal validation toolkit for quantitative finance">
+      
+      
+      
+        <link rel="canonical" href="https://awwesomeman.github.io/factrix/latest/reference/metric-applicability/">
+      
+      
+        <link rel="prev" href="../glossary/">
+      
+      
+        <link rel="next" href="../metric-pipelines/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/factrix_icon_light.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Metric applicability - factrix</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#metric-applicability" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="factrix" class="md-header__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  <img src="../../assets/factrix_icon_light.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            factrix
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Metric applicability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../glossary/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/architecture/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="factrix" class="md-nav__button md-logo" aria-label="factrix" data-md-component="logo">
+      
+  <img src="../../assets/factrix_icon_light.png" alt="logo">
+
+    </a>
+    factrix
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/awwesomeman/factrix" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    awwesomeman/factrix
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../getting-started/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../where-factrix-fits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Where factrix fits
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../guides/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/panel-timeseries/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PANEL vs TIMESERIES
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/batch-screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch screening (BHY)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/regime-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Regime analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/choosing-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a metric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/standalone-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standalone metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Glossary
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric applicability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cell-to-evaluate-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cell to evaluate-metric
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-dimensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample dimensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-metrics-by-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other metrics by family
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Other metrics by family">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ic-family--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IC family — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fm-family--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FM family — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quantile--monotonicity--concentration--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quantile / Monotonicity / Concentration — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tradability--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tradability — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event-quality--cell-individual--sparse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event-quality — Cell: Individual × Sparse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ts-β-family--cell-common--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TS-β family — Cell: Common × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spread-series-consumers--not-cell-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spread-series consumers — not cell-bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#series-tools--not-cell-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Series-tools — not cell-bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-size-constants_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample-size constants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample-size sensitivity — the two-tier _HARD / _WARN model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#below-threshold-behaviour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Below-threshold behaviour
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event-study-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event-study contracts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Event-study contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#abnormal-return-definition-per-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abnormal-return definition per metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#car-vs-bhar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CAR vs BHAR
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#estimation_window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        estimation_window
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#confounded-event-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confounded-event handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metric-pipelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metric pipelines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stat-keys-by-metric/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stat keys by metric
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../statistical-methods/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistical methods
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ts-mode-conventions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    TIMESERIES-mode conventions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../warning-codes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Warning / info / stat codes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bibliography/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bibliography
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/analysis-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnalysisConfig
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/evaluate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    evaluate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/run-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    run_metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi-horizon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-horizon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/by-slice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    by_slice
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/by-regime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    by_regime
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/list-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    list_metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/factor-profile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FactorProfile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/identity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Identity / context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metric-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MetricOutput
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/multi-factor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    multi_factor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/datasets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    preprocess
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/errors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Errors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_16" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../api/metrics/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_16" id="__nav_5_16_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Metrics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_16_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_16_2" id="__nav_5_16_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_16_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_16_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Individual continuous
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/individual-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/ic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/fama_macbeth/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    fama_macbeth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/quantile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    quantile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/monotonicity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    monotonicity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/concentration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    concentration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/tradability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    tradability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/spanning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    spanning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_16_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_16_3" id="__nav_5_16_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_16_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_16_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Individual sparse
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/individual-sparse/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Individual sparse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/caar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    caar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/event_quality/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    event_quality
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/event_horizon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    event_horizon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/mfe_mae/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    mfe_mae
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/clustering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    clustering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/corrado/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    corrado
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_16_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_16_4" id="__nav_5_16_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_16_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_16_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Common continuous
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/common-continuous/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Common continuous
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/ts_beta/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ts_beta
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/ts_quantile/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ts_quantile
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/ts_asymmetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ts_asymmetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_16_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_16_5" id="__nav_5_16_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series diagnostics
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_16_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_16_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Series diagnostics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/series-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Series diagnostics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/hit_rate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hit_rate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/trend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    trend
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/metrics/oos/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    oos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../examples/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/multi_factor_screening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-factor screening
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/stock_factor_evaluation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stock factor evaluation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/design-notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#cell-to-evaluate-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cell to evaluate-metric
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-dimensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample dimensions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#other-metrics-by-family" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other metrics by family
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Other metrics by family">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ic-family--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IC family — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fm-family--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FM family — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#quantile--monotonicity--concentration--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quantile / Monotonicity / Concentration — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tradability--cell-individual--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tradability — Cell: Individual × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#event-quality--cell-individual--sparse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event-quality — Cell: Individual × Sparse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ts-β-family--cell-common--continuous" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TS-β family — Cell: Common × Continuous
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spread-series-consumers--not-cell-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spread-series consumers — not cell-bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#series-tools--not-cell-bound" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Series-tools — not cell-bound
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-size-constants_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample-size constants
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample-size sensitivity — the two-tier _HARD / _WARN model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#below-threshold-behaviour" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Below-threshold behaviour
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#event-study-contracts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Event-study contracts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Event-study contracts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#abnormal-return-definition-per-metric" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Abnormal-return definition per metric
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#car-vs-bhar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CAR vs BHAR
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#estimation_window" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        estimation_window
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#confounded-event-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confounded-event handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/awwesomeman/factrix/edit/main/docs/reference/metric-applicability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="metric-applicability">Metric applicability<a class="headerlink" href="#metric-applicability" title="Permanent link">&para;</a></h1>
+<div class="admonition abstract">
+<p class="admonition-title">Answers</p>
+<p>Can my data run this? — applicability gates and sample-size thresholds per metric.
+For computation pipeline (aggregation order, inference SE), see <a href="../metric-pipelines/">Metric pipelines</a>.
+For output schema and metadata keys, see <a href="../stat-keys-by-metric/">Stat keys by metric</a>.</p>
+</div>
+<p>A single matrix that maps each public metric to the analysis cell
+where it is in scope, the canonical inferential role it plays in
+that cell, and the sample-size threshold that gates it. Per-metric
+formulae, parameters, and Notes / References live in the
+<a href="../../api/metrics/">Metrics API pages</a>; this page is the
+cross-metric overview. For the runtime API that returns the per-cell
+metric list programmatically, see
+<a href="../../api/list-metrics/"><code>list_metrics</code></a>.</p>
+<h2 id="cell-to-evaluate-metric">Cell to evaluate-metric<a class="headerlink" href="#cell-to-evaluate-metric" title="Permanent link">&para;</a></h2>
+<p>Each <code>(scope, signal, metric, mode)</code> cell maps to exactly one metric
+that <a href="../../api/evaluate/"><code>evaluate()</code></a> runs. This section is the
+cell-keyed reverse-index; the rest of the page is metric-keyed.</p>
+<table>
+<thead>
+<tr>
+<th>Dispatch key <code>(scope, signal, metric, mode)</code></th>
+<th>Run by <code>evaluate()</code></th>
+<th>Procedure summary</th>
+<th>Literature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(INDIVIDUAL, CONTINUOUS, IC, PANEL)</code></td>
+<td><a class="autorefs autorefs-internal" title="ic" href="../../api/metrics/ic/#factrix.metrics.ic.ic"><code>ic</code></a></td>
+<td>Per-date Spearman IC across the asset cross-section.</td>
+<td>Grinold (1989), Newey &amp; West (1987)</td>
+</tr>
+<tr>
+<td><code>(INDIVIDUAL, CONTINUOUS, FM, PANEL)</code></td>
+<td><a class="autorefs autorefs-internal" title="fama_macbeth" href="../../api/metrics/fama_macbeth/#factrix.metrics.fama_macbeth.fama_macbeth"><code>fama_macbeth</code></a></td>
+<td>Fama-MacBeth λ on per-date OLS slope.</td>
+<td>Fama &amp; MacBeth (1973), Petersen (2009)</td>
+</tr>
+<tr>
+<td><code>(INDIVIDUAL, SPARSE, *, PANEL)</code></td>
+<td><a class="autorefs autorefs-internal" title="caar" href="../../api/metrics/caar/#factrix.metrics.caar.caar"><code>caar</code></a></td>
+<td>Cross-event CAAR with t-test on per-event AR aggregate.</td>
+<td>Brown &amp; Warner (1985), MacKinlay (1997)</td>
+</tr>
+<tr>
+<td><code>(COMMON, CONTINUOUS, *, PANEL)</code></td>
+<td><a class="autorefs autorefs-internal" title="ts_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.ts_beta"><code>ts_beta</code></a></td>
+<td>Per-asset β on broadcast factor + cross-asset t on E[β].</td>
+<td>Black, Jensen &amp; Scholes (1972), Fama &amp; French (1993)</td>
+</tr>
+<tr>
+<td><code>(COMMON, SPARSE, *, PANEL)</code></td>
+<td><a class="autorefs autorefs-internal" title="ts_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.ts_beta"><code>ts_beta</code></a></td>
+<td>Per-asset β on broadcast event dummy + cross-asset t.</td>
+<td>MacKinlay (1997)</td>
+</tr>
+<tr>
+<td><code>(COMMON, CONTINUOUS, *, TIMESERIES)</code></td>
+<td><a class="autorefs autorefs-internal" title="ts_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.ts_beta"><code>ts_beta</code></a></td>
+<td>Single-asset OLS β on broadcast factor + NW HAC SE.</td>
+<td>Newey &amp; West (1987, 1994), Stambaugh (1999)</td>
+</tr>
+<tr>
+<td><code>(*, SPARSE, *, TIMESERIES)</code></td>
+<td><a class="autorefs autorefs-internal" title="ts_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.ts_beta"><code>ts_beta</code></a></td>
+<td>Single-asset calendar-time TS dummy regression + NW HAC SE.</td>
+<td>Newey &amp; West (1994), Ljung &amp; Box (1978)</td>
+</tr>
+</tbody>
+</table>
+<p>Cells absent from the table raise <code>ModeAxisError</code> (e.g.
+<code>(INDIVIDUAL, CONTINUOUS) × TIMESERIES</code>); <code>(SPARSE × TIMESERIES)</code>
+collapses scope and tags <code>InfoCode.SCOPE_AXIS_COLLAPSED</code> — see
+<a href="../ts-mode-conventions/">TIMESERIES-mode conventions</a>.</p>
+<h2 id="sample-dimensions">Sample dimensions<a class="headerlink" href="#sample-dimensions" title="Permanent link">&para;</a></h2>
+<p>factrix expresses sample size on three axes (see
+<a href="../../getting-started/concepts/">Concepts</a> for cell taxonomy):</p>
+<ul>
+<li><code>N</code> — assets in the panel (<code>asset_id</code> unique count).</li>
+<li><code>T</code> — date count (<code>date</code> unique count).</li>
+<li><code>K</code> — non-zero event count for <code>Sparse</code> factors
+  (<code>filter(factor != 0).height</code>).</li>
+<li><code>T/h</code> — non-overlapping date count given
+  <code>forward_periods = h</code>.</li>
+</ul>
+<p><code>Mode</code> is derived from <code>N</code> at evaluate-time: <code>PANEL</code> for <code>N ≥ 2</code>,
+<code>TIMESERIES</code> for <code>N == 1</code>. The dispatch registry routes to the cell's
+procedure in either Mode; the metric's applicability does not change
+across Modes, only the sample axis that constrains it.</p>
+<h2 id="other-metrics-by-family">Other metrics by family<a class="headerlink" href="#other-metrics-by-family" title="Permanent link">&para;</a></h2>
+<p>Primary metrics (<code>ic</code>, <code>fama_macbeth</code>, <code>caar</code>, <code>ts_beta</code>) are the SSOT
+in the <a href="#cell-to-evaluate-metric">primary table</a> above. The remaining
+metrics group by family below; the section heading carries the cell
+context, so each per-row schema reduces to <em>Metric / Sample axis /
+Min sample</em>. <code>MIN_*</code> constants resolve to values in the
+<a href="#sample-size-constants">Sample-size constants table</a>.</p>
+<h3 id="ic-family--cell-individual--continuous">IC family — Cell: Individual × Continuous<a class="headerlink" href="#ic-family--cell-individual--continuous" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="ic_newey_west" href="../../api/metrics/ic/#factrix.metrics.ic.ic_newey_west"><code>ic_newey_west</code></a></td>
+<td><code>T</code> (full series)</td>
+<td><code>T ≥ MIN_ASSETS_PER_DATE_IC</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="ic_ir" href="../../api/metrics/ic/#factrix.metrics.ic.ic_ir"><code>ic_ir</code></a></td>
+<td><code>T</code></td>
+<td><code>T ≥ MIN_ASSETS_PER_DATE_IC</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="regime_ic" href="../../api/metrics/ic/#factrix.metrics.ic.regime_ic"><code>regime_ic</code></a></td>
+<td><code>T</code> per regime</td>
+<td>per-regime <code>T/h ≥ MIN_ASSETS_PER_DATE_IC</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="fm-family--cell-individual--continuous">FM family — Cell: Individual × Continuous<a class="headerlink" href="#fm-family--cell-individual--continuous" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="pooled_ols" href="../../api/metrics/fama_macbeth/#factrix.metrics.fama_macbeth.pooled_ols"><code>pooled_ols</code></a></td>
+<td><code>N × T</code></td>
+<td><code>N ≥ 10</code>, effective clusters <code>G ≥ 3</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="beta_sign_consistency" href="../../api/metrics/fama_macbeth/#factrix.metrics.fama_macbeth.beta_sign_consistency"><code>beta_sign_consistency</code></a></td>
+<td><code>T</code> (β series)</td>
+<td><code>T ≥ MIN_FM_PERIODS_HARD</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="quantile--monotonicity--concentration--cell-individual--continuous">Quantile / Monotonicity / Concentration — Cell: Individual × Continuous<a class="headerlink" href="#quantile--monotonicity--concentration--cell-individual--continuous" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="quantile_spread" href="../../api/metrics/quantile/#factrix.metrics.quantile.quantile_spread"><code>quantile_spread</code></a></td>
+<td><code>T/h</code></td>
+<td><code>T/h ≥ MIN_PORTFOLIO_PERIODS_HARD</code>; per-date <code>N ≥ n_groups</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="quantile_spread_vw" href="../../api/metrics/quantile/#factrix.metrics.quantile.quantile_spread_vw"><code>quantile_spread_vw</code></a></td>
+<td><code>T/h</code></td>
+<td>as <code>quantile_spread</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="monotonicity" href="../../api/metrics/monotonicity/#factrix.metrics.monotonicity.monotonicity"><code>monotonicity</code></a></td>
+<td><code>T/h</code></td>
+<td>per-date <code>N ≥ n_groups</code>; series <code>≥ MIN_MONOTONICITY_PERIODS</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="top_concentration" href="../../api/metrics/concentration/#factrix.metrics.concentration.top_concentration"><code>top_concentration</code></a></td>
+<td><code>T/h</code></td>
+<td><code>T/h ≥ MIN_PORTFOLIO_PERIODS_HARD</code>; warn if <code>T/h &lt; MIN_PORTFOLIO_PERIODS_WARN</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="tradability--cell-individual--continuous">Tradability — Cell: Individual × Continuous<a class="headerlink" href="#tradability--cell-individual--continuous" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="turnover" href="../../api/metrics/tradability/#factrix.metrics.tradability.turnover"><code>turnover</code></a></td>
+<td><code>T</code></td>
+<td><code>T ≥ 2·forward_periods + 1</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="notional_turnover" href="../../api/metrics/tradability/#factrix.metrics.tradability.notional_turnover"><code>notional_turnover</code></a></td>
+<td><code>T</code></td>
+<td>as <code>turnover</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="breakeven_cost" href="../../api/metrics/tradability/#factrix.metrics.tradability.breakeven_cost"><code>breakeven_cost</code></a></td>
+<td>scalar</td>
+<td><code>notional_turnover &gt; 0</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="net_spread" href="../../api/metrics/tradability/#factrix.metrics.tradability.net_spread"><code>net_spread</code></a></td>
+<td>scalar</td>
+<td>spread + cost provided</td>
+</tr>
+</tbody>
+</table>
+<h3 id="event-quality--cell-individual--sparse">Event-quality — Cell: Individual × Sparse<a class="headerlink" href="#event-quality--cell-individual--sparse" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="bmp_test" href="../../api/metrics/caar/#factrix.metrics.caar.bmp_test"><code>bmp_test</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code>; <code>estimation_window</code> periods per asset</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_hit_rate" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_hit_rate"><code>event_hit_rate</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_ic" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_ic"><code>event_ic</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="profit_factor" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.profit_factor"><code>profit_factor</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_skewness" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_skewness"><code>event_skewness</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="signal_density" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.signal_density"><code>signal_density</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ 2</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_around_return" href="../../api/metrics/event_horizon/#factrix.metrics.event_horizon.event_around_return"><code>event_around_return</code></a></td>
+<td>per-offset <code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="mfe_mae_summary" href="../../api/metrics/mfe_mae/#factrix.metrics.mfe_mae.mfe_mae_summary"><code>mfe_mae_summary</code></a></td>
+<td><code>K</code></td>
+<td><code>K ≥ MIN_EVENTS_HARD</code>; <code>price</code> column required</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="clustering_diagnostic" href="../../api/metrics/clustering/#factrix.metrics.clustering.clustering_diagnostic"><code>clustering_diagnostic</code></a></td>
+<td><code>K</code>, <code>N</code></td>
+<td><code>N ≥ 2</code>; <code>K ≥ MIN_EVENTS_HARD</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="corrado_rank_test" href="../../api/metrics/corrado/#factrix.metrics.corrado.corrado_rank_test"><code>corrado_rank_test</code></a></td>
+<td><code>K</code> × estimation window</td>
+<td><code>K ≥ MIN_EVENTS_HARD</code>; per-asset <code>T ≥ 30</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="ts-β-family--cell-common--continuous">TS-β family — Cell: Common × Continuous<a class="headerlink" href="#ts-β-family--cell-common--continuous" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="mean_r_squared" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.mean_r_squared"><code>mean_r_squared</code></a></td>
+<td><code>N</code></td>
+<td>as <code>ts_beta</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="compute_rolling_mean_beta" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.compute_rolling_mean_beta"><code>compute_rolling_mean_beta</code></a></td>
+<td><code>T</code> per window</td>
+<td>window ≥ <code>MIN_TS_OBS</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="ts_beta_sign_consistency" href="../../api/metrics/ts_beta/#factrix.metrics.ts_beta.ts_beta_sign_consistency"><code>ts_beta_sign_consistency</code></a></td>
+<td><code>N</code></td>
+<td><code>N ≥ 2</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="ts_quantile_spread" href="../../api/metrics/ts_quantile/#factrix.metrics.ts_quantile.ts_quantile_spread"><code>ts_quantile_spread</code></a></td>
+<td><code>T</code></td>
+<td><code>T ≥ MIN_PORTFOLIO_PERIODS_HARD</code>; factor <code>n_unique ≥ n_groups × 2</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="ts_asymmetry" href="../../api/metrics/ts_asymmetry/#factrix.metrics.ts_asymmetry.ts_asymmetry"><code>ts_asymmetry</code></a></td>
+<td><code>T</code></td>
+<td>factor has both signs (Gate B); each side <code>n_unique ≥ 2</code> for method B (Gate C)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="spread-series-consumers--not-cell-bound">Spread-series consumers — not cell-bound<a class="headerlink" href="#spread-series-consumers--not-cell-bound" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="spanning_alpha" href="../../api/metrics/spanning/#factrix.metrics.spanning.spanning_alpha"><code>spanning_alpha</code></a></td>
+<td><code>T</code></td>
+<td>aligned spread series</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="greedy_forward_selection" href="../../api/metrics/spanning/#factrix.metrics.spanning.greedy_forward_selection"><code>greedy_forward_selection</code></a></td>
+<td><code>T</code></td>
+<td>as <code>spanning_alpha</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="series-tools--not-cell-bound">Series-tools — not cell-bound<a class="headerlink" href="#series-tools--not-cell-bound" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Sample axis</th>
+<th>Min sample</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="hit_rate" href="../../api/metrics/hit_rate/#factrix.metrics.hit_rate.hit_rate"><code>hit_rate</code></a></td>
+<td>series length</td>
+<td><code>T ≥ MIN_ASSETS_PER_DATE_IC</code></td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="ic_trend" href="../../api/metrics/trend/#factrix.metrics.trend.ic_trend"><code>ic_trend</code></a></td>
+<td><code>T</code></td>
+<td><code>T ≥ 10</code> (literal floor)</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="multi_split_oos_decay" href="../../api/metrics/oos/#factrix.metrics.oos.multi_split_oos_decay"><code>multi_split_oos_decay</code></a></td>
+<td><code>T</code></td>
+<td><code>T ≥ 2 × MIN_OOS_PERIODS</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sample-size-constants_1">Sample-size constants<a class="headerlink" href="#sample-size-constants_1" title="Permanent link">&para;</a></h2>
+<p><a href="" id="sample-size-constants"></a></p>
+<p>Every <code>MIN_*</code> constant referenced in the <code>Min sample</code> column above,
+consolidated here so the value, axis, tier, and consumer set are
+visible at one glance instead of three source files. The two-tier
+<code>_HARD</code> / <code>_WARN</code> model and the descriptive-only single-tier rule
+are described in <a href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model">Sample-size sensitivity</a>
+below.</p>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Value</th>
+<th>Axis</th>
+<th>Tier</th>
+<th>Source module</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MIN_ASSETS_PER_DATE_IC</code></td>
+<td>10</td>
+<td>per-date <code>N</code></td>
+<td>hard</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>compute_ic</code> (drops dates with <code>N &lt; 10</code>) → consumed by <code>ic</code>, <code>ic_newey_west</code>, <code>ic_ir</code>, <code>regime_ic</code>, <code>multi_horizon_ic</code>, <code>hit_rate</code></td>
+</tr>
+<tr>
+<td><code>MIN_EVENTS_HARD</code></td>
+<td>4</td>
+<td><code>K</code> (event count)</td>
+<td>hard</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>caar</code>, <code>bmp_test</code>, <code>event_hit_rate</code>, <code>event_ic</code>, <code>profit_factor</code>, <code>event_skewness</code>, <code>event_around_return</code>, <code>multi_horizon_hit_rate</code>, <code>mfe_mae_summary</code>, <code>clustering_diagnostic</code>, <code>corrado_rank_test</code></td>
+</tr>
+<tr>
+<td><code>MIN_EVENTS_WARN</code></td>
+<td>30</td>
+<td><code>K</code></td>
+<td>warn</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>caar</code> only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only)</td>
+</tr>
+<tr>
+<td><code>MIN_OOS_PERIODS</code></td>
+<td>5</td>
+<td><code>T</code> (per split)</td>
+<td>hard</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>multi_split_oos_decay</code> (effective floor <code>T ≥ 2 × MIN_OOS_PERIODS = 10</code>)</td>
+</tr>
+<tr>
+<td><code>MIN_PORTFOLIO_PERIODS_HARD</code></td>
+<td>3</td>
+<td><code>T/h</code></td>
+<td>hard</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>quantile_spread</code>, <code>quantile_spread_vw</code>, <code>top_concentration</code>, <code>ts_quantile_spread</code>, <code>ts_asymmetry</code></td>
+</tr>
+<tr>
+<td><code>MIN_PORTFOLIO_PERIODS_WARN</code></td>
+<td>20</td>
+<td><code>T/h</code></td>
+<td>warn</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>top_concentration</code> only (<code>quantile_spread</code> and the <code>ts_*</code> siblings are descriptive at the WARN tier and gate on HARD only)</td>
+</tr>
+<tr>
+<td><code>MIN_MONOTONICITY_PERIODS</code></td>
+<td>5</td>
+<td><code>T/h</code></td>
+<td>hard</td>
+<td><code>factrix/_types.py</code></td>
+<td><code>monotonicity</code></td>
+</tr>
+<tr>
+<td><code>MIN_PERIODS_HARD</code></td>
+<td>20</td>
+<td><code>T</code> (TIMESERIES)</td>
+<td>hard</td>
+<td><code>factrix/_stats/constants.py</code></td>
+<td>TIMESERIES procedures (<code>individual_continuous</code> / <code>common_continuous</code> at <code>N == 1</code>); raises <code>InsufficientSampleError</code></td>
+</tr>
+<tr>
+<td><code>MIN_PERIODS_WARN</code></td>
+<td>30</td>
+<td><code>T</code> (TIMESERIES)</td>
+<td>warn</td>
+<td><code>factrix/_stats/constants.py</code></td>
+<td>same procedures; tags <code>WarningCode.UNRELIABLE_SE_SHORT_PERIODS</code></td>
+</tr>
+<tr>
+<td><code>MIN_ASSETS</code></td>
+<td>10</td>
+<td><code>N</code></td>
+<td>warn</td>
+<td><code>factrix/_stats/constants.py</code></td>
+<td>PANEL <code>common_continuous</code> and <code>suggest_config</code>; tags <code>WarningCode.SMALL_CROSS_SECTION_N</code></td>
+</tr>
+<tr>
+<td><code>MIN_ASSETS_WARN</code></td>
+<td>30</td>
+<td><code>N</code></td>
+<td>warn</td>
+<td><code>factrix/_stats/constants.py</code></td>
+<td>same; tags <code>WarningCode.BORDERLINE_CROSS_SECTION_N</code></td>
+</tr>
+<tr>
+<td><code>MIN_BROADCAST_EVENTS_HARD</code></td>
+<td>5</td>
+<td><code>K</code> (broadcast dummy)</td>
+<td>hard</td>
+<td><code>factrix/_stats/constants.py</code></td>
+<td><code>(COMMON, SPARSE, None, PANEL)</code> procedure</td>
+</tr>
+<tr>
+<td><code>MIN_BROADCAST_EVENTS_WARN</code></td>
+<td>20</td>
+<td><code>K</code> (broadcast dummy)</td>
+<td>warn</td>
+<td><code>factrix/_stats/constants.py</code></td>
+<td>same; tags <code>WarningCode.SPARSE_COMMON_FEW_EVENTS</code></td>
+</tr>
+<tr>
+<td><code>MIN_FM_PERIODS_HARD</code></td>
+<td>4</td>
+<td><code>T</code> (λ series)</td>
+<td>hard</td>
+<td><code>factrix/metrics/fama_macbeth.py</code></td>
+<td><code>fama_macbeth</code>, <code>beta_sign_consistency</code></td>
+</tr>
+<tr>
+<td><code>MIN_FM_PERIODS_WARN</code></td>
+<td>30</td>
+<td><code>T</code> (λ series)</td>
+<td>warn</td>
+<td><code>factrix/metrics/fama_macbeth.py</code></td>
+<td><code>fama_macbeth</code> (NW HAC over-rejects below); ties to <code>WarningCode.UNRELIABLE_SE_SHORT_PERIODS</code></td>
+</tr>
+<tr>
+<td><code>MIN_TS_OBS</code></td>
+<td>20</td>
+<td><code>T</code> per asset</td>
+<td>hard</td>
+<td><code>factrix/metrics/ts_beta.py</code></td>
+<td><code>compute_ts_betas</code> (drops assets with <code>T &lt; 20</code>); upstream of <code>ts_beta</code>, <code>mean_r_squared</code>, <code>compute_rolling_mean_beta</code>, <code>ts_beta_sign_consistency</code></td>
+</tr>
+</tbody>
+</table>
+<p>Naming caveats:</p>
+<ul>
+<li><code>MIN_ASSETS_PER_DATE_IC</code> (10) and <code>MIN_ASSETS</code> (10) are different
+  constants with the same value: the first gates <strong>per-date</strong> asset
+  count for IC; the second gates <strong>panel-wide</strong> <code>N</code> for the
+  cross-asset <em>t</em> on E[β]. The IC variant was renamed from
+  <code>MIN_IC_PERIODS</code> because the historical "PERIODS" suffix did not
+  match the per-date axis it actually checks.</li>
+<li><code>MIN_ASSETS = 10</code> deliberately omits the <code>_HARD</code> suffix — the <code>N</code>
+  axis only <strong>warns</strong> (small <code>N</code> is well-defined statistics, just
+  weak), so the <code>_HARD</code> convention (which means "raise") would
+  mislead.</li>
+<li><code>MIN_BROADCAST_EVENTS_*</code> is named after its procedure domain to
+  avoid colliding with <code>MIN_EVENTS_*</code> in <code>_types.py</code> (CAAR statistic
+  vs broadcast-dummy regression — different gates).</li>
+</ul>
+<p>For non-overlapping metrics (<code>ic</code>, <code>caar</code>, …) the effective floor is
+<code>_scaled_min_periods(base, forward_periods)</code> (in
+<code>factrix.metrics._helpers</code>), which scales the base constant by the
+forward-return horizon <code>h</code>.</p>
+<h2 id="sample-size-sensitivity--the-two-tier-_hard--_warn-model">Sample-size sensitivity — the two-tier <code>_HARD</code> / <code>_WARN</code> model<a class="headerlink" href="#sample-size-sensitivity--the-two-tier-_hard--_warn-model" title="Permanent link">&para;</a></h2>
+<p>Inferential metrics enforce two separate floors:</p>
+<ul>
+<li><strong><code>_HARD</code></strong> — the <strong>mathematical floor</strong>. Below it, the statistic is
+  not defined (e.g. <code>t = (μ − 0) / (s / √n)</code> requires <code>n ≥ 2</code>; the FM
+  small-sample HAC needs at least a few lagged covariances). <code>n &lt; HARD</code>
+  short-circuits to <code>MetricOutput(value=NaN, metadata={"reason": ...})</code>.</li>
+<li><strong><code>_WARN</code></strong> — the <strong>literature / power floor</strong>. The statistic <em>is</em>
+  computable, but the SE is biased small or power is poor; the metric
+  returns the stat, emits a <code>UserWarning</code>, and adds a <code>WarningCode</code> to
+  <code>MetricOutput.metadata["warning_codes"]</code> so <code>FactorProfile.warnings</code>
+  can propagate it. <code>n ≥ WARN</code> is silent.</li>
+</ul>
+<p><strong>Descriptive metrics</strong> (<code>clustering_diagnostic</code>, <code>corrado_rank_test</code>,
+<code>event_around_return</code>, <code>multi_horizon_hit_rate</code>, <code>event_hit_rate</code>,
+<code>event_ic</code>, <code>profit_factor</code>, <code>event_skewness</code>, <code>mfe_mae_summary</code>,
+<code>quantile_spread</code>, <code>ts_quantile_spread</code>, <code>ts_asymmetry</code>, <code>bmp_test</code>)
+enforce <strong><code>_HARD</code> only</strong> — they have no formal H₀ under which power
+can be characterised, so the literature <code>_WARN</code> tier is undefined
+for them. They accept smaller-<code>n</code> inputs than the inferential
+canonicals.</p>
+<p>A few specific caveats worth flagging:</p>
+<ul>
+<li><strong><code>MIN_FM_PERIODS_HARD = 4</code> / <code>MIN_FM_PERIODS_WARN = 30</code></strong> for
+  <code>fama_macbeth</code>. <code>T = 4</code> is the math floor at which the NW HAC <code>t</code>
+  is computable; the small-sample HAC is known to <strong>over-reject</strong>, so
+  in <code>T ∈ [4, 30)</code> the metric emits
+  <code>WarningCode.UNRELIABLE_SE_SHORT_PERIODS</code> and treats <em>p</em>-values as
+  anti-conservative. Forty periods is the practical floor in the
+  panel-econometrics literature.</li>
+<li><strong><code>MIN_EVENTS_HARD = 4</code> / <code>MIN_EVENTS_WARN = 30</code></strong> for the
+  event-study CAAR <code>t</code>. Brown &amp; Warner (1985) tabulate well-behaved
+  power at <code>K ≥ 50</code> and use <code>K ≥ 30</code> as the conventional minimum; in
+  <code>K ∈ [4, 30)</code> the parametric <code>caar</code> is under-powered and
+  <code>WarningCode.FEW_EVENTS_BROWN_WARNER</code> fires. The <code>bmp_test</code> /
+  <code>corrado_rank_test</code> siblings only partly mitigate.</li>
+<li><strong><code>MIN_PORTFOLIO_PERIODS_HARD = 3</code> / <code>MIN_PORTFOLIO_PERIODS_WARN = 20</code></strong>
+  in <code>top_concentration</code> and <code>ts_quantile_spread</code>. Below 3 there is
+  no spread / concentration t to compute; in <code>[3, 20)</code> the metric
+  returns the stat with <code>WarningCode.BORDERLINE_PORTFOLIO_PERIODS</code>.
+  <strong><code>MIN_OOS_PERIODS = 5</code></strong> in <code>multi_split_oos_decay</code> remains
+  single-tier — the metric is now descriptive-only (no <code>p_value</code> in
+  metadata), so a literature power floor is moot. Treat its output as
+  descriptive; the formal <code>verdict()</code> reading should rely on the
+  primary metric until the underlying series is materially longer.</li>
+</ul>
+<h2 id="below-threshold-behaviour">Below-threshold behaviour<a class="headerlink" href="#below-threshold-behaviour" title="Permanent link">&para;</a></h2>
+<p>When the input fails a sample threshold, factrix never silently
+returns a meaningful-looking result. Three deterministic outcomes:</p>
+<ul>
+<li><strong>Short-circuit</strong> — the metric returns
+  <code>MetricOutput(value=NaN, metadata={"reason": "..."})</code> and
+  <code>FactorProfile.primary_p</code> is conservatively pinned to <code>1.0</code> so
+  <code>verdict()</code> reports <code>FAILED</code>.</li>
+<li><strong>Fallback</strong> — the dispatch registry routes to a degraded but
+  semantically distinct procedure (e.g. <code>Common × Continuous</code> at
+  <code>N == 1</code> falls back to single-asset OLS without HAC). <code>diagnose()</code>
+  fires an <code>info</code>-severity rule recording the fallback.</li>
+<li><strong>Degraded</strong> — the metric runs but a Profile field is set to
+  <code>None</code> (e.g. <code>clustering_hhi=None</code> for single-asset event signals).
+  <code>diagnose()</code> records the degradation.</li>
+</ul>
+<p>Structural errors (wrong cell, missing column, <code>N == 1</code> on a cell that
+requires <code>PANEL</code> Mode) raise <code>ValueError</code> / <code>ConfigError</code> rather than
+falling back.</p>
+<h2 id="event-study-contracts">Event-study contracts<a class="headerlink" href="#event-study-contracts" title="Permanent link">&para;</a></h2>
+<p>The Individual × Sparse cell hosts a family of metrics whose
+abnormal-return definitions, estimation windows, and overlap
+conventions diverge from each other by design. Surfacing the contracts
+here so each metric page can reference one canonical definition.</p>
+<h3 id="abnormal-return-definition-per-metric">Abnormal-return definition per metric<a class="headerlink" href="#abnormal-return-definition-per-metric" title="Permanent link">&para;</a></h3>
+<p>factrix follows MacKinlay (1997) event-window vocabulary but each
+metric instantiates the abnormal-return primitive differently:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Per-row primitive</th>
+<th>Why this form</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="caar" href="../../api/metrics/caar/#factrix.metrics.caar.caar"><code>caar</code></a>, <a class="autorefs autorefs-internal" title="bmp_test" href="../../api/metrics/caar/#factrix.metrics.caar.bmp_test"><code>bmp_test</code></a></td>
+<td><code>signed_car = forward_return × factor</code> (magnitude preserved)</td>
+<td>Generalises MacKinlay's signed CAAR to continuous factors (Sefcik-Thompson 1986 lineage); on <code>factor ∈ {0, ±1}</code> it reduces to the textbook signed CAAR.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_hit_rate" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_hit_rate"><code>event_hit_rate</code></a>, <a class="autorefs autorefs-internal" title="event_ic" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_ic"><code>event_ic</code></a>, <a class="autorefs autorefs-internal" title="profit_factor" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.profit_factor"><code>profit_factor</code></a>, <a class="autorefs autorefs-internal" title="event_skewness" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_skewness"><code>event_skewness</code></a></td>
+<td><code>signed_car = forward_return × sign(factor)</code> (sign-only)</td>
+<td>These metrics measure direction quality independent of factor magnitude; magnitude-weighting would conflate "direction was right" with "magnitude was big".</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="corrado_rank_test" href="../../api/metrics/corrado/#factrix.metrics.corrado.corrado_rank_test"><code>corrado_rank_test</code></a></td>
+<td><code>signed_rank = uniform_rank(forward_return) × sign(factor)</code></td>
+<td>Corrado (1989) ranks the raw return distribution, then direction-adjusts the rank. The sign-adjustment is on the rank, not the return.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_around_return" href="../../api/metrics/event_horizon/#factrix.metrics.event_horizon.event_around_return"><code>event_around_return</code></a>, <a class="autorefs autorefs-internal" title="multi_horizon_hit_rate" href="../../api/metrics/event_horizon/#factrix.metrics.event_horizon.multi_horizon_hit_rate"><code>multi_horizon_hit_rate</code></a></td>
+<td>Post-event (k &gt; 0): <code>sign(factor) × cumulative_return</code>; pre-event (k &lt; 0): unsigned single-bar return</td>
+<td>Asymmetric on purpose: post-event reads signal <em>quality</em>, pre-event reads <em>leakage</em> — leakage is independent of eventual direction and must be inspected unsigned.</td>
+</tr>
+</tbody>
+</table>
+<p>The shared verb "abnormal return" therefore covers four different
+estimators. Use the table above when comparing factrix output to
+literature numbers.</p>
+<h3 id="car-vs-bhar">CAR vs BHAR<a class="headerlink" href="#car-vs-bhar" title="Permanent link">&para;</a></h3>
+<p>factrix computes <strong>CAR</strong> (cumulative abnormal return — sum of per-period
+abnormal returns) throughout. <strong>BHAR</strong> (buy-and-hold abnormal return —
+compounded <code>∏(1 + r) − 1</code> minus benchmark) is <strong>not</strong> computed by any
+metric. Two implications:</p>
+<ul>
+<li>The <code>caar</code> <em>t</em>-test is the cross-event mean of per-event-date CAAR,
+  not BHAR. CAR is appropriate for short-horizon windows (the bias
+  between CAR and BHAR is <code>O(h²)</code> for horizon <code>h</code>); for multi-year
+  buy-and-hold studies, compute BHAR externally.</li>
+<li><code>event_around_return</code> post-event uses simple cumulative returns
+  (<code>price[t+1+k] / price[t+1] − 1</code>), not period-by-period sums. This is
+  arithmetic accumulation, distinct from BHAR's geometric compounding.</li>
+</ul>
+<h3 id="estimation_window"><code>estimation_window</code><a class="headerlink" href="#estimation_window" title="Permanent link">&para;</a></h3>
+<p>The estimation window is the per-asset pre-event sample used to fit
+the abnormal-return baseline. factrix uses it in two places:</p>
+<ul>
+<li><a class="autorefs autorefs-internal" title="bmp_test" href="../../api/metrics/caar/#factrix.metrics.caar.bmp_test"><code>bmp_test</code></a>: standardises each
+  event's abnormal return by the event's own pre-event SE, computed
+  over the estimation window.</li>
+<li><a class="autorefs autorefs-internal" title="corrado_rank_test" href="../../api/metrics/corrado/#factrix.metrics.corrado.corrado_rank_test"><code>corrado_rank_test</code></a>:
+  ranks the abnormal return against the per-asset distribution drawn
+  from the estimation window.</li>
+</ul>
+<p>Conventions:</p>
+<ul>
+<li><strong>Length</strong>: per-asset <code>T ≥ 30</code> non-event observations is the
+  literature default (Brown-Warner 1985 §2.B). factrix enforces
+  this floor at the <code>corrado_rank_test</code> per-asset gate.</li>
+<li><strong>Alignment</strong>: ends one period before the event date; gap-before
+  -event of zero (no skip period). Users running a skip-period
+  convention must pre-shift the panel.</li>
+<li><strong>Overlap exclusion</strong>: factrix's primitives do <strong>not</strong> drop
+  pre-event windows that overlap an earlier event for the same asset.
+  In practice this means contaminated estimation windows for clustered
+  events; use <code>clustering_diagnostic</code> to gauge severity and consider
+  pre-filtering the panel for tightly clustered names.</li>
+<li><strong>Forward-return horizon</strong>: the event window is <code>forward_periods</code>
+  bars; the estimation window is the <strong>pre-event</strong> sample, so
+  <code>EventConfig.forward_periods</code> does not affect estimation-window
+  length.</li>
+</ul>
+<h3 id="confounded-event-handling">Confounded-event handling<a class="headerlink" href="#confounded-event-handling" title="Permanent link">&para;</a></h3>
+<p>When two events for the same <code>asset_id</code> fall within each other's
+forward window, factrix's procedures <strong>do not deduplicate or skip</strong>
+the inner event. The chosen mitigation depends on the metric:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Behaviour under within-asset overlap</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a class="autorefs autorefs-internal" title="caar" href="../../api/metrics/caar/#factrix.metrics.caar.caar"><code>caar</code></a></td>
+<td>Per-event-date CS-mean is computed first, then NW HAC is applied to the calendar-time CAAR series. The <code>forward_periods − 1</code> floor on the lag (Hansen-Hodrick 1980) absorbs MA(h−1) overlap structure. Within-asset clustering on the same date inflates the per-date variance; the calendar reindex + HAC handles the time-axis component but not the asset-axis component.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="bmp_test" href="../../api/metrics/caar/#factrix.metrics.caar.bmp_test"><code>bmp_test</code></a></td>
+<td>The Kolari-Pynnönen adjustment (<code>kolari_pynnonen_adjust=True</code>) corrects the BMP statistic for cross-sectional dependence on the same event date. It does <strong>not</strong> correct same-asset event clustering.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_hit_rate" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_hit_rate"><code>event_hit_rate</code></a>, <a class="autorefs autorefs-internal" title="event_ic" href="../../api/metrics/event_quality/#factrix.metrics.event_quality.event_ic"><code>event_ic</code></a></td>
+<td>Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="event_around_return" href="../../api/metrics/event_horizon/#factrix.metrics.event_horizon.event_around_return"><code>event_around_return</code></a>, <a class="autorefs autorefs-internal" title="multi_horizon_hit_rate" href="../../api/metrics/event_horizon/#factrix.metrics.event_horizon.multi_horizon_hit_rate"><code>multi_horizon_hit_rate</code></a></td>
+<td>Same: each <code>(asset, event_date)</code> row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for.</td>
+</tr>
+<tr>
+<td><a class="autorefs autorefs-internal" title="clustering_diagnostic" href="../../api/metrics/clustering/#factrix.metrics.clustering.clustering_diagnostic"><code>clustering_diagnostic</code></a></td>
+<td>Quantifies cross-sectional concentration on event dates only. Does not detect within-asset temporal clustering — pair with <code>signal_density</code> for the asset-axis view.</td>
+</tr>
+</tbody>
+</table>
+<p>Operationally: trust <code>caar</code> <em>p</em>-values when <code>clustering_diagnostic</code>
+HHI is low and <code>signal_density</code> shows events well-spaced per asset;
+otherwise downweight the parametric <em>p</em> and lean on <code>corrado_rank_test</code>
+or external block-bootstrap.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>
