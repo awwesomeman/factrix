@@ -150,13 +150,13 @@ class StatCode(StrEnum):
     - **p-values**: identifier ends in ``_p`` (``IC_P`` / ``FM_LAMBDA_P``
       / ``TS_BETA_P`` / ``CAAR_P`` plus the diagnostic-only
       ``FACTOR_ADF_P`` / ``LJUNG_BOX_P``). ``is_p_value`` returns
-      ``True``. These are the only codes ``multi_factor.bhy`` will
-      accept as a ``p_stat=`` override (BHY step-up requires
-      probabilities — feeding it t-stats yields nonsense FDR control).
+      ``True``. The Estimator-based ``estimator=`` override (#170)
+      dispatches to one of these via ``Estimator.emits_for``.
     - **t-stats** / effect-size means / lag counts / HHI: ``is_p_value``
       returns ``False``. ``profile.verdict(gate=...)`` accepts these
       (the comparison is generic ``value < threshold`` — interpretation
-      is the caller's call) but ``bhy(p_stat=...)`` rejects them.
+      is the caller's call) but family-verb ``estimator=`` overrides
+      always dispatch to a probability code.
     """
 
     IC_MEAN = "ic_mean"
@@ -180,10 +180,12 @@ class StatCode(StrEnum):
     def is_p_value(self) -> bool:
         """``True`` iff this stat is a probability in [0, 1].
 
-        Used by ``multi_factor.bhy`` (and the shared family resolution
-        layer) to gatekeep the ``p_stat=`` override — BHY step-up math
-        requires p-values, so feeding a t-stat would silently corrupt
-        FDR control.
+        Used by ``profile.verdict(gate=...)`` and downstream tooling to
+        distinguish probability codes from t-stats / effect-size means.
+        The family-verb ``estimator=`` override (#170) does not consult
+        this gate directly: an :class:`~factrix.stats.Estimator`
+        instance is implicitly a p-value source, and ``emits_for``
+        dispatches to a probability ``StatCode`` by construction.
         """
         return self.value.endswith("_p")
 

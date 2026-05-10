@@ -1,4 +1,4 @@
-"""Shared family resolution layer for multiple-testing verbs (#161).
+"""Shared family resolution layer for multiple-testing verbs (#161, #170).
 
 Every closed-form family verb (``bhy`` / ``bhy_hierarchical`` /
 ``partial_conjunction`` / ``bonferroni`` / ``holm``) and the
@@ -12,6 +12,12 @@ dimensions (``factor_id`` / ``forward_periods``) name *the hypothesis*,
 ``context`` dimensions name *the slicing condition*, and ``expand_over``
 must stay in the latter — otherwise users would unwittingly let horizon
 or factor name participate in family partitioning.
+
+The ``estimator=`` override (#170) replaces the v0.10 ``p_stat=StatCode``
+placeholder. An :class:`~factrix.stats.Estimator` instance names *the
+inference method* whose p-value should drive the step-up math; the
+instance reports its applicability per cell and dispatches to the
+appropriate ``StatCode`` key in ``profile.stats``.
 """
 
 from __future__ import annotations
@@ -20,11 +26,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from factrix._codes import StatCode
 from factrix._errors import UserInputError
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
+    from factrix.stats import Estimator
 
 
 _IDENTITY_FIELDS: frozenset[str] = frozenset({"factor_id", "forward_periods"})
@@ -40,9 +46,9 @@ class FamilyEntry:
         expand_over_values: ``tuple(profile.context[k] for k in expand_over)``
             in the order the caller passed ``expand_over``; empty tuple
             when ``expand_over`` is None / empty.
-        p_value: Resolved per the ``p_stat`` selection rule —
-            ``profile.primary_p`` when ``p_stat is None``, else
-            ``profile.stats[p_stat]``.
+        p_value: Resolved per the ``estimator`` selection rule —
+            ``profile.primary_p`` when ``estimator is None``, else the
+            value at ``profile.stats[estimator.emits_for(...)]``.
         profile: Back-reference for survivor-renderer use; never read by
             the resolution layer itself.
     """
@@ -58,7 +64,7 @@ def _resolve_family(
     *,
     verb: str,
     expand_over: Sequence[str] | None = None,
-    p_stat: StatCode | None = None,
+    estimator: Estimator | None = None,
 ) -> list[FamilyEntry]:
     """Validate four invariants and return flat ``FamilyEntry`` records.
 
@@ -70,10 +76,12 @@ def _resolve_family(
     2. The partition key
        ``identity + tuple(profile.context[k] for k in expand_over)``
        must be unique across the input.
-    3. When ``p_stat`` is supplied, every profile must populate it in
-       ``stats``.
+    3. When ``estimator`` is supplied, every profile's cell must be in
+       its applicability set and the dispatched ``StatCode`` must be
+       populated in ``profile.stats``.
     4. Resolve ``p_value`` per profile: ``primary_p`` when
-       ``p_stat is None``, else ``profile.stats[p_stat]``.
+       ``estimator is None``, else
+       ``profile.stats[estimator.emits_for(scope, signal, metric)]``.
 
     Args:
         profiles: Input profiles. ``__hash__`` is disabled on
@@ -82,30 +90,16 @@ def _resolve_family(
         verb: Calling verb name for error rendering (e.g. ``"bhy"``).
         expand_over: Optional context keys to include in the partition
             key. ``None`` and ``[]`` are equivalent.
-        p_stat: Optional alternate p-value selector. ``None`` falls back
-            to ``primary_p``.
+        estimator: Optional inference-method override. ``None`` falls
+            back to ``primary_p``.
 
     Returns:
         One ``FamilyEntry`` per input profile, in input order.
 
     Raises:
-        UserInputError: On any of the three named-set / availability
-            failures (unknown ``expand_over`` / hits identity / duplicate
-            partition key / missing ``p_stat``).
+        UserInputError: On any of the named-set / availability /
+            applicability failures.
     """
-    if p_stat is not None and not p_stat.is_p_value:
-        raise UserInputError(
-            verb=verb,
-            field="p_stat",
-            value=p_stat.name,
-            expected=(
-                f"p-value StatCode (is_p_value=True); {p_stat.name} is "
-                "not a probability and family step-up math would be "
-                "incoherent on it"
-            ),
-            docs_path=f"api/{verb}#p_stat",
-        )
-
     keys = list(expand_over) if expand_over else []
     for name in keys:
         if name in _IDENTITY_FIELDS:
@@ -146,7 +140,7 @@ def _resolve_family(
             FamilyEntry(
                 identity=profile.identity,
                 expand_over_values=values,
-                p_value=_resolve_p_value(profile, p_stat=p_stat, verb=verb),
+                p_value=_resolve_p_value(profile, estimator=estimator, verb=verb),
                 profile=profile,
             )
         )
@@ -178,18 +172,37 @@ def _expand_over_values(
 def _resolve_p_value(
     profile: FactorProfile,
     *,
-    p_stat: StatCode | None,
+    estimator: Estimator | None,
     verb: str,
 ) -> float:
-    if p_stat is None:
+    if estimator is None:
         return profile.primary_p
+
+    cfg = profile.config
+    if not estimator.applicable_to(cfg.scope, cfg.signal):
+        raise UserInputError(
+            verb=verb,
+            field="estimator",
+            value=estimator.name,
+            expected=(
+                f"estimator applicable to (scope={cfg.scope.value}, "
+                f"signal={cfg.signal.value}) cell"
+            ),
+            docs_path=f"api/{verb}#estimator",
+        )
+
+    code = estimator.emits_for(cfg.scope, cfg.signal, cfg.metric)
     try:
-        return profile.stats[p_stat]
+        return profile.stats[code]
     except KeyError:
         raise UserInputError(
             verb=verb,
-            field="p_stat",
-            value=p_stat.name,
+            field="estimator",
+            value=estimator.name,
+            expected=(
+                f"profile.stats to populate {code.name} when {estimator.name} "
+                "is supplied; populated keys listed below"
+            ),
             candidates=sorted(s.name for s in profile.stats),
-            docs_path=f"api/{verb}#p_stat",
+            docs_path=f"api/{verb}#estimator",
         ) from None
