@@ -182,11 +182,19 @@ class StatCode(StrEnum):
     concurrently or (b) ≥ 3 distinct test-statistic KINDs (T / J /
     Wald / F / LR) coexist, the flat ``<KIND>_<ALGO>`` enum becomes
     a (kind × algo) cardinality product and a structured shape
-    (``profile.inference[Algo.X] = {test_stat, kind, p, dof}`` —
-    ``dof`` rather than ``df`` to avoid the DataFrame collision common
-    in quant Python code) earns its breaking-change cost. Below those
-    thresholds the flat
+    (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
+    its breaking-change cost. Below those thresholds the flat
     enum stays cheaper.
+
+    **Convention: ``df`` always means statistical degrees of freedom.**
+    Wherever ``df`` appears in factrix StatCode descriptions, metadata
+    inner-dict keys (``profile.metadata[StatCode.X]["df"]``), or
+    ``profile.inference[...]`` schema fields, it carries the statistics
+    sense — never a DataFrame. This matches scipy's API
+    (``scipy.stats.chi2.sf(..., df=...)``) and is uniform across the
+    codebase. DataFrames are spelled out as ``DataFrame`` in type hints
+    and as ``df`` only in user-facing function-argument names where the
+    Python variable convention is unambiguous from context.
 
     ``is_p_value`` returns ``True`` for any code whose
     underscore-separated tokens contain ``"p"``; family-verb
