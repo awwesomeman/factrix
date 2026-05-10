@@ -94,18 +94,26 @@ print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, et
 import factrix as fl
 from factrix.preprocess import compute_forward_return
 
-raw_panels = [
-    fl.datasets.make_cs_panel(n_assets=80, n_dates=400, ic_target=ic, seed=s)
-    for ic, s in [(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)]
-]
+raw_panels = {
+    f"variant_{i}": fl.datasets.make_cs_panel(
+        n_assets=80, n_dates=400, ic_target=ic, seed=s
+    ).rename({"factor": f"variant_{i}"})
+    for i, (ic, s) in enumerate([(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)])
+}
 cfg       = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
-profiles  = [fl.evaluate(compute_forward_return(p, forward_periods=5), cfg)
-             for p in raw_panels]
+profiles  = [
+    fl.evaluate(compute_forward_return(p, forward_periods=5), cfg, factor_col=name)
+    for name, p in raw_panels.items()
+]
 
-survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
-# survivors: list[FactorProfile] passing per-family BHY step-up at FDR 0.05.
-# Profiles are auto-partitioned into families by (dispatch cell, forward horizon);
-# BHY runs independently inside each family.
+survivors = fl.multi_factor.bhy(profiles, q=0.05)
+# survivors: list[FactorProfile] passing BHY step-up at FDR 0.05.
+# The input list IS the family. Each panel carries its factor under a
+# distinct column name; evaluate(..., factor_col=name) auto-stamps factor_id
+# from that name so identities stay unique. dataclasses.replace(profile,
+# factor_id=...) is the escape hatch when you cannot rename the column.
+# Pass expand_over=[<context key>] to declare per-bucket families
+# (Benjamini & Bogomolov 2014 selective inference).
 ```
 
 ### 3. Single-asset panel — `ModeAxisError` with `suggested_fix`
@@ -413,7 +421,7 @@ Read live descriptions programmatically:
 ## StatCode reference
 
 `StatCode.is_p_value` is `True` iff the value name ends in `_p` (the only
-codes `bhy(gate=...)` accepts).
+codes `bhy(p_stat=...)` accepts).
 
 | StatCode | Set by | Meaning |
 |---|---|---|

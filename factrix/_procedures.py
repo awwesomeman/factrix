@@ -39,7 +39,7 @@ class FactorProcedure(Protocol):
     procedure can populate on ``FactorProfile.stats`` (always-emitted ∪
     conditionally-emitted). ``describe_analysis_modes(format="json")``
     surfaces this so agents can pre-validate ``verdict(gate=...)`` /
-    ``bhy(gate=...)`` choices without running the procedure.
+    ``bhy(p_stat=...)`` choices without running the procedure.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema]

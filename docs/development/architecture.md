@@ -54,7 +54,7 @@ Three entry points, all in `factrix.__init__`:
 |--------|---------|
 | `fl.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
 | `fl.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
-| `fl.multi_factor.bhy(profiles, *, threshold=0.05)` | Benjamini-Yekutieli FDR correction across a profile batch |
+| `fl.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Yekutieli FDR correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 
@@ -482,26 +482,65 @@ Failure modes:
 
 ---
 
-## BHY family partitioning
+## Family verbs and the resolution layer
 
-`factrix/_multi_factor.py::bhy(profiles, *, threshold=0.05, gate=None)`:
+Multiple-testing verbs (`bhy` today; `bhy_hierarchical` / `partial_conjunction` /
+`bonferroni` / `holm` / `romano_wolf` planned) share a single internal pre-processing
+layer in `factrix/_family.py::_resolve_family`. Each verb's procedure runs *after*
+the family-resolution invariants pass.
 
-1. partitions `profiles` by `_family_key(profile) -> _FamilyKey(dispatch, forward_periods)`:
-   - `dispatch: _DispatchKey` derived from `(scope, signal, metric, mode)` with the
-     `_SCOPE_COLLAPSED` collapse rule applied so PANEL and TIMESERIES sparse profiles
-     aggregate consistently
-   - `forward_periods` from `profile.config.forward_periods` — split into separate families
-     because each horizon carries its own null distribution and effective sample size;
-     pooling horizons dilutes the step-up threshold `q × k / N` and silently inflates FDR
-2. within each family, runs Benjamini-Yekutieli step-up correction at the
-   given FDR threshold and returns the survivors.
+### Two signature classes (#161)
 
-`_FamilyKey` is kept distinct from `_DispatchKey` (the registry SSOT must remain
-horizon-agnostic — one procedure per cell). User does **not** pass a group key —
-same-test-family is enforced mechanically.
+The shared layer admits two verb shapes — important to keep distinct so a
+resampling-based verb cannot retroactively force a kwarg onto the closed-form
+ones:
 
-Cross-family aggregation (e.g. horizon-shopping correction) is the user's
-responsibility — see [Guides § Batch screening (BHY)](../guides/batch-screening.md) for the FWER-then-BHY recipe.
+| Class | Verbs | Signature shape |
+|-------|-------|-----------------|
+| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(profiles, *, expand_over, p_stat, ...)` |
+| Resampling-based | `romano_wolf` (planned) | `(profiles, panel, *, expand_over, p_stat, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
+
+### `_resolve_family` four invariants
+
+For input `profiles: Sequence[FactorProfile]`, `expand_over: Sequence[str] | None`,
+and `p_stat: StatCode | None`:
+
+1. `expand_over` names must be present in every profile's `context` and must
+   not collide with identity dimensions (`factor_id` / `forward_periods`) —
+   identity names *the hypothesis*, context names *the slicing condition*;
+   confusing the two is the v0.5 anti-shopping defense at the family layer.
+2. partition key per profile = `identity + tuple(context[k] for k in expand_over)`
+   must be unique across the input. `FactorProfile.__hash__ = None`, so dedup
+   walks the tuple, not a hash.
+3. `p_stat` (when supplied) must satisfy `is_p_value` and must be populated
+   on every profile.
+4. Resolved `p_value` per entry: `primary_p` when `p_stat is None`, else
+   `profile.stats[p_stat]`.
+
+All three user-facing raises route through `factrix._errors.UserInputError`
+(#165) so fuzzy suggestions and docs links render uniformly.
+
+### `expand_over` semantics
+
+`expand_over` declares per-bucket independent families (Benjamini & Bogomolov
+2014, *Selective Inference on Multiple Families of Hypotheses*, JRSS-B). Each
+unique tuple of `context[k] for k in expand_over` is its own step-up batch —
+e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
+
+### Caller responsibilities (#161 contract change)
+
+`bhy` previously auto-partitioned by `_FamilyKey(_DispatchKey, forward_periods)`.
+#161 retired the auto-split in favour of explicit family declaration:
+
+- Mixing cells without distinct `factor_id` now raises `UserInputError`
+  (duplicate identity) where v0.4 silently auto-split. Set `factor_id` per
+  candidate, or use `expand_over` if profiles legitimately share identity.
+- Mixing `forward_periods` without `expand_over` emits a `RuntimeWarning` —
+  different horizons carry different null distributions, and pooling them
+  dilutes the per-rank threshold `q × k / N`.
+- Cross-family aggregation (horizon-shopping correction) remains the
+  user's responsibility — see [Guides § Batch screening (BHY)](../guides/batch-screening.md)
+  for the FWER-then-BHY recipe.
 
 ---
 
@@ -511,7 +550,7 @@ Two-tier metric organisation. Choosing the right tier when adding a new metric:
 
 | Tier | Lives in | Count today | Definition | Surfaces |
 |------|----------|-------------|------------|----------|
-| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `FactorProfile.verdict()`, BHY family key |
+| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `FactorProfile.verdict()`, `primary_p` for family verbs |
 | **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricOutput` |
 
 ### When to register
@@ -564,7 +603,8 @@ factrix/
 ├── _profile.py              # FactorProfile dataclass + verdict / diagnose
 ├── _evaluate.py             # _derive_mode + _evaluate dispatch wrapper
 ├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
-├── _multi_factor.py         # bhy with family partitioning
+├── _family.py               # _resolve_family + FamilyEntry (shared invariants)
+├── _multi_factor.py         # bhy on the resolution layer
 ├── multi_factor.py          # public namespace (re-exports bhy)
 ├── _stats/
 │   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
@@ -586,11 +626,11 @@ Hard constraints — violating these breaks the API contract:
 
 1. `AnalysisConfig` is `frozen=True, slots=True`; every construction path goes through `__post_init__ → _validate_axis_compat` (factory, direct, `from_dict` all hit the same gate).
 2. `FactorProfile` is `frozen=True, slots=True`. One unified type — no per-cell subclass.
-3. The registry is the SSOT for "which cells exist". `_validate_axis_compat`, `describe_analysis_modes`, `suggest_config`, BHY family partitioning all reverse-query it; no parallel rule table.
+3. The registry is the SSOT for "which cells exist". `_validate_axis_compat`, `describe_analysis_modes`, and `suggest_config` all reverse-query it; no parallel rule table.
 4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
 5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate `primary_p = 1.0`.
 6. `verdict()` reads `primary_p` (or a user-supplied `StatCode` gate); `warnings` and `info_notes` never auto-rebind it.
-7. BHY family key = `_FamilyKey(_DispatchKey, forward_periods)`, derived mechanically from the profile, not user-supplied. Horizons split into separate families to preserve nominal FDR control.
+7. Family declaration is explicit: the `bhy` (and other family-verb) input list is one family, optionally split per-bucket via `expand_over`. `_resolve_family` enforces (a) identity uniqueness across input, (b) `expand_over` ⊂ `context` (never identity), (c) `p_stat` is a probability and populated everywhere. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
 8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
 9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
 10. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.

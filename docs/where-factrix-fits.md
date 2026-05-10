@@ -387,8 +387,13 @@ optimiser.
 ```python
 import factrix as fl
 
-profiles  = [fl.evaluate(p, cfg) for p in panels]
-survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+# Each panel carries its factor under a distinct column name
+# ("momentum_12" / "value" / ...); evaluate auto-stamps factor_id
+# from factor_col so identities stay unique without manual surgery.
+profiles  = [
+    fl.evaluate(p, cfg, factor_col=name) for name, p in panels.items()
+]
+survivors = fl.multi_factor.bhy(profiles, q=0.05)
 
 # survivors is a list[FactorProfile]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input
