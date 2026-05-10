@@ -55,17 +55,23 @@ class TestProcedureEmitsPHh:
         cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
         profile = evaluate(panel, cfg)
         assert StatCode.P_HH in profile.stats
+        assert StatCode.T_HH in profile.stats
         p_hh = profile.stats[StatCode.P_HH]
+        t_hh = profile.stats[StatCode.T_HH]
         assert 0.0 <= p_hh <= 1.0
+        assert np.isfinite(t_hh)
         meta = profile.metadata[StatCode.P_HH]
         assert meta["kernel"] == "rectangular"
         assert meta["variance_clamped"] is False
+        # Same metadata mirrored under T_HH so single-key lookup stays honest.
+        assert profile.metadata[StatCode.T_HH] == meta
 
     def test_no_emission_when_forward_periods_one(self, metric: Metric) -> None:
         panel = _build_panel(n_dates=80, n_assets=15, seed=2)
         cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=1)
         profile = evaluate(panel, cfg)
         assert StatCode.P_HH not in profile.stats
+        assert StatCode.T_HH not in profile.stats
         assert StatCode.P in profile.stats
 
     def test_bhy_dispatches_hh_p_value(self, metric: Metric) -> None:
@@ -115,3 +121,4 @@ class TestNegativeVarianceWarning:
         assert WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE in profile.warnings
         assert profile.metadata[StatCode.P_HH]["variance_clamped"] is True
         assert profile.stats[StatCode.P_HH] == 1.0
+        assert profile.stats[StatCode.T_HH] == 0.0

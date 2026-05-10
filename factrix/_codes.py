@@ -167,6 +167,32 @@ class StatCode(StrEnum):
       variants of the same p-value get a further suffix
       (``_P_HH`` / ``_P_GMM``).
 
+    **Inference primary stats — algorithm-suffixed grammar**
+
+    Test statistic and p-value emitted by an inference algorithm follow
+    a uniform ``<TEST_STAT_KIND>_<ALGO>`` / ``P_<ALGO>`` shape:
+
+    - ``T_NW`` / ``T_HH`` — Student-t / asymptotic-normal test statistic
+      from the Newey-West and Hansen-Hodrick HAC variants.
+    - ``P_NW`` / ``P_HH`` / ``P_GMM`` — p-values from the same
+      algorithms. ``P`` (bare) is an alias of ``P_NW`` retained for
+      backwards compat in v0.x; full rename is tracked in #192.
+    - ``J_GMM`` (planned, #191) — Hansen J-statistic (chi-square
+      distributed under H₀); GMM emits ``J_GMM`` + ``P_GMM`` rather
+      than ``T_GMM`` because the over-identification test is χ², not t.
+
+    Future algorithm KINDs slot in by abbreviating the test statistic's
+    reference distribution: ``WALD`` (Wald χ²), ``F`` (Snedecor F),
+    ``LR`` (likelihood ratio).
+
+    **Redesign trigger** — when (a) ≥ 4 inference algorithms ship
+    concurrently or (b) ≥ 3 distinct test-statistic KINDs (T / J /
+    Wald / F / LR) coexist, the flat ``<KIND>_<ALGO>`` enum becomes
+    a (kind × algo) cardinality product and a structured shape
+    (``profile.inference[Algo.X] = {test_stat, kind, p, df}``)
+    earns its breaking-change cost. Below those thresholds the flat
+    enum stays cheaper.
+
     ``is_p_value`` returns ``True`` for any code whose
     underscore-separated tokens contain ``"p"``; family-verb
     ``estimator=`` (#170) dispatches via :class:`Estimator.emits_for`
@@ -177,10 +203,17 @@ class StatCode(StrEnum):
     MEAN = "mean"
     T_NW = "t_nw"
     P = "p"
-    # HH-pure rectangular-kernel HAC variant for IC / FM PANEL on
-    # overlapping forward returns. GMM J-test reserved for procedure-side
-    # landing in #191.
+    # HH-pure rectangular-kernel HAC: t-statistic + p-value emitted as
+    # a pair, parallel to the (T_NW, P) NW pair. Conditionally emitted by
+    # IC / FM PANEL when forward_periods > 1 (overlap exists).
+    T_HH = "t_hh"
     P_HH = "p_hh"
+    # GMM J-test (Hansen 1982) reserved for procedure-side landing in #191:
+    # J statistic is chi-square distributed under H₀ — not a t-stat —
+    # so the (J_GMM, P_GMM) pair replaces the (T_*, P_*) shape. Reserving
+    # both placeholder values here so the EMITS_STATS contract on the
+    # GMM-bearing procedure can declare the full pair from day one.
+    J_GMM = "j_gmm"
     P_GMM = "p_gmm"
 
     # Diagnostic — factor input series.
@@ -227,9 +260,15 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "Implementation convention lives in `factrix.stats.NeweyWest`.",
     StatCode.P: "Two-sided p-value from the NW HAC t-test on the cell "
     "primary estimate.",
+    StatCode.T_HH: "Hansen-Hodrick (1980) rectangular-kernel HAC t-stat "
+    "on the cell primary estimate. Sibling of `T_NW`; uses `Var(mean) = "
+    "(γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n` instead of NW's Bartlett kernel.",
     StatCode.P_HH: "Two-sided p-value from the Hansen-Hodrick (1980) "
     "rectangular-kernel HAC t-test on the cell primary estimate. "
     "Implementation convention lives in `factrix.stats.HansenHodrick`.",
+    StatCode.J_GMM: "Hansen (1982) GMM J-statistic on over-identifying "
+    "moment restrictions. Chi-square distributed under H₀ with df = "
+    "n_moments - n_params. Reserved for procedure-side landing in #191.",
     StatCode.P_GMM: "Two-sided p-value from a Hansen (1982) GMM J-test "
     "(over-identifying restrictions). Reserved for procedure-side landing "
     "in a follow-up issue.",
