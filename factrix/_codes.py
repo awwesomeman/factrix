@@ -182,8 +182,10 @@ class StatCode(StrEnum):
     concurrently or (b) ≥ 3 distinct test-statistic KINDs (T / J /
     Wald / F / LR) coexist, the flat ``<KIND>_<ALGO>`` enum becomes
     a (kind × algo) cardinality product and a structured shape
-    (``profile.inference[Algo.X] = {test_stat, kind, p, df}``)
-    earns its breaking-change cost. Below those thresholds the flat
+    (``profile.inference[Algo.X] = {test_stat, kind, p, dof}`` —
+    ``dof`` rather than ``df`` to avoid the DataFrame collision common
+    in quant Python code) earns its breaking-change cost. Below those
+    thresholds the flat
     enum stays cheaper.
 
     ``is_p_value`` returns ``True`` for any code whose
