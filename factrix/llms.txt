@@ -13,7 +13,7 @@
 - [API — AnalysisConfig](https://awwesomeman.github.io/factrix/api/analysis-config/): four factory methods, from_dict / to_dict
 - [API — evaluate](https://awwesomeman.github.io/factrix/api/evaluate/): single-factor dispatch entry point
 - [API — run_metrics](https://awwesomeman.github.io/factrix/api/run-metrics/): cell-level descriptive batch runner — returns MetricsBundle
-- [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): deprecation of multi_horizon_* with run_metrics + compare / evaluate + bhy(expand_over=) migration recipes
+- [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): migration recipes after multi_horizon_* removal — run_metrics + compare / evaluate + bhy(expand_over=)
 - [API — FactorProfile](https://awwesomeman.github.io/factrix/api/factor-profile/): result schema, verdict(), diagnose()
 - [API — multi_factor](https://awwesomeman.github.io/factrix/api/multi-factor/): bhy() FDR-corrected screening
 - [Reference — warning codes](https://awwesomeman.github.io/factrix/reference/warning-codes/): WarningCode / InfoCode / StatCode / Verdict enums

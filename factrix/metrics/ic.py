@@ -2,14 +2,13 @@
 
 Aggregation: per-date Spearman rank IC (cross-section step) → IC time
 series, then non-overlapping cross-asset t or NW HAC t on its mean;
-regime / multi-horizon variants slice or repeat the same pipeline.
+the regime variant slices the same pipeline.
 
 Input: DataFrame with ``date, asset_id, factor, forward_return``.
 Output: time-indexed IC series (``date, ic``) that can be fed into
 any ``series/`` tool (oos, trend, significance, hit_rate).
 
 Matrix-row: compute_ic, ic, ic_newey_west, ic_ir, regime_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
-Matrix-row: multi_horizon_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t [deprecated] | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
 """
 
 from __future__ import annotations
@@ -46,14 +45,6 @@ class _RegimeICEntry(TypedDict):
     stat: float
     p_value: float
     significance: str
-    n_periods: int
-    p_adjusted_bhy: NotRequired[float]
-
-
-class _HorizonICEntry(TypedDict):
-    mean_ic: float
-    stat: float
-    p_value: float
     n_periods: int
     p_adjusted_bhy: NotRequired[float]
 
@@ -487,150 +478,5 @@ def regime_ic(
             "per_regime": per_regime,
             "direction_consistent": consistent,
             "n_regimes": len(per_regime),
-        },
-    )
-
-
-def multi_horizon_ic(
-    df: pl.DataFrame,
-    price_col: str = "price",
-    factor_col: str = "factor",
-    periods: list[int] | None = None,
-) -> MetricOutput:
-    """Compute mean IC at multiple forward horizons.
-
-    .. deprecated::
-        Horizon sweeping is a dispatcher concern, not a per-cell metric.
-        Use ``run_metrics(panel, cfg.replace(forward_periods=h))`` per
-        horizon and ``compare(bundles)`` for descriptive view, or
-        ``evaluate(...)`` per horizon and
-        ``multi_factor.bhy(profiles, expand_over=["forward_periods"])``
-        for FDR-controlled inference. Removal tracked in #186.
-
-    Args:
-        df: Preprocessed panel with ``date``, ``asset_id``, ``close``,
-            and ``factor`` columns. Output of ``preprocess_cs_factor``.
-        price_col: Price column for computing forward returns.
-        periods: List of forward periods (default [1, 5, 10, 20]).
-
-    Returns:
-        MetricOutput with value = mean IC across horizons,
-        stat = min |t| across horizons.
-        Per-horizon details in metadata.
-
-    Notes:
-        For each horizon $h$, run ``compute_ic`` against
-        ``forward_return(h)`` and apply the ``ic`` non-overlapping
-        $t$-test at stride $h$. Sweeping $k$ horizons is $k$ implicit
-        tests, so per-horizon $p$-values are also reported BHY-adjusted.
-
-        factrix sub-samples per horizon at its own stride rather than
-        applying NW HAC across horizons — the overlap structure differs
-        by ``h`` and a unified HAC kernel would be misspecified.
-
-    References:
-        [Grinold 1989][grinold-1989]: motivates IC as the canonical
-        signal-quality summary across horizons.
-        [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]: BHY adjustment
-        used to control FDR across the horizon sweep.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: per-horizon overlap
-        rule motivating the per-horizon stride.
-    """
-    # BUMP-TIME: pin the SemVer cutoff in this string before the next
-    # bump (e.g. "removed in v0.12.0"). Mirror in CHANGELOG `### Deprecated`.
-    _warnings.warn(
-        "multi_horizon_ic is deprecated and will be removed in a future "
-        "release; use run_metrics + compare(bundles[]) for descriptive "
-        "horizon sweep or evaluate + bhy(expand_over=['forward_periods']) "
-        "for FDR-controlled inference. See #186.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    if periods is None:
-        periods = [1, 5, 10, 20]
-
-    per_horizon: dict[int, _HorizonICEntry] = {}
-
-    sorted_df = df.sort(["asset_id", "date"])
-    all_returns = sorted_df.with_columns(
-        [
-            (
-                pl.col(price_col).shift(-p).over("asset_id") / pl.col(price_col) - 1
-            ).alias(f"_fwd_ret_{p}")
-            for p in periods
-        ]
-    )
-
-    for p in periods:
-        ret_col = f"_fwd_ret_{p}"
-        valid = all_returns.filter(pl.col(ret_col).is_not_null())
-
-        ic_series = compute_ic(valid, factor_col=factor_col, return_col=ret_col)
-        ic_vals = ic_series["ic"].drop_nulls()
-        n_ic = len(ic_vals)
-
-        # Scale the raw threshold to land with ≥ MIN_ASSETS_PER_DATE_IC after
-        # the p-period non-overlap sub-sampling below.
-        if n_ic >= _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, p):
-            mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
-            # WHY: use non-overlapping sampling for t-stat to avoid
-            # autocorrelation inflation from overlapping forward returns
-            sampled = _sample_non_overlapping(ic_series, p)["ic"].drop_nulls()
-            n_sampled = len(sampled)
-            if n_sampled >= 2:
-                t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
-            else:
-                t = 0.0
-            p_val = _p_value_from_t(t, n_sampled)
-            per_horizon[p] = {
-                "mean_ic": mean_ic,
-                "stat": t,
-                "p_value": p_val,
-                "n_periods": n_ic,
-            }
-        else:
-            per_horizon[p] = {
-                "mean_ic": float("nan"),
-                "stat": 0.0,
-                "p_value": 1.0,
-                "n_periods": n_ic,
-            }
-
-    valid_horizons = [h for h in per_horizon.values() if not math.isnan(h["mean_ic"])]
-    if not valid_horizons:
-        return _short_circuit_output(
-            "multi_horizon_ic",
-            "no_horizon_has_enough_observations",
-            min_required=MIN_ASSETS_PER_DATE_IC,
-        )
-
-    # BHY across horizons: sweeping k horizons is k implicit tests.
-    horizon_keys = [h for h in periods if not math.isnan(per_horizon[h]["mean_ic"])]
-    raw_h_p = [per_horizon[h]["p_value"] for h in horizon_keys]
-    adj_h_p = bhy_adjusted_p(raw_h_p)
-    for h, ap in zip(horizon_keys, adj_h_p, strict=False):
-        per_horizon[h]["p_adjusted_bhy"] = float(ap)
-
-    mean_all = float(sum(h["mean_ic"] for h in valid_horizons) / len(valid_horizons))
-
-    weakest = min(valid_horizons, key=lambda h: abs(h["stat"]))
-    min_t = weakest["stat"]
-    min_p = weakest["p_value"]
-    min_p_adjusted = float(max(adj_h_p)) if len(adj_h_p) else 1.0
-
-    return MetricOutput(
-        name="multi_horizon_ic",
-        value=mean_all,
-        stat=min_t,
-        significance=_significance_marker(min_p),
-        metadata={
-            "p_value": min_p,
-            "p_value_bhy_adjusted": min_p_adjusted,
-            "stat_type": "t",
-            "h0": "mu=0 (per horizon)",
-            "aggregation": "mean_value_min_stat",
-            "per_horizon": per_horizon,
-            "n_horizons": len(valid_horizons),
         },
     )

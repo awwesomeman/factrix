@@ -10,7 +10,7 @@ Series diagnostics are axis-agnostic and operate on any ``(date, value)``
 series produced upstream.
 
 Individual × Continuous:
-    compute_ic, ic, ic_ir, regime_ic, multi_horizon_ic,
+    compute_ic, ic, ic_ir, regime_ic,
     compute_spread_series, quantile_spread, quantile_spread_vw,
     compute_group_returns, monotonicity, top_concentration,
     turnover, notional_turnover, breakeven_cost, net_spread,
@@ -22,7 +22,7 @@ broadcast-dummy procedure but reuses these helper metrics — there is
 no separate Common-sparse module set):
     compute_caar, caar, bmp_test, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
-    compute_event_returns, event_around_return, multi_horizon_hit_rate,
+    compute_event_returns, event_around_return,
     signal_density, clustering_diagnostic, corrado_rank_test
 
 Common × Continuous:
@@ -46,7 +46,6 @@ from factrix.metrics.corrado import corrado_rank_test
 from factrix.metrics.event_horizon import (
     compute_event_returns,
     event_around_return,
-    multi_horizon_hit_rate,
 )
 from factrix.metrics.event_quality import (
     event_hit_rate,
@@ -67,7 +66,6 @@ from factrix.metrics.ic import (
     ic,
     ic_ir,
     ic_newey_west,
-    multi_horizon_ic,
     regime_ic,
 )
 from factrix.metrics.mfe_mae import (
@@ -133,8 +131,6 @@ __all__ = [
     "mean_r_squared",
     "mfe_mae_summary",
     "monotonicity",
-    "multi_horizon_hit_rate",
-    "multi_horizon_ic",
     "multi_split_oos_decay",
     "net_spread",
     "notional_turnover",

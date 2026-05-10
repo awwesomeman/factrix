@@ -14,6 +14,26 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+### Removed
+
+- **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** (breaking, #186). Deprecated in v0.11.0; the in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (the #160 anti-shopping defense) and ran a second BHY path inside the metric in parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both names are no longer importable from `factrix.metrics`; direct references raise `ImportError`. Code reaching them via `list_metrics` / `run_metrics` was never wired (already excluded via `_AUTO_DISCOVER_EXCLUDED` in v0.11). The `_HorizonICEntry` TypedDict and the `_metric_index._DEPRECATED` set are removed alongside the functions. Migration recipes (descriptive `run_metrics` per horizon + `pl.concat` of `bundle.to_frame()`; inferential `evaluate` per horizon + `bhy(expand_over=["forward_periods"])`) remain in [`docs/api/multi-horizon.md`](docs/api/multi-horizon.md) and apply unchanged from the v0.11.0 deprecation window.
+
+  ```python
+  # before (v0.11.0, deprecated)
+  fx.metrics.multi_horizon_ic(panel, periods=[1, 5, 10, 20])
+
+  # after (descriptive sweep)
+  bundles = [
+      fx.run_metrics(panel, cfg.replace(forward_periods=h))
+      for h in [1, 5, 10, 20]
+  ]
+  table = pl.concat([b.to_frame() for b in bundles])
+
+  # after (FDR-controlled inference)
+  profiles = [fx.evaluate(panel, cfg.replace(forward_periods=h)) for h in [1, 5, 10, 20]]
+  survivors = fx.multi_factor.bhy(profiles, expand_over=["forward_periods"])
+  ```
+
 ## v0.11.0 (2026-05-11)
 
 ### Added

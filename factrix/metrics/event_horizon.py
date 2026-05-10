@@ -11,21 +11,16 @@ Answers:
 Metrics:
     compute_event_returns — per-event, per-offset raw return data
     event_around_return   — return profile summary at each offset
-    multi_horizon_hit_rate — win rate at multiple holding periods
 
-Matrix-row: compute_event_returns, event_around_return | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output, _significance_marker
-Matrix-row: multi_horizon_hit_rate | (*, SPARSE, *, PANEL) | per-event | binomial [deprecated] | _short_circuit_output, _significance_marker
+Matrix-row: compute_event_returns, event_around_return | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output
 """
 
 from __future__ import annotations
 
-import warnings as _warnings
-
 import numpy as np
 import polars as pl
 
-from factrix._stats import _significance_marker
-from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
+from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
 
@@ -234,116 +229,6 @@ def event_around_return(
         metadata={
             "per_offset": per_offset,
             "interpretation": "value = mean |pre-event return|; high = potential leakage",
-            "p_value": 1.0,
-        },
-    )
-
-
-def multi_horizon_hit_rate(
-    df: pl.DataFrame,
-    *,
-    horizons: list[int] | None = None,
-    factor_col: str = "factor",
-    price_col: str = "price",
-) -> MetricOutput:
-    """Win rate at multiple holding periods.
-
-    .. deprecated::
-        Horizon sweeping is a dispatcher concern, not a per-cell metric.
-        Use ``run_metrics(panel, cfg.replace(forward_periods=h))`` per
-        horizon and ``compare(bundles)`` for descriptive view, or
-        ``evaluate(...)`` per horizon and
-        ``multi_factor.bhy(profiles, expand_over=["forward_periods"])``
-        for FDR-controlled inference. Removal tracked in #186.
-
-    Answers: "how long do you need to hold for the signal to work?"
-
-    For each horizon, computes the fraction of events where the
-    directional return is positive (signed_return > 0).
-
-    Args:
-        df: Panel with ``date, asset_id, factor, price``.
-        horizons: Holding periods to test. Defaults to ``[1, 6, 12, 24]``.
-
-    Returns:
-        MetricOutput with value = hit rate at longest horizon, per-horizon
-        details in metadata. When price data is unavailable, returns a
-        short-circuit MetricOutput (``value=NaN``,
-        ``metadata["reason"]="no_price_data"``) so all metrics share a
-        single return contract.
-
-    Notes:
-        Per horizon ``h``: ``rate_h = sum_i 1{signed_return_{i,h} > 0} /
-        N_h``; ``z_h = (hits - N_h/2) / (sqrt(N_h) / 2)`` with two-sided
-        normal-approx p-value against ``H0: p = 0.5``.
-
-        factrix sets the top-level ``p_value = 1.0`` because the per-
-        horizon p-values are the inferential output and BHY adjustment
-        across horizons is left to the caller (the appropriate set of
-        sweeps is application-specific).
-    """
-    # BUMP-TIME: pin the SemVer cutoff in this string before the next
-    # bump (e.g. "removed in v0.12.0"). Mirror in CHANGELOG `### Deprecated`.
-    _warnings.warn(
-        "multi_horizon_hit_rate is deprecated and will be removed in a "
-        "future release; use run_metrics + compare(bundles[]) for "
-        "descriptive horizon sweep or evaluate + "
-        "bhy(expand_over=['forward_periods']) for FDR-controlled "
-        "inference. See #186.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    if horizons is None:
-        horizons = [1, 6, 12, 24]
-
-    event_rets = compute_event_returns(
-        df,
-        offsets=horizons,
-        factor_col=factor_col,
-        price_col=price_col,
-    )
-
-    if event_rets.is_empty():
-        return _short_circuit_output(
-            "multi_horizon_hit_rate",
-            "no_price_data",
-            per_horizon={},
-            horizons=horizons,
-        )
-
-    per_horizon: dict[int, dict] = {}
-    last_valid_rate = 0.0
-
-    for h in horizons:
-        subset = event_rets.filter(pl.col("offset") == h)["signed_return"]
-        n = len(subset)
-        if n < MIN_EVENTS_HARD:
-            per_horizon[h] = {"hit_rate": None, "n": n}
-            continue
-
-        arr = subset.to_numpy()
-        hits = int(np.sum(arr > 0))
-        rate = hits / n
-
-        z = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
-        p = float(2 * (1 - __import__("scipy").stats.norm.cdf(abs(z))))
-
-        per_horizon[h] = {
-            "hit_rate": rate,
-            "n": n,
-            "z_stat": float(z),
-            "p_value": p,
-            "significance": _significance_marker(p),
-        }
-        last_valid_rate = rate
-
-    return MetricOutput(
-        name="multi_horizon_hit_rate",
-        value=last_valid_rate,
-        metadata={
-            "per_horizon": per_horizon,
-            "horizons": horizons,
             "p_value": 1.0,
         },
     )

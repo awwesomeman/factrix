@@ -9,7 +9,6 @@ import pytest
 from factrix.metrics.event_horizon import (
     compute_event_returns,
     event_around_return,
-    multi_horizon_hit_rate,
 )
 from factrix.metrics.event_quality import signal_density
 
@@ -135,33 +134,6 @@ class TestEventAroundReturn:
 
 
 # ---------------------------------------------------------------------------
-# multi_horizon_hit_rate
-# ---------------------------------------------------------------------------
-
-
-class TestMultiHorizonHitRate:
-    def test_returns_metric_output(self, event_data):
-        result = multi_horizon_hit_rate(event_data, horizons=[1, 6, 12])
-        assert result is not None
-        assert result.name == "multi_horizon_hit_rate"
-        assert "per_horizon" in result.metadata
-
-    def test_per_horizon_has_stats(self, event_data):
-        result = multi_horizon_hit_rate(event_data, horizons=[1, 6])
-        ph = result.metadata["per_horizon"]
-        assert 1 in ph
-        assert "hit_rate" in ph[1]
-        assert "z_stat" in ph[1]
-
-    def test_short_circuit_without_price(self, no_price_data):
-        result = multi_horizon_hit_rate(no_price_data)
-        assert result.name == "multi_horizon_hit_rate"
-        assert math.isnan(result.value)
-        assert result.metadata["reason"] == "no_price_data"
-        assert result.metadata["per_horizon"] == {}
-
-
-# ---------------------------------------------------------------------------
 # signal_density
 # ---------------------------------------------------------------------------
 
@@ -200,7 +172,6 @@ class TestImports:
         from factrix.metrics import (
             compute_event_returns,
             event_around_return,
-            multi_horizon_hit_rate,
             signal_density,
         )
 
@@ -209,7 +180,6 @@ class TestImports:
             for f in [
                 compute_event_returns,
                 event_around_return,
-                multi_horizon_hit_rate,
                 signal_density,
             ]
         )

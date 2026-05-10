@@ -38,7 +38,7 @@ panel. Each metric family has its own prep:
 
 | Metric family | Prep step | Pass to `by_regime` |
 |---|---|---|
-| `ic`, `ic_ir`, `multi_horizon_ic` | `ic_df = compute_ic(panel)` | `ic_df` |
+| `ic`, `ic_ir` | `ic_df = compute_ic(panel)` | `ic_df` |
 | `caar` | `caar_df = compute_caar(panel)` | `caar_df` |
 | `fama_macbeth` | `beta_df = compute_fm_betas(panel)` | `beta_df` |
 
