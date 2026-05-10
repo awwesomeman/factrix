@@ -572,9 +572,9 @@ def list_estimators(
     Raises
     ------
     IncompatibleAxisError
-        ``(scope, signal)`` matches no registered Estimator. In v0.11
-        the registry contains only ``NeweyWest`` which applies to every
-        user-facing cell, so this is defensive.
+        ``(scope, signal)`` matches no registered Estimator. ``NeweyWest``
+        applies to every user-facing cell, so as long as it stays in the
+        registry this branch is defensive.
     """
     from factrix.stats import _ESTIMATOR_REGISTRY
 

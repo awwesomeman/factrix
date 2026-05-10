@@ -177,8 +177,9 @@ class StatCode(StrEnum):
     MEAN = "mean"
     T_NW = "t_nw"
     P = "p"
-    # Algorithm variants reserved for procedure-side landing
-    # (HH-pure: #184; GMM J-test: separate follow-up).
+    # HH-pure rectangular-kernel HAC variant for IC / FM PANEL on
+    # overlapping forward returns. GMM J-test reserved for procedure-side
+    # landing in #191.
     P_HH = "p_hh"
     P_GMM = "p_gmm"
 
@@ -226,8 +227,9 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "Implementation convention lives in `factrix.stats.NeweyWest`.",
     StatCode.P: "Two-sided p-value from the NW HAC t-test on the cell "
     "primary estimate.",
-    StatCode.P_HH: "Two-sided p-value under Hansen-Hodrick (1980) "
-    "rectangular-kernel HAC. Reserved for procedure-side landing in #184.",
+    StatCode.P_HH: "Two-sided p-value from the Hansen-Hodrick (1980) "
+    "rectangular-kernel HAC t-test on the cell primary estimate. "
+    "Implementation convention lives in `factrix.stats.HansenHodrick`.",
     StatCode.P_GMM: "Two-sided p-value from a Hansen (1982) GMM J-test "
     "(over-identifying restrictions). Reserved for procedure-side landing "
     "in a follow-up issue.",
