@@ -14,6 +14,8 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+## v0.11.0 (2026-05-11)
+
 ### Added
 
 - **`factrix.stats.Estimator`** — runtime-checkable Protocol for inference-method instances. Implementations supply `name` / `description` / `applicable_to(scope, signal)` / `emits_for(scope, signal, metric)`; the family-verb resolution layer dispatches via these to a `StatCode` key in `profile.stats`. The protocol is selection-only — no `compute()` method — so cell-internal estimator swap stays a future `ComputableEstimator(Estimator)` extension and the surface does not pre-commit to a return shape that NW (`SE+t+p`) and GMM (`J-stat+df+p`) cannot share. (#170)
@@ -57,6 +59,278 @@ While the version is below `1.0.0`, the public API should be considered unstable
 - **`factrix.multi_factor.bhy` accepts `estimator: Estimator | None` instead of `p_stat: StatCode | None`** (breaking, #170). The previous `p_stat=` kwarg was a placeholder landed in v0.10 alongside the family-verb refactor and is removed in v0.11. Migration:
 
   ```python
+  # before (v0.10)
+  fx.multi_factor.bhy(profiles, p_stat=fx.StatCode.IC_P)
+
+  # after (v0.11)
+  from factrix.stats import NeweyWest
+  fx.multi_factor.bhy(profiles, estimator=NeweyWest())
+  ```
+
+  Default behaviour (`estimator=None`) is unchanged — each profile's `primary_p` drives the step-up. `StatCode.is_p_value` continues to gate `profile.verdict(gate=...)`; the family-verb path no longer consults it because an `Estimator` instance is implicitly a p-value source by construction (`emits_for` returns a probability `StatCode`). The `_STAT_DESCRIPTIONS[StatCode.*_T_NW]` entries are slimmed: kernel / bandwidth / overlap-floor implementation details now live on `NeweyWest` itself, while enum descriptions retain only cell-specific stat semantics and cross-ref the estimator class. (#170)
+
+- **`factrix.multi_factor.bhy` returns `Survivors` instead of `list[FactorProfile]`** (breaking under v0.x). Migration: replace `survivors` with `survivors.profiles` for downstream list / iteration use. The new container exposes `.profiles` (input order, kept rows only), `.adj_q` (bucket-local BHY-adjusted p-values, aligned to `.profiles`), `.q`, `.expand_over` (tuple of partition keys), and `.n_total` (per-bucket `m`, keyed by `expand_over_values`). Internally `bhy` builds the survivor index as `{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket and slices both `.profiles` and `.adj_q` to that set, so the survivor mask and the adjusted p-values downstream code reads come from the same `bhy_adjusted_p` call (the previous parallel `bhy_adjust` mask path is removed) — tie / boundary cases where two parallel implementations could disagree are eliminated by construction. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter — three-column `identity | primary_p | adj_q` table, plus an `expand_over_values` column when buckets are declared. The container is procedure-agnostic; future Holm / Bonferroni / Romano-Wolf verbs will populate the same shape via their own `*_adjusted_p`. (#171)
+- **`factrix.multi_factor.bhy` retired v0.4 auto-partition; caller now declares the family explicitly** (breaking, #161). The previous behaviour of auto-isolating buckets by dispatch cell × forward horizon is gone — `bhy(profiles)` treats the input list as **one** family and runs a single step-up. To run per-bucket independent step-ups (Benjamini & Bogomolov 2014 selective inference), declare the partition keys via `expand_over=[<context key>, ...]`. Mixed `forward_periods` without `expand_over` now emits a `RuntimeWarning` flagging the FDR-inflation foot-gun (silent pooling dilutes the per-rank threshold). The default `factor_id="factor"` across multiple cells now raises `UserInputError` (duplicate identity) instead of silently auto-splitting; the error hint suggests setting distinct `factor_id` or using `expand_over`. The `_resolve_family` layer p-stat validation (`StatCode.is_p_value`) is shared across `bhy` / `bonferroni` / `holm` / `partial_conjunction`, so every family verb enforces the same gatekeeping. Migration:
+
+  ```python
+  # before (v0.10) — auto-partition by cell × forward_periods
+  fx.multi_factor.bhy(profiles)
+
+  # after (v0.11) — declare buckets explicitly
+  fx.multi_factor.bhy(profiles, expand_over=["forward_periods"])
+  ```
+
+  The `threshold=` and `gate=` aliases still accept input but emit `DeprecationWarning`; both will be removed next release. (#161)
+
+- **`FactorProfile` gains `identity: tuple[str, int]` and `context: Mapping[str, Any]`** (#160 / #172). `identity = (factor_id, forward_periods)` is the v1 anti-shopping defense for multi-horizon factor research — MTC family forms naturally over `identity` (used by `bhy(expand_over=["forward_periods"])`), while sample-restriction / conditioning dimensions stay queryable via `profile.context[key]` (universe / regime entries populated by higher-level verbs through `dataclasses.replace`). `factor_id` is a real dataclass field (default `"factor"`); `forward_periods` is derived from `profile.config`; `identity` is a read-only property returning the tuple. `__hash__ = None` makes the unhashable contract explicit (group by `profile.identity` instead). `_evaluate` is the single stamp site — cell procedures stay schema-agnostic. New `__repr__` / `_repr_html_` render `identity` / mode / `primary_p` / sample sizes and unfold non-empty `context.<key>` rows in Jupyter; `_repr_html_` escapes user-supplied factor_id / context values via `html.escape()` to prevent injected HTML in notebook embeds. `profile.diagnose()` schema gains `identity` and `context` fields. (#160)
+
+- **Terminology**: rename "Layer A" / "Layer B" to **dispatcher** / **curated wrapper** in module docstrings and user-facing docs. Public API names are unchanged. Older CHANGELOG entries below retain the original wording. (#157)
+- **Docs convention**: switch the recommended import alias from `fl` to `fx` across README, mkdocs pages, notebooks, tests, and `llms-full.txt`. `fl` collided with the FinLab community convention (`import finlab as fl`) and carried no mnemonic tie to `factrix`; `fx` takes the first and last letters in the jax-as-`jnp` / polars-as-`pl` / networkx-as-`nx` style. Public API and importable package name (`factrix`) are unchanged — docs-only convention shift, not a breaking change. (#180)
+
+- **`StatCode` naming flattened** (breaking, #187). Primary cell stats lose their metric-name prefix because cell identity already lives on `profile.config` (`scope` / `signal` / `metric`); diagnostics gain explicit prefixes (`FACTOR_` / `RESID_` / `EVENT_`) because their target sits outside `config`. Naming grammar is now `<TARGET>_<KIND>` where TARGET is empty for primary and explicit for diagnostics, KIND is one of `_MEAN` / `_VALUE` / `_<statistic>` / `_P` / `_P_<algorithm>`.
+
+  Rename map (procedure emit + downstream readers):
+
+  | Before | After |
+  |---|---|
+  | `IC_MEAN` / `FM_LAMBDA_MEAN` / `CAAR_MEAN` / `TS_BETA` | `MEAN` |
+  | `IC_T_NW` / `FM_LAMBDA_T_NW` / `TS_BETA_T_NW` / `CAAR_T_NW` | `T_NW` |
+  | `IC_P` / `FM_LAMBDA_P` / `TS_BETA_P` / `CAAR_P` | `P` |
+  | `LJUNG_BOX_P` | `RESID_LJUNG_BOX_P` |
+  | `EVENT_TEMPORAL_HHI` | `EVENT_HHI_VALUE` |
+
+  New StatCodes shipped as part of the refactor:
+
+  - `P_HH` / `T_HH` — landed in #184 (HH-pure rectangular-kernel HAC variant for IC / FM PANEL); the (T_HH, P_HH) pair mirrors the (T_NW, P) shape so HH and NW carry symmetric information. `P_GMM` reserved for #191 (Hansen 1982 GMM J-test); the matching `J_GMM` chi-square statistic lands together with the GMM procedure in that issue.
+  - `FACTOR_ADF_TAU` / `RESID_LJUNG_BOX_Q` — the underlying ADF τ statistic and Ljung-Box Q statistic are now emitted alongside their existing p-values; the math was already computed inside the procedure but the value was previously discarded.
+
+  `StatCode.is_p_value` widened from `value.endswith("_p")` to a tokenised check (`"p" in value.split("_")`) so bare `P` and algorithm variants `P_HH` / `P_GMM` qualify alongside `*_P` diagnostics.
+
+  `Estimator.emits_for` simplified — `NeweyWest` no longer dispatches per-cell to a metric-specific `*_P`; it returns `StatCode.P` cell-agnostically. Future Estimator instances (HansenHodrick / GMM / DriscollKraay) return their own `P_*` value in one line, removing the N-cell × M-algorithm dispatch table the previous shape would have required.
+
+  Downstream consumers of `profile.diagnose()` JSON: the `stats` sub-dict's keys move from `"ic_p"` / `"ic_mean"` / `"caar_p"` / etc. to flat `"p"` / `"mean"` / `"t_nw"`. Filtering / dashboard code that reads keys by their old metric-prefixed string needs the same rename map applied to its own logic. (#187)
+
+### Deprecated
+
+- **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** — sweeping IC / hit-rate across `[1, 5, 10, 20]` forward periods is a dispatcher concern, not a per-cell metric. The in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (#160 anti-shopping defense) and ran a second BHY path inside the metric (`metadata["p_adjusted_bhy"]`) parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both functions remain importable and runnable for one release cycle but emit `DeprecationWarning` on call and are excluded from `list_metrics` output (`_metric_index._DEPRECATED`). `run_metrics` auto-discover already skipped them via `_AUTO_DISCOVER_EXCLUDED` (per #147). Migration: `run_metrics(panel, cfg.replace(forward_periods=h))` per horizon → `compare(bundles)` for descriptive horizon-by-metric view, or `evaluate(...)` per horizon → `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Both paths are metric-agnostic — `mfe_mae` / `caar` / `oos` / `monotonicity` inherit horizon-sweep support automatically. Recipes in `docs/api/multi-horizon.md`. Removal version pinned at the next major-bump release-train. (#186)
+
+### Removed
+
+- **`factrix.multi_factor.bhy(p_stat=StatCode)` path** — replaced by `estimator=Estimator` (see Changed above). (#170)
+- **`factrix.multi_factor.bhy(gate=...)` deprecation alias** — the v0.4 alias for `p_stat=` is removed alongside its successor; users still on `gate=` should jump directly to `estimator=NeweyWest()`. (#170)
+- **`StatCode.NW_LAGS_USED`** — Newey-West auto-bandwidth lag count is no longer surfaced on `profile.stats`. The lag selection logic in `_resolve_nw_lags` is unchanged; the value just stops being externalised. Reinstating it under a dedicated `profile.metadata` (or sibling) channel is tracked as #188 — `_codes.py` was the wrong home (a hyperparameter-selection record, not a stat). (#187)
+
+---
+
+## v0.10.0 (2026-05-09)
+
+### BREAKING CHANGE
+
+- by_regime emits DeprecationWarning since v0.10.0;
+removal scheduled for a future minor (separate sub-issue). Migrate to
+by_slice with an explicit inner-join — see docs/api/by-regime.md.
+
+### Feat
+
+- **metrics**: deprecate by_regime in favor of by_slice (#154)
+- **metrics**: add by_slice axis-agnostic dispatcher (#154)
+
+### Fix
+
+- **mfe_mae**: instantiate Polars dtypes in schema dict
+
+### Refactor
+
+- **ic**: TypedDict for per-regime / per-horizon entries
+
+## v0.9.0 (2026-05-07)
+
+### Feat
+
+- **metrics**: by_regime regime dispatcher (#107) (#112)
+- **metrics**: add by_regime regime dispatcher (#107)
+- **describe**: SuggestConfigResult.diagnose() symmetry
+- **codes**: StatCode.description for symmetry
+- **evaluate**: factor_col= signal-column alias
+- **introspection**: expose per-cell stats_keys via EMITS_STATS
+- **preprocess**: expose compute_forward_return as public API (#91)
+
+### Fix
+
+- persona cross-cuts review followups (#110)
+- **docs-hooks**: prune stale notebooks from docs/examples on build (#99) (#103)
+- **ci**: fix CHANGELOG regex and add --latest to release job
+
+### Refactor
+
+- **ic**: share regime slicing primitive (#107)
+
+## v0.8.0 (2026-05-07)
+
+### Feat
+
+- **brand**: add logo banner and icon (#86)
+- **api**: list_metrics for per-cell standalone metric discovery (#76) (#79)
+- **api**: list_metrics for per-cell standalone metric discovery (#76)
+- **api**: friendly error when evaluate() called without config (#72)
+- **metrics**: four-angle primitive polish (#48)
+- **caar**: preserve magnitude in compute_caar (#12)
+- **introspect**: SuggestConfigResult.detected (#20)
+- **introspect**: two-tier n_assets guard
+
+### Fix
+
+- **readme**: point docs badge to correct workflow file
+- **describe**: cross_section_tier on inference-stage N (#83)
+- **ci**: use uv pip for import-from-wheel smoke
+- **stats**: calendar-time CAAR for PANEL NW HAC (#24) (#37)
+- **stats**: two-tier n_events guard on common_sparse (#25) (#29)
+- **introspect**: scope-gate magnitude_dropped (#23) (#28)
+
+### Refactor
+
+- **scripts**: organise scripts/ by purpose (#65)
+- **registry**: add _dispatch_key_for SSOT helper
+- naming + discoverability hygiene sweep
+
+## v0.7.0 (2026-05-07)
+
+### Feat
+
+- **introspect**: warn on dropped sparse magnitude
+
+## v0.6.0 (2026-05-03)
+
+### Feat
+
+- **metrics**: add ts_quantile_spread + ts_asymmetry (#5)
+- **stats**: add NW HAC multivariate OLS + Wald helpers
+
+### Fix
+
+- **multi_factor**: split bhy family on forward_periods
+
+## v0.5.0 (2026-05-02)
+
+### Feat
+
+- **api**: expose n_assets on FactorProfile; gate-validate bhy
+- **api**: complete v0.5 surface — three-axis dispatch refactor
+- **api**: switch public surface to v0.5; rip out v0.4
+- **api**: add v0.5 multi_factor.bhy with family partitioning
+- **api**: add v0.5 describe + suggest_config helpers
+- **api**: wire CAAR PANEL — 7/7 cells live
+- **api**: wire COMMON PANEL procedures (cont + sparse)
+- **api**: wire TS dummy SPARSE Mode B procedure
+- **api**: wire TS β CONTINUOUS Mode B procedure
+- **api**: wire FM PANEL procedure compute
+- **api**: add v0.5 _evaluate dispatch wrapper
+- **api**: wire IC PANEL procedure compute
+- **api**: wire v0.5 dispatch registry SSOT
+- **api**: scaffold v0.5 AnalysisConfig foundation
+
+### Fix
+
+- **build**: correct dependencies table location in pyproject.toml
+- **api**: apply v0.5 review UX minors
+- **api**: apply v0.5 review architecture minors
+
+### Refactor
+
+- rename T → n_periods to disambiguate from t-stat
+- drop Mode A/B for PANEL/TIMESERIES
+
+## v0.4.0 (2026-04-25)
+
+### BREAKING CHANGE
+
+- breakeven_cost and net_spread now require
+forward_periods. Direct callers must update.
+
+### Feat
+
+- **diagnostics**: add high_turnover_jaccard rule
+- **tradability**: separate cost driver from rank stability
+
+### Fix
+
+- **tradability**: align mp turnover stride with fp
+- **tradability**: complete jaccard cost wiring
+- **tradability**: scale cost by holding period
+
+### Refactor
+
+- **tradability**: rename jaccard to notional
+
+## v0.3.0 (2026-04-23)
+
+### BREAKING CHANGE
+
+- callers passing adf_check=False must migrate to
+adf_threshold=None; callers passing adf_check=True can drop the
+argument (default unchanged) or pass adf_threshold=0.10.
+- metadata n_dates -> n_pairs; short-circuit reason
+no_valid_rank_autocorrelation -> insufficient_pairs.
+
+### Feat
+
+- **mfe-mae**: expose min_estimation_samples kwarg
+- **trend**: adf_threshold replaces adf_check bool
+- **hit-rate**: exact binomial p-value for small samples
+- **concentration**: add alpha-contribution hhi variant
+- **ic-trend**: flag unit-root suspicion via adf pre-check
+- **ic,caar**: bhy per bucket; horizon-aware sample guards
+- **stats**: add stationary bootstrap utility
+- **mfe-mae**: normalize excursions by estimation sigma
+- **spanning**: flag inflated t-stats from forward selection
+- **quantile-spread**: lag vw weights by default
+- **bmp-test**: add kolari-pynnönen cross-sectional adjustment
+- **stats**: enforce forward_periods floor on newey-west
+- **fama-macbeth**: shanken eiv + two-way cluster
+- **profileset**: warn on raw-p batch decisions
+- **metrics**: align turnover with forward horizon
+
+### Fix
+
+- **trend**: short-circuit nan-only ic series before lstsq
+
+### Refactor
+
+- **ic**: drop parallel list in regime_ic bhy step
+- **_types**: centralise metric option literals
+
+## v0.2.0 (2026-04-21)
+
+### BREAKING CHANGE
+
+- consumers must update `import factorlib` →
+`import factrix` and `pip install factorlib` → `pip install factrix`.
+- prepared panels now carry _fl_preprocess_sig (String)
+instead of _fl_forward_periods (Int32). Downstream code reading that
+specific column name must update.
+- fl.datasets.make_cs_panel(..., forward_periods=5)
+and fl.datasets.make_event_panel(..., forward_periods=5) must be
+updated to signal_horizon=5. Package is at 0.1.0 with no external
+users.
+
+### Feat
+
+- **profileset**: add diagnose_all, with_canonical, and layered logging
+- **profiles**: add PASS_WITH_WARNINGS verdict and alternative p-values
+- **preprocess**: widen strict gate to all preprocess-time fields
+- **datasets**: add synthetic CS / event panels with calibrated IC
+
+### Fix
+
+- **metrics**: guard ts_beta_sign_consistency at N<2
+- **preprocess,evaluate**: strict-gate safety + fallback visibility
+
+### Refactor
+
+- rename package from factorlib to factrix
+- drop streamlit; lean pyproject deps; editable install
+- **datasets**: rename forward_periods to signal_horizon
+
   # before (v0.10)
   fx.multi_factor.bhy(profiles, p_stat=fx.StatCode.IC_P)
 
