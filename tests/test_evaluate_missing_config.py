@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-import factrix as fl
+import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
@@ -32,13 +32,13 @@ def _build_panel(n_dates: int = 60, n_assets: int = 5, seed: int = 0) -> pl.Data
 def test_evaluate_without_config_raises_missing_config_error():
     panel = _build_panel()
     with pytest.raises(MissingConfigError):
-        fl.evaluate(panel)
+        fx.evaluate(panel)
 
 
 def test_missing_config_error_message_points_to_suggest_config_and_docs():
     panel = _build_panel()
     with pytest.raises(MissingConfigError) as exc_info:
-        fl.evaluate(panel)
+        fx.evaluate(panel)
     msg = str(exc_info.value)
     assert "suggest_config" in msg
     assert "https://awwesomeman.github.io/factrix/getting-started/" in msg
@@ -47,17 +47,17 @@ def test_missing_config_error_message_points_to_suggest_config_and_docs():
 def test_missing_config_error_is_catchable_as_config_and_factrix_error():
     panel = _build_panel()
     with pytest.raises(ConfigError):
-        fl.evaluate(panel)
+        fx.evaluate(panel)
     with pytest.raises(FactrixError):
-        fl.evaluate(panel)
+        fx.evaluate(panel)
 
 
 def test_evaluate_with_config_routes_to_private_dispatcher():
     panel = _build_panel()
-    cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC)
-    profile = fl.evaluate(panel, cfg)
-    assert isinstance(profile, fl.FactorProfile)
+    cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+    profile = fx.evaluate(panel, cfg)
+    assert isinstance(profile, fx.FactorProfile)
 
 
 def test_missing_config_error_exported_from_top_level():
-    assert fl.MissingConfigError is MissingConfigError
+    assert fx.MissingConfigError is MissingConfigError

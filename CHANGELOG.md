@@ -17,6 +17,7 @@ While the version is below `1.0.0`, the public API should be considered unstable
 ### Changed
 
 - **Terminology**: rename "Layer A" / "Layer B" to **dispatcher** / **curated wrapper** in module docstrings and user-facing docs. Public API names are unchanged. Older CHANGELOG entries below retain the original wording. (#157)
+- **Docs convention**: switch the recommended import alias from `fl` to `fx` across README, mkdocs pages, notebooks, tests, and `llms-full.txt`. `fl` collided with the FinLab community convention (`import finlab as fl`) and carried no mnemonic tie to `factrix`; `fx` takes the first and last letters in the jax-as-`jnp` / polars-as-`pl` / networkx-as-`nx` style. Public API and importable package name (`factrix`) are unchanged — docs-only convention shift, not a breaking change. (#180)
 
 ---
 

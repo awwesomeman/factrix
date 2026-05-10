@@ -116,14 +116,14 @@ See the [installation guide](https://awwesomeman.github.io/factrix/latest/gettin
 **Single factor — IC evaluation**
 
 ```python
-import factrix as fl
+import factrix as fx
 from factrix.preprocess import compute_forward_return
 
-raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
-cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
-profile = fl.evaluate(panel, cfg)
+cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+profile = fx.evaluate(panel, cfg)
 
 print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
 print(profile.diagnose())   # WarningCode / InfoCode list
@@ -132,16 +132,16 @@ print(profile.diagnose())   # WarningCode / InfoCode list
 **Multi-factor BHY screening**
 
 ```python
-profiles  = [fl.evaluate(p, cfg) for p in [panel_a, panel_b, panel_c, panel_d, panel_e]]
-survivors = fl.multi_factor.bhy(profiles, threshold=0.05)
+profiles  = [fx.evaluate(p, cfg) for p in [panel_a, panel_b, panel_c, panel_d, panel_e]]
+survivors = fx.multi_factor.bhy(profiles, threshold=0.05)
 ```
 
 **Single-asset (timeseries) fallback**
 
 ```python
-cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
-profile = fl.evaluate(single_asset_panel, cfg)  # mode auto-switches to TIMESERIES
-print(profile.stats.get(fl.StatCode.TS_BETA))
+cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+profile = fx.evaluate(single_asset_panel, cfg)  # mode auto-switches to TIMESERIES
+print(profile.stats.get(fx.StatCode.TS_BETA))
 ```
 
 ## Documentation

@@ -77,14 +77,14 @@ Treating universe / regime as sample restriction (the common case) is a
 plain comprehension before the family verb:
 
 ```python
-import factrix as fl
+import factrix as fx
 
 profiles = [
     evaluate(panel, cfg, factor_col=name)
     for name in factor_cols
 ]
 large_cap = [p for p in profiles if p.context.get("universe_id") == "us_large_cap"]
-fl.multi_factor.bhy(large_cap, q=0.05)
+fx.multi_factor.bhy(large_cap, q=0.05)
 ```
 
 When the universe / regime axis IS a hypothesis dimension (e.g., "is

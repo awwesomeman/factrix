@@ -19,14 +19,14 @@ import factrix
 # Negative lookbehind excludes URL paths (`github.com/awwesomeman/factrix`)
 # and dotted continuations from a non-factrix root.
 REF_RE = re.compile(
-    r"(?<![/.:])\b(?:factrix|fl)\."
+    r"(?<![/.:])\b(?:factrix|fx)\."
     r"([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)"
 )
 FROM_IMPORT_RE = re.compile(
     r"^from\s+(factrix(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s+import\s+(.+)$",
     re.MULTILINE,
 )
-# `import factrix` / `import factrix.metrics [as fl]` — bare-import form.
+# `import factrix` / `import factrix.metrics [as fx]` — bare-import form.
 BARE_IMPORT_RE = re.compile(
     r"^import\s+(factrix(?:\.[A-Za-z_][A-Za-z0-9_]*)*)(?:\s+as\s+\w+)?\s*$",
     re.MULTILINE,

@@ -61,14 +61,14 @@ families read the same wide panel `evaluate()` consumes. Pass the
 exact dataframe you handed to `evaluate()`:
 
 ```python
-import factrix as fl
+import factrix as fx
 
-raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
-panel = fl.preprocess.compute_forward_return(raw, forward_periods=5)
-profile = fl.evaluate(panel, fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC))
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
 
-spread = fl.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)
-mono = fl.metrics.monotonicity(panel, forward_periods=5, n_groups=5)
+spread = fx.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)
+mono = fx.metrics.monotonicity(panel, forward_periods=5, n_groups=5)
 ```
 
 ### 2. Event panel `{factor ∈ {0, R}}` — sparse signal cells
@@ -77,17 +77,17 @@ mono = fl.metrics.monotonicity(panel, forward_periods=5, n_groups=5)
 `corrado` read a panel where `factor` is zero on non-event entries
 and arbitrary real magnitude on event entries (canonical `{-1, 0, +1}`,
 also valid: `{0, R≥0}` or `{-R, 0, +R}`). Build via
-`fl.datasets.make_event_panel` or filter your own panel.
+`fx.datasets.make_event_panel` or filter your own panel.
 
 ```python
-events = fl.datasets.make_event_panel(n_assets=80, n_dates=500, event_rate=0.05, seed=7)
-events = fl.preprocess.compute_forward_return(events, forward_periods=5)
+events = fx.datasets.make_event_panel(n_assets=80, n_dates=500, event_rate=0.05, seed=7)
+events = fx.preprocess.compute_forward_return(events, forward_periods=5)
 
-profile = fl.evaluate(events, fl.AnalysisConfig.individual_sparse(forward_periods=5))
+profile = fx.evaluate(events, fx.AnalysisConfig.individual_sparse(forward_periods=5))
 
 # Robustness on top of the canonical CAAR:
-hit = fl.metrics.event_hit_rate(events)
-rank_p = fl.metrics.corrado_rank_test(events, forward_periods=5)
+hit = fx.metrics.event_hit_rate(events)
+rank_p = fx.metrics.corrado_rank_test(events, forward_periods=5)
 ```
 
 ### 3. Derived `(date, value)` series — series diagnostics
@@ -103,9 +103,9 @@ import polars as pl
 
 ic_series: pl.DataFrame = ...  # columns: date, value (per-date IC)
 
-decay = fl.metrics.multi_split_oos_decay(ic_series)
-trend = fl.metrics.ic_trend(ic_series)
-hits = fl.metrics.hit_rate(ic_series, value_col="value")
+decay = fx.metrics.multi_split_oos_decay(ic_series)
+trend = fx.metrics.ic_trend(ic_series)
+hits = fx.metrics.hit_rate(ic_series, value_col="value")
 ```
 
 `Mode.TIMESERIES` (the dispatch regime for `n_assets == 1`) is a
@@ -120,13 +120,13 @@ profile and the metric outputs travel together; nothing on either
 side needs to know about the other:
 
 ```python
-profile = fl.evaluate(panel, fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC))
+profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
 diagnostics = {
     "verdict": profile.verdict(),
     "primary_p": profile.primary_p,
-    "spread": fl.metrics.quantile_spread(panel, forward_periods=5).value,
-    "monotonicity_p": fl.metrics.monotonicity(panel, forward_periods=5).p_value,
-    "breakeven_bps": fl.metrics.breakeven_cost(panel).value,
+    "spread": fx.metrics.quantile_spread(panel, forward_periods=5).value,
+    "monotonicity_p": fx.metrics.monotonicity(panel, forward_periods=5).p_value,
+    "breakeven_bps": fx.metrics.breakeven_cost(panel).value,
 }
 ```
 
@@ -142,6 +142,6 @@ standalone subset for a given cell, sorted by module then function.
 Use it as the runtime equivalent of the static matrix:
 
 ```python
-fl.list_metrics(fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS)
+fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS)
 # ['concentration.top_concentration', 'fama_macbeth.beta_sign_consistency', ...]
 ```

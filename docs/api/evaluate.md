@@ -7,10 +7,10 @@ dispatch cell and returns a [`FactorProfile`](factor-profile.md).
 ## Call shape
 
 ```python
-import factrix as fl
+import factrix as fx
 
-config = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC)
-profile = fl.evaluate(raw_panel, config)
+config = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+profile = fx.evaluate(raw_panel, config)
 profile.diagnose()
 ```
 
@@ -62,7 +62,7 @@ Panels often arrive with the signal column named something other than
 Pass `factor_col=` to evaluate without renaming first:
 
 ```python
-profile = fl.evaluate(panel, config, factor_col="alpha")
+profile = fx.evaluate(panel, config, factor_col="alpha")
 ```
 
 Internally the column is renamed to `"factor"` before dispatch so the

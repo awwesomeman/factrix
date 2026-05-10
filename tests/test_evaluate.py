@@ -300,11 +300,11 @@ class TestFactorColumnAlias:
         # The public factrix.evaluate wrapper must thread factor_col
         # through to _evaluate; without that, the rename never happens
         # and the procedure-level INPUT_SCHEMA check would fail loudly.
-        import factrix as fl
+        import factrix as fx
 
         panel = _build_panel(n_dates=60, n_assets=15, seed=14)
         renamed = panel.rename({"factor": "alpha"})
-        profile = fl.evaluate(
+        profile = fx.evaluate(
             renamed,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
             factor_col="alpha",

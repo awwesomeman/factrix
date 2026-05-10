@@ -23,7 +23,7 @@ Lives in ``factrix._validators`` (not in ``preprocess`` or
 ``evaluation``) so both layers can import without creating a circular
 dependency. Both layers call this: preprocess fails fast before the
 z-score step wastes a pass; evaluation keeps it as a backstop for
-callers that skip ``fl.preprocess``.
+callers that skip ``fx.preprocess``.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def validate_n_assets(df: pl.DataFrame, factor_type: str) -> None:
                 f"cross_sectional expects a multi-asset panel (N≥2; canonical "
                 f"test requires cross-sectional variation); got N={n_assets}. "
                 f"For a single-asset time series, use:\n"
-                f"    fl.MacroCommonConfig(...)  # common time-series factor, "
+                f"    fx.MacroCommonConfig(...)  # common time-series factor, "
                 f"auto-falls back to per-asset OLS t-test at N=1\n"
                 f"factrix currently has no first-class canonical test for "
                 f"'continuous factor × single asset' (see "
@@ -77,7 +77,7 @@ def validate_n_assets(df: pl.DataFrame, factor_type: str) -> None:
             f"macro_panel expects a small cross-section (N≥2; Fama-MacBeth "
             f"stage-1 OLS requires at least 2 assets per date); got "
             f"N={n_assets}. For a single-asset time series, use "
-            f"fl.MacroCommonConfig(...) — it has a dedicated N=1 fallback."
+            f"fx.MacroCommonConfig(...) — it has a dedicated N=1 fallback."
         )
 
     # Case (b): staggered schedule — max per-date N below the canonical
@@ -104,6 +104,6 @@ def validate_n_assets(df: pl.DataFrame, factor_type: str) -> None:
             f"    - Data quality issue (most dates accidentally missing "
             f"rows): fix upstream, then retry.\n"
             f"    - Genuine single-asset-per-date time series (each date "
-            f"really has one observation): use fl.MacroCommonConfig(...) "
+            f"really has one observation): use fx.MacroCommonConfig(...) "
             f"which has a dedicated single-asset fallback."
         )

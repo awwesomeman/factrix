@@ -9,22 +9,22 @@ returned ``FactorProfile``, and aggregate across factors with
 
 Single-factor::
 
-    import factrix as fl
+    import factrix as fx
 
-    cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC)
-    profile = fl.evaluate(panel, cfg)
+    cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+    profile = fx.evaluate(panel, cfg)
     print(profile.verdict(), profile.primary_p)
     print(profile.diagnose())
 
 Batch + BHY::
 
-    profiles = [fl.evaluate(panel, cfg) for cfg in candidate_configs]
-    survivors = fl.multi_factor.bhy(profiles, q=0.05)
+    profiles = [fx.evaluate(panel, cfg) for cfg in candidate_configs]
+    survivors = fx.multi_factor.bhy(profiles, q=0.05)
 
 Schema reflection::
 
-    print(fl.describe_analysis_modes())
-    print(fl.suggest_config(panel))
+    print(fx.describe_analysis_modes())
+    print(fx.suggest_config(panel))
 
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
 typical usage patterns in a single fetch. Two access paths::

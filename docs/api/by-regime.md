@@ -89,13 +89,13 @@ column. Discover the eligible set via
 pre-aggregated scalars and have no date column to slice on:
 
 ```python
-import factrix as fl
+import factrix as fx
 from factrix.metrics import by_regime, caar, fama_macbeth, compute_caar, compute_fm_betas
 
 candidates = [
     r["name"]
-    for r in fl.list_metrics(
-        fl.FactorScope.INDIVIDUAL, fl.Signal.SPARSE, format="json",
+    for r in fx.list_metrics(
+        fx.FactorScope.INDIVIDUAL, fx.Signal.SPARSE, format="json",
     )
     if r["input_kind"] == "panel"
 ]

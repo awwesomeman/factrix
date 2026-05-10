@@ -173,11 +173,11 @@ class TestPublicSurface:
     def test_mode_excluded_from_dunder_all(self) -> None:
         """UX-7 review fix: Mode is derived at evaluate-time and read
         off profile.mode, never set by user code — keeping it out of
-        __all__ prevents 'fl.Mode' from showing up as a public symbol
+        __all__ prevents 'fx.Mode' from showing up as a public symbol
         users are tempted to plug into AnalysisConfig."""
-        import factrix as fl
+        import factrix as fx
 
-        assert "Mode" not in fl.__all__
+        assert "Mode" not in fx.__all__
         # Still importable from the private module for advanced uses.
         from factrix._axis import Mode  # noqa: F401
 

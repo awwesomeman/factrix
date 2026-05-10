@@ -5,25 +5,25 @@ How to read factrix errors and which exception class to catch.
 ## TL;DR
 
 ```python
-import factrix as fl
+import factrix as fx
 
 try:
-    profile = fl.evaluate(panel, cfg)
-except fl.UserInputError as exc:
+    profile = fx.evaluate(panel, cfg)
+except fx.UserInputError as exc:
     # User typed the wrong thing — typo, unknown name, wrong column.
     # The message carries a fuzzy suggestion + a docs link.
     print(exc)
-except fl.ConfigError as exc:
+except fx.ConfigError as exc:
     # AnalysisConfig validation / dispatch failure.
     # exc.suggested_fix may carry a nearest-legal AnalysisConfig.
     ...
-except fl.FactrixError as exc:
+except fx.FactrixError as exc:
     # Catch-all for anything else factrix raises.
     ...
 ```
 
 All factrix-raised exceptions inherit from `FactrixError`, so a single
-`except fl.FactrixError` blocks every library-raised failure.
+`except fx.FactrixError` blocks every library-raised failure.
 
 ## Exception hierarchy
 
@@ -39,7 +39,7 @@ FactrixError                       # base
 
 | Exception | When you see it | What it carries |
 |---|---|---|
-| `MissingConfigError` | `evaluate(raw)` called without an `AnalysisConfig` | — (call `fl.suggest_config(raw)` to recover) |
+| `MissingConfigError` | `evaluate(raw)` called without an `AnalysisConfig` | — (call `fx.suggest_config(raw)` to recover) |
 | `IncompatibleAxisError` | `(scope, signal, metric)` is not a legal cell | optional `.suggested_fix` |
 | `ModeAxisError` | Legal cell has no procedure at the runtime `Mode` | typically `.suggested_fix: AnalysisConfig` |
 | `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
@@ -74,13 +74,13 @@ The structured attributes are the contract — read them, do not parse
 the rendered message:
 
 ```python
-import factrix as fl
+import factrix as fx
 
 bad: dict[str, object] = {}
 for cfg in candidates:
     try:
-        profiles.append(fl.evaluate(panel, cfg))
-    except fl.UserInputError as exc:
+        profiles.append(fx.evaluate(panel, cfg))
+    except fx.UserInputError as exc:
         bad[exc.field] = exc.value
         # exc.suggestions carries top-3 fuzzy matches when applicable
 ```
@@ -102,14 +102,14 @@ format, construct a `UserInputError` directly — it is keyword-only and
 renders its own message:
 
 ```python
-import factrix as fl
+import factrix as fx
 
-if metric_name not in fl.list_metrics(cfg):
-    raise fl.UserInputError(
+if metric_name not in fx.list_metrics(cfg):
+    raise fx.UserInputError(
         verb="run_metrics",
         field="metrics",
         value=metric_name,
-        candidates=fl.list_metrics(cfg),
+        candidates=fx.list_metrics(cfg),
         docs_path="api/run_metrics#metrics",
     )
 ```
