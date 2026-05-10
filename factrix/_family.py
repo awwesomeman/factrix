@@ -131,10 +131,12 @@ def _resolve_family(
                 expected=(
                     "unique partition key across input; duplicate first "
                     f"seen at index {seen[partition_key]}, again at {idx}. "
-                    "Set distinct factor_id per profile via "
-                    "`dataclasses.replace(profile, factor_id=<name>)`, or "
-                    "pass `expand_over=[<context key>]` to declare per-"
-                    "bucket families"
+                    "Stamp distinct factor_id per profile via "
+                    "`evaluate(..., factor_col=<name>)` (canonical) or "
+                    "`dataclasses.replace(profile, factor_id=<name>)` "
+                    "(escape hatch when the column cannot be renamed); "
+                    "or pass `expand_over=[<context key>]` to declare "
+                    "per-bucket families"
                 ),
                 docs_path=f"api/{verb}#partition-key",
             )
