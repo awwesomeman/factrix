@@ -182,6 +182,7 @@ def _make_profile(
     stats: dict[StatCode, float] | None = None,
     warnings: frozenset[WarningCode] = frozenset(),
     info_notes: frozenset[InfoCode] = frozenset(),
+    metadata: dict[StatCode, dict[str, object]] | None = None,
 ) -> FactorProfile:
     return FactorProfile(
         config=AnalysisConfig.individual_continuous(),
@@ -192,6 +193,7 @@ def _make_profile(
         warnings=warnings,
         info_notes=info_notes,
         stats=stats or {},
+        metadata=metadata or {},
     )
 
 
@@ -250,6 +252,7 @@ class TestDiagnose:
             stats={StatCode.MEAN: 0.05, StatCode.T_NW: 1.96},
             warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS}),
             info_notes=frozenset({InfoCode.SCOPE_AXIS_COLLAPSED}),
+            metadata={StatCode.T_NW: {"nw_lags": 5}, StatCode.P: {"nw_lags": 5}},
         )
         d = prof.diagnose()
         assert d["mode"] == "panel"
@@ -258,6 +261,8 @@ class TestDiagnose:
         assert "unreliable_se_short_periods" in d["warnings"]
         assert "scope_axis_collapsed" in d["info_notes"]
         assert d["stats"]["mean"] == 0.05
+        # metadata uses StatCode.value strings as outer keys, plain dicts inside.
+        assert d["metadata"] == {"t_nw": {"nw_lags": 5}, "p": {"nw_lags": 5}}
 
 
 # ---------------------------------------------------------------------------

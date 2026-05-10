@@ -220,7 +220,8 @@ profile.identity        : tuple[str, int]            # (factor_id, forward_perio
 profile.context         : Mapping[str, Any]          # universe_id / regime_id / ...
 profile.warnings        : frozenset[WarningCode]
 profile.info_notes      : frozenset[InfoCode]
-profile.stats           : Mapping[StatCode, float]   # cell-specific scalars
+profile.stats           : Mapping[StatCode, float]                 # cell-specific scalars
+profile.metadata        : Mapping[StatCode, Mapping[str, Any]]     # hyperparams that produced each stat (#188)
 
 profile.verdict(*, threshold: float = 0.05, gate: StatCode | None = None) -> Verdict
     # PASS if primary_p (or stats[gate]) < threshold
@@ -231,7 +232,8 @@ profile.diagnose() -> dict[str, Any]
     #  "mode", "n_obs", "n_assets", "primary_p",
     #  "warnings": [str, ...],          # sorted WarningCode .value strings
     #  "info_notes": [str, ...],        # sorted InfoCode .value strings
-    #  "stats": {str: float, ...}}      # StatCode .value → float
+    #  "stats": {str: float, ...},      # StatCode .value → float
+    #  "metadata": {str: {str: Any}}}   # StatCode .value → hyperparams dict
 ```
 
 `identity` and `context` split hypothesis dimensions (factor_id × horizon)

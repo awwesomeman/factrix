@@ -479,31 +479,33 @@ def _ljung_box(
     resid: np.ndarray,
     *,
     lags: int | None = None,
-) -> tuple[float, float]:
-    """Ljung-Box Q statistic and two-sided p-value for residual autocorrelation.
+) -> tuple[int, float, float]:
+    """Resolved lag count, Q statistic, two-sided p-value for residual autocorrelation.
 
     ``Q = n(n+2) Σ_{k=1..h} ρ̂_k² / (n - k)`` evaluated against
     ``χ²_h``; the H₀ is "no autocorrelation up to lag h". Default
     ``lags = min(10, n // 10)`` per plan §5.2.
 
-    Returns ``(NaN, 1.0)`` for ``n < 4`` or zero-variance inputs — Q is
-    undefined in those cases (no autocovariance can be estimated), and
-    the canonical "cannot reject" p of 1.0 is the honest fallback. NaN
-    on Q lets downstream readers distinguish "not computable" from
-    "computed and equal to zero".
+    Returns ``(0, NaN, 1.0)`` for ``n < 4`` or unresolvable lag inputs
+    — Q is undefined when no lag can be applied. ``(h, NaN, 1.0)`` for
+    zero-variance residuals — the lag was resolved but the statistic
+    itself is undefined. NaN on Q lets downstream readers distinguish
+    "not computable" from "computed and equal to zero". The resolved
+    ``h`` lag count is returned so callers can record it as a
+    hyperparameter (#188).
     """
     n = len(resid)
     if n < 4:
-        return np.nan, 1.0
+        return 0, np.nan, 1.0
     h = lags if lags is not None else min(10, n // 10)
     if h < 1:
-        return np.nan, 1.0
+        return 0, np.nan, 1.0
     h = min(h, n - 1)
 
     centred = resid - float(np.mean(resid))
     var = float(np.dot(centred, centred))
     if var < EPSILON:
-        return np.nan, 1.0
+        return h, np.nan, 1.0
 
     q = 0.0
     for k in range(1, h + 1):
@@ -511,4 +513,4 @@ def _ljung_box(
         rho_k = cov_k / var
         q += rho_k * rho_k / (n - k)
     q *= n * (n + 2)
-    return float(q), float(sp_stats.chi2.sf(q, df=h))
+    return h, float(q), float(sp_stats.chi2.sf(q, df=h))

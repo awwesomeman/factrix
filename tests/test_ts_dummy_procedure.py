@@ -159,6 +159,22 @@ class TestStrongTrigger:
         ):
             assert key in profile.stats
 
+    def test_metadata_keyed_by_stat_with_test_hyperparams(
+        self,
+        profile: FactorProfile,
+    ) -> None:
+        # NW lag count shared by T_NW + P; Ljung-Box lag h shared by Q + P;
+        # HHI n_bins under EVENT_HHI_VALUE only (#188).
+        nw_meta = profile.metadata[StatCode.P]
+        assert profile.metadata[StatCode.T_NW] == nw_meta
+        assert "nw_lags" in nw_meta and nw_meta["nw_lags"] >= 1
+
+        lb_meta = profile.metadata[StatCode.RESID_LJUNG_BOX_P]
+        assert profile.metadata[StatCode.RESID_LJUNG_BOX_Q] == lb_meta
+        assert "lag_h" in lb_meta and lb_meta["lag_h"] >= 1
+
+        assert profile.metadata[StatCode.EVENT_HHI_VALUE] == {"n_bins": 10}
+
 
 class TestRandomSparse:
     def test_random_dummy_fails_at_default_threshold(
