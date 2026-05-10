@@ -41,9 +41,9 @@ Full per-procedure pseudocode for all 7 registered pipelines lives in [Developme
 
 ```python
 # heuristic config suggestion + risk warnings
-result = fl.suggest_config(panel)
+result = fx.suggest_config(panel)
 print(result.reasoning, result.warnings)
 
 # list all cells and their MIN_PERIODS thresholds
-print(fl.describe_analysis_modes())
+print(fx.describe_analysis_modes())
 ```

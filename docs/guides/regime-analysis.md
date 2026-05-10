@@ -68,12 +68,12 @@ DataFrame. Use [`list_metrics`](../api/list-metrics.md) with
 candidate set for your `(scope, signal)` cell:
 
 ```python
-import factrix as fl
+import factrix as fx
 
 panel_metrics = [
     r["name"]
-    for r in fl.list_metrics(
-        fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS, format="json",
+    for r in fx.list_metrics(
+        fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
     )
     if r["input_kind"] == "panel"
 ]

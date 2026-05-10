@@ -62,8 +62,8 @@ Every `evaluate()` call expects a polars DataFrame with these columns:
 | `price`         | input       | caller                          |
 | `forward_return`| evaluate    | `compute_forward_return`        |
 
-Synthetic panels: `fl.datasets.make_cs_panel(...)` for CONTINUOUS,
-`fl.datasets.make_event_panel(...)` for SPARSE. Both require `n_assets >= 2`.
+Synthetic panels: `fx.datasets.make_cs_panel(...)` for CONTINUOUS,
+`fx.datasets.make_event_panel(...)` for SPARSE. Both require `n_assets >= 2`.
 
 ---
 
@@ -72,15 +72,15 @@ Synthetic panels: `fl.datasets.make_cs_panel(...)` for CONTINUOUS,
 ### 1. Single-factor IC evaluation
 
 ```python
-import factrix as fl
+import factrix as fx
 from factrix.preprocess import compute_forward_return
 
 # raw has columns ["date", "asset_id", "price", "factor"]
-raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)   # appends `forward_return`
 
-cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
-profile = fl.evaluate(panel, cfg)
+cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+profile = fx.evaluate(panel, cfg)
 
 print(profile.verdict())             # Verdict.PASS | Verdict.FAIL
 print(profile.primary_p)             # procedure-canonical p-value (float)
@@ -91,22 +91,22 @@ print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, et
 ### 2. Multi-factor BHY screening
 
 ```python
-import factrix as fl
+import factrix as fx
 from factrix.preprocess import compute_forward_return
 
 raw_panels = {
-    f"variant_{i}": fl.datasets.make_cs_panel(
+    f"variant_{i}": fx.datasets.make_cs_panel(
         n_assets=80, n_dates=400, ic_target=ic, seed=s
     ).rename({"factor": f"variant_{i}"})
     for i, (ic, s) in enumerate([(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)])
 }
-cfg       = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+cfg       = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 profiles  = [
-    fl.evaluate(compute_forward_return(p, forward_periods=5), cfg, factor_col=name)
+    fx.evaluate(compute_forward_return(p, forward_periods=5), cfg, factor_col=name)
     for name, p in raw_panels.items()
 ]
 
-survivors = fl.multi_factor.bhy(profiles, q=0.05)
+survivors = fx.multi_factor.bhy(profiles, q=0.05)
 # survivors: list[FactorProfile] passing BHY step-up at FDR 0.05.
 # The input list IS the family. Each panel carries its factor under a
 # distinct column name; evaluate(..., factor_col=name) auto-stamps factor_id
@@ -123,19 +123,19 @@ cross-section to compute IC across). `evaluate` raises `ModeAxisError` carrying
 the nearest-legal config:
 
 ```python
-import factrix as fl
+import factrix as fx
 
 panel = build_single_asset_panel()   # n_assets == 1, columns as in §schema
-cfg   = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+cfg   = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 
 try:
-    profile = fl.evaluate(panel, cfg)
-except fl.ModeAxisError as exc:
+    profile = fx.evaluate(panel, cfg)
+except fx.ModeAxisError as exc:
     cfg = exc.suggested_fix           # AnalysisConfig.common_continuous(forward_periods=5)
-    profile = fl.evaluate(panel, cfg)
+    profile = fx.evaluate(panel, cfg)
 
 # profile.mode == Mode.TIMESERIES; primary_p is the timeseries-beta p-value
-print(profile.stats[fl.StatCode.TS_BETA])
+print(profile.stats[fx.StatCode.TS_BETA])
 ```
 
 For `SPARSE × TIMESERIES` the dispatch silently collapses the scope axis
@@ -342,7 +342,7 @@ inspects the `date` dtype.
 ## Errors
 
 All factrix exceptions inherit from `FactrixError`, so agents can write
-`except fl.FactrixError:` to catch every library-raised failure.
+`except fx.FactrixError:` to catch every library-raised failure.
 
 ```
 FactrixError                       # base — all factrix-raised errors
@@ -376,7 +376,7 @@ Recovery payloads — what each subclass carries beyond `.args[0]`:
 | `InsufficientSampleError`| optional         | `.actual_periods: int`, `.required_periods: int` |
 
 Agents can branch on these payloads without parsing message strings; the
-canonical pattern is `except fl.FactrixError as exc:` followed by
+canonical pattern is `except fx.FactrixError as exc:` followed by
 `isinstance(exc, …)` dispatch on the subclass. `MissingConfigError` is the
 only subclass with `.suggested_fix` always `None` (the recovery path is
 calling `factrix.suggest_config(raw)`).
@@ -414,7 +414,7 @@ directly see `MetricOutput`.
 `_SCOPE_COLLAPSED` sentinel (only fires for `SPARSE × TIMESERIES`).
 
 Read live descriptions programmatically:
-`fl.WarningCode.PERSISTENT_REGRESSOR.description`.
+`fx.WarningCode.PERSISTENT_REGRESSOR.description`.
 
 ---
 

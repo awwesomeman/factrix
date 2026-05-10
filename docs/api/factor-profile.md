@@ -147,7 +147,7 @@ non-event entries) makes the unit-root null degenerate.
 | **Procedure-internal** | `factrix/_stats/` helpers (`_newey_west_t_test`, `_adf`, `_ljung_box_p`, …) invoked from `factrix/_procedures.py` | The `StatCode` keys listed above on `profile.stats` | No — the per-cell stat set is hard-coded by the registered procedure. |
 | **Standalone metrics** | `factrix/metrics/*.py`, listed by [`list_metrics`](list-metrics.md) | A separate [`MetricOutput`](metric-output.md) per call, returned to the user | Yes — call any number after `evaluate()` returns. |
 
-`fl.metrics.quantile_spread(...)` and friends return a `MetricOutput`
+`fx.metrics.quantile_spread(...)` and friends return a `MetricOutput`
 to the caller; they do not mutate `profile.stats`.
 
 See also [Stat keys by metric](../reference/stat-keys-by-metric.md)

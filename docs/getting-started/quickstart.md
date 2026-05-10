@@ -9,15 +9,15 @@
 ## 30-second smoke test
 
 ```python
-import factrix as fl
+import factrix as fx
 from factrix.preprocess import compute_forward_return
 
-raw   = fl.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
 # Path B — supply the config directly (type-safe; the IDE rejects illegal combos)
-cfg     = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
-profile = fl.evaluate(panel, cfg)
+cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+profile = fx.evaluate(panel, cfg)
 
 print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
 # → pass | primary_p = 0.0
@@ -33,8 +33,8 @@ panel shape:
 
 ```python
 # Path A — inferred config + reasoning trace
-result  = fl.suggest_config(panel)
-profile = fl.evaluate(panel, result.suggested)
+result  = fx.suggest_config(panel)
+profile = fx.evaluate(panel, result.suggested)
 # result.reasoning explains how each axis was inferred
 # result.warnings flags potential risks (small N, persistence, …)
 ```

@@ -13,7 +13,7 @@ import pathlib
 import re
 from unittest.mock import patch
 
-import factrix as fl
+import factrix as fx
 import pytest
 from factrix._axis import FactorScope, Signal
 from factrix._errors import IncompatibleAxisError
@@ -128,7 +128,7 @@ def test_list_metrics_matches_applicability_doc(
 ) -> None:
     expected = _parse_applicability_doc()[(scope, signal)]
     assert expected, "applicability doc parser found no rows for this cell"
-    actual = set(fl.list_metrics(scope, signal))
+    actual = set(fx.list_metrics(scope, signal))
     assert actual == expected, (
         f"({scope.value}, {signal.value}) drift\n"
         f"  only in list_metrics: {sorted(actual - expected)}\n"
@@ -159,8 +159,8 @@ def test_compute_rolling_mean_beta_remains_user_facing() -> None:
 
 
 def test_text_output_is_sorted_by_module_then_name() -> None:
-    out = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
-    json_rows = fl.list_metrics(
+    out = fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
+    json_rows = fx.list_metrics(
         FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json"
     )
     expected_order = [r["name"] for r in json_rows]
@@ -170,7 +170,7 @@ def test_text_output_is_sorted_by_module_then_name() -> None:
 
 
 def test_json_format_round_trips() -> None:
-    rows = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
+    rows = fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
     text = json.dumps(rows)
     decoded = json.loads(text)
     assert decoded == rows
@@ -189,7 +189,7 @@ def test_json_format_round_trips() -> None:
 
 
 def test_json_carries_import_path_and_input_kind() -> None:
-    rows = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
+    rows = fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
     by_name = {r["name"]: r for r in rows}
 
     # ``ic`` is the canonical panel-input metric.
@@ -222,7 +222,7 @@ def test_import_path_resolves_for_every_row() -> None:
     seen: set[str] = set()
     for scope in FactorScope:
         for signal in Signal:
-            for r in fl.list_metrics(scope, signal, format="json"):
+            for r in fx.list_metrics(scope, signal, format="json"):
                 if r["name"] in seen:
                     continue
                 seen.add(r["name"])
@@ -233,27 +233,27 @@ def test_import_path_resolves_for_every_row() -> None:
 
 
 def test_with_import_renders_two_column_text() -> None:
-    rendered = fl.list_metrics(
+    rendered = fx.list_metrics(
         FactorScope.INDIVIDUAL, Signal.CONTINUOUS, with_import=True
     )
     assert all(" → factrix.metrics." in line for line in rendered)
     # Same row order as the plain text output — only the rendering changes.
-    plain = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
+    plain = fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
     assert [line.split(" → ", 1)[0].rstrip() for line in rendered] == plain
 
 
 def test_with_import_is_ignored_under_json_format() -> None:
     # ``with_import`` is a text-only knob; JSON always carries the field.
-    a = fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
-    b = fl.list_metrics(
+    a = fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
+    b = fx.list_metrics(
         FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json", with_import=True
     )
     assert a == b
 
 
 def test_json_output_is_stable_across_calls() -> None:
-    a = fl.list_metrics(FactorScope.COMMON, Signal.CONTINUOUS, format="json")
-    b = fl.list_metrics(FactorScope.COMMON, Signal.CONTINUOUS, format="json")
+    a = fx.list_metrics(FactorScope.COMMON, Signal.CONTINUOUS, format="json")
+    b = fx.list_metrics(FactorScope.COMMON, Signal.CONTINUOUS, format="json")
     assert a == b
 
 
@@ -269,7 +269,7 @@ def test_incompatible_axis_pair_raises() -> None:
         patch("factrix._describe.user_facing_rows", return_value=[]),
         pytest.raises(IncompatibleAxisError),
     ):
-        fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
+        fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
 
 
 # ---------------------------------------------------------------------------
@@ -278,8 +278,8 @@ def test_incompatible_axis_pair_raises() -> None:
 
 
 def test_spanning_metrics_appear_for_individual_continuous_only() -> None:
-    ind = set(fl.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS))
-    com = set(fl.list_metrics(FactorScope.COMMON, Signal.CONTINUOUS))
+    ind = set(fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS))
+    com = set(fx.list_metrics(FactorScope.COMMON, Signal.CONTINUOUS))
     assert {"spanning_alpha", "greedy_forward_selection"}.issubset(ind)
     assert {"spanning_alpha", "greedy_forward_selection"}.isdisjoint(com)
 
@@ -290,8 +290,8 @@ def test_spanning_metrics_appear_for_individual_continuous_only() -> None:
 
 
 def test_list_metrics_in_public_namespace() -> None:
-    assert "list_metrics" in fl.__all__
-    assert callable(fl.list_metrics)
+    assert "list_metrics" in fx.__all__
+    assert callable(fx.list_metrics)
 
 
 def test_metric_row_dataclass_fields_are_serialisable() -> None:

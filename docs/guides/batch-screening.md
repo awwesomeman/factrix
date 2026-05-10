@@ -8,13 +8,13 @@ BHY controls FDR **within a statistical family**: evaluate multiple candidate fa
 ## Basic usage
 
 ```python
-import factrix as fl
+import factrix as fx
 
 candidates = ["mom_5d", "mom_20d", "mom_60d"]
-cfg = fl.AnalysisConfig.individual_continuous(metric=fl.Metric.IC, forward_periods=5)
+cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 
-by_name = {name: fl.evaluate(panel, cfg, factor_col=name) for name in candidates}
-survivors = fl.multi_factor.bhy(list(by_name.values()), threshold=0.05)
+by_name = {name: fx.evaluate(panel, cfg, factor_col=name) for name in candidates}
+survivors = fx.multi_factor.bhy(list(by_name.values()), threshold=0.05)
 survivor_names = [n for n, p in by_name.items() if any(p is s for s in survivors)]
 ```
 

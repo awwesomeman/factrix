@@ -31,6 +31,6 @@ distinction is intentional, not inconsistent:
 
 | Sidebar entry | Identifier kind | Example call |
 |---|---|---|
-| `AnalysisConfig`, `FactorProfile`, `MetricOutput` | Class | `fl.AnalysisConfig.individual_continuous(...)` |
-| `evaluate`, `list_metrics` | Function | `fl.evaluate(panel, cfg)` |
-| `multi_factor`, `datasets`, `Metrics` (and submodules) | Module | `fl.multi_factor.bhy(profiles)` |
+| `AnalysisConfig`, `FactorProfile`, `MetricOutput` | Class | `fx.AnalysisConfig.individual_continuous(...)` |
+| `evaluate`, `list_metrics` | Function | `fx.evaluate(panel, cfg)` |
+| `multi_factor`, `datasets`, `Metrics` (and submodules) | Module | `fx.multi_factor.bhy(profiles)` |

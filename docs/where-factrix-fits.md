@@ -366,7 +366,7 @@ expects in two lines.
 
 ```python
 import polars as pl
-import factrix as fl
+import factrix as fx
 from factrix.preprocess import compute_forward_return
 
 # zipline_out: pandas DataFrame with MultiIndex (date, asset),
@@ -374,10 +374,10 @@ from factrix.preprocess import compute_forward_return
 panel = pl.from_pandas(zipline_out.reset_index())
 panel = compute_forward_return(panel, forward_periods=5)
 
-cfg = fl.AnalysisConfig.individual_continuous(
-    metric=fl.Metric.IC, forward_periods=5,
+cfg = fx.AnalysisConfig.individual_continuous(
+    metric=fx.Metric.IC, forward_periods=5,
 )
-profile = fl.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg)
 verdict = profile.verdict()
 ```
 
@@ -385,15 +385,15 @@ factrix → Stage 2: surviving profiles after BHY feed a portfolio
 optimiser.
 
 ```python
-import factrix as fl
+import factrix as fx
 
 # Each panel carries its factor under a distinct column name
 # ("momentum_12" / "value" / ...); evaluate auto-stamps factor_id
 # from factor_col so identities stay unique without manual surgery.
 profiles  = [
-    fl.evaluate(p, cfg, factor_col=name) for name, p in panels.items()
+    fx.evaluate(p, cfg, factor_col=name) for name, p in panels.items()
 ]
-survivors = fl.multi_factor.bhy(profiles, q=0.05)
+survivors = fx.multi_factor.bhy(profiles, q=0.05)
 
 # survivors is a list[FactorProfile]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input

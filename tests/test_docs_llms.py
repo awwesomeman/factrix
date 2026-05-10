@@ -10,7 +10,7 @@ verifies that every reference still resolves and that every public
 
 Three checks:
 
-1. Every ``factrix.X.Y`` / ``fl.X.Y`` attribute chain in ``llms-full.txt``
+1. Every ``factrix.X.Y`` / ``fx.X.Y`` attribute chain in ``llms-full.txt``
    walks from the ``factrix`` package without raising ``AttributeError``.
 2. Every ``from factrix... import NAME`` statement imports a name that
    actually exists at that module path.
@@ -18,7 +18,7 @@ Three checks:
    ``llms-full.txt`` — keeps the LLM reference in lockstep when the
    public surface widens.
 
-Bare references like ``StatCode.IC_MEAN`` (no ``fl.`` / ``factrix.``
+Bare references like ``StatCode.IC_MEAN`` (no ``fx.`` / ``factrix.``
 prefix) are intentionally not validated — too many false positives
 against ``profile.X`` style attribute talk in prose.
 

@@ -11,10 +11,10 @@ that assumes independence over-corrects).
 
 ```python
 profiles = [
-    fl.evaluate(panel_per_lookback[lookback], cfg, factor_col=f"momentum_{lookback}")
+    fx.evaluate(panel_per_lookback[lookback], cfg, factor_col=f"momentum_{lookback}")
     for lookback, cfg in candidates
 ]
-survivors = fl.multi_factor.bhy(profiles, q=0.05)
+survivors = fx.multi_factor.bhy(profiles, q=0.05)
 ```
 
 The input list **is** the family. `bhy` runs one Benjamini–Yekutieli

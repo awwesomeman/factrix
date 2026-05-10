@@ -52,18 +52,18 @@ Three entry points, all in `factrix.__init__`:
 
 | Symbol | Purpose |
 |--------|---------|
-| `fl.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
-| `fl.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
-| `fl.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Yekutieli FDR correction; one declared family per call (optionally split per-bucket via `expand_over`) |
+| `fx.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
+| `fx.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
+| `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Yekutieli FDR correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 
-- `fl.FactorScope`, `fl.Signal`, `fl.Metric`, `fl.Mode` — three user-facing axes + the evaluate-time-derived fourth
-- `fl.WarningCode`, `fl.InfoCode`, `fl.StatCode`, `fl.Verdict` — structured codes carried on `FactorProfile`
-- `fl.FactorProfile` — single unified result type
-- `fl.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
-- `fl.suggest_config(panel)` — heuristic factory call from a raw panel
-- `fl.FactrixError`, `fl.ConfigError`, `fl.MissingConfigError`, `fl.IncompatibleAxisError`, `fl.ModeAxisError`, `fl.InsufficientSampleError`, `fl.UserInputError` — exception hierarchy (see § Error UX contract)
+- `fx.FactorScope`, `fx.Signal`, `fx.Metric`, `fx.Mode` — three user-facing axes + the evaluate-time-derived fourth
+- `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode`, `fx.Verdict` — structured codes carried on `FactorProfile`
+- `fx.FactorProfile` — single unified result type
+- `fx.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
+- `fx.suggest_config(panel)` — heuristic factory call from a raw panel
+- `fx.FactrixError`, `fx.ConfigError`, `fx.MissingConfigError`, `fx.IncompatibleAxisError`, `fx.ModeAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 

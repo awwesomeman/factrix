@@ -3,17 +3,17 @@
 Both generators emit **raw canonical-column panels** (``date, asset_id,
 price, factor``). Callers attach ``forward_return`` (e.g. via
 ``factrix.preprocess.compute_forward_return``) before calling
-``fl.evaluate(panel, cfg)``.
+``fx.evaluate(panel, cfg)``.
 
 Usage:
 
-    import factrix as fl
+    import factrix as fx
     from factrix.preprocess import compute_forward_return
 
-    raw = fl.datasets.make_cs_panel(n_assets=100, n_dates=500)
+    raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
     panel = compute_forward_return(raw, forward_periods=5)
-    cfg = fl.AnalysisConfig.individual_continuous(forward_periods=5)
-    profile = fl.evaluate(panel, cfg)
+    cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+    profile = fx.evaluate(panel, cfg)
 
 The dataset's ``signal_horizon`` (default 5) is a property of the
 synthetic signal, not a pipeline parameter. When
@@ -97,7 +97,7 @@ def make_cs_panel(
             weekends — factrix doesn't prescribe a calendar).
         ic_target: Target per-date Pearson CS correlation between
             factor and forward return at ``signal_horizon``. Realized
-            realized per-date IC after ``fl.evaluate`` will fall near this
+            realized per-date IC after ``fx.evaluate`` will fall near this
             within a couple of standard errors — overlapping forward
             returns reduce effective independent dates by
             ``signal_horizon`` so s.e. ≈
@@ -116,7 +116,7 @@ def make_cs_panel(
         Long DataFrame with ``date, asset_id, price, factor`` and
         ``date`` dtype ``pl.Datetime("ms")``. Attach ``forward_return``
         (e.g. via ``factrix.preprocess.compute_forward_return``)
-        before passing to ``fl.evaluate``.
+        before passing to ``fx.evaluate``.
     """
     if n_assets < 2:
         raise ValueError("n_assets must be >= 2 for a cross-section")
@@ -205,7 +205,7 @@ def make_event_panel(
         is ``Float64`` with values in ``{-1.0, 0.0, +1.0}``. Attach
         ``forward_return`` (e.g. via
         ``factrix.preprocess.compute_forward_return``) before
-        passing to ``fl.evaluate``.
+        passing to ``fx.evaluate``.
     """
     if n_assets < 1:
         raise ValueError("n_assets must be >= 1")

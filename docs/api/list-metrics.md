@@ -11,9 +11,9 @@ invoke once `evaluate()` has produced a `FactorProfile`.
 ## Call shape
 
 ```python
-import factrix as fl
+import factrix as fx
 
-fl.list_metrics(fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS)
+fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS)
 # -> ['top_concentration', 'beta_sign_consistency', 'fama_macbeth',
 #     'pooled_ols', 'hit_rate', 'ic', 'ic_ir', 'ic_newey_west',
 #     'multi_horizon_ic', 'regime_ic', 'monotonicity',
@@ -33,8 +33,8 @@ Pass `with_import=True` to render a copy-paste-ready two-column view
 that pairs each metric with its submodule path:
 
 ```python
-print("\n".join(fl.list_metrics(
-    fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS, with_import=True,
+print("\n".join(fx.list_metrics(
+    fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, with_import=True,
 )))
 # ic                       → factrix.metrics.ic
 # ic_ir                    → factrix.metrics.ic
@@ -57,9 +57,9 @@ the module-level `Matrix-row:` tag.
 ## Structured output for tooling
 
 ```python
-fl.list_metrics(
-    fl.FactorScope.INDIVIDUAL,
-    fl.Signal.CONTINUOUS,
+fx.list_metrics(
+    fx.FactorScope.INDIVIDUAL,
+    fx.Signal.CONTINUOUS,
     format="json",
 )
 # -> [
@@ -105,8 +105,8 @@ Filter the JSON output to enumerate `by_regime`-eligible metrics:
 
 ```python
 panel_metrics = [
-    r for r in fl.list_metrics(
-        fl.FactorScope.INDIVIDUAL, fl.Signal.CONTINUOUS, format="json",
+    r for r in fx.list_metrics(
+        fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
     )
     if r["input_kind"] == "panel"
 ]
