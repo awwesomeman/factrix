@@ -15,10 +15,19 @@ profiles = [
     for lookback, cfg in candidates
 ]
 survivors = fx.multi_factor.bhy(profiles, q=0.05)
+
+survivors.profiles   # list[FactorProfile] in input order
+survivors.adj_q      # numpy array — bucket-local BHY-adjusted p-value, aligned
+survivors.q          # 0.05 — the nominal target you passed
+survivors.expand_over     # () for a single family; ("regime_id",) etc. otherwise
+survivors.n_total    # {(): N} or {bucket_key: m_per_bucket}
 ```
 
 The input list **is** the family. `bhy` runs one Benjamini–Yekutieli
-step-up over all profiles by default, returning the surviving subset.
+step-up over all profiles by default, returning the surviving subset
+wrapped in a `Survivors` container with rich Jupyter rendering
+(three-column text / HTML table of `identity | primary_p | adj_q`,
+plus an `expand_over_values` column when buckets are declared).
 Each panel carries its factor under a distinct column name and
 `evaluate(..., factor_col=name)` auto-stamps `factor_id` from that
 name; this is the canonical multi-factor pattern. When you cannot
@@ -62,6 +71,38 @@ the horizon at which its noise happens to clear the threshold. Forcing
 the hypothesis being tested. See [Development § Architecture § Family
 verbs](../development/architecture.md#_resolve_family-four-invariants)
 for the full invariant list.
+
+## Return type: `Survivors` (#171)
+
+`bhy` returns a `Survivors` container, not a bare list. The container
+is procedure-agnostic — `adj_q` carries the verb's procedure-canonical
+adjusted p-value (BHY here; future Holm / Bonferroni / Romano-Wolf
+verbs populate the same shape via their own `*_adjusted_p`). The
+contract is **`survivor[i] iff adj_q[i] <= q`** — the survivor mask is
+defined by the adjusted p-values, not a separate rejection-mask path.
+This eliminates the tie / boundary edge cases where two parallel
+step-up implementations could disagree.
+
+`adj_q[i]` is computed within `profiles[i]`'s **own** `expand_over`
+bucket — bucket-local `n` and `p_array`, never pooled across buckets.
+This is the per-family adjustment that selective-inference theory
+(Benjamini & Bogomolov 2014) requires; `n_total[bucket_key]` records
+the `m` fed into each step-up so the audit trail is self-contained.
+
+Migration from the v0.10 list-of-profiles return:
+
+```python
+# before
+survivors = bhy(profiles, q=0.05)
+for s in survivors:
+    print(s.factor_id)
+
+# after
+survivors = bhy(profiles, q=0.05)
+for s in survivors.profiles:
+    print(s.factor_id)
+# or just `repr(survivors)` in Jupyter for the table view
+```
 
 ## Behaviour change (#161)
 
