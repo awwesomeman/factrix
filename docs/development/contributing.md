@@ -98,12 +98,18 @@ uv lock --upgrade    # upgrade lock to the latest within current pyproject const
 Run once after a fresh clone:
 
 ```bash
-git config core.hooksPath .githooks
+python scripts/setup_dev.py
 ```
 
-This config is per-clone and local—it does not propagate across
-machines, so every clone / new machine must run it once. After that,
-all hooks below activate automatically; no per-hook install needed.
+The script sets `git config core.hooksPath .githooks`. Idempotent —
+re-running is a no-op; aborts (non-zero exit) if `core.hooksPath` is
+already pointed at a different path so a contributor's dotfiles-
+managed hook surface is not silently overwritten. The setting is
+per-clone and local; it does not propagate across machines, so every
+clone / new machine must run the script once. `git worktree`
+instances share `.git/config` with their primary clone, so one run at
+the primary clone covers every worktree under it. After activation,
+all hooks below run automatically; no per-hook install needed.
 
 `pre-commit` — when staged changes include `*.py`, runs `ruff check`
 + `ruff format --check` (mirrors CI's `lint` job). Fail → blocks the
