@@ -10,9 +10,11 @@ this file only exercises the metadata + dispatch surface that
 from __future__ import annotations
 
 import pytest
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
+from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
 from factrix.stats import Estimator, NeweyWest
+from factrix.stats.newey_west import _EMITS
 
 
 def test_satisfies_estimator_protocol() -> None:
@@ -69,3 +71,22 @@ def test_applicable_to_all_user_facing_cells(
     scope: FactorScope, signal: Signal
 ) -> None:
     assert NeweyWest().applicable_to(scope, signal)
+
+
+def test_emits_table_stays_in_sync_with_dispatch_registry() -> None:
+    # The _EMITS dispatch table is a hardcoded reverse index from cell
+    # to procedure-emitted p-value StatCode. If a procedure's
+    # EMITS_STATS gains or drops a *_P entry, this test fails so the
+    # estimator side is updated in the same PR (drift would otherwise
+    # surface as a runtime KeyError on bhy(estimator=NeweyWest())).
+    for (scope, signal, metric), code in _EMITS.items():
+        entry = _DISPATCH_REGISTRY.get(_DispatchKey(scope, signal, metric, Mode.PANEL))
+        assert entry is not None, (
+            f"_EMITS lists ({scope.value}, {signal.value}, {metric}) "
+            "but no PANEL procedure is registered for it"
+        )
+        assert code in entry.procedure.EMITS_STATS, (
+            f"NeweyWest dispatches ({scope.value}, {signal.value}, "
+            f"{metric}) → {code.name}, but the procedure's EMITS_STATS "
+            f"does not include it: {sorted(s.name for s in entry.procedure.EMITS_STATS)}"
+        )

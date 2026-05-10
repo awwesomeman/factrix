@@ -35,6 +35,11 @@ if TYPE_CHECKING:
 
 _IDENTITY_FIELDS: frozenset[str] = frozenset({"factor_id", "forward_periods"})
 
+# Docs fragment anchor for ``estimator=`` error messages. Single source
+# of truth so the family-resolution failure paths and any future docs
+# generation agree on the URL shape.
+_ESTIMATOR_DOCS_ANCHOR = "estimator"
+
 
 @dataclass(frozen=True, slots=True)
 class FamilyEntry:
@@ -188,7 +193,7 @@ def _resolve_p_value(
                 f"estimator applicable to (scope={cfg.scope.value}, "
                 f"signal={cfg.signal.value}) cell"
             ),
-            docs_path=f"api/{verb}#estimator",
+            docs_path=f"api/{verb}#{_ESTIMATOR_DOCS_ANCHOR}",
         )
 
     code = estimator.emits_for(cfg.scope, cfg.signal, cfg.metric)
@@ -204,5 +209,5 @@ def _resolve_p_value(
                 "is supplied; populated keys listed below"
             ),
             candidates=sorted(s.name for s in profile.stats),
-            docs_path=f"api/{verb}#estimator",
+            docs_path=f"api/{verb}#{_ESTIMATOR_DOCS_ANCHOR}",
         ) from None

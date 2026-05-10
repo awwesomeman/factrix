@@ -586,18 +586,17 @@ def list_estimators(
 
     matches.sort(key=lambda e: e.name)
 
+    rows = [
+        {
+            "name": e.name,
+            "description": e.description,
+            "import_path": f"factrix.stats.{type(e).__name__}",
+        }
+        for e in matches
+    ]
     if format == "json":
-        return [
-            {
-                "name": e.name,
-                "description": e.description,
-                "import_path": f"factrix.stats.{type(e).__name__}",
-            }
-            for e in matches
-        ]
+        return rows
     if with_import:
-        width = max(len(e.name) for e in matches)
-        return [
-            f"{e.name:<{width}} → factrix.stats.{type(e).__name__}" for e in matches
-        ]
-    return [e.name for e in matches]
+        width = max(len(r["name"]) for r in rows)
+        return [f"{r['name']:<{width}} → {r['import_path']}" for r in rows]
+    return [r["name"] for r in rows]
