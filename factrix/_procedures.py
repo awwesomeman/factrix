@@ -67,14 +67,14 @@ def _hh_metadata(clamped: bool) -> dict[StatCode, Mapping[str, Any]]:
     ``variance_clamped=True`` mirrors the ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``
     flag (γ₀ + 2 Σγⱼ < 0 → SE clamped to 0 → t_HH = 0, p_HH = 1.0). The
     lag count ``h - 1`` is derivable from ``profile.config.forward_periods``
-    so it is not duplicated here. The same record is mirrored under both
-    ``T_HH`` and ``P_HH`` so single-key lookup stays honest (one shared
-    kernel choice, two consumed values).
+    so it is not duplicated here. An equivalent (but independent) record
+    is stored under both ``T_HH`` and ``P_HH`` so downstream mutation of
+    one entry does not silently bleed into the other — same contract
+    ``_nw_metadata`` carries for the ``(T_NW, P)`` pair.
     """
-    inner = {"kernel": "rectangular", "variance_clamped": clamped}
     return {
-        StatCode.T_HH: inner,
-        StatCode.P_HH: inner,
+        StatCode.T_HH: {"kernel": "rectangular", "variance_clamped": clamped},
+        StatCode.P_HH: {"kernel": "rectangular", "variance_clamped": clamped},
     }
 
 
@@ -165,9 +165,7 @@ class _ICContPanelProcedure:
             StatCode.MEAN,
             StatCode.T_NW,
             StatCode.P,
-            # (T_HH, P_HH) emitted as a pair when forward_periods > 1.
-            # HansenHodrick estimator dispatches to P_HH; T_HH is the
-            # algorithm-symmetric sibling of T_NW.
+            # (T_HH, P_HH) pair, conditionally emitted when forward_periods > 1.
             StatCode.T_HH,
             StatCode.P_HH,
         }
