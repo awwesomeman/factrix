@@ -85,6 +85,83 @@ are not per-(scope, signal) cell metrics."""
 # it isn't.
 _SCALAR_INPUT_METRICS: frozenset[str] = frozenset({"breakeven_cost", "net_spread"})
 
+# Metrics that ``run_metrics`` cannot auto-discover even though their
+# Matrix-row is user-facing. Each entry carries a short reason rendered
+# into ``MetricsBundle.skipped`` and into the ``UserInputError`` raised
+# when a caller names one explicitly via ``metrics=[...]``. v2 may
+# promote this to a Matrix-row tag once the population is stable.
+_AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
+    # Horizon dispatchers — semantics live at the horizon-loop layer
+    # (#186 deprecation in favour of `compare(bundles[])` /
+    # `bhy(expand_over=["forward_periods"])`).
+    "multi_horizon_ic": (
+        "horizon dispatcher; use compare(bundles[]) or "
+        "bhy(expand_over=['forward_periods'])"
+    ),
+    "multi_horizon_hit_rate": (
+        "horizon dispatcher; use compare(bundles[]) or "
+        "bhy(expand_over=['forward_periods'])"
+    ),
+    # Stage-1 consumers without v1 dispatch wiring. These metrics are
+    # callable directly from ``factrix.metrics`` once the caller has the
+    # stage-1 frame; v1 ``run_metrics`` does not yet thread that wiring.
+    # Tracked as v1.x follow-up; not blocking the IC-cell stage-1 pattern
+    # validated in v1.
+    "caar": (
+        "consumes caar_df; call factrix.metrics.compute_event_returns + "
+        "compute_caar then caar(caar_df) directly"
+    ),
+    "fama_macbeth": (
+        "consumes beta_df; call factrix.metrics.compute_fm_betas then "
+        "fama_macbeth(beta_df) directly"
+    ),
+    "beta_sign_consistency": (
+        "consumes beta_df; call factrix.metrics.compute_fm_betas then "
+        "beta_sign_consistency(beta_df) directly"
+    ),
+    "ts_beta": (
+        "consumes ts_betas_df; call factrix.metrics.compute_ts_betas then "
+        "ts_beta(ts_betas_df) directly"
+    ),
+    "mean_r_squared": (
+        "consumes ts_betas_df; call factrix.metrics.compute_ts_betas then "
+        "mean_r_squared(ts_betas_df) directly"
+    ),
+    "ts_beta_sign_consistency": (
+        "consumes ts_betas_df; call factrix.metrics.compute_ts_betas then "
+        "ts_beta_sign_consistency(ts_betas_df) directly"
+    ),
+    "mfe_mae_summary": (
+        "consumes mfe_mae_df; call factrix.metrics.compute_mfe_mae then "
+        "mfe_mae_summary(mfe_mae_df) directly"
+    ),
+    # Series-input diagnostics — operate on a (date, value) series, not
+    # a panel. Compose explicitly with compute_ic / compute_spread_series.
+    "hit_rate": (
+        "consumes a (date, value) series; e.g. "
+        "hit_rate(compute_ic(panel).rename({'ic': 'value'}))"
+    ),
+    "multi_split_oos_decay": (
+        "consumes a (date, value) series; e.g. "
+        "multi_split_oos_decay(compute_spread_series(panel)"
+        ".rename({'spread': 'value'}))"
+    ),
+    "ic_trend": (
+        "consumes a (date, value) series; e.g. "
+        "ic_trend(compute_ic(panel).rename({'ic': 'value'}))"
+    ),
+    # Multi-factor spread inputs — require a list/dict of factor spreads,
+    # not a single panel.
+    "spanning_alpha": (
+        "consumes factor_spread; call after compute_spread_series on the "
+        "challenger factor"
+    ),
+    "greedy_forward_selection": (
+        "consumes factor_spreads dict; call after compute_spread_series on "
+        "each candidate factor"
+    ),
+}
+
 # Function name → emitted ``MetricOutput.name`` literal, where the two
 # diverge. Most metrics emit ``name=<function_name>``; the entries here
 # are the historical exceptions and the source of truth for the
@@ -266,6 +343,7 @@ def matrix_entries() -> tuple[MatrixEntry, ...]:
     return tuple(out)
 
 
+@functools.cache
 def all_rows() -> list[MetricRow]:
     """Return every parsed ``Matrix-row:`` row, exploded one per metric name.
 
@@ -291,6 +369,7 @@ def all_rows() -> list[MetricRow]:
     return rows
 
 
+@functools.cache
 def user_facing_rows() -> list[MetricRow]:
     """Return parsed rows excluding stage-1 helpers and cross-cutting infra."""
     excluded = _STAGE1_HELPERS | _INFRASTRUCTURE
