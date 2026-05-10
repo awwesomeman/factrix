@@ -55,6 +55,13 @@ class WarningCode(StrEnum):
     # ``df = n - 1 < 19`` inflates t_crit relative to the asymptotic
     # cutoff. Below the HARD floor the primitive short-circuits to NaN.
     BORDERLINE_PORTFOLIO_PERIODS = "borderline_portfolio_periods"
+    # Fired when a rectangular-kernel HAC primitive (Hansen-Hodrick 1980)
+    # produces a negative variance-of-mean estimate on short / mildly
+    # anti-correlated samples. Unlike the Bartlett kernel, the rectangular
+    # kernel carries no PSD guarantee (Andrews 1991 §3); the primitive
+    # clamps variance to 0.0 and the t-test returns t=0, p=1.0 (cannot
+    # reject), the conservative direction.
+    RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
 
     @property
     def description(self) -> str:
@@ -94,6 +101,9 @@ _WARNING_DESCRIPTIONS.update(
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "
         "t_crit relative to the asymptotic cutoff.",
+        WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
+        "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
+        "Fires only on short / mildly anti-correlated samples.",
     }
 )
 
