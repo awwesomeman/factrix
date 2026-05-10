@@ -1,14 +1,15 @@
-"""Coverage for the shared family resolution layer (#161)."""
+"""Coverage for the shared family resolution layer (#161, #170)."""
 
 from __future__ import annotations
 
 import pytest
 from factrix import AnalysisConfig, Metric
-from factrix._axis import Mode
+from factrix._axis import FactorScope, Mode, Signal
 from factrix._codes import StatCode
 from factrix._errors import UserInputError
 from factrix._family import _resolve_family
 from factrix._profile import FactorProfile
+from factrix.stats import NeweyWest
 
 
 def _cfg(forward_periods: int = 5) -> AnalysisConfig:
@@ -45,16 +46,44 @@ def test_default_path_no_expand_over_returns_one_entry_per_profile() -> None:
     assert [e.p_value for e in entries] == [0.04, 0.04]
 
 
-def test_p_stat_none_falls_back_to_primary_p() -> None:
+def test_estimator_none_falls_back_to_primary_p() -> None:
     p = _profile(primary_p=0.012, stats={StatCode.IC_P: 0.5})
     [entry] = _resolve_family([p], verb="bhy")
     assert entry.p_value == 0.012
 
 
-def test_p_stat_supplied_reads_from_stats_mapping() -> None:
+def test_estimator_supplied_reads_dispatched_stat() -> None:
     p = _profile(primary_p=0.5, stats={StatCode.IC_P: 0.012})
-    [entry] = _resolve_family([p], verb="bhy", p_stat=StatCode.IC_P)
+    [entry] = _resolve_family([p], verb="bhy", estimator=NeweyWest())
     assert entry.p_value == 0.012
+
+
+def test_estimator_not_applicable_to_cell_raises() -> None:
+    class _Picky:
+        @property
+        def name(self) -> str:
+            return "Picky"
+
+        @property
+        def description(self) -> str:
+            return "Rejects every cell."
+
+        def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
+            return False
+
+        def emits_for(
+            self, scope: FactorScope, signal: Signal, metric: object
+        ) -> StatCode:
+            raise AssertionError("emits_for must not be called when not applicable")
+
+    p = _profile(stats={StatCode.IC_P: 0.04})
+    with pytest.raises(UserInputError) as exc:
+        _resolve_family([p], verb="bhy", estimator=_Picky())
+    err = exc.value
+    assert err.field == "estimator"
+    assert err.value == "Picky"
+    assert "applicable" in (err.expected or "")
+    assert "api/bhy#estimator" in err.docs_url
 
 
 def test_expand_over_single_dim_partitions_per_context_value() -> None:
@@ -142,12 +171,24 @@ def test_duplicate_partition_key_with_expand_over_compares_full_key() -> None:
         _resolve_family(dup, verb="bhy", expand_over=["universe_id"])
 
 
-def test_missing_p_stat_raises_with_available_keys() -> None:
-    p = _profile(stats={StatCode.IC_P: 0.04})
+def test_missing_dispatched_stat_raises_with_available_keys() -> None:
+    # FM cell profile, but stats only has IC_P populated → NeweyWest
+    # dispatches to FM_LAMBDA_P which is missing.
+    cfg = AnalysisConfig.individual_continuous(metric=Metric.FM, forward_periods=5)
+    p = FactorProfile(
+        config=cfg,
+        mode=Mode.PANEL,
+        primary_p=0.04,
+        n_obs=60,
+        n_assets=20,
+        factor_id="f1",
+        stats={StatCode.IC_P: 0.04},
+    )
     with pytest.raises(UserInputError) as exc:
-        _resolve_family([p], verb="bhy", p_stat=StatCode.FM_LAMBDA_P)
+        _resolve_family([p], verb="bhy", estimator=NeweyWest())
     err = exc.value
-    assert err.field == "p_stat"
-    assert err.value == "FM_LAMBDA_P"
+    assert err.field == "estimator"
+    assert err.value == "NeweyWest"
+    assert "FM_LAMBDA_P" in (err.expected or "")
     assert "IC_P" in err.candidates
-    assert "api/bhy#p_stat" in err.docs_url
+    assert "api/bhy#estimator" in err.docs_url

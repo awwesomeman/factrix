@@ -14,11 +14,35 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+### Added
+
+- **`factrix.stats.Estimator`** — runtime-checkable Protocol for inference-method instances. Implementations supply `name` / `description` / `applicable_to(scope, signal)` / `emits_for(scope, signal, metric)`; the family-verb resolution layer dispatches via these to a `StatCode` key in `profile.stats`. The protocol is selection-only — no `compute()` method — so cell-internal estimator swap stays a future `ComputableEstimator(Estimator)` extension and the surface does not pre-commit to a return shape that NW (`SE+t+p`) and GMM (`J-stat+df+p`) cannot share. (#170)
+- **`factrix.stats.NeweyWest`** — reference Estimator naming the procedure-emitted Newey-West HAC inference path. Carries no compute logic; the underlying NW HAC math stays in `factrix._stats` and is invoked by each cell procedure during `evaluate()`. Constructor takes no arguments in v0.11; `lag` / `kernel` / `overlap_floor` knobs are tracked for a future enhancement. (#170)
+- **`factrix.list_estimators(scope, signal, *, format, with_import)`** — mirrors `list_metrics` shape so the pre-flight pattern ("which scalars and which inference methods does this cell admit") is one API. v0.11 ships only `NeweyWest`; HansenHodrick / GMM follow-ups append to `factrix.stats._ESTIMATOR_REGISTRY` as the #170 sub-issue lands. (#170)
+
 ### Changed
+
+- **`factrix.multi_factor.bhy` accepts `estimator: Estimator | None` instead of `p_stat: StatCode | None`** (breaking, #170). The previous `p_stat=` kwarg was a placeholder landed in v0.10 alongside the family-verb refactor and is removed in v0.11. Migration:
+
+  ```python
+  # before (v0.10)
+  fx.multi_factor.bhy(profiles, p_stat=fx.StatCode.IC_P)
+
+  # after (v0.11)
+  from factrix.stats import NeweyWest
+  fx.multi_factor.bhy(profiles, estimator=NeweyWest())
+  ```
+
+  Default behaviour (`estimator=None`) is unchanged — each profile's `primary_p` drives the step-up. `StatCode.is_p_value` continues to gate `profile.verdict(gate=...)`; the family-verb path no longer consults it because an `Estimator` instance is implicitly a p-value source by construction (`emits_for` returns a probability `StatCode`). The `_STAT_DESCRIPTIONS[StatCode.*_T_NW]` entries are slimmed: kernel / bandwidth / overlap-floor implementation details now live on `NeweyWest` itself, while enum descriptions retain only cell-specific stat semantics and cross-ref the estimator class. (#170)
 
 - **`factrix.multi_factor.bhy` returns `Survivors` instead of `list[FactorProfile]`** (breaking under v0.x). Migration: replace `survivors` with `survivors.profiles` for downstream list / iteration use. The new container exposes `.profiles` (input order, kept rows only), `.adj_q` (bucket-local BHY-adjusted p-values, aligned to `.profiles`), `.q`, `.expand_over` (tuple of partition keys), and `.n_total` (per-bucket `m`, keyed by `expand_over_values`). Internally `bhy` builds the survivor index as `{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket and slices both `.profiles` and `.adj_q` to that set, so the survivor mask and the adjusted p-values downstream code reads come from the same `bhy_adjusted_p` call (the previous parallel `bhy_adjust` mask path is removed) — tie / boundary cases where two parallel implementations could disagree are eliminated by construction. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter — three-column `identity | primary_p | adj_q` table, plus an `expand_over_values` column when buckets are declared. The container is procedure-agnostic; future Holm / Bonferroni / Romano-Wolf verbs will populate the same shape via their own `*_adjusted_p`. (#171)
 - **Terminology**: rename "Layer A" / "Layer B" to **dispatcher** / **curated wrapper** in module docstrings and user-facing docs. Public API names are unchanged. Older CHANGELOG entries below retain the original wording. (#157)
 - **Docs convention**: switch the recommended import alias from `fl` to `fx` across README, mkdocs pages, notebooks, tests, and `llms-full.txt`. `fl` collided with the FinLab community convention (`import finlab as fl`) and carried no mnemonic tie to `factrix`; `fx` takes the first and last letters in the jax-as-`jnp` / polars-as-`pl` / networkx-as-`nx` style. Public API and importable package name (`factrix`) are unchanged — docs-only convention shift, not a breaking change. (#180)
+
+### Removed
+
+- **`factrix.multi_factor.bhy(p_stat=StatCode)` path** — replaced by `estimator=Estimator` (see Changed above). (#170)
+- **`factrix.multi_factor.bhy(gate=...)` deprecation alias** — the v0.4 alias for `p_stat=` is removed alongside its successor; users still on `gate=` should jump directly to `estimator=NeweyWest()`. (#170)
 
 ---
 

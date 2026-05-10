@@ -13,6 +13,7 @@ from factrix._codes import StatCode
 from factrix._errors import UserInputError
 from factrix._multi_factor import Survivors, bhy
 from factrix._profile import FactorProfile
+from factrix.stats import NeweyWest
 
 
 def _profile(
@@ -121,32 +122,35 @@ class TestExpandOver:
 
 
 # ---------------------------------------------------------------------------
-# p_stat alternate p-value
+# estimator override (#170)
 # ---------------------------------------------------------------------------
 
 
-class TestPStat:
-    def test_p_stat_reads_from_stats_not_primary_p(self) -> None:
+class TestEstimatorOverride:
+    def test_estimator_reads_dispatched_stat_not_primary_p(self) -> None:
         prof = _profile(
             factor_id="f1",
+            metric=Metric.FM,
             primary_p=0.99,
             stats={StatCode.FM_LAMBDA_P: 0.001},
         )
-        assert bhy([prof], p_stat=StatCode.FM_LAMBDA_P).profiles == [prof]
+        assert bhy([prof], estimator=NeweyWest()).profiles == [prof]
 
-    def test_non_p_stat_rejected(self) -> None:
-        prof = _profile(
-            factor_id="f1",
-            primary_p=0.04,
-            stats={StatCode.IC_T_NW: 2.5},
-        )
-        with pytest.raises(UserInputError, match="not a probability"):
-            bhy([prof], p_stat=StatCode.IC_T_NW)
+    def test_missing_dispatched_stat_raises_user_error(self) -> None:
+        # FM-cell profile, but default fixture only populates IC_P;
+        # NeweyWest dispatches to FM_LAMBDA_P, which is absent.
+        prof = _profile(factor_id="f1", metric=Metric.FM, primary_p=0.001)
+        with pytest.raises(UserInputError) as exc:
+            bhy([prof], estimator=NeweyWest())
+        err = exc.value
+        assert err.field == "estimator"
+        assert err.value == "NeweyWest"
+        assert "FM_LAMBDA_P" in (err.expected or "")
 
-    def test_missing_p_stat_raises_user_error(self) -> None:
-        prof = _profile(factor_id="f1", primary_p=0.001)
-        with pytest.raises(UserInputError):
-            bhy([prof], p_stat=StatCode.CAAR_P)
+    def test_legacy_p_stat_kwarg_is_unrecognised(self) -> None:
+        prof = _profile(factor_id="f1", primary_p=0.04)
+        with pytest.raises(TypeError, match="p_stat"):
+            bhy([prof], p_stat=StatCode.IC_P)
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +172,7 @@ class TestIdentityUniqueness:
 
 
 # ---------------------------------------------------------------------------
-# Deprecated v0.4 kwargs (threshold= → q=, gate= → p_stat=)
+# Deprecated v0.4 kwargs (threshold= → q=)
 # ---------------------------------------------------------------------------
 
 
@@ -179,16 +183,6 @@ class TestDeprecatedKwargs:
             result = bhy([prof], threshold=0.05)
         assert result.profiles == [prof]
 
-    def test_gate_alias_warns(self) -> None:
-        prof = _profile(
-            factor_id="f1",
-            primary_p=0.99,
-            stats={StatCode.FM_LAMBDA_P: 0.001},
-        )
-        with pytest.warns(DeprecationWarning, match="gate"):
-            result = bhy([prof], gate=StatCode.FM_LAMBDA_P)
-        assert result.profiles == [prof]
-
     def test_threshold_and_q_collide(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
         with (
@@ -197,15 +191,6 @@ class TestDeprecatedKwargs:
         ):
             warnings.simplefilter("ignore", DeprecationWarning)
             bhy([prof], threshold=0.05, q=0.01)
-
-    def test_gate_and_p_stat_collide(self) -> None:
-        prof = _profile(factor_id="f1", primary_p=0.04)
-        with (
-            pytest.raises(TypeError, match="not both"),
-            warnings.catch_warnings(),
-        ):
-            warnings.simplefilter("ignore", DeprecationWarning)
-            bhy([prof], gate=StatCode.IC_P, p_stat=StatCode.IC_P)
 
     def test_unknown_kwarg_raises(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)

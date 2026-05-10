@@ -150,13 +150,13 @@ class StatCode(StrEnum):
     - **p-values**: identifier ends in ``_p`` (``IC_P`` / ``FM_LAMBDA_P``
       / ``TS_BETA_P`` / ``CAAR_P`` plus the diagnostic-only
       ``FACTOR_ADF_P`` / ``LJUNG_BOX_P``). ``is_p_value`` returns
-      ``True``. These are the only codes ``multi_factor.bhy`` will
-      accept as a ``p_stat=`` override (BHY step-up requires
-      probabilities — feeding it t-stats yields nonsense FDR control).
+      ``True``. The Estimator-based ``estimator=`` override (#170)
+      dispatches to one of these via ``Estimator.emits_for``.
     - **t-stats** / effect-size means / lag counts / HHI: ``is_p_value``
       returns ``False``. ``profile.verdict(gate=...)`` accepts these
       (the comparison is generic ``value < threshold`` — interpretation
-      is the caller's call) but ``bhy(p_stat=...)`` rejects them.
+      is the caller's call) but family-verb ``estimator=`` overrides
+      always dispatch to a probability code.
     """
 
     IC_MEAN = "ic_mean"
@@ -180,10 +180,12 @@ class StatCode(StrEnum):
     def is_p_value(self) -> bool:
         """``True`` iff this stat is a probability in [0, 1].
 
-        Used by ``multi_factor.bhy`` (and the shared family resolution
-        layer) to gatekeep the ``p_stat=`` override — BHY step-up math
-        requires p-values, so feeding a t-stat would silently corrupt
-        FDR control.
+        Used by ``profile.verdict(gate=...)`` and downstream tooling to
+        distinguish probability codes from t-stats / effect-size means.
+        The family-verb ``estimator=`` override (#170) does not consult
+        this gate directly: an :class:`~factrix.stats.Estimator`
+        instance is implicitly a p-value source, and ``emits_for``
+        dispatches to a probability ``StatCode`` by construction.
         """
         return self.value.endswith("_p")
 
@@ -201,23 +203,26 @@ class StatCode(StrEnum):
 
 _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     StatCode.IC_MEAN: "Per-date Spearman IC, mean over the time series.",
-    StatCode.IC_T_NW: "NW HAC t-stat on the IC mean (Bartlett kernel, "
-    "auto-bandwidth with Hansen-Hodrick overlap floor).",
+    StatCode.IC_T_NW: "NW HAC t-stat on the IC mean. "
+    "Implementation convention lives in `factrix.stats.NeweyWest`.",
     StatCode.IC_P: "Two-sided p-value from the NW HAC t-test on IC.",
     StatCode.FM_LAMBDA_MEAN: "Fama-MacBeth λ — per-date OLS slope of "
     "forward_return on factor, averaged over time.",
-    StatCode.FM_LAMBDA_T_NW: "NW HAC t-stat on the FM λ mean.",
+    StatCode.FM_LAMBDA_T_NW: "NW HAC t-stat on the FM λ mean. "
+    "Implementation convention lives in `factrix.stats.NeweyWest`.",
     StatCode.FM_LAMBDA_P: "Two-sided p-value from the NW HAC t-test on FM λ.",
     StatCode.TS_BETA: "Per-asset OLS β on the broadcast factor; "
     "PANEL = cross-asset mean of β_i, TIMESERIES = single-series β.",
     StatCode.TS_BETA_T_NW: "PANEL: cross-asset t on E[β]. "
-    "TIMESERIES: NW HAC t on the single-series β.",
+    "TIMESERIES: NW HAC t on the single-series β. "
+    "TIMESERIES convention lives in `factrix.stats.NeweyWest`.",
     StatCode.TS_BETA_P: "Two-sided p-value from the TS_BETA t-test.",
     StatCode.CAAR_MEAN: "Per-event-date weighted abnormal return, "
     "averaged across event dates (event-only mean — see _procedures for "
     "the dense-calendar t-stat).",
     StatCode.CAAR_T_NW: "NW HAC t-stat on the dense-calendar CAAR series "
-    "(zero-fill on non-event dates; Hansen-Hodrick overlap floor).",
+    "(zero-fill on non-event dates). "
+    "Implementation convention lives in `factrix.stats.NeweyWest`.",
     StatCode.CAAR_P: "Two-sided p-value from the NW HAC t-test on CAAR.",
     StatCode.FACTOR_ADF_P: "ADF unit-root test p-value on the factor input "
     "series (MacKinnon 1996 response-surface; constant-only specification). "

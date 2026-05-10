@@ -25,17 +25,16 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from factrix._codes import StatCode
 from factrix._family import _resolve_family
 from factrix.stats.multiple_testing import bhy_adjusted_p
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
+    from factrix.stats import Estimator
 
 
 _DEPRECATED_KWARGS = {
     "threshold": "q",
-    "gate": "p_stat",
 }
 _DEFAULT_Q = 0.05
 
@@ -160,7 +159,7 @@ def bhy(
     profiles: Iterable[FactorProfile],
     *,
     expand_over: Sequence[str] | None = None,
-    p_stat: StatCode | None = None,
+    estimator: Estimator | None = None,
     q: float | None = None,
     **deprecated: Any,
 ) -> Survivors:
@@ -178,11 +177,12 @@ def bhy(
         expand_over: Optional context keys whose distinct value tuples
             split the input into independent BHY step-up batches.
             ``None`` runs a single step-up over all profiles.
-        p_stat: Alternate p-value :class:`StatCode` (must satisfy
-            ``is_p_value``). ``None`` uses each profile's procedure-
-            canonical ``primary_p`` (e.g. ``IC_P`` for IC,
-            ``FM_LAMBDA_P`` for Fama–MacBeth, ``CAAR_P`` for event
-            studies).
+        estimator: Optional inference-method override (#170). An
+            :class:`~factrix.stats.Estimator` instance (e.g.
+            ``factrix.stats.NeweyWest()``) names which p-value to feed
+            the step-up; ``None`` uses each profile's ``primary_p``.
+            The instance reports its applicability per cell and
+            dispatches to a ``StatCode`` key in ``profile.stats``.
         q: Nominal false discovery rate target. The BHY step-up
             controls FDR ≤ q under positive-regression-dependence
             (PRDS); under arbitrary dependence the effective level is
@@ -196,14 +196,14 @@ def bhy(
 
     Raises:
         UserInputError: On any family-resolution invariant failure
-            (unknown / identity-shadowing ``expand_over`` name; missing
-            or non-probability ``p_stat``; duplicate partition key —
-            typically fixed by setting unique ``factor_id`` per profile
-            or splitting via ``expand_over``).
+            (unknown / identity-shadowing ``expand_over`` name; an
+            ``estimator`` not applicable to a profile's cell or whose
+            dispatched ``StatCode`` is unpopulated; duplicate partition
+            key — typically fixed by setting unique ``factor_id`` per
+            profile or splitting via ``expand_over``).
 
     Warns:
-        DeprecationWarning: When the v0.4 kwargs ``threshold=`` /
-            ``gate=`` are used.
+        DeprecationWarning: When the v0.4 kwarg ``threshold=`` is used.
         RuntimeWarning: When the input mixes ``forward_periods`` while
             ``expand_over`` is ``None`` — pooling horizons in one
             step-up dilutes the per-rank threshold and silently
@@ -211,8 +211,8 @@ def bhy(
             a single profile (BHY on n=1 is a raw cutoff and provides
             no FDR correction).
     """
-    expand_over, p_stat, q = _apply_deprecated_kwargs(
-        expand_over=expand_over, p_stat=p_stat, q=q, deprecated=deprecated
+    expand_over, q = _apply_deprecated_kwargs(
+        expand_over=expand_over, q=q, deprecated=deprecated
     )
     expand_over_tuple: tuple[str, ...] = tuple(expand_over) if expand_over else ()
 
@@ -229,7 +229,7 @@ def bhy(
     _warn_on_mixed_horizons(profile_list, expand_over=expand_over)
 
     entries = _resolve_family(
-        profile_list, verb="bhy", expand_over=expand_over, p_stat=p_stat
+        profile_list, verb="bhy", expand_over=expand_over, estimator=estimator
     )
 
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
@@ -287,10 +287,9 @@ def _warn_on_mixed_horizons(
 def _apply_deprecated_kwargs(
     *,
     expand_over: Sequence[str] | None,
-    p_stat: StatCode | None,
     q: float | None,
     deprecated: dict[str, Any],
-) -> tuple[Sequence[str] | None, StatCode | None, float]:
+) -> tuple[Sequence[str] | None, float]:
     unknown = set(deprecated) - _DEPRECATED_KWARGS.keys()
     if unknown:
         raise TypeError(
@@ -303,12 +302,6 @@ def _apply_deprecated_kwargs(
                 "bhy(): pass either `q=` or the deprecated `threshold=`, not both."
             )
         q = deprecated["threshold"]
-    if "gate" in deprecated:
-        if p_stat is not None:
-            raise TypeError(
-                "bhy(): pass either `p_stat=` or the deprecated `gate=`, not both."
-            )
-        p_stat = deprecated["gate"]
 
     if deprecated:
         renamed = ", ".join(
@@ -327,4 +320,4 @@ def _apply_deprecated_kwargs(
             stacklevel=4,
         )
 
-    return expand_over, p_stat, q if q is not None else _DEFAULT_Q
+    return expand_over, q if q is not None else _DEFAULT_Q

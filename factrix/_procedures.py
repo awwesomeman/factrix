@@ -38,8 +38,9 @@ class FactorProcedure(Protocol):
     ``EMITS_STATS`` is the **possible-set** of ``StatCode`` keys the
     procedure can populate on ``FactorProfile.stats`` (always-emitted ∪
     conditionally-emitted). ``describe_analysis_modes(format="json")``
-    surfaces this so agents can pre-validate ``verdict(gate=...)`` /
-    ``bhy(p_stat=...)`` choices without running the procedure.
+    surfaces this so agents can pre-validate ``verdict(gate=...)`` and
+    cross-check that an ``Estimator`` instance is dispatchable for the
+    cell without running the procedure.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema]

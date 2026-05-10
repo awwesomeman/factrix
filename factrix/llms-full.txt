@@ -259,7 +259,7 @@ factrix.multi_factor.bhy(
     profiles: Iterable[FactorProfile],
     *,
     expand_over: Sequence[str] | None = None,
-    p_stat: StatCode | None = None,
+    estimator: Estimator | None = None,
     q: float = 0.05,
 ) -> Survivors
 ```
@@ -284,10 +284,15 @@ cases. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter —
 three-column `identity | primary_p | adj_q` text and HTML table, plus
 an `expand_over_values` column when buckets are declared.
 
-`p_stat=` overrides which p-value drives BHY; only `StatCode`s where
-`is_p_value` is `True` are accepted (`UserInputError` on non-probabilities;
-also on missing key per profile). The v0.4 kwargs `threshold=` / `gate=`
-are accepted with `DeprecationWarning` and route to `q=` / `p_stat=`.
+`estimator=` overrides which inference method's p-value drives BHY.
+Pass an `Estimator` instance (e.g. `factrix.stats.NeweyWest()`); the
+instance's `applicable_to(scope, signal)` is checked per profile, and
+its `emits_for(scope, signal, metric)` dispatches to a `StatCode` key
+in `profile.stats`. `UserInputError` raises on cell-not-applicable or
+missing dispatched key per profile. The v0.4 kwarg `threshold=` is
+still accepted with `DeprecationWarning` and routes to `q=`; the
+former `gate=` / `p_stat=` paths were removed in v0.11 alongside this
+breaking change (#170).
 
 Family-resolution invariants raise `UserInputError`:
 - `expand_over` names must exist in every `profile.context` and may not
@@ -310,7 +315,7 @@ via the auto-generated `__eq__`.
 
 ---
 
-### `describe_analysis_modes` / `suggest_config` / `list_metrics`
+### `describe_analysis_modes` / `suggest_config` / `list_metrics` / `list_estimators`
 
 ```
 factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
@@ -350,6 +355,19 @@ factrix.list_metrics(scope: FactorScope, signal: Signal,
     # → fm_beta, etc.). Mode is not an input — applicability does
     # not change across PANEL / TIMESERIES.
     # Raises IncompatibleAxisError if the pair has no registered metrics.
+
+factrix.list_estimators(scope: FactorScope, signal: Signal,
+                        *, format: Literal["text", "json"] = "text",
+                        with_import: bool = False
+                        ) -> list[str] | list[dict[str, Any]]
+    # Estimator instances applicable to a (scope, signal) cell —
+    # mirrors list_metrics shape so the pre-flight pattern is one
+    # API. text → list[str] sorted by name; json → rows with
+    # {name, description, import_path}. with_import (text-only)
+    # returns "name → factrix.stats.<Class>" two-column lines.
+    # v0.11 ships only NeweyWest; HansenHodrick / GMM follow-ups
+    # are tracked under #170. Raises IncompatibleAxisError if the
+    # pair has no applicable estimator.
 ```
 
 ---
@@ -452,8 +470,10 @@ Read live descriptions programmatically:
 
 ## StatCode reference
 
-`StatCode.is_p_value` is `True` iff the value name ends in `_p` (the only
-codes `bhy(p_stat=...)` accepts).
+`StatCode.is_p_value` is `True` iff the value name ends in `_p`. Used by
+`profile.verdict(gate=...)` consumers; the family-verb `estimator=`
+override (#170) dispatches via `Estimator.emits_for` and does not gate
+on `is_p_value` directly.
 
 | StatCode | Set by | Meaning |
 |---|---|---|
