@@ -353,6 +353,79 @@ def _newey_west_t_test(
     return t, p, _significance_marker(p)
 
 
+def _hansen_hodrick_se(
+    values: np.ndarray,
+    forward_periods: int,
+) -> tuple[float, bool]:
+    """Hansen-Hodrick (1980) rectangular-kernel HAC SE for a sample mean.
+
+    Closed-form variance under the textbook MA(h-1) overlap structure
+    induced by h-period forward returns:
+
+        Var(mean) = (γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n,    h = forward_periods
+
+    Unlike the Bartlett kernel used by ``_newey_west_se``, weights are
+    flat (1.0) inside ``j ≤ h-1`` and zero beyond. The estimator carries
+    no PSD guarantee (Andrews 1991 §3): on short / mildly anti-correlated
+    samples the parenthesised sum can come out negative. Callers may map
+    ``clamped=True`` to a degenerate-sample warning.
+
+    Args:
+        values: 1-D array of the overlapping series whose mean is tested.
+        forward_periods: Overlap horizon ``h``. Must be ≥ 1; ``h = 1``
+            collapses to the iid SE (no autocovariance terms).
+
+    Returns:
+        ``(se, clamped)`` — clamped variance √max(., 0); ``clamped`` is
+        ``True`` iff the raw variance estimate was < 0.
+    """
+    n = len(values)
+    if n < 2 or forward_periods < 1:
+        return 0.0, False
+
+    mean = float(np.mean(values))
+    demeaned = values - mean
+
+    gamma_0 = float(np.dot(demeaned, demeaned)) / n
+    weighted_sum = gamma_0
+    lags = min(forward_periods - 1, n - 1)
+    for j in range(1, lags + 1):
+        gamma_j = float(np.dot(demeaned[j:], demeaned[:-j])) / n
+        weighted_sum += 2.0 * gamma_j
+
+    variance_of_mean = weighted_sum / n
+    clamped = variance_of_mean < 0.0
+    return float(np.sqrt(max(variance_of_mean, 0.0))), clamped
+
+
+def _hansen_hodrick_t_test(
+    values: np.ndarray,
+    forward_periods: int,
+) -> tuple[float, float, str, bool]:
+    """Hansen-Hodrick t-test for ``H₀: mean = 0`` on an overlapping series.
+
+    Returns ``(t, p, marker, clamped)``. The 4-tuple deviates from
+    ``_newey_west_t_test``'s 3-tuple deliberately: rectangular-kernel
+    variance has no PSD guarantee and callers must surface the clamp
+    case as a warning rather than silently treat it as a non-rejection.
+    SE → 0 (whether by near-zero raw variance or by clamping) returns
+    ``(0.0, 1.0, "", clamped)`` — the conservative "cannot reject"
+    direction.
+    """
+    n = len(values)
+    if n < 3 or forward_periods < 1:
+        return 0.0, 1.0, "", False
+
+    mean = float(np.mean(values))
+    se, clamped = _hansen_hodrick_se(values, forward_periods)
+    if se < EPSILON:
+        return 0.0, 1.0, "", clamped
+
+    t = mean / se
+    p = _p_value_from_t(t, n)
+    return t, p, _significance_marker(p), clamped
+
+
 def _ols_nw_slope_t(
     y: np.ndarray,
     x: np.ndarray,

@@ -55,6 +55,13 @@ class WarningCode(StrEnum):
     # ``df = n - 1 < 19`` inflates t_crit relative to the asymptotic
     # cutoff. Below the HARD floor the primitive short-circuits to NaN.
     BORDERLINE_PORTFOLIO_PERIODS = "borderline_portfolio_periods"
+    # Fired when a rectangular-kernel HAC primitive (Hansen-Hodrick 1980)
+    # produces a negative variance-of-mean estimate on short / mildly
+    # anti-correlated samples. Unlike the Bartlett kernel, the rectangular
+    # kernel carries no PSD guarantee (Andrews 1991 §3); the primitive
+    # clamps variance to 0.0 and the t-test returns t=0, p=1.0 (cannot
+    # reject), the conservative direction.
+    RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
 
     @property
     def description(self) -> str:
@@ -94,6 +101,9 @@ _WARNING_DESCRIPTIONS.update(
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "
         "t_crit relative to the asymptotic cutoff.",
+        WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
+        "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
+        "Fires only on short / mildly anti-correlated samples.",
     }
 )
 
@@ -157,6 +167,35 @@ class StatCode(StrEnum):
       variants of the same p-value get a further suffix
       (``_P_HH`` / ``_P_GMM``).
 
+    **Inference primary stats — algorithm-suffixed pair shape**
+
+    Each inference algorithm emits a (test statistic, p-value) pair with
+    KINDs that abbreviate the test statistic's reference distribution:
+    ``T`` (Student-t / asymptotic normal), ``J`` (Hansen J / χ²),
+    ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
+    Currently shipping: ``(T_NW, P)`` for Newey-West and ``(T_HH, P_HH)``
+    for Hansen-Hodrick. Planned in #191: ``(J_GMM, P_GMM)`` — the
+    over-identification test is χ², not t, so GMM emits J rather than T.
+    The bare ``P`` alias for ``P_NW`` is tracked for rename in #192.
+
+    **Redesign trigger** — when (a) ≥ 4 inference algorithms ship
+    concurrently or (b) ≥ 3 distinct test-statistic KINDs (T / J /
+    Wald / F / LR) coexist, the flat ``<KIND>_<ALGO>`` enum becomes
+    a (kind × algo) cardinality product and a structured shape
+    (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
+    its breaking-change cost. Below those thresholds the flat
+    enum stays cheaper.
+
+    **Convention: ``df`` always means statistical degrees of freedom.**
+    Wherever ``df`` appears in factrix StatCode descriptions, metadata
+    inner-dict keys (``profile.metadata[StatCode.X]["df"]``), or
+    ``profile.inference[...]`` schema fields, it carries the statistics
+    sense — never a DataFrame. This matches scipy's API
+    (``scipy.stats.chi2.sf(..., df=...)``) and is uniform across the
+    codebase. DataFrames are spelled out as ``DataFrame`` in type hints
+    and as ``df`` only in user-facing function-argument names where the
+    Python variable convention is unambiguous from context.
+
     ``is_p_value`` returns ``True`` for any code whose
     underscore-separated tokens contain ``"p"``; family-verb
     ``estimator=`` (#170) dispatches via :class:`Estimator.emits_for`
@@ -167,9 +206,16 @@ class StatCode(StrEnum):
     MEAN = "mean"
     T_NW = "t_nw"
     P = "p"
-    # Algorithm variants reserved for procedure-side landing
-    # (HH-pure: #184; GMM J-test: separate follow-up).
+    # HH-pure rectangular-kernel HAC: t-statistic + p-value emitted as
+    # a pair, parallel to the (T_NW, P) NW pair. Conditionally emitted by
+    # IC / FM PANEL when forward_periods > 1 (overlap exists).
+    T_HH = "t_hh"
     P_HH = "p_hh"
+    # GMM J-test (Hansen 1982): J statistic is chi-square distributed
+    # under H₀ — not a t-stat — so the (J_GMM, P_GMM) pair replaces the
+    # (T_*, P_*) shape. The pair lands together with the GMM procedure
+    # in #191; the StatCode grammar in this module's docstring already
+    # documents the planned shape.
     P_GMM = "p_gmm"
 
     # Diagnostic — factor input series.
@@ -216,8 +262,12 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "Implementation convention lives in `factrix.stats.NeweyWest`.",
     StatCode.P: "Two-sided p-value from the NW HAC t-test on the cell "
     "primary estimate.",
-    StatCode.P_HH: "Two-sided p-value under Hansen-Hodrick (1980) "
-    "rectangular-kernel HAC. Reserved for procedure-side landing in #184.",
+    StatCode.T_HH: "Hansen-Hodrick (1980) rectangular-kernel HAC t-stat "
+    "on the cell primary estimate. Sibling of `T_NW`; uses `Var(mean) = "
+    "(γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n` instead of NW's Bartlett kernel.",
+    StatCode.P_HH: "Two-sided p-value from the Hansen-Hodrick (1980) "
+    "rectangular-kernel HAC t-test on the cell primary estimate. "
+    "Implementation convention lives in `factrix.stats.HansenHodrick`.",
     StatCode.P_GMM: "Two-sided p-value from a Hansen (1982) GMM J-test "
     "(over-identifying restrictions). Reserved for procedure-side landing "
     "in a follow-up issue.",
