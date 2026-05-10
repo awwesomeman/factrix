@@ -274,13 +274,15 @@ the implicit `(dispatch cell, forward_periods)` auto-split).
 Returns a `Survivors` container with `.profiles` (input order), `.adj_q`
 (bucket-local BHY-adjusted p-values, same length as `.profiles`), `.q`,
 `.expand_over` (tuple), and `.n_total` (Mapping keyed by each bucket's
-expand_over_values tuple — `()` in the single-family case). The
-survivor set is **definitionally** `adj_q <= q`; `bhy` calls
-`bhy_adjusted_p` once per bucket and derives the mask from those
-values, so survivor membership and `adj_q` cannot disagree on ties or
-boundary cases. `Survivors` ships `__repr__` / `_repr_html_` for
-Jupyter — three-column `identity | primary_p | adj_q` text and HTML
-table, plus an `expand_over_values` column when buckets are declared.
+expand_over_values tuple — `()` in the single-family case). `Survivors`
+carries only the kept rows; `bhy` constructs the survivor index set as
+`{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket, then slices both
+`.profiles` and `.adj_q` to that set. Survivor membership and the
+adjusted p-values downstream code reads come from the same
+`bhy_adjusted_p` call, so they cannot disagree on ties or boundary
+cases. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter —
+three-column `identity | primary_p | adj_q` text and HTML table, plus
+an `expand_over_values` column when buckets are declared.
 
 `p_stat=` overrides which p-value drives BHY; only `StatCode`s where
 `is_p_value` is `True` are accepted (`UserInputError` on non-probabilities;

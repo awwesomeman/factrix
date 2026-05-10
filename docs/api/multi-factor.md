@@ -77,11 +77,16 @@ for the full invariant list.
 `bhy` returns a `Survivors` container, not a bare list. The container
 is procedure-agnostic — `adj_q` carries the verb's procedure-canonical
 adjusted p-value (BHY here; future Holm / Bonferroni / Romano-Wolf
-verbs populate the same shape via their own `*_adjusted_p`). The
-contract is **`survivor[i] iff adj_q[i] <= q`** — the survivor mask is
-defined by the adjusted p-values, not a separate rejection-mask path.
-This eliminates the tie / boundary edge cases where two parallel
-step-up implementations could disagree.
+verbs populate the same shape via their own `*_adjusted_p`).
+
+`Survivors` carries only the kept rows. The construction rule **inside
+`bhy`** is: compute `adj_q_all` over the full bucket-local input via
+`bhy_adjusted_p`, then keep `{i : adj_q_all[i] <= q}` and slice both
+`profiles` and `adj_q` to that index set. The survivor mask is derived
+from the same adjusted p-values that downstream code reads — not a
+separate rejection-mask path — so tie / boundary edge cases where two
+parallel step-up implementations could disagree are eliminated by
+construction.
 
 `adj_q[i]` is computed within `profiles[i]`'s **own** `expand_over`
 bucket — bucket-local `n` and `p_array`, never pooled across buckets.
