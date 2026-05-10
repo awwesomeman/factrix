@@ -51,6 +51,7 @@ from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
 from factrix._describe import (
     SuggestConfigResult,
     describe_analysis_modes,
+    list_estimators,
     list_metrics,
     suggest_config,
 )
@@ -156,6 +157,7 @@ __all__ = [
     # Introspection
     "SuggestConfigResult",
     "describe_analysis_modes",
+    "list_estimators",
     "list_metrics",
     "suggest_config",
     # Multi-factor namespace

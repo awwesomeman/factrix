@@ -533,3 +533,71 @@ def list_metrics(
         width = max(len(r.name) for r in rows)
         return [f"{r.name:<{width}} → {r.import_path}" for r in rows]
     return [r.name for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# list_estimators (#170)
+# ---------------------------------------------------------------------------
+
+
+def list_estimators(
+    scope: FactorScope,
+    signal: Signal,
+    *,
+    format: Literal["text", "json"] = "text",
+    with_import: bool = False,
+) -> list[str] | list[dict[str, Any]]:
+    """Return Estimator instances applicable to ``(scope, signal)``.
+
+    Mirrors :func:`list_metrics` shape so callers can build a single
+    pre-flight pattern: ``list_metrics`` says which scalars a cell can
+    emit, ``list_estimators`` says which inference methods can drive
+    family-verb ``estimator=`` for that cell. Mode is intentionally
+    not an input — Estimator applicability is not mode-dependent.
+
+    Parameters
+    ----------
+    scope, signal
+        Cell axes to filter on.
+    format
+        ``"text"`` (default) returns Estimator names sorted
+        alphabetically. ``"json"`` returns ``list[dict]`` rows with
+        keys ``name``, ``description``, ``import_path``.
+    with_import
+        ``"text"`` only. When ``True``, returns ``"name → import_path"``
+        two-column lines so each row is copy-paste-ready into
+        ``from factrix.stats import <name>``. Ignored under JSON
+        (``import_path`` is always present there).
+
+    Raises
+    ------
+    IncompatibleAxisError
+        ``(scope, signal)`` matches no registered Estimator. In v0.11
+        the registry contains only ``NeweyWest`` which applies to every
+        user-facing cell, so this is defensive.
+    """
+    from factrix.stats import _ESTIMATOR_REGISTRY
+
+    matches = [e for e in _ESTIMATOR_REGISTRY if e.applicable_to(scope, signal)]
+    if not matches:
+        raise IncompatibleAxisError(
+            f"no estimators applicable to (scope={scope.value}, signal={signal.value})"
+        )
+
+    matches.sort(key=lambda e: e.name)
+
+    if format == "json":
+        return [
+            {
+                "name": e.name,
+                "description": e.description,
+                "import_path": f"factrix.stats.{type(e).__name__}",
+            }
+            for e in matches
+        ]
+    if with_import:
+        width = max(len(e.name) for e in matches)
+        return [
+            f"{e.name:<{width}} → factrix.stats.{type(e).__name__}" for e in matches
+        ]
+    return [e.name for e in matches]
