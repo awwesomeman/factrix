@@ -114,11 +114,11 @@ class TestStrongFactor:
         assert profile.stats[StatCode.MEAN] > 0.5
 
     def test_required_stats_keys_present(self, profile: FactorProfile) -> None:
-        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P):
+        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P_NW):
             assert key in profile.stats
 
     def test_primary_p_matches_ic_p_stat(self, profile: FactorProfile) -> None:
-        assert profile.primary_p == profile.stats[StatCode.P]
+        assert profile.primary_p == profile.stats[StatCode.P_NW]
 
     def test_metadata_records_nw_lags_under_t_nw_and_p(
         self,
@@ -131,7 +131,7 @@ class TestStrongFactor:
         from factrix._stats.constants import auto_bartlett
 
         expected = max(auto_bartlett(60), ic_config.forward_periods - 1)
-        assert profile.metadata[StatCode.P] == {"nw_lags": expected}
+        assert profile.metadata[StatCode.P_NW] == {"nw_lags": expected}
         assert profile.metadata[StatCode.T_NW] == {"nw_lags": expected}
 
     def test_metadata_inner_dicts_are_not_aliased(
@@ -141,7 +141,7 @@ class TestStrongFactor:
         # Shared hyperparam (NW lag) is duplicated as content but the
         # inner dicts must be distinct objects so caller mutation of
         # one entry does not silently bleed into the other (#188).
-        assert profile.metadata[StatCode.T_NW] is not profile.metadata[StatCode.P]
+        assert profile.metadata[StatCode.T_NW] is not profile.metadata[StatCode.P_NW]
 
 
 class TestRandomFactor:

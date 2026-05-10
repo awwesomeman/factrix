@@ -10,9 +10,10 @@ floor convention applies uniformly across the four primary_p-emitting
 cells; cell-specific sample-size guards (e.g. ``UNRELIABLE_SE_SHORT_PERIODS``)
 are tracked by the procedures and surface via ``FactorProfile.warnings``.
 
-After #187's StatCode flattening, ``emits_for`` is cell-agnostic — every
-applicable cell looks up the same ``StatCode.P`` key. Cell identity is
-carried by ``profile.config`` rather than by the StatCode.
+``emits_for`` is cell-agnostic — every applicable cell looks up the
+same ``StatCode.P_NW`` key (#187 flattened the prefix; #192 added the
+``_NW`` algorithm suffix for symmetry with ``T_NW`` / ``P_HH``). Cell
+identity is carried by ``profile.config`` rather than by the StatCode.
 """
 
 from __future__ import annotations
@@ -27,10 +28,10 @@ class NeweyWest:
     The Bartlett-kernel HAC variance estimate uses the NW1994 automatic
     bandwidth rule with a Hansen-Hodrick overlap floor for forward-return
     regressions, matching the convention v0.5 procedures already use to
-    populate ``primary_p`` and ``StatCode.P`` / ``StatCode.T_NW`` entries.
+    populate ``primary_p`` and ``StatCode.P_NW`` / ``StatCode.T_NW`` entries.
 
     Cell interpretation comes from ``profile.config`` (``scope`` /
-    ``signal`` / ``metric``) — ``StatCode.P`` is the same key for
+    ``signal`` / ``metric``) — ``StatCode.P_NW`` is the same key for
     correlation-mean tests (IC), event-window mean-effect tests (CAAR),
     cross-asset slope tests (TS β), etc. Downstream readers must consult
     the config to know which null is being rejected; the StatCode is
@@ -70,4 +71,4 @@ class NeweyWest:
         _signal: Signal,
         _metric: Metric | None,
     ) -> StatCode:
-        return StatCode.P
+        return StatCode.P_NW

@@ -159,7 +159,7 @@ class TestContinuousStrong:
         for key in (
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             StatCode.FACTOR_ADF_P,
         ):
             assert key in profile.stats

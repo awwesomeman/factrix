@@ -116,14 +116,14 @@ class TestStrongCaar:
         assert 0.7 < profile.stats[StatCode.MEAN] < 1.3
 
     def test_required_stats(self, profile: FactorProfile) -> None:
-        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P):
+        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P_NW):
             assert key in profile.stats
 
     def test_primary_p_matches_caar_p_stat(
         self,
         profile: FactorProfile,
     ) -> None:
-        assert profile.primary_p == profile.stats[StatCode.P]
+        assert profile.primary_p == profile.stats[StatCode.P_NW]
 
     def test_n_obs_equals_event_dates(self, profile: FactorProfile) -> None:
         # n_obs = number of distinct event-dates feeding the NW test;
@@ -156,7 +156,7 @@ class TestEndToEndViaEvaluate:
         )
         profile = _evaluate(panel, cfg)
         assert profile.mode is Mode.PANEL
-        assert StatCode.P in profile.stats
+        assert StatCode.P_NW in profile.stats
         assert profile.verdict() is Verdict.PASS
 
 
@@ -260,7 +260,7 @@ class TestCalendarTimeRegimes:
         lags = _resolve_nw_lags(T, auto_bartlett(T), cfg.forward_periods)
         ref_t, ref_p, _ = _newey_west_t_test(event_caar, lags=lags)
         assert profile.stats[StatCode.T_NW] == pytest.approx(ref_t)
-        assert profile.stats[StatCode.P] == pytest.approx(ref_p)
+        assert profile.stats[StatCode.P_NW] == pytest.approx(ref_p)
 
     def test_clustered_regime_picks_up_overlap_via_nw_hac(
         self,
@@ -281,7 +281,7 @@ class TestCalendarTimeRegimes:
             beta=0.5,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
-        assert 0.0 <= profile.stats[StatCode.P] <= 1.0
+        assert 0.0 <= profile.stats[StatCode.P_NW] <= 1.0
         assert profile.n_obs == 60
 
 

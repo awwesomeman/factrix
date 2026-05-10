@@ -116,7 +116,7 @@ class TestStrongBeta:
         for key in (
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             StatCode.FACTOR_ADF_TAU,
             StatCode.FACTOR_ADF_P,
         ):
@@ -127,7 +127,7 @@ class TestStrongBeta:
         profile: FactorProfile,
     ) -> None:
         # NW lag count under T_NW + P; ADF lag_order under TAU + P (#188).
-        nw_meta = profile.metadata[StatCode.P]
+        nw_meta = profile.metadata[StatCode.P_NW]
         assert profile.metadata[StatCode.T_NW] == nw_meta
         assert "nw_lags" in nw_meta
 
@@ -203,5 +203,5 @@ class TestEndToEndViaEvaluate:
         ts = _make_ts(n_dates=80, seed=99, beta=0.7)
         profile = _evaluate(ts, cfg)
         assert profile.mode is Mode.TIMESERIES
-        assert StatCode.P in profile.stats
+        assert StatCode.P_NW in profile.stats
         assert profile.verdict() is Verdict.PASS

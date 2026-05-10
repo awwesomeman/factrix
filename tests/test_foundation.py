@@ -72,10 +72,12 @@ class TestCodeEnums:
 
     def test_stat_code_population(self) -> None:
         # Flattened naming (#187): primary cell stats are TARGET-less,
-        # diagnostics carry an explicit prefix.
+        # diagnostics carry an explicit prefix. Algorithm suffix on
+        # primary inference codes (#192) — `(T_NW, P_NW)` pair, parallel
+        # to `(T_HH, P_HH)`.
         assert StatCode.MEAN.value == "mean"
         assert StatCode.T_NW.value == "t_nw"
-        assert StatCode.P.value == "p"
+        assert StatCode.P_NW.value == "p_nw"
         assert StatCode.FACTOR_ADF_P.value == "factor_adf_p"
         assert StatCode.RESID_LJUNG_BOX_P.value == "resid_ljung_box_p"
         assert StatCode.EVENT_HHI_VALUE.value == "event_hhi_value"

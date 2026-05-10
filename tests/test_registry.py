@@ -214,14 +214,14 @@ class TestVerdict:
     def test_gate_override_uses_stats_value(self) -> None:
         prof = _make_profile(
             primary_p=0.50,  # would FAIL on primary
-            stats={StatCode.P: 0.001},
+            stats={StatCode.P_NW: 0.001},
         )
-        assert prof.verdict(gate=StatCode.P) is Verdict.PASS
+        assert prof.verdict(gate=StatCode.P_NW) is Verdict.PASS
 
     def test_gate_keyerror_when_stat_missing(self) -> None:
         prof = _make_profile(primary_p=0.01, stats={})
         with pytest.raises(KeyError):
-            prof.verdict(gate=StatCode.P)
+            prof.verdict(gate=StatCode.P_NW)
 
 
 class TestProfileImmutability:
@@ -252,7 +252,7 @@ class TestDiagnose:
             stats={StatCode.MEAN: 0.05, StatCode.T_NW: 1.96},
             warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS}),
             info_notes=frozenset({InfoCode.SCOPE_AXIS_COLLAPSED}),
-            metadata={StatCode.T_NW: {"nw_lags": 5}, StatCode.P: {"nw_lags": 5}},
+            metadata={StatCode.T_NW: {"nw_lags": 5}, StatCode.P_NW: {"nw_lags": 5}},
         )
         d = prof.diagnose()
         assert d["mode"] == "panel"
@@ -262,7 +262,7 @@ class TestDiagnose:
         assert "scope_axis_collapsed" in d["info_notes"]
         assert d["stats"]["mean"] == 0.05
         # metadata uses StatCode.value strings as outer keys, plain dicts inside.
-        assert d["metadata"] == {"t_nw": {"nw_lags": 5}, "p": {"nw_lags": 5}}
+        assert d["metadata"] == {"t_nw": {"nw_lags": 5}, "p_nw": {"nw_lags": 5}}
 
 
 # ---------------------------------------------------------------------------

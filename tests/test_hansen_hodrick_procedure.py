@@ -72,7 +72,7 @@ class TestProcedureEmitsPHh:
         profile = evaluate(panel, cfg)
         assert StatCode.P_HH not in profile.stats
         assert StatCode.T_HH not in profile.stats
-        assert StatCode.P in profile.stats
+        assert StatCode.P_NW in profile.stats
 
     def test_bhy_dispatches_hh_p_value(self, metric: Metric) -> None:
         panel = _build_panel(n_dates=80, n_assets=15, seed=3)

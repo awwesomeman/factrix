@@ -114,7 +114,7 @@ class TestIcPanelEndToEnd:
         assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes
 
     def test_ic_p_populated(self, profile: FactorProfile) -> None:
-        assert StatCode.P in profile.stats
+        assert StatCode.P_NW in profile.stats
 
 
 # ---------------------------------------------------------------------------

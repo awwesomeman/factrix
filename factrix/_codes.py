@@ -163,9 +163,10 @@ class StatCode(StrEnum):
       target lives outside ``config``.
     - ``KIND`` — what kind of number. ``_MEAN`` / ``_VALUE`` for point
       estimates, statistic-named suffixes (``_T_NW`` / ``_TAU`` /
-      ``_Q``) for test statistics, ``_P`` for p-values. Algorithm
-      variants of the same p-value get a further suffix
-      (``_P_HH`` / ``_P_GMM``).
+      ``_Q``) for test statistics, ``_P_<algo>`` for p-values
+      (``_P_NW`` / ``_P_HH`` / ``_P_GMM``). Diagnostic p-values keep
+      their ``<TARGET>_<TEST>_P`` shape (``FACTOR_ADF_P`` /
+      ``RESID_LJUNG_BOX_P``) — the asymmetry is structural, see below.
 
     **Inference primary stats — algorithm-suffixed pair shape**
 
@@ -173,10 +174,18 @@ class StatCode(StrEnum):
     KINDs that abbreviate the test statistic's reference distribution:
     ``T`` (Student-t / asymptotic normal), ``J`` (Hansen J / χ²),
     ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
-    Currently shipping: ``(T_NW, P)`` for Newey-West and ``(T_HH, P_HH)``
-    for Hansen-Hodrick. Planned in #191: ``(J_GMM, P_GMM)`` — the
-    over-identification test is χ², not t, so GMM emits J rather than T.
-    The bare ``P`` alias for ``P_NW`` is tracked for rename in #192.
+    Currently shipping: ``(T_NW, P_NW)`` for Newey-West and
+    ``(T_HH, P_HH)`` for Hansen-Hodrick. Planned in #191:
+    ``(J_GMM, P_GMM)`` — the over-identification test is χ², not t,
+    so GMM emits J rather than T.
+
+    **Why primary p-value is ``P_<algo>`` while diagnostic p-value is
+    ``<target>_<test>_P``**: primary p has a single conceptual target
+    (the cell's primary estimate, identified by ``profile.config``) so
+    the prefix slot carries the algorithm choice. Diagnostic p has
+    multiple non-primary targets (factor input / residual / event
+    distribution) so the prefix slot carries the target axis and the
+    test name floats with KIND. Both grammars co-exist deliberately.
 
     **Redesign trigger** — when (a) ≥ 4 inference algorithms ship
     concurrently or (b) ≥ 3 distinct test-statistic KINDs (T / J /
@@ -204,11 +213,15 @@ class StatCode(StrEnum):
 
     # Primary (cell main effect) — identity carried by profile.config.
     MEAN = "mean"
+    # Newey-West HAC (Bartlett kernel): t-statistic + p-value pair.
+    # Every primary-inference cell currently emits these two; algorithm
+    # is named explicitly so the pair stays symmetric with future
+    # P_<algo> / T_<algo> variants.
     T_NW = "t_nw"
-    P = "p"
-    # HH-pure rectangular-kernel HAC: t-statistic + p-value emitted as
-    # a pair, parallel to the (T_NW, P) NW pair. Conditionally emitted by
-    # IC / FM PANEL when forward_periods > 1 (overlap exists).
+    P_NW = "p_nw"
+    # HH-pure rectangular-kernel HAC: t-statistic + p-value pair, parallel
+    # to (T_NW, P_NW). Conditionally emitted by IC / FM PANEL when
+    # forward_periods > 1 (overlap exists).
     T_HH = "t_hh"
     P_HH = "p_hh"
     # GMM J-test (Hansen 1982): J statistic is chi-square distributed
@@ -236,8 +249,8 @@ class StatCode(StrEnum):
         Used by ``profile.verdict(gate=...)`` and downstream tooling to
         distinguish probability codes from test statistics / point
         estimates. Tokenises the value on ``_`` and checks for a ``p``
-        token, so bare ``P`` and algorithm variants ``P_HH`` / ``P_GMM``
-        all qualify alongside diagnostic ``FACTOR_ADF_P`` /
+        token, so primary-inference variants ``P_NW`` / ``P_HH`` /
+        ``P_GMM`` all qualify alongside diagnostic ``FACTOR_ADF_P`` /
         ``RESID_LJUNG_BOX_P``.
         """
         return "p" in self.value.split("_")
@@ -260,8 +273,8 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "or TS β / E[β]).",
     StatCode.T_NW: "Newey-West HAC t-stat on the cell primary estimate. "
     "Implementation convention lives in `factrix.stats.NeweyWest`.",
-    StatCode.P: "Two-sided p-value from the NW HAC t-test on the cell "
-    "primary estimate.",
+    StatCode.P_NW: "Two-sided p-value from the Newey-West HAC t-test on "
+    "the cell primary estimate. Sibling of `T_NW`.",
     StatCode.T_HH: "Hansen-Hodrick (1980) rectangular-kernel HAC t-stat "
     "on the cell primary estimate. Sibling of `T_NW`; uses `Var(mean) = "
     "(γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n` instead of NW's Bartlett kernel.",

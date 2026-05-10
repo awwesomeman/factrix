@@ -152,7 +152,7 @@ class TestStrongTrigger:
         for key in (
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             StatCode.RESID_LJUNG_BOX_Q,
             StatCode.RESID_LJUNG_BOX_P,
             StatCode.EVENT_HHI_VALUE,
@@ -165,7 +165,7 @@ class TestStrongTrigger:
     ) -> None:
         # NW lag count shared by T_NW + P; Ljung-Box lag h shared by Q + P;
         # HHI n_bins under EVENT_HHI_VALUE only (#188).
-        nw_meta = profile.metadata[StatCode.P]
+        nw_meta = profile.metadata[StatCode.P_NW]
         assert profile.metadata[StatCode.T_NW] == nw_meta
         assert "nw_lags" in nw_meta and nw_meta["nw_lags"] >= 1
 

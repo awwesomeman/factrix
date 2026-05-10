@@ -39,7 +39,7 @@ def _nw_metadata(nw_lags: int) -> dict[StatCode, Mapping[str, Any]]:
     """
     return {
         StatCode.T_NW: {"nw_lags": nw_lags},
-        StatCode.P: {"nw_lags": nw_lags},
+        StatCode.P_NW: {"nw_lags": nw_lags},
     }
 
 
@@ -164,7 +164,7 @@ class _ICContPanelProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             # (T_HH, P_HH) pair, conditionally emitted when forward_periods > 1.
             StatCode.T_HH,
             StatCode.P_HH,
@@ -208,7 +208,7 @@ class _ICContPanelProcedure:
         stats: dict[StatCode, float] = {
             StatCode.MEAN: ic_mean,
             StatCode.T_NW: t_stat,
-            StatCode.P: p_value,
+            StatCode.P_NW: p_value,
         }
         metadata = _nw_metadata(nw_lags)
         warnings = _emit_hh_p(
@@ -247,7 +247,7 @@ class _FMContPanelProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             # (T_HH, P_HH) pair, conditionally emitted when forward_periods > 1.
             StatCode.T_HH,
             StatCode.P_HH,
@@ -293,7 +293,7 @@ class _FMContPanelProcedure:
         stats: dict[StatCode, float] = {
             StatCode.MEAN: lambda_mean,
             StatCode.T_NW: t_stat,
-            StatCode.P: p_value,
+            StatCode.P_NW: p_value,
         }
         metadata = _nw_metadata(nw_lags)
         warning_codes = _emit_hh_p(
@@ -349,7 +349,7 @@ class _CAARSparsePanelProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
         }
     )
 
@@ -413,7 +413,7 @@ class _CAARSparsePanelProcedure:
             stats={
                 StatCode.MEAN: event_mean,
                 StatCode.T_NW: t_stat,
-                StatCode.P: p_value,
+                StatCode.P_NW: p_value,
             },
             metadata=_nw_metadata(nw_lags),
         )
@@ -434,7 +434,7 @@ class _CommonContPanelProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             StatCode.FACTOR_ADF_TAU,
             StatCode.FACTOR_ADF_P,
         }
@@ -471,7 +471,7 @@ class _CommonSparsePanelProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
         }
     )
 
@@ -577,7 +577,7 @@ def _compute_common_panel(
     stats: dict[StatCode, float] = {
         StatCode.MEAN: beta_mean,
         StatCode.T_NW: t_stat,
-        StatCode.P: p_value,
+        StatCode.P_NW: p_value,
     }
     metadata: dict[StatCode, Mapping[str, Any]] = {}
     warnings: set[WarningCode] = set(extra_warnings)
@@ -634,7 +634,7 @@ class _TSBetaContTimeseriesProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             StatCode.FACTOR_ADF_TAU,
             StatCode.FACTOR_ADF_P,
         }
@@ -703,7 +703,7 @@ class _TSBetaContTimeseriesProcedure:
             stats={
                 StatCode.MEAN: beta,
                 StatCode.T_NW: t_stat,
-                StatCode.P: p_value,
+                StatCode.P_NW: p_value,
                 StatCode.FACTOR_ADF_TAU: adf_tau,
                 StatCode.FACTOR_ADF_P: adf_p,
             },
@@ -738,7 +738,7 @@ class _TSDummySparseTimeseriesProcedure:
         {
             StatCode.MEAN,
             StatCode.T_NW,
-            StatCode.P,
+            StatCode.P_NW,
             StatCode.RESID_LJUNG_BOX_Q,
             StatCode.RESID_LJUNG_BOX_P,
             StatCode.EVENT_HHI_VALUE,
@@ -808,7 +808,7 @@ class _TSDummySparseTimeseriesProcedure:
             stats={
                 StatCode.MEAN: beta,
                 StatCode.T_NW: t_stat,
-                StatCode.P: p_value,
+                StatCode.P_NW: p_value,
                 StatCode.RESID_LJUNG_BOX_Q: ljung_box_q,
                 StatCode.RESID_LJUNG_BOX_P: ljung_box_p,
                 StatCode.EVENT_HHI_VALUE: hhi,

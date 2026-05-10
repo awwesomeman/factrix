@@ -47,13 +47,13 @@ def test_default_path_no_expand_over_returns_one_entry_per_profile() -> None:
 
 
 def test_estimator_none_falls_back_to_primary_p() -> None:
-    p = _profile(primary_p=0.012, stats={StatCode.P: 0.5})
+    p = _profile(primary_p=0.012, stats={StatCode.P_NW: 0.5})
     [entry] = _resolve_family([p], verb="bhy")
     assert entry.p_value == 0.012
 
 
 def test_estimator_supplied_reads_dispatched_stat() -> None:
-    p = _profile(primary_p=0.5, stats={StatCode.P: 0.012})
+    p = _profile(primary_p=0.5, stats={StatCode.P_NW: 0.012})
     [entry] = _resolve_family([p], verb="bhy", estimator=NeweyWest())
     assert entry.p_value == 0.012
 
@@ -76,7 +76,7 @@ def test_estimator_not_applicable_to_cell_raises() -> None:
         ) -> StatCode:
             raise AssertionError("emits_for must not be called when not applicable")
 
-    p = _profile(stats={StatCode.P: 0.04})
+    p = _profile(stats={StatCode.P_NW: 0.04})
     with pytest.raises(UserInputError) as exc:
         _resolve_family([p], verb="bhy", estimator=_Picky())
     err = exc.value
@@ -172,7 +172,7 @@ def test_duplicate_partition_key_with_expand_over_compares_full_key() -> None:
 
 
 def test_missing_dispatched_stat_raises_with_available_keys() -> None:
-    # NeweyWest dispatches to StatCode.P uniformly; a profile missing P
+    # NeweyWest dispatches to StatCode.P_NW uniformly; a profile missing P
     # in stats must surface the available-keys candidate list to the user.
     cfg = AnalysisConfig.individual_continuous(metric=Metric.FM, forward_periods=5)
     p = FactorProfile(
