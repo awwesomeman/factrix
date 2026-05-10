@@ -153,7 +153,8 @@ class TestPStat:
 class TestIdentityUniqueness:
     def test_duplicate_identity_raises(self) -> None:
         # Default factor_id="factor" on both → same identity → duplicate.
-        # v0.4 auto-cell-split would have hidden this; v0.5 surfaces it.
+        # The previous auto-cell-split would have hidden this; #161
+        # surfaces it.
         profiles = [
             _profile(primary_p=0.01, metric=Metric.IC),
             _profile(primary_p=0.02, metric=Metric.FM),
@@ -209,15 +210,15 @@ class TestDeprecatedKwargs:
 
 
 # ---------------------------------------------------------------------------
-# Mixed-horizon migration foot-gun (v0.4 → v0.5)
+# Mixed-horizon migration foot-gun (#161 contract change)
 # ---------------------------------------------------------------------------
 
 
 class TestMixedHorizonWarning:
     def test_mixed_forward_periods_without_expand_over_warns(self) -> None:
-        # v0.4 auto-isolated horizons; v0.5 caller must split. Warn loud
-        # so a sweep that previously enjoyed implicit isolation does not
-        # silently inflate FDR after upgrade.
+        # bhy used to auto-isolate horizons; caller now must split.
+        # Warn loud so a sweep that previously enjoyed implicit
+        # isolation does not silently inflate FDR after upgrade.
         profiles = [
             _profile(factor_id="f1", forward_periods=5, primary_p=0.001),
             _profile(factor_id="f2", forward_periods=20, primary_p=0.001),

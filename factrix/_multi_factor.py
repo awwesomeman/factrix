@@ -7,11 +7,11 @@ v0.4 ``redundancy_matrix`` / ``spanning`` modules.
 
 Family declaration is now explicit: the input list ``profiles`` *is*
 the family, optionally split per-bucket via ``expand_over`` (Benjamini
-& Bogomolov 2014 selective-inference framework). The v0.4-era
+& Bogomolov 2014 selective-inference framework). The previous
 auto-partition by dispatch cell × forward horizon was retired in #161 —
 caller responsibility now, both because the implicit policy was opaque
-and because v0.5 ``identity`` already encodes ``forward_periods`` (and
-would silently flag mixed-cell inputs as duplicate identities).
+and because ``identity`` already encodes ``forward_periods`` (and would
+silently flag mixed-cell inputs as duplicate identities).
 """
 
 from __future__ import annotations

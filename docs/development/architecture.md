@@ -527,10 +527,10 @@ All three user-facing raises route through `factrix._errors.UserInputError`
 unique tuple of `context[k] for k in expand_over` is its own step-up batch —
 e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
-### Caller responsibilities (v0.4 → v0.5 change)
+### Caller responsibilities (#161 contract change)
 
-The v0.4 `bhy` auto-partitioned by `_FamilyKey(_DispatchKey, forward_periods)`.
-v0.5 retired this in favour of explicit family declaration:
+`bhy` previously auto-partitioned by `_FamilyKey(_DispatchKey, forward_periods)`.
+#161 retired the auto-split in favour of explicit family declaration:
 
 - Mixing cells without distinct `factor_id` now raises `UserInputError`
   (duplicate identity) where v0.4 silently auto-split. Set `factor_id` per

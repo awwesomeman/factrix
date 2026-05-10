@@ -61,10 +61,10 @@ the hypothesis being tested. See [Development § Architecture § Family
 verbs](../development/architecture.md#_resolve_family-four-invariants)
 for the full invariant list.
 
-## Migration from v0.4
+## Behaviour change (#161)
 
-| v0.4 | v0.5 |
-|------|------|
+| Before | After |
+|--------|-------|
 | `bhy(profiles, threshold=0.05)` | `bhy(profiles, q=0.05)` (`threshold=` still accepted with `DeprecationWarning`) |
 | `bhy(profiles, gate=StatCode.X)` | `bhy(profiles, p_stat=StatCode.X)` (`gate=` still accepted with `DeprecationWarning`) |
 | auto-partition by dispatch cell × horizon | caller declares the family; mixed `forward_periods` without `expand_over` emits `RuntimeWarning`. **Fix:** split the call per horizon, or pass `expand_over=[<context key>]` if profiles legitimately co-exist as one family across horizons. |
