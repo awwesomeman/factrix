@@ -8,8 +8,8 @@ Quick-start guide. Full contributing reference: **[docs/development/contributing
 git clone https://github.com/awwesomeman/factrix.git
 cd factrix
 uv sync --extra dev
-git config core.hooksPath .githooks
-uv run pytest    # must be green before committing
+python scripts/setup_dev.py   # activate .githooks/ (per-clone, idempotent)
+uv run pytest                 # must be green before committing
 ```
 
 ## Development cycle
