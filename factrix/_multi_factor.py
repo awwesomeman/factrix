@@ -181,8 +181,13 @@ def _apply_deprecated_kwargs(
             for old, new in _DEPRECATED_KWARGS.items()
             if old in deprecated
         )
+        # BUMP-TIME: pin the actual SemVer cutoff in this string before
+        # the next bump (e.g. "removed in v0.12.0"). #161 ships under the
+        # release-train; the train's cz bump on main is where the cutoff
+        # version becomes concrete. Mirror the same version in CHANGELOG
+        # `### Deprecated` so user-facing message and changelog agree.
         warnings.warn(
-            f"bhy(): {renamed} (deprecated, removed next release).",
+            f"bhy(): {renamed} (deprecated, removed in a future release).",
             DeprecationWarning,
             stacklevel=4,
         )
