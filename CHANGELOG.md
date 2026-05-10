@@ -89,6 +89,10 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
   Downstream consumers of `profile.diagnose()` JSON: the `stats` sub-dict's keys move from `"ic_p"` / `"ic_mean"` / `"caar_p"` / etc. to flat `"p"` / `"mean"` / `"t_nw"`. Filtering / dashboard code that reads keys by their old metric-prefixed string needs the same rename map applied to its own logic. (#187)
 
+### Deprecated
+
+- **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** — sweeping IC / hit-rate across `[1, 5, 10, 20]` forward periods is a dispatcher concern, not a per-cell metric. The in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (#160 anti-shopping defense) and ran a second BHY path inside the metric (`metadata["p_adjusted_bhy"]`) parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both functions remain importable and runnable for one release cycle but emit `DeprecationWarning` on call and are excluded from `list_metrics` output (`_metric_index._DEPRECATED`). `run_metrics` auto-discover already skipped them via `_AUTO_DISCOVER_EXCLUDED` (per #147). Migration: `run_metrics(panel, cfg.replace(forward_periods=h))` per horizon → `compare(bundles)` for descriptive horizon-by-metric view, or `evaluate(...)` per horizon → `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Both paths are metric-agnostic — `mfe_mae` / `caar` / `oos` / `monotonicity` inherit horizon-sweep support automatically. Recipes in `docs/api/multi-horizon.md`. Removal version pinned at the next major-bump release-train. (#186)
+
 ### Removed
 
 - **`factrix.multi_factor.bhy(p_stat=StatCode)` path** — replaced by `estimator=Estimator` (see Changed above). (#170)

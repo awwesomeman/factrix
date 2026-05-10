@@ -553,6 +553,10 @@ sits outside `config`.
 
 ---
 
+## Deprecations
+
+- **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** (#186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Both functions still import and run for one release cycle; calls emit `DeprecationWarning` and the names are excluded from `list_metrics` output. Migration: `run_metrics(panel, cfg.replace(forward_periods=h))` per horizon → `compare(bundles)` for descriptive view, or `evaluate(...)` per horizon → `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
+
 ## Links
 
 - Docs: https://awwesomeman.github.io/factrix/

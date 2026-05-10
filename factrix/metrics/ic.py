@@ -8,7 +8,8 @@ Input: DataFrame with ``date, asset_id, factor, forward_return``.
 Output: time-indexed IC series (``date, ic``) that can be fed into
 any ``series/`` tool (oos, trend, significance, hit_rate).
 
-Matrix-row: compute_ic, ic, ic_newey_west, ic_ir, regime_ic, multi_horizon_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
+Matrix-row: compute_ic, ic, ic_newey_west, ic_ir, regime_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
+Matrix-row: multi_horizon_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t [deprecated] | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
 """
 
 from __future__ import annotations
@@ -498,6 +499,14 @@ def multi_horizon_ic(
 ) -> MetricOutput:
     """Compute mean IC at multiple forward horizons.
 
+    .. deprecated::
+        Horizon sweeping is a dispatcher concern, not a per-cell metric.
+        Use ``run_metrics(panel, cfg.replace(forward_periods=h))`` per
+        horizon and ``compare(bundles)`` for descriptive view, or
+        ``evaluate(...)`` per horizon and
+        ``multi_factor.bhy(profiles, expand_over=["forward_periods"])``
+        for FDR-controlled inference. Removal tracked in #186.
+
     Args:
         df: Preprocessed panel with ``date``, ``asset_id``, ``close``,
             and ``factor`` columns. Output of ``preprocess_cs_factor``.
@@ -527,6 +536,17 @@ def multi_horizon_ic(
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: per-horizon overlap
         rule motivating the per-horizon stride.
     """
+    # BUMP-TIME: pin the SemVer cutoff in this string before the next
+    # bump (e.g. "removed in v0.12.0"). Mirror in CHANGELOG `### Deprecated`.
+    _warnings.warn(
+        "multi_horizon_ic is deprecated and will be removed in a future "
+        "release; use run_metrics + compare(bundles[]) for descriptive "
+        "horizon sweep or evaluate + bhy(expand_over=['forward_periods']) "
+        "for FDR-controlled inference. See #186.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     if periods is None:
         periods = [1, 5, 10, 20]
 
