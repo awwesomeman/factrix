@@ -66,6 +66,7 @@ from factrix.metrics.ic import (
     compute_ic,
     ic,
     ic_ir,
+    ic_newey_west,
     multi_horizon_ic,
     regime_ic,
 )
@@ -127,6 +128,7 @@ __all__ = [
     "hit_rate",
     "ic",
     "ic_ir",
+    "ic_newey_west",
     "ic_trend",
     "mean_r_squared",
     "mfe_mae_summary",

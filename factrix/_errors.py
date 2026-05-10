@@ -153,6 +153,42 @@ class ModeAxisError(ConfigError):
     """
 
 
+class RunMetricsError(FactrixError):
+    """Unexpected exception inside ``run_metrics`` dispatch.
+
+    Wraps an unexpected error raised by a stage-1 helper or a metric
+    consumer so the caller can identify which metric / stage failed
+    without parsing tracebacks. The original exception is chained via
+    ``raise ... from exc`` so ``__cause__`` carries the full stack.
+
+    A wrapped exception means the failure is **not** a known
+    sample-floor / data-quality short-circuit — those are converted to
+    short-circuit ``MetricOutput`` entries inside the bundle. Treat
+    ``RunMetricsError`` as a likely factrix bug and report.
+
+    Attributes:
+        cell: ``"<scope>/<signal>"`` of the dispatched cell.
+        metric_name: The metric whose call raised, or the stage-1
+            helper name when ``stage == "stage1"``.
+        stage: Which dispatch stage raised — ``"stage1"`` (shared
+            helper failed; the whole module's consumers are skipped)
+            or ``"consumer"`` (an individual metric raised).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        cell: str,
+        metric_name: str,
+        stage: str,
+    ) -> None:
+        super().__init__(message)
+        self.cell = cell
+        self.metric_name = metric_name
+        self.stage = stage
+
+
 class InsufficientSampleError(ConfigError):
     """``T < MIN_PERIODS_HARD`` for a TIMESERIES procedure.
 
