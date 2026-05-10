@@ -19,7 +19,6 @@ from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _FMContPanelProcedure
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
-from factrix._stats.constants import auto_bartlett
 
 
 def _make_panel(
@@ -108,27 +107,14 @@ class TestStrongFactor:
     ) -> None:
         # factor = 0.95 * fwd + 0.05 * noise → OLS slope of fwd on factor
         # is dominated by the 0.95 component; λ should land in (0.5, 1.5).
-        assert 0.5 < profile.stats[StatCode.FM_LAMBDA_MEAN] < 1.5
+        assert 0.5 < profile.stats[StatCode.MEAN] < 1.5
 
     def test_required_stats_keys_present(self, profile: FactorProfile) -> None:
-        for key in (
-            StatCode.FM_LAMBDA_MEAN,
-            StatCode.FM_LAMBDA_T_NW,
-            StatCode.FM_LAMBDA_P,
-            StatCode.NW_LAGS_USED,
-        ):
+        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P):
             assert key in profile.stats
 
     def test_primary_p_matches_fm_p_stat(self, profile: FactorProfile) -> None:
-        assert profile.primary_p == profile.stats[StatCode.FM_LAMBDA_P]
-
-    def test_nw_lags_floor_at_forward_periods_minus_one(
-        self,
-        profile: FactorProfile,
-        fm_config: AnalysisConfig,
-    ) -> None:
-        expected = float(max(auto_bartlett(60), fm_config.forward_periods - 1))
-        assert profile.stats[StatCode.NW_LAGS_USED] == expected
+        assert profile.primary_p == profile.stats[StatCode.P]
 
 
 class TestRandomFactor:
@@ -152,7 +138,7 @@ class TestRandomFactor:
         assert profile.primary_p > 0.10
 
     def test_lambda_mean_near_zero(self, profile: FactorProfile) -> None:
-        assert abs(profile.stats[StatCode.FM_LAMBDA_MEAN]) < 0.10
+        assert abs(profile.stats[StatCode.MEAN]) < 0.10
 
 
 class TestEndToEndViaEvaluate:
@@ -168,7 +154,7 @@ class TestEndToEndViaEvaluate:
         )
         profile = _evaluate(panel, fm_config)
         assert isinstance(profile, FactorProfile)
-        assert StatCode.FM_LAMBDA_P in profile.stats
+        assert StatCode.P in profile.stats
         assert profile.verdict() is Verdict.PASS
 
 

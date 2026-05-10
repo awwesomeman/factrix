@@ -143,51 +143,58 @@ _INFO_DESCRIPTIONS: dict[InfoCode, str] = {
 class StatCode(StrEnum):
     """Cell-specific scalar stats keyed in ``FactorProfile.stats``.
 
-    Adding a new metric → add an enum value here + populate it in the
-    procedure. Profile schema does not grow. Stats fall in three
-    families:
+    Naming grammar (#187): each code is ``<TARGET>_<KIND>``.
 
-    - **p-values**: identifier ends in ``_p`` (``IC_P`` / ``FM_LAMBDA_P``
-      / ``TS_BETA_P`` / ``CAAR_P`` plus the diagnostic-only
-      ``FACTOR_ADF_P`` / ``LJUNG_BOX_P``). ``is_p_value`` returns
-      ``True``. The Estimator-based ``estimator=`` override (#170)
-      dispatches to one of these via ``Estimator.emits_for``.
-    - **t-stats** / effect-size means / lag counts / HHI: ``is_p_value``
-      returns ``False``. ``profile.verdict(gate=...)`` accepts these
-      (the comparison is generic ``value < threshold`` — interpretation
-      is the caller's call) but family-verb ``estimator=`` overrides
-      always dispatch to a probability code.
+    - ``TARGET`` — what is being measured. **Primary** (cell main
+      effect) carries no prefix because ``FactorProfile.config``
+      (``scope`` / ``signal`` / ``metric``) is the single source of
+      truth for cell identity. **Diagnostic** carries an explicit
+      prefix (``FACTOR_`` / ``RESID_`` / ``EVENT_``) because the
+      target lives outside ``config``.
+    - ``KIND`` — what kind of number. ``_MEAN`` / ``_VALUE`` for point
+      estimates, statistic-named suffixes (``_T_NW`` / ``_TAU`` /
+      ``_Q``) for test statistics, ``_P`` for p-values. Algorithm
+      variants of the same p-value get a further suffix
+      (``_P_HH`` / ``_P_GMM``).
+
+    ``is_p_value`` returns ``True`` for any code whose
+    underscore-separated tokens contain ``"p"``; family-verb
+    ``estimator=`` (#170) dispatches via :class:`Estimator.emits_for`
+    and is implicitly a p-value source by construction.
     """
 
-    IC_MEAN = "ic_mean"
-    IC_T_NW = "ic_t_nw"
-    IC_P = "ic_p"
-    FM_LAMBDA_MEAN = "fm_lambda_mean"
-    FM_LAMBDA_T_NW = "fm_lambda_t_nw"
-    FM_LAMBDA_P = "fm_lambda_p"
-    TS_BETA = "ts_beta"
-    TS_BETA_T_NW = "ts_beta_t_nw"
-    TS_BETA_P = "ts_beta_p"
-    CAAR_MEAN = "caar_mean"
-    CAAR_T_NW = "caar_t_nw"
-    CAAR_P = "caar_p"
+    # Primary (cell main effect) — identity carried by profile.config.
+    MEAN = "mean"
+    T_NW = "t_nw"
+    P = "p"
+    # Algorithm variants reserved for procedure-side landing
+    # (HH-pure: #184; GMM J-test: separate follow-up).
+    P_HH = "p_hh"
+    P_GMM = "p_gmm"
+
+    # Diagnostic — factor input series.
+    FACTOR_ADF_TAU = "factor_adf_tau"
     FACTOR_ADF_P = "factor_adf_p"
-    LJUNG_BOX_P = "ljung_box_p"
-    EVENT_TEMPORAL_HHI = "event_temporal_hhi"
-    NW_LAGS_USED = "nw_lags_used"
+
+    # Diagnostic — regression residual.
+    RESID_LJUNG_BOX_Q = "resid_ljung_box_q"
+    RESID_LJUNG_BOX_P = "resid_ljung_box_p"
+
+    # Diagnostic — event sample distribution.
+    EVENT_HHI_VALUE = "event_hhi_value"
 
     @property
     def is_p_value(self) -> bool:
         """``True`` iff this stat is a probability in [0, 1].
 
         Used by ``profile.verdict(gate=...)`` and downstream tooling to
-        distinguish probability codes from t-stats / effect-size means.
-        The family-verb ``estimator=`` override (#170) does not consult
-        this gate directly: an :class:`~factrix.stats.Estimator`
-        instance is implicitly a p-value source, and ``emits_for``
-        dispatches to a probability ``StatCode`` by construction.
+        distinguish probability codes from test statistics / point
+        estimates. Tokenises the value on ``_`` and checks for a ``p``
+        token, so bare ``P`` and algorithm variants ``P_HH`` / ``P_GMM``
+        all qualify alongside diagnostic ``FACTOR_ADF_P`` /
+        ``RESID_LJUNG_BOX_P``.
         """
-        return self.value.endswith("_p")
+        return "p" in self.value.split("_")
 
     @property
     def description(self) -> str:
@@ -202,38 +209,32 @@ class StatCode(StrEnum):
 
 
 _STAT_DESCRIPTIONS: dict[StatCode, str] = {
-    StatCode.IC_MEAN: "Per-date Spearman IC, mean over the time series.",
-    StatCode.IC_T_NW: "NW HAC t-stat on the IC mean. "
+    StatCode.MEAN: "Cell primary point estimate (interpretation per "
+    "`profile.config.metric`: IC mean, FM λ mean, CAAR event-only mean, "
+    "or TS β / E[β]).",
+    StatCode.T_NW: "Newey-West HAC t-stat on the cell primary estimate. "
     "Implementation convention lives in `factrix.stats.NeweyWest`.",
-    StatCode.IC_P: "Two-sided p-value from the NW HAC t-test on IC.",
-    StatCode.FM_LAMBDA_MEAN: "Fama-MacBeth λ — per-date OLS slope of "
-    "forward_return on factor, averaged over time.",
-    StatCode.FM_LAMBDA_T_NW: "NW HAC t-stat on the FM λ mean. "
-    "Implementation convention lives in `factrix.stats.NeweyWest`.",
-    StatCode.FM_LAMBDA_P: "Two-sided p-value from the NW HAC t-test on FM λ.",
-    StatCode.TS_BETA: "Per-asset OLS β on the broadcast factor; "
-    "PANEL = cross-asset mean of β_i, TIMESERIES = single-series β.",
-    StatCode.TS_BETA_T_NW: "PANEL: cross-asset t on E[β]. "
-    "TIMESERIES: NW HAC t on the single-series β. "
-    "TIMESERIES convention lives in `factrix.stats.NeweyWest`.",
-    StatCode.TS_BETA_P: "Two-sided p-value from the TS_BETA t-test.",
-    StatCode.CAAR_MEAN: "Per-event-date weighted abnormal return, "
-    "averaged across event dates (event-only mean — see _procedures for "
-    "the dense-calendar t-stat).",
-    StatCode.CAAR_T_NW: "NW HAC t-stat on the dense-calendar CAAR series "
-    "(zero-fill on non-event dates). "
-    "Implementation convention lives in `factrix.stats.NeweyWest`.",
-    StatCode.CAAR_P: "Two-sided p-value from the NW HAC t-test on CAAR.",
+    StatCode.P: "Two-sided p-value from the NW HAC t-test on the cell "
+    "primary estimate.",
+    StatCode.P_HH: "Two-sided p-value under Hansen-Hodrick (1980) "
+    "rectangular-kernel HAC. Reserved for procedure-side landing in #184.",
+    StatCode.P_GMM: "Two-sided p-value from a Hansen (1982) GMM J-test "
+    "(over-identifying restrictions). Reserved for procedure-side landing "
+    "in a follow-up issue.",
+    StatCode.FACTOR_ADF_TAU: "ADF τ statistic on the factor input series "
+    "(constant-only specification); fed to the MacKinnon 1996 "
+    "response-surface for `FACTOR_ADF_P`.",
     StatCode.FACTOR_ADF_P: "ADF unit-root test p-value on the factor input "
     "series (MacKinnon 1996 response-surface; constant-only specification). "
     "p > 0.05 flags persistent regressor regime.",
-    StatCode.LJUNG_BOX_P: "Ljung-Box p-value on residual autocorrelation "
+    StatCode.RESID_LJUNG_BOX_Q: "Ljung-Box Q statistic on regression "
+    "residuals (TS-dummy single-asset path); compared against χ²(h) for "
+    "`RESID_LJUNG_BOX_P`.",
+    StatCode.RESID_LJUNG_BOX_P: "Ljung-Box p-value on residual autocorrelation "
     "(TS-dummy single-asset path); p < 0.05 flags under-set NW lag.",
-    StatCode.EVENT_TEMPORAL_HHI: "Herfindahl concentration of event counts "
+    StatCode.EVENT_HHI_VALUE: "Herfindahl concentration of event counts "
     "across calendar bins (cross-sectional / time-axis); high values flag "
     "calendar-time clumping. Does not measure within-asset event clustering.",
-    StatCode.NW_LAGS_USED: "NW HAC lag count selected by the auto-bandwidth "
-    "rule for the cell's primary t-test.",
 }
 
 

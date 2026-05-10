@@ -47,13 +47,13 @@ def test_default_path_no_expand_over_returns_one_entry_per_profile() -> None:
 
 
 def test_estimator_none_falls_back_to_primary_p() -> None:
-    p = _profile(primary_p=0.012, stats={StatCode.IC_P: 0.5})
+    p = _profile(primary_p=0.012, stats={StatCode.P: 0.5})
     [entry] = _resolve_family([p], verb="bhy")
     assert entry.p_value == 0.012
 
 
 def test_estimator_supplied_reads_dispatched_stat() -> None:
-    p = _profile(primary_p=0.5, stats={StatCode.IC_P: 0.012})
+    p = _profile(primary_p=0.5, stats={StatCode.P: 0.012})
     [entry] = _resolve_family([p], verb="bhy", estimator=NeweyWest())
     assert entry.p_value == 0.012
 
@@ -76,7 +76,7 @@ def test_estimator_not_applicable_to_cell_raises() -> None:
         ) -> StatCode:
             raise AssertionError("emits_for must not be called when not applicable")
 
-    p = _profile(stats={StatCode.IC_P: 0.04})
+    p = _profile(stats={StatCode.P: 0.04})
     with pytest.raises(UserInputError) as exc:
         _resolve_family([p], verb="bhy", estimator=_Picky())
     err = exc.value
@@ -172,8 +172,8 @@ def test_duplicate_partition_key_with_expand_over_compares_full_key() -> None:
 
 
 def test_missing_dispatched_stat_raises_with_available_keys() -> None:
-    # FM cell profile, but stats only has IC_P populated → NeweyWest
-    # dispatches to FM_LAMBDA_P which is missing.
+    # NeweyWest dispatches to StatCode.P uniformly; a profile missing P
+    # in stats must surface the available-keys candidate list to the user.
     cfg = AnalysisConfig.individual_continuous(metric=Metric.FM, forward_periods=5)
     p = FactorProfile(
         config=cfg,
@@ -182,13 +182,14 @@ def test_missing_dispatched_stat_raises_with_available_keys() -> None:
         n_obs=60,
         n_assets=20,
         factor_id="f1",
-        stats={StatCode.IC_P: 0.04},
+        stats={StatCode.MEAN: 0.05, StatCode.T_NW: 1.5},
     )
     with pytest.raises(UserInputError) as exc:
         _resolve_family([p], verb="bhy", estimator=NeweyWest())
     err = exc.value
     assert err.field == "estimator"
     assert err.value == "NeweyWest"
-    assert "FM_LAMBDA_P" in (err.expected or "")
-    assert "IC_P" in err.candidates
+    assert "P" in (err.expected or "")
+    assert "MEAN" in err.candidates
+    assert "T_NW" in err.candidates
     assert "api/bhy#estimator" in err.docs_url

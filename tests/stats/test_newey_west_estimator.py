@@ -1,10 +1,9 @@
-"""``NeweyWest`` reference Estimator tests (#170).
+"""``NeweyWest`` reference Estimator tests (#170, #187).
 
-Validates the dispatch table that maps each user-facing cell to its
-procedure-canonical NW HAC p-value StatCode. Numerical correctness of
-the underlying NW HAC math is owned by ``tests/stats/test_newey_west.py``;
-this file only exercises the metadata + dispatch surface that
-``_resolve_family`` will rely on.
+Validates the cell-agnostic dispatch surface (`emits_for` always returns
+`StatCode.P`) and applicability across user-facing cells. Numerical
+correctness of the underlying NW HAC math is owned by
+``tests/stats/test_newey_west.py``.
 """
 
 from __future__ import annotations
@@ -12,9 +11,8 @@ from __future__ import annotations
 import pytest
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
-from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
+from factrix._registry import _DISPATCH_REGISTRY
 from factrix.stats import Estimator, NeweyWest
-from factrix.stats.newey_west import _EMITS
 
 
 def test_satisfies_estimator_protocol() -> None:
@@ -35,27 +33,21 @@ def test_description_is_cell_agnostic() -> None:
 
 
 @pytest.mark.parametrize(
-    ("scope", "signal", "metric", "expected"),
+    ("scope", "signal", "metric"),
     [
-        (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC, StatCode.IC_P),
-        (
-            FactorScope.INDIVIDUAL,
-            Signal.CONTINUOUS,
-            Metric.FM,
-            StatCode.FM_LAMBDA_P,
-        ),
-        (FactorScope.INDIVIDUAL, Signal.SPARSE, None, StatCode.CAAR_P),
-        (FactorScope.COMMON, Signal.CONTINUOUS, None, StatCode.TS_BETA_P),
-        (FactorScope.COMMON, Signal.SPARSE, None, StatCode.TS_BETA_P),
+        (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
+        (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM),
+        (FactorScope.INDIVIDUAL, Signal.SPARSE, None),
+        (FactorScope.COMMON, Signal.CONTINUOUS, None),
+        (FactorScope.COMMON, Signal.SPARSE, None),
     ],
 )
-def test_emits_for_known_cells(
+def test_emits_for_returns_flat_p(
     scope: FactorScope,
     signal: Signal,
     metric: Metric | None,
-    expected: StatCode,
 ) -> None:
-    assert NeweyWest().emits_for(scope, signal, metric) is expected
+    assert NeweyWest().emits_for(scope, signal, metric) is StatCode.P
 
 
 @pytest.mark.parametrize(
@@ -73,20 +65,15 @@ def test_applicable_to_all_user_facing_cells(
     assert NeweyWest().applicable_to(scope, signal)
 
 
-def test_emits_table_stays_in_sync_with_dispatch_registry() -> None:
-    # The _EMITS dispatch table is a hardcoded reverse index from cell
-    # to procedure-emitted p-value StatCode. If a procedure's
-    # EMITS_STATS gains or drops a *_P entry, this test fails so the
-    # estimator side is updated in the same PR (drift would otherwise
-    # surface as a runtime KeyError on bhy(estimator=NeweyWest())).
-    for (scope, signal, metric), code in _EMITS.items():
-        entry = _DISPATCH_REGISTRY.get(_DispatchKey(scope, signal, metric, Mode.PANEL))
-        assert entry is not None, (
-            f"_EMITS lists ({scope.value}, {signal.value}, {metric}) "
-            "but no PANEL procedure is registered for it"
-        )
-        assert code in entry.procedure.EMITS_STATS, (
-            f"NeweyWest dispatches ({scope.value}, {signal.value}, "
-            f"{metric}) → {code.name}, but the procedure's EMITS_STATS "
-            f"does not include it: {sorted(s.name for s in entry.procedure.EMITS_STATS)}"
+def test_panel_procedures_emit_the_dispatched_code() -> None:
+    # Every PANEL procedure must populate StatCode.P, since NeweyWest
+    # dispatches there cell-agnostically. Drift would surface as a
+    # runtime KeyError on bhy(estimator=NeweyWest()).
+    for key, entry in _DISPATCH_REGISTRY.items():
+        if key.mode is not Mode.PANEL:
+            continue
+        assert StatCode.P in entry.procedure.EMITS_STATS, (
+            f"PANEL procedure for ({key.scope}, {key.signal}, {key.metric}) "
+            f"does not emit StatCode.P: "
+            f"{sorted(s.name for s in entry.procedure.EMITS_STATS)}"
         )

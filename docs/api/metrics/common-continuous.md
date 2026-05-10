@@ -14,7 +14,7 @@ betas.
 
 At `N == 1` the cross-asset $t$ degenerates; factrix auto-routes to a
 TIMESERIES single-series test (null: $\beta = 0$, **not**
-$\mathbb{E}[\beta] = 0$). Same `StatCode.TS_BETA` identifier, different
+$\mathbb{E}[\beta] = 0$). Same `StatCode.MEAN` identifier, different
 statistical meaning — see
 [`profile.mode`](../factor-profile.md) for which path ran.
 

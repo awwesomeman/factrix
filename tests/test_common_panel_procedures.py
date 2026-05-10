@@ -153,13 +153,13 @@ class TestContinuousStrong:
 
     def test_beta_mean_close_to_truth(self, profile: FactorProfile) -> None:
         # true β=0.6, dispersion 0.1, N=20 — sample mean SE ≈ 0.022.
-        assert 0.45 < profile.stats[StatCode.TS_BETA] < 0.75
+        assert 0.45 < profile.stats[StatCode.MEAN] < 0.75
 
     def test_required_stats(self, profile: FactorProfile) -> None:
         for key in (
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
             StatCode.FACTOR_ADF_P,
         ):
             assert key in profile.stats
@@ -227,7 +227,7 @@ class TestSparseStrong:
         assert profile.primary_p < 0.001
 
     def test_beta_mean_close_to_truth(self, profile: FactorProfile) -> None:
-        assert 1.0 < profile.stats[StatCode.TS_BETA] < 2.0
+        assert 1.0 < profile.stats[StatCode.MEAN] < 2.0
 
     def test_no_adf_stat_for_sparse(self, profile: FactorProfile) -> None:
         # I6: ADF persistence diagnostic is CONTINUOUS-only.
@@ -318,7 +318,7 @@ class TestEmptyPanelFallback:
         profile = _CommonContPanelProcedure().compute(empty, cfg_continuous)
         assert profile.primary_p == 1.0
         assert profile.n_obs == 0
-        assert profile.stats[StatCode.TS_BETA] == 0.0
+        assert profile.stats[StatCode.MEAN] == 0.0
 
     def test_sparse_empty_raises_insufficient_events(
         self,

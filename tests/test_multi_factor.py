@@ -29,7 +29,7 @@ def _profile(
     cfg = AnalysisConfig.individual_continuous(
         metric=metric, forward_periods=forward_periods
     )
-    base_stats: dict[StatCode, float] = {StatCode.IC_P: primary_p}
+    base_stats: dict[StatCode, float] = {StatCode.P: primary_p}
     if stats:
         base_stats.update(stats)
     return FactorProfile(
@@ -132,25 +132,34 @@ class TestEstimatorOverride:
             factor_id="f1",
             metric=Metric.FM,
             primary_p=0.99,
-            stats={StatCode.FM_LAMBDA_P: 0.001},
+            stats={StatCode.P: 0.001},
         )
         assert bhy([prof], estimator=NeweyWest()).profiles == [prof]
 
     def test_missing_dispatched_stat_raises_user_error(self) -> None:
-        # FM-cell profile, but default fixture only populates IC_P;
-        # NeweyWest dispatches to FM_LAMBDA_P, which is absent.
-        prof = _profile(factor_id="f1", metric=Metric.FM, primary_p=0.001)
+        # NeweyWest dispatches to StatCode.P; a profile without P in
+        # stats must surface the missing-key error.
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC, forward_periods=5)
+        prof = FactorProfile(
+            config=cfg,
+            mode=Mode.PANEL,
+            primary_p=0.001,
+            n_obs=100,
+            n_assets=30,
+            factor_id="f1",
+            stats={StatCode.MEAN: 0.05},
+        )
         with pytest.raises(UserInputError) as exc:
             bhy([prof], estimator=NeweyWest())
         err = exc.value
         assert err.field == "estimator"
         assert err.value == "NeweyWest"
-        assert "FM_LAMBDA_P" in (err.expected or "")
+        assert "P" in (err.expected or "")
 
     def test_legacy_p_stat_kwarg_is_unrecognised(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
         with pytest.raises(TypeError, match="p_stat"):
-            bhy([prof], p_stat=StatCode.IC_P)
+            bhy([prof], p_stat=StatCode.P)
 
 
 # ---------------------------------------------------------------------------

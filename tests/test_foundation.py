@@ -71,12 +71,14 @@ class TestCodeEnums:
             assert code.description, f"{code} missing description"
 
     def test_stat_code_population(self) -> None:
-        # Representative stats for each metric family + diagnostics.
-        assert StatCode.IC_MEAN.value == "ic_mean"
-        assert StatCode.FM_LAMBDA_T_NW.value == "fm_lambda_t_nw"
-        assert StatCode.TS_BETA_P.value == "ts_beta_p"
-        assert StatCode.CAAR_MEAN.value == "caar_mean"
-        assert StatCode.NW_LAGS_USED.value == "nw_lags_used"
+        # Flattened naming (#187): primary cell stats are TARGET-less,
+        # diagnostics carry an explicit prefix.
+        assert StatCode.MEAN.value == "mean"
+        assert StatCode.T_NW.value == "t_nw"
+        assert StatCode.P.value == "p"
+        assert StatCode.FACTOR_ADF_P.value == "factor_adf_p"
+        assert StatCode.RESID_LJUNG_BOX_P.value == "resid_ljung_box_p"
+        assert StatCode.EVENT_HHI_VALUE.value == "event_hhi_value"
 
     def test_stat_descriptions_cover_every_member(self) -> None:
         # Symmetry with WarningCode / InfoCode: every StatCode has a

@@ -93,12 +93,13 @@ class TestDescribeAnalysisModes:
             r for r in rows if r["scope"] == "common" and r["signal"] == "continuous"
         )
         # PANEL entry of (COMMON, CONTINUOUS) is _CommonContPanelProcedure
-        # which emits TS_BETA / TS_BETA_T_NW / TS_BETA_P / FACTOR_ADF_P.
+        # which emits MEAN / T_NW / P / FACTOR_ADF_TAU / FACTOR_ADF_P.
         assert "factor_adf_p" in cc_row["panel"]["stats_keys"]
-        assert "ts_beta_p" in cc_row["panel"]["stats_keys"]
+        assert "factor_adf_tau" in cc_row["panel"]["stats_keys"]
+        assert "p" in cc_row["panel"]["stats_keys"]
         # The (COMMON, CONTINUOUS, TIMESERIES) procedure also emits
-        # NW_LAGS_USED in addition to FACTOR_ADF_P.
-        assert "nw_lags_used" in cc_row["timeseries"]["stats_keys"]
+        # FACTOR_ADF_TAU alongside FACTOR_ADF_P.
+        assert "factor_adf_tau" in cc_row["timeseries"]["stats_keys"]
 
     def test_sparse_rows_flag_scope_collapse_at_n1(self) -> None:
         rows = describe_analysis_modes(format="json")

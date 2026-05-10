@@ -114,7 +114,7 @@ class TestIcPanelEndToEnd:
         assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes
 
     def test_ic_p_populated(self, profile: FactorProfile) -> None:
-        assert StatCode.IC_P in profile.stats
+        assert StatCode.P in profile.stats
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +261,7 @@ class TestFactorColumnAlias:
             panel,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
         )
-        assert StatCode.IC_MEAN in profile.stats
+        assert StatCode.MEAN in profile.stats
 
     def test_aliased_factor_col_renamed_internally(self) -> None:
         # Non-default factor_col is renamed to "factor" before dispatch;
@@ -273,7 +273,7 @@ class TestFactorColumnAlias:
             AnalysisConfig.individual_continuous(metric=Metric.IC),
             factor_col="alpha",
         )
-        assert StatCode.IC_MEAN in profile.stats
+        assert StatCode.MEAN in profile.stats
 
     def test_factor_col_missing_raises(self) -> None:
         panel = _build_panel(n_dates=30, n_assets=10, seed=12)
@@ -310,4 +310,4 @@ class TestFactorColumnAlias:
             factor_col="alpha",
         )
         assert isinstance(profile, FactorProfile)
-        assert StatCode.IC_MEAN in profile.stats
+        assert StatCode.MEAN in profile.stats

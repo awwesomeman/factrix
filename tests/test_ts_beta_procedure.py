@@ -22,11 +22,7 @@ from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _TSBetaContTimeseriesProcedure
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
-from factrix._stats.constants import (
-    MIN_PERIODS_HARD,
-    MIN_PERIODS_WARN,
-    auto_bartlett,
-)
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 
 
 def _make_ts(
@@ -114,15 +110,15 @@ class TestStrongBeta:
 
     def test_beta_close_to_truth(self, profile: FactorProfile) -> None:
         # True β=0.8; finite-sample noise allows a 30% band.
-        assert 0.55 < profile.stats[StatCode.TS_BETA] < 1.05
+        assert 0.55 < profile.stats[StatCode.MEAN] < 1.05
 
     def test_required_stats_keys_present(self, profile: FactorProfile) -> None:
         for key in (
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
+            StatCode.FACTOR_ADF_TAU,
             StatCode.FACTOR_ADF_P,
-            StatCode.NW_LAGS_USED,
         ):
             assert key in profile.stats
 
@@ -150,7 +146,7 @@ class TestRandomFactor:
         assert profile.primary_p > 0.10
 
     def test_beta_near_zero(self, profile: FactorProfile) -> None:
-        assert abs(profile.stats[StatCode.TS_BETA]) < 0.20
+        assert abs(profile.stats[StatCode.MEAN]) < 0.20
 
 
 class TestPersistentRegressor:
@@ -186,17 +182,6 @@ class TestSampleSizeStratification:
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS not in profile.warnings
 
 
-class TestNwLagFloor:
-    def test_nw_lags_floor_at_forward_periods_minus_one(
-        self,
-        cfg: AnalysisConfig,
-    ) -> None:
-        ts = _make_ts(n_dates=60, seed=4, beta=0.5)
-        profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
-        expected = float(max(auto_bartlett(60), cfg.forward_periods - 1))
-        assert profile.stats[StatCode.NW_LAGS_USED] == expected
-
-
 class TestEndToEndViaEvaluate:
     def test_evaluate_dispatches_to_ts_beta(
         self,
@@ -205,5 +190,5 @@ class TestEndToEndViaEvaluate:
         ts = _make_ts(n_dates=80, seed=99, beta=0.7)
         profile = _evaluate(ts, cfg)
         assert profile.mode is Mode.TIMESERIES
-        assert StatCode.TS_BETA_P in profile.stats
+        assert StatCode.P in profile.stats
         assert profile.verdict() is Verdict.PASS

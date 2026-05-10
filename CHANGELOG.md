@@ -39,10 +39,34 @@ While the version is below `1.0.0`, the public API should be considered unstable
 - **Terminology**: rename "Layer A" / "Layer B" to **dispatcher** / **curated wrapper** in module docstrings and user-facing docs. Public API names are unchanged. Older CHANGELOG entries below retain the original wording. (#157)
 - **Docs convention**: switch the recommended import alias from `fl` to `fx` across README, mkdocs pages, notebooks, tests, and `llms-full.txt`. `fl` collided with the FinLab community convention (`import finlab as fl`) and carried no mnemonic tie to `factrix`; `fx` takes the first and last letters in the jax-as-`jnp` / polars-as-`pl` / networkx-as-`nx` style. Public API and importable package name (`factrix`) are unchanged — docs-only convention shift, not a breaking change. (#180)
 
+- **`StatCode` naming flattened** (breaking, #187). Primary cell stats lose their metric-name prefix because cell identity already lives on `profile.config` (`scope` / `signal` / `metric`); diagnostics gain explicit prefixes (`FACTOR_` / `RESID_` / `EVENT_`) because their target sits outside `config`. Naming grammar is now `<TARGET>_<KIND>` where TARGET is empty for primary and explicit for diagnostics, KIND is one of `_MEAN` / `_VALUE` / `_<statistic>` / `_P` / `_P_<algorithm>`.
+
+  Rename map (procedure emit + downstream readers):
+
+  | Before | After |
+  |---|---|
+  | `IC_MEAN` / `FM_LAMBDA_MEAN` / `CAAR_MEAN` / `TS_BETA` | `MEAN` |
+  | `IC_T_NW` / `FM_LAMBDA_T_NW` / `TS_BETA_T_NW` / `CAAR_T_NW` | `T_NW` |
+  | `IC_P` / `FM_LAMBDA_P` / `TS_BETA_P` / `CAAR_P` | `P` |
+  | `LJUNG_BOX_P` | `RESID_LJUNG_BOX_P` |
+  | `EVENT_TEMPORAL_HHI` | `EVENT_HHI_VALUE` |
+
+  New StatCodes shipped as part of the refactor:
+
+  - `P_HH` / `P_GMM` — reserved for procedure-side landing of Hansen-Hodrick (#184) and Hansen (1982) GMM J-test inference variants.
+  - `FACTOR_ADF_TAU` / `RESID_LJUNG_BOX_Q` — the underlying ADF τ statistic and Ljung-Box Q statistic are now emitted alongside their existing p-values; the math was already computed inside the procedure but the value was previously discarded.
+
+  `StatCode.is_p_value` widened from `value.endswith("_p")` to a tokenised check (`"p" in value.split("_")`) so bare `P` and algorithm variants `P_HH` / `P_GMM` qualify alongside `*_P` diagnostics.
+
+  `Estimator.emits_for` simplified — `NeweyWest` no longer dispatches per-cell to a metric-specific `*_P`; it returns `StatCode.P` cell-agnostically. Future Estimator instances (HansenHodrick / GMM / DriscollKraay) return their own `P_*` value in one line, removing the N-cell × M-algorithm dispatch table the previous shape would have required.
+
+  Downstream consumers of `profile.diagnose()` JSON: the `stats` sub-dict's keys move from `"ic_p"` / `"ic_mean"` / `"caar_p"` / etc. to flat `"p"` / `"mean"` / `"t_nw"`. Filtering / dashboard code that reads keys by their old metric-prefixed string needs the same rename map applied to its own logic. (#187)
+
 ### Removed
 
 - **`factrix.multi_factor.bhy(p_stat=StatCode)` path** — replaced by `estimator=Estimator` (see Changed above). (#170)
 - **`factrix.multi_factor.bhy(gate=...)` deprecation alias** — the v0.4 alias for `p_stat=` is removed alongside its successor; users still on `gate=` should jump directly to `estimator=NeweyWest()`. (#170)
+- **`StatCode.NW_LAGS_USED`** — Newey-West auto-bandwidth lag count is no longer surfaced on `profile.stats`. The lag selection logic in `_resolve_nw_lags` is unchanged; the value just stops being externalised. Reinstating it under a dedicated `profile.metadata` (or sibling) channel is tracked as #188 — `_codes.py` was the wrong home (a hyperparameter-selection record, not a stat). (#187)
 
 ---
 
