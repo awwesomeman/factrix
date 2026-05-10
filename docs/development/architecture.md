@@ -383,9 +383,9 @@ weighted correctly. Pipeline parity with IC / FM / common-sparse PANEL.
 
 Magnitude is preserved as a weight in `signed_car` (no `.sign()` coercion
 at this layer — `compute_caar`'s docstring carries the input-form
-behaviour table). User-facing `CAAR_MEAN` reports the per-event-date
-mean (the average effect on event days); `n_obs` and `NW_LAGS_USED`
-reflect the dense series.
+behaviour table). User-facing `MEAN` reports the per-event-date
+mean (the average effect on event days); `n_obs` reflects the dense
+series the t-stat is computed on.
 
 Failure modes:
 
@@ -410,7 +410,7 @@ Failure modes:
 - `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N`.
 - `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
-  `StatCode.TS_BETA` identifier is shared across the two modes, so the
+  `StatCode.MEAN` identifier is shared across the two modes, so the
   same field on `FactorProfile` carries different statistical meaning
   depending on `profile.mode`; see §PANEL/TIMESERIES equivalence.
 
@@ -607,7 +607,7 @@ factrix/
 ├── _multi_factor.py         # bhy on the resolution layer
 ├── multi_factor.py          # public namespace (re-exports bhy)
 ├── _stats/
-│   ├── __init__.py          # _ols_nw_slope_t, _ljung_box_p, _adf, _newey_west_t_test, _resolve_nw_lags
+│   ├── __init__.py          # _ols_nw_slope_t, _ljung_box, _adf, _newey_west_t_test, _resolve_nw_lags
 │   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_WARN / auto_bartlett
 ├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
 │                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS,

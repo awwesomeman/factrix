@@ -113,29 +113,31 @@ resolves the axis when needed.
 
 ### `stats` keys by cell
 
-Every cell populates the keys for its primary statistic (`*_MEAN`,
-`*_T_NW`, `*_P`) plus diagnostic keys specific to its procedure. Keys
-appear in `stats` as `StatCode.value` strings (e.g. `"ic_mean"`).
+After #187's flattening, every cell populates the same primary keys
+(`MEAN`, `T_NW`, `P`); cell identity lives on `profile.config`
+(`scope` / `signal` / `metric`), so the StatCode no longer encodes it.
+Diagnostic keys carry an explicit `FACTOR_` / `RESID_` / `EVENT_`
+prefix because their target sits outside `config`. Keys appear in
+`stats` as `StatCode.value` strings (e.g. `"mean"`, `"factor_adf_p"`).
 
 | Dispatch cell | `stats` keys populated |
 |---------------|------------------------|
-| `(individual, continuous, ic, panel)` | `IC_MEAN`, `IC_T_NW`, `IC_P`, `NW_LAGS_USED` |
-| `(individual, continuous, fm, panel)` | `FM_LAMBDA_MEAN`, `FM_LAMBDA_T_NW`, `FM_LAMBDA_P`, `NW_LAGS_USED` |
-| `(individual, sparse, None, panel)` | `CAAR_MEAN`, `CAAR_T_NW`, `CAAR_P`, `NW_LAGS_USED` |
-| `(common, continuous, None, panel)` | `TS_BETA`, `TS_BETA_T_NW`, `TS_BETA_P`, `FACTOR_ADF_P` |
-| `(common, sparse, None, panel)` | `TS_BETA`, `TS_BETA_T_NW`, `TS_BETA_P` |
-| `(common, continuous, None, timeseries)` | `TS_BETA`, `TS_BETA_T_NW`, `TS_BETA_P`, `FACTOR_ADF_P`, `NW_LAGS_USED` |
-| `(*, sparse, None, timeseries)` (sentinel) | `TS_BETA`, `TS_BETA_T_NW`, `TS_BETA_P`, `LJUNG_BOX_P`, `EVENT_TEMPORAL_HHI`, `NW_LAGS_USED` |
+| `(individual, continuous, ic, panel)` | `MEAN`, `T_NW`, `P` |
+| `(individual, continuous, fm, panel)` | `MEAN`, `T_NW`, `P` |
+| `(individual, sparse, None, panel)` | `MEAN`, `T_NW`, `P` |
+| `(common, continuous, None, panel)` | `MEAN`, `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` |
+| `(common, sparse, None, panel)` | `MEAN`, `T_NW`, `P` |
+| `(common, continuous, None, timeseries)` | `MEAN`, `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` |
+| `(*, sparse, None, timeseries)` (sentinel) | `MEAN`, `T_NW`, `P`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` |
 
-`NW_LAGS_USED` appears whenever a procedure aggregates a time series
-through a Newey-West HAC kernel (Bartlett, Newey-West 1994 auto-lag
-with Hansen-Hodrick overlap floor). Cross-asset aggregations
-(`common_*` PANEL) use a plain cross-section t-test and therefore
-have no `NW_LAGS_USED` entry.
-
-`FACTOR_ADF_P` is a CONTINUOUS-only persistence diagnostic — sparse
+`FACTOR_ADF_*` is a CONTINUOUS-only persistence diagnostic — sparse
 cells skip it because the `{0, R}` event-trigger signal (zero on
 non-event entries) makes the unit-root null degenerate.
+
+The Newey-West auto-bandwidth lag count (Bartlett, NW1994 with
+Hansen-Hodrick overlap floor) is no longer surfaced on
+`profile.stats`; reinstating it under a dedicated metadata channel
+is tracked as #188.
 
 ### `stats` provenance — two paths
 
@@ -144,7 +146,7 @@ non-event entries) makes the unit-root null degenerate.
 
 | Path | Lives in | What it produces | Pluggable? |
 |---|---|---|---|
-| **Procedure-internal** | `factrix/_stats/` helpers (`_newey_west_t_test`, `_adf`, `_ljung_box_p`, …) invoked from `factrix/_procedures.py` | The `StatCode` keys listed above on `profile.stats` | No — the per-cell stat set is hard-coded by the registered procedure. |
+| **Procedure-internal** | `factrix/_stats/` helpers (`_newey_west_t_test`, `_adf`, `_ljung_box`, …) invoked from `factrix/_procedures.py` | The `StatCode` keys listed above on `profile.stats` | No — the per-cell stat set is hard-coded by the registered procedure. |
 | **Standalone metrics** | `factrix/metrics/*.py`, listed by [`list_metrics`](list-metrics.md) | A separate [`MetricOutput`](metric-output.md) per call, returned to the user | Yes — call any number after `evaluate()` returns. |
 
 `fx.metrics.quantile_spread(...)` and friends return a `MetricOutput`
@@ -162,14 +164,12 @@ Each procedure-internal `StatCode` maps to one section of
 
 | `StatCode` | Method |
 |---|---|
-| `IC_MEAN`, `IC_T_NW`, `IC_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West HAC `t` on the per-date IC series |
-| `FM_LAMBDA_MEAN`, `FM_LAMBDA_T_NW`, `FM_LAMBDA_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — NW HAC `t` on the per-date Fama-MacBeth λ series |
-| `CAAR_MEAN`, `CAAR_T_NW`, `CAAR_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — non-overlapping `t` / BMP `z` on the per-event-date CAAR series |
-| `TS_BETA`, `TS_BETA_T_NW`, `TS_BETA_P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — cross-asset `t` on `E[β]` (PANEL) or NW HAC single-series `t` (TIMESERIES) |
-| `NW_LAGS_USED` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West 1994 auto-lag with Hansen-Hodrick overlap floor |
-| `FACTOR_ADF_P` | [Persistence diagnostics under near-unit-root predictors](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) — ADF unit-root test on the continuous factor |
-| `LJUNG_BOX_P` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Ljung-Box on the TS-dummy single-asset residual |
-| `EVENT_TEMPORAL_HHI` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Herfindahl concentration of event dates over the calendar grid |
+| `MEAN`, `T_NW`, `P` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West HAC `t` on the cell primary series (IC mean / FM λ / CAAR / E[β] / β); convention selected by the procedure dispatched for `profile.config` |
+| `P_HH` | Reserved (#184) — Hansen-Hodrick rectangular-kernel HAC p-value |
+| `P_GMM` | Reserved — Hansen (1982) GMM J-test p-value |
+| `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | [Persistence diagnostics under near-unit-root predictors](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) — ADF τ statistic and unit-root p-value on the continuous factor |
+| `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Ljung-Box Q statistic and p-value on the TS-dummy single-asset residual |
+| `EVENT_HHI_VALUE` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Herfindahl concentration of event dates over the calendar grid |
 
 ### Example
 

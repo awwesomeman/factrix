@@ -1,31 +1,24 @@
 """``NeweyWest`` reference Estimator instance (#170).
 
 Names the Newey-West HAC inference path that v0.5 cells already emit
-into ``FactorProfile.stats``. Carries no compute
-logic — the underlying NW HAC math lives in :mod:`factrix._stats` and is
-invoked by each cell procedure during :func:`factrix.evaluate`.
+into ``FactorProfile.stats``. Carries no compute logic — the underlying
+NW HAC math lives in :mod:`factrix._stats` and is invoked by each cell
+procedure during :func:`factrix.evaluate`.
 
 The Bartlett kernel + NW1994 auto-bandwidth + Hansen-Hodrick overlap
 floor convention applies uniformly across the four primary_p-emitting
 cells; cell-specific sample-size guards (e.g. ``UNRELIABLE_SE_SHORT_PERIODS``)
 are tracked by the procedures and surface via ``FactorProfile.warnings``.
+
+After #187's StatCode flattening, ``emits_for`` is cell-agnostic — every
+applicable cell looks up the same ``StatCode.P`` key. Cell identity is
+carried by ``profile.config`` rather than by the StatCode.
 """
 
 from __future__ import annotations
 
 from factrix._axis import FactorScope, Metric, Signal
 from factrix._codes import StatCode
-
-# Cell → emitted p-value StatCode for the NW HAC convention.
-# Mode is intentionally absent: the same StatCode is emitted in PANEL
-# and TIMESERIES variants of a given (scope, signal, metric) cell.
-_EMITS: dict[tuple[FactorScope, Signal, Metric | None], StatCode] = {
-    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC): StatCode.IC_P,
-    (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.FM): StatCode.FM_LAMBDA_P,
-    (FactorScope.INDIVIDUAL, Signal.SPARSE, None): StatCode.CAAR_P,
-    (FactorScope.COMMON, Signal.CONTINUOUS, None): StatCode.TS_BETA_P,
-    (FactorScope.COMMON, Signal.SPARSE, None): StatCode.TS_BETA_P,
-}
 
 
 class NeweyWest:
@@ -34,7 +27,15 @@ class NeweyWest:
     The Bartlett-kernel HAC variance estimate uses the NW1994 automatic
     bandwidth rule with a Hansen-Hodrick overlap floor for forward-return
     regressions, matching the convention v0.5 procedures already use to
-    populate ``primary_p`` and ``StatCode.*_T_NW`` / ``*_P`` entries.
+    populate ``primary_p`` and ``StatCode.P`` / ``StatCode.T_NW`` entries.
+
+    Cell interpretation comes from ``profile.config`` (``scope`` /
+    ``signal`` / ``metric``) — ``StatCode.P`` is the same key for
+    correlation-mean tests (IC), event-window mean-effect tests (CAAR),
+    cross-asset slope tests (TS β), etc. Downstream readers must consult
+    the config to know which null is being rejected; the StatCode is
+    deliberately cell-agnostic to keep ``Estimator.emits_for`` from
+    re-encoding cell identity.
 
     Pass an instance to family verbs to make the inference choice
     explicit::
@@ -59,7 +60,10 @@ class NeweyWest:
         )
 
     def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return any((s, sig) == (scope, signal) for (s, sig, _) in _EMITS)
+        # NW HAC drives `primary_p` on every user-facing cell, so the
+        # estimator applies universally until a cell opts out.
+        del scope, signal
+        return True
 
     def emits_for(
         self,
@@ -67,4 +71,5 @@ class NeweyWest:
         signal: Signal,
         metric: Metric | None,
     ) -> StatCode:
-        return _EMITS[(scope, signal, metric)]
+        del scope, signal, metric
+        return StatCode.P

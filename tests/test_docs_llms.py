@@ -18,7 +18,7 @@ Three checks:
    ``llms-full.txt`` — keeps the LLM reference in lockstep when the
    public surface widens.
 
-Bare references like ``StatCode.IC_MEAN`` (no ``fx.`` / ``factrix.``
+Bare references like ``StatCode.MEAN`` (no ``fx.`` / ``factrix.``
 prefix) are intentionally not validated — too many false positives
 against ``profile.X`` style attribute talk in prose.
 

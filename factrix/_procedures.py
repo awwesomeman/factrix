@@ -66,10 +66,9 @@ class _ICContPanelProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.IC_MEAN,
-            StatCode.IC_T_NW,
-            StatCode.IC_P,
-            StatCode.NW_LAGS_USED,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
         }
     )
 
@@ -114,10 +113,9 @@ class _ICContPanelProcedure:
             n_obs=n_periods,
             n_assets=n_assets,
             stats={
-                StatCode.IC_MEAN: ic_mean,
-                StatCode.IC_T_NW: t_stat,
-                StatCode.IC_P: p_value,
-                StatCode.NW_LAGS_USED: float(nw_lags),
+                StatCode.MEAN: ic_mean,
+                StatCode.T_NW: t_stat,
+                StatCode.P: p_value,
             },
         )
 
@@ -136,10 +134,9 @@ class _FMContPanelProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.FM_LAMBDA_MEAN,
-            StatCode.FM_LAMBDA_T_NW,
-            StatCode.FM_LAMBDA_P,
-            StatCode.NW_LAGS_USED,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
         }
     )
 
@@ -187,10 +184,9 @@ class _FMContPanelProcedure:
             n_assets=n_assets,
             warnings=warning_codes,
             stats={
-                StatCode.FM_LAMBDA_MEAN: lambda_mean,
-                StatCode.FM_LAMBDA_T_NW: t_stat,
-                StatCode.FM_LAMBDA_P: p_value,
-                StatCode.NW_LAGS_USED: float(nw_lags),
+                StatCode.MEAN: lambda_mean,
+                StatCode.T_NW: t_stat,
+                StatCode.P: p_value,
             },
         )
 
@@ -213,12 +209,12 @@ class _CAARSparsePanelProcedure:
     PANEL: same ``_resolve_nw_lags`` + ``_newey_west_t_test`` machinery,
     same dense-series semantics.
 
-    Output contract: ``CAAR_MEAN`` reports the event-only mean
+    Output contract: ``MEAN`` reports the event-only mean
     (user-facing statistic — the average effect on event days);
-    ``n_obs`` and ``NW_LAGS_USED`` reflect the dense series the t-stat
-    is computed on. ``mean_dense × n_total = mean_event × n_event``, so
-    the t-statistic is invariant to the dense reframing in the iid
-    limit (canonical p unchanged when the lag rule was already valid).
+    ``n_obs`` reflects the dense series the t-stat is computed on.
+    ``mean_dense × n_total = mean_event × n_event``, so the t-statistic
+    is invariant to the dense reframing in the iid limit (canonical p
+    unchanged when the lag rule was already valid).
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(
@@ -226,10 +222,9 @@ class _CAARSparsePanelProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.CAAR_MEAN,
-            StatCode.CAAR_T_NW,
-            StatCode.CAAR_P,
-            StatCode.NW_LAGS_USED,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
         }
     )
 
@@ -291,10 +286,9 @@ class _CAARSparsePanelProcedure:
             n_assets=n_assets,
             warnings=frozenset(warning_codes),
             stats={
-                StatCode.CAAR_MEAN: event_mean,
-                StatCode.CAAR_T_NW: t_stat,
-                StatCode.CAAR_P: p_value,
-                StatCode.NW_LAGS_USED: float(nw_lags),
+                StatCode.MEAN: event_mean,
+                StatCode.T_NW: t_stat,
+                StatCode.P: p_value,
             },
         )
 
@@ -312,9 +306,10 @@ class _CommonContPanelProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
+            StatCode.FACTOR_ADF_TAU,
             StatCode.FACTOR_ADF_P,
         }
     )
@@ -348,9 +343,9 @@ class _CommonSparsePanelProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
         }
     )
 
@@ -454,9 +449,9 @@ def _compute_common_panel(
         p_value = _p_value_from_t(t_stat, N) if N >= 2 else 1.0
 
     stats: dict[StatCode, float] = {
-        StatCode.TS_BETA: beta_mean,
-        StatCode.TS_BETA_T_NW: t_stat,
-        StatCode.TS_BETA_P: p_value,
+        StatCode.MEAN: beta_mean,
+        StatCode.T_NW: t_stat,
+        StatCode.P: p_value,
     }
     warnings: set[WarningCode] = set(extra_warnings)
     n_tier = cross_section_tier(N)
@@ -473,7 +468,8 @@ def _compute_common_panel(
             .drop_nulls()
             .to_numpy()
         )
-        _, adf_p = _adf(factor_series)
+        adf_tau, adf_p = _adf(factor_series)
+        stats[StatCode.FACTOR_ADF_TAU] = adf_tau
         stats[StatCode.FACTOR_ADF_P] = adf_p
         if adf_p > 0.10:
             warnings.add(WarningCode.PERSISTENT_REGRESSOR)
@@ -507,11 +503,11 @@ class _TSBetaContTimeseriesProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
+            StatCode.FACTOR_ADF_TAU,
             StatCode.FACTOR_ADF_P,
-            StatCode.NW_LAGS_USED,
         }
     )
 
@@ -557,7 +553,7 @@ class _TSBetaContTimeseriesProcedure:
         # extra nulls.
         y, x = y[:n_periods], x[:n_periods]
         beta, t_stat, p_value, _ = _ols_nw_slope_t(y, x, lags=nw_lags)
-        _adf_tau, adf_p = _adf(x)
+        adf_tau, adf_p = _adf(x)
 
         warnings: set[WarningCode] = set()
         if n_periods < MIN_PERIODS_WARN:
@@ -576,11 +572,11 @@ class _TSBetaContTimeseriesProcedure:
             n_assets=int(raw["asset_id"].n_unique()),
             warnings=frozenset(warnings),
             stats={
-                StatCode.TS_BETA: beta,
-                StatCode.TS_BETA_T_NW: t_stat,
-                StatCode.TS_BETA_P: p_value,
+                StatCode.MEAN: beta,
+                StatCode.T_NW: t_stat,
+                StatCode.P: p_value,
+                StatCode.FACTOR_ADF_TAU: adf_tau,
                 StatCode.FACTOR_ADF_P: adf_p,
-                StatCode.NW_LAGS_USED: float(nw_lags),
             },
         )
 
@@ -610,12 +606,12 @@ class _TSDummySparseTimeseriesProcedure:
     )
     EMITS_STATS: ClassVar[frozenset[StatCode]] = frozenset(
         {
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
-            StatCode.LJUNG_BOX_P,
-            StatCode.EVENT_TEMPORAL_HHI,
-            StatCode.NW_LAGS_USED,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
+            StatCode.RESID_LJUNG_BOX_Q,
+            StatCode.RESID_LJUNG_BOX_P,
+            StatCode.EVENT_HHI_VALUE,
         }
     )
 
@@ -628,7 +624,7 @@ class _TSDummySparseTimeseriesProcedure:
         from factrix._errors import InsufficientSampleError
         from factrix._profile import FactorProfile
         from factrix._stats import (
-            _ljung_box_p,
+            _ljung_box,
             _ols_nw_slope_t,
             _resolve_nw_lags,
         )
@@ -660,7 +656,7 @@ class _TSDummySparseTimeseriesProcedure:
             config.forward_periods,
         )
         beta, t_stat, p_value, resid = _ols_nw_slope_t(y, d, lags=nw_lags)
-        ljung_box_p = _ljung_box_p(resid)
+        ljung_box_q, ljung_box_p = _ljung_box(resid)
         hhi = _event_temporal_hhi(d)
         overlap = _has_event_window_overlap(d, config.forward_periods)
 
@@ -680,12 +676,12 @@ class _TSDummySparseTimeseriesProcedure:
             n_assets=int(raw["asset_id"].n_unique()),
             warnings=frozenset(warnings),
             stats={
-                StatCode.TS_BETA: beta,
-                StatCode.TS_BETA_T_NW: t_stat,
-                StatCode.TS_BETA_P: p_value,
-                StatCode.LJUNG_BOX_P: ljung_box_p,
-                StatCode.EVENT_TEMPORAL_HHI: hhi,
-                StatCode.NW_LAGS_USED: float(nw_lags),
+                StatCode.MEAN: beta,
+                StatCode.T_NW: t_stat,
+                StatCode.P: p_value,
+                StatCode.RESID_LJUNG_BOX_Q: ljung_box_q,
+                StatCode.RESID_LJUNG_BOX_P: ljung_box_p,
+                StatCode.EVENT_HHI_VALUE: hhi,
             },
         )
 

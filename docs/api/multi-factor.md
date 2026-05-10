@@ -52,7 +52,7 @@ dependence violates its Positive Regression Dependency on a Subset
 | Kwarg | Default | Meaning |
 |-------|---------|---------|
 | `expand_over` | `None` | Context keys whose distinct value tuples split the input into independent step-ups. Names must live in `FactorProfile.context` (never identity). |
-| `p_stat` | `None` (= `primary_p`) | Alternate p-value `StatCode` (must satisfy `is_p_value`). Common picks: `IC_P`, `FM_LAMBDA_P`, `CAAR_P`. |
+| `estimator` | `None` (= `primary_p`) | An `Estimator` instance (e.g. `NeweyWest()`) selecting which inference method's p-value to feed into the step-up math. Dispatches via `Estimator.emits_for` to a `StatCode` key on `profile.stats` (see #170, #187). |
 | `q` | `0.05` | Nominal false discovery rate target. The Benjamini–Yekutieli $c(m)$ correction is applied internally — pass the level you actually want; do not pre-divide. |
 
 ### Identity vs context (anti-shopping defense)

@@ -22,7 +22,6 @@ from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _CAARSparsePanelProcedure
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
-from factrix._stats.constants import auto_bartlett
 
 
 def _make_event_panel(
@@ -114,22 +113,17 @@ class TestStrongCaar:
 
     def test_caar_mean_close_to_beta(self, profile: FactorProfile) -> None:
         # signed_car ≈ β + noise*sign(factor); cross-event mean ≈ β=1.0.
-        assert 0.7 < profile.stats[StatCode.CAAR_MEAN] < 1.3
+        assert 0.7 < profile.stats[StatCode.MEAN] < 1.3
 
     def test_required_stats(self, profile: FactorProfile) -> None:
-        for key in (
-            StatCode.CAAR_MEAN,
-            StatCode.CAAR_T_NW,
-            StatCode.CAAR_P,
-            StatCode.NW_LAGS_USED,
-        ):
+        for key in (StatCode.MEAN, StatCode.T_NW, StatCode.P):
             assert key in profile.stats
 
     def test_primary_p_matches_caar_p_stat(
         self,
         profile: FactorProfile,
     ) -> None:
-        assert profile.primary_p == profile.stats[StatCode.CAAR_P]
+        assert profile.primary_p == profile.stats[StatCode.P]
 
     def test_n_obs_equals_event_dates(self, profile: FactorProfile) -> None:
         # n_obs = number of distinct event-dates feeding the NW test;
@@ -152,24 +146,6 @@ class TestRandomCaar:
         assert profile.verdict() is Verdict.FAIL
 
 
-class TestNwLagFloor:
-    def test_nw_lags_floor_at_forward_periods_minus_one(
-        self,
-        cfg: AnalysisConfig,
-    ) -> None:
-        panel = _make_event_panel(
-            n_dates=80,
-            n_assets=20,
-            seed=4,
-            beta=0.5,
-            event_prob=0.10,
-        )
-        profile = _CAARSparsePanelProcedure().compute(panel, cfg)
-        T = profile.n_obs
-        expected = float(max(auto_bartlett(T), cfg.forward_periods - 1))
-        assert profile.stats[StatCode.NW_LAGS_USED] == expected
-
-
 class TestEndToEndViaEvaluate:
     def test_evaluate_dispatches_to_caar(self, cfg: AnalysisConfig) -> None:
         panel = _make_event_panel(
@@ -180,7 +156,7 @@ class TestEndToEndViaEvaluate:
         )
         profile = _evaluate(panel, cfg)
         assert profile.mode is Mode.PANEL
-        assert StatCode.CAAR_P in profile.stats
+        assert StatCode.P in profile.stats
         assert profile.verdict() is Verdict.PASS
 
 
@@ -255,7 +231,7 @@ class TestCalendarTimeRegimes:
             beta=1.0,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
-        assert 0.6 < profile.stats[StatCode.CAAR_MEAN] < 1.4
+        assert 0.6 < profile.stats[StatCode.MEAN] < 1.4
 
     def test_dense_regime_matches_event_only_when_every_date_is_event(
         self,
@@ -283,8 +259,8 @@ class TestCalendarTimeRegimes:
         T = len(event_caar)
         lags = _resolve_nw_lags(T, auto_bartlett(T), cfg.forward_periods)
         ref_t, ref_p, _ = _newey_west_t_test(event_caar, lags=lags)
-        assert profile.stats[StatCode.CAAR_T_NW] == pytest.approx(ref_t)
-        assert profile.stats[StatCode.CAAR_P] == pytest.approx(ref_p)
+        assert profile.stats[StatCode.T_NW] == pytest.approx(ref_t)
+        assert profile.stats[StatCode.P] == pytest.approx(ref_p)
 
     def test_clustered_regime_picks_up_overlap_via_nw_hac(
         self,
@@ -305,7 +281,7 @@ class TestCalendarTimeRegimes:
             beta=0.5,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
-        assert 0.0 <= profile.stats[StatCode.CAAR_P] <= 1.0
+        assert 0.0 <= profile.stats[StatCode.P] <= 1.0
         assert profile.n_obs == 60
 
 

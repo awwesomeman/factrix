@@ -140,7 +140,7 @@ except fx.ModeAxisError as exc:
     profile = fx.evaluate(panel, cfg)
 
 # profile.mode == Mode.TIMESERIES; primary_p is the timeseries-beta p-value
-print(profile.stats[fx.StatCode.TS_BETA])
+print(profile.stats[fx.StatCode.MEAN])
 ```
 
 For `SPARSE × TIMESERIES` the dispatch silently collapses the scope axis
@@ -470,29 +470,28 @@ Read live descriptions programmatically:
 
 ## StatCode reference
 
-`StatCode.is_p_value` is `True` iff the value name ends in `_p`. Used by
-`profile.verdict(gate=...)` consumers; the family-verb `estimator=`
-override (#170) dispatches via `Estimator.emits_for` and does not gate
-on `is_p_value` directly.
+`StatCode.is_p_value` is `True` iff the value tokens (split on `_`)
+contain `"p"`. Used by `profile.verdict(gate=...)` consumers; the
+family-verb `estimator=` override (#170) dispatches via
+`Estimator.emits_for` and does not gate on `is_p_value` directly.
+
+Naming grammar (#187): primary cell stats carry no TARGET prefix
+(cell identity lives on `profile.config`); diagnostics carry an
+explicit `FACTOR_` / `RESID_` / `EVENT_` prefix because the target
+sits outside `config`.
 
 | StatCode | Set by | Meaning |
 |---|---|---|
-| `IC_MEAN`            | IC procedure   | Mean cross-sectional IC |
-| `IC_T_NW`            | IC procedure   | Newey-West t-stat for IC |
-| `IC_P`               | IC procedure   | p-value (= `primary_p` for IC cell) |
-| `FM_LAMBDA_MEAN`     | FM procedure   | Mean Fama-MacBeth lambda |
-| `FM_LAMBDA_T_NW`     | FM procedure   | Newey-West t-stat |
-| `FM_LAMBDA_P`        | FM procedure   | p-value (= `primary_p` for FM cell) |
-| `TS_BETA`            | TS / COMMON    | Timeseries beta |
-| `TS_BETA_T_NW`       | TS / COMMON    | Newey-West t-stat |
-| `TS_BETA_P`          | TS / COMMON    | p-value |
-| `CAAR_MEAN`          | CAAR procedure | Mean cumulative abnormal return |
-| `CAAR_T_NW`          | CAAR procedure | Newey-West t-stat |
-| `CAAR_P`             | CAAR procedure | p-value |
-| `FACTOR_ADF_P`       | all procedures | Diagnostic: factor ADF unit-root p-value |
-| `LJUNG_BOX_P`        | IC / FM        | Diagnostic: residual autocorrelation p-value |
-| `EVENT_TEMPORAL_HHI` | CAAR           | Temporal concentration HHI (0–1) |
-| `NW_LAGS_USED`       | NW-adjusted    | Actual Newey-West lag count used |
+| `MEAN`              | every cell      | Cell primary point estimate (IC mean / FM λ / E[β] / β / CAAR event-only mean) |
+| `T_NW`              | every cell      | NW HAC t-stat on the primary estimate |
+| `P`                 | every cell      | NW HAC p-value (= `primary_p`) |
+| `P_HH`              | reserved (#184) | Hansen-Hodrick p-value (rectangular kernel) |
+| `P_GMM`             | reserved        | GMM J-test p-value |
+| `FACTOR_ADF_TAU`    | COMMON / TS β   | Diagnostic: ADF τ statistic on factor input |
+| `FACTOR_ADF_P`      | COMMON / TS β   | Diagnostic: ADF p-value on factor input |
+| `RESID_LJUNG_BOX_Q` | TS-dummy        | Diagnostic: Ljung-Box Q on residuals |
+| `RESID_LJUNG_BOX_P` | TS-dummy        | Diagnostic: Ljung-Box p-value on residuals |
+| `EVENT_HHI_VALUE`   | TS-dummy        | Diagnostic: temporal concentration HHI (0-1) |
 
 ---
 

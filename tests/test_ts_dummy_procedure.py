@@ -146,16 +146,16 @@ class TestStrongTrigger:
         assert profile.primary_p < 0.001
 
     def test_beta_close_to_truth(self, profile: FactorProfile) -> None:
-        assert 1.5 < profile.stats[StatCode.TS_BETA] < 2.5
+        assert 1.5 < profile.stats[StatCode.MEAN] < 2.5
 
     def test_required_stats_present(self, profile: FactorProfile) -> None:
         for key in (
-            StatCode.TS_BETA,
-            StatCode.TS_BETA_T_NW,
-            StatCode.TS_BETA_P,
-            StatCode.LJUNG_BOX_P,
-            StatCode.EVENT_TEMPORAL_HHI,
-            StatCode.NW_LAGS_USED,
+            StatCode.MEAN,
+            StatCode.T_NW,
+            StatCode.P,
+            StatCode.RESID_LJUNG_BOX_Q,
+            StatCode.RESID_LJUNG_BOX_P,
+            StatCode.EVENT_HHI_VALUE,
         ):
             assert key in profile.stats
 
@@ -195,7 +195,7 @@ class TestSerialCorrelationWarning:
             cfg_individual,
         )
         assert WarningCode.SERIAL_CORRELATION_DETECTED in profile.warnings
-        assert profile.stats[StatCode.LJUNG_BOX_P] < 0.05
+        assert profile.stats[StatCode.RESID_LJUNG_BOX_P] < 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -356,50 +356,3 @@ class TestEventWindowOverlap:
         d[10] = 1.0
         d[30] = 1.0  # gap of 20 > 2*5
         assert _has_event_window_overlap(d, forward_periods=5) is False
-
-
-# ---------------------------------------------------------------------------
-# Review fix TC-Hansen-Hodrick: NW lag floor pin for TS-dummy
-# ---------------------------------------------------------------------------
-
-
-class TestNWLagsFloorTSDummy:
-    """Pins ``max(auto_bartlett(T), forward_periods - 1)`` lag selection
-    on the TS-dummy procedure (mirrors the IC / FM / CAAR / TS-β tests
-    that already pin the same Hansen-Hodrick floor on their cells)."""
-
-    def test_short_series_uses_hh_floor(
-        self,
-        cfg_individual: AnalysisConfig,
-    ) -> None:
-        # T=24 → auto_bartlett(24)=int(4*0.24**(2/9))=int(2.93)=2; the
-        # config's forward_periods=5 → HH floor = 5-1 = 4. Floor wins.
-        ts = _make_sparse_ts(
-            n_dates=24,
-            seed=99,
-            event_density=0.20,
-            beta=2.0,
-        )
-        profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts,
-            cfg_individual,
-        )
-        assert profile.stats[StatCode.NW_LAGS_USED] == 4.0
-
-    def test_long_series_uses_auto_bartlett(
-        self,
-        cfg_individual: AnalysisConfig,
-    ) -> None:
-        # T=400 → auto_bartlett(400)=int(4*4**(2/9))=int(5.34)=5; HH
-        # floor = 5-1 = 4. auto_bartlett wins.
-        ts = _make_sparse_ts(
-            n_dates=400,
-            seed=7,
-            event_density=0.05,
-            beta=1.5,
-        )
-        profile = _TSDummySparseTimeseriesProcedure().compute(
-            ts,
-            cfg_individual,
-        )
-        assert profile.stats[StatCode.NW_LAGS_USED] == 5.0

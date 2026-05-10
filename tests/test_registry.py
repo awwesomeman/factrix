@@ -212,14 +212,14 @@ class TestVerdict:
     def test_gate_override_uses_stats_value(self) -> None:
         prof = _make_profile(
             primary_p=0.50,  # would FAIL on primary
-            stats={StatCode.IC_P: 0.001},
+            stats={StatCode.P: 0.001},
         )
-        assert prof.verdict(gate=StatCode.IC_P) is Verdict.PASS
+        assert prof.verdict(gate=StatCode.P) is Verdict.PASS
 
     def test_gate_keyerror_when_stat_missing(self) -> None:
         prof = _make_profile(primary_p=0.01, stats={})
         with pytest.raises(KeyError):
-            prof.verdict(gate=StatCode.FM_LAMBDA_P)
+            prof.verdict(gate=StatCode.P)
 
 
 class TestProfileImmutability:
@@ -247,7 +247,7 @@ class TestDiagnose:
     def test_diagnose_serialises_enums_to_strings(self) -> None:
         prof = _make_profile(
             primary_p=0.02,
-            stats={StatCode.IC_MEAN: 0.05, StatCode.NW_LAGS_USED: 4.0},
+            stats={StatCode.MEAN: 0.05, StatCode.T_NW: 1.96},
             warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS}),
             info_notes=frozenset({InfoCode.SCOPE_AXIS_COLLAPSED}),
         )
@@ -257,7 +257,7 @@ class TestDiagnose:
         assert d["primary_p"] == 0.02
         assert "unreliable_se_short_periods" in d["warnings"]
         assert "scope_axis_collapsed" in d["info_notes"]
-        assert d["stats"]["ic_mean"] == 0.05
+        assert d["stats"]["mean"] == 0.05
 
 
 # ---------------------------------------------------------------------------
