@@ -134,10 +134,27 @@ prefix because their target sits outside `config`. Keys appear in
 cells skip it because the `{0, R}` event-trigger signal (zero on
 non-event entries) makes the unit-root null degenerate.
 
-The Newey-West auto-bandwidth lag count (Bartlett, NW1994 with
-Hansen-Hodrick overlap floor) is no longer surfaced on
-`profile.stats`; reinstating it under a dedicated metadata channel
-is tracked as #188.
+### `profile.metadata` — hyperparameter records
+
+`profile.metadata: Mapping[StatCode, Mapping[str, Any]]` mirrors
+`stats`: for any populated stat, the same key in `metadata` returns
+the inner dict of hyperparameters that produced it. Stats with no
+hyperparameter (`MEAN`) are absent rather than mapping to `{}`. Tests
+that share a hyperparameter populate the inner dict under each key
+the test produced.
+
+| Cell | Populated `metadata` keys | Inner dict |
+|---|---|---|
+| IC / FM / CAAR PANEL | `T_NW`, `P` | `{"nw_lags": <resolved bandwidth>}` |
+| `(common, continuous, None, panel)` | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | `{"lag_order": 0}` |
+| `(common, continuous, None, timeseries)` | `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW `nw_lags` + ADF `lag_order` |
+| `(*, sparse, None, timeseries)` | `T_NW`, `P`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW `nw_lags` + Ljung-Box `lag_h` + HHI `n_bins` |
+| `(common, sparse, None, panel)` | (none — cross-asset t has no hyperparam) | — |
+
+`profile.diagnose()["metadata"]` serialises with `StatCode.value`
+strings as outer keys (e.g. `"p"`) and plain dicts inside. Reading
+order pattern: `profile.stats[StatCode.P]` for the value, then
+`profile.metadata[StatCode.P]` for "how was this computed".
 
 ### `stats` provenance — two paths
 

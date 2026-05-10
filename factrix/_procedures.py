@@ -11,12 +11,55 @@ registry SSOT (§4.4 A1) is queryable as soon as the package loads.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
 from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey, register
+
+# ---------------------------------------------------------------------------
+# Metadata helpers (#188)
+# ---------------------------------------------------------------------------
+# Hardcoded hyperparameters surfaced into ``profile.metadata`` so the
+# StatCode they produced can be reproduced / audited without grepping
+# the procedure source. Keep these constants here (not in
+# ``_stats.constants``) so the metadata schema stays co-located with
+# the code that emits it.
+_ADF_LAG_ORDER = 0
+_HHI_N_BINS = 10
+
+
+def _nw_metadata(nw_lags: int) -> dict[StatCode, Mapping[str, Any]]:
+    """NW HAC bandwidth → ``T_NW`` + ``P`` (shared single bandwidth choice).
+
+    Returns a fresh inner dict per StatCode so downstream code that
+    mutates one entry does not silently bleed into the other.
+    """
+    return {
+        StatCode.T_NW: {"nw_lags": nw_lags},
+        StatCode.P: {"nw_lags": nw_lags},
+    }
+
+
+def _adf_metadata() -> dict[StatCode, Mapping[str, Any]]:
+    return {
+        StatCode.FACTOR_ADF_TAU: {"lag_order": _ADF_LAG_ORDER},
+        StatCode.FACTOR_ADF_P: {"lag_order": _ADF_LAG_ORDER},
+    }
+
+
+def _ljung_box_metadata(lag_h: int) -> dict[StatCode, Mapping[str, Any]]:
+    return {
+        StatCode.RESID_LJUNG_BOX_Q: {"lag_h": lag_h},
+        StatCode.RESID_LJUNG_BOX_P: {"lag_h": lag_h},
+    }
+
+
+def _hhi_metadata(n_bins: int) -> dict[StatCode, Mapping[str, Any]]:
+    return {StatCode.EVENT_HHI_VALUE: {"n_bins": n_bins}}
+
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
@@ -117,6 +160,7 @@ class _ICContPanelProcedure:
                 StatCode.T_NW: t_stat,
                 StatCode.P: p_value,
             },
+            metadata=_nw_metadata(nw_lags),
         )
 
 
@@ -188,6 +232,7 @@ class _FMContPanelProcedure:
                 StatCode.T_NW: t_stat,
                 StatCode.P: p_value,
             },
+            metadata=_nw_metadata(nw_lags),
         )
 
 
@@ -290,6 +335,7 @@ class _CAARSparsePanelProcedure:
                 StatCode.T_NW: t_stat,
                 StatCode.P: p_value,
             },
+            metadata=_nw_metadata(nw_lags),
         )
 
 
@@ -453,6 +499,7 @@ def _compute_common_panel(
         StatCode.T_NW: t_stat,
         StatCode.P: p_value,
     }
+    metadata: dict[StatCode, Mapping[str, Any]] = {}
     warnings: set[WarningCode] = set(extra_warnings)
     n_tier = cross_section_tier(N)
     if n_tier is not None:
@@ -468,9 +515,10 @@ def _compute_common_panel(
             .drop_nulls()
             .to_numpy()
         )
-        adf_tau, adf_p = _adf(factor_series)
+        adf_tau, adf_p = _adf(factor_series, lags=_ADF_LAG_ORDER)
         stats[StatCode.FACTOR_ADF_TAU] = adf_tau
         stats[StatCode.FACTOR_ADF_P] = adf_p
+        metadata.update(_adf_metadata())
         if adf_p > 0.10:
             warnings.add(WarningCode.PERSISTENT_REGRESSOR)
 
@@ -485,6 +533,7 @@ def _compute_common_panel(
         n_assets=int(raw["asset_id"].n_unique()),
         warnings=frozenset(warnings),
         stats=stats,
+        metadata=metadata,
     )
 
 
@@ -553,7 +602,7 @@ class _TSBetaContTimeseriesProcedure:
         # extra nulls.
         y, x = y[:n_periods], x[:n_periods]
         beta, t_stat, p_value, _ = _ols_nw_slope_t(y, x, lags=nw_lags)
-        adf_tau, adf_p = _adf(x)
+        adf_tau, adf_p = _adf(x, lags=_ADF_LAG_ORDER)
 
         warnings: set[WarningCode] = set()
         if n_periods < MIN_PERIODS_WARN:
@@ -578,6 +627,7 @@ class _TSBetaContTimeseriesProcedure:
                 StatCode.FACTOR_ADF_TAU: adf_tau,
                 StatCode.FACTOR_ADF_P: adf_p,
             },
+            metadata=_nw_metadata(nw_lags) | _adf_metadata(),
         )
 
 
@@ -656,8 +706,8 @@ class _TSDummySparseTimeseriesProcedure:
             config.forward_periods,
         )
         beta, t_stat, p_value, resid = _ols_nw_slope_t(y, d, lags=nw_lags)
-        ljung_box_q, ljung_box_p = _ljung_box(resid)
-        hhi = _event_temporal_hhi(d)
+        ljung_box_h, ljung_box_q, ljung_box_p = _ljung_box(resid)
+        hhi = _event_temporal_hhi(d, n_bins=_HHI_N_BINS)
         overlap = _has_event_window_overlap(d, config.forward_periods)
 
         warnings: set[WarningCode] = set()
@@ -683,6 +733,11 @@ class _TSDummySparseTimeseriesProcedure:
                 StatCode.RESID_LJUNG_BOX_P: ljung_box_p,
                 StatCode.EVENT_HHI_VALUE: hhi,
             },
+            metadata=(
+                _nw_metadata(nw_lags)
+                | _ljung_box_metadata(ljung_box_h)
+                | _hhi_metadata(_HHI_N_BINS)
+            ),
         )
 
 

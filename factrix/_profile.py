@@ -43,6 +43,18 @@ class FactorProfile:
             (``universe_id``, ``regime_id``, future axes). Populated
             by higher-level verbs via ``dataclasses.replace``.
         warnings, info_notes, stats: per-procedure flags / scalars.
+        metadata: Hyperparameter-selection records the procedure made
+            internally, keyed by the ``StatCode`` they produced.
+            Symmetric with ``stats`` — for any populated entry,
+            ``stats[code]`` is the value and ``metadata[code]`` is the
+            inner dict of hyperparameters that produced it (e.g.
+            ``{"nw_lags": 5}`` for ``T_NW`` / ``P`` under an NW HAC
+            test). Stats with no hyperparameter (e.g. plain ``MEAN``)
+            are absent from the mapping rather than mapping to an
+            empty dict. Tests that share a hyperparameter (NW
+            populates both ``T_NW`` and ``P`` from one bandwidth
+            choice) duplicate the inner dict under both keys to keep
+            single-key lookup honest (#188).
 
     Hashing is disabled (``__hash__ = None``) because ``context``
     defaults to ``dict`` (unhashable). Equality is field-by-field via
@@ -60,6 +72,7 @@ class FactorProfile:
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
     stats: Mapping[StatCode, float] = field(default_factory=dict)
+    metadata: Mapping[StatCode, Mapping[str, Any]] = field(default_factory=dict)
 
     __hash__ = None  # type: ignore[assignment]
 
@@ -153,4 +166,5 @@ class FactorProfile:
             "warnings": sorted(w.value for w in self.warnings),
             "info_notes": sorted(i.value for i in self.info_notes),
             "stats": {k.value: v for k, v in self.stats.items()},
+            "metadata": {k.value: dict(v) for k, v in self.metadata.items()},
         }

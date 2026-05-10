@@ -120,6 +120,29 @@ class TestStrongFactor:
     def test_primary_p_matches_ic_p_stat(self, profile: FactorProfile) -> None:
         assert profile.primary_p == profile.stats[StatCode.P]
 
+    def test_metadata_records_nw_lags_under_t_nw_and_p(
+        self,
+        profile: FactorProfile,
+        ic_config: AnalysisConfig,
+    ) -> None:
+        # auto_bartlett(60)=3, forward_periods-1=4 → HH overlap floor
+        # binds. Metadata channel surfaces the resolved lag count under
+        # both StatCode keys produced by the same NW call (#188).
+        from factrix._stats.constants import auto_bartlett
+
+        expected = max(auto_bartlett(60), ic_config.forward_periods - 1)
+        assert profile.metadata[StatCode.P] == {"nw_lags": expected}
+        assert profile.metadata[StatCode.T_NW] == {"nw_lags": expected}
+
+    def test_metadata_inner_dicts_are_not_aliased(
+        self,
+        profile: FactorProfile,
+    ) -> None:
+        # Shared hyperparam (NW lag) is duplicated as content but the
+        # inner dicts must be distinct objects so caller mutation of
+        # one entry does not silently bleed into the other (#188).
+        assert profile.metadata[StatCode.T_NW] is not profile.metadata[StatCode.P]
+
 
 class TestRandomFactor:
     @pytest.fixture(scope="class")

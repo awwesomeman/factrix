@@ -122,6 +122,19 @@ class TestStrongBeta:
         ):
             assert key in profile.stats
 
+    def test_metadata_records_nw_and_adf_hyperparams(
+        self,
+        profile: FactorProfile,
+    ) -> None:
+        # NW lag count under T_NW + P; ADF lag_order under TAU + P (#188).
+        nw_meta = profile.metadata[StatCode.P]
+        assert profile.metadata[StatCode.T_NW] == nw_meta
+        assert "nw_lags" in nw_meta
+
+        adf_meta = profile.metadata[StatCode.FACTOR_ADF_P]
+        assert profile.metadata[StatCode.FACTOR_ADF_TAU] == adf_meta
+        assert adf_meta == {"lag_order": 0}
+
     def test_no_persistent_regressor_warning_on_iid_factor(
         self,
         profile: FactorProfile,

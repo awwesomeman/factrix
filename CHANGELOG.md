@@ -20,6 +20,19 @@ While the version is below `1.0.0`, the public API should be considered unstable
 - **`factrix.stats.NeweyWest`** — reference Estimator naming the procedure-emitted Newey-West HAC inference path. Carries no compute logic; the underlying NW HAC math stays in `factrix._stats` and is invoked by each cell procedure during `evaluate()`. Constructor takes no arguments in v0.11; `lag` / `kernel` / `overlap_floor` knobs are tracked for a future enhancement. (#170)
 - **`factrix.list_estimators(scope, signal, *, format, with_import)`** — mirrors `list_metrics` shape so the pre-flight pattern ("which scalars and which inference methods does this cell admit") is one API. v0.11 ships only `NeweyWest`; HansenHodrick / GMM follow-ups append to `factrix.stats._ESTIMATOR_REGISTRY` as the #170 sub-issue lands. (#170)
 
+- **`FactorProfile.metadata: Mapping[StatCode, Mapping[str, Any]]`** — new field carrying hyperparameter records for each populated stat (#188). Symmetric with `stats`: for any populated entry, `stats[code]` is the value and `metadata[code]` is the inner dict of hyperparameters that produced it. Examples by cell:
+
+  | Cell | Populated `metadata` keys | Inner |
+  |---|---|---|
+  | IC / FM / CAAR PANEL | `T_NW`, `P` | `{"nw_lags": <resolved bandwidth>}` |
+  | COMMON CONTINUOUS PANEL | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | `{"lag_order": 0}` |
+  | COMMON CONTINUOUS TIMESERIES | `T_NW`, `P`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW lags + ADF lag_order |
+  | TS-dummy SPARSE TIMESERIES | `T_NW`, `P`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW lags + Ljung-Box `lag_h` + HHI `n_bins` |
+
+  Stats with no hyperparameter (`MEAN`) are absent from the mapping rather than mapping to an empty dict. Tests that share a hyperparameter (NW populates `T_NW` + `P` from one bandwidth; Ljung-Box populates `Q` + `P` from one `lag_h`) duplicate the inner dict under both keys to keep single-key lookup honest. `profile.diagnose()["metadata"]` serialises with `StatCode.value` strings as outer keys and plain dicts inside.
+
+  This restores reproducibility for the NW lag count after #187 removed `StatCode.NW_LAGS_USED`, and surfaces previously-discarded hyperparameters (ADF `lag_order`, Ljung-Box `lag_h`, HHI `n_bins`) under the same uniform schema. The `_ljung_box` internal helper now returns `(h, Q, p)` instead of `(Q, p)` so callers receive the resolved lag count alongside the test output. (#188)
+
 ### Changed
 
 - **`factrix.multi_factor.bhy` accepts `estimator: Estimator | None` instead of `p_stat: StatCode | None`** (breaking, #170). The previous `p_stat=` kwarg was a placeholder landed in v0.10 alongside the family-verb refactor and is removed in v0.11. Migration:
