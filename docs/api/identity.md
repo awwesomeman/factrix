@@ -84,7 +84,7 @@ profiles = [
     for name in factor_cols
 ]
 large_cap = [p for p in profiles if p.context.get("universe_id") == "us_large_cap"]
-fl.multi_factor.bhy(large_cap, threshold=0.05)
+fl.multi_factor.bhy(large_cap, q=0.05)
 ```
 
 When the universe / regime axis IS a hypothesis dimension (e.g., "is

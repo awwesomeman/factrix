@@ -10,12 +10,8 @@ that assumes independence over-corrects).
 ## Call shape
 
 ```python
-import dataclasses
-
 profiles = [
-    dataclasses.replace(
-        fl.evaluate(panel, cfg), factor_id=f"momentum_{lookback}"
-    )
+    fl.evaluate(panel_per_lookback[lookback], cfg, factor_col=f"momentum_{lookback}")
     for lookback, cfg in candidates
 ]
 survivors = fl.multi_factor.bhy(profiles, q=0.05)
@@ -23,6 +19,12 @@ survivors = fl.multi_factor.bhy(profiles, q=0.05)
 
 The input list **is** the family. `bhy` runs one Benjamini–Yekutieli
 step-up over all profiles by default, returning the surviving subset.
+Each panel carries its factor under a distinct column name and
+`evaluate(..., factor_col=name)` auto-stamps `factor_id` from that
+name; this is the canonical multi-factor pattern. When you cannot
+rename the column (e.g. an upstream loader fixes it), reach for
+`dataclasses.replace(profile, factor_id=...)` as an escape hatch.
+
 Set `expand_over=[<context key>]` to declare per-bucket independent
 families (Benjamini & Bogomolov 2014 selective inference); for
 example, `expand_over=["regime_id"]` runs one step-up per regime.
@@ -68,7 +70,7 @@ for the full invariant list.
 | `bhy(profiles, threshold=0.05)` | `bhy(profiles, q=0.05)` (`threshold=` still accepted with `DeprecationWarning`) |
 | `bhy(profiles, gate=StatCode.X)` | `bhy(profiles, p_stat=StatCode.X)` (`gate=` still accepted with `DeprecationWarning`) |
 | auto-partition by dispatch cell × horizon | caller declares the family; mixed `forward_periods` without `expand_over` emits `RuntimeWarning`. **Fix:** split the call per horizon, or pass `expand_over=[<context key>]` if profiles legitimately co-exist as one family across horizons. |
-| same `factor_id` across cells silently auto-split | raises `UserInputError` (duplicate identity). **Fix:** set unique `factor_id` per profile via `dataclasses.replace(profile, factor_id=...)`, or use `expand_over` if profiles really do share identity but belong in separate test buckets. |
+| same `factor_id` across cells silently auto-split | raises `UserInputError` (duplicate identity). **Fix (canonical):** name each panel's factor column distinctly and pass `evaluate(..., factor_col=name)`. **Fix (escape hatch):** post-hoc stamp via `dataclasses.replace(profile, factor_id=...)`. **Or:** use `expand_over` if profiles really do share identity but belong in separate test buckets. |
 
 ## Design rationale
 

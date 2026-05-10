@@ -387,10 +387,11 @@ optimiser.
 ```python
 import factrix as fl
 
-import dataclasses
+# Each panel carries its factor under a distinct column name
+# ("momentum_12" / "value" / ...); evaluate auto-stamps factor_id
+# from factor_col so identities stay unique without manual surgery.
 profiles  = [
-    dataclasses.replace(fl.evaluate(p, cfg), factor_id=f"f{i}")
-    for i, p in enumerate(panels)
+    fl.evaluate(p, cfg, factor_col=name) for name, p in panels.items()
 ]
 survivors = fl.multi_factor.bhy(profiles, q=0.05)
 
