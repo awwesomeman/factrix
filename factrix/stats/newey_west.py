@@ -59,17 +59,15 @@ class NeweyWest:
             "Hansen-Hodrick overlap floor) → t → two-sided p-value."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
+    def applicable_to(self, _scope: FactorScope, _signal: Signal) -> bool:
         # NW HAC drives `primary_p` on every user-facing cell, so the
         # estimator applies universally until a cell opts out.
-        del scope, signal
         return True
 
     def emits_for(
         self,
-        scope: FactorScope,
-        signal: Signal,
-        metric: Metric | None,
+        _scope: FactorScope,
+        _signal: Signal,
+        _metric: Metric | None,
     ) -> StatCode:
-        del scope, signal, metric
         return StatCode.P

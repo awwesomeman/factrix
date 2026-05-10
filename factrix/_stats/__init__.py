@@ -494,16 +494,16 @@ def _ljung_box(
     """
     n = len(resid)
     if n < 4:
-        return float("nan"), 1.0
+        return np.nan, 1.0
     h = lags if lags is not None else min(10, n // 10)
     if h < 1:
-        return float("nan"), 1.0
+        return np.nan, 1.0
     h = min(h, n - 1)
 
     centred = resid - float(np.mean(resid))
     var = float(np.dot(centred, centred))
     if var < EPSILON:
-        return float("nan"), 1.0
+        return np.nan, 1.0
 
     q = 0.0
     for k in range(1, h + 1):

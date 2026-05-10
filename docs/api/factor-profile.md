@@ -186,10 +186,9 @@ For reference, the JSON shape on the IC PANEL cell is:
   "warnings": [],
   "info_notes": [],
   "stats": {
-    "ic_mean": 0.0722,
-    "ic_t_nw": 14.60,
-    "ic_p": 2.13e-40,
-    "nw_lags_used": 5.0
+    "mean": 0.0722,
+    "t_nw": 14.60,
+    "p": 2.13e-40
   }
 }
 ```

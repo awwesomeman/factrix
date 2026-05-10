@@ -58,7 +58,9 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
   `StatCode.is_p_value` widened from `value.endswith("_p")` to a tokenised check (`"p" in value.split("_")`) so bare `P` and algorithm variants `P_HH` / `P_GMM` qualify alongside `*_P` diagnostics.
 
-  `Estimator.emits_for` simplified — `NeweyWest` no longer dispatches per-cell to a metric-specific `*_P`; it returns `StatCode.P` cell-agnostically. Future Estimator instances (HansenHodrick / GMM / DriscollKraay) return their own `P_*` value in one line, removing the N-cell × M-algorithm dispatch table the previous shape would have required. (#187)
+  `Estimator.emits_for` simplified — `NeweyWest` no longer dispatches per-cell to a metric-specific `*_P`; it returns `StatCode.P` cell-agnostically. Future Estimator instances (HansenHodrick / GMM / DriscollKraay) return their own `P_*` value in one line, removing the N-cell × M-algorithm dispatch table the previous shape would have required.
+
+  Downstream consumers of `profile.diagnose()` JSON: the `stats` sub-dict's keys move from `"ic_p"` / `"ic_mean"` / `"caar_p"` / etc. to flat `"p"` / `"mean"` / `"t_nw"`. Filtering / dashboard code that reads keys by their old metric-prefixed string needs the same rename map applied to its own logic. (#187)
 
 ### Removed
 
