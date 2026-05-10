@@ -16,16 +16,18 @@ silently flag mixed-cell inputs as duplicate identities).
 
 from __future__ import annotations
 
+import html
 import warnings
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from factrix._codes import StatCode
 from factrix._family import _resolve_family
-from factrix.stats.multiple_testing import bhy_adjust
+from factrix.stats.multiple_testing import bhy_adjusted_p
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
@@ -38,6 +40,122 @@ _DEPRECATED_KWARGS = {
 _DEFAULT_Q = 0.05
 
 
+@dataclass(frozen=True, slots=True, repr=False)
+class Survivors:
+    """Family-verb survivor container with rich Jupyter rendering.
+
+    Procedure-agnostic: ``adj_q`` carries the verb's procedure-canonical
+    adjusted p-value (BHY ``bhy_adjusted_p``, Holm step-down, Bonferroni
+    ``min(p*m, 1)``, Romano-Wolf resampling, ...). The contract is
+    ``survivor[i] iff adj_q[i] <= q`` — a duality every step-up /
+    step-down family procedure satisfies.
+
+    Invariants:
+        ``len(profiles) == len(adj_q)`` and entries align in input
+        order. Per-bucket independent step-up uses bucket-local ``n``
+        and ``p_array``; ``adj_q[i]`` reflects ``profiles[i]``'s own
+        bucket only (Benjamini & Bogomolov 2014 selective inference),
+        not a global cross-bucket adjustment.
+
+    Attributes:
+        profiles: Survivors in input order.
+        adj_q: Bucket-local adjusted p-values aligned with ``profiles``.
+        q: Nominal FDR (or family-wise) target shared across all
+            buckets.
+        expand_over: Context keys used to partition the input into
+            independent step-up buckets. Empty tuple when the full
+            input is one family.
+        n_total: Per-bucket family size fed into the step-up math,
+            keyed by the bucket's ``expand_over_values`` tuple
+            (``()`` for the single-bucket case). Records the ``m``
+            two-stage screening uses.
+    """
+
+    profiles: list[FactorProfile]
+    adj_q: np.ndarray
+    q: float
+    expand_over: tuple[str, ...]
+    n_total: Mapping[tuple[Any, ...], int]
+
+    def __len__(self) -> int:
+        return len(self.profiles)
+
+    def _columns(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
+        """Return (headers, rows) as already-formatted strings.
+
+        Single source of truth for both ``__repr__`` and ``_repr_html_``
+        — shape drift between text and HTML branches caused real bugs
+        in earlier iterations.
+        """
+        headers: tuple[str, ...]
+        if self.expand_over:
+            headers = ("expand_over_values", "identity", "primary_p", "adj_q")
+        else:
+            headers = ("identity", "primary_p", "adj_q")
+
+        rows: list[tuple[str, ...]] = []
+        for profile, adj in zip(self.profiles, self.adj_q, strict=True):
+            cells = (
+                repr(profile.identity),
+                f"{profile.primary_p:.4g}",
+                f"{float(adj):.4g}",
+            )
+            if self.expand_over:
+                bucket_repr = repr(tuple(profile.context[k] for k in self.expand_over))
+                rows.append((bucket_repr, *cells))
+            else:
+                rows.append(cells)
+        return headers, rows
+
+    def _header_summary(self) -> str:
+        parts = [f"n={len(self.profiles)}", f"q={self.q:g}"]
+        if self.expand_over:
+            parts.append(f"expand_over={list(self.expand_over)!r}")
+            n_total_repr = ", ".join(
+                f"{k!r}: {v}" for k, v in sorted(self.n_total.items())
+            )
+            parts.append(f"n_total={{{n_total_repr}}}")
+        else:
+            parts.append(f"n_total={self.n_total.get((), len(self.profiles))}")
+        return ", ".join(parts)
+
+    def __repr__(self) -> str:
+        head = f"Survivors({self._header_summary()})"
+        if not self.profiles:
+            return head
+        headers, rows = self._columns()
+        widths = [
+            max(len(col), *(len(row[i]) for row in rows))
+            for i, col in enumerate(headers)
+        ]
+        header_line = "  ".join(
+            c.ljust(w) for c, w in zip(headers, widths, strict=True)
+        )
+        body = "\n".join(
+            "  ".join(cell.ljust(w) for cell, w in zip(row, widths, strict=True))
+            for row in rows
+        )
+        return f"{head}\n{header_line}\n{body}"
+
+    def _repr_html_(self) -> str:
+        headers, rows = self._columns()
+        thead = "".join(
+            f"<th style='text-align:left'>{html.escape(h)}</th>" for h in headers
+        )
+        tbody = "".join(
+            "<tr>" + "".join(f"<td>{html.escape(cell)}</td>" for cell in row) + "</tr>"
+            for row in rows
+        )
+        caption = html.escape(f"Survivors ({self._header_summary()})")
+        return (
+            "<table class='factrix-survivors'>"
+            f"<caption>{caption}</caption>"
+            f"<thead><tr>{thead}</tr></thead>"
+            f"<tbody>{tbody}</tbody>"
+            "</table>"
+        )
+
+
 def bhy(
     profiles: Iterable[FactorProfile],
     *,
@@ -45,7 +163,7 @@ def bhy(
     p_stat: StatCode | None = None,
     q: float | None = None,
     **deprecated: Any,
-) -> list[FactorProfile]:
+) -> Survivors:
     """BHY step-up FDR within one declared family; return the survivors.
 
     The input list is treated as a single family. When ``expand_over``
@@ -71,7 +189,10 @@ def bhy(
             ``q / sum(1/k for k in 1..n)``. Default ``0.05``.
 
     Returns:
-        Survivors in input order.
+        ``Survivors`` container in input order; ``adj_q`` carries the
+        bucket-local BHY-adjusted p-value and the survivor set is
+        defined as ``adj_q <= q`` (single source of truth — no separate
+        rejection mask path).
 
     Raises:
         UserInputError: On any family-resolution invariant failure
@@ -93,10 +214,17 @@ def bhy(
     expand_over, p_stat, q = _apply_deprecated_kwargs(
         expand_over=expand_over, p_stat=p_stat, q=q, deprecated=deprecated
     )
+    expand_over_tuple: tuple[str, ...] = tuple(expand_over) if expand_over else ()
 
     profile_list = list(profiles)
     if not profile_list:
-        return []
+        return Survivors(
+            profiles=[],
+            adj_q=np.zeros(0, dtype=np.float64),
+            q=q,
+            expand_over=expand_over_tuple,
+            n_total={},
+        )
 
     _warn_on_mixed_horizons(profile_list, expand_over=expand_over)
 
@@ -118,14 +246,21 @@ def bhy(
             stacklevel=2,
         )
 
-    survivor_idxs: list[int] = []
-    for ix in buckets.values():
+    adj_q_all = np.full(len(entries), np.nan, dtype=np.float64)
+    n_total: dict[tuple[Any, ...], int] = {}
+    for bucket_key, ix in buckets.items():
         p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
-        mask = bhy_adjust(p_array, fdr=q)
-        survivor_idxs.extend(i for i, accept in zip(ix, mask, strict=True) if accept)
+        adj_q_all[ix] = bhy_adjusted_p(p_array)
+        n_total[bucket_key] = len(ix)
 
-    survivor_idxs.sort()
-    return [entries[i].profile for i in survivor_idxs]
+    survivor_idxs = np.flatnonzero(adj_q_all <= q)
+    return Survivors(
+        profiles=[entries[i].profile for i in survivor_idxs],
+        adj_q=adj_q_all[survivor_idxs],
+        q=q,
+        expand_over=expand_over_tuple,
+        n_total=n_total,
+    )
 
 
 def _warn_on_mixed_horizons(
