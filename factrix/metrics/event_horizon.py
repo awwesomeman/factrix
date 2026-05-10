@@ -13,10 +13,13 @@ Metrics:
     event_around_return   — return profile summary at each offset
     multi_horizon_hit_rate — win rate at multiple holding periods
 
-Matrix-row: compute_event_returns, event_around_return, multi_horizon_hit_rate | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output, _significance_marker
+Matrix-row: compute_event_returns, event_around_return | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output, _significance_marker
+Matrix-row: multi_horizon_hit_rate | (*, SPARSE, *, PANEL) | per-event | binomial [deprecated] | _short_circuit_output, _significance_marker
 """
 
 from __future__ import annotations
+
+import warnings as _warnings
 
 import numpy as np
 import polars as pl
@@ -245,6 +248,14 @@ def multi_horizon_hit_rate(
 ) -> MetricOutput:
     """Win rate at multiple holding periods.
 
+    .. deprecated::
+        Horizon sweeping is a dispatcher concern, not a per-cell metric.
+        Use ``run_metrics(panel, cfg.replace(forward_periods=h))`` per
+        horizon and ``compare(bundles)`` for descriptive view, or
+        ``evaluate(...)`` per horizon and
+        ``multi_factor.bhy(profiles, expand_over=["forward_periods"])``
+        for FDR-controlled inference. Removal tracked in #186.
+
     Answers: "how long do you need to hold for the signal to work?"
 
     For each horizon, computes the fraction of events where the
@@ -271,6 +282,18 @@ def multi_horizon_hit_rate(
         across horizons is left to the caller (the appropriate set of
         sweeps is application-specific).
     """
+    # BUMP-TIME: pin the SemVer cutoff in this string before the next
+    # bump (e.g. "removed in v0.12.0"). Mirror in CHANGELOG `### Deprecated`.
+    _warnings.warn(
+        "multi_horizon_hit_rate is deprecated and will be removed in a "
+        "future release; use run_metrics + compare(bundles[]) for "
+        "descriptive horizon sweep or evaluate + "
+        "bhy(expand_over=['forward_periods']) for FDR-controlled "
+        "inference. See #186.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     if horizons is None:
         horizons = [1, 6, 12, 24]
 

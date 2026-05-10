@@ -21,8 +21,6 @@
 | `mean_r_squared` | `mean_r_squared` | [`factrix.metrics.ts_beta`][factrix.metrics.ts_beta] | [`mean_r_squared`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.mean_r_squared) |
 | `mfe_mae_summary` | `mfe_mae_summary` | [`factrix.metrics.mfe_mae`][factrix.metrics.mfe_mae] | [`mfe_mae_summary`](../api/metrics/mfe_mae.md#factrix.metrics.mfe_mae.mfe_mae_summary) |
 | `monotonicity` | `monotonicity` | [`factrix.metrics.monotonicity`][factrix.metrics.monotonicity] | [`monotonicity`](../api/metrics/monotonicity.md#factrix.metrics.monotonicity.monotonicity) |
-| `multi_horizon_hit_rate` | `multi_horizon_hit_rate` | [`factrix.metrics.event_horizon`][factrix.metrics.event_horizon] | [`multi_horizon_hit_rate`](../api/metrics/event_horizon.md#factrix.metrics.event_horizon.multi_horizon_hit_rate) |
-| `multi_horizon_ic` | `multi_horizon_ic` | [`factrix.metrics.ic`][factrix.metrics.ic] | [`multi_horizon_ic`](../api/metrics/ic.md#factrix.metrics.ic.multi_horizon_ic) |
 | `net_spread` | `net_spread` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`net_spread`](../api/metrics/tradability.md#factrix.metrics.tradability.net_spread) |
 | `notional_turnover` | `notional_turnover` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`notional_turnover`](../api/metrics/tradability.md#factrix.metrics.tradability.notional_turnover) |
 | `oos_decay` | `multi_split_oos_decay` | [`factrix.metrics.oos`][factrix.metrics.oos] | [`multi_split_oos_decay`](../api/metrics/oos.md#factrix.metrics.oos.multi_split_oos_decay) |

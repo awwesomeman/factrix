@@ -60,7 +60,6 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | `T` (full series) | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`regime_ic`][factrix.metrics.ic.regime_ic] | `T` per regime | per-regime `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
-| [`multi_horizon_ic`][factrix.metrics.ic.multi_horizon_ic] | `T` per horizon | per-horizon `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
 
 ### FM family — Cell: Individual × Continuous
 
@@ -98,7 +97,6 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | `K` | `K ≥ 2` |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
-| [`multi_horizon_hit_rate`][factrix.metrics.event_horizon.multi_horizon_hit_rate] | per-horizon `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
 | [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
