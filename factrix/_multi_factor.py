@@ -16,9 +16,11 @@ silently flag mixed-cell inputs as duplicate identities).
 
 from __future__ import annotations
 
+import html
 import warnings
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -36,6 +38,122 @@ _DEPRECATED_KWARGS = {
     "gate": "p_stat",
 }
 _DEFAULT_Q = 0.05
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class Survivors:
+    """Family-verb survivor container with rich Jupyter rendering.
+
+    Procedure-agnostic: ``adj_q`` carries the verb's procedure-canonical
+    adjusted p-value (BHY ``bhy_adjusted_p``, Holm step-down, Bonferroni
+    ``min(p*m, 1)``, Romano-Wolf resampling, ...). The contract is
+    ``survivor[i] iff adj_q[i] <= q`` — a duality every step-up /
+    step-down family procedure satisfies.
+
+    Invariants:
+        ``len(profiles) == len(adj_q)`` and entries align in input
+        order. Per-bucket independent step-up uses bucket-local ``n``
+        and ``p_array``; ``adj_q[i]`` reflects ``profiles[i]``'s own
+        bucket only (Benjamini & Bogomolov 2014 selective inference),
+        not a global cross-bucket adjustment.
+
+    Attributes:
+        profiles: Survivors in input order.
+        adj_q: Bucket-local adjusted p-values aligned with ``profiles``.
+        q: Nominal FDR (or family-wise) target shared across all
+            buckets.
+        expand_over: Context keys used to partition the input into
+            independent step-up buckets. Empty tuple when the full
+            input is one family.
+        n_total: Per-bucket family size fed into the step-up math,
+            keyed by the bucket's ``expand_over_values`` tuple
+            (``()`` for the single-bucket case). Records the ``m``
+            two-stage screening uses.
+    """
+
+    profiles: list[FactorProfile]
+    adj_q: np.ndarray
+    q: float
+    expand_over: tuple[str, ...]
+    n_total: Mapping[tuple[Any, ...], int]
+
+    def __len__(self) -> int:
+        return len(self.profiles)
+
+    def _columns(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
+        """Return (headers, rows) as already-formatted strings.
+
+        Single source of truth for both ``__repr__`` and ``_repr_html_``
+        — shape drift between text and HTML branches caused real bugs
+        in earlier iterations.
+        """
+        headers: tuple[str, ...]
+        if self.expand_over:
+            headers = ("expand_over_values", "identity", "primary_p", "adj_q")
+        else:
+            headers = ("identity", "primary_p", "adj_q")
+
+        rows: list[tuple[str, ...]] = []
+        for profile, adj in zip(self.profiles, self.adj_q, strict=True):
+            cells = (
+                repr(profile.identity),
+                f"{profile.primary_p:.4g}",
+                f"{float(adj):.4g}",
+            )
+            if self.expand_over:
+                bucket_repr = repr(tuple(profile.context[k] for k in self.expand_over))
+                rows.append((bucket_repr, *cells))
+            else:
+                rows.append(cells)
+        return headers, rows
+
+    def _header_summary(self) -> str:
+        parts = [f"n={len(self.profiles)}", f"q={self.q:g}"]
+        if self.expand_over:
+            parts.append(f"expand_over={list(self.expand_over)!r}")
+            n_total_repr = ", ".join(
+                f"{k!r}: {v}" for k, v in sorted(self.n_total.items())
+            )
+            parts.append(f"n_total={{{n_total_repr}}}")
+        else:
+            parts.append(f"n_total={self.n_total.get((), len(self.profiles))}")
+        return ", ".join(parts)
+
+    def __repr__(self) -> str:
+        head = f"Survivors({self._header_summary()})"
+        if not self.profiles:
+            return head
+        headers, rows = self._columns()
+        widths = [
+            max(len(col), *(len(row[i]) for row in rows))
+            for i, col in enumerate(headers)
+        ]
+        header_line = "  ".join(
+            c.ljust(w) for c, w in zip(headers, widths, strict=True)
+        )
+        body = "\n".join(
+            "  ".join(cell.ljust(w) for cell, w in zip(row, widths, strict=True))
+            for row in rows
+        )
+        return f"{head}\n{header_line}\n{body}"
+
+    def _repr_html_(self) -> str:
+        headers, rows = self._columns()
+        thead = "".join(
+            f"<th style='text-align:left'>{html.escape(h)}</th>" for h in headers
+        )
+        tbody = "".join(
+            "<tr>" + "".join(f"<td>{html.escape(cell)}</td>" for cell in row) + "</tr>"
+            for row in rows
+        )
+        caption = html.escape(f"Survivors ({self._header_summary()})")
+        return (
+            "<table class='factrix-survivors'>"
+            f"<caption>{caption}</caption>"
+            f"<thead><tr>{thead}</tr></thead>"
+            f"<tbody>{tbody}</tbody>"
+            "</table>"
+        )
 
 
 def bhy(

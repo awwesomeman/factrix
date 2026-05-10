@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import warnings
+from dataclasses import FrozenInstanceError
 
+import numpy as np
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric, Mode
 from factrix._codes import StatCode
 from factrix._errors import UserInputError
-from factrix._multi_factor import bhy
+from factrix._multi_factor import Survivors, bhy
 from factrix._profile import FactorProfile
 
 
@@ -273,3 +275,135 @@ class TestDuplicateIdentityHint:
         msg = str(exc.value)
         assert "factor_id" in msg
         assert "expand_over" in msg
+
+
+# ---------------------------------------------------------------------------
+# Survivors container (#171, batch 1: dataclass + repr/HTML, no bhy plumb yet)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def surv_single_bucket() -> Survivors:
+    profiles = [
+        _profile(factor_id="f1", primary_p=0.001),
+        _profile(factor_id="f2", primary_p=0.012),
+    ]
+    return Survivors(
+        profiles=profiles,
+        adj_q=np.array([0.002, 0.024]),
+        q=0.05,
+        expand_over=(),
+        n_total={(): 2},
+    )
+
+
+@pytest.fixture
+def surv_multi_bucket() -> Survivors:
+    profiles = [
+        _profile(factor_id="f1", primary_p=0.001, context={"universe_id": "tw50"}),
+        _profile(factor_id="f2", primary_p=0.020, context={"universe_id": "tw100"}),
+    ]
+    return Survivors(
+        profiles=profiles,
+        adj_q=np.array([0.002, 0.040]),
+        q=0.05,
+        expand_over=("universe_id",),
+        n_total={("tw50",): 1, ("tw100",): 1},
+    )
+
+
+class TestSurvivorsBasics:
+    def test_len_matches_profiles(self, surv_single_bucket: Survivors) -> None:
+        assert len(surv_single_bucket) == 2
+
+    def test_frozen_dataclass(self, surv_single_bucket: Survivors) -> None:
+        with pytest.raises(FrozenInstanceError):
+            surv_single_bucket.q = 0.1  # type: ignore[misc]
+
+
+class TestSurvivorsReprText:
+    def test_single_bucket_three_columns(self, surv_single_bucket: Survivors) -> None:
+        text = repr(surv_single_bucket)
+        assert "Survivors(" in text
+        assert "n=2" in text and "q=0.05" in text
+        assert "identity" in text and "primary_p" in text and "adj_q" in text
+        assert "expand_over_values" not in text
+        assert "'f1'" in text and "'f2'" in text
+
+    def test_multi_bucket_adds_expand_over_column(
+        self, surv_multi_bucket: Survivors
+    ) -> None:
+        text = repr(surv_multi_bucket)
+        assert "expand_over_values" in text
+        assert "expand_over=['universe_id']" in text
+        assert "tw50" in text and "tw100" in text
+
+    def test_empty_survivors_renders_header_only(self) -> None:
+        empty = Survivors(
+            profiles=[],
+            adj_q=np.array([]),
+            q=0.05,
+            expand_over=(),
+            n_total={(): 0},
+        )
+        text = repr(empty)
+        assert text.startswith("Survivors(")
+        assert "\n" not in text
+
+
+class TestSurvivorsReprHtml:
+    def test_html_has_table_and_caption(self, surv_single_bucket: Survivors) -> None:
+        markup = surv_single_bucket._repr_html_()
+        assert markup.startswith("<table")
+        assert "factrix-survivors" in markup
+        assert "<caption>" in markup and "Survivors" in markup
+        assert "<thead>" in markup and "<tbody>" in markup
+
+    def test_html_three_columns_single_bucket(
+        self, surv_single_bucket: Survivors
+    ) -> None:
+        markup = surv_single_bucket._repr_html_()
+        assert markup.count("<th ") == 3
+        assert "expand_over_values" not in markup
+
+    def test_html_four_columns_multi_bucket(self, surv_multi_bucket: Survivors) -> None:
+        markup = surv_multi_bucket._repr_html_()
+        assert markup.count("<th ") == 4
+        assert "expand_over_values" in markup
+
+    def test_html_escapes_special_chars(self) -> None:
+        profile = _profile(
+            factor_id="<bad>",
+            primary_p=0.01,
+            context={"universe_id": "<x>"},
+        )
+        surv = Survivors(
+            profiles=[profile],
+            adj_q=np.array([0.02]),
+            q=0.05,
+            expand_over=("universe_id",),
+            n_total={("<x>",): 1},
+        )
+        markup = surv._repr_html_()
+        assert "<bad>" not in markup
+        assert "&lt;bad&gt;" in markup
+
+
+class TestSurvivorsBackRefIdentity:
+    def test_profile_back_ref_is_input_identity(self) -> None:
+        # Contract: Survivors holds the same FactorProfile objects fed
+        # in (is-identity, not just ==). Lets users walk back to
+        # context / stats without re-resolution.
+        original = [
+            _profile(factor_id="f1", primary_p=0.001),
+            _profile(factor_id="f2", primary_p=0.012),
+        ]
+        surv = Survivors(
+            profiles=original,
+            adj_q=np.array([0.002, 0.024]),
+            q=0.05,
+            expand_over=(),
+            n_total={(): 2},
+        )
+        for inp, out in zip(original, surv.profiles, strict=True):
+            assert inp is out
