@@ -24,27 +24,28 @@ from factrix.metrics.ic import multi_horizon_ic
 
 
 def _make_panel(
-    n_assets: int = 10,
-    n_dates: int = 200,
+    n_assets: int = 2,
+    n_dates: int = 30,
     seed: int = 0,
 ) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
-    rows = []
+    n = n_assets * n_dates
+    asset_ids = [f"asset_{a}" for a in range(n_assets) for _ in range(n_dates)]
+    date_col = dates * n_assets
+    rets = rng.normal(0, 0.01, size=n)
+    prices = np.empty(n)
     for a in range(n_assets):
-        price = 100.0
-        for d in dates:
-            ret = rng.normal(0, 0.01)
-            price *= 1 + ret
-            rows.append(
-                {
-                    "date": d,
-                    "asset_id": f"asset_{a}",
-                    "factor": rng.normal(),
-                    "price": price,
-                }
-            )
-    return pl.DataFrame(rows)
+        s = a * n_dates
+        prices[s : s + n_dates] = 100.0 * np.cumprod(1 + rets[s : s + n_dates])
+    return pl.DataFrame(
+        {
+            "date": date_col,
+            "asset_id": asset_ids,
+            "factor": rng.normal(size=n),
+            "price": prices,
+        }
+    )
 
 
 class TestDeprecationSurface:
@@ -86,3 +87,10 @@ class TestStillCallable:
             warnings.simplefilter("ignore", DeprecationWarning)
             result = multi_horizon_ic(df, periods=[1, 5])
         assert result.name == "multi_horizon_ic"
+
+    def test_multi_horizon_hit_rate_still_returns_metric_output(self):
+        df = _make_panel(seed=4)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            result = multi_horizon_hit_rate(df, horizons=[1, 5])
+        assert result.name == "multi_horizon_hit_rate"
