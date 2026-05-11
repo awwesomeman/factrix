@@ -177,7 +177,7 @@ class StatCode(StrEnum):
     Currently shipping: ``(T_NW, P_NW)`` for Newey-West,
     ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(WALD_NWCL, P_WALD_NWCL)``
     for NW HAC + one-way cluster on the slice grouping, and
-    ``(WALD_DC, P_WALD_DC)`` for two-way cluster on (date, asset)
+    ``(WALD_TWOWAY, P_WALD_TWOWAY)`` for two-way cluster on (date, asset)
     (Layer-B slice tests, #153). The Wald pairs follow the same
     ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,
     parallel to ``T``), ALGO names the cluster-SE family
@@ -254,9 +254,9 @@ class StatCode(StrEnum):
     WALD_NWCL = "wald_nwcl"
     P_WALD_NWCL = "p_wald_nwcl"
     # DC = two-way cluster on (date, asset), Cameron-Gelbach-Miller
-    # (2011) shape (emitted by `WaldDoubleCluster`).
-    WALD_DC = "wald_dc"
-    P_WALD_DC = "p_wald_dc"
+    # (2011) shape (emitted by `WaldTwoWayCluster`).
+    WALD_TWOWAY = "wald_twoway"
+    P_WALD_TWOWAY = "p_wald_twoway"
     # Empirical p-value from a block-bootstrap resample of a paired-diff
     # statistic (Layer-B paired tests, #153). Singleton — the
     # bootstrap distribution itself is not published as a StatCode.
@@ -325,12 +325,12 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "lives in `factrix.stats.WaldNWCluster`.",
     StatCode.P_WALD_NWCL: "P-value from `WALD_NWCL`. Sibling under the "
     "(WALD_NWCL, P_WALD_NWCL) algorithm-pair convention.",
-    StatCode.WALD_DC: "Wald χ² statistic for a linear restriction on a "
+    StatCode.WALD_TWOWAY: "Wald χ² statistic for a linear restriction on a "
     "panel coefficient vector, computed under two-way cluster on "
     "(date, asset) (Cameron-Gelbach-Miller 2011). Implementation "
-    "convention lives in `factrix.stats.WaldDoubleCluster`.",
-    StatCode.P_WALD_DC: "P-value from `WALD_DC`. Sibling under the "
-    "(WALD_DC, P_WALD_DC) algorithm-pair convention.",
+    "convention lives in `factrix.stats.WaldTwoWayCluster`.",
+    StatCode.P_WALD_TWOWAY: "P-value from `WALD_TWOWAY`. Sibling under the "
+    "(WALD_TWOWAY, P_WALD_TWOWAY) algorithm-pair convention.",
     StatCode.P_BOOT: "Empirical two-sided p-value from a block-bootstrap "
     "resample of a paired-diff statistic. Implementation convention lives "
     "in `factrix.stats.BlockBootstrap` (Politis-Romano stationary or "

@@ -6,7 +6,7 @@
 NW HAC inference path.
 ``HansenHodrick`` — rectangular-kernel HAC variant for IC / FM PANEL
 on overlapping forward returns.
-``WaldNWCluster`` / ``WaldDoubleCluster`` — Layer-B cluster-robust
+``WaldNWCluster`` / ``WaldTwoWayCluster`` — Layer-B cluster-robust
 Wald χ² Estimators for slice contrasts (#153).
 ``BlockBootstrap`` — Layer-B block-bootstrap empirical-p Estimator
 for paired-diff slice tests (#153).
@@ -23,7 +23,7 @@ from factrix.stats.bootstrap import (
 from factrix.stats.hansen_hodrick import HansenHodrick
 from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
 from factrix.stats.newey_west import NeweyWest
-from factrix.stats.wald_cluster import WaldDoubleCluster, WaldNWCluster
+from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 
 # Internal registry consumed by `factrix.list_estimators`. Append new
 # Estimator instances here as they land — `list_estimators` filters by
@@ -36,7 +36,7 @@ _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
     NeweyWest(),
     HansenHodrick(),
     WaldNWCluster(),
-    WaldDoubleCluster(),
+    WaldTwoWayCluster(),
     BlockBootstrap(),
 )
 
@@ -45,8 +45,8 @@ __all__ = [
     "Estimator",
     "HansenHodrick",
     "NeweyWest",
-    "WaldDoubleCluster",
     "WaldNWCluster",
+    "WaldTwoWayCluster",
     "bhy_adjust",
     "bhy_adjusted_p",
     "bootstrap_mean_ci",

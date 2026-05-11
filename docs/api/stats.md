@@ -23,14 +23,14 @@ factrix export).
 | `NeweyWest` | NW Bartlett HAC | `(T_NW, P_NW)` | every cell | Default — drives `primary_p` on every PANEL / TIMESERIES procedure. |
 | `HansenHodrick` | HH rectangular HAC | `(T_HH, P_HH)` | `(INDIVIDUAL, CONTINUOUS)` only | Overlapping forward returns on IC PANEL / FM PANEL — the MA(h-1) overlap structure has a closed-form rectangular-kernel SE. |
 | `WaldNWCluster` | Cluster-Wald χ² (NW HAC + 1-way cluster on slice) | `(WALD_NWCL, P_WALD_NWCL)` | `(INDIVIDUAL, CONTINUOUS)` | Layer-B slice test on a stacked per-date metric panel (#176 verbs). |
-| `WaldDoubleCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_DC, P_WALD_DC)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No verb consumes it until `factor_decomposition` lands later. |
+| `WaldTwoWayCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_TWOWAY, P_WALD_TWOWAY)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No verb consumes it until `factor_decomposition` lands later. |
 | `BlockBootstrap` | Politis-Romano stationary or Künsch fixed block bootstrap; Politis-White auto block length | `(P_BOOT,)` | `(INDIVIDUAL, CONTINUOUS)` | Layer-B paired-diff slice test when distributional assumptions of the cluster-Wald path are uncomfortable (heavy tails, persistent shocks). |
 
-!!! warning "`WaldDoubleCluster` is a reserved interface"
-    The class ships in #153 so the `(WALD_DC, P_WALD_DC)` StatCode
+!!! warning "`WaldTwoWayCluster` is a reserved interface"
+    The class ships in #153 so the `(WALD_TWOWAY, P_WALD_TWOWAY)` StatCode
     pair has a stable home, but no verb populates `profile.stats`
-    with `P_WALD_DC` until `factor_decomposition` lands. Calling
-    `bhy(estimator=WaldDoubleCluster())` against a profile produced
+    with `P_WALD_TWOWAY` until `factor_decomposition` lands. Calling
+    `bhy(estimator=WaldTwoWayCluster())` against a profile produced
     by `evaluate()` raises a missing-stat error pointing at the
     precondition.
 
@@ -42,7 +42,7 @@ factrix export).
 | Overlapping forward returns (`forward_periods > 1`) on IC PANEL / FM PANEL | `HansenHodrick` |
 | Slice contrast on per-date IC / FM (regime, sector, decile) | `WaldNWCluster` |
 | Slice paired-diff on heavy-tailed / persistent series, distributional assumptions uncomfortable | `BlockBootstrap` |
-| Raw asset-date panel inference (factor × slice interaction) | `WaldDoubleCluster` (reserved) |
+| Raw asset-date panel inference (factor × slice interaction) | `WaldTwoWayCluster` (reserved) |
 
 Pass an instance to a family verb to override the default
 `primary_p` lookup:
@@ -89,7 +89,7 @@ names the inference algorithm or SE family (`NW`, `HH`, `NWCL`,
 | `(T_NW, P_NW)` | Newey-West HAC t-statistic + p — the `primary_p` source the metric `evaluate()` runs populates by default. |
 | `(T_HH, P_HH)` | Hansen-Hodrick rectangular-kernel HAC t + p — emitted only when `forward_periods > 1`. |
 | `(WALD_NWCL, P_WALD_NWCL)` | Cluster-Wald χ² + p under NW HAC + 1-way slice cluster — emitted by Layer-B slice-test verbs. |
-| `(WALD_DC, P_WALD_DC)` | Cluster-Wald χ² + p under two-way cluster on (date, asset) — reserved. |
+| `(WALD_TWOWAY, P_WALD_TWOWAY)` | Cluster-Wald χ² + p under two-way cluster on (date, asset) — reserved. |
 | `(P_BOOT,)` | Block-bootstrap empirical p — singleton, no parametric test statistic to publish. |
 | `(P_GMM,)` | GMM J-test p — reserved (#191). |
 

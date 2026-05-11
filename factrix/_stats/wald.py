@@ -12,10 +12,10 @@ Three layers of HAC / cluster covariance feed the same closing
   joint Bartlett-kernel HAC of the K-vector series. Backs the
   ``WaldNWCluster`` Estimator (#153).
 - **Two-way cluster on (date, asset)** —
-  ``_wald_double_cluster(y, X, *, R, q, date_ids, asset_ids)`` for
+  ``_wald_two_way_cluster(y, X, *, R, q, date_ids, asset_ids)`` for
   the raw asset-date panel. Cameron-Gelbach-Miller (2011)
   ``V_DC = V_date + V_asset - V_intersection`` shape. Backs the
-  ``WaldDoubleCluster`` Estimator — interface preserved this issue;
+  ``WaldTwoWayCluster`` Estimator — interface preserved this issue;
   no verb consumes it until ``factor_decomposition`` lands later.
 
 References
@@ -167,7 +167,7 @@ def _cluster_meat(
     return meat
 
 
-def _wald_double_cluster(
+def _wald_two_way_cluster(
     y: np.ndarray,
     X: np.ndarray,
     *,
