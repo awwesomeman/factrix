@@ -53,27 +53,6 @@ jobs:
             docs/reference/_generated_metric_matrix.md \
             docs/development/_generated_registry_cells.md
 
-      - name: Restore lychee cache
-        uses: actions/cache@v4
-        with:
-          path: .lycheecache
-          key: lychee-${{ runner.os }}-${{ hashFiles('.lycheeignore') }}
-          restore-keys: lychee-${{ runner.os }}-
-
-      - name: Link check (lychee)
-        uses: lycheeverse/lychee-action@v2
-        with:
-          args: >-
-            --no-progress
-            --max-redirects 5
-            --cache
-            --max-cache-age 1d
-            --exclude-loopback
-            --base ./site
-            './site/**/*.html'
-            './README.md'
-          fail: true
-
   build-main:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -98,25 +77,3 @@ jobs:
           git diff --exit-code -- \
             docs/reference/_generated_metric_matrix.md \
             docs/development/_generated_registry_cells.md
-
-      - name: Restore lychee cache
-        uses: actions/cache@v4
-        with:
-          path: .lycheecache
-          key: lychee-${{ runner.os }}-${{ hashFiles('.lycheeignore') }}
-          restore-keys: lychee-${{ runner.os }}-
-
-      - name: Link check (lychee)
-        uses: lycheeverse/lychee-action@v2
-        continue-on-error: true
-        with:
-          args: >-
-            --no-progress
-            --max-redirects 5
-            --cache
-            --max-cache-age 1d
-            --exclude-loopback
-            --base ./site
-            './site/**/*.html'
-            './README.md'
-          fail: true

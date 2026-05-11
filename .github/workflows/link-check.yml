@@ -1,0 +1,131 @@
+name: link-check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'README.md'
+      - '.lycheeignore'
+      - '.github/workflows/link-check.yml'
+  schedule:
+    # Daily at 06:00 UTC (~14:00 Asia/Taipei) — outside GitHub Actions
+    # peak hours, runner availability is best.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: link-check-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.x"
+          enable-cache: true
+
+      - name: Install docs dependencies
+        run: uv sync --python 3.12 --extra docs
+
+      - name: Strict build
+        run: uv run mkdocs build --strict
+
+      - name: Restore lychee cache
+        uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: lychee-${{ runner.os }}-${{ hashFiles('.lycheeignore') }}
+          restore-keys: lychee-${{ runner.os }}-
+
+      - name: Link check (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-redirects 5
+            --cache
+            --max-cache-age 1d
+            --exclude-loopback
+            --base ./site
+            './site/**/*.html'
+            './README.md'
+          fail: true
+
+  scheduled:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.x"
+          enable-cache: true
+
+      - name: Install docs dependencies
+        run: uv sync --python 3.12 --extra docs
+
+      - name: Strict build
+        run: uv run mkdocs build --strict
+
+      - name: Restore lychee cache
+        uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: lychee-${{ runner.os }}-${{ hashFiles('.lycheeignore') }}
+          restore-keys: lychee-${{ runner.os }}-
+
+      - name: Link check (lychee)
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-redirects 5
+            --cache
+            --max-cache-age 1d
+            --exclude-loopback
+            --base ./site
+            './site/**/*.html'
+            './README.md'
+          output: ./lychee-report.md
+          fail: false
+
+      - name: Open or update issue on failure
+        if: steps.lychee.outputs.exit_code != 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_TITLE: "[link-check] daily failure"
+        run: |
+          set -euo pipefail
+          existing=$(gh issue list --search "$ISSUE_TITLE in:title is:open" --json number --jq '.[0].number // ""')
+          if [ -n "$existing" ]; then
+            {
+              printf 'Scheduled run %s — broken links still present.\n\n' "$(date -u +%Y-%m-%dT%H:%MZ)"
+              cat lychee-report.md
+            } > comment.md
+            gh issue comment "$existing" --body-file comment.md
+          else
+            {
+              printf 'Daily scheduled `link-check` workflow detected broken links in the built docs.\n\n'
+              cat lychee-report.md
+              printf '\nThis issue auto-deduplicates: subsequent failures comment here rather than opening new issues. Close manually once links are fixed; the next clean run will not re-open.\n'
+            } > body.md
+            gh issue create --title "$ISSUE_TITLE" --label documentation --body-file body.md
+          fi
