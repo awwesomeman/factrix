@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pathlib
 
-from factrix._metric_index import MatrixEntry, matrix_entries
+from factrix._metric_index import _matrix_entries, _MatrixEntry
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
@@ -29,7 +29,7 @@ _TABLE_HEADER = (
 )
 
 
-def _render_row(entry: MatrixEntry) -> str:
+def _render_row(entry: _MatrixEntry) -> str:
     module_cell = f"[`metrics.{entry.module}`][factrix.metrics.{entry.module}]"
     return (
         f"| {module_cell} | `{entry.cell.raw}` | "
@@ -39,7 +39,7 @@ def _render_row(entry: MatrixEntry) -> str:
 
 def generate() -> None:
     """Generate ``_generated_metric_matrix.md`` from module docstrings."""
-    entries = matrix_entries()
+    entries = _matrix_entries()
     lines = [_TABLE_HEADER, *(_render_row(e) for e in entries)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     _OUT_FILE.write_text("".join(lines), encoding="utf-8")

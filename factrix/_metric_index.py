@@ -201,7 +201,7 @@ class Cell:
 
 
 @dataclass(frozen=True, slots=True)
-class MatrixEntry:
+class _MatrixEntry:
     """One ``Matrix-row:`` tag, un-exploded — drives matrix rendering."""
 
     module: str
@@ -296,8 +296,8 @@ def _extract_matrix_rows(path: pathlib.Path) -> list[str]:
     return [m.group(1).strip() for m in _MATRIX_ROW_RE.finditer(doc)]
 
 
-def _parse_module_entries(path: pathlib.Path) -> list[MatrixEntry]:
-    entries: list[MatrixEntry] = []
+def _parse_module_entries(path: pathlib.Path) -> list[_MatrixEntry]:
+    entries: list[_MatrixEntry] = []
     for raw_value in _extract_matrix_rows(path):
         parts = [p.strip() for p in raw_value.split("|")]
         if len(parts) != 5:
@@ -308,7 +308,7 @@ def _parse_module_entries(path: pathlib.Path) -> list[MatrixEntry]:
         names_csv, cell_str, agg_order, inference_se, _primitives = parts
         names = tuple(n for n in (n.strip() for n in names_csv.split(",")) if n)
         entries.append(
-            MatrixEntry(
+            _MatrixEntry(
                 module=path.stem,
                 names=names,
                 cell=_parse_cell(cell_str),
@@ -320,14 +320,14 @@ def _parse_module_entries(path: pathlib.Path) -> list[MatrixEntry]:
 
 
 @functools.cache
-def matrix_entries() -> tuple[MatrixEntry, ...]:
+def _matrix_entries() -> tuple[_MatrixEntry, ...]:
     """Return one entry per ``Matrix-row:`` tag (un-exploded by name).
 
     Sorted by module. Cached — metric module docstrings do not change
     at runtime, so repeated callers (``list_metrics`` in agentic loops)
     avoid re-parsing every public ``factrix/metrics/*.py``.
     """
-    out: list[MatrixEntry] = []
+    out: list[_MatrixEntry] = []
     for path in _public_metric_modules():
         out.extend(_parse_module_entries(path))
     out.sort(key=lambda e: e.module)
@@ -335,7 +335,7 @@ def matrix_entries() -> tuple[MatrixEntry, ...]:
 
 
 @functools.cache
-def all_rows() -> list[MetricRow]:
+def _all_rows() -> list[MetricRow]:
     """Return every parsed ``Matrix-row:`` row, exploded one per metric name.
 
     Sorted by ``(module, name)``. Includes stage-1 helpers; for the
@@ -353,7 +353,7 @@ def all_rows() -> list[MetricRow]:
             docs_anchor=DOCS_ANCHOR_FMT.format(module=entry.module, name=name),
             emitted_name=_EMITTED_NAME_OVERRIDES.get(name, name),
         )
-        for entry in matrix_entries()
+        for entry in _matrix_entries()
         for name in entry.names
     ]
     rows.sort(key=lambda r: (r.module, r.name))
@@ -364,4 +364,4 @@ def all_rows() -> list[MetricRow]:
 def user_facing_rows() -> list[MetricRow]:
     """Return parsed rows excluding stage-1 helpers and cross-cutting infra."""
     excluded = _STAGE1_HELPERS | _INFRASTRUCTURE
-    return [r for r in all_rows() if r.name not in excluded]
+    return [r for r in _all_rows() if r.name not in excluded]
