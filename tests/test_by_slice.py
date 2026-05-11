@@ -1,11 +1,12 @@
 """Tests for factrix.by_slice — axis-agnostic dispatcher."""
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
-from factrix import by_slice
+from factrix import SliceResult, by_slice
 from factrix._types import MetricOutput
 from factrix.metrics import ic
 from factrix.slicing._primitive import _slice_by_label
@@ -73,10 +74,11 @@ class TestSliceByLabel:
 
 
 class TestBySlice:
-    def test_returns_dict_per_slice(self):
+    def test_returns_slice_result_per_slice(self):
         df = _ic_series_with_label(40)
         out = by_slice(ic, df, label="regime")
-        assert isinstance(out, dict)
+        assert isinstance(out, SliceResult)
+        assert isinstance(out, Mapping)
         assert set(out) == {"bull", "bear"}
         for v in out.values():
             assert isinstance(v, MetricOutput)

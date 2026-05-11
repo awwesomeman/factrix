@@ -313,7 +313,11 @@ property — agents reading `diagnose()["stats"]` / `["warnings"]` /
 Cross-slice analysis lives in `factrix.slicing` and is re-exported at
 top-level. `by_slice(metric, df, *, label)` partitions a metric's
 date-keyed input by an existing column and applies the metric per
-slice — pure dispatcher, no cross-slice inference. For inferential
+slice — pure dispatcher, no cross-slice inference. Returns a
+`SliceResult`, a `Mapping[str, MetricOutput]` with a `.to_frame()`
+long-form renderer (fixed schema:
+`slice / name / value / stat / p_value`) for plotting, leaderboards,
+and Notebook display. For inferential
 contrasts, `slice_pairwise_test(metric, df, *, label, estimator,
 multiple_testing)` reports K(K-1)/2 pairwise Wald contrasts with
 Holm / Romano-Wolf / Bonferroni adjusted p; `slice_joint_test(metric,

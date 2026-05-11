@@ -19,8 +19,10 @@ from __future__ import annotations
 
 from factrix.slicing.dispatcher import by_slice
 from factrix.slicing.inference import slice_joint_test, slice_pairwise_test
+from factrix.slicing.result import SliceResult
 
 __all__ = [
+    "SliceResult",
     "by_slice",
     "slice_joint_test",
     "slice_pairwise_test",

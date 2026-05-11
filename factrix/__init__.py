@@ -69,7 +69,12 @@ from factrix._evaluate import _evaluate as _evaluate
 from factrix._profile import FactorProfile
 from factrix._run_metrics import MetricsBundle, run_metrics
 from factrix._types import MetricOutput
-from factrix.slicing import by_slice, slice_joint_test, slice_pairwise_test
+from factrix.slicing import (
+    SliceResult,
+    by_slice,
+    slice_joint_test,
+    slice_pairwise_test,
+)
 
 
 def evaluate(
@@ -167,6 +172,7 @@ __all__ = [
     "list_metrics",
     "suggest_config",
     # Slicing dispatcher + cross-slice inference verbs
+    "SliceResult",
     "by_slice",
     "slice_joint_test",
     "slice_pairwise_test",

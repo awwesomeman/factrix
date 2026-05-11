@@ -17,6 +17,7 @@ import polars as pl
 
 from factrix._types import MetricOutput
 from factrix.slicing._primitive import _slice_by_label
+from factrix.slicing.result import SliceResult
 
 
 def by_slice(
@@ -25,7 +26,7 @@ def by_slice(
     *,
     label: str,
     **kwargs: Any,
-) -> dict[str, MetricOutput]:
+) -> SliceResult:
     """Apply ``metric`` to each value-partition of ``df`` keyed by ``label``.
 
     Args:
@@ -44,10 +45,13 @@ def by_slice(
             call.
 
     Returns:
-        ``{label_value: metric(slice, **kwargs)}``. Keys are
+        :class:`SliceResult` — ``Mapping[str, MetricOutput]`` (so every
+        ``dict``-shaped consumer keeps working) plus a
+        :meth:`SliceResult.to_frame` long-form renderer. Keys are
         stringified (an ``Int64`` decile column yields ``"1".."10"``);
-        dict order matches polars ``partition_by(as_dict=True)``. No
-        cross-slice statistical inference — see API page.
+        iteration order matches polars
+        ``partition_by(as_dict=True)``. No cross-slice statistical
+        inference — see API page.
 
     Raises:
         TypeError: ``df`` is not a polars DataFrame.
@@ -70,4 +74,6 @@ def by_slice(
     :func:`factrix.slice_pairwise_test` / :func:`factrix.slice_joint_test`.
     """
     sliced = _slice_by_label(df, label)
-    return {key: metric(sub_df, **kwargs) for key, sub_df in sliced.items()}
+    return SliceResult(
+        {key: metric(sub_df, **kwargs) for key, sub_df in sliced.items()}
+    )

@@ -16,6 +16,17 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Added
 
+- **`factrix.SliceResult`** (#212). Container returned by
+  `by_slice` — a `Mapping[str, MetricOutput]` subclass, so every
+  existing `dict`-shaped consumer (`for k, v in result.items()`,
+  `result["bull"]`, `len(result)`) keeps working unchanged. Adds
+  `.to_frame()`, a fixed-schema long-form `pl.DataFrame` renderer
+  (`slice`, `name`, `value`, `stat`, `p_value`) for plotting,
+  leaderboards, and Notebook rendering, plus a `_repr_html_` that
+  delegates to the same frame so `SliceResult` shows as a table in
+  Jupyter. `slice_col=` renames the label column. See
+  `docs/api/by-slice.md` for the schema rationale (why a fixed
+  projection instead of a configurable `cols=` argument).
 - **`factrix.slice_pairwise_test` / `factrix.slice_joint_test`** (#176, #215). Cross-slice statistical-test verb pair, hosted in the new `factrix.slicing` subpackage and re-exported at top level (`from factrix import by_slice, slice_pairwise_test, slice_joint_test`). `slice_pairwise_test` reports K(K−1)/2 pairwise Wald contrasts with Holm / Romano-Wolf / Bonferroni adjusted p; `slice_joint_test` reports the single omnibus Wald χ² that all slice means are equal. Default estimator `WaldNWCluster` (joint NW HAC over the per-date K-vector panel) covers analytic inference; `BlockBootstrap` triggers the joint bootstrap path with Romano-Wolf as the default multiple-testing adjustment. Both verbs require the metric's module to declare a `per_date_series` capability — `ic` / `fama_macbeth` / `hit_rate` ship with it; metrics without it raise `TypeError`. See `docs/api/slice-test.md`.
 - **`factrix.slicing` subpackage** (#215). Hosts `by_slice` (axis-agnostic dispatcher) plus the verb pair above. The move makes `factrix.metrics` a pure cell-metric registry — every public `*.py` under `factrix/metrics/` is a per-(scope, signal) metric, and `run_metrics` auto-discovery is now structural rather than maintained via a denylist.
 - **`factrix.metrics._metric_capabilities`** (#176). Resolver helpers (`resolve_per_date_series`, `resolve_min_assets_per_group`) plus a `PerDateSeries` Protocol and a `per_date_series_rename` factory. Centralises capability lookup so inference verbs reuse one resolver instead of grovelling `sys.modules` directly.
