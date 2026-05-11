@@ -33,12 +33,6 @@ if TYPE_CHECKING:
     from factrix.stats import Estimator
 
 
-_DEPRECATED_KWARGS = {
-    "threshold": "q",
-}
-_DEFAULT_Q = 0.05
-
-
 @dataclass(frozen=True, slots=True, repr=False)
 class Survivors:
     """Family-verb survivor container with rich Jupyter rendering.
@@ -160,8 +154,7 @@ def bhy(
     *,
     expand_over: Sequence[str] | None = None,
     estimator: Estimator | None = None,
-    q: float | None = None,
-    **deprecated: Any,
+    q: float = 0.05,
 ) -> Survivors:
     """BHY step-up FDR within one declared family; return the survivors.
 
@@ -203,7 +196,6 @@ def bhy(
             profile or splitting via ``expand_over``).
 
     Warns:
-        DeprecationWarning: When the v0.4 kwarg ``threshold=`` is used.
         RuntimeWarning: When the input mixes ``forward_periods`` while
             ``expand_over`` is ``None`` — pooling horizons in one
             step-up dilutes the per-rank threshold and silently
@@ -211,9 +203,6 @@ def bhy(
             a single profile (BHY on n=1 is a raw cutoff and provides
             no FDR correction).
     """
-    expand_over, q = _apply_deprecated_kwargs(
-        expand_over=expand_over, q=q, deprecated=deprecated
-    )
     expand_over_tuple: tuple[str, ...] = tuple(expand_over) if expand_over else ()
 
     profile_list = list(profiles)
@@ -282,42 +271,3 @@ def _warn_on_mixed_horizons(
             RuntimeWarning,
             stacklevel=3,
         )
-
-
-def _apply_deprecated_kwargs(
-    *,
-    expand_over: Sequence[str] | None,
-    q: float | None,
-    deprecated: dict[str, Any],
-) -> tuple[Sequence[str] | None, float]:
-    unknown = set(deprecated) - _DEPRECATED_KWARGS.keys()
-    if unknown:
-        raise TypeError(
-            f"bhy() got unexpected keyword argument(s): {sorted(unknown)!r}"
-        )
-
-    if "threshold" in deprecated:
-        if q is not None:
-            raise TypeError(
-                "bhy(): pass either `q=` or the deprecated `threshold=`, not both."
-            )
-        q = deprecated["threshold"]
-
-    if deprecated:
-        renamed = ", ".join(
-            f"{old}= → {new}="
-            for old, new in _DEPRECATED_KWARGS.items()
-            if old in deprecated
-        )
-        # BUMP-TIME: pin the actual SemVer cutoff in this string before
-        # the next bump (e.g. "removed in v0.12.0"). #161 ships under the
-        # release-train; the train's cz bump on main is where the cutoff
-        # version becomes concrete. Mirror the same version in CHANGELOG
-        # `### Deprecated` so user-facing message and changelog agree.
-        warnings.warn(
-            f"bhy(): {renamed} (deprecated, removed in a future release).",
-            DeprecationWarning,
-            stacklevel=4,
-        )
-
-    return expand_over, q if q is not None else _DEFAULT_Q

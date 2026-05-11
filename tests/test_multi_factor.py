@@ -181,25 +181,15 @@ class TestIdentityUniqueness:
 
 
 # ---------------------------------------------------------------------------
-# Deprecated v0.4 kwargs (threshold= → q=)
+# Removed kwargs regression — threshold= raised TypeError since v0.12.0
 # ---------------------------------------------------------------------------
 
 
-class TestDeprecatedKwargs:
-    def test_threshold_alias_warns(self) -> None:
+class TestRemovedKwargs:
+    def test_threshold_raises_typeerror(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)
-        with pytest.warns(DeprecationWarning, match="threshold"):
-            result = bhy([prof], threshold=0.05)
-        assert result.profiles == [prof]
-
-    def test_threshold_and_q_collide(self) -> None:
-        prof = _profile(factor_id="f1", primary_p=0.04)
-        with (
-            pytest.raises(TypeError, match="not both"),
-            warnings.catch_warnings(),
-        ):
-            warnings.simplefilter("ignore", DeprecationWarning)
-            bhy([prof], threshold=0.05, q=0.01)
+        with pytest.raises(TypeError, match="threshold"):
+            bhy([prof], threshold=0.05)
 
     def test_unknown_kwarg_raises(self) -> None:
         prof = _profile(factor_id="f1", primary_p=0.04)

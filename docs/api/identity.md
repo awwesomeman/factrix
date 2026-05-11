@@ -67,9 +67,9 @@ p = evaluate(panel_large_cap, cfg, factor_col="momentum_12_1")
 p = dataclasses.replace(p, context={"universe_id": "us_large_cap"})
 ```
 
-The `by_slice` / `by_regime` consumers and the upcoming `run_metrics`
-verb populate `context` automatically — manual `replace` is the
-escape hatch for callers who run their own slicing.
+The `by_slice` consumer and the upcoming `run_metrics` verb populate
+`context` automatically — manual `replace` is the escape hatch for
+callers who run their own slicing.
 
 ## Querying context as a sample restriction
 

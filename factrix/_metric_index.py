@@ -66,17 +66,11 @@ _STAGE1_HELPERS: frozenset[str] = frozenset(
     }
 )
 
-_INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime"})
-"""Non-metric symbols hosted under ``factrix.metrics``.
-
-Excluded from auto-discovery and the applicability table because they
-are not per-(scope, signal) cell metrics."""
-
 # Scalar-input metrics: pre-aggregated-scalar utilities that consume
 # scalars (``gross_spread: float``, ``turnover: float``, ...) rather
 # than the standard ``(date-keyed DataFrame, **kwargs) -> MetricOutput``
 # panel contract. Not eligible for date-slicing dispatchers like
-# ``by_regime``. Hard-coded exception set rather than a Matrix-row tag
+# ``by_slice``. Hard-coded exception set rather than a Matrix-row tag
 # extension — the population is small and stable; YAGNI applies until
 # it isn't.
 _SCALAR_INPUT_METRICS: frozenset[str] = frozenset({"breakeven_cost", "net_spread"})
@@ -214,7 +208,7 @@ class MetricRow:
     so ``from factrix.metrics import <name>`` works regardless. ``input_kind``
     distinguishes the standard date-keyed-DataFrame contract (``"panel"``)
     from pre-aggregated-scalar utilities (``"scalar"``); only ``"panel"``
-    metrics are eligible for date-slicing dispatchers like ``by_regime``.
+    metrics are eligible for date-slicing dispatchers like ``by_slice``.
     ``docs_anchor`` is the docs-root-relative path + mkdocstrings symbol
     anchor (``api/metrics/<module>.md#factrix.metrics.<module>.<name>``),
     so a consumer holding the function name can resolve the API page
@@ -356,6 +350,5 @@ def _all_rows() -> list[MetricRow]:
 
 @functools.cache
 def user_facing_rows() -> list[MetricRow]:
-    """Return parsed rows excluding stage-1 helpers and cross-cutting infra."""
-    excluded = _STAGE1_HELPERS | _INFRASTRUCTURE
-    return [r for r in _all_rows() if r.name not in excluded]
+    """Return parsed rows excluding stage-1 helpers."""
+    return [r for r in _all_rows() if r.name not in _STAGE1_HELPERS]

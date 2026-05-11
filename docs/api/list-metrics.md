@@ -97,11 +97,11 @@ Most metrics take a date-keyed DataFrame as their first positional
 argument; a few (`breakeven_cost`, `net_spread` in
 `factrix.metrics.tradability`) consume pre-aggregated scalars
 (`gross_spread: float`, `turnover: float`, …) and return a
-`MetricOutput` directly. Date-slicing dispatchers like
-[`by_regime`](by-regime.md) only accept the `panel` shape — there is
+`MetricOutput` directly. The date-slicing dispatcher
+[`by_slice`](by-slice.md) only accepts the `panel` shape — there is
 no date column in a scalar to slice on.
 
-Filter the JSON output to enumerate `by_regime`-eligible metrics:
+Filter the JSON output to enumerate `by_slice`-eligible metrics:
 
 ```python
 panel_metrics = [

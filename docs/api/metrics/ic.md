@@ -19,19 +19,19 @@ via NW HAC or non-overlapping cross-asset *t*.
         - regime_ic
         - compute_ic
 
-!!! note "Regime analysis: two roles"
-    `regime_ic` is the **curated wrapper** that bundles the IC-specific
-    cross-regime test (BHY adjustment + min-\|t\| + direction
-    consistency). For a generic per-regime dispatcher with no
-    second-layer inference, see [`by_regime`](../by-regime.md) or the
-    [Regime analysis guide](../../guides/regime-analysis.md).
-    (Older docs called these roles "Layer A" / "Layer B"; renamed in
-    [#157](https://github.com/awwesomeman/factrix/issues/157).)
+!!! note "Cross-regime IC analysis"
+    For per-regime IC summaries, use [`by_slice`](../by-slice.md) on an
+    IC frame joined with regime labels. For inferential contrasts
+    (pairwise Wald χ² + Holm / Romano-Wolf adjusted p), use
+    [`slice_pairwise_test`](../slice-test.md). The legacy `regime_ic`
+    curated wrapper and `by_regime` dispatcher were removed in v0.12.0;
+    see the [Regime analysis guide](../../guides/regime-analysis.md).
 
 ## See also
 
-- [`by_regime`](../by-regime.md) — dispatcher for any registered metric.
-- [Regime analysis guide](../../guides/regime-analysis.md) — when to use the dispatcher vs a curated wrapper.
+- [`by_slice`](../by-slice.md) — axis-agnostic dispatcher (replaces `by_regime`).
+- [`slice_pairwise_test` / `slice_joint_test`](../slice-test.md) — cross-slice inference verb pair.
+- [Regime analysis guide](../../guides/regime-analysis.md) — dispatcher + inference verbs end-to-end.
 - [Reference § Metric applicability](../../reference/metric-applicability.md) — when this metric applies and sample-size guards.
 - [Reference § Statistical methods](../../reference/statistical-methods.md) — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.
 - [Individual continuous landing page](individual-continuous.md) — adjacent metrics in the same cell.

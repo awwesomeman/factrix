@@ -4,15 +4,8 @@ Axis-agnostic research dispatcher. Slices any metric's date-keyed
 input by a column already present in the DataFrame and runs the metric
 per slice. Returns `dict[label_value, MetricOutput]`.
 
-> Earlier docs called this role "Layer A" and curated wrappers
-> "Layer B"; renamed in
-> [#157](https://github.com/awwesomeman/factrix/issues/157). Roles
-> unchanged.
-
-`by_slice` supersedes [`by_regime`](by-regime.md) (deprecated since
-v0.10.0) and generalises it to any cross-section axis — market,
-sector, regime, market-cap tier, ADV bucket — without baking the axis
-name into the API.
+The axis name does not bake into the API — market, sector, regime,
+market-cap tier, ADV bucket all share the same dispatcher.
 
 ## Call shape
 
