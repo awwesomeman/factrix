@@ -25,6 +25,7 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Removed
 
+- **`factrix._validators.validate_n_assets`** (breaking, #218). Dead since pre-v1 — function was never wired (no internal caller, no test coverage, no doc reference). Validation responsibilities live in `AnalysisConfig` construction and metric-side short-circuit guards. The host module `factrix/_validators.py` is removed entirely (no other public symbols).
 - **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** (breaking, #186). Deprecated in v0.11.0; the in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (the #160 anti-shopping defense) and ran a second BHY path inside the metric in parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both names are no longer importable from `factrix.metrics`; direct references raise `ImportError`. Code reaching them via `list_metrics` / `run_metrics` was never wired (already excluded via `_AUTO_DISCOVER_EXCLUDED` in v0.11). The `_HorizonICEntry` TypedDict and the `_metric_index._DEPRECATED` set are removed alongside the functions. Migration recipes (descriptive `run_metrics` per horizon + `pl.concat` of `bundle.to_frame()`; inferential `evaluate` per horizon + `bhy(expand_over=["forward_periods"])`) remain in `docs/api/multi-horizon.md` and apply unchanged from the v0.11.0 deprecation window.
 
   ```python
