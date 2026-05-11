@@ -144,10 +144,11 @@ print(profile.stats.get(fx.StatCode.TS_BETA))
 
 ## Documentation
 
-- [**Get Started**](https://awwesomeman.github.io/factrix/latest/getting-started/) — install, quickstart, three-axis concepts
-- [**Guides**](https://awwesomeman.github.io/factrix/latest/guides/) — PANEL vs TIMESERIES, BHY batch screening, choosing a metric
-- [**Reference**](https://awwesomeman.github.io/factrix/latest/reference/metric-applicability/) — applicability tables, formulas, statistical methods
-- [**Development**](https://awwesomeman.github.io/factrix/latest/development/architecture/) — architecture, contributing
+- [**Get Started**](https://awwesomeman.github.io/factrix/latest/) — install, quickstart, where factrix fits
+- [**User Guide**](https://awwesomeman.github.io/factrix/latest/guides/) — concepts (three-axis design, architecture), how-to (PANEL vs TIMESERIES, BHY screening, slice analysis), examples
+- [**API Reference**](https://awwesomeman.github.io/factrix/latest/api/) — entry points, results, lookup tables, per-metric pages
+- [**Development**](https://awwesomeman.github.io/factrix/latest/development/contributing/) — contributing, design notes
+- [**Release Notes**](https://awwesomeman.github.io/factrix/latest/development/changelog/) — changelog
 
 ## License
 

@@ -56,9 +56,9 @@ tools — it sits upstream of them and produces the input they assume.
 flowchart LR
     DATA[Raw data] --> CONSTR[Factor construction<br/>zipline Pipeline · self-roll]
     CONSTR --> FX[<b>factrix verdict</b><br/>Stage 1 — kill fakes]
-    FX --> PORT[Portfolio construction<br/>skfolio · PyPortfolioOpt · riskfolio-lib]
+    FX --> PORT[Strategy construction<br/>skfolio · PyPortfolioOpt · riskfolio-lib]
     PORT --> BT[Backtest<br/>vectorbt · zipline-reloaded · bt]
-    BT --> LIVE[Live execution<br/>lumibot · nautilus_trader]
+    BT --> LIVE[Live trading<br/>lumibot · nautilus_trader]
     classDef here fill:#3670A0,color:#fff,stroke:#234060,stroke-width:2px;
     class FX here
 ```
@@ -358,7 +358,7 @@ ecosystem rather than a walled garden.
 | [empyrical-reloaded](https://github.com/stefan-jansen/empyrical-reloaded) | Low-level return-stat primitives (Sharpe, Sortino, drawdown); dependency layer |
 | [pyfolio-reloaded](https://github.com/stefan-jansen/pyfolio-reloaded) | Downstream returns-level tear-sheet; consumes strategy P&L, not factor signal |
 | [vectorbt](https://github.com/polakowo/vectorbt) | Stage 3 parameter-grid backtest engine; pairs with factrix BHY for honest workflow |
-| [skfolio](https://skfolio.org/) / [PyPortfolioOpt](https://github.com/robertmartin8/PyPortfolioOpt) / [riskfolio-lib](https://github.com/dcajasn/Riskfolio-Lib) | Stage 2 portfolio construction; consume factrix-validated factors as input |
+| [skfolio](https://skfolio.org/) / [PyPortfolioOpt](https://github.com/robertmartin8/PyPortfolioOpt) / [riskfolio-lib](https://github.com/dcajasn/Riskfolio-Lib) | Stage 2 strategy construction (portfolio optimisation); consume factrix-validated factors as input |
 
 ### 5.2 Integration sketches
 
