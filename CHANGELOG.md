@@ -31,7 +31,39 @@ While the version is below `1.0.0`, the public API should be considered unstable
   # after (v0.12.0)
   bhy(profiles, q=0.05)
   ```
+- **`factrix.metrics.by_regime`** (breaking, #217). Deprecated since v0.10.0 in favour of the axis-agnostic `factrix.by_slice`. The `factrix/metrics/regime.py` module is removed entirely (including the private `_slice_by_regime` helper, which was only used by `by_regime` and the already-deleted `regime_ic`).
 
+  ```python
+  # before (v0.10.0 – v0.11.x, deprecated)
+  from factrix.metrics import by_regime
+  per_regime = by_regime(ic, ic_df, regime_labels=labels)
+
+  # after (v0.12.0) — labels-join semantics are now explicit;
+  # project the labels frame down to (date, regime) so extra columns
+  # do not bleed into the metric input
+  from factrix import by_slice
+  per_regime = by_slice(
+      ic,
+      ic_df.join(labels.select("date", "regime"), on="date", how="inner"),
+      label="regime",
+  )
+  ```
+
+  The labels frame must carry a column literally named `regime` to line up with `label="regime"`. The previous `by_regime` raised a friendly `ValueError("no rows survived the regime-label join — likely a date-range or dtype mismatch")` on an empty inner-join; the recipe no longer wraps that guard, so callers wanting it should add an `assert merged.height > 0, "..."` after the join.
+
+  The time-bisection fallback (`regime_labels=None` → `first_half` / `second_half`) has no `by_slice` equivalent — that path was a structural-break sanity check, not a regime test, and the removal is the right moment to make that explicit. The old behaviour split by **row index** (sorted by date, first half / second half), not by median date; reproduce it explicitly:
+
+  ```python
+  import polars as pl
+
+  df = df.sort("date").with_row_index("_i").with_columns(
+      pl.when(pl.col("_i") < pl.len() // 2)
+        .then(pl.lit("first_half"))
+        .otherwise(pl.lit("second_half"))
+        .alias("regime"),
+  ).drop("_i")
+  by_slice(ic, df, label="regime")
+  ```
 - **`factrix.metrics.regime_ic`** (breaking, #176, #215). Replaced by `factrix.slice_pairwise_test`. The #176 deprecation initially announced a one-minor frozen-shape window; #215 supersedes that plan and removes the function in the same minor, because v0.12 is a breaking train and there is no external user base to migrate. `regime_labels` is expected to carry a column literally named `regime` so the resulting `label="regime"` argument lines up:
 
   ```python

@@ -503,10 +503,9 @@ def list_metrics(
     Notes
     -----
     Filter ``input_kind == "panel"`` on the JSON form to find candidates
-    for date-slicing dispatchers like
-    :func:`factrix.metrics.by_regime`; ``"scalar"`` rows
-    (``breakeven_cost``, ``net_spread``) consume pre-aggregated scalars
-    and are not eligible.
+    for the date-slicing dispatcher :func:`factrix.by_slice`; ``"scalar"``
+    rows (``breakeven_cost``, ``net_spread``) consume pre-aggregated
+    scalars and are not eligible.
     """
     rows = [r for r in user_facing_rows() if r.cell.matches(scope, signal)]
     if not rows:

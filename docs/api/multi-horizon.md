@@ -9,8 +9,7 @@ two supported migration paths. See [#186][i186] for the design history.
 Sweeping a metric across `[1, 5, 10, 20]` forward periods is a
 **dispatcher** concern, not a per-cell metric: it fans the same
 underlying metric across a horizon axis exactly the way
-[`by_regime`](by-regime.md) / [`by_slice`](by-slice.md) fan across a
-date or label axis. Burying the horizon loop inside a metric callable
+[`by_slice`](by-slice.md) fans across a date or label axis. Burying the horizon loop inside a metric callable
 created three structural problems:
 
 1. **Cross-cuts the metric registry.** The horizon loop produced one
