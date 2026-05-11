@@ -24,8 +24,8 @@ from factrix._errors import IncompatibleAxisError
                 "BlockBootstrap",
                 "HansenHodrick",
                 "NeweyWest",
-                "WaldDoubleCluster",
                 "WaldNWCluster",
+                "WaldTwoWayCluster",
             ],
         ),
         (FactorScope.INDIVIDUAL, Signal.SPARSE, ["NeweyWest"]),
@@ -54,8 +54,8 @@ def test_with_import_returns_two_column_lines() -> None:
         "BlockBootstrap    → factrix.stats.BlockBootstrap",
         "HansenHodrick     → factrix.stats.HansenHodrick",
         "NeweyWest         → factrix.stats.NeweyWest",
-        "WaldDoubleCluster → factrix.stats.WaldDoubleCluster",
         "WaldNWCluster     → factrix.stats.WaldNWCluster",
+        "WaldTwoWayCluster → factrix.stats.WaldTwoWayCluster",
     ]
 
 
