@@ -46,7 +46,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
-# Layer-B slice-test contract (#153 §5): CAAR is event-driven; the
+# Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
 # so slice tests skip the `n_groups` downscale step. Minimum event
 # count for the cross-event t-test (FEW_EVENTS_BROWN_WARNER threshold)

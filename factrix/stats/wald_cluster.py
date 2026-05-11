@@ -1,7 +1,7 @@
 """Cluster-robust Wald χ² Estimator instances (#153).
 
-Two ``Estimator`` implementations targeting the Layer-B slice-test
-setting (#176 verbs ``slice_pairwise_test`` / ``slice_joint_test``):
+Two ``Estimator`` implementations targeting the slice-test setting
+(#176 verbs ``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``WaldNWCluster`` — NW HAC + 1-way cluster on the slice grouping;
   consumes the stacked per-date metric panel. Emits
@@ -16,7 +16,7 @@ setting (#176 verbs ``slice_pairwise_test`` / ``slice_joint_test``):
   the verb populates ``profile.stats[StatCode.P_WALD_TWOWAY]``.
 
 Numerical implementations live in ``factrix._stats.wald``; this
-module names the inference path the family verbs / Layer-B verbs
+module names the inference path the family verbs / slice-test verbs
 dispatch to.
 """
 
@@ -29,7 +29,7 @@ from factrix._codes import StatCode
 class WaldNWCluster:
     """Cluster-robust Wald χ² with NW Bartlett HAC + 1-way slice cluster.
 
-    Backs the Layer-B slice test on a per-date metric panel: K parallel
+    Backs the slice test on a per-date metric panel: K parallel
     per-slice metric series (IC, FM λ, etc.) are stacked and a Wald
     contrast tests the equality of slice means under joint NW HAC of
     the K-vector. Numerics live in
@@ -40,7 +40,7 @@ class WaldNWCluster:
     panel. ``COMMON`` cells produce one number per date by definition
     of the scope and have no within-cell cross-section to slice over.
 
-    Pass an instance to a Layer-B verb to make the inference choice
+    Pass an instance to a slice-test verb to make the inference choice
     explicit::
 
         fx.slice_pairwise_test(metric=ic, df=panel, label="sector",

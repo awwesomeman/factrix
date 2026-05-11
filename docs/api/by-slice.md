@@ -51,7 +51,7 @@ returns the per-slice outputs and stops. Per-slice t-stats / SE in
 each `MetricOutput` are computed on that slice alone (different `N`,
 different autocorrelation structure per slice) and are **not**
 directly comparable — `max(out.values(), key=lambda m: m.tstat)` is
-not a defensible cross-regime selection rule. A generic second-layer test
+not a defensible cross-regime selection rule. A generic cross-slice test
 (BHY adjustment, Sharpe-diff Wald, paired-difference NW, etc.) cannot
 be applied honestly across the metric matrix — the appropriate test
 depends on the metric family. For metrics that expose a

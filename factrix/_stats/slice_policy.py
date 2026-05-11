@@ -1,7 +1,7 @@
 """Slice-test policy helpers — pre-flight subset detection + ``n_groups`` downscale.
 
-Two private helpers consumed by the Layer-B slice-test verbs landing
-in #176 (``slice_pairwise_test`` / ``slice_joint_test``):
+Two private helpers consumed by the slice-test verbs (#176)
+(``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``_detect_strict_subsets`` — pre-flight check for paired tests.
   When slice A's (date, asset) key-set is strictly contained in slice

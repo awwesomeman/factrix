@@ -14,6 +14,10 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+### Changed
+
+- **Drop `Layer-A` / `Layer-B` stage labels from code and published docs** (#214). Docstrings, doc pages, and test names now describe behaviour functionally (`slice-test verb`, `slice-test Estimator`, `paired-diff slice test`) instead of by planning tier. The contributing guide gains a Terminology subsection so the rewrite does not regress. No public API or behavioural change.
+
 ### Added
 
 - **`factrix.SliceResult`** (#212). Container returned by

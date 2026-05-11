@@ -528,6 +528,24 @@ plain prose; reach for a callout only when the elevation earns it.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
+### Terminology — functional verbs, not stage labels
+
+Code (`factrix/**/*.py` docstrings + module headers) and published docs (`docs/**/*.md` excluding `docs/plans/`) describe behaviour by **what a function does**, not by **which planning tier it lives in**. Stage labels — `Layer-A` / `Layer-B`, `first / second layer`, `Phase 1` / `P1`, `curated wrapper`, `dispatcher vs wrapper` as a tier pair — belong only to GitHub issues / labels / milestones, where they can be renamed as the roadmap shifts.
+
+Reason: planning labels drift on the issue tracker (`P1` → `P0` after triage, `Phase 1` → `v1` after milestone rename, `Layer-B` → `slice-test verb` after the feature lands), but a docstring or `architecture.md` paragraph is bound to a release. The two timescales pull apart; the docstring becomes wrong without ever being touched. Additionally, AI agents reading a body that says `P1 contract` will copy that label into downstream files and amplify the drift.
+
+The slicing subsystem is the worked example of the rule:
+
+| Stage-label phrasing (avoid) | Functional phrasing (use) |
+|---|---|
+| `Layer-A` / first-layer dispatcher | **slice dispatcher** — describes partitioning by label + applying a metric per slice (`by_slice`) |
+| `Layer-B` / second-layer verb / curated wrapper (inference path) | **slice-test verb** / **inference verb** — describes the cross-slice estimator + multiple-testing pipeline (`slice_pairwise_test` / `slice_joint_test`) |
+| `Layer-B` Estimator | **slice-test Estimator** — Estimators consumed by the slice-test verbs (`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) |
+| metric-specific `regime_<metric>` curated wrapper | **legacy metric-specific wrapper** (when describing removed surface area); for the current path, name `by_slice` + the inference verb directly |
+| `SliceResult.to_frame()` renderer layer | **renderer** — container-side method; no separate tier implied |
+
+The rule is functional, not lexical — `dispatcher`, `verb`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Mention an issue number (`#176`) when the docstring needs to point at a specification, instead of `Layer-B (#176)` which encodes a label that will not survive.
+
 ---
 
 ## 9. Versioning and release (SemVer & Release)

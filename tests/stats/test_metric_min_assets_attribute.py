@@ -1,4 +1,4 @@
-"""Contract: each Layer-B-eligible metric module declares ``min_assets_per_group``.
+"""Contract: each slice-test-eligible metric module declares ``min_assets_per_group``.
 
 Drift guard for #153 §5 — if a metric module is touched and the
 attribute is dropped (or its type changes from ``int | None``), the

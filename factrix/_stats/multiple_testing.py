@@ -3,7 +3,7 @@
 Sister module to public ``factrix.stats.multiple_testing`` (Benjamini-
 Yekutieli FDR control). The procedures here control the *family-wise*
 error rate — probability of at least one false rejection — and target
-the Layer-B slice-test setting where a small number of hypotheses
+the slice-test setting where a small number of hypotheses
 (per-slice contrasts vs a baseline) are tested simultaneously.
 
 - **Bonferroni** — single-step ``p_adj_k = min(m * p_k, 1)``. Controls
