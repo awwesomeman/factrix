@@ -138,8 +138,8 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `regime_ic`, `multi_horizon_ic`, `hit_rate` |
-| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `multi_horizon_hit_rate`, `mfe_mae_summary`, `clustering_diagnostic`, `corrado_rank_test` |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `regime_ic`, `hit_rate` |
+| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_diagnostic`, `corrado_rank_test` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `multi_split_oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
 | `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
@@ -191,7 +191,7 @@ Inferential metrics enforce two separate floors:
   can propagate it. `n ≥ WARN` is silent.
 
 **Descriptive metrics** (`clustering_diagnostic`, `corrado_rank_test`,
-`event_around_return`, `multi_horizon_hit_rate`, `event_hit_rate`,
+`event_around_return`, `event_hit_rate`,
 `event_ic`, `profit_factor`, `event_skewness`, `mfe_mae_summary`,
 `quantile_spread`, `ts_quantile_spread`, `ts_asymmetry`, `bmp_test`)
 enforce **`_HARD` only** — they have no formal H₀ under which power
@@ -262,7 +262,7 @@ metric instantiates the abnormal-return primitive differently:
 | [`caar`][factrix.metrics.caar.caar], [`bmp_test`][factrix.metrics.caar.bmp_test] | `signed_car = forward_return × factor` (magnitude preserved) | Generalises MacKinlay's signed CAAR to continuous factors (Sefcik-Thompson 1986 lineage); on `factor ∈ {0, ±1}` it reduces to the textbook signed CAAR. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic], [`profit_factor`][factrix.metrics.event_quality.profit_factor], [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `signed_car = forward_return × sign(factor)` (sign-only) | These metrics measure direction quality independent of factor magnitude; magnitude-weighting would conflate "direction was right" with "magnitude was big". |
 | [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | `signed_rank = uniform_rank(forward_return) × sign(factor)` | Corrado (1989) ranks the raw return distribution, then direction-adjusts the rank. The sign-adjustment is on the rank, not the return. |
-| [`event_around_return`][factrix.metrics.event_horizon.event_around_return], [`multi_horizon_hit_rate`][factrix.metrics.event_horizon.multi_horizon_hit_rate] | Post-event (k > 0): `sign(factor) × cumulative_return`; pre-event (k < 0): unsigned single-bar return | Asymmetric on purpose: post-event reads signal *quality*, pre-event reads *leakage* — leakage is independent of eventual direction and must be inspected unsigned. |
+| [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Post-event (k > 0): `sign(factor) × cumulative_return`; pre-event (k < 0): unsigned single-bar return | Asymmetric on purpose: post-event reads signal *quality*, pre-event reads *leakage* — leakage is independent of eventual direction and must be inspected unsigned. |
 
 The shared verb "abnormal return" therefore covers four different
 estimators. Use the table above when comparing factrix output to
@@ -324,7 +324,7 @@ the inner event. The chosen mitigation depends on the metric:
 | [`caar`][factrix.metrics.caar.caar] | Per-event-date CS-mean is computed first, then NW HAC is applied to the calendar-time CAAR series. The `forward_periods − 1` floor on the lag (Hansen-Hodrick 1980) absorbs MA(h−1) overlap structure. Within-asset clustering on the same date inflates the per-date variance; the calendar reindex + HAC handles the time-axis component but not the asset-axis component. |
 | [`bmp_test`][factrix.metrics.caar.bmp_test] | The Kolari-Pynnönen adjustment (`kolari_pynnonen_adjust=True`) corrects the BMP statistic for cross-sectional dependence on the same event date. It does **not** correct same-asset event clustering. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
-| [`event_around_return`][factrix.metrics.event_horizon.event_around_return], [`multi_horizon_hit_rate`][factrix.metrics.event_horizon.multi_horizon_hit_rate] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |
+| [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |
 | [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | Quantifies cross-sectional concentration on event dates only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
 
 Operationally: trust `caar` *p*-values when `clustering_diagnostic`

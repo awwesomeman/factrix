@@ -76,14 +76,6 @@ _INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime", "by_slice"})
 """Cross-cutting dispatchers published from ``factrix.metrics`` that
 are not per-(scope, signal) cell metrics."""
 
-# Deprecated metrics: still callable from ``factrix.metrics`` for one
-# release cycle but excluded from the user-facing surface
-# (``list_metrics`` / applicability table) so new callers do not adopt
-# them. ``run_metrics`` auto-discover exclusion lives on
-# ``_AUTO_DISCOVER_EXCLUDED`` (orthogonal axis: that set also covers
-# stage-1 consumers which remain user-facing).
-_DEPRECATED: frozenset[str] = frozenset({"multi_horizon_ic", "multi_horizon_hit_rate"})
-
 # Scalar-input metrics: pre-aggregated-scalar utilities that consume
 # scalars (``gross_spread: float``, ``turnover: float``, ...) rather
 # than the standard ``(date-keyed DataFrame, **kwargs) -> MetricOutput``
@@ -99,17 +91,6 @@ _SCALAR_INPUT_METRICS: frozenset[str] = frozenset({"breakeven_cost", "net_spread
 # when a caller names one explicitly via ``metrics=[...]``. v2 may
 # promote this to a Matrix-row tag once the population is stable.
 _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
-    # Horizon dispatchers — semantics live at the horizon-loop layer
-    # (#186 deprecation in favour of `compare(bundles[])` /
-    # `bhy(expand_over=["forward_periods"])`).
-    "multi_horizon_ic": (
-        "horizon dispatcher; use compare(bundles[]) or "
-        "bhy(expand_over=['forward_periods'])"
-    ),
-    "multi_horizon_hit_rate": (
-        "horizon dispatcher; use compare(bundles[]) or "
-        "bhy(expand_over=['forward_periods'])"
-    ),
     # Stage-1 consumers without v1 dispatch wiring. These metrics are
     # callable directly from ``factrix.metrics`` once the caller has the
     # stage-1 frame; v1 ``run_metrics`` does not yet thread that wiring.
@@ -379,6 +360,6 @@ def all_rows() -> list[MetricRow]:
 
 @functools.cache
 def user_facing_rows() -> list[MetricRow]:
-    """Return parsed rows excluding stage-1 helpers, cross-cutting infra, and deprecated metrics."""
-    excluded = _STAGE1_HELPERS | _INFRASTRUCTURE | _DEPRECATED
+    """Return parsed rows excluding stage-1 helpers and cross-cutting infra."""
+    excluded = _STAGE1_HELPERS | _INFRASTRUCTURE
     return [r for r in all_rows() if r.name not in excluded]

@@ -16,7 +16,7 @@ import factrix as fx
 fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS)
 # -> ['top_concentration', 'beta_sign_consistency', 'fama_macbeth',
 #     'pooled_ols', 'hit_rate', 'ic', 'ic_ir', 'ic_newey_west',
-#     'multi_horizon_ic', 'regime_ic', 'monotonicity',
+#     'regime_ic', 'monotonicity',
 #     'multi_split_oos_decay', 'quantile_spread', 'quantile_spread_vw',
 #     'greedy_forward_selection', 'spanning_alpha', 'breakeven_cost',
 #     'net_spread', 'notional_turnover', 'turnover', 'ic_trend']

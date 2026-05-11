@@ -8,7 +8,7 @@ via NW HAC or non-overlapping cross-asset *t*.
 [NW HAC](../../reference/statistical-methods.md#nw-hac)
 (`ic_newey_west`),
 [BHY across regimes](../../reference/statistical-methods.md#bhy)
-(`regime_ic`, `multi_horizon_ic`).
+(`regime_ic`).
 
 ::: factrix.metrics.ic
     options:
@@ -17,7 +17,6 @@ via NW HAC or non-overlapping cross-asset *t*.
         - ic_newey_west
         - ic_ir
         - regime_ic
-        - multi_horizon_ic
         - compute_ic
 
 !!! note "Regime analysis: two roles"

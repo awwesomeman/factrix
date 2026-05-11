@@ -44,7 +44,6 @@ wrapped metric's schema augmented with a `per_regime` /
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | NW HAC `t` (overlapping) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
 | [`regime_ic`][factrix.metrics.ic.regime_ic] | min \|t\| across regimes | `p_value_bhy_adjusted` | mean(IC) across regimes |
-| [`multi_horizon_ic`][factrix.metrics.ic.multi_horizon_ic] | min \|t\| across horizons | `p_value_bhy_adjusted` | mean(IC) across horizons |
 | [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
 | [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | clustered OLS `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
@@ -58,7 +57,6 @@ wrapped metric's schema augmented with a `per_regime` /
 | [`profit_factor`][factrix.metrics.event_quality.profit_factor] | none — descriptive | — | gains / \|losses\| |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
-| [`multi_horizon_hit_rate`][factrix.metrics.event_horizon.multi_horizon_hit_rate] | per-horizon `z` (in `per_horizon`) | `per_horizon[h].p_value` | hit rate at longest horizon |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | cross-asset `t` on signed Spearman | `p_value` | mean \|Spearman\| |
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
@@ -115,16 +113,6 @@ conservative summary statistic.
 - *secondary-test*: `per_regime` — dict `regime → {mean_ic, std_ic,
   stat, p_value, significance, n_periods, p_adjusted_bhy}`.
 - *descriptive*: `direction_consistent`, `n_regimes`, `aggregation`.
-
-#### `multi_horizon_ic`
-
-Per-horizon t-tests with BHY adjustment across horizons. Same shape
-as `regime_ic` with `per_horizon` in place of `per_regime`.
-
-- *primary*: `p_value_bhy_adjusted`.
-- *secondary-test*: `p_value`, `per_horizon` (dict `h → {mean_ic,
-  stat, p_value, n_periods, p_adjusted_bhy}`).
-- *descriptive*: `n_horizons`, `aggregation`.
 
 ### `fama_macbeth` family (`factrix.metrics.fama_macbeth`)
 
@@ -256,19 +244,6 @@ Pre/post-event return profile; descriptive.
   hit_rate, n}`), `interpretation`.
 - *descriptive*: `p_value` (sentinel; not a test result — kept for
   uniform `MetricOutput` shape).
-
-#### `multi_horizon_hit_rate`
-
-`MetricOutput.stat = None`; per-horizon `z` lives inside
-`per_horizon`. `value` is the hit rate at the *longest* horizon by
-convention.
-
-- *primary*: `per_horizon[h].p_value` — per-horizon binomial / normal
-  z-test (BHY adjustment is left to the caller).
-- *descriptive*: `per_horizon` (dict `h → {hit_rate, n, z_stat,
-  p_value, significance}`), `horizons`.
-- *descriptive*: `p_value` (sentinel = 1.0; the per-horizon dict is
-  the inference surface).
 
 ### `monotonicity` (`factrix.metrics.monotonicity`)
 

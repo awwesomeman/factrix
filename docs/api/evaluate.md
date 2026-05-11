@@ -42,7 +42,7 @@ runs normally.
 | Cell | Required | Optional column → enables |
 |---|---|---|
 | Individual × Continuous (`ic`, `fama_macbeth`) | `date, asset_id, factor, forward_return` | `market_cap` (or any column passed as `weight_col=`) → `quantile_spread_vw` value-weighting |
-| Individual × Sparse (event studies) | `date, asset_id, factor, forward_return` | `price` → `event_around_return`, `multi_horizon_hit_rate`, `mfe_mae_summary` (degrade gracefully if absent) |
+| Individual × Sparse (event studies) | `date, asset_id, factor, forward_return` | `price` → `event_around_return`, `mfe_mae_summary` (degrade gracefully if absent) |
 | Common × Continuous (broadcast macro factor) | `date, asset_id, factor, forward_return` | — |
 | Common × Sparse (broadcast event dummy) | `date, asset_id, factor, forward_return` | — |
 
