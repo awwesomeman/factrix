@@ -64,6 +64,8 @@ def stationary_bootstrap_resamples(
     Returns:
         ``(n_bootstrap, T)`` numpy array of resampled series.
     """
+    from factrix._stats.bootstrap import _stationary_block_indices
+
     values = np.asarray(values, dtype=float)
     n = len(values)
     if n == 0:
@@ -75,18 +77,7 @@ def stationary_bootstrap_resamples(
         raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
 
     rng = np.random.default_rng(seed)
-    # Probability of starting a new block at each step = 1/L.
-    p_new = 1.0 / block_length
-    # Pre-draw all random decisions — much faster than a Python loop.
-    starts = rng.integers(0, n, size=(n_bootstrap, n))
-    new_block = rng.random(size=(n_bootstrap, n)) < p_new
-    # Build index matrix: when new_block[i, t] is True, take a fresh
-    # random start; else continue by +1 (modulo n) from the previous.
-    idx = np.empty((n_bootstrap, n), dtype=np.int64)
-    idx[:, 0] = starts[:, 0]
-    for t in range(1, n):
-        prev = (idx[:, t - 1] + 1) % n
-        idx[:, t] = np.where(new_block[:, t], starts[:, t], prev)
+    idx = _stationary_block_indices(n, n_bootstrap, float(block_length), rng)
     return values[idx]
 
 

@@ -110,6 +110,9 @@ def _politis_white_block_length(
     M = min(M, k_max)
 
     gamma = rho * gamma_0
+    # PW (2004) eq. 9 sums |k| ≤ M with the flat-top kernel; the k=M
+    # term vanishes because λ(M/M) = λ(1) = 0 by construction, so
+    # `range(1, M)` covers every non-zero contributor.
     g0 = gamma[0] + 2.0 * sum(_flat_top_kernel(k / M) * gamma[k] for k in range(1, M))
     g_deriv = 2.0 * sum(_flat_top_kernel(k / M) * k * gamma[k] for k in range(1, M))
     if scheme == "stationary":

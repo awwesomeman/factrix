@@ -38,6 +38,17 @@ class TestHolmStepDown:
         h = np.array(holm_step_down(p))
         assert np.all(h <= b + 1e-12)
 
+    def test_dominates_bonferroni_deterministic(self):
+        # Worst-case sanity: m=3 sorted p = [0.01, 0.02, 0.03].
+        # Holm scaled = [3·0.01, 2·0.02, 1·0.03] = [0.03, 0.04, 0.03];
+        # cummax     = [0.03, 0.04, 0.04].
+        # Bonferroni  = [0.03, 0.06, 0.09].
+        # Holm strictly tighter on the 2nd and 3rd ranks.
+        h = holm_step_down([0.01, 0.02, 0.03])
+        b = bonferroni([0.01, 0.02, 0.03])
+        assert h == pytest.approx([0.03, 0.04, 0.04])
+        assert b == pytest.approx([0.03, 0.06, 0.09])
+
     def test_textbook_example(self):
         # Classic Holm example: p=[0.01, 0.04, 0.03, 0.005], m=4
         # Sorted: [0.005, 0.01, 0.03, 0.04]; factors [4,3,2,1]

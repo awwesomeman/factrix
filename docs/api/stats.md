@@ -26,6 +26,24 @@ factrix export).
 | `WaldDoubleCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_DC, P_WALD_DC)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No verb consumes it until `factor_decomposition` lands later. |
 | `BlockBootstrap` | Politis-Romano stationary or Künsch fixed block bootstrap; Politis-White auto block length | `(P_BOOT,)` | `(INDIVIDUAL, CONTINUOUS)` | Layer-B paired-diff slice test when distributional assumptions of the cluster-Wald path are uncomfortable (heavy tails, persistent shocks). |
 
+!!! warning "`WaldDoubleCluster` is a reserved interface"
+    The class ships in #153 so the `(WALD_DC, P_WALD_DC)` StatCode
+    pair has a stable home, but no verb populates `profile.stats`
+    with `P_WALD_DC` until `factor_decomposition` lands. Calling
+    `bhy(estimator=WaldDoubleCluster())` against a profile produced
+    by `evaluate()` raises a missing-stat error pointing at the
+    precondition.
+
+### Picking an Estimator
+
+| Question | Estimator |
+|---|---|
+| Default single-series significance on `evaluate()` output | `NeweyWest` |
+| Overlapping forward returns (`forward_periods > 1`) on IC PANEL / FM PANEL | `HansenHodrick` |
+| Slice contrast on per-date IC / FM (regime, sector, decile) | `WaldNWCluster` |
+| Slice paired-diff on heavy-tailed / persistent series, distributional assumptions uncomfortable | `BlockBootstrap` |
+| Raw asset-date panel inference (factor × slice interaction) | `WaldDoubleCluster` (reserved) |
+
 Pass an instance to a family verb to override the default
 `primary_p` lookup:
 
