@@ -29,6 +29,7 @@ Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection
 
 from __future__ import annotations
 
+import secrets
 from typing import Literal
 
 import numpy as np
@@ -243,10 +244,10 @@ def _block_bootstrap_diff_p(
             raise ValueError(f"block_length must be >= 1; got {L!r}")
 
     # Resolve seed up front so it can be reported back even when None.
-    if rng_seed is None:
-        seed_used = int(np.random.SeedSequence().entropy & 0xFFFFFFFF)
-    else:
-        seed_used = int(rng_seed)
+    # `secrets.randbits(32)` is the purpose-built "give me a random int
+    # seed" call — `SeedSequence().entropy` is typed as `int | Sequence[int]
+    # | None` and the Sequence branch breaks the bit-mask path.
+    seed_used = secrets.randbits(32) if rng_seed is None else int(rng_seed)
     rng = np.random.default_rng(seed_used)
 
     # Centre under H0 (mean=0) before resampling.
