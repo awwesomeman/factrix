@@ -75,6 +75,47 @@ the hypothesis being tested. See [Development § Architecture § Family
 verbs](../development/architecture.md#_resolve_family-four-invariants)
 for the full invariant list.
 
+### Sample restriction vs hypothesis dimension
+
+A context key (`universe_id`, `regime_id`, …) can play one of two roles
+in a screening run, and the role you intend dictates whether to
+**pre-filter** or to pass it through **`expand_over`**:
+
+- **Sample restriction** — you have *already* committed to a single slice
+  (e.g. "this study runs on `tw50` only"). The context value is a
+  pre-registered scope, not a tested dimension. Filter the input list
+  upstream and call `bhy` without naming that key. FDR is controlled over
+  the implied family `factor_id × forward_periods`.
+- **Hypothesis dimension** — you genuinely want to ask "across these
+  contexts, which factor / context combinations survive?" The context
+  value is part of the hypothesis identity at the family level. Pass it
+  via `expand_over=[<key>]`; one independent step-up runs per distinct
+  value tuple and FDR is controlled within each bucket
+  (Benjamini & Bogomolov 2014).
+
+| User intent | API call | Family scope per step-up |
+|---|---|---|
+| "Run BHY on the `tw50` universe only" | `bhy([p for p in profiles if p.context["universe_id"] == "tw50"])` | `factor_id × forward_periods` |
+| "Test the same factors on `tw50` *and* `tw100`, treating universe as a tested dimension" | `bhy(profiles, expand_over=["universe_id"])` | `factor_id × forward_periods × universe_id`, one step-up per universe |
+| "Run BHY only in `bull` regime months" | `bhy([p for p in profiles if p.context["regime_id"] == "bull"])` | `factor_id × forward_periods` |
+| "Test across `bull` and `bear` regimes as separate hypotheses" | `bhy(profiles, expand_over=["regime_id"])` | one step-up per regime |
+| "Test universe × regime as a joint hypothesis grid" | `bhy(profiles, expand_over=["universe_id", "regime_id"])` | one step-up per `(universe, regime)` cell |
+
+`bhy` deliberately offers no implicit default for ambiguous contexts: if
+the same `(factor_id, forward_periods)` appears more than once with no
+`expand_over`, the duplicate-partition check raises with both fixes
+(canonical `factor_id` rename and `expand_over=[<key>]`) called out in
+the error. This forces an explicit commitment to the family boundary
+before any step-up runs.
+
+A context key can graduate from sample restriction to hypothesis
+dimension when the study scope widens (extending a `tw50`-only run to
+also cover `tw100` once `tw100` profiles exist). What the API refuses
+to make easy is the reverse path: re-running with `expand_over=`
+toggled to whichever shape produces more survivors. That is p-hacking
+on the family boundary itself — the family must be declared before
+inspecting the adjusted p-values it produces.
+
 ## Return type: `Survivors` (#171)
 
 `bhy` returns a `Survivors` container, not a bare list. The container
