@@ -33,13 +33,13 @@
 
 <h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
 
-A polars-native factor validator. It answers the core question — **Does this factor possess predictive edge?** 
-
 ## Where factrix fits
 
-**factrix is the first Python framework to dispatch primary
-statistical tests by factor type** — cross-sectional, event, and
-common factor each get the test that fits their data-generating
+**Does this factor possess predictive edge?**
+
+factrix is the first Polars-native Python toolkit that picks the
+right statistical test for each factor type. Cross-sectional, event,
+common factor — each gets the tests that fit its data-generating
 process.
 
 ```
@@ -146,10 +146,11 @@ print(profile.stats.get(fx.StatCode.TS_BETA))
 
 ## Documentation
 
-- [**Get Started**](https://awwesomeman.github.io/factrix/latest/getting-started/) — install, quickstart, three-axis concepts
-- [**Guides**](https://awwesomeman.github.io/factrix/latest/guides/) — PANEL vs TIMESERIES, BHY batch screening, choosing a metric
-- [**Reference**](https://awwesomeman.github.io/factrix/latest/reference/metric-applicability/) — applicability tables, formulas, statistical methods
-- [**Development**](https://awwesomeman.github.io/factrix/latest/development/architecture/) — architecture, contributing
+- [**Get Started**](https://awwesomeman.github.io/factrix/latest/) — install, quickstart, where factrix fits
+- [**User Guide**](https://awwesomeman.github.io/factrix/latest/guides/) — concepts (three-axis design, architecture), how-to (PANEL vs TIMESERIES, BHY screening, slice analysis), examples
+- [**API Reference**](https://awwesomeman.github.io/factrix/latest/api/) — entry points, results, lookup tables, per-metric pages
+- [**Development**](https://awwesomeman.github.io/factrix/latest/development/contributing/) — contributing, design notes
+- [**Release Notes**](https://awwesomeman.github.io/factrix/latest/development/changelog/) — changelog
 
 ## License
 

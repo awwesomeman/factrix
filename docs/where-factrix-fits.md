@@ -1,19 +1,16 @@
 # Where factrix fits
 
-This page is the depth companion to the README's "Where factrix fits"
-block. It assumes you have read the hero claim and routing table on
-the README; here we expand the design philosophy, walk through the
-pipeline and internals, draw scope boundaries, compare against
-same-purpose peers, show adjacent-tool integration, and disclose
-honest weaknesses.
+This page expands the design philosophy, walks through the pipeline
+and internals, draws scope boundaries, compares against same-purpose
+peers, shows adjacent-tool integration, and discloses honest
+weaknesses.
 
 ## 1. What factrix is
 
 factrix is a **factor verdict surface**: given a candidate factor and
 a forward return, it answers *is the predictive power real?* and
-returns a structured profile of evidence. It is the first Python
-framework to dispatch primary statistical tests by factor type rather
-than applying one uniform formula to every factor.
+returns a structured profile of evidence — rather than applying one
+uniform formula to every factor.
 
 Three factor types each get a primary test fitted to their
 data-generating process:
@@ -54,9 +51,9 @@ tools — it sits upstream of them and produces the input they assume.
 flowchart LR
     DATA[Raw data] --> CONSTR[Factor construction<br/>zipline Pipeline · self-roll]
     CONSTR --> FX[<b>factrix verdict</b><br/>Stage 1 — kill fakes]
-    FX --> PORT[Portfolio construction<br/>skfolio · PyPortfolioOpt · riskfolio-lib]
+    FX --> PORT[Strategy construction<br/>skfolio · PyPortfolioOpt · riskfolio-lib]
     PORT --> BT[Backtest<br/>vectorbt · zipline-reloaded · bt]
-    BT --> LIVE[Live execution<br/>lumibot · nautilus_trader]
+    BT --> LIVE[Live trading<br/>lumibot · nautilus_trader]
     classDef here fill:#3670A0,color:#fff,stroke:#234060,stroke-width:2px;
     class FX here
 ```
@@ -356,7 +353,7 @@ ecosystem rather than a walled garden.
 | [empyrical-reloaded](https://github.com/stefan-jansen/empyrical-reloaded) | Low-level return-stat primitives (Sharpe, Sortino, drawdown); dependency layer |
 | [pyfolio-reloaded](https://github.com/stefan-jansen/pyfolio-reloaded) | Downstream returns-level tear-sheet; consumes strategy P&L, not factor signal |
 | [vectorbt](https://github.com/polakowo/vectorbt) | Stage 3 parameter-grid backtest engine; pairs with factrix BHY for honest workflow |
-| [skfolio](https://skfolio.org/) / [PyPortfolioOpt](https://github.com/robertmartin8/PyPortfolioOpt) / [riskfolio-lib](https://github.com/dcajasn/Riskfolio-Lib) | Stage 2 portfolio construction; consume factrix-validated factors as input |
+| [skfolio](https://skfolio.org/) / [PyPortfolioOpt](https://github.com/robertmartin8/PyPortfolioOpt) / [riskfolio-lib](https://github.com/dcajasn/Riskfolio-Lib) | Stage 2 strategy construction (portfolio optimisation); consume factrix-validated factors as input |
 
 ### 5.2 Integration sketches
 

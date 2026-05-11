@@ -1,5 +1,9 @@
 # Slice Analysis
 
+!!! abstract "Answers"
+    What slice analysis is, the two-role split (`by_slice` dispatcher vs `slice_pairwise_test` / `slice_joint_test` inference), and when to reach for each.
+    For the API surface, see [`by_slice`](../api/by-slice.md) and [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md).
+
 Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, or any other column you can attach to the panel. The statistical question is the same regardless of axis, so factrix exposes one axis-agnostic surface rather than one verb per slice dimension. Concretely: `by_slice` is the dispatcher, `slice_pairwise_test` / `slice_joint_test` are the inference verb pair.
 
 factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs. The legacy regime-specific surface (`by_regime`, `regime_ic`) was removed in v0.12.0 — see the CHANGELOG migration recipe.
