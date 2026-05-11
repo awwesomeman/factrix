@@ -15,7 +15,7 @@ Regime analysis asks "is this factor stable across market environments?" — a d
 
 ## Why no generic cross-slice test on `by_slice`
 
-A single dispatcher carrying a single second-layer test would silently over-claim. The appropriate test depends on the metric family:
+A single dispatcher carrying a single built-in cross-slice test would silently over-claim. The appropriate test depends on the metric family:
 
 - **IC, Fama-MacBeth λ** — mean-zero per-date series → joint NW HAC over the per-date K-vector panel is the natural Wald object (`slice_pairwise_test` default).
 - **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; not currently exposed as a slice verb.
