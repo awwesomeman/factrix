@@ -38,6 +38,15 @@ from factrix.metrics._helpers import (
 )
 from factrix.stats import bhy_adjusted_p
 
+# Layer-B slice-test contract (#153 §5): IC is per-date Spearman rank
+# correlation, not a bucketed metric — slice tests never need to
+# downscale `n_groups`. The min-cross-section-per-date constraint
+# (Spearman ρ asymptotic distribution requires ≥ 30 obs per date,
+# Hollander-Wolfe-Chicken §8.6) lives in the procedure as
+# `MIN_ASSETS_PER_DATE_IC` short-circuit, parallel to (not exposed
+# via) this attribute.
+min_assets_per_group: int | None = None
+
 
 class _RegimeICEntry(TypedDict):
     mean_ic: float

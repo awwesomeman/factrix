@@ -32,6 +32,16 @@ from factrix.metrics._helpers import (
     _warn_high_tie_ratio,
 )
 
+# Layer-B slice-test contract (#153 §5): monotonicity buckets the
+# cross-section into `n_groups` (default 10) and computes Spearman ρ
+# across per-bucket means. Patton & Timmermann (2010) "Monotonicity
+# in Asset Returns" recommend ≥ 50 assets per bucket so the per-date
+# bucket means converge to their cross-sectional expectation; below
+# this floor individual-asset noise dominates the rank statistic.
+# `_downscale_n_groups(base, n_assets, min_per_group=50)` caps
+# `n_groups` accordingly inside the slice-test verb.
+min_assets_per_group: int | None = 50
+
 
 def monotonicity(
     df: pl.DataFrame,
