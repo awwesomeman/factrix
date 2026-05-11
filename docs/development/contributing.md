@@ -684,7 +684,7 @@ README, and CHANGELOG.
 
 ## 13. Licensing and contribution terms
 
-This project is released under the [Apache License 2.0](LICENSE).
+This project is released under the [Apache License 2.0](https://github.com/awwesomeman/factrix/blob/main/LICENSE).
 
 **Inbound = Outbound**: per Apache-2.0 §5, any content you submit to
 this repo (PRs, patches, issue-attached code, etc.) is **deemed

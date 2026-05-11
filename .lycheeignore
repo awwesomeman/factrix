@@ -34,3 +34,12 @@
 # pattern specifically (regular github.com links elsewhere are still
 # checked).
 ^https://github\.com/[^/]+/[^/]+/edit/
+
+# pola.rs (Polars project home) intermittently fails TLS handshake
+# from GitHub Actions runners with "Maybe a certificate error?" — the
+# site itself has a valid LE cert but the runner pool occasionally
+# can't complete the handshake. This is a real link we care about
+# (badge + docs cross-references); ignoring at the regex layer is a
+# pragmatic workaround. Revisit when the underlying transient is
+# diagnosed or lychee gains better retry semantics.
+^https://pola\.rs/
