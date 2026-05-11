@@ -17,6 +17,8 @@ While the version is below `1.0.0`, the public API should be considered unstable
 ### Changed
 
 - **Drop `Layer-A` / `Layer-B` stage labels from code and published docs** (#214). Docstrings, doc pages, and test names now describe behaviour functionally (`slice-test verb`, `slice-test Estimator`, `paired-diff slice test`) instead of by planning tier. The contributing guide gains a Terminology subsection so the rewrite does not regress. No public API or behavioural change.
+- **Regime analysis guide renamed to slice analysis** (#230). `docs/guides/regime-analysis.md` → `docs/guides/slice-analysis.md`, with intro reframed so regime / universe / sector / ADV-bucket are presented as equivalent applications of the same axis-agnostic surface (`by_slice` + `slice_pairwise_test` / `slice_joint_test`). The old URL is intentionally not redirected — external bookmarks to `guides/regime-analysis/` return 404. Inbound references in `docs/index.md`, `docs/api/metrics/ic.md`, `docs/api/list-metrics.md`, and `docs/api/run-metrics.md` updated to the new path and to drop stale `regime_ic` mentions left behind by #217.
+- **Reference nav: metric pages grouped under `Reference > Metrics`** (#231). `Applicability` / `Pipelines` / `Stat keys` move from flat top-level Reference entries to a single sub-section, reducing the flat-Reference page count from 8 to 6 visible entries. `mkdocs.yml` adds `not_in_nav: '**/_generated_*.md'` to silence mkdocs' orphan-page INFO for the four hook-generated tables (`_generated_metric_matrix.md`, `_generated_metric_name_index.md`, `_generated_evaluate_metric_table.md`, `_generated_registry_cells.md`) — all four are already embedded into their host pages via `pymdownx.snippets`, so the orphan listing was a false positive. `reference/metric-applicability.md` gains a back-link to `guides/choosing-metric.md` so the task-oriented decision guide and the lookup table are bidirectionally discoverable.
 
 ### Added
 
@@ -126,10 +128,6 @@ While the version is below `1.0.0`, the public API should be considered unstable
   profiles = [fx.evaluate(panel, cfg.replace(forward_periods=h)) for h in [1, 5, 10, 20]]
   survivors = fx.multi_factor.bhy(profiles, expand_over=["forward_periods"])
   ```
-
-### Changed
-
-- **Regime analysis guide renamed to slice analysis** (#230). `docs/guides/regime-analysis.md` → `docs/guides/slice-analysis.md`, with intro reframed so regime / universe / sector / ADV-bucket are presented as equivalent applications of the same axis-agnostic surface (`by_slice` + `slice_pairwise_test` / `slice_joint_test`). The old URL is intentionally not redirected — external bookmarks to `guides/regime-analysis/` return 404. Inbound references in `docs/index.md`, `docs/api/metrics/ic.md`, `docs/api/list-metrics.md`, and `docs/api/run-metrics.md` updated to the new path and to drop stale `regime_ic` mentions left behind by #217.
 
 ## v0.11.0 (2026-05-11)
 

@@ -2,6 +2,7 @@
 
 !!! abstract "Answers"
     Can my data run this? — applicability gates and sample-size thresholds per metric.
+    If you are still deciding *which* metric to use, see the task-oriented [Choosing a metric](../guides/choosing-metric.md) guide first.
     For computation pipeline (aggregation order, inference SE), see [Metric pipelines](metric-pipelines.md).
     For output schema and metadata keys, see [Stat keys by metric](stat-keys-by-metric.md).
 
