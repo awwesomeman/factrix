@@ -542,7 +542,6 @@ The slicing subsystem is the worked example of the rule:
 | `Layer-B` / second-layer verb / curated wrapper (inference path) | **slice-test verb** / **inference verb** — describes the cross-slice estimator + multiple-testing pipeline (`slice_pairwise_test` / `slice_joint_test`) |
 | `Layer-B` Estimator | **slice-test Estimator** — Estimators consumed by the slice-test verbs (`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) |
 | metric-specific `regime_<metric>` curated wrapper | **legacy metric-specific wrapper** (when describing removed surface area); for the current path, name `by_slice` + the inference verb directly |
-| `_slice_by_label` shared layer | **slice primitive** — private helper shared by the dispatcher and the inference verbs |
 | `SliceResult.to_frame()` renderer layer | **renderer** — container-side method; no separate tier implied |
 
 The rule is functional, not lexical — `dispatcher`, `verb`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Mention an issue number (`#176`) when the docstring needs to point at a specification, instead of `Layer-B (#176)` which encodes a label that will not survive.
