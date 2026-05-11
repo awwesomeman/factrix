@@ -7,13 +7,13 @@ setting (#176 verbs ``slice_pairwise_test`` / ``slice_joint_test``):
   consumes the stacked per-date metric panel. Emits
   ``StatCode.P_WALD_NWCL`` (paired with ``WALD_NWCL`` on the test
   statistic side).
-- ``WaldDoubleCluster`` — Cameron-Gelbach-Miller (2011) two-way
+- ``WaldTwoWayCluster`` — Cameron-Gelbach-Miller (2011) two-way
   cluster on (date, asset); consumes the raw asset-date panel.
-  Emits ``StatCode.P_WALD_DC``. Interface ships this issue but no
+  Emits ``StatCode.P_WALD_TWOWAY``. Interface ships this issue but no
   verb consumes it until ``factor_decomposition`` lands later;
-  calling ``bhy(estimator=WaldDoubleCluster())`` against a profile
+  calling ``bhy(estimator=WaldTwoWayCluster())`` against a profile
   produced by ``evaluate()`` lands on a missing-stat error until
-  the verb populates ``profile.stats[StatCode.P_WALD_DC]``.
+  the verb populates ``profile.stats[StatCode.P_WALD_TWOWAY]``.
 
 Numerical implementations live in ``factrix._stats.wald``; this
 module names the inference path the family verbs / Layer-B verbs
@@ -76,17 +76,17 @@ class WaldNWCluster:
         return StatCode.P_WALD_NWCL
 
 
-class WaldDoubleCluster:
+class WaldTwoWayCluster:
     """Two-way cluster Wald χ² on (date, asset) — Cameron-Gelbach-Miller (2011).
 
     Backs the raw asset-date panel inference path (factor × slice
     interaction with full panel SE). Numerics live in
-    ``factrix._stats.wald._wald_double_cluster``.
+    ``factrix._stats.wald._wald_two_way_cluster``.
 
     Interface ships this PR; no verb consumes it until
     ``factor_decomposition`` lands later. ``list_estimators`` surfaces
     it for ``(INDIVIDUAL, CONTINUOUS)`` cells — calling
-    ``bhy(estimator=WaldDoubleCluster())`` against a profile produced
+    ``bhy(estimator=WaldTwoWayCluster())`` against a profile produced
     by ``evaluate()`` lands on a missing-stat error pointing at the
     precondition (same pattern as ``HansenHodrick`` on a non-overlapping
     profile).
@@ -112,4 +112,4 @@ class WaldDoubleCluster:
         _signal: Signal,
         _metric: Metric | None,
     ) -> StatCode:
-        return StatCode.P_WALD_DC
+        return StatCode.P_WALD_TWOWAY
