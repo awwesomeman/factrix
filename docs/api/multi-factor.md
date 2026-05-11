@@ -77,9 +77,9 @@ for the full invariant list.
 
 ### Sample restriction vs hypothesis dimension
 
-A context key (`universe_id`, `regime_id`, `fwd_period`-as-context, …) can
-play one of two roles in a screening run, and the role you intend dictates
-whether to **pre-filter** or to pass it through **`expand_over`**:
+A context key (`universe_id`, `regime_id`, …) can play one of two roles
+in a screening run, and the role you intend dictates whether to
+**pre-filter** or to pass it through **`expand_over`**:
 
 - **Sample restriction** — you have *already* committed to a single slice
   (e.g. "this study runs on `tw50` only"). The context value is a
@@ -106,14 +106,15 @@ the same `(factor_id, forward_periods)` appears more than once with no
 `expand_over`, the duplicate-partition check raises with both fixes
 (canonical `factor_id` rename and `expand_over=[<key>]`) called out in
 the error. This forces an explicit commitment to the family boundary
-before any step-up runs — the same anti-shopping discipline `[estimator]`
-applies at the cell level (see #148 v1 [family]).
+before any step-up runs.
 
-A context key that started as a sample restriction can graduate to a
-hypothesis dimension later (e.g. you finish the `tw50` study and decide
-to extend it to `tw100`); the migration is a one-line kwarg flip. Going
-the other way — collapsing `expand_over` after the fact to enlarge the
-surviving set — *is* p-hacking and the API does not facilitate it.
+A context key can graduate from sample restriction to hypothesis
+dimension when the study scope widens (extending a `tw50`-only run to
+also cover `tw100` once `tw100` profiles exist). What the API refuses
+to make easy is the reverse path: re-running with `expand_over=`
+toggled to whichever shape produces more survivors. That is p-hacking
+on the family boundary itself — the family must be declared before
+inspecting the adjusted p-values it produces.
 
 ## Return type: `Survivors` (#171)
 
