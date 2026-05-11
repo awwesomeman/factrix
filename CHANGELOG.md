@@ -23,6 +23,7 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Added
 
+- **CI link checker for docs** (#238). New `link-check.yml` workflow runs `lychee-action@v2` against the built `site/` plus `README.md` to catch broken links and dead fragments that `mkdocs build --strict` misses. PR runs fail and block merge on broken links; a daily scheduled run on `main` (06:00 UTC) auto-opens or updates a tracking issue when external URL rot is detected, instead of red-building the main branch. False positives are routed through a top-level `.lycheeignore` file.
 - **`factrix.SliceResult`** (#212). Container returned by
   `by_slice` — a `Mapping[str, MetricOutput]` subclass, so every
   existing `dict`-shaped consumer (`for k, v in result.items()`,

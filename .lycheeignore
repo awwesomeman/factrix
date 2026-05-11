@@ -1,0 +1,45 @@
+# URLs ignored by the lychee link checker (CI job in docs-deploy-dev.yml).
+#
+# Add a line per pattern that the checker should skip — one URL or regex
+# per line. Common reasons: placeholder URLs in docs templates, rate-
+# limited hosts that 429 under CI load, private hosts the runner can't
+# reach. Leave a one-line comment above each entry explaining the why
+# so future readers can re-evaluate when the cause is gone.
+#
+# Format: literal URL or Rust regex (lychee uses regex when the line
+# contains regex meta-characters).
+
+# Shields.io and Codecov badge endpoints routinely return 429 / 403
+# to the GitHub Actions runner IP range. Both serve README badges,
+# not link-target content — exclude pre-emptively so the README
+# scan does not red-build on rate-limit pressure.
+^https://img\.shields\.io/
+^https://codecov\.io/
+^https://shields\.io/
+
+# Material theme injects `<link rel="canonical">` pointing at the
+# unversioned production URL (e.g. https://awwesomeman.github.io/factrix/api/x/),
+# but the site is deployed via `mike` so every URL lives under a
+# versioned prefix (`/factrix/0.10.0/...`, `/factrix/latest/...`).
+# The unversioned root is 404 by design. Lychee would otherwise flag
+# every canonical link as broken — exclude the production domain
+# entirely, since link checking external pointers to ourselves adds
+# no value (deploy-time failure surfaces in docs-deploy-release).
+^https://awwesomeman\.github\.io/factrix/
+
+# Material theme inserts "Edit on GitHub" pencil links (one per page)
+# pointing at github.com/<repo>/edit/main/<path>.md. GitHub aggressively
+# rate-limits the GitHub Actions runner IP range on /edit/ endpoints,
+# producing systematic 429s with no signal. Exclude the edit-link
+# pattern specifically (regular github.com links elsewhere are still
+# checked).
+^https://github\.com/[^/]+/[^/]+/edit/
+
+# pola.rs (Polars project home) intermittently fails TLS handshake
+# from GitHub Actions runners with "Maybe a certificate error?" — the
+# site itself has a valid LE cert but the runner pool occasionally
+# can't complete the handshake. This is a real link we care about
+# (badge + docs cross-references); ignoring at the regex layer is a
+# pragmatic workaround. Revisit when the underlying transient is
+# diagnosed or lychee gains better retry semantics.
+^https://pola\.rs/

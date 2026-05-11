@@ -255,7 +255,7 @@ verdict surfaces.
 
 ### 4.4 AlphaEval
 
-**Positioning** — AlphaEval ([modeltester.py](https://github.com/LeoDingggg/AlphaEval/blob/main/backtest/modeltester.py))
+**Positioning** — AlphaEval ([repo](https://github.com/LeoDingggg/AlphaEval))
 is a *post-processing ranker for formula-mined alphas*: input
 qlib expression-DSL formulas, compose them via `WeightCalculator`,
 score the composite across five dimensions including an
