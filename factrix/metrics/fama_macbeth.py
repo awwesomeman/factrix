@@ -35,6 +35,14 @@ from factrix._stats import (
 from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
 from factrix.metrics._helpers import _short_circuit_output
 
+# Layer-B slice-test contract (#153 §5): Fama-MacBeth runs a per-date
+# OLS regression on the cross-section, not a bucket sort, so slice
+# tests never need to downscale `n_groups`. Sample-size constraints
+# (T < HARD short-circuit, T < WARN warning) live in the procedure
+# below; the cross-section minimum per regression is enforced inside
+# the per-date OLS rather than via this attribute.
+min_assets_per_group: int | None = None
+
 # Two-tier sample-size guard on the FM β series. ``T < HARD`` short-
 # circuits — NW HAC SE on a 3-period series is undefined. ``HARD ≤ T <
 # WARN`` returns the stat with ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``
