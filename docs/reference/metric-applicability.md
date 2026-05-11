@@ -59,7 +59,6 @@ Min sample*. `MIN_*` constants resolve to values in the
 |---|---|---|
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | `T` (full series) | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_ASSETS_PER_DATE_IC` |
-| [`regime_ic`][factrix.metrics.ic.regime_ic] | `T` per regime | per-regime `T/h ≥ MIN_ASSETS_PER_DATE_IC` |
 
 ### FM family — Cell: Individual × Continuous
 
@@ -138,7 +137,7 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `regime_ic`, `hit_rate` |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `hit_rate` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_diagnostic`, `corrado_rank_test` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `multi_split_oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |

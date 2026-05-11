@@ -8,14 +8,13 @@ Input: DataFrame with ``date, asset_id, factor, forward_return``.
 Output: time-indexed IC series (``date, ic``) that can be fed into
 any ``series/`` tool (oos, trend, significance, hit_rate).
 
-Matrix-row: compute_ic, ic, ic_newey_west, ic_ir, regime_ic | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
+Matrix-row: compute_ic, ic, ic_newey_west, ic_ir | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
 """
 
 from __future__ import annotations
 
 import math
 import warnings as _warnings
-from typing import NotRequired, TypedDict
 
 import polars as pl
 
@@ -37,7 +36,6 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
-from factrix.stats import bhy_adjusted_p
 
 # Slice-test contract (#153 §5): IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
@@ -48,16 +46,6 @@ from factrix.stats import bhy_adjusted_p
 # via) this attribute.
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
-
-
-class _RegimeICEntry(TypedDict):
-    mean_ic: float
-    std_ic: float
-    stat: float
-    p_value: float
-    significance: str
-    n_periods: int
-    p_adjusted_bhy: NotRequired[float]
 
 
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
@@ -355,162 +343,5 @@ def ic_ir(
             "std_ic": std_ic,
             "n_periods": n,
             "tie_ratio": median_tie,
-        },
-    )
-
-
-_REGIME_IC_DEPRECATION_MSG = (
-    "factrix.metrics.regime_ic is deprecated since v0.12.0; the same "
-    "analysis runs through slice_pairwise_test (#176) — join your "
-    "regime labels onto the IC frame upstream "
-    "(ic_df.join(regime_labels, on='date')) then call "
-    "slice_pairwise_test(ic, merged, label='regime'). The new verb "
-    "exposes per-pair Wald χ² with Holm/Romano-Wolf adjusted p "
-    "instead of regime_ic's BHY-on-min-|t| summary; downstream code "
-    "depending on regime_ic's `per_regime` metadata dict should be "
-    "updated before this function is removed in a future minor."
-)
-
-
-def regime_ic(
-    ic_df: pl.DataFrame,
-    regime_labels: pl.DataFrame | None = None,
-) -> MetricOutput:
-    r"""IC conditioned on regime labels (deprecated since v0.12.0).
-
-    .. deprecated:: 0.12.0
-        Use :func:`factrix.metrics.slice_pairwise_test` with
-        ``ic_df.join(regime_labels, on='date')`` and
-        ``label='regime'`` instead. The new verb returns a
-        long-form pairwise contrast DataFrame with Holm /
-        Romano-Wolf adjusted p, replacing this function's
-        BHY-on-min-|t| summary shape.
-
-    Answers "is the factor stable across market environments?"
-    unlike OOS decay which tests overfitting.
-
-    Each regime's $t$-stat is an independent test ($H_0$: mean IC = 0
-    within that regime); sweeping $k$ regimes manufactures $k$ implicit
-    tests.
-    Each per-regime entry in ``per_regime`` metadata reports ``p_value``
-    (raw) alongside ``p_adjusted_bhy`` (BHY-corrected across the k
-    regimes); top-level metadata also surfaces ``p_value_bhy_adjusted``
-    = the worst adjusted p across regimes, for aggregate decisions.
-
-    Args:
-        ic_df: Output of ``compute_ic()`` (``date, ic``).
-        regime_labels: DataFrame with ``date, regime`` (string labels).
-            If None, falls back to time bisection (first half / second half).
-
-    Returns:
-        MetricOutput with value = mean IC across regimes,
-        stat = min |t| across regimes (conservative: if weakest passes, all pass).
-        Per-regime details in metadata, each with raw and BHY-adjusted p.
-
-    Notes:
-        Within each regime $g$,
-        $t_g = \mathrm{mean}(\mathrm{IC}_g) / (\mathrm{std}(\mathrm{IC}_g) / \sqrt{n_g})$
-        with $H_0: \mathbb{E}[\mathrm{IC}_g] = 0$. Sweeping $k$ regimes
-        is $k$ implicit tests on the same null family, so per-regime raw
-        $p$ is accompanied by a BHY-adjusted $p$ across regimes.
-
-        factrix uses BHY rather than Benjamini-Hochberg because per-regime
-        IC samples are typically dependent (overlapping market states).
-        The conservative summary reports the weakest regime's |t|: if the
-        weakest passes, all pass.
-
-    References:
-        Chen & Zimmermann (2022): report sub-period t-stats separately.
-        [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]: FDR control
-        under arbitrary dependence; the BHY adjustment used here.
-    """
-    _warnings.warn(_REGIME_IC_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
-
-    if len(ic_df) < MIN_ASSETS_PER_DATE_IC:
-        return _short_circuit_output(
-            "regime_ic",
-            "insufficient_ic_periods",
-            n_observed=len(ic_df),
-            min_required=MIN_ASSETS_PER_DATE_IC,
-        )
-
-    from factrix.metrics.regime import _slice_by_regime
-
-    merged = _slice_by_regime(ic_df, regime_labels)
-
-    # Single-pass group_by instead of per-regime Python loop
-    regime_stats = (
-        merged.drop_nulls("ic")
-        .group_by("regime")
-        .agg(
-            pl.col("ic").mean().alias("mean_ic"),
-            pl.col("ic").std().alias("std_ic"),
-            pl.col("ic").count().alias("n"),
-        )
-        .filter(pl.col("n") >= 2)
-        .sort("regime")
-    )
-
-    if regime_stats.is_empty():
-        return _short_circuit_output(
-            "regime_ic",
-            "no_regime_has_enough_observations",
-            min_required_per_regime=2,
-        )
-
-    per_regime: dict[str, _RegimeICEntry] = {}
-    for row in regime_stats.iter_rows(named=True):
-        t = _calc_t_stat(row["mean_ic"], row["std_ic"], row["n"])
-        p = _p_value_from_t(t, row["n"])
-        per_regime[row["regime"]] = {
-            "mean_ic": row["mean_ic"],
-            "std_ic": row["std_ic"],
-            "stat": t,
-            "p_value": p,
-            "significance": _significance_marker(p),
-            "n_periods": row["n"],
-        }
-
-    # BHY across regimes: sweeping k regimes is k implicit tests on the
-    # same null family. Report adjusted per-regime p for callers that
-    # want to act on a specific regime's significance without manually
-    # correcting; also surface min adjusted p for aggregate decisions.
-    # per_regime is insertion-ordered, so iterating .values() lines up
-    # with the BHY adjuster's positional output.
-    raw_p_list = [d["p_value"] for d in per_regime.values()]
-    adj_p = bhy_adjusted_p(raw_p_list)
-    for entry, ap in zip(per_regime.values(), adj_p, strict=False):
-        entry["p_adjusted_bhy"] = float(ap)
-
-    mean_all = float(sum(d["mean_ic"] for d in per_regime.values()) / len(per_regime))
-
-    # Conservative summary: if the weakest regime is significant, all are.
-    min_abs_t_regime = min(per_regime.values(), key=lambda d: abs(d["stat"]))
-    min_t = min_abs_t_regime["stat"]
-    min_p = min_abs_t_regime["p_value"]
-    min_p_adjusted = float(max(adj_p)) if len(adj_p) else 1.0
-
-    # WHY: filter near-zero means before checking direction consistency —
-    # a regime with IC ≈ 0 has no signal, not a "consistent direction"
-    nonzero = [d["mean_ic"] for d in per_regime.values() if abs(d["mean_ic"]) > EPSILON]
-    if nonzero:
-        consistent = all(v > 0 for v in nonzero) or all(v < 0 for v in nonzero)
-    else:
-        consistent = False
-
-    return MetricOutput(
-        name="regime_ic",
-        value=mean_all,
-        stat=min_t,
-        significance=_significance_marker(min_p),
-        metadata={
-            "p_value": min_p,
-            "p_value_bhy_adjusted": min_p_adjusted,
-            "stat_type": "t",
-            "h0": "mu=0 (per regime)",
-            "aggregation": "mean_value_min_stat",
-            "per_regime": per_regime,
-            "direction_consistent": consistent,
-            "n_regimes": len(per_regime),
         },
     )

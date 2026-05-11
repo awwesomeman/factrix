@@ -1,22 +1,11 @@
-"""Regime analysis: dispatcher (no second-layer inference).
+"""Regime analysis: legacy dispatcher pending removal.
 
-Two roles (issue #107; previously called Layer-A / Layer-B, renamed
-per #157):
-
-* **Dispatcher** — :func:`by_regime` slices the metric input by regime
-  label and applies a metric callable per slice. Returns
-  ``dict[str, MetricOutput]``. **Performs no cross-regime statistical
-  test.** A generic second-layer test would silently over-claim for
-  non-t-stat metrics (Sharpe, turnover, hit_rate, monotonicity rho) —
-  different metric families need bespoke cross-regime tests, or none
-  at all.
-* **Curated wrapper** — ``regime_<metric>`` wrappers (e.g.
-  ``regime_ic``) add a metric-appropriate second-layer on top of the
-  dispatcher's slicing primitive. They live in their respective metric
-  modules.
-
-Both roles share :func:`_slice_by_regime` so the time-bisection
-fallback and label-join semantics live in one place.
+:func:`by_regime` is deprecated since v0.10.0 and removed in #217. It
+slices a metric input by regime label and applies a metric callable
+per slice, returning ``dict[str, MetricOutput]`` — **no cross-slice
+statistical test**. Callers wanting inferential contrasts should join
+labels upstream and call :func:`factrix.slice_pairwise_test` or
+:func:`factrix.slice_joint_test`.
 
 Matrix-row: by_regime | (*, *, *, *) | dispatcher | none (no cross-regime test) | _slice_by_regime
 """
@@ -104,9 +93,9 @@ def by_regime(
 
     Returns:
         ``{regime_label: metric(slice, **kwargs)}``. **No cross-regime
-        statistic is computed** — consumers that need one must compose
-        a curated wrapper appropriate to the metric family (see e.g.
-        ``regime_ic``).
+        statistic is computed** — for inferential contrasts call
+        :func:`factrix.slice_pairwise_test` (or
+        :func:`factrix.slice_joint_test`) on a labels-joined frame.
 
     Raises:
         ValueError: ``df`` has no ``date`` column, or no rows survive
@@ -114,7 +103,7 @@ def by_regime(
 
     Example:
         ```python
-        from factrix.metrics import by_regime, ic, compute_ic
+        from factrix.metrics import by_regime, compute_ic, ic
 
         ic_df = compute_ic(panel)
         per_regime = by_regime(ic, ic_df, regime_labels=labels)
@@ -146,6 +135,6 @@ def by_regime(
             "by_regime: no rows survived the regime-label join — "
             "likely a date-range or dtype mismatch between df and regime_labels"
         )
-    from factrix.metrics._slice import by_slice
+    from factrix.slicing import by_slice
 
     return by_slice(metric, annotated, label="regime", **kwargs)

@@ -45,7 +45,7 @@ _logger = logging.getLogger("factrix.run_metrics")
 # (the ``(date, ic, tie_ratio)`` frame). v1 wires this single stage-1
 # helper; expanding to ``compute_fm_betas`` / ``compute_ts_betas`` /
 # ``compute_event_returns`` pipelines is tracked as v1.x follow-up.
-_IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir", "regime_ic"})
+_IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -60,8 +60,8 @@ class MetricsBundle:
     Attributes:
         identity: ``(factor_id, forward_periods)`` — the hypothesis
             dimensions per #160. Aligns with ``FactorProfile.identity``
-            so downstream verbs (``compare`` / ``slice_analysis``) can
-            stack profiles and bundles by the same key.
+            so downstream verbs (``compare`` / cross-slice analysis)
+            can stack profiles and bundles by the same key.
         metrics: Metric name → ``MetricOutput`` mapping for every
             metric that produced a value (including short-circuit
             ``MetricOutput`` entries — ``value=NaN`` with a reason in
@@ -71,10 +71,10 @@ class MetricsBundle:
             kwargs, stage-1 helper failed, …). v1 surfaces this through
             ``__repr__`` / ``_repr_html_`` and a single ``logging.info``.
         context: Sample-restriction / conditioning dimensions per #160.
-            v1 always empty; downstream slicers (``slice_analysis`` /
-            ``by_regime``) populate via ``dataclasses.replace`` once
-            available, or callers stamp manually after panel-side
-            filtering.
+            v1 always empty; downstream slicers (``factrix.by_slice``
+            and the slice-test verb pair) populate via
+            ``dataclasses.replace`` once available, or callers stamp
+            manually after panel-side filtering.
 
     Hashing is disabled (``__hash__ = None``) because the bundle holds
     ``MetricOutput`` instances whose ``metadata`` is a mutable dict.

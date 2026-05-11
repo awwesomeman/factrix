@@ -221,7 +221,7 @@ Cell-level descriptive batch runner — the descriptive twin of
 metrics; `metrics=[...]` validates names and raises
 `UserInputError` (with fuzzy suggestion) for unknown / excluded
 entries. v1 wires the IC stage-1 cache (`compute_ic` shared across
-`ic` / `ic_newey_west` / `ic_ir` / `regime_ic`); other stage-1
+`ic` / `ic_newey_west` / `ic_ir`); other stage-1
 consumers (`caar`, `fama_macbeth`, `ts_beta`, `mfe_mae_summary`,
 plus series / spread consumers) appear in `bundle.skipped` with the
 explicit-import recipe. Cross-horizon / cross-universe sweeps go
@@ -305,6 +305,24 @@ property — agents reading `diagnose()["stats"]` / `["warnings"]` /
 `["info_notes"]` can resolve a key like `"factor_adf_p"` or
 `"persistent_regressor"` to its statistical meaning without grepping
 `_codes.py` or `_procedures.py`.
+
+---
+
+### `by_slice` / `slice_pairwise_test` / `slice_joint_test`
+
+Cross-slice analysis lives in `factrix.slicing` and is re-exported at
+top-level. `by_slice(metric, df, *, label)` partitions a metric's
+date-keyed input by an existing column and applies the metric per
+slice — pure dispatcher, no cross-slice inference. For inferential
+contrasts, `slice_pairwise_test(metric, df, *, label, estimator,
+multiple_testing)` reports K(K-1)/2 pairwise Wald contrasts with
+Holm / Romano-Wolf / Bonferroni adjusted p; `slice_joint_test(metric,
+df, *, label, estimator)` reports the single omnibus Wald χ² that
+all K slice means are equal. Both verbs require the metric's module
+to declare a `per_date_series` capability (`ic` / `fama_macbeth` /
+`hit_rate` ship with it). Default estimator `WaldNWCluster` (joint
+NW HAC); `BlockBootstrap` flips the pairwise default to Romano-Wolf.
+See [`docs/api/slice-test.md`](https://awwesomeman.github.io/factrix/api/slice-test/).
 
 ---
 

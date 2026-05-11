@@ -2,42 +2,36 @@
 
 Regime analysis asks "is this factor stable across market environments?" — a different question from out-of-sample decay (overfitting) and from cross-asset robustness (specification). factrix splits regime analysis into two roles because **slicing by regime** and **testing significance across regimes** are different jobs that need different APIs.
 
-!!! note "Terminology"
-    These two roles were called **Layer A** and **Layer B** in #107 / #152 / #154 / #153 design discussions. They are now called **dispatcher** and **curated wrapper** ([#157](https://github.com/awwesomeman/factrix/issues/157)). Public API names (`by_regime`, `by_slice`, `regime_ic`, ...) are unchanged.
-
 ## The two roles
 
-| Role | Function | What it does | What it does not do |
+| Role | Verb | What it does | What it does not do |
 |---|---|---|---|
-| Dispatcher | [`by_regime(metric, df, *, regime_labels, **kwargs)`](../api/by-regime.md) | Slices `df` by regime label, calls `metric` per slice, returns `dict[regime, MetricOutput]` | **No cross-regime statistical test** |
-| Curated wrapper | `regime_<metric>` (e.g. [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic)) | Dispatcher + a metric-appropriate cross-regime test (BHY, min-\|t\|, etc.) | Only exists for curated metrics |
+| Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns `dict[label, MetricOutput]` | **No cross-slice statistical test** |
+| Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`) |
 
-**Use the dispatcher when:** you want raw per-regime numbers, or you want to compose your own cross-regime test, or no curated wrapper exists for the metric you care about.
+**Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
 
-**Use a curated wrapper when:** one exists for your metric and the bundled second-layer test matches your research question.
+**Use the inference verbs when:** you want a calibrated cross-slice statistic with multiple-testing control and your metric exposes `per_date_series`.
 
-!!! info "Curated wrapper coverage as of v0.9.0"
-    Only [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) ships. `regime_caar` and `regime_fama_macbeth` are tracked in [#107 Phase 2](https://github.com/awwesomeman/factrix/issues/107). Until then, `by_regime(compute_caar, df, ...)` and `by_regime(fama_macbeth, df, ...)` return per-regime values without a cross-regime statistic — useful for descriptive comparison, not for inference.
-
-## Why no generic cross-regime test
+## Why no generic cross-slice test on `by_slice`
 
 A single dispatcher carrying a single second-layer test would silently over-claim. The appropriate test depends on the metric family:
 
-- **IC, Fama-MacBeth λ** — mean-zero t-tests on per-regime samples → BHY across regimes is defensible.
-- **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; BHY on raw t is wrong.
-- **CAAR** — per-regime clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
-- **Turnover, hit_rate, monotonicity ρ** — no canonical cross-regime test; differences are descriptive.
+- **IC, Fama-MacBeth λ** — mean-zero per-date series → joint NW HAC over the per-date K-vector panel is the natural Wald object (`slice_pairwise_test` default).
+- **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; not currently exposed as a slice verb.
+- **CAAR** — per-slice event clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
+- **Turnover, hit_rate, monotonicity ρ** — for `hit_rate` the `per_date_series` path applies; for the rest cross-slice differences remain descriptive.
 
-Bundling BHY into a generic dispatcher would apply it to all of these, including the cases where it is wrong. We chose explicit curated wrappers per metric family instead.
+`by_slice` therefore returns raw per-slice values without an aggregate. For inferential contrasts on the supported metric families, reach for the slice-test verb pair.
 
-## Constructing regime labels
+## Constructing slice labels
 
-`regime_labels` is a `(date, regime)` DataFrame. Common constructions:
+The label is just a column on `df`. Common constructions (for regime analysis, the label values are regime names):
 
 ```python
 import polars as pl
 
-# 1. External classifier (e.g. NBER recession, vol regime, factor return sign)
+# 1. External classifier (NBER recession, factor return sign, ...)
 vol_labels = pl.DataFrame({"date": dates, "regime": ["bull", "bull", "bear", ...]})
 
 # 2. From a market-vol panel — see lookahead warning below
@@ -45,6 +39,12 @@ vix_thresh = vix["vix"].quantile(0.7)
 vol_labels = vix.with_columns(
     pl.when(pl.col("vix") > vix_thresh).then(pl.lit("high_vol")).otherwise(pl.lit("low_vol")).alias("regime")
 ).select("date", "regime")
+```
+
+Join the labels onto the metric's per-date input upstream:
+
+```python
+ic_df = compute_ic(panel).join(vol_labels, on="date", how="inner")
 ```
 
 !!! warning "Lookahead bias when constructing labels"
@@ -55,17 +55,9 @@ vol_labels = vix.with_columns(
     information available at that date. The full-sample form is fine
     only for descriptive ex-post analysis.
 
-If `regime_labels=None`, factrix applies a time-bisection fallback
-(`first_half` / `second_half`) and emits a `UserWarning`. This is a
-structural-break check, **not** a regime test — domain-driven labels
-are required for any defensible regime claim.
-
 ## Discovering eligible metrics
 
-The dispatcher only accepts metrics whose primary input is a date-keyed
-DataFrame. Use [`list_metrics`](../api/list-metrics.md) with
-`format="json"` and filter on `input_kind == "panel"` to enumerate the
-candidate set for your `(scope, signal)` cell:
+`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference verbs additionally require the metric module to declare a `per_date_series` capability. Use [`list_metrics`](../api/list-metrics.md) with `format="json"` and filter on `input_kind == "panel"` to enumerate the candidate set:
 
 ```python
 import factrix as fx
@@ -79,31 +71,29 @@ panel_metrics = [
 ]
 ```
 
-Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded —
-they consume pre-aggregated scalars and have no date column to slice
-on.
+Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded — they consume pre-aggregated scalars and have no date column to slice on.
 
 ## Worked example: IC across volatility regimes
 
 ```python
-from factrix.metrics import by_regime, compute_ic, ic, regime_ic
+from factrix import by_slice, slice_pairwise_test
+from factrix.metrics import compute_ic, ic
 
 ic_df = compute_ic(panel, factor_col="value", return_col="forward_return")
+merged = ic_df.join(vol_labels, on="date", how="inner")
 
 # Dispatcher — raw per-regime IC summaries
-per_regime = by_regime(ic, ic_df, regime_labels=vol_labels)
+per_regime = by_slice(ic, merged, label="regime")
 for label, out in per_regime.items():
     print(label, out.value, out.stat)
 
-# Curated wrapper — IC-specific cross-regime second layer (BHY + min-|t|)
-result = regime_ic(ic_df, regime_labels=vol_labels)
-result.metadata["per_regime"]              # raw + BHY-adjusted p per regime
-result.metadata["p_value_bhy_adjusted"]    # worst adjusted p (aggregate)
-result.metadata["direction_consistent"]    # sign agreement across regimes
+# Inference — pairwise Wald contrasts with Holm-adjusted p (analytic default)
+pairs = slice_pairwise_test(ic, merged, label="regime")
+print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
 ```
 
 ## Related
 
-- [`by_regime`](../api/by-regime.md) — dispatcher surface and registered metrics.
-- [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) — curated wrapper for IC.
-- [Batch screening with BHY](batch-screening.md) — the same BHY family-correction principle, applied to factor candidates rather than regimes.
+- [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
+- [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference verb pair.
+- [Batch screening with BHY](batch-screening.md) — FDR control across factor candidates rather than slices.

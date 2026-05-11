@@ -650,8 +650,9 @@ preferring VW over EW spreads in capacity-constrained settings.
 Chen, A. Y. & Zimmermann, T. (2022). "Open Source Cross-Sectional
 Asset Pricing." *Critical Finance Review* 11(2), 207–264.
 
-Open-source replication of 200+ anomalies with code; cited from
-`regime_ic` as the empirical motivation for regime-stratified IC.
+Open-source replication of 200+ anomalies with code; cited as the
+empirical motivation for regime-stratified IC analysis (now expressed
+via `slice_pairwise_test(ic, ..., label="regime")`).
 
 ### López de Prado (2018)
 [](){ #lopez-de-prado-2018 }

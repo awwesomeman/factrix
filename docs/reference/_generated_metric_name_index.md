@@ -28,7 +28,6 @@
 | `profit_factor` | `profit_factor` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`profit_factor`](../api/metrics/event_quality.md#factrix.metrics.event_quality.profit_factor) |
 | `quantile_spread` | `quantile_spread` | [`factrix.metrics.quantile`][factrix.metrics.quantile] | [`quantile_spread`](../api/metrics/quantile.md#factrix.metrics.quantile.quantile_spread) |
 | `quantile_spread_vw` | `quantile_spread_vw` | [`factrix.metrics.quantile`][factrix.metrics.quantile] | [`quantile_spread_vw`](../api/metrics/quantile.md#factrix.metrics.quantile.quantile_spread_vw) |
-| `regime_ic` | `regime_ic` | [`factrix.metrics.ic`][factrix.metrics.ic] | [`regime_ic`](../api/metrics/ic.md#factrix.metrics.ic.regime_ic) |
 | `signal_density` | `signal_density` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`signal_density`](../api/metrics/event_quality.md#factrix.metrics.event_quality.signal_density) |
 | `spanning_alpha` | `spanning_alpha` | [`factrix.metrics.spanning`][factrix.metrics.spanning] | [`spanning_alpha`](../api/metrics/spanning.md#factrix.metrics.spanning.spanning_alpha) |
 | `top_concentration` | `top_concentration` | [`factrix.metrics.concentration`][factrix.metrics.concentration] | [`top_concentration`](../api/metrics/concentration.md#factrix.metrics.concentration.top_concentration) |

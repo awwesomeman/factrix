@@ -23,7 +23,8 @@ commitment.
 
 ```python
 import polars as pl
-from factrix.metrics import compute_ic, ic, slice_joint_test, slice_pairwise_test
+from factrix import slice_joint_test, slice_pairwise_test
+from factrix.metrics import compute_ic, ic
 
 ic_df = compute_ic(panel)
 ic_df = ic_df.join(regime_labels, on="date")  # adds 'regime' column
@@ -107,7 +108,7 @@ reserved for the future `factor_decomposition` verb.
 
 ## Reference
 
-::: factrix.metrics.slice_test
+::: factrix.slicing.inference
     options:
         members:
           - slice_pairwise_test

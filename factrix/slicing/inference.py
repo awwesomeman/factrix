@@ -1,4 +1,4 @@
-"""Cross-slice statistical-test verbs (#176).
+"""Cross-slice statistical-test verbs.
 
 ``slice_pairwise_test`` reports K(K-1)/2 cross-slice contrasts as a
 long-form DataFrame of pairwise ``(stat, p_raw, p_adj)``;
@@ -38,7 +38,7 @@ from factrix._stats.bootstrap import _joint_block_bootstrap_pairwise_distributio
 from factrix._stats.multiple_testing import bonferroni, holm_step_down, romano_wolf
 from factrix._stats.wald import _wald_nw_cluster_means
 from factrix.metrics._metric_capabilities import resolve_per_date_series
-from factrix.metrics._slice import _slice_by_label
+from factrix.slicing._primitive import _slice_by_label
 from factrix.stats import BlockBootstrap, Estimator, WaldNWCluster
 
 MultipleTestingMethod = Literal["holm", "bonferroni", "romano_wolf"]

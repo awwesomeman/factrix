@@ -66,16 +66,10 @@ _STAGE1_HELPERS: frozenset[str] = frozenset(
     }
 )
 
-# Cross-cutting infrastructure published from ``factrix.metrics`` that
-# is **not** a per-(scope, signal) cell metric — e.g. ``by_regime`` is a
-# dispatcher that wraps any registered metric. Listed in ``Matrix-row:``
-# with ``(*, *, *, *)`` so the primitive graph is complete, but excluded
-# from per-cell ``list_metrics`` output and the applicability table
-# (which catalogue per-cell metrics, not infra).
-_INFRASTRUCTURE: frozenset[str] = frozenset(
-    {"by_regime", "by_slice", "slice_joint_test", "slice_pairwise_test"}
-)
-"""Cross-cutting dispatchers published from ``factrix.metrics`` that
+_INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime"})
+"""Non-metric symbols hosted under ``factrix.metrics``.
+
+Excluded from auto-discovery and the applicability table because they
 are not per-(scope, signal) cell metrics."""
 
 # Scalar-input metrics: pre-aggregated-scalar utilities that consume
