@@ -95,10 +95,13 @@ def by_slice(
         ValueError: ``label`` not in ``df.columns``, or ``df`` is empty.
 
     Example:
-        >>> import polars as pl
-        >>> from factrix.metrics import by_slice, ic, compute_ic
-        >>> ic_df = compute_ic(panel)              # already has 'sector'
-        >>> per_sector = by_slice(ic, ic_df, label="sector")
+        ```python
+        import polars as pl
+        from factrix.metrics import by_slice, ic, compute_ic
+
+        ic_df = compute_ic(panel)              # already has 'sector'
+        per_sector = by_slice(ic, ic_df, label="sector")
+        ```
 
     Universe overlap (superset / multi-membership / hierarchical /
     sliding window / cross-product) is composed by the caller — see

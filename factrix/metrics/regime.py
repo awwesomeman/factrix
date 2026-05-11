@@ -113,9 +113,12 @@ def by_regime(
             the regime-label join.
 
     Example:
-        >>> from factrix.metrics import by_regime, ic, compute_ic
-        >>> ic_df = compute_ic(panel)
-        >>> per_regime = by_regime(ic, ic_df, regime_labels=labels)
+        ```python
+        from factrix.metrics import by_regime, ic, compute_ic
+
+        ic_df = compute_ic(panel)
+        per_regime = by_regime(ic, ic_df, regime_labels=labels)
+        ```
     """
     _warnings.warn(
         "factrix.metrics.by_regime is deprecated since v0.10.0; use "

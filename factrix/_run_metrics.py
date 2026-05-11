@@ -314,12 +314,15 @@ def run_metrics(
             ``MetricOutput`` entries inside the bundle, **not** raised.
 
     Example:
-        >>> import factrix as fx
-        >>> cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-        >>> bundle = fx.run_metrics(panel, cfg, factor_col="momentum_12_1")
-        >>> bundle["ic"].value           # dict-style access
-        >>> bundle.to_frame()            # long-form pl.DataFrame
-        >>> dict(bundle.skipped)         # what we could not auto-run
+        ```python
+        import factrix as fx
+
+        cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+        bundle = fx.run_metrics(panel, cfg, factor_col="momentum_12_1")
+        bundle["ic"].value           # dict-style access
+        bundle.to_frame()            # long-form pl.DataFrame
+        dict(bundle.skipped)         # what we could not auto-run
+        ```
     """
     missing = {"date", "asset_id", factor_col, "forward_return"} - set(panel.columns)
     if missing:
