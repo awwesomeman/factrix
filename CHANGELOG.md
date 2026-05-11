@@ -23,6 +23,7 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Added
 
+- **CI link checker for docs** (#238). `docs-deploy-dev.yml` gains a `lychee-action@v2` step after `mkdocs build --strict` on both the PR and `main`-push paths, scanning the built `site/` plus `README.md` for broken links / dead anchors / external 404s — coverage `mkdocs --strict` does not give (admonition / collapsible block / notebook markdown cell content, fragment slugs after Material rendering). Lychee cache is enabled (`--cache --max-cache-age 1d`) so post-first-run CI cost stays low; false positives are routed through a top-level `.lycheeignore` placeholder. CI fails on broken links on both PR (block merge) and main (catch external URL rot), matching factrix's "doc/code drift is a bug" stance.
 - **`factrix.SliceResult`** (#212). Container returned by
   `by_slice` — a `Mapping[str, MetricOutput]` subclass, so every
   existing `dict`-shaped consumer (`for k, v in result.items()`,

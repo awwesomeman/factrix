@@ -1,0 +1,12 @@
+# URLs ignored by the lychee link checker (CI job in docs-deploy-dev.yml).
+#
+# Add a line per pattern that the checker should skip — one URL or regex
+# per line. Common reasons: placeholder URLs in docs templates, rate-
+# limited hosts that 429 under CI load, private hosts the runner can't
+# reach. Leave a one-line comment above each entry explaining the why
+# so future readers can re-evaluate when the cause is gone.
+#
+# Format: literal URL or Rust regex (lychee uses regex when the line
+# contains regex meta-characters).
+
+# (no entries yet — populated as false positives emerge)

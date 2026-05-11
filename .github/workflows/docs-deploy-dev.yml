@@ -53,6 +53,20 @@ jobs:
             docs/reference/_generated_metric_matrix.md \
             docs/development/_generated_registry_cells.md
 
+      - name: Link check (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-redirects 3
+            --cache
+            --max-cache-age 1d
+            --exclude-loopback
+            --base ./site
+            './site/**/*.html'
+            './README.md'
+          fail: true
+
   build-main:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -77,3 +91,17 @@ jobs:
           git diff --exit-code -- \
             docs/reference/_generated_metric_matrix.md \
             docs/development/_generated_registry_cells.md
+
+      - name: Link check (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-redirects 3
+            --cache
+            --max-cache-age 1d
+            --exclude-loopback
+            --base ./site
+            './site/**/*.html'
+            './README.md'
+          fail: true
