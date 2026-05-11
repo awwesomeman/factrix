@@ -102,10 +102,58 @@ def test_rejects_non_eligible_metric() -> None:
         slice_pairwise_test(fake_metric, df, label="universe")
 
 
-def test_rejects_unimplemented_estimator() -> None:
-    df = _ic_panel(n_dates=60, seed=8, means={"a": 0.0, "b": 0.0})
-    with pytest.raises(NotImplementedError, match="BlockBootstrap"):
-        slice_pairwise_test(ic, df, label="universe", estimator=BlockBootstrap())
+def test_block_bootstrap_path_returns_signed_mean_diff_stat() -> None:
+    df = _ic_panel(n_dates=120, seed=8, means={"a": 0.10, "b": -0.05})
+    out = slice_pairwise_test(
+        ic,
+        df,
+        label="universe",
+        estimator=BlockBootstrap(n_resamples=199, rng_seed=42),
+    )
+    assert out.height == 1
+    assert out["stat"][0] == pytest.approx(0.10 - (-0.05), abs=0.05)
+    assert out["p_raw"][0] < 0.05
+
+
+def test_block_bootstrap_defaults_to_romano_wolf() -> None:
+    df = _ic_panel(n_dates=120, seed=80, means={"a": 0.10, "b": -0.05, "c": 0.0})
+    rw_out = slice_pairwise_test(
+        ic,
+        df,
+        label="universe",
+        estimator=BlockBootstrap(n_resamples=199, rng_seed=7),
+    )
+    holm_out = slice_pairwise_test(
+        ic,
+        df,
+        label="universe",
+        estimator=BlockBootstrap(n_resamples=199, rng_seed=7),
+        multiple_testing="holm",
+    )
+    np.testing.assert_array_equal(
+        rw_out["p_raw"].to_numpy(), holm_out["p_raw"].to_numpy()
+    )
+    assert not np.allclose(rw_out["p_adj"].to_numpy(), holm_out["p_adj"].to_numpy())
+
+
+def test_romano_wolf_requires_block_bootstrap() -> None:
+    df = _ic_panel(n_dates=60, seed=81, means={"a": 0.0, "b": 0.0})
+    with pytest.raises(ValueError, match="romano_wolf"):
+        slice_pairwise_test(ic, df, label="universe", multiple_testing="romano_wolf")
+
+
+def test_rejects_unknown_estimator_type() -> None:
+    class FakeEstimator:
+        pass
+
+    df = _ic_panel(n_dates=60, seed=82, means={"a": 0.0, "b": 0.0})
+    with pytest.raises(NotImplementedError, match="FakeEstimator"):
+        slice_pairwise_test(
+            ic,
+            df,
+            label="universe",
+            estimator=FakeEstimator(),  # type: ignore[arg-type]
+        )
 
 
 def test_accepts_default_waldnwcluster_explicit() -> None:

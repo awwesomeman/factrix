@@ -73,7 +73,7 @@ def test_rejects_non_eligible_metric() -> None:
         slice_joint_test(fake_metric, df, label="regime")
 
 
-def test_rejects_unimplemented_estimator() -> None:
+def test_rejects_block_bootstrap_estimator() -> None:
     df = _ic_panel(n_dates=60, seed=6, means={"a": 0.0, "b": 0.0})
     with pytest.raises(NotImplementedError, match="BlockBootstrap"):
         slice_joint_test(ic, df, label="regime", estimator=BlockBootstrap())

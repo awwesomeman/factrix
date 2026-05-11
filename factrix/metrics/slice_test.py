@@ -32,23 +32,26 @@ from typing import Literal
 import numpy as np
 import polars as pl
 
-from factrix._stats.multiple_testing import bonferroni, holm_step_down
+from factrix._stats.bootstrap import _joint_block_bootstrap_pairwise_distribution
+from factrix._stats.multiple_testing import bonferroni, holm_step_down, romano_wolf
 from factrix._stats.wald import _wald_nw_cluster_means
 from factrix.metrics._metric_capabilities import resolve_per_date_series
 from factrix.metrics._slice import _slice_by_label
-from factrix.stats import Estimator, WaldNWCluster
+from factrix.stats import BlockBootstrap, Estimator, WaldNWCluster
 
-MultipleTestingMethod = Literal["holm", "bonferroni"]
+MultipleTestingMethod = Literal["holm", "bonferroni", "romano_wolf"]
 
 
-def _resolve_estimator(estimator: Estimator | None, verb: str) -> WaldNWCluster:
+def _resolve_estimator(
+    estimator: Estimator | None, verb: str
+) -> WaldNWCluster | BlockBootstrap:
     if estimator is None:
         return WaldNWCluster()
-    if not isinstance(estimator, WaldNWCluster):
+    if not isinstance(estimator, WaldNWCluster | BlockBootstrap):
         raise NotImplementedError(
             f"{verb}: estimator {type(estimator).__name__!r} not yet "
-            f"wired; this verb currently supports WaldNWCluster only. "
-            f"BlockBootstrap (Romano-Wolf path) lands in a follow-up batch."
+            f"wired; this verb currently supports WaldNWCluster and "
+            f"BlockBootstrap."
         )
     return estimator
 
@@ -106,63 +109,101 @@ def slice_pairwise_test(
         df: Input frame for the metric, containing ``label``.
         label: Column whose values define the slice partition.
         estimator: Inference estimator. ``None`` resolves to
-            :class:`WaldNWCluster`. Other estimators raise
-            ``NotImplementedError`` pending follow-up batches.
-        multiple_testing: P-value adjustment family. ``None`` falls
-            back to ``"holm"`` (conservative under arbitrary
-            dependence). Romano-Wolf (block-bootstrap step-down) is
-            scheduled for a follow-up batch.
+            :class:`WaldNWCluster` (analytic NW HAC + 1-way cluster on
+            slice). :class:`BlockBootstrap` triggers the joint
+            block-bootstrap path and changes the default
+            ``multiple_testing`` to ``"romano_wolf"``.
+        multiple_testing: P-value adjustment family. ``None`` follows
+            the estimator default — ``"holm"`` for ``WaldNWCluster``,
+            ``"romano_wolf"`` for ``BlockBootstrap``. ``"romano_wolf"``
+            with an analytic estimator raises ``ValueError`` (RW
+            requires a bootstrap distribution).
 
     Returns:
         Long-form ``pl.DataFrame`` with columns
         ``(slice_a, slice_b, n_obs, stat, p_raw, p_adj)``; one row per
         ordered slice pair ``(a, b)`` with ``a`` before ``b`` in the
-        partition's iteration order.
+        partition's iteration order. ``stat`` carries the Wald χ² under
+        ``WaldNWCluster`` and the signed mean diff under
+        ``BlockBootstrap`` — bootstrap p-values are based on
+        ``|mean diff|``.
 
     Raises:
-        ValueError: Fewer than two slice values, or fewer than two
-            dates aligned across all slices.
+        ValueError: Fewer than two slice values, fewer than two dates
+            aligned across all slices, or an estimator / multiple-
+            testing combination that has no calibrated p-value path.
         TypeError: Metric is not slice-test-eligible (no
             ``per_date_series`` capability).
-        NotImplementedError: Non-``WaldNWCluster`` estimator passed
-            before the Romano-Wolf / block-bootstrap batch lands.
+        NotImplementedError: Estimator outside ``WaldNWCluster`` /
+            ``BlockBootstrap``.
     """
-    _resolve_estimator(estimator, "slice_pairwise_test")
-    if multiple_testing is None:
-        multiple_testing = "holm"
+    est = _resolve_estimator(estimator, "slice_pairwise_test")
 
     labels, panel, n_obs = _build_per_date_panel(
         metric, df, label, verb="slice_pairwise_test"
     )
     k = panel.shape[1]
+    pairs = list(combinations(range(k), 2))
 
-    rows: list[tuple[str, str, float]] = []
-    p_raw: list[float] = []
-    for i, j in combinations(range(k), 2):
-        restriction = np.zeros((1, k))
-        restriction[0, i] = 1.0
-        restriction[0, j] = -1.0
-        stat, p = _wald_nw_cluster_means(panel, R=restriction)
-        rows.append((labels[i], labels[j], stat))
-        p_raw.append(p)
+    if isinstance(est, BlockBootstrap):
+        observed_abs, boot, _meta = _joint_block_bootstrap_pairwise_distribution(
+            panel,
+            pairs=pairs,
+            block_length=est.block_length,
+            n_resamples=est.n_resamples,
+            scheme=est.scheme,
+            rng_seed=est.rng_seed,
+        )
+        col_means = panel.mean(axis=0)
+        stats = [float(col_means[i] - col_means[j]) for i, j in pairs]
+        b = boot.shape[0]
+        p_raw = [
+            (int(np.sum(boot[:, p_idx] >= observed_abs[p_idx])) + 1) / (b + 1)
+            for p_idx in range(len(pairs))
+        ]
+        if multiple_testing is None:
+            multiple_testing = "romano_wolf"
+    else:
+        stats = []
+        p_raw = []
+        for i, j in pairs:
+            restriction = np.zeros((1, k))
+            restriction[0, i] = 1.0
+            restriction[0, j] = -1.0
+            stat, p = _wald_nw_cluster_means(panel, R=restriction)
+            stats.append(stat)
+            p_raw.append(p)
+        boot = None  # type: ignore[assignment]
+        observed_abs = None  # type: ignore[assignment]
+        if multiple_testing is None:
+            multiple_testing = "holm"
 
     if multiple_testing == "holm":
         p_adj = holm_step_down(p_raw)
     elif multiple_testing == "bonferroni":
         p_adj = bonferroni(p_raw)
+    elif multiple_testing == "romano_wolf":
+        if boot is None:
+            raise ValueError(
+                "slice_pairwise_test: multiple_testing='romano_wolf' "
+                "requires a bootstrap distribution; pair it with "
+                "estimator=BlockBootstrap(). Analytic estimators "
+                "(WaldNWCluster) do not produce one."
+            )
+        p_adj = romano_wolf(observed_abs.tolist(), boot)
     else:
         raise ValueError(
             f"slice_pairwise_test: multiple_testing="
             f"{multiple_testing!r} not recognized; expected 'holm' / "
-            f"'bonferroni' / None."
+            f"'bonferroni' / 'romano_wolf' / None."
         )
 
     return pl.DataFrame(
         {
-            "slice_a": [r[0] for r in rows],
-            "slice_b": [r[1] for r in rows],
-            "n_obs": [n_obs] * len(rows),
-            "stat": [r[2] for r in rows],
+            "slice_a": [labels[i] for i, _ in pairs],
+            "slice_b": [labels[j] for _, j in pairs],
+            "n_obs": [n_obs] * len(pairs),
+            "stat": stats,
             "p_raw": p_raw,
             "p_adj": list(p_adj),
         }
@@ -205,7 +246,14 @@ def slice_joint_test(
         NotImplementedError: Non-``WaldNWCluster`` estimator passed
             before the block-bootstrap batch lands.
     """
-    _resolve_estimator(estimator, "slice_joint_test")
+    est = _resolve_estimator(estimator, "slice_joint_test")
+    if isinstance(est, BlockBootstrap):
+        raise NotImplementedError(
+            "slice_joint_test: BlockBootstrap on the omnibus χ² is not "
+            "implemented; the joint Wald χ² has no canonical bootstrap "
+            "analogue here. Use WaldNWCluster (default) for the omnibus, "
+            "or slice_pairwise_test + BlockBootstrap for pairwise contrasts."
+        )
 
     _, panel, n_obs = _build_per_date_panel(metric, df, label, verb="slice_joint_test")
     k = panel.shape[1]

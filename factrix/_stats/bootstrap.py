@@ -270,3 +270,83 @@ def _block_bootstrap_diff_p(
         "rng_seed": seed_used,
     }
     return float(p), metadata
+
+
+def _joint_block_bootstrap_pairwise_distribution(
+    panel: np.ndarray,
+    *,
+    pairs: list[tuple[int, int]],
+    block_length: int | Literal["auto"] = "auto",
+    n_resamples: int = 999,
+    scheme: Scheme = "stationary",
+    rng_seed: int | None = None,
+) -> tuple[np.ndarray, np.ndarray, dict[str, float | int | str]]:
+    """Joint block-bootstrap |mean-diff| distribution for K(K-1)/2 pairs.
+
+    Shares one set of block indices across all pair diffs per draw so
+    the bootstrap distribution preserves cross-pair dependence — the
+    joint structure Romano-Wolf step-down (#176) relies on.
+
+    Args:
+        panel: ``(T, K)`` per-date metric matrix, rows = aligned dates,
+            columns = slices.
+        pairs: Slice index pairs to score; combinations order is the
+            caller's responsibility (matches output column order).
+        block_length, n_resamples, scheme, rng_seed: same semantics as
+            ``_block_bootstrap_diff_p``. ``"auto"`` runs Politis-White
+            on the panel's cross-slice mean as a 1-D proxy.
+
+    Returns:
+        ``(observed, boot, metadata)`` —
+
+        - ``observed``: ``(P,)`` array of ``|mean(panel[:,i]) -
+          mean(panel[:,j])|`` per pair.
+        - ``boot``: ``(B, P)`` matrix of ``|resampled mean diff|`` under
+          null-centred resampling (column means subtracted before
+          drawing, so each resample's column means are zero in
+          expectation).
+        - ``metadata``: resolved block length, n_resamples, scheme, and
+          actual seed used.
+    """
+    panel = np.asarray(panel, dtype=float)
+    if panel.ndim != 2:
+        raise ValueError(f"panel must be 2-D (T, K); got shape {panel.shape}.")
+    T, K = panel.shape
+    if T < 2 or K < 2:
+        raise ValueError(f"panel too small for joint bootstrap; got shape ({T}, {K}).")
+
+    if block_length == "auto":
+        L_float = _politis_white_block_length(panel.mean(axis=1), scheme=scheme)
+        L = max(1, round(L_float))
+    else:
+        L = int(block_length)
+        if L < 1:
+            raise ValueError(f"block_length must be >= 1; got {L!r}")
+
+    seed_used = secrets.randbits(32) if rng_seed is None else int(rng_seed)
+    rng = np.random.default_rng(seed_used)
+
+    col_means = panel.mean(axis=0)
+    centred = panel - col_means
+
+    if scheme == "stationary":
+        idx = _stationary_block_indices(T, n_resamples, float(L), rng)
+    else:
+        idx = _fixed_block_indices(T, n_resamples, L, rng)
+    resampled = centred[idx]
+    resampled_means = resampled.mean(axis=1)
+
+    P = len(pairs)
+    observed = np.empty(P)
+    boot = np.empty((n_resamples, P))
+    for p_idx, (i, j) in enumerate(pairs):
+        observed[p_idx] = abs(col_means[i] - col_means[j])
+        boot[:, p_idx] = np.abs(resampled_means[:, i] - resampled_means[:, j])
+
+    metadata: dict[str, float | int | str] = {
+        "block_length": L,
+        "n_resamples": int(n_resamples),
+        "scheme": scheme,
+        "rng_seed": seed_used,
+    }
+    return observed, boot, metadata
