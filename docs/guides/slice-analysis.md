@@ -1,12 +1,14 @@
-# Regime Analysis
+# Slice Analysis
 
-Regime analysis asks "is this factor stable across market environments?" — a different question from out-of-sample decay (overfitting) and from cross-asset robustness (specification). factrix splits regime analysis into two roles because **slicing by regime** and **testing significance across regimes** are different jobs that need different APIs.
+Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, or any other column you can attach to the panel. The statistical question is the same regardless of axis, so factrix exposes one axis-agnostic surface rather than one verb per slice dimension. Concretely: `by_slice` is the dispatcher, `slice_pairwise_test` / `slice_joint_test` are the inference verb pair.
+
+factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs. The legacy regime-specific surface (`by_regime`, `regime_ic`) was removed in v0.12.0 — see the CHANGELOG migration recipe.
 
 ## The two roles
 
 | Role | Verb | What it does | What it does not do |
 |---|---|---|---|
-| Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns `dict[label, MetricOutput]` | **No cross-slice statistical test** |
+| Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns [`SliceResult`](../api/by-slice.md) — a `Mapping[str, MetricOutput]` subclass with `.to_frame()` for long-form rendering | **No cross-slice statistical test** |
 | Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`) |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
@@ -26,7 +28,7 @@ A single dispatcher carrying a single built-in cross-slice test would silently o
 
 ## Constructing slice labels
 
-The label is just a column on `df`. Common constructions (for regime analysis, the label values are regime names):
+The label is just a column on `df`. The constructions below use regime labels as the running example; the same pattern works for any partition (universe id, sector code, ADV bucket index):
 
 ```python
 import polars as pl
@@ -50,7 +52,7 @@ ic_df = compute_ic(panel).join(vol_labels, on="date", how="inner")
 !!! warning "Lookahead bias when constructing labels"
     The `vix.quantile(0.7)` snippet above uses **full-sample** statistics
     to label every date — that leaks future information into every
-    per-regime IC. For decision-grade analysis, derive thresholds from
+    per-slice IC. For decision-grade analysis, derive thresholds from
     an expanding or rolling window so each date's label only depends on
     information available at that date. The full-sample form is fine
     only for descriptive ex-post analysis.
@@ -79,13 +81,18 @@ Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded — they co
 from factrix import by_slice, slice_pairwise_test
 from factrix.metrics import compute_ic, ic
 
+# compute_ic builds the per-date IC frame consumed by the ic metric;
+# see docs/api/metrics/ic.md for the schema.
 ic_df = compute_ic(panel, factor_col="value", return_col="forward_return")
 merged = ic_df.join(vol_labels, on="date", how="inner")
 
-# Dispatcher — raw per-regime IC summaries
+# Dispatcher — raw per-regime IC summaries (SliceResult is dict-shaped)
 per_regime = by_slice(ic, merged, label="regime")
 for label, out in per_regime.items():
     print(label, out.value, out.stat)
+
+# Long-form for plotting / leaderboards
+per_regime.to_frame()  # columns: slice, name, value, stat, p_value
 
 # Inference — pairwise Wald contrasts with Holm-adjusted p (analytic default)
 pairs = slice_pairwise_test(ic, merged, label="regime")

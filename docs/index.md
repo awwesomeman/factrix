@@ -11,7 +11,7 @@ A Polars-native **factor signal validator** for quantitative finance.
 | Install and run a smoke test | [Get Started](getting-started/index.md) |
 | Understand the three-axis design | [Concepts](getting-started/concepts.md) |
 | Screen a batch of factors with BHY | [Batch screening](guides/batch-screening.md) |
-| Slice any metric by market regime | [Regime analysis](guides/regime-analysis.md) |
+| Slice any metric by regime / universe / sector | [Slice analysis](guides/slice-analysis.md) |
 | Look up formulas and applicability | [Reference](reference/metric-applicability.md) |
 | Browse runnable notebooks | [Examples](examples/index.md) |
 | Read the internal architecture | [Architecture](development/architecture.md) |
