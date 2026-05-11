@@ -15,7 +15,7 @@ from factrix._errors import IncompatibleAxisError
 @pytest.mark.parametrize(
     ("scope", "signal", "expected"),
     [
-        # HansenHodrick + Layer-B Estimators (#153) restrict to
+        # HansenHodrick + slice-test Estimators (#153) restrict to
         # (INDIVIDUAL, CONTINUOUS); NW applies universally.
         (
             FactorScope.INDIVIDUAL,

@@ -1,4 +1,4 @@
-"""Tests for Layer-B Estimators (#153): WaldNWCluster / WaldTwoWayCluster / BlockBootstrap."""
+"""Tests for slice-test Estimators (#153): WaldNWCluster / WaldTwoWayCluster / BlockBootstrap."""
 
 from __future__ import annotations
 
@@ -138,12 +138,12 @@ class TestRegistryIntegration:
         } <= types_in_registry
 
     def test_existing_estimators_still_in_registry(self):
-        # Regression guard: NW/HH must remain after the Layer-B append.
+        # Regression guard: NW/HH must remain after the slice-test Estimator append.
         types_in_registry = {type(e).__name__ for e in _ESTIMATOR_REGISTRY}
         assert "NeweyWest" in types_in_registry
         assert "HansenHodrick" in types_in_registry
 
-    def test_list_estimators_surfaces_layer_b(self):
+    def test_list_estimators_surfaces_slice_test_estimators(self):
         from factrix import list_estimators
 
         names = list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
@@ -151,11 +151,11 @@ class TestRegistryIntegration:
         assert "WaldTwoWayCluster" in names
         assert "BlockBootstrap" in names
 
-    def test_list_estimators_excludes_layer_b_for_common(self):
+    def test_list_estimators_excludes_slice_test_estimators_for_common(self):
         from factrix import list_estimators
 
         names = list_estimators(FactorScope.COMMON, Signal.CONTINUOUS)
-        # NW applies universally; Layer-B + HH restricted to (INDIVIDUAL, CONTINUOUS).
+        # NW applies universally; slice-test Estimators + HH restricted to (INDIVIDUAL, CONTINUOUS).
         assert "NeweyWest" in names
         assert "WaldNWCluster" not in names
         assert "WaldTwoWayCluster" not in names
