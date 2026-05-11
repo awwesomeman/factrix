@@ -32,6 +32,23 @@ from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_out
 min_assets_per_group: int | None = None
 
 
+def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
+    """Return ``(date, value)`` per-date hit indicator series.
+
+    Casts ``value > 0`` to ``Float64`` per date. Caller is expected to
+    rename a non-default value column upstream; the slice-test
+    capability contract takes no kwargs. Consumed by
+    ``slice_pairwise_test`` / ``slice_joint_test`` (#176) via
+    ``factrix.metrics._metric_capabilities.resolve_per_date_series``.
+    """
+    return series.select(
+        [
+            pl.col("date"),
+            (pl.col("value") > 0).cast(pl.Float64).alias("value"),
+        ]
+    ).drop_nulls()
+
+
 def hit_rate(
     series: pl.DataFrame,
     value_col: str = "value",
