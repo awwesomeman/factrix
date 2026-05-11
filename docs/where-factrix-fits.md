@@ -1,10 +1,5 @@
 # Where factrix fits
 
-**Does this factor possess predictive edge?** factrix is the first
-Polars-native Python toolkit that picks the right statistical test
-for each factor type. Cross-sectional, event, common factor — each
-gets the tests that fit its data-generating process.
-
 This page expands the design philosophy, walks through the pipeline
 and internals, draws scope boundaries, compares against same-purpose
 peers, shows adjacent-tool integration, and discloses honest
