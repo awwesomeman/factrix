@@ -19,30 +19,32 @@ screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
 ```mermaid
 flowchart TD
-    User["User\n(scope / signal / metric)"]
-    AC["AnalysisConfig\n4 factory methods"]
-    REG["Registry\n_registry.py SSOT\n7 cells"]
-    MODE{"Mode\nN = panel.asset_id.n_unique()"}
-
-    P1["_ICContPanelProcedure\nindividual × continuous × IC"]
-    P2["_FMContPanelProcedure\nindividual × continuous × FM"]
-    P3["_CAARSparsePanelProcedure\nindividual × sparse"]
-    P4["_CommonContPanelProcedure\ncommon × continuous"]
-    P5["_CommonSparsePanelProcedure\ncommon × sparse"]
-    T1["_TSBetaContTimeseriesProcedure\ncommon × continuous · N=1"]
-    T2["_TSDummySparseTimeseriesProcedure\nsparse · N=1 (_SCOPE_COLLAPSED)"]
-
-    FP["FactorProfile\nprimary_p · verdict() · diagnose()"]
-    BHY["multi_factor.bhy()\nBHY FDR correction"]
+    User["User<br/>(scope / signal / metric)"]
+    AC["AnalysisConfig<br/>4 factory methods"]
+    REG["Registry<br/>_registry.py SSOT (7 cells)"]
+    MODE{"Mode<br/>N = panel.asset_id.n_unique()"}
+    PROC["FactorProcedure<br/>cell-dispatched"]
+    FP["FactorProfile<br/>primary_p · verdict() · diagnose()"]
+    BHY["multi_factor.bhy()<br/>BHY FDR correction"]
 
     User -->|"AnalysisConfig.factory(...)"| AC
     AC -->|"evaluate(panel, config)"| REG
     REG --> MODE
-    MODE -->|"N ≥ 2 → PANEL"| P1 & P2 & P3 & P4 & P5
-    MODE -->|"N = 1 → TIMESERIES"| T1 & T2
-    P1 & P2 & P3 & P4 & P5 & T1 & T2 --> FP
+    MODE -->|"N ≥ 2 → PANEL"| PROC
+    MODE -->|"N = 1 → TIMESERIES"| PROC
+    PROC --> FP
     FP -->|"batch"| BHY
 ```
+
+The single `FactorProcedure` node above stands in for the seven concrete
+procedures (`_ICContPanelProcedure`, `_FMContPanelProcedure`,
+`_CAARSparsePanelProcedure`, `_CommonContPanelProcedure`,
+`_CommonSparsePanelProcedure`, `_TSBetaContTimeseriesProcedure`,
+`_TSDummySparseTimeseriesProcedure`). The cell-keyed mapping from
+`(scope, signal, metric, mode)` to the concrete procedure lives in
+[Reference § Metric applicability — cell to evaluate-metric](../reference/metric-applicability.md#cell-to-evaluate-metric);
+the in-graph collapse here keeps the high-level dispatch path legible
+on mobile widths.
 
 ---
 
