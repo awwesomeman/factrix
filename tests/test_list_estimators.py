@@ -15,8 +15,19 @@ from factrix._errors import IncompatibleAxisError
 @pytest.mark.parametrize(
     ("scope", "signal", "expected"),
     [
-        # HansenHodrick applies only to (INDIVIDUAL, CONTINUOUS).
-        (FactorScope.INDIVIDUAL, Signal.CONTINUOUS, ["HansenHodrick", "NeweyWest"]),
+        # HansenHodrick + Layer-B Estimators (#153) restrict to
+        # (INDIVIDUAL, CONTINUOUS); NW applies universally.
+        (
+            FactorScope.INDIVIDUAL,
+            Signal.CONTINUOUS,
+            [
+                "BlockBootstrap",
+                "HansenHodrick",
+                "NeweyWest",
+                "WaldDoubleCluster",
+                "WaldNWCluster",
+            ],
+        ),
         (FactorScope.INDIVIDUAL, Signal.SPARSE, ["NeweyWest"]),
         (FactorScope.COMMON, Signal.CONTINUOUS, ["NeweyWest"]),
         (FactorScope.COMMON, Signal.SPARSE, ["NeweyWest"]),
@@ -40,8 +51,11 @@ def test_json_format_includes_metadata_keys() -> None:
 def test_with_import_returns_two_column_lines() -> None:
     rows = list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, with_import=True)
     assert rows == [
-        "HansenHodrick → factrix.stats.HansenHodrick",
-        "NeweyWest     → factrix.stats.NeweyWest",
+        "BlockBootstrap    → factrix.stats.BlockBootstrap",
+        "HansenHodrick     → factrix.stats.HansenHodrick",
+        "NeweyWest         → factrix.stats.NeweyWest",
+        "WaldDoubleCluster → factrix.stats.WaldDoubleCluster",
+        "WaldNWCluster     → factrix.stats.WaldNWCluster",
     ]
 
 
