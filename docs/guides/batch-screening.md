@@ -1,5 +1,10 @@
 # Batch Screening with BHY
 
+!!! abstract "Answers"
+    What is BHY, when to use it, and how `multi_factor.bhy` partitions the candidate set across statistical families.
+    For the API signature, see [`multi_factor`](../api/multi-factor.md).
+    For the underlying theorem and assumptions, see [Statistical methods](../reference/statistical-methods.md).
+
 BHY controls FDR **within a statistical family**: evaluate multiple candidate factors under the same procedure, then apply step-up correction on the resulting p-values.
 
 !!! warning "Do not mix families"

@@ -27,6 +27,14 @@ shape does not match the cell. `N == 1` is the one exception:
 (`profile.mode == "TIMESERIES"`) so single-asset macro factors still
 flow through.
 
+!!! tip "`profile.mode` — PANEL vs TIMESERIES at a glance"
+    | `profile.mode` | When | Inference |
+    |---|---|---|
+    | `"PANEL"` | `N ≥ 2` cross-sectional / event cells | per-date statistic → time-series mean with NW HAC |
+    | `"TIMESERIES"` | `Common × Continuous` with `N == 1` | single-series OLS with plain SE; HAC only on stage-2 aggregation |
+
+    For the full conventions table (column names, alignment, stat keys), see [TIMESERIES-mode conventions](../reference/ts-mode-conventions.md). For when each Mode is dispatched and the sample-guard contract, see [PANEL vs TIMESERIES](../guides/panel-timeseries.md).
+
 For runnable recipes see
 [Examples](../examples/index.md).
 

@@ -127,6 +127,9 @@ Practical rule of thumb:
 ## 2. Multiple-testing under dependence
 [](){ #bhy }
 
+!!! tip "Canonical reference"
+    For when to use BHY, family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This section is the underlying theorem and assumptions.
+
 Factor pools are dependent by construction: 200 momentum variants on
 the same return panel correlate, and a Bonferroni step that assumes
 independence over-corrects. factrix's `multi_factor.bhy` wrapper

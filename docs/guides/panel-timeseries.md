@@ -1,5 +1,10 @@
 # PANEL vs TIMESERIES
 
+!!! abstract "Answers"
+    What `Mode.PANEL` vs `Mode.TIMESERIES` mean, when each is dispatched, and the sample-guard contract for each.
+    For the conventions table (column names, alignment), see [TIMESERIES-mode conventions](../reference/ts-mode-conventions.md).
+    For the `mode=` parameter on `evaluate()`, see [`evaluate`](../api/evaluate.md).
+
 ## Sample guards
 
 Time-series length `n_periods` and asset count `n_assets` are gated **independently** — factrix does not use a combined `n_periods × n_assets` observation count, because per-date statistic variance is driven primarily by `n_assets`, while time-series aggregation power is driven by `n_periods`.

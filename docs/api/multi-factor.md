@@ -1,5 +1,8 @@
 # multi_factor
 
+!!! tip "Canonical reference"
+    For when to use BHY, family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This page is the API signature.
+
 Collection-level FDR control across factor profiles. Use after
 `evaluate` has produced one profile per candidate factor — `bhy`
 adjusts the per-factor $p$-values for multiple testing under arbitrary

@@ -1,5 +1,8 @@
 # TIMESERIES-mode conventions
 
+!!! tip "Canonical reference"
+    For the PANEL vs TIMESERIES Mode dispatch concept and sample-guard contract, see [PANEL vs TIMESERIES](../guides/panel-timeseries.md). This page is the TIMESERIES-specific conventions table.
+
 `Common × Continuous` evaluations on a single time series (`ts_beta`,
 `ts_quantile`, `ts_asymmetry` and their variants) inherit four shared
 conventions that are not visible from the per-metric API page. Each
