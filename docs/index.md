@@ -46,7 +46,7 @@ The seven shipped verbs, coloured by category — **compute** (blue, produce pri
 
 | If you want | Go to |
 |---|---|
-| **Install and run a smoke test** | [Get Started](getting-started/index.md) |
+| **Install and run a smoke test** | [Installation](getting-started/install.md) · [Quickstart](getting-started/quickstart.md) |
 | **Understand the three-axis design** (scope / signal / metric) | [Concepts](getting-started/concepts.md) |
 | **Compare factrix against alphalens / qlib / peers** | [Where factrix fits](where-factrix-fits.md) |
 | **Screen a batch of factors with BHY** | [Batch screening](guides/batch-screening.md) |

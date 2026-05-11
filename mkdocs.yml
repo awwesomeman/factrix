@@ -131,7 +131,6 @@ exclude_docs: |
 # orphan-page INFO without breaking the embed.
 not_in_nav: |
   **/_generated_*.md
-  getting-started/index.md
 
 nav:
   - Get Started:
