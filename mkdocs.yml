@@ -15,6 +15,7 @@ theme:
     - navigation.sections
     - navigation.top
     - navigation.indexes
+    - navigation.path
     - search.suggest
     - search.highlight
     - content.code.copy
@@ -130,49 +131,53 @@ exclude_docs: |
 # orphan-page INFO without breaking the embed.
 not_in_nav: |
   **/_generated_*.md
+  getting-started/index.md
 
 nav:
-  - Home: index.md
   - Get Started:
-      - getting-started/index.md
+      - index.md
+      - Where factrix fits: where-factrix-fits.md
       - Installation: getting-started/install.md
       - Quickstart: getting-started/quickstart.md
-      - Concepts: getting-started/concepts.md
-      - Where factrix fits: where-factrix-fits.md
-  - Guides:
-      - guides/index.md
-      - PANEL vs TIMESERIES: guides/panel-timeseries.md
-      - Batch screening (BHY): guides/batch-screening.md
-      - Slice analysis: guides/slice-analysis.md
-      - Choosing a metric: guides/choosing-metric.md
-      - Standalone metrics: guides/standalone-metrics.md
-  - Reference:
-      - Glossary: reference/glossary.md
-      - Metrics:
-          - Applicability: reference/metric-applicability.md
-          - Pipelines: reference/metric-pipelines.md
-          - Stat keys: reference/stat-keys-by-metric.md
-      - Statistical methods: reference/statistical-methods.md
-      - TIMESERIES-mode conventions: reference/ts-mode-conventions.md
-      - Warning / info / stat codes: reference/warning-codes.md
-      - Bibliography: reference/bibliography.md
-  - API:
+  - User Guide:
+      - Concepts:
+          - getting-started/concepts.md
+          - Architecture: development/architecture.md
+          - Statistical methods: reference/statistical-methods.md
+          - TIMESERIES-mode conventions: reference/ts-mode-conventions.md
+      - How-to:
+          - guides/index.md
+          - PANEL vs TIMESERIES: guides/panel-timeseries.md
+          - Batch screening (BHY): guides/batch-screening.md
+          - Slice analysis: guides/slice-analysis.md
+          - Choosing a metric: guides/choosing-metric.md
+          - Standalone metrics: guides/standalone-metrics.md
+      - Examples:
+          - examples/index.md
+          - Multi-factor screening: examples/multi_factor_screening.ipynb
+          - Stock factor evaluation: examples/stock_factor_evaluation.ipynb
+  - API Reference:
       - api/index.md
-      - AnalysisConfig: api/analysis-config.md
-      - evaluate: api/evaluate.md
-      - run_metrics: api/run-metrics.md
-      - Multi-horizon (migration): api/multi-horizon.md
-      - by_slice: api/by-slice.md
-      - slice_pairwise_test / slice_joint_test: api/slice-test.md
-      - list_metrics: api/list-metrics.md
-      - FactorProfile: api/factor-profile.md
-      - Identity / context: api/identity.md
-      - MetricOutput: api/metric-output.md
-      - multi_factor: api/multi-factor.md
-      - stats: api/stats.md
-      - datasets: api/datasets.md
-      - preprocess: api/preprocess.md
-      - Errors: api/errors.md
+      - Entry points:
+          - AnalysisConfig: api/analysis-config.md
+          - evaluate: api/evaluate.md
+          - run_metrics: api/run-metrics.md
+          - by_slice: api/by-slice.md
+          - slice_pairwise_test / slice_joint_test: api/slice-test.md
+          - multi_factor: api/multi-factor.md
+          - list_metrics: api/list-metrics.md
+      - Results:
+          - FactorProfile: api/factor-profile.md
+          - MetricOutput: api/metric-output.md
+          - Identity / context: api/identity.md
+      - Tables:
+          - Glossary: reference/glossary.md
+          - Metrics applicability: reference/metric-applicability.md
+          - Metrics pipelines: reference/metric-pipelines.md
+          - Stat keys: reference/stat-keys-by-metric.md
+          - Warning / info / stat codes: reference/warning-codes.md
+          - Errors: api/errors.md
+          - Bibliography: reference/bibliography.md
       - Metrics:
           - api/metrics/index.md
           - Individual continuous:
@@ -202,12 +207,12 @@ nav:
               - hit_rate: api/metrics/hit_rate.md
               - trend: api/metrics/trend.md
               - oos: api/metrics/oos.md
-  - Examples:
-      - examples/index.md
-      - Multi-factor screening: examples/multi_factor_screening.ipynb
-      - Stock factor evaluation: examples/stock_factor_evaluation.ipynb
+      - Other modules:
+          - stats: api/stats.md
+          - datasets: api/datasets.md
+          - preprocess: api/preprocess.md
+          - Multi-horizon (migration): api/multi-horizon.md
   - Development:
-      - Architecture: development/architecture.md
       - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
-      - Changelog: development/changelog.md
+  - Release Notes: development/changelog.md
