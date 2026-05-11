@@ -155,6 +155,7 @@ nav:
       - run_metrics: api/run-metrics.md
       - Multi-horizon (migration): api/multi-horizon.md
       - by_slice: api/by-slice.md
+      - slice_pairwise_test / slice_joint_test: api/slice-test.md
       - by_regime: api/by-regime.md
       - list_metrics: api/list-metrics.md
       - FactorProfile: api/factor-profile.md

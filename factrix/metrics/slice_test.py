@@ -21,6 +21,8 @@ Bartlett kernel + 1-way cluster on the slice grouping), which uses
 the joint per-date K-vector panel — cross-slice covariance enters
 through the joint HAC, so paired-diff degeneracies do not arise on
 this path.
+
+Matrix-row: slice_pairwise_test, slice_joint_test | (*, *, *, *) | inference verb | per-pair Wald χ² + Holm/RW/Bonferroni / joint Wald χ² | _build_per_date_panel, _resolve_estimator, _joint_block_bootstrap_pairwise_distribution
 """
 
 from __future__ import annotations
@@ -119,6 +121,15 @@ def slice_pairwise_test(
             with an analytic estimator raises ``ValueError`` (RW
             requires a bootstrap distribution).
 
+    Note:
+        BlockBootstrap reproducibility — pass an explicit ``rng_seed``
+        on the :class:`BlockBootstrap` instance to fix the bootstrap
+        draw. Bootstrap metadata (resolved block length, scheme, seed)
+        is not attached to the returned DataFrame in this release;
+        callers wanting it can either reconstruct from the estimator
+        config or use :func:`factrix._stats.bootstrap._block_bootstrap_diff_p`
+        directly per pair.
+
     Returns:
         Long-form ``pl.DataFrame`` with columns
         ``(slice_a, slice_b, n_obs, stat, p_raw, p_adj)``; one row per
@@ -145,6 +156,8 @@ def slice_pairwise_test(
     k = panel.shape[1]
     pairs = list(combinations(range(k), 2))
 
+    boot: np.ndarray | None
+    observed_abs: np.ndarray | None
     if isinstance(est, BlockBootstrap):
         observed_abs, boot, _meta = _joint_block_bootstrap_pairwise_distribution(
             panel,
@@ -173,8 +186,8 @@ def slice_pairwise_test(
             stat, p = _wald_nw_cluster_means(panel, R=restriction)
             stats.append(stat)
             p_raw.append(p)
-        boot = None  # type: ignore[assignment]
-        observed_abs = None  # type: ignore[assignment]
+        boot = None
+        observed_abs = None
         if multiple_testing is None:
             multiple_testing = "holm"
 
@@ -183,7 +196,7 @@ def slice_pairwise_test(
     elif multiple_testing == "bonferroni":
         p_adj = bonferroni(p_raw)
     elif multiple_testing == "romano_wolf":
-        if boot is None:
+        if boot is None or observed_abs is None:
             raise ValueError(
                 "slice_pairwise_test: multiple_testing='romano_wolf' "
                 "requires a bootstrap distribution; pair it with "
