@@ -57,7 +57,6 @@ jobs:
             --cache
             --max-cache-age 1d
             --exclude-loopback
-            --base ./site
             './site/**/*.html'
             './README.md'
           fail: true
@@ -101,7 +100,6 @@ jobs:
             --cache
             --max-cache-age 1d
             --exclude-loopback
-            --base ./site
             './site/**/*.html'
             './README.md'
           output: ./lychee-report.md
