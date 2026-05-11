@@ -72,7 +72,9 @@ _STAGE1_HELPERS: frozenset[str] = frozenset(
 # with ``(*, *, *, *)`` so the primitive graph is complete, but excluded
 # from per-cell ``list_metrics`` output and the applicability table
 # (which catalogue per-cell metrics, not infra).
-_INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime", "by_slice"})
+_INFRASTRUCTURE: frozenset[str] = frozenset(
+    {"by_regime", "by_slice", "slice_joint_test", "slice_pairwise_test"}
+)
 """Cross-cutting dispatchers published from ``factrix.metrics`` that
 are not per-(scope, signal) cell metrics."""
 

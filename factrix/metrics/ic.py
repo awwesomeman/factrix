@@ -359,11 +359,32 @@ def ic_ir(
     )
 
 
+_REGIME_IC_DEPRECATION_MSG = (
+    "factrix.metrics.regime_ic is deprecated since v0.12.0; the same "
+    "analysis runs through slice_pairwise_test (#176) — join your "
+    "regime labels onto the IC frame upstream "
+    "(ic_df.join(regime_labels, on='date')) then call "
+    "slice_pairwise_test(ic, merged, label='regime'). The new verb "
+    "exposes per-pair Wald χ² with Holm/Romano-Wolf adjusted p "
+    "instead of regime_ic's BHY-on-min-|t| summary; downstream code "
+    "depending on regime_ic's `per_regime` metadata dict should be "
+    "updated before this function is removed in a future minor."
+)
+
+
 def regime_ic(
     ic_df: pl.DataFrame,
     regime_labels: pl.DataFrame | None = None,
 ) -> MetricOutput:
-    r"""IC conditioned on regime labels.
+    r"""IC conditioned on regime labels (deprecated since v0.12.0).
+
+    .. deprecated:: 0.12.0
+        Use :func:`factrix.metrics.slice_pairwise_test` with
+        ``ic_df.join(regime_labels, on='date')`` and
+        ``label='regime'`` instead. The new verb returns a
+        long-form pairwise contrast DataFrame with Holm /
+        Romano-Wolf adjusted p, replacing this function's
+        BHY-on-min-|t| summary shape.
 
     Answers "is the factor stable across market environments?"
     unlike OOS decay which tests overfitting.
@@ -403,6 +424,8 @@ def regime_ic(
         [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]: FDR control
         under arbitrary dependence; the BHY adjustment used here.
     """
+    _warnings.warn(_REGIME_IC_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+
     if len(ic_df) < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "regime_ic",

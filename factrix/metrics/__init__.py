@@ -81,6 +81,7 @@ from factrix.metrics.quantile import (
     quantile_spread_vw,
 )
 from factrix.metrics.regime import by_regime
+from factrix.metrics.slice_test import slice_joint_test, slice_pairwise_test
 from factrix.metrics.spanning import greedy_forward_selection, spanning_alpha
 from factrix.metrics.tradability import (
     breakeven_cost,
@@ -140,6 +141,8 @@ __all__ = [
     "quantile_spread_vw",
     "regime_ic",
     "signal_density",
+    "slice_joint_test",
+    "slice_pairwise_test",
     "spanning_alpha",
     "top_concentration",
     "ts_asymmetry",

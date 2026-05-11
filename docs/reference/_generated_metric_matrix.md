@@ -14,6 +14,7 @@
 | [`metrics.oos`][factrix.metrics.oos] | `(*, CONTINUOUS, *, TIMESERIES)` | ts-only | no formal H₀ |
 | [`metrics.quantile`][factrix.metrics.quantile] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | cs-first | cross-asset t |
 | [`metrics.regime`][factrix.metrics.regime] | `(*, *, *, *)` | dispatcher | none (no cross-regime test) |
+| [`metrics.slice_test`][factrix.metrics.slice_test] | `(*, *, *, *)` | inference verb | per-pair Wald χ² + Holm/RW/Bonferroni / joint Wald χ² |
 | [`metrics.spanning`][factrix.metrics.spanning] | `factor-return-series consumer (post-PANEL pipeline)` | ts-only | NW HAC / OLS t |
 | [`metrics.tradability`][factrix.metrics.tradability] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | cs-first | no formal H₀ |
 | [`metrics.tradability`][factrix.metrics.tradability] | `(INDIVIDUAL, CONTINUOUS, *, PANEL)` | ts-only (rank autocorrelation across consecutive dates) | no formal H₀ |

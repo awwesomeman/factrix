@@ -14,6 +14,15 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+### Added
+
+- **`factrix.metrics.slice_pairwise_test` / `slice_joint_test`** (#176). Cross-slice statistical-test verb pair. `slice_pairwise_test` reports K(K−1)/2 pairwise Wald contrasts with Holm / Romano-Wolf / Bonferroni adjusted p; `slice_joint_test` reports the single omnibus Wald χ² that all slice means are equal. Default estimator `WaldNWCluster` (joint NW HAC over the per-date K-vector panel) covers analytic inference; `BlockBootstrap` triggers the joint bootstrap path with Romano-Wolf as the default multiple-testing adjustment. Both verbs require the metric's module to declare a `per_date_series` capability — `ic` / `fama_macbeth` / `hit_rate` ship with it; metrics without it raise `TypeError`. See `docs/api/slice-test.md`.
+- **`factrix.metrics._metric_capabilities`** (#176). Resolver helpers (`resolve_per_date_series`, `resolve_min_assets_per_group`) plus a `PerDateSeries` Protocol and a `per_date_series_rename` factory. Centralises capability lookup so inference verbs reuse one resolver instead of grovelling `sys.modules` directly.
+
+### Deprecated
+
+- **`factrix.metrics.regime_ic`** (#176). Use `slice_pairwise_test(ic, ic_df.join(regime_labels, on="date"), label="regime")` for the same analysis. The new verb's pairwise contrast frame (Wald χ² + Holm / Romano-Wolf adjusted p) replaces `regime_ic`'s BHY-on-min-|t| summary shape; downstream code consuming `per_regime` metadata should migrate before the function is removed in a future minor. Output shape frozen for one more minor as the migration window.
+
 ### Removed
 
 - **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** (breaking, #186). Deprecated in v0.11.0; the in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (the #160 anti-shopping defense) and ran a second BHY path inside the metric in parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both names are no longer importable from `factrix.metrics`; direct references raise `ImportError`. Code reaching them via `list_metrics` / `run_metrics` was never wired (already excluded via `_AUTO_DISCOVER_EXCLUDED` in v0.11). The `_HorizonICEntry` TypedDict and the `_metric_index._DEPRECATED` set are removed alongside the functions. Migration recipes (descriptive `run_metrics` per horizon + `pl.concat` of `bundle.to_frame()`; inferential `evaluate` per horizon + `bhy(expand_over=["forward_periods"])`) remain in `docs/api/multi-horizon.md` and apply unchanged from the v0.11.0 deprecation window.
