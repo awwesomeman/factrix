@@ -603,7 +603,7 @@ factrix/
 ├── _profile.py              # FactorProfile dataclass + verdict / diagnose
 ├── _evaluate.py             # _derive_mode + _evaluate dispatch wrapper
 ├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
-├── _family.py               # _resolve_family + FamilyEntry (shared invariants)
+├── _family.py               # _resolve_family + _FamilyEntry (shared invariants)
 ├── _multi_factor.py         # bhy on the resolution layer
 ├── multi_factor.py          # public namespace (re-exports bhy)
 ├── _stats/

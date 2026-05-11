@@ -4,7 +4,7 @@ Every closed-form family verb (``bhy`` / ``bhy_hierarchical`` /
 ``partial_conjunction`` / ``bonferroni`` / ``holm``) and the
 resampling-based ``romano_wolf`` runs through ``_resolve_family`` to
 turn a list of :class:`~factrix._profile.FactorProfile` into flat
-``FamilyEntry`` records ready for the procedure-specific step-up math.
+``_FamilyEntry`` records ready for the procedure-specific step-up math.
 
 The four invariants enforced here are the family-layer extension of the
 identity / context anti-shopping defense from #160: ``identity``
@@ -42,7 +42,7 @@ _ESTIMATOR_DOCS_ANCHOR = "estimator"
 
 
 @dataclass(frozen=True, slots=True)
-class FamilyEntry:
+class _FamilyEntry:
     """Flat record fed to family-verb procedures after invariant checks.
 
     Attributes:
@@ -70,8 +70,8 @@ def _resolve_family(
     verb: str,
     expand_over: Sequence[str] | None = None,
     estimator: Estimator | None = None,
-) -> list[FamilyEntry]:
-    """Validate four invariants and return flat ``FamilyEntry`` records.
+) -> list[_FamilyEntry]:
+    """Validate four invariants and return flat ``_FamilyEntry`` records.
 
     Steps (raise on failure, in order):
 
@@ -99,7 +99,7 @@ def _resolve_family(
             back to ``primary_p``.
 
     Returns:
-        One ``FamilyEntry`` per input profile, in input order.
+        One ``_FamilyEntry`` per input profile, in input order.
 
     Raises:
         UserInputError: On any of the named-set / availability /
@@ -116,7 +116,7 @@ def _resolve_family(
                 docs_path=f"api/{verb}#expand_over",
             )
 
-    entries: list[FamilyEntry] = []
+    entries: list[_FamilyEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
 
     for idx, profile in enumerate(profiles):
@@ -142,7 +142,7 @@ def _resolve_family(
         seen[partition_key] = idx
 
         entries.append(
-            FamilyEntry(
+            _FamilyEntry(
                 identity=profile.identity,
                 expand_over_values=values,
                 p_value=_resolve_p_value(profile, estimator=estimator, verb=verb),

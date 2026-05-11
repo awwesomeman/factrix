@@ -13,7 +13,7 @@ from factrix._types import EPSILON
 
 
 @dataclass
-class OLSResult:
+class _OLSResult:
     """Result of a single OLS regression."""
 
     alpha: float
@@ -25,15 +25,15 @@ class OLSResult:
 def ols_alpha(
     candidate: np.ndarray,
     base_matrix: np.ndarray,
-) -> OLSResult:
+) -> _OLSResult:
     """OLS regression: candidate = alpha + beta @ base + epsilon.
 
     Returns:
-        OLSResult with alpha, t_stat, betas, and R².
+        _OLSResult with alpha, t_stat, betas, and R².
     """
     n_obs = len(candidate)
     if n_obs < 3:
-        return OLSResult(alpha=0.0, alpha_t=0.0)
+        return _OLSResult(alpha=0.0, alpha_t=0.0)
 
     ones = np.ones((n_obs, 1))
     X = np.hstack([ones, base_matrix]) if base_matrix.shape[1] > 0 else ones
@@ -41,7 +41,7 @@ def ols_alpha(
     try:
         beta, _, _, _ = np.linalg.lstsq(X, candidate, rcond=None)
     except np.linalg.LinAlgError:
-        return OLSResult(alpha=0.0, alpha_t=0.0)
+        return _OLSResult(alpha=0.0, alpha_t=0.0)
 
     alpha = float(beta[0])
     betas = [float(b) for b in beta[1:]]
@@ -55,22 +55,22 @@ def ols_alpha(
 
     dof = n_obs - X.shape[1]
     if dof <= 0:
-        return OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
 
     sigma2 = ss_res / dof
     if sigma2 < EPSILON:
-        return OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
 
     try:
         xtx_inv = np.linalg.inv(X.T @ X)
         se_alpha = float(np.sqrt(sigma2 * xtx_inv[0, 0]))
     except np.linalg.LinAlgError:
-        return OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
 
     if se_alpha < EPSILON:
-        return OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
 
-    return OLSResult(
+    return _OLSResult(
         alpha=alpha,
         alpha_t=alpha / se_alpha,
         betas=betas,
