@@ -188,6 +188,11 @@ class TestRegimeIC:
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
+    def test_emits_deprecation_warning(self):
+        ic_df = self._make_ic_series(30)
+        with pytest.warns(DeprecationWarning, match="slice_pairwise_test"):
+            regime_ic(ic_df)
+
     def test_time_bisection_fallback(self):
         ic_df = self._make_ic_series(30)
         result = regime_ic(ic_df)
