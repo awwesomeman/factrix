@@ -2,7 +2,8 @@
 
 Axis-agnostic research dispatcher. Slices any metric's date-keyed
 input by a column already present in the DataFrame and runs the metric
-per slice. Returns `dict[label_value, MetricOutput]`.
+per slice. Returns a [`SliceResult`](#sliceresult) — a
+`Mapping[str, MetricOutput]` with a `.to_frame()` long-form renderer.
 
 The axis name does not bake into the API — market, sector, regime,
 market-cap tier, ADV bucket all share the same dispatcher.
@@ -18,7 +19,10 @@ ic_df = compute_ic(panel)
 ic_df = ic_df.join(regime_labels, on="date")  # adds 'regime' column
 
 per_regime = by_slice(ic, ic_df, label="regime")
-# {"bull": MetricOutput(name="ic", ...), "bear": MetricOutput(name="ic", ...)}
+# SliceResult({"bull": MetricOutput(name="ic", ...), "bear": MetricOutput(name="ic", ...)})
+
+per_regime["bull"].value          # Mapping access — unchanged
+per_regime.to_frame()             # long-form pl.DataFrame for plotting
 ```
 
 The first argument is the **metric callable** (e.g. `ic`, `caar`,
@@ -158,9 +162,97 @@ expanded = pl.concat([
 by_slice(metric, expanded, label="group")
 ```
 
+## SliceResult
+
+`by_slice` returns a `SliceResult`, a `Mapping[str, MetricOutput]`
+subclass — every `dict`-shaped consumer (`for k, v in result.items()`,
+`result["bull"]`, `len(result)`) keeps working unchanged. The added
+value is `.to_frame()`, which flattens per-slice `MetricOutput` rows
+into a fixed-schema long-form `pl.DataFrame` for plotting,
+leaderboards, and Notebook rendering.
+
+```python
+result = by_slice(ic, ic_df, label="regime")
+result.to_frame().sort("slice")           # plot-ready, lexicographic order
+# shape: (2, 5)
+# ┌────────┬──────┬───────┬───────┬──────────┐
+# │ slice  │ name │ value │ stat  │ p_value  │
+# │ ---    │ ---  │ ---   │ ---   │ ---      │
+# │ str    │ str  │ f64   │ f64   │ f64      │
+# ╞════════╪══════╪═══════╪═══════╪══════════╡
+# │ bear   │ ic   │ -0.02 │ -0.41 │ 0.683    │
+# │ bull   │ ic   │ 0.07  │ 2.31  │ 0.024    │
+# └────────┴──────┴───────┴───────┴──────────┘
+
+# leaderboard: rank slices by t-stat magnitude
+result.to_frame().sort(pl.col("stat").abs(), descending=True)
+```
+
+!!! warning "p_value is **per-slice**, not cross-slice-adjusted"
+
+    Each row's `p_value` tests that slice alone against its own null
+    (e.g. `ic` mean = 0). Filtering `df.filter(pl.col("p_value") < 0.05)`
+    across K parallel slices inflates the family-wise error rate —
+    under H0, K=10 sectors yields ≈ 0.4 expected "significant" slices
+    by pure chance. The container is for **exploration**; for
+    inference claims with FWER / FDR control, use
+    [`slice_pairwise_test`](slice-test.md#factrix.slicing.inference.slice_pairwise_test)
+    (Holm / Romano-Wolf / Bonferroni) or
+    [`slice_joint_test`](slice-test.md#factrix.slicing.inference.slice_joint_test)
+    (omnibus χ²).
+
+### Schema
+
+`to_frame()` always returns the same five columns in the same order:
+
+| Column      | Source                     | `None` when                                  |
+|-------------|----------------------------|----------------------------------------------|
+| `slice`     | mapping key (rename via `slice_col=`) | never                              |
+| `name`      | `MetricOutput.name`        | never                                        |
+| `value`     | `MetricOutput.value`       | never                                        |
+| `stat`      | `MetricOutput.stat`        | descriptive metric / short-circuit failure   |
+| `p_value`   | `metadata["p_value"]`      | descriptive metric / short-circuit failure   |
+
+`stat` and `p_value` semantics follow the underlying metric (`stat` may
+be a *t*, *z*, *F*, or *χ²* — see `metadata["stat_type"]`; `p_value`
+may be one- or two-sided per the metric's null hypothesis). When
+concatenating frames from multiple metrics
+(`pl.concat([by_slice(ic, ...).to_frame(), by_slice(hit_rate, ...).to_frame()])`),
+the `stat` column mixes statistic types and is not directly comparable
+across rows of different `name`.
+
+Row order matches iteration order of the result, which matches the
+upstream `polars.DataFrame.partition_by` order (insertion order of
+distinct values, **not** lexicographic). For plotting and
+leaderboards, sort explicitly downstream (`.sort("slice")` for
+deterministic axis order, `.sort("value")` / `.sort("stat")` for
+ranking). The example block above shows the plot-ready idiom.
+
+### Why a fixed schema instead of `cols=...`?
+
+Quant exploration overwhelmingly wants the same five columns — slice,
+metric name, effect size, test statistic, p-value. A configurable
+`cols=` parameter would have to choose between (a) a fixed lookup set
+that excludes p-value (which lives in `metadata`) or (b) per-slice
+metadata key discovery, whose candidate set drifts across metrics and
+even across success vs. short-circuit paths within one metric. Fixed
+schema avoids both failure modes; for metric-specific metadata
+(`tie_ratio`, `shanken_correction`, ...), build the frame directly:
+
+```python
+pl.DataFrame(
+    [{"slice": k, **m.metadata} for k, m in result.items()]
+)
+```
+
 ## API reference
 
 ::: factrix.slicing.dispatcher
     options:
       members:
         - by_slice
+
+::: factrix.slicing.result
+    options:
+      members:
+        - SliceResult
