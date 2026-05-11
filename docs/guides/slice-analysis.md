@@ -1,6 +1,8 @@
-# Regime Analysis
+# Slice Analysis
 
-Regime analysis asks "is this factor stable across market environments?" — a different question from out-of-sample decay (overfitting) and from cross-asset robustness (specification). factrix splits regime analysis into two roles because **slicing by regime** and **testing significance across regimes** are different jobs that need different APIs.
+Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, or any other column you can attach to the panel. The statistical question is the same regardless of axis, so factrix exposes one axis-agnostic surface rather than one verb per slice dimension.
+
+factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs.
 
 ## The two roles
 
@@ -26,7 +28,7 @@ A single dispatcher carrying a single built-in cross-slice test would silently o
 
 ## Constructing slice labels
 
-The label is just a column on `df`. Common constructions (for regime analysis, the label values are regime names):
+The label is just a column on `df`. The constructions below use regime labels as the running example; the same pattern works for any partition (universe id, sector code, ADV bucket index):
 
 ```python
 import polars as pl
@@ -50,7 +52,7 @@ ic_df = compute_ic(panel).join(vol_labels, on="date", how="inner")
 !!! warning "Lookahead bias when constructing labels"
     The `vix.quantile(0.7)` snippet above uses **full-sample** statistics
     to label every date — that leaks future information into every
-    per-regime IC. For decision-grade analysis, derive thresholds from
+    per-slice IC. For decision-grade analysis, derive thresholds from
     an expanding or rolling window so each date's label only depends on
     information available at that date. The full-sample form is fine
     only for descriptive ex-post analysis.

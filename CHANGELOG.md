@@ -127,6 +127,10 @@ While the version is below `1.0.0`, the public API should be considered unstable
   survivors = fx.multi_factor.bhy(profiles, expand_over=["forward_periods"])
   ```
 
+### Changed
+
+- **Regime analysis guide renamed to slice analysis** (#230). `docs/guides/regime-analysis.md` → `docs/guides/slice-analysis.md`, with intro reframed so regime / universe / sector / ADV-bucket are presented as equivalent applications of the same axis-agnostic surface (`by_slice` + `slice_pairwise_test` / `slice_joint_test`). The old URL is intentionally not redirected — external bookmarks to `guides/regime-analysis/` return 404. Inbound references in `docs/index.md`, `docs/api/metrics/ic.md`, `docs/api/list-metrics.md`, and `docs/api/run-metrics.md` updated to the new path and to drop stale `regime_ic` mentions left behind by #217.
+
 ## v0.11.0 (2026-05-11)
 
 ### Added

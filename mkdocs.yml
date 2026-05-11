@@ -136,7 +136,7 @@ nav:
       - guides/index.md
       - PANEL vs TIMESERIES: guides/panel-timeseries.md
       - Batch screening (BHY): guides/batch-screening.md
-      - Regime analysis: guides/regime-analysis.md
+      - Slice analysis: guides/slice-analysis.md
       - Choosing a metric: guides/choosing-metric.md
       - Standalone metrics: guides/standalone-metrics.md
   - Reference:

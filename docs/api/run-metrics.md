@@ -53,8 +53,8 @@ cfg.signal)` exposes for the cell, after three filters:
    `run_metrics` does not thread (per-row reason; surfaced on
    `bundle.skipped`).
 
-In v1 the IC family (`ic`, `ic_newey_west`, `ic_ir`, `regime_ic`)
-shares a single `compute_ic(panel)` per call. Other stage-1 consumers
+In v1 the IC family (`ic`, `ic_newey_west`, `ic_ir`) shares a single
+`compute_ic(panel)` per call. Other stage-1 consumers
 (`caar`, `fama_macbeth`, `ts_beta`, `mfe_mae_summary`, plus series /
 spread consumers) live in the auto-discover exclusion set; the bundle's
 `skipped` map carries the explicit-import recipe for each. v1.x will
