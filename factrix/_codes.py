@@ -174,10 +174,20 @@ class StatCode(StrEnum):
     KINDs that abbreviate the test statistic's reference distribution:
     ``T`` (Student-t / asymptotic normal), ``J`` (Hansen J / χ²),
     ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
-    Currently shipping: ``(T_NW, P_NW)`` for Newey-West and
-    ``(T_HH, P_HH)`` for Hansen-Hodrick. Planned in #191:
-    ``(J_GMM, P_GMM)`` — the over-identification test is χ², not t,
-    so GMM emits J rather than T.
+    Currently shipping: ``(T_NW, P_NW)`` for Newey-West,
+    ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(WALD_NWCL, P_WALD_NWCL)``
+    for NW HAC + one-way cluster on the slice grouping, and
+    ``(WALD_DC, P_WALD_DC)`` for two-way cluster on (date, asset)
+    (Layer-B slice tests, #153). The Wald pairs follow the same
+    ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,
+    parallel to ``T``), ALGO names the cluster-SE family
+    (parallel to ``NW`` / ``HH`` naming the kernel family). ``P_BOOT``
+    ships alongside as the singleton emitted by ``BlockBootstrap``:
+    empirical p-values have no parametric test statistic to publish,
+    and ``BlockBootstrap`` is a single Estimator class (fixed vs
+    stationary scheme is a ctor arg living in metadata). Planned in
+    #191: ``(J_GMM, P_GMM)`` — the over-identification test is χ²,
+    not t, so GMM emits J rather than T.
 
     **Why primary p-value is ``P_<algo>`` while diagnostic p-value is
     ``<target>_<test>_P``**: primary p has a single conceptual target
@@ -193,7 +203,12 @@ class StatCode(StrEnum):
     a (kind × algo) cardinality product and a structured shape
     (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
     its breaking-change cost. Below those thresholds the flat
-    enum stays cheaper.
+    enum stays cheaper. **As of #153 the algorithm count has crossed
+    the threshold: 5 algorithms (NW / HH / NWCL / DC / BlockBootstrap)
+    and 2 KINDs (T / WALD, with J reserved for GMM #191). The flat
+    enum is now over-budget by one algorithm; any further inference
+    algorithm must trigger the structured-shape redesign discussion
+    before extending the enum.**
 
     **Convention: ``df`` always means statistical degrees of freedom.**
     Wherever ``df`` appears in factrix StatCode descriptions, metadata
@@ -230,6 +245,26 @@ class StatCode(StrEnum):
     # in #191; the StatCode grammar in this module's docstring already
     # documents the planned shape.
     P_GMM = "p_gmm"
+    # Cluster-robust Wald χ² for linear restrictions on a slice contrast
+    # / joint coefficient (Layer-B slice tests, #153). KIND = WALD (χ²
+    # test statistic, parallel to T); ALGO names the cluster-SE family
+    # (parallel to NW / HH naming the kernel family).
+    # NWCL = NW Bartlett HAC + one-way cluster on the slice grouping
+    # (emitted by `WaldNWCluster`).
+    WALD_NWCL = "wald_nwcl"
+    P_WALD_NWCL = "p_wald_nwcl"
+    # DC = two-way cluster on (date, asset), Cameron-Gelbach-Miller
+    # (2011) shape (emitted by `WaldDoubleCluster`).
+    WALD_DC = "wald_dc"
+    P_WALD_DC = "p_wald_dc"
+    # Empirical p-value from a block-bootstrap resample of a paired-diff
+    # statistic (Layer-B paired tests, #153). Singleton — the
+    # bootstrap distribution itself is not published as a StatCode.
+    # `BlockBootstrap` is one Estimator class; fixed vs stationary
+    # scheme is a ctor arg living in metadata, so a single P_BOOT key
+    # serves both. Parallel to how `NeweyWest`'s lag rule lives in
+    # `metadata` rather than splitting `P_NW` by lag.
+    P_BOOT = "p_boot"
 
     # Diagnostic — factor input series.
     FACTOR_ADF_TAU = "factor_adf_tau"
@@ -284,6 +319,23 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     StatCode.P_GMM: "Two-sided p-value from a Hansen (1982) GMM J-test "
     "(over-identifying restrictions). Reserved for procedure-side landing "
     "in a follow-up issue.",
+    StatCode.WALD_NWCL: "Wald χ² statistic for a linear restriction on "
+    "slice contrasts / joint coefficients, computed under NW Bartlett HAC "
+    "plus one-way cluster on the slice grouping. Implementation convention "
+    "lives in `factrix.stats.WaldNWCluster`.",
+    StatCode.P_WALD_NWCL: "P-value from `WALD_NWCL`. Sibling under the "
+    "(WALD_NWCL, P_WALD_NWCL) algorithm-pair convention.",
+    StatCode.WALD_DC: "Wald χ² statistic for a linear restriction on a "
+    "panel coefficient vector, computed under two-way cluster on "
+    "(date, asset) (Cameron-Gelbach-Miller 2011). Implementation "
+    "convention lives in `factrix.stats.WaldDoubleCluster`.",
+    StatCode.P_WALD_DC: "P-value from `WALD_DC`. Sibling under the "
+    "(WALD_DC, P_WALD_DC) algorithm-pair convention.",
+    StatCode.P_BOOT: "Empirical two-sided p-value from a block-bootstrap "
+    "resample of a paired-diff statistic. Implementation convention lives "
+    "in `factrix.stats.BlockBootstrap` (Politis-Romano stationary or "
+    "Künsch fixed scheme; Politis-White auto block length). Single key "
+    "for both schemes — scheme choice is metadata, not StatCode.",
     StatCode.FACTOR_ADF_TAU: "ADF τ statistic on the factor input series "
     "(constant-only specification); fed to the MacKinnon 1996 "
     "response-surface for `FACTOR_ADF_P`.",
