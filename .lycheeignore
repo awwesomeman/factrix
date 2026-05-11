@@ -16,3 +16,21 @@
 ^https://img\.shields\.io/
 ^https://codecov\.io/
 ^https://shields\.io/
+
+# Material theme injects `<link rel="canonical">` pointing at the
+# unversioned production URL (e.g. https://awwesomeman.github.io/factrix/api/x/),
+# but the site is deployed via `mike` so every URL lives under a
+# versioned prefix (`/factrix/0.10.0/...`, `/factrix/latest/...`).
+# The unversioned root is 404 by design. Lychee would otherwise flag
+# every canonical link as broken — exclude the production domain
+# entirely, since link checking external pointers to ourselves adds
+# no value (deploy-time failure surfaces in docs-deploy-release).
+^https://awwesomeman\.github\.io/factrix/
+
+# Material theme inserts "Edit on GitHub" pencil links (one per page)
+# pointing at github.com/<repo>/edit/main/<path>.md. GitHub aggressively
+# rate-limits the GitHub Actions runner IP range on /edit/ endpoints,
+# producing systematic 429s with no signal. Exclude the edit-link
+# pattern specifically (regular github.com links elsewhere are still
+# checked).
+^https://github\.com/[^/]+/[^/]+/edit/
