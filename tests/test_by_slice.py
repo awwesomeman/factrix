@@ -1,13 +1,14 @@
-"""Tests for factrix.metrics.by_slice — axis-agnostic dispatcher."""
+"""Tests for factrix.by_slice — axis-agnostic dispatcher."""
 
 from datetime import datetime, timedelta
 
 import numpy as np
 import polars as pl
 import pytest
+from factrix import by_slice
 from factrix._types import MetricOutput
-from factrix.metrics import by_slice, ic
-from factrix.metrics._slice import _slice_by_label
+from factrix.metrics import ic
+from factrix.slicing._primitive import _slice_by_label
 
 
 def _ic_series_with_label(

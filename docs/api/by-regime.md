@@ -65,15 +65,14 @@ the metric family:
 | CAAR | pooled vs per-regime clustering reconciliation |
 | Turnover, hit_rate, monotonicity ρ | no canonical cross-regime test |
 
-For curated families that have a defensible second-layer test,
-factrix provides curated wrappers — see
-[`regime_ic`](metrics/ic.md#factrix.metrics.ic.regime_ic) for the IC family. Use
-`by_regime` directly when no curated wrapper exists or when you want
-raw per-regime outputs to compose your own analysis.
-
-**As of v0.9.0, `regime_ic` is the only curated wrapper.** `regime_caar`
-and `regime_fama_macbeth` are tracked in
-[#107 Phase 2](https://github.com/awwesomeman/factrix/issues/107).
+For cross-slice inference (paired contrasts or omnibus χ²) on a metric
+that declares a `per_date_series` capability, use
+[`slice_pairwise_test`](slice-test.md#factrix.slicing.inference.slice_pairwise_test)
+or [`slice_joint_test`](slice-test.md#factrix.slicing.inference.slice_joint_test)
+instead — they consume `by_slice`'s sliced output and add the
+appropriate joint-HAC / block-bootstrap inference. Use `by_regime`
+directly only when you want raw per-regime outputs to compose your own
+analysis.
 
 > Earlier docs called the dispatcher "Layer A" and curated wrappers
 > "Layer B"; renamed in
@@ -125,7 +124,7 @@ from factrix.metrics import by_regime
 results = by_regime(ic, ic_df, regime_labels=regime_df)
 
 # After
-from factrix.metrics import by_slice
+from factrix import by_slice
 results = by_slice(
     ic,
     ic_df.join(regime_df, on="date", how="inner"),  # match by_regime's inner-join

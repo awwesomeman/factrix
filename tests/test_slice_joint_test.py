@@ -7,7 +7,8 @@ import datetime as dt
 import numpy as np
 import polars as pl
 import pytest
-from factrix.metrics import ic, slice_joint_test
+from factrix import slice_joint_test
+from factrix.metrics import ic
 from factrix.stats import BlockBootstrap, WaldNWCluster
 
 

@@ -30,11 +30,11 @@ below:
 
 Hypothesis-test metrics share a common envelope (`p_value`,
 `stat_type`, `h0`, `method`) — listed once here, not repeated per
-metric below. The cross-cutting
-[`by_regime`][factrix.metrics.regime.by_regime] dispatcher is not
-listed in the table: it wraps any registered metric and returns the
-wrapped metric's schema augmented with a `per_regime` /
-`p_value_bhy_adjusted` envelope (same shape as `regime_ic`).
+metric below. Cross-slice inference verbs
+([`slice_pairwise_test`][factrix.slicing.inference.slice_pairwise_test] /
+[`slice_joint_test`][factrix.slicing.inference.slice_joint_test]) are
+not listed in the table: their headline output is a DataFrame of
+contrasts, not a sidecar to a primary value.
 
 ## Cross-metric summary
 
@@ -43,7 +43,6 @@ wrapped metric's schema augmented with a `per_regime` /
 | [`ic`][factrix.metrics.ic.ic] | NW HAC `t` on per-date IC series | `p_value` | mean(IC) |
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | NW HAC `t` (overlapping) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
-| [`regime_ic`][factrix.metrics.ic.regime_ic] | min \|t\| across regimes | `p_value_bhy_adjusted` | mean(IC) across regimes |
 | [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
 | [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | clustered OLS `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
@@ -99,20 +98,6 @@ Descriptive metric — `MetricOutput.stat` is `None` and no `p_value`
 is emitted.
 
 - *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`.
-
-#### `regime_ic`
-
-Per-regime t-tests with BHY adjustment across regimes.
-`MetricOutput.stat` is `min |t|` (the weakest regime) — the
-conservative summary statistic.
-
-- *primary*: `p_value_bhy_adjusted` — worst BHY-adjusted regime
-  p-value (read this for the stability claim).
-- *secondary-test*: `p_value` — the *raw* p of the worst regime
-  (uncorrected; use the `_bhy_adjusted` sibling for inference).
-- *secondary-test*: `per_regime` — dict `regime → {mean_ic, std_ic,
-  stat, p_value, significance, n_periods, p_adjusted_bhy}`.
-- *descriptive*: `direction_consistent`, `n_regimes`, `aggregation`.
 
 ### `fama_macbeth` family (`factrix.metrics.fama_macbeth`)
 

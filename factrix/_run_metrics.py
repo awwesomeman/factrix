@@ -45,7 +45,7 @@ _logger = logging.getLogger("factrix.run_metrics")
 # (the ``(date, ic, tie_ratio)`` frame). v1 wires this single stage-1
 # helper; expanding to ``compute_fm_betas`` / ``compute_ts_betas`` /
 # ``compute_event_returns`` pipelines is tracked as v1.x follow-up.
-_IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir", "regime_ic"})
+_IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
 
 @dataclass(frozen=True, slots=True, repr=False)

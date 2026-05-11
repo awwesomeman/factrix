@@ -10,7 +10,7 @@ Series diagnostics are axis-agnostic and operate on any ``(date, value)``
 series produced upstream.
 
 Individual × Continuous:
-    compute_ic, ic, ic_ir, regime_ic,
+    compute_ic, ic, ic_ir,
     compute_spread_series, quantile_spread, quantile_spread_vw,
     compute_group_returns, monotonicity, top_concentration,
     turnover, notional_turnover, breakeven_cost, net_spread,
@@ -34,7 +34,6 @@ Series diagnostics — axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, multi_split_oos_decay
 """
 
-from factrix.metrics._slice import by_slice
 from factrix.metrics.caar import (
     bmp_test,
     caar,
@@ -66,7 +65,6 @@ from factrix.metrics.ic import (
     ic,
     ic_ir,
     ic_newey_west,
-    regime_ic,
 )
 from factrix.metrics.mfe_mae import (
     compute_mfe_mae,
@@ -81,7 +79,6 @@ from factrix.metrics.quantile import (
     quantile_spread_vw,
 )
 from factrix.metrics.regime import by_regime
-from factrix.metrics.slice_test import slice_joint_test, slice_pairwise_test
 from factrix.metrics.spanning import greedy_forward_selection, spanning_alpha
 from factrix.metrics.tradability import (
     breakeven_cost,
@@ -105,7 +102,6 @@ __all__ = [
     "bmp_test",
     "breakeven_cost",
     "by_regime",
-    "by_slice",
     "caar",
     "clustering_diagnostic",
     "compute_caar",
@@ -139,10 +135,7 @@ __all__ = [
     "profit_factor",
     "quantile_spread",
     "quantile_spread_vw",
-    "regime_ic",
     "signal_density",
-    "slice_joint_test",
-    "slice_pairwise_test",
     "spanning_alpha",
     "top_concentration",
     "ts_asymmetry",

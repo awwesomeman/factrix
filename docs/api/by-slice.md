@@ -18,7 +18,8 @@ name into the API.
 
 ```python
 import polars as pl
-from factrix.metrics import by_slice, ic, compute_ic
+from factrix import by_slice
+from factrix.metrics import compute_ic, ic
 
 ic_df = compute_ic(panel)
 ic_df = ic_df.join(regime_labels, on="date")  # adds 'regime' column
@@ -56,10 +57,12 @@ directly comparable — `max(out.values(), key=lambda m: m.tstat)` is
 not a defensible cross-regime selection rule. A generic second-layer test
 (BHY adjustment, Sharpe-diff Wald, paired-difference NW, etc.) cannot
 be applied honestly across the metric matrix — the appropriate test
-depends on the metric family. Curated families that have a defensible
-second-layer test are exposed as curated wrappers (e.g.
-[`regime_ic`](metrics/ic.md#factrix.metrics.ic.regime_ic) for the IC
-family).
+depends on the metric family. For metrics that expose a
+`per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`),
+[`slice_pairwise_test`](slice-test.md#factrix.slicing.inference.slice_pairwise_test)
+/ [`slice_joint_test`](slice-test.md#factrix.slicing.inference.slice_joint_test)
+provide cross-slice contrasts with joint-HAC or block-bootstrap
+inference.
 
 ## Universe overlap reference patterns
 
@@ -164,7 +167,7 @@ by_slice(metric, expanded, label="group")
 
 ## API reference
 
-::: factrix.metrics._slice
+::: factrix.slicing.dispatcher
     options:
       members:
         - by_slice

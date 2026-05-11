@@ -225,7 +225,7 @@ def test_stage1_compute_ic_called_once_for_ic_family(
     run_metrics(
         panel,
         cfg,
-        metrics=["ic", "ic_newey_west", "ic_ir", "regime_ic"],
+        metrics=["ic", "ic_newey_west", "ic_ir"],
     )
     assert counter["n"] == 1
 

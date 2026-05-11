@@ -7,7 +7,8 @@ import datetime as dt
 import numpy as np
 import polars as pl
 import pytest
-from factrix.metrics import fama_macbeth, ic, slice_pairwise_test
+from factrix import slice_pairwise_test
+from factrix.metrics import fama_macbeth, ic
 from factrix.stats import BlockBootstrap, WaldNWCluster
 
 
