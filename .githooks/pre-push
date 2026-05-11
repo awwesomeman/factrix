@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # pre-push: enforce CHANGELOG polish on release commits + mkdocs
-# strict build when the push touches docs-relevant paths.
+# strict build when the push touches docs-relevant paths + mypy
+# when the push touches factrix/ source.
 #
 # When the push includes a ``chore(release): vX.Y.Z`` commit, the
 # corresponding ``## vX.Y.Z`` section in CHANGELOG.md (as committed
@@ -12,8 +13,15 @@
 # ``examples/``, mirroring ``.github/workflows/docs-deploy-dev.yml``),
 # run ``mkdocs build --strict`` so local catches the same drift CI
 # would block on (broken relative link, missing nav target, unresolved
-# cross-ref, generated-file drift). Bypass either gate with
-# ``git push --no-verify`` when you really mean it.
+# cross-ref, generated-file drift).
+#
+# When the push touches ``factrix/**/*.py``, run ``uv run mypy
+# factrix`` — same scope as the CI ``lint`` job, so any error CI
+# would block on is caught locally first. pre-commit only runs ruff
+# (must stay sub-second on every commit); mypy lives at push time
+# because the cost (1-3s incremental) only makes sense once per
+# push, not once per commit. Bypass any gate with ``git push
+# --no-verify`` when you really mean it.
 #
 # Threshold rationale (CHANGELOG): cz auto-generated section is ~17
 # lines; a polished BREAKING release runs 50+. 25 is the cliff between
@@ -25,8 +33,10 @@ CHANGELOG="CHANGELOG.md"
 CHANGELOG_MIN_LINES=${CHANGELOG_MIN_LINES:-25}
 ZERO="0000000000000000000000000000000000000000"
 DOCS_PATH_RE='^(docs/|mkdocs\.yml$|factrix/|scripts/|examples/)'
+MYPY_PATH_RE='^factrix/.*\.py$'
 
 needs_mkdocs=0
+needs_mypy=0
 
 while read -r local_ref local_sha remote_ref remote_sha; do
     [ "$local_sha" = "$ZERO" ] && continue
@@ -68,12 +78,16 @@ while read -r local_ref local_sha remote_ref remote_sha; do
         esac
     done < <(git rev-list "${range_args[@]}")
 
-    # mkdocs path-touched detection — once a qualifying file appears
-    # in any pushed ref the build runs regardless of remaining refs.
-    if [ "$needs_mkdocs" -eq 0 ]; then
-        if git log --name-only --pretty=format: "${range_args[@]}" 2>/dev/null \
-            | grep -qE "$DOCS_PATH_RE"; then
+    # path-touched detection — once a qualifying file appears in any
+    # pushed ref the corresponding gate runs regardless of remaining
+    # refs. One ``git log`` call feeds both detectors.
+    if [ "$needs_mkdocs" -eq 0 ] || [ "$needs_mypy" -eq 0 ]; then
+        changed=$(git log --name-only --pretty=format: "${range_args[@]}" 2>/dev/null || true)
+        if [ "$needs_mkdocs" -eq 0 ] && printf '%s\n' "$changed" | grep -qE "$DOCS_PATH_RE"; then
             needs_mkdocs=1
+        fi
+        if [ "$needs_mypy" -eq 0 ] && printf '%s\n' "$changed" | grep -qE "$MYPY_PATH_RE"; then
+            needs_mypy=1
         fi
     fi
 done
@@ -88,6 +102,17 @@ if [ "$needs_mkdocs" -eq 1 ]; then
         printf '\n' >&2
         printf 'pre-push blocked: mkdocs build --strict failed.\n' >&2
         printf 'Re-run for the full error: uv run mkdocs build --strict\n' >&2
+        printf 'Bypass: git push --no-verify\n\n' >&2
+        exit 1
+    fi
+fi
+
+if [ "$needs_mypy" -eq 1 ]; then
+    printf 'pre-push: running mypy factrix (factrix/*.py touched)...\n' >&2
+    if ! uv run mypy factrix >/dev/null 2>&1; then
+        printf '\n' >&2
+        printf 'pre-push blocked: mypy factrix failed.\n' >&2
+        printf 'Re-run for the full error: uv run mypy factrix\n' >&2
         printf 'Bypass: git push --no-verify\n\n' >&2
         exit 1
     fi
