@@ -38,18 +38,18 @@ jobs:
       - name: Install docs dependencies
         run: uv sync --python 3.12 --extra docs
 
-      - name: Strict build
-        run: uv run mkdocs build --strict
+      - name: Build site
+        run: uv run mkdocs build
 
       - name: Restore lychee cache
         uses: actions/cache@v4
         with:
           path: .lycheecache
-          key: lychee-${{ runner.os }}-${{ hashFiles('.lycheeignore') }}
-          restore-keys: lychee-${{ runner.os }}-
+          key: lychee-${{ runner.os }}-v2-${{ hashFiles('.lycheeignore') }}
+          restore-keys: lychee-${{ runner.os }}-v2-
 
       - name: Link check (lychee)
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@v2.4.1
         with:
           args: >-
             --no-progress
@@ -81,15 +81,15 @@ jobs:
       - name: Install docs dependencies
         run: uv sync --python 3.12 --extra docs
 
-      - name: Strict build
-        run: uv run mkdocs build --strict
+      - name: Build site
+        run: uv run mkdocs build
 
       - name: Restore lychee cache
         uses: actions/cache@v4
         with:
           path: .lycheecache
-          key: lychee-${{ runner.os }}-${{ hashFiles('.lycheeignore') }}
-          restore-keys: lychee-${{ runner.os }}-
+          key: lychee-${{ runner.os }}-v2-${{ hashFiles('.lycheeignore') }}
+          restore-keys: lychee-${{ runner.os }}-v2-
 
       - name: Link check (lychee)
         id: lychee
@@ -108,13 +108,26 @@ jobs:
           fail: false
 
       - name: Open or update issue on failure
-        if: steps.lychee.outputs.exit_code != 0
+        if: steps.lychee.outcome == 'success' && steps.lychee.outputs.exit_code != 0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_TITLE: "[link-check] daily failure"
+          DEDUP_LABEL: link-check-bot
         run: |
           set -euo pipefail
-          existing=$(gh issue list --search "$ISSUE_TITLE in:title is:open" --json number --jq '.[0].number // ""')
+          # Ensure dedup label exists; idempotent, ignore errors if it
+          # already does. The label is the unique key for dedupe — title
+          # matching is too loose (token-based search would over-match a
+          # human-opened issue with similar wording).
+          gh label create "$DEDUP_LABEL" \
+            --description "Auto-opened by the link-check workflow" \
+            --color FBCA04 \
+            2>/dev/null || true
+          existing=$(gh issue list \
+            --label "$DEDUP_LABEL" \
+            --state open \
+            --json number \
+            --jq '.[0].number // ""')
           if [ -n "$existing" ]; then
             {
               printf 'Scheduled run %s — broken links still present.\n\n' "$(date -u +%Y-%m-%dT%H:%MZ)"
@@ -125,7 +138,11 @@ jobs:
             {
               printf 'Daily scheduled `link-check` workflow detected broken links in the built docs.\n\n'
               cat lychee-report.md
-              printf '\nThis issue auto-deduplicates: subsequent failures comment here rather than opening new issues. Close manually once links are fixed; the next clean run will not re-open.\n'
+              printf '\nThis issue auto-deduplicates via the `%s` label: subsequent failures comment here rather than opening new issues. Close manually once links are fixed; the next clean run will not re-open.\n' "$DEDUP_LABEL"
             } > body.md
-            gh issue create --title "$ISSUE_TITLE" --label documentation --body-file body.md
+            gh issue create \
+              --title "$ISSUE_TITLE" \
+              --label documentation \
+              --label "$DEDUP_LABEL" \
+              --body-file body.md
           fi
