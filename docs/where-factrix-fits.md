@@ -1,19 +1,21 @@
 # Where factrix fits
 
-This page is the depth companion to the README's "Where factrix fits"
-block. It assumes you have read the hero claim and routing table on
-the README; here we expand the design philosophy, walk through the
-pipeline and internals, draw scope boundaries, compare against
-same-purpose peers, show adjacent-tool integration, and disclose
-honest weaknesses.
+**Does this factor possess predictive edge?** factrix is the first
+Polars-native Python toolkit that picks the right statistical test
+for each factor type. Cross-sectional, event, common factor — each
+gets the tests that fit its data-generating process.
+
+This page expands the design philosophy, walks through the pipeline
+and internals, draws scope boundaries, compares against same-purpose
+peers, shows adjacent-tool integration, and discloses honest
+weaknesses.
 
 ## 1. What factrix is
 
 factrix is a **factor verdict surface**: given a candidate factor and
 a forward return, it answers *is the predictive power real?* and
-returns a structured profile of evidence. It is the first Python
-framework to dispatch primary statistical tests by factor type rather
-than applying one uniform formula to every factor.
+returns a structured profile of evidence — rather than applying one
+uniform formula to every factor.
 
 Three factor types each get a primary test fitted to their
 data-generating process:

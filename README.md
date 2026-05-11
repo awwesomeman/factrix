@@ -33,14 +33,12 @@
 
 <h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
 
-A polars-native factor validator. It answers the core question — **Does this factor possess predictive edge?** 
-
 ## Where factrix fits
 
-**factrix is the first Python framework to dispatch primary
-statistical tests by factor type** — cross-sectional, event, and
-common factor each get the test that fits their data-generating
-process.
+**Does this factor possess predictive edge?** factrix is the first
+Polars-native Python toolkit that picks the right statistical test
+for each factor type. Cross-sectional, event, common factor — each
+gets the tests that fit its data-generating process.
 
 ```
 factor construction  →  factrix (verdict)  →  strategy construction  →  backtest  →  live trading

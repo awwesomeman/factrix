@@ -1,6 +1,6 @@
 # factrix
 
-A Polars-native **factor signal validator** for quantitative finance. Stage-1 of the alpha pipeline — kill fake factors before they reach portfolio construction.
+**Does this factor possess predictive edge?** factrix is the first Polars-native Python toolkit that picks the right statistical test for each factor type. Cross-sectional, event, common factor — each gets the tests that fit its data-generating process.
 
 [![GitHub](https://img.shields.io/badge/GitHub-factrix-blue?logo=github)](https://github.com/awwesomeman/factrix)
 
