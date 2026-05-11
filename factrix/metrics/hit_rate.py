@@ -24,7 +24,7 @@ from factrix._stats import (
 from factrix._types import MIN_ASSETS_PER_DATE_IC, MetricOutput
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 
-# Layer-B slice-test contract (#153 §5): hit_rate operates on a
+# Slice-test contract (#153 §5): hit_rate operates on a
 # pre-aggregated per-date series (no cross-section bucket pass), so
 # slice tests skip the `n_groups` downscale step. Per-date minimum
 # (if any) is the responsibility of the upstream metric that produced

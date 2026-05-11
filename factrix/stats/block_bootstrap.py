@@ -1,10 +1,10 @@
 """``BlockBootstrap`` Estimator — empirical p via dependent-block resampling (#153).
 
-Names the block-bootstrap inference path for the Layer-B paired-diff
-slice test. Numerics — Politis-Romano stationary scheme, Künsch fixed
+Names the block-bootstrap inference path for the paired-diff slice
+test. Numerics — Politis-Romano stationary scheme, Künsch fixed
 scheme, Politis-White automatic block length — live in
 ``factrix._stats.bootstrap``; this module is the dispatch handle
-exposed to family verbs / Layer-B verbs (#176).
+exposed to family verbs / slice-test verbs (#176).
 
 Public ``factrix.stats.bootstrap`` standalone helpers
 (``stationary_bootstrap_resamples`` / ``bootstrap_mean_ci``) remain
@@ -39,11 +39,11 @@ class BlockBootstrap:
     to fix it.
 
     Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` —
-    consistent with the Layer-B verbs that produce paired per-date
+    consistent with the slice-test verbs that produce paired per-date
     diffs (slice IC, slice FM-λ, …).
 
     Constructor parameters are stored on the instance and read by the
-    Layer-B verb procedure when it calls
+    slice-test verb procedure when it calls
     ``factrix._stats.bootstrap._block_bootstrap_diff_p``. Two
     ``BlockBootstrap`` instances with different ``scheme`` / block
     length are distinct Estimators from the verb's perspective; the

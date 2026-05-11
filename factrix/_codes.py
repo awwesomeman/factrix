@@ -178,7 +178,7 @@ class StatCode(StrEnum):
     ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(WALD_NWCL, P_WALD_NWCL)``
     for NW HAC + one-way cluster on the slice grouping, and
     ``(WALD_TWOWAY, P_WALD_TWOWAY)`` for two-way cluster on (date, asset)
-    (Layer-B slice tests, #153). The Wald pairs follow the same
+    (slice-test verbs, #153 / #176). The Wald pairs follow the same
     ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,
     parallel to ``T``), ALGO names the cluster-SE family
     (parallel to ``NW`` / ``HH`` naming the kernel family). ``P_BOOT``
@@ -246,7 +246,7 @@ class StatCode(StrEnum):
     # documents the planned shape.
     P_GMM = "p_gmm"
     # Cluster-robust Wald χ² for linear restrictions on a slice contrast
-    # / joint coefficient (Layer-B slice tests, #153). KIND = WALD (χ²
+    # / joint coefficient (slice-test verbs, #153 / #176). KIND = WALD (χ²
     # test statistic, parallel to T); ALGO names the cluster-SE family
     # (parallel to NW / HH naming the kernel family).
     # NWCL = NW Bartlett HAC + one-way cluster on the slice grouping
@@ -258,7 +258,7 @@ class StatCode(StrEnum):
     WALD_TWOWAY = "wald_twoway"
     P_WALD_TWOWAY = "p_wald_twoway"
     # Empirical p-value from a block-bootstrap resample of a paired-diff
-    # statistic (Layer-B paired tests, #153). Singleton — the
+    # statistic (paired-diff slice tests, #153 / #176). Singleton — the
     # bootstrap distribution itself is not published as a StatCode.
     # `BlockBootstrap` is one Estimator class; fixed vs stationary
     # scheme is a ctor arg living in metadata, so a single P_BOOT key
