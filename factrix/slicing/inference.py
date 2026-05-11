@@ -1,4 +1,4 @@
-"""Cross-slice statistical-test verbs (#176).
+"""Cross-slice statistical-test verbs.
 
 ``slice_pairwise_test`` reports K(K-1)/2 cross-slice contrasts as a
 long-form DataFrame of pairwise ``(stat, p_raw, p_adj)``;

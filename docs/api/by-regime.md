@@ -1,10 +1,13 @@
 # by_regime
 
-!!! warning "Deprecated since v0.10.0"
+!!! warning "Deprecated since v0.10.0 — scheduled for removal"
     `by_regime` is superseded by the axis-agnostic
     [`by_slice`](by-slice.md). Importing or calling `by_regime` emits
-    a `DeprecationWarning`. Behaviour is unchanged for the deprecation
-    window (at least one minor) — see [Migration](#migration) below.
+    a `DeprecationWarning` and the function is scheduled for removal
+    in v0.12.0. The `regime_ic` curated wrapper is **already gone** in
+    v0.12.0 — its replacement is
+    [`slice_pairwise_test(ic, ic_df.join(regime_labels, on="date"), label="regime")`](slice-test.md#factrix.slicing.inference.slice_pairwise_test).
+    See [Migration](#migration) below for the `by_regime` recipe.
 
 Cross-cutting research dispatcher. Slices any metric's date-keyed
 input by regime label and runs the metric per slice. Returns
@@ -156,9 +159,12 @@ regime analysis. Genuine regime work needs a domain-driven
 classification (NBER recession dating, volatility-state classifier,
 etc.), which neither `by_regime` nor `by_slice` ships.
 
-Curated wrappers (`regime_ic`, `regime_caar`, ...) are unchanged —
-they remain the right entry point when you need a metric-family-aware
-cross-regime test.
+For metrics that declare a `per_date_series` capability (`ic`,
+`fama_macbeth`, `hit_rate` in v0.12), reach for the cross-slice
+inference verbs
+([`slice_pairwise_test`](slice-test.md#factrix.slicing.inference.slice_pairwise_test) /
+[`slice_joint_test`](slice-test.md#factrix.slicing.inference.slice_joint_test))
+instead of writing your own across-slice test on top of `by_slice`.
 
 ## API reference
 

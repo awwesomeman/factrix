@@ -22,8 +22,35 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Removed
 
-- **`factrix.metrics.regime_ic`** (breaking, #176, #215). Replaced by `factrix.slice_pairwise_test(ic, ic_df.join(regime_labels, on="date"), label="regime")` — the new verb's pairwise contrast frame (Wald χ² + Holm / Romano-Wolf adjusted p) supersedes `regime_ic`'s BHY-on-min-|t| summary shape. The function was deprecated and re-exported by #176 within the same release cycle; removal lands in the same minor because v0.12 is a breaking train and there is no external user base to grant a migration window.
-- **`factrix.metrics.by_slice` / `factrix.metrics.slice_pairwise_test` / `factrix.metrics.slice_joint_test` deep imports** (breaking, #215). Import paths moved to `factrix.slicing` (top-level re-exports still work: `from factrix import by_slice, slice_pairwise_test, slice_joint_test`). Code that imported them via `factrix.metrics` must update the path.
+- **`factrix.metrics.regime_ic`** (breaking, #176, #215). Replaced by `factrix.slice_pairwise_test`. The #176 deprecation initially announced a one-minor frozen-shape window; #215 supersedes that plan and removes the function in the same minor, because v0.12 is a breaking train and there is no external user base to migrate. `regime_labels` is expected to carry a column literally named `regime` so the resulting `label="regime"` argument lines up:
+
+  ```python
+  # before (v0.11.0)
+  from factrix.metrics import regime_ic
+  result = regime_ic(ic_df, regime_labels=regime_df)   # regime_df has columns date, regime
+
+  # after (v0.12.0)
+  from factrix import slice_pairwise_test
+  from factrix.metrics import ic
+  pairs = slice_pairwise_test(
+      ic,
+      ic_df.join(regime_df, on="date", how="inner"),
+      label="regime",
+  )
+  ```
+
+  **Statistical-decision change** (read before reproducing v0.11 numbers): `regime_ic` reported `min |t|` across regimes with **BHY**-adjusted p across regimes — a regime-as-family **FDR** rule answering "does *any* regime show signal?". `slice_pairwise_test` instead returns K(K−1)/2 **pairwise** contrasts with **Holm**-adjusted p by default — a pair-as-family **FWER** rule answering "does *any pair* of regimes differ?". Different null hypothesis, different error rate, and the directions of strictness are not monotone — cross-version paper reproductions need an explicit method footnote. Switch to `estimator=BlockBootstrap()` for the joint-bootstrap path with Romano-Wolf adjustment if your slices share dates.
+- **`factrix.metrics.by_slice` / `factrix.metrics.slice_pairwise_test` / `factrix.metrics.slice_joint_test` deep imports** (breaking, #215). Import paths moved to `factrix.slicing`; top-level re-exports keep the calling shape stable.
+
+  ```python
+  # before (v0.11.0)
+  from factrix.metrics import by_slice, slice_pairwise_test, slice_joint_test
+
+  # after (v0.12.0) — preferred
+  from factrix import by_slice, slice_pairwise_test, slice_joint_test
+  # or equivalently
+  from factrix.slicing import by_slice, slice_pairwise_test, slice_joint_test
+  ```
 - **`factrix._validators.validate_n_assets`** (breaking, #218). Dead since pre-v1 — function was never wired (no internal caller, no test coverage, no doc reference). Validation responsibilities live in `AnalysisConfig` construction and metric-side short-circuit guards. The host module `factrix/_validators.py` is removed entirely (no other public symbols).
 - **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** (breaking, #186). Deprecated in v0.11.0; the in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (the #160 anti-shopping defense) and ran a second BHY path inside the metric in parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both names are no longer importable from `factrix.metrics`; direct references raise `ImportError`. Code reaching them via `list_metrics` / `run_metrics` was never wired (already excluded via `_AUTO_DISCOVER_EXCLUDED` in v0.11). The `_HorizonICEntry` TypedDict and the `_metric_index._DEPRECATED` set are removed alongside the functions. Migration recipes (descriptive `run_metrics` per horizon + `pl.concat` of `bundle.to_frame()`; inferential `evaluate` per horizon + `bhy(expand_over=["forward_periods"])`) remain in `docs/api/multi-horizon.md` and apply unchanged from the v0.11.0 deprecation window.
 

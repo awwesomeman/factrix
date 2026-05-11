@@ -66,14 +66,11 @@ _STAGE1_HELPERS: frozenset[str] = frozenset(
     }
 )
 
-# Legacy cross-cutting dispatcher still hosted under ``factrix.metrics``
-# pending its overdue-deprecation removal (#217). Once #217 lands, this
-# set becomes empty and ``factrix.metrics`` is a pure cell-metric
-# registry — every public ``*.py`` is a per-(scope, signal) metric.
-# ``by_slice`` / ``slice_pairwise_test`` / ``slice_joint_test`` moved
-# to ``factrix.slicing`` in #215; no denylist entry needed for them.
 _INFRASTRUCTURE: frozenset[str] = frozenset({"by_regime"})
-"""Legacy non-metric symbols still hosted under ``factrix.metrics``."""
+"""Non-metric symbols hosted under ``factrix.metrics``.
+
+Excluded from auto-discovery and the applicability table because they
+are not per-(scope, signal) cell metrics."""
 
 # Scalar-input metrics: pre-aggregated-scalar utilities that consume
 # scalars (``gross_spread: float``, ``turnover: float``, ...) rather
