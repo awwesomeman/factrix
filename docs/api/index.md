@@ -16,8 +16,8 @@ flowchart LR
 
     P ==> EV
     P ==> RM
-    P ==> BS
-    P ==> ST
+    P -.-> BS
+    P -.-> ST
     EV ==>|profiles| BHY
     LM -.->|metric names| RM
 
@@ -38,16 +38,18 @@ flowchart LR
     click LM "list-metrics/" "list_metrics API"
 ```
 
-**Edge convention.** Solid `==>` is a hard signature dependency (the target verb needs the source object). Dashed `-.->` is a suggested workflow — `list_metrics` discovers candidate names that you then pass to `run_metrics(metrics=[...])`.
+Click any node to jump to its API page.
+
+**Edge convention.** Solid `==>` is a hard signature dependency — the target verb's call signature takes the source object literally (e.g. `evaluate(panel, cfg)` consumes the input `P`, and `multi_factor.bhy` consumes a list of `FactorProfile`s that only `evaluate` produces). Dashed `-.->` is a suggested workflow — the source is panel-derived but the target verb's signature differs in shape (`by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame built from the panel via e.g. `compute_ic(panel)`; `list_metrics` returns candidate names you pass to `run_metrics(metrics=[…])`).
 
 **Node category** (background colour):
 
 - **Compute** (blue) — `evaluate` / `run_metrics`. Produce primary artefacts (`FactorProfile` / `MetricsBundle`) from `(panel, cfg)`.
 - **Decision** (pink) — `multi_factor.bhy`. Multiplicity-correction primitive; consumes `Profile[]`.
-- **View** (purple) — `by_slice` / `slice_pairwise_test` / `slice_joint_test`. Render or test a derived view of a metric.
+- **View** (purple) — `by_slice` / `slice_pairwise_test` / `slice_joint_test`. Render or test a derived view of a metric. (`by_slice` is the dispatcher; the `_test` pair are statistical tests over the slices — both share the slice-surface shape per #148, hence one bucket.)
 - **Introspection** (yellow) — `list_metrics`. Discovers what's applicable to a cell.
 
-**Future verbs.** The full v1 design (#148) includes `compare` (cross-factor leaderboard) and `robustness` (per-stat-choice sensitivity). Both are view-class verbs that depend on the same artefact shapes shown above; they are not yet shipped, so the graph renders only the current surface.
+**Deliberately omitted from the graph (not yet implemented).** The full v1 design (#148) also covers `compare` (cross-factor leaderboard), `robustness` (per-stat-choice sensitivity), and the family verbs `bhy_hierarchical` / `partial_conjunction` for hierarchical FDR and partial-conjunction multiplicity control. All four are view-class or decision-class verbs that depend on the same artefact shapes shown above. They are not drawn because drawing them would either mislead a reader into clicking a URL that 404s, or force a legend explaining which nodes are real — both worse than the small omission.
 
 ## Typical patterns
 
@@ -55,10 +57,10 @@ flowchart LR
 |---|---|
 | Single-factor inference verdict | `evaluate(panel, cfg)` → read `FactorProfile.verdict()` |
 | Single-factor descriptive scan | `run_metrics(panel, cfg, factor_col=...)` → read `MetricsBundle` |
-| Multi-factor screening with FDR | `[evaluate(panel, cfg_i) for cfg_i in cfgs]` → `multi_factor.bhy(profiles)` |
 | Slice exploration (single axis) | `by_slice(metric, df, label="...")` → `SliceResult` |
-| Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` |
+| Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Cell metric discovery | `list_metrics(scope, signal)` → names → `run_metrics(metrics=[...])` |
+| Multi-factor screening with FDR | `[evaluate(panel, cfg_i) for cfg_i in cfgs]` → `multi_factor.bhy(profiles)` |
 
 See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end, and the [Batch screening with BHY](../guides/batch-screening.md) guide for the multi-factor screening workflow.
 
