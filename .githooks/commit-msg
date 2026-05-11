@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# commit-msg: reject Co-Authored-By: Claude trailers.
+#
+# GitHub's contributor graph surfaces every Co-Authored-By trailer as
+# a repo contributor; Claude Code's default scaffold injects the
+# Anthropic noreply address into commits, which pollutes the graph.
+# This hook keeps the trailer out at commit time so it never reaches
+# `main`. Bypass with `git commit --no-verify` when intentional.
+
+set -e
+
+msg_file="$1"
+
+if grep -qiE '^Co-Authored-By: .*claude.*<.*@anthropic\.com>' "$msg_file"; then
+    echo "[commit-msg] FAIL — Co-Authored-By: Claude trailer is not allowed."
+    echo "[commit-msg] reason:  GitHub contributor graph would surface Anthropic as a contributor."
+    echo "[commit-msg] fix:     remove the 'Co-Authored-By: Claude ...' line from the commit message."
+    echo "[commit-msg] bypass:  git commit --no-verify"
+    exit 1
+fi
