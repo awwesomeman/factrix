@@ -9,4 +9,10 @@
 # Format: literal URL or Rust regex (lychee uses regex when the line
 # contains regex meta-characters).
 
-# (no entries yet — populated as false positives emerge)
+# Shields.io and Codecov badge endpoints routinely return 429 / 403
+# to the GitHub Actions runner IP range. Both serve README badges,
+# not link-target content — exclude pre-emptively so the README
+# scan does not red-build on rate-limit pressure.
+^https://img\.shields\.io/
+^https://codecov\.io/
+^https://shields\.io/
