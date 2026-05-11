@@ -13,13 +13,12 @@ import factrix as fx
 candidates = ["mom_5d", "mom_20d", "mom_60d"]
 cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 
-by_name = {name: fx.evaluate(panel, cfg, factor_col=name) for name in candidates}
-survivors = fx.multi_factor.bhy(list(by_name.values()), threshold=0.05)
-survivor_names = [n for n, p in by_name.items() if any(p is s for s in survivors)]
+profiles = [fx.evaluate(panel, cfg, factor_col=name) for name in candidates]
+survivors = fx.multi_factor.bhy(profiles, q=0.05)
+survivor_names = [p.factor_id for p in survivors.profiles]
 ```
 
-!!! warning "Identity caveat — survivor → name mapping"
-    `FactorProfile` is a frozen dataclass with no `name` / `label` field; `bhy()` neither accepts nor returns one. Map survivors back to factor names by holding the `name → profile` dict yourself and comparing with `is` (identity), as in the snippet above. Equality (`==`) is unsafe: two factors with coincident stats compare equal.
+`evaluate()` stamps `factor_col` into `profile.factor_id`, so the survivor → name mapping reads off the survivor profiles directly — no external `name → profile` dict, no `is`-comparison idiom. `Survivors.profiles` lists the survivors in their original input order; `Survivors.adj_q` carries the bucket-local BHY-adjusted p in matching order.
 
 Each `evaluate` call repays the per-date cross-section overhead
 (sort / group-by / rank) on its own — that cost is intrinsic to
