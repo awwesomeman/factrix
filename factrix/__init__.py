@@ -134,7 +134,7 @@ def evaluate(
     return _evaluate(raw, config, factor_col=factor_col)
 
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 __all__ = [
     # Configuration

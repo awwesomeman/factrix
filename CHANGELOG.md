@@ -12,7 +12,7 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ---
 
-## [Unreleased]
+## v0.12.0 (2026-05-11)
 
 ### Changed
 
@@ -45,6 +45,258 @@ While the version is below `1.0.0`, the public API should be considered unstable
 - **`factrix.multi_factor.bhy(threshold=)`** kwarg (breaking, #217). Deprecated since v0.4.0 in favour of `q=`. The deprecation collector path (`**deprecated` kwarg, `_apply_deprecated_kwargs`, runtime `DeprecationWarning`) is gone; passing `threshold=` now raises `TypeError` via the standard signature check.
 
   ```python
+  # before (v0.4.0 – v0.11.x, deprecated)
+  bhy(profiles, threshold=0.05)
+
+  # after (v0.12.0)
+  bhy(profiles, q=0.05)
+  ```
+- **`factrix.metrics.by_regime`** (breaking, #217). Deprecated since v0.10.0 in favour of the axis-agnostic `factrix.by_slice`. The `factrix/metrics/regime.py` module is removed entirely (including the private `_slice_by_regime` helper, which was only used by `by_regime` and the already-deleted `regime_ic`).
+
+  ```python
+  # before (v0.10.0 – v0.11.x, deprecated)
+  from factrix.metrics import by_regime
+  per_regime = by_regime(ic, ic_df, regime_labels=labels)
+
+  # after (v0.12.0) — labels-join semantics are now explicit;
+  # project the labels frame down to (date, regime) so extra columns
+  # do not bleed into the metric input
+  from factrix import by_slice
+  per_regime = by_slice(
+      ic,
+      ic_df.join(labels.select("date", "regime"), on="date", how="inner"),
+      label="regime",
+  )
+  ```
+
+  The labels frame must carry a column literally named `regime` to line up with `label="regime"`. The previous `by_regime` raised a friendly `ValueError("no rows survived the regime-label join — likely a date-range or dtype mismatch")` on an empty inner-join; the recipe no longer wraps that guard, so callers wanting it should add an `assert merged.height > 0, "..."` after the join.
+
+  The time-bisection fallback (`regime_labels=None` → `first_half` / `second_half`) has no `by_slice` equivalent — that path was a structural-break sanity check, not a regime test, and the removal is the right moment to make that explicit. The old behaviour split by **row index** (sorted by date, first half / second half), not by median date; reproduce it explicitly:
+
+  ```python
+  import polars as pl
+
+  df = df.sort("date").with_row_index("_i").with_columns(
+      pl.when(pl.col("_i") < pl.len() // 2)
+        .then(pl.lit("first_half"))
+        .otherwise(pl.lit("second_half"))
+        .alias("regime"),
+  ).drop("_i")
+  by_slice(ic, df, label="regime")
+  ```
+- **`factrix.metrics.regime_ic`** (breaking, #176, #215). Replaced by `factrix.slice_pairwise_test`. The #176 deprecation initially announced a one-minor frozen-shape window; #215 supersedes that plan and removes the function in the same minor, because v0.12 is a breaking train and there is no external user base to migrate. `regime_labels` is expected to carry a column literally named `regime` so the resulting `label="regime"` argument lines up:
+
+  ```python
+  # before (v0.11.0)
+  from factrix.metrics import regime_ic
+  result = regime_ic(ic_df, regime_labels=regime_df)   # regime_df has columns date, regime
+
+  # after (v0.12.0)
+  from factrix import slice_pairwise_test
+  from factrix.metrics import ic
+  pairs = slice_pairwise_test(
+      ic,
+      ic_df.join(regime_df, on="date", how="inner"),
+      label="regime",
+  )
+  ```
+
+  **Statistical-decision change** (read before reproducing v0.11 numbers): `regime_ic` reported `min |t|` across regimes with **BHY**-adjusted p across regimes — a regime-as-family **FDR** rule answering "does *any* regime show signal?". `slice_pairwise_test` instead returns K(K−1)/2 **pairwise** contrasts with **Holm**-adjusted p by default — a pair-as-family **FWER** rule answering "does *any pair* of regimes differ?". Different null hypothesis, different error rate, and the directions of strictness are not monotone — cross-version paper reproductions need an explicit method footnote. Switch to `estimator=BlockBootstrap()` for the joint-bootstrap path with Romano-Wolf adjustment if your slices share dates.
+- **`factrix.metrics.by_slice` / `factrix.metrics.slice_pairwise_test` / `factrix.metrics.slice_joint_test` deep imports** (breaking, #215). Import paths moved to `factrix.slicing`; top-level re-exports keep the calling shape stable.
+
+  ```python
+  # before (v0.11.0)
+  from factrix.metrics import by_slice, slice_pairwise_test, slice_joint_test
+
+  # after (v0.12.0) — preferred
+  from factrix import by_slice, slice_pairwise_test, slice_joint_test
+  # or equivalently
+  from factrix.slicing import by_slice, slice_pairwise_test, slice_joint_test
+  ```
+- **`factrix._validators.validate_n_assets`** (breaking, #218). Dead since pre-v1 — function was never wired (no internal caller, no test coverage, no doc reference). Validation responsibilities live in `AnalysisConfig` construction and metric-side short-circuit guards. The host module `factrix/_validators.py` is removed entirely (no other public symbols).
+- **`factrix.metrics.multi_horizon_ic` / `multi_horizon_hit_rate`** (breaking, #186). Deprecated in v0.11.0; the in-metric horizon loop conflicted with `FactorProfile.identity` carrying `forward_periods` (the #160 anti-shopping defense) and ran a second BHY path inside the metric in parallel to `multi_factor.bhy(profiles, expand_over=["forward_periods"])`, the FDR SSOT. Both names are no longer importable from `factrix.metrics`; direct references raise `ImportError`. Code reaching them via `list_metrics` / `run_metrics` was never wired (already excluded via `_AUTO_DISCOVER_EXCLUDED` in v0.11). The `_HorizonICEntry` TypedDict and the `_metric_index._DEPRECATED` set are removed alongside the functions. Migration recipes (descriptive `run_metrics` per horizon + `pl.concat` of `bundle.to_frame()`; inferential `evaluate` per horizon + `bhy(expand_over=["forward_periods"])`) remain in `docs/api/multi-horizon.md` and apply unchanged from the v0.11.0 deprecation window.
+
+  ```python
+  # before (v0.11.0, deprecated)
+  fx.metrics.multi_horizon_ic(panel, periods=[1, 5, 10, 20])
+
+  # after (descriptive sweep)
+  bundles = [
+      fx.run_metrics(panel, cfg.replace(forward_periods=h))
+      for h in [1, 5, 10, 20]
+  ]
+  table = pl.concat([b.to_frame() for b in bundles])
+
+  # after (FDR-controlled inference)
+  profiles = [fx.evaluate(panel, cfg.replace(forward_periods=h)) for h in [1, 5, 10, 20]]
+  survivors = fx.multi_factor.bhy(profiles, expand_over=["forward_periods"])
+  ```
+
+## v0.11.0 (2026-05-11)
+
+### BREAKING CHANGE
+
+- ``StatCode.P`` (value ``"p"``) renamed to
+``StatCode.P_NW`` (value ``"p_nw"``). Replace every ``StatCode.P``
+lookup with ``StatCode.P_NW``; ``profile.diagnose()`` JSON keys move
+from ``"p"`` to ``"p_nw"``.
+- bhy() and the shared _resolve_family layer no longer
+accept p_stat=StatCode. The kwarg becomes estimator=Estimator | None
+and dispatch routes through Estimator.applicable_to / .emits_for to
+look up the relevant entry in profile.stats. The gate=StatCode v0.4
+deprecation is removed alongside its successor; threshold= → q=
+remains live.
+- bhy() return type changed from list[FactorProfile]
+to multi_factor.Survivors. Migration: replace 'survivors' with
+'survivors.profiles' for downstream list/iteration use; new adj_q /
+q / expand_over / n_total fields available for richer downstream
+diagnostics.
+
+### Feat
+
+- **api**: standalone-metric runner for a cell (#147)
+- **stats**: emit T_HH alongside P_HH + reserve J_GMM (#184)
+- **stats**: IC + FM PANEL emit HH p-value (#184)
+- **stats**: HansenHodrick Estimator instance + registry (#184)
+- **stats**: HH primitives + clamp warning code (#184)
+- **profile**: metadata channel for hyperparameter records (#188)
+- **stats**: add list_estimators introspection (#170)
+- **stats**: dispatch family verbs via Estimator (#170)
+- **stats**: add NeweyWest reference Estimator (#170)
+- **stats**: add Estimator protocol (#170)
+- **multi_factor**: Survivors container for bhy (#171) (#182)
+- **multi_factor**: bhy on _resolve_family + explicit families (#161)
+- **family**: _resolve_family + FamilyEntry (#161)
+- **profile**: identity / context split (#160) (#172)
+- **errors**: user-facing error UX contract (#165) (#169)
+
+### Refactor
+
+- **metrics**: deprecate multi_horizon_* (#186) (#199)
+- **stats**: rename StatCode.P to P_NW for symmetry with T_NW (#192)
+- **stats**: tighten T_HH metadata + defer J_GMM to #191 (#184)
+- **stats**: tighten review feedback (#187)
+- **stats**: flatten StatCode naming (#187)
+- **stats**: tighten review feedback (#170)
+
+## v0.10.0 (2026-05-09)
+
+### BREAKING CHANGE
+
+- by_regime emits DeprecationWarning since v0.10.0;
+removal scheduled for a future minor (separate sub-issue). Migrate to
+by_slice with an explicit inner-join — see docs/api/by-regime.md.
+
+### Feat
+
+- **metrics**: deprecate by_regime in favor of by_slice (#154)
+- **metrics**: add by_slice axis-agnostic dispatcher (#154)
+
+### Fix
+
+- **mfe_mae**: instantiate Polars dtypes in schema dict
+
+### Refactor
+
+- **ic**: TypedDict for per-regime / per-horizon entries
+
+## v0.9.0 (2026-05-07)
+
+### Feat
+
+- **metrics**: by_regime regime dispatcher (#107) (#112)
+- **metrics**: add by_regime regime dispatcher (#107)
+- **describe**: SuggestConfigResult.diagnose() symmetry
+- **codes**: StatCode.description for symmetry
+- **evaluate**: factor_col= signal-column alias
+- **introspection**: expose per-cell stats_keys via EMITS_STATS
+- **preprocess**: expose compute_forward_return as public API (#91)
+
+### Fix
+
+- persona cross-cuts review followups (#110)
+- **docs-hooks**: prune stale notebooks from docs/examples on build (#99) (#103)
+- **ci**: fix CHANGELOG regex and add --latest to release job
+
+### Refactor
+
+- **ic**: share regime slicing primitive (#107)
+
+## v0.8.0 (2026-05-07)
+
+### Feat
+
+- **brand**: add logo banner and icon (#86)
+- **api**: list_metrics for per-cell standalone metric discovery (#76) (#79)
+- **api**: list_metrics for per-cell standalone metric discovery (#76)
+- **api**: friendly error when evaluate() called without config (#72)
+- **metrics**: four-angle primitive polish (#48)
+- **caar**: preserve magnitude in compute_caar (#12)
+- **introspect**: SuggestConfigResult.detected (#20)
+- **introspect**: two-tier n_assets guard
+
+### Fix
+
+- **readme**: point docs badge to correct workflow file
+- **describe**: cross_section_tier on inference-stage N (#83)
+- **ci**: use uv pip for import-from-wheel smoke
+- **stats**: calendar-time CAAR for PANEL NW HAC (#24) (#37)
+- **stats**: two-tier n_events guard on common_sparse (#25) (#29)
+- **introspect**: scope-gate magnitude_dropped (#23) (#28)
+
+### Refactor
+
+- **scripts**: organise scripts/ by purpose (#65)
+- **registry**: add _dispatch_key_for SSOT helper
+- naming + discoverability hygiene sweep
+
+## v0.7.0 (2026-05-07)
+
+### Feat
+
+- **introspect**: warn on dropped sparse magnitude
+
+## v0.6.0 (2026-05-03)
+
+### Feat
+
+- **metrics**: add ts_quantile_spread + ts_asymmetry (#5)
+- **stats**: add NW HAC multivariate OLS + Wald helpers
+
+### Fix
+
+- **multi_factor**: split bhy family on forward_periods
+
+## v0.5.0 (2026-05-02)
+
+### Feat
+
+- **api**: expose n_assets on FactorProfile; gate-validate bhy
+- **api**: complete v0.5 surface — three-axis dispatch refactor
+- **api**: switch public surface to v0.5; rip out v0.4
+- **api**: add v0.5 multi_factor.bhy with family partitioning
+- **api**: add v0.5 describe + suggest_config helpers
+- **api**: wire CAAR PANEL — 7/7 cells live
+- **api**: wire COMMON PANEL procedures (cont + sparse)
+- **api**: wire TS dummy SPARSE Mode B procedure
+- **api**: wire TS β CONTINUOUS Mode B procedure
+- **api**: wire FM PANEL procedure compute
+- **api**: add v0.5 _evaluate dispatch wrapper
+- **api**: wire IC PANEL procedure compute
+- **api**: wire v0.5 dispatch registry SSOT
+- **api**: scaffold v0.5 AnalysisConfig foundation
+
+### Fix
+
+- **build**: correct dependencies table location in pyproject.toml
+- **api**: apply v0.5 review UX minors
+- **api**: apply v0.5 review architecture minors
+
+### Refactor
+
+- rename T → n_periods to disambiguate from t-stat
+- drop Mode A/B for PANEL/TIMESERIES
+
   # before (v0.4.0 – v0.11.x, deprecated)
   bhy(profiles, threshold=0.05)
 
