@@ -161,6 +161,7 @@ nav:
       - Identity / context: api/identity.md
       - MetricOutput: api/metric-output.md
       - multi_factor: api/multi-factor.md
+      - stats: api/stats.md
       - datasets: api/datasets.md
       - preprocess: api/preprocess.md
       - Errors: api/errors.md
