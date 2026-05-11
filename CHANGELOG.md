@@ -22,6 +22,16 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Removed
 
+- **`factrix.multi_factor.bhy(threshold=)`** kwarg (breaking, #217). Deprecated since v0.4.0 in favour of `q=`. The deprecation collector path (`**deprecated` kwarg, `_apply_deprecated_kwargs`, runtime `DeprecationWarning`) is gone; passing `threshold=` now raises `TypeError` via the standard signature check.
+
+  ```python
+  # before (v0.4.0 – v0.11.x, deprecated)
+  bhy(profiles, threshold=0.05)
+
+  # after (v0.12.0)
+  bhy(profiles, q=0.05)
+  ```
+
 - **`factrix.metrics.regime_ic`** (breaking, #176, #215). Replaced by `factrix.slice_pairwise_test`. The #176 deprecation initially announced a one-minor frozen-shape window; #215 supersedes that plan and removes the function in the same minor, because v0.12 is a breaking train and there is no external user base to migrate. `regime_labels` is expected to carry a column literally named `regime` so the resulting `label="regime"` argument lines up:
 
   ```python
