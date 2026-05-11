@@ -1,4 +1,4 @@
-"""Tests for Layer-B Estimators (#153): WaldNWCluster / WaldDoubleCluster / BlockBootstrap."""
+"""Tests for Layer-B Estimators (#153): WaldNWCluster / WaldTwoWayCluster / BlockBootstrap."""
 
 from __future__ import annotations
 
@@ -9,14 +9,14 @@ from factrix.stats import (
     _ESTIMATOR_REGISTRY,
     BlockBootstrap,
     Estimator,
-    WaldDoubleCluster,
     WaldNWCluster,
+    WaldTwoWayCluster,
 )
 
 
 class TestEstimatorProtocol:
     def test_all_three_satisfy_protocol(self):
-        for est in (WaldNWCluster(), WaldDoubleCluster(), BlockBootstrap()):
+        for est in (WaldNWCluster(), WaldTwoWayCluster(), BlockBootstrap()):
             assert isinstance(est, Estimator)
 
     def test_names_distinct(self):
@@ -25,7 +25,7 @@ class TestEstimatorProtocol:
             "NeweyWest",
             "HansenHodrick",
             "WaldNWCluster",
-            "WaldDoubleCluster",
+            "WaldTwoWayCluster",
             "BlockBootstrap",
         }
 
@@ -54,18 +54,18 @@ class TestWaldNWCluster:
         assert "nw" in d or "newey" in d
 
 
-class TestWaldDoubleCluster:
-    def test_emits_p_wald_dc(self):
-        est = WaldDoubleCluster()
+class TestWaldTwoWayCluster:
+    def test_emits_p_wald_twoway(self):
+        est = WaldTwoWayCluster()
         code = est.emits_for(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC)
-        assert code is StatCode.P_WALD_DC
+        assert code is StatCode.P_WALD_TWOWAY
 
     def test_applicable_to_individual_continuous(self):
-        est = WaldDoubleCluster()
+        est = WaldTwoWayCluster()
         assert est.applicable_to(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
 
     def test_description_mentions_two_way(self):
-        d = WaldDoubleCluster().description.lower()
+        d = WaldTwoWayCluster().description.lower()
         assert "two-way" in d or "double" in d or "cgm" in d
 
 
@@ -133,7 +133,7 @@ class TestRegistryIntegration:
         types_in_registry = {type(e).__name__ for e in _ESTIMATOR_REGISTRY}
         assert {
             "WaldNWCluster",
-            "WaldDoubleCluster",
+            "WaldTwoWayCluster",
             "BlockBootstrap",
         } <= types_in_registry
 
@@ -148,7 +148,7 @@ class TestRegistryIntegration:
 
         names = list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
         assert "WaldNWCluster" in names
-        assert "WaldDoubleCluster" in names
+        assert "WaldTwoWayCluster" in names
         assert "BlockBootstrap" in names
 
     def test_list_estimators_excludes_layer_b_for_common(self):
@@ -158,6 +158,6 @@ class TestRegistryIntegration:
         # NW applies universally; Layer-B + HH restricted to (INDIVIDUAL, CONTINUOUS).
         assert "NeweyWest" in names
         assert "WaldNWCluster" not in names
-        assert "WaldDoubleCluster" not in names
+        assert "WaldTwoWayCluster" not in names
         assert "BlockBootstrap" not in names
         assert "HansenHodrick" not in names

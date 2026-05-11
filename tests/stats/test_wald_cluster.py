@@ -6,8 +6,8 @@ import numpy as np
 import pytest
 from factrix._stats.wald import (
     _nw_hac_vector_mean,
-    _wald_double_cluster,
     _wald_nw_cluster_means,
+    _wald_two_way_cluster,
 )
 
 
@@ -103,7 +103,7 @@ class TestWaldNWClusterMeans:
             _wald_nw_cluster_means(np.arange(10.0), R=np.array([[1.0]]))
 
 
-class TestWaldDoubleCluster:
+class TestWaldTwoWayCluster:
     def _make_panel(self, n_dates=40, n_assets=25, beta=0.0, seed=0):
         rng = np.random.default_rng(seed=seed)
         date_ids = np.repeat(np.arange(n_dates), n_assets)
@@ -126,13 +126,13 @@ class TestWaldDoubleCluster:
         y, X, d, a = self._make_panel(beta=0.0, seed=0)
         # Test slope = 0.
         R = np.array([[0.0, 1.0]])
-        _, p = _wald_double_cluster(y, X, R=R, date_ids=d, asset_ids=a)
+        _, p = _wald_two_way_cluster(y, X, R=R, date_ids=d, asset_ids=a)
         assert p > 0.05
 
     def test_alt_detected(self):
         y, X, d, a = self._make_panel(beta=0.5, seed=1)
         R = np.array([[0.0, 1.0]])
-        _, p = _wald_double_cluster(y, X, R=R, date_ids=d, asset_ids=a)
+        _, p = _wald_two_way_cluster(y, X, R=R, date_ids=d, asset_ids=a)
         assert p < 0.01
 
     def test_symmetric_V(self):
@@ -141,14 +141,14 @@ class TestWaldDoubleCluster:
         # construction).
         y, X, d, a = self._make_panel(beta=0.3, seed=2)
         R = np.array([[0.0, 1.0]])
-        _, p_da = _wald_double_cluster(y, X, R=R, date_ids=d, asset_ids=a)
-        _, p_ad = _wald_double_cluster(y, X, R=R, date_ids=a, asset_ids=d)
+        _, p_da = _wald_two_way_cluster(y, X, R=R, date_ids=d, asset_ids=a)
+        _, p_ad = _wald_two_way_cluster(y, X, R=R, date_ids=a, asset_ids=d)
         assert p_da == pytest.approx(p_ad)
 
     def test_rejects_id_length_mismatch(self):
         y, X, d, a = self._make_panel()
         with pytest.raises(ValueError, match="length must match"):
-            _wald_double_cluster(
+            _wald_two_way_cluster(
                 y,
                 X,
                 R=np.array([[0.0, 1.0]]),
@@ -164,7 +164,7 @@ class TestWaldDoubleCluster:
         y = x + np.random.default_rng(0).standard_normal(n)
         d = np.repeat(np.arange(10), 5)
         a = np.tile(np.arange(5), 10)
-        out = _wald_double_cluster(
+        out = _wald_two_way_cluster(
             y, X, R=np.array([[1.0, 0.0]]), date_ids=d, asset_ids=a
         )
         assert out == (0.0, 1.0)
