@@ -74,6 +74,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`multi_factor`](multi-factor.md) | `bhy(...)` for per-family BHY FDR screening across a list of `FactorProfile`s. | Multi-factor screening. |
 | [`stats`](stats.md) | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking inference method for `bhy(estimator=…)` or cross-slice tests. |
 | [`list_metrics`](list-metrics.md) | Programmatic discovery of standalone `factrix.metrics.*` callables applicable to a given `(scope, signal)` cell. | Picking a follow-up metric after `evaluate()`. |
+| [`suggest_config`](suggest-config.md) | Heuristic introspection — inspect a raw panel, propose an `AnalysisConfig` with per-axis reasoning and pre-evaluate warnings. | Recovering from `MissingConfigError`, or letting an agent pick a starting cell. |
 | [`Metrics`](metrics/index.md) | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly on a `FactorProfile` / panel. |
 
 ## Supporting surface
@@ -83,8 +84,8 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`MetricOutput`](metric-output.md) | Common wrapper returned by every standalone metric — `value`, `p_value`, `stats`, `metadata`. |
 | [`datasets`](datasets.md) | Synthetic panels (`make_cs_panel`, `make_event_panel`) for smoke tests and docs examples. |
 
-`describe_analysis_modes` and `suggest_config` are introspection shims,
-documented inline on [`AnalysisConfig`](analysis-config.md) and
+`describe_analysis_modes` is an introspection shim documented inline
+on [`AnalysisConfig`](analysis-config.md) and
 [Concepts](../getting-started/concepts.md).
 
 ## Naming convention

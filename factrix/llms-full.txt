@@ -426,6 +426,19 @@ factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
     # Wire-format rule: Python callers read .warnings (enum-typed);
     # cross-wire / JSON / log consumers call .diagnose() — same
     # convention as FactorProfile.
+    #
+    # Example .diagnose() output on an IC PANEL panel (100 assets,
+    # 494 periods, dense factor):
+    #   {
+    #     "suggested": {"scope": "individual", "signal": "continuous",
+    #                   "metric": "ic", "forward_periods": 5},
+    #     "detected":  {"scope": "individual", "signal": "continuous",
+    #                   "mode": "panel", "n_assets": 100,
+    #                   "n_periods": 494, "sparsity": 0.0},
+    #     "reasoning": {"scope": "...", "signal": "...",
+    #                   "metric": "...", "mode": "..."},
+    #     "warnings":  []
+    #   }
 
 factrix.list_metrics(scope: FactorScope, signal: Signal,
                      *, format: Literal["text", "json"] = "text"
