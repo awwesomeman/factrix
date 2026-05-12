@@ -27,7 +27,11 @@ import numpy as np
 
 from factrix._errors import UserInputError
 from factrix._family import _resolve_family
-from factrix.stats.multiple_testing import bhy_adjusted_p, partial_conjunction_p
+from factrix.stats.multiple_testing import (
+    bhy_adjusted_p,
+    partial_conjunction_p,
+    simes_p,
+)
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
@@ -80,6 +84,12 @@ class Survivors:
             ``adj_p`` survivor selection is the anti-shopping failure
             mode this verb exists to prevent. ``None`` when the verb is
             not ``partial_conjunction``.
+        group_id: Per-survivor group label for ``bhy_hierarchical``
+            (the ``profile.context[group]`` value). ``adj_p[i]`` for
+            this verb is the max-of-layers fold ``max(outer_adj_p[g],
+            inner_adj_p[i])`` so the universal duality
+            ``survivor[i] iff adj_p[i] <= q`` still holds. ``None``
+            when the verb is not ``bhy_hierarchical``.
     """
 
     profiles: list[FactorProfile]
@@ -90,6 +100,7 @@ class Survivors:
     pc_p: np.ndarray | None = None
     min_pass: int | None = None
     n_passed_uncorr: np.ndarray | None = None
+    group_id: np.ndarray | None = None
 
     def __len__(self) -> int:
         return len(self.profiles)
@@ -103,6 +114,7 @@ class Survivors:
         """
         headers: tuple[str, ...]
         pc_mode = self.pc_p is not None
+        hier_mode = self.group_id is not None
         if pc_mode:
             headers = (
                 "identity",
@@ -111,6 +123,8 @@ class Survivors:
                 "n_total",
                 "n_passed_uncorr",
             )
+        elif hier_mode:
+            headers = ("group_id", "identity", "primary_p", "adj_p")
         elif self.expand_over:
             headers = ("expand_over_values", "identity", "primary_p", "adj_p")
         else:
@@ -139,13 +153,16 @@ class Survivors:
                 )
             return headers, rows
 
-        for profile, adj in zip(self.profiles, self.adj_p, strict=True):
+        for i, (profile, adj) in enumerate(zip(self.profiles, self.adj_p, strict=True)):
             cells = (
                 repr(profile.identity),
                 f"{profile.primary_p:.4g}",
                 f"{float(adj):.4g}",
             )
-            if self.expand_over:
+            if hier_mode:
+                assert self.group_id is not None
+                rows.append((repr(self.group_id[i]), *cells))
+            elif self.expand_over:
                 bucket_repr = repr(tuple(profile.context[k] for k in self.expand_over))
                 rows.append((bucket_repr, *cells))
             else:
@@ -156,7 +173,13 @@ class Survivors:
         parts = [f"n={len(self.profiles)}", f"q={self.q:g}"]
         if self.min_pass is not None:
             parts.append(f"min_pass={self.min_pass}")
-        if self.expand_over:
+        if self.group_id is not None:
+            parts.append(f"n_groups={len(self.n_total)}")
+            n_total_repr = ", ".join(
+                f"{k!r}: {v}" for k, v in sorted(self.n_total.items())
+            )
+            parts.append(f"n_total={{{n_total_repr}}}")
+        elif self.expand_over:
             parts.append(f"expand_over={list(self.expand_over)!r}")
             n_total_repr = ", ".join(
                 f"{k!r}: {v}" for k, v in sorted(self.n_total.items())
@@ -533,6 +556,126 @@ def partial_conjunction(
         pc_p=pc_p_arr[survivor_idx],
         min_pass=min_pass,
         n_passed_uncorr=n_passed_arr[survivor_idx],
+    )
+
+
+def bhy_hierarchical(
+    profiles: Iterable[FactorProfile],
+    *,
+    group: str,
+    estimator: Estimator | None = None,
+    q: float = 0.05,
+) -> Survivors:
+    """Hierarchical BHY: control FDR across groups then within groups.
+
+    For factor sets with a natural group structure (momentum / value /
+    quality families; cross-region universes), the Yekutieli 2008
+    two-stage procedure controls *group-level* FDR ≤ ``q`` on the outer
+    layer (Simes group representative + BHY) and *within-group* FDR
+    ≤ ``q`` on the inner layer (BHY restricted to passing groups). Flat
+    BHY across the whole input loses group-level interpretability and
+    pays full m-correction even when most groups are dead; this verb
+    keeps the group answer first-class.
+
+    Args:
+        profiles: Iterable of :class:`FactorProfile`. Each profile is
+            assigned to one group via ``profile.context[group]``;
+            within a group, ``(factor_id, forward_periods)`` must be
+            unique (the standard ``_resolve_family`` partition-key
+            check).
+        group: Single context key naming the group axis (e.g.
+            ``"family"`` for momentum / value / quality, ``"region"``
+            for cross-region replication). Identity dimensions
+            (``factor_id`` / ``forward_periods``) are rejected — using
+            them as group keys collapses each cell to its own group
+            and trivializes the procedure (see #160 anti-shopping
+            defense).
+        estimator: Optional inference-method override (#170). ``None``
+            uses each profile's ``primary_p``.
+        q: Nominal FDR target shared by both layers. Default ``0.05``.
+
+    Returns:
+        :class:`Survivors` in input order. ``adj_p`` is the
+        max-of-layers fold ``max(outer_adj_p[g], inner_adj_p[i])`` so
+        the universal duality ``survivor[i] iff adj_p[i] <= q`` holds.
+        ``group_id`` carries each survivor's group label; ``n_total``
+        maps group key to its inner family size; ``expand_over`` is
+        ``(group,)``.
+
+    Raises:
+        UserInputError: ``group`` shadows an identity dimension
+            (``factor_id`` / ``forward_periods``); ``group`` missing
+            from a profile's ``context``; duplicate ``(identity,
+            group_value)`` partition key; estimator applicability
+            failures (per ``_resolve_family``).
+
+    References:
+        Yekutieli, D. (2008). "Hierarchical false discovery rate-
+        controlling methodology." JASA 103(481), 309-316.
+    """
+    profile_list = list(profiles)
+    expand_over_tuple: tuple[str, ...] = (group,)
+
+    if not profile_list:
+        return Survivors(
+            profiles=[],
+            adj_p=np.zeros(0, dtype=np.float64),
+            q=q,
+            expand_over=expand_over_tuple,
+            n_total={},
+            group_id=np.empty(0, dtype=object),
+        )
+
+    entries = _resolve_family(
+        profile_list,
+        verb="bhy_hierarchical",
+        expand_over=[group],
+        estimator=estimator,
+    )
+
+    groups: dict[Any, list[int]] = defaultdict(list)
+    for idx, entry in enumerate(entries):
+        groups[entry.expand_over_values[0]].append(idx)
+
+    group_keys_ordered: list[Any] = []
+    seen_groups: set[Any] = set()
+    for entry in entries:
+        gkey = entry.expand_over_values[0]
+        if gkey not in seen_groups:
+            seen_groups.add(gkey)
+            group_keys_ordered.append(gkey)
+
+    n_groups = len(group_keys_ordered)
+    group_simes = np.empty(n_groups, dtype=np.float64)
+    for g_idx, gkey in enumerate(group_keys_ordered):
+        member_p = np.array(
+            [entries[i].p_value for i in groups[gkey]], dtype=np.float64
+        )
+        group_simes[g_idx] = simes_p(member_p)
+
+    outer_adj = bhy_adjusted_p(group_simes)
+
+    adj_p_all = np.empty(len(entries), dtype=np.float64)
+    n_total: dict[tuple[Any, ...], int] = {}
+    for g_idx, gkey in enumerate(group_keys_ordered):
+        member_idxs = groups[gkey]
+        member_p = np.array([entries[i].p_value for i in member_idxs], dtype=np.float64)
+        inner_adj = bhy_adjusted_p(member_p)
+        for j, idx in enumerate(member_idxs):
+            adj_p_all[idx] = max(outer_adj[g_idx], inner_adj[j])
+        n_total[(gkey,)] = len(member_idxs)
+
+    survivor_idxs = np.flatnonzero(adj_p_all <= q)
+    group_id_arr = np.array(
+        [entries[i].expand_over_values[0] for i in survivor_idxs], dtype=object
+    )
+    return Survivors(
+        profiles=[entries[i].profile for i in survivor_idxs],
+        adj_p=adj_p_all[survivor_idxs],
+        q=q,
+        expand_over=expand_over_tuple,
+        n_total=n_total,
+        group_id=group_id_arr,
     )
 
 
