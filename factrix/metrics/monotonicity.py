@@ -124,7 +124,7 @@ def monotonicity(
         return _short_circuit_output(
             "monotonicity",
             "insufficient_monotonicity_periods",
-            n_observed=len(mono_df),
+            n_obs=len(mono_df),
             min_required=MIN_MONOTONICITY_PERIODS,
             n_groups=n_groups,
             tie_ratio=tie_ratio,

@@ -138,7 +138,7 @@ def top_concentration(
         return _short_circuit_output(
             "top_concentration",
             "insufficient_portfolio_periods",
-            n_observed=n_periods_hhi,
+            n_obs=n_periods_hhi,
             min_required=MIN_PORTFOLIO_PERIODS_HARD,
             tie_ratio=tie_ratio,
         )

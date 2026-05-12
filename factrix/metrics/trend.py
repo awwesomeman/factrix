@@ -101,7 +101,7 @@ def ic_trend(
         return _short_circuit_output(
             name,
             "insufficient_trend_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=10,
         )
 

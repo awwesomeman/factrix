@@ -103,7 +103,7 @@ def corrado_rank_test(
         return _short_circuit_output(
             "corrado_rank",
             "insufficient_events",
-            n_observed=n_events,
+            n_obs=n_events,
             min_required=MIN_EVENTS_HARD,
         )
 

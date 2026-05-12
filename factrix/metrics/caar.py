@@ -195,7 +195,7 @@ def caar(
         return _short_circuit_output(
             "caar",
             "insufficient_event_dates",
-            n_observed=n,
+            n_obs=n,
             min_required=raw_min_hard,
             forward_periods=forward_periods,
         )
@@ -379,7 +379,7 @@ def bmp_test(
         return _short_circuit_output(
             "bmp_test",
             "no_events",
-            n_observed=0,
+            n_obs=0,
             min_required=1,
         )
 
@@ -396,7 +396,7 @@ def bmp_test(
         return _short_circuit_output(
             "bmp_test",
             "insufficient_estimation_window",
-            n_observed=n_valid,
+            n_obs=n_valid,
             min_required=MIN_EVENTS_HARD,
         )
 

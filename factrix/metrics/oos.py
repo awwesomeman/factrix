@@ -123,7 +123,7 @@ def multi_split_oos_decay(
         out = _short_circuit_output(
             "oos_decay",
             "insufficient_oos_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_OOS_PERIODS * 2,
             sign_flipped=False,
             status="VETOED",

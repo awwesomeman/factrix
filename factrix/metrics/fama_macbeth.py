@@ -213,7 +213,7 @@ def fama_macbeth(
         return _short_circuit_output(
             "fm_beta",
             "insufficient_fm_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_FM_PERIODS_HARD,
         )
 
@@ -411,7 +411,7 @@ def pooled_ols(
         return _short_circuit_output(
             "pooled_beta",
             "insufficient_pooled_observations",
-            n_observed=n_obs,
+            n_obs=n_obs,
             min_required=10,
         )
 
@@ -422,7 +422,7 @@ def pooled_ols(
         return _short_circuit_output(
             "pooled_beta",
             "singular_pooled_design_matrix",
-            n_observed=n_obs,
+            n_obs=n_obs,
         )
 
     slope = float(beta[1])
@@ -446,7 +446,7 @@ def pooled_ols(
                 significance="",
                 metadata={
                     "reason": "insufficient_clusters",
-                    "n_observed": g_a,
+                    "n_clusters": g_a,
                     "min_required": 3,
                     "n_obs": n_obs,
                     "p_value": 1.0,
@@ -474,7 +474,7 @@ def pooled_ols(
                 significance="",
                 metadata={
                     "reason": "insufficient_clusters",
-                    "n_observed": min(g_a, g_b),
+                    "n_clusters": min(g_a, g_b),
                     "min_required": 3,
                     "n_obs": n_obs,
                     "n_clusters_a": g_a,
@@ -584,7 +584,7 @@ def beta_sign_consistency(
         return _short_circuit_output(
             "beta_sign_consistency",
             "no_beta_observations",
-            n_observed=0,
+            n_obs=0,
             min_required=1,
         )
 

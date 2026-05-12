@@ -128,7 +128,7 @@ def turnover(
         return _short_circuit_output(
             "turnover",
             "insufficient_dates",
-            n_observed=len(all_dates),
+            n_obs=len(all_dates),
             min_required=min_required,
             forward_periods=forward_periods,
         )
@@ -173,7 +173,7 @@ def turnover(
         return _short_circuit_output(
             "turnover",
             "insufficient_pairs",
-            n_observed=rc_per_date.height,
+            n_obs=rc_per_date.height,
             min_required=2,
             forward_periods=forward_periods,
             quantile=quantile,
@@ -276,7 +276,7 @@ def notional_turnover(
         return _short_circuit_output(
             "notional_turnover",
             "insufficient_dates",
-            n_observed=len(dates),
+            n_obs=len(dates),
             min_required=2,
             forward_periods=forward_periods,
         )

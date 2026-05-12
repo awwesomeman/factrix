@@ -65,7 +65,7 @@ def event_hit_rate(
         return _short_circuit_output(
             "event_hit_rate",
             "insufficient_events",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_EVENTS_HARD,
         )
 
@@ -142,7 +142,7 @@ def event_ic(
         return _short_circuit_output(
             "event_ic",
             "insufficient_events",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_EVENTS_HARD,
         )
 
@@ -216,7 +216,7 @@ def profit_factor(
         return _short_circuit_output(
             "profit_factor",
             "insufficient_events",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_EVENTS_HARD,
         )
 
@@ -281,7 +281,7 @@ def event_skewness(
         return _short_circuit_output(
             "event_skewness",
             "insufficient_events",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_EVENTS_HARD,
         )
 
@@ -360,7 +360,7 @@ def signal_density(
         return _short_circuit_output(
             "signal_density",
             "insufficient_events",
-            n_observed=n_events,
+            n_obs=n_events,
             min_required=2,
         )
 
@@ -379,7 +379,7 @@ def signal_density(
         return _short_circuit_output(
             "signal_density",
             "no_asset_has_min_two_events",
-            n_observed=n_events,
+            n_obs=n_events,
             min_required_per_asset=2,
         )
 

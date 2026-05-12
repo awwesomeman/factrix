@@ -249,13 +249,16 @@ class SuggestConfigResult:
     warnings: list[WarningCode] = field(default_factory=list)
 
     def diagnose(self) -> dict[str, Any]:
-        """JSON-shaped view, symmetric with ``FactorProfile.diagnose()``.
+        """JSON-shaped exit point for agent / log consumers.
 
-        Python callers continue to read ``.warnings`` as a list of
-        ``WarningCode`` enums. Cross-wire / log / agent consumers call
-        ``diagnose()`` to get a fully serialisable dict where
-        ``warnings`` is a sorted list of ``.value`` strings (matching
-        the shape produced by ``FactorProfile.diagnose()``).
+        Shares the ``warnings`` serialisation convention with
+        ``FactorProfile.diagnose()`` (sorted list of ``.value``
+        strings); the body is otherwise its own shape — the two
+        surfaces answer different questions (this one recommends a
+        config; ``FactorProfile`` reports inference on one). Python
+        callers continue to read ``.warnings`` as a list of
+        ``WarningCode`` enums; ``diagnose()`` is the JSON-friendly
+        view for cross-wire / log / agent consumers.
 
         Returns:
             A plain-Python dict with the suggested config serialised

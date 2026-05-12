@@ -262,28 +262,36 @@ not by the bundle itself.
 Frozen dataclass. All fields are read-only.
 
 ```
-profile.config          : AnalysisConfig
-profile.mode            : Mode                       # PANEL or TIMESERIES (derived)
-profile.primary_p       : float                      # procedure-canonical p-value
-profile.n_obs           : int                        # effective sample size
-profile.n_assets        : int                        # cross-section width
-profile.factor_id       : str                        # user-supplied factor name (default "factor")
-profile.forward_periods : int                        # derived from config.forward_periods
-profile.identity        : tuple[str, int]            # (factor_id, forward_periods); read-only view
-profile.context         : Mapping[str, Any]          # universe_id / regime_id / ...
-profile.warnings        : frozenset[WarningCode]
-profile.info_notes      : frozenset[InfoCode]
-profile.stats           : Mapping[StatCode, float]                 # cell-specific scalars
-profile.metadata        : Mapping[StatCode, Mapping[str, Any]]     # hyperparams that produced each stat (#188)
+profile.config            : AnalysisConfig
+profile.mode              : Mode                        # PANEL or TIMESERIES (derived)
+profile.primary_p         : float                       # procedure-canonical p-value
+profile.primary_stat      : float | None                # test stat paired with primary_p (None for empirical-p)
+profile.primary_stat_name : StatCode                    # stats-key pointer for primary_stat (e.g. StatCode.T_NW); serialised to .value in diagnose()
+profile.n_obs             : int                         # final-stage test denominator (per-cell semantics; see api/factor-profile.md)
+profile.n_pairs           : int                         # non-null (period, asset) pair count (first-stage)
+profile.n_periods         : int                         # unique periods (any-non-null union)
+profile.n_assets          : int                         # unique assets (any-non-null union)
+profile.factor_id         : str                         # user-supplied factor name (default "factor")
+profile.forward_periods   : int                         # derived from config.forward_periods
+profile.identity          : tuple[str, int]             # (factor_id, forward_periods); read-only view
+profile.context           : Mapping[str, Any]           # universe_id / regime_id / ...
+profile.warnings          : frozenset[WarningCode]
+profile.info_notes        : frozenset[InfoCode]
+profile.stats             : Mapping[StatCode, float]                 # cell-specific scalars
+profile.metadata          : Mapping[StatCode, Mapping[str, Any]]     # hyperparams that produced each stat (#188)
 
 profile.diagnose() -> dict[str, Any]
-    # {"identity": {"factor_id", "forward_periods"},
-    #  "context": {...},                # sample / conditioning dimensions
-    #  "mode", "n_obs", "n_assets", "primary_p",
-    #  "warnings": [str, ...],          # sorted WarningCode .value strings
-    #  "info_notes": [str, ...],        # sorted InfoCode .value strings
-    #  "stats": {str: float, ...},      # StatCode .value → float
-    #  "metadata": {str: {str: Any}}}   # StatCode .value → hyperparams dict
+    # Key order follows the reader-flow seven questions (#246):
+    # {"identity":  {"factor_id", "forward_periods"},
+    #  "context":   {...},              # sample / conditioning dimensions
+    #  "cell":      {"scope", "signal", "metric", "mode"},  # dispatch coordinate
+    #  "n_obs", "n_pairs", "n_periods", "n_assets",         # four sample axes
+    #  "primary_p", "primary_stat", "primary_stat_name",    # primary family
+    #  "warnings":  [str, ...],         # sorted WarningCode .value strings
+    #  "info_notes":[str, ...],         # sorted InfoCode .value strings
+    #  "stats":     {str: float, ...},  # StatCode .value → float
+    #  "metadata":  {str: {str: Any}}}  # StatCode .value → hyperparams dict
+    # Invariant: stats[primary_stat_name] == primary_stat when primary_stat is not None.
 ```
 
 `identity` and `context` split hypothesis dimensions (factor_id × horizon)
@@ -406,7 +414,10 @@ factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
     #   .warnings   : list[WarningCode]   # Python ergonomic — keep enum identity
     #
     # SuggestConfigResult.diagnose() -> dict[str, Any]
-    #   # JSON-shape, symmetric with FactorProfile.diagnose():
+    #   # JSON-shape exit point; shares `warnings` serialisation with
+    #   # FactorProfile.diagnose() but the body is its own shape (the
+    #   # two surfaces answer different questions — this one recommends
+    #   # a config; FactorProfile reports inference on one).
     #   # {"suggested": {...to_dict()...},
     #   #  "detected":  {...},
     #   #  "reasoning": {...},

@@ -16,6 +16,36 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Changed
 
+- **`FactorProfile.diagnose()` schema overhaul** (breaking, #246). Six UX gaps in the structured triage interface land in one schema change. (1) **Four sample axes** replace the previous polymorphic `n_obs` + `n_assets` pair: `n_obs` (cell-canonical final-stage test denominator — semantics unchanged), `n_pairs` (non-null `(period, asset)` pair count, first-stage), `n_periods` (unique periods in raw panel), `n_assets` (unique assets, semantics unchanged). Each axis answers one question and never overlaps with another; a small `n_obs` is now disambiguated by the three companion axes without reverse-engineering the cell. (2) **`primary_stat` / `primary_stat_name` family** added top-level — `primary_stat: float | None` carries the test statistic value paired with `primary_p` (e.g. `t_nw` value for an NW HAC t-test), `primary_stat_name: str` slugs the `stats` key (e.g. `"t_nw"`) so the user can connect `primary_p` to its `stats` entry without consulting the procedure registry. Generic across statistic families: the `None` arm handles future empirical-p primaries (block bootstrap) where there is no test stat. Invariant `stats[primary_stat_name] == primary_stat` (when not `None`) is pinned in docstring. (3) **`cell` group** wraps the dispatch coordinate — `{"scope", "signal", "metric", "mode"}` — so consumers identify which procedure ran without grepping `config`. (4) **Reader-flow key order**: `identity` → `context` → `cell` → sample axes → `primary_p` / `primary_stat` / `primary_stat_name` → `warnings` / `info_notes` → `stats` / `metadata`. (5) **`n_observed` → `n_obs` metadata key rename** across ~38 `factrix/metrics/*.py` short-circuit sites — the two first-class surfaces (`FactorProfile` and `MetricOutput`-metadata) now share the same family name; the `MetricOutput.n_obs` first-class field promotion is tracked separately at #248. (6) **`SuggestConfigResult.diagnose()` "symmetric" docstring** is downgraded to scope-limited — the two surfaces share `warnings` serialisation but answer structurally different questions; no schema change there. Docs (`api/factor-profile.md`, `development/architecture.md`, `llms-full.txt`) are rewritten in lockstep; bare `N` / `T` letter codes in `factor-profile.md` are replaced with full axis names to reduce reader cognitive load.
+
+  ```python
+  # before (v0.12.0)
+  d = profile.diagnose()
+  # → {"identity": {...}, "context": {...},
+  #    "mode": "panel",
+  #    "n_obs": 30, "n_assets": 500,
+  #    "primary_p": 0.0046,
+  #    "warnings": [...], "info_notes": [...],
+  #    "stats": {...}, "metadata": {...}}
+
+  # after (v0.13.0)
+  d = profile.diagnose()
+  # → {"identity": {...}, "context": {...},
+  #    "cell": {"scope": "individual", "signal": "continuous",
+  #             "metric": "ic", "mode": "panel"},
+  #    "n_obs": 30, "n_pairs": 12450, "n_periods": 30, "n_assets": 500,
+  #    "primary_p": 0.0046, "primary_stat": 2.84,
+  #    "primary_stat_name": "t_nw",
+  #    "warnings": [...], "info_notes": [...],
+  #    "stats": {...}, "metadata": {...}}
+
+  # Migration:
+  # - d["mode"]      → d["cell"]["mode"]
+  # - new keys n_pairs / n_periods / primary_stat / primary_stat_name carry
+  #   additional info; old keys (n_obs / n_assets / primary_p) keep semantics.
+  # - MetricOutput.metadata key "n_observed" → "n_obs" across metric primitives.
+  ```
+
 - **`Survivors.adj_q` → `Survivors.adj_p`** (breaking, #245). Aligned the adjusted-p-value column name with statistical-software conventions (R `p.adjust`, statsmodels `multipletests`) where adjusted p-values are uniformly named `adj_p` / `p_adj` regardless of whether the underlying procedure controls FWER (Bonferroni / Holm) or FDR (BH / BHY). The previous `adj_q` reflected an internal-consistency goal with the `bhy(q=0.05)` kwarg, but read awkwardly in FWER contexts (where the threshold is α, not q) and required first-time users to ask "what is `adj_q`?". The `q=` kwarg name is **kept** (it remains the API-uniform threshold name across procedure families); only the output column renames. `bhy_adjusted_p()` function name was already `_p` — this change extends the same convention to the survivor container field.
 
   ```python

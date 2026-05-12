@@ -183,7 +183,11 @@ def _make_profile(
         config=AnalysisConfig.individual_continuous(),
         mode=Mode.PANEL,
         primary_p=primary_p,
+        primary_stat=2.05,
+        primary_stat_name=StatCode.T_NW,
         n_obs=100,
+        n_pairs=2000,
+        n_periods=100,
         n_assets=20,
         warnings=warnings,
         info_notes=info_notes,
@@ -205,7 +209,11 @@ class TestProfileImmutability:
             config=AnalysisConfig.common_continuous(),
             mode=Mode.TIMESERIES,
             primary_p=0.5,
+            primary_stat=0.67,
+            primary_stat_name=StatCode.T_NW,
             n_obs=50,
+            n_pairs=50,
+            n_periods=50,
             n_assets=1,
         )
         assert prof.warnings == frozenset()
@@ -223,9 +231,12 @@ class TestDiagnose:
             metadata={StatCode.T_NW: {"nw_lags": 5}, StatCode.P_NW: {"nw_lags": 5}},
         )
         d = prof.diagnose()
-        assert d["mode"] == "panel"
+        assert d["cell"]["mode"] == "panel"
+        assert d["cell"]["scope"] == "individual"
         assert d["n_obs"] == 100
         assert d["primary_p"] == 0.02
+        assert d["primary_stat"] == 2.05
+        assert d["primary_stat_name"] == "t_nw"
         assert "unreliable_se_short_periods" in d["warnings"]
         assert "scope_axis_collapsed" in d["info_notes"]
         assert d["stats"]["mean"] == 0.05

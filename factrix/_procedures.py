@@ -31,6 +31,33 @@ _ADF_LAG_ORDER = 0
 _HHI_N_BINS = 10
 
 
+def _panel_envelope(
+    raw: Any,
+    *,
+    factor_col: str = "factor",
+    return_col: str = "forward_return",
+) -> tuple[int, int, int]:
+    """Return ``(n_pairs, n_periods, n_assets)`` from the raw panel.
+
+    ``n_pairs`` counts rows where both ``factor`` and ``forward_return``
+    are non-null — the first-stage observation count the cell sees.
+    ``n_periods`` / ``n_assets`` use the any-non-null union over the
+    same two columns so callers reading ``n_assets = 1`` see the
+    single-asset signal regardless of which column is sparser.
+    """
+    import polars as pl
+
+    f_nn = pl.col(factor_col).is_not_null()
+    r_nn = pl.col(return_col).is_not_null()
+    any_nn = f_nn | r_nn
+    row = raw.select(
+        (f_nn & r_nn).sum().alias("n_pairs"),
+        pl.col("date").filter(any_nn).n_unique().alias("n_periods"),
+        pl.col("asset_id").filter(any_nn).n_unique().alias("n_assets"),
+    ).row(0)
+    return int(row[0]), int(row[1]), int(row[2])
+
+
 def _nw_metadata(nw_lags: int) -> dict[StatCode, Mapping[str, Any]]:
     """NW HAC bandwidth → ``T_NW`` + ``P`` (shared single bandwidth choice).
 
@@ -189,7 +216,7 @@ class _ICContPanelProcedure:
         # factor / tied returns) so the explicit drop is reachable.
         ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
         n_periods = len(ic_values)
-        n_assets = int(raw["asset_id"].n_unique())
+        n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
         # Plan §5.2 picks NW1994 auto_bartlett as the default lag, but
         # h-period forward returns force MA(h-1) structure on the IC
         # series so we floor at ``forward_periods - 1`` (Hansen-Hodrick
@@ -223,7 +250,11 @@ class _ICContPanelProcedure:
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
+            primary_stat=t_stat,
+            primary_stat_name=StatCode.T_NW,
             n_obs=n_periods,
+            n_pairs=n_pairs,
+            n_periods=n_periods_raw,
             n_assets=n_assets,
             warnings=warnings,
             stats=stats,
@@ -273,7 +304,7 @@ class _FMContPanelProcedure:
 
         beta_values = compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
         n_periods = len(beta_values)
-        n_assets = int(raw["asset_id"].n_unique())
+        n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
         nw_lags = (
             _resolve_nw_lags(
                 n_periods, auto_bartlett(n_periods), config.forward_periods
@@ -308,7 +339,11 @@ class _FMContPanelProcedure:
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
+            primary_stat=t_stat,
+            primary_stat_name=StatCode.T_NW,
             n_obs=n_periods,
+            n_pairs=n_pairs,
+            n_periods=n_periods_raw,
             n_assets=n_assets,
             warnings=warning_codes,
             stats=stats,
@@ -385,7 +420,7 @@ class _CAARSparsePanelProcedure:
         )
         caar_dense = dense["caar"].to_numpy()
         n_periods = len(caar_dense)
-        n_assets = int(raw["asset_id"].n_unique())
+        n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
 
         event_mean = (
             float(event_caar["caar"].drop_nulls().mean())  # type: ignore[arg-type]
@@ -407,7 +442,11 @@ class _CAARSparsePanelProcedure:
             config=config,
             mode=Mode.PANEL,
             primary_p=p_value,
+            primary_stat=t_stat,
+            primary_stat_name=StatCode.T_NW,
             n_obs=n_periods,
+            n_pairs=n_pairs,
+            n_periods=n_periods_raw,
             n_assets=n_assets,
             warnings=frozenset(warning_codes),
             stats={
@@ -602,15 +641,19 @@ def _compute_common_panel(
         if adf_p > 0.10:
             warnings.add(WarningCode.PERSISTENT_REGRESSOR)
 
-    # n_obs == N here (cross-asset aggregation), but expose n_assets
-    # explicitly anyway so callers get the same field shape regardless
-    # of which cell produced the profile.
+    # `n_obs == N` here (cross-asset aggregation) — distinct from the
+    # `n_assets` envelope when the per-asset MIN_TS_OBS filter drops rows.
+    n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
     return FactorProfile(
         config=config,
         mode=Mode.PANEL,
         primary_p=p_value,
+        primary_stat=t_stat,
+        primary_stat_name=StatCode.T_NW,
         n_obs=N,
-        n_assets=int(raw["asset_id"].n_unique()),
+        n_pairs=n_pairs,
+        n_periods=n_periods_raw,
+        n_assets=n_assets,
         warnings=frozenset(warnings),
         stats=stats,
         metadata=metadata,
@@ -693,12 +736,17 @@ class _TSBetaContTimeseriesProcedure:
         if adf_p > 0.10:
             warnings.add(WarningCode.PERSISTENT_REGRESSOR)
 
+        n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
         return FactorProfile(
             config=config,
             mode=Mode.TIMESERIES,
             primary_p=p_value,
+            primary_stat=t_stat,
+            primary_stat_name=StatCode.T_NW,
             n_obs=n_periods,
-            n_assets=int(raw["asset_id"].n_unique()),
+            n_pairs=n_pairs,
+            n_periods=n_periods_raw,
+            n_assets=n_assets,
             warnings=frozenset(warnings),
             stats={
                 StatCode.MEAN: beta,
@@ -798,12 +846,17 @@ class _TSDummySparseTimeseriesProcedure:
         if overlap:
             warnings.add(WarningCode.EVENT_WINDOW_OVERLAP)
 
+        n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
         return FactorProfile(
             config=config,
             mode=Mode.TIMESERIES,
             primary_p=p_value,
+            primary_stat=t_stat,
+            primary_stat_name=StatCode.T_NW,
             n_obs=n_periods,
-            n_assets=int(raw["asset_id"].n_unique()),
+            n_pairs=n_pairs,
+            n_periods=n_periods_raw,
+            n_assets=n_assets,
             warnings=frozenset(warnings),
             stats={
                 StatCode.MEAN: beta,

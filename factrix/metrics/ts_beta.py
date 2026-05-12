@@ -216,7 +216,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         return _short_circuit_output(
             "ts_beta",
             "insufficient_assets",
-            n_observed=n,
+            n_obs=n,
             min_required=3,
         )
 
@@ -278,7 +278,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
         return _short_circuit_output(
             "mean_r_squared",
             "no_asset_r_squared_observations",
-            n_observed=0,
+            n_obs=0,
             min_required=1,
         )
 
@@ -420,7 +420,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
         return _short_circuit_output(
             "ts_beta_sign_consistency",
             "insufficient_assets_for_sign_consistency",
-            n_observed=n,
+            n_obs=n,
             min_required=2,
         )
 

@@ -151,7 +151,7 @@ def spanning_alpha(
             return _short_circuit_output(
                 "spanning_alpha",
                 "no_overlapping_dates_with_candidate",
-                n_observed=0,
+                n_obs=0,
             )
         candidate_arr = arrays.pop("_candidate_")
         base_arrays = arrays
@@ -162,7 +162,7 @@ def spanning_alpha(
             return _short_circuit_output(
                 "spanning_alpha",
                 "insufficient_spread_observations",
-                n_observed=len(vals),
+                n_obs=len(vals),
                 min_required=10,
             )
         candidate_arr = vals.to_numpy()
