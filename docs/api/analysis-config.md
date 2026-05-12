@@ -60,10 +60,10 @@ title: factrix.AnalysisConfig
 
 | Your factor                                       | Factory                                   | Resulting cell                            |
 |---------------------------------------------------|-------------------------------------------|-------------------------------------------|
-| Per-asset real-valued signal, want rank IC        | `individual_continuous(metric=Metric.IC)` | `(INDIVIDUAL, CONTINUOUS, IC)`            |
-| Per-asset real-valued signal, want FM λ premium   | `individual_continuous(metric=Metric.FM)` | `(INDIVIDUAL, CONTINUOUS, FM)`            |
-| Per-asset `{-1, 0, +1}` event trigger             | `individual_sparse()`                     | `(INDIVIDUAL, SPARSE, None)`              |
-| Broadcast real-valued factor (e.g. VIX)           | `common_continuous()`                     | `(COMMON, CONTINUOUS, None)`              |
+| Per-asset real-valued signal, want rank IC        | [`individual_continuous(metric=Metric.IC)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, IC)`            |
+| Per-asset real-valued signal, want FM λ premium   | [`individual_continuous(metric=Metric.FM)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, FM)`            |
+| Per-asset `{-1, 0, +1}` event trigger             | [`individual_sparse()`](metrics/individual-sparse.md)                     | `(INDIVIDUAL, SPARSE, None)`              |
+| Broadcast real-valued factor (e.g. VIX)           | [`common_continuous()`](metrics/common-continuous.md)                     | `(COMMON, CONTINUOUS, None)`              |
 | Broadcast event dummy (FOMC, index rebalance)     | `common_sparse()`                         | `(COMMON, SPARSE, None)`                  |
 
 Direct construction (`AnalysisConfig(scope=..., signal=..., metric=...)`)
