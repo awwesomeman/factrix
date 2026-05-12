@@ -52,6 +52,8 @@ def _aggregate_to_per_date(
 def _short_circuit_output(
     name: str,
     reason: str,
+    *,
+    n_obs: int | None = None,
     **extra_metadata: object,
 ) -> MetricOutput:
     """Canonical short-circuit ``MetricOutput`` for "cannot compute".
@@ -74,6 +76,7 @@ def _short_circuit_output(
     return MetricOutput(
         name=name,
         value=float("nan"),
+        n_obs=n_obs,
         stat=None,
         significance="",
         metadata={"reason": reason, "p_value": 1.0, **extra_metadata},

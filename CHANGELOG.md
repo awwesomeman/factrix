@@ -16,6 +16,19 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Changed
 
+- **`MetricOutput.n_obs` first-class field** (breaking, #248). Promoted from a metadata dict key to a first-class dataclass field — `n_obs: int | None = None` — so user / AI-agent consumers reach the metric primitive's sample size with `output.n_obs` instead of `output.metadata.get("n_obs")`. Builds on the `n_observed → n_obs` metadata rename from #246. `_short_circuit_output(name, reason, n_obs=n, ...)` callers (~38 sites) auto-route via kwarg-only signature change; direct `MetricOutput(...)` constructions in `factrix/metrics/spanning.py` and `factrix/metrics/fama_macbeth.py` are updated to pass `n_obs=` at the top level instead of nesting under `metadata={"n_obs": ...}`. `__repr__` now surfaces `n_obs=` between `value=` and `stat=` when populated. Same family name as `FactorProfile.n_obs` but scoped per metric primitive (single-stage estimator count) rather than per dispatched cell (final-stage test denominator).
+
+  ```python
+  # before (v0.12.0 — pre-rename)
+  n = out.metadata["n_observed"]
+
+  # intermediate (post-#246 metadata key rename, same v0.13.0 release)
+  n = out.metadata["n_obs"]
+
+  # after (#248, v0.13.0 final shape)
+  n = out.n_obs
+  ```
+
 - **`FactorProfile.diagnose()` schema overhaul** (breaking, #246). Six UX gaps in the structured triage interface land in one schema change. (1) **Four sample axes** replace the previous polymorphic `n_obs` + `n_assets` pair: `n_obs` (cell-canonical final-stage test denominator — semantics unchanged), `n_pairs` (non-null `(period, asset)` pair count, first-stage), `n_periods` (unique periods in raw panel), `n_assets` (unique assets, semantics unchanged). Each axis answers one question and never overlaps with another; a small `n_obs` is now disambiguated by the three companion axes without reverse-engineering the cell. (2) **`primary_stat` / `primary_stat_name` family** added top-level — `primary_stat: float | None` carries the test statistic value paired with `primary_p` (e.g. `t_nw` value for an NW HAC t-test), `primary_stat_name: str` slugs the `stats` key (e.g. `"t_nw"`) so the user can connect `primary_p` to its `stats` entry without consulting the procedure registry. Generic across statistic families: the `None` arm handles future empirical-p primaries (block bootstrap) where there is no test stat. Invariant `stats[primary_stat_name] == primary_stat` (when not `None`) is pinned in docstring. (3) **`cell` group** wraps the dispatch coordinate — `{"scope", "signal", "metric", "mode"}` — so consumers identify which procedure ran without grepping `config`. (4) **Reader-flow key order**: `identity` → `context` → `cell` → sample axes → `primary_p` / `primary_stat` / `primary_stat_name` → `warnings` / `info_notes` → `stats` / `metadata`. (5) **`n_observed` → `n_obs` metadata key rename** across ~38 `factrix/metrics/*.py` short-circuit sites — the two first-class surfaces (`FactorProfile` and `MetricOutput`-metadata) now share the same family name; the `MetricOutput.n_obs` first-class field promotion is tracked separately at #248. (6) **`SuggestConfigResult.diagnose()` "symmetric" docstring** is downgraded to scope-limited — the two surfaces share `warnings` serialisation but answer structurally different questions; no schema change there. Docs (`api/factor-profile.md`, `development/architecture.md`, `llms-full.txt`) are rewritten in lockstep; bare `N` / `T` letter codes in `factor-profile.md` are replaced with full axis names to reduce reader cognitive load.
 
   ```python

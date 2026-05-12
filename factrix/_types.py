@@ -75,6 +75,12 @@ class MetricOutput:
     Args:
         name: Metric identifier (e.g. "ic_ir", "oos_decay").
         value: Raw metric value.
+        n_obs: Sample size the metric primitive's estimator actually
+            saw. Same family name as ``FactorProfile.n_obs`` but a
+            different scope: per-metric single-stage count, vs. the
+            final-stage test denominator at the dispatched-cell level.
+            ``None`` for metrics where a single integer count is not
+            meaningful (e.g. multi-window CAAR series).
         stat: Test statistic (t, z, W, chi2, ...), when applicable.
         significance: ``***`` / ``**`` / ``*`` / ``""`` derived from
             ``metadata["p_value"]`` when available.
@@ -84,12 +90,15 @@ class MetricOutput:
 
     name: str
     value: float
+    n_obs: int | None = None
     stat: float | None = None
     significance: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         parts = [f"{self.name}={self.value:.4f}"]
+        if self.n_obs is not None:
+            parts.append(f"n_obs={self.n_obs}")
         if self.stat is not None:
             parts.append(f"stat={self.stat:.2f}")
         if self.significance:

@@ -179,10 +179,10 @@ def spanning_alpha(
     return MetricOutput(
         name="spanning_alpha",
         value=ols.alpha,
+        n_obs=n_obs,
         stat=ols.alpha_t,
         significance=_significance_marker(p),
         metadata={
-            "n_obs": n_obs,
             "p_value": p,
             "stat_type": "t",
             "h0": "alpha=0",
