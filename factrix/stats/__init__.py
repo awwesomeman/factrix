@@ -1,20 +1,24 @@
 """Statistical tooling shared across the library.
 
-``Estimator`` — inference-method protocol selected via family-verb
-``estimator=`` kwarg (#170).
-``NeweyWest`` — reference ``Estimator`` for the procedure-canonical
-NW HAC inference path.
+``Estimator`` — base inference-method protocol selected via family-verb
+``estimator=`` kwarg (#170); pure selection semantics (no ``compute``).
+``HACEstimator(Estimator)`` — sub-protocol adding cell-internal
+``compute(series, *, forward_periods) -> InferenceResult`` for HAC-on-
+mean inference (#163). ``NeweyWest`` / ``HansenHodrick`` implement it.
+``InferenceResult`` — harmonized return shape for ``HACEstimator.compute``.
+``NeweyWest`` — Newey-West HAC ``HACEstimator``; default for
+``AnalysisConfig.estimator``.
 ``HansenHodrick`` — rectangular-kernel HAC variant for IC / FM PANEL
 on overlapping forward returns.
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
-Estimators for slice contrasts (#153).
+Estimators for slice contrasts (#153); remain on base ``Estimator``.
 ``BlockBootstrap`` — block-bootstrap empirical-p Estimator for
-paired-diff slice tests (#153).
+paired-diff slice tests (#153); remains on base ``Estimator``.
 ``multiple_testing`` — BHY procedure for FDR control across many factors.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
 """
 
-from factrix.stats._estimator import Estimator
+from factrix.stats._estimator import Estimator, HACEstimator, InferenceResult
 from factrix.stats.block_bootstrap import BlockBootstrap
 from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
@@ -43,7 +47,9 @@ _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
 __all__ = [
     "BlockBootstrap",
     "Estimator",
+    "HACEstimator",
     "HansenHodrick",
+    "InferenceResult",
     "NeweyWest",
     "WaldNWCluster",
     "WaldTwoWayCluster",

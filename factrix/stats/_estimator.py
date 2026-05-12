@@ -1,24 +1,29 @@
-"""Estimator protocol — `inference_method` interface for family-verb override (#170).
+"""Estimator protocols — selection (base) and HAC-compute (sub).
 
-Family verbs (`bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni`
-/ `holm` / `romano_wolf`) accept `estimator: Estimator | None` to select which
-inference method's p-value to feed into the step-up math. The protocol carries
-*selection* semantics only — the procedure has already populated
-``FactorProfile.stats`` with the relevant ``StatCode.*_P`` values; an
-``Estimator`` instance names which one to look up for a given cell.
+``Estimator`` (base, #170): family-verb override selects which already-
+computed p-value to feed step-up math. Carries no compute logic — the
+procedure that populated ``FactorProfile.stats`` did the math.
 
-Cell-internal computation (`evaluate()` / standalone metrics) is out of scope:
-that future axis goes through a `ComputableEstimator(Estimator)` sub-protocol
-that adds a `compute(...)` method.
+``HACEstimator(Estimator)`` (#163): adds ``compute(series, *,
+forward_periods) -> InferenceResult`` for cell-internal estimator swap.
+Cell procedures dispatch to ``cfg.estimator.compute(...)`` instead of
+hardcoding the NW HAC path. Base ``Estimator`` is retained for slice-
+test instances (``WaldNWCluster`` / ``BlockBootstrap``, #153 / #176)
+whose compute path is multivariate and lives outside the family-verb
+axis.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    import numpy as np
+
     from factrix._axis import FactorScope, Metric, Signal
-    from factrix._codes import StatCode
+    from factrix._codes import StatCode, WarningCode
 
 
 @runtime_checkable
@@ -31,7 +36,8 @@ class Estimator(Protocol):
     look up the relevant entry in ``FactorProfile.stats``.
 
     The protocol is deliberately silent on how the value was originally
-    computed — that lives in the procedure that produced the profile.
+    computed — that lives in the procedure that produced the profile, or
+    in the ``HACEstimator.compute`` extension below.
     """
 
     @property
@@ -62,5 +68,81 @@ class Estimator(Protocol):
 
         Called only after ``applicable_to`` has returned ``True``;
         implementations may assume the cell is in their applicability set.
+        """
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class InferenceResult:
+    """Harmonized return shape for ``HACEstimator.compute``.
+
+    Carries everything a cell procedure needs to stitch the inference
+    output into ``FactorProfile`` without an ``isinstance`` ladder.
+    ``stat_name`` / ``p_name`` let the procedure key ``stats`` /
+    ``metadata`` with the estimator-emitted ``StatCode`` (matching
+    ``Estimator.emits_for``); ``metadata`` is a flat ``str -> Any``
+    mapping that the procedure mirrors under both keys (NW emits
+    ``{"nw_lags": k}``; HH emits ``{"kernel": "rectangular",
+    "variance_clamped": bool}``).
+    """
+
+    stat: float
+    p: float
+    stat_name: StatCode
+    p_name: StatCode
+    metadata: Mapping[str, Any]
+    warnings: frozenset[WarningCode]
+
+
+@runtime_checkable
+class HACEstimator(Estimator, Protocol):
+    """``Estimator`` that runs HAC-on-mean inference on a 1-D series.
+
+    Adds ``min_periods`` (sample-size floor below which SE is deemed
+    unreliable; estimator surfaces it via ``warnings`` rather than
+    silently degrading) and ``compute(series, *, forward_periods)``
+    returning an ``InferenceResult``. Cell procedures dispatch to this
+    instead of hardcoding the NW HAC path.
+
+    Moment-condition estimators (GMM J-test, #191) and slice-test
+    estimators (cluster Wald, block bootstrap; #153 / #176) take
+    different input shapes and live on parallel ``Estimator`` sub-
+    protocols rather than overloading this one.
+    """
+
+    @property
+    def min_periods(self) -> int:
+        """Lower bound on ``len(series)`` for SE-validity.
+
+        ``len(series) < min_periods`` should emit
+        ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` in
+        ``InferenceResult.warnings``. The HARD-floor case (series so
+        short the test cannot run at all) is the estimator's call to
+        raise ``InsufficientSampleError``; ``min_periods`` is the soft
+        contract.
+        """
+        ...
+
+    def compute(
+        self,
+        series: np.ndarray,
+        *,
+        forward_periods: int,
+    ) -> InferenceResult:
+        """Run the inference test on ``series``.
+
+        Args:
+            series: 1-D HAC-target series (per-period IC, per-date
+                Fama-MacBeth λ, dense CAAR, etc.). The cell procedure
+                owns extraction from raw panel; the estimator only
+                sees the test target.
+            forward_periods: Overlap horizon of the series (MA(h-1)
+                structure). NW uses it to floor the Bartlett bandwidth;
+                HH requires it for the rectangular-kernel lag count.
+
+        Returns:
+            ``InferenceResult`` with ``stat`` / ``p`` and the
+            ``StatCode`` keys the procedure should stitch into
+            ``FactorProfile.stats`` / ``metadata``.
         """
         ...
