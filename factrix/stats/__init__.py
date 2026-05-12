@@ -6,6 +6,10 @@
 ``compute(series, *, forward_periods) -> InferenceResult`` for HAC-on-
 mean inference (#163). ``NeweyWest`` / ``HansenHodrick`` implement it.
 ``InferenceResult`` — harmonized return shape for ``HACEstimator.compute``.
+``MomentEstimator(Estimator)`` — sub-protocol adding ``compute(moments)
+-> GMMResult`` for over-identifying-restriction tests on a moment-
+condition system (#191). Concrete instance ``GMM`` lands in a follow-up.
+``GMMResult`` — harmonized return shape for ``MomentEstimator.compute``.
 ``NeweyWest`` — Newey-West HAC ``HACEstimator``; default for
 ``AnalysisConfig.estimator``.
 ``HansenHodrick`` — rectangular-kernel HAC variant for IC / FM PANEL
@@ -18,7 +22,13 @@ paired-diff slice tests (#153); remains on base ``Estimator``.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
 """
 
-from factrix.stats._estimator import Estimator, HACEstimator, InferenceResult
+from factrix.stats._estimator import (
+    Estimator,
+    GMMResult,
+    HACEstimator,
+    InferenceResult,
+    MomentEstimator,
+)
 from factrix.stats.block_bootstrap import BlockBootstrap
 from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
@@ -71,9 +81,11 @@ def get_estimator(name: str) -> Estimator:
 __all__ = [
     "BlockBootstrap",
     "Estimator",
+    "GMMResult",
     "HACEstimator",
     "HansenHodrick",
     "InferenceResult",
+    "MomentEstimator",
     "NeweyWest",
     "WaldNWCluster",
     "WaldTwoWayCluster",
