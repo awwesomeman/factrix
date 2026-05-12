@@ -95,7 +95,7 @@ names the inference algorithm or SE family (`NW`, `HH`, `NWCL`,
 | `(WALD_NWCL, P_WALD_NWCL)` | Cluster-Wald χ² + p under NW HAC + 1-way slice cluster — emitted by the slice-test verbs. |
 | `(WALD_TWOWAY, P_WALD_TWOWAY)` | Cluster-Wald χ² + p under two-way cluster on (date, asset) — reserved. |
 | `(P_BOOT,)` | Block-bootstrap empirical p — singleton, no parametric test statistic to publish. |
-| `(P_GMM,)` | GMM J-test p — reserved (#191). |
+| `(J_GMM, P_GMM)` | Hansen (1982) GMM J-statistic + right-tail p (`1 - χ²_df.cdf(J)`) on a moment-condition system. Populated by `factrix.stats.GMM` (#191); see [Estimator alternatives](estimator-alternatives.md#gmm-moment-condition-tests) for usage. |
 
 Diagnostic StatCodes (`FACTOR_ADF_*`, `RESID_LJUNG_BOX_*`,
 `EVENT_HHI_VALUE`) follow a different naming axis; see
@@ -127,10 +127,11 @@ Romano-Wolf for date-shared slices.
 
 ## Estimator protocol
 
-Two-layer protocol: base `Estimator` for family-verb selection
+Three-layer protocol: base `Estimator` for family-verb selection
 (`bhy(profiles, estimator=...)`); `HACEstimator(Estimator)` for
-evaluate-time cell-internal dispatch
-(`AnalysisConfig.estimator=`).
+evaluate-time HAC-on-mean dispatch (`AnalysisConfig.estimator=`);
+`MomentEstimator(Estimator)` for over-identifying-restriction tests
+on a multivariate moment system (`AnalysisConfig.moment_estimator=`).
 
 ```python
 @runtime_checkable
@@ -158,16 +159,27 @@ class HACEstimator(Estimator, Protocol):
         *,
         forward_periods: int,
     ) -> InferenceResult: ...
+
+
+@runtime_checkable
+class MomentEstimator(Estimator, Protocol):
+    @property
+    def min_periods(self) -> int: ...
+    def compute(
+        self,
+        moments: np.ndarray,         # (T, K) moment matrix
+        *,
+        forward_periods: int,        # overlap horizon — floors the LRCov bandwidth
+    ) -> GMMResult: ...
 ```
 
-`NeweyWest` and `HansenHodrick` implement `HACEstimator`; the slice-
-test instances (`WaldNWCluster` / `WaldTwoWayCluster` /
-`BlockBootstrap`) implement only the selection base since their
-compute paths are multivariate (cross-asset / cross-slice) rather
-than HAC-on-mean. Moment-condition estimators (GMM J-test,
-[#191](https://github.com/awwesomeman/factrix/issues/191)) and a
-slope-axis HAC sub-protocol are tracked separately rather than
-overloading `HACEstimator.compute`.
+`NeweyWest` and `HansenHodrick` implement `HACEstimator`; `GMM`
+implements `MomentEstimator`; the slice-test instances
+(`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) implement
+only the selection base since their compute paths are multivariate
+(cross-asset / cross-slice) rather than mean-on-series or
+moment-system. A slope-axis HAC sub-protocol (TS β / TS Dummy) is
+tracked separately rather than overloading `HACEstimator.compute`.
 
 ### `InferenceResult`
 
@@ -186,9 +198,30 @@ class InferenceResult:
     warnings: frozenset[WarningCode]
 ```
 
+### `GMMResult`
+
+`MomentEstimator.compute` returns a frozen dataclass for the
+over-identifying-restriction test on a moment-condition system:
+
+```python
+@dataclass(frozen=True, slots=True)
+class GMMResult:
+    j_stat: float                        # Hansen J statistic
+    df: int                              # n_moments - n_params
+    overid_p: float                      # 1 - χ²_df.cdf(j_stat)
+    n_moments: int
+    n_params: int                        # 0 in current release (pure overid)
+    metadata: Mapping[str, Any]          # {"weight_matrix_iter": 2, "weight_singular": False, ...}
+    warnings: frozenset[WarningCode]
+```
+
+Unlike `InferenceResult`, no `stat_name` / `p_name` field — the type
+itself implies the `(StatCode.J_GMM, StatCode.P_GMM)` pair, and cell
+procedures key `FactorProfile.stats` accordingly.
+
 ### `get_estimator(name) -> Estimator`
 
 Registry lookup helper used by `AnalysisConfig.from_dict` to
-rehydrate `cfg.estimator` from its serialized name string. Raises
-`UnknownEstimatorError` if `name` is not registered; the error
-message lists every available estimator.
+rehydrate `cfg.estimator` / `cfg.moment_estimator` from their
+serialized name strings. Raises `UnknownEstimatorError` if `name`
+is not registered; the error message lists every available estimator.

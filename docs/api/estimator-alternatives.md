@@ -129,7 +129,70 @@ instances applicable to the cell.
   → β, SE(β)`) than the series-mean `compute(series, *,
   forward_periods)` contract. A slope-axis sub-protocol is tracked
   for a future release.
-- **Moment-condition estimators (GMM J-test).** GMM consumes
-  multi-dimensional moment conditions; the parallel
-  `MomentEstimator(Estimator)` sub-protocol lands with
-  [#191](https://github.com/awwesomeman/factrix/issues/191).
+- **Multi-horizon GMM cell auto-dispatch.** The `GMM`
+  `MomentEstimator` itself ships now (see below), but factrix does
+  not yet auto-build the multi-horizon moment matrix from a raw
+  forward-return panel. Users construct moments themselves and call
+  `GMM().compute(...)` directly. The integrated cell — including
+  horizon-grid specification on `cfg`, per-horizon IC construction,
+  and side-emit / alternative-path dispatch semantics — is tracked
+  as a follow-up to [#191](https://github.com/awwesomeman/factrix/issues/191).
+
+## GMM moment-condition tests
+
+The `GMM` `MomentEstimator` ships as a standalone primitive for
+Hansen (1982) over-identifying-restriction tests. Pure
+over-identification (`n_params = 0`) is the only mode in this
+release — the null is `E[g] = 0` for all `K` moments, with the
+J-statistic distributed `χ²(K)` under H₀.
+
+```python
+import numpy as np
+from factrix.stats import GMM
+
+# Build a (T, K) moment matrix yourself — e.g. per-date IC at K
+# forward horizons, factor-sorted decile spreads at K horizons,
+# cross-asset shared-β residuals at K asset groups, etc.
+moments = build_my_moment_system(panel, ...)   # shape (T, K)
+
+result = GMM().compute(moments, forward_periods=max_horizon)
+result.j_stat        # Hansen J statistic (chi-square under H₀)
+result.df            # K - n_params (n_params = 0 in this release)
+result.overid_p      # right-tail χ²_df p-value
+result.warnings      # SINGULAR_WEIGHT_MATRIX if Ŝ rank-deficient
+```
+
+`forward_periods` floors the long-run-covariance bandwidth at
+`forward_periods - 1`, sharing the convention with `NeweyWest` /
+`HansenHodrick`. Solver tuning (`max_iter`) lives on the instance:
+
+```python
+GMM(max_iter=2)   # default — Hansen's two-step efficient GMM
+```
+
+### Why no auto-dispatched cell yet
+
+The choice of moment-condition system (multi-horizon panel?
+multi-bucket spread? cross-sectional shared-β?) is a research-design
+question with no canonical factrix default. The standalone primitive
+ships now so users with a specific moment system can run J-tests
+immediately; the integrated multi-horizon cell lands as a focused
+follow-up so its design (horizon-grid spec, alternative-path vs
+side-emit, EMITS_STATS extension, K-scaled `min_periods`) gets a
+clean review pass.
+
+### Wiring in `AnalysisConfig`
+
+`cfg.moment_estimator: MomentEstimator | None` exists for the
+integrated path; setting it without a corresponding cell procedure
+is a no-op at evaluate-time but round-trips through
+`to_dict` / `from_dict`:
+
+```python
+cfg = fx.AnalysisConfig.individual_continuous(moment_estimator=GMM())
+cfg.to_dict()["moment_estimator"]   # "GMM"
+```
+
+Pre-#191 serialized configs without the `moment_estimator` key are
+read back with `moment_estimator=None`, preserving backward
+compatibility.
