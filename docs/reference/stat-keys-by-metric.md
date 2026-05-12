@@ -122,11 +122,12 @@ is emitted.
 - *primary*: `p_value` — single- or two-way clustered OLS `t`. When
   the cluster count G < 3 the test is short-circuited with `stat =
   None` and `p_value = 1.0`.
-- *descriptive*: `n_obs`, `n_clusters` (one-way) or `n_clusters_a`,
+- Sample size: `MetricOutput.n_obs` (row count entering the test).
+- *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).
 - *descriptive* (conditional, short-circuit): `reason =
-  "insufficient_clusters"`, `n_obs` (smallest G), `min_required`
-  (always 3).
+  "insufficient_clusters"`, `n_clusters` (smallest G — first-class
+  `n_obs` carries the row count), `min_required` (always 3).
 - *descriptive* (conditional): `variance_non_psd_fallback` — names
   the fallback path when the meat matrix is non-PSD.
 
@@ -313,9 +314,10 @@ hypothesis test.
 - *primary*: `p_value` — OLS `t` on α from the multivariate spanning
   regression. Plain (non-HAC) SE — assumes the input spread series
   are non-overlapping.
-- *descriptive*: `n_obs`, `n_base_factors`, `base_factors` (list of
-  base-factor names), `betas` (per-base OLS slope dict),
-  `r_squared`.
+- Sample size: `MetricOutput.n_obs` (length of the aligned
+  candidate-series).
+- *descriptive*: `n_base_factors`, `base_factors` (list of base-factor
+  names), `betas` (per-base OLS slope dict), `r_squared`.
 - *descriptive* (conditional, short-circuit): `reason`.
 
 #### `greedy_forward_selection`
@@ -430,17 +432,20 @@ when input data fails the metric's preconditions (insufficient
 sample, no events, degenerate signal, …). The fallback shape is:
 
 - `value = float("nan")`, `stat = None`, `significance = ""`.
+- `MetricOutput.n_obs: int | None` — first-class sample size the
+  estimator saw before bailing (e.g. how many periods / events were
+  actually available). Populated when the short-circuit knows the
+  number; `None` otherwise.
 - `metadata["reason"]: str` names the short-circuit branch (e.g.
   `"insufficient_periods"`, `"no_events"`,
   `"not_applicable_discrete_signal"`, `"insufficient_clusters"`).
 - `metadata["p_value"] = 1.0` — conservative default so BHY treats
   short-circuited metrics as rejected rather than crashing.
 - Optional diagnostic keys naming what was missing or under-spec:
-  `n_obs`, `min_required`, `min_required_per_asset`,
-  `min_required_per_regime`, `missing_column`, `std_u`, `hint`,
-  `n_distinct`. Each is descriptive — emitted only on the
-  short-circuit branch that needed it; consumers should branch on
-  `reason` before reading.
+  `min_required`, `min_required_per_asset`, `min_required_per_regime`,
+  `missing_column`, `std_u`, `hint`, `n_distinct`. Each is
+  descriptive — emitted only on the short-circuit branch that
+  needed it; consumers should branch on `reason` before reading.
 
 The auxiliary `metadata` keys listed in the per-metric subsections
 above are *not* present on the short-circuit path.
