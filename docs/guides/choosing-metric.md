@@ -28,11 +28,11 @@ For the lookup table — which metrics are supported under which `(scope, signal
 
 ## Standalone metrics vs `evaluate()`
 
-[`evaluate()`][factrix.evaluate] runs the canonical PASS/FAIL procedure for a cell. Standalone metrics in `factrix.metrics` provide supplementary diagnostics without a formal PASS/FAIL verdict:
+[`evaluate()`][factrix.evaluate] runs the canonical inference procedure for a cell. Standalone metrics in `factrix.metrics` provide supplementary diagnostics without a formal PASS/FAIL outcome:
 
 | When to use `evaluate()` | When to use standalone metrics |
 |---|---|
-| Canonical signal validity verdict | Diagnose shape, asymmetry, regime splits |
+| Canonical signal validity inference | Diagnose shape, asymmetry, regime splits |
 | BHY family input (needs [`FactorProfile`][factrix.FactorProfile]) | Multi-statistic decomposition |
 | Primary screening gate | OOS decay, tradability, concentration |
 

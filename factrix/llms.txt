@@ -14,8 +14,8 @@
 - [API — evaluate](https://awwesomeman.github.io/factrix/api/evaluate/): single-factor dispatch entry point
 - [API — run_metrics](https://awwesomeman.github.io/factrix/api/run-metrics/): cell-level descriptive batch runner — returns MetricsBundle
 - [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): migration recipes after multi_horizon_* removal — run_metrics + compare / evaluate + bhy(expand_over=)
-- [API — FactorProfile](https://awwesomeman.github.io/factrix/api/factor-profile/): result schema, verdict(), diagnose()
+- [API — FactorProfile](https://awwesomeman.github.io/factrix/api/factor-profile/): result schema, diagnose()
 - [API — multi_factor](https://awwesomeman.github.io/factrix/api/multi-factor/): bhy() FDR-corrected screening
-- [Reference — warning codes](https://awwesomeman.github.io/factrix/reference/warning-codes/): WarningCode / InfoCode / StatCode / Verdict enums
+- [Reference — warning codes](https://awwesomeman.github.io/factrix/reference/warning-codes/): WarningCode / InfoCode / StatCode enums
 - [Reference — metric applicability](https://awwesomeman.github.io/factrix/reference/metric-applicability/): which metrics apply to which axis combinations
 - [Full LLM reference](https://awwesomeman.github.io/factrix/llms-full.txt): single-fetch file covering concepts + API + usage patterns

@@ -3,9 +3,9 @@
 Two logger namespaces, by layer of responsibility:
 
 - ``factrix.evaluation`` — orchestration / decision layer. Emits one-line
-  INFO per explicit user decision (e.g. ``multiple_testing_correct`` call,
-  ``verdict()`` returning ``PASS_WITH_WARNINGS``), and WARNING when a
-  diagnose rule fires but the user has not switched ``p_source``.
+  INFO per explicit user decision (e.g. ``multiple_testing_correct``
+  call), and WARNING when a diagnose rule fires but the user has not
+  switched ``p_source``.
 - ``factrix.metrics`` — per-metric correction layer. Emits DEBUG on every
   public metric call (sampling interval, NW lags, n_before/n_after), and
   WARNING when a correction produces a degenerate sample (e.g. non-overlap
@@ -30,7 +30,7 @@ _METRICS_LOGGER_NAME = "factrix.metrics"
 
 
 def get_evaluation_logger() -> logging.Logger:
-    """Orchestration-layer logger (BHY, verdict, diagnose warnings)."""
+    """Orchestration-layer logger (BHY, diagnose warnings)."""
     return logging.getLogger(_EVALUATION_LOGGER_NAME)
 
 

@@ -17,7 +17,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Mode, Signal
-from factrix._codes import StatCode, Verdict, WarningCode
+from factrix._codes import StatCode, WarningCode
 from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _CAARSparsePanelProcedure
 from factrix._profile import FactorProfile
@@ -105,9 +105,6 @@ class TestStrongCaar:
     def test_mode_panel(self, profile: FactorProfile) -> None:
         assert profile.mode is Mode.PANEL
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.001
 
@@ -143,7 +140,7 @@ class TestRandomCaar:
             beta=0.0,
         )
         profile = _CAARSparsePanelProcedure().compute(panel, cfg)
-        assert profile.verdict() is Verdict.FAIL
+        assert profile.primary_p >= 0.05
 
 
 class TestEndToEndViaEvaluate:
@@ -157,7 +154,7 @@ class TestEndToEndViaEvaluate:
         profile = _evaluate(panel, cfg)
         assert profile.mode is Mode.PANEL
         assert StatCode.P_NW in profile.stats
-        assert profile.verdict() is Verdict.PASS
+        assert profile.primary_p < 0.05
 
 
 # ---------------------------------------------------------------------------

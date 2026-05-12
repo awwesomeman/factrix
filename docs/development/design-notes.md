@@ -21,7 +21,7 @@ The seven sections below correspond to the seven structural
 
 factrix evaluates each factor through a list of separately reported
 metrics — IC, FM-λ, quantile spread, monotonicity, OOS decay,
-turnover, etc. — and renders a binary `verdict()`. It deliberately
+turnover, etc. — and renders the cell primary p-value. It deliberately
 does **not** collapse these into a single weighted score.
 
 - A composite score becomes a target to be optimised against. Once
@@ -39,8 +39,8 @@ does **not** collapse these into a single weighted score.
   parameter uncertainty ([DeMiguel-Garlappi-Uppal
   2009][demiguel-garlappi-uppal-2009]).
 - Per-metric pass/fail keeps the user in the inference loop. A score
-  can hide which dimension failed; a binary verdict per metric makes
-  it explicit.
+  can hide which dimension failed; per-metric pass/fail makes it
+  explicit.
 
 ---
 
@@ -74,7 +74,7 @@ factrix's outputs).
 
 factrix reports `notional_turnover`, `breakeven_cost`, `net_spread`,
 and `top_concentration` as **profile diagnostics** — values the user
-inspects, not gates that affect the verdict.
+inspects, not gates that affect the inference.
 
 - Capacity is a property of the portfolio implementation, not of the
   factor signal. A factor with concentrated long-leg α can be
@@ -205,6 +205,6 @@ or χ² of the form "is anything in this profile significant?".
   pre-registered analysis plans more broadly
   ([Harvey 2017][harvey-2017]).
 - The cost is that factrix produces a vector of evidence rather than
-  one number. The verdict layer reduces the vector to a binary — but
-  the vector remains accessible for users who need to inspect the
-  components.
+  one number. The user can reduce the vector to a binary at the
+  threshold they choose, while the vector itself remains accessible
+  for inspection.

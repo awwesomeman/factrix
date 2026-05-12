@@ -19,7 +19,7 @@ panel = compute_forward_return(raw, forward_periods=5)
 cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 profile = fx.evaluate(panel, cfg)
 
-print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
+print('primary_p =', round(profile.primary_p, 4))
 # → pass | primary_p = 0.0
 
 print(profile.diagnose())
@@ -78,9 +78,9 @@ The most common warnings:
 - `SERIAL_CORRELATION_DETECTED` — Ljung-Box *p* < 0.05 on residuals.
 
 For the full enum and the trigger conditions for each `WarningCode`,
-`InfoCode`, `StatCode`, and `Verdict`, see
+`InfoCode`, and `StatCode`, see
 [Reference § Warning / info / stat codes](../reference/warning-codes.md).
 
-`warnings` does **not** affect [`verdict()`][factrix.FactorProfile.verdict] —
+`warnings` does **not** affect `primary_p` —
 it is a risk flag. The user decides whether to filter on warnings before
-BHY. `verdict()` reads only `primary_p < threshold`.
+BHY. For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.

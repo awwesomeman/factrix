@@ -7,11 +7,11 @@ Centralised per refactor_api.md §5.2 (A3): no literal ``20`` / ``30`` /
 from __future__ import annotations
 
 # ``T < MIN_PERIODS_HARD`` → :class:`factrix._errors.InsufficientSampleError`
-# (no verdict — NW HAC SE biased beyond the floor where verdict can be
-# trusted at all).
+# (no result — NW HAC SE biased beyond the floor where inference can
+# be trusted at all).
 MIN_PERIODS_HARD: int = 20
 
-# ``MIN_PERIODS_HARD <= T < MIN_PERIODS_WARN`` → verdict still emitted, but
+# ``MIN_PERIODS_HARD <= T < MIN_PERIODS_WARN`` → result still emitted, but
 # tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_PERIODS`.
 MIN_PERIODS_WARN: int = 30
 

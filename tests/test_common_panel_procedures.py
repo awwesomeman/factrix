@@ -16,7 +16,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Mode, Signal
-from factrix._codes import StatCode, Verdict, WarningCode
+from factrix._codes import StatCode, WarningCode
 from factrix._evaluate import _evaluate
 from factrix._procedures import (
     InputSchema,
@@ -145,9 +145,6 @@ class TestContinuousStrong:
     def test_n_obs_equals_n_assets(self, profile: FactorProfile) -> None:
         assert profile.n_obs == 20
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.001
 
@@ -179,7 +176,7 @@ class TestContinuousRandom:
             factor_kind="iid",
         )
         profile = _CommonContPanelProcedure().compute(panel, cfg_continuous)
-        assert profile.verdict() is Verdict.FAIL
+        assert profile.primary_p >= 0.05
 
 
 class TestContinuousPersistentFactor:
@@ -220,9 +217,6 @@ class TestSparseStrong:
     def test_mode_panel(self, profile: FactorProfile) -> None:
         assert profile.mode is Mode.PANEL
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.001
 
@@ -249,7 +243,7 @@ class TestSparseRandom:
             sparse_event_density=0.08,
         )
         profile = _CommonSparsePanelProcedure().compute(panel, cfg_sparse)
-        assert profile.verdict() is Verdict.FAIL
+        assert profile.primary_p >= 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +263,7 @@ class TestEndToEndViaEvaluate:
         )
         profile = _evaluate(panel, cfg_continuous)
         assert profile.mode is Mode.PANEL
-        assert profile.verdict() is Verdict.PASS
+        assert profile.primary_p < 0.05
 
     def test_sparse_panel_does_not_collapse(
         self,

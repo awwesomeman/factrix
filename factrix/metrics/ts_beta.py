@@ -171,7 +171,8 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
         factrix centralises the degenerate-case output here so
         Profile / Factor paths produce bit-identical metadata —
         otherwise each entry point would coerce the single-asset row
-        differently and the verdict surface would diverge.
+        differently and the downstream inference surface would
+        diverge.
     """
     row = ts_betas_df.row(0, named=True)
     return MetricOutput(
@@ -400,7 +401,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     itself" (the max collapses to 1.0 for any nonzero β), which would
     read as strong evidence on a dashboard but carries zero information.
     Short-circuits to NaN in that case so the degenerate value never
-    leaks into verdict decisions.
+    leaks into downstream inference.
 
     Notes:
         ``pos = mean_i 1{beta_i > 0}``; ``value = max(pos, 1 - pos)``.
@@ -408,8 +409,8 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
         beta or all negative.
 
         factrix gates this metric at ``N >= 2`` so a single-asset
-        ``max(pos, 1-pos) = 1.0`` cannot leak into verdict surfaces as
-        spurious "perfect agreement". Pair with
+        ``max(pos, 1-pos) = 1.0`` cannot leak into downstream
+        inference as spurious "perfect agreement". Pair with
         ``fama_macbeth.beta_sign_consistency`` when a directional prior
         is available.
     """

@@ -12,7 +12,6 @@ and `n_assets` thresholds per procedure.
     options:
       show_root_heading: false
       members:
-        - verdict
         - diagnose
 
 ## `diagnose()` return schema
@@ -30,7 +29,7 @@ registered cell; the `stats` sub-dict varies by procedure.
 | `mode` | `str` | `profile.mode.value` | `"panel"` or `"timeseries"` |
 | `n_obs` | `int` | `profile.n_obs` | Cell-canonical effective sample size — see [§ `n_obs` semantics](#n_obs-semantics-by-cell) |
 | `n_assets` | `int` | `profile.n_assets` | `panel["asset_id"].n_unique()` of the input |
-| `primary_p` | `float` | `profile.primary_p` | Procedure-canonical p-value used by `verdict()` and `multi_factor.bhy` |
+| `primary_p` | `float` | `profile.primary_p` | Procedure-canonical p-value consumed by `multi_factor.bhy` |
 | `warnings` | `list[str]` | `sorted(w.value for w in profile.warnings)` | Sorted [`WarningCode`](../reference/warning-codes.md#warningcode) string values |
 | `info_notes` | `list[str]` | `sorted(i.value for i in profile.info_notes)` | Sorted [`InfoCode`](../reference/warning-codes.md#infocode) string values |
 | `stats` | `dict[str, float]` | `{k.value: v for k, v in profile.stats.items()}` | [`StatCode`](../reference/warning-codes.md#statcode) string keys; per-cell content varies |
@@ -95,12 +94,10 @@ emit.
 | `MIN_PERIODS_HARD` / `UNRELIABLE_SE_SHORT_PERIODS` guards | yes | — |
 | `MIN_ASSETS` guards (`SMALL_CROSS_SECTION_N`, `BORDERLINE_CROSS_SECTION_N`) | — | yes |
 | `InsufficientSampleError.actual_periods` | yes | — |
-| `verdict()` | — | — |
 | `multi_factor.bhy` family partition | — | — |
 
-`verdict()` thresholds on `primary_p`; BHY partitions on
-`(dispatch cell, forward horizon)` and runs step-up on p-values —
-neither path reads these fields.
+BHY partitions on `(dispatch cell, forward horizon)` and runs step-up
+on p-values — it does not read `n_obs` / `n_assets`.
 
 #### Why one polymorphic `n_obs` instead of split `n_periods` + `n_cs`
 

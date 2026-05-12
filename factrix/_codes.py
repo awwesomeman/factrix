@@ -1,4 +1,4 @@
-"""v0.5 enum codes for warnings, info notes, cell stats, and verdicts.
+"""v0.5 enum codes for warnings, info notes, and cell stats.
 
 ``WarningCode`` / ``InfoCode`` / ``StatCode`` follow the ``*Code`` suffix
 invariant (§7.5).
@@ -281,12 +281,11 @@ class StatCode(StrEnum):
     def is_p_value(self) -> bool:
         """``True`` iff this stat is a probability in [0, 1].
 
-        Used by ``profile.verdict(gate=...)`` and downstream tooling to
-        distinguish probability codes from test statistics / point
-        estimates. Tokenises the value on ``_`` and checks for a ``p``
-        token, so primary-inference variants ``P_NW`` / ``P_HH`` /
-        ``P_GMM`` all qualify alongside diagnostic ``FACTOR_ADF_P`` /
-        ``RESID_LJUNG_BOX_P``.
+        Downstream tooling uses this to distinguish probability codes
+        from test statistics / point estimates. Tokenises the value on
+        ``_`` and checks for a ``p`` token, so primary-inference
+        variants ``P_NW`` / ``P_HH`` / ``P_GMM`` all qualify alongside
+        diagnostic ``FACTOR_ADF_P`` / ``RESID_LJUNG_BOX_P``.
         """
         return "p" in self.value.split("_")
 
@@ -351,10 +350,3 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "across calendar bins (cross-sectional / time-axis); high values flag "
     "calendar-time clumping. Does not measure within-asset event clustering.",
 }
-
-
-class Verdict(StrEnum):
-    """Procedure-canonical pass/fail outcome of ``Profile.verdict()``."""
-
-    PASS = "pass"
-    FAIL = "fail"

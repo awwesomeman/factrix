@@ -43,7 +43,7 @@ common factor — each gets the tests that fit its data-generating
 process.
 
 ```
-factor construction  →  factrix (verdict)  →  strategy construction  →  backtest  →  live trading
+factor construction  →  factrix (inference)  →  strategy construction  →  backtest  →  live trading
                             ▲ you are here
 ```
 
@@ -68,7 +68,7 @@ at scale. Kill fakes before they cost you a backtest.
 - **Polars-native** — modern Polars alternative to the pandas-based
   alphalens.
 
-factrix stops at the verdict — primary test plus diagnostic battery.
+factrix stops at the inference — primary test plus diagnostic battery.
 It does not size positions, model slippage, optimise weights, or
 compose alphas; those belong to the later stages of the pipeline above.
 
@@ -76,7 +76,7 @@ compose alphas; those belong to the later stages of the pipeline above.
 
 | You want to… | Use this |
 |---|---|
-| Verdict on a factor (cross-sectional / event / common factor) | **factrix** |
+| Inference on a factor (cross-sectional / event / common factor) | **factrix** |
 | Screen many factors with multiple-testing correction | **factrix** |
 | Backtest with positions / slippage / margin | [zipline-reloaded][zipline], [backtrader][backtrader], [bt][bt], [vectorbt][vectorbt], [nautilus_trader][nautilus] |
 | Optimise portfolio weights | [skfolio][skfolio], [riskfolio-lib][riskfolio] |
@@ -125,7 +125,7 @@ panel = compute_forward_return(raw, forward_periods=5)
 cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 profile = fx.evaluate(panel, cfg)
 
-print(profile.verdict(), '| primary_p =', round(profile.primary_p, 4))
+print('primary_p =', round(profile.primary_p, 4))
 print(profile.diagnose())   # WarningCode / InfoCode list
 ```
 

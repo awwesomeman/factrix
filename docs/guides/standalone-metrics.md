@@ -4,7 +4,7 @@
 and returns a [`FactorProfile`][factrix.FactorProfile] with a single
 `primary_p`. Every other module under `factrix.metrics` is a
 **standalone metric** — a `MetricOutput`-returning helper the user
-invokes directly to add diagnostics around the canonical verdict.
+invokes directly to add diagnostics around the canonical inference.
 
 This guide covers the three things a user needs to wire them in:
 which metrics apply to a given cell, what input shape each one
@@ -35,7 +35,7 @@ For the `(scope, signal)` filter at runtime, see
 
 | Want | Reach for |
 |---|---|
-| PASS/FAIL verdict + `primary_p` | [`evaluate()`][factrix.evaluate] |
+| `primary_p` + diagnose | [`evaluate()`][factrix.evaluate] |
 | Quintile spread, monotonicity, top concentration | `quantile_spread`, `monotonicity`, `top_concentration` |
 | Tradability / cost break-even | `notional_turnover`, `breakeven_cost`, `net_spread`, `turnover` |
 | Spanning regression vs an existing pool | `spanning_alpha`, `greedy_forward_selection` |
@@ -114,7 +114,7 @@ which Mode the upstream procedure ran in.
 
 ## Post-`evaluate()` integration
 
-A typical screening recipe chains `evaluate()` for the verdict, then
+A typical screening recipe chains `evaluate()` for the canonical inference, then
 appends standalone metrics for shape and tradability diagnostics. The
 profile and the metric outputs travel together; nothing on either
 side needs to know about the other:
@@ -122,7 +122,6 @@ side needs to know about the other:
 ```python
 profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
 diagnostics = {
-    "verdict": profile.verdict(),
     "primary_p": profile.primary_p,
     "spread": fx.metrics.quantile_spread(panel, forward_periods=5).value,
     "monotonicity_p": fx.metrics.monotonicity(panel, forward_periods=5).p_value,

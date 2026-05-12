@@ -387,7 +387,7 @@ Harvey, C. R., Liu, Y. & Zhu, H. (2016). "…and the Cross-Section of
 Expected Returns." *Review of Financial Studies* 29(1), 5–68.
 
 Empirical case for raising t-thresholds in factor research; backs
-the `verdict()` default of `t ≥ 2.0` and the BHY-first multi-factor
+the single-factor `t ≥ 2.0` threshold and the BHY-first multi-factor
 discipline in `greedy_forward_selection`.
 
 ### Harvey (2017)

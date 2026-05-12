@@ -22,7 +22,6 @@ def test_readme_quickstart_runs_end_to_end() -> None:
     )
     profile = fx.evaluate(panel, cfg)
 
-    assert profile.verdict() in (fx.Verdict.PASS, fx.Verdict.FAIL)
     assert isinstance(profile.primary_p, float)
     assert 0.0 <= profile.primary_p <= 1.0
 

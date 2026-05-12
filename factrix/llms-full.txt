@@ -82,7 +82,6 @@ panel = compute_forward_return(raw, forward_periods=5)   # appends `forward_retu
 cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 profile = fx.evaluate(panel, cfg)
 
-print(profile.verdict())             # Verdict.PASS | Verdict.FAIL
 print(profile.primary_p)             # procedure-canonical p-value (float)
 print(profile.diagnose())            # dict — see FactorProfile below
 print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, etc.
@@ -276,9 +275,6 @@ profile.warnings        : frozenset[WarningCode]
 profile.info_notes      : frozenset[InfoCode]
 profile.stats           : Mapping[StatCode, float]                 # cell-specific scalars
 profile.metadata        : Mapping[StatCode, Mapping[str, Any]]     # hyperparams that produced each stat (#188)
-
-profile.verdict(*, threshold: float = 0.05, gate: StatCode | None = None) -> Verdict
-    # PASS if primary_p (or stats[gate]) < threshold
 
 profile.diagnose() -> dict[str, Any]
     # {"identity": {"factor_id", "forward_periods"},
@@ -551,9 +547,9 @@ Read live descriptions programmatically:
 `StatCode.is_p_value` is `True` iff the value tokens (split on `_`)
 contain the token `p` (so `P_NW` → `["p", "nw"]` qualifies, as do
 `P_HH` / `P_GMM` / `FACTOR_ADF_P` / `RESID_LJUNG_BOX_P`). Used by
-`profile.verdict(gate=...)` consumers; the
-family-verb `estimator=` override (#170) dispatches via
-`Estimator.emits_for` and does not gate on `is_p_value` directly.
+downstream tooling to distinguish probability codes from test
+statistics. The family-verb `estimator=` override (#170) dispatches
+via `Estimator.emits_for` and does not gate on `is_p_value` directly.
 
 Naming grammar (#187): primary cell stats carry no TARGET prefix
 (cell identity lives on `profile.config`); diagnostics carry an

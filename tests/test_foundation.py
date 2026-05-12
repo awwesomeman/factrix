@@ -7,7 +7,7 @@ import dataclasses
 import pytest
 from factrix._analysis_config import _FALLBACK_MAP, AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
+from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._errors import (
     ConfigError,
     FactrixError,
@@ -45,10 +45,6 @@ class TestAxisEnums:
 
 
 class TestCodeEnums:
-    def test_verdict_values(self) -> None:
-        assert Verdict.PASS.value == "pass"
-        assert Verdict.FAIL.value == "fail"
-
     def test_warning_codes_present(self) -> None:
         # Spot-check the four live codes (§7.3) — each is raised by at
         # least one procedure in factrix/_procedures.py.

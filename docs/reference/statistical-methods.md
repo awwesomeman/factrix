@@ -147,7 +147,7 @@ Three positions on multiple testing that the literature has converged
 on and factrix takes:
 
 - The [Harvey-Liu-Zhu 2016][harvey-liu-zhu-2016] case for raising
-  t-thresholds is taken seriously. `verdict()` defaults to $t \geq 2.0$
+  t-thresholds is taken seriously. Single-factor pre-registered comparisons default to $t \geq 2.0$
   but exposes the BHY-adjusted `q` so users can apply a stricter
   threshold for new factor proposals.
 - The [Harvey 2017][harvey-2017] case against ad-hoc p-hacking is the

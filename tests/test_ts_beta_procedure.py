@@ -16,7 +16,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Mode, Signal
-from factrix._codes import StatCode, Verdict, WarningCode
+from factrix._codes import StatCode, WarningCode
 from factrix._errors import InsufficientSampleError
 from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _TSBetaContTimeseriesProcedure
@@ -102,9 +102,6 @@ class TestStrongBeta:
     def test_n_obs_equals_T(self, profile: FactorProfile) -> None:
         assert profile.n_obs == 120
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.001
 
@@ -155,7 +152,7 @@ class TestRandomFactor:
         return _TSBetaContTimeseriesProcedure().compute(ts, cfg)
 
     def test_random_factor_fails(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.FAIL
+        assert profile.primary_p >= 0.05
         assert profile.primary_p > 0.10
 
     def test_beta_near_zero(self, profile: FactorProfile) -> None:
@@ -180,7 +177,7 @@ class TestSampleSizeStratification:
             _TSBetaContTimeseriesProcedure().compute(ts, cfg)
 
     def test_T_in_warning_band_emits_warning(self, cfg: AnalysisConfig) -> None:
-        # MIN_PERIODS_HARD <= T < MIN_PERIODS_WARN → verdict + UNRELIABLE_SE warn.
+        # MIN_PERIODS_HARD <= T < MIN_PERIODS_WARN → result + UNRELIABLE_SE warn.
         ts = _make_ts(n_dates=MIN_PERIODS_HARD, seed=2, beta=0.5)
         profile = _TSBetaContTimeseriesProcedure().compute(ts, cfg)
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in profile.warnings
@@ -204,4 +201,4 @@ class TestEndToEndViaEvaluate:
         profile = _evaluate(ts, cfg)
         assert profile.mode is Mode.TIMESERIES
         assert StatCode.P_NW in profile.stats
-        assert profile.verdict() is Verdict.PASS
+        assert profile.primary_p < 0.05

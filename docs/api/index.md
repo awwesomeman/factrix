@@ -55,7 +55,7 @@ Click any node to jump to its API page.
 
 | Goal | Pipeline |
 |---|---|
-| Single-factor inference verdict | `evaluate(panel, cfg)` → read `FactorProfile.verdict()` |
+| Single-factor inference | `evaluate(panel, cfg)` → read `FactorProfile.primary_p` |
 | Single-factor descriptive scan | `run_metrics(panel, cfg, factor_col=...)` → read `MetricsBundle` |
 | Slice exploration (single axis) | `by_slice(metric, df, label="...")` → `SliceResult` |
 | Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
@@ -70,7 +70,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 |---|---|---|
 | [`AnalysisConfig`](analysis-config.md) | Three-axis frozen dataclass selecting the dispatch cell. Four factory methods (`individual_continuous`, `individual_sparse`, `common_continuous`, `common_sparse`). | Picking the analysis cell. |
 | [`evaluate`](evaluate.md) | Single dispatch entry — runs the registered procedure for a `(config, panel)` pair and returns a `FactorProfile`. | Running an analysis. |
-| [`FactorProfile`](factor-profile.md) | Frozen result object: `primary_p`, `verdict()`, `diagnose()`, `stats`, `warnings`, `info_notes`, `mode`, `n_obs`, `n_assets`. | Reading the result. |
+| [`FactorProfile`](factor-profile.md) | Frozen result object: `primary_p`, `diagnose()`, `stats`, `warnings`, `info_notes`, `mode`, `n_obs`, `n_assets`. | Reading the result. |
 | [`multi_factor`](multi-factor.md) | `bhy(...)` for per-family BHY FDR screening across a list of `FactorProfile`s. | Multi-factor screening. |
 | [`stats`](stats.md) | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking inference method for `bhy(estimator=…)` or cross-slice tests. |
 | [`list_metrics`](list-metrics.md) | Programmatic discovery of standalone `factrix.metrics.*` callables applicable to a given `(scope, signal)` cell. | Picking a follow-up metric after `evaluate()`. |

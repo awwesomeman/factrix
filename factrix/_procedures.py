@@ -134,9 +134,9 @@ class FactorProcedure(Protocol):
     ``EMITS_STATS`` is the **possible-set** of ``StatCode`` keys the
     procedure can populate on ``FactorProfile.stats`` (always-emitted ∪
     conditionally-emitted). ``describe_analysis_modes(format="json")``
-    surfaces this so agents can pre-validate ``verdict(gate=...)`` and
-    cross-check that an ``Estimator`` instance is dispatchable for the
-    cell without running the procedure.
+    surfaces this so agents can cross-check that an ``Estimator``
+    instance is dispatchable for the cell without running the
+    procedure.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema]
@@ -624,7 +624,7 @@ class _TSBetaContTimeseriesProcedure:
     NW HAC SE on β; ADF on factor surfaces persistence (CONTINUOUS-only
     diagnostic per I6). n_periods-stratified per I5: below ``MIN_PERIODS_HARD`` raise
     ``InsufficientSampleError``; in ``[MIN_PERIODS_HARD, MIN_PERIODS_WARN)``
-    emit verdict + ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``.
+    emit result tagged with ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema] = InputSchema(

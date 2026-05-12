@@ -7,7 +7,7 @@ weaknesses.
 
 ## 1. What factrix is
 
-factrix is a **factor verdict surface**: given a candidate factor and
+factrix is a **factor inference surface**: given a candidate factor and
 a forward return, it answers *is the predictive power real?* and
 returns a structured profile of evidence — rather than applying one
 uniform formula to every factor.
@@ -50,7 +50,7 @@ tools — it sits upstream of them and produces the input they assume.
 ```mermaid
 flowchart LR
     DATA[Raw data] --> CONSTR[Factor construction<br/>zipline Pipeline · self-roll]
-    CONSTR --> FX[<b>factrix verdict</b><br/>Stage 1 — kill fakes]
+    CONSTR --> FX[<b>factrix inference</b><br/>Stage 1 — kill fakes]
     FX --> PORT[Strategy construction<br/>skfolio · PyPortfolioOpt · riskfolio-lib]
     PORT --> BT[Backtest<br/>vectorbt · zipline-reloaded · bt]
     BT --> LIVE[Live trading<br/>lumibot · nautilus_trader]
@@ -75,7 +75,7 @@ flowchart LR
     DISP -->|individual_continuous| CS[IC + FM<br/>+ diagnostics]
     DISP -->|individual_sparse| EV[CAAR<br/>+ diagnostics]
     DISP -->|common_continuous| CO[ts_beta<br/>+ diagnostics]
-    CS --> PROF[FactorProfile<br/>stats · primary_p · verdict]
+    CS --> PROF[FactorProfile<br/>stats · primary_p · diagnose]
     EV --> PROF
     CO --> PROF
     PROF --> BHY[multi_factor.bhy<br/>FDR within family]
@@ -126,7 +126,7 @@ inference loop. See
 **ML signal layer** — out of scope as a deliberate boundary. The
 signal-generation problem is well served by xgboost + shap, and
 folding model fit into factrix would change the page's hero claim
-from "verdict on a hypothesised factor" to "verdict on a fitted
+from "inference on a hypothesised factor" to "inference on a fitted
 model" — those need different statistical machinery (cross-validation
 schemes, leakage tests). qlib already covers the integrated
 pipeline; we leave that branch to qlib.
@@ -248,7 +248,7 @@ second-stage SE. It is a primitive, not a framework.
 **When to pick linearmodels instead** — you only need correct
 Fama-MacBeth standard errors on a panel you have already
 constructed, and you do not need IC, CAAR, BHY, or any of the
-verdict surfaces.
+inference surfaces.
 
 ### 4.4 AlphaEval
 
@@ -279,7 +279,7 @@ and
   explicit null and surfaces per-metric pass/fail rather than a
   weighted scalar. The two libraries answer different questions.
 - Composite scoring becomes its own optimisation target the
-  moment it ships (Goodhart 1984); per-metric verdict keeps the
+  moment it ships (Goodhart 1984); per-metric inference keeps the
   null distributions distinct.
 
 **When to pick AlphaEval instead** — you mine formula alphas
@@ -303,8 +303,8 @@ alpha-quality with a frequently-changing API.
 - factrix integrates event CAAR with NW HAC and an overlap
   diagnostic on the dense event-time calendar; eventstudy treats
   events in isolation.
-- Event verdict lives in the same `FactorProfile` shape as CS and
-  common-factor verdicts; one pipeline screens all three with
+- Event inference lives in the same `FactorProfile` shape as CS and
+  common-factor inferences; one pipeline screens all three with
   shared FDR control.
 
 **When to pick eventstudy instead** — you only do M&A or
@@ -375,7 +375,7 @@ cfg = fx.AnalysisConfig.individual_continuous(
     metric=fx.Metric.IC, forward_periods=5,
 )
 profile = fx.evaluate(panel, cfg)
-verdict = profile.verdict()
+primary_p = profile.primary_p
 ```
 
 factrix → Stage 2: surviving profiles after BHY feed a portfolio
@@ -397,12 +397,12 @@ survivors = fx.multi_factor.bhy(profiles, q=0.05)
 ```
 
 The integration story matters because it answers the implicit
-"what do I do with the verdict" question — factrix is an
+"what do I do with the inference" question — factrix is an
 intermediate stage, not an endpoint.
 
 ## 6. When factrix is NOT the right tool
 
-If you are not at the verdict / screening stage, factrix is the
+If you are not at the inference / screening stage, factrix is the
 wrong tool. The chart below routes you to the canonical
 alternative for each adjacent stage. Construction (upstream) is
 intentionally not branched: readers reach this chart asking
@@ -411,7 +411,7 @@ one*.
 
 ```mermaid
 flowchart TD
-    A[What stage of the alpha pipeline?] --> F[Verdict / screening on a factor]
+    A[What stage of the alpha pipeline?] --> F[Inference / screening on a factor]
     A --> W[Optimise weights for trusted factors]
     A --> E[Backtest or deploy a strategy]
     A --> R[Returns-level tear-sheet on a P&L series]
@@ -447,7 +447,7 @@ self-defeating once they read the source.
   project with fewer Stack Overflow answers. Expect to read source
   for edge cases that alphalens has been asked about for six years.
 - **No published replication of a canonical anomaly study yet** —
-  a factor-zoo skeptic will ask whether factrix's verdicts agree
+  a factor-zoo skeptic will ask whether factrix's conclusions agree
   with the published record on a known-good factor. That
   replication is on the roadmap and is a credibility gap until it
   ships.

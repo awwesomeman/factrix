@@ -221,7 +221,7 @@ A few specific caveats worth flagging:
   **`MIN_OOS_PERIODS = 5`** in `multi_split_oos_decay` remains
   single-tier — the metric is now descriptive-only (no `p_value` in
   metadata), so a literature power floor is moot. Treat its output as
-  descriptive; the formal `verdict()` reading should rely on the
+  descriptive; the formal inference reading should rely on the
   primary metric until the underlying series is materially longer.
 
 ## Below-threshold behaviour
@@ -232,7 +232,7 @@ returns a meaningful-looking result. Three deterministic outcomes:
 - **Short-circuit** — the metric returns
   `MetricOutput(value=NaN, metadata={"reason": "..."})` and
   `FactorProfile.primary_p` is conservatively pinned to `1.0` so
-  `verdict()` reports `FAILED`.
+  `primary_p` is at or above the user's chosen threshold.
 - **Fallback** — the dispatch registry routes to a degraded but
   semantically distinct procedure (e.g. `Common × Continuous` at
   `N == 1` falls back to single-asset OLS without HAC). `diagnose()`
