@@ -174,31 +174,23 @@ def evaluate(
         shared-pass primitive; [`bhy`][factrix.multi_factor.bhy] controls
         FDR but does **not** reduce the per-signal evaluation cost.
 
-    ???+ example "Examples"
+    Examples:
         Single-factor inference:
 
-        ```python
-        import factrix as fx
-
-        config = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-        profile = fx.evaluate(panel, config)
-        profile.primary_p
-        # 0.0001
-        ```
+        >>> config = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+        >>> profile = fx.evaluate(panel, config)
+        >>> profile.primary_p
+        0.0001
 
         Non-default signal column name:
 
-        ```python
-        profile = fx.evaluate(panel, config, factor_col="alpha")
-        ```
+        >>> profile = fx.evaluate(panel, config, factor_col="alpha")
 
         Multi-factor screening with FDR (see batch screening guide):
 
-        ```python
-        profiles = [fx.evaluate(panel, config, factor_col=name)
-                    for name in candidate_signals]
-        survivors = fx.multi_factor.bhy(profiles)
-        ```
+        >>> profiles = [fx.evaluate(panel, config, factor_col=name)
+        ...             for name in candidate_signals]
+        >>> survivors = fx.multi_factor.bhy(profiles)
 
     See Also:
         - [`FactorProfile`][factrix.FactorProfile] — return type.
