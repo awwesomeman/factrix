@@ -72,8 +72,8 @@ class TestDescribeAnalysisModes:
 
     def test_stats_keys_present_per_mode(self) -> None:
         # Every PANEL / TIMESERIES sub-row carries a sorted list of
-        # StatCode .value strings; agents pre-validate verdict(gate=...)
-        # / bhy(gate=...) reachability against this set.
+        # StatCode .value strings; agents pre-validate Estimator
+        # dispatch reachability against this set.
         rows = describe_analysis_modes(format="json")
         for r in rows:
             for mode_dict in (r["panel"], r["timeseries"]):
@@ -545,7 +545,7 @@ class TestSuggestConfigResultImmutability:
 # ---------------------------------------------------------------------------
 # EMITS_STATS drift guard — every procedure's actually-emitted stats keys
 # must be a subset of its declared EMITS_STATS, otherwise describe_*'s
-# stats_keys field lies to agents pre-validating verdict()/bhy() gates.
+# stats_keys field lies to agents pre-validating Estimator dispatch.
 # ---------------------------------------------------------------------------
 
 

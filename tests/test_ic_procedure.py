@@ -4,7 +4,7 @@ Synthetic panel: ``T`` dates × ``N`` assets. ``forward_return`` is
 i.i.d. standard normal; the strong-factor scenario builds the factor
 as ``forward_return + small_noise`` so per-date Spearman IC is
 near-perfect, the random-factor scenario builds it as independent
-noise. Verdict / primary_p / stats keys are the contract.
+noise. primary_p / stats keys are the contract.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import StatCode, Verdict
+from factrix._codes import StatCode
 from factrix._procedures import InputSchema, _ICContPanelProcedure
 from factrix._profile import FactorProfile
 from factrix._registry import _DISPATCH_REGISTRY, _DispatchKey
@@ -104,9 +104,6 @@ class TestStrongFactor:
     def test_n_obs_equals_date_count(self, profile: FactorProfile) -> None:
         assert profile.n_obs == 60
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.01
 
@@ -164,7 +161,7 @@ class TestRandomFactor:
         self,
         profile: FactorProfile,
     ) -> None:
-        assert profile.verdict() is Verdict.FAIL
+        assert profile.primary_p >= 0.05
         assert profile.primary_p > 0.10
 
     def test_ic_mean_near_zero(self, profile: FactorProfile) -> None:

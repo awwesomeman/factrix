@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from factrix._axis import Mode
-from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
+from factrix._codes import InfoCode, StatCode, WarningCode
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
@@ -32,8 +32,8 @@ class FactorProfile:
     Attributes:
         config: The ``AnalysisConfig`` that produced this profile.
         mode: Evaluation mode (``PANEL`` / ``TIMESERIES``).
-        primary_p: Procedure-canonical p-value driving ``verdict()``
-            and ``multi_factor.bhy``.
+        primary_p: Procedure-canonical p-value driving
+            ``multi_factor.bhy``.
         n_obs: Cell-canonical effective sample size.
         n_assets: Cross-section width of the raw panel.
         factor_id: User-supplied factor name; stamped by ``_evaluate``
@@ -83,35 +83,6 @@ class FactorProfile:
     @property
     def identity(self) -> tuple[str, int]:
         return (self.factor_id, self.forward_periods)
-
-    def verdict(
-        self,
-        *,
-        threshold: float = 0.05,
-        gate: StatCode | None = None,
-    ) -> Verdict:
-        """Pass/fail at ``threshold`` against ``primary_p`` (or ``gate``).
-
-        ``threshold`` is a generic cutoff — not tied to Type-I-error
-        semantics, because ``gate`` may name a non-p stat (t-stat,
-        HHI, etc.). The comparison ``value < threshold`` is
-        interpreted by the caller.
-
-        Args:
-            threshold: Cutoff applied to the gated value. Default
-                ``0.05``.
-            gate: ``StatCode`` whose value is read from ``stats``;
-                ``None`` uses the procedure-canonical ``primary_p``.
-
-        Returns:
-            ``Verdict.PASS`` if the gated value is below ``threshold``,
-            otherwise ``Verdict.FAIL``.
-
-        Raises:
-            KeyError: If ``gate`` is not populated in ``stats``.
-        """
-        p = self.primary_p if gate is None else self.stats[gate]
-        return Verdict.PASS if p < threshold else Verdict.FAIL
 
     def _summary_rows(self) -> list[tuple[str, Any]]:
         rows: list[tuple[str, Any]] = [

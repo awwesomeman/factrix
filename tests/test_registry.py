@@ -1,8 +1,8 @@
 """v0.5 registry SSOT + procedure stubs + FactorProfile semantics.
 
 Covers refactor_api.md §4.4 (registry as SSOT, A1), §4.4.2 (Profile
-shape + verdict policy), §5.4.1 (TIMESERIES sparse collapse), §7.5
-(naming-consistency invariants).
+shape), §5.4.1 (TIMESERIES sparse collapse), §7.5 (naming-consistency
+invariants).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import ClassVar
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
+from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._errors import IncompatibleAxisError
 from factrix._procedures import FactorProcedure, InputSchema
 from factrix._profile import FactorProfile
@@ -171,11 +171,6 @@ class TestProcedureProtocol:
             assert isinstance(entry.procedure.INPUT_SCHEMA, InputSchema)
 
 
-# ---------------------------------------------------------------------------
-# FactorProfile.verdict (§4.4.2 / §7.5 naming invariants)
-# ---------------------------------------------------------------------------
-
-
 def _make_profile(
     *,
     primary_p: float,
@@ -195,33 +190,6 @@ def _make_profile(
         stats=stats or {},
         metadata=metadata or {},
     )
-
-
-class TestVerdict:
-    def test_pass_below_default_threshold(self) -> None:
-        assert _make_profile(primary_p=0.01).verdict() is Verdict.PASS
-
-    def test_fail_at_or_above_default_threshold(self) -> None:
-        # Strict `<` per §4.4.2; equality fails.
-        assert _make_profile(primary_p=0.05).verdict() is Verdict.FAIL
-        assert _make_profile(primary_p=0.10).verdict() is Verdict.FAIL
-
-    def test_threshold_override(self) -> None:
-        prof = _make_profile(primary_p=0.07)
-        assert prof.verdict(threshold=0.10) is Verdict.PASS
-        assert prof.verdict(threshold=0.05) is Verdict.FAIL
-
-    def test_gate_override_uses_stats_value(self) -> None:
-        prof = _make_profile(
-            primary_p=0.50,  # would FAIL on primary
-            stats={StatCode.P_NW: 0.001},
-        )
-        assert prof.verdict(gate=StatCode.P_NW) is Verdict.PASS
-
-    def test_gate_keyerror_when_stat_missing(self) -> None:
-        prof = _make_profile(primary_p=0.01, stats={})
-        with pytest.raises(KeyError):
-            prof.verdict(gate=StatCode.P_NW)
 
 
 class TestProfileImmutability:

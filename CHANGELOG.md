@@ -12,6 +12,31 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ---
 
+## [Unreleased]
+
+### Removed
+
+- **`FactorProfile.verdict()` and `Verdict` enum** (breaking, #243). `verdict(*, threshold=0.05, gate=None)` was a `primary_p < threshold` wrapper. Removed because (a) for N candidate factors, iterating `profile.verdict()` and counting passes is the spec-search anti-pattern factrix explicitly avoids — multi-factor decisions belong to `multi_factor.bhy` survivors, not per-factor threshold gates; (b) the `Verdict` `PASS / FAIL` outcome ignored emitted `WarningCode` (e.g. `UNRELIABLE_SE_SHORT_PERIODS`), letting unreliable inference report `PASS`. The `Verdict` enum is removed alongside the method.
+
+  ```python
+  # before (v0.12.0)
+  if profile.verdict() is fx.Verdict.PASS:
+      ...
+
+  # after — single-factor pre-registered analysis only
+  if profile.primary_p < 0.05:
+      ...
+
+  # after — N candidate factors: route through BHY, read survivors
+  survivors = fx.multi_factor.bhy(profiles, q=0.05)
+  for prof, adj_q in zip(survivors.profiles, survivors.adj_q, strict=True):
+      ...
+  ```
+
+  The `gate=StatCode.X` kwarg (read alternative stat instead of `primary_p`) has no direct replacement; reach `profile.stats[StatCode.X]` and compare to your chosen threshold inline. The `examples/multi_factor_screening.ipynb` per-factor verdict loop is rewritten to demonstrate the BHY path instead.
+
+---
+
 ## v0.12.0 (2026-05-11)
 
 ### Changed

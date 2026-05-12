@@ -16,7 +16,7 @@ aggregated over time.
 
 `ic` and `fama_macbeth` are the two **inferential** entry points; the
 rest are **profile / risk** diagnostics that describe the same factor
-without contributing to the verdict.
+without contributing to the primary inference.
 
 For when each applies see
 [Reference § Metric applicability](../../reference/metric-applicability.md).

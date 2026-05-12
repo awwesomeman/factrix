@@ -24,7 +24,7 @@ flowchart TD
     REG["Registry<br/>_registry.py SSOT (7 cells)"]
     MODE{"Mode<br/>N = panel.asset_id.n_unique()"}
     PROC["FactorProcedure<br/>cell-dispatched"]
-    FP["FactorProfile<br/>primary_p · verdict() · diagnose()"]
+    FP["FactorProfile<br/>primary_p · diagnose()"]
     BHY["multi_factor.bhy()<br/>BHY FDR correction"]
 
     User -->|"AnalysisConfig.factory(...)"| AC
@@ -61,7 +61,7 @@ Three entry points, all in `factrix.__init__`:
 Plus introspection / error / enum re-exports:
 
 - `fx.FactorScope`, `fx.Signal`, `fx.Metric`, `fx.Mode` — three user-facing axes + the evaluate-time-derived fourth
-- `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode`, `fx.Verdict` — structured codes carried on `FactorProfile`
+- `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured codes carried on `FactorProfile`
 - `fx.FactorProfile` — single unified result type
 - `fx.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
 - `fx.suggest_config(panel)` — heuristic factory call from a raw panel
@@ -156,7 +156,6 @@ CAAR, asset count for COMMON×* PANEL. `n_assets` is always
 `raw["asset_id"].n_unique()`; reading both side by side disambiguates
 "small effective sample" between short series vs thin cross-section.
 
-- `verdict(*, threshold=0.05, gate=None) -> Verdict` — `gate=None` uses `primary_p`; supplying a `StatCode` swaps the gate (raises `KeyError` if not populated)
 - `diagnose() -> dict[str, Any]` — flatten `mode / n_obs / primary_p / warnings / info_notes / stats` for human or AI agent triage
 
 Single dataclass, no per-cell subclass proliferation. Cell-specific scalars live
@@ -552,7 +551,7 @@ Two-tier metric organisation. Choosing the right tier when adding a new metric:
 
 | Tier | Lives in | Count today | Definition | Surfaces |
 |------|----------|-------------|------------|----------|
-| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `FactorProfile.verdict()`, `primary_p` for family verbs |
+| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `primary_p` for family verbs |
 | **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricOutput` |
 
 ### When to register
@@ -572,7 +571,7 @@ Everything else. Specifically:
   `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
   supplement the registered CAAR procedure for `(INDIVIDUAL, SPARSE, None, PANEL)`.
 - **Descriptive diagnostic without a formal H₀** (concentration HHI, tradability, OOS decay).
-- **Multi-factor relationship** outside the single-factor verdict frame (`spanning.py`).
+- **Multi-factor relationship** outside the single-factor inference frame (`spanning.py`).
 
 ### Standalone metric contract
 
@@ -597,12 +596,12 @@ themselves if FDR control is needed across a batch of standalone runs.
 factrix/
 ├── __init__.py              # public surface
 ├── _axis.py                 # FactorScope / Signal / Metric / Mode StrEnums
-├── _codes.py                # WarningCode / InfoCode / StatCode / Verdict StrEnums
+├── _codes.py                # WarningCode / InfoCode / StatCode StrEnums
 ├── _errors.py               # FactrixError → ConfigError → {IncompatibleAxisError, ModeAxisError, InsufficientSampleError}
 ├── _analysis_config.py      # AnalysisConfig + 4 factories + _FALLBACK_MAP
 ├── _registry.py             # _DispatchKey, _RegistryEntry, _SCOPE_COLLAPSED, register()
 ├── _procedures.py           # 7 FactorProcedure classes; bootstrap-registered at import
-├── _profile.py              # FactorProfile dataclass + verdict / diagnose
+├── _profile.py              # FactorProfile dataclass + diagnose
 ├── _evaluate.py             # _derive_mode + _evaluate dispatch wrapper
 ├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
 ├── _family.py               # _resolve_family + _FamilyEntry (shared invariants)
@@ -631,7 +630,7 @@ Hard constraints — violating these breaks the API contract:
 3. The registry is the SSOT for "which cells exist". `_validate_axis_compat`, `describe_analysis_modes`, and `suggest_config` all reverse-query it; no parallel rule table.
 4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
 5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate `primary_p = 1.0`.
-6. `verdict()` reads `primary_p` (or a user-supplied `StatCode` gate); `warnings` and `info_notes` never auto-rebind it.
+6. `primary_p` is the procedure-canonical p-value; `warnings` and `info_notes` flag interpretation risks but never auto-rebind it.
 7. Family declaration is explicit: the `bhy` (and other family-verb) input list is one family, optionally split per-bucket via `expand_over`. `_resolve_family` enforces (a) identity uniqueness across input, (b) `expand_over` ⊂ `context` (never identity), (c) `p_stat` is a probability and populated everywhere. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
 8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
 9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.

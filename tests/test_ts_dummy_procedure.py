@@ -15,7 +15,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Mode, Signal
-from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
+from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._errors import InsufficientSampleError
 from factrix._evaluate import _evaluate
 from factrix._procedures import (
@@ -139,9 +139,6 @@ class TestStrongTrigger:
             cfg_individual,
         )
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.001
 
@@ -191,7 +188,7 @@ class TestRandomSparse:
             ts,
             cfg_individual,
         )
-        assert profile.verdict() is Verdict.FAIL
+        assert profile.primary_p >= 0.05
 
 
 class TestSerialCorrelationWarning:

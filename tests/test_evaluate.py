@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import InfoCode, StatCode, Verdict
+from factrix._codes import InfoCode, StatCode
 from factrix._errors import ModeAxisError
 from factrix._evaluate import _derive_mode, _evaluate
 from factrix._profile import FactorProfile
@@ -107,8 +107,8 @@ class TestIcPanelEndToEnd:
     def test_mode_is_panel(self, profile: FactorProfile) -> None:
         assert profile.mode is Mode.PANEL
 
-    def test_pass_verdict_on_strong_factor(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
+    def test_low_primary_p_on_strong_factor(self, profile: FactorProfile) -> None:
+        assert profile.primary_p < 0.05
 
     def test_no_collapse_info_note(self, profile: FactorProfile) -> None:
         assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes

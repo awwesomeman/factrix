@@ -14,7 +14,7 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
-from factrix._codes import StatCode, Verdict, WarningCode
+from factrix._codes import StatCode, WarningCode
 from factrix._evaluate import _evaluate
 from factrix._procedures import InputSchema, _FMContPanelProcedure
 from factrix._profile import FactorProfile
@@ -95,9 +95,6 @@ class TestStrongFactor:
     def test_n_obs_equals_date_count(self, profile: FactorProfile) -> None:
         assert profile.n_obs == 60
 
-    def test_passes_verdict(self, profile: FactorProfile) -> None:
-        assert profile.verdict() is Verdict.PASS
-
     def test_low_primary_p(self, profile: FactorProfile) -> None:
         assert profile.primary_p < 0.01
 
@@ -130,11 +127,10 @@ class TestRandomFactor:
         )
         return _FMContPanelProcedure().compute(panel, fm_config)
 
-    def test_random_factor_fails_at_default_threshold(
+    def test_random_factor_primary_p_above_threshold(
         self,
         profile: FactorProfile,
     ) -> None:
-        assert profile.verdict() is Verdict.FAIL
         assert profile.primary_p > 0.10
 
     def test_lambda_mean_near_zero(self, profile: FactorProfile) -> None:
@@ -155,7 +151,7 @@ class TestEndToEndViaEvaluate:
         profile = _evaluate(panel, fm_config)
         assert isinstance(profile, FactorProfile)
         assert StatCode.P_NW in profile.stats
-        assert profile.verdict() is Verdict.PASS
+        assert profile.primary_p < 0.05
 
 
 class TestFMShortPeriodsWarning:

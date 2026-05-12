@@ -13,7 +13,7 @@ Single-factor::
 
     cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
     profile = fx.evaluate(panel, cfg)
-    print(profile.verdict(), profile.primary_p)
+    print(profile.primary_p)
     print(profile.diagnose())
 
 Batch + BHY::
@@ -47,7 +47,7 @@ from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access
     Mode,
     Signal,
 )
-from factrix._codes import InfoCode, StatCode, Verdict, WarningCode
+from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._describe import (
     SuggestConfigResult,
     describe_analysis_modes,
@@ -148,7 +148,6 @@ __all__ = [
     # Code enums
     "InfoCode",
     "StatCode",
-    "Verdict",
     "WarningCode",
     # Errors
     "ConfigError",
