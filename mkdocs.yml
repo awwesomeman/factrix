@@ -165,6 +165,7 @@ nav:
           - slice_pairwise_test / slice_joint_test: api/slice-test.md
           - multi_factor: api/multi-factor.md
           - partial_conjunction: api/partial-conjunction.md
+          - bhy_hierarchical: api/bhy-hierarchical.md
           - list_metrics: api/list-metrics.md
           - suggest_config: api/suggest-config.md
           - compare: api/compare.md
