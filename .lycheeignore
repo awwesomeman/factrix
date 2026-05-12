@@ -35,6 +35,13 @@
 # checked).
 ^https://github\.com/[^/]+/[^/]+/edit/
 
+# Academic publishers (Oxford Academic, Wiley Online Library) return
+# 403 Forbidden to bot user-agents including the GitHub Actions runner
+# pool. The links resolve fine for humans; CI cannot reach them. These
+# host BH2008 / BB2014 / similar canonical citations in docs/api/.
+^https://academic\.oup\.com/
+^https://onlinelibrary\.wiley\.com/
+
 # pola.rs (Polars project home) intermittently fails TLS handshake
 # from GitHub Actions runners with "Maybe a certificate error?" — the
 # site itself has a valid LE cert but the runner pool occasionally
