@@ -64,6 +64,7 @@ from factrix._errors import (
     MissingConfigError,
     ModeAxisError,
     RunMetricsError,
+    UnknownEstimatorError,
     UserInputError,
 )
 from factrix._evaluate import _evaluate as _evaluate
@@ -158,6 +159,7 @@ __all__ = [
     "MissingConfigError",
     "ModeAxisError",
     "RunMetricsError",
+    "UnknownEstimatorError",
     "UserInputError",
     # Profile + dispatch
     "FactorProfile",

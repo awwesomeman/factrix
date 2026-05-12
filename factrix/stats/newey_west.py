@@ -19,6 +19,7 @@ identity is carried by ``profile.config`` rather than by the StatCode.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from factrix._axis import FactorScope, Metric, Signal
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     import numpy as np
 
 
+@dataclass(frozen=True, slots=True)
 class NeweyWest:
     """Newey-West (1987) HAC SE estimator → t-statistic → two-sided p-value.
 

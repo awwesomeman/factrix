@@ -8,12 +8,13 @@ validation, reachable from every path that produces an ``AnalysisConfig``.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Self
 
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._errors import IncompatibleAxisError
 from factrix._registry import matches_user_axis
+from factrix.stats import HACEstimator, NeweyWest
 
 # Nearest-legal cell suggested when an evaluate-time mode/sample check
 # fails (§4.5 A4). Keyed by ``(scope, signal, mode)``; values are
@@ -37,6 +38,39 @@ _FALLBACK_MAP: dict[
         Mode.TIMESERIES,
     ): lambda: AnalysisConfig.common_continuous(),
 }
+
+
+def _validate_estimator_compat(
+    estimator: HACEstimator,
+    scope: FactorScope,
+    signal: Signal,
+) -> None:
+    """Raise ``IncompatibleAxisError`` if ``estimator`` is not a
+    ``HACEstimator`` applicable to the ``(scope, signal)`` cell (#163).
+
+    Runs after axis compatibility — the axis tuple is already legal
+    when this is called.
+    """
+    if not isinstance(estimator, HACEstimator):
+        raise IncompatibleAxisError(
+            f"estimator={type(estimator).__name__!r} does not implement "
+            "HACEstimator (missing compute / min_periods). "
+            "AnalysisConfig.estimator must be a HACEstimator; use "
+            "list_estimators(scope, signal) to inspect applicable instances."
+        )
+    if not estimator.applicable_to(scope, signal):
+        from factrix.stats import _ESTIMATOR_REGISTRY
+
+        applicable = sorted(
+            e.name
+            for e in _ESTIMATOR_REGISTRY
+            if isinstance(e, HACEstimator) and e.applicable_to(scope, signal)
+        )
+        raise IncompatibleAxisError(
+            f"estimator={estimator.name!r} not applicable to "
+            f"(scope={scope.value}, signal={signal.value}). "
+            f"Applicable HACEstimators: {applicable}"
+        )
 
 
 def _validate_axis_compat(
@@ -98,9 +132,11 @@ class AnalysisConfig:
     signal: Signal
     metric: Metric | None
     forward_periods: int = 5
+    estimator: HACEstimator = field(default_factory=NeweyWest)
 
     def __post_init__(self) -> None:
         _validate_axis_compat(self.scope, self.signal, self.metric)
+        _validate_estimator_compat(self.estimator, self.scope, self.signal)
 
     @classmethod
     def individual_continuous(
@@ -108,6 +144,7 @@ class AnalysisConfig:
         *,
         metric: Metric = Metric.IC,
         forward_periods: int = 5,
+        estimator: HACEstimator | None = None,
     ) -> Self:
         """Per-(date, asset) continuous factor.
 
@@ -116,6 +153,9 @@ class AnalysisConfig:
                 unit-of-exposure premium (Fama-MacBeth λ).
             forward_periods: Forward-return horizon (rows of the time
                 axis).
+            estimator: ``HACEstimator`` driving evaluate-time inference;
+                ``None`` defaults to ``NeweyWest()``. Pass
+                ``HansenHodrick()`` to swap the rectangular-kernel path.
 
         Returns:
             A validated ``AnalysisConfig`` for the
@@ -126,10 +166,16 @@ class AnalysisConfig:
             Signal.CONTINUOUS,
             metric,
             forward_periods=forward_periods,
+            estimator=estimator if estimator is not None else NeweyWest(),
         )
 
     @classmethod
-    def individual_sparse(cls, *, forward_periods: int = 5) -> Self:
+    def individual_sparse(
+        cls,
+        *,
+        forward_periods: int = 5,
+        estimator: HACEstimator | None = None,
+    ) -> Self:
         """Per-(date, asset) sparse trigger (``{-1, 0, +1}``).
 
         PANEL canonical procedure is the CAAR cross-event t-test;
@@ -139,6 +185,8 @@ class AnalysisConfig:
         Args:
             forward_periods: Forward-return horizon (rows of the time
                 axis).
+            estimator: ``HACEstimator`` driving evaluate-time inference;
+                ``None`` defaults to ``NeweyWest()``.
 
         Returns:
             A validated ``AnalysisConfig`` for the
@@ -149,10 +197,16 @@ class AnalysisConfig:
             Signal.SPARSE,
             None,
             forward_periods=forward_periods,
+            estimator=estimator if estimator is not None else NeweyWest(),
         )
 
     @classmethod
-    def common_continuous(cls, *, forward_periods: int = 5) -> Self:
+    def common_continuous(
+        cls,
+        *,
+        forward_periods: int = 5,
+        estimator: HACEstimator | None = None,
+    ) -> Self:
         """Broadcast continuous factor (e.g. VIX).
 
         Canonical procedure is the per-asset β estimate followed by a
@@ -161,6 +215,8 @@ class AnalysisConfig:
         Args:
             forward_periods: Forward-return horizon (rows of the time
                 axis).
+            estimator: ``HACEstimator`` driving evaluate-time inference;
+                ``None`` defaults to ``NeweyWest()``.
 
         Returns:
             A validated ``AnalysisConfig`` for the
@@ -171,10 +227,16 @@ class AnalysisConfig:
             Signal.CONTINUOUS,
             None,
             forward_periods=forward_periods,
+            estimator=estimator if estimator is not None else NeweyWest(),
         )
 
     @classmethod
-    def common_sparse(cls, *, forward_periods: int = 5) -> Self:
+    def common_sparse(
+        cls,
+        *,
+        forward_periods: int = 5,
+        estimator: HACEstimator | None = None,
+    ) -> Self:
         """Broadcast sparse trigger (FOMC, policy, index rebalance).
 
         PANEL canonical: per-asset β on dummy + cross-asset t-test.
@@ -183,6 +245,8 @@ class AnalysisConfig:
         Args:
             forward_periods: Forward-return horizon (rows of the time
                 axis).
+            estimator: ``HACEstimator`` driving evaluate-time inference;
+                ``None`` defaults to ``NeweyWest()``.
 
         Returns:
             A validated ``AnalysisConfig`` for the
@@ -193,6 +257,7 @@ class AnalysisConfig:
             Signal.SPARSE,
             None,
             forward_periods=forward_periods,
+            estimator=estimator if estimator is not None else NeweyWest(),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -207,6 +272,7 @@ class AnalysisConfig:
             "signal": self.signal.value,
             "metric": self.metric.value if self.metric is not None else None,
             "forward_periods": self.forward_periods,
+            "estimator": self.estimator.name,
         }
 
     @classmethod
@@ -216,6 +282,10 @@ class AnalysisConfig:
         Goes through ``__post_init__``, so an invalid triple raises
         ``IncompatibleAxisError`` instead of silently constructing.
 
+        ``estimator`` is rehydrated via ``factrix.stats.get_estimator``
+        registry lookup; missing key falls back to the ``NeweyWest()``
+        default for forward compatibility with v0.11 serialized configs.
+
         Args:
             d: Mapping in the shape produced by ``to_dict``.
 
@@ -224,12 +294,22 @@ class AnalysisConfig:
 
         Raises:
             IncompatibleAxisError: If the ``(scope, signal, metric)``
-                triple is not a legal cell.
+                triple is not a legal cell, or if the estimator is not
+                applicable to the cell.
+            UnknownEstimatorError: If ``d["estimator"]`` is not a name
+                in ``factrix.stats._ESTIMATOR_REGISTRY``.
         """
+        from factrix.stats import get_estimator
+
         m = d.get("metric")
+        est_name = d.get("estimator")
+        # ``get_estimator`` returns base ``Estimator``; ``__post_init__``
+        # narrows to ``HACEstimator`` with the canonical error path.
+        estimator = NeweyWest() if est_name is None else get_estimator(est_name)
         return cls(
             scope=FactorScope(d["scope"]),
             signal=Signal(d["signal"]),
             metric=Metric(m) if m is not None else None,
             forward_periods=d.get("forward_periods", 5),
+            estimator=estimator,  # type: ignore[arg-type]
         )
