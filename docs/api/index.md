@@ -7,15 +7,30 @@ Reference for every public symbol exported from `factrix`.
 ```mermaid
 flowchart LR
     P[panel + cfg]
-    EV[evaluate]
-    RM[run_metrics]
-    BS(by_slice)
-    ST{"slice_pairwise_test<br/>slice_joint_test"}
-    BHY{{bhy}}
-    PC{{partial_conjunction}}
-    BHYH{{bhy_hierarchical}}
-    LM[/list_metrics/]
-    CMP(compare)
+
+    subgraph Compute
+        EV[evaluate]
+        RM[run_metrics]
+    end
+
+    subgraph Screening["Screening (FDR)"]
+        BHY[bhy]
+        PC[partial_conjunction]
+        BHYH[bhy_hierarchical]
+    end
+
+    subgraph Inference["Inference (no FDR)"]
+        ST["slice_pairwise_test<br/>slice_joint_test"]
+    end
+
+    subgraph View["Descriptive view"]
+        BS[by_slice]
+        CMP[compare]
+    end
+
+    subgraph Introspection
+        LM[list_metrics]
+    end
 
     P ==> EV
     P ==> RM
@@ -42,7 +57,7 @@ flowchart LR
     click CMP "compare/" "compare API"
 ```
 
-Click any node to jump to its API page.
+Click any node to jump to its API page. Nodes are grouped into category subgraphs; the sixth category, **Compare-sensitivity** (`by_estimator`, #178), is not drawn — it lands in v0.14 once #263 unblocks HACEstimator parameter config + catalog expansion.
 
 **Edge convention:**
 
@@ -52,18 +67,6 @@ Click any node to jump to its API page.
 - **Dashed `-.->` — suggested workflow.** The source is panel-derived, but the target's signature differs in shape.
     - `by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame the caller builds from the panel (e.g. `compute_ic(panel)`).
     - `list_metrics` returns candidate names the caller forwards to `run_metrics(metrics=[…])`.
-
-**Category encoding by node shape:**
-
-| Shape | Category | Behaviour |
-|---|---|---|
-| Rectangle `[ ]` | **Compute** | Produces primary artefact from `(panel, cfg)` |
-| Hexagon `{{ }}` | **Screening (FDR)** | Multiplicity-correction primitive; `Profile[] → Survivors` |
-| Diamond `{ }` | **Inference (no FDR)** | Re-computes statistical tests; family-internal MTC only, no cell-level FDR claim |
-| Rounded `( )` | **Descriptive view** | Render or aggregate existing artefacts; no fresh statistics |
-| Parallelogram `[/ /]` | **Introspection** | Discover what is applicable to a cell |
-
-> The sixth category, **Compare-sensitivity** (`by_estimator`, #178), is not drawn — it lands in v0.14 once #263 unblocks HACEstimator parameter config + catalog expansion.
 
 ---
 
