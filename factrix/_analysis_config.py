@@ -53,23 +53,26 @@ def _validate_estimator_compat(
     """
     if not isinstance(estimator, HACEstimator):
         raise IncompatibleAxisError(
-            f"estimator={type(estimator).__name__!r} does not implement "
-            "HACEstimator (missing compute / min_periods). "
-            "AnalysisConfig.estimator must be a HACEstimator; use "
-            "list_estimators(scope, signal) to inspect applicable instances."
+            f"estimator={type(estimator).__name__!r} is not an HAC estimator "
+            "(it does not provide a HAC-SE compute path on a 1-D series). "
+            "AnalysisConfig.estimator drives cell-internal inference; use "
+            "list_estimators(scope, signal) to see HAC estimators applicable "
+            "to this cell."
         )
     if not estimator.applicable_to(scope, signal):
         from factrix.stats import _ESTIMATOR_REGISTRY
 
-        applicable = sorted(
-            e.name
-            for e in _ESTIMATOR_REGISTRY
-            if isinstance(e, HACEstimator) and e.applicable_to(scope, signal)
+        applicable = ", ".join(
+            sorted(
+                e.name
+                for e in _ESTIMATOR_REGISTRY
+                if isinstance(e, HACEstimator) and e.applicable_to(scope, signal)
+            )
         )
         raise IncompatibleAxisError(
             f"estimator={estimator.name!r} not applicable to "
             f"(scope={scope.value}, signal={signal.value}). "
-            f"Applicable HACEstimators: {applicable}"
+            f"Applicable HAC estimators: {applicable}"
         )
 
 

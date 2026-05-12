@@ -38,10 +38,15 @@ class HansenHodrick:
     ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`` in the result.
 
     Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` cells —
-    IC PANEL and FM PANEL procedures populate ``StatCode.P_HH``. The
-    PANEL-vs-TIMESERIES axis is not part of the protocol; TS β on
-    overlapping forward returns is structurally an OLS slope rather than
-    a mean t-test, so its HH-OLS variant is deferred to a separate pass.
+    IC PANEL and FM PANEL. CAAR (SPARSE PANEL) is a mean t-test on the
+    dense per-event-date series and is structurally HH-compatible, but
+    is deferred: the v0.5 procedure had no HH side-emit there so the
+    methodology has not been validated, and SPARSE-axis CAAR introduces
+    a per-event-independence vs MA(h-1) interaction (event clustering
+    inside a horizon window) that warrants its own pass. The
+    PANEL-vs-TIMESERIES axis is not part of the protocol; TS β / TS
+    Dummy run NW HAC on an OLS slope (different math shape) and await
+    a slope-axis sub-protocol.
 
     Pass an instance to ``AnalysisConfig`` to drive evaluate-time
     inference::

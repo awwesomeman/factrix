@@ -6,10 +6,10 @@ forward_periods)`` delegates to :func:`factrix._stats._newey_west_t_test`
 so cell procedures share one path with the standalone primitive.
 
 The Bartlett kernel + NW1994 auto-bandwidth + Hansen-Hodrick overlap
-floor convention applies uniformly across the four primary_p-emitting
-cells; ``compute`` pre-resolves the bandwidth via ``_resolve_nw_lags``
-to keep the (lags-honest) metadata observable and to match the v0.5
-procedure call site bit-for-bit.
+floor convention is the default HAC path across every PANEL /
+TIMESERIES cell; users swap to a different ``HACEstimator`` via
+``AnalysisConfig.estimator=``. ``compute`` pre-resolves the bandwidth
+via ``_resolve_nw_lags`` to keep the (lags-honest) metadata observable.
 
 ``emits_for`` is cell-agnostic — every applicable cell looks up the
 same ``StatCode.P_NW`` key (#187 flattened the prefix; #192 added the
@@ -37,8 +37,9 @@ class NeweyWest:
 
     The Bartlett-kernel HAC variance estimate uses the NW1994 automatic
     bandwidth rule with a Hansen-Hodrick overlap floor for forward-return
-    regressions, matching the convention v0.5 procedures already use to
-    populate ``primary_p`` and ``StatCode.P_NW`` / ``StatCode.T_NW`` entries.
+    regressions, populating ``StatCode.P_NW`` / ``StatCode.T_NW`` via the
+    estimator-dispatch path (or the procedure-internal NW HAC path for
+    slope-axis cells until a slope-shaped sub-protocol lands).
 
     Cell interpretation comes from ``profile.config`` (``scope`` /
     ``signal`` / ``metric``) — ``StatCode.P_NW`` is the same key for

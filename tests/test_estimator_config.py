@@ -59,11 +59,11 @@ class TestApplicabilityGate:
             AnalysisConfig.individual_sparse(estimator=HansenHodrick())
 
     def test_slice_estimator_rejected_as_non_hac(self) -> None:
-        with pytest.raises(IncompatibleAxisError, match="HACEstimator"):
+        with pytest.raises(IncompatibleAxisError, match="not an HAC estimator"):
             AnalysisConfig.individual_continuous(estimator=WaldNWCluster())  # type: ignore[arg-type]
 
     def test_block_bootstrap_rejected_as_non_hac(self) -> None:
-        with pytest.raises(IncompatibleAxisError, match="HACEstimator"):
+        with pytest.raises(IncompatibleAxisError, match="not an HAC estimator"):
             AnalysisConfig.individual_continuous(estimator=BlockBootstrap())  # type: ignore[arg-type]
 
     def test_error_message_lists_applicable(self) -> None:
