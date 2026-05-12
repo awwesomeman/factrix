@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
 from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey, register
-from factrix.stats import InferenceResult
+from factrix.stats import GMMResult, InferenceResult
 
 # ---------------------------------------------------------------------------
 # Metadata helpers (#188)
@@ -111,6 +111,39 @@ def _hac_inference(
     metadata: dict[StatCode, Mapping[str, Any]] = {
         result.stat_name: dict(result.metadata),
         result.p_name: dict(result.metadata),
+    }
+    return result, stats, metadata
+
+
+def _moment_inference(
+    cfg: AnalysisConfig,
+    moments: Any,
+) -> tuple[GMMResult, dict[StatCode, float], dict[StatCode, Mapping[str, Any]]]:
+    """Dispatch ``cfg.moment_estimator.compute`` and stitch the inference layer.
+
+    Parallel to ``_hac_inference``. Caller is responsible for ensuring
+    ``cfg.moment_estimator is not None`` — the helper does not re-check.
+    Returns ``(result, stats, metadata)`` keyed by ``(J_GMM, P_GMM)``;
+    ``GMMResult`` does not carry ``stat_name`` / ``p_name`` fields
+    (the type itself implies the pair). Per-key metadata dicts are
+    fresh so downstream mutation does not bleed across keys.
+    """
+    result = cfg.moment_estimator.compute(  # type: ignore[union-attr]
+        moments, forward_periods=cfg.forward_periods
+    )
+    stats: dict[StatCode, float] = {
+        StatCode.J_GMM: result.j_stat,
+        StatCode.P_GMM: result.overid_p,
+    }
+    extras = {
+        "n_moments": result.n_moments,
+        "n_params": result.n_params,
+        "df": result.df,
+        **dict(result.metadata),
+    }
+    metadata: dict[StatCode, Mapping[str, Any]] = {
+        StatCode.J_GMM: dict(extras),
+        StatCode.P_GMM: dict(extras),
     }
     return result, stats, metadata
 
