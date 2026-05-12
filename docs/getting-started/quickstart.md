@@ -96,3 +96,17 @@ For the full enum and the trigger conditions for each `WarningCode`,
 `warnings` does **not** affect `primary_p` —
 it is a risk flag. The user decides whether to filter on warnings before
 BHY. For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
+
+## Next steps
+
+You have one `FactorProfile` for one factor. The common follow-ups:
+
+| You want to… | Reach for | Guide |
+|---|---|---|
+| Screen N candidate factors with FDR control | [`multi_factor.bhy(profiles)`](../api/multi-factor.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [Batch screening with BHY](../guides/batch-screening.md) |
+| Compare the descriptive surface across factors | [`run_metrics`](../api/run-metrics.md) × N → [`compare(bundles)`](../api/compare.md) | [Standalone metrics](../guides/standalone-metrics.md) |
+| Rank factors after screening | [`compare(survivors)`](../api/compare.md) — leaderboard with `adj_q` | — |
+| Explore one metric across slices (sector / regime / decile) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |
+| Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
+| Look up the panel input contract | [Panel schema](../api/panel-schema.md) | — |
+| Pick a metric for a given research question | [Choosing a metric](../guides/choosing-metric.md) | — |
