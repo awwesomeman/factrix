@@ -191,3 +191,42 @@ NW HAC is the alternative on the full overlapping series. See
 Per-asset pre-event sample used to fit the abnormal-return baseline
 for `bmp_test` and `corrado_rank_test`. See
 [Metric applicability § estimation_window](metric-applicability.md#estimation_window).
+
+## Multiple testing
+
+### `FDR` — False Discovery Rate
+
+The expected proportion of false positives among rejected nulls, in
+contrast to FWER (Family-Wise Error Rate, the probability of *any*
+false positive). For a screening rule that rejects `R` of `m`
+hypotheses and produces `V` false positives, FDR ≡ E[V / max(R, 1)].
+factrix's primary screening primitive is BHY (Benjamini-Yekutieli
+2001), which controls FDR at a user-chosen `q` under arbitrary
+dependence. See [Statistical methods](statistical-methods.md) and
+[`bhy`](../api/multi-factor.md).
+
+### `BHY` — Benjamini-Yekutieli (2001)
+
+Step-up FDR-controlling procedure that allows arbitrary dependence
+between p-values (paying a `log(m)` factor versus the
+independent-or-PRDS Benjamini-Hochberg 1995 procedure). factrix's
+default multiplicity-correction method because financial p-values are
+typically not independent.
+
+### `family`
+
+The set of hypotheses jointly entered into a single FDR / FWER
+controlling procedure. Once a hypothesis joins a family, the
+procedure's FDR claim only holds *within* that family. Family choice
+is a contract decision: re-running BHY on a filtered subset of
+survivors does not preserve FDR ≤ q. See
+[Decision tree § §C `expand_over`](../api/decision-tree.md#expand_over-is-not-one-concept)
+for the sample-restriction vs hypothesis-dimension split.
+
+### `Survivors`
+
+Result type from the screening functions (`bhy`, `partial_conjunction`,
+`bhy_hierarchical`). Carries the post-correction adjusted q-value
+(`adj_q`) per identity plus a boolean `survivor[i]` ↔ `adj_q[i] ≤ q`
+duality so downstream functions (`compare(survivors)`) can render
+leaderboards without re-applying the threshold.

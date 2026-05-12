@@ -6,7 +6,7 @@ Reference for every public symbol exported from `factrix`.
 
 ```mermaid
 flowchart LR
-    P[panel + cfg]
+    P[panel + config]
 
     subgraph Compute
         EV[evaluate]
