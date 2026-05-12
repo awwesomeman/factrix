@@ -19,11 +19,13 @@ While the version is below `1.0.0`, the public API should be considered unstable
 - **`MetricOutput.n_obs` first-class field** (breaking, #248). Promoted from a metadata dict key to a first-class dataclass field — `n_obs: int | None = None` — so user / AI-agent consumers reach the metric primitive's sample size with `output.n_obs` instead of `output.metadata.get("n_obs")`. Builds on the `n_observed → n_obs` metadata rename from #246. `_short_circuit_output(name, reason, n_obs=n, ...)` callers (~38 sites) auto-route via kwarg-only signature change; direct `MetricOutput(...)` constructions in `factrix/metrics/spanning.py` and `factrix/metrics/fama_macbeth.py` are updated to pass `n_obs=` at the top level instead of nesting under `metadata={"n_obs": ...}`. `__repr__` now surfaces `n_obs=` between `value=` and `stat=` when populated. Same family name as `FactorProfile.n_obs` but scoped per metric primitive (single-stage estimator count) rather than per dispatched cell (final-stage test denominator).
 
   ```python
-  # before (v0.12.0 + #246)
-  out = factrix.metrics.spanning.spanning_alpha(candidate, base_factors)
+  # before (v0.12.0 — pre-rename)
+  n = out.metadata["n_observed"]
+
+  # intermediate (post-#246 metadata key rename, same v0.13.0 release)
   n = out.metadata["n_obs"]
 
-  # after (v0.13.0)
+  # after (#248, v0.13.0 final shape)
   n = out.n_obs
   ```
 

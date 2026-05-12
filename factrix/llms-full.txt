@@ -522,7 +522,10 @@ calling `factrix.suggest_config(raw)`).
 
 Return type for the standalone `factrix.metrics.*` primitives invoked
 directly (outside of `evaluate`). Frozen dataclass: `name` (metric id),
-`value` (raw scalar), `stat` (test statistic when applicable),
+`value` (raw scalar), `n_obs` (`int | None` — per-metric single-stage
+estimator sample size; same family name as `FactorProfile.n_obs` but
+different scope, the latter being the final-stage test denominator at
+the dispatched-cell level), `stat` (test statistic when applicable),
 `significance` (`***` / `**` / `*` / `""` derived from
 `metadata["p_value"]`). The structured-procedure path returns
 `FactorProfile`; only callers reaching into `factrix.metrics.<module>`
