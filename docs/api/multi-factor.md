@@ -72,7 +72,7 @@ would land in its own size-1 family and pass its own step-up trivially
 the horizon at which its noise happens to clear the threshold. Forcing
 `expand_over` to live in `context` keeps the family axis orthogonal to
 the hypothesis being tested. See [Development § Architecture § Family
-verbs](../development/architecture.md#_resolve_family-four-invariants)
+functions](../development/architecture.md#_resolve_family-four-invariants)
 for the full invariant list.
 
 ### Sample restriction vs hypothesis dimension
@@ -119,9 +119,9 @@ inspecting the adjusted p-values it produces.
 ## Return type: `Survivors` (#171)
 
 `bhy` returns a `Survivors` container, not a bare list. The container
-is procedure-agnostic — `adj_p` carries the verb's procedure-canonical
+is procedure-agnostic — `adj_p` carries the function's procedure-canonical
 adjusted p-value (BHY here; future Holm / Bonferroni / Romano-Wolf
-verbs populate the same shape via their own `*_adjusted_p`).
+functions populate the same shape via their own `*_adjusted_p`).
 
 `Survivors` carries only the kept rows. The construction rule **inside
 `bhy`** is: compute `adj_p_all` over the full bucket-local input via
@@ -168,7 +168,7 @@ For why BHY (rather than Bayesian or reality-check / SPA bootstraps)
 see [Reference § Statistical methods § Multiple-testing](../reference/statistical-methods.md#2-multiple-testing-under-dependence)
 and [Development § Design notes § BHY](../development/design-notes.md#5-bhy-rather-than-bayesian-multiple-testing).
 For the architectural place of `_resolve_family` and the closed-form
-vs resampling-based verb classification see [Development §
-Architecture § Family verbs](../development/architecture.md#family-verbs-and-the-resolution-layer).
+vs resampling-based function classification see [Development §
+Architecture § Family functions](../development/architecture.md#family-functions-and-the-resolution-layer).
 
 ::: factrix.multi_factor.bhy

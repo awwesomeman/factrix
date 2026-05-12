@@ -22,7 +22,7 @@ created three structural problems:
    loop collapsed `k` horizons into one identity entry, defeating that
    defense.
 3. **Two BHY paths.** The IC variant ran its own internal BHY
-   adjustment and wrote `metadata["p_adjusted_bhy"]`. The family-verb
+   adjustment and wrote `metadata["p_adjusted_bhy"]`. The family-function
    layer ([`multi_factor.bhy`][bhy] with `expand_over=["forward_periods"]`)
    is the single source of truth for FDR control across horizons.
 
@@ -52,7 +52,7 @@ table = pl.concat([b.to_frame() for b in bundles])  # long-form: horizon x metri
 ```
 
 Every metric the cell exposes — not just IC — gets a horizon view
-through this single call. A higher-level `compare(bundles)` verb that
+through this single call. A higher-level `compare(bundles)` function that
 pivots this long-form table is tracked in #148 as a follow-up; today
 the `pl.concat` recipe above is the supported path.
 
@@ -60,7 +60,7 @@ the `pl.concat` recipe above is the supported path.
 
 Use [`evaluate`](evaluate.md) per horizon and
 [`multi_factor.bhy`][bhy] with `expand_over=["forward_periods"]`. The
-family-verb layer partitions the BHY null per horizon (and per any
+family-function layer partitions the BHY null per horizon (and per any
 other declared `expand_over` key) so the step-up threshold is correct.
 
 ```python

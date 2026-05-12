@@ -12,7 +12,7 @@ types are disjoint by design.
 > **Input contract** — the panel must satisfy the four-column floor
 > documented in [Panel schema](panel-schema.md).
 
-| Verb | Returns | Use when |
+| Function | Returns | Use when |
 |---|---|---|
 | [`evaluate`](evaluate.md) | `FactorProfile` (primary p, drives FDR) | you want the single inferential decision for the cell |
 | `run_metrics` | `MetricsBundle` (cell's descriptive surface) | you want every standalone metric the cell exposes for plotting / dashboards / cross-factor comparison |
@@ -78,7 +78,7 @@ never silently drops a name the caller asked for.
 ## Cross-horizon and cross-universe analysis
 
 `run_metrics` runs at exactly one horizon — `cfg.forward_periods` — and
-on exactly the panel passed in. Sweeps go through the existing verbs;
+on exactly the panel passed in. Sweeps go through the existing functions;
 `run_metrics` does not ship a `horizons=[...]` helper because
 cross-horizon analysis is the job of `compare(bundles)` (descriptive,
 v1.x — see #148) or `bhy(expand_over=["forward_periods"])` (FDR
@@ -94,7 +94,7 @@ bundles = [
     fx.run_metrics(panel, cfg.replace(forward_periods=h))
     for h in horizons
 ]
-# compare(bundles)  # descriptive cross-factor view; v1.x verb, see #148
+# compare(bundles)  # descriptive cross-factor view; v1.x function, see #148
 
 # Inferential sweep — FDR-controlled
 profiles = [

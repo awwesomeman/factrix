@@ -5,7 +5,7 @@ standalone metric the cell successfully evaluated for one factor at one
 horizon, plus a `skipped` map for metrics that could not auto-run.
 
 Parallel to [`FactorProfile`](factor-profile.md): both share the
-identity tuple `(factor_id, forward_periods)` so downstream verbs
+identity tuple `(factor_id, forward_periods)` so downstream functions
 ([`compare`](compare.md), survivors workflows) can join the two
 artifact families row-by-row.
 

@@ -102,7 +102,7 @@ bhy(): unknown expand_over='univere_id'
 | `verb(): unknown <field>=<value>` | Which kwarg / column triggered the raise, and what value was received. |
 | `Did you mean: "..."` | Top-3 fuzzy candidates (omitted when nothing matches above the cutoff). |
 | `Available: [...]` | The full legal set — sorted, so the same set always renders identically. |
-| `Docs: https://...` | The verb's deployed-docs anchor. |
+| `Docs: https://...` | The function's deployed-docs anchor. |
 
 For type / shape mismatches the second line reads `Expected: <shape>`
 instead of `Did you mean: ...` — same three-part structure, different
@@ -127,17 +127,17 @@ for cfg in candidates:
 
 | Attribute | Meaning |
 |---|---|
-| `verb` | The calling verb (e.g. `"bhy"`, `"evaluate"`). |
+| `verb` | The calling function (e.g. `"bhy"`, `"evaluate"`). |
 | `field` | The kwarg / column name that failed validation. |
 | `value` | The value the caller passed in. |
 | `candidates` | Sorted tuple of legal names (named-set branch); `()` otherwise. |
 | `suggestions` | `difflib` top-3 matches against `candidates`; `()` when none. |
 | `expected` | Human-readable shape (mismatch branch); `None` otherwise. |
-| `docs_url` | Resolved deployed-docs URL for the verb. |
+| `docs_url` | Resolved deployed-docs URL for the function. |
 
 ## Raising your own `UserInputError`
 
-If you build verbs on top of factrix and want the same canonical
+If you build functions on top of factrix and want the same canonical
 format, construct a `UserInputError` directly — it is keyword-only and
 renders its own message:
 

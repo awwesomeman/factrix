@@ -4,31 +4,31 @@
     What slice analysis is, the two-role split (`by_slice` dispatcher vs `slice_pairwise_test` / `slice_joint_test` inference), and when to reach for each.
     For the API surface, see [`by_slice`](../api/by-slice.md) and [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md).
 
-Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, or any other column you can attach to the panel. The statistical question is the same regardless of axis, so factrix exposes one axis-agnostic surface rather than one verb per slice dimension. Concretely: `by_slice` is the dispatcher, `slice_pairwise_test` / `slice_joint_test` are the inference verb pair.
+Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, or any other column you can attach to the panel. The statistical question is the same regardless of axis, so factrix exposes one axis-agnostic surface rather than one function per slice dimension. Concretely: `by_slice` is the dispatcher, `slice_pairwise_test` / `slice_joint_test` are the inference function pair.
 
 factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs. The legacy regime-specific surface (`by_regime`, `regime_ic`) was removed in v0.12.0 — see the CHANGELOG migration recipe.
 
 ## The two roles
 
-| Role | Verb | What it does | What it does not do |
+| Role | Function | What it does | What it does not do |
 |---|---|---|---|
 | Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns [`SliceResult`](../api/by-slice.md) — a `Mapping[str, MetricOutput]` subclass with `.to_frame()` for long-form rendering | **No cross-slice statistical test** |
 | Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`) |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
 
-**Use the inference verbs when:** you want a calibrated cross-slice statistic with multiple-testing control and your metric exposes `per_date_series`.
+**Use the inference functions when:** you want a calibrated cross-slice statistic with multiple-testing control and your metric exposes `per_date_series`.
 
 ## Why no generic cross-slice test on `by_slice`
 
 A single dispatcher carrying a single built-in cross-slice test would silently over-claim. The appropriate test depends on the metric family:
 
 - **IC, Fama-MacBeth λ** — mean-zero per-date series → joint NW HAC over the per-date K-vector panel is the natural Wald object (`slice_pairwise_test` default).
-- **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; not currently exposed as a slice verb.
+- **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; not currently exposed as a slice function.
 - **CAAR** — per-slice event clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
 - **Turnover, hit_rate, monotonicity ρ** — for `hit_rate` the `per_date_series` path applies; for the rest cross-slice differences remain descriptive.
 
-`by_slice` therefore returns raw per-slice values without an aggregate. For inferential contrasts on the supported metric families, reach for the slice-test verb pair.
+`by_slice` therefore returns raw per-slice values without an aggregate. For inferential contrasts on the supported metric families, reach for the slice-test function pair.
 
 ## Constructing slice labels
 
@@ -63,7 +63,7 @@ ic_df = compute_ic(panel).join(vol_labels, on="date", how="inner")
 
 ## Discovering eligible metrics
 
-`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference verbs additionally require the metric module to declare a `per_date_series` capability. Use [`list_metrics`](../api/list-metrics.md) with `format="json"` and filter on `input_kind == "panel"` to enumerate the candidate set:
+`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Use [`list_metrics`](../api/list-metrics.md) with `format="json"` and filter on `input_kind == "panel"` to enumerate the candidate set:
 
 ```python
 import factrix as fx
@@ -106,5 +106,5 @@ print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
 ## Related
 
 - [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
-- [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference verb pair.
+- [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference function pair.
 - [Batch screening with BHY](batch-screening.md) — FDR control across factor candidates rather than slices.

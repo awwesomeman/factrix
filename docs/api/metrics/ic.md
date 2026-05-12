@@ -28,7 +28,7 @@ via NW HAC or non-overlapping cross-asset *t*.
 ## See also
 
 - [`by_slice`](../by-slice.md) — axis-agnostic slice dispatcher.
-- [`slice_pairwise_test` / `slice_joint_test`](../slice-test.md) — cross-slice inference verb pair.
+- [`slice_pairwise_test` / `slice_joint_test`](../slice-test.md) — cross-slice inference function pair.
 - [Slice analysis guide](../../guides/slice-analysis.md) — slicing and cross-slice inference end-to-end.
 - [Reference § Metric applicability](../../reference/metric-applicability.md) — when this metric applies and sample-size guards.
 - [Reference § Statistical methods](../../reference/statistical-methods.md) — HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.

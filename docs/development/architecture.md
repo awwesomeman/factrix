@@ -230,7 +230,7 @@ runs; the warning surfaces the inflation so callers can read p ≈ 0.04 as
 
 User-facing raises follow a single canonical message format so callers
 learn to read factrix errors once and recover programmatically across
-all verbs.
+all functions.
 
 ### Hierarchy
 
@@ -257,7 +257,7 @@ Every user-facing raise that takes a named input must carry:
 1. **Trigger**: the kwarg / column name and the value received
 2. **Diagnostic**: either fuzzy candidates (named-set error) or an
    expected-shape string (type error)
-3. **Docs link**: deployed-docs anchor for the verb
+3. **Docs link**: deployed-docs anchor for the function
 
 ### Constructor
 
@@ -304,7 +304,7 @@ catches it.
 
 ### Adoption
 
-The contract is opt-in for new user-facing raises. Each v1 verb
+The contract is opt-in for new user-facing raises. Each v1 function
 sub-issue (#147 / #160 / #161 / #162) declares conformance in its
 own DoD; retrofit of pre-contract raise sites is tracked separately
 so the helper itself can land without forcing a sweep.
@@ -491,20 +491,20 @@ Failure modes:
 
 ---
 
-## Family verbs and the resolution layer
+## Family functions and the resolution layer
 
-Multiple-testing verbs (`bhy` today; `bhy_hierarchical` / `partial_conjunction` /
+Multiple-testing functions (`bhy` today; `bhy_hierarchical` / `partial_conjunction` /
 `bonferroni` / `holm` / `romano_wolf` planned) share a single internal pre-processing
-layer in `factrix/_family.py::_resolve_family`. Each verb's procedure runs *after*
+layer in `factrix/_family.py::_resolve_family`. Each function's procedure runs *after*
 the family-resolution invariants pass.
 
 ### Two signature classes (#161)
 
-The shared layer admits two verb shapes — important to keep distinct so a
-resampling-based verb cannot retroactively force a kwarg onto the closed-form
+The shared layer admits two function shapes — important to keep distinct so a
+resampling-based function cannot retroactively force a kwarg onto the closed-form
 ones:
 
-| Class | Verbs | Signature shape |
+| Class | Functions | Signature shape |
 |-------|-------|-----------------|
 | Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(profiles, *, expand_over, p_stat, ...)` |
 | Resampling-based | `romano_wolf` (planned) | `(profiles, panel, *, expand_over, p_stat, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
@@ -559,7 +559,7 @@ Two-tier metric organisation. Choosing the right tier when adding a new metric:
 
 | Tier | Lives in | Count today | Definition | Surfaces |
 |------|----------|-------------|------------|----------|
-| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `primary_p` for family verbs |
+| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `primary_p` for screening functions |
 | **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricOutput` |
 
 ### When to register
@@ -639,7 +639,7 @@ Hard constraints — violating these breaks the API contract:
 4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
 5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate `primary_p = 1.0`.
 6. `primary_p` is the procedure-canonical p-value; `warnings` and `info_notes` flag interpretation risks but never auto-rebind it.
-7. Family declaration is explicit: the `bhy` (and other family-verb) input list is one family, optionally split per-bucket via `expand_over`. `_resolve_family` enforces (a) identity uniqueness across input, (b) `expand_over` ⊂ `context` (never identity), (c) `p_stat` is a probability and populated everywhere. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
+7. Family declaration is explicit: the `bhy` (and other screening-function) input list is one family, optionally split per-bucket via `expand_over`. `_resolve_family` enforces (a) identity uniqueness across input, (b) `expand_over` ⊂ `context` (never identity), (c) `p_stat` is a probability and populated everywhere. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
 8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
 9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
 10. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.

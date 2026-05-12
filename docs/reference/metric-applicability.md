@@ -264,7 +264,7 @@ metric instantiates the abnormal-return primitive differently:
 | [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | `signed_rank = uniform_rank(forward_return) × sign(factor)` | Corrado (1989) ranks the raw return distribution, then direction-adjusts the rank. The sign-adjustment is on the rank, not the return. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Post-event (k > 0): `sign(factor) × cumulative_return`; pre-event (k < 0): unsigned single-bar return | Asymmetric on purpose: post-event reads signal *quality*, pre-event reads *leakage* — leakage is independent of eventual direction and must be inspected unsigned. |
 
-The shared verb "abnormal return" therefore covers four different
+The shared function "abnormal return" therefore covers four different
 estimators. Use the table above when comparing factrix output to
 literature numbers.
 

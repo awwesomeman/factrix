@@ -100,7 +100,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Hierarchical FDR (Yekutieli 2008) — outer BHY on group representatives, inner BHY within passing groups. | Factor families / nested-context structure. |
 | [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks `FactorProfile` / `MetricsBundle` / `Survivors` artifacts into a `pl.DataFrame` (no recompute). | Ranking N candidate factors. |
 | [`list_metrics`](list-metrics.md) | Introspection | Programmatic discovery of standalone `factrix.metrics.*` callables applicable to a `(scope, signal)` cell. | Picking a follow-up metric after `evaluate()`. |
-| [`list_estimators`](list-estimators.md) | Introspection | Estimators applicable to a cell — inference-side twin of `list_metrics`. | Picking `estimator=` for family verbs. |
+| [`list_estimators`](list-estimators.md) | Introspection | Estimators applicable to a cell — inference-side twin of `list_metrics`. | Picking `estimator=` for screening functions. |
 | [`suggest_config`](suggest-config.md) | Introspection | Inspect a raw panel; propose an `AnalysisConfig` with per-axis reasoning + pre-evaluate warnings. | Recovering from `MissingConfigError`, agent pickers. |
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |
 | [`stats`](stats.md) | Catalogue | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking an inference method to pass through `estimator=`. |
