@@ -6,10 +6,12 @@
 ``compute(series, *, forward_periods) -> InferenceResult`` for HAC-on-
 mean inference (#163). ``NeweyWest`` / ``HansenHodrick`` implement it.
 ``InferenceResult`` — harmonized return shape for ``HACEstimator.compute``.
-``MomentEstimator(Estimator)`` — sub-protocol adding ``compute(moments)
--> GMMResult`` for over-identifying-restriction tests on a moment-
-condition system (#191). Concrete instance ``GMM`` lands in a follow-up.
+``MomentEstimator(Estimator)`` — sub-protocol adding ``compute(moments,
+*, forward_periods) -> GMMResult`` for over-identifying-restriction
+tests on a moment-condition system (#191). ``GMM`` implements it.
 ``GMMResult`` — harmonized return shape for ``MomentEstimator.compute``.
+``GMM`` — Hansen (1982) two-step efficient J-test ``MomentEstimator``;
+opt-in via ``AnalysisConfig.moment_estimator``.
 ``NeweyWest`` — Newey-West HAC ``HACEstimator``; default for
 ``AnalysisConfig.estimator``.
 ``HansenHodrick`` — rectangular-kernel HAC variant for IC / FM PANEL
@@ -34,6 +36,7 @@ from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
     stationary_bootstrap_resamples,
 )
+from factrix.stats.gmm import GMM
 from factrix.stats.hansen_hodrick import HansenHodrick
 from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
 from factrix.stats.newey_west import NeweyWest
@@ -49,6 +52,7 @@ from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
     NeweyWest(),
     HansenHodrick(),
+    GMM(),
     WaldNWCluster(),
     WaldTwoWayCluster(),
     BlockBootstrap(),
@@ -79,6 +83,7 @@ def get_estimator(name: str) -> Estimator:
 
 
 __all__ = [
+    "GMM",
     "BlockBootstrap",
     "Estimator",
     "GMMResult",

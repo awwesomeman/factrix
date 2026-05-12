@@ -63,6 +63,12 @@ class WarningCode(StrEnum):
     # reject), the conservative direction.
     RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
 
+    # Long-run covariance Ŝ of a moment-condition system was numerically
+    # singular, so the J-statistic was computed using a Moore-Penrose
+    # pseudo-inverse rather than a true inverse. Fires on rank-deficient
+    # or strongly collinear moment matrices.
+    SINGULAR_WEIGHT_MATRIX = "singular_weight_matrix"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
@@ -104,6 +110,9 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
         "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
         "Fires only on short / mildly anti-correlated samples.",
+        WarningCode.SINGULAR_WEIGHT_MATRIX: "GMM long-run covariance Ŝ was numerically "
+        "singular; J-statistic was computed via Moore-Penrose pseudo-inverse rather than a "
+        "true inverse. Fires on rank-deficient or strongly collinear moment matrices.",
     }
 )
 
