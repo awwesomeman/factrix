@@ -107,10 +107,10 @@ enum.
 Standalone helpers that don't go through the Estimator dispatch
 chain:
 
-- **`bhy_adjust(p_values, fdr=0.05, *, n_total=None)`** —
+- **`bhy_adjust(p_values, fdr=0.05, *, n_tests=None)`** —
   Benjamini-Yekutieli step-up rejection mask. Returns
   `np.ndarray[bool]` aligned to input order.
-- **`bhy_adjusted_p(p_values, *, n_total=None)`** — per-hypothesis
+- **`bhy_adjusted_p(p_values, *, n_tests=None)`** — per-hypothesis
   BHY-adjusted p-values (clipped at 1).
 - **`stationary_bootstrap_resamples(values, n_bootstrap, …)`** —
   Politis-Romano (1994) resamples; emits the value matrix directly.

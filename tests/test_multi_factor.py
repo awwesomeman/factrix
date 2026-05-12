@@ -306,8 +306,8 @@ class TestBhyReturnsSurvivors:
         )
         assert (result.adj_p <= q).all()
 
-    def test_n_total_and_adj_p_per_bucket(self) -> None:
-        # Multi-bucket: n_total per bucket AND adj_p per surviving
+    def test_n_tests_and_adj_p_per_bucket(self) -> None:
+        # Multi-bucket: n_tests per bucket AND adj_p per surviving
         # profile equals bhy_adjusted_p of that profile's own bucket
         # slice (not pooled across buckets).
         from factrix.stats.multiple_testing import bhy_adjusted_p
@@ -323,7 +323,7 @@ class TestBhyReturnsSurvivors:
             warnings.simplefilter("ignore", RuntimeWarning)
             result = bhy(profiles, expand_over=["regime"])
 
-        assert result.n_total == {("bull",): 3, ("bear",): 1}
+        assert result.n_tests == {("bull",): 3, ("bear",): 1}
 
         bull_adj = bhy_adjusted_p(np.array(bull_ps))
         for prof, adj in zip(result.profiles, result.adj_p, strict=True):
@@ -373,7 +373,7 @@ def surv_single_bucket() -> Survivors:
         adj_p=np.array([0.002, 0.024]),
         q=0.05,
         expand_over=(),
-        n_total={(): 2},
+        n_tests={(): 2},
     )
 
 
@@ -388,7 +388,7 @@ def surv_multi_bucket() -> Survivors:
         adj_p=np.array([0.002, 0.040]),
         q=0.05,
         expand_over=("universe_id",),
-        n_total={("tw50",): 1, ("tw100",): 1},
+        n_tests={("tw50",): 1, ("tw100",): 1},
     )
 
 
@@ -424,7 +424,7 @@ class TestSurvivorsReprText:
             adj_p=np.array([]),
             q=0.05,
             expand_over=(),
-            n_total={(): 0},
+            n_tests={(): 0},
         )
         text = repr(empty)
         assert text.startswith("Survivors(")
@@ -462,7 +462,7 @@ class TestSurvivorsReprHtml:
             adj_p=np.array([0.02]),
             q=0.05,
             expand_over=("universe_id",),
-            n_total={("<x>",): 1},
+            n_tests={("<x>",): 1},
         )
         markup = surv._repr_html_()
         assert "<bad>" not in markup
@@ -483,7 +483,7 @@ class TestSurvivorsBackRefIdentity:
             adj_p=np.array([0.002, 0.024]),
             q=0.05,
             expand_over=(),
-            n_total={(): 2},
+            n_tests={(): 2},
         )
         for inp, out in zip(original, surv.profiles, strict=True):
             assert inp is out

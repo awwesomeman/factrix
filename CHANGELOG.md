@@ -16,6 +16,20 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ### Added
 
+- **`bhy_hierarchical` two-stage FDR verb + `simes_p` primitive** (#264). `factrix.multi_factor.bhy_hierarchical(profiles, *, group: str, estimator=None, q=0.05) -> Survivors` implements the Yekutieli (2008) procedure for factor sets with natural group structure (momentum / value / quality families, cross-region universes). Outer Benjamini-Yekutieli step-up on Simes group representatives controls *group-level* FDR ≤ `q`; inner BHY within each passing group controls *within-group* FDR ≤ `q`. The cell-level `adj_p` is the max-of-layers fold `max(outer_adj_p[g], inner_adj_p[i])` so the universal `Survivors` duality `survivor[i] iff adj_p[i] <= q` still holds — both layer signals are folded into one number rather than splitting into `q_outer` / `q_inner` kwargs that would break the contract. `factrix.stats.multiple_testing.simes_p(p_values)` lands as a standalone primitive (Simes 1986 global-null combiner, dominates Bonferroni `m * min(p)`, valid under PRDS). The verb closes the third leg of the v0.13 multi-factor-verb surface (alongside `bhy(expand_over=)` and `partial_conjunction`); the three are distinguished by *survivor unit* — pair / identity-joint / identity-group-then-within — and the new `docs/api/bhy-hierarchical.md` opens with the routing table so a factor-zoo researcher picks the right verb without leaving the docs. Three failure modes that would otherwise produce surface-valid output are now blocked at the call site: single-group input raises and points at `bhy()`; every-profile-is-its-own-group at `n >= 3` raises (group axis is near-unique, probably a continuous variable mistakenly passed); majority-singleton-group inputs emit `RuntimeWarning` (inner BHY on n=1 is a raw cutoff, outer Simes on n=1 equals that p — no FDR correction at either layer for those groups). Reuses `_resolve_family` for group-key validation (identity-shadowing rejected, missing-context-key surfaced fail-loud) and the existing `estimator=` selection path so a Newey-West / Hansen-Hodrick p-value can drive both layers without per-call reconfiguration.
+
+  ```python
+  import factrix as fx
+
+  # "Which factor families show signal, and within those, which factors?"
+  survivors = fx.multi_factor.bhy_hierarchical(
+      profiles, group="family", q=0.05,
+  )
+  survivors.adj_p             # max-of-layers fold per cell
+  survivors.n_tests           # {(family,): m_in_family} for every input group
+  # per-survivor group label is profile.context["family"]
+  ```
+
 - **`MomentEstimator(Estimator)` sub-protocol + `GMM` Hansen J-test** (#191). A symmetric third Estimator layer alongside `HACEstimator`, for over-identifying-restriction tests on a multivariate moment-condition system. `MomentEstimator` adds `min_periods: int` and `compute(moments: np.ndarray, *, forward_periods: int) -> GMMResult`; `GMMResult` is a frozen dataclass parallel to `InferenceResult` carrying `j_stat` / `df` / `overid_p` / `n_moments` / `n_params` / `metadata` / `warnings` (no `stat_name` / `p_name` — the type itself implies the `(StatCode.J_GMM, StatCode.P_GMM)` pair). `factrix.stats.GMM` is the concrete instance: hand-rolled Hansen (1982) two-step efficient GMM in `factrix._stats.gmm` (no statsmodels dependency, matching the lean-dep pattern of `factrix._stats.hac`), pure over-identification (`n_params = 0`) only — parametric GMM is a forward hook. `StatCode.J_GMM` and `WarningCode.SINGULAR_WEIGHT_MATRIX` ship alongside (the latter distinguishes a rank-deficient long-run covariance from a generic short-sample warning, mirroring how `RECT_KERNEL_NEGATIVE_VARIANCE` separates Hansen-Hodrick's kernel-specific failure). `AnalysisConfig.moment_estimator: MomentEstimator | None = None` is wired through the four factory methods + `to_dict` / `from_dict` (backward-compatible with pre-#191 serialized configs that omit the key); `_moment_inference(cfg, moments)` mirrors `_hac_inference(cfg, series)` and stitches `GMMResult` into the procedure-layer `(stats, metadata)` contract keyed by `(J_GMM, P_GMM)`. Applicability gate runs at `__post_init__` time.
 
   ```python
@@ -57,6 +71,20 @@ While the version is below `1.0.0`, the public API should be considered unstable
   **Why**: HLZ2016's spec-search defence is "don't pick an estimator after seeing results," not "always use a single estimator forever." v0.12 hardcoded NW + auto-side-emitted HH, which let downstream code cherry-pick whichever p was smaller. v0.13's design forces estimator choice to be cfg-scoped (study-level, not per-call) and stamps the choice in `profile.context` so audit-time review can see whether multiple estimators ran on the same study. Per-call `evaluate(panel, cfg, estimator=...)` is deliberately not opened — the cfg object is the spec-search lock. (Related follow-ups: `list_estimators(scope, signal)` cell-filter #255, third-party `register_estimator` #256, provenance asymmetry on slope-axis cells #257.)
 
 ### Changed
+
+- **`Survivors.n_total` / `bhy_adjust(..., n_total=)` / `bhy_adjusted_p(..., n_total=)` → `n_tests`** (breaking, #264). The BHY denominator field / kwarg sat alongside `FactorProfile.n_obs` / `n_periods` / `n_pairs` / `n_assets` under the same `n_*` prefix but answered a structurally different question — those four are sample-size axes (observation counts inside one cell), while the BHY denominator is the multiple-testing family size (count of hypotheses in the step-up). A reader scanning `survivors.n_total` would first read "total observations" before noticing the field is a `Mapping[bucket_key, int]`; the name actively misled. `n_tests` names the domain directly. Migration is a single-token find-and-replace at every reading site:
+
+  ```python
+  # before
+  fx.multi_factor.bhy(profiles, q=0.05).n_total
+  fx.stats.bhy_adjusted_p(p, n_total=1000)
+
+  # after
+  fx.multi_factor.bhy(profiles, q=0.05).n_tests
+  fx.stats.bhy_adjusted_p(p, n_tests=1000)
+  ```
+
+  Unrelated `n_total` occurrences in event-study / hit-rate / Corrado / orthogonalize modules are genuine sample counts (events processed, rows retained) and stay untouched.
 
 - **`primary_p` / `primary_stat_name` semantic — cfg-driven, not hardcoded NW** (breaking, #163). On IC PANEL / FM PANEL / CAAR PANEL the canonical pair now reflects whichever `HACEstimator` was wired on `cfg.estimator`, not the hardcoded `(T_NW, P_NW)` v0.12 wrote unconditionally. With default `NeweyWest()` cfg the values are bit-equal to v0.12; with `HansenHodrick()` they shift to `(T_HH, P_HH)`. Downstream callers reading `profile.stats[StatCode.T_NW]` or `profile.stats[StatCode.P_NW]` directly will `KeyError` when a non-NW estimator was used — read `profile.primary_stat` / `profile.primary_stat_name` / `profile.primary_p` instead (these stay populated regardless of estimator) and consult `profile.context["estimator"]` for provenance. TS β / TS Dummy / common-panel procedures are unchanged because they run NW HAC on an OLS slope or an iid cross-asset t (neither fits the HAC-on-mean `compute(series, *, forward_periods)` contract); a slope-axis sub-protocol is tracked separately. `UNRELIABLE_SE_SHORT_PERIODS` is now emitted uniformly on `0 < n_periods < 30` across IC / FM / CAAR — previously only the FM procedure's procedure-side guard fired (4 ≤ n < 30), so a 25-period IC analysis silently lacked the short-sample tag; the estimator-side emission consolidates this and the FM-side guard is removed as redundant.
 

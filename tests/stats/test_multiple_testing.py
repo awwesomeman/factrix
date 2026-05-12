@@ -8,6 +8,7 @@ from factrix.stats.multiple_testing import (
     bhy_adjust,
     bhy_adjusted_p,
     partial_conjunction_p,
+    simes_p,
 )
 
 
@@ -117,55 +118,55 @@ class TestBhyAdjustedP:
 
 
 class TestNTotal:
-    """Two-stage screening: n_total controls the BHY denominator."""
+    """Two-stage screening: n_tests controls the BHY denominator."""
 
     def test_default_matches_explicit_len(self):
-        """n_total=None and n_total=len(p) must produce identical output."""
+        """n_tests=None and n_tests=len(p) must produce identical output."""
         p = np.array([0.001, 0.01, 0.03, 0.08, 0.20])
         # bhy_adjust
         np.testing.assert_array_equal(
             bhy_adjust(p, fdr=0.10),
-            bhy_adjust(p, fdr=0.10, n_total=len(p)),
+            bhy_adjust(p, fdr=0.10, n_tests=len(p)),
         )
         # bhy_adjusted_p
         np.testing.assert_allclose(
             bhy_adjusted_p(p),
-            bhy_adjusted_p(p, n_total=len(p)),
+            bhy_adjusted_p(p, n_tests=len(p)),
         )
 
-    def test_larger_n_total_is_stricter(self):
-        """n_total > len(p) rejects fewer and raises adjusted p-values."""
+    def test_larger_n_tests_is_stricter(self):
+        """n_tests > len(p) rejects fewer and raises adjusted p-values."""
         # c(3) = 1.833; at fdr=0.05, rank-1 crit = 0.05/(3*1.833) = 0.00909
         #   → p=0.001 rejected.
         # c(1000) ≈ 7.485; rank-1 crit = 0.05/(1000*7.485) ≈ 6.68e-6
         #   → p=0.001 NOT rejected.
         p = np.array([0.001, 0.01, 0.04])
-        mask_tight = bhy_adjust(p, fdr=0.05, n_total=3)
-        mask_loose = bhy_adjust(p, fdr=0.05, n_total=1000)
+        mask_tight = bhy_adjust(p, fdr=0.05, n_tests=3)
+        mask_loose = bhy_adjust(p, fdr=0.05, n_tests=1000)
         assert mask_tight.sum() >= mask_loose.sum()
         assert mask_tight[0]  # p=0.001 survives at n=3
         assert not mask_loose[0]  # but not at n=1000
 
-        adj_tight = bhy_adjusted_p(p, n_total=3)
-        adj_loose = bhy_adjusted_p(p, n_total=1000)
+        adj_tight = bhy_adjusted_p(p, n_tests=3)
+        adj_loose = bhy_adjusted_p(p, n_tests=1000)
         # Adjusted p must be at least as large element-wise when m grows
         assert (adj_loose >= adj_tight - 1e-12).all()
 
-    def test_smaller_n_total_raises(self):
-        """n_total < len(p) is incoherent — BHY assumes submitted is a
+    def test_smaller_n_tests_raises(self):
+        """n_tests < len(p) is incoherent — BHY assumes submitted is a
         subset of the full family."""
         p = np.array([0.01, 0.02, 0.03, 0.04, 0.05])
-        with pytest.raises(ValueError, match=r"n_total .* must be >="):
-            bhy_adjust(p, n_total=2)
-        with pytest.raises(ValueError, match=r"n_total .* must be >="):
-            bhy_adjusted_p(p, n_total=2)
+        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+            bhy_adjust(p, n_tests=2)
+        with pytest.raises(ValueError, match=r"n_tests .* must be >="):
+            bhy_adjusted_p(p, n_tests=2)
 
-    def test_adjusted_p_monotone_in_n_total(self):
-        """Adjusted p-values are non-decreasing as n_total grows."""
+    def test_adjusted_p_monotone_in_n_tests(self):
+        """Adjusted p-values are non-decreasing as n_tests grows."""
         p = np.array([0.001, 0.01, 0.03, 0.08, 0.20])
-        prev = bhy_adjusted_p(p, n_total=len(p))
+        prev = bhy_adjusted_p(p, n_tests=len(p))
         for n in [10, 100, 1000]:
-            curr = bhy_adjusted_p(p, n_total=n)
+            curr = bhy_adjusted_p(p, n_tests=n)
             # Allow tiny float noise
             assert (curr + 1e-12 >= prev).all()
             prev = curr
@@ -201,3 +202,46 @@ class TestPartialConjunctionP:
             partial_conjunction_p([0.01, 0.02], min_pass=3)
         with pytest.raises(ValueError, match="1 <= min_pass <= m"):
             partial_conjunction_p([0.01, 0.02], min_pass=0)
+
+
+class TestSimesP:
+    def test_singleton_returns_input(self):
+        assert simes_p([0.04]) == pytest.approx(0.04)
+
+    def test_all_ones_returns_one(self):
+        assert simes_p([1.0, 1.0, 1.0]) == pytest.approx(1.0)
+
+    def test_minimum_k_one_branch(self):
+        # m=4, sorted=[0.001, 0.5, 0.6, 0.7]
+        # k=1: 4 * 0.001 = 0.004 (this wins)
+        # k=2: 2 * 0.5   = 1.0
+        # k=3: 4/3 * 0.6 = 0.8
+        # k=4: 1 * 0.7   = 0.7
+        assert simes_p([0.7, 0.001, 0.5, 0.6]) == pytest.approx(0.004)
+
+    def test_minimum_intermediate_k(self):
+        # m=3, sorted=[0.3, 0.4, 0.5]
+        # k=1: 3 * 0.3 = 0.9
+        # k=2: 3/2 * 0.4 = 0.6 (this wins)
+        # k=3: 1 * 0.5 = 0.5  -> actually 0.5 < 0.6
+        # So k=3 wins at 0.5
+        assert simes_p([0.3, 0.4, 0.5]) == pytest.approx(0.5)
+
+    def test_clipped_at_one(self):
+        # m=2, sorted=[0.9, 0.95]; k=1: 2*0.9=1.8 clipped, k=2: 0.95
+        assert simes_p([0.9, 0.95]) == pytest.approx(0.95)
+
+    def test_order_invariance(self):
+        p = [0.02, 0.5, 0.8, 0.001]
+        assert simes_p(p) == pytest.approx(simes_p(list(reversed(p))))
+
+    def test_dominates_bonferroni_min(self):
+        # Simes <= m * min(p) for any input (strict whenever min is not
+        # uniquely achieved at the dominating rank).
+        p = np.array([0.01, 0.3, 0.5, 0.6])
+        bonferroni = len(p) * float(p.min())
+        assert simes_p(p) <= bonferroni + 1e-12
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            simes_p([])

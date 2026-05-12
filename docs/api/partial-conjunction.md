@@ -113,7 +113,7 @@ container as `bhy`, populated with PC-specific metadata:
 | `adj_p` | BHY-adjusted PC $p$-value; survivor iff `adj_p <= q` |
 | `pc_p` | Raw PC $p$-value (pre-BHY) |
 | `min_pass` | The $k$ you passed |
-| `n_total` | Keyed by identity tuple `(factor_id, forward_periods)` → actual $m$ used |
+| `n_tests` | Keyed by identity tuple `(factor_id, forward_periods)` → actual $m$ used |
 | `n_passed_uncorr` | Per-identity count of raw $p < q$. Descriptive — flags borderline (`n_passed_uncorr == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this verb exists to prevent. |
 
 ## Validation summary

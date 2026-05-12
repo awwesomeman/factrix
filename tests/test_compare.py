@@ -179,7 +179,7 @@ class TestSurvivorsBranch:
             adj_p=np.array([0.008, 0.018], dtype=np.float64),
             q=0.05,
             expand_over=(),
-            n_total={(): 2},
+            n_tests={(): 2},
         )
         df = compare(survivors, sort_by="adj_p")
         assert df.columns[-1] == "adj_p"
@@ -195,7 +195,7 @@ class TestSurvivorsBranch:
             adj_p=np.array([0.011, 0.022], dtype=np.float64),
             q=0.05,
             expand_over=("universe_id",),
-            n_total={("lc",): 1, ("sc",): 1},
+            n_tests={("lc",): 1, ("sc",): 1},
         )
         df = compare(survivors)
         assert "universe_id" in df.columns
@@ -207,7 +207,7 @@ class TestSurvivorsBranch:
             adj_p=np.zeros(0, dtype=np.float64),
             q=0.05,
             expand_over=(),
-            n_total={},
+            n_tests={},
         )
         with pytest.raises(UserInputError) as exc:
             compare(empty)

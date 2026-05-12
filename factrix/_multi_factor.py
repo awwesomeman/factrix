@@ -27,7 +27,11 @@ import numpy as np
 
 from factrix._errors import UserInputError
 from factrix._family import _resolve_family
-from factrix.stats.multiple_testing import bhy_adjusted_p, partial_conjunction_p
+from factrix.stats.multiple_testing import (
+    bhy_adjusted_p,
+    partial_conjunction_p,
+    simes_p,
+)
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
@@ -60,7 +64,7 @@ class Survivors:
             independent step-up buckets (``bhy``) or to aggregate
             conditions per identity (``partial_conjunction``). Empty
             tuple when the full input is one family.
-        n_total: Family size per bucket fed into the step-up math.
+        n_tests: Family size per bucket fed into the step-up math.
             Keying depends on the verb: ``bhy`` keys by
             ``expand_over_values`` tuple (``()`` for the single-bucket
             case); ``partial_conjunction`` keys by ``identity`` tuple
@@ -86,7 +90,7 @@ class Survivors:
     adj_p: np.ndarray
     q: float
     expand_over: tuple[str, ...]
-    n_total: Mapping[tuple[Any, ...], int]
+    n_tests: Mapping[tuple[Any, ...], int]
     pc_p: np.ndarray | None = None
     min_pass: int | None = None
     n_passed_uncorr: np.ndarray | None = None
@@ -108,7 +112,7 @@ class Survivors:
                 "identity",
                 "pc_p",
                 "adj_p",
-                "n_total",
+                "n_tests",
                 "n_passed_uncorr",
             )
         elif self.expand_over:
@@ -127,7 +131,7 @@ class Survivors:
                 self.n_passed_uncorr,
                 strict=True,
             ):
-                m = self.n_total.get(profile.identity, 0)
+                m = self.n_tests.get(profile.identity, 0)
                 rows.append(
                     (
                         repr(profile.identity),
@@ -158,12 +162,12 @@ class Survivors:
             parts.append(f"min_pass={self.min_pass}")
         if self.expand_over:
             parts.append(f"expand_over={list(self.expand_over)!r}")
-            n_total_repr = ", ".join(
-                f"{k!r}: {v}" for k, v in sorted(self.n_total.items())
+            n_tests_repr = ", ".join(
+                f"{k!r}: {v}" for k, v in sorted(self.n_tests.items())
             )
-            parts.append(f"n_total={{{n_total_repr}}}")
+            parts.append(f"n_tests={{{n_tests_repr}}}")
         else:
-            parts.append(f"n_total={self.n_total.get((), len(self.profiles))}")
+            parts.append(f"n_tests={self.n_tests.get((), len(self.profiles))}")
         return ", ".join(parts)
 
     def __repr__(self) -> str:
@@ -266,7 +270,7 @@ def bhy(
             adj_p=np.zeros(0, dtype=np.float64),
             q=q,
             expand_over=expand_over_tuple,
-            n_total={},
+            n_tests={},
         )
 
     _warn_on_mixed_horizons(profile_list, expand_over=expand_over)
@@ -290,11 +294,11 @@ def bhy(
         )
 
     adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
-    n_total: dict[tuple[Any, ...], int] = {}
+    n_tests: dict[tuple[Any, ...], int] = {}
     for bucket_key, ix in buckets.items():
         p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
         adj_p_all[ix] = bhy_adjusted_p(p_array)
-        n_total[bucket_key] = len(ix)
+        n_tests[bucket_key] = len(ix)
 
     survivor_idxs = np.flatnonzero(adj_p_all <= q)
     return Survivors(
@@ -302,7 +306,7 @@ def bhy(
         adj_p=adj_p_all[survivor_idxs],
         q=q,
         expand_over=expand_over_tuple,
-        n_total=n_total,
+        n_tests=n_tests,
     )
 
 
@@ -360,7 +364,7 @@ def partial_conjunction(
         :class:`Survivors` in input order (deduplicated to one row per
         surviving identity, using the first profile of that identity as
         representative). ``adj_p`` is the BHY-adjusted PC p-value;
-        ``pc_p`` is the raw PC p-value; ``n_total[identity]`` is the
+        ``pc_p`` is the raw PC p-value; ``n_tests[identity]`` is the
         condition count ``m``; ``n_passed_uncorr[i]`` is the count of
         raw p-values strictly below ``q`` for survivor ``i``.
 
@@ -437,7 +441,7 @@ def partial_conjunction(
             adj_p=np.zeros(0, dtype=np.float64),
             q=q,
             expand_over=expand_over_tuple,
-            n_total={},
+            n_tests={},
             pc_p=np.zeros(0, dtype=np.float64),
             min_pass=min_pass,
             n_passed_uncorr=np.zeros(0, dtype=np.int64),
@@ -463,7 +467,7 @@ def partial_conjunction(
 
     pc_p_arr = np.empty(len(identities_ordered), dtype=np.float64)
     n_passed_arr = np.empty(len(identities_ordered), dtype=np.int64)
-    n_total_per_identity: dict[tuple[Any, ...], int] = {}
+    n_tests_per_identity: dict[tuple[Any, ...], int] = {}
     rep_profiles: list[FactorProfile] = []
 
     for i, identity in enumerate(identities_ordered):
@@ -502,11 +506,11 @@ def partial_conjunction(
         ps = np.array([e.p_value for e in group], dtype=np.float64)
         pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
         n_passed_arr[i] = int(np.sum(ps < q))
-        n_total_per_identity[identity] = m
+        n_tests_per_identity[identity] = m
         rep_profiles.append(group[0].profile)
 
     if n_conditions is None:
-        m_values = set(n_total_per_identity.values())
+        m_values = set(n_tests_per_identity.values())
         if len(m_values) > 1:
             warnings.warn(
                 "partial_conjunction: lenient mode (n_conditions=None) is "
@@ -529,10 +533,201 @@ def partial_conjunction(
         adj_p=adj_p_all[survivor_idx],
         q=q,
         expand_over=expand_over_tuple,
-        n_total={ident: n_total_per_identity[ident] for ident in surviving_identities},
+        n_tests={ident: n_tests_per_identity[ident] for ident in surviving_identities},
         pc_p=pc_p_arr[survivor_idx],
         min_pass=min_pass,
         n_passed_uncorr=n_passed_arr[survivor_idx],
+    )
+
+
+def bhy_hierarchical(
+    profiles: Iterable[FactorProfile],
+    *,
+    group: str,
+    estimator: Estimator | None = None,
+    q: float = 0.05,
+) -> Survivors:
+    """Hierarchical BHY: control FDR across groups then within groups.
+
+    For factor sets with natural group structure (momentum / value /
+    quality families; cross-region universes), the Yekutieli 2008
+    two-stage procedure controls *group-level* FDR ≤ ``q`` on the outer
+    layer (Simes group representative + BHY) and *within-group* FDR
+    ≤ ``q`` on the inner layer (BHY restricted to passing groups). Flat
+    BHY across the whole input loses group-level interpretability and
+    pays full m-correction even when most groups are dead.
+
+    Pick this over the alternatives by survivor unit and claim shape:
+
+    +-----------------------------+-------------------+-----------------------+
+    | Claim                       | Survivor unit     | Function              |
+    +=============================+===================+=======================+
+    | "factor X significant in    | (factor, context) | ``bhy(expand_over=)`` |
+    | each universe / horizon"    | pair              |                       |
+    +-----------------------------+-------------------+-----------------------+
+    | "factor X significant in    | factor identity   | ``partial_conjunction``|
+    | >= k of m conditions"       |                   |                       |
+    +-----------------------------+-------------------+-----------------------+
+    | "which families have signal,| factor identity   | ``bhy_hierarchical``  |
+    | and within those, which     | (group-then-      |                       |
+    | factors"                    | within FDR)       |                       |
+    +-----------------------------+-------------------+-----------------------+
+
+    Args:
+        profiles: Iterable of :class:`FactorProfile`. Each profile is
+            assigned to one group via ``profile.context[group]``;
+            within a group, ``(factor_id, forward_periods)`` must be
+            unique. Stamp the group label upstream of the call —
+            either ``evaluate(..., context={"family": "momentum"})``
+            or post-hoc via ``dataclasses.replace(profile, context={
+            **profile.context, "family": "momentum"})``.
+        group: Single context key naming the group axis (e.g.
+            ``"family"`` for momentum / value / quality, ``"region"``
+            for cross-region replication). Identity dimensions
+            (``factor_id`` / ``forward_periods``) are rejected.
+        estimator: Optional inference-method override. ``None`` uses
+            each profile's ``primary_p``.
+        q: Nominal FDR target shared by both layers. Default ``0.05``.
+
+    Returns:
+        :class:`Survivors` in input order. ``adj_p`` is the
+        max-of-layers fold ``max(outer_adj_p[g], inner_adj_p[i])`` so
+        the universal duality ``survivor[i] iff adj_p[i] <= q`` holds.
+        ``n_tests`` maps each group key to its inner family size
+        (covers *all* input groups, not just survivors — counter to
+        ``partial_conjunction`` which keeps surviving identities
+        only). ``expand_over`` is ``(group,)``; per-survivor group
+        labels are recoverable via ``profile.context[group]``.
+
+    Raises:
+        UserInputError: ``group`` shadows an identity dimension; key
+            missing from a profile's ``context``; only one distinct
+            group value in the input (call ``bhy`` instead); every
+            profile is its own group at ``n >= 3`` (group axis is
+            near-unique — pick a coarser categorical); duplicate
+            ``(identity, group_value)`` partition key; estimator
+            applicability failures.
+
+    Warns:
+        RuntimeWarning: More than half of input groups contain a
+            single profile — inner BHY on n=1 is a raw cutoff and
+            the outer Simes representative equals that single p, so
+            those groups get no FDR correction at either layer.
+
+    Caveats:
+        - **Simes as the outer representative**: dominates Bonferroni
+          ``m * min(p)`` and is the Yekutieli 2008 recommended choice.
+          The kwarg is not exposed at v1 (Edgington-style mean p has
+          no valid null; Bonferroni-min is strictly worse than Simes
+          under the procedure's PRDS assumption).
+        - **PRDS within group**: Simes is valid under positive
+          regression dependence (typical for factors within one
+          family — they share style exposure). If a group mixes
+          structurally opposite factors (e.g. momentum and reversal
+          in one bucket), the within-group PRDS assumption can fail;
+          split the bucket or pre-orthogonalize.
+        - **Pre-filtered input**: ``bhy_hierarchical`` assumes the
+          input *is* the candidate family. If profiles came from
+          upstream pre-filtering (e.g. top-50 of 500 candidates),
+          the FDR claim does not cover the full screening pipeline —
+          count K accordingly per the Haircut Sharpe / experiment-log
+          discipline.
+
+    References:
+        Yekutieli, D. (2008). "Hierarchical false discovery rate-
+        controlling methodology." JASA 103(481), 309-316.
+    """
+    profile_list = list(profiles)
+    expand_over_tuple: tuple[str, ...] = (group,)
+
+    if not profile_list:
+        return Survivors(
+            profiles=[],
+            adj_p=np.zeros(0, dtype=np.float64),
+            q=q,
+            expand_over=expand_over_tuple,
+            n_tests={},
+        )
+
+    entries = _resolve_family(
+        profile_list,
+        verb="bhy_hierarchical",
+        expand_over=[group],
+        estimator=estimator,
+    )
+
+    groups: dict[Any, list[int]] = defaultdict(list)
+    for idx, entry in enumerate(entries):
+        groups[entry.expand_over_values[0]].append(idx)
+    group_keys_ordered = list(
+        dict.fromkeys(entry.expand_over_values[0] for entry in entries)
+    )
+
+    n_groups = len(group_keys_ordered)
+    if n_groups == 1:
+        raise UserInputError(
+            verb="bhy_hierarchical",
+            field="group",
+            value=group,
+            expected=(
+                f"a context key with at least 2 distinct values across "
+                f"input profiles; got 1 group ({group_keys_ordered[0]!r}). "
+                "A single group reduces the procedure to plain BHY on the "
+                "members. Call bhy(profiles, q=...) directly"
+            ),
+            docs_path="api/bhy-hierarchical#validation-summary",
+        )
+    if n_groups == len(entries) and len(entries) >= 3:
+        raise UserInputError(
+            verb="bhy_hierarchical",
+            field="group",
+            value=group,
+            expected=(
+                f"a context key that partitions profiles into groups of "
+                f"size >= 2; got {n_groups} groups across {len(entries)} "
+                "profiles (every profile is its own group). The group "
+                "axis is probably a near-unique field — pick a coarser "
+                "categorical (family / region / sector) or call bhy() "
+                "without grouping"
+            ),
+            docs_path="api/bhy-hierarchical#validation-summary",
+        )
+
+    singletons = sum(1 for ix in groups.values() if len(ix) == 1)
+    if singletons * 2 > n_groups:
+        warnings.warn(
+            f"bhy_hierarchical: {singletons} of {n_groups} groups contain "
+            "a single profile — inner BHY on n=1 is a raw cutoff and "
+            "the outer Simes representative equals that single p-value, "
+            "so those groups get no FDR correction at either layer.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    group_simes = np.empty(n_groups, dtype=np.float64)
+    inner_adjs: list[np.ndarray] = []
+    n_tests: dict[tuple[Any, ...], int] = {}
+    for g_idx, gkey in enumerate(group_keys_ordered):
+        member_idxs = groups[gkey]
+        member_p = np.array([entries[i].p_value for i in member_idxs], dtype=np.float64)
+        group_simes[g_idx] = simes_p(member_p)
+        inner_adjs.append(bhy_adjusted_p(member_p))
+        n_tests[(gkey,)] = len(member_idxs)
+
+    outer_adj = bhy_adjusted_p(group_simes)
+
+    adj_p_all = np.empty(len(entries), dtype=np.float64)
+    for g_idx, gkey in enumerate(group_keys_ordered):
+        for j, idx in enumerate(groups[gkey]):
+            adj_p_all[idx] = max(outer_adj[g_idx], inner_adjs[g_idx][j])
+
+    survivor_idxs = np.flatnonzero(adj_p_all <= q)
+    return Survivors(
+        profiles=[entries[i].profile for i in survivor_idxs],
+        adj_p=adj_p_all[survivor_idxs],
+        q=q,
+        expand_over=expand_over_tuple,
+        n_tests=n_tests,
     )
 
 
