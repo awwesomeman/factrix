@@ -14,7 +14,44 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+### Added
+
+- **`HACEstimator(Estimator)` sub-protocol + cell-internal estimator swap** (#163). `Estimator` (the #170 selection protocol) gains a runtime-checkable sub-protocol `HACEstimator` adding `min_periods: int` and `compute(series: np.ndarray, *, forward_periods: int) -> InferenceResult`. `NeweyWest` and `HansenHodrick` implement it; the slice-test instances (`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) stay on the selection-only base (their compute paths are multivariate). `AnalysisConfig` gains a fifth field `estimator: HACEstimator = NeweyWest()`, surfaced through the four factory methods as the new `estimator=` kwarg; `__post_init__` validates `estimator.applicable_to(scope, signal)` at construction time so `AnalysisConfig.common_continuous(estimator=HansenHodrick())` raises immediately rather than deep inside `evaluate`. `to_dict` / `from_dict` round-trip the estimator by name string via the new `factrix.stats.get_estimator(name)` registry helper; missing-`estimator` keys in legacy v0.11/v0.12 dicts fall back to `NeweyWest()`. `UnknownEstimatorError(ConfigError, ValueError)` lists every registered estimator on a name miss. IC PANEL / FM PANEL / CAAR PANEL procedures now route through `cfg.estimator.compute(...)` instead of hardcoded `_newey_west_t_test`; `profile.context["estimator"]` records the cfg-driven choice on every procedure for audit-time provenance (HLZ2016 spec-search defence — see "Why" below). Retires the v0.12.0 `ComputableEstimator` placeholder name from the #170 entry below: the design landed as the `HACEstimator` split (selection vs HAC-on-mean), not as a single computable extension; moment-condition estimators (GMM J-test, #191) and slope-axis HAC (TS β / TS Dummy) live on parallel sub-protocols when they land rather than overloading `HACEstimator.compute`.
+
+  ```python
+  # default — bit-equal v0.12 NW path
+  cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+  profile = fx.evaluate(panel, cfg)
+  profile.primary_stat_name  # StatCode.T_NW
+  profile.context["estimator"]  # "NeweyWest"
+
+  # swap to Hansen-Hodrick at study scope
+  cfg = AnalysisConfig.individual_continuous(
+      metric=Metric.IC, estimator=HansenHodrick(),
+  )
+  profile = fx.evaluate(panel, cfg)
+  profile.primary_stat_name  # StatCode.T_HH
+  profile.primary_p == profile.stats[StatCode.P_HH]  # True
+  profile.context["estimator"]  # "HansenHodrick"
+  ```
+
+  **Why**: HLZ2016's spec-search defence is "don't pick an estimator after seeing results," not "always use a single estimator forever." v0.12 hardcoded NW + auto-side-emitted HH, which let downstream code cherry-pick whichever p was smaller. v0.13's design forces estimator choice to be cfg-scoped (study-level, not per-call) and stamps the choice in `profile.context` so audit-time review can see whether multiple estimators ran on the same study. Per-call `evaluate(panel, cfg, estimator=...)` is deliberately not opened — the cfg object is the spec-search lock. (Related follow-ups: `list_estimators(scope, signal)` cell-filter #255, third-party `register_estimator` #256, provenance asymmetry on slope-axis cells #257.)
+
 ### Changed
+
+- **`primary_p` / `primary_stat_name` semantic — cfg-driven, not hardcoded NW** (breaking, #163). On IC PANEL / FM PANEL / CAAR PANEL the canonical pair now reflects whichever `HACEstimator` was wired on `cfg.estimator`, not the hardcoded `(T_NW, P_NW)` v0.12 wrote unconditionally. With default `NeweyWest()` cfg the values are bit-equal to v0.12; with `HansenHodrick()` they shift to `(T_HH, P_HH)`. Downstream callers reading `profile.stats[StatCode.T_NW]` or `profile.stats[StatCode.P_NW]` directly will `KeyError` when a non-NW estimator was used — read `profile.primary_stat` / `profile.primary_stat_name` / `profile.primary_p` instead (these stay populated regardless of estimator) and consult `profile.context["estimator"]` for provenance. TS β / TS Dummy / common-panel procedures are unchanged because they run NW HAC on an OLS slope or an iid cross-asset t (neither fits the HAC-on-mean `compute(series, *, forward_periods)` contract); a slope-axis sub-protocol is tracked separately. `UNRELIABLE_SE_SHORT_PERIODS` is now emitted uniformly on `0 < n_periods < 30` across IC / FM / CAAR — previously only the FM procedure's procedure-side guard fired (4 ≤ n < 30), so a 25-period IC analysis silently lacked the short-sample tag; the estimator-side emission consolidates this and the FM-side guard is removed as redundant.
+
+  ```python
+  # before (v0.12.0) — stats[T_NW] always populated
+  profile = fx.evaluate(panel, cfg)
+  t = profile.stats[StatCode.T_NW]  # safe under any cfg
+
+  # after (v0.13.0) — read primary_stat to stay estimator-agnostic
+  profile = fx.evaluate(panel, cfg_with_hh)
+  t = profile.primary_stat                  # ← canonical pair, regardless of estimator
+  code = profile.primary_stat_name          # StatCode.T_HH under cfg_with_hh
+  who = profile.context["estimator"]        # "HansenHodrick" — provenance
+  ```
 
 - **`MetricOutput.n_obs` first-class field** (breaking, #248). Promoted from a metadata dict key to a first-class dataclass field — `n_obs: int | None = None` — so user / AI-agent consumers reach the metric primitive's sample size with `output.n_obs` instead of `output.metadata.get("n_obs")`. Builds on the `n_observed → n_obs` metadata rename from #246. `_short_circuit_output(name, reason, n_obs=n, ...)` callers (~38 sites) auto-route via kwarg-only signature change; direct `MetricOutput(...)` constructions in `factrix/metrics/spanning.py` and `factrix/metrics/fama_macbeth.py` are updated to pass `n_obs=` at the top level instead of nesting under `metadata={"n_obs": ...}`. `__repr__` now surfaces `n_obs=` between `value=` and `stat=` when populated. Same family name as `FactorProfile.n_obs` but scoped per metric primitive (single-stage estimator count) rather than per dispatched cell (final-stage test denominator).
 
@@ -74,6 +111,8 @@ While the version is below `1.0.0`, the public API should be considered unstable
   ```
 
 ### Removed
+
+- **Auto side-emission of `(T_HH, P_HH)` on default cfg** (breaking, #163). v0.12 IC PANEL / FM PANEL procedures populated `StatCode.P_HH` / `StatCode.T_HH` alongside `P_NW` / `T_NW` whenever `forward_periods > 1`, on every cfg, so callers could read either pair without re-running. Under the new dispatch (#163 Added entry above) only the `HACEstimator` wired on `cfg.estimator` populates its `(stat_name, p_name)` pair — default `NeweyWest()` cfg writes `(T_NW, P_NW)` only; `HansenHodrick()` cfg writes `(T_HH, P_HH)` only. Switch downstream code that hardcoded `profile.stats[StatCode.P_HH]` lookups to either (a) construct a separate `cfg_hh = AnalysisConfig.individual_continuous(metric=..., estimator=HansenHodrick())` and call `evaluate(panel, cfg_hh)` explicitly, or (b) read `profile.primary_p` + `profile.context["estimator"]` for the cfg-driven canonical pair. Family-verb selection — `bhy(profiles, estimator=HansenHodrick())` reading an already-populated `StatCode.P_HH` — still works against profiles produced under an HH cfg.
 
 - **`FactorProfile.verdict()` and `Verdict` enum** (breaking, #243). `verdict(*, threshold=0.05, gate=None)` was a `primary_p < threshold` wrapper. Removed because (a) for N candidate factors, iterating `profile.verdict()` and counting passes is the spec-search anti-pattern factrix explicitly avoids — multi-factor decisions belong to `multi_factor.bhy` survivors, not per-factor threshold gates; (b) the `Verdict` `PASS / FAIL` outcome ignored emitted `WarningCode` (e.g. `UNRELIABLE_SE_SHORT_PERIODS`), letting unreliable inference report `PASS`. The `Verdict` enum is removed alongside the method.
 

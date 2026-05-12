@@ -108,7 +108,7 @@ def _hac_inference(
     """
     result = cfg.estimator.compute(series, forward_periods=cfg.forward_periods)
     stats = {result.stat_name: result.stat, result.p_name: result.p}
-    metadata = {
+    metadata: dict[StatCode, Mapping[str, Any]] = {
         result.stat_name: dict(result.metadata),
         result.p_name: dict(result.metadata),
     }
