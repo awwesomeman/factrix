@@ -397,6 +397,43 @@ via the auto-generated `__eq__`.
 
 ---
 
+### `compare`
+
+```
+factrix.compare(
+    artifacts: list[FactorProfile] | list[MetricsBundle] | Survivors,
+    *,
+    sort_by: str | None = None,
+) -> pl.DataFrame
+```
+
+Leaderboard renderer — stacks N artifacts side by side as a polars
+DataFrame. Pure projection (no metric is recomputed; `Survivors.adj_p`
+is read straight through). Single entrypoint with input-type dispatch:
+
+- `list[FactorProfile]` → `factor_id`, `forward_periods` + context
+  + `primary_stat`, `primary_stat_name`, `primary_p`.
+  `primary_stat_name` carries the `StatCode.value` slug (`"t_nw"` /
+  `"wald_nwcl"` / `"p_boot"` …) so mixed-procedure lists disambiguate.
+- `list[MetricsBundle]` → `factor_id`, `forward_periods` + context +
+  one column per metric (`MetricOutput.value`). Per-cell `n_obs` is
+  not flattened; look up `bundle[metric].n_obs` directly.
+- `Survivors` → as the profile branch plus a final `adj_p` column.
+  `expand_over` dimensions surface as ordinary context columns via
+  `profile.context[k]` — there is no sidecar field on `Survivors`.
+
+Context keys union across entries (matches `pl.concat(how="diagonal")`)
+and fill `null` where missing; ordering follows first appearance.
+`sort_by=None` keeps input order; a non-None value sorts with
+polars `nulls_last=True`.
+
+`UserInputError` raises on empty input (list or `Survivors`), mixed
+artifact types (e.g. `FactorProfile` + `MetricsBundle` in one list),
+unknown `sort_by` (with `difflib` fuzzy suggestion against the output
+schema).
+
+---
+
 ### `describe_analysis_modes` / `suggest_config` / `list_metrics` / `list_estimators`
 
 ```
