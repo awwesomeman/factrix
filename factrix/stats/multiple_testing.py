@@ -24,6 +24,9 @@ References:
     Benjamini, Y. & Yekutieli, D. (2001). "The Control of the False
     Discovery Rate in Multiple Testing under Dependency."
     Annals of Statistics 29(4), 1165-1188.
+
+    Benjamini, Y. & Heller, R. (2008). "Screening for partial conjunction
+    hypotheses." Biometrics 64(4), 1215-1222. — partial_conjunction_p
 """
 
 from __future__ import annotations
@@ -151,3 +154,43 @@ def bhy_adjusted_p(
     out = np.empty(n, dtype=float)
     out[order] = adj_sorted
     return out
+
+
+def partial_conjunction_p(
+    p_values: npt.ArrayLike,
+    *,
+    min_pass: int,
+) -> float:
+    """Bonferroni-style partial conjunction p-value (Benjamini-Heller 2008).
+
+    Tests ``H_0^{k/m}``: at most ``k - 1`` of the ``m`` alternatives are
+    true, against ``H_1^{k/m}``: at least ``k`` are true. The combined
+    p-value is
+
+        ``p_PC = min(1, (m - k + 1) * p_((k)))``
+
+    where ``p_((k))`` is the ``k``-th smallest of the ``m`` p-values
+    (1-indexed). ``k = m`` reduces to ``max(p)`` (full conjunction);
+    ``k = 1`` reduces to Bonferroni-corrected ``min(p)``.
+
+    Args:
+        p_values: 1-D array of m per-condition p-values for a single
+            hypothesis (e.g. one factor across m universes).
+        min_pass: ``k`` — the minimum number of conditions required to
+            be significant. Must satisfy ``1 <= min_pass <= m``.
+
+    Returns:
+        The PC p-value, clipped to ``[0, 1]``.
+    """
+    p = np.asarray(p_values, dtype=float)
+    m = len(p)
+    if m == 0:
+        raise ValueError("partial_conjunction_p: p_values must be non-empty.")
+    if not 1 <= min_pass <= m:
+        raise ValueError(
+            f"partial_conjunction_p: min_pass ({min_pass}) must satisfy "
+            f"1 <= min_pass <= m ({m})."
+        )
+    sorted_p = np.sort(p)
+    pc = (m - min_pass + 1) * float(sorted_p[min_pass - 1])
+    return min(pc, 1.0)
