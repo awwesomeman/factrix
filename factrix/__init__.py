@@ -86,25 +86,38 @@ def evaluate(
     *,
     factor_col: str = "factor",
 ) -> FactorProfile:
-    """Dispatch ``raw`` through the cell selected by ``config``.
+    """Single-factor evaluation entry point.
 
-    Thin public wrapper around the private ``_evaluate`` dispatcher.
-    Intercepts the common onboarding miss — ``evaluate(panel)`` — with
-    a friendly :class:`MissingConfigError` pointing at
-    :func:`suggest_config` and the Get Started guide.
+    Routes a ``(raw, AnalysisConfig)`` pair to the procedure registered
+    for the dispatch cell selected by ``config`` and returns a
+    :class:`FactorProfile`. Dispatch is **explicit** — there is no
+    auto-fallback when the panel shape does not match the cell. ``N == 1``
+    is the one exception: ``Common × Continuous`` auto-routes to the
+    TIMESERIES single-series path (``profile.mode == "TIMESERIES"``) so
+    single-asset macro factors still flow through.
 
     Args:
-        raw: Long-format panel.
-        config: Validated ``AnalysisConfig``.
+        raw: Long-format panel satisfying the four-column floor
+            ``(date, asset_id, factor, forward_return)``. See
+            [Panel schema](panel-schema.md) for the canonical contract
+            and dtype semantics. Per-cell optional columns (``market_cap``
+            / ``price``) activate additional standalone metrics — see
+            "Required columns per cell" below.
+        config: Validated ``AnalysisConfig`` selecting the dispatch cell
+            (``Scope × Signal × Metric``). Construct via one of the four
+            factories on the class.
         factor_col: Name of the signal column on ``raw`` (default
             ``"factor"``). Renamed to ``"factor"`` internally before
-            dispatch. Looping over candidates with different
-            ``factor_col=`` values is the canonical multi-factor
-            pattern; downstream aggregation goes through
-            :func:`factrix.multi_factor.bhy` (auto-partitions families
-            by dispatch cell × ``forward_periods``) — not the low-level
-            ``factrix.stats.bhy_adjusted_p`` primitive. See the batch
-            screening guide.
+            dispatch so each procedure's ``INPUT_SCHEMA`` sees the
+            canonical schema. Looping over candidates with different
+            ``factor_col=`` values is the canonical multi-factor pattern;
+            downstream aggregation goes through
+            :func:`factrix.multi_factor.bhy` for FDR control.
+
+    Returns:
+        :class:`FactorProfile` carrying ``primary_p``, ``stats``,
+        ``warnings``, ``info_notes``, ``mode``, ``n_obs``, ``n_assets``,
+        and ``identity`` / ``context``.
 
     Raises:
         MissingConfigError: ``evaluate(raw)`` called without an
@@ -118,13 +131,83 @@ def evaluate(
             ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
             ``.required_periods``.
         ValueError: ``factor_col`` not present on ``raw``, or both
-            ``"factor"`` and ``factor_col`` present (ambiguous which is
-            the signal).
+            ``"factor"`` and ``factor_col`` present with differing values
+            (ambiguous which is the signal — drop the unused column
+            before calling).
 
     All factrix-raised errors inherit from :class:`FactrixError`.
 
-    See ``llms-full.txt`` for the full API reference and dispatch
-    table: https://awwesomeman.github.io/factrix/llms-full.txt
+    Required columns per cell:
+        Every dispatch cell floors its ``INPUT_SCHEMA`` at the same four
+        columns; some cells expose optional columns that activate
+        additional standalone metrics (absent optional columns
+        short-circuit gracefully with ``NaN`` + ``reason``, not failure).
+
+        | Cell                                              | Required                                | Optional column → enables                                                                                  |
+        |---------------------------------------------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------|
+        | Individual × Continuous (``ic``, ``fama_macbeth``) | ``date, asset_id, factor, forward_return`` | ``market_cap`` (or any name passed as ``weight_col=``) → ``quantile_spread_vw`` value-weighting             |
+        | Individual × Sparse (event studies)               | ``date, asset_id, factor, forward_return`` | ``price`` → ``event_around_return``, ``mfe_mae_summary`` (degrade gracefully if absent)                    |
+        | Common × Continuous (broadcast macro factor)      | ``date, asset_id, factor, forward_return`` | —                                                                                                          |
+        | Common × Sparse (broadcast event dummy)           | ``date, asset_id, factor, forward_return`` | —                                                                                                          |
+
+        ``forward_return`` is part of the input contract, not computed
+        inside ``evaluate``. Attach it via
+        :func:`factrix.preprocess.compute_forward_return` before the call
+        so the horizon is explicit and aligned with
+        ``config.forward_periods``. The two synthetic dataset generators
+        (``make_cs_panel``, ``make_event_panel``) emit
+        ``(date, asset_id, factor, price)`` and require the same
+        preprocessing step.
+
+    Mode — PANEL vs TIMESERIES:
+        ``Mode`` is not user-facing; it is derived at evaluate-time from
+        ``N = panel["asset_id"].n_unique()`` and surfaces on
+        ``profile.mode``.
+
+        | ``profile.mode`` | When                                    | Inference                                                            |
+        |------------------|-----------------------------------------|----------------------------------------------------------------------|
+        | ``"PANEL"``      | ``N ≥ 2`` cross-sectional / event cells | per-date statistic → time-series mean with NW HAC                    |
+        | ``"TIMESERIES"`` | ``Common × Continuous`` with ``N == 1`` | single-series OLS with plain SE; HAC only on stage-2 aggregation     |
+
+        Full conventions: [TIMESERIES-mode conventions](../reference/ts-mode-conventions.md).
+        Sample-guard contract and dispatch matrix: [PANEL vs TIMESERIES](../guides/panel-timeseries.md).
+
+    Multi-factor cost:
+        Each ``evaluate`` call repeats the per-date cross-section work
+        (sort / group-by / rank / HHI) on its own, so cost scales as
+        ``O(n_factors × per_date_cost)`` — there is no shared-pass
+        primitive. :func:`factrix.multi_factor.bhy` operates on the
+        resulting profile list for FDR control; it does **not** reduce
+        the per-signal evaluation cost.
+
+    Examples:
+        Single-factor inference:
+
+        >>> import factrix as fx
+        >>> config = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+        >>> profile = fx.evaluate(panel, config)
+        >>> profile.primary_p
+        0.0001
+
+        Non-default signal column name:
+
+        >>> profile = fx.evaluate(panel, config, factor_col="alpha")
+
+        Multi-factor screening with FDR (see batch screening guide):
+
+        >>> profiles = [fx.evaluate(panel, config, factor_col=name)
+        ...             for name in candidate_signals]
+        >>> survivors = fx.multi_factor.bhy(profiles)
+
+    See Also:
+        - :class:`factrix.FactorProfile` — return type.
+        - :class:`factrix.AnalysisConfig` — cell selection.
+        - :func:`factrix.run_metrics` — descriptive twin (no FDR claim).
+        - :func:`factrix.suggest_config` — recover from ``MissingConfigError``.
+        - :func:`factrix.multi_factor.bhy` — multi-factor FDR step.
+        - [Panel schema](panel-schema.md) — input contract.
+        - [Batch screening guide](../guides/batch-screening.md) — end-to-end
+          multi-factor workflow.
     """
     if config is None:
         raise MissingConfigError(
