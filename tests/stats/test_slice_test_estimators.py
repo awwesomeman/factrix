@@ -24,6 +24,7 @@ class TestEstimatorProtocol:
         assert names == {
             "NeweyWest",
             "HansenHodrick",
+            "GMM",
             "WaldNWCluster",
             "WaldTwoWayCluster",
             "BlockBootstrap",

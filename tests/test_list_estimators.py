@@ -22,6 +22,7 @@ from factrix._errors import IncompatibleAxisError
             Signal.CONTINUOUS,
             [
                 "BlockBootstrap",
+                "GMM",
                 "HansenHodrick",
                 "NeweyWest",
                 "WaldNWCluster",
@@ -52,6 +53,7 @@ def test_with_import_returns_two_column_lines() -> None:
     rows = list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, with_import=True)
     assert rows == [
         "BlockBootstrap    → factrix.stats.BlockBootstrap",
+        "GMM               → factrix.stats.GMM",
         "HansenHodrick     → factrix.stats.HansenHodrick",
         "NeweyWest         → factrix.stats.NeweyWest",
         "WaldNWCluster     → factrix.stats.WaldNWCluster",

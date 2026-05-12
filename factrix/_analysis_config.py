@@ -14,7 +14,7 @@ from typing import Any, Self
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._errors import IncompatibleAxisError
 from factrix._registry import matches_user_axis
-from factrix.stats import HACEstimator, NeweyWest
+from factrix.stats import HACEstimator, MomentEstimator, NeweyWest
 
 # Nearest-legal cell suggested when an evaluate-time mode/sample check
 # fails (§4.5 A4). Keyed by ``(scope, signal, mode)``; values are
@@ -73,6 +73,39 @@ def _validate_estimator_compat(
             f"estimator={estimator.name!r} not applicable to "
             f"(scope={scope.value}, signal={signal.value}). "
             f"Applicable HAC estimators: {applicable}"
+        )
+
+
+def _validate_moment_estimator_compat(
+    moment_estimator: MomentEstimator,
+    scope: FactorScope,
+    signal: Signal,
+) -> None:
+    """Raise ``IncompatibleAxisError`` if ``moment_estimator`` is not a
+    ``MomentEstimator`` applicable to the ``(scope, signal)`` cell (#191).
+
+    Mirrors ``_validate_estimator_compat`` but for the parallel
+    moment-condition dispatch path. Only invoked when ``cfg.moment_estimator``
+    is not ``None``. ``HACEstimator`` and ``MomentEstimator`` share the
+    structural surface ``compute`` + ``min_periods``, so ``runtime_checkable``
+    cannot disambiguate them; the type annotation + static type checker
+    is the primary enforcement, and this gate only ensures the
+    applicability axis is consistent at construction time.
+    """
+    if not moment_estimator.applicable_to(scope, signal):
+        from factrix.stats import _ESTIMATOR_REGISTRY
+
+        applicable = ", ".join(
+            sorted(
+                e.name
+                for e in _ESTIMATOR_REGISTRY
+                if isinstance(e, MomentEstimator) and e.applicable_to(scope, signal)
+            )
+        )
+        raise IncompatibleAxisError(
+            f"moment_estimator={moment_estimator.name!r} not applicable to "
+            f"(scope={scope.value}, signal={signal.value}). "
+            f"Applicable MomentEstimators: {applicable or '(none)'}"
         )
 
 
@@ -136,10 +169,15 @@ class AnalysisConfig:
     metric: Metric | None
     forward_periods: int = 5
     estimator: HACEstimator = field(default_factory=NeweyWest)
+    moment_estimator: MomentEstimator | None = None
 
     def __post_init__(self) -> None:
         _validate_axis_compat(self.scope, self.signal, self.metric)
         _validate_estimator_compat(self.estimator, self.scope, self.signal)
+        if self.moment_estimator is not None:
+            _validate_moment_estimator_compat(
+                self.moment_estimator, self.scope, self.signal
+            )
 
     @classmethod
     def individual_continuous(
@@ -148,6 +186,7 @@ class AnalysisConfig:
         metric: Metric = Metric.IC,
         forward_periods: int = 5,
         estimator: HACEstimator | None = None,
+        moment_estimator: MomentEstimator | None = None,
     ) -> Self:
         """Per-(date, asset) continuous factor.
 
@@ -170,6 +209,7 @@ class AnalysisConfig:
             metric,
             forward_periods=forward_periods,
             estimator=estimator if estimator is not None else NeweyWest(),
+            moment_estimator=moment_estimator,
         )
 
     @classmethod
@@ -178,6 +218,7 @@ class AnalysisConfig:
         *,
         forward_periods: int = 5,
         estimator: HACEstimator | None = None,
+        moment_estimator: MomentEstimator | None = None,
     ) -> Self:
         """Per-(date, asset) sparse trigger (``{-1, 0, +1}``).
 
@@ -201,6 +242,7 @@ class AnalysisConfig:
             None,
             forward_periods=forward_periods,
             estimator=estimator if estimator is not None else NeweyWest(),
+            moment_estimator=moment_estimator,
         )
 
     @classmethod
@@ -209,6 +251,7 @@ class AnalysisConfig:
         *,
         forward_periods: int = 5,
         estimator: HACEstimator | None = None,
+        moment_estimator: MomentEstimator | None = None,
     ) -> Self:
         """Broadcast continuous factor (e.g. VIX).
 
@@ -231,6 +274,7 @@ class AnalysisConfig:
             None,
             forward_periods=forward_periods,
             estimator=estimator if estimator is not None else NeweyWest(),
+            moment_estimator=moment_estimator,
         )
 
     @classmethod
@@ -239,6 +283,7 @@ class AnalysisConfig:
         *,
         forward_periods: int = 5,
         estimator: HACEstimator | None = None,
+        moment_estimator: MomentEstimator | None = None,
     ) -> Self:
         """Broadcast sparse trigger (FOMC, policy, index rebalance).
 
@@ -261,6 +306,7 @@ class AnalysisConfig:
             None,
             forward_periods=forward_periods,
             estimator=estimator if estimator is not None else NeweyWest(),
+            moment_estimator=moment_estimator,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -276,6 +322,11 @@ class AnalysisConfig:
             "metric": self.metric.value if self.metric is not None else None,
             "forward_periods": self.forward_periods,
             "estimator": self.estimator.name,
+            "moment_estimator": (
+                self.moment_estimator.name
+                if self.moment_estimator is not None
+                else None
+            ),
         }
 
     @classmethod
@@ -307,12 +358,18 @@ class AnalysisConfig:
         m = d.get("metric")
         est_name = d.get("estimator")
         # ``get_estimator`` returns base ``Estimator``; ``__post_init__``
-        # narrows to ``HACEstimator`` with the canonical error path.
+        # narrows to ``HACEstimator`` / ``MomentEstimator`` with the
+        # canonical error path.
         estimator = NeweyWest() if est_name is None else get_estimator(est_name)
+        moment_est_name = d.get("moment_estimator")
+        moment_estimator = (
+            None if moment_est_name is None else get_estimator(moment_est_name)
+        )
         return cls(
             scope=FactorScope(d["scope"]),
             signal=Signal(d["signal"]),
             metric=Metric(m) if m is not None else None,
             forward_periods=d.get("forward_periods", 5),
             estimator=estimator,  # type: ignore[arg-type]
+            moment_estimator=moment_estimator,  # type: ignore[arg-type]
         )
