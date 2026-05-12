@@ -48,6 +48,7 @@ from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access
     Signal,
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
+from factrix._compare import compare
 from factrix._describe import (
     SuggestConfigResult,
     describe_analysis_modes,
@@ -162,6 +163,7 @@ __all__ = [
     "FactorProfile",
     "MetricOutput",
     "MetricsBundle",
+    "compare",
     "evaluate",
     "run_metrics",
     # Introspection

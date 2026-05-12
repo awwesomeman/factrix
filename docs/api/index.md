@@ -13,12 +13,16 @@ flowchart LR
     ST["slice_pairwise_test<br/>slice_joint_test"]
     BHY{{multi_factor.bhy}}
     LM[/list_metrics/]
+    CMP[compare]
 
     P ==> EV
     P ==> RM
     P -.-> BS
     P -.-> ST
     EV ==>|profiles| BHY
+    EV ==>|profiles| CMP
+    RM ==>|bundles| CMP
+    BHY ==>|survivors| CMP
     LM -.->|metric names| RM
 
     classDef compute fill:#e3f2fd,stroke:#1976d2,color:#000
@@ -27,7 +31,7 @@ flowchart LR
     classDef introspect fill:#fff9c4,stroke:#f9a825,color:#000
     class EV,RM compute
     class BHY decision
-    class BS,ST view
+    class BS,ST,CMP view
     class LM introspect
 
     click EV "evaluate/" "evaluate API"
@@ -36,6 +40,7 @@ flowchart LR
     click ST "slice-test/" "slice_pairwise_test / slice_joint_test API"
     click BHY "multi-factor/" "multi_factor.bhy API"
     click LM "list-metrics/" "list_metrics API"
+    click CMP "compare/" "compare API"
 ```
 
 Click any node to jump to its API page.
@@ -46,10 +51,10 @@ Click any node to jump to its API page.
 
 - **Compute** (blue) — `evaluate` / `run_metrics`. Produce primary artefacts (`FactorProfile` / `MetricsBundle`) from `(panel, cfg)`.
 - **Decision** (pink) — `multi_factor.bhy`. Multiplicity-correction primitive; consumes `Profile[]`.
-- **View** (purple) — `by_slice` / `slice_pairwise_test` / `slice_joint_test`. Render or test a derived view of a metric. (`by_slice` is the dispatcher; the `_test` pair are statistical tests over the slices — both share the slice-surface shape per #148, hence one bucket.)
+- **View** (purple) — `by_slice` / `slice_pairwise_test` / `slice_joint_test` / `compare`. Render or test a derived view of artefacts the compute verbs already produced — no fresh statistics. (`by_slice` is the slice dispatcher; the `_test` pair are statistical tests over the slices; `compare` is the cross-factor leaderboard.)
 - **Introspection** (yellow) — `list_metrics`. Discovers what's applicable to a cell.
 
-**Deliberately omitted from the graph (not yet implemented).** The full v1 design (#148) also covers `compare` (cross-factor leaderboard), `robustness` (per-stat-choice sensitivity), and the family verbs `bhy_hierarchical` / `partial_conjunction` for hierarchical FDR and partial-conjunction multiplicity control. All four are view-class or decision-class verbs that depend on the same artefact shapes shown above. They are not drawn because drawing them would either mislead a reader into clicking a URL that 404s, or force a legend explaining which nodes are real — both worse than the small omission.
+**Deliberately omitted from the graph (not yet implemented).** The full v1 design (#148) also covers `robustness` (per-stat-choice sensitivity) and the family verbs `bhy_hierarchical` / `partial_conjunction` for hierarchical FDR and partial-conjunction multiplicity control. All three are view-class or decision-class verbs that depend on the same artefact shapes shown above. They are not drawn because drawing them would either mislead a reader into clicking a URL that 404s, or force a legend explaining which nodes are real — both worse than the small omission.
 
 ## Typical patterns
 
@@ -61,6 +66,7 @@ Click any node to jump to its API page.
 | Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Cell metric discovery | `list_metrics(scope, signal)` → names → `run_metrics(metrics=[...])` |
 | Multi-factor screening with FDR | `[evaluate(panel, cfg_i) for cfg_i in cfgs]` → `multi_factor.bhy(profiles)` |
+| Cross-factor leaderboard | `compare(profiles)` / `compare(bundles)` / `compare(survivors)` → `pl.DataFrame` |
 
 See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end, and the [Batch screening with BHY](../guides/batch-screening.md) guide for the multi-factor screening workflow.
 
@@ -75,6 +81,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`stats`](stats.md) | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking inference method for `bhy(estimator=…)` or cross-slice tests. |
 | [`list_metrics`](list-metrics.md) | Programmatic discovery of standalone `factrix.metrics.*` callables applicable to a given `(scope, signal)` cell. | Picking a follow-up metric after `evaluate()`. |
 | [`suggest_config`](suggest-config.md) | Heuristic introspection — inspect a raw panel, propose an `AnalysisConfig` with per-axis reasoning and pre-evaluate warnings. | Recovering from `MissingConfigError`, or letting an agent pick a starting cell. |
+| [`compare`](compare.md) | Cross-factor leaderboard — stacks `FactorProfile` / `MetricsBundle` / `Survivors` artifacts into a `pl.DataFrame` (pure projection, no recompute). | Ranking N candidate factors after `evaluate` / `run_metrics` / `bhy`. |
 | [`Metrics`](metrics/index.md) | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly on a `FactorProfile` / panel. |
 
 ## Supporting surface
