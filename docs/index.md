@@ -25,6 +25,7 @@ See the [API reference landing](api/index.md) for the function-flow graph, edge 
 | If you want | Go to |
 |---|---|
 | **Install and run a smoke test** | [Installation](getting-started/install.md) · [Quickstart](getting-started/quickstart.md) |
+| **Find the right function from a research question** | [Decision tree](api/decision-tree.md) |
 | **Understand the three-axis design** (scope / signal / metric) | [Concepts](getting-started/concepts.md) |
 | **Compare factrix against alphalens / qlib / peers** | [Where factrix fits](where-factrix-fits.md) |
 | **Screen a batch of factors with BHY** | [Batch screening](guides/batch-screening.md) |

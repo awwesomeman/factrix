@@ -158,6 +158,7 @@ nav:
   - API Reference:
       - api/index.md
       - Panel schema: api/panel-schema.md
+      - Decision tree: api/decision-tree.md
       - Entry points:
           - AnalysisConfig: api/analysis-config.md
           - evaluate: api/evaluate.md
