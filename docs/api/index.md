@@ -11,7 +11,7 @@ flowchart LR
     RM[run_metrics]
     BS[by_slice]
     ST["slice_pairwise_test<br/>slice_joint_test"]
-    BHY{{multi_factor.bhy}}
+    BHY{{bhy}}
     PC{{partial_conjunction}}
     BHYH{{bhy_hierarchical}}
     LM[/list_metrics/]
@@ -46,7 +46,7 @@ flowchart LR
     click RM "run-metrics/" "run_metrics API"
     click BS "by-slice/" "by_slice API"
     click ST "slice-test/" "slice_pairwise_test / slice_joint_test API"
-    click BHY "multi-factor/" "multi_factor.bhy API"
+    click BHY "multi-factor/" "bhy API"
     click PC "partial-conjunction/" "partial_conjunction API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
     click LM "list-metrics/" "list_metrics API"
@@ -55,12 +55,12 @@ flowchart LR
 
 Click any node to jump to its API page.
 
-**Edge convention.** Solid `==>` is a hard signature dependency — the target function's call signature takes the source object literally (e.g. `evaluate(panel, cfg)` consumes the input `P`, and `multi_factor.bhy` / `partial_conjunction` / `bhy_hierarchical` consume a list of `FactorProfile`s that only `evaluate` produces). Dashed `-.->` is a suggested workflow — the source is panel-derived but the target function's signature differs in shape (`by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame built from the panel via e.g. `compute_ic(panel)`; `list_metrics` returns candidate names you pass to `run_metrics(metrics=[…])`).
+**Edge convention.** Solid `==>` is a hard signature dependency — the target function's call signature takes the source object literally (e.g. `evaluate(panel, cfg)` consumes the input `P`, and `bhy` / `partial_conjunction` / `bhy_hierarchical` consume a list of `FactorProfile`s that only `evaluate` produces). Dashed `-.->` is a suggested workflow — the source is panel-derived but the target function's signature differs in shape (`by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame built from the panel via e.g. `compute_ic(panel)`; `list_metrics` returns candidate names you pass to `run_metrics(metrics=[…])`).
 
 **Six categories** (background colour):
 
 - **Compute** (blue) — `evaluate`, `run_metrics`. Produce primary artefacts (`FactorProfile` / `MetricsBundle`) from `(panel, cfg)`.
-- **Screening (FDR)** (pink) — `multi_factor.bhy`, `partial_conjunction`, `bhy_hierarchical`. Multiplicity-correction primitives that consume `Profile[]` and produce `Survivors`.
+- **Screening (FDR)** (pink) — `bhy`, `partial_conjunction`, `bhy_hierarchical`. Multiplicity-correction primitives that consume `Profile[]` and produce `Survivors`.
 - **Inference (no FDR)** (orange) — `slice_pairwise_test`, `slice_joint_test`. Re-compute statistical tests over slice families; carry family-internal MTC but make no cell-level FDR claim.
 - **Descriptive view** (purple) — `by_slice`, `compare`. Render or aggregate artefacts the compute functions already produced — no fresh statistics.
 - **Compare-sensitivity** *(planned, v0.14)* — `by_estimator` (#178). Re-runs inference layer under alternative estimators for the same cell.
