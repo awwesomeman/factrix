@@ -191,15 +191,6 @@ def evaluate(
         >>> profiles = [fx.evaluate(panel, config, factor_col=name)
         ...             for name in candidate_signals]
         >>> survivors = fx.multi_factor.bhy(profiles)
-
-    See Also:
-        - [`FactorProfile`][factrix.FactorProfile] — return type.
-        - [`AnalysisConfig`][factrix.AnalysisConfig] — cell selection.
-        - [`run_metrics`](run-metrics.md) — descriptive twin (no FDR claim).
-        - [`suggest_config`][factrix.suggest_config] — recover from `MissingConfigError`.
-        - [`bhy`][factrix.multi_factor.bhy] — multi-factor FDR step.
-        - [Panel schema](panel-schema.md) — input contract.
-        - [Batch screening guide](../guides/batch-screening.md) — end-to-end workflow.
     """
     if config is None:
         raise MissingConfigError(
