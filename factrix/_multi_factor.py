@@ -625,12 +625,12 @@ def bhy_hierarchical(
           family — they share style exposure). If a group mixes
           structurally opposite factors (e.g. momentum and reversal
           in one bucket), the within-group PRDS assumption can fail;
-          use ``bonferroni`` for that bucket or split the group.
-        - **Pre-filtered input**: this verb assumes the input *is*
-          the candidate family. If profiles came from upstream
-          pre-filtering (e.g. top-50 of 500 candidates), the FDR
-          claim does not cover the full screening pipeline — count K
-          accordingly per the Haircut Sharpe / experiment-log
+          split the bucket or pre-orthogonalize.
+        - **Pre-filtered input**: ``bhy_hierarchical`` assumes the
+          input *is* the candidate family. If profiles came from
+          upstream pre-filtering (e.g. top-50 of 500 candidates),
+          the FDR claim does not cover the full screening pipeline —
+          count K accordingly per the Haircut Sharpe / experiment-log
           discipline.
 
     References:
@@ -675,7 +675,7 @@ def bhy_hierarchical(
                 "A single group reduces the procedure to plain BHY on the "
                 "members. Call bhy(profiles, q=...) directly"
             ),
-            docs_path="api/bhy-hierarchical#single-group",
+            docs_path="api/bhy-hierarchical#validation-summary",
         )
     if n_groups == len(entries) and len(entries) >= 3:
         raise UserInputError(
@@ -690,7 +690,7 @@ def bhy_hierarchical(
                 "categorical (family / region / sector) or call bhy() "
                 "without grouping"
             ),
-            docs_path="api/bhy-hierarchical#group-too-fine",
+            docs_path="api/bhy-hierarchical#validation-summary",
         )
 
     singletons = sum(1 for ix in groups.values() if len(ix) == 1)

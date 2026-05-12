@@ -94,6 +94,10 @@ class TestProcedure:
         surviving_families = {p.context["family"] for p in sv.profiles}
         assert "value" not in surviving_families
         assert "momentum" in surviving_families
+        # n_tests covers every input group, not just survivors — so
+        # "5 of 8 families survived" claims are computable directly.
+        assert ("value",) in sv.n_tests
+        assert sv.n_tests[("value",)] == 2
 
     def test_duality_adj_p_le_q(self) -> None:
         prof = [

@@ -24,7 +24,7 @@ profiles = [
 survivors = fx.multi_factor.bhy_hierarchical(profiles, group="family", q=0.05)
 ```
 
-## Which verb does this question want?
+## Which function fits this question?
 
 Same input shape (one profile per (factor, condition)), three different
 claims:
@@ -113,7 +113,7 @@ Per-survivor group label: `profile.context[group]`.
   exposure. If a group mixes structurally opposite factors (e.g.
   momentum + reversal in one bucket), the within-group PRDS assumption
   can fail; split the group or pre-orthogonalize.
-- **Pre-filtered input**: the verb assumes the input *is* the
+- **Pre-filtered input**: `bhy_hierarchical` assumes the input *is* the
   candidate family. If profiles came from upstream pre-filtering
   (e.g. top-50 of 500 candidates), the FDR claim does not cover the
   full screening pipeline — track $K$ per the experiment-log discipline.
