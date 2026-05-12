@@ -8,6 +8,7 @@ from factrix.stats.multiple_testing import (
     bhy_adjust,
     bhy_adjusted_p,
     partial_conjunction_p,
+    simes_p,
 )
 
 
@@ -201,3 +202,46 @@ class TestPartialConjunctionP:
             partial_conjunction_p([0.01, 0.02], min_pass=3)
         with pytest.raises(ValueError, match="1 <= min_pass <= m"):
             partial_conjunction_p([0.01, 0.02], min_pass=0)
+
+
+class TestSimesP:
+    def test_singleton_returns_input(self):
+        assert simes_p([0.04]) == pytest.approx(0.04)
+
+    def test_all_ones_returns_one(self):
+        assert simes_p([1.0, 1.0, 1.0]) == pytest.approx(1.0)
+
+    def test_minimum_k_one_branch(self):
+        # m=4, sorted=[0.001, 0.5, 0.6, 0.7]
+        # k=1: 4 * 0.001 = 0.004 (this wins)
+        # k=2: 2 * 0.5   = 1.0
+        # k=3: 4/3 * 0.6 = 0.8
+        # k=4: 1 * 0.7   = 0.7
+        assert simes_p([0.7, 0.001, 0.5, 0.6]) == pytest.approx(0.004)
+
+    def test_minimum_intermediate_k(self):
+        # m=3, sorted=[0.3, 0.4, 0.5]
+        # k=1: 3 * 0.3 = 0.9
+        # k=2: 3/2 * 0.4 = 0.6 (this wins)
+        # k=3: 1 * 0.5 = 0.5  -> actually 0.5 < 0.6
+        # So k=3 wins at 0.5
+        assert simes_p([0.3, 0.4, 0.5]) == pytest.approx(0.5)
+
+    def test_clipped_at_one(self):
+        # m=2, sorted=[0.9, 0.95]; k=1: 2*0.9=1.8 clipped, k=2: 0.95
+        assert simes_p([0.9, 0.95]) == pytest.approx(0.95)
+
+    def test_order_invariance(self):
+        p = [0.02, 0.5, 0.8, 0.001]
+        assert simes_p(p) == pytest.approx(simes_p(list(reversed(p))))
+
+    def test_dominates_bonferroni_min(self):
+        # Simes <= m * min(p) for any input (strict whenever min is not
+        # uniquely achieved at the dominating rank).
+        p = np.array([0.01, 0.3, 0.5, 0.6])
+        bonferroni = len(p) * float(p.min())
+        assert simes_p(p) <= bonferroni + 1e-12
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            simes_p([])

@@ -27,6 +27,13 @@ References:
 
     Benjamini, Y. & Heller, R. (2008). "Screening for partial conjunction
     hypotheses." Biometrics 64(4), 1215-1222. — partial_conjunction_p
+
+    Simes, R. J. (1986). "An improved Bonferroni procedure for multiple
+    tests of significance." Biometrika 73(3), 751-754. — simes_p
+
+    Yekutieli, D. (2008). "Hierarchical false discovery rate-controlling
+    methodology." JASA 103(481), 309-316. — Simes as group representative
+    in hierarchical FDR procedures.
 """
 
 from __future__ import annotations
@@ -154,6 +161,39 @@ def bhy_adjusted_p(
     out = np.empty(n, dtype=float)
     out[order] = adj_sorted
     return out
+
+
+def simes_p(p_values: npt.ArrayLike) -> float:
+    """Simes (1986) global-null p-value for a group of tests.
+
+    Formula: ``p_Simes = min_{k=1..m} (m / k) * p_((k))`` where
+    ``p_((k))`` is the ``k``-th smallest of the ``m`` p-values
+    (1-indexed). Tests the global null "all ``m`` nulls hold" against
+    "at least one alternative is true"; valid under independence and
+    PRDS.
+
+    Yekutieli (2008) uses Simes as the default group representative
+    in hierarchical FDR procedures — it dominates Bonferroni
+    (``m * min(p)``) and preserves group-level FDR control when fed
+    to an outer BHY step-up.
+
+    Args:
+        p_values: 1-D array of ``m`` p-values for one group. ``m >= 1``.
+
+    Returns:
+        The Simes combined p-value, clipped to ``[0, 1]``.
+
+    Raises:
+        ValueError: ``len(p_values) == 0`` (Simes is undefined on an
+            empty group).
+    """
+    p = np.asarray(p_values, dtype=float)
+    m = len(p)
+    if m == 0:
+        raise ValueError("simes_p: p_values must be non-empty.")
+    sorted_p = np.sort(p)
+    k_vec = np.arange(1, m + 1)
+    return float(min(np.min((m / k_vec) * sorted_p), 1.0))
 
 
 def partial_conjunction_p(
