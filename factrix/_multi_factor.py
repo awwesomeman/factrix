@@ -620,6 +620,46 @@ def bhy_hierarchical(
     )
 
     n_groups = len(group_keys_ordered)
+    if n_groups == 1:
+        raise UserInputError(
+            verb="bhy_hierarchical",
+            field="group",
+            value=group,
+            expected=(
+                f"a context key with at least 2 distinct values across "
+                f"input profiles; got 1 group ({group_keys_ordered[0]!r}). "
+                "A single group reduces the procedure to plain BHY on the "
+                "members. Call bhy(profiles, q=...) directly"
+            ),
+            docs_path="api/bhy-hierarchical#single-group",
+        )
+    if n_groups == len(entries) and len(entries) >= 3:
+        raise UserInputError(
+            verb="bhy_hierarchical",
+            field="group",
+            value=group,
+            expected=(
+                f"a context key that partitions profiles into groups of "
+                f"size >= 2; got {n_groups} groups across {len(entries)} "
+                "profiles (every profile is its own group). The group "
+                "axis is probably a near-unique field — pick a coarser "
+                "categorical (family / region / sector) or call bhy() "
+                "without grouping"
+            ),
+            docs_path="api/bhy-hierarchical#group-too-fine",
+        )
+
+    singletons = sum(1 for ix in groups.values() if len(ix) == 1)
+    if singletons * 2 > n_groups:
+        warnings.warn(
+            f"bhy_hierarchical: {singletons} of {n_groups} groups contain "
+            "a single profile — inner BHY on n=1 is a raw cutoff and "
+            "the outer Simes representative equals that single p-value, "
+            "so those groups get no FDR correction at either layer.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
     group_simes = np.empty(n_groups, dtype=np.float64)
     inner_adjs: list[np.ndarray] = []
     n_tests: dict[tuple[Any, ...], int] = {}

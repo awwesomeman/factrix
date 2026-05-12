@@ -9,7 +9,7 @@ from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric, Mode
 from factrix._codes import StatCode
 from factrix._errors import UserInputError
-from factrix._multi_factor import Survivors, bhy, bhy_hierarchical
+from factrix._multi_factor import Survivors, bhy_hierarchical
 from factrix._profile import FactorProfile
 from factrix.stats.multiple_testing import bhy_adjusted_p, simes_p
 
@@ -157,7 +157,9 @@ class TestEstimatorOverride:
         # those verbs' tests; here we just confirm the kwarg is wired.
         prof = [
             _profile(factor_id="a", primary_p=0.001, family="g1"),
-            _profile(factor_id="b", primary_p=0.001, family="g2"),
+            _profile(factor_id="b", primary_p=0.001, family="g1"),
+            _profile(factor_id="c", primary_p=0.001, family="g2"),
+            _profile(factor_id="d", primary_p=0.001, family="g2"),
         ]
         # estimator=None must behave like the default code path.
         sv_default = bhy_hierarchical(prof, group="family", q=0.5)
@@ -173,20 +175,34 @@ class TestEmpty:
         assert sv.adj_p.shape == (0,)
 
 
-class TestSingleGroupDegeneration:
-    def test_single_group_no_more_permissive_than_flat_bhy(self) -> None:
-        # Single-group input: the outer Simes floor can only lift adj_p
-        # above the flat-BHY value, never below it.
+class TestGuardrails:
+    def test_single_group_raises_with_pointer_to_bhy(self) -> None:
         prof = [
             _profile(factor_id="a", primary_p=0.001, family="only"),
             _profile(factor_id="b", primary_p=0.04, family="only"),
-            _profile(factor_id="c", primary_p=0.5, family="only"),
         ]
-        sv_hier = bhy_hierarchical(prof, group="family", q=0.1)
-        sv_flat = bhy(prof, q=0.1)
-        # Survivor sets may differ (the simes_p outer floor can lift
-        # adj_p above q for some cells); we assert only that hierarchical
-        # is no more permissive than flat BHY on the same input.
-        flat_ids = {p.factor_id for p in sv_flat.profiles}
-        hier_ids = {p.factor_id for p in sv_hier.profiles}
-        assert hier_ids.issubset(flat_ids)
+        with pytest.raises(UserInputError) as ex:
+            bhy_hierarchical(prof, group="family", q=0.1)
+        assert ex.value.field == "group"
+        assert "bhy(" in str(ex.value)
+
+    def test_every_profile_is_its_own_group_raises(self) -> None:
+        prof = [
+            _profile(factor_id=f"f{i}", primary_p=0.01, family=f"unique_{i}")
+            for i in range(4)
+        ]
+        with pytest.raises(UserInputError) as ex:
+            bhy_hierarchical(prof, group="family", q=0.1)
+        assert ex.value.field == "group"
+
+    def test_majority_singleton_groups_warns(self) -> None:
+        # 3 of 4 groups have n=1; only one group has n=2.
+        prof = [
+            _profile(factor_id="a", primary_p=0.01, family="g1"),
+            _profile(factor_id="b", primary_p=0.02, family="g1"),
+            _profile(factor_id="c", primary_p=0.03, family="g2"),
+            _profile(factor_id="d", primary_p=0.04, family="g3"),
+            _profile(factor_id="e", primary_p=0.05, family="g4"),
+        ]
+        with pytest.warns(RuntimeWarning, match="single profile"):
+            bhy_hierarchical(prof, group="family", q=0.5)
