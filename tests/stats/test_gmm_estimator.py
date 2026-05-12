@@ -120,3 +120,17 @@ class TestRegistry:
     def test_get_estimator_returns_gmm_instance(self) -> None:
         est = get_estimator("GMM")
         assert isinstance(est, GMM)
+
+
+class TestStatCodePair:
+    def test_j_gmm_is_test_statistic(self) -> None:
+        assert StatCode.J_GMM.value == "j_gmm"
+        assert not StatCode.J_GMM.is_p_value
+
+    def test_p_gmm_is_p_value(self) -> None:
+        assert StatCode.P_GMM.value == "p_gmm"
+        assert StatCode.P_GMM.is_p_value
+
+    def test_descriptions_present(self) -> None:
+        assert "Hansen" in StatCode.J_GMM.description
+        assert "Hansen" in StatCode.P_GMM.description

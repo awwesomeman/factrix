@@ -184,19 +184,19 @@ class StatCode(StrEnum):
     ``T`` (Student-t / asymptotic normal), ``J`` (Hansen J / χ²),
     ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
     Currently shipping: ``(T_NW, P_NW)`` for Newey-West,
-    ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(WALD_NWCL, P_WALD_NWCL)``
-    for NW HAC + one-way cluster on the slice grouping, and
-    ``(WALD_TWOWAY, P_WALD_TWOWAY)`` for two-way cluster on (date, asset)
-    (slice-test verbs, #153 / #176). The Wald pairs follow the same
+    ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(J_GMM, P_GMM)`` for
+    Hansen (1982) GMM J-test (over-identification is χ², not t, so
+    GMM emits J rather than T), ``(WALD_NWCL, P_WALD_NWCL)`` for NW
+    HAC + one-way cluster on the slice grouping, and ``(WALD_TWOWAY,
+    P_WALD_TWOWAY)`` for two-way cluster on (date, asset) (slice-test
+    verbs, #153 / #176). The Wald pairs follow the same
     ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,
     parallel to ``T``), ALGO names the cluster-SE family
     (parallel to ``NW`` / ``HH`` naming the kernel family). ``P_BOOT``
     ships alongside as the singleton emitted by ``BlockBootstrap``:
     empirical p-values have no parametric test statistic to publish,
     and ``BlockBootstrap`` is a single Estimator class (fixed vs
-    stationary scheme is a ctor arg living in metadata). Planned in
-    #191: ``(J_GMM, P_GMM)`` — the over-identification test is χ²,
-    not t, so GMM emits J rather than T.
+    stationary scheme is a ctor arg living in metadata).
 
     **Why primary p-value is ``P_<algo>`` while diagnostic p-value is
     ``<target>_<test>_P``**: primary p has a single conceptual target
@@ -212,11 +212,11 @@ class StatCode(StrEnum):
     a (kind × algo) cardinality product and a structured shape
     (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
     its breaking-change cost. Below those thresholds the flat
-    enum stays cheaper. **As of #153 the algorithm count has crossed
-    the threshold: 5 algorithms (NW / HH / NWCL / DC / BlockBootstrap)
-    and 2 KINDs (T / WALD, with J reserved for GMM #191). The flat
-    enum is now over-budget by one algorithm; any further inference
-    algorithm must trigger the structured-shape redesign discussion
+    enum stays cheaper. **As of #191 the algorithm count is 6
+    (NW / HH / GMM / NWCL / DC / BlockBootstrap) and 3 KINDs
+    (T / J / WALD). The flat enum is over-budget on both axes; any
+    further inference algorithm must trigger the structured-shape
+    redesign discussion
     before extending the enum.**
 
     **Convention: ``df`` always means statistical degrees of freedom.**
@@ -250,9 +250,9 @@ class StatCode(StrEnum):
     P_HH = "p_hh"
     # GMM J-test (Hansen 1982): J statistic is chi-square distributed
     # under H₀ — not a t-stat — so the (J_GMM, P_GMM) pair replaces the
-    # (T_*, P_*) shape. The pair lands together with the GMM procedure
-    # in #191; the StatCode grammar in this module's docstring already
-    # documents the planned shape.
+    # (T_*, P_*) shape. Procedure metadata under either key carries
+    # `{"n_moments", "n_params", "df", "weight_matrix_iter", "weight_singular"}`.
+    J_GMM = "j_gmm"
     P_GMM = "p_gmm"
     # Cluster-robust Wald χ² for linear restrictions on a slice contrast
     # / joint coefficient (slice-test verbs, #153 / #176). KIND = WALD (χ²
@@ -324,9 +324,13 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     StatCode.P_HH: "Two-sided p-value from the Hansen-Hodrick (1980) "
     "rectangular-kernel HAC t-test on the cell primary estimate. "
     "Implementation convention lives in `factrix.stats.HansenHodrick`.",
-    StatCode.P_GMM: "Two-sided p-value from a Hansen (1982) GMM J-test "
-    "(over-identifying restrictions). Reserved for procedure-side landing "
-    "in a follow-up issue.",
+    StatCode.J_GMM: "Hansen (1982) GMM J-statistic for over-identifying "
+    "moment restrictions; chi-square distributed under H₀ with `df = "
+    "n_moments - n_params`. Implementation convention lives in "
+    "`factrix.stats.GMM`.",
+    StatCode.P_GMM: "Right-tail p-value from the Hansen (1982) GMM J-test "
+    "(`1 - χ²_df.cdf(J_GMM)`). Sibling under the (J_GMM, P_GMM) "
+    "algorithm-pair convention; computed by `factrix.stats.GMM`.",
     StatCode.WALD_NWCL: "Wald χ² statistic for a linear restriction on "
     "slice contrasts / joint coefficients, computed under NW Bartlett HAC "
     "plus one-way cluster on the slice grouping. Implementation convention "
