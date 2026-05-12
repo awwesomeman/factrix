@@ -134,6 +134,16 @@ class MissingConfigError(ConfigError):
     """
 
 
+class UnknownEstimatorError(ConfigError, ValueError):
+    """``get_estimator(name)`` lookup miss (#163).
+
+    Inherits ``ValueError`` so ``pytest.raises(ValueError)`` and the
+    ecosystem ``UserInputError`` convention both catch it. Raised by
+    ``factrix.stats.get_estimator`` and by ``AnalysisConfig.from_dict``
+    when ``estimator`` name is not in the registry.
+    """
+
+
 class IncompatibleAxisError(ConfigError):
     """``(scope, signal, metric)`` tuple is not a legal analysis cell.
 

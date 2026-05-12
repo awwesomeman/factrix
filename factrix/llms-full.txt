@@ -193,7 +193,10 @@ that requires re-implementing the family split by hand.
 Raises (subclasses of `FactrixError`; see `## Errors`
 below for the full hierarchy + recovery payloads):
 - `MissingConfigError` — `evaluate(raw)` called without an `AnalysisConfig`
-- `IncompatibleAxisError` — config axes form an illegal cell
+- `IncompatibleAxisError` — config axes form an illegal cell (also raised when
+  `cfg.estimator` is not applicable to the cell)
+- `UnknownEstimatorError` — `AnalysisConfig.from_dict` /
+  `factrix.stats.get_estimator` saw a name not in the registry
 - `ModeAxisError` — legal cell has no procedure under the derived mode;
   carries `.suggested_fix: AnalysisConfig | None`
 - `InsufficientSampleError` — `T` below the procedure's `MIN_PERIODS_HARD`

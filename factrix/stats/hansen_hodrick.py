@@ -14,6 +14,7 @@ rectangular-kernel sum comes out negative (Andrews 1991 §3).
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from factrix._axis import FactorScope, Metric, Signal
@@ -25,6 +26,7 @@ if TYPE_CHECKING:
     import numpy as np
 
 
+@dataclass(frozen=True, slots=True)
 class HansenHodrick:
     """Hansen-Hodrick (1980) HAC SE estimator → t-statistic → two-sided p-value.
 

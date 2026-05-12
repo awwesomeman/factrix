@@ -44,6 +44,30 @@ _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
     BlockBootstrap(),
 )
 
+
+def get_estimator(name: str) -> Estimator:
+    """Look up a registered ``Estimator`` instance by ``name`` (#163).
+
+    Used by ``AnalysisConfig.from_dict`` to rehydrate the ``estimator``
+    field from the serialized name string. Returns the registry's
+    canonical zero-arg instance; mutate-at-your-own-risk callers should
+    construct a fresh instance via the class directly. Returns the
+    base ``Estimator`` type — callers needing ``HACEstimator`` semantics
+    (e.g. ``AnalysisConfig``) ``isinstance``-narrow at the boundary.
+
+    Raises:
+        UnknownEstimatorError: ``name`` is not in the registry; the
+            message lists every available estimator name.
+    """
+    from factrix._errors import UnknownEstimatorError
+
+    for est in _ESTIMATOR_REGISTRY:
+        if est.name == name:
+            return est
+    available = ", ".join(sorted(e.name for e in _ESTIMATOR_REGISTRY))
+    raise UnknownEstimatorError(f"unknown estimator {name!r}. Available: {available}")
+
+
 __all__ = [
     "BlockBootstrap",
     "Estimator",
@@ -56,5 +80,6 @@ __all__ = [
     "bhy_adjust",
     "bhy_adjusted_p",
     "bootstrap_mean_ci",
+    "get_estimator",
     "stationary_bootstrap_resamples",
 ]
