@@ -25,8 +25,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from factrix._errors import UserInputError
 from factrix._family import _resolve_family
-from factrix.stats.multiple_testing import bhy_adjusted_p
+from factrix.stats.multiple_testing import bhy_adjusted_p, partial_conjunction_p
 
 if TYPE_CHECKING:
     from factrix._profile import FactorProfile
@@ -56,12 +57,29 @@ class Survivors:
         q: Nominal FDR (or family-wise) target shared across all
             buckets.
         expand_over: Context keys used to partition the input into
-            independent step-up buckets. Empty tuple when the full
-            input is one family.
-        n_total: Per-bucket family size fed into the step-up math,
-            keyed by the bucket's ``expand_over_values`` tuple
-            (``()`` for the single-bucket case). Records the ``m``
-            two-stage screening uses.
+            independent step-up buckets (``bhy``) or to aggregate
+            conditions per identity (``partial_conjunction``). Empty
+            tuple when the full input is one family.
+        n_total: Family size per bucket fed into the step-up math.
+            Keying depends on the verb: ``bhy`` keys by
+            ``expand_over_values`` tuple (``()`` for the single-bucket
+            case); ``partial_conjunction`` keys by ``identity`` tuple
+            (``(factor_id, forward_periods)``) and records the ``m``
+            condition count per identity.
+        pc_p: Raw partial-conjunction p-value per survivor (Benjamini
+            & Heller 2008 Bonferroni-style: ``(m - min_pass + 1) *
+            p_((min_pass))``, capped at 1). ``None`` when the verb is
+            not ``partial_conjunction``.
+        min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
+            ``None`` when the verb is not ``partial_conjunction``.
+        n_passed_uncorr: Per-identity count of raw p-values strictly
+            below ``q`` (descriptive — **not** used in inference; flags
+            borderline cases and data gaps at a glance). The cutoff is
+            the caller's ``q`` (same value driving the BHY step-up), so
+            this count moves with ``q``; using it to override
+            ``adj_p`` survivor selection is the anti-shopping failure
+            mode this verb exists to prevent. ``None`` when the verb is
+            not ``partial_conjunction``.
     """
 
     profiles: list[FactorProfile]
@@ -69,6 +87,9 @@ class Survivors:
     q: float
     expand_over: tuple[str, ...]
     n_total: Mapping[tuple[Any, ...], int]
+    pc_p: np.ndarray | None = None
+    min_pass: int | None = None
+    n_passed_uncorr: np.ndarray | None = None
 
     def __len__(self) -> int:
         return len(self.profiles)
@@ -81,12 +102,43 @@ class Survivors:
         in earlier iterations.
         """
         headers: tuple[str, ...]
-        if self.expand_over:
+        pc_mode = self.pc_p is not None
+        if pc_mode:
+            headers = (
+                "identity",
+                "pc_p",
+                "adj_p",
+                "n_total",
+                "n_passed_uncorr",
+            )
+        elif self.expand_over:
             headers = ("expand_over_values", "identity", "primary_p", "adj_p")
         else:
             headers = ("identity", "primary_p", "adj_p")
 
         rows: list[tuple[str, ...]] = []
+        if pc_mode:
+            assert self.pc_p is not None
+            assert self.n_passed_uncorr is not None
+            for profile, pc, adj, n_passed in zip(
+                self.profiles,
+                self.pc_p,
+                self.adj_p,
+                self.n_passed_uncorr,
+                strict=True,
+            ):
+                m = self.n_total.get(profile.identity, 0)
+                rows.append(
+                    (
+                        repr(profile.identity),
+                        f"{float(pc):.4g}",
+                        f"{float(adj):.4g}",
+                        str(m),
+                        str(int(n_passed)),
+                    )
+                )
+            return headers, rows
+
         for profile, adj in zip(self.profiles, self.adj_p, strict=True):
             cells = (
                 repr(profile.identity),
@@ -102,6 +154,8 @@ class Survivors:
 
     def _header_summary(self) -> str:
         parts = [f"n={len(self.profiles)}", f"q={self.q:g}"]
+        if self.min_pass is not None:
+            parts.append(f"min_pass={self.min_pass}")
         if self.expand_over:
             parts.append(f"expand_over={list(self.expand_over)!r}")
             n_total_repr = ", ".join(
@@ -249,6 +303,236 @@ def bhy(
         q=q,
         expand_over=expand_over_tuple,
         n_total=n_total,
+    )
+
+
+def partial_conjunction(
+    profiles: Iterable[FactorProfile],
+    *,
+    min_pass: int,
+    expand_over: Sequence[str],
+    n_conditions: int | None = None,
+    estimator: Estimator | None = None,
+    q: float = 0.05,
+) -> Survivors:
+    """Partial conjunction screening: filter identities significant in
+    at least ``min_pass`` of ``m`` expanded conditions, FDR-controlled.
+
+    For "factor X is significant in universes A and B" style claims,
+    naive ``set(survivors_A) & set(survivors_B)`` does not preserve FDR
+    [Benjamini & Bogomolov 2014]. The partial conjunction test
+    [Benjamini & Heller 2008] provides a contract-bearing path: per
+    identity, combine the ``m`` per-condition p-values into a single
+    PC p-value, then run BHY across identities.
+
+    The PC p-value formula (Bonferroni-style, BH2008): for ``k`` =
+    ``min_pass``, ``p_PC = (m - k + 1) * p_((k))`` capped at 1, where
+    ``p_((k))`` is the ``k``-th smallest p-value across the identity's
+    ``m`` conditions. ``k = m`` reduces to ``max(p)`` (full conjunction);
+    ``k = 1`` reduces to ``m * min(p)`` (Bonferroni-union, forbidden
+    here — see below).
+
+    Args:
+        profiles: Iterable of :class:`FactorProfile`. Conditions per
+            identity come from ``expand_over``; multiple profiles
+            sharing an identity must differ on at least one
+            ``expand_over`` key (the standard ``_resolve_family``
+            uniqueness check).
+        min_pass: ``k`` in "k of m" — minimum number of conditions
+            required to be significant. Must be ``>= 2``; ``min_pass=1``
+            is union semantics (FDR ≈ ``2q`` under independence) and
+            raises with a pointer to ``bhy(expand_over=...)``.
+        expand_over: Required, non-empty. Context keys defining the
+            condition axis. Identity dimensions (``factor_id`` /
+            ``forward_periods``) are rejected by the family-resolution
+            layer (#160 anti-shopping defense).
+        n_conditions: Strict-mode declaration. ``None`` (lenient) lets
+            ``m`` be inferred per identity from the data; an ``int``
+            requires every identity to have exactly that many
+            conditions and raises on mismatch (paper-grade — surfaces
+            data gaps fail-loud).
+        estimator: Optional inference-method override (#170). ``None``
+            uses each profile's ``primary_p``.
+        q: Nominal FDR target for the BHY step-up over PC p-values.
+            Default ``0.05``.
+
+    Returns:
+        :class:`Survivors` in input order (deduplicated to one row per
+        surviving identity, using the first profile of that identity as
+        representative). ``adj_p`` is the BHY-adjusted PC p-value;
+        ``pc_p`` is the raw PC p-value; ``n_total[identity]`` is the
+        condition count ``m``; ``n_passed_uncorr[i]`` is the count of
+        raw p-values strictly below ``q`` for survivor ``i``.
+
+    Raises:
+        UserInputError: ``min_pass < 2`` (with ``min_pass=1`` flagged
+            as union semantics); ``expand_over`` empty or ``None``;
+            ``n_conditions < min_pass``; strict-mode ``n_conditions``
+            mismatch with actual condition count; identity with fewer
+            than ``min_pass`` conditions; family-resolution invariants
+            (unknown ``expand_over`` key, identity-shadowing,
+            duplicate partition key).
+    """
+    if min_pass < 2:
+        if min_pass == 1:
+            raise UserInputError(
+                verb="partial_conjunction",
+                field="min_pass",
+                value=min_pass,
+                expected=(
+                    "min_pass >= 2. min_pass=1 reduces to union semantics "
+                    "(rejects when any single condition is significant) "
+                    "and inflates FDR to ~2q under independence; the "
+                    "partial conjunction surface is contract-bearing only "
+                    "for k >= 2. There is no drop-in 'any-significant' "
+                    "verb — the closest available is "
+                    "bhy(profiles, expand_over=[...]), which expands the "
+                    "family across conditions instead of aggregating "
+                    "(survivor unit becomes (factor, condition) pair, "
+                    "not factor identity; see docs)"
+                ),
+                docs_path="api/partial-conjunction#min-pass-must-be-at-least-2",
+            )
+        raise UserInputError(
+            verb="partial_conjunction",
+            field="min_pass",
+            value=min_pass,
+            expected="positive integer >= 2",
+            docs_path="api/partial-conjunction#min-pass-must-be-at-least-2",
+        )
+
+    if not expand_over:
+        raise UserInputError(
+            verb="partial_conjunction",
+            field="expand_over",
+            value=expand_over,
+            expected=(
+                "non-empty list of context keys naming the condition "
+                "axis (e.g. ['universe_id'] for cross-universe "
+                "replication, ['fwd_period'] for cross-horizon "
+                "replication). partial_conjunction is undefined without "
+                "a condition axis"
+            ),
+            docs_path="api/partial-conjunction#expand-over-required",
+        )
+
+    if n_conditions is not None and n_conditions < min_pass:
+        raise UserInputError(
+            verb="partial_conjunction",
+            field="n_conditions",
+            value=n_conditions,
+            expected=(
+                f"n_conditions >= min_pass ({min_pass}); requiring more "
+                "passes than total conditions is unsatisfiable"
+            ),
+            docs_path="api/partial-conjunction#n-conditions",
+        )
+
+    expand_over_tuple: tuple[str, ...] = tuple(expand_over)
+    profile_list = list(profiles)
+
+    if not profile_list:
+        return Survivors(
+            profiles=[],
+            adj_p=np.zeros(0, dtype=np.float64),
+            q=q,
+            expand_over=expand_over_tuple,
+            n_total={},
+            pc_p=np.zeros(0, dtype=np.float64),
+            min_pass=min_pass,
+            n_passed_uncorr=np.zeros(0, dtype=np.int64),
+        )
+
+    entries = _resolve_family(
+        profile_list,
+        verb="partial_conjunction",
+        expand_over=expand_over,
+        estimator=estimator,
+    )
+
+    groups: dict[tuple[str, int], list[Any]] = defaultdict(list)
+    for entry in entries:
+        groups[entry.identity].append(entry)
+
+    identities_ordered: list[tuple[str, int]] = []
+    seen_identities: set[tuple[str, int]] = set()
+    for entry in entries:
+        if entry.identity not in seen_identities:
+            seen_identities.add(entry.identity)
+            identities_ordered.append(entry.identity)
+
+    pc_p_arr = np.empty(len(identities_ordered), dtype=np.float64)
+    n_passed_arr = np.empty(len(identities_ordered), dtype=np.int64)
+    n_total_per_identity: dict[tuple[Any, ...], int] = {}
+    rep_profiles: list[FactorProfile] = []
+
+    for i, identity in enumerate(identities_ordered):
+        group = groups[identity]
+        m = len(group)
+
+        if n_conditions is not None and m != n_conditions:
+            raise UserInputError(
+                verb="partial_conjunction",
+                field="n_conditions",
+                value=n_conditions,
+                expected=(
+                    f"identity {identity} has {m} condition(s) in data "
+                    f"but n_conditions={n_conditions} declared (strict "
+                    "mode). Pass n_conditions=None for lenient mode, or "
+                    "fix the input so every identity has exactly "
+                    f"{n_conditions} conditions"
+                ),
+                docs_path="api/partial-conjunction#strict-vs-lenient",
+            )
+
+        if m < min_pass:
+            raise UserInputError(
+                verb="partial_conjunction",
+                field="profiles",
+                value=identity,
+                expected=(
+                    f"identity {identity} has only {m} condition(s) but "
+                    f"min_pass={min_pass} requires at least that many. "
+                    "Either drop this identity from the input or lower "
+                    "min_pass"
+                ),
+                docs_path="api/partial-conjunction#insufficient-conditions",
+            )
+
+        ps = np.array([e.p_value for e in group], dtype=np.float64)
+        pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
+        n_passed_arr[i] = int(np.sum(ps < q))
+        n_total_per_identity[identity] = m
+        rep_profiles.append(group[0].profile)
+
+    if n_conditions is None:
+        m_values = set(n_total_per_identity.values())
+        if len(m_values) > 1:
+            warnings.warn(
+                "partial_conjunction: lenient mode (n_conditions=None) is "
+                f"running with heterogeneous condition counts m={sorted(m_values)} "
+                "across identities. PC p-values are valid marginally but the "
+                "k/m bar differs per identity (an identity with m=8 faces a "
+                "much stricter Bonferroni multiplier at k=2 than one with "
+                "m=2). For cross-identity comparability pass "
+                "n_conditions=<int> (strict mode) or split the call.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+    adj_p_all = bhy_adjusted_p(pc_p_arr)
+    survivor_idx = np.flatnonzero(adj_p_all <= q)
+
+    surviving_identities = [identities_ordered[i] for i in survivor_idx]
+    return Survivors(
+        profiles=[rep_profiles[i] for i in survivor_idx],
+        adj_p=adj_p_all[survivor_idx],
+        q=q,
+        expand_over=expand_over_tuple,
+        n_total={ident: n_total_per_identity[ident] for ident in surviving_identities},
+        pc_p=pc_p_arr[survivor_idx],
+        min_pass=min_pass,
+        n_passed_uncorr=n_passed_arr[survivor_idx],
     )
 
 

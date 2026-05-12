@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
+from factrix.stats.multiple_testing import (
+    bhy_adjust,
+    bhy_adjusted_p,
+    partial_conjunction_p,
+)
 
 
 class TestBhyAdjust:
@@ -165,3 +169,35 @@ class TestNTotal:
             # Allow tiny float noise
             assert (curr + 1e-12 >= prev).all()
             prev = curr
+
+
+class TestPartialConjunctionP:
+    def test_full_conjunction_k_equals_m(self):
+        # k = m: pc_p = 1 * max(p)
+        p = [0.01, 0.04, 0.20]
+        assert partial_conjunction_p(p, min_pass=3) == pytest.approx(0.20)
+
+    def test_union_k_equals_one(self):
+        # k = 1: pc_p = m * min(p) (Bonferroni)
+        p = [0.01, 0.04, 0.20]
+        assert partial_conjunction_p(p, min_pass=1) == pytest.approx(3 * 0.01)
+
+    def test_intermediate_k(self):
+        # k = 2, m = 4: pc_p = 3 * p_((2))
+        p = [0.001, 0.005, 0.04, 0.5]
+        assert partial_conjunction_p(p, min_pass=2) == pytest.approx(3 * 0.005)
+
+    def test_clipped_at_one(self):
+        # k = 1, m = 3, min(p) = 0.5: raw = 1.5, clipped to 1.0
+        p = [0.5, 0.6, 0.7]
+        assert partial_conjunction_p(p, min_pass=1) == pytest.approx(1.0)
+
+    def test_empty_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            partial_conjunction_p([], min_pass=1)
+
+    def test_min_pass_out_of_range_raises(self):
+        with pytest.raises(ValueError, match="1 <= min_pass <= m"):
+            partial_conjunction_p([0.01, 0.02], min_pass=3)
+        with pytest.raises(ValueError, match="1 <= min_pass <= m"):
+            partial_conjunction_p([0.01, 0.02], min_pass=0)
