@@ -9,13 +9,13 @@ flowchart LR
     P[panel + cfg]
     EV[evaluate]
     RM[run_metrics]
-    BS[by_slice]
-    ST["slice_pairwise_test<br/>slice_joint_test"]
+    BS(by_slice)
+    ST{"slice_pairwise_test<br/>slice_joint_test"}
     BHY{{bhy}}
     PC{{partial_conjunction}}
     BHYH{{bhy_hierarchical}}
     LM[/list_metrics/]
-    CMP[compare]
+    CMP(compare)
 
     P ==> EV
     P ==> RM
@@ -30,17 +30,6 @@ flowchart LR
     PC ==>|survivors| CMP
     BHYH ==>|survivors| CMP
     LM -.->|metric names| RM
-
-    classDef compute fill:#e3f2fd,stroke:#1976d2,color:#000
-    classDef screening fill:#fce4ec,stroke:#c2185b,color:#000
-    classDef inference fill:#ffe0b2,stroke:#e65100,color:#000
-    classDef view fill:#f3e5f5,stroke:#7b1fa2,color:#000
-    classDef introspect fill:#fff9c4,stroke:#f9a825,color:#000
-    class EV,RM compute
-    class BHY,PC,BHYH screening
-    class ST inference
-    class BS,CMP view
-    class LM introspect
 
     click EV "evaluate/" "evaluate API"
     click RM "run-metrics/" "run_metrics API"
@@ -57,16 +46,17 @@ Click any node to jump to its API page.
 
 **Edge convention.** Solid `==>` is a hard signature dependency — the target function's call signature takes the source object literally (e.g. `evaluate(panel, cfg)` consumes the input `P`, and `bhy` / `partial_conjunction` / `bhy_hierarchical` consume a list of `FactorProfile`s that only `evaluate` produces). Dashed `-.->` is a suggested workflow — the source is panel-derived but the target function's signature differs in shape (`by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame built from the panel via e.g. `compute_ic(panel)`; `list_metrics` returns candidate names you pass to `run_metrics(metrics=[…])`).
 
-**Six categories** (background colour):
+**Category encoding by node shape:**
 
-- **Compute** (blue) — `evaluate`, `run_metrics`. Produce primary artefacts (`FactorProfile` / `MetricsBundle`) from `(panel, cfg)`.
-- **Screening (FDR)** (pink) — `bhy`, `partial_conjunction`, `bhy_hierarchical`. Multiplicity-correction primitives that consume `Profile[]` and produce `Survivors`.
-- **Inference (no FDR)** (orange) — `slice_pairwise_test`, `slice_joint_test`. Re-compute statistical tests over slice families; carry family-internal MTC but make no cell-level FDR claim.
-- **Descriptive view** (purple) — `by_slice`, `compare`. Render or aggregate artefacts the compute functions already produced — no fresh statistics.
-- **Compare-sensitivity** *(planned, v0.14)* — `by_estimator` (#178). Re-runs inference layer under alternative estimators for the same cell.
-- **Introspection** (yellow) — `list_metrics`, `list_estimators`, `suggest_config`. Discover what is applicable to a cell.
+| Shape | Category | Behaviour |
+|---|---|---|
+| Rectangle `[ ]` | **Compute** | Produces primary artefact from `(panel, cfg)` |
+| Hexagon `{{ }}` | **Screening (FDR)** | Multiplicity-correction primitive; `Profile[] → Survivors` |
+| Diamond `{ }` | **Inference (no FDR)** | Re-computes statistical tests; family-internal MTC only, no cell-level FDR claim |
+| Rounded `( )` | **Descriptive view** | Render or aggregate existing artefacts; no fresh statistics |
+| Parallelogram `[/ /]` | **Introspection** | Discover what is applicable to a cell |
 
-> *`by_estimator` is not yet implemented; it lands in v0.14 once #263 unblocks HACEstimator parameter config + catalog expansion. The graph is otherwise complete for shipped functions.*
+> The sixth category, **Compare-sensitivity** (`by_estimator`, #178), is not drawn — it lands in v0.14 once #263 unblocks HACEstimator parameter config + catalog expansion.
 
 ## Typical patterns
 
