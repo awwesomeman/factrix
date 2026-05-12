@@ -17,7 +17,7 @@ title: factrix.evaluate
 
 <div class="grid cards" markdown>
 
--   :material-bullseye-arrow:{ .lg .middle } __Single-factor significance__
+-   __Single-factor significance__
 
     ---
 
@@ -25,7 +25,7 @@ title: factrix.evaluate
     → one [`FactorProfile`][factrix.FactorProfile] carrying
     `primary_p` and the cell-specific statistics.
 
--   :material-filter-variant:{ .lg .middle } __Batch screening with FDR__
+-   __Batch screening with FDR__
 
     ---
 
@@ -34,7 +34,7 @@ title: factrix.evaluate
     for false-discovery-rate control. See
     [Batch screening](../guides/batch-screening.md).
 
--   :material-swap-horizontal:{ .lg .middle } __Cross-cell apples-to-apples__
+-   __Cross-cell apples-to-apples__
 
     ---
 
@@ -43,7 +43,7 @@ title: factrix.evaluate
     factors against broadcast macro factors. Return shape is identical
     across cells.
 
--   :material-chart-timeline-variant:{ .lg .middle } __TIMESERIES auto-routing__
+-   __TIMESERIES auto-routing__
 
     ---
 
@@ -52,30 +52,6 @@ title: factrix.evaluate
     through the same entry point without a parallel code path.
 
 </div>
-
-## Workflow at a glance
-
-```mermaid
-flowchart LR
-    panel[("Long-format panel<br/>date · asset_id · factor · forward_return")]
-    cfg["AnalysisConfig<br/>(Scope × Signal × Metric)"]
-    eval{{"evaluate(panel, cfg)"}}
-    profile[/"FactorProfile<br/>primary_p · stats · identity · context"/]
-    bhy["multi_factor.bhy(profiles)"]
-    survivors[/"FDR-controlled<br/>survivors"/]
-
-    panel --> eval
-    cfg --> eval
-    eval --> profile
-    profile -. one-factor case .-> done(["✓ done"])
-    profile -. batch case .-> bhy
-    bhy --> survivors
-
-    classDef io fill:#eef,stroke:#88a,stroke-width:1px;
-    classDef call fill:#fef3c7,stroke:#b58900,stroke-width:1.5px;
-    class panel,cfg,profile,survivors io;
-    class eval,bhy call;
-```
 
 ## Worked example — single-factor smoke test
 
@@ -175,7 +151,7 @@ derivation are documented in the **Dispatch lore** admonition above.
 
 <div class="grid cards" markdown>
 
--   :material-book-open-page-variant:{ .lg .middle } __Batch screening guide__
+-   __Batch screening guide__
 
     ---
 
@@ -186,9 +162,9 @@ derivation are documented in the **Dispatch lore** admonition above.
     [`bhy_hierarchical`][factrix.multi_factor.bhy_hierarchical];
     mixed-cell batches; `primary_p` vs `stats` at the FDR stage.
 
-    [:octicons-arrow-right-24: Read the guide](../guides/batch-screening.md)
+    [Read the guide →](../guides/batch-screening.md)
 
--   :material-table-edit:{ .lg .middle } __Panel schema__
+-   __Panel schema__
 
     ---
 
@@ -196,7 +172,7 @@ derivation are documented in the **Dispatch lore** admonition above.
     (`date`, `asset_id`, `factor`, `forward_return`), dtype semantics,
     and optional columns that activate extra metrics.
 
-    [:octicons-arrow-right-24: Read the schema](panel-schema.md)
+    [Read the schema →](panel-schema.md)
 
 </div>
 
@@ -204,30 +180,30 @@ derivation are documented in the **Dispatch lore** admonition above.
 
 <div class="grid cards" markdown>
 
--   :material-clock-time-four-outline:{ .lg .middle } __TIMESERIES-mode conventions__
+-   __TIMESERIES-mode conventions__
 
     ---
 
     The `N == 1` auto-routing rules and SE conventions for single-series
     paths.
 
-    [:octicons-arrow-right-24: reference/ts-mode-conventions](../reference/ts-mode-conventions.md)
+    [reference/ts-mode-conventions →](../reference/ts-mode-conventions.md)
 
--   :material-ruler:{ .lg .middle } __PANEL vs TIMESERIES sample guard__
+-   __PANEL vs TIMESERIES sample guard__
 
     ---
 
     Sample-size floors and the `InsufficientSampleError` recovery path.
 
-    [:octicons-arrow-right-24: guides/panel-timeseries](../guides/panel-timeseries.md)
+    [guides/panel-timeseries →](../guides/panel-timeseries.md)
 
--   :material-vector-difference:{ .lg .middle } __`run_metrics` — descriptive twin__
+-   __`run_metrics` — descriptive twin__
 
     ---
 
     Computes the same statistics but makes no FDR claim. Use when you
     want the numbers without the inference framing.
 
-    [:octicons-arrow-right-24: api/run-metrics](run-metrics.md)
+    [api/run-metrics →](run-metrics.md)
 
 </div>
