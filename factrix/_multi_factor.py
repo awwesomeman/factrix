@@ -37,22 +37,22 @@ if TYPE_CHECKING:
 class Survivors:
     """Family-verb survivor container with rich Jupyter rendering.
 
-    Procedure-agnostic: ``adj_q`` carries the verb's procedure-canonical
+    Procedure-agnostic: ``adj_p`` carries the verb's procedure-canonical
     adjusted p-value (BHY ``bhy_adjusted_p``, Holm step-down, Bonferroni
     ``min(p*m, 1)``, Romano-Wolf resampling, ...). The contract is
-    ``survivor[i] iff adj_q[i] <= q`` — a duality every step-up /
+    ``survivor[i] iff adj_p[i] <= q`` — a duality every step-up /
     step-down family procedure satisfies.
 
     Invariants:
-        ``len(profiles) == len(adj_q)`` and entries align in input
+        ``len(profiles) == len(adj_p)`` and entries align in input
         order. Per-bucket independent step-up uses bucket-local ``n``
-        and ``p_array``; ``adj_q[i]`` reflects ``profiles[i]``'s own
+        and ``p_array``; ``adj_p[i]`` reflects ``profiles[i]``'s own
         bucket only (Benjamini & Bogomolov 2014 selective inference),
         not a global cross-bucket adjustment.
 
     Attributes:
         profiles: Survivors in input order.
-        adj_q: Bucket-local adjusted p-values aligned with ``profiles``.
+        adj_p: Bucket-local adjusted p-values aligned with ``profiles``.
         q: Nominal FDR (or family-wise) target shared across all
             buckets.
         expand_over: Context keys used to partition the input into
@@ -65,7 +65,7 @@ class Survivors:
     """
 
     profiles: list[FactorProfile]
-    adj_q: np.ndarray
+    adj_p: np.ndarray
     q: float
     expand_over: tuple[str, ...]
     n_total: Mapping[tuple[Any, ...], int]
@@ -82,12 +82,12 @@ class Survivors:
         """
         headers: tuple[str, ...]
         if self.expand_over:
-            headers = ("expand_over_values", "identity", "primary_p", "adj_q")
+            headers = ("expand_over_values", "identity", "primary_p", "adj_p")
         else:
-            headers = ("identity", "primary_p", "adj_q")
+            headers = ("identity", "primary_p", "adj_p")
 
         rows: list[tuple[str, ...]] = []
-        for profile, adj in zip(self.profiles, self.adj_q, strict=True):
+        for profile, adj in zip(self.profiles, self.adj_p, strict=True):
             cells = (
                 repr(profile.identity),
                 f"{profile.primary_p:.4g}",
@@ -182,9 +182,9 @@ def bhy(
             ``q / sum(1/k for k in 1..n)``. Default ``0.05``.
 
     Returns:
-        ``Survivors`` container in input order; ``adj_q`` carries the
+        ``Survivors`` container in input order; ``adj_p`` carries the
         bucket-local BHY-adjusted p-value and the survivor set is
-        defined as ``adj_q <= q`` (single source of truth — no separate
+        defined as ``adj_p <= q`` (single source of truth — no separate
         rejection mask path).
 
     Raises:
@@ -209,7 +209,7 @@ def bhy(
     if not profile_list:
         return Survivors(
             profiles=[],
-            adj_q=np.zeros(0, dtype=np.float64),
+            adj_p=np.zeros(0, dtype=np.float64),
             q=q,
             expand_over=expand_over_tuple,
             n_total={},
@@ -235,17 +235,17 @@ def bhy(
             stacklevel=2,
         )
 
-    adj_q_all = np.full(len(entries), np.nan, dtype=np.float64)
+    adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
     n_total: dict[tuple[Any, ...], int] = {}
     for bucket_key, ix in buckets.items():
         p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
-        adj_q_all[ix] = bhy_adjusted_p(p_array)
+        adj_p_all[ix] = bhy_adjusted_p(p_array)
         n_total[bucket_key] = len(ix)
 
-    survivor_idxs = np.flatnonzero(adj_q_all <= q)
+    survivor_idxs = np.flatnonzero(adj_p_all <= q)
     return Survivors(
         profiles=[entries[i].profile for i in survivor_idxs],
-        adj_q=adj_q_all[survivor_idxs],
+        adj_p=adj_p_all[survivor_idxs],
         q=q,
         expand_over=expand_over_tuple,
         n_total=n_total,

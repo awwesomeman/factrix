@@ -77,7 +77,7 @@ survivors = fx.multi_factor.bhy(
 )
 ```
 
-`survivors.profiles` carries the kept rows; `survivors.adj_q` carries
+`survivors.profiles` carries the kept rows; `survivors.adj_p` carries
 the bucket-local BHY-adjusted p-values.
 
 [i160]: https://github.com/awwesomeman/factrix/issues/160

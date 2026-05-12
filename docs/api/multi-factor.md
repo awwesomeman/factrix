@@ -20,7 +20,7 @@ profiles = [
 survivors = fx.multi_factor.bhy(profiles, q=0.05)
 
 survivors.profiles   # list[FactorProfile] in input order
-survivors.adj_q      # numpy array — bucket-local BHY-adjusted p-value, aligned
+survivors.adj_p      # numpy array — bucket-local BHY-adjusted p-value, aligned
 survivors.q          # 0.05 — the nominal target you passed
 survivors.expand_over     # () for a single family; ("regime_id",) etc. otherwise
 survivors.n_total    # {(): N} or {bucket_key: m_per_bucket}
@@ -29,7 +29,7 @@ survivors.n_total    # {(): N} or {bucket_key: m_per_bucket}
 The input list **is** the family. `bhy` runs one Benjamini–Yekutieli
 step-up over all profiles by default, returning the surviving subset
 wrapped in a `Survivors` container with rich Jupyter rendering
-(three-column text / HTML table of `identity | primary_p | adj_q`,
+(three-column text / HTML table of `identity | primary_p | adj_p`,
 plus an `expand_over_values` column when buckets are declared).
 Each panel carries its factor under a distinct column name and
 `evaluate(..., factor_col=name)` auto-stamps `factor_id` from that
@@ -119,20 +119,20 @@ inspecting the adjusted p-values it produces.
 ## Return type: `Survivors` (#171)
 
 `bhy` returns a `Survivors` container, not a bare list. The container
-is procedure-agnostic — `adj_q` carries the verb's procedure-canonical
+is procedure-agnostic — `adj_p` carries the verb's procedure-canonical
 adjusted p-value (BHY here; future Holm / Bonferroni / Romano-Wolf
 verbs populate the same shape via their own `*_adjusted_p`).
 
 `Survivors` carries only the kept rows. The construction rule **inside
-`bhy`** is: compute `adj_q_all` over the full bucket-local input via
-`bhy_adjusted_p`, then keep `{i : adj_q_all[i] <= q}` and slice both
-`profiles` and `adj_q` to that index set. The survivor mask is derived
+`bhy`** is: compute `adj_p_all` over the full bucket-local input via
+`bhy_adjusted_p`, then keep `{i : adj_p_all[i] <= q}` and slice both
+`profiles` and `adj_p` to that index set. The survivor mask is derived
 from the same adjusted p-values that downstream code reads — not a
 separate rejection-mask path — so tie / boundary edge cases where two
 parallel step-up implementations could disagree are eliminated by
 construction.
 
-`adj_q[i]` is computed within `profiles[i]`'s **own** `expand_over`
+`adj_p[i]` is computed within `profiles[i]`'s **own** `expand_over`
 bucket — bucket-local `n` and `p_array`, never pooled across buckets.
 This is the per-family adjustment that selective-inference theory
 (Benjamini & Bogomolov 2014) requires; `n_total[bucket_key]` records

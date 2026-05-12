@@ -14,6 +14,22 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
 ## [Unreleased]
 
+### Changed
+
+- **`Survivors.adj_q` → `Survivors.adj_p`** (breaking, #245). Aligned the adjusted-p-value column name with statistical-software conventions (R `p.adjust`, statsmodels `multipletests`) where adjusted p-values are uniformly named `adj_p` / `p_adj` regardless of whether the underlying procedure controls FWER (Bonferroni / Holm) or FDR (BH / BHY). The previous `adj_q` reflected an internal-consistency goal with the `bhy(q=0.05)` kwarg, but read awkwardly in FWER contexts (where the threshold is α, not q) and required first-time users to ask "what is `adj_q`?". The `q=` kwarg name is **kept** (it remains the API-uniform threshold name across procedure families); only the output column renames. `bhy_adjusted_p()` function name was already `_p` — this change extends the same convention to the survivor container field.
+
+  ```python
+  # before (v0.12.0)
+  survivors = fx.multi_factor.bhy(profiles, q=0.05)
+  for prof, adj in zip(survivors.profiles, survivors.adj_q, strict=True):
+      ...
+
+  # after (v0.13.0)
+  survivors = fx.multi_factor.bhy(profiles, q=0.05)
+  for prof, adj in zip(survivors.profiles, survivors.adj_p, strict=True):
+      ...
+  ```
+
 ### Removed
 
 - **`FactorProfile.verdict()` and `Verdict` enum** (breaking, #243). `verdict(*, threshold=0.05, gate=None)` was a `primary_p < threshold` wrapper. Removed because (a) for N candidate factors, iterating `profile.verdict()` and counting passes is the spec-search anti-pattern factrix explicitly avoids — multi-factor decisions belong to `multi_factor.bhy` survivors, not per-factor threshold gates; (b) the `Verdict` `PASS / FAIL` outcome ignored emitted `WarningCode` (e.g. `UNRELIABLE_SE_SHORT_PERIODS`), letting unreliable inference report `PASS`. The `Verdict` enum is removed alongside the method.
@@ -29,7 +45,7 @@ While the version is below `1.0.0`, the public API should be considered unstable
 
   # after — N candidate factors: route through BHY, read survivors
   survivors = fx.multi_factor.bhy(profiles, q=0.05)
-  for prof, adj_q in zip(survivors.profiles, survivors.adj_q, strict=True):
+  for prof, adj_p in zip(survivors.profiles, survivors.adj_p, strict=True):
       ...
   ```
 

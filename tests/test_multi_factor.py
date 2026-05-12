@@ -53,7 +53,7 @@ class TestBhyEmpty:
     def test_empty_input_returns_empty(self) -> None:
         result = bhy([])
         assert result.profiles == []
-        assert len(result.adj_q) == 0
+        assert len(result.adj_p) == 0
 
 
 class TestBhyStepUp:
@@ -278,9 +278,9 @@ class TestBhyReturnsSurvivors:
         prof = _profile(factor_id="f1", primary_p=0.001)
         assert isinstance(bhy([prof]), Survivors)
 
-    def test_adj_q_matches_bhy_adjusted_p_and_mask_definitional(self) -> None:
-        # Single contract: survivor set == {i: adj_q[i] <= q}, and
-        # adj_q values come from bhy_adjusted_p of the bucket-local
+    def test_adj_p_matches_bhy_adjusted_p_and_mask_definitional(self) -> None:
+        # Single contract: survivor set == {i: adj_p[i] <= q}, and
+        # adj_p values come from bhy_adjusted_p of the bucket-local
         # p_array. Both halves of the duality in one assertion block.
         from factrix.stats.multiple_testing import bhy_adjusted_p
 
@@ -292,14 +292,14 @@ class TestBhyReturnsSurvivors:
         expected_ids = [profiles[i].factor_id for i, a in enumerate(full_adj) if a <= q]
         assert [p.factor_id for p in result.profiles] == expected_ids
         np.testing.assert_allclose(
-            result.adj_q,
+            result.adj_p,
             [full_adj[i] for i in range(len(ps)) if full_adj[i] <= q],
             rtol=1e-12,
         )
-        assert (result.adj_q <= q).all()
+        assert (result.adj_p <= q).all()
 
-    def test_n_total_and_adj_q_per_bucket(self) -> None:
-        # Multi-bucket: n_total per bucket AND adj_q per surviving
+    def test_n_total_and_adj_p_per_bucket(self) -> None:
+        # Multi-bucket: n_total per bucket AND adj_p per surviving
         # profile equals bhy_adjusted_p of that profile's own bucket
         # slice (not pooled across buckets).
         from factrix.stats.multiple_testing import bhy_adjusted_p
@@ -318,13 +318,13 @@ class TestBhyReturnsSurvivors:
         assert result.n_total == {("bull",): 3, ("bear",): 1}
 
         bull_adj = bhy_adjusted_p(np.array(bull_ps))
-        for prof, adj in zip(result.profiles, result.adj_q, strict=True):
+        for prof, adj in zip(result.profiles, result.adj_p, strict=True):
             assert prof.context["regime"] == "bull"  # bear bucket fails
             bull_idx = ["f1", "f2", "f3"].index(prof.factor_id)
             assert adj == pytest.approx(bull_adj[bull_idx], rel=1e-12)
 
     def test_ties_in_p_handled(self) -> None:
-        # Tied p-values are a known step-up edge: adj_q stays a
+        # Tied p-values are a known step-up edge: adj_p stays a
         # function of bhy_adjusted_p only — no separate tie-handling
         # path drift.
         from factrix.stats.multiple_testing import bhy_adjusted_p
@@ -334,7 +334,7 @@ class TestBhyReturnsSurvivors:
         result = bhy(profiles, q=0.05)
         full_adj = bhy_adjusted_p(np.array(ps))
         np.testing.assert_allclose(
-            result.adj_q,
+            result.adj_p,
             [full_adj[i] for i in range(len(ps)) if full_adj[i] <= 0.05],
             rtol=1e-12,
         )
@@ -362,7 +362,7 @@ def surv_single_bucket() -> Survivors:
     ]
     return Survivors(
         profiles=profiles,
-        adj_q=np.array([0.002, 0.024]),
+        adj_p=np.array([0.002, 0.024]),
         q=0.05,
         expand_over=(),
         n_total={(): 2},
@@ -377,7 +377,7 @@ def surv_multi_bucket() -> Survivors:
     ]
     return Survivors(
         profiles=profiles,
-        adj_q=np.array([0.002, 0.040]),
+        adj_p=np.array([0.002, 0.040]),
         q=0.05,
         expand_over=("universe_id",),
         n_total={("tw50",): 1, ("tw100",): 1},
@@ -398,7 +398,7 @@ class TestSurvivorsReprText:
         text = repr(surv_single_bucket)
         assert "Survivors(" in text
         assert "n=2" in text and "q=0.05" in text
-        assert "identity" in text and "primary_p" in text and "adj_q" in text
+        assert "identity" in text and "primary_p" in text and "adj_p" in text
         assert "expand_over_values" not in text
         assert "'f1'" in text and "'f2'" in text
 
@@ -413,7 +413,7 @@ class TestSurvivorsReprText:
     def test_empty_survivors_renders_header_only(self) -> None:
         empty = Survivors(
             profiles=[],
-            adj_q=np.array([]),
+            adj_p=np.array([]),
             q=0.05,
             expand_over=(),
             n_total={(): 0},
@@ -451,7 +451,7 @@ class TestSurvivorsReprHtml:
         )
         surv = Survivors(
             profiles=[profile],
-            adj_q=np.array([0.02]),
+            adj_p=np.array([0.02]),
             q=0.05,
             expand_over=("universe_id",),
             n_total={("<x>",): 1},
@@ -472,7 +472,7 @@ class TestSurvivorsBackRefIdentity:
         ]
         surv = Survivors(
             profiles=original,
-            adj_q=np.array([0.002, 0.024]),
+            adj_p=np.array([0.002, 0.024]),
             q=0.05,
             expand_over=(),
             n_total={(): 2},
