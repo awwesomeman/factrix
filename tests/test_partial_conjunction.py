@@ -185,7 +185,7 @@ class TestSurvivorSelection:
         assert sv.pc_p is not None
         assert sv.n_passed_uncorr is not None
         assert sv.expand_over == ("u",)
-        assert sv.n_total[("f", 5)] == 2
+        assert sv.n_tests[("f", 5)] == 2
 
     def test_n_passed_uncorr_counts_raw_below_q(self) -> None:
         prof = [
@@ -216,8 +216,8 @@ class TestLenientMode:
         ]
         with pytest.warns(RuntimeWarning, match="heterogeneous"):
             sv = partial_conjunction(prof, min_pass=2, expand_over=["u"], q=0.5)
-        assert sv.n_total[("A", 5)] == 2
-        assert sv.n_total[("B", 5)] == 3
+        assert sv.n_tests[("A", 5)] == 2
+        assert sv.n_tests[("B", 5)] == 3
 
     def test_lenient_homogeneous_m_no_warning(self) -> None:
         prof = [

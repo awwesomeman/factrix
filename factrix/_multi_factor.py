@@ -64,7 +64,7 @@ class Survivors:
             independent step-up buckets (``bhy``) or to aggregate
             conditions per identity (``partial_conjunction``). Empty
             tuple when the full input is one family.
-        n_total: Family size per bucket fed into the step-up math.
+        n_tests: Family size per bucket fed into the step-up math.
             Keying depends on the verb: ``bhy`` keys by
             ``expand_over_values`` tuple (``()`` for the single-bucket
             case); ``partial_conjunction`` keys by ``identity`` tuple
@@ -90,7 +90,7 @@ class Survivors:
     adj_p: np.ndarray
     q: float
     expand_over: tuple[str, ...]
-    n_total: Mapping[tuple[Any, ...], int]
+    n_tests: Mapping[tuple[Any, ...], int]
     pc_p: np.ndarray | None = None
     min_pass: int | None = None
     n_passed_uncorr: np.ndarray | None = None
@@ -112,7 +112,7 @@ class Survivors:
                 "identity",
                 "pc_p",
                 "adj_p",
-                "n_total",
+                "n_tests",
                 "n_passed_uncorr",
             )
         elif self.expand_over:
@@ -131,7 +131,7 @@ class Survivors:
                 self.n_passed_uncorr,
                 strict=True,
             ):
-                m = self.n_total.get(profile.identity, 0)
+                m = self.n_tests.get(profile.identity, 0)
                 rows.append(
                     (
                         repr(profile.identity),
@@ -162,12 +162,12 @@ class Survivors:
             parts.append(f"min_pass={self.min_pass}")
         if self.expand_over:
             parts.append(f"expand_over={list(self.expand_over)!r}")
-            n_total_repr = ", ".join(
-                f"{k!r}: {v}" for k, v in sorted(self.n_total.items())
+            n_tests_repr = ", ".join(
+                f"{k!r}: {v}" for k, v in sorted(self.n_tests.items())
             )
-            parts.append(f"n_total={{{n_total_repr}}}")
+            parts.append(f"n_tests={{{n_tests_repr}}}")
         else:
-            parts.append(f"n_total={self.n_total.get((), len(self.profiles))}")
+            parts.append(f"n_tests={self.n_tests.get((), len(self.profiles))}")
         return ", ".join(parts)
 
     def __repr__(self) -> str:
@@ -270,7 +270,7 @@ def bhy(
             adj_p=np.zeros(0, dtype=np.float64),
             q=q,
             expand_over=expand_over_tuple,
-            n_total={},
+            n_tests={},
         )
 
     _warn_on_mixed_horizons(profile_list, expand_over=expand_over)
@@ -294,11 +294,11 @@ def bhy(
         )
 
     adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
-    n_total: dict[tuple[Any, ...], int] = {}
+    n_tests: dict[tuple[Any, ...], int] = {}
     for bucket_key, ix in buckets.items():
         p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
         adj_p_all[ix] = bhy_adjusted_p(p_array)
-        n_total[bucket_key] = len(ix)
+        n_tests[bucket_key] = len(ix)
 
     survivor_idxs = np.flatnonzero(adj_p_all <= q)
     return Survivors(
@@ -306,7 +306,7 @@ def bhy(
         adj_p=adj_p_all[survivor_idxs],
         q=q,
         expand_over=expand_over_tuple,
-        n_total=n_total,
+        n_tests=n_tests,
     )
 
 
@@ -364,7 +364,7 @@ def partial_conjunction(
         :class:`Survivors` in input order (deduplicated to one row per
         surviving identity, using the first profile of that identity as
         representative). ``adj_p`` is the BHY-adjusted PC p-value;
-        ``pc_p`` is the raw PC p-value; ``n_total[identity]`` is the
+        ``pc_p`` is the raw PC p-value; ``n_tests[identity]`` is the
         condition count ``m``; ``n_passed_uncorr[i]`` is the count of
         raw p-values strictly below ``q`` for survivor ``i``.
 
@@ -441,7 +441,7 @@ def partial_conjunction(
             adj_p=np.zeros(0, dtype=np.float64),
             q=q,
             expand_over=expand_over_tuple,
-            n_total={},
+            n_tests={},
             pc_p=np.zeros(0, dtype=np.float64),
             min_pass=min_pass,
             n_passed_uncorr=np.zeros(0, dtype=np.int64),
@@ -467,7 +467,7 @@ def partial_conjunction(
 
     pc_p_arr = np.empty(len(identities_ordered), dtype=np.float64)
     n_passed_arr = np.empty(len(identities_ordered), dtype=np.int64)
-    n_total_per_identity: dict[tuple[Any, ...], int] = {}
+    n_tests_per_identity: dict[tuple[Any, ...], int] = {}
     rep_profiles: list[FactorProfile] = []
 
     for i, identity in enumerate(identities_ordered):
@@ -506,11 +506,11 @@ def partial_conjunction(
         ps = np.array([e.p_value for e in group], dtype=np.float64)
         pc_p_arr[i] = partial_conjunction_p(ps, min_pass=min_pass)
         n_passed_arr[i] = int(np.sum(ps < q))
-        n_total_per_identity[identity] = m
+        n_tests_per_identity[identity] = m
         rep_profiles.append(group[0].profile)
 
     if n_conditions is None:
-        m_values = set(n_total_per_identity.values())
+        m_values = set(n_tests_per_identity.values())
         if len(m_values) > 1:
             warnings.warn(
                 "partial_conjunction: lenient mode (n_conditions=None) is "
@@ -533,7 +533,7 @@ def partial_conjunction(
         adj_p=adj_p_all[survivor_idx],
         q=q,
         expand_over=expand_over_tuple,
-        n_total={ident: n_total_per_identity[ident] for ident in surviving_identities},
+        n_tests={ident: n_tests_per_identity[ident] for ident in surviving_identities},
         pc_p=pc_p_arr[survivor_idx],
         min_pass=min_pass,
         n_passed_uncorr=n_passed_arr[survivor_idx],
@@ -578,7 +578,7 @@ def bhy_hierarchical(
         :class:`Survivors` in input order. ``adj_p`` is the
         max-of-layers fold ``max(outer_adj_p[g], inner_adj_p[i])`` so
         the universal duality ``survivor[i] iff adj_p[i] <= q`` holds.
-        ``n_total`` maps group key to its inner family size;
+        ``n_tests`` maps group key to its inner family size;
         ``expand_over`` is ``(group,)`` and per-survivor group labels
         are recoverable via ``profile.context[group]``.
 
@@ -602,7 +602,7 @@ def bhy_hierarchical(
             adj_p=np.zeros(0, dtype=np.float64),
             q=q,
             expand_over=expand_over_tuple,
-            n_total={},
+            n_tests={},
         )
 
     entries = _resolve_family(
@@ -622,13 +622,13 @@ def bhy_hierarchical(
     n_groups = len(group_keys_ordered)
     group_simes = np.empty(n_groups, dtype=np.float64)
     inner_adjs: list[np.ndarray] = []
-    n_total: dict[tuple[Any, ...], int] = {}
+    n_tests: dict[tuple[Any, ...], int] = {}
     for g_idx, gkey in enumerate(group_keys_ordered):
         member_idxs = groups[gkey]
         member_p = np.array([entries[i].p_value for i in member_idxs], dtype=np.float64)
         group_simes[g_idx] = simes_p(member_p)
         inner_adjs.append(bhy_adjusted_p(member_p))
-        n_total[(gkey,)] = len(member_idxs)
+        n_tests[(gkey,)] = len(member_idxs)
 
     outer_adj = bhy_adjusted_p(group_simes)
 
@@ -643,7 +643,7 @@ def bhy_hierarchical(
         adj_p=adj_p_all[survivor_idxs],
         q=q,
         expand_over=expand_over_tuple,
-        n_total=n_total,
+        n_tests=n_tests,
     )
 
 

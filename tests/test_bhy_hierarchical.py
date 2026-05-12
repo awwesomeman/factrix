@@ -79,7 +79,7 @@ class TestProcedure:
         assert isinstance(sv, Survivors)
         assert sv.q == 0.05
         assert sv.expand_over == ("family",)
-        assert set(sv.n_total.keys()) == {("momentum",), ("value",)}
+        assert set(sv.n_tests.keys()) == {("momentum",), ("value",)}
 
     def test_all_dead_group_drops_out(self) -> None:
         # Outer Simes on a dead group fails the outer step-up, so no

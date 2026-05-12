@@ -23,7 +23,7 @@ survivors.profiles   # list[FactorProfile] in input order
 survivors.adj_p      # numpy array — bucket-local BHY-adjusted p-value, aligned
 survivors.q          # 0.05 — the nominal target you passed
 survivors.expand_over     # () for a single family; ("regime_id",) etc. otherwise
-survivors.n_total    # {(): N} or {bucket_key: m_per_bucket}
+survivors.n_tests    # {(): N} or {bucket_key: m_per_bucket}
 ```
 
 The input list **is** the family. `bhy` runs one Benjamini–Yekutieli
@@ -135,7 +135,7 @@ construction.
 `adj_p[i]` is computed within `profiles[i]`'s **own** `expand_over`
 bucket — bucket-local `n` and `p_array`, never pooled across buckets.
 This is the per-family adjustment that selective-inference theory
-(Benjamini & Bogomolov 2014) requires; `n_total[bucket_key]` records
+(Benjamini & Bogomolov 2014) requires; `n_tests[bucket_key]` records
 the `m` fed into each step-up so the audit trail is self-contained.
 
 Migration from the v0.10 list-of-profiles return:
