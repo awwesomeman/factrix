@@ -9,6 +9,9 @@ in `factrix.metrics.*` and returns a [`MetricsBundle`](#metricsbundle).
 The two paths share the `(panel, cfg)` entry contract; their result
 types are disjoint by design.
 
+> **Input contract** — the panel must satisfy the four-column floor
+> documented in [Panel schema](panel-schema.md).
+
 | Verb | Returns | Use when |
 |---|---|---|
 | [`evaluate`](evaluate.md) | `FactorProfile` (primary p, drives FDR) | you want the single inferential decision for the cell |

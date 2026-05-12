@@ -157,6 +157,7 @@ nav:
           - Stock factor evaluation: examples/stock_factor_evaluation.ipynb
   - API Reference:
       - api/index.md
+      - Panel schema: api/panel-schema.md
       - Entry points:
           - AnalysisConfig: api/analysis-config.md
           - evaluate: api/evaluate.md
