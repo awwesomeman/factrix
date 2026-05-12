@@ -1,11 +1,12 @@
 """``GMM`` MomentEstimator — Hansen (1982) two-step efficient J-test.
 
-Names the over-identifying-restriction inference path emitted to
-``FactorProfile.stats`` as ``StatCode.P_GMM`` (J-statistic key
-``StatCode.J_GMM`` lands together with the multi-horizon panel cell
-procedure that emits it). ``compute(moments, *, forward_periods)``
-delegates to :func:`factrix._stats._two_step_gmm_j_stat` so cell
-procedures share one path with the standalone primitive.
+Names the over-identifying-restriction inference path that populates
+``StatCode.J_GMM`` / ``StatCode.P_GMM``. ``compute(moments, *,
+forward_periods)`` delegates to :func:`factrix._stats._two_step_gmm_j_stat`,
+available standalone today; the integrated cell procedure that
+auto-builds the moment matrix from a raw forward-return panel is
+tracked as a follow-up so users with a specific moment system can
+run J-tests immediately while the cell-design pass converges.
 
 Pure over-identification (``n_params = 0``) is the only mode supported
 in this release — parametric GMM (common-mean / shared-β restrictions)
@@ -37,13 +38,20 @@ class GMM:
     ``forward_periods - 1`` overlap floor is uniform across HAC and
     GMM inference.
 
-    Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` cells
-    — the multi-horizon forward-return panel is the first cell that
-    dispatches this estimator; multi-bucket and cross-sectional
-    shared-β moment systems are deferred to follow-up work.
+    Applicability is advertised on ``(INDIVIDUAL, CONTINUOUS)`` cells
+    — the multi-horizon forward-return panel will be the first cell
+    to dispatch this estimator (tracked separately); multi-bucket and
+    cross-sectional shared-β moment systems are deferred.
 
-    Pass an instance to ``AnalysisConfig`` (via ``moment_estimator=``)
-    to drive evaluate-time inference once cell dispatch lands::
+    Standalone usage works today — construct the ``(T, K)`` moment
+    matrix yourself and call ``compute`` directly::
+
+        result = GMM().compute(my_moments, forward_periods=max_horizon)
+
+    Setting ``cfg.moment_estimator=GMM()`` round-trips through
+    ``to_dict`` / ``from_dict`` and validates applicability at
+    construction time, but is a no-op at ``evaluate()`` until cell
+    auto-dispatch lands::
 
         cfg = AnalysisConfig.individual_continuous(
             metric=Metric.IC, moment_estimator=GMM(),
