@@ -158,20 +158,37 @@ gate. **All factory parameters are keyword-only.**
 
 ```
 AnalysisConfig.individual_continuous(*, metric: Metric = Metric.IC,
-                                     forward_periods: int = 5) -> AnalysisConfig
-AnalysisConfig.individual_sparse(*, forward_periods: int = 5) -> AnalysisConfig
+                                     forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
+AnalysisConfig.individual_sparse(*, forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
                                      # CAAR event study
-AnalysisConfig.common_continuous(*, forward_periods: int = 5) -> AnalysisConfig
+AnalysisConfig.common_continuous(*, forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
                                      # timeseries beta on broadcast factor
-AnalysisConfig.common_sparse(*, forward_periods: int = 5) -> AnalysisConfig
+AnalysisConfig.common_sparse(*, forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
                                      # CAAR on broadcast event flag
 ```
 
-Serialisation: `cfg.to_dict()` → `dict`; `AnalysisConfig.from_dict(d)` →
-`AnalysisConfig` (re-runs validation).
+Serialisation: `cfg.to_dict()` → `dict` (carries `estimator` as name
+string); `AnalysisConfig.from_dict(d)` → `AnalysisConfig` (re-runs
+validation; missing `estimator` key falls back to `NeweyWest()` for
+forward-compat with v0.11 dicts).
 
 `forward_periods` counts **rows** of the time axis, not calendar days. Daily
 panel + `forward_periods=5` = 5 trading days; weekly = 5 weeks.
+
+`estimator` selects the HAC-on-mean inference path for IC PANEL / FM
+PANEL / CAAR PANEL cells; default `NeweyWest()`. Pass
+`HansenHodrick()` to drive `primary_p` from the rectangular-kernel
+HH path on overlapping forward returns. **BREAKING (#163)**: v0.11
+auto-side-emitted `P_HH` / `T_HH` on every IC / FM PANEL run
+regardless of cfg; v0.13 only emits them when the estimator is
+explicitly `HansenHodrick`. Downstream readers should use
+`profile.primary_p` / `profile.primary_stat_name` plus
+`profile.context["estimator"]` rather than hardcoded
+`stats[StatCode.T_NW]` / `stats[StatCode.P_HH]` lookups.
 
 ---
 

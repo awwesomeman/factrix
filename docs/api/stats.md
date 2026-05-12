@@ -12,17 +12,20 @@ package; nothing under `_stats` is part of the public API.
 
 ## Estimator catalogue
 
-`Estimator` is a [selection-only `Protocol`](#estimator-protocol) —
-each instance names *which inference path* downstream code should
-read from `FactorProfile.stats`, not how to compute it. Default-
-constructed instances live in `factrix.stats._ESTIMATOR_REGISTRY`
-and surface through `list_estimators(scope, signal)` (top-level
-factrix export).
+`Estimator` is the base [`Protocol`](#estimator-protocol) — each
+instance names *which inference path* downstream code reads from
+`FactorProfile.stats`. `HACEstimator(Estimator)` is the sub-protocol
+adding cell-internal `compute(series, *, forward_periods) ->
+InferenceResult` for HAC-on-mean estimators; pass instances to
+`AnalysisConfig.estimator=` for evaluate-time inference dispatch.
+Default-constructed instances live in
+`factrix.stats._ESTIMATOR_REGISTRY` and surface through
+`list_estimators(scope, signal)` (top-level factrix export).
 
-| Class | Algorithm family | Emits | Applicable to | Use when |
-|---|---|---|---|---|
-| `NeweyWest` | NW Bartlett HAC | `(T_NW, P_NW)` | every cell | Default — drives `primary_p` on every PANEL / TIMESERIES procedure. |
-| `HansenHodrick` | HH rectangular HAC | `(T_HH, P_HH)` | `(INDIVIDUAL, CONTINUOUS)` only | Overlapping forward returns on IC PANEL / FM PANEL — the MA(h-1) overlap structure has a closed-form rectangular-kernel SE. |
+| Class | Protocol | Algorithm family | Emits | Applicable to | Use when |
+|---|---|---|---|---|---|
+| `NeweyWest` | `HACEstimator` | NW Bartlett HAC | `(T_NW, P_NW)` | every cell | Default — drives `primary_p` on every PANEL / TIMESERIES procedure. |
+| `HansenHodrick` | `HACEstimator` | HH rectangular HAC | `(T_HH, P_HH)` | `(INDIVIDUAL, CONTINUOUS)` only | Overlapping forward returns on IC PANEL / FM PANEL — the MA(h-1) overlap structure has a closed-form rectangular-kernel SE. Pass via `AnalysisConfig.individual_continuous(estimator=HansenHodrick())` to drive `primary_p` from the HH path instead of NW. |
 | `WaldNWCluster` | Cluster-Wald χ² (NW HAC + 1-way cluster on slice) | `(WALD_NWCL, P_WALD_NWCL)` | `(INDIVIDUAL, CONTINUOUS)` | Slice test on a stacked per-date metric panel (#176 verbs). |
 | `WaldTwoWayCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_TWOWAY, P_WALD_TWOWAY)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No verb consumes it until `factor_decomposition` lands later. |
 | `BlockBootstrap` | Politis-Romano stationary or Künsch fixed block bootstrap; Politis-White auto block length | `(P_BOOT,)` | `(INDIVIDUAL, CONTINUOUS)` | Paired-diff slice test when distributional assumptions of the cluster-Wald path are uncomfortable (heavy tails, persistent shocks). |
@@ -124,6 +127,11 @@ Romano-Wolf for date-shared slices.
 
 ## Estimator protocol
 
+Two-layer protocol: base `Estimator` for family-verb selection
+(`bhy(profiles, estimator=...)`); `HACEstimator(Estimator)` for
+evaluate-time cell-internal dispatch
+(`AnalysisConfig.estimator=`).
+
 ```python
 @runtime_checkable
 class Estimator(Protocol):
@@ -138,8 +146,49 @@ class Estimator(Protocol):
         signal: Signal,
         metric: Metric | None,
     ) -> StatCode: ...
+
+
+@runtime_checkable
+class HACEstimator(Estimator, Protocol):
+    @property
+    def min_periods(self) -> int: ...
+    def compute(
+        self,
+        series: np.ndarray,
+        *,
+        forward_periods: int,
+    ) -> InferenceResult: ...
 ```
 
-Selection-only by design: cell-internal `compute()` lives on a
-future `ComputableEstimator(Estimator)` sub-protocol so the
-common-case Estimator instance stays trivial to write.
+`NeweyWest` and `HansenHodrick` implement `HACEstimator`; the slice-
+test instances (`WaldNWCluster` / `WaldTwoWayCluster` /
+`BlockBootstrap`) implement only the selection base since their
+compute paths are multivariate (cross-asset / cross-slice) rather
+than HAC-on-mean. Moment-condition estimators (GMM J-test,
+[#191](https://github.com/awwesomeman/factrix/issues/191)) and a
+slope-axis HAC sub-protocol are tracked separately rather than
+overloading `HACEstimator.compute`.
+
+### `InferenceResult`
+
+`HACEstimator.compute` returns a frozen dataclass carrying the
+inference layer of a `FactorProfile` (procedure stitches descriptive
+stats like `MEAN` on top):
+
+```python
+@dataclass(frozen=True, slots=True)
+class InferenceResult:
+    stat: float                          # t-statistic
+    p: float                             # two-sided p-value
+    stat_name: StatCode                  # T_NW / T_HH / ...
+    p_name: StatCode                     # P_NW / P_HH / ...
+    metadata: Mapping[str, Any]          # {"nw_lags": k} / {"kernel": ..., "variance_clamped": bool}
+    warnings: frozenset[WarningCode]
+```
+
+### `get_estimator(name) -> Estimator`
+
+Registry lookup helper used by `AnalysisConfig.from_dict` to
+rehydrate `cfg.estimator` from its serialized name string. Raises
+`UnknownEstimatorError` if `name` is not registered; the error
+message lists every available estimator.

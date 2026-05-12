@@ -74,7 +74,7 @@ class Estimator(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class InferenceResult:
-    """Harmonized return shape for ``HACEstimator.compute``.
+    """HAC-on-mean return shape for ``HACEstimator.compute``.
 
     Carries everything a cell procedure needs to stitch the inference
     output into ``FactorProfile`` without an ``isinstance`` ladder.
@@ -84,6 +84,12 @@ class InferenceResult:
     mapping that the procedure mirrors under both keys (NW emits
     ``{"nw_lags": k}``; HH emits ``{"kernel": "rectangular",
     "variance_clamped": bool}``).
+
+    Moment-condition estimators (GMM J-test, #191) have a parallel
+    return shape (``GMMResult`` carrying ``j_stat`` / ``df`` /
+    ``overid_p`` / weight-matrix iter); they live on a separate
+    ``MomentEstimator(Estimator)`` sub-protocol rather than reusing
+    this dataclass.
     """
 
     stat: float

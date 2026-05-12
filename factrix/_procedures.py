@@ -166,7 +166,9 @@ class _ICContPanelProcedure:
             StatCode.MEAN,
             StatCode.T_NW,
             StatCode.P_NW,
-            # (T_HH, P_HH) pair, conditionally emitted when forward_periods > 1.
+            # (T_HH, P_HH) pair, emitted when cfg.estimator=HansenHodrick().
+            # NW vs HH are mutually exclusive — only the chosen estimator's
+            # (T, P) pair populates stats for a given evaluate() call.
             StatCode.T_HH,
             StatCode.P_HH,
         }
@@ -228,7 +230,9 @@ class _FMContPanelProcedure:
             StatCode.MEAN,
             StatCode.T_NW,
             StatCode.P_NW,
-            # (T_HH, P_HH) pair, conditionally emitted when forward_periods > 1.
+            # (T_HH, P_HH) pair, emitted when cfg.estimator=HansenHodrick().
+            # NW vs HH are mutually exclusive — only the chosen estimator's
+            # (T, P) pair populates stats for a given evaluate() call.
             StatCode.T_HH,
             StatCode.P_HH,
         }
