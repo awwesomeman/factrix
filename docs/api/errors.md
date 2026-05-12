@@ -45,6 +45,46 @@ FactrixError                       # base
 | `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
 | `UserInputError` | Unknown metric / `p_stat` / context key, column not in panel, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
 
+---
+
+## Error → fix mapping
+
+Concrete messages, what triggers them, and where to look for the fix.
+Use the table to skim; jump to the linked page for the why.
+
+### Panel-schema failures
+
+| Message hint | Trigger | Fix |
+|---|---|---|
+| `factor_col 'X' not in panel columns` | Typo or wrong column name | Check `panel.columns`; pass the actual name to `factor_col=`. See [Panel schema § `factor_col=`](panel-schema.md#factor_col--non-default-signal-column-name). |
+| `Both 'factor' and 'X' present` | Wide panel still has stale `"factor"` column alongside the renamed one | `panel.drop("factor")` before calling. |
+| `forward_return column missing` | Forgot the preprocess step | `compute_forward_return(raw, forward_periods=h)` before `evaluate`. See [Panel schema § Preprocess pipeline](panel-schema.md#preprocess-pipeline). |
+
+### Config failures (`ConfigError` family)
+
+| Exception / message | Trigger | Fix |
+|---|---|---|
+| `MissingConfigError: evaluate(raw) needs AnalysisConfig` | `evaluate(panel)` called with no `cfg` | `fx.suggest_config(panel)` returns a `SuggestConfigResult` with `.suggested` (an `AnalysisConfig`) and per-axis reasoning. See [`suggest_config`](suggest-config.md). |
+| `IncompatibleAxisError: (scope, signal, metric) is not a legal cell` | Combination like `(INDIVIDUAL, SPARSE, IC)` that the dispatch table never registers | Use one of the four factories (`individual_continuous`, `individual_sparse`, `common_continuous`, `common_sparse`) — illegal combos are unreachable via factories. See [Concepts](../getting-started/concepts.md). |
+| `ModeAxisError: no procedure at runtime Mode=TIMESERIES` | Legal cell, but `N = panel["asset_id"].n_unique()` triggers a Mode the cell does not implement (typical case: `individual_continuous` at `N=1`) | Read `.suggested_fix` — it carries the nearest-legal `AnalysisConfig` for the actual `Mode`. See [Quickstart § N = 1](../getting-started/quickstart.md). |
+| `InsufficientSampleError: T below required` | `n_periods` below the procedure's `MIN_PERIODS_HARD` floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or — if the procedure is not the right one for short series — switching to a TIMESERIES-friendly cell. See [PANEL vs TIMESERIES](../guides/panel-timeseries.md). |
+
+### User-input failures (`UserInputError`)
+
+Every `UserInputError` carries structured attributes (see
+[Reading a `UserInputError`](#reading-a-userinputerror)). Common
+triggers and fix paths:
+
+| Message hint | Trigger | Fix |
+|---|---|---|
+| `unknown metric='...'` | Typo or metric not applicable to the cell | `list_metrics(scope, signal)` enumerates the applicable set; `exc.suggestions` carries the top-3 fuzzy candidates. See [`list_metrics`](list-metrics.md). |
+| `unknown estimator='...'` | Typo or estimator not applicable to the cell | `list_estimators(scope, signal)` enumerates the applicable set. See [`list_estimators`](list-estimators.md). |
+| `unknown expand_over='...'` | Context key not present on every profile in the family | All profiles in the family must carry the key in `.context`; check that the caller is populating it consistently at `evaluate` time. See [Decision tree § §C `expand_over`](decision-tree.md#expand_over-is-not-one-concept) for the three different `expand_over` semantics across functions. |
+| `expand_over=[...] requires every profile to carry key 'X'` | One or more profiles missing the key | Confirm the upstream `evaluate` call records the key in `context=...`. |
+| `Expected: list[FactorProfile], got list[MetricsBundle]` | Passing the wrong artefact family to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[FactorProfile]` (primary-p carriers). For descriptive cross-factor views use `compare(bundles)`. See [Decision tree § §A](decision-tree.md#a-question--function). |
+
+---
+
 ## Reading a `UserInputError`
 
 Every user-facing raise that takes a named input renders the same

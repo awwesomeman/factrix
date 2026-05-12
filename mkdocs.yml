@@ -157,6 +157,8 @@ nav:
           - Stock factor evaluation: examples/stock_factor_evaluation.ipynb
   - API Reference:
       - api/index.md
+      - Panel schema: api/panel-schema.md
+      - Decision tree: api/decision-tree.md
       - Entry points:
           - AnalysisConfig: api/analysis-config.md
           - evaluate: api/evaluate.md
@@ -167,10 +169,12 @@ nav:
           - partial_conjunction: api/partial-conjunction.md
           - bhy_hierarchical: api/bhy-hierarchical.md
           - list_metrics: api/list-metrics.md
+          - list_estimators: api/list-estimators.md
           - suggest_config: api/suggest-config.md
           - compare: api/compare.md
       - Results:
           - FactorProfile: api/factor-profile.md
+          - MetricsBundle: api/metrics-bundle.md
           - MetricOutput: api/metric-output.md
           - Identity / context: api/identity.md
       - Tables:

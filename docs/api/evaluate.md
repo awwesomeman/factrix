@@ -4,6 +4,10 @@ Single-factor evaluation entry point. Routes a
 `(raw, AnalysisConfig)` pair to the procedure registered for the
 dispatch cell and returns a [`FactorProfile`](factor-profile.md).
 
+> **Input contract** — the panel must satisfy the four-column floor
+> documented in [Panel schema](panel-schema.md). The per-cell extension
+> table below adds optional columns on top of that floor.
+
 ## Call shape
 
 ```python
