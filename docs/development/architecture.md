@@ -144,19 +144,27 @@ class FactorProfile:
     config: AnalysisConfig
     mode: Mode
     primary_p: float
-    n_obs: int          # cell-canonical effective N (T / events / assets)
-    n_assets: int       # raw panel cross-section width (always available)
+    primary_stat: float | None     # test stat paired with primary_p
+    primary_stat_name: StatCode    # stats-key pointer (serialised to .value in diagnose())
+    n_obs: int                     # cell-canonical final-stage test denominator
+    n_pairs: int                   # non-null (period, asset) pair count
+    n_periods: int                 # unique periods in raw panel
+    n_assets: int                  # unique assets in raw panel
     warnings: frozenset[WarningCode] = frozenset()
     info_notes: frozenset[InfoCode] = frozenset()
     stats: Mapping[StatCode, float] = field(default_factory=dict)
 ```
 
-`n_obs` semantics vary by cell — T for IC/FM/TS-β, event count for
-CAAR, asset count for COMMON×* PANEL. `n_assets` is always
-`raw["asset_id"].n_unique()`; reading both side by side disambiguates
-"small effective sample" between short series vs thin cross-section.
+`n_obs` semantics vary by cell — n_periods for IC / FM / TS-β,
+densified panel-period count for CAAR, filtered cross-section size
+for COMMON × * PANEL. The four sample axes never overlap: `n_obs`
+answers "what did the test see", `n_pairs` answers "how dense is the
+panel", `n_periods` / `n_assets` give the envelope. Each axis is
+fixed in semantics across cells (#246).
 
-- `diagnose() -> dict[str, Any]` — flatten `mode / n_obs / primary_p / warnings / info_notes / stats` for human or AI agent triage
+- `diagnose() -> dict[str, Any]` — JSON-shape exit point with key
+  order in reader-flow seven questions: identity / context / cell /
+  sample axes / primary family / flag sets / raw stats + metadata.
 
 Single dataclass, no per-cell subclass proliferation. Cell-specific scalars live
 in `stats: Mapping[StatCode, float]` keyed by enum, not by string.

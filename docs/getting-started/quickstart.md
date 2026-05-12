@@ -23,9 +23,15 @@ print('primary_p =', round(profile.primary_p, 4))
 # → pass | primary_p = 0.0
 
 print(profile.diagnose())
-# {'mode': 'panel', 'n_obs': 494, 'n_assets': 100,
-#  'primary_p': 2.13e-40, 'warnings': [], 'info_notes': [],
-#  'stats': {'mean': 0.0722, 't_nw': 14.60, 'p_nw': 2.13e-40}}
+# {'identity': {'factor_id': 'factor', 'forward_periods': 5},
+#  'context': {},
+#  'cell': {'scope': 'individual', 'signal': 'continuous',
+#           'metric': 'ic', 'mode': 'panel'},
+#  'n_obs': 494, 'n_pairs': 49400, 'n_periods': 494, 'n_assets': 100,
+#  'primary_p': 2.13e-40, 'primary_stat': 14.60, 'primary_stat_name': 't_nw',
+#  'warnings': [], 'info_notes': [],
+#  'stats': {'mean': 0.0722, 't_nw': 14.60, 'p_nw': 2.13e-40},
+#  'metadata': {'t_nw': {'nw_lags': 5}, 'p_nw': {'nw_lags': 5}}}
 ```
 
 If you are not sure which factory to use, let factrix infer it from the
@@ -60,12 +66,18 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
 
 ```python
 {
-    "mode": "panel",
-    "n_obs": 500,
+    "identity": {"factor_id": "momentum", "forward_periods": 5},
+    "context": {},
+    "cell": {"scope": "individual", "signal": "continuous",
+             "metric": "ic", "mode": "panel"},
+    "n_obs": 500, "n_pairs": 50000, "n_periods": 500, "n_assets": 100,
     "primary_p": 0.0001,
+    "primary_stat": 4.21,
+    "primary_stat_name": "t_nw",
     "warnings": ["unreliable_se_short_periods"],
     "info_notes": [],
     "stats": {"mean": 0.082, "t_nw": 4.21, "p_nw": 0.0001},
+    "metadata": {"t_nw": {"nw_lags": 5}, "p_nw": {"nw_lags": 5}},
 }
 ```
 

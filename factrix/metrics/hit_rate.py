@@ -86,7 +86,7 @@ def hit_rate(
         return _short_circuit_output(
             "hit_rate",
             "insufficient_hit_rate_samples",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 

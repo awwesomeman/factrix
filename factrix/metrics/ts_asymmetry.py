@@ -141,7 +141,7 @@ def ts_asymmetry(
         return _short_circuit_output(
             "ts_asymmetry",
             "insufficient_portfolio_periods",
-            n_observed=n_periods,
+            n_obs=n_periods,
             min_required=MIN_PORTFOLIO_PERIODS_HARD,
         )
 

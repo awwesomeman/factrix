@@ -182,7 +182,7 @@ def ic(
         return _short_circuit_output(
             "ic",
             "insufficient_ic_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=raw_min,
             forward_periods=forward_periods,
         )
@@ -194,7 +194,7 @@ def ic(
         return _short_circuit_output(
             "ic",
             "insufficient_sampled_ic_periods",
-            n_observed=n_sampled,
+            n_obs=n_sampled,
             min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
@@ -256,7 +256,7 @@ def ic_newey_west(
         return _short_circuit_output(
             "ic_newey_west",
             "insufficient_ic_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 
@@ -319,7 +319,7 @@ def ic_ir(
         return _short_circuit_output(
             "ic_ir",
             "insufficient_ic_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_ASSETS_PER_DATE_IC,
         )
 

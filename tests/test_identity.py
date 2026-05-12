@@ -10,7 +10,7 @@ import polars as pl
 import pytest
 from factrix import AnalysisConfig, Metric, evaluate
 from factrix._axis import Mode
-from factrix._codes import InfoCode, WarningCode
+from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._profile import FactorProfile
 
 
@@ -52,7 +52,11 @@ def _bare_profile(**overrides) -> FactorProfile:
         config=_cfg(),
         mode=Mode.PANEL,
         primary_p=0.04,
+        primary_stat=2.05,
+        primary_stat_name=StatCode.T_NW,
         n_obs=60,
+        n_pairs=1200,
+        n_periods=60,
         n_assets=20,
     )
     base.update(overrides)

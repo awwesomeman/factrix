@@ -25,17 +25,45 @@ if TYPE_CHECKING:
 class FactorProfile:
     """Procedure-canonical analysis result for one factor.
 
-    Reading ``n_obs`` and ``n_assets`` side by side disambiguates
-    whether a small ``n_obs`` came from a short series or a thin
-    cross-section.
+    Reading the four sample axes (``n_obs`` / ``n_pairs`` /
+    ``n_periods`` / ``n_assets``) side by side disambiguates whether a
+    small ``n_obs`` came from a short series, a thin cross-section, or
+    a sparse panel. Each axis answers one question and never overlaps
+    with another.
 
     Attributes:
         config: The ``AnalysisConfig`` that produced this profile.
         mode: Evaluation mode (``PANEL`` / ``TIMESERIES``).
         primary_p: Procedure-canonical p-value driving
             ``multi_factor.bhy``.
-        n_obs: Cell-canonical effective sample size.
-        n_assets: Cross-section width of the raw panel.
+        primary_stat: Test statistic value paired with ``primary_p``
+            (e.g. ``t_nw`` value for an NW HAC t-test). ``None`` when
+            the primary procedure produces no test statistic (e.g.
+            empirical-p block bootstrap). Invariant:
+            ``stats[primary_stat_name] == primary_stat`` whenever
+            ``primary_stat is not None``.
+        primary_stat_name: ``stats``-key pointer for ``primary_stat``
+            (e.g. ``StatCode.T_NW`` / ``StatCode.WALD_NWCL`` /
+            ``StatCode.P_BOOT``). Always populated; for a no-test-stat
+            primary (e.g. ``StatCode.P_BOOT``) it points at the
+            p-value entry itself. Serialised to its ``.value`` slug by
+            ``diagnose()``.
+        n_obs: Cell-canonical final-stage test denominator — the
+            sample size the primary estimator actually saw after
+            procedure-internal trimming. Reflects the n that
+            ``primary_p`` is computed against, not the raw panel
+            envelope. Effective-DoF adjustments (NW HAC autocorrelation,
+            overlapping windows) live inside ``stats`` / ``metadata``,
+            not here. ``n_obs = 0`` is a legal degenerate value.
+        n_pairs: Raw count of non-null (period, asset) pairs entering
+            the cell's first stage. Sparsity numerator
+            (``n_pairs / (n_periods * n_assets)``). Always
+            ``>= n_obs`` (first-stage count vs. final-stage count).
+        n_periods: Unique periods in the raw panel under the
+            any-non-null union. Calendar time, not event time.
+        n_assets: Unique assets in the raw panel under the
+            any-non-null union. ``n_assets = 1`` is a legal signal
+            (single-asset TIMESERIES).
         factor_id: User-supplied factor name; stamped by ``_evaluate``
             from ``factor_col``. Defaults to ``"factor"`` when a
             profile is constructed directly.
@@ -56,6 +84,11 @@ class FactorProfile:
             choice) duplicate the inner dict under both keys to keep
             single-key lookup honest (#188).
 
+    The four sample axes are paired with ``primary_*``, not with
+    secondary diagnostic entries in ``stats`` — e.g. an ADF run on the
+    factor reports its own n inside its ``stats`` / ``metadata`` entry,
+    not via ``n_obs``.
+
     Hashing is disabled (``__hash__ = None``) because ``context``
     defaults to ``dict`` (unhashable). Equality is field-by-field via
     the auto-generated ``__eq__``; bhy family partitioning uses
@@ -65,7 +98,11 @@ class FactorProfile:
     config: AnalysisConfig
     mode: Mode
     primary_p: float
+    primary_stat: float | None
+    primary_stat_name: StatCode
     n_obs: int
+    n_pairs: int
+    n_periods: int
     n_assets: int
     factor_id: str = "factor"
     context: Mapping[str, Any] = field(default_factory=dict)
@@ -85,13 +122,19 @@ class FactorProfile:
         return (self.factor_id, self.forward_periods)
 
     def _summary_rows(self) -> list[tuple[str, Any]]:
+        stat_repr = "None" if self.primary_stat is None else f"{self.primary_stat:.4g}"
         rows: list[tuple[str, Any]] = [
             ("factor_id", self.factor_id),
             ("forward_periods", self.forward_periods),
             ("mode", self.mode.value),
-            ("primary_p", f"{self.primary_p:.4g}"),
             ("n_obs", self.n_obs),
+            ("n_pairs", self.n_pairs),
+            ("n_periods", self.n_periods),
             ("n_assets", self.n_assets),
+            (
+                "primary_p",
+                f"{self.primary_p:.4g} (stat={stat_repr}, name={self.primary_stat_name.value})",
+            ),
         ]
         for k in sorted(self.context):
             rows.append((f"context.{k}", self.context[k]))
@@ -116,13 +159,18 @@ class FactorProfile:
         )
 
     def diagnose(self) -> dict[str, Any]:
-        """Secondary stats + flag sets for human / AI agent triage.
+        """JSON-shaped view for human / AI agent triage.
+
+        Key order follows the reader-flow: identity → context →
+        dispatch cell → sample axes → primary significance → flag
+        sets → raw stats / metadata.
 
         Returns:
-            A plain-Python dict with mode, sample sizes, primary p,
-            warning / info code names sorted alphabetically, and the
-            full ``stats`` mapping with enum keys converted to their
-            string values.
+            A plain-Python dict with ``cell`` (scope / signal / metric
+            / mode), the four sample axes, the ``primary_*`` family
+            (``primary_p`` / ``primary_stat`` / ``primary_stat_name``),
+            sorted warning / info code names, and the full ``stats``
+            mapping with enum keys converted to their string values.
         """
         return {
             "identity": {
@@ -130,10 +178,21 @@ class FactorProfile:
                 "forward_periods": self.forward_periods,
             },
             "context": dict(self.context),
-            "mode": self.mode.value,
+            "cell": {
+                "scope": self.config.scope.value,
+                "signal": self.config.signal.value,
+                "metric": (
+                    self.config.metric.value if self.config.metric is not None else None
+                ),
+                "mode": self.mode.value,
+            },
             "n_obs": self.n_obs,
+            "n_pairs": self.n_pairs,
+            "n_periods": self.n_periods,
             "n_assets": self.n_assets,
             "primary_p": self.primary_p,
+            "primary_stat": self.primary_stat,
+            "primary_stat_name": self.primary_stat_name.value,
             "warnings": sorted(w.value for w in self.warnings),
             "info_notes": sorted(i.value for i in self.info_notes),
             "stats": {k.value: v for k, v in self.stats.items()},

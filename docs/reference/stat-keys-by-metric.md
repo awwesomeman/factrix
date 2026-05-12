@@ -125,7 +125,7 @@ is emitted.
 - *descriptive*: `n_obs`, `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).
 - *descriptive* (conditional, short-circuit): `reason =
-  "insufficient_clusters"`, `n_observed` (smallest G), `min_required`
+  "insufficient_clusters"`, `n_obs` (smallest G), `min_required`
   (always 3).
 - *descriptive* (conditional): `variance_non_psd_fallback` — names
   the fallback path when the meat matrix is non-PSD.
@@ -436,7 +436,7 @@ sample, no events, degenerate signal, …). The fallback shape is:
 - `metadata["p_value"] = 1.0` — conservative default so BHY treats
   short-circuited metrics as rejected rather than crashing.
 - Optional diagnostic keys naming what was missing or under-spec:
-  `n_observed`, `min_required`, `min_required_per_asset`,
+  `n_obs`, `min_required`, `min_required_per_asset`,
   `min_required_per_regime`, `missing_column`, `std_u`, `hint`,
   `n_distinct`. Each is descriptive — emitted only on the
   short-circuit branch that needed it; consumers should branch on

@@ -69,7 +69,7 @@ def clustering_diagnostic(
         return _short_circuit_output(
             "clustering_hhi",
             "insufficient_events",
-            n_observed=n_events,
+            n_obs=n_events,
             min_required=MIN_EVENTS_HARD,
         )
 

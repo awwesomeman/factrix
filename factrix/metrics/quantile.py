@@ -166,7 +166,7 @@ def quantile_spread(
         return _short_circuit_output(
             "quantile_spread",
             "insufficient_portfolio_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_PORTFOLIO_PERIODS_HARD,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
@@ -338,7 +338,7 @@ def quantile_spread_vw(
         return _short_circuit_output(
             "quantile_spread_vw",
             "insufficient_portfolio_periods",
-            n_observed=n,
+            n_obs=n,
             min_required=MIN_PORTFOLIO_PERIODS_HARD,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
