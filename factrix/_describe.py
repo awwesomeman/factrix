@@ -265,6 +265,25 @@ class SuggestConfigResult:
             via ``AnalysisConfig.to_dict()``, the detected observations,
             the per-axis reasoning strings, and warnings as a sorted
             list of ``.value`` strings.
+
+        Example:
+            >>> result.diagnose()  # doctest: +SKIP
+            {
+                "suggested": {
+                    "scope": "individual",
+                    "signal": "continuous",
+                    "metric": "ic",
+                    "forward_periods": 5,
+                },
+                "detected": {
+                    "scope": "individual", "signal": "continuous",
+                    "mode": "panel", "n_assets": 100,
+                    "n_periods": 494, "sparsity": 0.0,
+                },
+                "reasoning": {"scope": "...", "signal": "...",
+                              "metric": "...", "mode": "..."},
+                "warnings": [],
+            }
         """
         return {
             "suggested": self.suggested.to_dict(),

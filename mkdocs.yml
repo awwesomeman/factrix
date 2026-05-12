@@ -165,6 +165,7 @@ nav:
           - slice_pairwise_test / slice_joint_test: api/slice-test.md
           - multi_factor: api/multi-factor.md
           - list_metrics: api/list-metrics.md
+          - suggest_config: api/suggest-config.md
       - Results:
           - FactorProfile: api/factor-profile.md
           - MetricOutput: api/metric-output.md
