@@ -24,7 +24,7 @@ title: factrix.multi_factor.bhy
     Run `evaluate` over `m` candidate signals on the same return panel,
     feed the resulting list of [`FactorProfile`][factrix.FactorProfile]
     to `bhy`, and read the surviving subset off the
-    `Survivors` container. Controls
+    [`Survivors`][factrix.multi_factor.Survivors] container. Controls
     FDR ≤ `q` under arbitrary dependence — the regime that matches a
     correlated factor pool (e.g. 200 momentum variants on one panel).
 
@@ -198,6 +198,13 @@ for s in survivors.profiles:
     print(s.factor_id)
 # or just `repr(survivors)` in Jupyter for the table view
 ```
+
+::: factrix.multi_factor.Survivors
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 3
 
 ## Behaviour change (#161)
 
