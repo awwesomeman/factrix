@@ -51,7 +51,7 @@ title: factrix.AnalysisConfig
 
     Every construction path runs `__post_init__`. An illegal
     `(scope, signal, metric)` triple raises
-    [`IncompatibleAxisError`][factrix.IncompatibleAxisError] at
+    [`IncompatibleAxisError`](errors.md) at
     *construction* time, not at `evaluate` time.
 
 </div>
@@ -136,8 +136,8 @@ keeping a backtest replayable across code revisions.
 
 `from_dict` runs the same `__post_init__` validation as the factories, so
 a tampered or stale payload raises
-[`IncompatibleAxisError`][factrix.IncompatibleAxisError] or
-[`UnknownEstimatorError`][factrix.UnknownEstimatorError] up front rather
+[`IncompatibleAxisError`](errors.md) or
+[`UnknownEstimatorError`](errors.md) up front rather
 than failing silently later.
 
 ## See also

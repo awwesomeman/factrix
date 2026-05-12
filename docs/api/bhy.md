@@ -24,7 +24,7 @@ title: factrix.multi_factor.bhy
     Run `evaluate` over `m` candidate signals on the same return panel,
     feed the resulting list of [`FactorProfile`][factrix.FactorProfile]
     to `bhy`, and read the surviving subset off the
-    [`Survivors`][factrix.multi_factor.Survivors] container. Controls
+    `Survivors` container. Controls
     FDR ≤ `q` under arbitrary dependence — the regime that matches a
     correlated factor pool (e.g. 200 momentum variants on one panel).
 
@@ -260,3 +260,4 @@ Architecture § Family functions](../development/architecture.md#family-function
     [api/multi-factor →](multi-factor.md)
 
 </div>
+
