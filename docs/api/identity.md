@@ -57,7 +57,7 @@ the way to override them; `replace(p, factor_id=...)` does not work.
 
 ## How context is populated
 
-`context` ships empty by default. Higher-level verbs that operate on a
+`context` ships empty by default. Higher-level functions that operate on a
 filtered or sliced panel populate it via `dataclasses.replace`:
 
 ```python
@@ -67,14 +67,14 @@ p = evaluate(panel_large_cap, cfg, factor_col="momentum_12_1")
 p = dataclasses.replace(p, context={"universe_id": "us_large_cap"})
 ```
 
-The `by_slice` consumer and the upcoming `run_metrics` verb populate
+The `by_slice` consumer and the upcoming `run_metrics` function populate
 `context` automatically — manual `replace` is the escape hatch for
 callers who run their own slicing.
 
 ## Querying context as a sample restriction
 
 Treating universe / regime as sample restriction (the common case) is a
-plain comprehension before the family verb:
+plain comprehension before the screening function:
 
 ```python
 import factrix as fx

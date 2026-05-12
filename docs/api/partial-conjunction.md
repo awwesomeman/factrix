@@ -27,7 +27,7 @@ survivors = fx.multi_factor.partial_conjunction(
 
 ## Versus `bhy(expand_over=...)` — same data, different question
 
-Both verbs accept `expand_over=`, but the **survivor unit** and the
+Both functions accept `expand_over=`, but the **survivor unit** and the
 **question answered** differ. This is the single most common source of
 confusion; pick the row that matches your claim.
 
@@ -114,14 +114,14 @@ container as `bhy`, populated with PC-specific metadata:
 | `pc_p` | Raw PC $p$-value (pre-BHY) |
 | `min_pass` | The $k$ you passed |
 | `n_tests` | Keyed by identity tuple `(factor_id, forward_periods)` → actual $m$ used |
-| `n_passed_uncorr` | Per-identity count of raw $p < q$. Descriptive — flags borderline (`n_passed_uncorr == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this verb exists to prevent. |
+| `n_passed_uncorr` | Per-identity count of raw $p < q$. Descriptive — flags borderline (`n_passed_uncorr == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
 ## Validation summary
 
 | Trigger | Outcome |
 |---|---|
 | `min_pass < 2` | `UserInputError`. `min_pass == 1` additionally points at `bhy(expand_over=...)`. |
-| `expand_over` empty / `None` | `UserInputError` — the verb is undefined without a condition axis. |
+| `expand_over` empty / `None` | `UserInputError` — the function is undefined without a condition axis. |
 | `expand_over` names an identity field (`factor_id` / `forward_periods`) | `UserInputError` (#160 anti-shopping defense — same as `bhy`). |
 | `n_conditions < min_pass` | `UserInputError` (unsatisfiable). |
 | Strict mode: identity's condition count $\neq$ `n_conditions` | `UserInputError` — surfaces missing-universe / missing-horizon data gaps. |

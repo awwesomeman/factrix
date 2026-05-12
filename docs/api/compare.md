@@ -23,7 +23,7 @@ fx.compare(profiles, sort_by="primary_p")
 | Re-run inference under perturbations | [`robustness`](../api/index.md) (#178) | `compare` is a pure view; `robustness` recomputes |
 | Test factor across slices | [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Re-runs inference per slice; `compare` does not |
 
-If you need fresh statistics, you want a *re-compute* verb. `compare`
+If you need fresh statistics, you want a *re-compute* function. `compare`
 is strictly read-through.
 
 ## Input dispatch

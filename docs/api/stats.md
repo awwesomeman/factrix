@@ -1,8 +1,8 @@
 # factrix.stats
 
 Inference-method instances + standalone statistical helpers. The
-public surface is what family verbs (`bhy` / `bhy_hierarchical`) and
-the slice-test verbs (`slice_pairwise_test` / `slice_joint_test`)
+public surface is what screening functions (`bhy` / `bhy_hierarchical`) and
+the slice-test functions (`slice_pairwise_test` / `slice_joint_test`)
 accept on their `estimator=` kwarg, plus a small set of FDR /
 bootstrap utilities for callers who
 want to drive inference outside the dispatch chain.
@@ -26,13 +26,13 @@ Default-constructed instances live in
 |---|---|---|---|---|---|
 | `NeweyWest` | `HACEstimator` | NW Bartlett HAC | `(T_NW, P_NW)` | every cell | Default — drives `primary_p` on every PANEL / TIMESERIES procedure. |
 | `HansenHodrick` | `HACEstimator` | HH rectangular HAC | `(T_HH, P_HH)` | `(INDIVIDUAL, CONTINUOUS)` only | Overlapping forward returns on IC PANEL / FM PANEL — the MA(h-1) overlap structure has a closed-form rectangular-kernel SE. Pass via `AnalysisConfig.individual_continuous(estimator=HansenHodrick())` to drive `primary_p` from the HH path instead of NW. |
-| `WaldNWCluster` | Cluster-Wald χ² (NW HAC + 1-way cluster on slice) | `(WALD_NWCL, P_WALD_NWCL)` | `(INDIVIDUAL, CONTINUOUS)` | Slice test on a stacked per-date metric panel (#176 verbs). |
-| `WaldTwoWayCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_TWOWAY, P_WALD_TWOWAY)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No verb consumes it until `factor_decomposition` lands later. |
+| `WaldNWCluster` | Cluster-Wald χ² (NW HAC + 1-way cluster on slice) | `(WALD_NWCL, P_WALD_NWCL)` | `(INDIVIDUAL, CONTINUOUS)` | Slice test on a stacked per-date metric panel (#176 functions). |
+| `WaldTwoWayCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_TWOWAY, P_WALD_TWOWAY)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No function consumes it until `factor_decomposition` lands later. |
 | `BlockBootstrap` | Politis-Romano stationary or Künsch fixed block bootstrap; Politis-White auto block length | `(P_BOOT,)` | `(INDIVIDUAL, CONTINUOUS)` | Paired-diff slice test when distributional assumptions of the cluster-Wald path are uncomfortable (heavy tails, persistent shocks). |
 
 !!! warning "`WaldTwoWayCluster` is a reserved interface"
     The class ships in #153 so the `(WALD_TWOWAY, P_WALD_TWOWAY)` StatCode
-    pair has a stable home, but no verb populates `profile.stats`
+    pair has a stable home, but no function populates `profile.stats`
     with `P_WALD_TWOWAY` until `factor_decomposition` lands. Calling
     `bhy(estimator=WaldTwoWayCluster())` against a profile produced
     by `evaluate()` raises a missing-stat error pointing at the
@@ -48,7 +48,7 @@ Default-constructed instances live in
 | Slice paired-diff on heavy-tailed / persistent series, distributional assumptions uncomfortable | `BlockBootstrap` |
 | Raw asset-date panel inference (factor × slice interaction) | `WaldTwoWayCluster` (reserved) |
 
-Pass an instance to a family verb to override the default
+Pass an instance to a screening function to override the default
 `primary_p` lookup:
 
 ```python
@@ -75,7 +75,7 @@ est = BlockBootstrap(
 
 The `scheme` is metadata, not a separate `StatCode` — both schemes
 emit `P_BOOT`. Two `BlockBootstrap` instances with different `scheme`
-are distinct Estimators from a verb's perspective; the verb writes
+are distinct Estimators from a function's perspective; the function writes
 the resolved scheme + block length + seed into
 `FactorProfile.metadata[StatCode.P_BOOT]`.
 
@@ -92,7 +92,7 @@ names the inference algorithm or SE family (`NW`, `HH`, `NWCL`,
 |---|---|
 | `(T_NW, P_NW)` | Newey-West HAC t-statistic + p — the `primary_p` source the metric `evaluate()` runs populates by default. |
 | `(T_HH, P_HH)` | Hansen-Hodrick rectangular-kernel HAC t + p — emitted only when `forward_periods > 1`. |
-| `(WALD_NWCL, P_WALD_NWCL)` | Cluster-Wald χ² + p under NW HAC + 1-way slice cluster — emitted by the slice-test verbs. |
+| `(WALD_NWCL, P_WALD_NWCL)` | Cluster-Wald χ² + p under NW HAC + 1-way slice cluster — emitted by the slice-test functions. |
 | `(WALD_TWOWAY, P_WALD_TWOWAY)` | Cluster-Wald χ² + p under two-way cluster on (date, asset) — reserved. |
 | `(P_BOOT,)` | Block-bootstrap empirical p — singleton, no parametric test statistic to publish. |
 | `(J_GMM, P_GMM)` | Hansen (1982) GMM J-statistic + right-tail p (`1 - χ²_df.cdf(J)`) on a moment-condition system. Populated by `factrix.stats.GMM` (#191); see [Estimator alternatives](estimator-alternatives.md#gmm-moment-condition-tests) for usage. |
@@ -121,13 +121,13 @@ chain:
 The FWER procedures (Holm step-down / Bonferroni / Romano-Wolf
 bootstrap step-down) live as private helpers under
 `factrix._stats.multiple_testing`; they ship in #153 and are
-consumed by the slice-test verbs in #176 — the verb's
+consumed by the slice-test functions in #176 — the function's
 default-selection logic picks Holm for time-disjoint slices and
 Romano-Wolf for date-shared slices.
 
 ## Estimator protocol
 
-Three-layer protocol: base `Estimator` for family-verb selection
+Three-layer protocol: base `Estimator` for family-function selection
 (`bhy(profiles, estimator=...)`); `HACEstimator(Estimator)` for
 evaluate-time HAC-on-mean dispatch (`AnalysisConfig.estimator=`);
 `MomentEstimator(Estimator)` for over-identifying-restriction tests

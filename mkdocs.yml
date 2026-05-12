@@ -13,6 +13,7 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    - navigation.expand
     - navigation.top
     - navigation.indexes
     - navigation.path
@@ -160,18 +161,24 @@ nav:
       - Panel schema: api/panel-schema.md
       - Decision tree: api/decision-tree.md
       - Entry points:
-          - AnalysisConfig: api/analysis-config.md
-          - evaluate: api/evaluate.md
-          - run_metrics: api/run-metrics.md
-          - by_slice: api/by-slice.md
-          - slice_pairwise_test / slice_joint_test: api/slice-test.md
-          - multi_factor: api/multi-factor.md
-          - partial_conjunction: api/partial-conjunction.md
-          - bhy_hierarchical: api/bhy-hierarchical.md
-          - list_metrics: api/list-metrics.md
-          - list_estimators: api/list-estimators.md
-          - suggest_config: api/suggest-config.md
-          - compare: api/compare.md
+          - Core:
+              - AnalysisConfig: api/analysis-config.md
+              - evaluate: api/evaluate.md
+              - run_metrics: api/run-metrics.md
+          - Slicing:
+              - by_slice: api/by-slice.md
+              - slice_pairwise_test / slice_joint_test: api/slice-test.md
+          - Multi-factor:
+              - api/multi-factor.md
+              - bhy: api/bhy.md
+              - partial_conjunction: api/partial-conjunction.md
+              - bhy_hierarchical: api/bhy-hierarchical.md
+          - Discovery:
+              - list_metrics: api/list-metrics.md
+              - list_estimators: api/list-estimators.md
+              - suggest_config: api/suggest-config.md
+          - Diagnostics:
+              - compare: api/compare.md
       - Results:
           - FactorProfile: api/factor-profile.md
           - MetricsBundle: api/metrics-bundle.md
