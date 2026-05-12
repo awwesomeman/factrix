@@ -549,27 +549,42 @@ def bhy_hierarchical(
 ) -> Survivors:
     """Hierarchical BHY: control FDR across groups then within groups.
 
-    For factor sets with a natural group structure (momentum / value /
+    For factor sets with natural group structure (momentum / value /
     quality families; cross-region universes), the Yekutieli 2008
     two-stage procedure controls *group-level* FDR ≤ ``q`` on the outer
     layer (Simes group representative + BHY) and *within-group* FDR
     ≤ ``q`` on the inner layer (BHY restricted to passing groups). Flat
     BHY across the whole input loses group-level interpretability and
-    pays full m-correction even when most groups are dead; this verb
-    keeps the group answer first-class.
+    pays full m-correction even when most groups are dead.
+
+    Pick this over the alternatives by survivor unit and claim shape:
+
+    +-----------------------------+-------------------+-----------------------+
+    | Claim                       | Survivor unit     | Function              |
+    +=============================+===================+=======================+
+    | "factor X significant in    | (factor, context) | ``bhy(expand_over=)`` |
+    | each universe / horizon"    | pair              |                       |
+    +-----------------------------+-------------------+-----------------------+
+    | "factor X significant in    | factor identity   | ``partial_conjunction``|
+    | >= k of m conditions"       |                   |                       |
+    +-----------------------------+-------------------+-----------------------+
+    | "which families have signal,| factor identity   | ``bhy_hierarchical``  |
+    | and within those, which     | (group-then-      |                       |
+    | factors"                    | within FDR)       |                       |
+    +-----------------------------+-------------------+-----------------------+
 
     Args:
         profiles: Iterable of :class:`FactorProfile`. Each profile is
             assigned to one group via ``profile.context[group]``;
             within a group, ``(factor_id, forward_periods)`` must be
-            unique (the standard ``_resolve_family`` partition-key
-            check).
+            unique. Stamp the group label upstream of the call —
+            either ``evaluate(..., context={"family": "momentum"})``
+            or post-hoc via ``dataclasses.replace(profile, context={
+            **profile.context, "family": "momentum"})``.
         group: Single context key naming the group axis (e.g.
             ``"family"`` for momentum / value / quality, ``"region"``
             for cross-region replication). Identity dimensions
-            (``factor_id`` / ``forward_periods``) are rejected — using
-            them as group keys collapses each cell to its own group
-            and trivializes the procedure.
+            (``factor_id`` / ``forward_periods``) are rejected.
         estimator: Optional inference-method override. ``None`` uses
             each profile's ``primary_p``.
         q: Nominal FDR target shared by both layers. Default ``0.05``.
@@ -578,16 +593,45 @@ def bhy_hierarchical(
         :class:`Survivors` in input order. ``adj_p`` is the
         max-of-layers fold ``max(outer_adj_p[g], inner_adj_p[i])`` so
         the universal duality ``survivor[i] iff adj_p[i] <= q`` holds.
-        ``n_tests`` maps group key to its inner family size;
-        ``expand_over`` is ``(group,)`` and per-survivor group labels
-        are recoverable via ``profile.context[group]``.
+        ``n_tests`` maps each group key to its inner family size
+        (covers *all* input groups, not just survivors — counter to
+        ``partial_conjunction`` which keeps surviving identities
+        only). ``expand_over`` is ``(group,)``; per-survivor group
+        labels are recoverable via ``profile.context[group]``.
 
     Raises:
-        UserInputError: ``group`` shadows an identity dimension
-            (``factor_id`` / ``forward_periods``); ``group`` missing
-            from a profile's ``context``; duplicate ``(identity,
-            group_value)`` partition key; estimator applicability
-            failures (per ``_resolve_family``).
+        UserInputError: ``group`` shadows an identity dimension; key
+            missing from a profile's ``context``; only one distinct
+            group value in the input (call ``bhy`` instead); every
+            profile is its own group at ``n >= 3`` (group axis is
+            near-unique — pick a coarser categorical); duplicate
+            ``(identity, group_value)`` partition key; estimator
+            applicability failures.
+
+    Warns:
+        RuntimeWarning: More than half of input groups contain a
+            single profile — inner BHY on n=1 is a raw cutoff and
+            the outer Simes representative equals that single p, so
+            those groups get no FDR correction at either layer.
+
+    Caveats:
+        - **Simes as the outer representative**: dominates Bonferroni
+          ``m * min(p)`` and is the Yekutieli 2008 recommended choice.
+          The kwarg is not exposed at v1 (Edgington-style mean p has
+          no valid null; Bonferroni-min is strictly worse than Simes
+          under the procedure's PRDS assumption).
+        - **PRDS within group**: Simes is valid under positive
+          regression dependence (typical for factors within one
+          family — they share style exposure). If a group mixes
+          structurally opposite factors (e.g. momentum and reversal
+          in one bucket), the within-group PRDS assumption can fail;
+          use ``bonferroni`` for that bucket or split the group.
+        - **Pre-filtered input**: this verb assumes the input *is*
+          the candidate family. If profiles came from upstream
+          pre-filtering (e.g. top-50 of 500 candidates), the FDR
+          claim does not cover the full screening pipeline — count K
+          accordingly per the Haircut Sharpe / experiment-log
+          discipline.
 
     References:
         Yekutieli, D. (2008). "Hierarchical false discovery rate-
