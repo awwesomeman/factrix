@@ -442,13 +442,13 @@ def pooled_ols(
             return MetricOutput(
                 name="pooled_beta",
                 value=slope,
+                n_obs=n_obs,
                 stat=None,
                 significance="",
                 metadata={
                     "reason": "insufficient_clusters",
                     "n_clusters": g_a,
                     "min_required": 3,
-                    "n_obs": n_obs,
                     "p_value": 1.0,
                 },
             )
@@ -470,13 +470,13 @@ def pooled_ols(
             return MetricOutput(
                 name="pooled_beta",
                 value=slope,
+                n_obs=n_obs,
                 stat=None,
                 significance="",
                 metadata={
                     "reason": "insufficient_clusters",
                     "n_clusters": min(g_a, g_b),
                     "min_required": 3,
-                    "n_obs": n_obs,
                     "n_clusters_a": g_a,
                     "n_clusters_b": g_b,
                     "p_value": 1.0,
@@ -531,7 +531,6 @@ def pooled_ols(
         "stat_type": "t",
         "h0": "β=0",
         "method": method_desc,
-        "n_obs": n_obs,
         **cluster_metadata,
     }
     if non_psd_fallback:
@@ -540,6 +539,7 @@ def pooled_ols(
     return MetricOutput(
         name="pooled_beta",
         value=slope,
+        n_obs=n_obs,
         stat=t_stat,
         significance=_significance_marker(p),
         metadata=metadata,

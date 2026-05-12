@@ -2,11 +2,14 @@
 
 The unified return type produced by every metric in
 [`factrix.metrics`](metrics/index.md). A single dataclass carrying
-the canonical scalar (`value`), the test statistic (`stat`), the
-significance marker, and a `metadata` dict for everything else
-(p-value, method label, sample-size diagnostics, short-circuit
-reason). All metrics — cell-canonical or auxiliary — return this
-shape so downstream code can treat every metric uniformly.
+the canonical scalar (`value`), the sample size the estimator saw
+(`n_obs`), the test statistic (`stat`), the significance marker, and
+a `metadata` dict for everything else (p-value, method label,
+short-circuit reason, secondary diagnostics). All metrics — primary
+or auxiliary — return this shape so downstream code can treat every
+metric uniformly. `n_obs` shares its name with `FactorProfile.n_obs`
+but a different scope: per-metric single-stage count vs. the
+final-stage test denominator at the dispatched-cell level.
 
 ::: factrix.MetricOutput
 
