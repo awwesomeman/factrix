@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import StatCode
 from factrix._registry import _SCOPE_COLLAPSED, _DispatchKey, register
+from factrix.stats import InferenceResult
 
 # ---------------------------------------------------------------------------
 # Metadata helpers (#188)
@@ -59,10 +60,14 @@ def _panel_envelope(
 
 
 def _nw_metadata(nw_lags: int) -> dict[StatCode, Mapping[str, Any]]:
-    """NW HAC bandwidth → ``T_NW`` + ``P`` (shared single bandwidth choice).
+    """NW HAC bandwidth → ``T_NW`` + ``P_NW`` for procedures that bypass
+    ``HACEstimator.compute`` (regression-slope NW: TS β / TS dummy).
 
-    Returns a fresh inner dict per StatCode so downstream code that
-    mutates one entry does not silently bleed into the other.
+    These cells run NW HAC on an OLS slope rather than a series mean,
+    which doesn't fit the ``HACEstimator.compute(series, *,
+    forward_periods)`` contract. Inference dispatch awaits a future
+    slope-shaped sub-protocol; until then, the procedure keeps its
+    own metadata stitch.
     """
     return {
         StatCode.T_NW: {"nw_lags": nw_lags},
@@ -88,57 +93,26 @@ def _hhi_metadata(n_bins: int) -> dict[StatCode, Mapping[str, Any]]:
     return {StatCode.EVENT_HHI_VALUE: {"n_bins": n_bins}}
 
 
-def _hh_metadata(clamped: bool) -> dict[StatCode, Mapping[str, Any]]:
-    """HH-pure rectangular-kernel HAC → ``T_HH`` / ``P_HH`` reproducibility record.
+def _hac_inference(
+    cfg: AnalysisConfig,
+    series: Any,
+) -> tuple[InferenceResult, dict[StatCode, float], dict[StatCode, Mapping[str, Any]]]:
+    """Dispatch ``cfg.estimator.compute`` and stitch the inference layer.
 
-    ``variance_clamped=True`` mirrors the ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``
-    flag (γ₀ + 2 Σγⱼ < 0 → SE clamped to 0 → t_HH = 0, p_HH = 1.0). The
-    lag count ``h - 1`` is derivable from ``profile.config.forward_periods``
-    so it is not duplicated here. An equivalent (but independent) record
-    is stored under both ``T_HH`` and ``P_HH`` so downstream mutation of
-    one entry does not silently bleed into the other — same contract
-    ``_nw_metadata`` carries for the ``(T_NW, P)`` pair.
+    Returns ``(result, stats, metadata)`` keyed by the StatCode the
+    estimator emits. Descriptive stats (e.g. ``MEAN``) and procedure-
+    side warnings live on the caller side — the helper only stitches
+    the t / p / metadata pair. Inner metadata dicts are fresh per
+    StatCode so downstream mutation of one entry does not bleed into
+    the other (mirrors the v0.5 ``_nw_metadata`` contract).
     """
-    return {
-        StatCode.T_HH: {"kernel": "rectangular", "variance_clamped": clamped},
-        StatCode.P_HH: {"kernel": "rectangular", "variance_clamped": clamped},
+    result = cfg.estimator.compute(series, forward_periods=cfg.forward_periods)
+    stats = {result.stat_name: result.stat, result.p_name: result.p}
+    metadata = {
+        result.stat_name: dict(result.metadata),
+        result.p_name: dict(result.metadata),
     }
-
-
-def _emit_hh_p(
-    values: Any,
-    *,
-    forward_periods: int,
-    stats: dict[StatCode, float],
-    metadata: dict[StatCode, Mapping[str, Any]],
-    warnings: frozenset[WarningCode],
-) -> frozenset[WarningCode]:
-    """Compute and stitch the HH t-test result into a procedure's outputs.
-
-    No-op when ``forward_periods <= 1`` (no overlap → HH collapses to
-    iid SE; ``HansenHodrick`` lands on the missing-stat error). Otherwise
-    populates ``stats[P_HH]``, merges ``_hh_metadata``, and folds in
-    ``RECT_KERNEL_NEGATIVE_VARIANCE`` when the rectangular-kernel sum
-    came out negative. The series is consumed as-is (post-null-drop):
-    same compromise NW makes — strictly the MA(h-1) structure assumes
-    1-calendar-unit spacing, but null IC / FM dates are rare zero-variance
-    cases and re-densifying would distort the mean.
-    """
-    from factrix._codes import WarningCode
-    from factrix._stats import _hansen_hodrick_t_test
-
-    if forward_periods <= 1:
-        return warnings
-
-    t_hh, p_hh, _, hh_clamped = _hansen_hodrick_t_test(
-        values, forward_periods=forward_periods
-    )
-    stats[StatCode.T_HH] = t_hh
-    stats[StatCode.P_HH] = p_hh
-    metadata.update(_hh_metadata(hh_clamped))
-    if hh_clamped:
-        warnings |= frozenset({WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE})
-    return warnings
+    return result, stats, metadata
 
 
 if TYPE_CHECKING:
@@ -205,10 +179,8 @@ class _ICContPanelProcedure:
     ) -> FactorProfile:
         import numpy as np
 
-        from factrix._codes import StatCode, WarningCode
+        from factrix._codes import StatCode
         from factrix._profile import FactorProfile
-        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
-        from factrix._stats.constants import auto_bartlett
         from factrix.metrics.ic import compute_ic
 
         # ``compute_ic`` filters by MIN_ASSETS_PER_DATE_IC but does not drop nulls;
@@ -217,48 +189,25 @@ class _ICContPanelProcedure:
         ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
         n_periods = len(ic_values)
         n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
-        # Plan §5.2 picks NW1994 auto_bartlett as the default lag, but
-        # h-period forward returns force MA(h-1) structure on the IC
-        # series so we floor at ``forward_periods - 1`` (Hansen-Hodrick
-        # 1980) to keep the HAC SE consistent. ``_resolve_nw_lags``
-        # applies that floor and the ``min(., n_periods-1)`` clip in one place.
-        nw_lags = (
-            _resolve_nw_lags(
-                n_periods, auto_bartlett(n_periods), config.forward_periods
-            )
-            if n_periods >= 2
-            else 0
-        )
         ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0
-        t_stat, p_value, _ = _newey_west_t_test(ic_values, lags=nw_lags)
 
-        stats: dict[StatCode, float] = {
-            StatCode.MEAN: ic_mean,
-            StatCode.T_NW: t_stat,
-            StatCode.P_NW: p_value,
-        }
-        metadata = _nw_metadata(nw_lags)
-        warnings = _emit_hh_p(
-            ic_values,
-            forward_periods=config.forward_periods,
-            stats=stats,
-            metadata=metadata,
-            warnings=frozenset[WarningCode](),
-        )
+        result, stats, metadata = _hac_inference(config, ic_values)
+        stats[StatCode.MEAN] = ic_mean
 
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
-            primary_p=p_value,
-            primary_stat=t_stat,
-            primary_stat_name=StatCode.T_NW,
+            primary_p=result.p,
+            primary_stat=result.stat,
+            primary_stat_name=result.stat_name,
             n_obs=n_periods,
             n_pairs=n_pairs,
             n_periods=n_periods_raw,
             n_assets=n_assets,
-            warnings=warnings,
+            warnings=result.warnings,
             stats=stats,
             metadata=metadata,
+            context={"estimator": config.estimator.name},
         )
 
 
@@ -292,62 +241,32 @@ class _FMContPanelProcedure:
     ) -> FactorProfile:
         import numpy as np
 
-        from factrix._codes import StatCode, WarningCode
+        from factrix._codes import StatCode
         from factrix._profile import FactorProfile
-        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
-        from factrix._stats.constants import auto_bartlett
-        from factrix.metrics.fama_macbeth import (
-            MIN_FM_PERIODS_HARD,
-            MIN_FM_PERIODS_WARN,
-            compute_fm_betas,
-        )
+        from factrix.metrics.fama_macbeth import compute_fm_betas
 
         beta_values = compute_fm_betas(raw)["beta"].drop_nulls().to_numpy()
         n_periods = len(beta_values)
         n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
-        nw_lags = (
-            _resolve_nw_lags(
-                n_periods, auto_bartlett(n_periods), config.forward_periods
-            )
-            if n_periods >= 2
-            else 0
-        )
         lambda_mean = float(np.mean(beta_values)) if n_periods > 0 else 0.0
-        t_stat, p_value, _ = _newey_west_t_test(beta_values, lags=nw_lags)
 
-        warning_codes: frozenset[WarningCode] = (
-            frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
-            if MIN_FM_PERIODS_HARD <= n_periods < MIN_FM_PERIODS_WARN
-            else frozenset()
-        )
-
-        stats: dict[StatCode, float] = {
-            StatCode.MEAN: lambda_mean,
-            StatCode.T_NW: t_stat,
-            StatCode.P_NW: p_value,
-        }
-        metadata = _nw_metadata(nw_lags)
-        warning_codes = _emit_hh_p(
-            beta_values,
-            forward_periods=config.forward_periods,
-            stats=stats,
-            metadata=metadata,
-            warnings=warning_codes,
-        )
+        result, stats, metadata = _hac_inference(config, beta_values)
+        stats[StatCode.MEAN] = lambda_mean
 
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
-            primary_p=p_value,
-            primary_stat=t_stat,
-            primary_stat_name=StatCode.T_NW,
+            primary_p=result.p,
+            primary_stat=result.stat,
+            primary_stat_name=result.stat_name,
             n_obs=n_periods,
             n_pairs=n_pairs,
             n_periods=n_periods_raw,
             n_assets=n_assets,
-            warnings=warning_codes,
+            warnings=result.warnings,
             stats=stats,
             metadata=metadata,
+            context={"estimator": config.estimator.name},
         )
 
 
@@ -397,8 +316,6 @@ class _CAARSparsePanelProcedure:
 
         from factrix._codes import StatCode, WarningCode
         from factrix._profile import FactorProfile
-        from factrix._stats import _newey_west_t_test, _resolve_nw_lags
-        from factrix._stats.constants import auto_bartlett
         from factrix._types import MIN_EVENTS_HARD, MIN_EVENTS_WARN
         from factrix.metrics._helpers import _is_sparse_magnitude_weighted
         from factrix.metrics.caar import compute_caar
@@ -427,34 +344,24 @@ class _CAARSparsePanelProcedure:
             if event_caar.height > 0
             else 0.0
         )
-        nw_lags = (
-            _resolve_nw_lags(
-                n_periods,
-                auto_bartlett(n_periods),
-                config.forward_periods,
-            )
-            if n_periods >= 2
-            else 0
-        )
-        t_stat, p_value, _ = _newey_west_t_test(caar_dense, lags=nw_lags)
+
+        result, stats, metadata = _hac_inference(config, caar_dense)
+        stats[StatCode.MEAN] = event_mean
 
         return FactorProfile(
             config=config,
             mode=Mode.PANEL,
-            primary_p=p_value,
-            primary_stat=t_stat,
-            primary_stat_name=StatCode.T_NW,
+            primary_p=result.p,
+            primary_stat=result.stat,
+            primary_stat_name=result.stat_name,
             n_obs=n_periods,
             n_pairs=n_pairs,
             n_periods=n_periods_raw,
             n_assets=n_assets,
-            warnings=frozenset(warning_codes),
-            stats={
-                StatCode.MEAN: event_mean,
-                StatCode.T_NW: t_stat,
-                StatCode.P_NW: p_value,
-            },
-            metadata=_nw_metadata(nw_lags),
+            warnings=frozenset(warning_codes) | result.warnings,
+            stats=stats,
+            metadata=metadata,
+            context={"estimator": config.estimator.name},
         )
 
 
@@ -657,6 +564,7 @@ def _compute_common_panel(
         warnings=frozenset(warnings),
         stats=stats,
         metadata=metadata,
+        context={"estimator": config.estimator.name},
     )
 
 
@@ -756,6 +664,7 @@ class _TSBetaContTimeseriesProcedure:
                 StatCode.FACTOR_ADF_P: adf_p,
             },
             metadata=_nw_metadata(nw_lags) | _adf_metadata(),
+            context={"estimator": config.estimator.name},
         )
 
 
@@ -871,6 +780,7 @@ class _TSDummySparseTimeseriesProcedure:
                 | _ljung_box_metadata(ljung_box_h)
                 | _hhi_metadata(_HHI_N_BINS)
             ),
+            context={"estimator": config.estimator.name},
         )
 
 

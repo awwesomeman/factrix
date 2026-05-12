@@ -98,9 +98,9 @@ def test_evaluate_default_factor_col_stamps_canonical_name() -> None:
     assert profile.factor_id == "factor"
 
 
-def test_context_empty_by_default() -> None:
+def test_context_carries_estimator_provenance() -> None:
     profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
-    assert dict(profile.context) == {}
+    assert dict(profile.context) == {"estimator": "NeweyWest"}
 
 
 def test_diagnose_includes_identity_and_context() -> None:
@@ -110,7 +110,7 @@ def test_diagnose_includes_identity_and_context() -> None:
         "factor_id": "momentum_12_1",
         "forward_periods": 7,
     }
-    assert d["context"] == {}
+    assert d["context"] == {"estimator": "NeweyWest"}
 
 
 def test_replace_preserves_identity_when_only_other_fields_change() -> None:

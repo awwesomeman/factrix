@@ -1,10 +1,11 @@
-"""IC PANEL + FM PANEL procedures emit ``StatCode.P_HH`` (#184).
+"""IC PANEL + FM PANEL procedures dispatch HH via ``cfg.estimator`` (#163, #184).
 
-Procedure-side wiring: when ``forward_periods > 1`` the IC / FM
-procedures populate ``P_HH`` alongside ``P``, set the kernel + clamp
-metadata, and ``HansenHodrick`` dispatched via ``bhy(estimator=...)``
-reads it. ``forward_periods=1`` (no overlap) skips the emission so the
-estimator lands on a missing-stat error rather than aliasing NW.
+Procedure-side wiring: when ``AnalysisConfig.estimator=HansenHodrick()``
+and ``forward_periods > 1`` the IC / FM procedures populate
+``primary_p`` / ``primary_stat`` from the HH path, keying ``P_HH`` /
+``T_HH`` in ``profile.stats`` with kernel + clamp metadata; default
+``NeweyWest()`` does NOT emit ``P_HH`` (#163 D9 BREAKING — v0.11's
+"auto-emit both" side-emission is removed).
 """
 
 from __future__ import annotations
@@ -49,10 +50,12 @@ def _build_panel(
 
 
 @pytest.mark.parametrize("metric", [Metric.IC, Metric.FM])
-class TestProcedureEmitsPHh:
-    def test_emits_p_hh_when_overlap(self, metric: Metric) -> None:
+class TestHHDispatch:
+    def test_emits_p_hh_under_hh_estimator(self, metric: Metric) -> None:
         panel = _build_panel(n_dates=80, n_assets=15, seed=1)
-        cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
+        cfg = AnalysisConfig.individual_continuous(
+            metric=metric, forward_periods=5, estimator=HansenHodrick()
+        )
         profile = evaluate(panel, cfg)
         assert StatCode.P_HH in profile.stats
         assert StatCode.T_HH in profile.stats
@@ -63,29 +66,47 @@ class TestProcedureEmitsPHh:
         meta = profile.metadata[StatCode.P_HH]
         assert meta["kernel"] == "rectangular"
         assert meta["variance_clamped"] is False
-        # Same metadata mirrored under T_HH so single-key lookup stays honest.
         assert profile.metadata[StatCode.T_HH] == meta
 
-    def test_no_emission_when_forward_periods_one(self, metric: Metric) -> None:
+    def test_primary_p_is_hh_under_hh_estimator(self, metric: Metric) -> None:
+        panel = _build_panel(n_dates=80, n_assets=15, seed=1)
+        cfg = AnalysisConfig.individual_continuous(
+            metric=metric, forward_periods=5, estimator=HansenHodrick()
+        )
+        profile = evaluate(panel, cfg)
+        assert profile.primary_stat_name == StatCode.T_HH
+        assert profile.primary_p == profile.stats[StatCode.P_HH]
+
+    def test_default_nw_does_not_emit_p_hh(self, metric: Metric) -> None:
         panel = _build_panel(n_dates=80, n_assets=15, seed=2)
-        cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=1)
+        cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
         profile = evaluate(panel, cfg)
         assert StatCode.P_HH not in profile.stats
         assert StatCode.T_HH not in profile.stats
         assert StatCode.P_NW in profile.stats
 
-    def test_bhy_dispatches_hh_p_value(self, metric: Metric) -> None:
+    def test_context_records_hh(self, metric: Metric) -> None:
         panel = _build_panel(n_dates=80, n_assets=15, seed=3)
-        cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
+        cfg = AnalysisConfig.individual_continuous(
+            metric=metric, forward_periods=5, estimator=HansenHodrick()
+        )
+        profile = evaluate(panel, cfg)
+        assert profile.context["estimator"] == "HansenHodrick"
+
+    def test_bhy_dispatches_hh_p_value(self, metric: Metric) -> None:
+        # Strong factor signal so the single profile survives bhy at q=0.05.
+        panel = _build_panel(n_dates=80, n_assets=15, seed=3, factor_strength=0.4)
+        cfg = AnalysisConfig.individual_continuous(
+            metric=metric, forward_periods=5, estimator=HansenHodrick()
+        )
         profile = evaluate(panel, cfg)
         family = bhy([profile], estimator=HansenHodrick())
-        # The single-profile family must read p from StatCode.P_HH, not the
-        # NW-canonical primary_p — confirm by comparing to the source value.
         assert family.profiles[0].stats[StatCode.P_HH] == profile.stats[StatCode.P_HH]
 
     def test_bhy_missing_p_hh_raises_user_input_error(self, metric: Metric) -> None:
-        panel = _build_panel(n_dates=80, n_assets=15, seed=4)
-        cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=1)
+        panel = _build_panel(n_dates=80, n_assets=15, seed=5)
+        # Default NW cfg — no P_HH emitted regardless of forward_periods now.
+        cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
         profile = evaluate(panel, cfg)
         with pytest.raises(UserInputError) as exc:
             bhy([profile], estimator=HansenHodrick())
@@ -116,7 +137,9 @@ class TestNegativeVarianceWarning:
                     }
                 )
         panel = pl.DataFrame(rows)
-        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC, forward_periods=2)
+        cfg = AnalysisConfig.individual_continuous(
+            metric=Metric.IC, forward_periods=2, estimator=HansenHodrick()
+        )
         profile = evaluate(panel, cfg)
         assert WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE in profile.warnings
         assert profile.metadata[StatCode.P_HH]["variance_clamped"] is True
