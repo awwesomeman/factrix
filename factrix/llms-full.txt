@@ -108,7 +108,7 @@ profiles  = [
 survivors = fx.multi_factor.bhy(profiles, q=0.05)
 # survivors: Survivors container.
 #   .profiles    : list[FactorProfile] passing BHY at FDR 0.05 (input order)
-#   .adj_q       : np.ndarray of bucket-local BHY-adjusted p-values, aligned
+#   .adj_p       : np.ndarray of bucket-local BHY-adjusted p-values, aligned
 #   .q           : nominal target you passed
 #   .expand_over : tuple of context keys used to split families ((), or e.g. ("regime_id",))
 #   .n_total     : Mapping[bucket_key, m_per_bucket] for two-stage screening audit
@@ -345,17 +345,17 @@ in expand_over` (Benjamini & Bogomolov 2014 selective inference). Cell
 / horizon partitioning is the caller's responsibility (#161 retired
 the implicit `(dispatch cell, forward_periods)` auto-split).
 
-Returns a `Survivors` container with `.profiles` (input order), `.adj_q`
+Returns a `Survivors` container with `.profiles` (input order), `.adj_p`
 (bucket-local BHY-adjusted p-values, same length as `.profiles`), `.q`,
 `.expand_over` (tuple), and `.n_total` (Mapping keyed by each bucket's
 expand_over_values tuple — `()` in the single-family case). `Survivors`
 carries only the kept rows; `bhy` constructs the survivor index set as
 `{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket, then slices both
-`.profiles` and `.adj_q` to that set. Survivor membership and the
+`.profiles` and `.adj_p` to that set. Survivor membership and the
 adjusted p-values downstream code reads come from the same
 `bhy_adjusted_p` call, so they cannot disagree on ties or boundary
 cases. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter —
-three-column `identity | primary_p | adj_q` text and HTML table, plus
+three-column `identity | primary_p | adj_p` text and HTML table, plus
 an `expand_over_values` column when buckets are declared.
 
 `estimator=` overrides which inference method's p-value drives BHY.

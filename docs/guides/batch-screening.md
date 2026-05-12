@@ -23,7 +23,7 @@ survivors = fx.multi_factor.bhy(profiles, q=0.05)
 survivor_names = [p.factor_id for p in survivors.profiles]
 ```
 
-`evaluate()` stamps `factor_col` into `profile.factor_id`, so the survivor → name mapping reads off the survivor profiles directly — no external `name → profile` dict, no `is`-comparison idiom. `Survivors.profiles` lists the survivors in their original input order; `Survivors.adj_q` carries the bucket-local BHY-adjusted p in matching order.
+`evaluate()` stamps `factor_col` into `profile.factor_id`, so the survivor → name mapping reads off the survivor profiles directly — no external `name → profile` dict, no `is`-comparison idiom. `Survivors.profiles` lists the survivors in their original input order; `Survivors.adj_p` carries the bucket-local BHY-adjusted p in matching order.
 
 Each `evaluate` call repays the per-date cross-section overhead
 (sort / group-by / rank) on its own — that cost is intrinsic to
