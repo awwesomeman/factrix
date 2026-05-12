@@ -37,6 +37,8 @@ column) ready for `compute_forward_return`:
 [`fx.datasets.make_cs_panel`](datasets.md) (cross-sectional) and
 `fx.datasets.make_event_panel` (event-study).
 
+---
+
 ## `factor_col=` — non-default signal column name
 
 Panels often arrive with the signal column named something other than
@@ -67,6 +69,8 @@ Error cases (both raise [`UserInputError`](errors.md)):
 | `factor_col` not present on the panel | Lists the actual columns; suggests a fuzzy match. |
 | Both `"factor"` and `factor_col` present, values differ | Flags the ambiguity. Drop the unused column before calling. |
 
+---
+
 ## Optional columns
 
 Per-cell extensions activate additional standalone metrics when present
@@ -77,6 +81,8 @@ core procedure.
 |---|---|---|
 | `market_cap` (or any name passed as `weight_col=`) | `quantile_spread_vw` value-weighting | Individual × Continuous |
 | `price` | `event_around_return`, `mfe_mae_summary`, event-window diagnostics | Individual × Sparse |
+
+---
 
 ## Common errors
 
@@ -90,6 +96,8 @@ Schema-related failures and their fix paths:
 | `forward_return column missing` | Forgot the preprocess step | `panel = compute_forward_return(raw, forward_periods=h)` before `evaluate`. |
 
 Full error taxonomy and recovery patterns: [Errors](errors.md).
+
+---
 
 ## Preprocess pipeline
 
@@ -107,6 +115,8 @@ synthetic panels in [`factrix.datasets`](datasets.md). Wide-format
 multi-factor inputs are handled by looping `evaluate` / `run_metrics`
 with `factor_col=` rather than by reshaping the panel — see the
 [Batch screening guide](../guides/batch-screening.md).
+
+---
 
 ## See also
 

@@ -44,7 +44,14 @@ flowchart LR
 
 Click any node to jump to its API page.
 
-**Edge convention.** Solid `==>` is a hard signature dependency — the target function's call signature takes the source object literally (e.g. `evaluate(panel, cfg)` consumes the input `P`, and `bhy` / `partial_conjunction` / `bhy_hierarchical` consume a list of `FactorProfile`s that only `evaluate` produces). Dashed `-.->` is a suggested workflow — the source is panel-derived but the target function's signature differs in shape (`by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame built from the panel via e.g. `compute_ic(panel)`; `list_metrics` returns candidate names you pass to `run_metrics(metrics=[…])`).
+**Edge convention:**
+
+- **Solid `==>` — hard signature dependency.** The target's call signature literally accepts the source object.
+    - `evaluate(panel, cfg)` consumes `P` (the panel).
+    - `bhy` / `partial_conjunction` / `bhy_hierarchical` consume `list[FactorProfile]`, which only `evaluate` produces.
+- **Dashed `-.->` — suggested workflow.** The source is panel-derived, but the target's signature differs in shape.
+    - `by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame the caller builds from the panel (e.g. `compute_ic(panel)`).
+    - `list_metrics` returns candidate names the caller forwards to `run_metrics(metrics=[…])`.
 
 **Category encoding by node shape:**
 
@@ -57,6 +64,8 @@ Click any node to jump to its API page.
 | Parallelogram `[/ /]` | **Introspection** | Discover what is applicable to a cell |
 
 > The sixth category, **Compare-sensitivity** (`by_estimator`, #178), is not drawn — it lands in v0.14 once #263 unblocks HACEstimator parameter config + catalog expansion.
+
+---
 
 ## Typical patterns
 
@@ -71,6 +80,8 @@ Click any node to jump to its API page.
 | Cross-factor leaderboard | `compare(profiles)` / `compare(bundles)` / `compare(survivors)` → `pl.DataFrame` |
 
 See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end, and the [Batch screening with BHY](../guides/batch-screening.md) guide for the multi-factor screening workflow.
+
+---
 
 ## Entry points
 
@@ -91,6 +102,8 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |
 | [`stats`](stats.md) | Catalogue | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking an inference method to pass through `estimator=`. |
 
+---
+
 ## Supporting surface
 
 | Page | What it is |
@@ -104,6 +117,8 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 `describe_analysis_modes` is an introspection shim documented inline
 on [`AnalysisConfig`](analysis-config.md) and
 [Concepts](../getting-started/concepts.md).
+
+---
 
 ## Naming convention
 

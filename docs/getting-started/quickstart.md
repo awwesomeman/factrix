@@ -47,6 +47,8 @@ profile = fx.evaluate(panel, result.suggested)
 
 See [Concepts](concepts.md) for what each axis means.
 
+---
+
 ## Research question → factory
 
 The five supported research questions and their factory calls live in
@@ -59,6 +61,8 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
     `Mode` auto-switches to `TIMESERIES`. The `common_continuous` and
     `*_sparse` factories work as-is. `individual_continuous` at N=1 raises
     `ModeAxisError` with `suggested_fix=common_continuous(...)`.
+
+---
 
 ## `profile.diagnose()` and warnings
 
@@ -96,6 +100,8 @@ For the full enum and the trigger conditions for each `WarningCode`,
 `warnings` does **not** affect `primary_p` —
 it is a risk flag. The user decides whether to filter on warnings before
 BHY. For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
+
+---
 
 ## Next steps
 

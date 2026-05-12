@@ -4,11 +4,10 @@ Programmatic discovery of inference methods (`Estimator` instances)
 applicable to a given `(scope, signal)` cell — the inference-side twin
 of [`list_metrics`](list-metrics.md).
 
-A cell's primary p-value is produced by exactly one estimator
-(per #148 cell→procedure 1:1). Family verbs (`bhy`, `bhy_hierarchical`,
-`partial_conjunction`) accept an `estimator=` override that swaps which
-already-computed p-value drives the multiplicity step; this function
-returns the candidates for that override, filtered by cell applicability.
+Two contracts to keep in mind:
+
+- **Cell → procedure is 1:1** (per #148). A cell's primary p-value is produced by exactly one estimator at `evaluate` time.
+- **Family verbs accept an `estimator=` override.** `bhy` / `bhy_hierarchical` / `partial_conjunction` swap which already-computed p-value drives the multiplicity step. `list_estimators` returns the candidates for that override, filtered to those applicable to the cell.
 
 ## Call shape
 
@@ -27,6 +26,8 @@ fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
 
 `Mode` is intentionally not an input — estimator applicability is
 cell-axis-dependent (scope × signal), not panel-shape-dependent.
+
+---
 
 ## See also
 
