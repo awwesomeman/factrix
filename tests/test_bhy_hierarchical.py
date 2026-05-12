@@ -79,15 +79,11 @@ class TestProcedure:
         assert isinstance(sv, Survivors)
         assert sv.q == 0.05
         assert sv.expand_over == ("family",)
-        assert sv.group_id is not None
-        assert len(sv.group_id) == len(sv.profiles)
         assert set(sv.n_total.keys()) == {("momentum",), ("value",)}
 
     def test_all_dead_group_drops_out(self) -> None:
-        # momentum is alive (p ~ 0.001), value is dead (p ~ 0.9). Even
-        # though value's inner BHY would pass a low-p member, the outer
-        # Simes p for value (~ 0.9) fails the outer step-up at q=0.05,
-        # so no value-group cell can survive.
+        # Outer Simes on a dead group fails the outer step-up, so no
+        # cell in that group can survive even if its raw p is low.
         prof = [
             _profile(factor_id="a", primary_p=0.001, family="momentum"),
             _profile(factor_id="b", primary_p=0.001, family="momentum"),
@@ -95,7 +91,7 @@ class TestProcedure:
             _profile(factor_id="d", primary_p=0.95, family="value"),
         ]
         sv = bhy_hierarchical(prof, group="family", q=0.05)
-        surviving_families = {gid for gid in sv.group_id}
+        surviving_families = {p.context["family"] for p in sv.profiles}
         assert "value" not in surviving_families
         assert "momentum" in surviving_families
 
@@ -174,19 +170,13 @@ class TestEmpty:
         sv = bhy_hierarchical([], group="family", q=0.05)
         assert len(sv.profiles) == 0
         assert sv.expand_over == ("family",)
-        assert sv.group_id is not None
         assert sv.adj_p.shape == (0,)
 
 
 class TestSingleGroupDegeneration:
-    def test_single_group_inner_adj_matches_plain_bhy(self) -> None:
-        # With one group, outer Simes is the only group p; outer BHY on
-        # a single element returns that p unchanged. The max-of-layers
-        # fold then becomes max(simes_p, inner_adj_p_i) per cell. For
-        # most realistic single-group inputs this no longer equals
-        # plain bhy() — caller almost certainly meant to call bhy(). We
-        # document that surface drift here; a guardrail raise / warn is
-        # left to the PR-review polish pass (see #175 review §5).
+    def test_single_group_no_more_permissive_than_flat_bhy(self) -> None:
+        # Single-group input: the outer Simes floor can only lift adj_p
+        # above the flat-BHY value, never below it.
         prof = [
             _profile(factor_id="a", primary_p=0.001, family="only"),
             _profile(factor_id="b", primary_p=0.04, family="only"),
