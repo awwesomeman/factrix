@@ -325,7 +325,15 @@ files auto-update and which need manual maintenance.
 | `Matrix-row:` in `factrix/metrics/*.py` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/mkdocs_hooks/gen_metric_matrix.py` |
 | `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
 
-`docs/examples/*.md` are authored markdown — no build-time sync from notebooks. The `.ipynb` files under `examples/` are runnable mirrors maintained alongside but not the SSOT for the rendered site.
+#### Examples — markdown SSOT + optional runnable mirror
+
+`docs/examples/*.md` are hand-authored; markdown is the SSOT. The `examples/*.ipynb` files at repo root are *optional* runnable mirrors for users who want to step through a recipe interactively — they are not the source for the rendered site and not required.
+
+New example convention:
+
+- Write `docs/examples/<name>.md` directly. Match the shape of the two shipping recipes — frontmatter title, narrative blocks (`Factor type` / `Use this when` / `What it tests` / `Output to read`), numbered step sections, fenced code blocks with illustrative outputs in adjacent `text` / `json` fences.
+- Do **not** print `fx.__version__` or include trailing `print("<name>: ok")` smoke tests in the code blocks. Outputs in markdown are illustrative literals; pinning a version line invites drift on every release.
+- If interactive execution matters, also commit a parallel `examples/<name>.ipynb`. Link it from the markdown page header (`Runnable notebook: …`). Notebook drift is an independent maintenance debt — markdown wins on disagreement.
 
 ### Docs that still need manual maintenance
 
