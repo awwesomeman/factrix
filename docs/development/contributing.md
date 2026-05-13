@@ -325,6 +325,49 @@ files auto-update and which need manual maintenance.
 | `Matrix-row:` in `factrix/metrics/*.py` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/mkdocs_hooks/gen_metric_matrix.py` |
 | `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
 
+#### Docstring `Examples:` — runnable, copy-paste ready
+
+Every user-facing function reachable from the API Reference nav
+(`evaluate`, `run_metrics`, `by_slice`, `slice_pairwise_test`,
+`slice_joint_test`, `multi_factor.{bhy, partial_conjunction,
+bhy_hierarchical}`, `compare`, `suggest_config`, `list_metrics`,
+`list_estimators`) carries an `Examples:` block in its docstring.
+The docstring is the single source of truth — `.md` pages do not
+duplicate runnable examples, only document things the example
+cannot show (output schemas, attribute tables, semantic intent).
+
+Convention:
+
+- Section header is `Examples:` (plural, Google style).
+- Source uses `>>>` doctest prompt syntax. The Material copy button
+  is configured (via `docs/javascripts/copy-strip-pycon.js`) to
+  strip `>>>` prompts and expected-output lines from the clipboard
+  payload, so readers can copy a `pycon` block straight into a
+  REPL or script.
+- Show **call shape**, not fragile output. Lines starting with
+  `>>>` carry the educational value; expected-output lines (lines
+  without `>>>`) are reserved for values stable across BLAS / numpy
+  / polars / Python versions.
+- Avoid concrete floating-point values, DataFrame / array reprs, or
+  multi-line text reprs as expected output. If a value must be
+  shown, prefer structural facts (enum value, integer length,
+  boolean from `isinstance`).
+- Setup is self-contained — construct any required panel inline via
+  `fx.datasets.make_cs_panel(...)` + `compute_forward_return(...)`
+  so the snippet runs verbatim with no surrounding fixtures.
+
+This keeps the Examples blocks doctest-ready. Enabling
+`pytest --doctest-modules` in CI is tracked as a separate
+follow-up; once turned on, no per-example rewrite is needed
+provided new Examples follow the convention above.
+
+Page-level demo admonitions (`## Worked example`, `!!! example`
+blocks) are reserved for end-to-end demos that intentionally show
+something the docstring cannot — typically a longer
+synthetic-panel walk-through with `profile.diagnose()` output or a
+cross-cell config recipe table. They do not echo the docstring
+example.
+
 #### Examples — markdown SSOT + optional runnable mirror
 
 `docs/examples/*.md` are hand-authored; markdown is the SSOT. The `examples/*.ipynb` files at repo root are *optional* runnable mirrors for users who want to step through a recipe interactively — they are not the source for the rendered site and not required.
