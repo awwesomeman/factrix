@@ -69,7 +69,7 @@ extend stage-1 wiring per cell.
 fx.run_metrics(panel, cfg, metrics=["ic", "monotonicity"])
 ```
 
-Unknown names raise [`UserInputError`](errors.md) with a fuzzy
+Unknown names raise [`UserInputError`][factrix.UserInputError] with a fuzzy
 suggestion plus the full candidate list. Names registered for the
 cell but in the auto-discover exclusion set raise the same error type with
 the documented reason and the explicit-call recipe — `run_metrics`
@@ -158,8 +158,8 @@ Three classes, three responses:
 | Class | Source | What `run_metrics` does |
 |---|---|---|
 | **A** Sample-floor / data-quality | `InsufficientSampleError`, metric-internal `_short_circuit_output` | Convert to a short-circuit `MetricOutput` (`value=NaN`, `metadata["reason"]=...`) inside the bundle. Other metrics keep running. |
-| **B** User input | unknown / excluded `metrics=[...]`, missing / colliding `factor_col` | Raise [`UserInputError`](errors.md) with fuzzy suggestion + fix path. |
-| **C** Unexpected | bug in a metric callable or stage-1 helper | Raise [`RunMetricsError`](errors.md) wrapping the original exception (chained via `__cause__`); attributes `.cell`, `.metric_name`, `.stage` identify which metric broke. |
+| **B** User input | unknown / excluded `metrics=[...]`, missing / colliding `factor_col` | Raise [`UserInputError`][factrix.UserInputError] with fuzzy suggestion + fix path. |
+| **C** Unexpected | bug in a metric callable or stage-1 helper | Raise [`RunMetricsError`][factrix.RunMetricsError] wrapping the original exception (chained via `__cause__`); attributes `.cell`, `.metric_name`, `.stage` identify which metric broke. |
 
 A single `logging.info` line at logger name `factrix.run_metrics`
 summarises ran / skipped counts per call (observability hook for
