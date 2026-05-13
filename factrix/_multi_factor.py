@@ -85,6 +85,32 @@ class Survivors:
             ``adj_p`` survivor selection is the anti-shopping failure
             mode ``partial_conjunction`` exists to prevent. ``None``
             when the producing function is not ``partial_conjunction``.
+
+    Examples:
+        >>> import dataclasses
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profiles = [
+        ...     dataclasses.replace(
+        ...         fx.evaluate(
+        ...             compute_forward_return(
+        ...                 fx.datasets.make_cs_panel(n_assets=30, n_dates=120, seed=i),
+        ...                 forward_periods=5,
+        ...             ),
+        ...             cfg,
+        ...         ),
+        ...         factor_id=f"alpha_{i}",
+        ...     )
+        ...     for i in range(3)
+        ... ]
+        >>> survivors = fx.multi_factor.bhy(profiles, q=0.05)
+        >>> isinstance(survivors, fx.multi_factor.Survivors)
+        True
+        >>> len(survivors) == len(survivors.profiles)
+        True
+        >>> survivors.q == 0.05
+        True
     """
 
     profiles: list[FactorProfile]

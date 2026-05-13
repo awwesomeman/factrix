@@ -202,6 +202,22 @@ class AnalysisConfig:
         Returns:
             A validated ``AnalysisConfig`` for the
             ``(INDIVIDUAL, CONTINUOUS, metric)`` cell.
+
+        Examples:
+            >>> import factrix as fx
+            >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=10)
+            >>> cfg.scope is fx.FactorScope.INDIVIDUAL
+            True
+            >>> cfg.signal is fx.Signal.CONTINUOUS
+            True
+            >>> cfg.metric is fx.Metric.IC
+            True
+
+            Switch metric to Fama-MacBeth λ:
+
+            >>> cfg_fm = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.FM)
+            >>> cfg_fm.metric is fx.Metric.FM
+            True
         """
         return cls(
             FactorScope.INDIVIDUAL,
@@ -235,6 +251,16 @@ class AnalysisConfig:
         Returns:
             A validated ``AnalysisConfig`` for the
             ``(INDIVIDUAL, SPARSE, None)`` cell.
+
+        Examples:
+            >>> import factrix as fx
+            >>> cfg = fx.AnalysisConfig.individual_sparse(forward_periods=5)
+            >>> cfg.scope is fx.FactorScope.INDIVIDUAL
+            True
+            >>> cfg.signal is fx.Signal.SPARSE
+            True
+            >>> cfg.metric is None
+            True
         """
         return cls(
             FactorScope.INDIVIDUAL,
@@ -267,6 +293,16 @@ class AnalysisConfig:
         Returns:
             A validated ``AnalysisConfig`` for the
             ``(COMMON, CONTINUOUS, None)`` cell.
+
+        Examples:
+            >>> import factrix as fx
+            >>> cfg = fx.AnalysisConfig.common_continuous(forward_periods=5)
+            >>> cfg.scope is fx.FactorScope.COMMON
+            True
+            >>> cfg.signal is fx.Signal.CONTINUOUS
+            True
+            >>> cfg.metric is None
+            True
         """
         return cls(
             FactorScope.COMMON,
@@ -299,6 +335,16 @@ class AnalysisConfig:
         Returns:
             A validated ``AnalysisConfig`` for the
             ``(COMMON, SPARSE, None)`` cell.
+
+        Examples:
+            >>> import factrix as fx
+            >>> cfg = fx.AnalysisConfig.common_sparse(forward_periods=5)
+            >>> cfg.scope is fx.FactorScope.COMMON
+            True
+            >>> cfg.signal is fx.Signal.SPARSE
+            True
+            >>> cfg.metric is None
+            True
         """
         return cls(
             FactorScope.COMMON,

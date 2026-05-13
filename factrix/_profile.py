@@ -93,6 +93,20 @@ class FactorProfile:
             populates both ``T_NW`` and ``P`` from one bandwidth
             choice) duplicate the inner dict under both keys to keep
             single-key lookup honest (#188).
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profile = fx.evaluate(panel, cfg)
+        >>> isinstance(profile, fx.FactorProfile)
+        True
+        >>> 0.0 <= profile.primary_p <= 1.0
+        True
+        >>> profile.n_assets == 20
+        True
     """
 
     config: AnalysisConfig
@@ -171,6 +185,20 @@ class FactorProfile:
             (``primary_p`` / ``primary_stat`` / ``primary_stat_name``),
             sorted warning / info code names, and the full ``stats``
             mapping with enum keys converted to their string values.
+
+        Examples:
+            >>> import factrix as fx
+            >>> from factrix.preprocess import compute_forward_return
+            >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+            >>> panel = compute_forward_return(raw, forward_periods=5)
+            >>> profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous())
+            >>> d = profile.diagnose()
+            >>> isinstance(d, dict)
+            True
+            >>> set(["identity", "cell", "primary_p", "stats"]).issubset(d)
+            True
+            >>> d["cell"]["scope"] == "individual"
+            True
         """
         return {
             "identity": {

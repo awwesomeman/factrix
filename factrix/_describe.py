@@ -206,6 +206,15 @@ def describe_analysis_modes(
     cells exist") and groups by user-facing ``(scope, signal, metric)``
     so each row carries both ``PANEL`` and ``TIMESERIES`` information
     when registered. Plan §7.1.
+
+    Examples:
+        >>> import factrix as fx
+        >>> text = fx.describe_analysis_modes()
+        >>> isinstance(text, str)
+        True
+        >>> rows = fx.describe_analysis_modes(format="json")
+        >>> isinstance(rows, list) and all(isinstance(r, dict) for r in rows)
+        True
     """
     rows = [_row_for_tuple(*t) for t in _user_facing_axis_tuples()]
     if format == "json":
@@ -241,6 +250,17 @@ class SuggestConfigResult:
     | ``n_assets``         | int       | unique ``asset_id`` count                 |
     | ``n_periods``        | int       | unique ``date`` count                     |
     | ``sparsity``         | float     | zero-ratio in ``factor`` column           |
+
+    Examples:
+        >>> import factrix as fx
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> result = fx.suggest_config(raw)
+        >>> isinstance(result, fx.SuggestConfigResult)
+        True
+        >>> isinstance(result.suggested, fx.AnalysisConfig)
+        True
+        >>> set(result.detected) >= {"scope", "signal", "mode", "n_assets", "n_periods", "sparsity"}
+        True
     """
 
     suggested: AnalysisConfig
@@ -266,24 +286,16 @@ class SuggestConfigResult:
             the per-axis reasoning strings, and warnings as a sorted
             list of ``.value`` strings.
 
-        Example:
-            >>> result.diagnose()  # doctest: +SKIP
-            {
-                "suggested": {
-                    "scope": "individual",
-                    "signal": "continuous",
-                    "metric": "ic",
-                    "forward_periods": 5,
-                },
-                "detected": {
-                    "scope": "individual", "signal": "continuous",
-                    "mode": "panel", "n_assets": 100,
-                    "n_periods": 494, "sparsity": 0.0,
-                },
-                "reasoning": {"scope": "...", "signal": "...",
-                              "metric": "...", "mode": "..."},
-                "warnings": [],
-            }
+        Examples:
+            >>> import factrix as fx
+            >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+            >>> d = fx.suggest_config(raw).diagnose()
+            >>> isinstance(d, dict)
+            True
+            >>> set(d) == {"suggested", "detected", "reasoning", "warnings"}
+            True
+            >>> isinstance(d["suggested"], dict) and "scope" in d["suggested"]
+            True
         """
         return {
             "suggested": self.suggested.to_dict(),

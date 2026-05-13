@@ -80,6 +80,20 @@ class MetricsBundle:
             and the slice-test verb pair) populate via
             ``dataclasses.replace`` once available, or callers stamp
             manually after panel-side filtering.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())
+        >>> isinstance(bundle, fx.MetricsBundle)
+        True
+        >>> "ic" in bundle
+        True
+        >>> ic_output = bundle["ic"]
+        >>> bundle.identity == ("factor", 5)
+        True
     """
 
     identity: tuple[str, int]
@@ -190,6 +204,18 @@ class MetricsBundle:
 
         ``skipped`` entries do not appear; only successful and
         short-circuited ``MetricOutput`` rows are emitted.
+
+        Examples:
+            >>> import factrix as fx
+            >>> from factrix.preprocess import compute_forward_return
+            >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+            >>> panel = compute_forward_return(raw, forward_periods=5)
+            >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())
+            >>> df = bundle.to_frame()
+            >>> set(df.columns) >= {"factor_id", "metric", "value", "p_value"}
+            True
+            >>> df.height >= 1
+            True
         """
         rows = []
         for name, out in sorted(self.metrics.items()):
