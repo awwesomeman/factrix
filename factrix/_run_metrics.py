@@ -275,7 +275,7 @@ def _cell_label(cfg: AnalysisConfig) -> str:
 
 def _raise_factor_col_error(*, value: str, expected: str) -> None:
     raise UserInputError(
-        verb="run_metrics",
+        func_name="run_metrics",
         field="factor_col",
         value=value,
         expected=expected,
@@ -374,7 +374,7 @@ def run_metrics(
 
     if metrics is not None and not metrics:
         raise UserInputError(
-            verb="run_metrics",
+            func_name="run_metrics",
             field="metrics",
             value=metrics,
             expected=(
@@ -425,7 +425,7 @@ def run_metrics(
                 continue
             if name in excluded_reasons:
                 raise UserInputError(
-                    verb="run_metrics",
+                    func_name="run_metrics",
                     field="metrics",
                     value=name,
                     expected=(
@@ -437,7 +437,7 @@ def run_metrics(
                     docs_path="api/run_metrics#explicit-required-kwargs",
                 )
             raise UserInputError(
-                verb="run_metrics",
+                func_name="run_metrics",
                 field="metrics",
                 value=name,
                 candidates=runnable,

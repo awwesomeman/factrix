@@ -329,7 +329,7 @@ def bhy(
     _warn_on_mixed_horizons(profile_list, expand_over=expand_over)
 
     entries = _resolve_family(
-        profile_list, verb="bhy", expand_over=expand_over, estimator=estimator
+        profile_list, func_name="bhy", expand_over=expand_over, estimator=estimator
     )
 
     buckets: dict[tuple[Any, ...], list[int]] = defaultdict(list)
@@ -463,7 +463,7 @@ def partial_conjunction(
     if min_pass < 2:
         if min_pass == 1:
             raise UserInputError(
-                verb="partial_conjunction",
+                func_name="partial_conjunction",
                 field="min_pass",
                 value=min_pass,
                 expected=(
@@ -481,7 +481,7 @@ def partial_conjunction(
                 docs_path="api/partial-conjunction#min-pass-must-be-at-least-2",
             )
         raise UserInputError(
-            verb="partial_conjunction",
+            func_name="partial_conjunction",
             field="min_pass",
             value=min_pass,
             expected="positive integer >= 2",
@@ -490,7 +490,7 @@ def partial_conjunction(
 
     if not expand_over:
         raise UserInputError(
-            verb="partial_conjunction",
+            func_name="partial_conjunction",
             field="expand_over",
             value=expand_over,
             expected=(
@@ -505,7 +505,7 @@ def partial_conjunction(
 
     if n_conditions is not None and n_conditions < min_pass:
         raise UserInputError(
-            verb="partial_conjunction",
+            func_name="partial_conjunction",
             field="n_conditions",
             value=n_conditions,
             expected=(
@@ -532,7 +532,7 @@ def partial_conjunction(
 
     entries = _resolve_family(
         profile_list,
-        verb="partial_conjunction",
+        func_name="partial_conjunction",
         expand_over=expand_over,
         estimator=estimator,
     )
@@ -559,7 +559,7 @@ def partial_conjunction(
 
         if n_conditions is not None and m != n_conditions:
             raise UserInputError(
-                verb="partial_conjunction",
+                func_name="partial_conjunction",
                 field="n_conditions",
                 value=n_conditions,
                 expected=(
@@ -574,7 +574,7 @@ def partial_conjunction(
 
         if m < min_pass:
             raise UserInputError(
-                verb="partial_conjunction",
+                func_name="partial_conjunction",
                 field="profiles",
                 value=identity,
                 expected=(
@@ -755,7 +755,7 @@ def bhy_hierarchical(
 
     entries = _resolve_family(
         profile_list,
-        verb="bhy_hierarchical",
+        func_name="bhy_hierarchical",
         expand_over=[group],
         estimator=estimator,
     )
@@ -770,7 +770,7 @@ def bhy_hierarchical(
     n_groups = len(group_keys_ordered)
     if n_groups == 1:
         raise UserInputError(
-            verb="bhy_hierarchical",
+            func_name="bhy_hierarchical",
             field="group",
             value=group,
             expected=(
@@ -783,7 +783,7 @@ def bhy_hierarchical(
         )
     if n_groups == len(entries) and len(entries) >= 3:
         raise UserInputError(
-            verb="bhy_hierarchical",
+            func_name="bhy_hierarchical",
             field="group",
             value=group,
             expected=(

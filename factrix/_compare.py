@@ -93,7 +93,7 @@ def compare(
     if isinstance(artifacts, Survivors):
         if len(artifacts) == 0:
             raise UserInputError(
-                verb="compare",
+                func_name="compare",
                 field="artifacts",
                 value=artifacts,
                 expected="non-empty Survivors",
@@ -106,7 +106,7 @@ def compare(
         entries = list(artifacts)
         if not entries:
             raise UserInputError(
-                verb="compare",
+                func_name="compare",
                 field="artifacts",
                 value=entries,
                 expected="non-empty list of FactorProfile or MetricsBundle",
@@ -121,7 +121,7 @@ def compare(
     if sort_by is not None:
         if sort_by not in df.columns:
             raise UserInputError(
-                verb="compare",
+                func_name="compare",
                 field="sort_by",
                 value=sort_by,
                 candidates=df.columns,
@@ -140,7 +140,7 @@ def _classify(entries: list[Any]) -> type:
         kind = MetricsBundle
     else:
         raise UserInputError(
-            verb="compare",
+            func_name="compare",
             field="artifacts[0]",
             value=head,
             expected="FactorProfile or MetricsBundle",
@@ -154,7 +154,7 @@ def _classify(entries: list[Any]) -> type:
     if mismatches:
         rendered = ", ".join(f"[{i}]={name}" for i, name in mismatches)
         raise UserInputError(
-            verb="compare",
+            func_name="compare",
             field="artifacts",
             value=f"mixed types ({kind.__name__} + {rendered})",
             expected=f"all entries to be {kind.__name__}",

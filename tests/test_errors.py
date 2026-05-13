@@ -56,22 +56,6 @@ def test_attributes_exposed_for_programmatic_recovery() -> None:
     assert err.docs_url == ("https://awwesomeman.github.io/factrix/api/bhy#expand_over")
 
 
-def test_legacy_verb_kwarg_still_accepted_in_v0_13() -> None:
-    err = UserInputError(
-        verb="bhy",
-        field="expand_over",
-        value="x",
-        candidates=["universe_id"],
-        docs_path="api/bhy",
-    )
-    assert err.func_name == "bhy"
-
-
-def test_neither_func_name_nor_verb_raises_type_error() -> None:
-    with pytest.raises(TypeError, match="func_name"):
-        UserInputError(field="f", value=1, candidates=["a"], docs_path="api/x")
-
-
 def test_no_close_match_omits_suggestion() -> None:
     err = UserInputError(
         func_name="run_metrics",

@@ -44,7 +44,7 @@ def _profile(
 
 def test_default_path_no_expand_over_returns_one_entry_per_profile() -> None:
     profiles = [_profile(factor_id="f1"), _profile(factor_id="f2")]
-    entries = _resolve_family(profiles, verb="bhy")
+    entries = _resolve_family(profiles, func_name="bhy")
     assert [e.identity for e in entries] == [("f1", 5), ("f2", 5)]
     assert all(e.expand_over_values == () for e in entries)
     assert [e.p_value for e in entries] == [0.04, 0.04]
@@ -52,13 +52,13 @@ def test_default_path_no_expand_over_returns_one_entry_per_profile() -> None:
 
 def test_estimator_none_falls_back_to_primary_p() -> None:
     p = _profile(primary_p=0.012, stats={StatCode.P_NW: 0.5})
-    [entry] = _resolve_family([p], verb="bhy")
+    [entry] = _resolve_family([p], func_name="bhy")
     assert entry.p_value == 0.012
 
 
 def test_estimator_supplied_reads_dispatched_stat() -> None:
     p = _profile(primary_p=0.5, stats={StatCode.P_NW: 0.012})
-    [entry] = _resolve_family([p], verb="bhy", estimator=NeweyWest())
+    [entry] = _resolve_family([p], func_name="bhy", estimator=NeweyWest())
     assert entry.p_value == 0.012
 
 
@@ -82,7 +82,7 @@ def test_estimator_not_applicable_to_cell_raises() -> None:
 
     p = _profile(stats={StatCode.P_NW: 0.04})
     with pytest.raises(UserInputError) as exc:
-        _resolve_family([p], verb="bhy", estimator=_Picky())
+        _resolve_family([p], func_name="bhy", estimator=_Picky())
     err = exc.value
     assert err.field == "estimator"
     assert err.value == "Picky"
@@ -95,7 +95,7 @@ def test_expand_over_single_dim_partitions_per_context_value() -> None:
         _profile(factor_id="f1", context={"universe_id": "tw50"}),
         _profile(factor_id="f1", context={"universe_id": "tw100"}),
     ]
-    entries = _resolve_family(profiles, verb="bhy", expand_over=["universe_id"])
+    entries = _resolve_family(profiles, func_name="bhy", expand_over=["universe_id"])
     assert [e.expand_over_values for e in entries] == [("tw50",), ("tw100",)]
 
 
@@ -105,7 +105,7 @@ def test_expand_over_multi_dim_keeps_caller_key_order() -> None:
         _profile(factor_id="f1", context={"universe_id": "tw50", "regime_id": "bear"}),
     ]
     entries = _resolve_family(
-        profiles, verb="bhy", expand_over=["universe_id", "regime_id"]
+        profiles, func_name="bhy", expand_over=["universe_id", "regime_id"]
     )
     assert [e.expand_over_values for e in entries] == [
         ("tw50", "bull"),
@@ -116,7 +116,7 @@ def test_expand_over_multi_dim_keeps_caller_key_order() -> None:
 def test_unknown_expand_over_raises_with_fuzzy_suggestion() -> None:
     profiles = [_profile(context={"universe_id": "tw50", "regime_id": "bull"})]
     with pytest.raises(UserInputError) as exc:
-        _resolve_family(profiles, verb="bhy", expand_over=["univere_id"])
+        _resolve_family(profiles, func_name="bhy", expand_over=["univere_id"])
     err = exc.value
     assert err.field == "expand_over"
     assert err.value == "univere_id"
@@ -130,7 +130,7 @@ def test_expand_over_missing_on_some_profiles_raises() -> None:
         _profile(context={"universe_id": "tw50"}),  # no regime_id
     ]
     with pytest.raises(UserInputError) as exc:
-        _resolve_family(profiles, verb="bhy", expand_over=["regime_id"])
+        _resolve_family(profiles, func_name="bhy", expand_over=["regime_id"])
     assert exc.value.field == "expand_over"
     assert exc.value.value == "regime_id"
 
@@ -139,7 +139,7 @@ def test_expand_over_missing_on_some_profiles_raises() -> None:
 def test_expand_over_hitting_identity_raises(identity_field: str) -> None:
     profiles = [_profile(context={"universe_id": "tw50"})]
     with pytest.raises(UserInputError) as exc:
-        _resolve_family(profiles, verb="bhy", expand_over=[identity_field])
+        _resolve_family(profiles, func_name="bhy", expand_over=[identity_field])
     err = exc.value
     assert err.field == "expand_over"
     assert err.value == identity_field
@@ -152,7 +152,7 @@ def test_duplicate_partition_key_raises() -> None:
         _profile(factor_id="f1", forward_periods=5),
     ]
     with pytest.raises(UserInputError) as exc:
-        _resolve_family(profiles, verb="bhy")
+        _resolve_family(profiles, func_name="bhy")
     assert exc.value.field == "profiles"
     assert "duplicate" in str(exc.value)
 
@@ -163,7 +163,7 @@ def test_duplicate_partition_key_with_expand_over_compares_full_key() -> None:
         _profile(factor_id="f1", context={"universe_id": "tw50"}),
         _profile(factor_id="f1", context={"universe_id": "tw100"}),
     ]
-    entries = _resolve_family(profiles, verb="bhy", expand_over=["universe_id"])
+    entries = _resolve_family(profiles, func_name="bhy", expand_over=["universe_id"])
     assert len(entries) == 2
 
     # Same identity AND same expand_over value → duplicate.
@@ -172,7 +172,7 @@ def test_duplicate_partition_key_with_expand_over_compares_full_key() -> None:
         _profile(factor_id="f1", context={"universe_id": "tw50"}),
     ]
     with pytest.raises(UserInputError):
-        _resolve_family(dup, verb="bhy", expand_over=["universe_id"])
+        _resolve_family(dup, func_name="bhy", expand_over=["universe_id"])
 
 
 def test_missing_dispatched_stat_raises_with_available_keys() -> None:
@@ -193,7 +193,7 @@ def test_missing_dispatched_stat_raises_with_available_keys() -> None:
         stats={StatCode.MEAN: 0.05, StatCode.T_NW: 1.5},
     )
     with pytest.raises(UserInputError) as exc:
-        _resolve_family([p], verb="bhy", estimator=NeweyWest())
+        _resolve_family([p], func_name="bhy", estimator=NeweyWest())
     err = exc.value
     assert err.field == "estimator"
     assert err.value == "NeweyWest"

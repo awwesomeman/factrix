@@ -45,14 +45,14 @@ MultipleTestingMethod = Literal["holm", "bonferroni", "romano_wolf"]
 
 
 def _resolve_estimator(
-    estimator: Estimator | None, verb: str
+    estimator: Estimator | None, func_name: str
 ) -> WaldNWCluster | BlockBootstrap:
     if estimator is None:
         return WaldNWCluster()
     if not isinstance(estimator, WaldNWCluster | BlockBootstrap):
         raise NotImplementedError(
-            f"{verb}: estimator {type(estimator).__name__!r} not yet "
-            f"wired; this verb currently supports WaldNWCluster and "
+            f"{func_name}: estimator {type(estimator).__name__!r} not yet "
+            f"wired; this function currently supports WaldNWCluster and "
             f"BlockBootstrap."
         )
     return estimator
@@ -63,7 +63,7 @@ def _build_per_date_panel(
     df: pl.DataFrame,
     label: str,
     *,
-    verb: str,
+    func_name: str,
 ) -> tuple[list[str], np.ndarray, int]:
     """Partition ``df`` by ``label``, extract per-date series per slice,
     inner-join on date, return ``(labels, panel[T, K], n_obs)``.
@@ -76,7 +76,7 @@ def _build_per_date_panel(
     slices = _slice_by_label(df, label)
     if len(slices) < 2:
         raise ValueError(
-            f"{verb}: need ≥2 slice values on {label!r}; got {len(slices)}."
+            f"{func_name}: need ≥2 slice values on {label!r}; got {len(slices)}."
         )
     labels = list(slices.keys())
     aligned = per_date_fn(slices[labels[0]]).rename({"value": "v_0"})
@@ -88,7 +88,7 @@ def _build_per_date_panel(
         )
     if aligned.height < 2:
         raise ValueError(
-            f"{verb}: <2 aligned dates across slices ({aligned.height}); "
+            f"{func_name}: <2 aligned dates across slices ({aligned.height}); "
             f"joint HAC inference requires aligned rows. Check that "
             f"slices share at least 2 common dates."
         )
@@ -187,7 +187,7 @@ def slice_pairwise_test(
     est = _resolve_estimator(estimator, "slice_pairwise_test")
 
     labels, panel, n_obs = _build_per_date_panel(
-        metric, df, label, verb="slice_pairwise_test"
+        metric, df, label, func_name="slice_pairwise_test"
     )
     k = panel.shape[1]
     pairs = list(combinations(range(k), 2))
@@ -329,7 +329,9 @@ def slice_joint_test(
             "or slice_pairwise_test + BlockBootstrap for pairwise contrasts."
         )
 
-    _, panel, n_obs = _build_per_date_panel(metric, df, label, verb="slice_joint_test")
+    _, panel, n_obs = _build_per_date_panel(
+        metric, df, label, func_name="slice_joint_test"
+    )
     k = panel.shape[1]
 
     # K-1 contrasts against slice 0: rows are [1, -1, 0, …], [1, 0, -1, …], …
