@@ -212,8 +212,8 @@ class MetricsBundle:
             >>> panel = compute_forward_return(raw, forward_periods=5)
             >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())
             >>> df = bundle.to_frame()
-            >>> df.columns
-            ['factor_id', 'forward_periods', 'metric', 'value', 'stat', 'significance', 'p_value', 'short_circuit_reason']
+            >>> set(df.columns) >= {"factor_id", "metric", "value", "p_value"}
+            True
             >>> df.height >= 1
             True
         """

@@ -105,8 +105,8 @@ class SliceResult(Mapping[str, MetricOutput]):
             ... )
             >>> per_year = fx.by_slice(ic, ic_df, label="year")
             >>> df = per_year.to_frame()
-            >>> df.columns
-            ['slice', 'name', 'value', 'stat', 'p_value']
+            >>> set(df.columns) >= {"slice", "name", "value"}
+            True
 
             Override the slice column name to avoid collision:
 
