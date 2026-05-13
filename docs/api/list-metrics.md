@@ -17,7 +17,7 @@ invoke once `evaluate()` has produced a `FactorProfile`.
 `Mode` is intentionally not a parameter — applicability does not
 change across PANEL / TIMESERIES (see
 [Metric applicability](../reference/metric-applicability.md) for the
-underlying matrix). See the docstring Examples block above for
+underlying matrix). See the docstring Examples block above for the
 canonical text-list and JSON-form calls.
 
 ## Discover-then-import workflow

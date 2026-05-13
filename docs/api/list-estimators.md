@@ -17,7 +17,7 @@ Two contracts to keep in mind:
 
 `Mode` is intentionally not a parameter — estimator applicability is
 cell-axis-dependent (scope × signal), not panel-shape-dependent.
-See the docstring Examples block above for canonical text-list and
+See the docstring Examples block above for the canonical text-list and
 JSON-form calls.
 
 ---

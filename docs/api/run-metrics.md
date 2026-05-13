@@ -58,7 +58,7 @@ extend stage-1 wiring per cell.
 ## Explicit subset error semantics
 
 When `metrics=` is passed an explicit list (see the docstring
-Examples block above for the call shape), unknown names raise
+Examples block above for the canonical call shape), unknown names raise
 [`UserInputError`][factrix.UserInputError] with a fuzzy suggestion
 plus the full candidate list. Names registered for the cell but in
 the auto-discover exclusion set raise the same error type with the

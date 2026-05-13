@@ -181,13 +181,13 @@ def evaluate(
         >>> from factrix.preprocess import compute_forward_return
         >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
         >>> panel = compute_forward_return(raw, forward_periods=5)
-        >>> config = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, config)
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profile = fx.evaluate(panel, cfg)
 
         Non-default signal column name:
 
         >>> panel_renamed = panel.rename({"factor": "alpha"})
-        >>> profile = fx.evaluate(panel_renamed, config, factor_col="alpha")
+        >>> profile = fx.evaluate(panel_renamed, cfg, factor_col="alpha")
 
         Multi-factor screening with FDR — see
         :func:`factrix.multi_factor.bhy`.
