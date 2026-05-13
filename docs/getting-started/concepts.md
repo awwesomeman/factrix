@@ -9,6 +9,9 @@ performance — see
 [Guides § Standalone metrics — Scope](../guides/standalone-metrics.md#scope)
 for the full boundary (what is in, what is downstream).
 
+Once the axes below are familiar, [Decision tree](../api/decision-tree.md)
+maps a research question to the function that answers it.
+
 ## Three orthogonal axes
 
 [`AnalysisConfig`][factrix.AnalysisConfig] is defined by three user-facing

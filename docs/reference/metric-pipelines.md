@@ -6,6 +6,7 @@ title: Metric pipelines
     How is each metric computed — aggregation order, inference SE machinery.
     For applicability gates and sample thresholds, see [Metric applicability](metric-applicability.md).
     For output schema and metadata keys, see [Stat keys by metric](stat-keys-by-metric.md).
+    For the research-question → metric mapping, see [Choosing a metric](../guides/choosing-metric.md).
 
 Cross-module index of every module under `factrix/metrics/`. Use this
 page to pick the existing aggregation pattern a new metric should
