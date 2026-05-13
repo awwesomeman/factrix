@@ -1,12 +1,13 @@
 document.addEventListener(
   "click",
   function (event) {
-    var button = event.target.closest(".md-clipboard");
+    var button = event.target.closest('[data-md-type="copy"]');
     if (!button) return;
-    var block = button.closest(".language-pycon");
-    if (!block) return;
-    var code = block.querySelector("pre code") || block.querySelector("code");
+    var targetSel = button.getAttribute("data-clipboard-target");
+    if (!targetSel) return;
+    var code = document.querySelector(targetSel);
     if (!code) return;
+    if (!code.closest(".language-pycon")) return;
     var clone = code.cloneNode(true);
     clone.querySelectorAll(".gp, .go").forEach(function (node) {
       node.remove();
