@@ -62,6 +62,7 @@ all = ["factrix[jupyter]"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+doctest_optionflags = "ELLIPSIS NORMALIZE_WHITESPACE"
 
 [tool.mypy]
 python_version = "3.12"
