@@ -346,6 +346,27 @@ New example convention:
   `warning-codes.md`, `bibliography.md`: narrative roll-ups (not
   matrices)
 
+### Nav structure conventions
+
+The mkdocs nav follows a **pure-label** policy: every group label in
+`mkdocs.yml` is a non-clickable organising heading; every entry with
+content is an explicit leaf with a sidebar label. `navigation.indexes`
+is intentionally disabled so the visual contract is "label = heading,
+leaf = page, never both".
+
+When adding a new section or hub page:
+
+- Group labels carry no page reference. They look like `- Concepts:`
+  followed by an indented list of leaves.
+- Hub or overview pages (e.g. `api/metrics/index.md`) appear as an
+  explicit leaf with label `Overview` as the first child of their
+  group: `- Overview: api/metrics/index.md`.
+- Leaf labels are unique within their sidebar branch — never reuse the
+  parent group's name as a leaf label.
+
+This keeps `mkdocs build --strict` green and the sidebar legible without
+clicking through to discover affordance.
+
 ---
 
 ## 7. Drift management

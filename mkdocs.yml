@@ -15,7 +15,6 @@ theme:
     - navigation.sections
     - navigation.expand
     - navigation.top
-    - navigation.indexes
     - navigation.path
     - search.suggest
     - search.highlight
@@ -132,29 +131,29 @@ not_in_nav: |
 
 nav:
   - Get Started:
-      - index.md
+      - Home: index.md
       - Where factrix fits: where-factrix-fits.md
       - Installation: getting-started/install.md
       - Quickstart: getting-started/quickstart.md
   - User Guide:
       - Concepts:
-          - getting-started/concepts.md
+          - Overview: getting-started/concepts.md
           - Architecture: development/architecture.md
           - Statistical methods: reference/statistical-methods.md
           - TIMESERIES-mode conventions: reference/ts-mode-conventions.md
       - How-to:
-          - guides/index.md
+          - Overview: guides/index.md
           - Choosing a metric: guides/choosing-metric.md
           - PANEL vs TIMESERIES: guides/panel-timeseries.md
           - Batch screening (BHY): guides/batch-screening.md
           - Slice analysis: guides/slice-analysis.md
           - Standalone metrics: guides/standalone-metrics.md
       - Examples:
-          - examples/index.md
+          - Overview: examples/index.md
           - Multi-factor screening: examples/multi_factor_screening.md
           - Stock factor evaluation: examples/stock_factor_evaluation.md
   - API Reference:
-      - api/index.md
+      - Overview: api/index.md
       - Panel schema: api/panel-schema.md
       - Decision tree: api/decision-tree.md
       - Entry points:
@@ -166,7 +165,7 @@ nav:
               - by_slice: api/by-slice.md
               - slice_pairwise_test / slice_joint_test: api/slice-test.md
           - Multi-factor:
-              - api/multi-factor.md
+              - Overview: api/multi-factor.md
               - bhy: api/bhy.md
               - partial_conjunction: api/partial-conjunction.md
               - bhy_hierarchical: api/bhy-hierarchical.md
@@ -190,9 +189,9 @@ nav:
           - Errors: api/errors.md
           - Bibliography: reference/bibliography.md
       - Metrics:
-          - api/metrics/index.md
+          - Overview: api/metrics/index.md
           - Individual continuous:
-              - api/metrics/individual-continuous.md
+              - Overview: api/metrics/individual-continuous.md
               - ic: api/metrics/ic.md
               - fama_macbeth: api/metrics/fama_macbeth.md
               - quantile: api/metrics/quantile.md
@@ -201,7 +200,7 @@ nav:
               - tradability: api/metrics/tradability.md
               - spanning: api/metrics/spanning.md
           - Individual sparse:
-              - api/metrics/individual-sparse.md
+              - Overview: api/metrics/individual-sparse.md
               - caar: api/metrics/caar.md
               - event_quality: api/metrics/event_quality.md
               - event_horizon: api/metrics/event_horizon.md
@@ -209,12 +208,12 @@ nav:
               - clustering: api/metrics/clustering.md
               - corrado: api/metrics/corrado.md
           - Common continuous:
-              - api/metrics/common-continuous.md
+              - Overview: api/metrics/common-continuous.md
               - ts_beta: api/metrics/ts_beta.md
               - ts_quantile: api/metrics/ts_quantile.md
               - ts_asymmetry: api/metrics/ts_asymmetry.md
           - Series diagnostics:
-              - api/metrics/series-tools.md
+              - Overview: api/metrics/series-tools.md
               - hit_rate: api/metrics/hit_rate.md
               - trend: api/metrics/trend.md
               - oos: api/metrics/oos.md
