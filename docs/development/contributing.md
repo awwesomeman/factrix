@@ -568,7 +568,7 @@ Module-level and function-level docstrings carry different roles. The split is s
 
 #### Section order — body prose before structured sections
 
-Within any docstring (module-level or function-level), free-form body prose comes before all structured Google sections. The canonical order is: summary line → body prose → `Args:` / `Returns:` / `Raises:` / `Yields:` → `Examples:` → `Notes:` → `References:` → `See Also:`. The same rule applies to attribute-bearing classes (`Attributes:` sits with `Args:` / `Returns:` and accepts no trailing prose).
+Within any docstring (module-level or function-level), free-form body prose comes before all structured Google sections. The canonical order follows NumPy / numpydoc convention (factrix imports NumPy-only sections such as `Notes:` / `References:` / `See Also:`, so the trailing-section order aligns with the broader convention rather than Google's narrower spec): summary line → body prose → `Args:` / `Returns:` / `Yields:` / `Receives:` / `Other Parameters:` → `Raises:` / `Warns:` / `Warnings:` → `See Also:` → `Notes:` → `References:` → `Examples:`. `Examples:` sits last. The same rule applies to attribute-bearing classes (`Attributes:` sits with `Args:` / `Returns:` and accepts no trailing prose).
 
 Putting `Notes:` or `References:` mid-text — between the summary and the rest of the prose, with prose still appearing below the heading — breaks the rendered metric page: the admonition box jumps above the function inventory, severing the reader's eye-path from summary to body.
 

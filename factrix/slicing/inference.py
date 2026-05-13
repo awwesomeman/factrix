@@ -139,6 +139,15 @@ def slice_pairwise_test(
         NotImplementedError: Estimator outside ``WaldNWCluster`` /
             ``BlockBootstrap``.
 
+    Notes:
+        BlockBootstrap reproducibility — pass an explicit ``rng_seed``
+        on the :class:`BlockBootstrap` instance to fix the bootstrap
+        draw. Bootstrap metadata (resolved block length, scheme, seed)
+        is not attached to the returned DataFrame in this release;
+        callers wanting it can either reconstruct from the estimator
+        config or use :func:`factrix._stats.bootstrap._block_bootstrap_diff_p`
+        directly per pair.
+
     Examples:
         Pairwise IC contrasts across two sub-universes. The canonical
         pattern is to compute the per-date metric series per slice
@@ -174,15 +183,6 @@ def slice_pairwise_test(
         ...     ic, per_sector_ic, label="sector",
         ...     estimator=BlockBootstrap(rng_seed=0),
         ... )
-
-    Notes:
-        BlockBootstrap reproducibility — pass an explicit ``rng_seed``
-        on the :class:`BlockBootstrap` instance to fix the bootstrap
-        draw. Bootstrap metadata (resolved block length, scheme, seed)
-        is not attached to the returned DataFrame in this release;
-        callers wanting it can either reconstruct from the estimator
-        config or use :func:`factrix._stats.bootstrap._block_bootstrap_diff_p`
-        directly per pair.
     """
     est = _resolve_estimator(estimator, "slice_pairwise_test")
 
