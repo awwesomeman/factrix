@@ -305,7 +305,7 @@ version follows actual, not pin.
 ### 5.4 When confused, do two things first
 
 1. `git submodule status` — see the pin
-2. `cd external/factrix && git rev-parse HEAD` — see the actual
+2. `cd external/factrix && git rev-parse --short HEAD` — see the actual
 
 If both SHAs match, you're clean; if not, decide whether to bump the
 pin (row 5) or reset actual (row 6).
