@@ -616,19 +616,11 @@ def bhy_hierarchical(
 
     Pick this over the alternatives by survivor unit and claim shape:
 
-    +-----------------------------+-------------------+-----------------------+
-    | Claim                       | Survivor unit     | Function              |
-    +=============================+===================+=======================+
-    | "factor X significant in    | (factor, context) | ``bhy(expand_over=)`` |
-    | each universe / horizon"    | pair              |                       |
-    +-----------------------------+-------------------+-----------------------+
-    | "factor X significant in    | factor identity   | ``partial_conjunction``|
-    | >= k of m conditions"       |                   |                       |
-    +-----------------------------+-------------------+-----------------------+
-    | "which families have signal,| factor identity   | ``bhy_hierarchical``  |
-    | and within those, which     | (group-then-      |                       |
-    | factors"                    | within FDR)       |                       |
-    +-----------------------------+-------------------+-----------------------+
+    | Claim | Survivor unit | Function |
+    |---|---|---|
+    | "factor X significant in each universe / horizon" | (factor, context) pair | ``bhy(expand_over=)`` |
+    | "factor X significant in ≥ k of m conditions" | factor identity | ``partial_conjunction`` |
+    | "which families have signal, and within those, which factors" | factor identity (group-then-within FDR) | ``bhy_hierarchical`` |
 
     Args:
         profiles: Iterable of :class:`FactorProfile`. Each profile is
