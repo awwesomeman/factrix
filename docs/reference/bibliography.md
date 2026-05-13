@@ -382,6 +382,34 @@ Statistics* 29(4), 1165–1188.
 BH under arbitrary dependence with the `c(m) = Σ 1/i` correction;
 implemented as `bhy_adjust` and consumed by `multi_factor.bhy`.
 
+### Simes (1986)
+[](){ #simes-1986 }
+
+Simes, R. J. (1986). "An Improved Bonferroni Procedure for Multiple
+Tests of Significance." *Biometrika* 73(3), 751–754.
+
+Simes' global test combining ordered p-values; used by `simes_p` as
+the group representative in hierarchical FDR procedures.
+
+### Benjamini & Heller (2008)
+[](){ #benjamini-heller-2008 }
+
+Benjamini, Y. & Heller, R. (2008). "Screening for Partial Conjunction
+Hypotheses." *Biometrics* 64(4), 1215–1222.
+
+Partial-conjunction test for "at least r of K hypotheses are true";
+backs `partial_conjunction_p`.
+
+### Yekutieli (2008)
+[](){ #yekutieli-2008 }
+
+Yekutieli, D. (2008). "Hierarchical False Discovery Rate-Controlling
+Methodology." *Journal of the American Statistical Association*
+103(481), 309–316.
+
+Hierarchical FDR with Simes as group representative; cited as the
+theoretical context for the BHY + Simes composition.
+
 ### Harvey, Liu & Zhu (2016)
 [](){ #harvey-liu-zhu-2016 }
 

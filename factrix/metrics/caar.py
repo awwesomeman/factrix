@@ -123,6 +123,14 @@ def compute_caar(
         Sefcik-Thompson (1986) lineage rather than the equal-weighted
         MacKinlay CAAR.
 
+        When ``factor_col`` triggers ``_is_sparse_magnitude_weighted``
+        the primitive emits a Python ``UserWarning`` directly. The
+        sparse PANEL procedures additionally attach
+        ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED`` to
+        ``FactorProfile.warnings`` independently — the dual emission is
+        deliberate so batch runs that silence Python warnings still
+        surface the regime-switch through the structured channel.
+
     References:
         [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
         and Finance." Journal of Economic Literature, 35(1), 13–39.
@@ -140,15 +148,6 @@ def compute_caar(
         Returns: The Case of Event Studies." Journal of Financial
         Economics, 14(1), 3–31. Daily event-study methodology backing
         the parametric-test path.
-
-    Note:
-        When ``factor_col`` triggers ``_is_sparse_magnitude_weighted``
-        the primitive emits a Python ``UserWarning`` directly. The
-        sparse PANEL procedures additionally attach
-        ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED`` to
-        ``FactorProfile.warnings`` independently — the dual emission is
-        deliberate so batch runs that silence Python warnings still
-        surface the regime-switch through the structured channel.
     """
     if _is_sparse_magnitude_weighted(df, factor_col):
         warnings.warn(

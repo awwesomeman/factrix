@@ -145,12 +145,6 @@ def spanning_alpha(
         [Barillas & Shanken (2017)][barillas-shanken-2017]. "Which
         Alpha?" Review of Financial Studies, 30(4), 1316–1338.
         Spanning-test framework for nested factor models.
-
-        [White (1980)][white-1980]. "A Heteroskedasticity-Consistent
-        Covariance Matrix Estimator and a Direct Test for
-        Heteroskedasticity." Econometrica, 48(4), 817–838.
-        Heteroskedasticity-consistent SE ancestor of the HAC variants
-        applicable when overlap is added.
     """
     if base_spreads is None:
         base_spreads = {}

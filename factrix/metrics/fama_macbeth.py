@@ -425,11 +425,6 @@ def pooled_ols(
         Financial Studies, 22(1), 435–480. Comparison of FM, clustered,
         and two-way SE under firm/time correlation.
 
-        [Newey & West (1987)][newey-west-1987]. "A Simple, Positive
-        Semi-Definite, Heteroskedasticity and Autocorrelation
-        Consistent Covariance Matrix." Econometrica, 55(3), 703–708.
-        HAC variance ancestor of the sandwich form used here.
-
         [Cameron, Gelbach & Miller (2011)][cameron-gelbach-miller-2011].
         "Robust Inference With Multiway Clustering." Journal of
         Business & Economic Statistics, 29(2), 238–249. Two-way
