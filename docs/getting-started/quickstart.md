@@ -1,4 +1,6 @@
-# Quickstart
+---
+title: Quickstart
+---
 
 !!! warning "`forward_periods` counts rows, not calendar time"
     factrix is frequency-agnostic — it only shifts row indices.

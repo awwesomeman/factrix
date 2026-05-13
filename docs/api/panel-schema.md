@@ -1,4 +1,6 @@
-# Panel schema
+---
+title: Panel schema
+---
 
 Single-source contract for every `factrix` entry point that consumes a
 panel. Every dispatch cell registered through `evaluate` /

@@ -1,4 +1,6 @@
-# Glossary
+---
+title: Glossary
+---
 
 factrix names its dispatch axes after the structure of the data
 (`Scope × Signal`) and the regression layout (`Mode`). The literature

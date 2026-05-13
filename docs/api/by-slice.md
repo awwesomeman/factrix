@@ -1,4 +1,6 @@
-# by_slice
+---
+title: factrix.by_slice
+---
 
 Axis-agnostic research dispatcher. Slices any metric's date-keyed
 input by a column already present in the DataFrame and runs the metric

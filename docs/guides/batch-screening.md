@@ -1,4 +1,6 @@
-# Batch Screening with BHY
+---
+title: Batch Screening with BHY
+---
 
 !!! abstract "Answers"
     What is BHY, when to use it, and how `multi_factor.bhy` partitions the candidate set across statistical families.

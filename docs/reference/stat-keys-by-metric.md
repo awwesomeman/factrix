@@ -1,4 +1,6 @@
-# Stat keys by metric
+---
+title: Stat keys by metric
+---
 
 !!! abstract "Answers"
     `MetricOutput` schema — which `metadata` key is the primary inference target, which are auxiliary, what the headline `stat` carries.

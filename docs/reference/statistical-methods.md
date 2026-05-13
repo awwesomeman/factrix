@@ -1,4 +1,6 @@
-# Statistical methods
+---
+title: Statistical methods
+---
 
 Cross-cutting statistical disciplines that govern multiple metrics in
 factrix. This page sits **above** the per-metric API pages: it

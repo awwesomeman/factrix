@@ -1,4 +1,6 @@
-# list_metrics
+---
+title: factrix.list_metrics
+---
 
 Programmatic discovery of standalone metrics applicable to a given
 analysis cell. Complements [`describe_analysis_modes`](

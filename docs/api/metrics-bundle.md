@@ -1,4 +1,6 @@
-# MetricsBundle
+---
+title: factrix.MetricsBundle
+---
 
 Result type returned by [`run_metrics`](run-metrics.md) — holds every
 standalone metric the cell successfully evaluated for one factor at one

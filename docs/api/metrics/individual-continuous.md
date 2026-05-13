@@ -1,4 +1,6 @@
-# Individual continuous
+---
+title: Individual continuous
+---
 
 Metrics for the `Individual × Continuous` cell — one continuous factor
 score per `(date, asset_id)`, evaluated cross-sectionally per date and

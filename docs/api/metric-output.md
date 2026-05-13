@@ -1,4 +1,6 @@
-# MetricOutput
+---
+title: factrix.MetricOutput
+---
 
 The unified return type produced by every metric in
 [`factrix.metrics`](metrics/index.md). A single dataclass carrying

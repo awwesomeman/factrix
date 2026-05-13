@@ -1,4 +1,6 @@
-# Identity vs context
+---
+title: Identity vs context
+---
 
 Every `FactorProfile` carries two structured fields that describe
 "what hypothesis was tested" separately from "under what sample

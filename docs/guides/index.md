@@ -1,4 +1,6 @@
-# Guides
+---
+title: Guides
+---
 
 Step-by-step guides for common factrix workflows.
 

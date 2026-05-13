@@ -1,4 +1,6 @@
-# bhy_hierarchical
+---
+title: factrix.multi_factor.bhy_hierarchical
+---
 
 Two-stage FDR for factor sets with natural group structure (factor
 families, regions, sectors). Outer Benjamini-Yekutieli on

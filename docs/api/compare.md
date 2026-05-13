@@ -1,4 +1,6 @@
-# compare
+---
+title: factrix.compare
+---
 
 Leaderboard renderer that stacks N artifacts side by side as a
 [polars `DataFrame`](https://docs.pola.rs/api/python/stable/reference/dataframe/index.html).

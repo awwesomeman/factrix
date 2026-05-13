@@ -1,4 +1,6 @@
-# Design notes
+---
+title: Design notes
+---
 
 A record of choices factrix **deliberately did not implement**, with
 the trade-off and the literature anchor that grounds each decision.

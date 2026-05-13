@@ -1,4 +1,6 @@
-# preprocess
+---
+title: factrix.preprocess
+---
 
 Helpers for attaching `forward_return` to a raw panel. The output
 panel — `(date, asset_id, factor, forward_return)` — is the canonical

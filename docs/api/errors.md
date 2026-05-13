@@ -1,4 +1,6 @@
-# Errors
+---
+title: Errors
+---
 
 How to read factrix errors and which exception class to catch.
 

@@ -1,4 +1,6 @@
-# Warning, info, and stat codes
+---
+title: Warning, info, and stat codes
+---
 
 Structured enum payloads attached to every
 [`FactorProfile`](../api/factor-profile.md). Use these as the SSOT

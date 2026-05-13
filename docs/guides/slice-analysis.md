@@ -1,4 +1,6 @@
-# Slice Analysis
+---
+title: Slice Analysis
+---
 
 !!! abstract "Answers"
     What slice analysis is, the two-role split (`by_slice` dispatcher vs `slice_pairwise_test` / `slice_joint_test` inference), and when to reach for each.

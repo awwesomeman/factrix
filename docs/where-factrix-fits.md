@@ -1,4 +1,6 @@
-# Where factrix fits
+---
+title: Where factrix fits
+---
 
 This page expands the design philosophy, walks through the pipeline
 and internals, draws scope boundaries, compares against same-purpose

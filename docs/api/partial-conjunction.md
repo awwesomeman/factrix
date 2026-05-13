@@ -1,4 +1,6 @@
-# partial_conjunction
+---
+title: factrix.multi_factor.partial_conjunction
+---
 
 Contract-bearing screening for the "factor X is significant in $k$ of
 $m$ conditions" claim. Replaces the notebook idiom

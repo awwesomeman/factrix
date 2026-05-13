@@ -1,4 +1,6 @@
-# Multi-horizon analysis
+---
+title: Multi-horizon analysis
+---
 
 The `multi_horizon_ic` and `multi_horizon_hit_rate` functions were
 deprecated in v0.11.0 and removed in v0.12.0. This page documents the

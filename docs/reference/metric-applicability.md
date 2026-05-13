@@ -1,4 +1,6 @@
-# Metric applicability
+---
+title: Metric applicability
+---
 
 !!! abstract "Answers"
     Can my data run this? — applicability gates and sample-size thresholds per metric.

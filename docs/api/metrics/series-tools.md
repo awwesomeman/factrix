@@ -1,4 +1,6 @@
-# Series diagnostics
+---
+title: Series diagnostics
+---
 
 Axis-agnostic metrics that operate on any `(date, value)` series
 produced by an upstream cell metric — IC time series, $\beta$ time

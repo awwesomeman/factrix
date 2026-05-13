@@ -1,4 +1,6 @@
-# Contributing to factrix
+---
+title: Contributing to factrix
+---
 
 This document describes the factrix development workflow. The intended
 readers are **the author + future AI agents**—a private repo, so OSS
