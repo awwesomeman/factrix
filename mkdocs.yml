@@ -47,8 +47,6 @@ hooks:
   - scripts/mkdocs_hooks/gen_registry_cells.py
   # factrix/_registry._DISPATCH_REGISTRY -> docs/reference/_generated_evaluate_metric_table.md
   - scripts/mkdocs_hooks/gen_evaluate_metric_table.py
-  # examples/*.ipynb -> docs/examples/
-  - scripts/mkdocs_hooks/sync_examples.py
   # factrix/llms*.txt -> site root llms*.txt
   - scripts/mkdocs_hooks/sync_llms_txt.py
 
@@ -77,10 +75,6 @@ plugins:
             separate_signature: true
             merge_init_into_class: true
             heading_level: 1
-  - mkdocs-jupyter:
-      execute: false
-      include_source: false
-      ignore_h1_titles: true
   - mike:
       alias_type: symlink
       canonical_version: latest
@@ -157,8 +151,8 @@ nav:
           - Standalone metrics: guides/standalone-metrics.md
       - Examples:
           - examples/index.md
-          - Multi-factor screening: examples/multi_factor_screening.ipynb
-          - Stock factor evaluation: examples/stock_factor_evaluation.ipynb
+          - Multi-factor screening: examples/multi_factor_screening.md
+          - Stock factor evaluation: examples/stock_factor_evaluation.md
   - API Reference:
       - api/index.md
       - Panel schema: api/panel-schema.md
