@@ -223,5 +223,5 @@ procedures key `FactorProfile.stats` accordingly.
 
 Registry lookup helper used by `AnalysisConfig.from_dict` to
 rehydrate `cfg.estimator` / `cfg.moment_estimator` from their
-serialized name strings. Raises `UnknownEstimatorError` if `name`
+serialized name strings. Raises [`UnknownEstimatorError`][factrix.UnknownEstimatorError] if `name`
 is not registered; the error message lists every available estimator.

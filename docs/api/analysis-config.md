@@ -183,7 +183,7 @@ than failing silently later.
     ---
 
     Recommend the nearest legal config from panel shape; the recovery
-    path for `MissingConfigError` from `evaluate`.
+    path for [`MissingConfigError`][factrix.MissingConfigError] from `evaluate`.
 
     [api/suggest-config →](suggest-config.md)
 

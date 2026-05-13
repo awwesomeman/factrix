@@ -120,13 +120,13 @@ container as `bhy`, populated with PC-specific metadata:
 
 | Trigger | Outcome |
 |---|---|
-| `min_pass < 2` | `UserInputError`. `min_pass == 1` additionally points at `bhy(expand_over=...)`. |
-| `expand_over` empty / `None` | `UserInputError` — the function is undefined without a condition axis. |
-| `expand_over` names an identity field (`factor_id` / `forward_periods`) | `UserInputError` (#160 anti-shopping defense — same as `bhy`). |
-| `n_conditions < min_pass` | `UserInputError` (unsatisfiable). |
-| Strict mode: identity's condition count $\neq$ `n_conditions` | `UserInputError` — surfaces missing-universe / missing-horizon data gaps. |
-| Identity with condition count $<$ `min_pass` (lenient) | `UserInputError`. |
-| Duplicate `(identity, expand_over_values)` partition key | `UserInputError` (family-resolution invariant). |
+| `min_pass < 2` | [`UserInputError`][factrix.UserInputError]. `min_pass == 1` additionally points at `bhy(expand_over=...)`. |
+| `expand_over` empty / `None` | [`UserInputError`][factrix.UserInputError] — the function is undefined without a condition axis. |
+| `expand_over` names an identity field (`factor_id` / `forward_periods`) | [`UserInputError`][factrix.UserInputError] (#160 anti-shopping defense — same as `bhy`). |
+| `n_conditions < min_pass` | [`UserInputError`][factrix.UserInputError] (unsatisfiable). |
+| Strict mode: identity's condition count $\neq$ `n_conditions` | [`UserInputError`][factrix.UserInputError] — surfaces missing-universe / missing-horizon data gaps. |
+| Identity with condition count $<$ `min_pass` (lenient) | [`UserInputError`][factrix.UserInputError]. |
+| Duplicate `(identity, expand_over_values)` partition key | [`UserInputError`][factrix.UserInputError] (family-resolution invariant). |
 
 ## References
 

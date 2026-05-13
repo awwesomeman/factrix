@@ -114,7 +114,7 @@ panel_metrics = [
 
 ## Errors
 
-`IncompatibleAxisError` is raised when `(scope, signal)` matches no
+[`IncompatibleAxisError`][factrix.IncompatibleAxisError] is raised when `(scope, signal)` matches no
 registered metric. All four real combinations are populated, so this
 is defensive — surfaced for symmetry with the rest of the API.
 
