@@ -75,6 +75,18 @@ def compute_ts_betas(
         [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]: per-
         asset time-series beta then cross-asset aggregation; the
         order this two-stage path mirrors.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_beta import compute_ts_betas
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> set(ts_betas_df.columns) >= {"asset_id", "beta", "r_squared"}
+        True
     """
     assets = df["asset_id"].unique().sort()
     rows: list[dict] = []
@@ -211,6 +223,21 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     References:
         [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]: the
         cross-asset t on E[beta] this function implements.
+
+    Examples:
+        Chain from :func:`compute_ts_betas` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_beta import compute_ts_betas, ts_beta
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> result = ts_beta(ts_betas_df)
+        >>> result.name
+        'ts_beta'
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -273,6 +300,21 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
         assets can dominate the mean; large mean-vs-median gaps signal
         the factor explains a small subset of assets rather than the
         cross-section as a whole.
+
+    Examples:
+        Chain from :func:`compute_ts_betas` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_beta import compute_ts_betas, mean_r_squared
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> result = mean_r_squared(ts_betas_df)
+        >>> result.name
+        'mean_r_squared'
     """
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
@@ -337,6 +379,18 @@ def compute_rolling_mean_beta(
         rolling window; below that, the asset is dropped from that
         date's mean rather than imputed — keeps each ``value_t`` an
         average over identifiable per-asset slopes.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_beta import compute_rolling_mean_beta
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> rolling = compute_rolling_mean_beta(panel, window=60)
+        >>> set(rolling.columns) >= {"date", "value"}
+        True
     """
     dates = df["date"].unique().sort()
     if len(dates) < window:
@@ -416,6 +470,24 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
         inference as spurious "perfect agreement". Pair with
         ``fama_macbeth.beta_sign_consistency`` when a directional prior
         is available.
+
+    Examples:
+        Chain from :func:`compute_ts_betas` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_beta import (
+        ...     compute_ts_betas,
+        ...     ts_beta_sign_consistency,
+        ... )
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> result = ts_beta_sign_consistency(ts_betas_df)
+        >>> result.name
+        'ts_beta_sign_consistency'
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
