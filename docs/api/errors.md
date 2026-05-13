@@ -157,3 +157,81 @@ if metric_name not in fx.list_metrics(cfg):
 Pass exactly one of `candidates` / `expected`. The rendered message is
 human-readable output; downstream code should rely on the attributes
 above, not on substring matches against `str(exc)`.
+
+---
+
+## Class reference
+
+Autodoc anchors for cross-references of the form
+`` [`<Error>`][factrix.<Error>] `` from any docs page.
+
+### Base
+
+::: factrix.FactrixError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+### `UserInputError`
+
+::: factrix.UserInputError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+### `ConfigError` family
+
+::: factrix.ConfigError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+::: factrix.MissingConfigError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+::: factrix.IncompatibleAxisError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+::: factrix.ModeAxisError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+::: factrix.InsufficientSampleError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+::: factrix.UnknownEstimatorError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
+
+### Other
+
+::: factrix.RunMetricsError
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+      show_root_toc_entry: false
+      heading_level: 4
