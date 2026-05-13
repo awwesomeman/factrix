@@ -3,8 +3,7 @@ title: factrix.evaluate
 ---
 
 > **Input contract** — the panel must satisfy the four-column floor
-> documented in [Panel schema](panel-schema.md). The per-cell extension
-> table on the schema page adds optional columns on top of that floor.
+> documented in [Panel schema](panel-schema.md).
 
 ::: factrix.evaluate
     options:

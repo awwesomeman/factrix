@@ -527,6 +527,7 @@ plain prose; reach for a callout only when the elevation earns it.
 - `!!! info` — contract / convention block (e.g. event-study contracts, TS-mode conventions).
 - `!!! example` — minimal worked code that surrounding prose references.
 - `??? note "..."` (collapsible) — long content for a subset of readers (derivations, full enum tables).
+- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-panel `(panel, cfg)` entry points (`docs/api/evaluate.md`, `docs/api/run-metrics.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`FactorProfile` / `Survivors` / `MetricsBundle`) and do not carry the callout.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
