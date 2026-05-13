@@ -80,7 +80,7 @@ from factrix.slicing import (
 
 
 def evaluate(
-    raw: Any,
+    panel: Any,
     config: AnalysisConfig | None = None,
     /,
     *,
@@ -96,14 +96,14 @@ def evaluate(
     [`bhy_hierarchical`][factrix.multi_factor.bhy_hierarchical]).
 
     Args:
-        raw: Long-format panel satisfying the four-column floor
+        panel: Long-format panel satisfying the four-column floor
             ``(date, asset_id, factor, forward_return)``. See
             [Panel schema](panel-schema.md) for the canonical contract
             and dtype semantics.
         config: Validated ``AnalysisConfig`` selecting the dispatch cell
             (``Scope × Signal × Metric``). Construct via one of the four
             factories on the class.
-        factor_col: Name of the signal column on ``raw`` (default
+        factor_col: Name of the signal column on ``panel`` (default
             ``"factor"``). Renamed to ``"factor"`` internally before
             dispatch. Looping over candidates with different
             ``factor_col=`` values is the canonical multi-factor pattern.
@@ -115,7 +115,7 @@ def evaluate(
         and ``context = {universe_id, regime_id, ...}``.
 
     Raises:
-        MissingConfigError: ``evaluate(raw)`` called without an
+        MissingConfigError: ``evaluate(panel)`` called without an
             ``AnalysisConfig``. Recovery: call
             [`suggest_config`][factrix.suggest_config].
         IncompatibleAxisError: ``config`` axes form an illegal cell.
@@ -125,7 +125,7 @@ def evaluate(
         InsufficientSampleError: ``T`` below the procedure's
             ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
             ``.required_periods``.
-        ValueError: ``factor_col`` not present on ``raw``, or both
+        ValueError: ``factor_col`` not present on ``panel``, or both
             ``"factor"`` and ``factor_col`` present with differing values
             (ambiguous which is the signal — drop the unused column).
 
@@ -195,11 +195,11 @@ def evaluate(
     if config is None:
         raise MissingConfigError(
             "evaluate() requires an AnalysisConfig. "
-            "Call factrix.suggest_config(raw) for a recommendation, "
+            "Call factrix.suggest_config(panel) for a recommendation, "
             "or see the Get Started guide: "
             "https://awwesomeman.github.io/factrix/getting-started/"
         )
-    return _evaluate(raw, config, factor_col=factor_col)
+    return _evaluate(panel, config, factor_col=factor_col)
 
 
 __version__ = "0.12.0"

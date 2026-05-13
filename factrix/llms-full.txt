@@ -195,7 +195,7 @@ explicitly `HansenHodrick`. Downstream readers should use
 ### `evaluate`
 
 ```
-factrix.evaluate(raw: polars.DataFrame, config: AnalysisConfig,
+factrix.evaluate(panel: polars.DataFrame, config: AnalysisConfig,
                  *, factor_col: str = "factor") -> FactorProfile
 ```
 
@@ -209,7 +209,7 @@ by `(dispatch cell, forward_periods)`; do **not** reach into
 that requires re-implementing the family split by hand.
 Raises (subclasses of `FactrixError`; see `## Errors`
 below for the full hierarchy + recovery payloads):
-- `MissingConfigError` — `evaluate(raw)` called without an `AnalysisConfig`
+- `MissingConfigError` — `evaluate(panel)` called without an `AnalysisConfig`
 - `IncompatibleAxisError` — config axes form an illegal cell (also raised when
   `cfg.estimator` is not applicable to the cell)
 - `UnknownEstimatorError` — `AnalysisConfig.from_dict` /
@@ -552,7 +552,7 @@ All factrix exceptions inherit from `FactrixError`, so agents can write
 ```
 FactrixError                       # base — all factrix-raised errors
 ├── ConfigError                    # AnalysisConfig validation / dispatch
-│   ├── MissingConfigError         # evaluate(raw) called without a config
+│   ├── MissingConfigError         # evaluate(panel) called without a config
 │   ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
 │   ├── ModeAxisError              # legal cell, no procedure at runtime mode;
 │   │                              # carries .suggested_fix: AnalysisConfig | None
