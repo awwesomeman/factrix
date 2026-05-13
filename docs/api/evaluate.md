@@ -6,13 +6,6 @@ title: factrix.evaluate
 > documented in [Panel schema](panel-schema.md).
 
 ::: factrix.evaluate
-    options:
-      show_root_heading: true
-      show_root_full_path: true
-      show_root_toc_entry: true
-      heading_level: 1
-      separate_signature: true
-      show_signature_annotations: true
 
 <hr>
 

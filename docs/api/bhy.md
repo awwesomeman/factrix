@@ -3,13 +3,6 @@ title: factrix.multi_factor.bhy
 ---
 
 ::: factrix.multi_factor.bhy
-    options:
-      show_root_heading: true
-      show_root_full_path: true
-      show_root_toc_entry: true
-      heading_level: 1
-      separate_signature: true
-      show_signature_annotations: true
 
 <hr>
 
@@ -201,8 +194,6 @@ for s in survivors.profiles:
 
 ::: factrix.multi_factor.Survivors
     options:
-      show_root_heading: true
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 3
 

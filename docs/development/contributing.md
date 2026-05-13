@@ -531,6 +531,18 @@ plain prose; reach for a callout only when the elevation earns it.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
+### Autodoc options — globals + per-block deviations
+
+`mkdocs.yml` carries the page-primary defaults for mkdocstrings (`show_root_heading: true`, `show_root_full_path: true`, `show_root_toc_entry: true`, `heading_level: 1`, `separate_signature: true`, `show_signature_annotations: true`, `show_source: false`, `merge_init_into_class: true`, `docstring_style: google`). Every `::: factrix.<X>` block in `docs/api/**` inherits these.
+
+Per-block `options:` should carry **only deviations** from the globals. Common deviations:
+
+- Secondary block on a page (e.g. `Survivors` on `bhy.md`, individual error classes on `errors.md`): `show_root_toc_entry: false`, `heading_level: 3` or `4`.
+- Dataclass page where the class name is already in the frontmatter title: `show_root_heading: false`.
+- Module-level block with a curated function list: `members: [...]`, optionally `show_root_members_full_path: true`.
+
+Bare `::: factrix.<X>` is the canonical form for page-primary function / dataclass blocks; do not duplicate globals.
+
 ### Page-shape conventions — when to add `## Use cases` / `## Worked example`
 
 These two sections appear on pages whose primary purpose is to show the reader *how to call the API*. They are content shapes for workflow-oriented pages — not a universal requirement.
