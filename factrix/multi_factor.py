@@ -6,6 +6,11 @@ v0.4 deletion sweep that retires the existing v0.4 implementations
 of those primitives.
 """
 
-from factrix._multi_factor import bhy, bhy_hierarchical, partial_conjunction
+from factrix._multi_factor import (
+    Survivors,
+    bhy,
+    bhy_hierarchical,
+    partial_conjunction,
+)
 
-__all__ = ["bhy", "bhy_hierarchical", "partial_conjunction"]
+__all__ = ["Survivors", "bhy", "bhy_hierarchical", "partial_conjunction"]

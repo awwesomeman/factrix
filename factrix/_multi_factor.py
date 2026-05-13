@@ -40,13 +40,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True, repr=False)
 class Survivors:
-    """Family-verb survivor container with rich Jupyter rendering.
+    """Survivor container for multi-factor screening functions with rich Jupyter rendering.
 
-    Procedure-agnostic: ``adj_p`` carries the verb's procedure-canonical
-    adjusted p-value (BHY ``bhy_adjusted_p``, Holm step-down, Bonferroni
-    ``min(p*m, 1)``, Romano-Wolf resampling, ...). The contract is
-    ``survivor[i] iff adj_p[i] <= q`` — a duality every step-up /
-    step-down family procedure satisfies.
+    Procedure-agnostic: ``adj_p`` carries the function's
+    procedure-canonical adjusted p-value (BHY ``bhy_adjusted_p``, Holm
+    step-down, Bonferroni ``min(p*m, 1)``, Romano-Wolf resampling, ...).
+    The contract is ``survivor[i] iff adj_p[i] <= q`` — a duality every
+    step-up / step-down family procedure satisfies.
 
     Invariants:
         ``len(profiles) == len(adj_p)`` and entries align in input
@@ -65,25 +65,26 @@ class Survivors:
             conditions per identity (``partial_conjunction``). Empty
             tuple when the full input is one family.
         n_tests: Family size per bucket fed into the step-up math.
-            Keying depends on the verb: ``bhy`` keys by
+            Keying depends on the producing function: ``bhy`` keys by
             ``expand_over_values`` tuple (``()`` for the single-bucket
             case); ``partial_conjunction`` keys by ``identity`` tuple
             (``(factor_id, forward_periods)``) and records the ``m``
             condition count per identity.
         pc_p: Raw partial-conjunction p-value per survivor (Benjamini
             & Heller 2008 Bonferroni-style: ``(m - min_pass + 1) *
-            p_((min_pass))``, capped at 1). ``None`` when the verb is
-            not ``partial_conjunction``.
+            p_((min_pass))``, capped at 1). ``None`` when the producing
+            function is not ``partial_conjunction``.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
-            ``None`` when the verb is not ``partial_conjunction``.
+            ``None`` when the producing function is not
+            ``partial_conjunction``.
         n_passed_uncorr: Per-identity count of raw p-values strictly
             below ``q`` (descriptive — **not** used in inference; flags
             borderline cases and data gaps at a glance). The cutoff is
             the caller's ``q`` (same value driving the BHY step-up), so
             this count moves with ``q``; using it to override
             ``adj_p`` survivor selection is the anti-shopping failure
-            mode this verb exists to prevent. ``None`` when the verb is
-            not ``partial_conjunction``.
+            mode ``partial_conjunction`` exists to prevent. ``None``
+            when the producing function is not ``partial_conjunction``.
     """
 
     profiles: list[FactorProfile]
