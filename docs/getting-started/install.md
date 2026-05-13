@@ -18,11 +18,15 @@ uv add factrix
 
 ## Version pinning
 
+factrix is pre-1.0 (v0.x.x) and the public API may break on MINOR bumps; pin a specific version in long-running projects.
+
 ```bash
-pip install factrix==0.8.0
+pip install factrix==X.Y.Z
 # or
-uv add factrix==0.8.0
+uv add factrix==X.Y.Z
 ```
+
+Replace `X.Y.Z` with the [latest release tag](https://github.com/awwesomeman/factrix/releases).
 
 ## Local development
 
