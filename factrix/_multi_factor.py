@@ -472,7 +472,7 @@ def partial_conjunction(
                     "and inflates FDR to ~2q under independence; the "
                     "partial conjunction surface is contract-bearing only "
                     "for k >= 2. There is no drop-in 'any-significant' "
-                    "verb — the closest available is "
+                    "function — the closest available is "
                     "bhy(profiles, expand_over=[...]), which expands the "
                     "family across conditions instead of aggregating "
                     "(survivor unit becomes (factor, condition) pair, "
