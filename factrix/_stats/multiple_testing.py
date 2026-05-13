@@ -159,7 +159,7 @@ def romano_wolf(
     # Enforce monotonicity in descending-significance order: an earlier
     # (more significant) rejection cannot have a larger adjusted p than
     # a later one. Cummax over the sequence.
-    p_adj_desc = np.maximum.accumulate(p_adj_desc)  # type: ignore[assignment]
+    p_adj_desc = np.maximum.accumulate(p_adj_desc)  # type: ignore[assignment, unused-ignore]
     p_adj_desc = np.minimum(p_adj_desc, 1.0)
 
     out = np.empty(m, dtype=float)
