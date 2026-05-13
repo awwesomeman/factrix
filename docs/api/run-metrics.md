@@ -2,6 +2,8 @@
 title: factrix.run_metrics
 ---
 
+::: factrix.run_metrics
+
 Cell-level descriptive batch runner — the descriptive twin of
 [`evaluate`](evaluate.md). Where `evaluate` runs a cell's primary
 inferential procedure and returns a [`FactorProfile`](factor-profile.md),

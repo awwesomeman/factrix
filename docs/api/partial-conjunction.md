@@ -2,6 +2,8 @@
 title: factrix.multi_factor.partial_conjunction
 ---
 
+::: factrix.multi_factor.partial_conjunction
+
 Contract-bearing screening for the "factor X is significant in $k$ of
 $m$ conditions" claim. Replaces the notebook idiom
 `set(survivors_a) & set(survivors_b)`, which does **not** preserve FDR
@@ -138,5 +140,3 @@ container as `bhy`, populated with PC-specific metadata:
   on multiple families of hypotheses. *JRSS-B*, 76(1).
 - **[HY2014]** Heller, R. & Yekutieli, D. (2014). Replicability analysis
   for genome-wide association studies. *AOAS*, 8(1).
-
-::: factrix.multi_factor.partial_conjunction

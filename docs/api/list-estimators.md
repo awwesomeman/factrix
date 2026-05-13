@@ -2,6 +2,8 @@
 title: factrix.list_estimators
 ---
 
+::: factrix.list_estimators
+
 Programmatic discovery of inference methods (`Estimator` instances)
 applicable to a given `(scope, signal)` cell — the inference-side twin
 of [`list_metrics`](list-metrics.md).
@@ -37,5 +39,3 @@ cell-axis-dependent (scope × signal), not panel-shape-dependent.
   using `estimator=` on screening functions
 - [`stats`](stats.md) — full estimator catalogue and StatCode pairings
 - [`list_metrics`](list-metrics.md) — descriptive metric counterpart
-
-::: factrix.list_estimators

@@ -2,6 +2,8 @@
 title: factrix.list_metrics
 ---
 
+::: factrix.list_metrics
+
 Programmatic discovery of standalone metrics applicable to a given
 analysis cell. Complements [`describe_analysis_modes`](
 ../reference/metric-applicability.md) — that helper enumerates the
@@ -126,5 +128,3 @@ is defensive — surfaced for symmetry with the rest of the API.
 (`factrix._metric_index`). Adding a new metric only requires adding a
 `Matrix-row:` tag to the new module's docstring; both surfaces pick it
 up automatically.
-
-::: factrix.list_metrics

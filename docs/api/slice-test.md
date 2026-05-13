@@ -2,6 +2,14 @@
 title: factrix.slicing.inference
 ---
 
+::: factrix.slicing.inference
+    options:
+        members:
+          - slice_pairwise_test
+          - slice_joint_test
+        show_root_heading: false
+        show_source: false
+
 Cross-slice statistical-test function pair. Both consume a metric callable
 and a date-keyed DataFrame whose `label` column carries the slice
 identifier; the functions partition by `label`, line up per-date metric
@@ -108,12 +116,3 @@ reserved for the future `factor_decomposition` function.
 | FDR-adjusted survivor selection across factors | `bhy(profiles, ...)` |
 | Multi-factor leaderboard rendering | `compare(...)` |
 
-## Reference
-
-::: factrix.slicing.inference
-    options:
-        members:
-          - slice_pairwise_test
-          - slice_joint_test
-        show_root_heading: false
-        show_source: false
