@@ -46,6 +46,23 @@ def compute_forward_return(
     Returns:
         Input DataFrame with ``forward_return`` column appended.
         Rows where forward return is null (end of series) are dropped.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> "forward_return" in panel.columns
+        True
+        >>> panel["forward_return"].null_count() == 0
+        True
+
+        The output panel is the canonical input to ``fx.evaluate``:
+
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profile = fx.evaluate(panel, cfg)
+        >>> isinstance(profile, fx.FactorProfile)
+        True
     """
     return (
         df.sort(["asset_id", "date"])

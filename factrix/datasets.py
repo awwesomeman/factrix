@@ -117,6 +117,21 @@ def make_cs_panel(
         ``date`` dtype ``pl.Datetime("ms")``. Attach ``forward_return``
         (e.g. via ``factrix.preprocess.compute_forward_return``)
         before passing to ``fx.evaluate``.
+
+    Examples:
+        >>> import factrix as fx
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> set(raw.columns) == {"date", "asset_id", "price", "factor"}
+        True
+        >>> raw["asset_id"].n_unique() == 20
+        True
+
+        Attach a forward return before evaluating:
+
+        >>> from factrix.preprocess import compute_forward_return
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> "forward_return" in panel.columns
+        True
     """
     if n_assets < 2:
         raise ValueError("n_assets must be >= 2 for a cross-section")
@@ -206,6 +221,20 @@ def make_event_panel(
         ``forward_return`` (e.g. via
         ``factrix.preprocess.compute_forward_return``) before
         passing to ``fx.evaluate``.
+
+    Examples:
+        >>> import factrix as fx
+        >>> raw = fx.datasets.make_event_panel(n_assets=20, n_dates=120, event_rate=0.05)
+        >>> set(raw["factor"].unique().to_list()) <= {-1.0, 0.0, 1.0}
+        True
+
+        Pair with the sparse factory:
+
+        >>> from factrix.preprocess import compute_forward_return
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> cfg = fx.AnalysisConfig.individual_sparse(forward_periods=5)
+        >>> cfg.signal is fx.Signal.SPARSE
+        True
     """
     if n_assets < 1:
         raise ValueError("n_assets must be >= 1")
