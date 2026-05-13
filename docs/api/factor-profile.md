@@ -1,4 +1,6 @@
-# FactorProfile
+---
+title: factrix.FactorProfile
+---
 
 Procedure-canonical analysis result for a single factor. Every
 registered procedure produces an instance of this dataclass with

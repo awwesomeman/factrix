@@ -1,4 +1,6 @@
-# suggest_config
+---
+title: factrix.suggest_config
+---
 
 Heuristic introspection that inspects a raw panel and proposes an
 [`AnalysisConfig`](analysis-config.md) plus the observations and

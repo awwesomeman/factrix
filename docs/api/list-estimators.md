@@ -1,4 +1,6 @@
-# list_estimators
+---
+title: factrix.list_estimators
+---
 
 Programmatic discovery of inference methods (`Estimator` instances)
 applicable to a given `(scope, signal)` cell — the inference-side twin
