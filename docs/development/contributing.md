@@ -356,10 +356,14 @@ Convention:
   `fx.datasets.make_cs_panel(...)` + `compute_forward_return(...)`
   so the snippet runs verbatim with no surrounding fixtures.
 
-This keeps the Examples blocks doctest-ready. Enabling
-`pytest --doctest-modules` in CI is tracked as a separate
-follow-up; once turned on, no per-example rewrite is needed
-provided new Examples follow the convention above.
+Examples blocks are CI-verified. The `doctest` job in
+`.github/workflows/test.yml` runs `pytest --doctest-modules
+factrix/` on every PR; option flags (`ELLIPSIS`,
+`NORMALIZE_WHITESPACE`) live in `[tool.pytest.ini_options]
+doctest_optionflags` so individual Examples carry no
+`# doctest:` directives. A renamed symbol, changed signature,
+or dropped import that breaks an Example surfaces on the same
+PR as the change.
 
 Page-level demo admonitions (`## Worked example`, `!!! example`
 blocks) are reserved for end-to-end demos that intentionally show
