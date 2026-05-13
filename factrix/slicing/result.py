@@ -42,6 +42,22 @@ class SliceResult(Mapping[str, MetricOutput]):
         Bonferroni) or :func:`factrix.slice_joint_test` (omnibus χ²)
         instead. The container is for exploration; the inference
         verbs are for claims.
+
+    Examples:
+        >>> import polars as pl
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics import ic, compute_ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=40, n_dates=240)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> ic_df = compute_ic(panel).with_columns(
+        ...     pl.col("date").dt.year().alias("year")
+        ... )
+        >>> per_year = fx.by_slice(ic, ic_df, label="year")
+        >>> isinstance(per_year, fx.SliceResult)
+        True
+        >>> len(per_year) >= 1
+        True
     """
 
     def __init__(self, data: Mapping[str, MetricOutput]) -> None:
@@ -76,6 +92,27 @@ class SliceResult(Mapping[str, MetricOutput]):
         Returns:
             ``pl.DataFrame`` with one row per slice. Row order follows
             iteration order of ``self``.
+
+        Examples:
+            >>> import polars as pl
+            >>> import factrix as fx
+            >>> from factrix.preprocess import compute_forward_return
+            >>> from factrix.metrics import ic, compute_ic
+            >>> raw = fx.datasets.make_cs_panel(n_assets=40, n_dates=240)
+            >>> panel = compute_forward_return(raw, forward_periods=5)
+            >>> ic_df = compute_ic(panel).with_columns(
+            ...     pl.col("date").dt.year().alias("year")
+            ... )
+            >>> per_year = fx.by_slice(ic, ic_df, label="year")
+            >>> df = per_year.to_frame()
+            >>> df.columns
+            ['slice', 'name', 'value', 'stat', 'p_value']
+
+            Override the slice column name to avoid collision:
+
+            >>> df2 = per_year.to_frame(slice_col="year")
+            >>> "year" in df2.columns
+            True
         """
         cols = (slice_col, "name", "value", "stat", "p_value")
         rows: dict[str, list[object]] = {c: [] for c in cols}
