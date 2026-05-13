@@ -1,4 +1,6 @@
-# factrix
+---
+title: factrix
+---
 
 **Does this factor possess predictive edge?**
 

@@ -1,4 +1,6 @@
-# Installation
+---
+title: Installation
+---
 
 factrix requires Python 3.12+. The core module depends only on `polars` and `numpy`.
 

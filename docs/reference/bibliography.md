@@ -1,4 +1,6 @@
-# Bibliography
+---
+title: Bibliography
+---
 
 Paper SSOT for factrix. Every reference cited from a metric docstring,
 the [Statistical methods](statistical-methods.md) reference page, or

@@ -1,4 +1,6 @@
-# factrix Architecture
+---
+title: factrix Architecture
+---
 
 Current-state snapshot of the public API surface and internal layout.
 

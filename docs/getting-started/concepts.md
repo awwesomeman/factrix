@@ -1,4 +1,6 @@
-# Concepts
+---
+title: Concepts
+---
 
 ## What factrix is for
 

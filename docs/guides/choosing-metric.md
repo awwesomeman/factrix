@@ -1,4 +1,6 @@
-# Choosing a Metric
+---
+title: Choosing a Metric
+---
 
 This page is task-oriented: assume you already know factrix exists and you
 need to pick a factory. For the canonical 5-scenario table (research

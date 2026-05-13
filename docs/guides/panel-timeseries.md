@@ -1,4 +1,6 @@
-# PANEL vs TIMESERIES
+---
+title: PANEL vs TIMESERIES
+---
 
 !!! abstract "Answers"
     What `Mode.PANEL` vs `Mode.TIMESERIES` mean, when each is dispatched, and the sample-guard contract for each.

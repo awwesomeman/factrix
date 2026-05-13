@@ -1,4 +1,6 @@
-# Metric pipelines
+---
+title: Metric pipelines
+---
 
 !!! abstract "Answers"
     How is each metric computed — aggregation order, inference SE machinery.

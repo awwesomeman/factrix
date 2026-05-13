@@ -1,4 +1,6 @@
-# Standalone metrics
+---
+title: Standalone metrics
+---
 
 [`evaluate()`][factrix.evaluate] runs one canonical procedure per cell
 and returns a [`FactorProfile`][factrix.FactorProfile] with a single

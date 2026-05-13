@@ -1,4 +1,6 @@
-# TIMESERIES-mode conventions
+---
+title: TIMESERIES-mode conventions
+---
 
 !!! tip "Canonical reference"
     For the PANEL vs TIMESERIES Mode dispatch concept and sample-guard contract, see [PANEL vs TIMESERIES](../guides/panel-timeseries.md). This page is the TIMESERIES-specific conventions table.
