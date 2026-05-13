@@ -41,6 +41,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [
+    "ts_quantile_spread",
+]
+
 
 def ts_quantile_spread(
     df: pl.DataFrame,
@@ -105,6 +109,18 @@ def ts_quantile_spread(
         used for the default lag.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_quantile import ts_quantile_spread
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = ts_quantile_spread(panel, n_groups=5)
+        >>> result.name
+        'ts_quantile_spread'
     """
     if "date" not in df.columns:
         return _short_circuit_output(

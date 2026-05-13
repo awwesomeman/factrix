@@ -18,6 +18,10 @@ from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [
+    "corrado_rank_test",
+]
+
 
 def corrado_rank_test(
     df: pl.DataFrame,
@@ -73,6 +77,18 @@ def corrado_rank_test(
           Hypothesis Tests Using Daily Stock Returns." *Journal of
           Financial and Quantitative Analysis* 27(3), 465–478. Source
           of the direction-adjustment idea applied to two-sided signals.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.corrado import corrado_rank_test
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = corrado_rank_test(panel)
+        >>> result.name
+        'corrado_rank'
     """
     ranked = df.with_columns(
         (

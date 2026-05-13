@@ -55,6 +55,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [
+    "ts_asymmetry",
+]
+
 
 def ts_asymmetry(
     df: pl.DataFrame,
@@ -120,6 +124,18 @@ def ts_asymmetry(
         [Andrews 1991][andrews-1991]: Bartlett growth rate ``T^(1/3)``.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
         floor for overlapping returns.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ts_asymmetry import ts_asymmetry
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = ts_asymmetry(panel)
+        >>> result.name
+        'ts_asymmetry'
     """
     if "date" not in df.columns:
         return _short_circuit_output(

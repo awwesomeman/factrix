@@ -11,7 +11,6 @@ title: factrix.metrics.ts_beta
         - mean_r_squared
         - ts_beta_sign_consistency
         - compute_rolling_mean_beta
-        - ts_beta_single_asset_fallback
 
 <hr>
 

@@ -37,6 +37,14 @@ from factrix._stats import (
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "event_hit_rate",
+    "event_ic",
+    "profit_factor",
+    "event_skewness",
+    "signal_density",
+]
+
 
 def event_hit_rate(
     df: pl.DataFrame,
@@ -61,6 +69,18 @@ def event_hit_rate(
         factrix publishes ``stat`` consistent with the test branch
         (raw hit count for the exact path, z for the normal path) so an
         exact-binomial p is never paired with a Gaussian z label.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.event_quality import event_hit_rate
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = event_hit_rate(panel)
+        >>> result.name
+        'event_hit_rate'
     """
     events = df.filter(pl.col(factor_col) != 0)
 
@@ -136,6 +156,18 @@ def event_ic(
         ``|factor|`` lacks variance (e.g. ``{0, ±1}`` events): event-IC
         is undefined without magnitude variation, distinct from "too few
         events".
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.event_quality import event_ic
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = event_ic(panel)
+        >>> result.name
+        'event_ic'
     """
     from scipy import stats as sp_stats
 
@@ -212,6 +244,18 @@ def profit_factor(
         factrix returns ``0.0`` rather than infinity when total losses
         are below ``EPSILON`` so downstream aggregators do not propagate
         non-finite floats.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.event_quality import profit_factor
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = profit_factor(panel)
+        >>> result.name
+        'profit_factor'
     """
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
@@ -275,6 +319,18 @@ def event_skewness(
         D'Agostino-Pearson normal approximation degrades sharply on
         small samples; reporting an unreliable z would invite
         false-positive significance.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.event_quality import event_skewness
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = event_skewness(panel)
+        >>> result.name
+        'event_skewness'
     """
     from scipy import stats as sp_stats
 
@@ -356,6 +412,14 @@ def signal_density(
 
         factrix exposes ``clustering_diagnostic`` for event-date
         concentration; pair the two when independence assumptions matter.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.metrics.event_quality import signal_density
+        >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        >>> result = signal_density(panel)
+        >>> result.name
+        'signal_density'
     """
     events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
     n_events = len(events)

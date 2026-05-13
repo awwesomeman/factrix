@@ -43,6 +43,13 @@ from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics._metric_capabilities import per_date_series_rename
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_fm_betas",
+    "fama_macbeth",
+    "pooled_ols",
+    "beta_sign_consistency",
+]
+
 # Slice-test contract (#153 §5): Fama-MacBeth runs a per-date
 # OLS regression on the cross-section, not a bucket sort, so slice
 # tests never need to downscale `n_groups`. Sample-size constraints
@@ -102,6 +109,18 @@ def compute_fm_betas(
           Equilibrium: Empirical Tests." Journal of Political Economy,
           81(3), 607–636. The per-date cross-sectional regression at
           stage 1 of the FM procedure.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.fama_macbeth import compute_fm_betas
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> beta_df = compute_fm_betas(panel)
+        >>> set(beta_df.columns) >= {"date", "beta"}
+        True
     """
     dates = df["date"].unique().sort()
     rows: list[dict] = []
@@ -226,6 +245,21 @@ def fama_macbeth(
           Pricing Models with Useless Factors." Journal of Finance,
           54(1), 203–235. Single-factor simplification of the Shanken
           EIV correction that factrix actually applies.
+
+    Examples:
+        Chain from :func:`compute_fm_betas` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.fama_macbeth import compute_fm_betas, fama_macbeth
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> beta_df = compute_fm_betas(panel)
+        >>> result = fama_macbeth(beta_df, forward_periods=5)
+        >>> result.name
+        'fm_beta'
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -427,6 +461,18 @@ def pooled_ols(
           Errors that Cluster by Both Firm and Time." Journal of
           Financial Economics, 99(1), 1–10. Finite-sample df correction
           `min(G_A, G_B) − 1`.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.fama_macbeth import pooled_ols
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = pooled_ols(panel)
+        >>> result.name
+        'pooled_beta'
     """
     y = df[return_col].to_numpy().astype(np.float64)
     x = df[factor_col].to_numpy().astype(np.float64)
@@ -602,6 +648,24 @@ def beta_sign_consistency(
         ``ts_beta_sign_consistency`` so the two answer different
         questions: this one requires the caller to commit to a prior
         sign; the symmetric variant tests cross-asset agreement only.
+
+    Examples:
+        Chain from :func:`compute_fm_betas` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.fama_macbeth import (
+        ...     compute_fm_betas,
+        ...     beta_sign_consistency,
+        ... )
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> beta_df = compute_fm_betas(panel)
+        >>> result = beta_sign_consistency(beta_df, expected_sign=1)
+        >>> result.name
+        'beta_sign_consistency'
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)

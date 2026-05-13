@@ -26,6 +26,10 @@ __matrix_rows__ = (
 from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [
+    "clustering_diagnostic",
+]
+
 
 def clustering_diagnostic(
     df: pl.DataFrame,
@@ -64,6 +68,14 @@ def clustering_diagnostic(
         formal $H_0$ — because the natural follow-up correction
         (cross-sectional dependence in CAAR / BMP) is delegated to
         ``bmp_test(kolari_pynnonen_adjust=True)``.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.metrics.clustering import clustering_diagnostic
+        >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        >>> result = clustering_diagnostic(panel)
+        >>> result.name
+        'clustering_hhi'
     """
     events = df.filter(pl.col(factor_col) != 0)
     n_events = len(events)

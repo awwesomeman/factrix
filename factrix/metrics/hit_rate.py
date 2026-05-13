@@ -28,6 +28,10 @@ from factrix._stats import (
 from factrix._types import MIN_ASSETS_PER_DATE_IC, MetricOutput
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 
+__all__ = [
+    "hit_rate",
+]
+
 # Slice-test contract (#153 §5): hit_rate operates on a
 # pre-aggregated per-date series (no cross-section bucket pass), so
 # slice tests skip the `n_groups` downscale step. Per-date minimum
@@ -81,6 +85,23 @@ def hit_rate(
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
         autocorrelation horizon motivating the non-overlap stride.
+
+    Examples:
+        Hit rate of a per-date IC series produced by
+        :func:`~factrix.metrics.ic.compute_ic`:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic
+        >>> from factrix.metrics.hit_rate import hit_rate
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
+        >>> result = hit_rate(series, forward_periods=5)
+        >>> result.name
+        'hit_rate'
     """
     sampled = _sample_non_overlapping(series, forward_periods)
     vals = sampled[value_col].drop_nulls()

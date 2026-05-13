@@ -52,6 +52,12 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_caar",
+    "caar",
+    "bmp_test",
+]
+
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
 # so slice tests skip the `n_groups` downscale step. Minimum event
@@ -146,6 +152,18 @@ def compute_caar(
           Returns: The Case of Event Studies." Journal of Financial
           Economics, 14(1), 3–31. Daily event-study methodology backing
           the parametric-test path.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.caar import compute_caar
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> caar_df = compute_caar(panel)
+        >>> set(caar_df.columns) >= {"date", "caar"}
+        True
     """
     if _is_sparse_magnitude_weighted(df, factor_col):
         warnings.warn(
@@ -202,6 +220,21 @@ def caar(
         - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
           and Finance." Journal of Economic Literature, 35(1), 13–39.
           Event-window vocabulary.
+
+    Examples:
+        Chain from :func:`compute_caar` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.caar import compute_caar, caar
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> caar_df = compute_caar(panel)
+        >>> result = caar(caar_df, forward_periods=5)
+        >>> result.name
+        'caar'
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
@@ -360,6 +393,18 @@ def bmp_test(
           Review of Financial Studies, 23(11), 3996–4025. Clustering-
           adjusted BMP variant referenced by ``EventConfig.adjust_clustering``
           (not yet implemented).
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.caar import bmp_test
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = bmp_test(panel, forward_periods=5)
+        >>> result.name
+        'bmp_test'
     """
     sorted_df = df.sort(["asset_id", "date"])
 

@@ -39,6 +39,13 @@ from factrix.metrics._helpers import (
     _warn_high_tie_ratio,
 )
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_spread_series",
+    "compute_group_returns",
+    "quantile_spread",
+    "quantile_spread_vw",
+]
+
 
 def compute_spread_series(
     df: pl.DataFrame,
@@ -76,6 +83,18 @@ def compute_spread_series(
         before bucketing, not overlapping panel re-balancing — keeps the
         spread series free of MA(h-1) autocorrelation so downstream
         non-overlap t-tests are valid without HAC.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.quantile import compute_spread_series
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> spreads = compute_spread_series(panel, forward_periods=5, n_groups=5)
+        >>> set(spreads.columns) >= {"date", "spread", "top_return", "bottom_return"}
+        True
     """
     sampled = _sample_non_overlapping(df, forward_periods)
 
@@ -152,6 +171,18 @@ def quantile_spread(
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
         autocorrelation, motivating the non-overlap stride.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.quantile import quantile_spread
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = quantile_spread(panel, forward_periods=5, n_groups=5)
+        >>> result.name
+        'quantile_spread'
     """
     # Compute tie_ratio on the sampled subset (what bucketing actually sees)
     # rather than the full panel — ~N/forward_periods smaller scan.
@@ -290,6 +321,19 @@ def quantile_spread_vw(
 
     References:
         Hou, Xue & Zhang (2020): ~65% of factors disappear under VW.
+
+    Examples:
+        >>> import polars as pl
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.quantile import quantile_spread_vw
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... ).with_columns(pl.lit(1e6).alias("market_cap"))
+        >>> result = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
+        >>> result.name
+        'quantile_spread_vw'
     """
     if weight_col not in df.columns:
         return _short_circuit_output(
@@ -403,6 +447,18 @@ def compute_group_returns(
         want per-date bucket means averaged afterwards (the IC/IR-style
         aggregation order); the two differ when bucket cardinality moves
         across dates.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.quantile import compute_group_returns
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> groups = compute_group_returns(panel, forward_periods=5, n_groups=5)
+        >>> set(groups.columns) >= {"group", "mean_return"}
+        True
     """
     sampled = _sample_non_overlapping(df, forward_periods)
     grouped = _assign_quantile_groups(

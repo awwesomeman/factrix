@@ -39,6 +39,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [
+    "top_concentration",
+]
+
 
 def top_concentration(
     df: pl.DataFrame,
@@ -94,6 +98,18 @@ def top_concentration(
         ``tie_ratio`` is still recorded in metadata as a data-quality
         diagnostic (high tie_ratio → unstable membership across
         re-rankings).
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.concentration import top_concentration
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = top_concentration(panel, forward_periods=5, q_top=0.2)
+        >>> result.name
+        'top_concentration'
     """
     if weight_by == "alpha_contribution" and return_col not in df.columns:
         return _short_circuit_output(

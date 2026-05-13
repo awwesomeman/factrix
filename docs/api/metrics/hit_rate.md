@@ -7,7 +7,6 @@ title: factrix.metrics.hit_rate
       show_root_members_full_path: true
       members:
         - hit_rate
-        - per_date_series
 
 <hr>
 

@@ -41,6 +41,13 @@ from factrix.metrics._helpers import (
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_ic",
+    "ic",
+    "ic_newey_west",
+    "ic_ir",
+]
+
 # Slice-test contract (#153 §5): IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
 # downscale `n_groups`. The min-cross-section-per-date constraint
@@ -129,6 +136,18 @@ def compute_ic(
         IC as the canonical signal-quality measure (the formal
         decomposition is older — see [Treynor-Black
         1973][treynor-black-1973]).
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=120, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ic_df = compute_ic(panel)
+        >>> set(ic_df.columns) >= {"date", "ic", "tie_ratio"}
+        True
     """
     ranked = df.with_columns(
         pl.col(factor_col).rank(method="average").over("date").alias("_rank_factor"),
@@ -177,6 +196,21 @@ def ic(
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: K-period overlapping
         returns carry MA(K-1) autocorrelation — the motivation for the
         non-overlap stride used here.
+
+    Examples:
+        Chain from :func:`compute_ic` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic, ic
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ic_df = compute_ic(panel)
+        >>> result = ic(ic_df, forward_periods=5)
+        >>> result.name
+        'ic'
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
     ic_vals = ic_df["ic"].drop_nulls()
@@ -252,6 +286,21 @@ def ic_newey_west(
         floor for overlapping returns.
         [Newey-West 1994][newey-west-1994]: data-adaptive lag-selection
         alternative; cited as background.
+
+    Examples:
+        Chain from :func:`compute_ic` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic, ic_newey_west
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ic_df = compute_ic(panel)
+        >>> result = ic_newey_west(ic_df, forward_periods=5)
+        >>> result.name
+        'ic_newey_west'
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_newey_west")
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
@@ -315,6 +364,21 @@ def ic_ir(
     References:
         [Grinold 1989][grinold-1989]: ICIR is the time-stability
         normalisation that completes the IR decomposition.
+
+    Examples:
+        Chain from :func:`compute_ic` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic, ic_ir
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ic_df = compute_ic(panel)
+        >>> result = ic_ir(ic_df)
+        >>> result.name
+        'ic_ir'
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
     ic_vals = ic_df["ic"].drop_nulls()

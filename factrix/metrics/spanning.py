@@ -38,6 +38,13 @@ from factrix._stats import _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "spanning_alpha",
+    "greedy_forward_selection",
+    "SpanningResult",
+    "ForwardSelectionResult",
+]
+
 logger = logging.getLogger(__name__)
 
 
@@ -145,6 +152,24 @@ def spanning_alpha(
         - [Barillas & Shanken (2017)][barillas-shanken-2017]. "Which
           Alpha?" Review of Financial Studies, 30(4), 1316–1338.
           Spanning-test framework for nested factor models.
+
+    Examples:
+        Build a spread series via
+        :func:`~factrix.metrics.quantile.compute_spread_series`, then
+        test its alpha standalone:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.quantile import compute_spread_series
+        >>> from factrix.metrics.spanning import spanning_alpha
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> spread = compute_spread_series(panel, forward_periods=5)
+        >>> result = spanning_alpha(spread)
+        >>> result.name
+        'spanning_alpha'
     """
     if base_spreads is None:
         base_spreads = {}
@@ -272,6 +297,34 @@ def greedy_forward_selection(
           Cross-Section of Expected Returns." Review of Financial
           Studies, 29(1), 5–68. Empirical case for raising t-thresholds;
           section on stepwise-selection bias.
+
+    Examples:
+        Greedy step-wise selection across two candidate spread series.
+        ``suppress_snooping_warning=True`` acknowledges the inflated-t
+        contract documented on
+        :class:`ForwardSelectionResult`:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.quantile import compute_spread_series
+        >>> from factrix.metrics.spanning import greedy_forward_selection
+        >>> seeds = [0, 1]
+        >>> spreads = {
+        ...     f"cand_{s}": compute_spread_series(
+        ...         compute_forward_return(
+        ...             fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=s),
+        ...             forward_periods=5,
+        ...         ),
+        ...         forward_periods=5,
+        ...     )
+        ...     for s in seeds
+        ... }
+        >>> result = greedy_forward_selection(
+        ...     spreads,
+        ...     suppress_snooping_warning=True,
+        ... )
+        >>> result.t_stats_inference_invalid
+        True
     """
     if not suppress_snooping_warning:
         warnings.warn(
