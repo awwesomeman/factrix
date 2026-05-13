@@ -144,10 +144,10 @@ nav:
           - TIMESERIES-mode conventions: reference/ts-mode-conventions.md
       - How-to:
           - guides/index.md
+          - Choosing a metric: guides/choosing-metric.md
           - PANEL vs TIMESERIES: guides/panel-timeseries.md
           - Batch screening (BHY): guides/batch-screening.md
           - Slice analysis: guides/slice-analysis.md
-          - Choosing a metric: guides/choosing-metric.md
           - Standalone metrics: guides/standalone-metrics.md
       - Examples:
           - examples/index.md
