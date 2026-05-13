@@ -13,23 +13,12 @@ Two contracts to keep in mind:
 - **Cell → procedure is 1:1** (per #148). A cell's primary p-value is produced by exactly one estimator at `evaluate` time.
 - **Family functions accept an `estimator=` override.** `bhy` / `bhy_hierarchical` / `partial_conjunction` swap which already-computed p-value drives the multiplicity step. `list_estimators` returns the candidates for that override, filtered to those applicable to the cell.
 
-## Call shape
+## Mode axis is not an input
 
-```python
-import factrix as fx
-
-# Text list (default) — pretty names for CLI / REPL inspection
-fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS)
-# → ['NeweyWest', 'HansenHodrick', 'BlockBootstrap', ...]
-
-# Structured records — programmatic filtering / import paths
-fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
-                   format='json', with_import=True)
-# → [{'name': 'NeweyWest', 'import': 'from factrix.stats import NeweyWest', ...}, ...]
-```
-
-`Mode` is intentionally not an input — estimator applicability is
+`Mode` is intentionally not a parameter — estimator applicability is
 cell-axis-dependent (scope × signal), not panel-shape-dependent.
+See the docstring Examples block above for canonical text-list and
+JSON-form calls.
 
 ---
 

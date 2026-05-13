@@ -14,28 +14,18 @@ per slice. Returns a [`SliceResult`](#sliceresult) — a
 The axis name does not bake into the API — market, sector, regime,
 market-cap tier, ADV bucket all share the same dispatcher.
 
-## Call shape
-
-```python
-import polars as pl
-from factrix import by_slice
-from factrix.metrics import compute_ic, ic
-
-ic_df = compute_ic(panel)
-ic_df = ic_df.join(regime_labels, on="date")  # adds 'regime' column
-
-per_regime = by_slice(ic, ic_df, label="regime")
-# SliceResult({"bull": MetricOutput(name="ic", ...), "bear": MetricOutput(name="ic", ...)})
-
-per_regime["bull"].value          # Mapping access — unchanged
-per_regime.to_frame()             # long-form pl.DataFrame for plotting
-```
+## Argument contract
 
 The first argument is the **metric callable** (e.g. `ic`, `caar`,
 `fama_macbeth`); the second is the metric's primary date-keyed
 DataFrame **with the slicing column already present**; `label` names
 that column; remaining keyword args (`forward_periods=...`, etc.)
-forward unchanged on every per-slice call.
+forward unchanged on every per-slice call. See the docstring
+Examples block above for the canonical call shape.
+
+`SliceResult` is a `Mapping[str, MetricOutput]`:
+`result["<slice-key>"].value` for dict-style access,
+`result.to_frame()` for the long-form `pl.DataFrame`.
 
 ## Why "label is a column name"
 
