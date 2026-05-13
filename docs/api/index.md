@@ -1,4 +1,6 @@
-# API
+---
+title: API
+---
 
 Reference for every public symbol exported from `factrix`.
 

@@ -1,4 +1,6 @@
-# Estimator alternatives
+---
+title: Estimator alternatives
+---
 
 How to swap the HAC inference path that drives `primary_p`, and why
 factrix's design keeps that swap study-scoped rather than per-call.

@@ -1,4 +1,6 @@
-# factrix.stats
+---
+title: factrix.stats
+---
 
 Inference-method instances + standalone statistical helpers. The
 public surface is what screening functions (`bhy` / `bhy_hierarchical`) and

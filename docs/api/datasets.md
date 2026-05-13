@@ -1,4 +1,6 @@
-# datasets
+---
+title: factrix.datasets
+---
 
 Synthetic panel generators for examples, tests, and documentation.
 Both emit raw canonical-column panels (`date, asset_id, price,

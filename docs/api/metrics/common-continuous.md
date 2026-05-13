@@ -1,4 +1,6 @@
-# Common continuous
+---
+title: Common continuous
+---
 
 Metrics for the `Common × Continuous` cell — one time-series factor
 broadcast across `N` assets (a market-wide signal: VIX, USD index, oil,

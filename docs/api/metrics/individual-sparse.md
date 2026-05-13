@@ -1,4 +1,6 @@
-# Individual sparse
+---
+title: Individual sparse
+---
 
 Metrics for the `Individual × Sparse` cell — event signals where most
 `(date, asset_id)` cells carry `factor == 0` and the few non-zero cells

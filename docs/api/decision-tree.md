@@ -1,4 +1,6 @@
-# Decision tree
+---
+title: Decision tree
+---
 
 Reverse lookup from research question to function. The
 [API reference landing](index.md) is function-centric ("here is each
