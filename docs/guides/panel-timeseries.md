@@ -6,6 +6,7 @@ title: PANEL vs TIMESERIES
     What `Mode.PANEL` vs `Mode.TIMESERIES` mean, when each is dispatched, and the sample-guard contract for each.
     For the conventions table (column names, alignment), see [TIMESERIES-mode conventions](../reference/ts-mode-conventions.md).
     For the `mode=` parameter on `evaluate()`, see [`evaluate`](../api/evaluate.md).
+    For sample-guard error surfacing (`InsufficientSampleError`, `ModeAxisError`), see [Errors](../api/errors.md).
 
 ## Sample guards
 

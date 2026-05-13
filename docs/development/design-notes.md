@@ -122,7 +122,7 @@ market and comparing the returned `FactorProfile`s.
 
 ## 5. BHY rather than Bayesian multiple-testing
 
-factrix's `multi_factor.bhy` runs Benjamini-Yekutieli
+factrix's [`multi_factor.bhy`](../api/bhy.md) runs Benjamini-Yekutieli
 ([Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]) FDR control
 with the `c(m) = Σ 1/i` dependence correction. It does not implement
 Bayesian alternatives such as

@@ -118,3 +118,4 @@ You have one `FactorProfile` for one factor. The common follow-ups:
 | Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
 | Look up the panel input contract | [Panel schema](../api/panel-schema.md) | — |
 | Pick a metric for a given research question | [Choosing a metric](../guides/choosing-metric.md) | — |
+| Pick a function (rather than a metric) | [Decision tree](../api/decision-tree.md) | — |
