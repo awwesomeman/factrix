@@ -555,6 +555,42 @@ The project's style policy is split between two complementary but distinct conve
 
 NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists (`:param x:` / `:returns:`) are not parsed by the Google handler and render as plain prose under generic headings. Convert on sight.
 
+### Module docstring layering — navigation vs implementation
+
+Module-level and function-level docstrings carry different roles. The split is structural, not stylistic.
+
+- **Module docstring** holds navigation + cross-module context only:
+    - A one-to-three-sentence TL;DR of what the module is for and which entry point / public surface consumes it.
+    - When the module hosts several callables sharing one theoretical frame (e.g. `_stats/bootstrap.py` covering stationary + fixed schemes): a brief inventory naming each public callable with a one-line distinguishing characteristic.
+    - Non-obvious sibling-module relationships when the boundary matters (e.g. `_stats/multiple_testing.py` is sister to public `factrix.stats.multiple_testing`).
+- **Function / class / method docstring** holds the implementation contract: `Args:` / `Returns:` / `Raises:` / `Notes:` / `Examples:` / `References:`.
+- The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
+
+#### `References:` placement — function-level by default
+
+Aligns with NumPy / SciPy / scikit-learn convention. Every user-facing `References:` block lives on the function / class / method that owns the behaviour.
+
+- Same paper cited by multiple functions: **duplicate inline** in each docstring. Reader self-sufficiency on the function page beats dedup; the cost is bounded because each paper is cited by 1–3 callables in practice.
+- Module-level `References:` is reserved for private modules (`factrix/_stats/*`) as source-only context for maintainers reading code. The public sister module (`factrix.stats.*`) still carries inline citations on each public function — module-level `References:` is not a substitute.
+- Format is Google `References:` (colon-terminated heading, indented body), not NumPy underline (`References\n----------`).
+
+#### `bibliography.md` as catalog, not single SSOT
+
+Full citation metadata (author / year / title / journal / volume / pages) appears **inline** in each docstring's `References:` block. Readers on a function API page see the full citation without leaving.
+
+`docs/reference/bibliography.md` is a **catalog page**, not the SSOT: every cited paper appears there once with its full citation and a slug anchor (e.g. `corrado-1989`). It serves two purposes:
+
+- Aggregated browse view ("which papers does factrix cite").
+- Anchor provider for cross-page links from guides / how-tos using the autorefs form `[Corrado 1989][corrado-1989]`.
+
+Removing the catalog page does not break any function's `References:` block. When updating a citation (typo, DOI), update each inline copy and the catalog entry.
+
+#### `Notes:` rule — function self-contained
+
+Function docstrings are self-sufficient. If a function's behaviour is only intelligible with one sentence of module-level frame, **copy that sentence into the function `Notes:`** rather than forcing the reader to scroll up. Duplication cost is less than reading-context-break cost.
+
+Module-level `Notes:` exists only when no single function carries the canonical pipeline — rare in factrix, since most modules host one canonical function per metric.
+
 ### Markdown code-block intent layers — runnable vs illustrative
 
 Code blocks under `docs/api/**/*.md` carry two distinct intents; verify which layer a block belongs to before editing.

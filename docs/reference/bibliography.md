@@ -410,14 +410,26 @@ Financial Economics." *Journal of Finance* 75(5), 2503–2553.
 FDR-adjusted t-thresholds for asset-pricing tests; complements
 Harvey-Liu-Zhu (2016).
 
+### Holm (1979)
+[](){ #holm-1979 }
+
+Holm, S. (1979). "A Simple Sequentially Rejective Multiple Test
+Procedure." *Scandinavian Journal of Statistics* 6(2), 65–70.
+
+FWER step-down procedure that uniformly dominates Bonferroni under
+the same dependence assumptions; the default slice-test adjustment
+in `_stats.multiple_testing` when callers do not supply a bootstrap
+distribution.
+
 ### Romano & Wolf (2005)
 [](){ #romano-wolf-2005 }
 
 Romano, J. P. & Wolf, M. (2005). "Stepwise Multiple Testing as
 Formalized Data Snooping." *Econometrica* 73(4), 1237–1282.
 
-Stepwise FDP control; cited as background for stricter
-data-snooping discipline beyond what BHY provides.
+Bootstrap-based FWER step-down exploiting the joint dependence of
+test statistics; implemented in `_stats.multiple_testing` for the
+date-shared slice-test setting (e.g. universe pairwise IC).
 
 ### White (2000)
 [](){ #white-2000 }
@@ -507,6 +519,15 @@ Association* 88(424), 1273–1283.
 Sn / Qn estimators as MAD alternatives; cited as the "considered
 but not implemented" alternative robust scale.
 
+### Künsch (1989)
+[](){ #kunsch-1989 }
+
+Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General
+Stationary Observations." *Annals of Statistics* 17(3), 1217–1241.
+
+Fixed-block (moving-block) bootstrap for stationary time series;
+underlies the deterministic block scheme in `_stats.bootstrap`.
+
 ### Politis & Romano (1994)
 [](){ #politis-romano-1994 }
 
@@ -514,8 +535,18 @@ Politis, D. N. & Romano, J. P. (1994). "The Stationary Bootstrap."
 *Journal of the American Statistical Association* 89(428),
 1303–1313.
 
-Stationary block bootstrap. Cited as background; not implemented
-inside factrix.
+Stationary block bootstrap with geometric block lengths; underlies
+the stationary scheme in `_stats.bootstrap`.
+
+### Politis & White (2004)
+[](){ #politis-white-2004 }
+
+Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection
+for the Dependent Bootstrap." *Econometric Reviews* 23(1), 53–70.
+
+Data-driven block-length selector for stationary / circular
+bootstraps; supplies the automatic `L` choice in `_stats.bootstrap`
+when callers do not pass one.
 
 ### Sen (1968)
 [](){ #sen-1968 }
