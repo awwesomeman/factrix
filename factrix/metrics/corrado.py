@@ -63,14 +63,14 @@ def corrado_rank_test(
         ``"degenerate_rank_variance"`` when ``std(U_all) < EPSILON``.
 
     References:
-        Corrado, C. J. (1989). "A Nonparametric Test for Abnormal
-        Security-price Performance in Event Studies." *Journal of
-        Financial Economics* 23(2), 385–395.
+        [Corrado (1989)][corrado-1989]. "A Nonparametric Test for
+        Abnormal Security-price Performance in Event Studies."
+        *Journal of Financial Economics* 23(2), 385–395.
 
-        Corrado, C. J. & Zivney, T. L. (1992). "The Specification
-        and Power of the Sign Test in Event Study Hypothesis Tests
-        Using Daily Stock Returns." *Journal of Financial and
-        Quantitative Analysis* 27(3), 465–478.
+        [Corrado & Zivney (1992)][corrado-zivney-1992]. "The
+        Specification and Power of the Sign Test in Event Study
+        Hypothesis Tests Using Daily Stock Returns." *Journal of
+        Financial and Quantitative Analysis* 27(3), 465–478.
     """
     ranked = df.with_columns(
         (

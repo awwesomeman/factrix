@@ -566,24 +566,53 @@ Module-level and function-level docstrings carry different roles. The split is s
 - **Function / class / method docstring** holds the implementation contract: `Args:` / `Returns:` / `Raises:` / `Notes:` / `Examples:` / `References:`.
 - The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
 
-#### `References:` placement — function-level by default
+#### `References:` placement — by callable count
 
-Aligns with NumPy / SciPy / scikit-learn convention. Every user-facing `References:` block lives on the function / class / method that owns the behaviour.
+Placement is driven by how many public callables the module hosts, not by paper-vs-module scope. The rule matches the rendered metric / API page: `::: factrix.metrics.<x>` with several `members:` produces one page with multiple function sections, and reader UX differs by layout.
 
-- Same paper cited by multiple functions: **duplicate inline** in each docstring. Reader self-sufficiency on the function page beats dedup; the cost is bounded because each paper is cited by 1–3 callables in practice.
-- Module-level `References:` is reserved for private modules (`factrix/_stats/*`) as source-only context for maintainers reading code. The public sister module (`factrix.stats.*`) still carries inline citations on each public function — module-level `References:` is not a substitute.
-- Format is Google `References:` (colon-terminated heading, indented body), not NumPy underline (`References\n----------`).
+- **Single-callable module** (e.g. `corrado.py`, most `metrics/*.py` files that host one public function): `References:` lives only on the function. No module-level References — would just duplicate the function block above it on the rendered page.
+- **Multi-callable module** (e.g. `caar.py` with `compute_caar` / `caar` / `bmp_test`; `factrix.stats.multiple_testing` with the BHY family): module docstring carries a short-form `References:` overview listing the key papers covering the module's topic; each function then carries its own `References:` block with inline full citations for the specific paper driving that function's algorithm. Same paper appearing at both module-overview and function-detail levels is accepted here — they serve different reader animations on the same page.
+- **Private `_stats/*` modules**: source-only. Inline full citation at module level is fine since these are not rendered to user-facing pages.
+
+Format in every case: Google `References:` (colon-terminated heading, indented body), not NumPy underline (`References\n----------`).
+
+#### Inline citation form — autorefs hyperlink + full text
+
+`References:` entries are hyperlinked to the catalog using mkdocs-autorefs reference-style links. The author-year prefix is the link; the rest of the citation is plain text following it.
+
+```
+References:
+    [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+    and Finance." Journal of Economic Literature, 35(1), 13–39.
+```
+
+This serves two animations without compromising either:
+
+- Reader who does not click — sees the full citation inline (author, year, title, journal, volume, pages) and never needs to leave the page.
+- Reader who clicks the author-year link — jumps to `bibliography.md#mackinlay-1997` to read the paper's role in factrix and cross-metric usage.
+
+Short-form module-level overviews on multi-callable modules can drop the trailing full-citation text (the link + title is enough at the overview layer):
+
+```
+References:
+    [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
+        and Finance."
+    [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
+        "Event-study methodology under conditions of event-induced
+        variance."
+```
+
+The slug must match an anchor declared in `docs/reference/bibliography.md`; missing anchors produce an mkdocs `--strict` warning.
 
 #### `bibliography.md` as catalog, not single SSOT
 
-Full citation metadata (author / year / title / journal / volume / pages) appears **inline** in each docstring's `References:` block. Readers on a function API page see the full citation without leaving.
-
-`docs/reference/bibliography.md` is a **catalog page**, not the SSOT: every cited paper appears there once with its full citation and a slug anchor (e.g. `corrado-1989`). It serves two purposes:
+`docs/reference/bibliography.md` is a **catalog page**, not the SSOT for citation metadata: every cited paper appears there once with its full citation, an anchor, and a paragraph on the paper's role in factrix. It serves three roles:
 
 - Aggregated browse view ("which papers does factrix cite").
+- Anchor target for inline `References:` hyperlinks inside docstrings.
 - Anchor provider for cross-page links from guides / how-tos using the autorefs form `[Corrado 1989][corrado-1989]`.
 
-Removing the catalog page does not break any function's `References:` block. When updating a citation (typo, DOI), update each inline copy and the catalog entry.
+The hyperlinks are an enhancement, not a dependency: if `bibliography.md` is removed, inline citations still carry the full metadata inline — only the link targets would 404. When updating a citation (typo, DOI), update the catalog entry and each inline copy that carries the full text.
 
 #### `Notes:` rule — function self-contained
 
