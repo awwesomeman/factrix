@@ -749,7 +749,9 @@ The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` 
 
 #### Two-register convention: "verb" vs "function" / "entry point"
 
-User-facing surface (`docs/**/*.md`, README, docstrings, CHANGELOG) uses **function** when referring to one specific callable, and **entry point** when referring to the set of public callables (the seven that appear in nav under "Entry points"). Design-issue bodies and RFC comments may keep **verb** as RFC vocabulary — that register is internal to design discussion and does not propagate to user docs. When sweeping prose from a design issue into a guide or docstring, translate `verb` → `function` (or rephrase to name the specific callable) as part of the move.
+User-facing surface uses **function** when referring to one specific callable, and **entry point** when referring to the set of public callables (the seven that appear in nav under "Entry points"). Design-issue bodies and RFC comments may keep **verb** as RFC vocabulary — that register is internal to design discussion and does not propagate to user docs. When sweeping prose from a design issue into a guide or docstring, translate `verb` → `function` (or rephrase to name the specific callable) as part of the move.
+
+User-facing surface covers `docs/**/*.md`, README, docstrings, CHANGELOG, **and the error contract** — the structured attributes on `UserInputError` (and any future user-facing exception) belong to the user-facing register. The failing-function slot is named `func_name`, not `verb`, on every error class users can catch and read. The 59 internal source-side raise sites may pass `verb=` as a kwarg until they are swept (tracked in #317); the rule is about what the user sees on the caught exception, not what internal source uses to populate it.
 
 ---
 
