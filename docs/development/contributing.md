@@ -531,6 +531,18 @@ plain prose; reach for a callout only when the elevation earns it.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
+### Page-shape conventions — when to add `## Use cases` / `## Worked example`
+
+These two sections appear on pages whose primary purpose is to show the reader *how to call the API*. They are content shapes for workflow-oriented pages — not a universal requirement.
+
+- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `run_metrics`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `list_estimators`, `suggest_config`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
+- **Not expected** on:
+    - Dataclass / container pages (`factor-profile.md`, `metric-output.md`, `metrics-bundle.md`) — these describe a return type, not a workflow.
+    - Reference / taxonomy / hub pages (`errors.md`, `decision-tree.md`, `panel-schema.md`, `api/index.md`, `multi-horizon.md`, `identity.md`, `estimator-alternatives.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.
+    - Namespace / module pages (`stats.md`, `datasets.md`) — content shape is a catalogue of members.
+
+A page that legitimately does not need these sections carries no marker — silence is the policy default. Pages in the "expected" category that currently lack the sections are accepted as a backfill debt rather than a defect.
+
 ### Terminology — functional names, not stage labels
 
 Code (`factrix/**/*.py` docstrings + module headers) and published docs (`docs/**/*.md` excluding `docs/plans/`) describe behaviour by **what a function does**, not by **which planning tier it lives in**. Stage labels — `Layer-A` / `Layer-B`, `first / second layer`, `Phase 1` / `P1`, `curated wrapper`, `dispatcher vs wrapper` as a tier pair — belong only to GitHub issues / labels / milestones, where they can be renamed as the roadmap shifts.
