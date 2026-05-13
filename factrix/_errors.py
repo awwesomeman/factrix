@@ -53,25 +53,34 @@ class UserInputError(FactrixError, ValueError):
     Structured attributes carry the diagnostic so callers (sub-issue
     raises, LLM agents) do not parse the rendered message:
 
-    - ``verb``: the calling verb name (no parens)
+    - ``func_name``: the calling function name (no parens)
     - ``field``: the kwarg / column name that failed validation
     - ``value``: the value the caller passed in
     - ``candidates``: tuple of legal names (named-set branch); empty otherwise
     - ``suggestions``: difflib top-3 fuzzy matches against ``candidates``
     - ``expected``: human-readable shape (type-mismatch branch); ``None`` otherwise
-    - ``docs_url``: deployed-docs URL for the verb
+    - ``docs_url``: deployed-docs URL for the function
+
+    The constructor accepts a legacy ``verb=`` kwarg in addition to
+    ``func_name=`` as an internal bridge for the 59 source-side raise
+    sites that still pass ``verb=`` (swept in #317). The bridge stores
+    the value under ``self.func_name`` either way; there is no
+    ``verb`` attribute on the instance.
     """
 
     def __init__(
         self,
         *,
-        verb: str,
+        func_name: str | None = None,
+        verb: str | None = None,
         field: str,
         value: object,
         candidates: Iterable[object] | None = None,
         expected: str | None = None,
         docs_path: str,
     ) -> None:
+        if func_name is None and verb is None:
+            raise TypeError("UserInputError requires func_name= (or legacy verb=)")
         if not candidates and not expected:
             raise ValueError("UserInputError requires candidates= or expected=")
         ordered = tuple(sorted(str(c) for c in candidates)) if candidates else ()
@@ -80,7 +89,7 @@ class UserInputError(FactrixError, ValueError):
             if ordered
             else ()
         )
-        self.verb = verb
+        self.func_name: str = func_name if func_name is not None else verb  # type: ignore[assignment]
         self.field = field
         self.value = value
         self.candidates: tuple[str, ...] = ordered
@@ -93,13 +102,13 @@ class UserInputError(FactrixError, ValueError):
         value_repr = _truncate_repr(self.value)
         lines: list[str] = []
         if self.candidates:
-            lines.append(f"{self.verb}(): unknown {self.field}={value_repr}")
+            lines.append(f"{self.func_name}(): unknown {self.field}={value_repr}")
             if self.suggestions:
                 quoted = ", ".join(f'"{s}"' for s in self.suggestions)
                 lines.append(f"  Did you mean: {quoted}?")
             lines.append(_render_available(self.candidates))
         else:
-            lines.append(f"{self.verb}(): invalid {self.field}={value_repr}")
+            lines.append(f"{self.func_name}(): invalid {self.field}={value_repr}")
             lines.append(f"  Expected: {self.expected}")
         lines.append(f"  Docs: {self.docs_url}")
         return "\n".join(lines)

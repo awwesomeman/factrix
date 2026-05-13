@@ -268,12 +268,12 @@ Every user-facing raise that takes a named input must carry:
 ```python
 UserInputError(
     *,
-    verb: str,
+    func_name: str,
     field: str,
     value: object,
     candidates: Iterable[object] | None = None,   # named-set typo
     expected: str | None = None,                  # type / shape mismatch
-    docs_path: str,                               # "api/<verb>#<anchor>"
+    docs_path: str,                               # "api/<func_name>#<anchor>"
 )
 ```
 
@@ -296,7 +296,7 @@ UserInputError(
 Sub-issues and downstream consumers (LLM agents, screening loops)
 recover via attributes, not message substrings:
 
-- `.verb`, `.field`, `.value`, `.expected`, `.docs_url`
+- `.func_name`, `.field`, `.value`, `.expected`, `.docs_url`
 - `.candidates: tuple[str, ...]` — sorted, `()` in the type-mismatch branch
 - `.suggestions: tuple[str, ...]` — difflib top-3, `()` when none above cutoff
 

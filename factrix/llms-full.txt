@@ -564,7 +564,7 @@ FactrixError                       # base — all factrix-raised errors
 ```
 
 `UserInputError` is keyword-constructed and renders its own canonical
-message; structured attributes (`.verb`, `.field`, `.value`,
+message; structured attributes (`.func_name`, `.field`, `.value`,
 `.candidates`, `.suggestions`, `.expected`, `.docs_url`) carry the
 diagnostic so callers (LLM agents, screening loops) recover without
 parsing `.args[0]`. Multi-inherits from `ValueError` for ecosystem

@@ -101,7 +101,7 @@ bhy(): unknown expand_over='univere_id'
 
 | Line | What to look at |
 |---|---|
-| `verb(): unknown <field>=<value>` | Which kwarg / column triggered the raise, and what value was received. |
+| `<func_name>(): unknown <field>=<value>` | Which kwarg / column triggered the raise, and what value was received. |
 | `Did you mean: "..."` | Top-3 fuzzy candidates (omitted when nothing matches above the cutoff). |
 | `Available: [...]` | The full legal set — sorted, so the same set always renders identically. |
 | `Docs: https://...` | The function's deployed-docs anchor. |
@@ -129,7 +129,7 @@ for cfg in candidates:
 
 | Attribute | Meaning |
 |---|---|
-| `verb` | The calling function (e.g. `"bhy"`, `"evaluate"`). |
+| `func_name` | The calling function (e.g. `"bhy"`, `"evaluate"`). |
 | `field` | The kwarg / column name that failed validation. |
 | `value` | The value the caller passed in. |
 | `candidates` | Sorted tuple of legal names (named-set branch); `()` otherwise. |
@@ -148,7 +148,7 @@ import factrix as fx
 
 if metric_name not in fx.list_metrics(cfg):
     raise fx.UserInputError(
-        verb="run_metrics",
+        func_name="run_metrics",
         field="metrics",
         value=metric_name,
         candidates=fx.list_metrics(cfg),
