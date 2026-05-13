@@ -308,8 +308,9 @@ catches it.
 
 The contract is opt-in for new user-facing raises. Each v1 function
 sub-issue (#147 / #160 / #161 / #162) declares conformance in its
-own DoD; retrofit of pre-contract raise sites is tracked separately
-so the helper itself can land without forcing a sweep.
+own acceptance criteria; retrofit of pre-contract raise sites is
+tracked separately so the helper itself can land without forcing a
+sweep.
 
 ---
 
@@ -657,7 +658,7 @@ from disk.
 
 Run: `uv run pytest`
 
-### Docs SSOT strategy (Option B — issue #42)
+### Docs SSOT strategy — docstring tags drive the matrix
 
 `docs/reference/metric-pipelines.md` no longer contains a hand-written
 matrix. The matrix is generated at build time from machine-readable
@@ -681,9 +682,10 @@ matrix. The matrix is generated at build time from machine-readable
 - `_generated_metric_matrix.md` exists and is non-empty (skipped if absent,
   so CI that only runs pytest without a prior build does not false-positive).
 
-**Why Option B over Option C (pure CI guard):** Option C only checked
-presence/absence of module references; drift in any of the five data columns
-(scope, aggregation order, inference SE, primitives) was invisible to CI.
-Option B makes the docstring the single source of truth for all six matrix
-columns — adding a module without a `Matrix-row:` tag fails the test, and
-editing the tag automatically updates the rendered docs on the next build.
+**Why docstring tags rather than a pure CI presence guard:** a guard
+that only checks presence/absence of module references leaves drift in
+the five data columns (scope, aggregation order, inference SE,
+primitives) invisible to CI. Making the docstring the single source of
+truth for all six matrix columns closes that gap — adding a module
+without a `Matrix-row:` tag fails the test, and editing the tag
+automatically updates the rendered docs on the next build.
