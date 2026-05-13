@@ -31,7 +31,7 @@ Both functions accept `expand_over=`, but the **survivor unit** and the
 **question answered** differ. This is the single most common source of
 confusion; pick the row that matches your claim.
 
-| Verb | Survivor unit | Question | Example claim |
+| Function | Survivor unit | Question | Example claim |
 |---|---|---|---|
 | `bhy(profiles, expand_over=["universe_id"])` | `(factor, universe)` pair | "Where is this factor significant?" | "Momentum is significant in `large_cap`; value is significant in `small_cap`" |
 | `partial_conjunction(profiles, min_pass=2, expand_over=["universe_id"])` | `factor` identity | "Which factors are significant across all conditions?" | "Momentum is significant across both universes" |

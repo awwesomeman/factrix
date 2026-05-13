@@ -8,7 +8,7 @@ means differ.
 
 The two functions answer **different statistical questions**:
 
-| Verb | Question | Output shape |
+| Function | Question | Output shape |
 |---|---|---|
 | `slice_pairwise_test` | "Which pairs differ?" — K(K−1)/2 contrasts with family-internal multiple-testing correction | One row per pair: `(slice_a, slice_b, n_obs, stat, p_raw, p_adj)` |
 | `slice_joint_test` | "Do any slices differ at all?" — single omnibus Wald χ² | One row: `(n_obs, k_slices, df, stat, p)` |
