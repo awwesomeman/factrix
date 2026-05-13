@@ -16,7 +16,7 @@ def test_subclasses_factrix_error_and_value_error() -> None:
 def test_caught_by_generic_value_error() -> None:
     with pytest.raises(ValueError):
         raise UserInputError(
-            verb="x",
+            func_name="x",
             field="f",
             value="a",
             candidates=["aa"],
@@ -26,7 +26,7 @@ def test_caught_by_generic_value_error() -> None:
 
 def test_candidates_branch_renders_suggestion() -> None:
     err = UserInputError(
-        verb="bhy",
+        func_name="bhy",
         field="expand_over",
         value="univere_id",
         candidates=["universe_id", "regime_id", "sector"],
@@ -41,13 +41,13 @@ def test_candidates_branch_renders_suggestion() -> None:
 
 def test_attributes_exposed_for_programmatic_recovery() -> None:
     err = UserInputError(
-        verb="bhy",
+        func_name="bhy",
         field="expand_over",
         value="univere_id",
         candidates=["universe_id", "regime_id", "sector"],
         docs_path="api/bhy#expand_over",
     )
-    assert err.verb == "bhy"
+    assert err.func_name == "bhy"
     assert err.field == "expand_over"
     assert err.value == "univere_id"
     assert err.candidates == ("regime_id", "sector", "universe_id")
@@ -56,9 +56,25 @@ def test_attributes_exposed_for_programmatic_recovery() -> None:
     assert err.docs_url == ("https://awwesomeman.github.io/factrix/api/bhy#expand_over")
 
 
+def test_legacy_verb_kwarg_still_accepted_in_v0_13() -> None:
+    err = UserInputError(
+        verb="bhy",
+        field="expand_over",
+        value="x",
+        candidates=["universe_id"],
+        docs_path="api/bhy",
+    )
+    assert err.func_name == "bhy"
+
+
+def test_neither_func_name_nor_verb_raises_type_error() -> None:
+    with pytest.raises(TypeError, match="func_name"):
+        UserInputError(field="f", value=1, candidates=["a"], docs_path="api/x")
+
+
 def test_no_close_match_omits_suggestion() -> None:
     err = UserInputError(
-        verb="run_metrics",
+        func_name="run_metrics",
         field="metrics",
         value="completely_unrelated_xyz",
         candidates=["ic", "fm_lambda", "caar"],
@@ -71,7 +87,7 @@ def test_no_close_match_omits_suggestion() -> None:
 
 def test_expected_branch_for_type_mismatch() -> None:
     err = UserInputError(
-        verb="evaluate",
+        func_name="evaluate",
         field="factor_col",
         value="alpha_x",
         expected="column present in panel",
@@ -86,12 +102,12 @@ def test_expected_branch_for_type_mismatch() -> None:
 
 def test_neither_candidates_nor_expected_raises() -> None:
     with pytest.raises(ValueError, match="candidates= or expected="):
-        UserInputError(verb="x", field="f", value=1, docs_path="api/x")
+        UserInputError(func_name="x", field="f", value=1, docs_path="api/x")
 
 
 def test_docs_path_leading_slash_normalized() -> None:
     err = UserInputError(
-        verb="x",
+        func_name="x",
         field="f",
         value="a",
         candidates=["aa"],
@@ -103,7 +119,7 @@ def test_docs_path_leading_slash_normalized() -> None:
 def test_available_truncates_when_long() -> None:
     cands = [f"m{i:03d}" for i in range(50)]
     err = UserInputError(
-        verb="x",
+        func_name="x",
         field="metric",
         value="bad",
         candidates=cands,
@@ -118,7 +134,7 @@ def test_available_truncates_when_long() -> None:
 def test_value_repr_truncated_for_huge_value() -> None:
     huge = "x" * 500
     err = UserInputError(
-        verb="x",
+        func_name="x",
         field="f",
         value=huge,
         candidates=["aa"],
@@ -135,7 +151,7 @@ def test_non_string_candidates_coerced() -> None:
         B = "beta"
 
     err = UserInputError(
-        verb="x",
+        func_name="x",
         field="mode",
         value="alfa",
         candidates=list(Mode),
