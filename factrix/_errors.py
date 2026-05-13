@@ -126,11 +126,11 @@ class ConfigError(FactrixError):
 
 
 class MissingConfigError(ConfigError):
-    """``evaluate(raw)`` called without an ``AnalysisConfig``.
+    """``evaluate(panel)`` called without an ``AnalysisConfig``.
 
     Friendly replacement for the bare ``TypeError`` from the private
     ``_evaluate`` signature. ``suggested_fix`` stays ``None`` — call
-    ``factrix.suggest_config(raw)`` to get a concrete recommendation.
+    ``factrix.suggest_config(panel)`` to get a concrete recommendation.
     """
 
 
