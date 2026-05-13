@@ -63,6 +63,18 @@ def compute_event_returns(
         single-bar returns are unsigned because they are read for
         leakage detection, where the absolute response (independent of
         the eventual signal direction) is what matters.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.event_horizon import compute_event_returns
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> per_event = compute_event_returns(panel)
+        >>> set(per_event.columns) >= {"offset", "date", "asset_id", "signed_return"}
+        True
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
@@ -182,6 +194,18 @@ def event_around_return(
         rewarding offsets where positive and negative pre-event drifts
         cancel — leakage with consistent direction would be missed by
         ``mean(|return|)``.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.event_horizon import event_around_return
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = event_around_return(panel)
+        >>> result.name
+        'event_around_return'
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
