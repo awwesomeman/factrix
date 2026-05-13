@@ -1,16 +1,15 @@
 """Top-bucket concentration analysis for cross-sectional panels.
 
-Aggregation: per-date HHI inverse on top-bucket weights (cross-section
-step) → per-date ratio series, then non-overlapping sample;
-across-time t against ``H₀: ratio ≥ 0.5``.
+Notes:
+    **Pipeline.** Per-date HHI inverse on top-bucket weights
+    (cross-section step) → per-date ratio series, then non-overlapping
+    sample; across-time t against ``H₀: ratio ≥ 0.5``.
+
+    **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
 Measures whether top-bucket (long-leg) alpha is concentrated in a few
 stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
 inverse.
-
-Input: DataFrame with ``date, asset_id, factor, forward_return``.
-
-Matrix-row: top_concentration | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | across-time t (one-sided H₀: ratio ≥ 0.5) | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _compute_tie_ratio
 """
 
 from __future__ import annotations
@@ -19,6 +18,10 @@ import warnings
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "top_concentration | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | across-time t (one-sided H₀: ratio ≥ 0.5) | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _compute_tie_ratio",
+)
 
 from factrix._codes import WarningCode
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker

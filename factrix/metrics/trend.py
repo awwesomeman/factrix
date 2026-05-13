@@ -1,15 +1,15 @@
 """IC trend analysis using Theil-Sen estimator.
 
-Aggregation: time-series only, Theil-Sen median pairwise slope on a
-1-D series; CI from the rank-based pairwise slope distribution.
+Notes:
+    **Pipeline.** Time-series only, Theil-Sen median pairwise slope on
+    a 1-D series; CI from the rank-based pairwise slope distribution.
 
-Input: DataFrame with ``date, value`` (typically an IC series).
-Output: slope + confidence interval for trend detection.
+    **Input.** DataFrame with ``date, value`` (typically an IC series).
+
+    **Output.** Slope + confidence interval for trend detection.
 
 Theil-Sen is preferred over OLS because it has a breakdown point of 29.3%,
 making it robust to outliers (e.g. COVID-era IC spikes).
-
-Matrix-row: ic_trend | (*, CONTINUOUS, *, TIMESERIES) | ts-only | Theil-Sen rank-based CI | _significance_marker, _short_circuit_output, _adf, _p_value_from_t
 """
 
 from __future__ import annotations
@@ -17,6 +17,10 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
+
+__matrix_rows__ = (
+    "ic_trend | (*, CONTINUOUS, *, TIMESERIES) | ts-only | Theil-Sen rank-based CI | _significance_marker, _short_circuit_output, _adf, _p_value_from_t",
+)
 
 from factrix._stats import _adf, _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput

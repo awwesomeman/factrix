@@ -1,15 +1,15 @@
 """Quantile analysis for cross-sectional panels.
 
-Aggregation: per-date long-short spread on quantile groups
-(cross-section step), then non-overlapping t on the spread series.
+Notes:
+    **Pipeline.** Per-date long-short spread on quantile groups
+    (cross-section step), then non-overlapping t on the spread series.
 
-Input: DataFrame with ``date, asset_id, factor, forward_return``.
-Output: spread series, long/short alpha decomposition.
+    **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
+
+    **Output.** Spread series, long/short alpha decomposition.
 
 All spread series are time-indexed (``date, value``) and can be fed
 into any ``series/`` tool.
-
-Matrix-row: compute_spread_series, quantile_spread, quantile_spread_vw, compute_group_returns | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio, _lag_within_asset
 """
 
 from __future__ import annotations
@@ -18,6 +18,10 @@ import warnings
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_spread_series, quantile_spread, quantile_spread_vw, compute_group_returns | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio, _lag_within_asset",
+)
 
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (

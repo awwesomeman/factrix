@@ -1,8 +1,10 @@
 """Per-event quality descriptive statistics for event signals.
 
-Aggregation: per-event scalar (hit / IC / skew / density) computed
-on `signed_car`, then cross-event aggregation; binomial inference for
-hit rate, nonparametric for IC / skewness, descriptive elsewhere.
+Notes:
+    **Pipeline.** Per-event scalar (hit / IC / skew / density) computed
+    on `signed_car`, then cross-event aggregation; binomial inference
+    for hit rate, nonparametric for IC / skewness, descriptive
+    elsewhere.
 
 All metrics operate on the ``signed_car`` (return x sign(factor)) of
 individual events. They describe the quality and shape of per-event
@@ -15,14 +17,16 @@ Metrics:
     signal_density — average time gap between events
     profit_factor  — sum(gains) / sum(losses)
     event_skewness — skewness of signed_car distribution
-
-Matrix-row: event_hit_rate, event_ic, profit_factor, event_skewness, signal_density | (*, SPARSE, *, PANEL) | per-event | binomial / nonparametric rank | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _signed_car
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "event_hit_rate, event_ic, profit_factor, event_skewness, signal_density | (*, SPARSE, *, PANEL) | per-event | binomial / nonparametric rank | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _signed_car",
+)
 
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,

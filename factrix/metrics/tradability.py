@@ -1,8 +1,9 @@
 """Tradability metrics: Turnover, Breakeven Cost, Net Spread.
 
-Aggregation: per-date turnover / cost diagnostics on quantile-group
-membership (cross-section step), then time-series mean; descriptive
-(no formal H₀).
+Notes:
+    **Pipeline.** Per-date turnover / cost diagnostics on
+    quantile-group membership (cross-section step), then time-series
+    mean; descriptive (no formal H₀).
 
 Two flavours of turnover co-exist here, measuring different things:
 
@@ -20,15 +21,17 @@ measures — they belong in Profile, not in Gates.
 
 Input for Turnover: DataFrame with ``date, asset_id, factor``.
 Input for Breakeven/Net Spread: pre-computed spread and turnover values.
-
-Matrix-row: notional_turnover, breakeven_cost, net_spread | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | no formal H₀ | _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups
-Matrix-row: turnover | (INDIVIDUAL, CONTINUOUS, *, PANEL) | ts-only (rank autocorrelation across consecutive dates) | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "notional_turnover, breakeven_cost, net_spread | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | no formal H₀ | _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups",
+    "turnover | (INDIVIDUAL, CONTINUOUS, *, PANEL) | ts-only (rank autocorrelation across consecutive dates) | no formal H₀ | _short_circuit_output",
+)
 
 from factrix._types import DDOF, EPSILON, MetricOutput
 from factrix.metrics._helpers import (

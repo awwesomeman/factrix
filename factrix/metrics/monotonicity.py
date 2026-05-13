@@ -1,22 +1,25 @@
 """Monotonicity test for cross-sectional panels.
 
-Aggregation: per-date Spearman corr between quantile index and group
-mean return (cross-section step), then non-overlapping cross-asset t
-on the per-date series.
+Notes:
+    **Pipeline.** Per-date Spearman corr between quantile index and
+    group mean return (cross-section step), then non-overlapping
+    cross-asset t on the per-date series.
+
+    **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
 Measures whether factor quantile groups exhibit monotonic return ordering.
 Per-date: split into n_groups by factor rank, compute mean return per group,
 Spearman corr between group index and return.
-
-Input: DataFrame with ``date, asset_id, factor, forward_return``.
-
-Matrix-row: monotonicity | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "monotonicity | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio",
+)
 
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (

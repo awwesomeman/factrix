@@ -1,8 +1,9 @@
 """MFE/MAE — per-event price path excursion analysis.
 
-Aggregation: per-event MFE / MAE excursion over a fixed window
-(per-event step), then cross-event quantile / ratio summary;
-descriptive (no formal H₀).
+Notes:
+    **Pipeline.** Per-event MFE / MAE excursion over a fixed window
+    (per-event step), then cross-event quantile / ratio summary;
+    descriptive (no formal H₀).
 
 Answers: "what does the price path look like after events?"
 
@@ -14,14 +15,16 @@ DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricOutput``
 Metrics:
     compute_mfe_mae   — per-event MFE/MAE/Bars_to_MFE/Bars_to_MAE
     mfe_mae_summary   — aggregate summary (p50, p75, ratio)
-
-Matrix-row: compute_mfe_mae, mfe_mae_summary | (*, SPARSE, *, PANEL) | per-event | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_mfe_mae, mfe_mae_summary | (*, SPARSE, *, PANEL) | per-event | no formal H₀ | _short_circuit_output",
+)
 
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output

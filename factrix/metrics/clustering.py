@@ -1,8 +1,9 @@
 """Event clustering diagnostic for event signals.
 
-Aggregation: static cross-section — single HHI computed once over the
-event-date histogram; no time-axis aggregation, no formal H₀
-(descriptive concentration index).
+Notes:
+    **Pipeline.** Static cross-section — single HHI computed once over
+    the event-date histogram; no time-axis aggregation, no formal H₀
+    (descriptive concentration index).
 
 When events cluster on the same dates, the independence assumption
 underlying the CAAR t-test is violated, potentially inflating the
@@ -11,14 +12,16 @@ quantifies this concentration.
 
 Only meaningful for multi-asset panels (N > 1). For single-asset
 event studies, clustering across assets is not applicable.
-
-Matrix-row: clustering_diagnostic | (*, SPARSE, *, PANEL) | static-cs | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "clustering_diagnostic | (*, SPARSE, *, PANEL) | static-cs | no formal H₀ | _short_circuit_output",
+)
 
 from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output

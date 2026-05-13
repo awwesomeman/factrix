@@ -1,8 +1,9 @@
 """Time-series beta metrics for macro common factors.
 
-Aggregation: per-asset full-sample OLS β (time-series step), then
-cross-asset t on the β distribution; rolling-window variant slices
-the time axis before the per-asset step.
+Notes:
+    **Pipeline.** Per-asset full-sample OLS β (time-series step), then
+    cross-asset t on the β distribution; rolling-window variant slices
+    the time axis before the per-asset step.
 
 macro_common factors (VIX, gold, USD index) are a single time series
 shared across all assets. Per-asset time-series regression measures
@@ -12,14 +13,16 @@ each asset's sensitivity (β) to the common factor.
 ``ts_beta``: cross-sectional test on the β distribution.
 ``mean_r_squared``: average explanatory power across assets.
 ``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
-
-Matrix-row: compute_ts_betas, ts_beta, mean_r_squared, compute_rolling_mean_beta, ts_beta_sign_consistency, ts_beta_single_asset_fallback | (COMMON, CONTINUOUS, *, PANEL) | ts-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _short_circuit_output
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_ts_betas, ts_beta, mean_r_squared, compute_rolling_mean_beta, ts_beta_sign_consistency, ts_beta_single_asset_fallback | (COMMON, CONTINUOUS, *, PANEL) | ts-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _short_circuit_output",
+)
 
 from factrix._stats import (
     _calc_t_stat,
