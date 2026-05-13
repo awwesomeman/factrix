@@ -15,8 +15,9 @@ select those with incremental alpha (Stage 2).
 Both use factor return time series (quantile spread series), not IC.
 
 References:
-    Barillas & Shanken (2017), "Which Alpha?"
-    Feng, Giglio & Xiu (2020), "Taming the Factor Zoo."
+    [Barillas & Shanken (2017)][barillas-shanken-2017], "Which Alpha?"
+    [Feng, Giglio & Xiu (2020)][feng-giglio-xiu-2020], "Taming the
+        Factor Zoo: A Test of New Factors."
 """
 
 from __future__ import annotations
@@ -141,9 +142,15 @@ def spanning_alpha(
         with their own HAC SE.
 
     References:
-        Barillas & Shanken (2017), "Which Alpha?"
-        [White 1980][white-1980]: heteroskedasticity-consistent SE
-        ancestor of the HAC variants applicable when overlap is added.
+        [Barillas & Shanken (2017)][barillas-shanken-2017]. "Which
+        Alpha?" Review of Financial Studies, 30(4), 1316–1338.
+        Spanning-test framework for nested factor models.
+
+        [White (1980)][white-1980]. "A Heteroskedasticity-Consistent
+        Covariance Matrix Estimator and a Direct Test for
+        Heteroskedasticity." Econometrica, 48(4), 817–838.
+        Heteroskedasticity-consistent SE ancestor of the HAC variants
+        applicable when overlap is added.
     """
     if base_spreads is None:
         base_spreads = {}
@@ -263,9 +270,15 @@ def greedy_forward_selection(
         survivors on a held-out window.
 
     References:
-        White (2000), "A Reality Check for Data Snooping."
-        Harvey, Liu & Zhu (2016), "…and the Cross-Section of Expected
-        Returns," Section on stepwise-selection bias.
+        [White (2000)][white-2000]. "A Reality Check for Data Snooping."
+        Econometrica, 68(5), 1097–1126. Bootstrap reality-check for
+        data-snooping bias — the canonical correction this function
+        does *not* apply (inflates t-stats by design).
+
+        [Harvey, Liu & Zhu (2016)][harvey-liu-zhu-2016]. "…and the
+        Cross-Section of Expected Returns." Review of Financial
+        Studies, 29(1), 5–68. Empirical case for raising t-thresholds;
+        section on stepwise-selection bias.
     """
     if not suppress_snooping_warning:
         warnings.warn(
