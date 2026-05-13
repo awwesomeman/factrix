@@ -113,7 +113,7 @@ does no reverse lookup.
 
 ## Errors
 
-`compare` raises [`UserInputError`](errors.md) for every input shape
+`compare` raises [`UserInputError`][factrix.UserInputError] for every input shape
 issue (empty input, mixed types, unknown `sort_by`). Unknown
 `sort_by` carries `suggestions` populated by `difflib` against the
 output schema.

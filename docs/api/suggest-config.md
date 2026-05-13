@@ -6,7 +6,7 @@ reasoning behind the suggestion. The proposal is never auto-applied —
 the caller (or an AI agent) reads `reasoning` / `warnings` before
 deciding to use, override, or reject it.
 
-Canonical [`MissingConfigError`](errors.md) recovery:
+Canonical [`MissingConfigError`][factrix.MissingConfigError] recovery:
 
 ```python
 import factrix as fx

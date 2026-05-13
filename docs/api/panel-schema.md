@@ -62,7 +62,7 @@ Behaviour:
 - Each call repeats the per-date cross-section work, so cost scales as
   `O(n_factors × per_date_cost)` — there is no shared-pass primitive.
 
-Error cases (both raise [`UserInputError`](errors.md)):
+Error cases (both raise [`UserInputError`][factrix.UserInputError]):
 
 | Trigger | Message hint |
 |---|---|
