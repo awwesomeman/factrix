@@ -28,6 +28,10 @@ from factrix._stats import (
 from factrix._types import MIN_ASSETS_PER_DATE_IC, MetricOutput
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 
+__all__ = [
+    "hit_rate",
+]
+
 # Slice-test contract (#153 §5): hit_rate operates on a
 # pre-aggregated per-date series (no cross-section bucket pass), so
 # slice tests skip the `n_groups` downscale step. Per-date minimum
@@ -44,20 +48,6 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     capability contract takes no kwargs. Consumed by
     ``slice_pairwise_test`` / ``slice_joint_test`` (#176) via
     ``factrix.metrics._metric_capabilities.resolve_per_date_series``.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ic import compute_ic
-        >>> from factrix.metrics.hit_rate import per_date_series
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
-        >>> indicator = per_date_series(series)
-        >>> set(indicator.columns) == {"date", "value"}
-        True
     """
     return series.select(
         [

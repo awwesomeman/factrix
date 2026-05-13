@@ -40,6 +40,13 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "notional_turnover",
+    "turnover",
+    "breakeven_cost",
+    "net_spread",
+]
+
 
 def turnover(
     df: pl.DataFrame,

@@ -43,6 +43,13 @@ from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics._metric_capabilities import per_date_series_rename
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_fm_betas",
+    "fama_macbeth",
+    "pooled_ols",
+    "beta_sign_consistency",
+]
+
 # Slice-test contract (#153 §5): Fama-MacBeth runs a per-date
 # OLS regression on the cross-section, not a bucket sort, so slice
 # tests never need to downscale `n_groups`. Sample-size constraints

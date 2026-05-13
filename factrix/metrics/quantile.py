@@ -39,6 +39,13 @@ from factrix.metrics._helpers import (
     _warn_high_tie_ratio,
 )
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_spread_series",
+    "compute_group_returns",
+    "quantile_spread",
+    "quantile_spread_vw",
+]
+
 
 def compute_spread_series(
     df: pl.DataFrame,

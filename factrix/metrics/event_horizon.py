@@ -27,6 +27,11 @@ __matrix_rows__ = (
 from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [
+    "compute_event_returns",
+    "event_around_return",
+]
+
 
 def compute_event_returns(
     df: pl.DataFrame,

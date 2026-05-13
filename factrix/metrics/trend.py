@@ -26,6 +26,10 @@ from factrix._stats import _adf, _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [
+    "ic_trend",
+]
+
 
 def ic_trend(
     series: pl.DataFrame,

@@ -52,6 +52,12 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_caar",
+    "caar",
+    "bmp_test",
+]
+
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
 # so slice tests skip the `n_groups` downscale step. Minimum event

@@ -41,6 +41,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [
+    "ts_quantile_spread",
+]
+
 
 def ts_quantile_spread(
     df: pl.DataFrame,

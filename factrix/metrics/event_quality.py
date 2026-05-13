@@ -37,6 +37,14 @@ from factrix._stats import (
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "event_hit_rate",
+    "event_ic",
+    "profit_factor",
+    "event_skewness",
+    "signal_density",
+]
+
 
 def event_hit_rate(
     df: pl.DataFrame,

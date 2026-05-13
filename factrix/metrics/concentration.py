@@ -39,6 +39,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
+__all__ = [
+    "top_concentration",
+]
+
 
 def top_concentration(
     df: pl.DataFrame,

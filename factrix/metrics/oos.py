@@ -29,6 +29,11 @@ __matrix_rows__ = (
 from factrix._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "multi_split_oos_decay",
+    "SplitDetail",
+]
+
 GateStatus = Literal["PASS", "VETOED"]
 
 

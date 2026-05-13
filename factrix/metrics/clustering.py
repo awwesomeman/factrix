@@ -26,6 +26,10 @@ __matrix_rows__ = (
 from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [
+    "clustering_diagnostic",
+]
+
 
 def clustering_diagnostic(
     df: pl.DataFrame,

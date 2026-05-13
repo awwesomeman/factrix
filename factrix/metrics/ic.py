@@ -41,6 +41,13 @@ from factrix.metrics._helpers import (
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_ic",
+    "ic",
+    "ic_newey_west",
+    "ic_ir",
+]
+
 # Slice-test contract (#153 §5): IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
 # downscale `n_groups`. The min-cross-section-per-date constraint

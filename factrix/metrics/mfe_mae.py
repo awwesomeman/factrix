@@ -29,6 +29,11 @@ __matrix_rows__ = (
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [
+    "compute_mfe_mae",
+    "mfe_mae_summary",
+]
+
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
 

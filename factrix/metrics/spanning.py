@@ -38,6 +38,13 @@ from factrix._stats import _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "spanning_alpha",
+    "greedy_forward_selection",
+    "SpanningResult",
+    "ForwardSelectionResult",
+]
+
 logger = logging.getLogger(__name__)
 
 

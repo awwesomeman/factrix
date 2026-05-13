@@ -32,6 +32,14 @@ from factrix._stats import (
 from factrix._types import DDOF, EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
+__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+    "compute_ts_betas",
+    "ts_beta",
+    "mean_r_squared",
+    "ts_beta_sign_consistency",
+    "compute_rolling_mean_beta",
+]
+
 MIN_TS_OBS: int = 20
 
 
@@ -188,29 +196,6 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
         otherwise each entry point would coerce the single-asset row
         differently and the downstream inference surface would
         diverge.
-
-    Examples:
-        Single-asset slice of :func:`compute_ts_betas` output triggers
-        the degenerate-case fallback:
-
-        >>> import polars as pl
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import (
-        ...     compute_ts_betas,
-        ...     ts_beta_single_asset_fallback,
-        ... )
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> one_asset = panel.filter(
-        ...     pl.col("asset_id") == panel["asset_id"].unique()[0]
-        ... )
-        >>> ts_one = compute_ts_betas(one_asset)
-        >>> result = ts_beta_single_asset_fallback(ts_one)
-        >>> result.name
-        'ts_beta'
     """
     row = ts_betas_df.row(0, named=True)
     return MetricOutput(
