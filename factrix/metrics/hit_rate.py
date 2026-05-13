@@ -44,6 +44,20 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     capability contract takes no kwargs. Consumed by
     ``slice_pairwise_test`` / ``slice_joint_test`` (#176) via
     ``factrix.metrics._metric_capabilities.resolve_per_date_series``.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic
+        >>> from factrix.metrics.hit_rate import per_date_series
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
+        >>> indicator = per_date_series(series)
+        >>> set(indicator.columns) == {"date", "value"}
+        True
     """
     return series.select(
         [
