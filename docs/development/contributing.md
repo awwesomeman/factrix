@@ -2,10 +2,10 @@
 title: Contributing to factrix
 ---
 
-This document describes the factrix development workflow. The intended
-readers are **the author + future AI agents**—a private repo, so OSS
-conventions like licensing / DCO / CLA are skipped, focusing instead on
-**actual development modes and pitfalls**.
+This document describes the factrix development workflow. factrix is
+currently a private single-author repo, so this guide covers
+**development modes and pitfalls** rather than OSS contributor
+conventions (licensing / DCO / CLA).
 
 ---
 
