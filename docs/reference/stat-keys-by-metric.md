@@ -33,8 +33,8 @@ below:
 Hypothesis-test metrics share a common envelope (`p_value`,
 `stat_type`, `h0`, `method`) — listed once here, not repeated per
 metric below. Cross-slice inference functions
-([`slice_pairwise_test`][factrix.slicing.inference.slice_pairwise_test] /
-[`slice_joint_test`][factrix.slicing.inference.slice_joint_test]) are
+([`slice_pairwise_test`][factrix.slice_pairwise_test] /
+[`slice_joint_test`][factrix.slice_joint_test]) are
 not listed in the table: their headline output is a DataFrame of
 contrasts, not a sidecar to a primary value.
 
