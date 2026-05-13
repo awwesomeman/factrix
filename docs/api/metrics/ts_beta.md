@@ -4,11 +4,7 @@ title: factrix.metrics.ts_beta
 
 ::: factrix.metrics.ts_beta
     options:
-      show_root_heading: true
-      show_root_full_path: true
-      show_root_toc_entry: true
       show_root_members_full_path: true
-      heading_level: 1
       members:
         - compute_ts_betas
         - ts_beta

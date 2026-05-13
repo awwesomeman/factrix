@@ -4,11 +4,7 @@ title: factrix.metrics.event_quality
 
 ::: factrix.metrics.event_quality
     options:
-      show_root_heading: true
-      show_root_full_path: true
-      show_root_toc_entry: true
       show_root_members_full_path: true
-      heading_level: 1
       members:
         - event_hit_rate
         - event_ic

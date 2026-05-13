@@ -71,9 +71,12 @@ plugins:
             docstring_style: google
             show_source: false
             show_root_heading: true
+            show_root_full_path: true
+            show_root_toc_entry: true
             show_signature_annotations: true
             separate_signature: true
             merge_init_into_class: true
+            heading_level: 1
   - mkdocs-jupyter:
       execute: false
       include_source: false

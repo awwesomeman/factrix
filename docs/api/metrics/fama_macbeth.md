@@ -4,11 +4,7 @@ title: factrix.metrics.fama_macbeth
 
 ::: factrix.metrics.fama_macbeth
     options:
-      show_root_heading: true
-      show_root_full_path: true
-      show_root_toc_entry: true
       show_root_members_full_path: true
-      heading_level: 1
       members:
         - compute_fm_betas
         - fama_macbeth

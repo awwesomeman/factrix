@@ -171,7 +171,6 @@ Autodoc anchors for cross-references of the form
 
 ::: factrix.FactrixError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
@@ -179,7 +178,6 @@ Autodoc anchors for cross-references of the form
 
 ::: factrix.UserInputError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
@@ -187,37 +185,31 @@ Autodoc anchors for cross-references of the form
 
 ::: factrix.ConfigError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
 ::: factrix.MissingConfigError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
 ::: factrix.IncompatibleAxisError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
 ::: factrix.ModeAxisError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
 ::: factrix.InsufficientSampleError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
 ::: factrix.UnknownEstimatorError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
 
@@ -225,6 +217,5 @@ Autodoc anchors for cross-references of the form
 
 ::: factrix.RunMetricsError
     options:
-      show_root_full_path: true
       show_root_toc_entry: false
       heading_level: 4
