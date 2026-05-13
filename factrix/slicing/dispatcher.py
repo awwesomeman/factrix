@@ -57,15 +57,21 @@ def by_slice(
         TypeError: ``df`` is not a polars DataFrame.
         ValueError: ``label`` not in ``df.columns``, or ``df`` is empty.
 
-    Example:
-        ```python
-        import polars as pl
-        from factrix import by_slice
-        from factrix.metrics import ic, compute_ic
+    Examples:
+        Per-year IC on a synthetic cross-sectional panel — attach the
+        slice label to the metric's primary DataFrame upstream, then
+        dispatch one metric call per slice value:
 
-        ic_df = compute_ic(panel)              # already has 'sector'
-        per_sector = by_slice(ic, ic_df, label="sector")
-        ```
+        >>> import polars as pl
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics import ic, compute_ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> ic_df = compute_ic(panel).with_columns(
+        ...     pl.col("date").dt.year().alias("year")
+        ... )
+        >>> per_year = fx.by_slice(ic, ic_df, label="year")
 
     Universe overlap (superset / multi-membership / hierarchical /
     sliding window / cross-product) is composed by the caller — see

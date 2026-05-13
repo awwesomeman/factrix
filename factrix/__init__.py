@@ -175,22 +175,22 @@ def evaluate(
         FDR but does **not** reduce the per-signal evaluation cost.
 
     Examples:
-        Single-factor inference:
+        Single-factor inference on a cross-sectional panel:
 
-        >>> config = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> config = fx.AnalysisConfig.individual_continuous(forward_periods=5)
         >>> profile = fx.evaluate(panel, config)
-        >>> profile.primary_p
-        0.0001
 
         Non-default signal column name:
 
-        >>> profile = fx.evaluate(panel, config, factor_col="alpha")
+        >>> panel_renamed = panel.rename({"factor": "alpha"})
+        >>> profile = fx.evaluate(panel_renamed, config, factor_col="alpha")
 
-        Multi-factor screening with FDR (see batch screening guide):
-
-        >>> profiles = [fx.evaluate(panel, config, factor_col=name)
-        ...             for name in candidate_signals]
-        >>> survivors = fx.multi_factor.bhy(profiles)
+        Multi-factor screening with FDR — see
+        :func:`factrix.multi_factor.bhy`.
     """
     if config is None:
         raise MissingConfigError(
