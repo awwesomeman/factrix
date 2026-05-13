@@ -21,12 +21,12 @@ References:
 
 from __future__ import annotations
 
-import logging
-import warnings
-
 __matrix_rows__ = (
     "spanning_alpha, greedy_forward_selection | factor-return-series consumer (post-PANEL pipeline) | ts-only | NW HAC / OLS t | _p_value_from_t, _significance_marker, _short_circuit_output, _ols_alpha",
 )
+
+import logging
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
