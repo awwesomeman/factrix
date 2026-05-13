@@ -2,6 +2,9 @@
 title: factrix.run_metrics
 ---
 
+> **Input contract** — the panel must satisfy the four-column floor
+> documented in [Panel schema](panel-schema.md).
+
 ::: factrix.run_metrics
 
 Cell-level descriptive batch runner — the descriptive twin of
@@ -12,9 +15,6 @@ in `factrix.metrics.*` and returns a [`MetricsBundle`](#metricsbundle).
 
 The two paths share the `(panel, cfg)` entry contract; their result
 types are disjoint by design.
-
-> **Input contract** — the panel must satisfy the four-column floor
-> documented in [Panel schema](panel-schema.md).
 
 | Function | Returns | Use when |
 |---|---|---|
