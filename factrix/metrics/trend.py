@@ -1,5 +1,8 @@
 """IC trend analysis using Theil-Sen estimator.
 
+Theil-Sen is preferred over OLS because it has a breakdown point of 29.3%,
+making it robust to outliers (e.g. COVID-era IC spikes).
+
 Notes:
     **Pipeline.** Time-series only, Theil-Sen median pairwise slope on
     a 1-D series; CI from the rank-based pairwise slope distribution.
@@ -7,9 +10,6 @@ Notes:
     **Input.** DataFrame with ``date, value`` (typically an IC series).
 
     **Output.** Slope + confidence interval for trend detection.
-
-Theil-Sen is preferred over OLS because it has a breakdown point of 29.3%,
-making it robust to outliers (e.g. COVID-era IC spikes).
 """
 
 from __future__ import annotations

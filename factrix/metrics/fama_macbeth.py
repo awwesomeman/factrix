@@ -1,15 +1,15 @@
 r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
-Notes:
-    **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
-    (cross-section step) → time series of $\lambda$, then NW HAC $t$
-    on its mean; pooled OLS variant clusters SE by date.
-
 ``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
 ``fama_macbeth``: Newey-West t-test on the beta series.
 ``pooled_ols``: pooled OLS with clustered SE by date.
 ``beta_sign_consistency``: fraction of periods with correct beta sign.
+
+Notes:
+    **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
+    (cross-section step) → time series of $\lambda$, then NW HAC $t$
+    on its mean; pooled OLS variant clusters SE by date.
 
 References:
     - [Fama & MacBeth (1973)][fama-macbeth-1973], "Risk, Return, and
@@ -352,6 +352,20 @@ def pooled_ols(
 ) -> MetricOutput:
     r"""Pooled OLS with clustered SE — robustness check against FM.
 
+    Clustering on date alone catches contemporaneous cross-sectional
+    dependence but misses asset-level persistence; on asset alone the
+    reverse. Petersen (2009) shows panel data usually has both —
+    single-way clusters understate SE by 20-50% in that regime.
+
+    FM and single-way share the same point estimate under a balanced
+    panel but typically disagree on SE; when $\hat\beta$ and FM
+    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
+    flags an FM/pooled sign-mismatch — a red flag for misspecification.
+
+    Short-circuits when $N < 10$ (no regression), returns ``stat=None``
+    with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
+    clusters).
+
     Formula:
         Point estimate:
 
@@ -386,20 +400,6 @@ def pooled_ols(
         clustered on $A$, on $B$, and on the intersection cells
         $(A, B)$. Each component uses its own finite-sample correction.
         $\mathrm{df} = \min(G_A, G_B) - 1$ (Thompson 2011).
-
-    Clustering on date alone catches contemporaneous cross-sectional
-    dependence but misses asset-level persistence; on asset alone the
-    reverse. Petersen (2009) shows panel data usually has both —
-    single-way clusters understate SE by 20-50% in that regime.
-
-    FM and single-way share the same point estimate under a balanced
-    panel but typically disagree on SE; when $\hat\beta$ and FM
-    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
-    flags an FM/pooled sign-mismatch — a red flag for misspecification.
-
-    Short-circuits when $N < 10$ (no regression), returns ``stat=None``
-    with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
-    clusters).
 
     Notes:
         Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +

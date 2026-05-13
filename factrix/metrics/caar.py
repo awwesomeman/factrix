@@ -1,15 +1,15 @@
 r"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
+Tests $H_0$: event abnormal return = 0, using two complementary methods:
+    compute_caar — per-event-date weighted abnormal return series
+    caar         — CAAR t-test (parametric, non-overlapping sampling)
+    bmp_test     — BMP standardized AR test (robust to event-induced variance)
+
 Notes:
     **Pipeline.** Per-event-date weighted abnormal return
     (per-event-date step) then non-overlapping cross-event sample;
     $t$-test on CAAR, or BMP standardized AR $z$-test for event-induced
     variance.
-
-Tests $H_0$: event abnormal return = 0, using two complementary methods:
-    compute_caar — per-event-date weighted abnormal return series
-    caar         — CAAR t-test (parametric, non-overlapping sampling)
-    bmp_test     — BMP standardized AR test (robust to event-induced variance)
 
 References:
     - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
@@ -69,12 +69,6 @@ def compute_caar(
 ) -> pl.DataFrame:
     r"""Per-event-date weighted abnormal return series.
 
-    Aggregation:
-        cs-first. For each event date, take the cross-sectional mean of
-        ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
-        the resulting ``n_event_dates``-length CAAR series feeds a
-        downstream NW HAC $t$-test on the mean.
-
     Magnitude is preserved — no ``.sign()`` coercion. factrix accepts
     two input contracts; everything else (including signed
     $\{-1, 0, +1\}$) is just a special case of the second:
@@ -92,6 +86,12 @@ def compute_caar(
     leg vol). If literature-standard signed CAAR is what you want,
     pre-compute it externally; factrix's primitive treats $\pm 1$ as
     weights, not as direction labels.
+
+    Aggregation:
+        cs-first. For each event date, take the cross-sectional mean of
+        ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
+        the resulting ``n_event_dates``-length CAAR series feeds a
+        downstream NW HAC $t$-test on the mean.
 
     Scale:
         CAAR magnitude tracks the units of ``factor`` (bps, z-score,
@@ -275,6 +275,9 @@ def bmp_test(
     residual volatility, making the test robust to event-induced variance
     inflation that biases the ordinary CAAR $t$-test.
 
+    Uses ``price`` column for estimation-window volatility if available;
+    falls back to per-asset historical ``forward_return`` std otherwise.
+
     Steps:
         1. For each event ($\text{factor} \neq 0$), look back
            ``estimation_window`` periods of the same asset's returns to
@@ -282,9 +285,6 @@ def bmp_test(
         2. Scale $\sigma_i$ to match the forward_return horizon.
         3. $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma^{\text{scaled}}_i$.
         4. $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
-
-    Uses ``price`` column for estimation-window volatility if available;
-    falls back to per-asset historical ``forward_return`` std otherwise.
 
     Args:
         df: Full panel (including non-event rows) with ``date, asset_id,
@@ -478,21 +478,23 @@ def _estimate_sar_icc(
 ) -> tuple[float | None, float, KPSource]:
     r"""ICC-style within-date correlation $\hat r$ of SAR and average cluster size.
 
-    Args:
-        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
-            columns (one row per event, SAR already standardized).
-
-    Returns ``(r_hat, n_eff, source)`` where ``source`` is one of:
-        - ``"icc"``: standard between/within decomposition across event
-          dates with $n_k \geq 2$ events each.
-        - ``"no_multi_event_dates"``: not enough date-clusters to
-          estimate within-variance; $\hat r$ is ``None``.
-
     Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{\mathrm{SAR}}_d)$ (date-mean SAR)
     and $\sigma^2_{\mathrm{within}}$ = the pooled within-date variance
     (weighted by $n_k - 1$).
     $\hat r = \sigma^2_{\mathrm{between}} / (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$
     clipped to $[0, 1]$.
+
+    Args:
+        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
+            columns (one row per event, SAR already standardized).
+
+    Returns:
+        ``(r_hat, n_eff, source)`` where ``source`` is one of:
+
+        - ``"icc"``: standard between/within decomposition across event
+          dates with $n_k \geq 2$ events each.
+        - ``"no_multi_event_dates"``: not enough date-clusters to
+          estimate within-variance; $\hat r$ is ``None``.
     """
     per_date = sar_by_date.group_by("date").agg(
         pl.col("_sar").mean().alias("m"),

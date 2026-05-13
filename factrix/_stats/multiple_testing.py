@@ -96,6 +96,13 @@ def romano_wolf(
 ) -> list[float]:
     """Romano-Wolf (2005) step-down adjusted p-values.
 
+    The step-down critical sequence is built from the *max* of the
+    bootstrap distribution restricted to the not-yet-rejected
+    hypotheses, so the dependence structure (universe co-movement,
+    common-factor exposure) shrinks the multiplicity penalty
+    automatically — Bonferroni / Holm assume worst-case dependence
+    and over-correct in this regime.
+
     Args:
         statistics: Observed test statistics ``t_1, …, t_m`` (e.g.
             studentized contrasts). Sign convention: large positive
@@ -112,13 +119,6 @@ def romano_wolf(
 
     Returns:
         Adjusted p-values in input order, each in ``[0, 1]``.
-
-    The step-down critical sequence is built from the *max* of the
-    bootstrap distribution restricted to the not-yet-rejected
-    hypotheses, so the dependence structure (universe co-movement,
-    common-factor exposure) shrinks the multiplicity penalty
-    automatically — Bonferroni / Holm assume worst-case dependence
-    and over-correct in this regime.
     """
     t = np.asarray(statistics, dtype=float)
     boot = np.asarray(bootstrap_distribution, dtype=float)

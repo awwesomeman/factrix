@@ -566,6 +566,12 @@ Module-level and function-level docstrings carry different roles. The split is s
 - **Function / class / method docstring** holds the implementation contract: `Args:` / `Returns:` / `Raises:` / `Notes:` / `Examples:` / `References:`.
 - The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
 
+#### Section order — body prose before structured sections
+
+Within any docstring (module-level or function-level), free-form body prose comes before all structured Google sections. The canonical order is: summary line → body prose → `Args:` / `Returns:` / `Raises:` / `Yields:` → `Examples:` → `Notes:` → `References:` → `See Also:`. The same rule applies to attribute-bearing classes (`Attributes:` sits with `Args:` / `Returns:` and accepts no trailing prose).
+
+Putting `Notes:` or `References:` mid-text — between the summary and the rest of the prose, with prose still appearing below the heading — breaks the rendered metric page: the admonition box jumps above the function inventory, severing the reader's eye-path from summary to body.
+
 #### `References:` placement — by callable count
 
 Placement is driven by how many public callables the module hosts, not by paper-vs-module scope. The rule matches the rendered metric / API page: `::: factrix.metrics.<x>` with several `members:` produces one page with multiple function sections, and reader UX differs by layout.

@@ -1,15 +1,15 @@
 """Top-bucket concentration analysis for cross-sectional panels.
 
+Measures whether top-bucket (long-leg) alpha is concentrated in a few
+stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
+inverse.
+
 Notes:
     **Pipeline.** Per-date HHI inverse on top-bucket weights
     (cross-section step) → per-date ratio series, then non-overlapping
     sample; across-time t against ``H₀: ratio ≥ 0.5``.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
-
-Measures whether top-bucket (long-leg) alpha is concentrated in a few
-stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
-inverse.
 """
 
 from __future__ import annotations

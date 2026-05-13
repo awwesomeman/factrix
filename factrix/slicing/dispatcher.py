@@ -29,6 +29,12 @@ def by_slice(
 ) -> SliceResult:
     """Apply ``metric`` to each value-partition of ``df`` keyed by ``label``.
 
+    Universe overlap (superset / multi-membership / hierarchical /
+    sliding window / cross-product) is composed by the caller — see
+    the API page for reference patterns. ``by_slice`` does no
+    cross-slice statistical inference; for paired comparison see
+    :func:`factrix.slice_pairwise_test` / :func:`factrix.slice_joint_test`.
+
     Args:
         metric: Callable returning a ``MetricOutput`` (e.g.
             :func:`factrix.metrics.ic`, :func:`factrix.metrics.caar`).
@@ -72,12 +78,6 @@ def by_slice(
         ...     pl.col("date").dt.year().alias("year")
         ... )
         >>> per_year = fx.by_slice(ic, ic_df, label="year")
-
-    Universe overlap (superset / multi-membership / hierarchical /
-    sliding window / cross-product) is composed by the caller — see
-    the API page for reference patterns. ``by_slice`` does no
-    cross-slice statistical inference; for paired comparison see
-    :func:`factrix.slice_pairwise_test` / :func:`factrix.slice_joint_test`.
     """
     sliced = _slice_by_label(df, label)
     return SliceResult(

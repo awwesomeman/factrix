@@ -95,40 +95,6 @@ def evaluate(
     [`partial_conjunction`][factrix.multi_factor.partial_conjunction] /
     [`bhy_hierarchical`][factrix.multi_factor.bhy_hierarchical]).
 
-    Args:
-        panel: Long-format panel satisfying the four-column floor
-            ``(date, asset_id, factor, forward_return)``. See
-            [Panel schema](panel-schema.md) for the canonical contract
-            and dtype semantics.
-        config: Validated ``AnalysisConfig`` selecting the dispatch cell
-            (``Scope × Signal × Metric``). Construct via one of the four
-            factories on the class.
-        factor_col: Name of the signal column on ``panel`` (default
-            ``"factor"``). Renamed to ``"factor"`` internally before
-            dispatch. Looping over candidates with different
-            ``factor_col=`` values is the canonical multi-factor pattern.
-
-    Returns:
-        [`FactorProfile`][factrix.FactorProfile] with ``primary_p``,
-        ``stats``, ``warnings``, ``info_notes``, ``mode``, ``n_obs``,
-        ``n_assets``, plus ``identity = (factor_id, forward_periods)``
-        and ``context = {universe_id, regime_id, ...}``.
-
-    Raises:
-        MissingConfigError: ``evaluate(panel)`` called without an
-            ``AnalysisConfig``. Recovery: call
-            [`suggest_config`][factrix.suggest_config].
-        IncompatibleAxisError: ``config`` axes form an illegal cell.
-        ModeAxisError: Legal cell has no procedure under the derived
-            ``Mode``. Carries ``.suggested_fix: AnalysisConfig | None``
-            with the nearest-legal config.
-        InsufficientSampleError: ``T`` below the procedure's
-            ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
-            ``.required_periods``.
-        ValueError: ``factor_col`` not present on ``panel``, or both
-            ``"factor"`` and ``factor_col`` present with differing values
-            (ambiguous which is the signal — drop the unused column).
-
     All factrix-raised errors inherit from
     [`FactrixError`](errors.md).
 
@@ -173,6 +139,40 @@ def evaluate(
         cost scales as `O(n_factors × per_date_cost)`. There is no
         shared-pass primitive; [`bhy`][factrix.multi_factor.bhy] controls
         FDR but does **not** reduce the per-signal evaluation cost.
+
+    Args:
+        panel: Long-format panel satisfying the four-column floor
+            ``(date, asset_id, factor, forward_return)``. See
+            [Panel schema](panel-schema.md) for the canonical contract
+            and dtype semantics.
+        config: Validated ``AnalysisConfig`` selecting the dispatch cell
+            (``Scope × Signal × Metric``). Construct via one of the four
+            factories on the class.
+        factor_col: Name of the signal column on ``panel`` (default
+            ``"factor"``). Renamed to ``"factor"`` internally before
+            dispatch. Looping over candidates with different
+            ``factor_col=`` values is the canonical multi-factor pattern.
+
+    Returns:
+        [`FactorProfile`][factrix.FactorProfile] with ``primary_p``,
+        ``stats``, ``warnings``, ``info_notes``, ``mode``, ``n_obs``,
+        ``n_assets``, plus ``identity = (factor_id, forward_periods)``
+        and ``context = {universe_id, regime_id, ...}``.
+
+    Raises:
+        MissingConfigError: ``evaluate(panel)`` called without an
+            ``AnalysisConfig``. Recovery: call
+            [`suggest_config`][factrix.suggest_config].
+        IncompatibleAxisError: ``config`` axes form an illegal cell.
+        ModeAxisError: Legal cell has no procedure under the derived
+            ``Mode``. Carries ``.suggested_fix: AnalysisConfig | None``
+            with the nearest-legal config.
+        InsufficientSampleError: ``T`` below the procedure's
+            ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
+            ``.required_periods``.
+        ValueError: ``factor_col`` not present on ``panel``, or both
+            ``"factor"`` and ``factor_col`` present with differing values
+            (ambiguous which is the signal — drop the unused column).
 
     Examples:
         Single-factor inference on a cross-sectional panel:

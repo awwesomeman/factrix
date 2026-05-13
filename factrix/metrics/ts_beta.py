@@ -1,10 +1,5 @@
 """Time-series beta metrics for macro common factors.
 
-Notes:
-    **Pipeline.** Per-asset full-sample OLS β (time-series step), then
-    cross-asset t on the β distribution; rolling-window variant slices
-    the time axis before the per-asset step.
-
 macro_common factors (VIX, gold, USD index) are a single time series
 shared across all assets. Per-asset time-series regression measures
 each asset's sensitivity (β) to the common factor.
@@ -13,6 +8,11 @@ each asset's sensitivity (β) to the common factor.
 ``ts_beta``: cross-sectional test on the β distribution.
 ``mean_r_squared``: average explanatory power across assets.
 ``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
+
+Notes:
+    **Pipeline.** Per-asset full-sample OLS β (time-series step), then
+    cross-asset t on the β distribution; rolling-window variant slices
+    the time axis before the per-asset step.
 """
 
 from __future__ import annotations

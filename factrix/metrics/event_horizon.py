@@ -1,10 +1,5 @@
 """Multi-horizon event analysis — how does the signal behave across time?
 
-Notes:
-    **Pipeline.** Per-event return profile across `k` offsets
-    (per-event step); descriptive curve plus binomial test on
-    per-horizon hit rate.
-
 Answers:
     - Is there pre-event leakage? (T-6..T-1 should be ~0)
     - At which horizon is the signal strongest?
@@ -13,6 +8,11 @@ Answers:
 Metrics:
     compute_event_returns — per-event, per-offset raw return data
     event_around_return   — return profile summary at each offset
+
+Notes:
+    **Pipeline.** Per-event return profile across `k` offsets
+    (per-event step); descriptive curve plus binomial test on
+    per-horizon hit rate.
 """
 
 from __future__ import annotations

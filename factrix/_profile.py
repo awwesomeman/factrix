@@ -31,6 +31,16 @@ class FactorProfile:
     a sparse panel. Each axis answers one question and never overlaps
     with another.
 
+    The four sample axes are paired with ``primary_*``, not with
+    secondary diagnostic entries in ``stats`` — e.g. an ADF run on the
+    factor reports its own n inside its ``stats`` / ``metadata`` entry,
+    not via ``n_obs``.
+
+    Hashing is disabled (``__hash__ = None``) because ``context``
+    defaults to ``dict`` (unhashable). Equality is field-by-field via
+    the auto-generated ``__eq__``; bhy family partitioning uses
+    ``identity`` directly without needing the profile to be hashable.
+
     Attributes:
         config: The ``AnalysisConfig`` that produced this profile.
         mode: Evaluation mode (``PANEL`` / ``TIMESERIES``).
@@ -83,16 +93,6 @@ class FactorProfile:
             populates both ``T_NW`` and ``P`` from one bandwidth
             choice) duplicate the inner dict under both keys to keep
             single-key lookup honest (#188).
-
-    The four sample axes are paired with ``primary_*``, not with
-    secondary diagnostic entries in ``stats`` — e.g. an ADF run on the
-    factor reports its own n inside its ``stats`` / ``metadata`` entry,
-    not via ``n_obs``.
-
-    Hashing is disabled (``__hash__ = None``) because ``context``
-    defaults to ``dict`` (unhashable). Equality is field-by-field via
-    the auto-generated ``__eq__``; bhy family partitioning uses
-    ``identity`` directly without needing the profile to be hashable.
     """
 
     config: AnalysisConfig

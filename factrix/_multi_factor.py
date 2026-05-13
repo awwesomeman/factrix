@@ -671,29 +671,6 @@ def bhy_hierarchical(
             the outer Simes representative equals that single p, so
             those groups get no FDR correction at either layer.
 
-    Caveats:
-        - **Simes as the outer representative**: dominates Bonferroni
-          ``m * min(p)`` and is the Yekutieli 2008 recommended choice.
-          The kwarg is not exposed at v1 (Edgington-style mean p has
-          no valid null; Bonferroni-min is strictly worse than Simes
-          under the procedure's PRDS assumption).
-        - **PRDS within group**: Simes is valid under positive
-          regression dependence (typical for factors within one
-          family — they share style exposure). If a group mixes
-          structurally opposite factors (e.g. momentum and reversal
-          in one bucket), the within-group PRDS assumption can fail;
-          split the bucket or pre-orthogonalize.
-        - **Pre-filtered input**: ``bhy_hierarchical`` assumes the
-          input *is* the candidate family. If profiles came from
-          upstream pre-filtering (e.g. top-50 of 500 candidates),
-          the FDR claim does not cover the full screening pipeline —
-          count K accordingly per the Haircut Sharpe / experiment-log
-          discipline.
-
-    References:
-        Yekutieli, D. (2008). "Hierarchical false discovery rate-
-        controlling methodology." JASA 103(481), 309-316.
-
     Examples:
         Six candidate factors split into two family groups; FDR is
         controlled across groups (outer) and within each group (inner):
@@ -722,6 +699,29 @@ def bhy_hierarchical(
         >>> survivors = fx.multi_factor.bhy_hierarchical(
         ...     profiles, group="family"
         ... )
+
+    Notes:
+        - **Simes as the outer representative**: dominates Bonferroni
+          ``m * min(p)`` and is the Yekutieli 2008 recommended choice.
+          The kwarg is not exposed at v1 (Edgington-style mean p has
+          no valid null; Bonferroni-min is strictly worse than Simes
+          under the procedure's PRDS assumption).
+        - **PRDS within group**: Simes is valid under positive
+          regression dependence (typical for factors within one
+          family — they share style exposure). If a group mixes
+          structurally opposite factors (e.g. momentum and reversal
+          in one bucket), the within-group PRDS assumption can fail;
+          split the bucket or pre-orthogonalize.
+        - **Pre-filtered input**: ``bhy_hierarchical`` assumes the
+          input *is* the candidate family. If profiles came from
+          upstream pre-filtering (e.g. top-50 of 500 candidates),
+          the FDR claim does not cover the full screening pipeline —
+          count K accordingly per the Haircut Sharpe / experiment-log
+          discipline.
+
+    References:
+        Yekutieli, D. (2008). "Hierarchical false discovery rate-
+        controlling methodology." JASA 103(481), 309-316.
     """
     profile_list = list(profiles)
     expand_over_tuple: tuple[str, ...] = (group,)
