@@ -85,6 +85,23 @@ def ic_trend(
         diagnostic on the input series.
         [MacKinnon 1996][mackinnon-1996]: ADF p-value response surface
         used by ``_adf_pvalue_interp``.
+
+    Examples:
+        Trend on the per-date IC series produced by
+        :func:`~factrix.metrics.ic.compute_ic`:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic
+        >>> from factrix.metrics.trend import ic_trend
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> ic_df = compute_ic(panel)
+        >>> result = ic_trend(ic_df, value_col="ic")
+        >>> result.name
+        'ic_trend'
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
         raise ValueError(
