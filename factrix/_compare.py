@@ -59,6 +59,36 @@ def compare(
     Raises:
         UserInputError: Empty input; mixed artifact types; ``sort_by``
             not present in the output schema (with fuzzy suggestion).
+
+    Examples:
+        Leaderboard from a list of :class:`FactorProfile`:
+
+        >>> import dataclasses
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profiles = [
+        ...     dataclasses.replace(
+        ...         fx.evaluate(
+        ...             compute_forward_return(
+        ...                 fx.datasets.make_cs_panel(
+        ...                     n_assets=100, n_dates=250, seed=i,
+        ...                 ),
+        ...                 forward_periods=5,
+        ...             ),
+        ...             cfg,
+        ...         ),
+        ...         factor_id=f"alpha_{i}",
+        ...     )
+        ...     for i in range(3)
+        ... ]
+        >>> leaderboard = fx.compare(profiles, sort_by="primary_p")
+
+        Leaderboard from a :class:`~factrix.multi_factor.Survivors`
+        (adds an ``adj_p`` column):
+
+        >>> survivors = fx.multi_factor.bhy(profiles, q=0.5)
+        >>> board = fx.compare(survivors, sort_by="adj_p")
     """
     if isinstance(artifacts, Survivors):
         if len(artifacts) == 0:

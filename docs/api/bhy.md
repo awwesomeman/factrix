@@ -49,21 +49,22 @@ title: factrix.multi_factor.bhy
 
 </div>
 
-## Call shape
+## Survivors attributes
 
-```python
-profiles = [
-    fx.evaluate(panel_per_lookback[lookback], cfg, factor_col=f"momentum_{lookback}")
-    for lookback, cfg in candidates
-]
-survivors = fx.multi_factor.bhy(profiles, q=0.05)
+See the docstring Examples block above for the canonical
+multi-factor call. The returned `Survivors` container exposes:
 
-survivors.profiles   # list[FactorProfile] in input order
-survivors.adj_p      # numpy array — bucket-local BHY-adjusted p-value, aligned
-survivors.q          # 0.05 — the nominal target you passed
-survivors.expand_over     # () for a single family; ("regime_id",) etc. otherwise
-survivors.n_tests    # {(): N} or {bucket_key: m_per_bucket}
-```
+| Attribute | Type | Meaning |
+|---|---|---|
+| `survivors.profiles` | `list[FactorProfile]` | input order, surviving subset |
+| `survivors.adj_p` | `np.ndarray` | bucket-local BHY-adjusted p-value, index-aligned with `profiles` |
+| `survivors.q` | `float` | the nominal target you passed |
+| `survivors.expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise |
+| `survivors.n_tests` | `dict[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` |
+
+Jupyter rendering surfaces a three-column text / HTML table of
+`identity | primary_p | adj_p`, plus an `expand_over_values` column
+when buckets are declared.
 
 The input list **is** the family. `bhy` runs one Benjamini–Yekutieli
 step-up over all profiles by default, returning the surviving subset

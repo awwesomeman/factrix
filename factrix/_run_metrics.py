@@ -313,16 +313,22 @@ def run_metrics(
             short-circuits are converted to short-circuit
             ``MetricOutput`` entries inside the bundle, **not** raised.
 
-    Example:
-        ```python
-        import factrix as fx
+    Examples:
+        Auto-discover every applicable metric for the cell:
 
-        cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-        bundle = fx.run_metrics(panel, cfg, factor_col="momentum_12_1")
-        bundle["ic"].value           # dict-style access
-        bundle.to_frame()            # long-form pl.DataFrame
-        dict(bundle.skipped)         # what we could not auto-run
-        ```
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> bundle = fx.run_metrics(panel, cfg)
+        >>> ic_output = bundle["ic"]
+        >>> long_frame = bundle.to_frame()
+        >>> skipped = dict(bundle.skipped)
+
+        Restrict to a subset by name:
+
+        >>> bundle = fx.run_metrics(panel, cfg, metrics=["ic"])
     """
     missing = {"date", "asset_id", factor_col, "forward_return"} - set(panel.columns)
     if missing:

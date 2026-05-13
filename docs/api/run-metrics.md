@@ -24,19 +24,7 @@ types are disjoint by design.
 Both can be called on the same `(panel, cfg)`; neither is a
 prerequisite for the other.
 
-## Call shape
-
-```python
-import factrix as fx
-
-cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-bundle = fx.run_metrics(panel, cfg, factor_col="momentum_12_1")
-
-bundle["ic"].value             # dict-style access
-bundle.identity                # ("momentum_12_1", 5) — (factor_id, fwd)
-bundle.to_frame()              # long-form pl.DataFrame
-dict(bundle.skipped)           # metrics that could not auto-run
-```
+## Identity uniqueness in sweeps
 
 `panel` follows the same canonical schema as `evaluate`
 (`date, asset_id, factor, forward_return`); `factor_col` renames an
@@ -67,17 +55,15 @@ spread consumers) live in the auto-discover exclusion set; the bundle's
 `skipped` map carries the explicit-import recipe for each. v1.x will
 extend stage-1 wiring per cell.
 
-## Explicit subset
+## Explicit subset error semantics
 
-```python
-fx.run_metrics(panel, cfg, metrics=["ic", "monotonicity"])
-```
-
-Unknown names raise [`UserInputError`][factrix.UserInputError] with a fuzzy
-suggestion plus the full candidate list. Names registered for the
-cell but in the auto-discover exclusion set raise the same error type with
-the documented reason and the explicit-call recipe — `run_metrics`
-never silently drops a name the caller asked for.
+When `metrics=` is passed an explicit list (see the docstring
+Examples block above for the canonical call shape), unknown names raise
+[`UserInputError`][factrix.UserInputError] with a fuzzy suggestion
+plus the full candidate list. Names registered for the cell but in
+the auto-discover exclusion set raise the same error type with the
+documented reason and the explicit-call recipe — `run_metrics` never
+silently drops a name the caller asked for.
 
 ## Cross-horizon and cross-universe analysis
 

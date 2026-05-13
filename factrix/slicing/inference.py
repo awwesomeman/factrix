@@ -147,6 +147,42 @@ def slice_pairwise_test(
             ``per_date_series`` capability).
         NotImplementedError: Estimator outside ``WaldNWCluster`` /
             ``BlockBootstrap``.
+
+    Examples:
+        Pairwise IC contrasts across two sub-universes. The canonical
+        pattern is to compute the per-date metric series per slice
+        upstream and concatenate with a label column — slices must
+        share dates, so date-disjoint labels (e.g. calendar year)
+        do not apply:
+
+        >>> import polars as pl
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics import ic, compute_ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> assets = panel["asset_id"].unique().sort().to_list()
+        >>> half = len(assets) // 2
+        >>> sector_map = {a: ("tech" if i < half else "fin")
+        ...               for i, a in enumerate(assets)}
+        >>> panel_sec = panel.with_columns(
+        ...     pl.col("asset_id").replace_strict(sector_map).alias("sector")
+        ... )
+        >>> per_sector_ic = pl.concat([
+        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))
+        ...        .with_columns(pl.lit(s).alias("sector"))
+        ...     for s in ("tech", "fin")
+        ... ])
+        >>> pairs = fx.slice_pairwise_test(ic, per_sector_ic, label="sector")
+
+        Block-bootstrap path (auto-switches to Romano-Wolf
+        multiple-testing):
+
+        >>> from factrix.stats import BlockBootstrap
+        >>> pairs_bb = fx.slice_pairwise_test(
+        ...     ic, per_sector_ic, label="sector",
+        ...     estimator=BlockBootstrap(rng_seed=0),
+        ... )
     """
     est = _resolve_estimator(estimator, "slice_pairwise_test")
 
@@ -258,6 +294,31 @@ def slice_joint_test(
             ``per_date_series`` capability).
         NotImplementedError: Non-``WaldNWCluster`` estimator passed
             before the block-bootstrap batch lands.
+
+    Examples:
+        Joint omnibus test that mean IC is identical across two
+        sub-universes (see :func:`slice_pairwise_test` for the
+        per-sector ic panel construction):
+
+        >>> import polars as pl
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics import ic, compute_ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> assets = panel["asset_id"].unique().sort().to_list()
+        >>> half = len(assets) // 2
+        >>> sector_map = {a: ("tech" if i < half else "fin")
+        ...               for i, a in enumerate(assets)}
+        >>> panel_sec = panel.with_columns(
+        ...     pl.col("asset_id").replace_strict(sector_map).alias("sector")
+        ... )
+        >>> per_sector_ic = pl.concat([
+        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))
+        ...        .with_columns(pl.lit(s).alias("sector"))
+        ...     for s in ("tech", "fin")
+        ... ])
+        >>> joint = fx.slice_joint_test(ic, per_sector_ic, label="sector")
     """
     est = _resolve_estimator(estimator, "slice_joint_test")
     if isinstance(est, BlockBootstrap):

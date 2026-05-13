@@ -398,6 +398,17 @@ def suggest_config(
     Plan §7.2: this is a *suggestion* — never auto-applied. The
     caller (or an AI agent) reads ``reasoning`` and ``warnings`` to
     decide whether to override.
+
+    Examples:
+        Detect cell axes from a synthetic cross-sectional panel and
+        accept the suggestion:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> result = fx.suggest_config(panel, forward_periods=5)
+        >>> profile = fx.evaluate(panel, result.suggested)
     """
     signal, signal_reason, sparsity = _detect_signal(raw)
     scope, scope_reason = _detect_scope(raw)
@@ -528,6 +539,20 @@ def list_metrics(
     for the date-slicing dispatcher :func:`factrix.by_slice`; ``"scalar"``
     rows (``breakeven_cost``, ``net_spread``) consume pre-aggregated
     scalars and are not eligible.
+
+    Examples:
+        Discover standalone metrics for an INDIVIDUAL × CONTINUOUS cell:
+
+        >>> import factrix as fx
+        >>> names = fx.list_metrics(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
+        ... )
+
+        JSON form (for tooling — adds module / cell / import_path keys):
+
+        >>> rows = fx.list_metrics(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        ... )
     """
     rows = [r for r in user_facing_rows() if r.cell.matches(scope, signal)]
     if not rows:
@@ -596,6 +621,20 @@ def list_estimators(
         ``(scope, signal)`` matches no registered Estimator. ``NeweyWest``
         applies to every user-facing cell, so as long as it stays in the
         registry this branch is defensive.
+
+    Examples:
+        Discover applicable estimators for an INDIVIDUAL × CONTINUOUS cell:
+
+        >>> import factrix as fx
+        >>> names = fx.list_estimators(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
+        ... )
+
+        JSON form for tooling:
+
+        >>> rows = fx.list_estimators(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        ... )
     """
     from factrix.stats import _ESTIMATOR_REGISTRY
 

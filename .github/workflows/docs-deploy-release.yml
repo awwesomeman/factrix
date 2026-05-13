@@ -30,7 +30,7 @@ jobs:
           enable-cache: true
 
       - name: Install docs dependencies
-        run: uv sync --python 3.12 --extra docs
+        run: uv sync --frozen --python 3.12 --extra docs
 
       - name: Configure git for mike
         run: |

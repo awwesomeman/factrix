@@ -25,24 +25,16 @@ result. They do **not** participate in BHY family expansion — adjusted
 p is a within-slice-family closure, not a cell-level discovery
 commitment.
 
-## Call shape
-
-```python
-import polars as pl
-from factrix import slice_joint_test, slice_pairwise_test
-from factrix.metrics import compute_ic, ic
-
-ic_df = compute_ic(panel)
-ic_df = ic_df.join(regime_labels, on="date")  # adds 'regime' column
-
-pairwise = slice_pairwise_test(ic, ic_df, label="regime")
-omnibus = slice_joint_test(ic, ic_df, label="regime")
-```
+## Metric capability requirement
 
 The metric callable's module must declare `per_date_series` (a
 top-level capability function returning a `(date, value)` long-form
 frame); IC, Fama-MacBeth, and hit_rate ship with this declaration.
 A metric without it raises `TypeError` at the function call site.
+
+See the docstring Examples blocks above for the canonical
+per-sub-universe construction (`compute_ic` per sector, concatenated
+with a `sector` label column).
 
 ## Date alignment is required
 

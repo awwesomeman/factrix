@@ -10,14 +10,10 @@ reasoning behind the suggestion. The proposal is never auto-applied —
 the caller (or an AI agent) reads `reasoning` / `warnings` before
 deciding to use, override, or reject it.
 
-Canonical [`MissingConfigError`][factrix.MissingConfigError] recovery:
-
-```python
-import factrix as fx
-
-result  = fx.suggest_config(panel)
-profile = fx.evaluate(panel, result.suggested)
-```
+The canonical [`MissingConfigError`][factrix.MissingConfigError]
+recovery path — call `suggest_config(panel)`, then pass
+`result.suggested` to `evaluate` — is shown in the docstring
+Examples block above.
 
 ## `SuggestConfigResult`
 
