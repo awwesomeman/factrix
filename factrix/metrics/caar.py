@@ -499,7 +499,7 @@ def _estimate_sar_icc(
 
     w_num = (multi["v"] * (multi["n"] - 1)).sum()
     w_den = (multi["n"] - 1).sum()
-    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator, unused-ignore]
+    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator]
 
     date_means = multi["m"].to_numpy()
     sigma2_between = float(np.var(date_means, ddof=DDOF))
