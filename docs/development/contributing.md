@@ -545,6 +545,23 @@ block the PR if tests are missing.
 `.github/workflows/test.yml` runs the full pytest suite on every push
 / PR. **A red PR must not merge**—fix first, then continue.
 
+### Docstring style boundary — Google sections, ruff for everything else
+
+The project's style policy is split between two complementary but distinct conventions; conflating them invites drift.
+
+- **Code formatting and structure** (line length, naming, imports, indentation, formatter tool) follows PEP 8 and the Black / ruff defaults configured in `pyproject.toml [tool.ruff]`. The selector set (`E/W/F/I/B/UP/SIM/RUF`) and 88-character line length there are the source of truth.
+- **Docstring format** follows Google docstring style — section headers `Args:` / `Returns:` / `Raises:` / `Warns:` / `Notes:` / `Examples:` / `References:` — because the mkdocstrings python handler is configured for `docstring_style: google` (see `mkdocs.yml`). Section ordering is `Args` → `Returns` → `Raises` → `Warns` → `Notes` → `Examples` → `References`. Section names are plural (`Examples:` not `Example:`, `Notes:` not `Note:`, `Warns:` not `Warning:`); the mkdocstrings handler accepts both, but plural-only keeps rendered admonitions consistent.
+- **The Google Python Style Guide as a whole is not adopted.** Its 80-character line limit, single-quote string preference, and yapf formatter conflict with the ruff configuration above and do not apply. Only the docstring section convention is taken from Google.
+
+NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists (`:param x:` / `:returns:`) are not parsed by the Google handler and render as plain prose under generic headings. Convert on sight.
+
+### Markdown code-block intent layers — runnable vs illustrative
+
+Code blocks under `docs/api/**/*.md` carry two distinct intents; verify which layer a block belongs to before editing.
+
+- **Runnable** — `pycon` blocks injected from docstring `Examples:` via mkdocstrings autodoc. Self-contained imports, no unbound names, no fragile output; the rendered page exposes a copy button that strips `>>>` and expected-output lines, so blocks must remain paste-ready Python.
+- **Illustrative** — hand-authored `python` fenced blocks that use unbound names (e.g. `panel_large`, `regime_labels`) to communicate semantic intent, plus ASCII / DataFrame layouts that document output schema. Deliberately not runnable; visual lookup value beats setup faithfulness. Do not "fix" these into runnable form — confirm the intent first.
+
 ### Metric docstring style
 
 Docstrings in `factrix/metrics/*.py` are the **authoritative source**
