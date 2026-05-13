@@ -25,11 +25,10 @@ Romano-Wolf. The function-side fallback that picks between the two
 lives in #176 — this module does not encode a default.
 
 References:
-    Holm, S. (1979). "A simple sequentially rejective multiple test
-    procedure." Scandinavian Journal of Statistics, 6(2), 65–70.
-
-    Romano, J. P. & Wolf, M. (2005). "Stepwise multiple testing as
-    formalized data snooping." Econometrica, 73(4), 1237–1282.
+    - Holm, S. (1979). "A simple sequentially rejective multiple test
+      procedure." Scandinavian Journal of Statistics, 6(2), 65–70.
+    - Romano, J. P. & Wolf, M. (2005). "Stepwise multiple testing as
+      formalized data snooping." Econometrica, 73(4), 1237–1282.
 """
 
 from __future__ import annotations

@@ -12,11 +12,11 @@ Tests $H_0$: event abnormal return = 0, using two complementary methods:
     bmp_test     — BMP standardized AR test (robust to event-induced variance)
 
 References:
-    [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
-        and Finance."
-    [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
-        "Event-study Methodology Under Conditions of Event-induced
-        Variance."
+    - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
+      and Finance."
+    - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
+      "Event-study Methodology Under Conditions of Event-induced
+      Variance."
 """
 
 from __future__ import annotations
@@ -132,22 +132,20 @@ def compute_caar(
         surface the regime-switch through the structured channel.
 
     References:
-        [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
-        and Finance." Journal of Economic Literature, 35(1), 13–39.
-        Standardised event-window / estimation-window vocabulary
-        inherited by ``EventConfig``.
-
-        [Sefcik & Thompson (1986)][sefcik-thompson-1986]. "An Approach
-        to Statistical Inference in Cross-Sectional Models with
-        Security Abnormal Returns as Dependent Variable." Journal of
-        Accounting Research, 24(2), 316–334. Per-event regression-
-        slope ancestor of the magnitude-weighted CAAR produced when
-        ``factor`` is continuous.
-
-        [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
-        Returns: The Case of Event Studies." Journal of Financial
-        Economics, 14(1), 3–31. Daily event-study methodology backing
-        the parametric-test path.
+        - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+          and Finance." Journal of Economic Literature, 35(1), 13–39.
+          Standardised event-window / estimation-window vocabulary
+          inherited by ``EventConfig``.
+        - [Sefcik & Thompson (1986)][sefcik-thompson-1986]. "An Approach
+          to Statistical Inference in Cross-Sectional Models with
+          Security Abnormal Returns as Dependent Variable." Journal of
+          Accounting Research, 24(2), 316–334. Per-event regression-
+          slope ancestor of the magnitude-weighted CAAR produced when
+          ``factor`` is continuous.
+        - [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
+          Returns: The Case of Event Studies." Journal of Financial
+          Economics, 14(1), 3–31. Daily event-study methodology backing
+          the parametric-test path.
     """
     if _is_sparse_magnitude_weighted(df, factor_col):
         warnings.warn(
@@ -197,14 +195,13 @@ def caar(
         variance regimes.
 
     References:
-        [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
-        Returns: The Case of Event Studies." Journal of Financial
-        Economics, 14(1), 3–31. Daily event-study t-test specification
-        at standard sample sizes.
-
-        [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
-        and Finance." Journal of Economic Literature, 35(1), 13–39.
-        Event-window vocabulary.
+        - [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
+          Returns: The Case of Event Studies." Journal of Financial
+          Economics, 14(1), 3–31. Daily event-study t-test specification
+          at standard sample sizes.
+        - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+          and Finance." Journal of Economic Literature, 35(1), 13–39.
+          Event-window vocabulary.
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
@@ -353,17 +350,16 @@ def bmp_test(
         BMP denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$.
 
     References:
-        [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991].
-        "Event-study Methodology Under Conditions of Event-induced
-        Variance." Journal of Financial Economics, 30(2), 253–272.
-        The BMP standardised AR test factrix simplifies (mean-adjusted
-        residuals, no prediction-error correction by default).
-
-        [Kolari & Pynnönen (2010)][kolari-pynnonen-2010]. "Event Study
-        Testing with Cross-sectional Correlation of Abnormal Returns."
-        Review of Financial Studies, 23(11), 3996–4025. Clustering-
-        adjusted BMP variant referenced by ``EventConfig.adjust_clustering``
-        (not yet implemented).
+        - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991].
+          "Event-study Methodology Under Conditions of Event-induced
+          Variance." Journal of Financial Economics, 30(2), 253–272.
+          The BMP standardised AR test factrix simplifies (mean-adjusted
+          residuals, no prediction-error correction by default).
+        - [Kolari & Pynnönen (2010)][kolari-pynnonen-2010]. "Event Study
+          Testing with Cross-sectional Correlation of Abnormal Returns."
+          Review of Financial Studies, 23(11), 3996–4025. Clustering-
+          adjusted BMP variant referenced by ``EventConfig.adjust_clustering``
+          (not yet implemented).
     """
     sorted_df = df.sort(["asset_id", "date"])
 

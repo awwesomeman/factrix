@@ -18,17 +18,15 @@ private module is consumed by the procedure that backs the
 ``BlockBootstrap`` Estimator under #176.
 
 References:
-    Künsch, H. R. (1989). "The jackknife and the bootstrap for
-    general stationary observations." Annals of Statistics, 17(3),
-    1217–1241.
-
-    Politis, D. N. & Romano, J. P. (1994). "The Stationary
-    Bootstrap." Journal of the American Statistical Association,
-    89(428), 1303–1313.
-
-    Politis, D. N. & White, H. (2004). "Automatic Block-Length
-    Selection for the Dependent Bootstrap." Econometric Reviews,
-    23(1), 53–70.
+    - Künsch, H. R. (1989). "The jackknife and the bootstrap for
+      general stationary observations." Annals of Statistics, 17(3),
+      1217–1241.
+    - Politis, D. N. & Romano, J. P. (1994). "The Stationary
+      Bootstrap." Journal of the American Statistical Association,
+      89(428), 1303–1313.
+    - Politis, D. N. & White, H. (2004). "Automatic Block-Length
+      Selection for the Dependent Bootstrap." Econometric Reviews,
+      23(1), 53–70.
 """
 
 from __future__ import annotations

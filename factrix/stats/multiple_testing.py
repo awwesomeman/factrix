@@ -21,15 +21,15 @@ are implicitly not rejected. Default (``None``) reproduces single-stage
 BHY where ``m = len(p_values)``.
 
 References:
-    [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001], "The
-        Control of the False Discovery Rate in Multiple Testing under
-        Dependency."
-    [Benjamini & Heller (2008)][benjamini-heller-2008], "Screening
-        for Partial Conjunction Hypotheses."
-    [Simes (1986)][simes-1986], "An Improved Bonferroni Procedure
-        for Multiple Tests of Significance."
-    [Yekutieli (2008)][yekutieli-2008], "Hierarchical False Discovery
-        Rate-controlling Methodology."
+    - [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001], "The
+      Control of the False Discovery Rate in Multiple Testing under
+      Dependency."
+    - [Benjamini & Heller (2008)][benjamini-heller-2008], "Screening
+      for Partial Conjunction Hypotheses."
+    - [Simes (1986)][simes-1986], "An Improved Bonferroni Procedure
+      for Multiple Tests of Significance."
+    - [Yekutieli (2008)][yekutieli-2008], "Hierarchical False Discovery
+      Rate-controlling Methodology."
 """
 
 from __future__ import annotations
@@ -94,10 +94,10 @@ def bhy_adjust(
         is rejected. Order matches the input.
 
     References:
-        [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. "The
-        Control of the False Discovery Rate in Multiple Testing under
-        Dependency." Annals of Statistics, 29(4), 1165–1188. The
-        ``c(m) = Σ 1/i`` correction underlying this step-up rule.
+        - [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. "The
+          Control of the False Discovery Rate in Multiple Testing under
+          Dependency." Annals of Statistics, 29(4), 1165–1188. The
+          ``c(m) = Σ 1/i`` correction underlying this step-up rule.
     """
     p = np.asarray(p_values, dtype=float)
     n = len(p)
@@ -146,11 +146,11 @@ def bhy_adjusted_p(
     candidate family.
 
     References:
-        [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. "The
-        Control of the False Discovery Rate in Multiple Testing under
-        Dependency." Annals of Statistics, 29(4), 1165–1188. The
-        per-hypothesis adjusted-p mapping derived from the same
-        step-up rule used by ``bhy_adjust``.
+        - [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. "The
+          Control of the False Discovery Rate in Multiple Testing under
+          Dependency." Annals of Statistics, 29(4), 1165–1188. The
+          per-hypothesis adjusted-p mapping derived from the same
+          step-up rule used by ``bhy_adjust``.
     """
     p = np.asarray(p_values, dtype=float)
     n = len(p)
@@ -197,15 +197,14 @@ def simes_p(p_values: npt.ArrayLike) -> float:
             empty group).
 
     References:
-        [Simes (1986)][simes-1986]. "An Improved Bonferroni Procedure
-        for Multiple Tests of Significance." Biometrika, 73(3),
-        751–754. The combined-test formula implemented here.
-
-        [Yekutieli (2008)][yekutieli-2008]. "Hierarchical False
-        Discovery Rate-controlling Methodology." Journal of the
-        American Statistical Association, 103(481), 309–316. Uses
-        Simes as the group representative in hierarchical FDR
-        procedures fed to an outer BHY step-up.
+        - [Simes (1986)][simes-1986]. "An Improved Bonferroni Procedure
+          for Multiple Tests of Significance." Biometrika, 73(3),
+          751–754. The combined-test formula implemented here.
+        - [Yekutieli (2008)][yekutieli-2008]. "Hierarchical False
+          Discovery Rate-controlling Methodology." Journal of the
+          American Statistical Association, 103(481), 309–316. Uses
+          Simes as the group representative in hierarchical FDR
+          procedures fed to an outer BHY step-up.
     """
     p = np.asarray(p_values, dtype=float)
     m = len(p)
@@ -243,9 +242,9 @@ def partial_conjunction_p(
         The PC p-value, clipped to ``[0, 1]``.
 
     References:
-        [Benjamini & Heller (2008)][benjamini-heller-2008]. "Screening
-        for Partial Conjunction Hypotheses." Biometrics, 64(4),
-        1215–1222. The partial-conjunction test implemented here.
+        - [Benjamini & Heller (2008)][benjamini-heller-2008]. "Screening
+          for Partial Conjunction Hypotheses." Biometrics, 64(4),
+          1215–1222. The partial-conjunction test implemented here.
     """
     p = np.asarray(p_values, dtype=float)
     m = len(p)

@@ -9,13 +9,13 @@ suitable for event-clustering situations, persistent macro factors, and
 non-normal IC distributions.
 
 References:
-    [Politis & Romano (1994)][politis-romano-1994], "The Stationary
-        Bootstrap."
-    [Politis & White (2004)][politis-white-2004], "Automatic Block-
-        Length Selection for the Dependent Bootstrap." Full procedure
-        requires spectral-density estimation; this module falls back
-        to the practical ``L = round(1.75 * T^(1/3))`` rule when
-        ``block_length=None``.
+    - [Politis & Romano (1994)][politis-romano-1994], "The Stationary
+      Bootstrap."
+    - [Politis & White (2004)][politis-white-2004], "Automatic Block-
+      Length Selection for the Dependent Bootstrap." Full procedure
+      requires spectral-density estimation; this module falls back to
+      the practical ``L = round(1.75 * T^(1/3))`` rule when
+      ``block_length=None``.
 """
 
 from __future__ import annotations
@@ -67,15 +67,14 @@ def stationary_bootstrap_resamples(
         ``(n_bootstrap, T)`` numpy array of resampled series.
 
     References:
-        [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
-        Bootstrap." Journal of the American Statistical Association,
-        89(428), 1303–1313. Stationary block bootstrap with geometric
-        block lengths — the resampling scheme this function implements.
-
-        [Politis & White (2004)][politis-white-2004]. "Automatic Block-
-        Length Selection for the Dependent Bootstrap." Econometric
-        Reviews, 23(1), 53–70. Source of the practical ``1.75 * T^(1/3)``
-        block-length default.
+        - [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
+          Bootstrap." Journal of the American Statistical Association,
+          89(428), 1303–1313. Stationary block bootstrap with geometric
+          block lengths — the resampling scheme this function implements.
+        - [Politis & White (2004)][politis-white-2004]. "Automatic Block-
+          Length Selection for the Dependent Bootstrap." Econometric
+          Reviews, 23(1), 53–70. Source of the practical ``1.75 * T^(1/3)``
+          block-length default.
     """
     from factrix._stats.bootstrap import _stationary_block_indices
 
@@ -124,10 +123,10 @@ def bootstrap_mean_ci(
         on the original sample.
 
     References:
-        [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
-        Bootstrap." Journal of the American Statistical Association,
-        89(428), 1303–1313. Underlying resampling scheme; percentile CI
-        on the bootstrap distribution of the statistic.
+        - [Politis & Romano (1994)][politis-romano-1994]. "The Stationary
+          Bootstrap." Journal of the American Statistical Association,
+          89(428), 1303–1313. Underlying resampling scheme; percentile CI
+          on the bootstrap distribution of the statistic.
     """
     if not 0.0 < ci < 1.0:
         raise ValueError(f"ci must be in (0, 1), got {ci!r}")

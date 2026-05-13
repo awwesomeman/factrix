@@ -576,14 +576,14 @@ Placement is driven by how many public callables the module hosts, not by paper-
 
 Format in every case: Google `References:` (colon-terminated heading, indented body), not NumPy underline (`References\n----------`).
 
-#### Inline citation form — autorefs hyperlink + full text
+#### Inline citation form — bullet list + autorefs hyperlink + full text
 
-`References:` entries are hyperlinked to the catalog using mkdocs-autorefs reference-style links. The author-year prefix is the link; the rest of the citation is plain text following it.
+`References:` entries are markdown bullet list items, uniformly — one paper or many, every entry starts with `- `. Each entry's author-year prefix is an autorefs reference-style link to the catalog; the rest of the citation follows as plain text on continuation lines indented to align under the link.
 
 ```
 References:
-    [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
-    and Finance." Journal of Economic Literature, 35(1), 13–39.
+    - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+      and Finance." Journal of Economic Literature, 35(1), 13–39.
 ```
 
 This serves two animations without compromising either:
@@ -595,14 +595,14 @@ Short-form module-level overviews on multi-callable modules can drop the trailin
 
 ```
 References:
-    [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
-        and Finance."
-    [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
-        "Event-study methodology under conditions of event-induced
-        variance."
+    - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
+      and Finance."
+    - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
+      "Event-study methodology under conditions of event-induced
+      variance."
 ```
 
-The slug must match an anchor declared in `docs/reference/bibliography.md`; missing anchors produce an mkdocs `--strict` warning.
+The uniform bullet form keeps every `References:` block visually identical regardless of paper count and removes the failure mode of forgetting blank-line separators when a second paper is added. The slug must match an anchor declared in `docs/reference/bibliography.md`; missing anchors produce an mkdocs `--strict` warning.
 
 #### `bibliography.md` as catalog, not single SSOT
 
