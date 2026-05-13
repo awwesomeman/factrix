@@ -15,7 +15,7 @@ fx.compare(profiles, sort_by="primary_p")
 
 ## When to reach for `compare`
 
-| Use case | Verb | Notes |
+| Use case | Function | Notes |
 |---|---|---|
 | Rank N `evaluate` results | `compare(list[FactorProfile])` | Identity + context + `primary_stat` / `primary_stat_name` / `primary_p` |
 | Rank N `run_metrics` results | `compare(list[MetricsBundle])` | Identity + context + one column per standalone metric (`MetricOutput.value`) |

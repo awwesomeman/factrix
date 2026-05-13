@@ -42,7 +42,7 @@ title: factrix.metrics.monotonicity
 
 !!! info "Per-bucket cardinality floor"
     `min_assets_per_group = 50` (Patton-Timmermann 2010) — the slice-
-    test verb downscales `n_groups` automatically so each bucket meets
+    test function downscales `n_groups` automatically so each bucket meets
     the floor; below it, per-date bucket means are noise-dominated and
     the rank statistic is unreliable. Defaults: `n_groups=10` for
     universes around 2000 stocks; drop to 5 for $n_{assets} < 1000$
