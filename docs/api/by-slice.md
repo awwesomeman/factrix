@@ -2,15 +2,9 @@
 title: factrix.by_slice
 ---
 
-::: factrix.slicing.dispatcher
-    options:
-      members:
-        - by_slice
+::: factrix.by_slice
 
-::: factrix.slicing.result
-    options:
-      members:
-        - SliceResult
+::: factrix.SliceResult
 
 Axis-agnostic research dispatcher. Slices any metric's date-keyed
 input by a column already present in the DataFrame and runs the metric
@@ -68,8 +62,8 @@ not a defensible cross-regime selection rule. A generic cross-slice test
 be applied honestly across the metric matrix — the appropriate test
 depends on the metric family. For metrics that expose a
 `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`),
-[`slice_pairwise_test`](slice-test.md#factrix.slicing.inference.slice_pairwise_test)
-/ [`slice_joint_test`](slice-test.md#factrix.slicing.inference.slice_joint_test)
+[`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test)
+/ [`slice_joint_test`](slice-test.md#factrix.slice_joint_test)
 provide cross-slice contrasts with joint-HAC or block-bootstrap
 inference.
 
@@ -208,9 +202,9 @@ result.to_frame().sort(pl.col("stat").abs(), descending=True)
     under H0, K=10 sectors yields ≈ 0.4 expected "significant" slices
     by pure chance. The container is for **exploration**; for
     inference claims with FWER / FDR control, use
-    [`slice_pairwise_test`](slice-test.md#factrix.slicing.inference.slice_pairwise_test)
+    [`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test)
     (Holm / Romano-Wolf / Bonferroni) or
-    [`slice_joint_test`](slice-test.md#factrix.slicing.inference.slice_joint_test)
+    [`slice_joint_test`](slice-test.md#factrix.slice_joint_test)
     (omnibus χ²).
 
 ### Schema

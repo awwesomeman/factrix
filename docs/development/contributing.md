@@ -531,6 +531,15 @@ plain prose; reach for a callout only when the elevation earns it.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
+### Autodoc target — top-level path for `__all__` symbols
+
+For each `::: <target>` directive in `docs/api/`, the target dotted path matches the symbol's canonical user-facing import:
+
+- Symbol in `factrix.__all__` → top-level path (`::: factrix.evaluate`, `::: factrix.by_slice`, `::: factrix.SliceResult`). Do not target the submodule that physically defines it (e.g. `factrix.slicing.dispatcher` with `members: [by_slice]`) — submodule-target with member filter renders the *submodule* as the page h1 and buries the documented symbol below.
+- Symbol reached only via a submodule path → submodule path (`::: factrix.preprocess.compute_forward_return`, `::: factrix.metrics.ic` with `members: [ic, compute_ic, ic_newey_west]`, `::: factrix.datasets.make_cs_panel`). The submodule path is the canonical import.
+
+mkdocstrings cross-references (`[X][factrix.path.X]`) and intra-doc anchor links (`page.md#factrix.path.X`) follow the same rule — the path inside the brackets matches the autodoc target. Changing one without the other breaks the cross-ref.
+
 ### Autodoc options — globals + per-block deviations
 
 `mkdocs.yml` carries the page-primary defaults for mkdocstrings (`show_root_heading: true`, `show_root_full_path: true`, `show_root_toc_entry: true`, `heading_level: 1`, `separate_signature: true`, `show_signature_annotations: true`, `show_source: false`, `merge_init_into_class: true`, `docstring_style: google`). Every `::: factrix.<X>` block in `docs/api/**` inherits these.

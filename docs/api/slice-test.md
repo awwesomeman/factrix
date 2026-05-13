@@ -1,13 +1,10 @@
 ---
-title: factrix.slicing.inference
+title: factrix.slice_pairwise_test / factrix.slice_joint_test
 ---
 
-::: factrix.slicing.inference
-    options:
-        members:
-          - slice_pairwise_test
-          - slice_joint_test
-        show_root_heading: false
+::: factrix.slice_pairwise_test
+
+::: factrix.slice_joint_test
 
 Cross-slice statistical-test function pair. Both consume a metric callable
 and a date-keyed DataFrame whose `label` column carries the slice
