@@ -119,6 +119,18 @@ def compute_mfe_mae(
         or vol regimes conflates time-scale with signal strength.
         $\hat\sigma$ excludes the event-day bar to avoid feeding the
         signal back into its own denominator.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.mfe_mae import compute_mfe_mae
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> per_event = compute_mfe_mae(panel, window=20)
+        >>> set(per_event.columns) >= {"date", "asset_id", "mfe", "mae"}
+        True
     """
     if min_estimation_samples < 2:
         raise ValueError(
@@ -249,6 +261,21 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         risk-adjusted favourability: a strategy with median favourable
         excursion that exceeds typical adverse excursion in the worst
         quartile is the practically useful regime.
+
+    Examples:
+        Chain from :func:`compute_mfe_mae` output:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae_summary
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> per_event = compute_mfe_mae(panel, window=20)
+        >>> result = mfe_mae_summary(per_event)
+        >>> result.name
+        'mfe_mae_summary'
     """
     if mfe_mae_df.is_empty():
         return _short_circuit_output(

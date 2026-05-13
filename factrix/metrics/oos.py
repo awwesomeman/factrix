@@ -116,6 +116,23 @@ def multi_split_oos_decay(
     References:
         - McLean & Pontiff (2016): average OOS decay ~32%.
         - de Prado (2018): CPCV for robust train/test split.
+
+    Examples:
+        Survival on a per-date IC series from
+        :func:`~factrix.metrics.ic.compute_ic`:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic
+        >>> from factrix.metrics.oos import multi_split_oos_decay
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=240, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
+        >>> result = multi_split_oos_decay(series)
+        >>> result.name
+        'oos_decay'
     """
     if splits is None:
         splits = [(0.6, 0.4), (0.7, 0.3), (0.8, 0.2)]

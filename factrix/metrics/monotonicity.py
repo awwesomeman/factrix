@@ -83,6 +83,18 @@ def monotonicity(
         means the factor monotonically discriminates returns but its sign
         flips across dates — useful information that a single signed
         average would hide.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.monotonicity import monotonicity
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=200, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> result = monotonicity(panel, forward_periods=5, n_groups=5)
+        >>> result.name
+        'monotonicity'
     """
     filtered = _sample_non_overlapping(df, forward_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)

@@ -81,6 +81,23 @@ def hit_rate(
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
         autocorrelation horizon motivating the non-overlap stride.
+
+    Examples:
+        Hit rate of a per-date IC series produced by
+        :func:`~factrix.metrics.ic.compute_ic`:
+
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> from factrix.metrics.ic import compute_ic
+        >>> from factrix.metrics.hit_rate import hit_rate
+        >>> panel = compute_forward_return(
+        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+        ...     forward_periods=5,
+        ... )
+        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
+        >>> result = hit_rate(series, forward_periods=5)
+        >>> result.name
+        'hit_rate'
     """
     sampled = _sample_non_overlapping(series, forward_periods)
     vals = sampled[value_col].drop_nulls()
