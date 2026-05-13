@@ -53,9 +53,11 @@ See [Concepts](concepts.md) for what each axis means.
 
 ## Research question → factory
 
-The five supported research questions and their factory calls live in
-[Concepts § Five analysis scenarios](concepts.md#five-analysis-scenarios)
-— that page is also the SSOT for the procedure and literature behind each
+The five supported research questions and their factory calls — the
+`AnalysisConfig.*()` classmethod constructors such as
+`individual_continuous()` used above — live in
+[Concepts § Five analysis scenarios](concepts.md#five-analysis-scenarios).
+That page is also the SSOT for the procedure and literature behind each
 factory. For task-oriented help on **picking** the right factory (IC vs FM,
 when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 

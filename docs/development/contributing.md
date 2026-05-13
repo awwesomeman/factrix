@@ -2,10 +2,10 @@
 title: Contributing to factrix
 ---
 
-This document describes the factrix development workflow. The intended
-readers are **the author + future AI agents**—a private repo, so OSS
-conventions like licensing / DCO / CLA are skipped, focusing instead on
-**actual development modes and pitfalls**.
+This document describes the factrix development workflow. factrix is
+currently a private single-author repo, so this guide covers
+**development modes and pitfalls** rather than OSS contributor
+conventions (licensing / DCO / CLA).
 
 ---
 
@@ -305,7 +305,7 @@ version follows actual, not pin.
 ### 5.4 When confused, do two things first
 
 1. `git submodule status` — see the pin
-2. `cd external/factrix && git rev-parse HEAD` — see the actual
+2. `cd external/factrix && git rev-parse --short HEAD` — see the actual
 
 If both SHAs match, you're clean; if not, decide whether to bump the
 pin (row 5) or reset actual (row 6).
