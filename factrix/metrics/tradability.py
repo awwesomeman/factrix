@@ -117,6 +117,14 @@ def turnover(
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: justifies the
         ``2h + 1`` minimum-date floor for non-overlap pair stride ``h``.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.metrics.tradability import turnover
+        >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
+        >>> result = turnover(panel, forward_periods=5)
+        >>> result.name
+        'turnover'
     """
     if quantile is not None and not 0.0 < quantile < 0.5:
         raise ValueError(f"quantile must be in (0, 0.5), got {quantile!r}")
@@ -263,6 +271,14 @@ def notional_turnover(
     References:
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their
         Trading Costs."
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.metrics.tradability import notional_turnover
+        >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
+        >>> result = notional_turnover(panel, n_groups=10, forward_periods=5)
+        >>> result.name
+        'notional_turnover'
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
@@ -409,6 +425,14 @@ def breakeven_cost(
 
     References:
         Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
+
+    Examples:
+        >>> from factrix.metrics.tradability import breakeven_cost
+        >>> result = breakeven_cost(
+        ...     gross_spread=0.001, turnover=0.2, forward_periods=5,
+        ... )
+        >>> result.name
+        'breakeven_cost'
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
@@ -492,6 +516,15 @@ def net_spread(
         DeMiguel, Martin-Utrera, Nogales & Uppal (2020), "A
         Transaction-Cost Perspective on the Multitude of Firm
         Characteristics." *Review of Financial Studies* 33(5).
+
+    Examples:
+        >>> from factrix.metrics.tradability import net_spread
+        >>> result = net_spread(
+        ...     gross_spread=0.001, turnover=0.2,
+        ...     estimated_cost_bps=30.0, forward_periods=5,
+        ... )
+        >>> result.name
+        'net_spread'
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
