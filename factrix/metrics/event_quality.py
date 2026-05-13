@@ -1,11 +1,5 @@
 """Per-event quality descriptive statistics for event signals.
 
-Notes:
-    **Pipeline.** Per-event scalar (hit / IC / skew / density) computed
-    on `signed_car`, then cross-event aggregation; binomial inference
-    for hit rate, nonparametric for IC / skewness, descriptive
-    elsewhere.
-
 All metrics operate on the ``signed_car`` (return x sign(factor)) of
 individual events. They describe the quality and shape of per-event
 outcomes — distinct from significance testing (caar.py) and path
@@ -17,6 +11,12 @@ Metrics:
     signal_density — average time gap between events
     profit_factor  — sum(gains) / sum(losses)
     event_skewness — skewness of signed_car distribution
+
+Notes:
+    **Pipeline.** Per-event scalar (hit / IC / skew / density) computed
+    on `signed_car`, then cross-event aggregation; binomial inference
+    for hit rate, nonparametric for IC / skewness, descriptive
+    elsewhere.
 """
 
 from __future__ import annotations

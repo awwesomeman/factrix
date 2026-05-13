@@ -1,20 +1,24 @@
 r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
-Notes:
-    **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
-    (cross-section step) → time series of $\lambda$, then NW HAC $t$
-    on its mean; pooled OLS variant clusters SE by date.
-
 ``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
 ``fama_macbeth``: Newey-West t-test on the beta series.
 ``pooled_ols``: pooled OLS with clustered SE by date.
 ``beta_sign_consistency``: fraction of periods with correct beta sign.
 
+Notes:
+    **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
+    (cross-section step) → time series of $\lambda$, then NW HAC $t$
+    on its mean; pooled OLS variant clusters SE by date.
+
 References:
-    Fama & MacBeth (1973), "Risk, Return, and Equilibrium."
-    Newey & West (1987), "HAC Covariance Matrix."
-    Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."
+    - [Fama & MacBeth (1973)][fama-macbeth-1973], "Risk, Return, and
+      Equilibrium: Empirical Tests."
+    - [Newey & West (1987)][newey-west-1987], "A Simple, Positive
+      Semi-Definite, Heteroskedasticity and Autocorrelation Consistent
+      Covariance Matrix."
+    - [Petersen (2009)][petersen-2009], "Estimating Standard Errors in
+      Finance Panel Data Sets: Comparing Approaches."
 """
 
 from __future__ import annotations
@@ -94,8 +98,10 @@ def compute_fm_betas(
         series with no NaN propagation in the NW kernel.
 
     References:
-        [Fama-MacBeth 1973][fama-macbeth-1973]: the per-date cross-
-        sectional regression at stage 1 of the FM procedure.
+        - [Fama & MacBeth (1973)][fama-macbeth-1973]. "Risk, Return, and
+          Equilibrium: Empirical Tests." Journal of Political Economy,
+          81(3), 607–636. The per-date cross-sectional regression at
+          stage 1 of the FM procedure.
     """
     dates = df["date"].unique().sort()
     rows: list[dict] = []
@@ -198,16 +204,28 @@ def fama_macbeth(
         so the correction is honest only for large $T$.
 
     References:
-        [Fama-MacBeth 1973][fama-macbeth-1973]: two-stage lambda
-        procedure underlying this test.
-        [Newey-West 1987][newey-west-1987]: HAC variance estimator.
-        [Andrews 1991][andrews-1991]: optimal Bartlett growth rate.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlap horizon
-        flooring the kernel.
-        [Shanken 1992][shanken-1992]: errors-in-variables correction
-        for FM stage-2 t when the regressor is itself estimated.
-        [Kan-Zhang 1999][kan-zhang-1999]: single-factor simplification
-        of the Shanken EIV correction that factrix actually applies.
+        - [Fama & MacBeth (1973)][fama-macbeth-1973]. "Risk, Return, and
+          Equilibrium: Empirical Tests." Journal of Political Economy,
+          81(3), 607–636. Two-stage λ procedure underlying this test.
+        - [Newey & West (1987)][newey-west-1987]. "A Simple, Positive
+          Semi-Definite, Heteroskedasticity and Autocorrelation
+          Consistent Covariance Matrix." Econometrica, 55(3), 703–708.
+          HAC variance estimator.
+        - [Andrews (1991)][andrews-1991]. "Heteroskedasticity and
+          Autocorrelation Consistent Covariance Matrix Estimation."
+          Econometrica, 59(3), 817–858. Optimal Bartlett growth rate.
+        - [Hansen & Hodrick (1980)][hansen-hodrick-1980]. "Forward
+          Exchange Rates as Optimal Predictors of Future Spot Rates."
+          Journal of Political Economy, 88(5), 829–853. Overlap horizon
+          flooring the kernel.
+        - [Shanken (1992)][shanken-1992]. "On the Estimation of
+          Beta-Pricing Models." Review of Financial Studies, 5(1), 1–33.
+          Errors-in-variables correction for FM stage-2 t when the
+          regressor is itself estimated.
+        - [Kan & Zhang (1999)][kan-zhang-1999]. "Two-Pass Tests of Asset
+          Pricing Models with Useless Factors." Journal of Finance,
+          54(1), 203–235. Single-factor simplification of the Shanken
+          EIV correction that factrix actually applies.
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -334,6 +352,20 @@ def pooled_ols(
 ) -> MetricOutput:
     r"""Pooled OLS with clustered SE — robustness check against FM.
 
+    Clustering on date alone catches contemporaneous cross-sectional
+    dependence but misses asset-level persistence; on asset alone the
+    reverse. Petersen (2009) shows panel data usually has both —
+    single-way clusters understate SE by 20-50% in that regime.
+
+    FM and single-way share the same point estimate under a balanced
+    panel but typically disagree on SE; when $\hat\beta$ and FM
+    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
+    flags an FM/pooled sign-mismatch — a red flag for misspecification.
+
+    Short-circuits when $N < 10$ (no regression), returns ``stat=None``
+    with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
+    clusters).
+
     Formula:
         Point estimate:
 
@@ -369,20 +401,6 @@ def pooled_ols(
         $(A, B)$. Each component uses its own finite-sample correction.
         $\mathrm{df} = \min(G_A, G_B) - 1$ (Thompson 2011).
 
-    Clustering on date alone catches contemporaneous cross-sectional
-    dependence but misses asset-level persistence; on asset alone the
-    reverse. Petersen (2009) shows panel data usually has both —
-    single-way clusters understate SE by 20-50% in that regime.
-
-    FM and single-way share the same point estimate under a balanced
-    panel but typically disagree on SE; when $\hat\beta$ and FM
-    $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
-    flags an FM/pooled sign-mismatch — a red flag for misspecification.
-
-    Short-circuits when $N < 10$ (no regression), returns ``stat=None``
-    with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
-    clusters).
-
     Notes:
         Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +
         beta * Signal + eps`` with the appropriate cluster-robust
@@ -397,14 +415,18 @@ def pooled_ols(
         motivated using clustered SE in the first place.
 
     References:
-        [Petersen 2009][petersen-2009]: comparison of FM, clustered, and
-        two-way SE under firm/time correlation.
-        [Newey-West 1987][newey-west-1987]: HAC variance ancestor of the
-        sandwich form used here.
-        Cameron, Gelbach & Miller (2011), "Robust Inference With
-        Multiway Clustering."
-        Thompson (2011), "Simple Formulas for Standard Errors that
-        Cluster by Both Firm and Time."
+        - [Petersen (2009)][petersen-2009]. "Estimating Standard Errors
+          in Finance Panel Data Sets: Comparing Approaches." Review of
+          Financial Studies, 22(1), 435–480. Comparison of FM, clustered,
+          and two-way SE under firm/time correlation.
+        - [Cameron, Gelbach & Miller (2011)][cameron-gelbach-miller-2011].
+          "Robust Inference With Multiway Clustering." Journal of
+          Business & Economic Statistics, 29(2), 238–249. Two-way
+          clustering formula `V_AB = V_A + V_B − V_{A∩B}`.
+        - [Thompson (2011)][thompson-2011]. "Simple Formulas for Standard
+          Errors that Cluster by Both Firm and Time." Journal of
+          Financial Economics, 99(1), 1–10. Finite-sample df correction
+          `min(G_A, G_B) − 1`.
     """
     y = df[return_col].to_numpy().astype(np.float64)
     x = df[factor_col].to_numpy().astype(np.float64)

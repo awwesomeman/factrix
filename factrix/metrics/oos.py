@@ -1,5 +1,8 @@
 """Out-of-sample (OOS) persistence analysis for any time-indexed series.
 
+This tool is agnostic to what the series represents — it only knows
+about IS/OOS splits on a time-indexed numeric sequence.
+
 Notes:
     **Pipeline.** Time-series only, IS/OOS window split on a 1-D
     series; descriptive decay diagnostic (no formal H₀).
@@ -9,9 +12,6 @@ Notes:
 
     **Output.** MetricOutput with ``value`` = median survival ratio +
     sign-flip / status detail in ``metadata``.
-
-This tool is agnostic to what the series represents — it only knows
-about IS/OOS splits on a time-indexed numeric sequence.
 """
 
 from __future__ import annotations

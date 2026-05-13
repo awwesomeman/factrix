@@ -1,10 +1,5 @@
 """Time-series quantile bucketing + monotonicity test (issue #5).
 
-Notes:
-    **Pipeline.** Per-date aggregation to a common ``(_f, _r)`` series
-    (cross-section step), then quantile-bucketed NW HAC OLS on that
-    time series; Wald χ² on the top-bottom bucket spread.
-
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells: bucket factor history into quantiles and check the conditional
 mean forward return per bucket. Catches U-shape / inverted-U /
@@ -15,6 +10,11 @@ Standalone metric — does not enter the registry. See
 `ARCHITECTURE.md` §"Registry procedure vs standalone metric" for the
 distinction. SPARSE / binary signals are out of scope; the input gate
 redirects to `event_quality` helpers.
+
+Notes:
+    **Pipeline.** Per-date aggregation to a common ``(_f, _r)`` series
+    (cross-section step), then quantile-bucketed NW HAC OLS on that
+    time series; Wald χ² on the top-bottom bucket spread.
 """
 
 from __future__ import annotations

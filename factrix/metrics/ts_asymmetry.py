@@ -1,11 +1,5 @@
 """Long-side / short-side asymmetry test (issue #5).
 
-Notes:
-    **Pipeline.** Per-date aggregation of factor and forward return to
-    a common ``(_f, _r)`` series (cross-section step), then NW HAC OLS
-    with sign-asymmetric slopes on the resulting time series; Wald χ²
-    on the slope difference.
-
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells. OLS β reports a single slope and assumes the response is
 symmetric around zero — `β > 0` could be "rises more on positive
@@ -32,6 +26,12 @@ Gates (issue #5):
   and `metadata["method_b_skipped"]` records the reason.
 
 Standalone metric — does not enter the registry.
+
+Notes:
+    **Pipeline.** Per-date aggregation of factor and forward return to
+    a common ``(_f, _r)`` series (cross-section step), then NW HAC OLS
+    with sign-asymmetric slopes on the resulting time series; Wald χ²
+    on the slope difference.
 """
 
 from __future__ import annotations

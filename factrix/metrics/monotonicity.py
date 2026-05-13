@@ -1,15 +1,15 @@
 """Monotonicity test for cross-sectional panels.
 
+Measures whether factor quantile groups exhibit monotonic return ordering.
+Per-date: split into n_groups by factor rank, compute mean return per group,
+Spearman corr between group index and return.
+
 Notes:
     **Pipeline.** Per-date Spearman corr between quantile index and
     group mean return (cross-section step), then non-overlapping
     cross-asset t on the per-date series.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
-
-Measures whether factor quantile groups exhibit monotonic return ordering.
-Per-date: split into n_groups by factor rank, compute mean return per group,
-Spearman corr between group index and return.
 """
 
 from __future__ import annotations

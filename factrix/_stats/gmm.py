@@ -10,10 +10,9 @@ kernel sharing ``_resolve_nw_lags`` with ``hac._newey_west_se`` so the
 HAC-bandwidth convention (with the ``forward_periods - 1`` overlap
 floor) is uniform across single- and multi-moment inference.
 
-Reference
----------
-Hansen, L. P. (1982). *Large sample properties of generalized method
-of moments estimators.* Econometrica 50(4), 1029-1054.
+References:
+    - Hansen, L. P. (1982). "Large sample properties of generalized
+      method of moments estimators." Econometrica, 50(4), 1029–1054.
 """
 
 from __future__ import annotations

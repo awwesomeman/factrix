@@ -1,10 +1,5 @@
 """Event clustering diagnostic for event signals.
 
-Notes:
-    **Pipeline.** Static cross-section — single HHI computed once over
-    the event-date histogram; no time-axis aggregation, no formal H₀
-    (descriptive concentration index).
-
 When events cluster on the same dates, the independence assumption
 underlying the CAAR t-test is violated, potentially inflating the
 test statistic. The Herfindahl-Hirschman Index (HHI) on event dates
@@ -12,6 +7,11 @@ quantifies this concentration.
 
 Only meaningful for multi-asset panels (N > 1). For single-asset
 event studies, clustering across assets is not applicable.
+
+Notes:
+    **Pipeline.** Static cross-section — single HHI computed once over
+    the event-date histogram; no time-axis aggregation, no formal H₀
+    (descriptive concentration index).
 """
 
 from __future__ import annotations

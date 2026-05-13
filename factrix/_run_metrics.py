@@ -57,6 +57,11 @@ class MetricsBundle:
     successfully evaluated for the cell, plus a ``skipped`` map of
     metrics that could not auto-run (with reason).
 
+    Hashing is disabled (``__hash__ = None``) because the bundle holds
+    ``MetricOutput`` instances whose ``metadata`` is a mutable dict.
+    Group bundles by ``identity`` (a hashable tuple), not by the bundle
+    itself.
+
     Attributes:
         identity: ``(factor_id, forward_periods)`` — the hypothesis
             dimensions per #160. Aligns with ``FactorProfile.identity``
@@ -75,11 +80,6 @@ class MetricsBundle:
             and the slice-test verb pair) populate via
             ``dataclasses.replace`` once available, or callers stamp
             manually after panel-side filtering.
-
-    Hashing is disabled (``__hash__ = None``) because the bundle holds
-    ``MetricOutput`` instances whose ``metadata`` is a mutable dict.
-    Group bundles by ``identity`` (a hashable tuple), not by the bundle
-    itself.
     """
 
     identity: tuple[str, int]

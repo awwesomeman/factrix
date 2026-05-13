@@ -1,10 +1,5 @@
 """MFE/MAE — per-event price path excursion analysis.
 
-Notes:
-    **Pipeline.** Per-event MFE / MAE excursion over a fixed window
-    (per-event step), then cross-event quantile / ratio summary;
-    descriptive (no formal H₀).
-
 Answers: "what does the price path look like after events?"
 
 Requires bar-by-bar ``price`` data within the event window.
@@ -15,6 +10,11 @@ DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricOutput``
 Metrics:
     compute_mfe_mae   — per-event MFE/MAE/Bars_to_MFE/Bars_to_MAE
     mfe_mae_summary   — aggregate summary (p50, p75, ratio)
+
+Notes:
+    **Pipeline.** Per-event MFE / MAE excursion over a fixed window
+    (per-event step), then cross-event quantile / ratio summary;
+    descriptive (no formal H₀).
 """
 
 from __future__ import annotations

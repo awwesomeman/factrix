@@ -1,20 +1,22 @@
 r"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
+Tests $H_0$: event abnormal return = 0, using two complementary methods:
+    compute_caar — per-event-date weighted abnormal return series
+    caar         — CAAR t-test (parametric, non-overlapping sampling)
+    bmp_test     — BMP standardized AR test (robust to event-induced variance)
+
 Notes:
     **Pipeline.** Per-event-date weighted abnormal return
     (per-event-date step) then non-overlapping cross-event sample;
     $t$-test on CAAR, or BMP standardized AR $z$-test for event-induced
     variance.
 
-Tests $H_0$: event abnormal return = 0, using two complementary methods:
-    compute_caar — per-event-date weighted abnormal return series
-    caar         — CAAR t-test (parametric, non-overlapping sampling)
-    bmp_test     — BMP standardized AR test (robust to event-induced variance)
-
 References:
-    MacKinlay (1997), "Event Studies in Economics and Finance"
-    Boehmer, Musumeci & Poulsen (1991), "Event-study methodology
-        under conditions of event-induced variance"
+    - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
+      and Finance."
+    - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
+      "Event-study Methodology Under Conditions of Event-induced
+      Variance."
 """
 
 from __future__ import annotations
@@ -67,12 +69,6 @@ def compute_caar(
 ) -> pl.DataFrame:
     r"""Per-event-date weighted abnormal return series.
 
-    Aggregation:
-        cs-first. For each event date, take the cross-sectional mean of
-        ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
-        the resulting ``n_event_dates``-length CAAR series feeds a
-        downstream NW HAC $t$-test on the mean.
-
     Magnitude is preserved — no ``.sign()`` coercion. factrix accepts
     two input contracts; everything else (including signed
     $\{-1, 0, +1\}$) is just a special case of the second:
@@ -90,6 +86,12 @@ def compute_caar(
     leg vol). If literature-standard signed CAAR is what you want,
     pre-compute it externally; factrix's primitive treats $\pm 1$ as
     weights, not as direction labels.
+
+    Aggregation:
+        cs-first. For each event date, take the cross-sectional mean of
+        ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
+        the resulting ``n_event_dates``-length CAAR series feeds a
+        downstream NW HAC $t$-test on the mean.
 
     Scale:
         CAAR magnitude tracks the units of ``factor`` (bps, z-score,
@@ -121,16 +123,6 @@ def compute_caar(
         Sefcik-Thompson (1986) lineage rather than the equal-weighted
         MacKinlay CAAR.
 
-    References:
-        [MacKinlay 1997][mackinlay-1997]: standardised event-window /
-        estimation-window vocabulary inherited by ``EventConfig``.
-        [Sefcik-Thompson 1986][sefcik-thompson-1986]: per-event
-        regression-slope ancestor of the magnitude-weighted CAAR
-        produced when ``factor`` is continuous.
-        [Brown-Warner 1985][brown-warner-1985]: daily event-study
-        methodology backing the parametric-test path.
-
-    Note:
         When ``factor_col`` triggers ``_is_sparse_magnitude_weighted``
         the primitive emits a Python ``UserWarning`` directly. The
         sparse PANEL procedures additionally attach
@@ -138,6 +130,22 @@ def compute_caar(
         ``FactorProfile.warnings`` independently — the dual emission is
         deliberate so batch runs that silence Python warnings still
         surface the regime-switch through the structured channel.
+
+    References:
+        - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+          and Finance." Journal of Economic Literature, 35(1), 13–39.
+          Standardised event-window / estimation-window vocabulary
+          inherited by ``EventConfig``.
+        - [Sefcik & Thompson (1986)][sefcik-thompson-1986]. "An Approach
+          to Statistical Inference in Cross-Sectional Models with
+          Security Abnormal Returns as Dependent Variable." Journal of
+          Accounting Research, 24(2), 316–334. Per-event regression-
+          slope ancestor of the magnitude-weighted CAAR produced when
+          ``factor`` is continuous.
+        - [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
+          Returns: The Case of Event Studies." Journal of Financial
+          Economics, 14(1), 3–31. Daily event-study methodology backing
+          the parametric-test path.
     """
     if _is_sparse_magnitude_weighted(df, factor_col):
         warnings.warn(
@@ -187,9 +195,13 @@ def caar(
         variance regimes.
 
     References:
-        [Brown-Warner 1985][brown-warner-1985]: daily event-study
-        t-test specification at standard sample sizes.
-        [MacKinlay 1997][mackinlay-1997]: event-window vocabulary.
+        - [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
+          Returns: The Case of Event Studies." Journal of Financial
+          Economics, 14(1), 3–31. Daily event-study t-test specification
+          at standard sample sizes.
+        - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+          and Finance." Journal of Economic Literature, 35(1), 13–39.
+          Event-window vocabulary.
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
@@ -263,6 +275,9 @@ def bmp_test(
     residual volatility, making the test robust to event-induced variance
     inflation that biases the ordinary CAAR $t$-test.
 
+    Uses ``price`` column for estimation-window volatility if available;
+    falls back to per-asset historical ``forward_return`` std otherwise.
+
     Steps:
         1. For each event ($\text{factor} \neq 0$), look back
            ``estimation_window`` periods of the same asset's returns to
@@ -270,9 +285,6 @@ def bmp_test(
         2. Scale $\sigma_i$ to match the forward_return horizon.
         3. $\mathrm{SAR}_i = \mathrm{AR}^{\mathrm{signed}}_i / \sigma^{\text{scaled}}_i$.
         4. $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
-
-    Uses ``price`` column for estimation-window volatility if available;
-    falls back to per-asset historical ``forward_return`` std otherwise.
 
     Args:
         df: Full panel (including non-event rows) with ``date, asset_id,
@@ -338,11 +350,16 @@ def bmp_test(
         BMP denominator $\sigma_i \cdot \sqrt{1 + 1/T_{\mathrm{est}}}$.
 
     References:
-        [Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]:
-        the BMP standardised AR test.
-        [Kolari-Pynnönen 2010][kolari-pynnonen-2010]: clustering-
-        adjusted BMP variant referenced by
-        ``EventConfig.adjust_clustering`` (not yet implemented).
+        - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991].
+          "Event-study Methodology Under Conditions of Event-induced
+          Variance." Journal of Financial Economics, 30(2), 253–272.
+          The BMP standardised AR test factrix simplifies (mean-adjusted
+          residuals, no prediction-error correction by default).
+        - [Kolari & Pynnönen (2010)][kolari-pynnonen-2010]. "Event Study
+          Testing with Cross-sectional Correlation of Abnormal Returns."
+          Review of Financial Studies, 23(11), 3996–4025. Clustering-
+          adjusted BMP variant referenced by ``EventConfig.adjust_clustering``
+          (not yet implemented).
     """
     sorted_df = df.sort(["asset_id", "date"])
 
@@ -461,21 +478,23 @@ def _estimate_sar_icc(
 ) -> tuple[float | None, float, KPSource]:
     r"""ICC-style within-date correlation $\hat r$ of SAR and average cluster size.
 
-    Args:
-        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
-            columns (one row per event, SAR already standardized).
-
-    Returns ``(r_hat, n_eff, source)`` where ``source`` is one of:
-        - ``"icc"``: standard between/within decomposition across event
-          dates with $n_k \geq 2$ events each.
-        - ``"no_multi_event_dates"``: not enough date-clusters to
-          estimate within-variance; $\hat r$ is ``None``.
-
     Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{\mathrm{SAR}}_d)$ (date-mean SAR)
     and $\sigma^2_{\mathrm{within}}$ = the pooled within-date variance
     (weighted by $n_k - 1$).
     $\hat r = \sigma^2_{\mathrm{between}} / (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$
     clipped to $[0, 1]$.
+
+    Args:
+        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
+            columns (one row per event, SAR already standardized).
+
+    Returns:
+        ``(r_hat, n_eff, source)`` where ``source`` is one of:
+
+        - ``"icc"``: standard between/within decomposition across event
+          dates with $n_k \geq 2$ events each.
+        - ``"no_multi_event_dates"``: not enough date-clusters to
+          estimate within-variance; $\hat r$ is ``None``.
     """
     per_date = sar_by_date.group_by("date").agg(
         pl.col("_sar").mean().alias("m"),

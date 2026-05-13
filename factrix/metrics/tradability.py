@@ -1,10 +1,5 @@
 """Tradability metrics: Turnover, Breakeven Cost, Net Spread.
 
-Notes:
-    **Pipeline.** Per-date turnover / cost diagnostics on
-    quantile-group membership (cross-section step), then time-series
-    mean; descriptive (no formal H₀).
-
 Two flavours of turnover co-exist here, measuring different things:
 
 - ``turnover()`` — ``1 − mean(rank autocorrelation)``. Rank-stability
@@ -21,6 +16,11 @@ measures — they belong in Profile, not in Gates.
 
 Input for Turnover: DataFrame with ``date, asset_id, factor``.
 Input for Breakeven/Net Spread: pre-computed spread and turnover values.
+
+Notes:
+    **Pipeline.** Per-date turnover / cost diagnostics on
+    quantile-group membership (cross-section step), then time-series
+    mean; descriptive (no formal H₀).
 """
 
 from __future__ import annotations

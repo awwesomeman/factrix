@@ -21,15 +21,14 @@ the slice-test setting where a small number of hypotheses
 The choice between Holm and Romano-Wolf is the caller's: time-disjoint
 slices (e.g. regimes) work fine under Holm; date-shared slices
 (universe pairwise) leave significant power on the table without
-Romano-Wolf. The verb-side fallback that picks between the two lives
-in #176 — this module does not encode a default.
+Romano-Wolf. The function-side fallback that picks between the two
+lives in #176 — this module does not encode a default.
 
-References
-----------
-Holm, S. (1979). "A simple sequentially rejective multiple test
-    procedure." Scandinavian Journal of Statistics, 6(2), 65-70.
-Romano, J. P. & Wolf, M. (2005). "Stepwise multiple testing as
-    formalized data snooping." Econometrica, 73(4), 1237-1282.
+References:
+    - Holm, S. (1979). "A simple sequentially rejective multiple test
+      procedure." Scandinavian Journal of Statistics, 6(2), 65–70.
+    - Romano, J. P. & Wolf, M. (2005). "Stepwise multiple testing as
+      formalized data snooping." Econometrica, 73(4), 1237–1282.
 """
 
 from __future__ import annotations
@@ -97,6 +96,13 @@ def romano_wolf(
 ) -> list[float]:
     """Romano-Wolf (2005) step-down adjusted p-values.
 
+    The step-down critical sequence is built from the *max* of the
+    bootstrap distribution restricted to the not-yet-rejected
+    hypotheses, so the dependence structure (universe co-movement,
+    common-factor exposure) shrinks the multiplicity penalty
+    automatically — Bonferroni / Holm assume worst-case dependence
+    and over-correct in this regime.
+
     Args:
         statistics: Observed test statistics ``t_1, …, t_m`` (e.g.
             studentized contrasts). Sign convention: large positive
@@ -113,13 +119,6 @@ def romano_wolf(
 
     Returns:
         Adjusted p-values in input order, each in ``[0, 1]``.
-
-    The step-down critical sequence is built from the *max* of the
-    bootstrap distribution restricted to the not-yet-rejected
-    hypotheses, so the dependence structure (universe co-movement,
-    common-factor exposure) shrinks the multiplicity penalty
-    automatically — Bonferroni / Holm assume worst-case dependence
-    and over-correct in this regime.
     """
     t = np.asarray(statistics, dtype=float)
     boot = np.asarray(bootstrap_distribution, dtype=float)

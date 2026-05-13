@@ -5,8 +5,8 @@ Public surface lives in ``factrix.stats`` (``Estimator`` / ``NeweyWest``
 multiple-testing / ``WarningCode``); this package holds the private
 primitives those façades and the procedure layer call into.
 
-Submodules
-----------
+**Submodules:**
+
 - ``constants``   — TIMESERIES / PANEL sample-size thresholds and
   ``auto_bartlett`` Newey-West bandwidth.
 - ``core``        — t-statistic, p-value (t / z), significance marker,

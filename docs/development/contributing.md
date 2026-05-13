@@ -555,6 +555,77 @@ The project's style policy is split between two complementary but distinct conve
 
 NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists (`:param x:` / `:returns:`) are not parsed by the Google handler and render as plain prose under generic headings. Convert on sight.
 
+### Module docstring layering — navigation vs implementation
+
+Module-level and function-level docstrings carry different roles. The split is structural, not stylistic.
+
+- **Module docstring** holds navigation + cross-module context only:
+    - A one-to-three-sentence TL;DR of what the module is for and which entry point / public surface consumes it.
+    - When the module hosts several callables sharing one theoretical frame (e.g. `_stats/bootstrap.py` covering stationary + fixed schemes): a brief inventory naming each public callable with a one-line distinguishing characteristic.
+    - Non-obvious sibling-module relationships when the boundary matters (e.g. `_stats/multiple_testing.py` is sister to public `factrix.stats.multiple_testing`).
+- **Function / class / method docstring** holds the implementation contract: `Args:` / `Returns:` / `Raises:` / `Notes:` / `Examples:` / `References:`.
+- The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
+
+#### Section order — body prose before structured sections
+
+Within any docstring (module-level or function-level), free-form body prose comes before all structured Google sections. The canonical order follows NumPy / numpydoc convention (factrix imports NumPy-only sections such as `Notes:` / `References:` / `See Also:`, so the trailing-section order aligns with the broader convention rather than Google's narrower spec): summary line → body prose → `Args:` / `Returns:` / `Yields:` / `Receives:` / `Other Parameters:` → `Raises:` / `Warns:` / `Warnings:` → `See Also:` → `Notes:` → `References:` → `Examples:`. `Examples:` sits last. The same rule applies to attribute-bearing classes (`Attributes:` sits with `Args:` / `Returns:` and accepts no trailing prose).
+
+Putting `Notes:` or `References:` mid-text — between the summary and the rest of the prose, with prose still appearing below the heading — breaks the rendered metric page: the admonition box jumps above the function inventory, severing the reader's eye-path from summary to body.
+
+#### `References:` placement — by callable count
+
+Placement is driven by how many public callables the module hosts, not by paper-vs-module scope. The rule matches the rendered metric / API page: `::: factrix.metrics.<x>` with several `members:` produces one page with multiple function sections, and reader UX differs by layout.
+
+- **Single-callable module** (e.g. `corrado.py`, most `metrics/*.py` files that host one public function): `References:` lives only on the function. No module-level References — would just duplicate the function block above it on the rendered page.
+- **Multi-callable module** (e.g. `caar.py` with `compute_caar` / `caar` / `bmp_test`; `factrix.stats.multiple_testing` with the BHY family): module docstring carries a short-form `References:` overview listing the key papers covering the module's topic; each function then carries its own `References:` block with inline full citations for the specific paper driving that function's algorithm. Same paper appearing at both module-overview and function-detail levels is accepted here — they serve different reader animations on the same page.
+- **Private `_stats/*` modules**: source-only. Inline full citation at module level is fine since these are not rendered to user-facing pages.
+
+Format in every case: Google `References:` (colon-terminated heading, indented body), not NumPy underline (`References\n----------`).
+
+#### Inline citation form — bullet list + autorefs hyperlink + full text
+
+`References:` entries are markdown bullet list items, uniformly — one paper or many, every entry starts with `- `. Each entry's author-year prefix is an autorefs reference-style link to the catalog; the rest of the citation follows as plain text on continuation lines indented to align under the link.
+
+```
+References:
+    - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
+      and Finance." Journal of Economic Literature, 35(1), 13–39.
+```
+
+This serves two animations without compromising either:
+
+- Reader who does not click — sees the full citation inline (author, year, title, journal, volume, pages) and never needs to leave the page.
+- Reader who clicks the author-year link — jumps to `bibliography.md#mackinlay-1997` to read the paper's role in factrix and cross-metric usage.
+
+Short-form module-level overviews on multi-callable modules can drop the trailing full-citation text (the link + title is enough at the overview layer):
+
+```
+References:
+    - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
+      and Finance."
+    - [Boehmer, Musumeci & Poulsen (1991)][boehmer-musumeci-poulsen-1991],
+      "Event-study methodology under conditions of event-induced
+      variance."
+```
+
+The uniform bullet form keeps every `References:` block visually identical regardless of paper count and removes the failure mode of forgetting blank-line separators when a second paper is added. The slug must match an anchor declared in `docs/reference/bibliography.md`; missing anchors produce an mkdocs `--strict` warning.
+
+#### `bibliography.md` as catalog, not single SSOT
+
+`docs/reference/bibliography.md` is a **catalog page**, not the SSOT for citation metadata: every cited paper appears there once with its full citation, an anchor, and a paragraph on the paper's role in factrix. It serves three roles:
+
+- Aggregated browse view ("which papers does factrix cite").
+- Anchor target for inline `References:` hyperlinks inside docstrings.
+- Anchor provider for cross-page links from guides / how-tos using the autorefs form `[Corrado 1989][corrado-1989]`.
+
+The hyperlinks are an enhancement, not a dependency: if `bibliography.md` is removed, inline citations still carry the full metadata inline — only the link targets would 404. When updating a citation (typo, DOI), update the catalog entry and each inline copy that carries the full text.
+
+#### `Notes:` rule — function self-contained
+
+Function docstrings are self-sufficient. If a function's behaviour is only intelligible with one sentence of module-level frame, **copy that sentence into the function `Notes:`** rather than forcing the reader to scroll up. Duplication cost is less than reading-context-break cost.
+
+Module-level `Notes:` exists only when no single function carries the canonical pipeline — rare in factrix, since most modules host one canonical function per metric.
+
 ### Markdown code-block intent layers — runnable vs illustrative
 
 Code blocks under `docs/api/**/*.md` carry two distinct intents; verify which layer a block belongs to before editing.

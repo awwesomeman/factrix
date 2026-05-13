@@ -1,5 +1,8 @@
 """Quantile analysis for cross-sectional panels.
 
+All spread series are time-indexed (``date, value``) and can be fed
+into any ``series/`` tool.
+
 Notes:
     **Pipeline.** Per-date long-short spread on quantile groups
     (cross-section step), then non-overlapping t on the spread series.
@@ -7,9 +10,6 @@ Notes:
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
     **Output.** Spread series, long/short alpha decomposition.
-
-All spread series are time-indexed (``date, value``) and can be fed
-into any ``series/`` tool.
 """
 
 from __future__ import annotations
