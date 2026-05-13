@@ -213,7 +213,7 @@ for s in survivors.profiles:
 | `bhy(profiles, threshold=0.05)` | `bhy(profiles, q=0.05)` (`threshold=` removed in v0.12.0; raises `TypeError`) |
 | `bhy(profiles, gate=StatCode.X)` | `bhy(profiles, p_stat=StatCode.X)` (`gate=` removed in v0.11.0) |
 | auto-partition by dispatch cell × horizon | caller declares the family; mixed `forward_periods` without `expand_over` emits `RuntimeWarning`. **Fix:** split the call per horizon, or pass `expand_over=[<context key>]` if profiles legitimately co-exist as one family across horizons. |
-| same `factor_id` across cells silently auto-split | raises `UserInputError` (duplicate identity). **Fix (canonical):** name each panel's factor column distinctly and pass `evaluate(..., factor_col=name)`. **Fix (escape hatch):** post-hoc stamp via `dataclasses.replace(profile, factor_id=...)`. **Or:** use `expand_over` if profiles really do share identity but belong in separate test buckets. |
+| same `factor_id` across cells silently auto-split | raises [`UserInputError`][factrix.UserInputError] (duplicate identity). **Fix (canonical):** name each panel's factor column distinctly and pass `evaluate(..., factor_col=name)`. **Fix (escape hatch):** post-hoc stamp via `dataclasses.replace(profile, factor_id=...)`. **Or:** use `expand_over` if profiles really do share identity but belong in separate test buckets. |
 
 ## Design rationale
 

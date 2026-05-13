@@ -96,11 +96,11 @@ Per-survivor group label: `profile.context[group]`.
 
 | Trigger | Outcome |
 |---|---|
-| `group` shadows an identity field (`factor_id` / `forward_periods`) | `UserInputError`. |
-| `group` key missing from a profile's `context` | `UserInputError`. |
-| Only one distinct group value across input | `UserInputError` — points at [`bhy`](multi-factor.md). |
-| Every profile is its own group at $n \ge 3$ (group axis near-unique) | `UserInputError` — pick a coarser categorical. |
-| Duplicate `(identity, group_value)` partition key | `UserInputError`. |
+| `group` shadows an identity field (`factor_id` / `forward_periods`) | [`UserInputError`][factrix.UserInputError]. |
+| `group` key missing from a profile's `context` | [`UserInputError`][factrix.UserInputError]. |
+| Only one distinct group value across input | [`UserInputError`][factrix.UserInputError] — points at [`bhy`](multi-factor.md). |
+| Every profile is its own group at $n \ge 3$ (group axis near-unique) | [`UserInputError`][factrix.UserInputError] — pick a coarser categorical. |
+| Duplicate `(identity, group_value)` partition key | [`UserInputError`][factrix.UserInputError]. |
 | More than half of input groups contain a single profile | `RuntimeWarning` — inner BHY on $n=1$ is a raw cutoff. |
 
 ## Caveats
