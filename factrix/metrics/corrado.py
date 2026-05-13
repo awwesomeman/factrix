@@ -1,24 +1,8 @@
-"""Corrado (1989) nonparametric rank test for event signals.
+"""Corrado nonparametric rank test on event abnormal returns.
 
-Notes:
-    **Pipeline.** Per-asset full-sample ranks of abnormal returns
-    (time-series step), then aggregate event-period ranks across
-    events; nonparametric rank test on standardized rank deviation.
-
-A non-parametric alternative to the CAAR t-test. Ranks abnormal returns
-across the full sample (event + non-event periods) for each asset, then
-tests whether event-period ranks deviate from their expected value.
-
-Robust to extreme returns, non-normal distributions, and cross-asset
-heteroscedasticity. Direction-adjusted for two-sided signals (extension
-of the original one-directional test).
-
-Standalone metric — not in the default profile. Available via:
-    ``from factrix.metrics import corrado_rank_test``
-
-References:
-    Corrado (1989), "A nonparametric test for abnormal security-price
-        performance in event studies"
+Standalone metric in cell ``(*, SPARSE, *, PANEL)`` — not part of the
+default profile. Available via
+``from factrix.metrics import corrado_rank_test``.
 """
 
 from __future__ import annotations
@@ -43,23 +27,18 @@ def corrado_rank_test(
 ) -> MetricOutput:
     r"""Corrado nonparametric rank test for event abnormal returns.
 
-    For each asset:
-        1. Rank ``return_col`` across the full time series (event + non-event).
-        2. Transform ranks to $U_{it} = \mathrm{rank} / (T+1) - 0.5$ (centered at 0).
-        3. Extract $U$ values at event dates.
-    Across all event observations:
-        4. $z = \mathrm{mean}(U_{\text{event}} \times \mathrm{sign}(\text{factor})) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
+    A non-parametric alternative to the CAAR t-test. Robust to extreme
+    returns, non-normal distributions, and cross-asset
+    heteroscedasticity. Direction-adjusted for two-sided signals
+    (extension of the original one-directional test).
 
-    Deviation from Corrado (1989) eq.(5):
-        The paper computes the denominator as the time-series std of the
-        **cross-sectional mean** of rank deviations across the combined
-        estimation + event window. We use the **pooled std of U_all**
-        across all (asset, date) cells instead — a simpler estimator
-        that conflates asset-level and time-level dispersion. The two
-        coincide under iid ranks but diverge when event-date clustering
-        is present. Adequate for a robustness screen against parametric
-        BMP / CAAR; not a substitute for a reference event-study package
-        if strict size control matters.
+    Formula:
+        For each asset $i$, rank ``return`` across the full sample
+        (event + non-event), transform to
+        $U_{i,t} = \mathrm{rank} / (T+1) - 0.5$, and on event rows
+        form $U_{\text{event,signed}} = U_{\text{event}} \cdot \mathrm{sign}(\text{factor})$.
+        Test statistic
+        $z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
 
     Args:
         df: Full panel with ``date, asset_id, factor, forward_return``.
@@ -69,27 +48,29 @@ def corrado_rank_test(
         MetricOutput with value=mean rank deviation, stat=z.
 
     Notes:
-        For each asset $i$, rank ``return`` across the full sample,
-        transform to $U_{i,t} = \mathrm{rank} / (T+1) - 0.5$ (centered at 0),
-        and on event rows form $U_{\text{event}} \cdot \mathrm{sign}(\text{factor})$.
-        Test statistic
-        $z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
-
         factrix uses the **pooled** std of ``U_all`` across all
-        ``(asset, date)`` cells in the denominator instead of the
+        ``(asset, date)`` cells in the denominator, instead of the
         time-series std of the cross-sectional mean used by Corrado
         (1989) eq. (5). The two coincide under iid ranks but diverge
         when event-date clustering is present; treat this as a
         robustness screen against parametric BMP / CAAR rather than a
-        substitute for a reference event-study package when strict size
-        control matters.
+        substitute for a reference event-study package when strict
+        size control matters.
+
+        Short-circuits to ``MetricOutput`` with
+        ``metadata["reason"]="insufficient_events"`` when
+        ``N_events < MIN_EVENTS_HARD``, and
+        ``"degenerate_rank_variance"`` when ``std(U_all) < EPSILON``.
 
     References:
-        [Corrado 1989][corrado-1989]: nonparametric rank test for
-        event-window abnormal returns.
-        [Corrado-Zivney 1992][corrado-zivney-1992]: source of the
-        direction-adjustment idea factrix adopts for two-sided
-        signals.
+        Corrado, C. J. (1989). "A Nonparametric Test for Abnormal
+        Security-price Performance in Event Studies." *Journal of
+        Financial Economics* 23(2), 385–395.
+
+        Corrado, C. J. & Zivney, T. L. (1992). "The Specification
+        and Power of the Sign Test in Event Study Hypothesis Tests
+        Using Daily Stock Returns." *Journal of Financial and
+        Quantitative Analysis* 27(3), 465–478.
     """
     ranked = df.with_columns(
         (
