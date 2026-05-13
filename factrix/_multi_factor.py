@@ -261,6 +261,32 @@ def bhy(
             inflates FDR. Or when most ``expand_over`` buckets contain
             a single profile (BHY on n=1 is a raw cutoff and provides
             no FDR correction).
+
+    Examples:
+        Screen five candidate factors with BHY at q=0.05 — each panel
+        is a seeded synthetic cross-section, ``factor_id`` is stamped
+        post-hoc so the family resolver sees distinct identities:
+
+        >>> import dataclasses
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profiles = [
+        ...     dataclasses.replace(
+        ...         fx.evaluate(
+        ...             compute_forward_return(
+        ...                 fx.datasets.make_cs_panel(
+        ...                     n_assets=100, n_dates=250, seed=i,
+        ...                 ),
+        ...                 forward_periods=5,
+        ...             ),
+        ...             cfg,
+        ...         ),
+        ...         factor_id=f"alpha_{i}",
+        ...     )
+        ...     for i in range(5)
+        ... ]
+        >>> survivors = fx.multi_factor.bhy(profiles, q=0.05)
     """
     expand_over_tuple: tuple[str, ...] = tuple(expand_over) if expand_over else ()
 
@@ -377,6 +403,36 @@ def partial_conjunction(
             than ``min_pass`` conditions; family-resolution invariants
             (unknown ``expand_over`` key, identity-shadowing,
             duplicate partition key).
+
+    Examples:
+        Three candidate factors evaluated in two regions; survive if
+        significant in at least 2 of 2 regions:
+
+        >>> import dataclasses
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profiles = [
+        ...     dataclasses.replace(
+        ...         fx.evaluate(
+        ...             compute_forward_return(
+        ...                 fx.datasets.make_cs_panel(
+        ...                     n_assets=100, n_dates=250,
+        ...                     seed=hash((fid, region)) % 1000,
+        ...                 ),
+        ...                 forward_periods=5,
+        ...             ),
+        ...             cfg,
+        ...         ),
+        ...         factor_id=fid,
+        ...         context={"region": region},
+        ...     )
+        ...     for fid in ("alpha_1", "alpha_2", "alpha_3")
+        ...     for region in ("US", "EU")
+        ... ]
+        >>> survivors = fx.multi_factor.partial_conjunction(
+        ...     profiles, min_pass=2, expand_over=["region"]
+        ... )
     """
     if min_pass < 2:
         if min_pass == 1:
@@ -637,6 +693,35 @@ def bhy_hierarchical(
     References:
         Yekutieli, D. (2008). "Hierarchical false discovery rate-
         controlling methodology." JASA 103(481), 309-316.
+
+    Examples:
+        Six candidate factors split into two family groups; FDR is
+        controlled across groups (outer) and within each group (inner):
+
+        >>> import dataclasses
+        >>> import factrix as fx
+        >>> from factrix.preprocess import compute_forward_return
+        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        >>> profiles = [
+        ...     dataclasses.replace(
+        ...         fx.evaluate(
+        ...             compute_forward_return(
+        ...                 fx.datasets.make_cs_panel(
+        ...                     n_assets=100, n_dates=250, seed=i,
+        ...                 ),
+        ...                 forward_periods=5,
+        ...             ),
+        ...             cfg,
+        ...         ),
+        ...         factor_id=f"f_{family}_{i}",
+        ...         context={"family": family},
+        ...     )
+        ...     for family in ("momentum", "value")
+        ...     for i in range(3)
+        ... ]
+        >>> survivors = fx.multi_factor.bhy_hierarchical(
+        ...     profiles, group="family"
+        ... )
     """
     profile_list = list(profiles)
     expand_over_tuple: tuple[str, ...] = (group,)
