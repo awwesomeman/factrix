@@ -16,15 +16,17 @@ Three layers of HAC / cluster covariance feed the same closing
   the raw asset-date panel. Cameron-Gelbach-Miller (2011)
   ``V_DC = V_date + V_asset - V_intersection`` shape. Backs the
   ``WaldTwoWayCluster`` Estimator — interface preserved this issue;
-  no verb consumes it until ``factor_decomposition`` lands later.
+  no public function consumes it until ``factor_decomposition`` lands
+  later.
 
-References
-----------
-Cameron, A. C., Gelbach, J. B. & Miller, D. L. (2011). "Robust
-    Inference With Multiway Clustering." JBES, 29(2), 238-249.
-Newey, W. K. & West, K. D. (1987). "A Simple, Positive Semi-Definite,
-    Heteroskedasticity and Autocorrelation Consistent Covariance
-    Matrix." Econometrica, 55(3), 703-708.
+References:
+    Cameron, A. C., Gelbach, J. B. & Miller, D. L. (2011). "Robust
+    Inference With Multiway Clustering." Journal of Business &
+    Economic Statistics, 29(2), 238–249.
+
+    Newey, W. K. & West, K. D. (1987). "A Simple, Positive
+    Semi-Definite, Heteroskedasticity and Autocorrelation Consistent
+    Covariance Matrix." Econometrica, 55(3), 703–708.
 """
 
 from __future__ import annotations
