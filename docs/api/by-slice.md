@@ -2,6 +2,16 @@
 title: factrix.by_slice
 ---
 
+::: factrix.slicing.dispatcher
+    options:
+      members:
+        - by_slice
+
+::: factrix.slicing.result
+    options:
+      members:
+        - SliceResult
+
 Axis-agnostic research dispatcher. Slices any metric's date-keyed
 input by a column already present in the DataFrame and runs the metric
 per slice. Returns a [`SliceResult`](#sliceresult) — a
@@ -247,14 +257,3 @@ pl.DataFrame(
 )
 ```
 
-## API reference
-
-::: factrix.slicing.dispatcher
-    options:
-      members:
-        - by_slice
-
-::: factrix.slicing.result
-    options:
-      members:
-        - SliceResult

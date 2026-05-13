@@ -11,6 +11,8 @@ identity tuple `(factor_id, forward_periods)` so downstream functions
 ([`compare`](compare.md), survivors workflows) can join the two
 artifact families row-by-row.
 
+::: factrix.MetricsBundle
+
 | Bundle | Profile |
 |---|---|
 | `run_metrics` — descriptive surface (no FDR claim) | `evaluate` — primary inferential decision (drives FDR) |
@@ -34,5 +36,3 @@ bundle.skipped            # {metric_name: reason} — metrics that short-circuit
 For the wide multi-factor pattern (looping `run_metrics` with
 `factor_col=` over candidate signals) see the
 [Batch screening guide](../guides/batch-screening.md).
-
-::: factrix.MetricsBundle

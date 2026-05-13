@@ -2,6 +2,8 @@
 title: factrix.multi_factor.bhy_hierarchical
 ---
 
+::: factrix.multi_factor.bhy_hierarchical
+
 Two-stage FDR for factor sets with natural group structure (factor
 families, regions, sectors). Outer Benjamini-Yekutieli on
 [Simes (1986)](https://academic.oup.com/biomet/article/73/3/751/277681)
@@ -133,5 +135,3 @@ Per-survivor group label: `profile.context[group]`.
   rate-controlling methodology. *JASA*, 103(481), 309–316.
 - **[NBER34050]** NBER WP 34050 (2025). Hierarchical Multiple Testing
   in Empirical Asset Pricing.
-
-::: factrix.multi_factor.bhy_hierarchical

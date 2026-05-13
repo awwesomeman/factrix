@@ -2,6 +2,8 @@
 title: factrix.suggest_config
 ---
 
+::: factrix.suggest_config
+
 Heuristic introspection that inspects a raw panel and proposes an
 [`AnalysisConfig`](analysis-config.md) plus the observations and
 reasoning behind the suggestion. The proposal is never auto-applied —
@@ -153,6 +155,3 @@ defaulted based on the other three. See
 | `mode` | `n_assets ≤ 1` → `TIMESERIES`, else `PANEL` |
 | `metric` | `INDIVIDUAL × CONTINUOUS` defaults to `Metric.IC` (Information Coefficient — rank predictive ordering); collapsed (`None`) on every other cell |
 
-## Source
-
-::: factrix.suggest_config

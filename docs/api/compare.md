@@ -2,6 +2,8 @@
 title: factrix.compare
 ---
 
+::: factrix.compare
+
 Leaderboard renderer that stacks N artifacts side by side as a
 [polars `DataFrame`](https://docs.pola.rs/api/python/stable/reference/dataframe/index.html).
 Pure projection — no metric is recomputed; `Survivors.adj_p` is read
@@ -120,6 +122,3 @@ issue (empty input, mixed types, unknown `sort_by`). Unknown
 `sort_by` carries `suggestions` populated by `difflib` against the
 output schema.
 
-## Source
-
-::: factrix.compare
