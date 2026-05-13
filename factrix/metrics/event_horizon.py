@@ -1,7 +1,9 @@
 """Multi-horizon event analysis — how does the signal behave across time?
 
-Aggregation: per-event return profile across `k` offsets (per-event
-step); descriptive curve plus binomial test on per-horizon hit rate.
+Notes:
+    **Pipeline.** Per-event return profile across `k` offsets
+    (per-event step); descriptive curve plus binomial test on
+    per-horizon hit rate.
 
 Answers:
     - Is there pre-event leakage? (T-6..T-1 should be ~0)
@@ -11,14 +13,16 @@ Answers:
 Metrics:
     compute_event_returns — per-event, per-offset raw return data
     event_around_return   — return profile summary at each offset
-
-Matrix-row: compute_event_returns, event_around_return | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_event_returns, event_around_return | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output",
+)
 
 from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output

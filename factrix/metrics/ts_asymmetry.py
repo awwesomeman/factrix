@@ -1,9 +1,10 @@
 """Long-side / short-side asymmetry test (issue #5).
 
-Aggregation: per-date aggregation of factor and forward return to a
-common ``(_f, _r)`` series (cross-section step), then NW HAC OLS with
-sign-asymmetric slopes on the resulting time series; Wald χ² on the
-slope difference.
+Notes:
+    **Pipeline.** Per-date aggregation of factor and forward return to
+    a common ``(_f, _r)`` series (cross-section step), then NW HAC OLS
+    with sign-asymmetric slopes on the resulting time series; Wald χ²
+    on the slope difference.
 
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells. OLS β reports a single slope and assumes the response is
@@ -31,14 +32,16 @@ Gates (issue #5):
   and `metadata["method_b_skipped"]` records the reason.
 
 Standalone metric — does not enter the registry.
-
-Matrix-row: ts_asymmetry | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "ts_asymmetry | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear",
+)
 
 from factrix._stats import (
     _ols_nw_multivariate,

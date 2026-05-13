@@ -1,14 +1,14 @@
 """IC (Information Coefficient) computation for cross-sectional panels.
 
-Aggregation: per-date Spearman rank IC (cross-section step) → IC time
-series, then non-overlapping cross-asset t or NW HAC t on its mean;
-the regime variant slices the same pipeline.
+Notes:
+    **Pipeline.** Per-date Spearman rank IC (cross-section step) → IC
+    time series, then non-overlapping cross-asset t or NW HAC t on its
+    mean; the regime variant slices the same pipeline.
 
-Input: DataFrame with ``date, asset_id, factor, forward_return``.
-Output: time-indexed IC series (``date, ic``) that can be fed into
-any ``series/`` tool (oos, trend, significance, hit_rate).
+    **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
 
-Matrix-row: compute_ic, ic, ic_newey_west, ic_ir | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output
+    **Output.** Time-indexed IC series (``date, ic``) that can be fed
+    into any ``series/`` tool (oos, trend, significance, hit_rate).
 """
 
 from __future__ import annotations
@@ -17,6 +17,10 @@ import math
 import warnings as _warnings
 
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_ic, ic, ic_newey_west, ic_ir | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output",
+)
 
 from factrix._stats import (
     _calc_t_stat,

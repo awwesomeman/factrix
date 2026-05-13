@@ -1,19 +1,23 @@
 """Hit rate computation for any time-indexed series.
 
-Aggregation: time-series only, sampled non-overlapping on a 1-D
-series; binomial test against `p = 0.5`.
+Notes:
+    **Pipeline.** Time-series only, sampled non-overlapping on a 1-D
+    series; binomial test against `p = 0.5`.
 
-Input: DataFrame with ``date, value`` or a 1-D array.
-Output: proportion of periods where the value satisfies a condition
-(default: value > 0).
+    **Input.** DataFrame with ``date, value`` or a 1-D array.
 
-Matrix-row: hit_rate | (*, CONTINUOUS, *, TIMESERIES) | ts-only | binomial | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _sample_non_overlapping
+    **Output.** Proportion of periods where the value satisfies a
+    condition (default: value > 0).
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "hit_rate | (*, CONTINUOUS, *, TIMESERIES) | ts-only | binomial | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _sample_non_overlapping",
+)
 
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,

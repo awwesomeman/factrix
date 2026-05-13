@@ -1,8 +1,10 @@
 r"""CAAR (Cumulative Average Abnormal Return) significance tests.
 
-Aggregation: per-event-date weighted abnormal return (per-event-date
-step) then non-overlapping cross-event sample; $t$-test on CAAR, or BMP
-standardized AR $z$-test for event-induced variance.
+Notes:
+    **Pipeline.** Per-event-date weighted abnormal return
+    (per-event-date step) then non-overlapping cross-event sample;
+    $t$-test on CAAR, or BMP standardized AR $z$-test for event-induced
+    variance.
 
 Tests $H_0$: event abnormal return = 0, using two complementary methods:
     compute_caar — per-event-date weighted abnormal return series
@@ -13,8 +15,6 @@ References:
     MacKinlay (1997), "Event Studies in Economics and Finance"
     Boehmer, Musumeci & Poulsen (1991), "Event-study methodology
         under conditions of event-induced variance"
-
-Matrix-row: compute_caar, caar, bmp_test | (*, SPARSE, *, PANEL) | per-event | non-overlapping t / z | _calc_t_stat, _p_value_from_t, _p_value_from_z, _significance_marker, _sample_non_overlapping, _short_circuit_output
 """
 
 from __future__ import annotations
@@ -23,6 +23,10 @@ import warnings
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_caar, caar, bmp_test | (*, SPARSE, *, PANEL) | per-event | non-overlapping t / z | _calc_t_stat, _p_value_from_t, _p_value_from_z, _significance_marker, _sample_non_overlapping, _short_circuit_output",
+)
 
 from factrix._codes import WarningCode
 from factrix._stats import (

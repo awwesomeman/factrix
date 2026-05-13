@@ -1,8 +1,9 @@
 """Corrado (1989) nonparametric rank test for event signals.
 
-Aggregation: per-asset full-sample ranks of abnormal returns
-(time-series step), then aggregate event-period ranks across events;
-nonparametric rank test on standardized rank deviation.
+Notes:
+    **Pipeline.** Per-asset full-sample ranks of abnormal returns
+    (time-series step), then aggregate event-period ranks across
+    events; nonparametric rank test on standardized rank deviation.
 
 A non-parametric alternative to the CAAR t-test. Ranks abnormal returns
 across the full sample (event + non-event periods) for each asset, then
@@ -18,14 +19,16 @@ Standalone metric — not in the default profile. Available via:
 References:
     Corrado (1989), "A nonparametric test for abnormal security-price
         performance in event studies"
-
-Matrix-row: corrado_rank_test | (*, SPARSE, *, PANEL) | per-event | nonparametric rank | _calc_t_stat, _p_value_from_z, _significance_marker, _short_circuit_output
 """
 
 from __future__ import annotations
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "corrado_rank_test | (*, SPARSE, *, PANEL) | per-event | nonparametric rank | _calc_t_stat, _p_value_from_z, _significance_marker, _short_circuit_output",
+)
 
 from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput

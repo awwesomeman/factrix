@@ -1,8 +1,10 @@
 """Spanning regression — single-factor test and multi-factor selection.
 
-Aggregation: regression of factor return time-series on base-factor
-returns (time-series step); NW HAC t on alpha. The greedy stepwise
-selection variant inflates t-stats and is not for inference.
+Notes:
+    **Pipeline.** Regression of factor return time-series on
+    base-factor returns (time-series step); NW HAC t on alpha. The
+    greedy stepwise selection variant inflates t-stats and is not for
+    inference.
 
 ``spanning_alpha``: does a single factor have alpha after controlling for
 base factors? Standard factor research tool (Barillas & Shanken 2017).
@@ -15,14 +17,16 @@ Both use factor return time series (quantile spread series), not IC.
 References:
     Barillas & Shanken (2017), "Which Alpha?"
     Feng, Giglio & Xiu (2020), "Taming the Factor Zoo."
-
-Matrix-row: spanning_alpha, greedy_forward_selection | factor-return-series consumer (post-PANEL pipeline) | ts-only | NW HAC / OLS t | _p_value_from_t, _significance_marker, _short_circuit_output, _ols_alpha
 """
 
 from __future__ import annotations
 
 import logging
 import warnings
+
+__matrix_rows__ = (
+    "spanning_alpha, greedy_forward_selection | factor-return-series consumer (post-PANEL pipeline) | ts-only | NW HAC / OLS t | _p_value_from_t, _significance_marker, _short_circuit_output, _ols_alpha",
+)
 from dataclasses import dataclass, field
 
 import numpy as np

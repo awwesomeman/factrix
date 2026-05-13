@@ -1,9 +1,10 @@
 r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
-Aggregation: per-date cross-sectional OLS slope $\lambda$
-(cross-section step) → time series of $\lambda$, then NW HAC $t$ on
-its mean; pooled OLS variant clusters SE by date.
+Notes:
+    **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
+    (cross-section step) → time series of $\lambda$, then NW HAC $t$
+    on its mean; pooled OLS variant clusters SE by date.
 
 ``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
 ``fama_macbeth``: Newey-West t-test on the beta series.
@@ -14,8 +15,6 @@ References:
     Fama & MacBeth (1973), "Risk, Return, and Equilibrium."
     Newey & West (1987), "HAC Covariance Matrix."
     Petersen (2009), "Estimating Standard Errors in Finance Panel Data Sets."
-
-Matrix-row: compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency | (INDIVIDUAL, CONTINUOUS, FM, PANEL) | cs-first | NW HAC / clustered t | _newey_west_t_test, _p_value_from_t, _significance_marker, _short_circuit_output
 """
 
 from __future__ import annotations
@@ -25,6 +24,10 @@ import warnings
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency | (INDIVIDUAL, CONTINUOUS, FM, PANEL) | cs-first | NW HAC / clustered t | _newey_west_t_test, _p_value_from_t, _significance_marker, _short_circuit_output",
+)
 
 from factrix._codes import WarningCode
 from factrix._stats import (

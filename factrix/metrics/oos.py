@@ -1,16 +1,17 @@
 """Out-of-sample (OOS) persistence analysis for any time-indexed series.
 
-Aggregation: time-series only, IS/OOS window split on a 1-D series;
-descriptive decay diagnostic (no formal H₀).
+Notes:
+    **Pipeline.** Time-series only, IS/OOS window split on a 1-D
+    series; descriptive decay diagnostic (no formal H₀).
 
-Input: DataFrame with ``date, value`` (IC series, CAAR series, spread series).
-Output: MetricOutput with ``value`` = median survival ratio + sign-flip / status
-detail in ``metadata``.
+    **Input.** DataFrame with ``date, value`` (IC series, CAAR series,
+    spread series).
+
+    **Output.** MetricOutput with ``value`` = median survival ratio +
+    sign-flip / status detail in ``metadata``.
 
 This tool is agnostic to what the series represents — it only knows
 about IS/OOS splits on a time-indexed numeric sequence.
-
-Matrix-row: multi_split_oos_decay | (*, CONTINUOUS, *, TIMESERIES) | ts-only | no formal H₀ | _short_circuit_output
 """
 
 from __future__ import annotations
@@ -20,6 +21,10 @@ from typing import Literal
 
 import numpy as np
 import polars as pl
+
+__matrix_rows__ = (
+    "multi_split_oos_decay | (*, CONTINUOUS, *, TIMESERIES) | ts-only | no formal H₀ | _short_circuit_output",
+)
 
 from factrix._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output

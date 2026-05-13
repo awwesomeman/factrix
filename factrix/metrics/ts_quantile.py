@@ -1,8 +1,9 @@
 """Time-series quantile bucketing + monotonicity test (issue #5).
 
-Aggregation: per-date aggregation to a common ``(_f, _r)`` series
-(cross-section step), then quantile-bucketed NW HAC OLS on that time
-series; Wald χ² on the top-bottom bucket spread.
+Notes:
+    **Pipeline.** Per-date aggregation to a common ``(_f, _r)`` series
+    (cross-section step), then quantile-bucketed NW HAC OLS on that
+    time series; Wald χ² on the top-bottom bucket spread.
 
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells: bucket factor history into quantiles and check the conditional
@@ -14,8 +15,6 @@ Standalone metric — does not enter the registry. See
 `ARCHITECTURE.md` §"Registry procedure vs standalone metric" for the
 distinction. SPARSE / binary signals are out of scope; the input gate
 redirects to `event_quality` helpers.
-
-Matrix-row: ts_quantile_spread | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear
 """
 
 from __future__ import annotations
@@ -25,6 +24,10 @@ import warnings
 import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
+
+__matrix_rows__ = (
+    "ts_quantile_spread | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear",
+)
 
 from factrix._stats import (
     _ols_nw_multivariate,

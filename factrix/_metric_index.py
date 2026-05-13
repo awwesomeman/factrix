@@ -1,4 +1,4 @@
-"""Shared parser for ``Matrix-row:`` tags in ``factrix/metrics/*.py``.
+"""Shared parser for ``__matrix_rows__`` tuples in ``factrix/metrics/*.py``.
 
 Single source of truth for "which standalone metrics live in which
 cell." Consumed by:
@@ -7,10 +7,10 @@ cell." Consumed by:
   matrix in ``docs/reference/_generated_metric_matrix.md``.
 - ``factrix.list_metrics`` — runtime API exposing the same data.
 
-Each metric module's docstring carries one or more ``Matrix-row:``
-lines with the format::
+Each metric module declares a module-level ``__matrix_rows__`` tuple
+of strings, one entry per row, each with the format::
 
-    Matrix-row: {public_functions} | {cell_scope} | {agg_order} | {inference_se} | {primitives}
+    {public_functions} | {cell_scope} | {agg_order} | {inference_se} | {primitives}
 
 ``public_functions`` is a comma-separated list. ``cell_scope`` is
 either a 4-tuple ``(scope, signal, metric, mode)`` (``*`` denotes
@@ -22,7 +22,7 @@ Continuous pipeline.
 
 Stage-1 aggregation helpers that produce intermediate panels / series
 (rather than a ``MetricOutput``) are filtered out by ``user_facing``
-rows — they are listed in ``Matrix-row:`` for primitive-graph
+rows — they are listed in ``__matrix_rows__`` for primitive-graph
 completeness but are not metrics a user would call directly. The
 exclusion set is explicit (not a ``compute_*`` prefix rule) because
 ``compute_rolling_mean_beta`` is a genuine user-facing metric.
@@ -42,7 +42,6 @@ from factrix._axis import FactorScope, Metric, Mode, Signal
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 
-_MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
 _TUPLE_RE = re.compile(r"^\((.*)\)$")
 
 _SPANNING_CELL_LABEL = "factor-return-series consumer (post-PANEL pipeline)"
@@ -276,12 +275,41 @@ def _public_metric_modules() -> list[pathlib.Path]:
 
 
 def _extract_matrix_rows(path: pathlib.Path) -> list[str]:
+    """Return the module-level ``__matrix_rows__`` literal as a list of strings.
+
+    Parses the source via AST and looks for an ``Assign`` node binding the
+    name ``__matrix_rows__`` to a tuple or list of string constants. Returns
+    an empty list when the dunder is absent — the registered metric modules
+    are enumerated by directory scan, so a missing dunder simply means that
+    module contributes no rows (a coverage test in ``tests/test_docs_matrix.py``
+    enforces presence on every public ``factrix/metrics/*.py``).
+    """
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except SyntaxError:
         return []
-    doc = ast.get_docstring(tree) or ""
-    return [m.group(1).strip() for m in _MATRIX_ROW_RE.finditer(doc)]
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not (
+            len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "__matrix_rows__"
+        ):
+            continue
+        if not isinstance(node.value, (ast.Tuple, ast.List)):
+            raise ValueError(
+                f"{path.name}: __matrix_rows__ must be a tuple or list literal"
+            )
+        rows: list[str] = []
+        for elt in node.value.elts:
+            if not (isinstance(elt, ast.Constant) and isinstance(elt.value, str)):
+                raise ValueError(
+                    f"{path.name}: __matrix_rows__ entries must be string literals"
+                )
+            rows.append(elt.value.strip())
+        return rows
+    return []
 
 
 def _parse_module_entries(path: pathlib.Path) -> list[_MatrixEntry]:

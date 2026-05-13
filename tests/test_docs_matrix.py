@@ -1,9 +1,9 @@
-"""Coverage test: Matrix-row: tags in factrix/metrics/ docstrings.
+"""Coverage test: ``__matrix_rows__`` tuples in ``factrix/metrics/`` modules.
 
 Validates that:
-1. Every public metric module (non-underscore *.py) has at least one
-   ``Matrix-row:`` tag in its module-level docstring.
-2. Every ``Matrix-row:`` tag has exactly 5 pipe-separated fields
+1. Every public metric module (non-underscore *.py) declares a non-empty
+   module-level ``__matrix_rows__`` tuple of strings.
+2. Every ``__matrix_rows__`` entry has exactly 5 pipe-separated fields
    (public_functions | cell_scope | aggregation_order | inference_se | primitives).
 3. ``docs/reference/_generated_metric_matrix.md`` exists and is non-empty
    (only meaningful after a build; skipped if the file is absent).
@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import ast
 import pathlib
-import re
 
 import pytest
 
@@ -26,8 +25,6 @@ GENERATED_EVALUATE_METRIC = pathlib.Path(
     "docs/reference/_generated_evaluate_metric_table.md"
 )
 
-_MATRIX_ROW_RE = re.compile(r"^\s*Matrix-row:\s*(.+)$", re.MULTILINE)
-
 
 def _public_metric_modules() -> set[str]:
     """Return stem names of all public metric modules."""
@@ -35,14 +32,10 @@ def _public_metric_modules() -> set[str]:
 
 
 def _matrix_rows_for(stem: str) -> list[str]:
-    """Return list of raw Matrix-row values found in the module's docstring."""
-    path = METRICS_DIR / f"{stem}.py"
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except SyntaxError:
-        return []
-    doc = ast.get_docstring(tree) or ""
-    return [m.group(1).strip() for m in _MATRIX_ROW_RE.finditer(doc)]
+    """Return entries of the module-level ``__matrix_rows__`` tuple."""
+    from factrix._metric_index import _extract_matrix_rows
+
+    return _extract_matrix_rows(METRICS_DIR / f"{stem}.py")
 
 
 # ---------------------------------------------------------------------------
@@ -52,22 +45,22 @@ def _matrix_rows_for(stem: str) -> list[str]:
 
 @pytest.mark.parametrize("stem", sorted(_public_metric_modules()))
 def test_module_has_matrix_row_tag(stem: str) -> None:
-    """Every public metric module must have at least one Matrix-row: tag."""
+    """Every public metric module must declare ``__matrix_rows__``."""
     rows = _matrix_rows_for(stem)
     assert rows, (
-        f"metrics/{stem}.py has no 'Matrix-row:' tag in its module docstring. "
-        "Add a Matrix-row: line so the build-time generator can include it."
+        f"metrics/{stem}.py has no '__matrix_rows__' tuple at module scope. "
+        "Add one so the build-time generator can include it."
     )
 
 
 @pytest.mark.parametrize("stem", sorted(_public_metric_modules()))
 def test_matrix_row_has_five_fields(stem: str) -> None:
-    """Every Matrix-row: tag must have exactly 5 pipe-separated fields."""
+    """Every ``__matrix_rows__`` entry must have exactly 5 pipe-separated fields."""
     for row in _matrix_rows_for(stem):
         fields = [f.strip() for f in row.split("|")]
         assert len(fields) == 5, (
-            f"metrics/{stem}.py: Matrix-row has {len(fields)} pipe-separated"
-            f" fields (expected 5): {row!r}"
+            f"metrics/{stem}.py: __matrix_rows__ entry has {len(fields)}"
+            f" pipe-separated fields (expected 5): {row!r}"
         )
 
 
