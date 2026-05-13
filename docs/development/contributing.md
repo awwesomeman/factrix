@@ -323,8 +323,9 @@ files auto-update and which need manual maintenance.
 |---|---|---|
 | `factrix/**/*.py` docstrings | `:::` directives in `docs/api/**/*.md` | mkdocstrings plugin |
 | `Matrix-row:` in `factrix/metrics/*.py` | `docs/reference/_generated_metric_matrix.md` | hook: `scripts/mkdocs_hooks/gen_metric_matrix.py` |
-| `examples/*.ipynb` | `docs/examples/` | hook: `scripts/mkdocs_hooks/sync_examples.py` |
 | `factrix/llms*.txt` | site root `llms*.txt` | hook: `scripts/mkdocs_hooks/sync_llms_txt.py` |
+
+`docs/examples/*.md` are authored markdown — no build-time sync from notebooks. The `.ipynb` files under `examples/` are runnable mirrors maintained alongside but not the SSOT for the rendered site.
 
 ### Docs that still need manual maintenance
 
@@ -538,7 +539,7 @@ For each `::: <target>` directive in `docs/api/`, the target dotted path matches
 - Symbol in `factrix.__all__` → top-level path (`::: factrix.evaluate`, `::: factrix.by_slice`, `::: factrix.SliceResult`). Do not target the submodule that physically defines it (e.g. `factrix.slicing.dispatcher` with `members: [by_slice]`) — submodule-target with member filter renders the *submodule* as the page h1 and buries the documented symbol below.
 - Symbol reached only via a submodule path → submodule path (`::: factrix.preprocess.compute_forward_return`, `::: factrix.metrics.ic` with `members: [ic, compute_ic, ic_newey_west]`, `::: factrix.datasets.make_cs_panel`). The submodule path is the canonical import.
 
-mkdocstrings cross-references (`[X][factrix.path.X]`) and intra-doc anchor links (`page.md#factrix.path.X`) follow the same rule — the path inside the brackets matches the autodoc target. Changing one without the other breaks the cross-ref.
+mkdocstrings cross-references (`[X][factrix.<...>.X]`) and intra-doc anchor links (`page.md#factrix.<...>.X`) follow the same rule — the path inside the brackets matches the autodoc target. Changing one without the other breaks the cross-ref.
 
 ### Autodoc options — globals + per-block deviations
 
