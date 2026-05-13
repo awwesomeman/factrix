@@ -67,7 +67,7 @@ class _FamilyEntry:
 def _resolve_family(
     profiles: Sequence[FactorProfile],
     *,
-    verb: str,
+    func_name: str,
     expand_over: Sequence[str] | None = None,
     estimator: Estimator | None = None,
 ) -> list[_FamilyEntry]:
@@ -92,7 +92,7 @@ def _resolve_family(
         profiles: Input profiles. ``__hash__`` is disabled on
             ``FactorProfile``; dedup uses the partition-key tuple, never
             profile hashing.
-        verb: Calling verb name for error rendering (e.g. ``"bhy"``).
+        func_name: Calling function name for error rendering (e.g. ``"bhy"``).
         expand_over: Optional context keys to include in the partition
             key. ``None`` and ``[]`` are equivalent.
         estimator: Optional inference-method override. ``None`` falls
@@ -109,22 +109,22 @@ def _resolve_family(
     for name in keys:
         if name in _IDENTITY_FIELDS:
             raise UserInputError(
-                verb=verb,
+                func_name=func_name,
                 field="expand_over",
                 value=name,
                 expected="context key, not an identity dimension (see #160)",
-                docs_path=f"api/{verb}#expand_over",
+                docs_path=f"api/{func_name}#expand_over",
             )
 
     entries: list[_FamilyEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
 
     for idx, profile in enumerate(profiles):
-        values = _expand_over_values(profile, keys=keys, verb=verb)
+        values = _expand_over_values(profile, keys=keys, func_name=func_name)
         partition_key = (*profile.identity, *values)
         if partition_key in seen:
             raise UserInputError(
-                verb=verb,
+                func_name=func_name,
                 field="profiles",
                 value=partition_key,
                 expected=(
@@ -137,7 +137,7 @@ def _resolve_family(
                     "or pass `expand_over=[<context key>]` to declare "
                     "per-bucket families"
                 ),
-                docs_path=f"api/{verb}#partition-key",
+                docs_path=f"api/{func_name}#partition-key",
             )
         seen[partition_key] = idx
 
@@ -145,7 +145,9 @@ def _resolve_family(
             _FamilyEntry(
                 identity=profile.identity,
                 expand_over_values=values,
-                p_value=_resolve_p_value(profile, estimator=estimator, verb=verb),
+                p_value=_resolve_p_value(
+                    profile, estimator=estimator, func_name=func_name
+                ),
                 profile=profile,
             )
         )
@@ -157,18 +159,18 @@ def _expand_over_values(
     profile: FactorProfile,
     *,
     keys: list[str],
-    verb: str,
+    func_name: str,
 ) -> tuple[Any, ...]:
     values: list[Any] = []
     for name in keys:
         if name not in profile.context:
             raise UserInputError(
-                verb=verb,
+                func_name=func_name,
                 field="expand_over",
                 value=name,
                 candidates=sorted(profile.context)
                 or ["<no context keys on this profile>"],
-                docs_path=f"api/{verb}#expand_over",
+                docs_path=f"api/{func_name}#expand_over",
             )
         values.append(profile.context[name])
     return tuple(values)
@@ -178,7 +180,7 @@ def _resolve_p_value(
     profile: FactorProfile,
     *,
     estimator: Estimator | None,
-    verb: str,
+    func_name: str,
 ) -> float:
     if estimator is None:
         return profile.primary_p
@@ -186,14 +188,14 @@ def _resolve_p_value(
     cfg = profile.config
     if not estimator.applicable_to(cfg.scope, cfg.signal):
         raise UserInputError(
-            verb=verb,
+            func_name=func_name,
             field="estimator",
             value=estimator.name,
             expected=(
                 f"estimator applicable to (scope={cfg.scope.value}, "
                 f"signal={cfg.signal.value}) cell"
             ),
-            docs_path=f"api/{verb}#{_ESTIMATOR_DOCS_ANCHOR}",
+            docs_path=f"api/{func_name}#{_ESTIMATOR_DOCS_ANCHOR}",
         )
 
     code = estimator.emits_for(cfg.scope, cfg.signal, cfg.metric)
@@ -201,7 +203,7 @@ def _resolve_p_value(
         return profile.stats[code]
     except KeyError:
         raise UserInputError(
-            verb=verb,
+            func_name=func_name,
             field="estimator",
             value=estimator.name,
             expected=(
@@ -209,5 +211,5 @@ def _resolve_p_value(
                 "is supplied; populated keys listed below"
             ),
             candidates=sorted(s.name for s in profile.stats),
-            docs_path=f"api/{verb}#{_ESTIMATOR_DOCS_ANCHOR}",
+            docs_path=f"api/{func_name}#{_ESTIMATOR_DOCS_ANCHOR}",
         ) from None

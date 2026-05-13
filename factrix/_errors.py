@@ -61,26 +61,18 @@ class UserInputError(FactrixError, ValueError):
     - ``expected``: human-readable shape (type-mismatch branch); ``None`` otherwise
     - ``docs_url``: deployed-docs URL for the function
 
-    The constructor accepts a legacy ``verb=`` kwarg in addition to
-    ``func_name=`` as an internal bridge for the 59 source-side raise
-    sites that still pass ``verb=`` (swept in #317). The bridge stores
-    the value under ``self.func_name`` either way; there is no
-    ``verb`` attribute on the instance.
     """
 
     def __init__(
         self,
         *,
-        func_name: str | None = None,
-        verb: str | None = None,
+        func_name: str,
         field: str,
         value: object,
         candidates: Iterable[object] | None = None,
         expected: str | None = None,
         docs_path: str,
     ) -> None:
-        if func_name is None and verb is None:
-            raise TypeError("UserInputError requires func_name= (or legacy verb=)")
         if not candidates and not expected:
             raise ValueError("UserInputError requires candidates= or expected=")
         ordered = tuple(sorted(str(c) for c in candidates)) if candidates else ()
@@ -89,7 +81,7 @@ class UserInputError(FactrixError, ValueError):
             if ordered
             else ()
         )
-        self.func_name: str = func_name if func_name is not None else verb  # type: ignore[assignment]
+        self.func_name = func_name
         self.field = field
         self.value = value
         self.candidates: tuple[str, ...] = ordered
