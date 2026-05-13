@@ -2,6 +2,8 @@
 title: factrix.MetricsBundle
 ---
 
+::: factrix.MetricsBundle
+
 Result type returned by [`run_metrics`](run-metrics.md) — holds every
 standalone metric the cell successfully evaluated for one factor at one
 horizon, plus a `skipped` map for metrics that could not auto-run.
@@ -10,8 +12,6 @@ Parallel to [`FactorProfile`](factor-profile.md): both share the
 identity tuple `(factor_id, forward_periods)` so downstream functions
 ([`compare`](compare.md), survivors workflows) can join the two
 artifact families row-by-row.
-
-::: factrix.MetricsBundle
 
 | Bundle | Profile |
 |---|---|
