@@ -41,7 +41,7 @@ class SliceResult(Mapping[str, MetricOutput]):
         :func:`factrix.slice_pairwise_test` (Holm / Romano-Wolf /
         Bonferroni) or :func:`factrix.slice_joint_test` (omnibus χ²)
         instead. The container is for exploration; the inference
-        verbs are for claims.
+        functions are for claims.
 
     Examples:
         >>> import polars as pl

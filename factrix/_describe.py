@@ -515,42 +515,42 @@ def list_metrics(
     Source of truth is the ``Matrix-row:`` tag in each metric module's
     docstring, parsed by :mod:`factrix._metric_index`.
 
-    Parameters
-    ----------
-    scope, signal
-        Cell axes to filter on.
-    format
-        ``"text"`` (default) returns metric names sorted by
-        ``(module, name)``. ``"json"`` returns ``list[dict]`` rows with
-        keys ``name``, ``module``, ``cell``, ``agg_order``,
-        ``inference_se``, ``import_path``, ``input_kind``,
-        ``docs_anchor``, ``emitted_name`` — JSON-serialisable, suitable
-        for tooling. ``docs_anchor`` follows
-        :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a docs-root-relative
-        path + mkdocstrings symbol fragment).
-        ``emitted_name`` is the literal ``MetricOutput.name`` value at
-        runtime — usually equal to ``name`` (the function name), but
-        differs for a small set of historical exceptions. Consumers
-        holding a ``MetricOutput`` should resolve via ``emitted_name``.
-    with_import
-        ``"text"`` only. When ``True``, returns a two-column
-        ``"name → factrix.metrics.<module>"`` list so each row is
-        copy-paste-ready into ``from factrix.metrics import <name>``.
-        Ignored under ``format="json"`` (the ``import_path`` field is
-        always present there).
+    Args:
+        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
+            ``FactorScope.COMMON``).
+        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
+            ``Signal.SPARSE``).
+        format: ``"text"`` (default) returns metric names sorted by
+            ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
+            with keys ``name``, ``module``, ``cell``, ``agg_order``,
+            ``inference_se``, ``import_path``, ``input_kind``,
+            ``docs_anchor``, ``emitted_name`` — JSON-serialisable,
+            suitable for tooling. ``docs_anchor`` follows
+            :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
+            docs-root-relative path + mkdocstrings symbol fragment).
+            ``emitted_name`` is the literal ``MetricOutput.name`` value
+            at runtime — usually equal to ``name`` (the function name),
+            but differs for a small set of historical exceptions.
+            Consumers holding a ``MetricOutput`` should resolve via
+            ``emitted_name``.
+        with_import: ``"text"`` only. When ``True``, returns a
+            two-column ``"name → factrix.metrics.<module>"`` list so
+            each row is copy-paste-ready into
+            ``from factrix.metrics import <name>``. Ignored under
+            ``format="json"`` (the ``import_path`` field is always
+            present there).
 
-    Raises
-    ------
-    IncompatibleAxisError
-        ``(scope, signal)`` matches no registered metric. In practice
-        all four combos are populated, so this is defensive.
+    Raises:
+        IncompatibleAxisError: ``(scope, signal)`` matches no
+            registered metric. In practice all four combos are
+            populated, so this is defensive.
 
-    Notes
-    -----
-    Filter ``input_kind == "panel"`` on the JSON form to find candidates
-    for the date-slicing dispatcher :func:`factrix.by_slice`; ``"scalar"``
-    rows (``breakeven_cost``, ``net_spread``) consume pre-aggregated
-    scalars and are not eligible.
+    Notes:
+        Filter ``input_kind == "panel"`` on the JSON form to find
+        candidates for the date-slicing dispatcher
+        :func:`factrix.by_slice`; ``"scalar"`` rows
+        (``breakeven_cost``, ``net_spread``) consume pre-aggregated
+        scalars and are not eligible.
 
     Examples:
         Discover standalone metrics for an INDIVIDUAL × CONTINUOUS cell:
@@ -610,29 +610,29 @@ def list_estimators(
     Mirrors :func:`list_metrics` shape so callers can build a single
     pre-flight pattern: ``list_metrics`` says which scalars a cell can
     emit, ``list_estimators`` says which inference methods can drive
-    family-verb ``estimator=`` for that cell. Mode is intentionally
-    not an input — Estimator applicability is not mode-dependent.
+    the family function's ``estimator=`` kwarg for that cell. Mode is
+    intentionally not an input — Estimator applicability is not
+    mode-dependent.
 
-    Parameters
-    ----------
-    scope, signal
-        Cell axes to filter on.
-    format
-        ``"text"`` (default) returns Estimator names sorted
-        alphabetically. ``"json"`` returns ``list[dict]`` rows with
-        keys ``name``, ``description``, ``import_path``.
-    with_import
-        ``"text"`` only. When ``True``, returns ``"name → import_path"``
-        two-column lines so each row is copy-paste-ready into
-        ``from factrix.stats import <name>``. Ignored under JSON
-        (``import_path`` is always present there).
+    Args:
+        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
+            ``FactorScope.COMMON``).
+        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
+            ``Signal.SPARSE``).
+        format: ``"text"`` (default) returns Estimator names sorted
+            alphabetically. ``"json"`` returns ``list[dict]`` rows with
+            keys ``name``, ``description``, ``import_path``.
+        with_import: ``"text"`` only. When ``True``, returns
+            ``"name → import_path"`` two-column lines so each row is
+            copy-paste-ready into ``from factrix.stats import <name>``.
+            Ignored under JSON (``import_path`` is always present
+            there).
 
-    Raises
-    ------
-    IncompatibleAxisError
-        ``(scope, signal)`` matches no registered Estimator. ``NeweyWest``
-        applies to every user-facing cell, so as long as it stays in the
-        registry this branch is defensive.
+    Raises:
+        IncompatibleAxisError: ``(scope, signal)`` matches no
+            registered Estimator. ``NeweyWest`` applies to every
+            user-facing cell, so as long as it stays in the registry
+            this branch is defensive.
 
     Examples:
         Discover applicable estimators for an INDIVIDUAL × CONTINUOUS cell:
