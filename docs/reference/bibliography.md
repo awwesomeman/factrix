@@ -268,8 +268,10 @@ Fama, E. F. & French, K. R. (1993). "Common Risk Factors in the
 Returns on Stocks and Bonds." *Journal of Financial Economics*
 33(1), 3–56.
 
-Three-factor model; the prototypical multi-factor spanning baseline
-that `spanning_alpha` evaluates against.
+Three-factor model; prototypical multi-factor spanning baseline of
+the kind that `spanning_alpha` evaluates a candidate factor against.
+Catalog-only reference in factrix; no inline citation site at
+present.
 
 ---
 
