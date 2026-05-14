@@ -10,3 +10,27 @@
   font-weight: 700;
   opacity: 0.75;
 }
+
+/* Indent page links under any parent, but keep nested section labels flush
+ * so group headings (e.g. CONCEPTS under USER GUIDE) don't read as pages.
+ */
+.md-nav__item > .md-nav > .md-nav__list > .md-nav__item:not(.md-nav__item--section) > .md-nav__link {
+  padding-left: 0.5rem;
+}
+
+/* Stronger active-page highlight than Material's default (text-tint only is
+ * easy to miss on a long nav list).
+ */
+.md-nav__link--active {
+  font-weight: 700;
+  background-color: var(--md-primary-fg-color--light);
+  color: var(--md-primary-bg-color);
+  border-radius: 0.15rem;
+  box-shadow: inset 0.2rem 0 0 var(--md-primary-fg-color);
+}
+
+[data-md-color-scheme="slate"] .md-nav__link--active {
+  background-color: color-mix(in srgb, var(--md-primary-fg-color--light) 18%, transparent);
+  color: var(--md-primary-fg-color--light);
+  box-shadow: inset 0.2rem 0 0 var(--md-primary-fg-color--light);
+}
