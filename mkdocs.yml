@@ -146,7 +146,6 @@ nav:
       - Concepts:
           - Overview: getting-started/concepts.md
           - Where factrix fits: where-factrix-fits.md
-          - Architecture: development/architecture.md
           - Statistical methods: reference/statistical-methods.md
           - Timeseries-mode conventions: reference/ts-mode-conventions.md
       - How-to:
@@ -233,6 +232,7 @@ nav:
           - datasets: api/datasets.md
           - preprocess: api/preprocess.md
   - Development:
+      - Architecture: development/architecture.md
       - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
   - Release notes: development/changelog.md
