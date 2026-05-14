@@ -207,9 +207,15 @@ when two-way clustering is enabled.
 Shanken, J. (1992). "On the Estimation of Beta-Pricing Models."
 *Review of Financial Studies* 5(1), 1–33.
 
-Errors-in-variables correction for FM stage-2 t when the regressor is
-itself an estimated factor (rolling β, PCA score). Used in `fama_macbeth`
-when `is_estimated_factor=True`.
+Errors-in-variables correction for the Fama-MacBeth stage-2 $t$-stat
+when the stage-1 regressor is itself an estimated quantity (rolling
+$\beta$, PCA score, ML predictor). Used in `fama_macbeth` when
+`is_estimated_factor=True`. The general multi-factor multiplicative
+term $1 + \lambda'\Sigma_f^{-1}\lambda$ collapses to
+$1 + \hat\lambda^2/\sigma^2_f$ in the single-factor case factrix
+implements; factrix's simplification additionally drops the full
+variance's additive $+\sigma^2_f/T$ term and is therefore honest only
+for large $T$.
 
 ### Kan & Zhang (1999)
 [](){ #kan-zhang-1999 }
@@ -217,10 +223,13 @@ when `is_estimated_factor=True`.
 Kan, R. & Zhang, C. (1999). "Two-Pass Tests of Asset Pricing Models
 with Useless Factors." *Journal of Finance* 54(1), 203–235.
 
-Single-factor simplification $\mathrm{SE} \times \sqrt{1 + \hat\lambda^2/\sigma^2_f}$
-of the full Shanken EIV correction; the form factrix actually applies
-(omits the additive $+\sigma^2_f/T$ term and is therefore honest only
-for large $T$).
+Useless-factor diagnostics for two-pass cross-sectional tests: weak
+or unidentified factors yield spuriously significant Fama-MacBeth
+$t$-stats on risk premia even when the factor has no true pricing
+power. Cited from ``fama_macbeth`` as cautionary background on factor
+validity, separate from the errors-in-variables sampling-error
+correction (which is the [Shanken (1992)][shanken-1992] single-factor
+case that factrix's ``is_estimated_factor`` flag implements).
 
 ### Fama & French (1992)
 [](){ #fama-french-1992 }
@@ -396,10 +405,14 @@ of the densification convention factrix's sparse-panel CAAR adopts.
 Fama, E. F. (1998). "Market Efficiency, Long-term Returns, and
 Behavioral Finance." *Journal of Financial Economics* 49(3), 283–306.
 
-§2 review and defence of the calendar-time portfolio approach
-against the buy-and-hold abnormal return alternative; cited as the
-modern reference for the densification rationale in
-`_CAARSparsePanelProcedure`.
+Methodological comparison of calendar-time portfolio averaging
+(average abnormal returns / cumulative abnormal returns) against
+buy-and-hold abnormal returns (BHARs), strongly recommending the
+calendar-time approach on the grounds that monthly returns are less
+susceptible to the bad-model problem and that monthly portfolio
+formation automatically absorbs cross-correlations of event-firm
+abnormal returns. Cited as the modern reference for the densification
+rationale in `_CAARSparsePanelProcedure`.
 
 ---
 

@@ -84,14 +84,15 @@ For the FM-cell, the NW HAC sits at stage 2
 ([Fama-MacBeth 1973][fama-macbeth-1973]). When the Stage-1 regressor
 is itself an estimated quantity (rolling β, PCA score, ML predictor),
 [`fama_macbeth(is_estimated_factor=True)`](../api/metrics/fama_macbeth.md)
-applies the [Kan-Zhang 1999][kan-zhang-1999] single-factor
-simplification of the [Shanken 1992][shanken-1992] errors-in-variables
-correction, scaling SE by $\sqrt{1 + \hat\lambda^2 / \sigma^2_f}$. The
-full Shanken variance has an additional $+\sigma^2_f / T$ term that
-factrix omits: at finite $T$ the omission **understates** the EIV
-inflation and so **overstates** the resulting $t$. The simplification
-is honest only when $T$ is large enough that the dropped term is
-negligible.
+applies the [Shanken (1992)][shanken-1992] single-factor case of the
+errors-in-variables correction, scaling SE by
+$\sqrt{1 + \hat\lambda^2 / \sigma^2_f}$ (Shanken's general multi-factor
+multiplicative term $1 + \lambda'\Sigma_f^{-1}\lambda$ collapses to
+$1 + \hat\lambda^2 / \sigma^2_f$ when there is one factor). The full
+Shanken variance has an additional $+\sigma^2_f / T$ term that factrix
+omits: at finite $T$ the omission **understates** the EIV inflation
+and so **overstates** the resulting $t$. The simplification is honest
+only when $T$ is large enough that the dropped term is negligible.
 
 When `factor_return_var` is not supplied, factrix falls back to
 $\mathrm{var}(\hat\beta_t)$ as a proxy for $\sigma^2_f$. Because
