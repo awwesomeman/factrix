@@ -66,9 +66,15 @@ Hansen, L. P. & Hodrick, R. J. (1980). "Forward Exchange Rates as
 Optimal Predictors of Future Spot Rates: An Econometric Analysis."
 *Journal of Political Economy* 88(5), 829–853.
 
-K-period forecast residuals carry MA(K−1) structure; the source of
-the `forward_periods − 1` lag floor that factrix combines with the
-Andrews rule under overlapping forward returns.
+K-period forecast residuals carry MA(K−1) structure under
+non-overlapping innovations. Underpins two pieces of factrix's HAC
+machinery: (i) the rectangular-kernel HAC SE on a sample mean,
+exposed as the `factrix.stats.HansenHodrick` estimator
+(`_hansen_hodrick_se` / `_hansen_hodrick_t_test`) for callers who
+prefer overlap-targeted rectangular kernel over the Bartlett kernel;
+(ii) the `forward_periods − 1` lag floor that factrix combines with
+the Andrews rule when running NW HAC under overlapping forward
+returns.
 
 ### Hodrick (1992)
 [](){ #hodrick-1992 }

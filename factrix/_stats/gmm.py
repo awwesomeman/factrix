@@ -40,10 +40,12 @@ def _long_run_covariance(
     so ``S`` is symmetric by construction; positive-semidefiniteness is
     inherited from the Bartlett kernel ([Newey-West (1987)][newey-west-1987]).
 
-    Bandwidth defaults to the [Newey-West (1987)][newey-west-1987] ``floor(T^(1/3))``
-    fixed rule; [Andrews (1991)][andrews-1991] data-driven bandwidth is the textbook
-    GMM choice on high-dimensional or strongly persistent moment
-    systems and may be added as an opt-in later.
+    Bandwidth defaults to the [Andrews (1991)][andrews-1991]
+    ``floor(T^(1/3))`` Bartlett growth rate (Andrews 1991 Proposition 1
+    — MSE-optimal rate for the Bartlett kernel); the
+    [Newey-West (1994)][newey-west-1994] data-driven plug-in is the
+    textbook GMM choice on high-dimensional or strongly persistent
+    moment systems and may be added as an opt-in later.
 
     Args:
         moments: ``(T, K)`` array of per-period moment vectors.
