@@ -1,60 +1,30 @@
 ---
-title: Decision tree
+title: Cross-function reference
 ---
 
-Reverse lookup from research question to function. The
-[API reference landing](index.md) is function-centric ("here is each
-public symbol"); this page is question-centric ("here is what to reach
-for, given what you want to know").
+Function semantics that do not belong on any single function's page —
+the comparison-axes matrix (which `compare` / `by_slice` /
+`slice_*_test` to pick), and cross-function topics where the same
+keyword shifts meaning across functions (`expand_over`, regime
+analysis).
 
-Three sections:
+For *"which function do I reach for given my research question"*, the
+[API reference landing](index.md) is the SSOT: the **Function flow**
+graph shows pipeline-level relationships, **Typical patterns** maps
+goals to pipelines, and the **Entry points** table carries a *When to
+read* line per function. Per-function docstrings carry the same
+*When to use* summary at the head of each page.
 
-- **§A. Question → function** — pick a starting function from intent.
-- **§B. Comparison axes** — `row × column` matrix for every "compare N
+Two sections:
+
+- **Comparison axes** — `row × column` matrix for every "compare N
   things across M dimensions" question.
-- **§C. Cross-function topics** — concepts whose meaning shifts across
+- **Cross-function topics** — concepts whose meaning shifts across
   functions (`expand_over`, regime analysis).
 
 ---
 
-## §A. Question → function
-
-```
-What do you want to know?
-│
-├── "Is factor X significant for one cell?"
-│     → evaluate(panel, cfg) → FactorProfile.primary_p
-│
-├── "What is the descriptive surface of factor X for one cell?"
-│     → run_metrics(panel, cfg, factor_col=...) → MetricsBundle
-│
-├── "Which of N candidate factors is strongest?"
-│     ├── with FDR control          → evaluate × N → bhy(profiles) → compare(survivors)
-│     ├── pure ranking, no FDR      → evaluate × N → compare(profiles, sort_by=...)
-│     └── exploratory descriptive   → run_metrics × N → compare(bundles)
-│
-├── "Does factor X hold up across multiple contexts?"
-│     ├── all contexts pass (k = m)         → partial_conjunction(profiles, k_of_m=m)
-│     ├── at least k of m pass             → partial_conjunction(profiles, k_of_m=k)
-│     ├── nested family / group structure  → bhy_hierarchical(profiles, group=...)
-│     └── flat sweep over a context axis   → bhy(profiles, expand_over=[...])
-│
-├── "Is factor X's conclusion robust to estimator choice?"
-│     → by_estimator(profiles, estimators=[...])   # planned, lands v0.14 (#178)
-│
-├── "How does factor X behave across slices (sector / regime / decile)?"
-│     ├── descriptive (per-slice value + n_obs)   → by_slice(metric, df, label=...) → SliceResult
-│     └── statistical test across slices          → slice_pairwise_test / slice_joint_test
-│
-└── "How does factor X behave across regimes?"
-      └── see §C — regime analysis is dispatched to four different functions
-          depending on whether the question is descriptive, FDR-controlled,
-          consistency-across-regimes, or between-regime difference.
-```
-
----
-
-## §B. Comparison axes
+## Comparison axes
 
 Every "compare N things across M dimensions" question reduces to a
 choice of *row variable* × *column variable*. The seven shipped
@@ -79,7 +49,7 @@ only, not the metric pipeline.
 
 ---
 
-## §C. Cross-function topics
+## Cross-function topics
 
 ### `expand_over` is not one concept
 
