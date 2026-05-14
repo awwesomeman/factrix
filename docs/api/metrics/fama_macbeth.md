@@ -41,7 +41,8 @@ title: factrix.metrics.fama_macbeth
 
     Set `is_estimated_factor=True` (with `factor_return_var=` where the
     factor-mimicking-portfolio return series is available) to apply the
-    Kan-Zhang (1999) single-factor simplification of Shanken (1992) EIV.
+    Shanken (1992) single-factor EIV correction (the multi-factor
+    multiplicative term collapses to $1 + \hat\lambda^2/\sigma^2_f$).
     Required when the Signal column is itself estimated — rolling beta,
     PCA score, ML prediction.
 
@@ -120,7 +121,7 @@ title: factrix.metrics.fama_macbeth
     ---
 
     NW HAC SE, Andrews bandwidth, Hansen-Hodrick overlap floor, and the
-    Kan-Zhang simplification of the Shanken EIV correction.
+    Shanken (1992) single-factor EIV correction.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 
