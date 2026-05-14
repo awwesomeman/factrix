@@ -516,10 +516,10 @@ def list_metrics(
     docstring, parsed by :mod:`factrix._metric_index`.
 
     Args:
-        scope: Cell axis to filter on (`FactorScope.INDIVIDUAL` or
-            `FactorScope.COMMON`).
-        signal: Cell axis to filter on (`Signal.CONTINUOUS` or
-            `Signal.SPARSE`).
+        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
+            ``FactorScope.COMMON``).
+        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
+            ``Signal.SPARSE``).
         format: ``"text"`` (default) returns metric names sorted by
             ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
             with keys ``name``, ``module``, ``cell``, ``agg_order``,
@@ -615,10 +615,10 @@ def list_estimators(
     mode-dependent.
 
     Args:
-        scope: Cell axis to filter on (`FactorScope.INDIVIDUAL` or
-            `FactorScope.COMMON`).
-        signal: Cell axis to filter on (`Signal.CONTINUOUS` or
-            `Signal.SPARSE`).
+        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
+            ``FactorScope.COMMON``).
+        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
+            ``Signal.SPARSE``).
         format: ``"text"`` (default) returns Estimator names sorted
             alphabetically. ``"json"`` returns ``list[dict]`` rows with
             keys ``name``, ``description``, ``import_path``.
