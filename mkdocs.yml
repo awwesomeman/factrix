@@ -46,6 +46,9 @@ hooks:
   - scripts/mkdocs_hooks/gen_registry_cells.py
   # factrix/_registry._DISPATCH_REGISTRY -> docs/reference/_generated_evaluate_metric_table.md
   - scripts/mkdocs_hooks/gen_evaluate_metric_table.py
+  # factrix/_codes.{WarningCode,InfoCode,StatCode}.description ->
+  # docs/reference/_generated_{warning,info,stat}_codes.md
+  - scripts/mkdocs_hooks/gen_code_descriptions.py
   # factrix/llms*.txt -> site root llms*.txt
   - scripts/mkdocs_hooks/sync_llms_txt.py
 
