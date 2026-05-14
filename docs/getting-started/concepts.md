@@ -9,8 +9,9 @@ performance — see
 [Guides § Standalone metrics — Scope](../guides/standalone-metrics.md#scope)
 for the full boundary (what is in, what is downstream).
 
-Once the axes below are familiar, [Decision tree](../api/decision-tree.md)
-maps a research question to the function that answers it.
+Once the axes below are familiar, the
+[API reference landing](../api/index.md) maps a research question to the
+function that answers it.
 
 ## Three orthogonal axes
 
@@ -56,7 +57,9 @@ Choose by research question, not data shape:
 | Question | Does the factor predict rank ordering of returns? | What premium does each unit of factor exposure earn? |
 | Method | Rank-based, outlier-robust | Slope-based, economic interpretation |
 
-## Decision tree
+## Axis dispatch
+
+How the three axes above pick a factory:
 
 ```
                           your panel
@@ -71,6 +74,9 @@ Choose by research question, not data shape:
     │              │                       │              │
   IC / FM   individual_sparse     common_continuous   common_sparse
 ```
+
+The table below pairs each factory with the procedure it runs and the
+literature behind it.
 
 ## Five analysis scenarios
 
