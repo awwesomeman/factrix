@@ -1,6 +1,6 @@
-"""``NeweyWest`` HAC estimator — Bartlett-kernel HAC SE on a series mean.
+"""``NeweyWest`` heteroskedasticity-and-autocorrelation-consistent (HAC) estimator — Bartlett-kernel HAC SE on a series mean.
 
-Names the Newey-West HAC inference path emitted to ``FactorProfile.stats``
+Names the Newey-West (NW) HAC inference path emitted to ``FactorProfile.stats``
 as ``StatCode.P_NW`` / ``StatCode.T_NW``. ``compute(series, *,
 forward_periods)`` delegates to :func:`factrix._stats._newey_west_t_test`
 so cell procedures share one path with the standalone primitive.
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class NeweyWest:
-    """Newey-West (1987) HAC SE estimator → t-statistic → two-sided p-value.
+    """Newey-West (NW) (1987) heteroskedasticity-and-autocorrelation-consistent (HAC) SE estimator → t-statistic → two-sided p-value.
 
     The Bartlett-kernel HAC variance estimate uses the NW1994 automatic
     bandwidth rule with a Hansen-Hodrick overlap floor for forward-return
@@ -43,7 +43,7 @@ class NeweyWest:
 
     Cell interpretation comes from ``profile.config`` (``scope`` /
     ``signal`` / ``metric``) — ``StatCode.P_NW`` is the same key for
-    correlation-mean tests (IC), event-window mean-effect tests (CAAR),
+    correlation-mean tests (information coefficient (IC)), event-window mean-effect tests (CAAR),
     cross-asset slope tests (TS β), etc. Downstream readers must consult
     the config to know which null is being rejected; the StatCode is
     deliberately cell-agnostic to keep ``Estimator.emits_for`` from

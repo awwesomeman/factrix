@@ -48,7 +48,7 @@ title: factrix.metrics.caar
     Standardise each event's abnormal return by the asset's pre-event
     residual volatility before pooling. Robust to event-induced
     variance inflation that biases the ordinary CAAR $t$-test; pair
-    with `kolari_pynnonen_adjust=True` when the event-date HHI flags
+    with `kolari_pynnonen_adjust=True` when the event-date Herfindahl-Hirschman index (HHI) flags
     same-date shock sharing.
 
 -   __Magnitude-weighted CAAR__

@@ -159,7 +159,7 @@ class ModeAxisError(ConfigError):
 
     Raised at evaluate-time (``Mode`` is not part of ``AnalysisConfig``).
     Canonical example: ``(INDIVIDUAL, CONTINUOUS, IC)`` with ``N == 1``
-    has no cross-sectional dispersion → IC undefined; ``suggested_fix``
+    has no cross-sectional dispersion → information coefficient (IC) undefined; ``suggested_fix``
     points the user at ``common_continuous(...)``.
     """
 
@@ -203,7 +203,7 @@ class RunMetricsError(FactrixError):
 class InsufficientSampleError(ConfigError):
     """``T < MIN_PERIODS_HARD`` for a TIMESERIES procedure.
 
-    Below the floor, NW HAC SE is too biased for ``primary_p`` to be
+    Below the floor, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE is too biased for ``primary_p`` to be
     trustworthy. Raised at evaluate-time. ``suggested_fix`` is ``None``
     — this is a data limitation, not an axis-tuple miswire. ``actual_periods``
     and ``required_periods`` carry the numbers so callers can recover or

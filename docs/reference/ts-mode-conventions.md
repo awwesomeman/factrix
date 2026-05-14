@@ -3,7 +3,7 @@ title: Timeseries-mode conventions
 ---
 
 !!! tip "Canonical reference"
-    For the `Mode.PANEL` vs `Mode.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (HAC SE, ADF / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page is the `Mode.TIMESERIES`-specific operational conventions table.
+    For the `Mode.PANEL` vs `Mode.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, augmented Dickey-Fuller (ADF) / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page is the `Mode.TIMESERIES`-specific operational conventions table.
 
 `Common × Continuous` evaluations on a single time series (`ts_beta`,
 `ts_quantile`, `ts_asymmetry` and their variants) inherit four shared
@@ -11,12 +11,12 @@ conventions that are not visible from the per-metric API page. Each
 metric page links here so the rationale is reachable without
 source-diving.
 
-## Plain SE in stage-1 per-asset OLS
+## Plain SE in stage-1 per-asset ordinary least squares (OLS)
 
 `ts_beta` is a two-stage estimator: stage 1 is a per-asset OLS of
 `forward_return ~ factor`, stage 2 is the cross-asset distribution of
 the resulting β. **Stage 1 deliberately retains plain OLS SE rather
-than NW / HAC** in TIMESERIES mode even when `forward_periods > 1`
+than Newey-West (NW) / HAC** in TIMESERIES mode even when `forward_periods > 1`
 introduces overlap.
 
 The rationale lives in

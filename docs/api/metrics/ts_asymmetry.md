@@ -24,7 +24,7 @@ title: factrix.metrics.ts_asymmetry
 
     ---
 
-    OLS $\beta$ reports one slope and assumes a symmetric response —
+    Ordinary least squares (OLS) $\beta$ reports one slope and assumes a symmetric response —
     $\beta > 0$ could be "rises more on positive factor" *or* "falls
     less on negative factor". `ts_asymmetry` runs Method A (conditional
     means on $\mathrm{sign}(f)$ dummies) so the long and short legs
@@ -35,7 +35,7 @@ title: factrix.metrics.ts_asymmetry
     ---
 
     Headline is $\beta_{\text{long}} + \beta_{\text{short}}$ — 0 under
-    perfect symmetry, positive when the long side dominates. NW HAC
+    perfect symmetry, positive when the long side dominates. Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)
     Wald on $H_0: \beta_{\text{long}} + \beta_{\text{short}} = 0$
     handles the autocorrelation induced by overlapping forward
     returns; Welch $t$ is intentionally avoided because its iid

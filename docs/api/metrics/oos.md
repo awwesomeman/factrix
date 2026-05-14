@@ -16,7 +16,7 @@ title: factrix.metrics.oos
     no `p_value` is attached and `stat` is `None`. A $t$-test at the
     `MIN_OOS_PERIODS` floor would have power $\approx 0$ and would
     invite mis-reading the diagnostic as a significance test. Callers
-    routing this output into BHY / gate logic must read `status`
+    routing this output into Benjamini-Yekutieli (BHY) / gate logic must read `status`
     (`"PASS"` / `"VETOED"`) and `sign_flipped`, not a probability.
 
 ## Use cases
@@ -28,7 +28,7 @@ title: factrix.metrics.oos
     ---
 
     `multi_split_oos_decay` is a `(*, CONTINUOUS, *, TIMESERIES)`
-    diagnostic — input is a 1-D `(date, value)` series, typically IC
+    diagnostic — input is a 1-D `(date, value)` series, typically information coefficient (IC)
     from `compute_ic`, spread from `compute_spread_series`, or any
     other factor-mimicking-portfolio return series. Reports
     $|\mathrm{mean}_{\text{OOS}}| / |\mathrm{mean}_{\text{IS}}|$ across
@@ -38,7 +38,7 @@ title: factrix.metrics.oos
 
     ---
 
-    Any split with opposite-signed IS and OOS means flips
+    Any split with opposite-signed IS and out-of-sample (OOS) means flips
     `sign_flipped = True` and forces `status = "VETOED"` — IC
     sign-flip OOS means the factor predicts the wrong direction, not
     just a weaker one. McLean & Pontiff (2016) report average OOS

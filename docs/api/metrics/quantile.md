@@ -142,7 +142,7 @@ title: factrix.metrics.quantile
 
     ---
 
-    Non-overlap $t$ vs NW HAC on overlapping spreads, DDOF convention.
+    Non-overlap $t$ vs Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) on overlapping spreads, DDOF convention.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 

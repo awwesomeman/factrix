@@ -20,10 +20,10 @@ created three structural problems:
    pretend to be a single metric, hiding the loop in `metadata`.
 2. **Conflicted with the identity-as-family contract** ([#160][i160]).
    `FactorProfile.identity` carries `forward_periods` precisely to make
-   horizon shopping explicit at the FDR layer; the in-metric horizon
+   horizon shopping explicit at the false discovery rate (FDR) layer; the in-metric horizon
    loop collapsed `k` horizons into one identity entry, defeating that
    defense.
-3. **Two BHY paths.** The IC variant ran its own internal BHY
+3. **Two Benjamini-Yekutieli (BHY) paths.** The information coefficient (IC) variant ran its own internal BHY
    adjustment and wrote `metadata["p_adjusted_bhy"]`. The family-function
    layer ([`multi_factor.bhy`][bhy] with `expand_over=["forward_periods"]`)
    is the single source of truth for FDR control across horizons.

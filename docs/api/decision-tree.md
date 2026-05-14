@@ -57,10 +57,10 @@ The keyword is reused across screening functions but the **what is
 expanded** differs. Confusing the three semantics is the most common
 multiplicity-correction bug in user code.
 
-| Function | `expand_over` meaning | What ends up in the FDR family |
+| Function | `expand_over` meaning | What ends up in the false discovery rate (FDR) family |
 |---|---|---|
 | `bhy(profiles, expand_over=["regime_id"])` | Add the listed context keys as hypothesis dimensions | `factor_id × forward_periods × regime_id` — every (factor, horizon, regime) row is an independent hypothesis |
-| `partial_conjunction(profiles, k_of_m, expand_over=["regime_id"])` | Group rows by everything *except* the listed keys; require k-of-m passes within each group | Each non-expanded group yields one partial-conjunction p; BHY then runs over the resulting reduced family |
+| `partial_conjunction(profiles, k_of_m, expand_over=["regime_id"])` | Group rows by everything *except* the listed keys; require k-of-m passes within each group | Each non-expanded group yields one partial-conjunction p; Benjamini-Yekutieli (BHY) then runs over the resulting reduced family |
 | `by_estimator` *(planned)* | Does not accept `expand_over` | — |
 
 Two practical rules:

@@ -25,7 +25,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 
 A single dispatcher carrying a single built-in cross-slice test would silently over-claim. The appropriate test depends on the metric family:
 
-- **IC, Fama-MacBeth λ** — mean-zero per-date series → joint NW HAC over the per-date K-vector panel is the natural Wald object (`slice_pairwise_test` default).
+- **Information coefficient (IC), Fama-MacBeth λ** — mean-zero per-date series → joint Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over the per-date K-vector panel is the natural Wald object (`slice_pairwise_test` default).
 - **Sharpe** — variance-stabilised difference (Memmel 2003 / Ledoit-Wolf) is needed; not currently exposed as a slice function.
 - **CAAR** — per-slice event clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
 - **Turnover, hit_rate, monotonicity ρ** — for `hit_rate` the `per_date_series` path applies; for the rest cross-slice differences remain descriptive.
@@ -109,4 +109,4 @@ print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
 
 - [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
 - [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference function pair.
-- [Batch screening with BHY](batch-screening.md) — FDR control across factor candidates rather than slices.
+- [Batch screening with Benjamini-Yekutieli (BHY)](batch-screening.md) — false discovery rate (FDR) control across factor candidates rather than slices.

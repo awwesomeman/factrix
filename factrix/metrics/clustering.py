@@ -40,7 +40,7 @@ def clustering_diagnostic(
     r"""Event clustering Herfindahl index on event dates.
 
     Computes $\mathrm{HHI} = \sum_d s_d^2$ where
-    $s_d = (\text{events on date } d) / (\text{total events})$. HHI
+    $s_d = (\text{events on date } d) / (\text{total events})$. Herfindahl-Hirschman index (HHI)
     ranges from $1/D$ (uniform) to $1.0$ (all events on one date).
 
     High HHI → events concentrate in few dates → cross-event independence

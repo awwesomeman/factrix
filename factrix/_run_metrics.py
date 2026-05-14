@@ -294,7 +294,7 @@ def run_metrics(
 
     Parallel to :func:`factrix.evaluate`: both consume ``(panel, cfg)``,
     each produces a disjoint result type. ``run_metrics`` collects the
-    cell's :mod:`factrix.metrics` surface — IC family from one shared
+    cell's :mod:`factrix.metrics` surface — information coefficient (IC) family from one shared
     ``compute_ic`` (cache), every other panel-direct metric called
     directly — and returns a :class:`MetricsBundle` keyed by metric name.
 

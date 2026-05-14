@@ -12,8 +12,8 @@ Reverse index — match your situation to the likely landing page:
 
 | You have | Start at |
 |---|---|
-| Continuous factor, ~30+ dates × ~10+ assets, canonical IC test | [`ic`](ic.md) (and `ic_newey_west` for HAC) |
-| Continuous factor, per-date OLS slope test | [`fama_macbeth`](fama_macbeth.md) |
+| Continuous factor, ~30+ dates × ~10+ assets, canonical information coefficient (IC) test | [`ic`](ic.md) (and `ic_newey_west` for heteroskedasticity-and-autocorrelation-consistent (HAC)) |
+| Continuous factor, per-date ordinary least squares (OLS) slope test | [`fama_macbeth`](fama_macbeth.md) |
 | Long-short spread sized by factor quintiles | [`quantile`](quantile.md), [`monotonicity`](monotonicity.md) |
 | Sparse `{0, R}` event signal (canonical `±1`), CAAR / abnormal-return test | [`caar`](caar.md), [`event_quality`](event_quality.md) |
 | Sparse signal, suspect event-induced variance | `caar.bmp_test` (check [`clustering`](clustering.md) first) |

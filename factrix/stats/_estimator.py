@@ -8,7 +8,7 @@ math.
 ``HACEstimator(Estimator)`` (#163): adds ``compute(series, *,
 forward_periods) -> InferenceResult`` for cell-internal estimator swap.
 Cell procedures dispatch to ``cfg.estimator.compute(...)`` instead of
-hardcoding the NW HAC path.
+hardcoding the Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) path.
 
 ``MomentEstimator(Estimator)`` (#191): symmetric third layer for over-
 identifying-restriction tests on a moment-condition system. Adds
@@ -91,8 +91,8 @@ class InferenceResult:
     ``stat_name`` / ``p_name`` let the procedure key ``stats`` /
     ``metadata`` with the estimator-emitted ``StatCode`` (matching
     ``Estimator.emits_for``); ``metadata`` is a flat ``str -> Any``
-    mapping that the procedure mirrors under both keys (NW emits
-    ``{"nw_lags": k}``; HH emits ``{"kernel": "rectangular",
+    mapping that the procedure mirrors under both keys (Newey-West (NW) emits
+    ``{"nw_lags": k}``; Hansen-Hodrick (HH) emits ``{"kernel": "rectangular",
     "variance_clamped": bool}``).
 
     Moment-condition estimators have a parallel return shape
@@ -142,7 +142,7 @@ class HACEstimator(Estimator, Protocol):
     unreliable; estimator surfaces it via ``warnings`` rather than
     silently degrading) and ``compute(series, *, forward_periods)``
     returning an ``InferenceResult``. Cell procedures dispatch to this
-    instead of hardcoding the NW HAC path.
+    instead of hardcoding the Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) path.
 
     Moment-condition estimators (``MomentEstimator`` below) and slice-
     test estimators (cluster Wald, block bootstrap; #153 / #176) take
@@ -172,13 +172,13 @@ class HACEstimator(Estimator, Protocol):
         """Run the inference test on ``series``.
 
         Args:
-            series: 1-D HAC-target series (per-period IC, per-date
+            series: 1-D HAC-target series (per-period information coefficient (IC), per-date
                 Fama-MacBeth λ, dense CAAR, etc.). The cell procedure
                 owns extraction from raw panel; the estimator only
                 sees the test target.
             forward_periods: Overlap horizon of the series (MA(h-1)
-                structure). NW uses it to floor the Bartlett bandwidth;
-                HH requires it for the rectangular-kernel lag count.
+                structure). Newey-West (NW) uses it to floor the Bartlett bandwidth;
+                Hansen-Hodrick (HH) requires it for the rectangular-kernel lag count.
 
         Returns:
             ``InferenceResult`` with ``stat`` / ``p`` and the
@@ -191,7 +191,7 @@ class HACEstimator(Estimator, Protocol):
 @runtime_checkable
 class MomentEstimator(Estimator, Protocol):
     """``Estimator`` that runs an over-identifying-restriction test on
-    a moment-condition system (e.g. Hansen 1982 GMM J-test).
+    a moment-condition system (e.g. Hansen 1982 generalized method of moments (GMM) J-test).
 
     Symmetric to ``HACEstimator``: same selection-base contract, but
     ``compute`` consumes a multivariate moment matrix rather than a

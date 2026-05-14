@@ -1,4 +1,4 @@
-"""Generalized Method of Moments (Hansen 1982) two-step efficient GMM.
+"""Generalized method of moments (GMM, Hansen 1982) two-step efficient GMM.
 
 Provides the J-statistic for over-identifying-restriction tests on a
 moment-condition system. Hand-rolled to keep the dep surface lean,

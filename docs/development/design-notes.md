@@ -22,7 +22,7 @@ The seven sections below correspond to the seven structural
 ## 1. No composite factor score
 
 factrix evaluates each factor through a list of separately reported
-metrics — IC, FM-λ, quantile spread, monotonicity, OOS decay,
+metrics — information coefficient (IC), FM-λ, quantile spread, monotonicity, out-of-sample (OOS) decay,
 turnover, etc. — and renders the cell primary p-value. It deliberately
 does **not** collapse these into a single weighted score.
 
@@ -123,11 +123,11 @@ market and comparing the returned `FactorProfile`s.
 ## 5. BHY rather than Bayesian multiple-testing
 
 factrix's [`multi_factor.bhy`](../api/bhy.md) runs Benjamini-Yekutieli
-([Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]) FDR control
+([Benjamini-Yekutieli 2001][benjamini-yekutieli-2001]) false discovery rate (FDR) control
 with the `c(m) = Σ 1/i` dependence correction. It does not implement
 Bayesian alternatives such as
 [Harvey-Liu 2020][harvey-liu-2020] "Lucky Factors" or
-[Bryzgalova-Huang-Julliard 2023][barillas-shanken-2018] BMA SDF
+[Bryzgalova-Huang-Julliard 2023][barillas-shanken-2018] BMA stochastic discount factor (SDF)
 search.
 
 - BHY is a frequentist recipe with a deterministic threshold given
@@ -157,7 +157,7 @@ search.
 ## 6. Panel-aware FM rather than pooled OLS
 
 The `Individual × Continuous` cell with `Metric.FM` runs Fama-MacBeth
-([Fama-MacBeth 1973][fama-macbeth-1973]) with NW HAC at stage 2
+([Fama-MacBeth 1973][fama-macbeth-1973]) with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) at stage 2
 ([Newey-West 1987][newey-west-1987]), not pooled OLS with clustered
 SE.
 

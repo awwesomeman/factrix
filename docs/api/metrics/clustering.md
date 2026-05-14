@@ -18,7 +18,7 @@ title: factrix.metrics.clustering
 
     ---
 
-    Read `value` (HHI on the event-date histogram) and
+    Read `value` (Herfindahl-Hirschman index (HHI) on the event-date histogram) and
     `metadata["effective_n_dates"]` $= 1 / \mathrm{HHI}$. High HHI →
     events concentrate in few dates → cross-event independence under
     `caar`'s $t$-test is violated and the statistic may be inflated.

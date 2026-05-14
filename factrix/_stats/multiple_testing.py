@@ -1,7 +1,7 @@
 """Family-wise error rate (FWER) adjustments — Holm / Bonferroni / Romano-Wolf.
 
 Sister module to public ``factrix.stats.multiple_testing`` (Benjamini-
-Yekutieli FDR control). The procedures here control the *family-wise*
+Yekutieli false discovery rate (FDR) control). The procedures here control the *family-wise*
 error rate — probability of at least one false rejection — and target
 the slice-test setting where a small number of hypotheses
 (per-slice contrasts vs a baseline) are tested simultaneously.
@@ -15,7 +15,7 @@ the slice-test setting where a small number of hypotheses
   step-down that exploits the *joint* dependence structure of the
   test statistics. Needs the user to supply a bootstrap distribution
   (under H0); in return delivers tight FWER control even when tests
-  share a common shock (universe pairwise IC, factor-portfolio
+  share a common shock (universe pairwise information coefficient (IC), factor-portfolio
   contrasts, etc.).
 
 The choice between Holm and Romano-Wolf is the caller's: time-disjoint
@@ -51,7 +51,7 @@ def _validate_p(p_values: Sequence[float] | npt.ArrayLike) -> np.ndarray:
 def bonferroni(p_values: Sequence[float] | npt.ArrayLike) -> list[float]:
     """Bonferroni-adjusted p-values: ``p_adj_k = min(m * p_k, 1)``.
 
-    Single-step, strong FWER control under arbitrary dependence.
+    Single-step, strong family-wise error rate (FWER) control under arbitrary dependence.
     Uniformly the most conservative of the three procedures here;
     used as a baseline / sanity-check sibling to Holm.
     """
@@ -71,7 +71,7 @@ def holm_step_down(p_values: Sequence[float] | npt.ArrayLike) -> list[float]:
     larger adjusted p in rank order — required so the rejection set
     ``{k : p_adj_k ≤ α}`` is closed downward in significance.
 
-    Strong FWER control under arbitrary dependence; uniformly
+    Strong family-wise error rate (FWER) control under arbitrary dependence; uniformly
     dominates Bonferroni (each adjusted p is ≤ Bonferroni's).
     """
     p = _validate_p(p_values)

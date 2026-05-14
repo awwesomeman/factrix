@@ -12,7 +12,7 @@ The three enums:
 - **`WarningCode`** — risk flags surfaced by `profile.diagnose()`.
   Does **not** affect `primary_p`;
   the user decides whether to pre-filter on warnings before
-  multi-factor BHY.
+  multi-factor Benjamini-Yekutieli (BHY).
 - **`InfoCode`** — information-severity diagnose annotations (e.g.
   scope-axis collapsed under `Mode = TIMESERIES`).
 - **`StatCode`** — canonical names for the scalar statistics that

@@ -33,7 +33,7 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 ## Aggregation order
 
 PANEL procedures split into **cross-section first** (`cs-first` —
-`individual_continuous` IC / FM, sparse CAAR) and **time-series first**
+`individual_continuous` information coefficient (IC) / FM, sparse CAAR) and **time-series first**
 (`ts-first` — `common_continuous`, `common_sparse`). The order determines
 small-sample failure modes and the N=1 collapse behaviour: `common_continuous`
 at N=1 degenerates to a single-series β test (null: β=0, not E[β]=0), which is

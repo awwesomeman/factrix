@@ -6,11 +6,11 @@ base factors? Standard factor research tool (Barillas & Shanken 2017).
 ``greedy_forward_selection``: given a pool of PASS factors, iteratively
 select those with incremental alpha (Stage 2).
 
-Both use factor return time series (quantile spread series), not IC.
+Both use factor return time series (quantile spread series), not information coefficient (IC).
 
 Notes:
     **Pipeline.** Regression of factor return time-series on
-    base-factor returns (time-series step); NW HAC t on alpha. The
+    base-factor returns (time-series step); Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t on alpha. The
     greedy stepwise selection variant inflates t-stats and is not for
     inference.
 
@@ -138,11 +138,11 @@ def spanning_alpha(
         MetricOutput with value=alpha, t_stat, significance.
 
     Notes:
-        Run OLS ``r_t = alpha + sum_k beta_k * base_k(t) + eps_t`` on
+        Run ordinary least squares (OLS) ``r_t = alpha + sum_k beta_k * base_k(t) + eps_t`` on
         common-date intersected spread series. Test ``H0: alpha = 0`` via
         ``t = alpha / SE(alpha)`` from the OLS covariance.
 
-        factrix uses plain OLS standard errors here rather than NW HAC:
+        factrix uses plain OLS standard errors here rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC):
         the inputs are non-overlap quantile spreads (single-period stride)
         so MA(h-1) overlap is absent. Callers feeding HAC-relevant
         overlapping series should either pre-resample or wrap the call

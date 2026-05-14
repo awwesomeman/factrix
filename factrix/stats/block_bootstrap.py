@@ -40,7 +40,7 @@ class BlockBootstrap:
 
     Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` —
     consistent with the slice-test functions that produce paired per-date
-    diffs (slice IC, slice FM-λ, …).
+    diffs (slice information coefficient (IC), slice FM-λ, …).
 
     Constructor parameters are stored on the instance and read by the
     slice-test function procedure when it calls

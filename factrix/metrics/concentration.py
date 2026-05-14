@@ -1,7 +1,7 @@
 """Top-bucket concentration analysis for cross-sectional panels.
 
 Measures whether top-bucket (long-leg) alpha is concentrated in a few
-stocks or broadly distributed, using HHI (Herfindahl-Hirschman Index)
+stocks or broadly distributed, using Herfindahl-Hirschman index (HHI)
 inverse.
 
 Notes:
@@ -52,7 +52,7 @@ def top_concentration(
     return_col: str = "forward_return",
     weight_by: ConcentrationWeight = "abs_factor",
 ) -> MetricOutput:
-    r"""Top-bucket concentration via HHI inverse.
+    r"""Top-bucket concentration via Herfindahl-Hirschman index (HHI) inverse.
 
     Per date, selects top ``q_top`` stocks by factor rank, computes
     HHI of their weights, and returns 1/HHI as the effective number of

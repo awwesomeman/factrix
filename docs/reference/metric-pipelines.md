@@ -11,7 +11,7 @@ title: Metric pipelines
 Cross-module index of every module under `factrix/metrics/`. Use this
 page to pick the existing aggregation pattern a new metric should
 match, or to mechanically check that a candidate metric satisfies the
-[NW HAC discipline](statistical-methods.md) the rest of the suite
+[Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) discipline](statistical-methods.md) the rest of the suite
 follows.
 
 The matrix lists **all** metric modules — both the metrics

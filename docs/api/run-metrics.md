@@ -18,7 +18,7 @@ types are disjoint by design.
 
 | Function | Returns | Use when |
 |---|---|---|
-| [`evaluate`](evaluate.md) | `FactorProfile` (primary p, drives FDR) | you want the single inferential decision for the cell |
+| [`evaluate`](evaluate.md) | `FactorProfile` (primary p, drives false discovery rate (FDR)) | you want the single inferential decision for the cell |
 | `run_metrics` | `MetricsBundle` (cell's descriptive surface) | you want every standalone metric the cell exposes for plotting / dashboards / cross-factor comparison |
 
 Both can be called on the same `(panel, cfg)`; neither is a
@@ -48,7 +48,7 @@ cfg.signal)` exposes for the cell, after three filters:
    `run_metrics` does not thread (per-row reason; surfaced on
    `bundle.skipped`).
 
-In v1 the IC family (`ic`, `ic_newey_west`, `ic_ir`) shares a single
+In v1 the information coefficient (IC) family (`ic`, `ic_newey_west`, `ic_ir`) shares a single
 `compute_ic(panel)` per call. Other stage-1 consumers
 (`caar`, `fama_macbeth`, `ts_beta`, `mfe_mae_summary`, plus series /
 spread consumers) live in the auto-discover exclusion set; the bundle's

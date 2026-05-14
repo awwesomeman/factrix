@@ -75,7 +75,7 @@ def multi_split_oos_decay(
     splits: list[tuple[float, float]] | None = None,
     survival_threshold: float = 0.5,
 ) -> MetricOutput:
-    """Multi-split OOS survival analysis with sign-flip detection.
+    """Multi-split out-of-sample (OOS) survival analysis with sign-flip detection.
 
     For each split point, divides the series into IS and OOS portions,
     computes ``|mean_OOS| / |mean_IS|`` (the survival ratio), and checks
@@ -123,7 +123,7 @@ def multi_split_oos_decay(
         - de Prado (2018): CPCV for robust train/test split.
 
     Examples:
-        Survival on a per-date IC series from
+        Survival on a per-date information coefficient (IC) series from
         :func:`~factrix.metrics.ic.compute_ic`:
 
         >>> import factrix as fx

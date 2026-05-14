@@ -24,14 +24,14 @@ title: factrix.metrics.ts_quantile
 
     ---
 
-    Linear OLS $\beta$ reports a single slope and fails on
+    Linear ordinary least squares (OLS) $\beta$ reports a single slope and fails on
     U-shape / inverted-U / extreme-only signals. `ts_quantile_spread`
     aggregates the panel to a per-date $(\_f, \_r)$ series, buckets
     `_f` into $K$ historical quantiles, and reads the conditional
     mean return per bucket — preserves whatever shape the relationship
     has.
 
--   __Top-bottom spread significance with NW HAC__
+-   __Top-bottom spread significance with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)__
 
     ---
 

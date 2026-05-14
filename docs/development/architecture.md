@@ -10,8 +10,8 @@ Current-state snapshot of the public API surface and internal layout.
 
 **factrix is a Factor Signal Validator, not a backtest engine.**
 
-The library produces a single `primary_p` per factor cell from a NW HAC-corrected
-canonical procedure (IC / FM-λ / CAAR / TS-β). Realistic execution simulation,
+The library produces a single `primary_p` per factor cell from a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
+canonical procedure (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -58,7 +58,7 @@ Three entry points, all in `factrix.__init__`:
 |--------|---------|
 | `fx.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
 | `fx.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
-| `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Yekutieli FDR correction; one declared family per call (optionally split per-bucket via `expand_over`) |
+| `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 
@@ -174,7 +174,7 @@ in `stats: Mapping[StatCode, float]` keyed by enum, not by string.
 Both modes produce real `primary_p` values — neither is degraded.
 
 `(INDIVIDUAL, CONTINUOUS, *) × N=1` is mathematically undefined (no
-cross-sectional dispersion → IC and per-date OLS undefined). `_evaluate`
+cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). `_evaluate`
 raises `ModeAxisError` with `suggested_fix=AnalysisConfig.common_continuous(...)`
 drawn from `_FALLBACK_MAP` in `factrix/_analysis_config.py`. Explicit
 user-correctable, never silent rewrite.
@@ -437,7 +437,7 @@ sparse `{0, R}` schema (`R` is unrestricted; `{0, 1}` for a pure
 event flag is the simplest form) and replaces the continuous
 regressor. Factor magnitudes are **preserved** in
 the OLS (no `.sign()` coercion at this layer — distinct from the
-`individual_sparse` PANEL pipeline). ADF persistence diagnostic is skipped
+`individual_sparse` PANEL pipeline). Augmented Dickey-Fuller (ADF) persistence diagnostic is skipped
 per I6 (sparse regressors are not unit-root candidates).
 
 Failure modes:
@@ -551,7 +551,7 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
   dilutes the per-rank threshold `q × k / N`.
 - Cross-family aggregation (horizon-shopping correction) remains the
   user's responsibility — see [Guides § Batch screening (BHY)](../guides/batch-screening.md)
-  for the FWER-then-BHY recipe.
+  for the family-wise error rate (FWER)-then-BHY recipe.
 
 ---
 
@@ -580,7 +580,7 @@ Everything else. Specifically:
   (non-linearity, asymmetry, decomposition, regime split). Example precedent:
   `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
   supplement the registered CAAR procedure for `(INDIVIDUAL, SPARSE, None, PANEL)`.
-- **Descriptive diagnostic without a formal H₀** (concentration HHI, tradability, OOS decay).
+- **Descriptive diagnostic without a formal H₀** (concentration Herfindahl-Hirschman index (HHI), tradability, out-of-sample (OOS) decay).
 - **Multi-factor relationship** outside the single-factor inference frame (`spanning.py`).
 
 ### Standalone metric contract

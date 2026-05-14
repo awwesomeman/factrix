@@ -185,9 +185,11 @@ class StatCode(StrEnum):
     ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
     Currently shipping: ``(T_NW, P_NW)`` for Newey-West,
     ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(J_GMM, P_GMM)`` for
-    Hansen (1982) GMM J-test (over-identification is χ², not t, so
-    GMM emits J rather than T), ``(WALD_NWCL, P_WALD_NWCL)`` for NW
-    HAC + one-way cluster on the slice grouping, and ``(WALD_TWOWAY,
+    Hansen (1982) generalized method of moments (GMM) J-test
+    (over-identification is χ², not t, so GMM emits J rather than T),
+    ``(WALD_NWCL, P_WALD_NWCL)`` for Newey-West (NW)
+    heteroskedasticity-and-autocorrelation-consistent (HAC) + one-way
+    cluster on the slice grouping, and ``(WALD_TWOWAY,
     P_WALD_TWOWAY)`` for two-way cluster on (date, asset) (slice-test
     functions, #153 / #176). The Wald pairs follow the same
     ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,

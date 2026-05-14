@@ -48,7 +48,7 @@ axis, not the panel layout itself:
 
 ### metric (only for `INDIVIDUAL × CONTINUOUS`)
 
-- **`IC`** (default) — rank-based predictive ordering: Spearman ρ → NW HAC t-test.
+- **`IC`** (default) — rank-based predictive ordering: Spearman ρ → Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-test.
 - **`FM`** — unit-of-exposure premium: Fama-MacBeth λ → NW HAC t-test.
 
 Choose by research question, not data shape:
@@ -83,8 +83,8 @@ literature behind it.
 
 | Factory | Run by `evaluate()` | Procedure | Literature |
 |---------|---------------------|-----------|------------|
-| `individual_continuous(metric=IC)` | [`ic`][factrix.metrics.ic.ic] | per-date Spearman ρ → NW HAC t on E[IC] | [Grinold 1989][grinold-1989]; [Newey-West 1987][newey-west-1987] |
-| `individual_continuous(metric=FM)` | [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | per-date OLS λₜ → NW HAC t on E[λ] | [Fama-MacBeth 1973][fama-macbeth-1973] |
+| `individual_continuous(metric=IC)` | [`ic`][factrix.metrics.ic.ic] | per-date Spearman ρ → NW HAC t on E[information coefficient (IC)] | [Grinold 1989][grinold-1989]; [Newey-West 1987][newey-west-1987] |
+| `individual_continuous(metric=FM)` | [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | per-date ordinary least squares (OLS) λₜ → NW HAC t on E[λ] | [Fama-MacBeth 1973][fama-macbeth-1973] |
 | `individual_sparse()` | [`caar`][factrix.metrics.caar.caar] | per-event AR → CAAR → cross-event t | [Brown-Warner 1985][brown-warner-1985] |
 | `common_continuous()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β → cross-asset t on E[β] | [Black-Jensen-Scholes 1972][black-jensen-scholes-1972] |
 | `common_sparse()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β on dummy → cross-asset t | TS-β + event-study hybrid |

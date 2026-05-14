@@ -21,7 +21,7 @@ title: factrix.evaluate
     → one [`FactorProfile`][factrix.FactorProfile] carrying
     `primary_p` and the cell-specific statistics.
 
--   __Batch screening with FDR__
+-   __Batch screening with false discovery rate (FDR)__
 
     ---
 
@@ -34,7 +34,7 @@ title: factrix.evaluate
 
     ---
 
-    Swap the `AnalysisConfig` factory to compare IC rank-ordering
+    Swap the `AnalysisConfig` factory to compare information coefficient (IC) rank-ordering
     against Fama-MacBeth λ on the same panel, or individual-asset
     factors against broadcast macro factors. Return shape is identical
     across cells.
@@ -44,7 +44,7 @@ title: factrix.evaluate
     ---
 
     `Common × Continuous` with `N == 1` falls back to single-series
-    OLS with Newey-West HAC SE, so single-asset macro factors flow
+    ordinary least squares (OLS) with Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) SE, so single-asset macro factors flow
     through the same entry point without a parallel code path.
 
 </div>
@@ -94,7 +94,7 @@ Minimum-viable `AnalysisConfig` for each of the four cells. The
 
 === "Individual × Continuous (IC)"
 
-    Rank predictive ordering — Spearman IC + NW HAC.
+    Rank predictive ordering — Spearman IC + Newey-West (NW) HAC.
 
     ```python
     cfg = fx.AnalysisConfig.individual_continuous(

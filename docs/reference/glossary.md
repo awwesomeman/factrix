@@ -15,7 +15,7 @@ things in factrix vs Alphalens / Barra / standard panel-econometrics.
 
 Per-asset factor values: each `(date, asset_id)` pair has its own
 factor reading. The cross-section is the unit of inference (per-date
-IC, FM λ, CAAR per event date). This is the regime most equity factor
+information coefficient (IC), FM λ, CAAR per event date). This is the regime most equity factor
 research operates in.
 
 **Industry equivalents**:
@@ -102,7 +102,7 @@ cross-section / time-series. The econometrics literature usually says
 Single-asset series. Time axis is the only sample axis; cross-section
 is degenerate.
 
-**Industry equivalents**: time-series regression; single-asset OLS.
+**Industry equivalents**: time-series regression; single-asset ordinary least squares (OLS).
 Note that factrix `TIMESERIES` mode does **not** mean Alphalens'
 "time-series of cross-sectional means" (that is per-date aggregation
 of a `PANEL`); the two collide on the word *time-series* and disagree
@@ -187,7 +187,7 @@ calibrated; mismatched horizons induce IC decay (synthetic) and bias
 Sampling every `h`-th date so consecutive observations are
 independent under the `h`-period forecasting null. factrix's
 `Individual × Continuous` cell defaults to this for `ic` and `caar`;
-NW HAC is the alternative on the full overlapping series. See
+Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) is the alternative on the full overlapping series. See
 [Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns).
 
 ### `estimation_window`
@@ -213,7 +213,7 @@ dependence. See [Statistical methods](statistical-methods.md) and
 
 Step-up FDR-controlling procedure that allows arbitrary dependence
 between p-values (paying a `log(m)` factor versus the
-independent-or-PRDS Benjamini-Hochberg 1995 procedure). factrix's
+independent-or-positive regression dependence on a subset (PRDS) Benjamini-Hochberg 1995 procedure). factrix's
 default multiplicity-correction method because financial p-values are
 typically not independent.
 

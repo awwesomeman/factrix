@@ -1,8 +1,8 @@
 """Internal statistical toolkit — index of per-topic submodules.
 
 Public surface lives in ``factrix.stats`` (``Estimator`` / ``NeweyWest``
-/ ``HansenHodrick`` / ``StatCode`` / ``list_estimators`` / BHY
-multiple-testing / ``WarningCode``); this package holds the private
+/ ``HansenHodrick`` / ``StatCode`` / ``list_estimators`` /
+Benjamini-Yekutieli (BHY) multiple-testing / ``WarningCode``); this package holds the private
 primitives those façades and the procedure layer call into.
 
 **Submodules:**
@@ -11,13 +11,13 @@ primitives those façades and the procedure layer call into.
   ``auto_bartlett`` Newey-West bandwidth.
 - ``core``        — t-statistic, p-value (t / z), significance marker,
   and binomial test primitives. ``_p_value_from_t`` /
-  ``_significance_marker`` are shared with the HAC t-tests in ``hac``.
+  ``_significance_marker`` are shared with the heteroskedasticity-and-autocorrelation-consistent (HAC) t-tests in ``hac``.
 - ``hac``         — Newey-West (Bartlett) and Hansen-Hodrick
   (rectangular) HAC SE / t-test for a sample mean; shared
   ``_resolve_nw_lags`` bandwidth picker honouring the overlap horizon.
-- ``gmm``         — Hansen (1982) two-step efficient GMM J-statistic
+- ``gmm``         — Hansen (1982) two-step efficient generalized method of moments (GMM) J-statistic
   + Bartlett-kernel long-run covariance for multivariate moments.
-- ``ols``         — OLS slope-only (``_ols_nw_slope_t``) and full
+- ``ols``         — ordinary least squares (OLS) slope-only (``_ols_nw_slope_t``) and full
   multivariate (``_ols_nw_multivariate``) with Newey-West HAC
   covariance.
 - ``wald``        — Wald χ² test for linear restrictions on an

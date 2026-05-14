@@ -2,12 +2,12 @@
 title: Estimator alternatives
 ---
 
-How to swap the HAC inference path that drives `primary_p`, and why
+How to swap the heteroskedasticity-and-autocorrelation-consistent (HAC) inference path that drives `primary_p`, and why
 factrix's design keeps that swap study-scoped rather than per-call.
 
 ## The choice
 
-For HAC-on-mean cells (IC PANEL, FM PANEL, CAAR PANEL) you can choose
+For HAC-on-mean cells (information coefficient (IC) PANEL, FM PANEL, CAAR PANEL) you can choose
 which HAC standard-error path computes `primary_p`:
 
 | Estimator | When to pick |
@@ -62,10 +62,10 @@ factrix's design splits the difference:
    `evaluate(panel, cfg, estimator=...)` per-call kwarg by design.
 2. **Provenance lands in `profile.context["estimator"]`.** Audit-time
    review can see which estimator drove each profile; running the
-   same factor under both NW and HH produces two profiles whose
+   same factor under both Newey-West (NW) and Hansen-Hodrick (HH) produces two profiles whose
    `context` makes the difference visible (and downstream tools that
    detect "same identity, different context" can flag the A/B path).
-3. **BHY family-function FDR doesn't fan out on estimator.** Same
+3. **Benjamini-Yekutieli (BHY) family-function false discovery rate (FDR) doesn't fan out on estimator.** Same
    hypothesis under a different estimator is not a new hypothesis —
    `bhy([nw_profile, hh_profile])` with the same `factor_id` raises
    on duplicate identity rather than silently widening the family.
@@ -126,12 +126,12 @@ instances applicable to the cell.
 
 - **Per-factor estimator swap.** Permanently not opened — single-cfg
   decision frequency is the spec-search lock.
-- **Slope-axis HAC (TS β, TS Dummy).** Single-asset OLS regressions
+- **Slope-axis HAC (TS β, TS Dummy).** Single-asset ordinary least squares (OLS) regressions
   with NW HAC SE on the slope run a different math shape (`(y, x)
   → β, SE(β)`) than the series-mean `compute(series, *,
   forward_periods)` contract. A slope-axis sub-protocol is tracked
   for a future release.
-- **Multi-horizon GMM cell auto-dispatch.** The `GMM`
+- **Multi-horizon generalized method of moments (GMM) cell auto-dispatch.** The `GMM`
   `MomentEstimator` itself ships now (see below), but factrix does
   not yet auto-build the multi-horizon moment matrix from a raw
   forward-return panel. Users construct moments themselves and call

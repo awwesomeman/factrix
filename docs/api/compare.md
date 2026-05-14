@@ -7,7 +7,7 @@ title: factrix.compare
 Leaderboard renderer that stacks N artifacts side by side as a
 [polars `DataFrame`](https://docs.pola.rs/api/python/stable/reference/dataframe/index.html).
 Pure projection — no metric is recomputed; `Survivors.adj_p` is read
-straight through so BHY survivor tables keep their adjusted p-values
+straight through so Benjamini-Yekutieli (BHY) survivor tables keep their adjusted p-values
 without manual re-attach.
 
 ```python

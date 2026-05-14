@@ -13,7 +13,7 @@ This recipe uses `AnalysisConfig.individual_continuous(metric=Metric.IC)`
 — axes `(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC)`.
 
 Procedure: per-date Spearman ρ between factor and forward return,
-aggregated to a Newey-West HAC t-statistic on `E[IC]`. PANEL mode
+aggregated to a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-statistic on `E[IC]`. PANEL mode
 (`N ≥ 2`); `N = 1` raises [`ModeAxisError`][factrix.ModeAxisError]
 since there is no cross-section to rank within.
 
@@ -32,14 +32,14 @@ Literature: [Grinold (1989)](../reference/bibliography.md);
 
 Null hypothesis `E[IC] = 0` — the factor has no rank-based predictive
 ordering of forward returns across assets, on average across dates.
-Standard error is NW HAC over the per-date IC series.
+Standard error is NW HAC over the per-date information coefficient (IC) series.
 
 ## Output to read
 
 1. `profile.primary_p` — IC NW HAC p-value. For single-factor
    pre-registered analysis, compare against your nominal `α` directly;
    for N candidate factors, route through `multi_factor.bhy` to
-   control FDR.
+   control false discovery rate (FDR).
 2. `profile.stats[StatCode.MEAN]` — sign + magnitude of average IC
    (cell identity is on `profile.config.metric`; the StatCode is
    intentionally cell-agnostic — see #187).

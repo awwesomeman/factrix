@@ -42,11 +42,11 @@ contrasts, not a sidecar to a primary value.
 
 | Metric | Primary stat (`MetricOutput.stat`) | Primary `metadata` key | `value` |
 |---|---|---|---|
-| [`ic`][factrix.metrics.ic.ic] | NW HAC `t` on per-date IC series | `p_value` | mean(IC) |
+| [`ic`][factrix.metrics.ic.ic] | Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) `t` on per-date information coefficient (IC) series | `p_value` | mean(IC) |
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | NW HAC `t` (overlapping) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
 | [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
-| [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | clustered OLS `t` (or `None` if G < 3) | `p_value` | pooled β |
+| [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
 | [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
 | [`bmp_test`][factrix.metrics.caar.bmp_test] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
@@ -62,7 +62,7 @@ contrasts, not a sidecar to a primary value.
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n / n_top) |
-| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | none — descriptive | — | event-date HHI |
+| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
 | [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | none — descriptive | — | median(survival) |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
@@ -342,7 +342,7 @@ is the slope-`t` derived from the rank-based confidence interval.
 - *primary*: `p_value` — slope significance from the Theil-Sen CI.
 - *descriptive*: `n_periods`, `ci_low`, `ci_high`,
   `ci_excludes_zero`, `intercept`.
-- *descriptive* (conditional, ADF run): `adf_stat`, `adf_p`,
+- *descriptive* (conditional, augmented Dickey-Fuller (ADF) run): `adf_stat`, `adf_p`,
   `unit_root_suspected`.
 
 ### `ts_beta` (`factrix.metrics.ts_beta`)
@@ -441,7 +441,7 @@ sample, no events, degenerate signal, …). The fallback shape is:
 - `metadata["reason"]: str` names the short-circuit branch (e.g.
   `"insufficient_periods"`, `"no_events"`,
   `"not_applicable_discrete_signal"`, `"insufficient_clusters"`).
-- `metadata["p_value"] = 1.0` — conservative default so BHY treats
+- `metadata["p_value"] = 1.0` — conservative default so Benjamini-Yekutieli (BHY) treats
   short-circuited metrics as rejected rather than crashing.
 - Optional diagnostic keys naming what was missing or under-spec:
   `min_required`, `min_required_per_asset`, `min_required_per_regime`,

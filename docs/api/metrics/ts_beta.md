@@ -15,7 +15,7 @@ title: factrix.metrics.ts_beta
 <hr>
 
 !!! info "Timeseries-mode conventions"
-    Stage-1 per-asset OLS uses **plain SE**, not HAC — the dominant
+    Stage-1 per-asset ordinary least squares (OLS) uses **plain SE**, not heteroskedasticity-and-autocorrelation-consistent (HAC) — the dominant
     bias under a persistent predictor is Stambaugh coefficient bias,
     which HAC does not address. `FACTOR_ADF_P` is emitted on the input
     series; non-overlap resampling is **not** applied. See
@@ -76,7 +76,7 @@ title: factrix.metrics.ts_beta
 | Mean-$\beta$ significance across assets (Stage 2 of BJS)                | `ts_beta`                         |
 | Average explanatory power $\overline{R^2}$ across assets                | `mean_r_squared`                  |
 | Direction-agnostic sign agreement on per-asset $\beta$                  | `ts_beta_sign_consistency`        |
-| Rolling cross-asset mean $\beta$ series for trend / OOS pipes           | `compute_rolling_mean_beta`       |
+| Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `compute_rolling_mean_beta`       |
 | $N=1$ degenerate-case fallback used by Profile / Factor entry points    | `ts_beta_single_asset_fallback`   |
 
 ## Worked example — per-asset TS betas then cross-asset $t$
@@ -142,7 +142,7 @@ title: factrix.metrics.ts_beta
 
     ---
 
-    Stambaugh bias, plain stage-1 SE rationale, ADF persistence
+    Stambaugh bias, plain stage-1 SE rationale, augmented Dickey-Fuller (ADF) persistence
     discipline.
 
     [reference/ts-mode-conventions →](../../reference/ts-mode-conventions.md)

@@ -65,7 +65,7 @@ Derived quantities:
 - **Sparsity numerator**: `n_pairs / (n_periods * n_assets)`
 - **Raw envelope**: `n_periods * n_assets`
 - **Test-axis identification**: compare `n_obs` against the three
-  envelope axes — for IC / FM PANEL `n_obs == n_periods` (test axis is
+  envelope axes — for information coefficient (IC) / FM PANEL `n_obs == n_periods` (test axis is
   time); for COMMON PANEL the cross-asset test reports `n_obs == N`
   where `N` is the filtered cross-section that survived
   `compute_ts_betas`' `MIN_TS_OBS` filter.
@@ -75,7 +75,7 @@ Derived quantities:
 | Dispatch cell | `n_obs` is |
 |---------------|------------|
 | `(individual, continuous, ic, panel)` | number of dates contributing to the per-date IC series |
-| `(individual, continuous, fm, panel)` | number of dates with a valid OLS slope |
+| `(individual, continuous, fm, panel)` | number of dates with a valid ordinary least squares (OLS) slope |
 | `(individual, sparse, None, panel)` | densified panel-period count (unique dates in the panel) after CAAR event-date back-fill |
 | `(common, continuous, None, panel)` | number of assets entering the cross-asset t-test on `E[β]` |
 | `(common, sparse, None, panel)` | number of assets entering the cross-asset event-dummy t-test |
@@ -91,7 +91,7 @@ cell registrations cannot quietly drift the semantics:
    sample-length after procedure-internal trimming (winsorize /
    outlier drop / min-period filter), not before.
 2. **`n_obs` does not deduct effective DoF** — autocorrelation
-   adjustments (NW HAC effective n, overlapping-window inflation)
+   adjustments (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) effective n, overlapping-window inflation)
    live inside `stats` / `metadata` for the estimator that uses
    them, not in `n_obs`.
 3. **`n_pairs` is the first-stage observation count** — non-null
@@ -103,7 +103,7 @@ cell registrations cannot quietly drift the semantics:
 5. **`n_obs = 0` is a legal degenerate value**, not an exception —
    `primary_p` is `NaN` and the relevant `WarningCode` fires.
 6. **`n_obs` is paired with `primary_*`, not with secondary `stats`
-   entries** — e.g. ADF run on the factor surfaces its own sample
+   entries** — e.g. augmented Dickey-Fuller (ADF) run on the factor surfaces its own sample
    size inside `stats[FACTOR_ADF_*]` / `metadata[FACTOR_ADF_*]`.
 7. **MetricOutput sample-count is per-primitive, not per-cell** —
    `factrix.metrics.*` primitives carry their own `n_obs` (the count
@@ -143,7 +143,7 @@ will emit.
 | `InsufficientSampleError.actual_periods` | yes | — |
 | `multi_factor.bhy` family partition | — | — |
 
-BHY partitions on `(dispatch cell, forward horizon)` and runs step-up
+Benjamini-Yekutieli (BHY) partitions on `(dispatch cell, forward horizon)` and runs step-up
 on p-values — it does not read the sample axes.
 
 #### Why surface `n_obs` alongside `n_pairs` + envelope axes
@@ -199,7 +199,7 @@ the test produced.
 | IC / FM / CAAR PANEL | `T_NW`, `P_NW` | `{"nw_lags": <resolved bandwidth>}` |
 | `(common, continuous, None, panel)` | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | `{"lag_order": 0}` |
 | `(common, continuous, None, timeseries)` | `T_NW`, `P_NW`, `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | NW `nw_lags` + ADF `lag_order` |
-| `(*, sparse, None, timeseries)` | `T_NW`, `P_NW`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW `nw_lags` + Ljung-Box `lag_h` + HHI `n_bins` |
+| `(*, sparse, None, timeseries)` | `T_NW`, `P_NW`, `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P`, `EVENT_HHI_VALUE` | NW `nw_lags` + Ljung-Box `lag_h` + Herfindahl-Hirschman index (HHI) `n_bins` |
 | `(common, sparse, None, panel)` | (none — cross-asset t has no hyperparam) | — |
 
 `profile.diagnose()["metadata"]` serialises with `StatCode.value`
@@ -232,9 +232,9 @@ Each procedure-internal `StatCode` maps to one section of
 
 | `StatCode` | Method |
 |---|---|
-| `MEAN`, `T_NW`, `P_NW` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West HAC `t` on the cell primary series (IC mean / FM λ / CAAR / E[β] / β); convention selected by the procedure dispatched for `profile.config` |
-| `P_HH` | Reserved (#184) — Hansen-Hodrick rectangular-kernel HAC p-value |
-| `P_GMM` | Reserved — Hansen (1982) GMM J-test p-value |
+| `MEAN`, `T_NW`, `P_NW` | [HAC SE under overlapping returns](../reference/statistical-methods.md#1-hac-se-under-overlapping-returns) — Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) `t` on the cell primary series (IC mean / FM λ / CAAR / E[β] / β); convention selected by the procedure dispatched for `profile.config` |
+| `P_HH` | Reserved (#184) — Hansen-Hodrick (HH) rectangular-kernel HAC p-value |
+| `P_GMM` | Reserved — Hansen (1982) generalized method of moments (GMM) J-test p-value |
 | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | [Persistence diagnostics under near-unit-root predictors](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) — ADF τ statistic and unit-root p-value on the continuous factor |
 | `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Ljung-Box Q statistic and p-value on the TS-dummy single-asset residual |
 | `EVENT_HHI_VALUE` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Herfindahl concentration of event dates over the calendar grid |

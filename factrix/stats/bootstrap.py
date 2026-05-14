@@ -1,12 +1,12 @@
 """Stationary (Politis-Romano 1994) bootstrap for dependent time series.
 
-Parametric inference (standard t-test, Newey-West HAC) breaks down when
+Parametric inference (standard t-test, Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC)) breaks down when
 the sample is short relative to the dependence horizon or the marginal
 distribution is heavy-tailed / skewed. The stationary bootstrap
 resamples geometric-length blocks from the input series, preserving
 short-range dependence without assuming a specific parametric form —
 suitable for event-clustering situations, persistent macro factors, and
-non-normal IC distributions.
+non-normal information coefficient (IC) distributions.
 
 References:
     - [Politis & Romano (1994)][politis-romano-1994], "The Stationary

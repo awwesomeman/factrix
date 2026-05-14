@@ -106,7 +106,7 @@ def turnover(
         share one rank-vector endpoint (pair k and pair k+1 both involve
         ``rank @ t_{k·h}``), so the per-pair ρ's have weak positive
         dependence and the true SE is marginally larger. For publication
-        grade inference, use a HAC variance estimator.
+        grade inference, use a heteroskedasticity-and-autocorrelation-consistent (HAC) variance estimator.
 
     Notes:
         For each non-overlap pair $(t, t+h)$, compute

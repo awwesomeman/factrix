@@ -18,7 +18,7 @@ Three factor types each get a primary test fitted to their
 data-generating process:
 
 - **Cross-sectional factors** — Information Coefficient (IC) and
-  Fama-MacBeth (FM), both with Newey-West HAC standard errors and a
+  Fama-MacBeth (FM), both with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) standard errors and a
   Hansen-Hodrick lag floor for overlapping forward returns.
 - **Event factors** — Cumulative Average Abnormal Return (CAAR) on
   the dense event-time calendar, with NW HAC inference and an
@@ -66,7 +66,7 @@ Inside factrix the call graph is small. A factor panel plus an
 `AnalysisConfig` enters `evaluate()`, which routes to the registered
 procedure for the (scope, signal, metric, mode) cell, runs the
 primary test plus diagnostics, and returns a `FactorProfile`.
-Multiple profiles flow into `multi_factor.bhy()` for cross-test FDR
+Multiple profiles flow into `multi_factor.bhy()` for cross-test false discovery rate (FDR)
 control on the surviving subset.
 
 ```mermaid
@@ -108,7 +108,7 @@ first.
 | Regime detection methodology (HMM / threshold) | [hmmlearn](https://hmmlearn.readthedocs.io/), self-roll |
 | Structural break detection (Chow / Bai-Perron) | [ruptures](https://centre-borelli.github.io/ruptures-docs/) |
 | GARCH / wild-bootstrap SE | [arch](https://github.com/bashtage/arch) |
-| Persistent-predictor auto-correction (IVX / Stambaugh) | [arch](https://github.com/bashtage/arch), R `ivx` (factrix flags via ADF; does not auto-correct) |
+| Persistent-predictor auto-correction (IVX / Stambaugh) | [arch](https://github.com/bashtage/arch), R `ivx` (factrix flags via augmented Dickey-Fuller (ADF); does not auto-correct) |
 | Backtest / execution / slippage / margin | [vectorbt](https://github.com/polakowo/vectorbt), [bt](https://github.com/pmorissette/bt), [zipline-reloaded](https://github.com/stefan-jansen/zipline-reloaded), backtrader |
 | Intraday / HFT (tick-level) | dedicated tooling |
 | Cross-factor signal combiner | self-roll, scikit-learn |
@@ -184,7 +184,7 @@ pandas-bound performance.
   overlapping forward returns; alphalens applies a naive
   `scipy.stats.ttest_1samp` on the IC time series ([source](https://github.com/stefan-jansen/alphalens-reloaded)),
   which is biased when forward windows overlap.
-- Multiple-testing correction (BHY) is built into the screening
+- Multiple-testing correction (Benjamini-Yekutieli (BHY)) is built into the screening
   surface; alphalens has no batch-level FDR control by design.
 - Type-routed dispatch — alphalens is CS-only by design; factrix
   also covers event and common-factor hypotheses without the user

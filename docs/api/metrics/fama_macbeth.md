@@ -21,12 +21,12 @@ title: factrix.metrics.fama_macbeth
 
     ---
 
-    Stage 1 of Fama-MacBeth: per-date cross-sectional OLS slope
+    Stage 1 of Fama-MacBeth: per-date cross-sectional ordinary least squares (OLS) slope
     $\beta_t$ in $R_{i,t} = \alpha_t + \beta_t \cdot \text{Signal}_{i,t} + \varepsilon_{i,t}$.
     Pre-step for `fama_macbeth` and the descriptive
     `beta_sign_consistency` check.
 
--   __Mean-$\beta$ significance, NW HAC__
+-   __Mean-$\beta$ significance, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)__
 
     ---
 

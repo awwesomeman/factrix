@@ -1,14 +1,14 @@
 r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
-``compute_fm_betas``: per-date cross-sectional OLS → (date, beta) DataFrame.
+``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → (date, beta) DataFrame.
 ``fama_macbeth``: Newey-West t-test on the beta series.
 ``pooled_ols``: pooled OLS with clustered SE by date.
 ``beta_sign_consistency``: fraction of periods with correct beta sign.
 
 Notes:
     **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
-    (cross-section step) → time series of $\lambda$, then NW HAC $t$
+    (cross-section step) → time series of $\lambda$, then Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$
     on its mean; pooled OLS variant clusters SE by date.
 
 References:
@@ -80,7 +80,7 @@ def compute_fm_betas(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    r"""Per-date cross-sectional OLS: $R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon$.
+    r"""Per-date cross-sectional ordinary least squares (OLS): $R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon$.
 
     Args:
         df: Long panel with ``date, asset_id, factor, forward_return``.
@@ -96,7 +96,7 @@ def compute_fm_betas(
         Per date $t$, solve the cross-sectional OLS
         $R_{i,t} = \alpha_t + \beta_t \cdot \text{Signal}_{i,t} + \varepsilon_{i,t}$
         and emit the slope $\beta_t$. The output series feeds the
-        stage-2 NW HAC $t$-test in
+        stage-2 Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test in
         ``fama_macbeth``.
 
         factrix drops dates with fewer than 3 cross-sectional
@@ -169,14 +169,14 @@ def fama_macbeth(
 
     Args:
         beta_df: DataFrame with ``date, beta`` columns (from compute_fm_betas).
-        newey_west_lags: Number of NW lags. Defaults to $\lfloor T^{1/3} \rfloor$.
+        newey_west_lags: Number of Newey-West (NW) lags. Defaults to $\lfloor T^{1/3} \rfloor$.
         forward_periods: Overlap horizon of the regression's forward
             return. When set, the NW bandwidth is floored at
             ``forward_periods - 1`` so the kernel is consistent under
             the MA($h-1$) overlap structure of $h$-period returns.
         is_estimated_factor: Set True when the ``Signal_i`` column used by
             ``compute_fm_betas`` is itself an **estimated** quantity
-            (rolling OLS $\beta$ to another factor, PCA score,
+            (rolling ordinary least squares (OLS) $\beta$ to another factor, PCA score,
             ML-predicted score, residual from a first-stage regression).
             Shanken (1992) shows the naive FM SE ignores sampling error
             in the regressor, inflating $t$-stats. **Do NOT** set this
@@ -384,7 +384,7 @@ def pooled_ols(
     cluster_col: str = "date",
     two_way_cluster_col: str | None = None,
 ) -> MetricOutput:
-    r"""Pooled OLS with clustered SE — robustness check against FM.
+    r"""Pooled ordinary least squares (OLS) with clustered SE — robustness check against FM.
 
     Clustering on date alone catches contemporaneous cross-sectional
     dependence but misses asset-level persistence; on asset alone the
@@ -629,7 +629,7 @@ def beta_sign_consistency(
 ) -> MetricOutput:
     r"""Fraction of FM per-date $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
 
-    $\beta_t$ is the per-date OLS $\beta$ from ``compute_fm_betas``.
+    $\beta_t$ is the per-date ordinary least squares (OLS) $\beta$ from ``compute_fm_betas``.
     Range $[0, 1]$; $1.0$ = $\beta$ always has the expected sign across
     periods. Unlike ``ts_beta_sign_consistency`` (which symmetrizes via
     $\max(p, 1-p)$ where $p$ is the positive-sign fraction), this one is directional —

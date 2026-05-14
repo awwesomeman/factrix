@@ -4,7 +4,7 @@ title: Common continuous
 
 Metrics for the `Common × Continuous` cell — one time-series factor
 broadcast across `N` assets (a market-wide signal: VIX, USD index, oil,
-sentiment). Aggregation is **time-series first**: per-asset OLS $\beta$
+sentiment). Aggregation is **time-series first**: per-asset ordinary least squares (OLS) $\beta$
 over all dates, then a cross-asset $t$ on the mean of the per-asset
 betas.
 

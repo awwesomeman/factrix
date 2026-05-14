@@ -1,4 +1,4 @@
-"""``HansenHodrick`` HAC estimator — rectangular-kernel HAC SE on a series mean.
+"""``HansenHodrick`` heteroskedasticity-and-autocorrelation-consistent (HAC) estimator — rectangular-kernel HAC SE on a series mean.
 
 Names the Hansen-Hodrick (1980) overlapping-sample inference path
 emitted to ``profile.stats`` as ``StatCode.P_HH`` / ``StatCode.T_HH``.
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class HansenHodrick:
-    """Hansen-Hodrick (1980) HAC SE estimator → t-statistic → two-sided p-value.
+    """Hansen-Hodrick (HH) (1980) heteroskedasticity-and-autocorrelation-consistent (HAC) SE estimator → t-statistic → two-sided p-value.
 
     Rectangular-kernel HAC variance ``Var(mean) = (γ₀ + 2 Σ_{j=1..h-1}
     γⱼ) / n`` matched to the MA(h-1) overlap structure induced by
@@ -38,14 +38,14 @@ class HansenHodrick:
     ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`` in the result.
 
     Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` cells —
-    IC PANEL and FM PANEL. CAAR (SPARSE PANEL) is a mean t-test on the
+    information coefficient (IC) PANEL and FM PANEL. CAAR (SPARSE PANEL) is a mean t-test on the
     dense per-event-date series and is structurally HH-compatible, but
     is deferred: the v0.5 procedure had no HH side-emit there so the
     methodology has not been validated, and SPARSE-axis CAAR introduces
     a per-event-independence vs MA(h-1) interaction (event clustering
     inside a horizon window) that warrants its own pass. The
     PANEL-vs-TIMESERIES axis is not part of the protocol; TS β / TS
-    Dummy run NW HAC on an OLS slope (different math shape) and await
+    Dummy run Newey-West (NW) HAC on an ordinary least squares (OLS) slope (different math shape) and await
     a slope-axis sub-protocol.
 
     Pass an instance to ``AnalysisConfig`` to drive evaluate-time

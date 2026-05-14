@@ -18,7 +18,7 @@ title: factrix.metrics.concentration
 
     ---
 
-    `weight_by="abs_factor"` (default) — HHI on $|\text{factor}|$
+    `weight_by="abs_factor"` (default) — Herfindahl-Hirschman index (HHI) on $|\text{factor}|$
     inside the top-$q$ bucket. Answers "how concentrated is the
     *signal* itself in the long leg". Conservative; depends only on
     factor values, not on realised returns.

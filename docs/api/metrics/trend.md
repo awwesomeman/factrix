@@ -14,7 +14,7 @@ title: factrix.metrics.trend
 
 <div class="grid cards" markdown>
 
--   __Detect alpha decay / crowding on an IC series__
+-   __Detect alpha decay / crowding on an information coefficient (IC) series__
 
     ---
 
@@ -30,7 +30,7 @@ title: factrix.metrics.trend
 
     Median pairwise slope $\mathrm{median}\{(y_j - y_i)/(j - i): i <
     j\}$ has a 29.3 % breakdown point — absorbs IC outliers (e.g. COVID-
-    era spikes) that would dominate an OLS slope. The trade-off is the
+    era spikes) that would dominate an ordinary least squares (OLS) slope. The trade-off is the
     SE recovered from the rank-CI is approximate, not asymptotically
     exact.
 
@@ -39,7 +39,7 @@ title: factrix.metrics.trend
     ---
 
     `adf_threshold` (default 0.10, the Stock-Watson cutoff) drives an
-    ADF persistence diagnostic on the input series. Above the cutoff
+    augmented Dickey-Fuller (ADF) persistence diagnostic on the input series. Above the cutoff
     the slope null is rejected at inflated rates regardless of the
     true trend; the slope value is still returned but
     `metadata["unit_root_suspected"] = True` flags it for sceptical
@@ -104,7 +104,7 @@ title: factrix.metrics.trend
     ---
 
     Sibling series diagnostics on the same input shape — sign
-    significance and IS/OOS persistence.
+    significance and IS/out-of-sample (OOS) persistence.
 
     [api/metrics/hit_rate →](hit_rate.md)
 

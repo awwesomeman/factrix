@@ -97,7 +97,7 @@ for a runnable example.
 
 ---
 
-## `Survivors` — after BHY / partial conjunction / hierarchical FDR
+## `Survivors` — after Benjamini-Yekutieli (BHY) / partial conjunction / hierarchical FDR
 
 ```python
 survivors = fx.multi_factor.bhy(profiles, q=0.05)

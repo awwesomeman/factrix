@@ -56,6 +56,6 @@ def auto_bartlett(T: int) -> int:
     """Newey & West (1994) automatic Bartlett-kernel lag.
 
     ``floor(4 * (T/100) ** (2/9))``, with a minimum of 1 lag so the
-    HAC sum always includes the first autocovariance.
+    heteroskedasticity-and-autocorrelation-consistent (HAC) sum always includes the first autocovariance.
     """
     return max(1, int(4 * (T / 100) ** (2 / 9)))

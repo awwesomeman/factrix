@@ -2,7 +2,7 @@
 
 Notes:
     **Pipeline.** Per-date Spearman rank IC (cross-section step) → IC
-    time series, then non-overlapping cross-asset t or NW HAC t on its
+    time series, then non-overlapping cross-asset t or Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t on its
     mean; the regime variant slices the same pipeline.
 
     **Input.** DataFrame with ``date, asset_id, factor, forward_return``.
@@ -96,7 +96,7 @@ def compute_ic(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    r"""Per-date Spearman Rank IC.
+    r"""Per-date Spearman Rank information coefficient (IC).
 
     Args:
         df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
@@ -170,7 +170,7 @@ def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> MetricOutput:
-    r"""IC mean significance: is mean IC significantly different from zero?
+    r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
     Args:
         ic_df: Output of ``compute_ic()``.
@@ -185,7 +185,7 @@ def ic(
         computed on a non-overlapping subsample (every
         ``forward_periods``-th date). $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
 
-        factrix uses non-overlapping resampling rather than Newey-West HAC
+        factrix uses non-overlapping resampling rather than Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC)
         for the default ``ic`` test to avoid the lag floor implied by
         overlapping forward returns; the HAC route is offered separately
         as ``ic_newey_west`` for callers who prefer to keep every sample.
@@ -259,7 +259,7 @@ def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> MetricOutput:
-    r"""IC mean significance via Newey-West HAC $t$-test on the overlapping series.
+    r"""Information coefficient (IC) mean significance via Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test on the overlapping series.
 
     Sibling of ``ic()``: same null hypothesis ($H_0$: mean IC = 0), but
     keeps every observation and absorbs the autocorrelation induced by
@@ -340,7 +340,7 @@ def ic_ir(
 ) -> MetricOutput:
     r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
-    Signed ratio — positive when IC is consistently positive, negative
+    Signed ratio — positive when information coefficient (IC) is consistently positive, negative
     when consistently negative.  Analogous to a Sharpe ratio for the
     factor signal.
 
@@ -357,7 +357,7 @@ def ic_ir(
         $\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
         over the per-date IC series — a Sharpe-style ratio describing
         time-series stability of the signal. Reported as a descriptive
-        statistic; no inference is attached because the HAC-corrected
+        statistic; no inference is attached because the heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
         significance test on $\mathrm{mean}(\mathrm{IC})$ lives in ``ic``
         / ``ic_newey_west``.
 

@@ -21,7 +21,7 @@ The two functions answer **different statistical questions**:
 
 Both functions sit in the **View** class (per [#148](https://github.com/awwesomeman/factrix/issues/148)
 function classification): their headline output is a comparison test
-result. They do **not** participate in BHY family expansion — adjusted
+result. They do **not** participate in Benjamini-Yekutieli (BHY) family expansion — adjusted
 p is a within-slice-family closure, not a cell-level discovery
 commitment.
 
@@ -29,7 +29,7 @@ commitment.
 
 The metric callable's module must declare `per_date_series` (a
 top-level capability function returning a `(date, value)` long-form
-frame); IC, Fama-MacBeth, and hit_rate ship with this declaration.
+frame); information coefficient (IC), Fama-MacBeth, and hit_rate ship with this declaration.
 A metric without it raises `TypeError` at the function call site.
 
 See the docstring Examples blocks above for the canonical
@@ -39,7 +39,7 @@ with a `sector` label column).
 ## Date alignment is required
 
 Both functions join all slices on `date` and run inference on the
-intersected rows. Joint NW HAC over the (T, K) per-date metric panel
+intersected rows. Joint Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over the (T, K) per-date metric panel
 needs aligned rows so cross-slice covariance enters through the joint
 kernel. Slices with **disjoint date supports** (e.g. regimes split by
 time period) yield zero aligned rows and the functions raise `ValueError`.

@@ -126,7 +126,7 @@ title: factrix.metrics.event_horizon
 
     ---
 
-    Event-date HHI — the serial-correlation caveat above compounds
+    Event-date Herfindahl-Hirschman index (HHI) — the serial-correlation caveat above compounds
     with same-date clustering.
 
     [api/metrics/clustering →](clustering.md)

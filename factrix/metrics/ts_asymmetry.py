@@ -1,12 +1,12 @@
 """Long-side / short-side asymmetry test (issue #5).
 
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
-cells. OLS β reports a single slope and assumes the response is
+cells. Ordinary least squares (OLS) β reports a single slope and assumes the response is
 symmetric around zero — `β > 0` could be "rises more on positive
 factor" *or* "falls less on negative factor", and a strategy team
 needs to know which.
 
-Two methods, both fit by OLS with Newey-West HAC covariance and
+Two methods, both fit by OLS with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) covariance and
 tested by Wald χ² so cross-method p-values stay comparable and the
 overlapping-forward-return autocorrelation is handled the same way
 as `ts_beta_t_nw`. Welch t is intentionally avoided — its iid
@@ -74,7 +74,7 @@ def ts_asymmetry(
 
     - ``value`` = method-A magnitude ``β_long + β_short`` (0 under
       perfect symmetry; positive = long side stronger)
-    - ``stat``  = ``value`` / NW HAC SE
+    - ``stat``  = ``value`` / Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE
     - ``metadata["p_value"]`` = method-A Wald p (two-sided)
 
     Method B (Gate C passing) populates ``beta_pos`` / ``beta_neg`` /
@@ -100,7 +100,7 @@ def ts_asymmetry(
         factor variation).
 
     Notes:
-        Aggregate to per-date ``(_f, _r)`` then fit two NW-HAC OLS
+        Aggregate to per-date ``(_f, _r)`` then fit two NW-HAC ordinary least squares (OLS)
         specifications on the resulting time series::
 
             Method A: r_t = beta_long*I(f>0) + beta_short*I(f<0)

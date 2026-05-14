@@ -90,7 +90,7 @@ title: factrix.metrics.corrado
 
     The pooled-std denominator factrix uses diverges from the Corrado
     (1989) eq. (5) form when event-date clustering is present —
-    inspect HHI before reading $p$ at the size boundary.
+    inspect Herfindahl-Hirschman index (HHI) before reading $p$ at the size boundary.
 
     [api/metrics/clustering →](clustering.md)
 
