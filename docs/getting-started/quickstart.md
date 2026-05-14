@@ -100,6 +100,10 @@ The most common warnings:
 For the full enum and the trigger conditions for each `WarningCode`,
 `InfoCode`, and `StatCode`, see
 [Reference § Warning / info / stat codes](../reference/warning-codes.md).
+For exception classes (`InsufficientSampleError`, `ModeAxisError`,
+`UserInputError`, `ConfigError`, `MissingConfigError`, ...), their TL;DR
+catch pattern, and recovery via `suggested_fix`, see
+[Errors](../api/errors.md).
 
 `warnings` does **not** affect `primary_p` —
 it is a risk flag. The user decides whether to filter on warnings before
