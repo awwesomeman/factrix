@@ -47,7 +47,7 @@ def _newey_west_se(
         forward_periods: Overlap horizon of the input series. When set,
             enforces ``lags >= forward_periods - 1`` — the minimum
             consistent bandwidth for overlapping h-period returns
-            (Hansen-Hodrick 1980 MA(h-1) structure).
+            ([Hansen-Hodrick (1980)][hansen-hodrick-1980] MA(h-1) structure).
 
     Returns:
         HAC-adjusted standard error of the mean.
@@ -126,7 +126,7 @@ def _hansen_hodrick_se(
     values: np.ndarray,
     forward_periods: int,
 ) -> tuple[float, bool]:
-    """Hansen-Hodrick (1980) rectangular-kernel HAC SE for a sample mean.
+    """[Hansen-Hodrick (1980)][hansen-hodrick-1980] rectangular-kernel HAC SE for a sample mean.
 
     Closed-form variance under the textbook MA(h-1) overlap structure
     induced by h-period forward returns:
@@ -135,7 +135,7 @@ def _hansen_hodrick_se(
 
     Unlike the Bartlett kernel used by ``_newey_west_se``, weights are
     flat (1.0) inside ``j ≤ h-1`` and zero beyond. The estimator carries
-    no PSD guarantee (Andrews 1991 §3): on short / mildly anti-correlated
+    no PSD guarantee ([Andrews (1991)][andrews-1991] §3): on short / mildly anti-correlated
     samples the parenthesised sum can come out negative. Callers may map
     ``clamped=True`` to a degenerate-sample warning.
 

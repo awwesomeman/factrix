@@ -1,6 +1,6 @@
 """``HansenHodrick`` heteroskedasticity-and-autocorrelation-consistent (HAC) estimator — rectangular-kernel HAC SE on a series mean.
 
-Names the Hansen-Hodrick (1980) overlapping-sample inference path
+Names the [Hansen-Hodrick (1980)][hansen-hodrick-1980] overlapping-sample inference path
 emitted to ``profile.stats`` as ``StatCode.P_HH`` / ``StatCode.T_HH``.
 ``compute(series, *, forward_periods)`` delegates to
 :func:`factrix._stats._hansen_hodrick_t_test`.
@@ -9,7 +9,7 @@ emitted to ``profile.stats`` as ``StatCode.P_HH`` / ``StatCode.T_HH``.
 and HH collapses to the iid SE — ``compute`` still delegates to the
 primitive, which returns the iid result.
 ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`` surfaces when the
-rectangular-kernel sum comes out negative (Andrews 1991 §3).
+rectangular-kernel sum comes out negative ([Andrews (1991)][andrews-1991] §3).
 """
 
 from __future__ import annotations
@@ -28,11 +28,11 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class HansenHodrick:
-    """Hansen-Hodrick (HH) (1980) heteroskedasticity-and-autocorrelation-consistent (HAC) SE estimator → t-statistic → two-sided p-value.
+    """[Hansen-Hodrick (1980)][hansen-hodrick-1980] (HH) heteroskedasticity-and-autocorrelation-consistent (HAC) SE estimator → t-statistic → two-sided p-value.
 
     Rectangular-kernel HAC variance ``Var(mean) = (γ₀ + 2 Σ_{j=1..h-1}
     γⱼ) / n`` matched to the MA(h-1) overlap structure induced by
-    h-period forward returns. No PSD guarantee (Andrews 1991 §3): on
+    h-period forward returns. No PSD guarantee ([Andrews (1991)][andrews-1991] §3): on
     short / mildly anti-correlated samples the estimate can come out
     negative; ``compute`` clamps variance to 0 and surfaces
     ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`` in the result.

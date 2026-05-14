@@ -15,7 +15,7 @@ primitives those façades and the procedure layer call into.
 - ``hac``         — Newey-West (Bartlett) and Hansen-Hodrick
   (rectangular) HAC SE / t-test for a sample mean; shared
   ``_resolve_nw_lags`` bandwidth picker honouring the overlap horizon.
-- ``gmm``         — Hansen (1982) two-step efficient generalized method of moments (GMM) J-statistic
+- ``gmm``         — [Hansen (1982)][hansen-1982] two-step efficient generalized method of moments (GMM) J-statistic
   + Bartlett-kernel long-run covariance for multivariate moments.
 - ``ols``         — ordinary least squares (OLS) slope-only (``_ols_nw_slope_t``) and full
   multivariate (``_ols_nw_multivariate``) with Newey-West HAC
@@ -23,7 +23,7 @@ primitives those façades and the procedure layer call into.
 - ``wald``        — Wald χ² test for linear restrictions on an
   estimated coefficient vector.
 - ``unit_root``   — Augmented Dickey-Fuller (constant-only) test with
-  MacKinnon (1996) interpolated p-values.
+  [MacKinnon (1996)][mackinnon-1996] interpolated p-values.
 - ``diagnostics`` — Residual diagnostics (Ljung-Box portmanteau).
 
 BHY multiple-testing lives in ``factrix.stats.multiple_testing``; it

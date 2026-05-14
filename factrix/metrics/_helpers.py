@@ -109,10 +109,11 @@ def _sample_non_overlapping(
 
     Why: with h-period forward returns, consecutive dates' forward
     returns share h−1 bars of future data — the series has an MA(h−1)
-    structure (Hansen & Hodrick 1980). Sub-sampling at interval h
-    breaks this dependence at the cost of throwing away h−1 of every
-    h observations. This is the most conservative of the Richardson-
-    Stock (1989) remedies; ``_newey_west_t_test`` is the less-lossy
+    structure ([Hansen-Hodrick (1980)][hansen-hodrick-1980]). Sub-sampling at
+    interval h breaks this dependence at the cost of throwing away h−1 of
+    every h observations. This is the most conservative of the
+    [Richardson-Stock (1989)][richardson-stock-1989] remedies;
+    ``_newey_west_t_test`` is the less-lossy
     alternative (keeps all obs but corrects SE).
 
     Logs a WARNING at ``factrix.metrics`` when the sampled series
@@ -299,8 +300,9 @@ def _is_sparse_magnitude_weighted(
     Sparse procedures and ``compute_caar`` accept ``{0, 1}`` event
     indicators or ``{0, R}, R ∈ ℝ`` magnitude-weighted columns. Mixed
     signs with non-unit magnitudes (e.g. ``{-2.5, 0, +1.3}``) yield the
-    Sefcik-Thompson (1986) magnitude-weighted statistic rather than the
-    MacKinlay (1997) signed CAAR — a different estimator at finite
+    [Sefcik-Thompson (1986)][sefcik-thompson-1986] magnitude-weighted
+    statistic rather than the [MacKinlay (1997)][mackinlay-1997] signed
+    CAAR — a different estimator at finite
     samples when the negative- and positive-leg vols disagree.
     ``{-1, 0, +1}`` does not trigger (sign and weight semantics coincide
     numerically); all-non-negative columns do not trigger (no flip

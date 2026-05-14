@@ -83,7 +83,7 @@ def compute_mfe_mae(
     $\sqrt{W \cdot \sigma^2}$; comparing raw MFE across horizons or vol
     regimes conflates time-scale with signal strength. The z-scored
     versions are the apples-to-apples quantity for cross-setup
-    comparisons (Campbell-Lo-MacKinlay 1997 Ch 4 on horizon scaling of
+    comparisons ([Campbell-Lo-MacKinlay (1997)][campbell-lo-mackinlay-1997] Ch 4 on horizon scaling of
     order statistics).
 
     Args:
@@ -94,7 +94,7 @@ def compute_mfe_mae(
             σ (default 60).
         min_estimation_samples: Minimum non-degenerate prior bars
             required to produce a finite ``est_sigma``. Default 20
-            mirrors the BMP (Boehmer-Musumeci-Poulsen 1991) daily-σ
+            mirrors the BMP ([Boehmer-Musumeci-Poulsen (1991)][boehmer-musumeci-poulsen-1991]) daily-σ
             convention; weekly panels can drop to ~8-10. Below the
             threshold, ``mfe_z`` / ``mae_z`` report ``NaN``. Must be
             ≥2 (the std degrees-of-freedom floor).

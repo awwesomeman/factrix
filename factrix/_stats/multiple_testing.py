@@ -8,10 +8,10 @@ the slice-test setting where a small number of hypotheses
 
 - **Bonferroni** — single-step ``p_adj_k = min(m * p_k, 1)``. Controls
   FWER under any dependence; uniformly the most conservative.
-- **Holm step-down** (Holm 1979) — uniformly dominates Bonferroni under
+- **Holm step-down** ([Holm (1979)][holm-1979]) — uniformly dominates Bonferroni under
   the same dependence assumptions; gains power by sequentially
   rejecting ordered p-values.
-- **Romano-Wolf step-down** (Romano & Wolf 2005) — bootstrap-based
+- **Romano-Wolf step-down** ([Romano-Wolf (2005)][romano-wolf-2005]) — bootstrap-based
   step-down that exploits the *joint* dependence structure of the
   test statistics. Needs the user to supply a bootstrap distribution
   (under H0); in return delivers tight FWER control even when tests
@@ -63,7 +63,7 @@ def bonferroni(p_values: Sequence[float] | npt.ArrayLike) -> list[float]:
 
 
 def holm_step_down(p_values: Sequence[float] | npt.ArrayLike) -> list[float]:
-    """Holm (1979) step-down adjusted p-values.
+    """[Holm (1979)][holm-1979] step-down adjusted p-values.
 
     Order ``p_(1) ≤ p_(2) ≤ … ≤ p_(m)`` and set
     ``p_adj_(k) = max_{j ≤ k} (m - j + 1) * p_(j)``, clipped at 1.
@@ -94,7 +94,7 @@ def romano_wolf(
     *,
     one_sided: bool = False,
 ) -> list[float]:
-    """Romano-Wolf (2005) step-down adjusted p-values.
+    """[Romano-Wolf (2005)][romano-wolf-2005] step-down adjusted p-values.
 
     The step-down critical sequence is built from the *max* of the
     bootstrap distribution restricted to the not-yet-rejected

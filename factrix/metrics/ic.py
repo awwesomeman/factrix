@@ -270,12 +270,12 @@ def ic_newey_west(
         $t = \mathrm{mean}(\mathrm{IC}) / \mathrm{SE}_{\mathrm{NW}}(\mathrm{IC})$
         on the full overlapping IC series. Lag selection:
         $L = \max(\lfloor T^{1/3} \rfloor, h - 1)$ (with $h$ = ``forward_periods``)
-        — the Andrews (1991) Bartlett growth rate, floored against the
+        — the [Andrews (1991)][andrews-1991] Bartlett growth rate, floored against the
         Hansen-Hodrick MA($h-1$) overlap horizon so the kernel covers
         the induced dependence.
 
         factrix uses the Andrews fixed-rate rule rather than the
-        Newey-West (1994) data-adaptive bandwidth — simpler, deterministic
+        [Newey-West (1994)][newey-west-1994] data-adaptive bandwidth — simpler, deterministic
         across reruns, and adequate at the typical $T$ of factor research.
 
     References:

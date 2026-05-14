@@ -53,7 +53,7 @@ def ic_trend(
             primitive name stay three-point unified.
         adf_threshold: Augmented Dickey-Fuller (ADF) p-value above which the input is flagged as
             unit-root suspect. Default ``0.10`` matches the conventional
-            Stock-Watson (1988) cutoff: at p > 0.10 we cannot reject
+            [Stock-Watson (1988)][stock-watson-1988] cutoff: at p > 0.10 we cannot reject
             I(1), so ordinary least squares (OLS) / Theil-Sen on the series reject the slope null
             at inflated rates regardless of the true trend. When
             ``None``, the ADF check is skipped entirely and no

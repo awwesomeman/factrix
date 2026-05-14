@@ -7,7 +7,7 @@ Two flavours of turnover co-exist here, measuring different things:
   trading-fraction and should **not** be fed into ``breakeven_cost`` /
   ``net_spread``.
 - ``notional_turnover()`` — fraction of top-and-bottom quantile members
-  replaced per rebalance. Matches Novy-Marx & Velikov (2016) τ; this is
+  replaced per rebalance. Matches [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016] τ; this is
   the quantity that drives bps trading cost for an equal-weight Q1/Qn
   long-short portfolio.
 
@@ -229,8 +229,9 @@ def notional_turnover(
     incur cost are changes in top-quantile and bottom-quantile membership
     — reshuffling within the middle deciles triggers no rebalancing and
     should not be counted. This is the metric whose units are directly
-    compatible with ``breakeven_cost`` / ``net_spread``: Novy-Marx &
-    Velikov (2016) τ = fraction of portfolio value replaced per rebalance.
+    compatible with ``breakeven_cost`` / ``net_spread``:
+    [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016] τ = fraction of
+    portfolio value replaced per rebalance.
 
     Per-rebalance turnover is the mean of two one-sided overlap losses::
 
@@ -276,8 +277,8 @@ def notional_turnover(
         real portfolio would still book that liquidation cost.
 
     References:
-        Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their
-        Trading Costs."
+        [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016], "A Taxonomy of
+        Anomalies and Their Trading Costs."
 
     Examples:
         >>> import factrix as fx
@@ -431,7 +432,8 @@ def breakeven_cost(
         grows with mid-rank churn.
 
     References:
-        Novy-Marx & Velikov (2016), "A Taxonomy of Anomalies and Their Trading Costs."
+        [Novy-Marx-Velikov (2016)][novy-marx-velikov-2016], "A Taxonomy of
+        Anomalies and Their Trading Costs."
 
     Examples:
         >>> from factrix.metrics.tradability import breakeven_cost
@@ -520,8 +522,8 @@ def net_spread(
         the cost drag.
 
     References:
-        DeMiguel, Martin-Utrera, Nogales & Uppal (2020), "A
-        Transaction-Cost Perspective on the Multitude of Firm
+        [DeMiguel-Martin-Utrera-Nogales-Uppal (2020)][demiguel-martin-utrera-nogales-uppal-2020],
+        "A Transaction-Cost Perspective on the Multitude of Firm
         Characteristics." *Review of Financial Studies* 33(5).
 
     Examples:

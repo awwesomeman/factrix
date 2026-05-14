@@ -7,7 +7,7 @@ Two ``Estimator`` implementations targeting the slice-test setting
   consumes the stacked per-date metric panel. Emits
   ``StatCode.P_WALD_NWCL`` (paired with ``WALD_NWCL`` on the test
   statistic side).
-- ``WaldTwoWayCluster`` — Cameron-Gelbach-Miller (2011) two-way
+- ``WaldTwoWayCluster`` — [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] two-way
   cluster on (date, asset); consumes the raw asset-date panel.
   Emits ``StatCode.P_WALD_TWOWAY``. Interface ships this issue but
   no function consumes it until ``factor_decomposition`` lands
@@ -78,7 +78,7 @@ class WaldNWCluster:
 
 
 class WaldTwoWayCluster:
-    """Two-way cluster Wald χ² on (date, asset) — Cameron-Gelbach-Miller (2011).
+    """Two-way cluster Wald χ² on (date, asset) — [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011].
 
     Backs the raw asset-date panel inference path (factor × slice
     interaction with full panel SE). Numerics live in

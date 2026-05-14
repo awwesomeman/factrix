@@ -320,7 +320,7 @@ def quantile_spread_vw(
         realized.
 
     References:
-        Hou, Xue & Zhang (2020): ~65% of factors disappear under VW.
+        [Hou-Xue-Zhang (2020)][hou-xue-zhang-2020]: ~65% of factors disappear under VW.
 
     Examples:
         >>> import polars as pl

@@ -86,7 +86,7 @@ def compute_caar(
 
     Caveat on $\{-1, 0, +1\}$: it lands in the second row as a
     weight-$\pm 1$ case, which gives a magnitude-weighted CAAR, **not**
-    the textbook MacKinlay (1997) signed CAAR (the latter averages
+    the textbook [MacKinlay (1997)][mackinlay-1997] signed CAAR (the latter averages
     direction-flipped abnormal returns and is a different estimator at
     finite samples when the negative-leg vol differs from the positive-
     leg vol). If literature-standard signed CAAR is what you want,
@@ -121,12 +121,12 @@ def compute_caar(
         Magnitude of ``factor`` is preserved as a weight; only rows with
         ``factor == 0`` are dropped.
 
-        factrix follows the MacKinlay (1997) event-window vocabulary
+        factrix follows the [MacKinlay (1997)][mackinlay-1997] event-window vocabulary
         (factor as the event indicator / sign on the announcement date)
         but generalises ``signed_car`` to numeric factor magnitude. With
         a continuous ``factor`` column, the resulting CAAR is the
         per-event regression-slope statistic in the
-        Sefcik-Thompson (1986) lineage rather than the equal-weighted
+        [Sefcik-Thompson (1986)][sefcik-thompson-1986] lineage rather than the equal-weighted
         MacKinlay CAAR.
 
         When ``factor_col`` triggers ``_is_sparse_magnitude_weighted``
@@ -328,8 +328,9 @@ def bmp_test(
         forward_periods: Return horizon for vol scaling (default 5).
             When using price-derived daily vol, scales by
             ``1/sqrt(forward_periods)`` to match per-period forward_return.
-        kolari_pynnonen_adjust: When True, apply the Kolari-Pynnönen
-            (2010) adjustment for cross-sectional correlation of SAR:
+        kolari_pynnonen_adjust: When True, apply the
+            [Kolari-Pynnönen (2010)][kolari-pynnonen-2010] adjustment for
+            cross-sectional correlation of SAR:
             $z_{\mathrm{KP}} = z_{\mathrm{BMP}} \cdot \sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1) \cdot \hat r)}$
             where $\hat r$ is the ICC-style within-date correlation of
             SAR and
@@ -343,7 +344,8 @@ def bmp_test(
             per-event standardiser by $\sqrt{1 + 1/T_{\mathrm{est}}}$
             (with $T_{\mathrm{est}}$ = ``estimation_window``) to absorb
             the prediction-error variance of the mean-adjusted residual
-            forecast — the strict BMP (1991) denominator. Default is
+            forecast — the strict [Boehmer-Musumeci-Poulsen (1991)][boehmer-musumeci-poulsen-1991]
+            denominator. Default is
             False, preserving the prior factrix denominator (residual
             std only). Under mean-adjusted residuals + a single
             ``estimation_window`` the correction scales every SAR by

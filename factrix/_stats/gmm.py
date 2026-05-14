@@ -1,4 +1,4 @@
-"""Generalized method of moments (GMM, Hansen 1982) two-step efficient GMM.
+"""Generalized method of moments (GMM, [Hansen (1982)][hansen-1982]) two-step efficient GMM.
 
 Provides the J-statistic for over-identifying-restriction tests on a
 moment-condition system. Hand-rolled to keep the dep surface lean,
@@ -38,10 +38,10 @@ def _long_run_covariance(
     where Γ_j = (1/T) Σ_t (g_t - ḡ)(g_{t-j} - ḡ)' is the lag-j
     auto-covariance of the moment vector. Symmetrized via ``Γ_j + Γ_j'``
     so ``S`` is symmetric by construction; positive-semidefiniteness is
-    inherited from the Bartlett kernel (Newey-West 1987).
+    inherited from the Bartlett kernel ([Newey-West (1987)][newey-west-1987]).
 
-    Bandwidth defaults to the Newey-West (1987) ``floor(T^(1/3))``
-    fixed rule; Andrews (1991) data-driven bandwidth is the textbook
+    Bandwidth defaults to the [Newey-West (1987)][newey-west-1987] ``floor(T^(1/3))``
+    fixed rule; [Andrews (1991)][andrews-1991] data-driven bandwidth is the textbook
     GMM choice on high-dimensional or strongly persistent moment
     systems and may be added as an opt-in later.
 
@@ -76,7 +76,7 @@ def _two_step_gmm_j_stat(
     lags: int | None = None,
     max_iter: int = 2,
 ) -> tuple[float, int, int, bool]:
-    """Two-step efficient GMM J-statistic (Hansen 1982) under H₀: E[g] = 0.
+    """Two-step efficient GMM J-statistic ([Hansen (1982)][hansen-1982]) under H₀: E[g] = 0.
 
     For pure over-identification (``n_params = 0``) the parameter vector
     is empty and the test reduces to a Wald-style quadratic form on the

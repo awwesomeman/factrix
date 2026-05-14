@@ -191,7 +191,7 @@ class HACEstimator(Estimator, Protocol):
 @runtime_checkable
 class MomentEstimator(Estimator, Protocol):
     """``Estimator`` that runs an over-identifying-restriction test on
-    a moment-condition system (e.g. Hansen 1982 generalized method of moments (GMM) J-test).
+    a moment-condition system (e.g. [Hansen (1982)][hansen-1982] generalized method of moments (GMM) J-test).
 
     Symmetric to ``HACEstimator``: same selection-base contract, but
     ``compute`` consumes a multivariate moment matrix rather than a
