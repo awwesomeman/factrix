@@ -6,7 +6,7 @@ title: Concepts
 
 factrix evaluates factor **signal validity**, not portfolio
 performance — see
-[Guides § Standalone metrics — Scope](../guides/standalone-metrics.md#scope)
+[Guides § Standalone metrics — What factrix evaluates](../guides/standalone-metrics.md#what-factrix-evaluates)
 for the full boundary (what is in, what is downstream).
 
 Once the axes below are familiar, the

@@ -93,7 +93,7 @@ from peers that apply one uniform formula across factor types
 `warnings`, and the rest — see
 [Reading results](guides/reading-results.md).
 
-## 3. Scope boundaries
+## 3. Out of scope (use these libraries instead)
 
 What factrix deliberately does **not** do, and the canonical tool for
 each. This is a commitment, not a TODO. To expand factrix scope,

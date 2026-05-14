@@ -12,7 +12,7 @@ This guide covers the three things a user needs to wire them in:
 which metrics apply to a given cell, what input shape each one
 expects, and where they sit in a screening pipeline.
 
-## Scope
+## What factrix evaluates
 
 factrix evaluates **factor signal validity** — predictive power
 (IC, FM λ), robustness (NW HAC, BHY, regime stability), and event
@@ -21,6 +21,8 @@ performance: no Sharpe / drawdown / Sortino / Calmar / return
 attribution. Those metrics belong downstream of factor selection
 and live in dedicated backtest libraries (e.g.
 [`vectorbt`](https://vectorbt.dev/) or an internal framework).
+For the canonical out-of-scope list with peer-library pointers, see
+[Where factrix fits § 3](../where-factrix-fits.md#3-out-of-scope-use-these-libraries-instead).
 
 The closest crossover inside factrix is `ic_ir` — the information
 ratio of the per-date IC series. It is explicitly a *signal-quality*
