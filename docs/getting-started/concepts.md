@@ -94,6 +94,6 @@ neither is degraded.
 
 For the full sample-guard contract (PANEL/TIMESERIES tiers, behaviour
 per factory at each `n_assets` regime, special N = 1 paths) see
-[Guides § PANEL vs TIMESERIES](../guides/panel-timeseries.md).
+[Guides § Panel vs timeseries](../guides/panel-timeseries.md).
 For the consolidated `MIN_*` threshold values, see
 [Reference § Sample-size constants](../reference/metric-applicability.md#sample-size-constants).

@@ -1,5 +1,5 @@
 ---
-title: Choosing a Metric
+title: Information coefficient vs Fama-MacBeth
 ---
 
 This page is task-oriented: assume you already know factrix exists and you

@@ -176,7 +176,7 @@ derivation are documented in the **Dispatch lore** admonition above.
 
 <div class="grid cards" markdown>
 
--   __TIMESERIES-mode conventions__
+-   __Timeseries-mode conventions__
 
     ---
 
@@ -185,7 +185,7 @@ derivation are documented in the **Dispatch lore** admonition above.
 
     [reference/ts-mode-conventions →](../reference/ts-mode-conventions.md)
 
--   __PANEL vs TIMESERIES sample guard__
+-   __Panel vs timeseries sample guard__
 
     ---
 

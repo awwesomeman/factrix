@@ -1,5 +1,5 @@
 ---
-title: Batch Screening with BHY
+title: Batch screening with Benjamini-Hochberg-Yekutieli
 ---
 
 !!! abstract "Answers"

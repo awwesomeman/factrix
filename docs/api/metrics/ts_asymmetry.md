@@ -10,11 +10,11 @@ title: factrix.metrics.ts_asymmetry
 
 <hr>
 
-!!! info "TIMESERIES-mode conventions"
+!!! info "Timeseries-mode conventions"
     `FACTOR_ADF_P` persistence diagnostic, plain stage-1 SE rationale,
     and the `forward_periods` vs `signal_horizon` bias framing apply
     here as for the rest of the TS-mode family. See
-    [TIMESERIES-mode conventions](../../reference/ts-mode-conventions.md).
+    [Timeseries-mode conventions](../../reference/ts-mode-conventions.md).
 
 ## Use cases
 
@@ -128,7 +128,7 @@ title: factrix.metrics.ts_asymmetry
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 
--   __TIMESERIES-mode conventions__
+-   __Timeseries-mode conventions__
 
     ---
 

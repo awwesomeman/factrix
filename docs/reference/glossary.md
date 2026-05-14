@@ -105,7 +105,7 @@ Note that factrix `TIMESERIES` mode does **not** mean Alphalens'
 "time-series of cross-sectional means" (that is per-date aggregation
 of a `PANEL`); the two collide on the word *time-series* and disagree
 on what is aggregated. See
-[TIMESERIES-mode conventions](ts-mode-conventions.md) for the
+[Timeseries-mode conventions](ts-mode-conventions.md) for the
 specific contracts that apply when factrix routes here.
 
 ## Other terms
@@ -178,7 +178,7 @@ is realised. Aligning `AnalysisConfig.forward_periods` with
 `signal_horizon` is the regime where the synthetic IC / drift is
 calibrated; mismatched horizons induce IC decay (synthetic) and bias
 (in TIMESERIES mode — see
-[TIMESERIES-mode conventions § Non-overlap](ts-mode-conventions.md#non-overlap-convention--forward_periods-vs-signal_horizon)).
+[Timeseries-mode conventions § Non-overlap](ts-mode-conventions.md#non-overlap-convention--forward_periods-vs-signal_horizon)).
 
 ### `non-overlapping` returns
 
