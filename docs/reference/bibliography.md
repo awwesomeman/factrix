@@ -418,7 +418,10 @@ Expected Returns." *Review of Financial Studies* 29(1), 5–68.
 
 Empirical case for raising t-thresholds in factor research; backs
 the single-factor `t ≥ 2.0` threshold and the BHY-first multi-factor
-discipline in `greedy_forward_selection`.
+discipline in `greedy_forward_selection`, and the FWER-across-horizons
+∘ FDR-within-horizon discipline at `factrix.multi_factor.bhy` and the
+"Horizon-shopping correction" section of
+`docs/guides/batch-screening.md`.
 
 ### Harvey (2017)
 [](){ #harvey-2017 }
@@ -506,6 +509,21 @@ for Estimation, Testing, and Prediction*. Cambridge University Press.
 
 Empirical-Bayes alternative to FDR; cited in design notes as the
 "why not Bayesian" comparison anchor.
+
+### Bailey & López de Prado (2014)
+[](){ #bailey-lopez-de-prado-2014 }
+
+Bailey, D. H. & López de Prado, M. (2014). "The Deflated Sharpe
+Ratio: Correcting for Selection Bias, Backtest Overfitting, and
+Non-Normality." *Journal of Portfolio Management* 40(5), 94–107.
+
+Parallel multiple-trials correction operating on the Sharpe rather
+than the p-value: deflates an observed Sharpe by the expected
+maximum under a number-of-trials null. Cited in the
+"Horizon-shopping correction" section of
+`docs/guides/batch-screening.md` as related literature for the
+multiple-trials problem on the Sharpe axis; not an implemented
+procedure in factrix.
 
 ---
 
@@ -681,6 +699,42 @@ ADF flag matters in `ic_trend`. The specific `p > 0.10 ⇒ unit-root
 suspect` threshold is folklore from the unit-root literature
 (closer to Stock 1994 *Handbook of Econometrics* §III) rather than a
 direct prescription from this paper.
+
+### Fama & French (1988)
+[](){ #fama-french-1988 }
+
+Fama, E. F. & French, K. R. (1988). "Dividend Yields and Expected
+Stock Returns." *Journal of Financial Economics* 22(1), 3–25.
+
+Canonical direct long-horizon predictive regression: summed log
+returns `r_{t→t+N} = Σ log(P_{t+k}/P_{t+k−1})` regressed on the
+dividend yield at horizons 1–4 years. Linear-additive across
+horizons by construction, no compounding bias. Cited at
+`compute_forward_return` as the academic-standard alternative to
+factrix's `÷N` arithmetic per-period normalization — factrix uses
+`÷N` for scale comparability across horizons, not because
+Fama-French (1988) recommends it.
+
+### Boudoukh, Richardson & Whitelaw (2008)
+[](){ #boudoukh-richardson-whitelaw-2008 }
+
+Boudoukh, J., Richardson, M. & Whitelaw, R. F. (2008). "The Myth of
+Long-Horizon Predictability." *Review of Financial Studies* 21(4),
+1577–1605.
+
+Under the null and a persistent regressor (most factor signals),
+OLS slope estimators across horizons are highly correlated —
+approaching unity between adjacent horizons at dividend-yield-like
+persistence — and `R²` is roughly proportional to horizon. Cited at
+`factrix.multi_factor.bhy` and the "Horizon-shopping correction"
+section of `docs/guides/batch-screening.md`: across-horizon test
+statistics are not independent and BHY's PRDS assumption fails, so
+factrix uses an FWER (independence-free) inner step before BHY —
+the FWER prescription is factrix's response to BRW's correlation
+result, not BRW's own recommendation. Cited at
+`compute_forward_return` to motivate treating per-period scaling
+as separate from inference: the across-horizon dependence BRW
+documents is not addressed by any normalization choice.
 
 ---
 
@@ -922,3 +976,19 @@ Foreign Trade*. University of California Press.
 
 Independent earlier formulation of HHI; cited alongside Herfindahl
 (1950).
+
+### Jacquier, Kane & Marcus (2003)
+[](){ #jacquier-kane-marcus-2003 }
+
+Jacquier, E., Kane, A. & Marcus, A. J. (2003). "Geometric or
+Arithmetic Mean: A Reconsideration." *Financial Analysts Journal*
+59(6), 46–53.
+
+Compounding at the arithmetic mean is an upward-biased estimator of
+cumulative wealth; the geometric mean is itself biased; the
+unbiased estimator is a horizon-weighted blend of the two with
+weights depending on the forecast horizon / sample-length ratio.
+Cited at `compute_forward_return` for the compounding-bias caveat
+of factrix's `÷N` per-period normalization — the bias affects
+signed-return mean and t-tests at large `N`, but is negligible for
+rank-based IC.

@@ -288,6 +288,35 @@ def bhy(
             a single profile (BHY on n=1 is a raw cutoff and provides
             no FDR correction).
 
+    Notes:
+        Horizon multiplicity is a two-axis problem — FDR within a
+        horizon (this function's job) ∘ FWER across horizons (the
+        caller's job, before invoking ``bhy()``). The two cannot be
+        collapsed into a single step-up: under the null and a
+        persistent regressor, slope estimators across horizons are
+        nearly perfectly correlated, so pooling them dilutes the
+        per-rank threshold and silently inflates FDR — the rationale
+        for the ``forward_periods``-mixed warning above. See the
+        "Horizon-shopping correction" section of
+        ``docs/guides/batch-screening.md`` for the recommended
+        Bonferroni / Holm inner step.
+
+    References:
+        - [Harvey, Liu & Zhu (2016)][harvey-liu-zhu-2016]. "…and the
+          Cross-Section of Expected Returns." Review of Financial
+          Studies, 29(1), 5–68. Multiple-testing discipline for
+          factor research motivating correction for selection; the
+          specific FWER ∘ FDR composition is factrix's application,
+          not HLZ's prescription.
+        - [Boudoukh, Richardson & Whitelaw (2008)][boudoukh-richardson-whitelaw-2008].
+          "The Myth of Long-Horizon Predictability." Review of
+          Financial Studies, 21(4), 1577–1605. Across-horizon slope
+          estimators are highly correlated under the null for
+          persistent regressors — independence and PRDS fail when
+          horizons share information through the predictor, so an
+          FWER (independence-free) inner step is the factrix-side
+          response to that dependence.
+
     Examples:
         Screen five candidate factors with BHY at q=0.05 — each panel
         is a seeded synthetic cross-section, ``factor_id`` is stamped

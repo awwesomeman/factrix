@@ -32,7 +32,8 @@ def compute_forward_return(
     need for ad-hoc shift corrections.
 
     Dividing by N normalizes returns to a per-period basis, making
-    different forward_periods directly comparable.
+    different forward_periods directly comparable on a scale basis
+    (see Notes for the scope boundary).
 
     Args:
         df: Must contain ``date``, ``asset_id``, ``price``. Must already
@@ -46,6 +47,50 @@ def compute_forward_return(
     Returns:
         Input DataFrame with ``forward_return`` column appended.
         Rows where forward return is null (end of series) are dropped.
+
+    Notes:
+        The ``÷N`` per-period normalization is a *scale* choice with
+        three caveats the caller should know:
+
+        1. **Arithmetic, not summed-log-return.** This is the
+           arithmetic per-period mean of a simple return, not the
+           academic-standard direct long-horizon regression of summed
+           log returns on the predictor (the latter is
+           linear-additive across horizons by construction).
+        2. **Compounding bias.** Compounding at the arithmetic mean
+           is an upward-biased estimator of cumulative wealth; the
+           bias grows with ``N`` and per-bar return variance.
+           Negligible for rank-based IC; not negligible for
+           signed-return mean and t-tests at large ``N``.
+        3. **Scale, not inference.** ``÷N`` aligns the *scale* across
+           horizons — it does *not* address the inference problem.
+           Overlap is handled by HAC (see
+           :class:`factrix.stats.NeweyWest`); across-horizon
+           selection is handled by the FWER correction in
+           :func:`factrix.multi_factor.bhy`. The three concerns
+           (scale, overlap, cross-horizon selection) are addressed
+           at separate layers; overlap and across-horizon dependence
+           share a common source in the persistent regressor, but
+           each requires its own tool.
+
+    References:
+        - [Fama & French (1988)][fama-french-1988]. "Dividend Yields
+          and Expected Stock Returns." Journal of Financial
+          Economics, 22(1), 3–25. Direct summed-log-return
+          long-horizon regression — the academic-standard
+          alternative to factrix's ``÷N``.
+        - [Jacquier, Kane & Marcus (2003)][jacquier-kane-marcus-2003].
+          "Geometric or Arithmetic Mean: A Reconsideration."
+          Financial Analysts Journal, 59(6), 46–53. Compounding bias
+          of the arithmetic mean and the unbiased horizon-weighted
+          blend.
+        - [Boudoukh, Richardson & Whitelaw (2008)][boudoukh-richardson-whitelaw-2008].
+          "The Myth of Long-Horizon Predictability." Review of
+          Financial Studies, 21(4), 1577–1605. Documents that
+          across-horizon regression statistics share information
+          through the persistent regressor — separate from any
+          per-period scaling choice, and the reason inference across
+          horizons is not addressed by normalization.
 
     Examples:
         >>> import factrix as fx
