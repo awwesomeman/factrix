@@ -151,6 +151,7 @@ nav:
           - Cross-function reference: api/decision-tree.md
           - Information coefficient vs Fama-MacBeth: guides/choosing-metric.md
           - Panel vs timeseries: guides/panel-timeseries.md
+          - Reading results: guides/reading-results.md
           - Batch screening with Benjamini-Hochberg-Yekutieli: guides/batch-screening.md
           - Slice analysis: guides/slice-analysis.md
           - Standalone metrics: guides/standalone-metrics.md

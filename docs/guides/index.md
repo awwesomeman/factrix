@@ -2,10 +2,15 @@
 title: Guides
 ---
 
-Step-by-step guides for common factrix workflows.
+Step-by-step guides for common factrix workflows. Left column is the
+research-task framing; right column is the page title as it appears in
+the sidebar.
 
-- [Choosing a metric](choosing-metric.md) — IC vs FM, scenario selection
-- [Panel vs timeseries](panel-timeseries.md) — sample guards, aggregation order, N=1 paths
-- [Batch screening with BHY](batch-screening.md) — FDR control across factor families
-- [Slice analysis](slice-analysis.md) — sector / regime / decile splits of a single metric
-- [Standalone metrics](standalone-metrics.md) — input shapes, post-`evaluate()` integration, per-cell examples
+- **Picking IC vs FM (the `individual_continuous` cell only)** — [Information coefficient vs Fama-MacBeth](choosing-metric.md)  
+  *Other cells dispatch to a single procedure; see [Concepts § Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) for the per-cell map.*
+- **Comparison-axes matrix and shared-keyword semantics (`expand_over`, regime dispatch)** — [Cross-function reference](../api/decision-tree.md)
+- **Sample-mode dispatch (PANEL ↔ TIMESERIES) and the N=1 special path** — [Panel vs timeseries](panel-timeseries.md)
+- **Reading `FactorProfile.primary_p`, `Survivors.adj_p`, and `MetricsBundle.metrics`** — [Reading results](reading-results.md)
+- **False Discovery Rate (FDR) control across a factor batch (BHY / partial conjunction / hierarchical)** — [Batch screening with Benjamini-Hochberg-Yekutieli](batch-screening.md)
+- **Slicing one metric by an attached label column (sector / regime / universe / ADV bucket)** — [Slice analysis](slice-analysis.md)
+- **Running every descriptive metric applicable to a cell (`run_metrics`)** — [Standalone metrics](standalone-metrics.md)
