@@ -669,6 +669,27 @@ References:
 
 The uniform bullet form keeps every `References:` block visually identical regardless of paper count and removes the failure mode of forgetting blank-line separators when a second paper is added. The slug must match an anchor declared in `docs/reference/bibliography.md`; missing anchors produce an mkdocs `--strict` warning.
 
+#### Inline-prose citations — same hyperlink, hyphenated author form
+
+Paper citations appearing inside docstring prose (`Notes:`, argument descriptions, narrative paragraphs — not inside a `References:` block) use the same autorefs-linked shape with hyphenated multi-author surnames:
+
+```
+Shanken (1992) shows ...               # avoid (bare text — not clickable)
+[Shanken (1992)][shanken-1992] shows ...                                   # ok
+[Newey-West (1987)][newey-west-1987] HAC ...                               # ok (hyphenated)
+[Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] two-way ...   # ok (hyphenated)
+```
+
+Conventions split by layer:
+
+- **Bibliography heading** (`bibliography.md`): formal `Author & Author (Year)` with ampersand (matches the paper's title-page citation, APA-style).
+- **Anchor ID**: lowercase hyphenated `author-author-year`.
+- **Docstring link text** (both `References:` bullets and inline prose): hyphenated `Author-Author (Year)` — consistent with how factrix's prose names the *method* (Newey-West estimator, Hansen-Hodrick SE, Fama-MacBeth regression) and with how `bibliography.md`'s own intro example reads (`[Newey-West 1987][newey-west-1987]`).
+
+Conversion rules when migrating from a bare citation: `&` and `and` in the visible text become hyphens; commas in 3+ author lists also become hyphens (`Black, Jensen & Scholes (1972)` → `[Black-Jensen-Scholes (1972)][black-jensen-scholes-1972]`); single-author citations stay single (`MacKinlay (1997)` → `[MacKinlay (1997)][mackinlay-1997]`). Year stays parenthesised.
+
+The rule applies uniformly to module-level docstrings and to public symbol (function / class / method) docstrings. It does **not** apply to Python `# comments` or to runtime string values (`StatCode` descriptions, `"method": "..."` dict literals, `refs=(...)` tuples on registry calls) — those render outside the mkdocs autorefs pipeline and the link would not resolve.
+
 #### `bibliography.md` as catalog, not single SSOT
 
 `docs/reference/bibliography.md` is a **catalog page**, not the SSOT for citation metadata: every cited paper appears there once with its full citation, an anchor, and a paragraph on the paper's role in factrix. It serves three roles:
