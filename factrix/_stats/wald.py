@@ -1,12 +1,12 @@
 """Wald χ² tests for linear restrictions on coefficient vectors.
 
-Three layers of HAC / cluster covariance feed the same closing
+Three layers of heteroskedasticity-and-autocorrelation-consistent (HAC) / cluster covariance feed the same closing
 ``_wald_p_linear`` core (``W = (Rβ̂ - q)' [RVR']^{-1} (Rβ̂ - q)``):
 
 - **Generic** — ``_wald_p_linear(beta, V, R, q)`` accepts any
   pre-computed coefficient vector and covariance matrix; the
   bedrock used by every higher-level helper here.
-- **Vector-mean NW HAC** — ``_wald_nw_cluster_means(Y, R, q, lags)``
+- **Vector-mean Newey-West (NW) HAC** — ``_wald_nw_cluster_means(Y, R, q, lags)``
   for the stacked per-date metric panel: rows are joint per-date
   observations of K slice means; cross-slice covariance is the
   joint Bartlett-kernel HAC of the K-vector series. Backs the

@@ -1,6 +1,6 @@
 """Factor orthogonalization (Step 6): remove known factor exposures.
 
-Per-date cross-sectional OLS regression:
+Per-date cross-sectional ordinary least squares (OLS) regression:
     factor_z = β₁·Size + β₂·Value + β₃·Momentum + Σβ_k·Industry_k + ε
 
 The residual ε replaces the original factor value, so that downstream
@@ -41,7 +41,7 @@ def orthogonalize_factor(
     factor_col: str = "factor",
     base_cols: list[str] | None = None,
 ) -> OrthogonalizeResult:
-    """Orthogonalize factor against base factors via per-date OLS.
+    """Orthogonalize factor against base factors via per-date ordinary least squares (OLS).
 
     Args:
         factor_df: Panel with ``date, asset_id, {factor_col}``.

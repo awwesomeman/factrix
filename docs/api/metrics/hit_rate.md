@@ -20,7 +20,7 @@ title: factrix.metrics.hit_rate
 
     `hit_rate` is a `(*, CONTINUOUS, *, TIMESERIES)` diagnostic — input
     is a 1-D series with `(date, value)`, not the raw panel. Typical
-    pipes: per-date IC from `compute_ic`, quantile spread from
+    pipes: per-date information coefficient (IC) from `compute_ic`, quantile spread from
     `compute_spread_series`, or any other factor-mimicking-portfolio
     return series. Reports the fraction of periods with `value > 0`
     against $H_0: p = 0.5$.
@@ -94,7 +94,7 @@ title: factrix.metrics.hit_rate
     ---
 
     Sibling series diagnostics on the same input shape — slope
-    detection and IS/OOS persistence.
+    detection and IS/out-of-sample (OOS) persistence.
 
     [api/metrics/trend →](trend.md)
 

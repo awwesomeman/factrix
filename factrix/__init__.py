@@ -16,7 +16,7 @@ Single-factor::
     print(profile.primary_p)
     print(profile.diagnose())
 
-Batch + BHY::
+Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
     profiles = [fx.evaluate(panel, cfg) for cfg in candidate_configs]
     survivors = fx.multi_factor.bhy(profiles, q=0.05)
@@ -89,7 +89,7 @@ def evaluate(
     """Evaluate one factor against its forward returns and return a FactorProfile.
 
     The profile carries ``primary_p`` (the headline p-value for downstream
-    FDR), the cell-specific statistics, sample-size diagnostics, warnings,
+    false discovery rate (FDR)), the cell-specific statistics, sample-size diagnostics, warnings,
     and the ``identity`` / ``context`` tuple used by multi-factor
     aggregators ([`bhy`][factrix.multi_factor.bhy] /
     [`partial_conjunction`][factrix.multi_factor.partial_conjunction] /
@@ -128,14 +128,14 @@ def evaluate(
 
         | `profile.mode`   | When                                    | Inference                                                            |
         |------------------|-----------------------------------------|----------------------------------------------------------------------|
-        | `"PANEL"`        | `N ≥ 2` cross-sectional / event cells   | per-date statistic → time-series mean with NW HAC                    |
-        | `"TIMESERIES"`   | `Common × Continuous` with `N == 1`     | single-series OLS with plain SE; HAC only on stage-2 aggregation     |
+        | `"PANEL"`        | `N ≥ 2` cross-sectional / event cells   | per-date statistic → time-series mean with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) |
+        | `"TIMESERIES"`   | `Common × Continuous` with `N == 1`     | single-series ordinary least squares (OLS) with plain SE; HAC only on stage-2 aggregation |
 
         Full conventions: [Timeseries-mode conventions](../reference/ts-mode-conventions.md).
         Sample-guard contract: [Panel vs timeseries](../guides/panel-timeseries.md).
 
         **Multi-factor cost.** Each call repeats the per-date
-        cross-section work (sort / group-by / rank / HHI) on its own, so
+        cross-section work (sort / group-by / rank / Herfindahl-Hirschman index (HHI)) on its own, so
         cost scales as `O(n_factors × per_date_cost)`. There is no
         shared-pass primitive; [`bhy`][factrix.multi_factor.bhy] controls
         FDR but does **not** reduce the per-signal evaluation cost.

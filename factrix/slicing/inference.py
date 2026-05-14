@@ -16,8 +16,9 @@ Both consume a metric callable whose module declares
 ``per_date_series`` (see
 :mod:`factrix.metrics._metric_capabilities`); the slice partition
 reuses ``_slice_by_label`` so dispatch logic is not duplicated. The
-default estimator is :class:`~factrix.stats.WaldNWCluster` (NW HAC
-Bartlett kernel + 1-way cluster on the slice grouping), which uses
+default estimator is :class:`~factrix.stats.WaldNWCluster` (Newey-West
+(NW) heteroskedasticity-and-autocorrelation-consistent (HAC) Bartlett
+kernel + 1-way cluster on the slice grouping), which uses
 the joint per-date K-vector panel — cross-slice covariance enters
 through the joint HAC, so paired-diff degeneracies do not arise on
 this path.
@@ -111,7 +112,7 @@ def slice_pairwise_test(
         df: Input frame for the metric, containing ``label``.
         label: Column whose values define the slice partition.
         estimator: Inference estimator. ``None`` resolves to
-            :class:`WaldNWCluster` (analytic NW HAC + 1-way cluster on
+            :class:`WaldNWCluster` (analytic Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on
             slice). :class:`BlockBootstrap` triggers the joint
             block-bootstrap path and changes the default
             ``multiple_testing`` to ``"romano_wolf"``.
@@ -149,7 +150,7 @@ def slice_pairwise_test(
         directly per pair.
 
     Examples:
-        Pairwise IC contrasts across two sub-universes. The canonical
+        Pairwise information coefficient (IC) contrasts across two sub-universes. The canonical
         pattern is to compute the per-date metric series per slice
         upstream and concatenate with a label column — slices must
         share dates, so date-disjoint labels (e.g. calendar year)
@@ -296,7 +297,7 @@ def slice_joint_test(
             before the block-bootstrap batch lands.
 
     Examples:
-        Joint omnibus test that mean IC is identical across two
+        Joint omnibus test that mean information coefficient (IC) is identical across two
         sub-universes (see :func:`slice_pairwise_test` for the
         per-sector ic panel construction):
 

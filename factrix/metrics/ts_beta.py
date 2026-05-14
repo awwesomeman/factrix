@@ -10,7 +10,7 @@ each asset's sensitivity (β) to the common factor.
 ``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
 
 Notes:
-    **Pipeline.** Per-asset full-sample OLS β (time-series step), then
+    **Pipeline.** Per-asset full-sample ordinary least squares (OLS) β (time-series step), then
     cross-asset t on the β distribution; rolling-window variant slices
     the time axis before the per-asset step.
 """
@@ -54,7 +54,7 @@ def compute_ts_betas(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Per-asset time-series OLS: R_{i,t} = α_i + β_i · F_t + ε.
+    """Per-asset time-series ordinary least squares (OLS): R_{i,t} = α_i + β_i · F_t + ε.
 
     Args:
         df: Long panel with ``date, asset_id, factor, forward_return``.
@@ -73,7 +73,7 @@ def compute_ts_betas(
         per-asset stage feeding the cross-asset Black-Jensen-Scholes
         style aggregation in ``ts_beta``.
 
-        factrix reports homoskedastic per-asset t (not NW HAC) at this
+        factrix reports homoskedastic per-asset t (not Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)) at this
         stage because the inferential burden lives downstream — the
         cross-asset t in ``ts_beta`` is what a caller decides on, and
         adding HAC at the per-asset stage would only smear the
@@ -174,7 +174,7 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     With a single asset, both ``MacroCommonProfile.from_artifacts`` and
     ``MacroCommonFactor.ts_beta`` want the same degenerate-case output:
     take the row's per-asset beta + t_stat, mark ``p_value=1.0`` so the
-    row is suppressed from BHY, and label the method. Centralizing here
+    row is suppressed from Benjamini-Hochberg-Yekutieli (BHY), and label the method. Centralizing here
     keeps Profile and Factor paths bit-identical.
 
     Statistical caveat: the returned $t$-stat tests the **time-series**
@@ -188,7 +188,7 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
     Notes:
         N=1 path: ``value = beta_1``, ``stat = t_1`` from the single
-        asset's TS OLS, ``p_value = 1.0`` so BHY skips the row. No
+        asset's TS ordinary least squares (OLS), ``p_value = 1.0`` so BHY skips the row. No
         cross-asset inference is attempted.
 
         factrix centralises the degenerate-case output here so
@@ -223,7 +223,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         sample cross-sectional std with ``ddof=1``.
 
         factrix uses an iid cross-asset t at this stage rather than a
-        clustered/HAC variant: per-asset betas come from non-overlapping
+        clustered/heteroskedasticity-and-autocorrelation-consistent (HAC) variant: per-asset betas come from non-overlapping
         time-series fits in ``compute_ts_betas``, so the betas are
         approximately independent across assets unless a strong
         latent common factor links them.
@@ -300,7 +300,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
 
     Notes:
         ``value`` $= \mathrm{mean}_i R^2_i$ and ``median_r_squared``
-        $= \mathrm{median}_i R^2_i$ on the per-asset OLS fits from
+        $= \mathrm{median}_i R^2_i$ on the per-asset ordinary least squares (OLS) fits from
         ``compute_ts_betas``. Pure descriptive statistic — no formal
         $H_0$.
 
@@ -359,11 +359,11 @@ def compute_rolling_mean_beta(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> pl.DataFrame:
-    """Rolling-window mean β across assets — time-series input for OOS / trend.
+    """Rolling-window mean β across assets — time-series input for out-of-sample (OOS) / trend.
 
     Formula (per date t ≥ ``window``):
         For each asset i, take the trailing ``window`` rows ending at t.
-        If ≥ 10 valid (factor, return) pairs, run OLS:
+        If ≥ 10 valid (factor, return) pairs, run ordinary least squares (OLS):
             R_{i,s} = α_i + β_i·F_s + ε   (s in window)
         β_t = mean_i β_i   (cross-asset mean of this window's βs)
 

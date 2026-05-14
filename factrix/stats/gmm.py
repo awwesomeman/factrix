@@ -29,13 +29,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class GMM:
-    """Hansen (1982) two-step efficient GMM J-test estimator.
+    """Hansen (1982) two-step efficient generalized method of moments (GMM) J-test estimator.
 
     Computes the J-statistic for a moment-condition system whose
     null is ``E[g] = 0`` (pure over-identification). The long-run
     covariance uses the Bartlett kernel sharing the Newey-West
     bandwidth convention with ``NeweyWest`` so the
-    ``forward_periods - 1`` overlap floor is uniform across HAC and
+    ``forward_periods - 1`` overlap floor is uniform across heteroskedasticity-and-autocorrelation-consistent (HAC) and
     GMM inference.
 
     Applicability is advertised on ``(INDIVIDUAL, CONTINUOUS)`` cells

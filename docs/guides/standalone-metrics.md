@@ -15,7 +15,7 @@ expects, and where they sit in a screening pipeline.
 ## What factrix evaluates
 
 factrix evaluates **factor signal validity** — predictive power
-(IC, FM λ), robustness (NW HAC, BHY, regime stability), and event
+(information coefficient (IC), FM λ), robustness (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC), Benjamini-Hochberg-Yekutieli (BHY), regime stability), and event
 shape (CAAR, BMP, Corrado). It does **not** compute portfolio-level
 performance: no Sharpe / drawdown / Sortino / Calmar / return
 attribution. Those metrics belong downstream of factor selection
@@ -46,7 +46,7 @@ For the `(scope, signal)` filter at runtime, see
 | Event-side robustness on top of CAAR | `bmp_test`, `corrado_rank_test`, `event_hit_rate`, `clustering_diagnostic` |
 | Per-event return shape | `mfe_mae_summary`, `event_around_return` |
 | Asymmetry / quantile-spread on a broadcast factor | `ts_asymmetry`, `ts_quantile_spread` |
-| OOS decay / trend / hit rate on any `(date, value)` series | `multi_split_oos_decay`, `ic_trend`, `hit_rate` |
+| Out-of-sample (OOS) decay / trend / hit rate on any `(date, value)` series | `multi_split_oos_decay`, `ic_trend`, `hit_rate` |
 
 `evaluate()` only writes the `StatCode` keys listed for its cell on
 [`FactorProfile`](../api/factor-profile.md#stats-keys-by-cell);

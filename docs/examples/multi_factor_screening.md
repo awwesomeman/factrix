@@ -2,7 +2,7 @@
 title: Multi-factor screening
 ---
 
-Apply Benjamini-Hochberg-Yekutieli (BHY) FDR control to a batch of
+Apply Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) control to a batch of
 candidate factors. Demonstrates the explicit-family contract and the
 duplicate-identity defense — the behaviour that is impossible
 to learn from docstrings alone.
@@ -81,7 +81,7 @@ Five candidate factors, all under the same
 `individual_continuous(IC, forward_periods=5)` cell — a *valid* BHY
 input where the step-up actually controls FDR.
 
-We start from one ground-truth factor and add increasing IID noise
+We start from one ground-truth factor and add increasing independent and identically distributed (IID) noise
 to produce variants with varying signal strengths. Each variant is
 materialised under its own column name (`variant_0` … `variant_4`)
 so `evaluate(..., factor_col=name)` auto-stamps a distinct

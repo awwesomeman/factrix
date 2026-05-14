@@ -1,4 +1,4 @@
-"""Shared OLS helpers used by spanning (metrics/) and orthogonalize (preprocess/).
+"""Shared ordinary least squares (OLS) helpers used by spanning (metrics/) and orthogonalize (preprocess/).
 
 Extracted to top-level to avoid circular dependency between metrics/ and preprocess/.
 """
@@ -26,7 +26,7 @@ def ols_alpha(
     candidate: np.ndarray,
     base_matrix: np.ndarray,
 ) -> _OLSResult:
-    """OLS regression: candidate = alpha + beta @ base + epsilon.
+    """Ordinary least squares (OLS) regression: candidate = alpha + beta @ base + epsilon.
 
     Returns:
         _OLSResult with alpha, t_stat, betas, and R².

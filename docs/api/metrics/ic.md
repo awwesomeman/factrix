@@ -17,7 +17,7 @@ title: factrix.metrics.ic
 
 <div class="grid cards" markdown>
 
--   __Compute per-date IC__
+-   __Compute per-date information coefficient (IC)__
 
     ---
 
@@ -33,7 +33,7 @@ title: factrix.metrics.ic
     subsample to avoid the autocorrelation induced by overlapping forward
     returns. Default for the IC cell.
 
--   __Mean-IC significance, HAC__
+-   __Mean-IC significance, heteroskedasticity-and-autocorrelation-consistent (HAC)__
 
     ---
 
@@ -142,7 +142,7 @@ output without the inference framing.
 
     ---
 
-    HAC SE, FDR, robust-scale, unit-root disciplines that govern the inference.
+    HAC SE, false discovery rate (FDR), robust-scale, unit-root disciplines that govern the inference.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)
 

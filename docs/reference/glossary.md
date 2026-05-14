@@ -15,7 +15,7 @@ things in factrix vs Alphalens / Barra / standard panel-econometrics.
 
 Per-asset factor values: each `(date, asset_id)` pair has its own
 factor reading. The cross-section is the unit of inference (per-date
-IC, FM λ, CAAR per event date). This is the regime most equity factor
+information coefficient (IC), FM λ, CAAR per event date). This is the regime most equity factor
 research operates in.
 
 **Industry equivalents**:
@@ -102,7 +102,7 @@ cross-section / time-series. The econometrics literature usually says
 Single-asset series. Time axis is the only sample axis; cross-section
 is degenerate.
 
-**Industry equivalents**: time-series regression; single-asset OLS.
+**Industry equivalents**: time-series regression; single-asset ordinary least squares (OLS).
 Note that factrix `TIMESERIES` mode does **not** mean Alphalens'
 "time-series of cross-sectional means" (that is per-date aggregation
 of a `PANEL`); the two collide on the word *time-series* and disagree
@@ -187,7 +187,7 @@ calibrated; mismatched horizons induce IC decay (synthetic) and bias
 Sampling every `h`-th date so consecutive observations are
 independent under the `h`-period forecasting null. factrix's
 `Individual × Continuous` cell defaults to this for `ic` and `caar`;
-NW HAC is the alternative on the full overlapping series. See
+Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) is the alternative on the full overlapping series. See
 [Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns).
 
 ### `estimation_window`
@@ -204,18 +204,21 @@ The expected proportion of false positives among rejected nulls, in
 contrast to FWER (Family-Wise Error Rate, the probability of *any*
 false positive). For a screening rule that rejects `R` of `m`
 hypotheses and produces `V` false positives, FDR ≡ E[V / max(R, 1)].
-factrix's primary screening primitive is BHY (Benjamini-Yekutieli
-2001), which controls FDR at a user-chosen `q` under arbitrary
-dependence. See [Statistical methods](statistical-methods.md) and
+factrix's primary screening primitive is BHY (Benjamini-Hochberg-Yekutieli),
+which controls FDR at a user-chosen `q` under arbitrary dependence.
+See [Statistical methods](statistical-methods.md) and
 [`bhy`](../api/multi-factor.md).
 
-### `BHY` — Benjamini-Yekutieli (2001)
+### `BHY` — Benjamini-Hochberg-Yekutieli
 
 Step-up FDR-controlling procedure that allows arbitrary dependence
-between p-values (paying a `log(m)` factor versus the
-independent-or-PRDS Benjamini-Hochberg 1995 procedure). factrix's
+between p-values — including violations of the positive regression
+dependence on a subset (PRDS) condition required by Benjamini-Hochberg
+1995, at the cost of a `log(m)` factor. Mathematically implements
+[Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. factrix's
 default multiplicity-correction method because financial p-values are
-typically not independent.
+typically not independent. For the BH / BY / BHY naming convention, see
+[Statistical methods § Multiple-testing under dependence](statistical-methods.md#2-multiple-testing-under-dependence).
 
 ### `family`
 

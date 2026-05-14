@@ -6,7 +6,7 @@ title: factrix.multi_factor.partial_conjunction
 
 Contract-bearing screening for the "factor X is significant in $k$ of
 $m$ conditions" claim. Replaces the notebook idiom
-`set(survivors_a) & set(survivors_b)`, which does **not** preserve FDR
+`set(survivors_a) & set(survivors_b)`, which does **not** preserve false discovery rate (FDR)
 ([Benjamini & Bogomolov 2014](https://academic.oup.com/jrsssb/article/76/1/297/7075880)),
 with the partial conjunction test of
 [Benjamini & Heller (2008)](https://onlinelibrary.wiley.com/doi/10.1111/j.1541-0420.2008.00984.x).
@@ -95,10 +95,10 @@ $k = \texttt{min\_pass}$. Two corner cases worth knowing:
   `bhy(expand_over=...)`, where the family-level FDR inflation is
   explicit rather than hidden in a "robust across" claim.
 
-The PC $p$-values are then fed to a standard BHY step-up across
+The PC $p$-values are then fed to a standard Benjamini-Hochberg-Yekutieli (BHY) step-up across
 identities, controlling group-level FDR ≤ `q`. The harmonic dependence
 correction $c(m) = \sum 1/i$ is applied because PC $p$-values across
-identities are not generally PRDS — sharing underlying panels makes the
+identities are not generally positive regression dependence on a subset (PRDS) — sharing underlying panels makes the
 joint distribution unknown, so the conservative choice is the default.
 
 BH2008 also presents a Simes-style PC combiner, which is less

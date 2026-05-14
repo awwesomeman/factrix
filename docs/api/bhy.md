@@ -10,7 +10,7 @@ title: factrix.multi_factor.bhy
 
 <div class="grid cards" markdown>
 
--   __Screening a candidate pool with FDR control__
+-   __Screening a candidate pool with false discovery rate (FDR) control__
 
     ---
 
@@ -35,7 +35,7 @@ title: factrix.multi_factor.bhy
     ---
 
     Pass `estimator=NeweyWest()` (or another `Estimator`) to feed a
-    specific HAC variant's p-value into the step-up math rather than
+    specific heteroskedasticity-and-autocorrelation-consistent (HAC) variant's p-value into the step-up math rather than
     `primary_p`. The procedure dispatches via `Estimator.emits_for` to
     a `StatCode` on `profile.stats`.
 
@@ -57,7 +57,7 @@ multi-factor call. The returned `Survivors` container exposes:
 | Attribute | Type | Meaning |
 |---|---|---|
 | `survivors.profiles` | `list[FactorProfile]` | input order, surviving subset |
-| `survivors.adj_p` | `np.ndarray` | bucket-local BHY-adjusted p-value, index-aligned with `profiles` |
+| `survivors.adj_p` | `np.ndarray` | bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `profiles` |
 | `survivors.q` | `float` | the nominal target you passed |
 | `survivors.expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise |
 | `survivors.n_tests` | `dict[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` |
@@ -85,7 +85,7 @@ example, `expand_over=["regime_id"]` runs one step-up per regime.
 harmonic dependence correction $c(m) = \sum_{i=1}^{m} 1/i$ baked into
 the threshold. **Pass your nominal `q` directly — no manual division.**
 The procedure controls FDR ≤ q under arbitrary positive or negative
-dependence at the cost of a $1/\ln m$ power loss relative to plain BH.
+dependence at the cost of a $1/\ln m$ power loss relative to plain Benjamini-Hochberg (BH).
 Plain Benjamini–Hochberg (1995) is **not** offered: typical factor-pool
 dependence violates its Positive Regression Dependency on a Subset
 (PRDS) assumption.

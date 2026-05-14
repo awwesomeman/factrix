@@ -29,7 +29,7 @@ title: factrix.metrics.spanning
     ---
 
     `spanning_alpha` regresses the candidate spread series on a set of
-    base-factor spread series; tests $H_0: \alpha = 0$ via OLS
+    base-factor spread series; tests $H_0: \alpha = 0$ via ordinary least squares (OLS)
     $t$-stat. Standard tool for "does this factor add anything beyond
     the existing model?" (Barillas-Shanken 2017).
 
@@ -160,7 +160,7 @@ title: factrix.metrics.spanning
 
     ---
 
-    OLS $t$ on the alpha; when overlap is added, swap to NW HAC SE
+    OLS $t$ on the alpha; when overlap is added, swap to Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE
     via the same kernel discipline used elsewhere in factrix.
 
     [reference/statistical-methods →](../../reference/statistical-methods.md)

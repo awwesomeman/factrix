@@ -1,4 +1,4 @@
-"""OLS estimators with Newey-West HAC covariance.
+"""Ordinary least squares (OLS) estimators with Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) covariance.
 
 Univariate slope-only (``_ols_nw_slope_t``) and full multivariate
 (``_ols_nw_multivariate``). Bartlett-kernel math kept in sync with

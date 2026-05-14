@@ -79,7 +79,7 @@ def hit_rate(
 
         factrix reports the actual statistic (hits or z) consistent with
         the test branch taken, so a reader cannot mistake an exact-binomial
-        p for a Gaussian z. Non-overlap stride mirrors the IC pipeline so
+        p for a Gaussian z. Non-overlap stride mirrors the information coefficient (IC) pipeline so
         autocorrelation from overlapping forward returns does not leak in.
 
     References:

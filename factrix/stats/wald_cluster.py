@@ -3,7 +3,7 @@
 Two ``Estimator`` implementations targeting the slice-test setting
 (#176 functions ``slice_pairwise_test`` / ``slice_joint_test``):
 
-- ``WaldNWCluster`` — NW HAC + 1-way cluster on the slice grouping;
+- ``WaldNWCluster`` — Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on the slice grouping;
   consumes the stacked per-date metric panel. Emits
   ``StatCode.P_WALD_NWCL`` (paired with ``WALD_NWCL`` on the test
   statistic side).
@@ -28,10 +28,10 @@ from factrix._codes import StatCode
 
 
 class WaldNWCluster:
-    """Cluster-robust Wald χ² with NW Bartlett HAC + 1-way slice cluster.
+    """Cluster-robust Wald χ² with Newey-West (NW) Bartlett heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way slice cluster.
 
     Backs the slice test on a per-date metric panel: K parallel
-    per-slice metric series (IC, FM λ, etc.) are stacked and a Wald
+    per-slice metric series (information coefficient (IC), FM λ, etc.) are stacked and a Wald
     contrast tests the equality of slice means under joint NW HAC of
     the K-vector. Numerics live in
     ``factrix._stats.wald._wald_nw_cluster_means``.

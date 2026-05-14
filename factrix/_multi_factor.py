@@ -1,4 +1,4 @@
-"""v0.5 ``multi_factor`` namespace — collection-level FDR control (§7.4).
+"""v0.5 ``multi_factor`` namespace — collection-level false discovery rate (FDR) control (§7.4).
 
 Currently exposes ``bhy`` only. ``redundancy_matrix`` /
 ``spanning_test`` / ``orthogonalize`` are listed in plan §7.4 and will
@@ -43,7 +43,7 @@ class Survivors:
     """Survivor container for multi-factor screening functions with rich Jupyter rendering.
 
     Procedure-agnostic: ``adj_p`` carries the function's
-    procedure-canonical adjusted p-value (BHY ``bhy_adjusted_p``, Holm
+    procedure-canonical adjusted p-value (Benjamini-Hochberg-Yekutieli (BHY) ``bhy_adjusted_p``, Holm
     step-down, Bonferroni ``min(p*m, 1)``, Romano-Wolf resampling, ...).
     The contract is ``survivor[i] iff adj_p[i] <= q`` — a duality every
     step-up / step-down family procedure satisfies.
@@ -58,7 +58,7 @@ class Survivors:
     Attributes:
         profiles: Survivors in input order.
         adj_p: Bucket-local adjusted p-values aligned with ``profiles``.
-        q: Nominal FDR (or family-wise) target shared across all
+        q: Nominal false discovery rate (FDR) (or family-wise) target shared across all
             buckets.
         expand_over: Context keys used to partition the input into
             independent step-up buckets (``bhy``) or to aggregate
@@ -241,7 +241,7 @@ def bhy(
     estimator: Estimator | None = None,
     q: float = 0.05,
 ) -> Survivors:
-    """BHY step-up FDR within one declared family; return the survivors.
+    """Benjamini-Hochberg-Yekutieli (BHY) step-up false discovery rate (FDR) within one declared family; return the survivors.
 
     The input list is treated as a single family. When ``expand_over``
     is supplied, one independent step-up runs per unique tuple of
@@ -262,7 +262,7 @@ def bhy(
             The instance reports its applicability per cell and
             dispatches to a ``StatCode`` key in ``profile.stats``.
         q: Nominal false discovery rate target. The BHY step-up
-            controls FDR ≤ q under positive-regression-dependence
+            controls FDR ≤ q under positive regression dependence on a subset
             (PRDS); under arbitrary dependence the effective level is
             ``q / sum(1/k for k in 1..n)``. Default ``0.05``.
 
@@ -290,7 +290,7 @@ def bhy(
 
     Notes:
         Horizon multiplicity is a two-axis problem — FDR within a
-        horizon (this function's job) ∘ FWER across horizons (the
+        horizon (this function's job) ∘ family-wise error rate (FWER) across horizons (the
         caller's job, before invoking ``bhy()``). The two cannot be
         collapsed into a single step-up: under the null and a
         persistent regressor, slope estimators across horizons are
@@ -402,14 +402,14 @@ def partial_conjunction(
     q: float = 0.05,
 ) -> Survivors:
     """Partial conjunction screening: filter identities significant in
-    at least ``min_pass`` of ``m`` expanded conditions, FDR-controlled.
+    at least ``min_pass`` of ``m`` expanded conditions, false discovery rate (FDR)-controlled.
 
     For "factor X is significant in universes A and B" style claims,
     naive ``set(survivors_A) & set(survivors_B)`` does not preserve FDR
     [Benjamini & Bogomolov 2014]. The partial conjunction test
     [Benjamini & Heller 2008] provides a contract-bearing path: per
     identity, combine the ``m`` per-condition p-values into a single
-    PC p-value, then run BHY across identities.
+    PC p-value, then run Benjamini-Hochberg-Yekutieli (BHY) across identities.
 
     The PC p-value formula (Bonferroni-style, BH2008): for ``k`` =
     ``min_pass``, ``p_PC = (m - k + 1) * p_((k))`` capped at 1, where
@@ -659,7 +659,7 @@ def bhy_hierarchical(
     estimator: Estimator | None = None,
     q: float = 0.05,
 ) -> Survivors:
-    """Hierarchical BHY: control FDR across groups then within groups.
+    """Hierarchical Benjamini-Hochberg-Yekutieli (BHY): control false discovery rate (FDR) across groups then within groups.
 
     For factor sets with natural group structure (momentum / value /
     quality families; cross-region universes), the Yekutieli 2008
@@ -723,7 +723,7 @@ def bhy_hierarchical(
           ``m * min(p)`` and is the Yekutieli 2008 recommended choice.
           The kwarg is not exposed at v1 (Edgington-style mean p has
           no valid null; Bonferroni-min is strictly worse than Simes
-          under the procedure's PRDS assumption).
+          under the procedure's positive regression dependence on a subset (PRDS) assumption).
         - **PRDS within group**: Simes is valid under positive
           regression dependence (typical for factors within one
           family — they share style exposure). If a group mixes

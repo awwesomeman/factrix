@@ -1,10 +1,10 @@
 """Multiple-testing adjustments.
 
-Benjamini-Yekutieli (2001) step-up procedure for FDR control under
+Benjamini-Yekutieli (2001) step-up procedure for false discovery rate (FDR) control under
 arbitrary dependence among the tests. The BHY correction factor
 ``c(m) = sum_{i=1..m} 1/i`` makes the procedure conservative enough
-to handle dependent tests (as opposed to BH 1995 which requires
-independence or PRDS).
+to handle dependent tests (as opposed to Benjamini-Hochberg (BH) 1995 which requires
+independence or positive regression dependence on a subset (PRDS)).
 
 Rejection rule: order p-values ``p_(1) <= p_(2) <= ... <= p_(m)``.
 Reject ``H_(k)`` for all ``k <= k_max`` where
@@ -75,14 +75,14 @@ def bhy_adjust(
     *,
     n_tests: int | None = None,
 ) -> np.ndarray:
-    """BHY step-up rejection mask.
+    """Benjamini-Hochberg-Yekutieli (BHY) step-up rejection mask.
 
     Args:
         p_values: 1-D array of p-values in [0, 1]. Each must come from
-            the same test family (e.g. all IC p-values or all CAAR
+            the same test family (e.g. all information coefficient (IC) p-values or all CAAR
             p-values); the ProfileSet wrapper enforces this via the
             P_VALUE_FIELDS whitelist.
-        fdr: Target false discovery rate (default 0.05).
+        fdr: Target false discovery rate (FDR) (default 0.05).
         n_tests: Full candidate family size for two-stage screening. If
             caller already pre-filtered from a larger pool (e.g. 1000
             candidates → 50 submitted), pass the pre-filter size here.
@@ -135,11 +135,11 @@ def bhy_adjusted_p(
     *,
     n_tests: int | None = None,
 ) -> np.ndarray:
-    """Per-hypothesis BHY-adjusted p-values (clipped at 1).
+    """Per-hypothesis Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-values (clipped at 1).
 
     Formula: scale p_(k) by ``(m * c(m)) / k`` then cummin from the
     right to enforce monotonicity in ranked order. Gives a stable
-    per-factor "how significant under FDR control" number.
+    per-factor "how significant under false discovery rate (FDR) control" number.
 
     ``n_tests`` follows the same contract as ``bhy_adjust`` — pass the
     pre-filter size when the submitted p's are survivors of a larger
@@ -179,12 +179,12 @@ def simes_p(p_values: npt.ArrayLike) -> float:
     ``p_((k))`` is the ``k``-th smallest of the ``m`` p-values
     (1-indexed). Tests the global null "all ``m`` nulls hold" against
     "at least one alternative is true"; valid under independence and
-    PRDS.
+    positive regression dependence on a subset (PRDS).
 
     Yekutieli (2008) uses Simes as the default group representative
-    in hierarchical FDR procedures — it dominates Bonferroni
+    in hierarchical false discovery rate (FDR) procedures — it dominates Bonferroni
     (``m * min(p)``) and preserves group-level FDR control when fed
-    to an outer BHY step-up.
+    to an outer Benjamini-Hochberg-Yekutieli (BHY) step-up.
 
     Args:
         p_values: 1-D array of ``m`` p-values for one group. ``m >= 1``.

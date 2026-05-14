@@ -1,6 +1,6 @@
-"""IC trend analysis using Theil-Sen estimator.
+"""Information coefficient (IC) trend analysis using Theil-Sen estimator.
 
-Theil-Sen is preferred over OLS because it has a breakdown point of 29.3%,
+Theil-Sen is preferred over ordinary least squares (OLS) because it has a breakdown point of 29.3%,
 making it robust to outliers (e.g. COVID-era IC spikes).
 
 Notes:
@@ -51,10 +51,10 @@ def ic_trend(
             ``"ic_trend"``; EventFactor.caar_trend / MacroPanelFactor.
             beta_trend pass their own names so method / cache key /
             primitive name stay three-point unified.
-        adf_threshold: ADF p-value above which the input is flagged as
+        adf_threshold: Augmented Dickey-Fuller (ADF) p-value above which the input is flagged as
             unit-root suspect. Default ``0.10`` matches the conventional
             Stock-Watson (1988) cutoff: at p > 0.10 we cannot reject
-            I(1), so OLS / Theil-Sen on the series reject the slope null
+            I(1), so ordinary least squares (OLS) / Theil-Sen on the series reject the slope null
             at inflated rates regardless of the true trend. When
             ``None``, the ADF check is skipped entirely and no
             ``adf_stat`` / ``adf_p`` / ``unit_root_suspected`` keys are
@@ -75,7 +75,7 @@ def ic_trend(
         null is rejected at inflated rates regardless of the true trend.
 
         factrix uses Theil-Sen rather than OLS because its 29.3% breakdown
-        point absorbs IC outliers (e.g. COVID-era spikes) that would
+        point absorbs information coefficient (IC) outliers (e.g. COVID-era spikes) that would
         dominate an OLS slope; the trade-off is the SE recovered from the
         rank-CI is approximate, not asymptotically exact.
 

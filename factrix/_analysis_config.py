@@ -239,8 +239,8 @@ class AnalysisConfig:
         """Per-(date, asset) sparse trigger (``{-1, 0, +1}``).
 
         PANEL canonical procedure is the CAAR cross-event t-test;
-        TIMESERIES (N=1) collapses to a dummy regression with NW HAC
-        SE.
+        TIMESERIES (N=1) collapses to a dummy regression with Newey-West
+        (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE.
 
         Args:
             forward_periods: Forward-return horizon (rows of the time
@@ -324,7 +324,8 @@ class AnalysisConfig:
         """Broadcast sparse trigger (FOMC, policy, index rebalance).
 
         PANEL canonical: per-asset β on dummy + cross-asset t-test.
-        TIMESERIES (N=1): TS dummy regression + NW HAC SE.
+        TIMESERIES (N=1): TS dummy regression + Newey-West (NW)
+        heteroskedasticity-and-autocorrelation-consistent (HAC) SE.
 
         Args:
             forward_periods: Forward-return horizon (rows of the time

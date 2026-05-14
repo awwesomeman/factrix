@@ -29,8 +29,8 @@ class PerDateSeries(Protocol):
     Implementations consume the metric's canonical input DataFrame
     and return a two-column long-form frame with ``date`` and
     ``value``. ``value`` is the per-date scalar that the slice tests
-    treat as the metric's time series (per-date IC, per-date Fama-
-    MacBeth lambda, per-date hit indicator, etc.).
+    treat as the metric's time series (per-date information coefficient
+    (IC), per-date Fama-MacBeth lambda, per-date hit indicator, etc.).
     """
 
     def __call__(self, df: pl.DataFrame, /) -> pl.DataFrame: ...

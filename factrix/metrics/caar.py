@@ -97,7 +97,7 @@ def compute_caar(
         cs-first. For each event date, take the cross-sectional mean of
         ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
         the resulting ``n_event_dates``-length CAAR series feeds a
-        downstream NW HAC $t$-test on the mean.
+        downstream Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test on the mean.
 
     Scale:
         CAAR magnitude tracks the units of ``factor`` (bps, z-score,
@@ -207,7 +207,7 @@ def caar(
         per-event-date $\mathrm{CAAR}$ series;
         $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
 
-        factrix uses non-overlap resampling rather than NW HAC for the
+        factrix uses non-overlap resampling rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) for the
         default CAAR test — the same convention as ``ic`` — and exposes
         ``bmp_test`` as the variance-robust sibling for event-induced
         variance regimes.

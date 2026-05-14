@@ -4,8 +4,8 @@ title: factrix.multi_factor.bhy_hierarchical
 
 ::: factrix.multi_factor.bhy_hierarchical
 
-Two-stage FDR for factor sets with natural group structure (factor
-families, regions, sectors). Outer Benjamini-Yekutieli on
+Two-stage false discovery rate (FDR) for factor sets with natural group structure (factor
+families, regions, sectors). Outer Benjamini-Hochberg-Yekutieli (BHY) on
 [Simes (1986)](https://academic.oup.com/biomet/article/73/3/751/277681)
 group representatives + inner BHY within each passing group, per
 [Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035).
@@ -94,7 +94,7 @@ Per-survivor group label: `profile.context[group]`.
 | No natural group structure | [`bhy`](multi-factor.md) | The grouping is real or it isn't; faking a group axis trivializes the procedure. |
 | "Factor X passes in *every* condition" | [`partial_conjunction`](partial-conjunction.md) with `min_pass == m` | Hierarchical is "group-then-within", not "joint across conditions". |
 | Flat BHY split by family for display only | [`bhy(expand_over=["family"])`](multi-factor.md) | Independent step-ups per bucket, no group-level inference. Use when you do not need a "this family has signal" answer. |
-| Mixed-sign factors in one bucket | Split the bucket / pre-orthogonalize | Within-group Simes assumes PRDS; structurally opposite factors (e.g. momentum + reversal in one group) can violate it. |
+| Mixed-sign factors in one bucket | Split the bucket / pre-orthogonalize | Within-group Simes assumes positive regression dependence on a subset (PRDS); structurally opposite factors (e.g. momentum + reversal in one group) can violate it. |
 
 ## Validation summary
 

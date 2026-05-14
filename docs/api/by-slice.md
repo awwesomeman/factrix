@@ -48,13 +48,13 @@ each `MetricOutput` are computed on that slice alone (different `N`,
 different autocorrelation structure per slice) and are **not**
 directly comparable — `max(out.values(), key=lambda m: m.tstat)` is
 not a defensible cross-regime selection rule. A generic cross-slice test
-(BHY adjustment, Sharpe-diff Wald, paired-difference NW, etc.) cannot
+(Benjamini-Hochberg-Yekutieli (BHY) adjustment, Sharpe-diff Wald, paired-difference Newey-West (NW), etc.) cannot
 be applied honestly across the metric matrix — the appropriate test
 depends on the metric family. For metrics that expose a
 `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`),
 [`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test)
 / [`slice_joint_test`](slice-test.md#factrix.slice_joint_test)
-provide cross-slice contrasts with joint-HAC or block-bootstrap
+provide cross-slice contrasts with joint-heteroskedasticity-and-autocorrelation-consistent (HAC) or block-bootstrap
 inference.
 
 ## Universe overlap reference patterns
@@ -188,10 +188,10 @@ result.to_frame().sort(pl.col("stat").abs(), descending=True)
 
     Each row's `p_value` tests that slice alone against its own null
     (e.g. `ic` mean = 0). Filtering `df.filter(pl.col("p_value") < 0.05)`
-    across K parallel slices inflates the family-wise error rate —
+    across K parallel slices inflates the family-wise error rate (FWER) —
     under H0, K=10 sectors yields ≈ 0.4 expected "significant" slices
     by pure chance. The container is for **exploration**; for
-    inference claims with FWER / FDR control, use
+    inference claims with FWER / false discovery rate (FDR) control, use
     [`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test)
     (Holm / Romano-Wolf / Bonferroni) or
     [`slice_joint_test`](slice-test.md#factrix.slice_joint_test)

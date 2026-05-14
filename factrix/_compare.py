@@ -3,7 +3,7 @@
 Pure projection: stacks ``FactorProfile`` / ``MetricsBundle`` /
 ``Survivors`` artifacts into a wide ``pl.DataFrame`` for sorting and
 visual diff. No metric is recomputed; ``Survivors.adj_p`` is read
-through, so BHY survivor leaderboards keep their adjusted p-values
+through, so Benjamini-Hochberg-Yekutieli (BHY) survivor leaderboards keep their adjusted p-values
 without manual re-attach.
 
 Heterogeneous context keys follow ``pl.concat(how="diagonal")`` —

@@ -4,7 +4,7 @@ title: Statistical methods
 
 !!! note "Audience"
     This page assumes working familiarity with applied econometrics
-    (HAC SE, FDR control, near-unit-root inference). If you are
+    (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, false discovery rate (FDR) control, near-unit-root inference). If you are
     looking for a first-pass orientation to factrix output, start at
     [Quickstart](../getting-started/quickstart.md) and
     [Concepts](../getting-started/concepts.md); return here when you
@@ -30,7 +30,7 @@ The five sections are the only first-class disciplines in factrix:
 3. **Robust scale and outlier handling** — MAD-based winsorisation
    with the consistency factor; Theil-Sen for slope.
 4. **Persistence diagnostics under near-unit-root predictors** —
-   ADF flag, no auto-correction.
+   augmented Dickey-Fuller (ADF) flag, no auto-correction.
 5. **Event-study cross-sectional inference** — CAAR cross-event $t$,
    BMP-style standardised AR, Corrado rank.
 
@@ -41,7 +41,7 @@ The five sections are the only first-class disciplines in factrix:
 
 When forward returns span `h > 1` periods, consecutive observations
 inherit MA(`h − 1`) structure. Two standard responses, with different
-trade-offs: NW HAC corrects SE on the full series at the cost of a
+trade-offs: Newey-West (NW) HAC corrects SE on the full series at the cost of a
 kernel choice and asymptotic-Gaussian inference, while non-overlapping
 sampling preserves an exact-distribution `t` at the cost of a factor
 of `h` in effective sample size. factrix exposes both — non-overlap
@@ -120,7 +120,7 @@ different points in the bias-variance trade-off:
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
 | **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(⌊T^{1/3}⌋, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic_newey_west`, `fama_macbeth` stage 2, `pooled_ols`, `ts_quantile_spread`, `ts_asymmetry`. |
-| **Hansen-Hodrick (1980)** | A GMM-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | factrix does **not** use the HH-1980 estimator itself; it borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
+| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | factrix does **not** use the HH-1980 estimator itself; it borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 
 Practical rule of thumb:
@@ -140,7 +140,16 @@ Practical rule of thumb:
 [](){ #bhy }
 
 !!! tip "Canonical reference"
-    For when to use BHY, family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This section is the underlying theorem and assumptions.
+    For when to use Benjamini-Hochberg-Yekutieli (BHY), family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This section is the underlying theorem and assumptions.
+
+!!! note "BH / BY / BHY — three names, two procedures"
+    The literature uses three labels that map to two distinct procedures:
+
+    - **BH** — [Benjamini & Hochberg (1995)][benjamini-hochberg-1995]. Original FDR step-up; requires independence or positive regression dependence on a subset (PRDS) among the test statistics.
+    - **BY** — [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. Generalises BH to arbitrary dependence by dividing the threshold by $c(m) = \sum_{i=1}^{m} 1/i$. **This is the procedure factrix's `multi_factor.bhy()` implements mathematically.**
+    - **BHY** — quant / factor-research shorthand (e.g. [Harvey-Liu-Zhu 2016][harvey-liu-zhu-2016]) for the BY-2001 procedure, naming all three authors of the BH/BY lineage. Pure statistics / biostatistics literature (R `mutoss`, `sgof`, etc.) uses **BY** for the same procedure.
+
+    factrix follows the quant convention: the function is `bhy()`, the abbreviation in prose is `BHY`, the full form on first use is `Benjamini-Hochberg-Yekutieli`. Paper-citation links (`[Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]`) still point at the actual two-author paper because that is the work being cited.
 
 Factor pools are dependent by construction: 200 momentum variants on
 the same return panel correlate, and a Bonferroni step that assumes
@@ -148,10 +157,10 @@ independence over-corrects. factrix's `multi_factor.bhy` wrapper
 implements [Benjamini-Yekutieli 2001][benjamini-yekutieli-2001] FDR
 control with the dependence correction $c(m) = \sum_{i=1}^{m} 1/i$ —
 valid under arbitrary positive or negative dependence at the cost of
-a $1/\ln m$ shrinkage relative to plain BH.
+a $1/\ln m$ shrinkage relative to plain Benjamini-Hochberg (BH).
 
 [Benjamini-Hochberg 1995][benjamini-hochberg-1995] BH is *not* the
-default because the typical factor-pool dependence violates its PRDS
+default because the typical factor-pool dependence violates its positive regression dependence on a subset (PRDS)
 assumption; factrix offers BHY as the safe choice and surfaces the
 adjusted `q`-values rather than a binary pass/fail at a fixed `α`.
 
@@ -199,7 +208,7 @@ same reason. The estimator computes the median pairwise slope
 ([Sen 1968][sen-1968]) and inherits a 29.3% breakdown point; the
 SE recovered from the rank-based confidence interval is approximate,
 not asymptotically exact, which is the trade-off factrix accepts in
-return for not letting a single COVID-era IC spike dominate the slope.
+return for not letting a single COVID-era information coefficient (IC) spike dominate the slope.
 
 Two robust-scale choices factrix did not adopt:
 
@@ -224,7 +233,7 @@ language is [Hampel 1974][hampel-1974].
 
 Predictive regressions with persistent regressors carry the
 [Stambaugh 1999][stambaugh-1999] bias: when the regressor's
-innovation correlates with the dependent return innovation, OLS $\hat\beta$
+innovation correlates with the dependent return innovation, ordinary least squares (OLS) $\hat\beta$
 carries a finite-sample bias of order $O(1/T)$ that does not vanish
 at conventional research sample sizes ($\hat\beta$ is consistent
 asymptotically, but the bias is large enough to flip inference at

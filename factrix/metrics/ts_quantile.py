@@ -3,7 +3,7 @@
 Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
 cells: bucket factor history into quantiles and check the conditional
 mean forward return per bucket. Catches U-shape / inverted-U /
-extreme-only signals that OLS β assumes away (linear) and reports
+extreme-only signals that ordinary least squares (OLS) β assumes away (linear) and reports
 pass / fail on as a single slope.
 
 Standalone metric — does not enter the registry. See
@@ -13,7 +13,7 @@ redirects to `event_quality` helpers.
 
 Notes:
     **Pipeline.** Per-date aggregation to a common ``(_f, _r)`` series
-    (cross-section step), then quantile-bucketed NW HAC OLS on that
+    (cross-section step), then quantile-bucketed Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) OLS on that
     time series; Wald χ² on the top-bottom bucket spread.
 """
 
@@ -76,7 +76,7 @@ def ts_quantile_spread(
         n_groups: Number of quantile buckets ``K`` to cut the factor
             history into.
         forward_periods: Overlap horizon of the forward return; floors
-            the NW bandwidth.
+            the Newey-West (NW) bandwidth.
         nw_lags: Override for the NW lag count. ``None`` resolves to
             the standard rule given ``forward_periods`` and ``T``.
 
@@ -91,7 +91,7 @@ def ts_quantile_spread(
     Notes:
         Aggregate the panel to per-date ``(_f, _r)``, ordinal-rank into
         ``K = n_groups`` buckets by historical ``_f`` quantile, run
-        ``r_t = sum_k beta_k * I(bucket_t = k) + eps`` with NW HAC
+        ``r_t = sum_k beta_k * I(bucket_t = k) + eps`` with NW heteroskedasticity-and-autocorrelation-consistent (HAC)
         covariance, and form the spread ``value = beta_{K-1} - beta_0``
         with Wald p-value on ``H0: beta_{K-1} = beta_0``. A
         ``Spearman(0..K-1, beta)`` rank-monotonicity diagnostic across

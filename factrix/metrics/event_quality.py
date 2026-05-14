@@ -13,7 +13,7 @@ Metrics:
     event_skewness — skewness of signed_car distribution
 
 Notes:
-    **Pipeline.** Per-event scalar (hit / IC / skew / density) computed
+    **Pipeline.** Per-event scalar (hit / information coefficient (IC) / skew / density) computed
     on `signed_car`, then cross-event aggregation; binomial inference
     for hit rate, nonparametric for IC / skewness, descriptive
     elsewhere.
@@ -133,7 +133,7 @@ def event_ic(
     Spearman correlation between ``|factor|`` and ``signed_car``
     (``return × sign(factor)``), computed only on event rows.
 
-    Unlike standard IC (full cross-section per date), this measures
+    Unlike standard information coefficient (IC) (full cross-section per date), this measures
     whether signal **magnitude** predicts return magnitude among
     triggered events. Direction is already accounted for via sign().
 

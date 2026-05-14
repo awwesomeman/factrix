@@ -32,7 +32,7 @@ class FactorProfile:
     with another.
 
     The four sample axes are paired with ``primary_*``, not with
-    secondary diagnostic entries in ``stats`` — e.g. an ADF run on the
+    secondary diagnostic entries in ``stats`` — e.g. an augmented Dickey-Fuller (ADF) run on the
     factor reports its own n inside its ``stats`` / ``metadata`` entry,
     not via ``n_obs``.
 
@@ -47,7 +47,7 @@ class FactorProfile:
         primary_p: Procedure-canonical p-value driving
             ``multi_factor.bhy``.
         primary_stat: Test statistic value paired with ``primary_p``
-            (e.g. ``t_nw`` value for an NW HAC t-test). ``None`` when
+            (e.g. ``t_nw`` value for a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-test). ``None`` when
             the primary procedure produces no test statistic (e.g.
             empirical-p block bootstrap). Invariant:
             ``stats[primary_stat_name] == primary_stat`` whenever

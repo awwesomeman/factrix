@@ -64,7 +64,7 @@ def by_slice(
         ValueError: ``label`` not in ``df.columns``, or ``df`` is empty.
 
     Examples:
-        Per-year IC on a synthetic cross-sectional panel — attach the
+        Per-year information coefficient (IC) on a synthetic cross-sectional panel — attach the
         slice label to the metric's primary DataFrame upstream, then
         dispatch one metric call per slice value:
 

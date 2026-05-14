@@ -15,7 +15,7 @@ artifact families row-by-row.
 
 | Bundle | Profile |
 |---|---|
-| `run_metrics` — descriptive surface (no FDR claim) | `evaluate` — primary inferential decision (drives FDR) |
+| `run_metrics` — descriptive surface (no false discovery rate (FDR) claim) | `evaluate` — primary inferential decision (drives FDR) |
 | Many metrics per cell, each a [`MetricOutput`](metric-output.md) | One primary stat + sidecar `stats` dict |
 | `compare(bundles)` → cross-factor descriptive view | `compare(profiles)` / `compare(survivors)` |
 

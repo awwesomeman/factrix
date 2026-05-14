@@ -18,7 +18,7 @@ Usage:
 The dataset's ``signal_horizon`` (default 5) is a property of the
 synthetic signal, not a pipeline parameter. When
 ``cfg.forward_periods == signal_horizon`` the pipeline realizes the
-nominal IC; other horizons realize a decayed signal. No disk I/O, no
+nominal information coefficient (IC); other horizons realize a decayed signal. No disk I/O, no
 external data — everything is seeded RNG.
 """
 
@@ -67,7 +67,7 @@ def make_cs_panel(
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
-    """Synthetic cross-sectional panel with a calibrated target IC.
+    """Synthetic cross-sectional panel with a calibrated target information coefficient (IC).
 
     Construction:
         1. Per-asset volatility ``σ_i ~ U[0.01, 0.03]``; daily arithmetic

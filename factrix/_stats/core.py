@@ -2,8 +2,8 @@
 
 Stateless helpers operating on raw numeric arrays — agnostic to what the
 series represents. ``_p_value_from_t`` and ``_significance_marker`` are
-the convert-to-p-value / attach-marker primitives shared with the HAC
-t-tests in ``factrix._stats.hac``.
+the convert-to-p-value / attach-marker primitives shared with the
+heteroskedasticity-and-autocorrelation-consistent (HAC) t-tests in ``factrix._stats.hac``.
 """
 
 from __future__ import annotations

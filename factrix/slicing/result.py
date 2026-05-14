@@ -35,9 +35,9 @@ class SliceResult(Mapping[str, MetricOutput]):
         p-value computed by the metric on that slice alone — *not*
         adjusted for the K parallel tests across slices. Filtering
         ``df.filter(pl.col("p_value") < 0.05)`` across K=10 sectors
-        inflates the family-wise error rate; under H0 you expect
+        inflates the family-wise error rate (FWER); under H0 you expect
         ≈ 0.4 "significant" slices by chance. For cross-slice
-        inference with FWER / FDR control, use
+        inference with FWER / false discovery rate (FDR) control, use
         :func:`factrix.slice_pairwise_test` (Holm / Romano-Wolf /
         Bonferroni) or :func:`factrix.slice_joint_test` (omnibus χ²)
         instead. The container is for exploration; the inference

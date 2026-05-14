@@ -58,7 +58,7 @@ The five supported research questions and their factory calls — the
 `individual_continuous()` used above — live in
 [Concepts § Five analysis scenarios](concepts.md#five-analysis-scenarios).
 That page is also the SSOT for the procedure and literature behind each
-factory. For task-oriented help on **picking** the right factory (IC vs FM,
+factory. For task-oriented help on **picking** the right factory (information coefficient (IC) vs FM,
 when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 
 !!! note "N = 1 (single asset / series)"
@@ -91,9 +91,9 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
 
 The most common warnings:
 
-- `UNRELIABLE_SE_SHORT_PERIODS` — `20 ≤ T < 30`; NW HAC SE unstable.
+- `UNRELIABLE_SE_SHORT_PERIODS` — `20 ≤ T < 30`; Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE unstable.
   `T < 20` raises `InsufficientSampleError`.
-- `PERSISTENT_REGRESSOR` — factor ADF *p* > 0.10.
+- `PERSISTENT_REGRESSOR` — factor augmented Dickey-Fuller (ADF) *p* > 0.10.
 - `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
 - `SERIAL_CORRELATION_DETECTED` — Ljung-Box *p* < 0.05 on residuals.
 
@@ -107,7 +107,7 @@ catch pattern, and recovery via `suggested_fix`, see
 
 `warnings` does **not** affect `primary_p` —
 it is a risk flag. The user decides whether to filter on warnings before
-BHY. For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
+Benjamini-Hochberg-Yekutieli (BHY). For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
 
 For the full field-order walk of `FactorProfile` — and of
 `Survivors` (after `bhy`) and `MetricsBundle` (after `run_metrics`) —
@@ -121,7 +121,7 @@ You have one `FactorProfile` for one factor. The common follow-ups:
 
 | You want to… | Reach for | Guide |
 |---|---|---|
-| Screen N candidate factors with FDR control | [`multi_factor.bhy(profiles)`](../api/multi-factor.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [Batch screening with BHY](../guides/batch-screening.md) |
+| Screen N candidate factors with false discovery rate (FDR) control | [`multi_factor.bhy(profiles)`](../api/multi-factor.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [Batch screening with BHY](../guides/batch-screening.md) |
 | Compare the descriptive surface across factors | [`run_metrics`](../api/run-metrics.md) × N → [`compare(bundles)`](../api/compare.md) | [Standalone metrics](../guides/standalone-metrics.md) |
 | Rank factors after screening | [`compare(survivors)`](../api/compare.md) — leaderboard with `adj_q` | — |
 | Explore one metric across slices (sector / regime / universe / ADV bucket) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |

@@ -16,12 +16,12 @@ or any magnitude). Common forms: `{0, 1}` for a pure event flag, or
 | Skewness / hit-rate / win-loss diagnostics on per-event returns | Profile | [`event_quality`](event_quality.md) |
 | MFE / MAE order-statistic excursion within an event window | Profile | [`mfe_mae`](mfe_mae.md) |
 | Event-window horizon decay | Profile | [`event_horizon`](event_horizon.md) |
-| HHI on event dates — flags clustering that violates BMP/CAAR independence | Profile | [`clustering`](clustering.md) |
+| Herfindahl-Hirschman index (HHI) on event dates — flags clustering that violates BMP/CAAR independence | Profile | [`clustering`](clustering.md) |
 | Non-parametric Corrado rank test — robust to non-Gaussian returns | Profile | [`corrado`](corrado.md) |
 
 The `Common × Sparse` cell shares this column contract but routes
 through a distinct procedure (`_CommonSparsePanelProcedure` — per-asset
-OLS $\beta$ on the broadcast dummy → cross-asset $t$). Its metrics live
+ordinary least squares (OLS) $\beta$ on the broadcast dummy → cross-asset $t$). Its metrics live
 under [Common continuous](common-continuous.md).
 
 When events cluster on the same date (earnings season, macro release),

@@ -32,7 +32,7 @@ title: factrix.AnalysisConfig
     ---
 
     Same factory, different `estimator=` (e.g. `HansenHodrick()`
-    instead of the default `NeweyWest()`) to swap the HAC kernel.
+    instead of the default `NeweyWest()`) to swap the heteroskedasticity-and-autocorrelation-consistent (HAC) kernel.
 
 -   __Persisting an analysis spec__
 
@@ -56,7 +56,7 @@ title: factrix.AnalysisConfig
 
 | Your factor                                       | Factory                                   | Resulting cell                            |
 |---------------------------------------------------|-------------------------------------------|-------------------------------------------|
-| Per-asset real-valued signal, want rank IC        | [`individual_continuous(metric=Metric.IC)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, IC)`            |
+| Per-asset real-valued signal, want rank information coefficient (IC) | [`individual_continuous(metric=Metric.IC)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, IC)`            |
 | Per-asset real-valued signal, want FM λ premium   | [`individual_continuous(metric=Metric.FM)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, FM)`            |
 | Per-asset `{0, R}` event trigger (event flag or signed magnitude) | [`individual_sparse()`](metrics/individual-sparse.md)                     | `(INDIVIDUAL, SPARSE, None)`              |
 | Broadcast real-valued factor (e.g. VIX)           | [`common_continuous()`](metrics/common-continuous.md)                     | `(COMMON, CONTINUOUS, None)`              |

@@ -82,7 +82,7 @@ def compute_spread_series(
         factrix uses non-overlap sub-sampling (stride ``forward_periods``)
         before bucketing, not overlapping panel re-balancing — keeps the
         spread series free of MA(h-1) autocorrelation so downstream
-        non-overlap t-tests are valid without HAC.
+        non-overlap t-tests are valid without heteroskedasticity-and-autocorrelation-consistent (HAC).
 
     Examples:
         >>> import factrix as fx
@@ -165,7 +165,7 @@ def quantile_spread(
         spread to long-side vs short-side excess.
 
         factrix performs the t-test on the non-overlap series rather than
-        applying NW HAC on an overlapping series; the two approaches are
+        applying Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) on an overlapping series; the two approaches are
         sibling routes — overlap variants live alongside ``ic_newey_west``.
 
     References:
@@ -444,7 +444,7 @@ def compute_group_returns(
         ``mean_return[g] = mean over (date, asset) where _group=g of
         return_col`` — equal-weighted across all observations in the
         bucket pooled across dates. Use ``compute_spread_series`` if you
-        want per-date bucket means averaged afterwards (the IC/IR-style
+        want per-date bucket means averaged afterwards (the information coefficient (IC)/IR-style
         aggregation order); the two differ when bucket cardinality moves
         across dates.
 

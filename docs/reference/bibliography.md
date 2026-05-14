@@ -15,7 +15,7 @@ implementation rather than alphabetical author order.
 
 ---
 
-## Time-series regression and HAC inference
+## Time-series regression and heteroskedasticity-and-autocorrelation-consistent (HAC) inference
 
 ### Newey & West (1987)
 [](){ #newey-west-1987 }
@@ -24,7 +24,7 @@ Newey, W. K. & West, K. D. (1987). "A Simple, Positive Semi-Definite,
 Heteroskedasticity and Autocorrelation Consistent Covariance Matrix."
 *Econometrica* 55(3), 703–708.
 
-Bartlett-kernel HAC variance estimator; underlies every NW HAC t-test
+Bartlett-kernel HAC variance estimator; underlies every Newey-West (NW) HAC t-test
 in factrix (`_newey_west_se`, `_newey_west_t_test`).
 
 ### Newey & West (1994)
@@ -126,7 +126,7 @@ optimisation that yields the $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\math
 Grinold, R. C. (1989). "The Fundamental Law of Active Management."
 *Journal of Portfolio Management* 15(3), 30–37.
 
-$\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$; motivates IC as the canonical signal-quality
+$\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$; motivates information coefficient (IC) as the canonical signal-quality
 measure and IR/ICIR as its time-stability normalisation.
 
 ### Grinold & Kahn (2000)
@@ -341,7 +341,7 @@ Financial Studies* 23(11), 3996–4025.
 
 Clustering-adjusted BMP variant; `EventConfig.adjust_clustering=
 'kolari_pynnonen'` is reserved for this but the adjustment is not
-yet implemented (high-HHI events should fall back to manual
+yet implemented (high-Herfindahl-Hirschman index (HHI) events should fall back to manual
 calendar-block bootstrap until it ships).
 
 ### Sefcik & Thompson (1986)
@@ -370,7 +370,7 @@ Rate: A Practical and Powerful Approach to Multiple Testing."
 *Journal of the Royal Statistical Society: Series B* 57(1), 289–300.
 
 FDR concept and step-up procedure. factrix does not use BH directly
-because factor pools are typically dependent — see BHY below.
+because factor pools are typically dependent — see Benjamini-Hochberg-Yekutieli (BHY) below.
 
 ### Benjamini & Yekutieli (2001)
 [](){ #benjamini-yekutieli-2001 }
@@ -418,7 +418,7 @@ Expected Returns." *Review of Financial Studies* 29(1), 5–68.
 
 Empirical case for raising t-thresholds in factor research; backs
 the single-factor `t ≥ 2.0` threshold and the BHY-first multi-factor
-discipline in `greedy_forward_selection`, and the FWER-across-horizons
+discipline in `greedy_forward_selection`, and the family-wise error rate (FWER)-across-horizons
 ∘ FDR-within-horizon discipline at `factrix.multi_factor.bhy` and the
 "Horizon-shopping correction" section of
 `docs/guides/batch-screening.md`.
@@ -615,7 +615,7 @@ Dickey, D. A. & Fuller, W. A. (1979). "Distribution of the Estimators
 for Autoregressive Time Series with a Unit Root." *Journal of the
 American Statistical Association* 74(366), 427–431.
 
-ADF test on $H_0: \beta = 0$ in $\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the basis of
+Augmented Dickey-Fuller (ADF) test on $H_0: \beta = 0$ in $\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the basis of
 factrix's `_adf` persistence diagnostic.
 
 ### Said & Dickey (1984)
@@ -644,7 +644,7 @@ linear interpolation against the constant-only specification.
 Stambaugh, R. F. (1999). "Predictive Regressions." *Journal of
 Financial Economics* 54(3), 375–421.
 
-Bias of OLS $\hat\beta$ in predictive regressions when the predictor is
+Bias of ordinary least squares (OLS) $\hat\beta$ in predictive regressions when the predictor is
 persistent; factrix flags via ADF rather than auto-correcting.
 
 ### Campbell & Yogo (2006)
@@ -728,7 +728,7 @@ approaching unity between adjacent horizons at dividend-yield-like
 persistence — and `R²` is roughly proportional to horizon. Cited at
 `factrix.multi_factor.bhy` and the "Horizon-shopping correction"
 section of `docs/guides/batch-screening.md`: across-horizon test
-statistics are not independent and BHY's PRDS assumption fails, so
+statistics are not independent and BHY's positive regression dependence on a subset (PRDS) assumption fails, so
 factrix uses an FWER (independence-free) inner step before BHY —
 the FWER prescription is factrix's response to BRW's correlation
 result, not BRW's own recommendation. Cited at
@@ -738,7 +738,7 @@ documents is not addressed by any normalization choice.
 
 ---
 
-## Factor zoo, replication, and OOS decay
+## Factor zoo, replication, and out-of-sample (OOS) decay
 
 ### McLean & Pontiff (2016)
 [](){ #mclean-pontiff-2016 }
@@ -842,7 +842,7 @@ Bayesian model-comparison alternative; cited in design notes as the
 Feng, G., Giglio, S. & Xiu, D. (2020). "Taming the Factor Zoo: A
 Test of New Factors." *Journal of Finance* 75(3), 1327–1370.
 
-Two-pass model-selection-corrected SDF estimator for testing whether
+Two-pass model-selection-corrected stochastic discount factor (SDF) estimator for testing whether
 a candidate factor adds incremental pricing power. Cited from
 `spanning.py` as the principled alternative to greedy forward
 selection.

@@ -56,7 +56,7 @@ context, so each per-row schema reduces to *Metric / Sample axis /
 Min sample*. `MIN_*` constants resolve to values in the
 [Sample-size constants table](#sample-size-constants).
 
-### IC family — Cell: Individual × Continuous
+### Information coefficient (IC) family — Cell: Individual × Continuous
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
@@ -154,7 +154,7 @@ below.
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fama_macbeth.py` | `fama_macbeth`, `beta_sign_consistency` |
-| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fama_macbeth` (NW HAC over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
+| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fama_macbeth` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `compute_rolling_mean_beta`, `ts_beta_sign_consistency` |
 
 Naming caveats:
@@ -237,7 +237,7 @@ returns a meaningful-looking result. Three deterministic outcomes:
   `primary_p` is at or above the user's chosen threshold.
 - **Fallback** — the dispatch registry routes to a degraded but
   semantically distinct procedure (e.g. `Common × Continuous` at
-  `N == 1` falls back to single-asset OLS without HAC). `diagnose()`
+  `N == 1` falls back to single-asset ordinary least squares (OLS) without HAC). `diagnose()`
   fires an `info`-severity rule recording the fallback.
 - **Degraded** — the metric runs but a Profile field is set to
   `None` (e.g. `clustering_hhi=None` for single-asset event signals).
@@ -330,6 +330,6 @@ the inner event. The chosen mitigation depends on the metric:
 | [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | Quantifies cross-sectional concentration on event dates only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
 
 Operationally: trust `caar` *p*-values when `clustering_diagnostic`
-HHI is low and `signal_density` shows events well-spaced per asset;
+Herfindahl-Hirschman index (HHI) is low and `signal_density` shows events well-spaced per asset;
 otherwise downweight the parametric *p* and lean on `corrado_rank_test`
 or external block-bootstrap.

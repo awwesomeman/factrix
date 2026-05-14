@@ -60,13 +60,13 @@ def compute_forward_return(
         2. **Compounding bias.** Compounding at the arithmetic mean
            is an upward-biased estimator of cumulative wealth; the
            bias grows with ``N`` and per-bar return variance.
-           Negligible for rank-based IC; not negligible for
+           Negligible for rank-based information coefficient (IC); not negligible for
            signed-return mean and t-tests at large ``N``.
         3. **Scale, not inference.** ``÷N`` aligns the *scale* across
            horizons — it does *not* address the inference problem.
-           Overlap is handled by HAC (see
+           Overlap is handled by heteroskedasticity-and-autocorrelation-consistent (HAC) (see
            :class:`factrix.stats.NeweyWest`); across-horizon
-           selection is handled by the FWER correction in
+           selection is handled by the family-wise error rate (FWER) correction in
            :func:`factrix.multi_factor.bhy`. The three concerns
            (scale, overlap, cross-horizon selection) are addressed
            at separate layers; overlap and across-horizon dependence

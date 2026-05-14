@@ -11,14 +11,14 @@ Factory methods are type-safe constructors. Unsupported combinations (e.g.
 `metric=IC` on a sparse signal) are caught by the IDE before runtime — no
 need to memorise the legal axis triples.
 
-## IC vs FM
+## Information coefficient (IC) vs FM
 
 Both apply to `(INDIVIDUAL, CONTINUOUS)`. Choose by research question:
 
 | | IC | FM |
 |--|----|----|
 | Question | Predictive rank ordering? | Unit-exposure return premium? |
-| Method | Spearman ρ per date → NW HAC t on E[IC] | OLS slope λ per date → NW HAC t on E[λ] |
+| Method | Spearman ρ per date → Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t on E[information coefficient (IC)] | ordinary least squares (OLS) slope λ per date → NW HAC t on E[λ] |
 | Robust to | Outliers (rank-based) | Proportional exposure differences |
 | Economic interpretation | Directional signal quality | Premium per unit of factor exposure |
 | `n_assets` sensitivity | Drops dates with < 10 assets | Runs at N ≥ 3 but unstable at low N |
@@ -35,7 +35,7 @@ For the lookup table — which metrics are supported under which `(scope, signal
 | When to use `evaluate()` | When to use standalone metrics |
 |---|---|
 | Canonical signal validity inference | Diagnose shape, asymmetry, regime splits |
-| BHY family input (needs [`FactorProfile`][factrix.FactorProfile]) | Multi-statistic decomposition |
-| Primary screening gate | OOS decay, tradability, concentration |
+| Benjamini-Hochberg-Yekutieli (BHY) family input (needs [`FactorProfile`][factrix.FactorProfile]) | Multi-statistic decomposition |
+| Primary screening gate | out-of-sample (OOS) decay, tradability, concentration |
 
 See [Metric pipelines](../reference/metric-pipelines.md) for the full module list.

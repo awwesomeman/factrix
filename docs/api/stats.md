@@ -5,7 +5,7 @@ title: factrix.stats
 Inference-method instances + standalone statistical helpers. The
 public surface is what screening functions (`bhy` / `bhy_hierarchical`) and
 the slice-test functions (`slice_pairwise_test` / `slice_joint_test`)
-accept on their `estimator=` kwarg, plus a small set of FDR /
+accept on their `estimator=` kwarg, plus a small set of false discovery rate (FDR) /
 bootstrap utilities for callers who
 want to drive inference outside the dispatch chain.
 
@@ -18,7 +18,7 @@ package; nothing under `_stats` is part of the public API.
 instance names *which inference path* downstream code reads from
 `FactorProfile.stats`. `HACEstimator(Estimator)` is the sub-protocol
 adding cell-internal `compute(series, *, forward_periods) ->
-InferenceResult` for HAC-on-mean estimators; pass instances to
+InferenceResult` for heteroskedasticity-and-autocorrelation-consistent (HAC)-on-mean estimators; pass instances to
 `AnalysisConfig.estimator=` for evaluate-time inference dispatch.
 Default-constructed instances live in
 `factrix.stats._ESTIMATOR_REGISTRY` and surface through
@@ -26,8 +26,8 @@ Default-constructed instances live in
 
 | Class | Protocol | Algorithm family | Emits | Applicable to | Use when |
 |---|---|---|---|---|---|
-| `NeweyWest` | `HACEstimator` | NW Bartlett HAC | `(T_NW, P_NW)` | every cell | Default — drives `primary_p` on every PANEL / TIMESERIES procedure. |
-| `HansenHodrick` | `HACEstimator` | HH rectangular HAC | `(T_HH, P_HH)` | `(INDIVIDUAL, CONTINUOUS)` only | Overlapping forward returns on IC PANEL / FM PANEL — the MA(h-1) overlap structure has a closed-form rectangular-kernel SE. Pass via `AnalysisConfig.individual_continuous(estimator=HansenHodrick())` to drive `primary_p` from the HH path instead of NW. |
+| `NeweyWest` | `HACEstimator` | Newey-West (NW) Bartlett HAC | `(T_NW, P_NW)` | every cell | Default — drives `primary_p` on every PANEL / TIMESERIES procedure. |
+| `HansenHodrick` | `HACEstimator` | Hansen-Hodrick (HH) rectangular HAC | `(T_HH, P_HH)` | `(INDIVIDUAL, CONTINUOUS)` only | Overlapping forward returns on information coefficient (IC) PANEL / FM PANEL — the MA(h-1) overlap structure has a closed-form rectangular-kernel SE. Pass via `AnalysisConfig.individual_continuous(estimator=HansenHodrick())` to drive `primary_p` from the HH path instead of NW. |
 | `WaldNWCluster` | Cluster-Wald χ² (NW HAC + 1-way cluster on slice) | `(WALD_NWCL, P_WALD_NWCL)` | `(INDIVIDUAL, CONTINUOUS)` | Slice test on a stacked per-date metric panel (#176 functions). |
 | `WaldTwoWayCluster` | Cluster-Wald χ² (Cameron-Gelbach-Miller two-way cluster on (date, asset)) | `(WALD_TWOWAY, P_WALD_TWOWAY)` | `(INDIVIDUAL, CONTINUOUS)` | Reserved interface — raw asset-date panel path. No function consumes it until `factor_decomposition` lands later. |
 | `BlockBootstrap` | Politis-Romano stationary or Künsch fixed block bootstrap; Politis-White auto block length | `(P_BOOT,)` | `(INDIVIDUAL, CONTINUOUS)` | Paired-diff slice test when distributional assumptions of the cluster-Wald path are uncomfortable (heavy tails, persistent shocks). |
@@ -88,7 +88,7 @@ procedures populate on `profile.stats`. The shape is
 `<KIND>_<ALGO>` — KIND names the test statistic (`T` for Student-t /
 asymptotic normal, `J` for Hansen J / χ², `WALD` for Wald χ²); ALGO
 names the inference algorithm or SE family (`NW`, `HH`, `NWCL`,
-`DC`, `GMM`, …).
+`DC`, generalized method of moments (GMM), …).
 
 | Pair | What it is |
 |---|---|
@@ -113,14 +113,14 @@ chain:
   Benjamini-Yekutieli step-up rejection mask. Returns
   `np.ndarray[bool]` aligned to input order.
 - **`bhy_adjusted_p(p_values, *, n_tests=None)`** — per-hypothesis
-  BHY-adjusted p-values (clipped at 1).
+  Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-values (clipped at 1).
 - **`stationary_bootstrap_resamples(values, n_bootstrap, …)`** —
   Politis-Romano (1994) resamples; emits the value matrix directly.
 - **`bootstrap_mean_ci(values, *, n_bootstrap, ci, …)`** —
   stationary-bootstrap CI for a statistic (default `mean`; pass
   `statistic=` for Sharpe / median / skew).
 
-The FWER procedures (Holm step-down / Bonferroni / Romano-Wolf
+The family-wise error rate (FWER) procedures (Holm step-down / Bonferroni / Romano-Wolf
 bootstrap step-down) live as private helpers under
 `factrix._stats.multiple_testing`; they ship in #153 and are
 consumed by the slice-test functions in #176 — the function's

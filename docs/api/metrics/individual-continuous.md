@@ -9,7 +9,7 @@ aggregated over time.
 | Metric | Role | Page |
 |---|---|---|
 | Spearman rank correlation, the canonical signal-quality summary | Primary | [`ic`](ic.md) |
-| Per-date OLS slope $\lambda$, NW HAC $t$ on its mean | Primary | [`fama_macbeth`](fama_macbeth.md) |
+| Per-date ordinary least squares (OLS) slope $\lambda$, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$ on its mean | Primary | [`fama_macbeth`](fama_macbeth.md) |
 | Long-short quintile spread (equal- and value-weighted) | Profile | [`quantile`](quantile.md) |
 | Quintile-return monotonicity rank test | Profile | [`monotonicity`](monotonicity.md) |
 | HHI-style top-bucket concentration | Profile | [`concentration`](concentration.md) |

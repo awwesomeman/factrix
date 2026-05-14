@@ -13,15 +13,15 @@ tests on a moment-condition system (#191). ``GMM`` implements it.
 ``GMMResult`` — harmonized return shape for ``MomentEstimator.compute``.
 ``GMM`` — Hansen (1982) two-step efficient J-test ``MomentEstimator``;
 opt-in via ``AnalysisConfig.moment_estimator``.
-``NeweyWest`` — Newey-West HAC ``HACEstimator``; default for
+``NeweyWest`` — Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) ``HACEstimator``; default for
 ``AnalysisConfig.estimator``.
-``HansenHodrick`` — rectangular-kernel HAC variant for IC / FM PANEL
+``HansenHodrick`` — rectangular-kernel HAC variant for information coefficient (IC) / FM PANEL
 on overlapping forward returns.
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
 Estimators for slice contrasts (#153); remain on base ``Estimator``.
 ``BlockBootstrap`` — block-bootstrap empirical-p Estimator for
 paired-diff slice tests (#153); remains on base ``Estimator``.
-``multiple_testing`` — BHY procedure for FDR control across many factors.
+``multiple_testing`` — Benjamini-Hochberg-Yekutieli (BHY) procedure for false discovery rate (FDR) control across many factors.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
 """
 
