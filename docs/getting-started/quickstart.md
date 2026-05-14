@@ -122,6 +122,8 @@ You have one `FactorProfile` for one factor. The common follow-ups:
 | Rank factors after screening | [`compare(survivors)`](../api/compare.md) — leaderboard with `adj_q` | — |
 | Explore one metric across slices (sector / regime / decile) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |
 | Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
-| Look up the panel input contract | [Panel schema](../api/panel-schema.md) | — |
-| Pick a metric for a given research question | [Choosing a metric](../guides/choosing-metric.md) | — |
-| Pick a function (rather than a metric) | [Decision tree](../api/decision-tree.md) | — |
+
+For function semantics, the input contract, and cross-function topics
+(`expand_over` semantics, regime-analysis dispatch), see the
+[API reference landing](../api/index.md) and
+[Cross-function reference](../api/decision-tree.md).
