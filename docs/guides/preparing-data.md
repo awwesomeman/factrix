@@ -17,17 +17,23 @@ task-oriented walk-through.
 | 3 | Attach forward return | [`compute_forward_return`](../api/preprocess.md) | adds `forward_return` |
 | 4 | (Optional) drop / impute NaN, align frequencies | manual | clean panel |
 
-## 1. Long-format shape with `price` and `factor`
+## 1. Long-format shape with `price` and the factor column
 
 factrix expects **long-format** panel data — one row per
 `(date, asset_id)` pair. Wide-format (one column per asset) is not
 accepted by any entry point.
 
 [`compute_forward_return`](../api/preprocess.md) computes the
-look-ahead return from a `price` column; the `factor` column is a
+look-ahead return from a `price` column; the factor column is a
 parallel signal you construct yourself (factor construction is outside
 factrix's scope — see
 [Where factrix fits § 1](../where-factrix-fits.md#1-what-factrix-is)).
+
+The factor column name is **user-defined** — `evaluate()` / `run_metrics()`
+accept a `factor_col=` kwarg that binds an arbitrary column to the
+canonical role at dispatch time. The examples below use
+`momentum` to make this binding visible; you can equally pick
+`alpha`, `value_score`, or whatever is meaningful for the strategy.
 
 For per-asset factors (`INDIVIDUAL` scope), each `(date, asset_id)`
 carries its own factor value alongside the price:
@@ -37,21 +43,22 @@ import polars as pl
 from datetime import date
 
 raw = pl.DataFrame({
-    "date":     [date(2024, 1, 1), date(2024, 1, 1),
-                 date(2024, 1, 2), date(2024, 1, 2)],
-    "asset_id": ["AAPL", "MSFT", "AAPL", "MSFT"],
-    "price":    [185.0, 372.0, 186.5, 374.5],
-    "factor":   [0.42, -0.15, 0.51, -0.08],
+    "date":          [date(2024, 1, 1), date(2024, 1, 1),
+                      date(2024, 1, 2), date(2024, 1, 2)],
+    "asset_id":      ["AAPL", "MSFT", "AAPL", "MSFT"],
+    "price":         [185.0, 372.0, 186.5, 374.5],
+    "momentum": [0.42, -0.15, 0.51, -0.08],
 })
 ```
 
 For market-wide factors (`COMMON` scope, e.g. VIX, DXY), the factor
 value is identical across `asset_id` on a given `date`. Verify with
 the one-liner from
-[Concepts § scope](../getting-started/concepts.md#scope--a-factor-attribute-not-a-data-shape):
+[Concepts § scope](../getting-started/concepts.md#scope--a-factor-attribute-not-a-data-shape)
+(swap the column name for whichever the panel carries):
 
 ```python
-raw.group_by("date").agg(pl.col("factor").n_unique() == 1).all()
+raw.group_by("date").agg(pl.col("vix").n_unique() == 1).all()
 ```
 
 ## 2. Regular spacing per asset is load-bearing
@@ -109,14 +116,21 @@ five-trading-day lookahead; on a monthly panel it is five months.
 Frequency is the user's responsibility — see step 4.
 
 The `forward_periods` you pass here must match the
-`AnalysisConfig.forward_periods` you later pass to `evaluate`:
+`AnalysisConfig.forward_periods` you later pass to `evaluate`. Bind
+the custom factor column via `factor_col=`:
 
 ```python
 import factrix as fx
 
 cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-profile = fx.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg, factor_col="momentum")
 ```
+
+If the column is already named `factor` (the default), `factor_col=`
+can be omitted. See
+[Panel schema § factor_col=](../api/panel-schema.md#factor_col--non-default-signal-column-name)
+for the in-place rename contract and the conflict rule (a panel
+cannot carry both `factor` and a non-default `factor_col` at once).
 
 ## 4. Frequency alignment is the caller's job
 
@@ -147,12 +161,14 @@ Three responsibilities sit upstream of `compute_forward_return`:
 ## 6. Sparse and event signals
 
 For `(INDIVIDUAL, SPARSE)` or `(COMMON, SPARSE)` factors — buy/sell
-flags, FOMC dummies, signed event triggers — the `factor` column is
-the `{0, R}` event vector:
+flags, FOMC dummies, event magnitudes — the `factor` column is the
+`{0, R}` event vector:
 
 - `0` on non-event rows.
-- arbitrary real magnitude on event rows (canonical examples:
-  `{−1, 0, +1}`, `{0, 1}`, `{0, R≥0}`).
+- any real value on event rows (`R` is unrestricted — positive,
+  negative, or any magnitude). Common forms: `{0, 1}` for a pure
+  event flag and `{0, R}` for an event carrying signed or unsigned
+  magnitude.
 - expect ≥ 50% zeros.
 
 Sort and forward-return attachment are identical to step 2-3; the

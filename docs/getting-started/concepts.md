@@ -22,7 +22,7 @@ specific statistical test.
 | Axis | Values | What it asks |
 |------|--------|--------------|
 | `scope` | `INDIVIDUAL` / `COMMON` | Does each asset have its own factor value, or do all assets share one? |
-| `signal` | `CONTINUOUS` / `SPARSE` | Real-valued signal, or `{0, R}` event trigger (zero on non-events; canonical `{−1, 0, +1}`)? |
+| `signal` | `CONTINUOUS` / `SPARSE` | Real-valued signal, or `{0, R}` event trigger (zero on non-events; `R` is any real magnitude — positive, negative, or unsigned)? |
 | `metric` | `IC` / `FM` / *(N/A)* | Only for `(INDIVIDUAL, CONTINUOUS)` — refines the research question |
 
 ### scope — a factor attribute, not a data shape
@@ -41,9 +41,10 @@ axis, not the panel layout itself:
 
 - **`CONTINUOUS`** — real-valued (z-score, percentile, momentum, …).
 - **`SPARSE`** — `{0, R}` event trigger: zero on non-event entries,
-  arbitrary real magnitude otherwise; expect ≥ 50% zeros. Canonical
-  examples: `{−1, 0, +1}` (signed dummy), `{0, 1}` (event flag),
-  `{0, R≥0}` (intensity).
+  any real value otherwise (`R` is unrestricted — positive, negative,
+  or any magnitude); expect ≥ 50% zeros. Common forms: `{0, 1}` for a
+  pure event flag and `{0, R}` for an event carrying signed or
+  unsigned magnitude.
 
 ### metric (only for `INDIVIDUAL × CONTINUOUS`)
 

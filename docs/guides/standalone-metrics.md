@@ -77,9 +77,10 @@ mono = fx.metrics.monotonicity(panel, forward_periods=5, n_groups=5)
 
 `caar`, `event_quality`, `event_horizon`, `mfe_mae`, `clustering`, and
 `corrado` read a panel where `factor` is zero on non-event entries
-and arbitrary real magnitude on event entries (canonical `{-1, 0, +1}`,
-also valid: `{0, R≥0}` or `{-R, 0, +R}`). Build via
-`fx.datasets.make_event_panel` or filter your own panel.
+and any real value on event entries (`R` is unrestricted). Common
+forms: `{0, 1}` for a pure event flag, or `{0, R}` for any
+real-valued magnitude. Build via `fx.datasets.make_event_panel` or
+filter your own panel.
 
 ```python
 events = fx.datasets.make_event_panel(n_assets=80, n_dates=500, event_rate=0.05, seed=7)

@@ -5,9 +5,9 @@ title: Individual sparse
 Metrics for the `Individual × Sparse` cell — event signals where most
 `(date, asset_id)` cells carry `factor == 0` and the few non-zero cells
 mark events. The schema is `{0, R}` — zero on non-event entries,
-arbitrary real magnitude otherwise. Canonical example: signed
-`{-1, 0, +1}` ternary; magnitude-weighted continuous values
-(`{0, R≥0}`, `{-R, 0, +R}`) also flow through (see
+any real value otherwise (`R` is unrestricted — positive, negative,
+or any magnitude). Common forms: `{0, 1}` for a pure event flag, or
+`{0, R}` for any real-valued magnitude; both flow through (see
 [`caar`](caar.md) for the input-form table).
 
 | Metric | Role | Page |
