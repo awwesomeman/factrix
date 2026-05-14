@@ -178,7 +178,7 @@ is realised. Aligning `AnalysisConfig.forward_periods` with
 `signal_horizon` is the regime where the synthetic IC / drift is
 calibrated; mismatched horizons induce IC decay (synthetic) and bias
 (in TIMESERIES mode — see
-[TIMESERIES-mode conventions § Non-overlap](ts-mode-conventions.md#non-overlap-convention--forward_periods-vs-signal_horizon)).
+[Timeseries-mode conventions § Non-overlap](ts-mode-conventions.md#non-overlap-convention--forward_periods-vs-signal_horizon)).
 
 ### `non-overlapping` returns
 

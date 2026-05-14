@@ -1,5 +1,5 @@
 ---
-title: PANEL vs TIMESERIES
+title: Panel vs timeseries
 ---
 
 !!! abstract "Answers"
