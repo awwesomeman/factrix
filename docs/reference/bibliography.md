@@ -405,10 +405,14 @@ of the densification convention factrix's sparse-panel CAAR adopts.
 Fama, E. F. (1998). "Market Efficiency, Long-term Returns, and
 Behavioral Finance." *Journal of Financial Economics* 49(3), 283–306.
 
-§2 review and defence of the calendar-time portfolio approach
-against the buy-and-hold abnormal return alternative; cited as the
-modern reference for the densification rationale in
-`_CAARSparsePanelProcedure`.
+Methodological comparison of calendar-time portfolio averaging
+(average abnormal returns / cumulative abnormal returns) against
+buy-and-hold abnormal returns (BHARs), strongly recommending the
+calendar-time approach on the grounds that monthly returns are less
+susceptible to the bad-model problem and that monthly portfolio
+formation automatically absorbs cross-correlations of event-firm
+abnormal returns. Cited as the modern reference for the densification
+rationale in `_CAARSparsePanelProcedure`.
 
 ---
 
