@@ -1,4 +1,4 @@
-"""factrix.slicing — cross-slice dispatcher and inference verbs.
+"""factrix.slicing — cross-slice dispatcher and inference functions.
 
 Public surface:
 
@@ -9,10 +9,11 @@ Public surface:
 - :func:`slice_joint_test` — single-row omnibus Wald χ² that all
   slice means are equal.
 
-These verbs are intentionally *not* hosted under ``factrix.metrics``:
-that package is a structural registry where every public ``*.py`` is
-a per-(scope, signal) cell metric. Slicing verbs are infrastructure
-that consumes a metric callable, so they live in their own package.
+These functions are intentionally *not* hosted under
+``factrix.metrics``: that package is a structural registry where
+every public ``*.py`` is a per-(scope, signal) cell metric. Slicing
+functions are infrastructure that consumes a metric callable, so
+they live in their own package.
 """
 
 from __future__ import annotations

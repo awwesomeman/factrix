@@ -189,7 +189,7 @@ class StatCode(StrEnum):
     GMM emits J rather than T), ``(WALD_NWCL, P_WALD_NWCL)`` for NW
     HAC + one-way cluster on the slice grouping, and ``(WALD_TWOWAY,
     P_WALD_TWOWAY)`` for two-way cluster on (date, asset) (slice-test
-    verbs, #153 / #176). The Wald pairs follow the same
+    functions, #153 / #176). The Wald pairs follow the same
     ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,
     parallel to ``T``), ALGO names the cluster-SE family
     (parallel to ``NW`` / ``HH`` naming the kernel family). ``P_BOOT``
@@ -230,8 +230,9 @@ class StatCode(StrEnum):
     Python variable convention is unambiguous from context.
 
     ``is_p_value`` returns ``True`` for any code whose
-    underscore-separated tokens contain ``"p"``; family-verb
-    ``estimator=`` (#170) dispatches via :class:`Estimator.emits_for`
+    underscore-separated tokens contain ``"p"``; the
+    family-function ``estimator=`` kwarg (#170) dispatches via
+    :class:`Estimator.emits_for`
     and is implicitly a p-value source by construction.
     """
 
@@ -255,7 +256,7 @@ class StatCode(StrEnum):
     J_GMM = "j_gmm"
     P_GMM = "p_gmm"
     # Cluster-robust Wald χ² for linear restrictions on a slice contrast
-    # / joint coefficient (slice-test verbs, #153 / #176). KIND = WALD (χ²
+    # / joint coefficient (slice-test functions, #153 / #176). KIND = WALD (χ²
     # test statistic, parallel to T); ALGO names the cluster-SE family
     # (parallel to NW / HH naming the kernel family).
     # NWCL = NW Bartlett HAC + one-way cluster on the slice grouping

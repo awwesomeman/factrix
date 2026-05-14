@@ -50,7 +50,7 @@ class NeweyWest:
     re-encoding cell identity.
 
     Pass an instance to ``AnalysisConfig`` to run NW at evaluate time
-    (default), or to family verbs to select the NW p-value::
+    (default), or to family functions to select the NW p-value::
 
         cfg = AnalysisConfig.individual_continuous(estimator=NeweyWest())
         fx.bhy(profiles, estimator=NeweyWest())

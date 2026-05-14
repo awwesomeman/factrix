@@ -1,8 +1,9 @@
 """Estimator protocols — selection (base), HAC-compute, moment-compute.
 
-``Estimator`` (base, #170): family-verb override selects which already-
-computed p-value to feed step-up math. Carries no compute logic — the
-procedure that populated ``FactorProfile.stats`` did the math.
+``Estimator`` (base, #170): family-function override selects which
+already-computed p-value to feed step-up math. Carries no compute
+logic — the procedure that populated ``FactorProfile.stats`` did the
+math.
 
 ``HACEstimator(Estimator)`` (#163): adds ``compute(series, *,
 forward_periods) -> InferenceResult`` for cell-internal estimator swap.
@@ -19,7 +20,7 @@ data-shape essentials only.
 
 Base ``Estimator`` is retained for slice-test instances
 (``WaldNWCluster`` / ``BlockBootstrap``, #153 / #176) whose compute
-path is multivariate and lives outside the family-verb axis.
+path is multivariate and lives outside the family-function axis.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class Estimator(Protocol):
-    """Inference-method instance: names the p-value source family verbs select.
+    """Inference-method instance: names the p-value source family functions select.
 
     Implementations supply identity (``name``), human-readable summary
     (``description``), cell-applicability check (``applicable_to``), and a

@@ -1,11 +1,11 @@
-"""Cross-slice statistical-test verbs.
+"""Cross-slice statistical-test functions.
 
 ``slice_pairwise_test`` reports K(K-1)/2 cross-slice contrasts as a
 long-form DataFrame of pairwise ``(stat, p_raw, p_adj)``;
 ``slice_joint_test`` reports the single omnibus Wald χ² that all K
 slice means are equal.
 
-The ``_test`` suffix marks "verb whose headline output is a
+The ``_test`` suffix marks "function whose headline output is a
 comparison test result (stat + p)" — distinct from metrics like
 ``ic`` / ``fama_macbeth`` whose significance is sidecar to a value,
 and from ``compare`` which renders existing stats without
@@ -22,7 +22,7 @@ the joint per-date K-vector panel — cross-slice covariance enters
 through the joint HAC, so paired-diff degeneracies do not arise on
 this path.
 
-Matrix-row: slice_pairwise_test, slice_joint_test | (*, *, *, *) | inference verb | per-pair Wald χ² + Holm/RW/Bonferroni / joint Wald χ² | _build_per_date_panel, _resolve_estimator, _joint_block_bootstrap_pairwise_distribution
+Matrix-row: slice_pairwise_test, slice_joint_test | (*, *, *, *) | inference function | per-pair Wald χ² + Holm/RW/Bonferroni / joint Wald χ² | _build_per_date_panel, _resolve_estimator, _joint_block_bootstrap_pairwise_distribution
 """
 
 from __future__ import annotations

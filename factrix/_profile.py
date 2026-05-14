@@ -79,7 +79,7 @@ class FactorProfile:
             profile is constructed directly.
         context: Sample-restriction / conditioning dimensions
             (``universe_id``, ``regime_id``, future axes). Populated
-            by higher-level verbs via ``dataclasses.replace``.
+            by higher-level functions via ``dataclasses.replace``.
         warnings, info_notes, stats: per-procedure flags / scalars.
         metadata: Hyperparameter-selection records the procedure made
             internally, keyed by the ``StatCode`` they produced.

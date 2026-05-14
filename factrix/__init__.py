@@ -240,7 +240,7 @@ __all__ = [
     "list_estimators",
     "list_metrics",
     "suggest_config",
-    # Slicing dispatcher + cross-slice inference verbs
+    # Slicing dispatcher + cross-slice inference functions
     "SliceResult",
     "by_slice",
     "slice_joint_test",

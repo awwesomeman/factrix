@@ -1,7 +1,7 @@
 """Cluster-robust Wald χ² Estimator instances (#153).
 
 Two ``Estimator`` implementations targeting the slice-test setting
-(#176 verbs ``slice_pairwise_test`` / ``slice_joint_test``):
+(#176 functions ``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``WaldNWCluster`` — NW HAC + 1-way cluster on the slice grouping;
   consumes the stacked per-date metric panel. Emits
@@ -9,15 +9,16 @@ Two ``Estimator`` implementations targeting the slice-test setting
   statistic side).
 - ``WaldTwoWayCluster`` — Cameron-Gelbach-Miller (2011) two-way
   cluster on (date, asset); consumes the raw asset-date panel.
-  Emits ``StatCode.P_WALD_TWOWAY``. Interface ships this issue but no
-  verb consumes it until ``factor_decomposition`` lands later;
-  calling ``bhy(estimator=WaldTwoWayCluster())`` against a profile
-  produced by ``evaluate()`` lands on a missing-stat error until
-  the verb populates ``profile.stats[StatCode.P_WALD_TWOWAY]``.
+  Emits ``StatCode.P_WALD_TWOWAY``. Interface ships this issue but
+  no function consumes it until ``factor_decomposition`` lands
+  later; calling ``bhy(estimator=WaldTwoWayCluster())`` against a
+  profile produced by ``evaluate()`` lands on a missing-stat error
+  until the function populates
+  ``profile.stats[StatCode.P_WALD_TWOWAY]``.
 
 Numerical implementations live in ``factrix._stats.wald``; this
-module names the inference path the family verbs / slice-test verbs
-dispatch to.
+module names the inference path the family functions / slice-test
+functions dispatch to.
 """
 
 from __future__ import annotations
@@ -40,8 +41,8 @@ class WaldNWCluster:
     panel. ``COMMON`` cells produce one number per date by definition
     of the scope and have no within-cell cross-section to slice over.
 
-    Pass an instance to a slice-test verb to make the inference choice
-    explicit::
+    Pass an instance to a slice-test function to make the inference
+    choice explicit::
 
         fx.slice_pairwise_test(metric=ic, df=panel, label="sector",
                                 estimator=WaldNWCluster())
@@ -83,7 +84,7 @@ class WaldTwoWayCluster:
     interaction with full panel SE). Numerics live in
     ``factrix._stats.wald._wald_two_way_cluster``.
 
-    Interface ships this PR; no verb consumes it until
+    Interface ships this PR; no function consumes it until
     ``factor_decomposition`` lands later. ``list_estimators`` surfaces
     it for ``(INDIVIDUAL, CONTINUOUS)`` cells — calling
     ``bhy(estimator=WaldTwoWayCluster())`` against a profile produced

@@ -1,6 +1,6 @@
-"""Shared family resolution layer for multiple-testing verbs (#161, #170).
+"""Shared family resolution layer for multiple-testing functions (#161, #170).
 
-Every closed-form family verb (``bhy`` / ``bhy_hierarchical`` /
+Every closed-form family function (``bhy`` / ``bhy_hierarchical`` /
 ``partial_conjunction`` / ``bonferroni`` / ``holm``) and the
 resampling-based ``romano_wolf`` runs through ``_resolve_family`` to
 turn a list of :class:`~factrix._profile.FactorProfile` into flat
@@ -43,7 +43,7 @@ _ESTIMATOR_DOCS_ANCHOR = "estimator"
 
 @dataclass(frozen=True, slots=True)
 class _FamilyEntry:
-    """Flat record fed to family-verb procedures after invariant checks.
+    """Flat record fed to family-function procedures after invariant checks.
 
     Attributes:
         identity: ``(factor_id, forward_periods)`` from

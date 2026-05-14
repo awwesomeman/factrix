@@ -46,7 +46,7 @@ __all__ = [
 # bucket means converge to their cross-sectional expectation; below
 # this floor individual-asset noise dominates the rank statistic.
 # `_downscale_n_groups(base, n_assets, min_per_group=50)` caps
-# `n_groups` accordingly inside the slice-test verb.
+# `n_groups` accordingly inside the slice-test function.
 min_assets_per_group: int | None = 50
 
 
