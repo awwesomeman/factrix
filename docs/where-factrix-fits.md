@@ -454,6 +454,16 @@ self-defeating once they read the source.
   replication is on the roadmap and is a credibility gap until it
   ships.
 
+## Next steps
+
+If this page resolved the fit question and you want to run factrix:
+
+- [Quickstart](getting-started/quickstart.md) — 30-second example from a raw panel to a `primary_p` readout.
+- [Concepts](getting-started/concepts.md) — the three-axis taxonomy and the metric dispatch underneath the routing examples above.
+- [Choosing a metric](guides/choosing-metric.md) — research-question to metric mapping for the five scenarios in §2.
+
+If you want to compare factrix to a specific peer before installing, the [§4 same-purpose peers](#4-same-purpose-peers) table is the densest summary on this page.
+
 ## 8. Citations
 
 The methodological choices on this page anchor in the following
