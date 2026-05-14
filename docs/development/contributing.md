@@ -404,7 +404,7 @@ which folder they happen to live in. Four shapes carry the whole site:
 - **question-centric** — answers a "how do I do X?" task with a short
   walk-through. Lives under `User guide` > `How-to`. Title is the
   question, body is the recipe. (`Information coefficient vs
-  Fama-MacBeth`, `Panel vs timeseries`, `Decision tree`.)
+  Fama-MacBeth`, `Panel vs timeseries`, `Cross-function reference`.)
 - **lookup** — pure table or reverse-index, scanned not read. Lives
   under `User guide` > `Reference tables`. Ordered by quant scan
   frequency, not alphabetically. (`Metrics applicability`, `Stat keys`,

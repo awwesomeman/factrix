@@ -222,7 +222,7 @@ controlling procedure. Once a hypothesis joins a family, the
 procedure's FDR claim only holds *within* that family. Family choice
 is a contract decision: re-running BHY on a filtered subset of
 survivors does not preserve FDR ≤ q. See
-[Decision tree § §C `expand_over`](../api/decision-tree.md#expand_over-is-not-one-concept)
+[Cross-function reference § `expand_over`](../api/decision-tree.md#expand_over-is-not-one-concept)
 for the sample-restriction vs hypothesis-dimension split.
 
 ### `Survivors`
