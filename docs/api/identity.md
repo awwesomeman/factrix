@@ -30,7 +30,7 @@ boundary until something looks significant.
 | Stat shopping (swap `p_stat` per factor) | Study-level `p_stat=` only; per-factor not allowed | shipped |
 | Universe shopping (swap large-cap → small-cap) | `context["universe_id"]` is a sample restriction, not a hypothesis dimension; promotion to family member requires explicit `expand_over=` | partial — context split shipped; `expand_over=` lands in [#161](https://github.com/awwesomeman/factrix/issues/161) |
 | Family-scope shopping (multiplicative → per-slice) | No implicit default — `expand_over=` must be explicit | [#161](https://github.com/awwesomeman/factrix/issues/161) |
-| **Horizon shopping** (run every `forward_periods` ∈ {1d, 5d, 1m, 3m, 6m, 12m}, report the smallest p) | `forward_periods` is part of `identity`; `bhy(profiles)` over a horizon sweep auto-forms the full family | shipped (Benjamini-Yekutieli (BHY) family already partitions on `forward_periods`) |
+| **Horizon shopping** (run every `forward_periods` ∈ {1d, 5d, 1m, 3m, 6m, 12m}, report the smallest p) | `forward_periods` is part of `identity`; `bhy(profiles)` over a horizon sweep auto-forms the full family | shipped (Benjamini-Hochberg-Yekutieli (BHY) family already partitions on `forward_periods`) |
 
 The path of least resistance — `[evaluate(panel, cfg) for cfg in
 horizon_grid]` followed by `bhy(profiles)` — is also the statistically

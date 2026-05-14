@@ -30,7 +30,7 @@ _METRICS_LOGGER_NAME = "factrix.metrics"
 
 
 def get_evaluation_logger() -> logging.Logger:
-    """Orchestration-layer logger (Benjamini-Yekutieli (BHY), diagnose warnings)."""
+    """Orchestration-layer logger (Benjamini-Hochberg-Yekutieli (BHY), diagnose warnings)."""
     return logging.getLogger(_EVALUATION_LOGGER_NAME)
 
 

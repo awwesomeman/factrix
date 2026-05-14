@@ -75,7 +75,7 @@ def bhy_adjust(
     *,
     n_tests: int | None = None,
 ) -> np.ndarray:
-    """Benjamini-Yekutieli (BHY) step-up rejection mask.
+    """Benjamini-Hochberg-Yekutieli (BHY) step-up rejection mask.
 
     Args:
         p_values: 1-D array of p-values in [0, 1]. Each must come from
@@ -135,7 +135,7 @@ def bhy_adjusted_p(
     *,
     n_tests: int | None = None,
 ) -> np.ndarray:
-    """Per-hypothesis Benjamini-Yekutieli (BHY)-adjusted p-values (clipped at 1).
+    """Per-hypothesis Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-values (clipped at 1).
 
     Formula: scale p_(k) by ``(m * c(m)) / k`` then cummin from the
     right to enforce monotonicity in ranked order. Gives a stable
@@ -184,7 +184,7 @@ def simes_p(p_values: npt.ArrayLike) -> float:
     Yekutieli (2008) uses Simes as the default group representative
     in hierarchical false discovery rate (FDR) procedures — it dominates Bonferroni
     (``m * min(p)``) and preserves group-level FDR control when fed
-    to an outer Benjamini-Yekutieli (BHY) step-up.
+    to an outer Benjamini-Hochberg-Yekutieli (BHY) step-up.
 
     Args:
         p_values: 1-D array of ``m`` p-values for one group. ``m >= 1``.

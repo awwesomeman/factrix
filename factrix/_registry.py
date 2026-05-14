@@ -2,7 +2,7 @@
 
 Every component that needs to know whether a given cell is legal
 (``_validate_axis_compat``, ``describe_analysis_modes``,
-``suggest_config``, Benjamini-Yekutieli (BHY) family-key partitioning) reverse-queries this
+``suggest_config``, Benjamini-Hochberg-Yekutieli (BHY) family-key partitioning) reverse-queries this
 module rather than maintaining a parallel rule table. Adding a new
 cell touches one ``register(...)`` call.
 """

@@ -65,7 +65,7 @@ factrix's design splits the difference:
    same factor under both Newey-West (NW) and Hansen-Hodrick (HH) produces two profiles whose
    `context` makes the difference visible (and downstream tools that
    detect "same identity, different context" can flag the A/B path).
-3. **Benjamini-Yekutieli (BHY) family-function false discovery rate (FDR) doesn't fan out on estimator.** Same
+3. **Benjamini-Hochberg-Yekutieli (BHY) family-function false discovery rate (FDR) doesn't fan out on estimator.** Same
    hypothesis under a different estimator is not a new hypothesis —
    `bhy([nw_profile, hh_profile])` with the same `factor_id` raises
    on duplicate identity rather than silently widening the family.

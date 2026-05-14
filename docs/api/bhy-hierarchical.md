@@ -5,7 +5,7 @@ title: factrix.multi_factor.bhy_hierarchical
 ::: factrix.multi_factor.bhy_hierarchical
 
 Two-stage false discovery rate (FDR) for factor sets with natural group structure (factor
-families, regions, sectors). Outer Benjamini-Yekutieli (BHY) on
+families, regions, sectors). Outer Benjamini-Hochberg-Yekutieli (BHY) on
 [Simes (1986)](https://academic.oup.com/biomet/article/73/3/751/277681)
 group representatives + inner BHY within each passing group, per
 [Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035).

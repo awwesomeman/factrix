@@ -21,7 +21,7 @@ on overlapping forward returns.
 Estimators for slice contrasts (#153); remain on base ``Estimator``.
 ``BlockBootstrap`` — block-bootstrap empirical-p Estimator for
 paired-diff slice tests (#153); remains on base ``Estimator``.
-``multiple_testing`` — Benjamini-Yekutieli (BHY) procedure for false discovery rate (FDR) control across many factors.
+``multiple_testing`` — Benjamini-Hochberg-Yekutieli (BHY) procedure for false discovery rate (FDR) control across many factors.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
 """
 

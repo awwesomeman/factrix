@@ -113,7 +113,7 @@ chain:
   Benjamini-Yekutieli step-up rejection mask. Returns
   `np.ndarray[bool]` aligned to input order.
 - **`bhy_adjusted_p(p_values, *, n_tests=None)`** — per-hypothesis
-  Benjamini-Yekutieli (BHY)-adjusted p-values (clipped at 1).
+  Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-values (clipped at 1).
 - **`stationary_bootstrap_resamples(values, n_bootstrap, …)`** —
   Politis-Romano (1994) resamples; emits the value matrix directly.
 - **`bootstrap_mean_ci(values, *, n_bootstrap, ci, …)`** —

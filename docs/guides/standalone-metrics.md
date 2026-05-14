@@ -15,7 +15,7 @@ expects, and where they sit in a screening pipeline.
 ## What factrix evaluates
 
 factrix evaluates **factor signal validity** — predictive power
-(information coefficient (IC), FM λ), robustness (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC), Benjamini-Yekutieli (BHY), regime stability), and event
+(information coefficient (IC), FM λ), robustness (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC), Benjamini-Hochberg-Yekutieli (BHY), regime stability), and event
 shape (CAAR, BMP, Corrado). It does **not** compute portfolio-level
 performance: no Sharpe / drawdown / Sortino / Calmar / return
 attribution. Those metrics belong downstream of factor selection

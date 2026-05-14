@@ -2,7 +2,7 @@
 
 Public surface lives in ``factrix.stats`` (``Estimator`` / ``NeweyWest``
 / ``HansenHodrick`` / ``StatCode`` / ``list_estimators`` /
-Benjamini-Yekutieli (BHY) multiple-testing / ``WarningCode``); this package holds the private
+Benjamini-Hochberg-Yekutieli (BHY) multiple-testing / ``WarningCode``); this package holds the private
 primitives those façades and the procedure layer call into.
 
 **Submodules:**

@@ -48,7 +48,7 @@ each `MetricOutput` are computed on that slice alone (different `N`,
 different autocorrelation structure per slice) and are **not**
 directly comparable — `max(out.values(), key=lambda m: m.tstat)` is
 not a defensible cross-regime selection rule. A generic cross-slice test
-(Benjamini-Yekutieli (BHY) adjustment, Sharpe-diff Wald, paired-difference Newey-West (NW), etc.) cannot
+(Benjamini-Hochberg-Yekutieli (BHY) adjustment, Sharpe-diff Wald, paired-difference Newey-West (NW), etc.) cannot
 be applied honestly across the metric matrix — the appropriate test
 depends on the metric family. For metrics that expose a
 `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`),

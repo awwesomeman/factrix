@@ -97,13 +97,13 @@ for a runnable example.
 
 ---
 
-## `Survivors` — after Benjamini-Yekutieli (BHY) / partial conjunction / hierarchical FDR
+## `Survivors` — after Benjamini-Hochberg-Yekutieli (BHY) / partial conjunction / hierarchical FDR
 
 ```python
 survivors = fx.multi_factor.bhy(profiles, q=0.05)
 ```
 
-BHY (Benjamini-Yekutieli step-up procedure) controls the FDR
+BHY (Benjamini-Hochberg-Yekutieli step-up procedure) controls the FDR
 across a declared family of profiles.
 
 ### Contract

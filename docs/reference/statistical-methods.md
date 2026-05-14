@@ -140,7 +140,16 @@ Practical rule of thumb:
 [](){ #bhy }
 
 !!! tip "Canonical reference"
-    For when to use Benjamini-Yekutieli (BHY), family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This section is the underlying theorem and assumptions.
+    For when to use Benjamini-Hochberg-Yekutieli (BHY), family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This section is the underlying theorem and assumptions.
+
+!!! note "BH / BY / BHY — three names, two procedures"
+    The literature uses three labels that map to two distinct procedures:
+
+    - **BH** — [Benjamini & Hochberg (1995)][benjamini-hochberg-1995]. Original FDR step-up; requires independence or positive regression dependence on a subset (PRDS) among the test statistics.
+    - **BY** — [Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. Generalises BH to arbitrary dependence by dividing the threshold by $c(m) = \sum_{i=1}^{m} 1/i$. **This is the procedure factrix's `multi_factor.bhy()` implements mathematically.**
+    - **BHY** — quant / factor-research shorthand (e.g. [Harvey-Liu-Zhu 2016][harvey-liu-zhu-2016]) for the BY-2001 procedure, naming all three authors of the BH/BY lineage. Pure statistics / biostatistics literature (R `mutoss`, `sgof`, etc.) uses **BY** for the same procedure.
+
+    factrix follows the quant convention: the function is `bhy()`, the abbreviation in prose is `BHY`, the full form on first use is `Benjamini-Hochberg-Yekutieli`. Paper-citation links (`[Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]`) still point at the actual two-author paper because that is the work being cited.
 
 Factor pools are dependent by construction: 200 momentum variants on
 the same return panel correlate, and a Bonferroni step that assumes

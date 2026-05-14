@@ -441,7 +441,7 @@ sample, no events, degenerate signal, …). The fallback shape is:
 - `metadata["reason"]: str` names the short-circuit branch (e.g.
   `"insufficient_periods"`, `"no_events"`,
   `"not_applicable_discrete_signal"`, `"insufficient_clusters"`).
-- `metadata["p_value"] = 1.0` — conservative default so Benjamini-Yekutieli (BHY) treats
+- `metadata["p_value"] = 1.0` — conservative default so Benjamini-Hochberg-Yekutieli (BHY) treats
   short-circuited metrics as rejected rather than crashing.
 - Optional diagnostic keys naming what was missing or under-spec:
   `min_required`, `min_required_per_asset`, `min_required_per_regime`,

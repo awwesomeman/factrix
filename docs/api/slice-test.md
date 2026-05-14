@@ -21,7 +21,7 @@ The two functions answer **different statistical questions**:
 
 Both functions sit in the **View** class (per [#148](https://github.com/awwesomeman/factrix/issues/148)
 function classification): their headline output is a comparison test
-result. They do **not** participate in Benjamini-Yekutieli (BHY) family expansion — adjusted
+result. They do **not** participate in Benjamini-Hochberg-Yekutieli (BHY) family expansion — adjusted
 p is a within-slice-family closure, not a cell-level discovery
 commitment.
 

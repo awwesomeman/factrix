@@ -204,19 +204,21 @@ The expected proportion of false positives among rejected nulls, in
 contrast to FWER (Family-Wise Error Rate, the probability of *any*
 false positive). For a screening rule that rejects `R` of `m`
 hypotheses and produces `V` false positives, FDR ≡ E[V / max(R, 1)].
-factrix's primary screening primitive is BHY (Benjamini-Yekutieli
-2001), which controls FDR at a user-chosen `q` under arbitrary
-dependence. See [Statistical methods](statistical-methods.md) and
+factrix's primary screening primitive is BHY (Benjamini-Hochberg-Yekutieli),
+which controls FDR at a user-chosen `q` under arbitrary dependence.
+See [Statistical methods](statistical-methods.md) and
 [`bhy`](../api/multi-factor.md).
 
-### `BHY` — Benjamini-Yekutieli (2001)
+### `BHY` — Benjamini-Hochberg-Yekutieli
 
 Step-up FDR-controlling procedure that allows arbitrary dependence
 between p-values — including violations of the positive regression
 dependence on a subset (PRDS) condition required by Benjamini-Hochberg
-1995, at the cost of a `log(m)` factor. factrix's
+1995, at the cost of a `log(m)` factor. Mathematically implements
+[Benjamini & Yekutieli (2001)][benjamini-yekutieli-2001]. factrix's
 default multiplicity-correction method because financial p-values are
-typically not independent.
+typically not independent. For the BH / BY / BHY naming convention, see
+[Statistical methods § Multiple-testing under dependence](statistical-methods.md#2-multiple-testing-under-dependence).
 
 ### `family`
 

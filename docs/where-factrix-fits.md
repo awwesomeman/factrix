@@ -184,7 +184,7 @@ pandas-bound performance.
   overlapping forward returns; alphalens applies a naive
   `scipy.stats.ttest_1samp` on the IC time series ([source](https://github.com/stefan-jansen/alphalens-reloaded)),
   which is biased when forward windows overlap.
-- Multiple-testing correction (Benjamini-Yekutieli (BHY)) is built into the screening
+- Multiple-testing correction (Benjamini-Hochberg-Yekutieli (BHY)) is built into the screening
   surface; alphalens has no batch-level FDR control by design.
 - Type-routed dispatch — alphalens is CS-only by design; factrix
   also covers event and common-factor hypotheses without the user

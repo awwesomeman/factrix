@@ -370,7 +370,7 @@ Rate: A Practical and Powerful Approach to Multiple Testing."
 *Journal of the Royal Statistical Society: Series B* 57(1), 289–300.
 
 FDR concept and step-up procedure. factrix does not use BH directly
-because factor pools are typically dependent — see Benjamini-Yekutieli (BHY) below.
+because factor pools are typically dependent — see Benjamini-Hochberg-Yekutieli (BHY) below.
 
 ### Benjamini & Yekutieli (2001)
 [](){ #benjamini-yekutieli-2001 }

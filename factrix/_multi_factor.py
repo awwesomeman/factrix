@@ -43,7 +43,7 @@ class Survivors:
     """Survivor container for multi-factor screening functions with rich Jupyter rendering.
 
     Procedure-agnostic: ``adj_p`` carries the function's
-    procedure-canonical adjusted p-value (Benjamini-Yekutieli (BHY) ``bhy_adjusted_p``, Holm
+    procedure-canonical adjusted p-value (Benjamini-Hochberg-Yekutieli (BHY) ``bhy_adjusted_p``, Holm
     step-down, Bonferroni ``min(p*m, 1)``, Romano-Wolf resampling, ...).
     The contract is ``survivor[i] iff adj_p[i] <= q`` — a duality every
     step-up / step-down family procedure satisfies.
@@ -241,7 +241,7 @@ def bhy(
     estimator: Estimator | None = None,
     q: float = 0.05,
 ) -> Survivors:
-    """Benjamini-Yekutieli (BHY) step-up false discovery rate (FDR) within one declared family; return the survivors.
+    """Benjamini-Hochberg-Yekutieli (BHY) step-up false discovery rate (FDR) within one declared family; return the survivors.
 
     The input list is treated as a single family. When ``expand_over``
     is supplied, one independent step-up runs per unique tuple of
@@ -409,7 +409,7 @@ def partial_conjunction(
     [Benjamini & Bogomolov 2014]. The partial conjunction test
     [Benjamini & Heller 2008] provides a contract-bearing path: per
     identity, combine the ``m`` per-condition p-values into a single
-    PC p-value, then run Benjamini-Yekutieli (BHY) across identities.
+    PC p-value, then run Benjamini-Hochberg-Yekutieli (BHY) across identities.
 
     The PC p-value formula (Bonferroni-style, BH2008): for ``k`` =
     ``min_pass``, ``p_PC = (m - k + 1) * p_((k))`` capped at 1, where
@@ -659,7 +659,7 @@ def bhy_hierarchical(
     estimator: Estimator | None = None,
     q: float = 0.05,
 ) -> Survivors:
-    """Hierarchical Benjamini-Yekutieli (BHY): control false discovery rate (FDR) across groups then within groups.
+    """Hierarchical Benjamini-Hochberg-Yekutieli (BHY): control false discovery rate (FDR) across groups then within groups.
 
     For factor sets with natural group structure (momentum / value /
     quality families; cross-region universes), the Yekutieli 2008

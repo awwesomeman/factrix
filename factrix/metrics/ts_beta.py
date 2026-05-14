@@ -174,7 +174,7 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     With a single asset, both ``MacroCommonProfile.from_artifacts`` and
     ``MacroCommonFactor.ts_beta`` want the same degenerate-case output:
     take the row's per-asset beta + t_stat, mark ``p_value=1.0`` so the
-    row is suppressed from Benjamini-Yekutieli (BHY), and label the method. Centralizing here
+    row is suppressed from Benjamini-Hochberg-Yekutieli (BHY), and label the method. Centralizing here
     keeps Profile and Factor paths bit-identical.
 
     Statistical caveat: the returned $t$-stat tests the **time-series**

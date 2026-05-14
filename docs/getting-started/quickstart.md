@@ -107,7 +107,7 @@ catch pattern, and recovery via `suggested_fix`, see
 
 `warnings` does **not** affect `primary_p` —
 it is a risk flag. The user decides whether to filter on warnings before
-Benjamini-Yekutieli (BHY). For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
+Benjamini-Hochberg-Yekutieli (BHY). For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
 
 For the full field-order walk of `FactorProfile` — and of
 `Survivors` (after `bhy`) and `MetricsBundle` (after `run_metrics`) —

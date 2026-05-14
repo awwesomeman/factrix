@@ -58,7 +58,7 @@ Three entry points, all in `factrix.__init__`:
 |--------|---------|
 | `fx.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
 | `fx.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
-| `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
+| `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 

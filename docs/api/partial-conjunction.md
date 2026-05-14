@@ -95,7 +95,7 @@ $k = \texttt{min\_pass}$. Two corner cases worth knowing:
   `bhy(expand_over=...)`, where the family-level FDR inflation is
   explicit rather than hidden in a "robust across" claim.
 
-The PC $p$-values are then fed to a standard Benjamini-Yekutieli (BHY) step-up across
+The PC $p$-values are then fed to a standard Benjamini-Hochberg-Yekutieli (BHY) step-up across
 identities, controlling group-level FDR ≤ `q`. The harmonic dependence
 correction $c(m) = \sum 1/i$ is applied because PC $p$-values across
 identities are not generally positive regression dependence on a subset (PRDS) — sharing underlying panels makes the

@@ -143,7 +143,7 @@ will emit.
 | `InsufficientSampleError.actual_periods` | yes | — |
 | `multi_factor.bhy` family partition | — | — |
 
-Benjamini-Yekutieli (BHY) partitions on `(dispatch cell, forward horizon)` and runs step-up
+Benjamini-Hochberg-Yekutieli (BHY) partitions on `(dispatch cell, forward horizon)` and runs step-up
 on p-values — it does not read the sample axes.
 
 #### Why surface `n_obs` alongside `n_pairs` + envelope axes

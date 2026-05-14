@@ -57,7 +57,7 @@ multi-factor call. The returned `Survivors` container exposes:
 | Attribute | Type | Meaning |
 |---|---|---|
 | `survivors.profiles` | `list[FactorProfile]` | input order, surviving subset |
-| `survivors.adj_p` | `np.ndarray` | bucket-local Benjamini-Yekutieli (BHY)-adjusted p-value, index-aligned with `profiles` |
+| `survivors.adj_p` | `np.ndarray` | bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `profiles` |
 | `survivors.q` | `float` | the nominal target you passed |
 | `survivors.expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise |
 | `survivors.n_tests` | `dict[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}` |

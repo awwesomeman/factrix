@@ -109,4 +109,4 @@ print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
 
 - [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
 - [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference function pair.
-- [Batch screening with Benjamini-Yekutieli (BHY)](batch-screening.md) — false discovery rate (FDR) control across factor candidates rather than slices.
+- [Batch screening with Benjamini-Hochberg-Yekutieli (BHY)](batch-screening.md) — false discovery rate (FDR) control across factor candidates rather than slices.

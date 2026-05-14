@@ -16,7 +16,7 @@ title: factrix.metrics.oos
     no `p_value` is attached and `stat` is `None`. A $t$-test at the
     `MIN_OOS_PERIODS` floor would have power $\approx 0$ and would
     invite mis-reading the diagnostic as a significance test. Callers
-    routing this output into Benjamini-Yekutieli (BHY) / gate logic must read `status`
+    routing this output into Benjamini-Hochberg-Yekutieli (BHY) / gate logic must read `status`
     (`"PASS"` / `"VETOED"`) and `sign_flipped`, not a probability.
 
 ## Use cases

@@ -45,7 +45,7 @@ structure.
 
     ---
 
-    Why Benjamini-Yekutieli (BHY) rather than Bayesian or reality-check / SPA bootstraps;
+    Why Benjamini-Hochberg-Yekutieli (BHY) rather than Bayesian or reality-check / SPA bootstraps;
     positive regression dependence on a subset (PRDS) and the harmonic dependence correction.
 
     [reference/statistical-methods →](../reference/statistical-methods.md#2-multiple-testing-under-dependence)

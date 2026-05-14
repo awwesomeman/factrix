@@ -90,7 +90,7 @@ Click any node to jump to its API page. Nodes are grouped into category subgraph
 | Multi-factor screening with false discovery rate (FDR) | `[evaluate(panel, cfg_i) for cfg_i in cfgs]` → `multi_factor.bhy(profiles)` |
 | Cross-factor leaderboard | `compare(profiles)` / `compare(bundles)` / `compare(survivors)` → `pl.DataFrame` |
 
-See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end, and the [Batch screening with Benjamini-Yekutieli (BHY)](../guides/batch-screening.md) guide for the multi-factor screening workflow.
+See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end, and the [Batch screening with Benjamini-Hochberg-Yekutieli (BHY)](../guides/batch-screening.md) guide for the multi-factor screening workflow.
 
 ---
 

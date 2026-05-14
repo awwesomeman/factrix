@@ -23,7 +23,7 @@ created three structural problems:
    horizon shopping explicit at the false discovery rate (FDR) layer; the in-metric horizon
    loop collapsed `k` horizons into one identity entry, defeating that
    defense.
-3. **Two Benjamini-Yekutieli (BHY) paths.** The information coefficient (IC) variant ran its own internal BHY
+3. **Two Benjamini-Hochberg-Yekutieli (BHY) paths.** The information coefficient (IC) variant ran its own internal BHY
    adjustment and wrote `metadata["p_adjusted_bhy"]`. The family-function
    layer ([`multi_factor.bhy`][bhy] with `expand_over=["forward_periods"]`)
    is the single source of truth for FDR control across horizons.

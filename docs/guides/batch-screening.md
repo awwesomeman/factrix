@@ -1,9 +1,9 @@
 ---
-title: Batch screening with Benjamini-Yekutieli
+title: Batch screening with Benjamini-Hochberg-Yekutieli
 ---
 
 !!! abstract "Answers"
-    What is Benjamini-Yekutieli (BHY), when to use it, and how `multi_factor.bhy` partitions the candidate set across statistical families.
+    What is Benjamini-Hochberg-Yekutieli (BHY), when to use it, and how `multi_factor.bhy` partitions the candidate set across statistical families.
     For the API signature, see [`multi_factor`](../api/multi-factor.md).
     For the underlying theorem and assumptions, see [Statistical methods](../reference/statistical-methods.md).
 

@@ -16,7 +16,7 @@ Single-factor::
     print(profile.primary_p)
     print(profile.diagnose())
 
-Batch + Benjamini-Yekutieli (BHY)::
+Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
     profiles = [fx.evaluate(panel, cfg) for cfg in candidate_configs]
     survivors = fx.multi_factor.bhy(profiles, q=0.05)
