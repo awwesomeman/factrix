@@ -32,6 +32,8 @@ flowchart LR
 
     subgraph Introspection
         LM[list_metrics]
+        LE[list_estimators]
+        SC[suggest_config]
     end
 
     P ==> EV
@@ -47,6 +49,8 @@ flowchart LR
     PC ==>|survivors| CMP
     BHYH ==>|survivors| CMP
     LM -.->|metric names| RM
+    LE -.->|estimator names| BHY
+    SC -.->|inferred cfg| EV
 
     click EV "evaluate/" "evaluate API"
     click RM "run-metrics/" "run_metrics API"
@@ -56,6 +60,8 @@ flowchart LR
     click PC "partial-conjunction/" "partial_conjunction API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
     click LM "list-metrics/" "list_metrics API"
+    click LE "list-estimators/" "list_estimators API"
+    click SC "suggest-config/" "suggest_config API"
     click CMP "compare/" "compare API"
 ```
 
