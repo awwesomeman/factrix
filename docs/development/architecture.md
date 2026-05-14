@@ -73,22 +73,18 @@ Plus introspection / error / enum re-exports:
 
 ---
 
-## Three orthogonal axes + Mode
+## Mode — the derived fourth axis
 
-The user-facing axis triple is `(FactorScope, Signal, Metric)`. A fourth
-axis `Mode` is **derived at evaluate-time** from `panel["asset_id"].n_unique()`:
+The three user-facing axes (`FactorScope`, `Signal`, `Metric`) are the SSOT;
+see [Concepts § Three orthogonal axes](../getting-started/concepts.md#three-orthogonal-axes)
+for their values and orthogonality.
 
-| Axis        | Values                                      | User-facing? |
-|-------------|---------------------------------------------|--------------|
-| `FactorScope` | `INDIVIDUAL` / `COMMON`                   | yes          |
-| `Signal`    | `CONTINUOUS` / `SPARSE`                     | yes          |
-| `Metric`    | `IC` / `FM` / `None`                        | yes (only `(INDIVIDUAL, CONTINUOUS)` accepts a non-None metric) |
-| `Mode`      | `PANEL` (N≥2) / `TIMESERIES` (N=1)          | no — derived  |
-
-Five legal `(scope, signal, metric)` triples × two modes give seven legal
-`(scope, signal, metric, mode)` cells (TIMESERIES narrows to three triples; the
-remaining tuples are routed via the `_SCOPE_COLLAPSED` sentinel defined in
-`factrix/_axis.py`).
+`Mode` is the fourth axis but is **not user-facing** — it is derived at
+evaluate-time from `panel["asset_id"].n_unique()`: `PANEL` for `N ≥ 2`,
+`TIMESERIES` for `N = 1`. Five legal `(scope, signal, metric)` triples ×
+two modes give seven legal `(scope, signal, metric, mode)` cells
+(TIMESERIES narrows to three triples; the remaining tuples are routed via
+the `_SCOPE_COLLAPSED` sentinel defined in `factrix/_axis.py`).
 
 ---
 
