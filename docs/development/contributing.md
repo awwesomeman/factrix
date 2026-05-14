@@ -434,7 +434,7 @@ take a capital. Tab labels (`Get started`, `User guide`, `API
 reference`, `Release notes`) follow the same rule.
 
 - **Acronyms in nav labels are spelled out** (`Information coefficient
-  vs Fama-MacBeth`, `Batch screening with Benjamini-Hochberg-Yekutieli`)
+  vs Fama-MacBeth`, `Batch screening with Benjamini-Yekutieli`)
   with no parenthetical short form. The short form is redundant for
   domain readers and mis-leading for newcomers; first-use expansion is
   the page's first paragraph or the `Glossary` entry, not the sidebar.

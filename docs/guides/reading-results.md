@@ -103,7 +103,7 @@ for a runnable example.
 survivors = fx.multi_factor.bhy(profiles, q=0.05)
 ```
 
-BHY (Benjamini-Hochberg-Yekutieli step-up procedure) controls the FDR
+BHY (Benjamini-Yekutieli step-up procedure) controls the FDR
 across a declared family of profiles.
 
 ### Contract

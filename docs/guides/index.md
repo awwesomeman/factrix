@@ -12,6 +12,6 @@ the sidebar.
   *Other cells dispatch to a single procedure; see [Concepts § Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) for the per-cell map.*
 - **Sample-mode dispatch (PANEL ↔ TIMESERIES) and the N=1 special path** — [Panel vs timeseries](panel-timeseries.md)
 - **Reading `FactorProfile.primary_p`, `Survivors.adj_p`, and `MetricsBundle.metrics`** — [Reading results](reading-results.md)
-- **False Discovery Rate (FDR) control across a factor batch (BHY / partial conjunction / hierarchical)** — [Batch screening with Benjamini-Hochberg-Yekutieli](batch-screening.md)
+- **False Discovery Rate (FDR) control across a factor batch (BHY / partial conjunction / hierarchical)** — [Batch screening with Benjamini-Yekutieli](batch-screening.md)
 - **Slicing one metric by an attached label column (sector / regime / universe / ADV bucket)** — [Slice analysis](slice-analysis.md)
 - **Running every descriptive metric applicable to a cell (`run_metrics`)** — [Standalone metrics](standalone-metrics.md)

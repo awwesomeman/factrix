@@ -212,8 +212,9 @@ dependence. See [Statistical methods](statistical-methods.md) and
 ### `BHY` — Benjamini-Yekutieli (2001)
 
 Step-up FDR-controlling procedure that allows arbitrary dependence
-between p-values (paying a `log(m)` factor versus the
-independent-or-positive regression dependence on a subset (PRDS) Benjamini-Hochberg 1995 procedure). factrix's
+between p-values — including violations of the positive regression
+dependence on a subset (PRDS) condition required by Benjamini-Hochberg
+1995, at the cost of a `log(m)` factor. factrix's
 default multiplicity-correction method because financial p-values are
 typically not independent.
 

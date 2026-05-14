@@ -1,5 +1,5 @@
 ---
-title: Batch screening with Benjamini-Hochberg-Yekutieli
+title: Batch screening with Benjamini-Yekutieli
 ---
 
 !!! abstract "Answers"
@@ -43,7 +43,7 @@ If any family degenerates to size=1 (typical misuse: one factor evaluated across
 
 ### Background
 
-The multiple-testing discipline for factor research established by [Harvey-Liu-Zhu 2016][harvey-liu-zhu-2016] motivates correcting for selection once factor candidates and horizons are swept — a 5% nominal threshold no longer controls type-I error. factrix's specific composition (FWER across horizons, then FDR within) is a project-level application; HLZ themselves prescribe stricter thresholds, not this two-axis stack. The reason factrix picks FWER for the inner step is the dependence structure [Boudoukh-Richardson-Whitelaw 2008][boudoukh-richardson-whitelaw-2008] documents: under the null and a persistent regressor, ordinary least squares (OLS) slope estimators across horizons are highly correlated — approaching unity between adjacent horizons at dividend-yield-like persistence — so the K horizons behave more like one repeatedly-tested null than K independent draws. Independence- and positive regression dependence on a subset (PRDS)-friendly FDR procedures (Benjamini-Hochberg (BH) / BHY) assume neither identity and lose their level guarantees in this regime.
+The multiple-testing discipline for factor research established by [Harvey-Liu-Zhu 2016][harvey-liu-zhu-2016] motivates correcting for selection once factor candidates and horizons are swept — a 5% nominal threshold no longer controls type-I error. factrix's specific composition (FWER across horizons, then FDR within) is a project-level application; HLZ themselves prescribe stricter thresholds, not this two-axis stack. The reason factrix picks FWER for the inner step is the dependence structure [Boudoukh-Richardson-Whitelaw 2008][boudoukh-richardson-whitelaw-2008] documents: under the null and a persistent regressor, ordinary least squares (OLS) slope estimators across horizons are highly correlated — approaching unity between adjacent horizons at dividend-yield-like persistence — so the K horizons behave more like one repeatedly-tested null than K independent draws, and the positive regression dependence on a subset (PRDS) condition fails. Independence- and PRDS-friendly FDR procedures (Benjamini-Hochberg (BH) / BHY) assume neither identity and lose their level guarantees in this regime.
 
 [Bailey & López de Prado (2014)][bailey-lopez-de-prado-2014] formalises the parallel multiple-trials problem on the Sharpe axis (Deflated Sharpe Ratio) for backtest selection — same correction path, different statistic; not implemented in factrix.
 

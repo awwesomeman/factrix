@@ -2,7 +2,7 @@
 title: Multi-factor screening
 ---
 
-Apply Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) control to a batch of
+Apply Benjamini-Yekutieli (BHY) false discovery rate (FDR) control to a batch of
 candidate factors. Demonstrates the explicit-family contract and the
 duplicate-identity defense — the behaviour that is impossible
 to learn from docstrings alone.
