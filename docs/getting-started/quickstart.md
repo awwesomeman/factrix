@@ -17,7 +17,7 @@ from factrix.preprocess import compute_forward_return
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
-# Path B — supply the config directly (type-safe; the IDE rejects illegal combos)
+# Typed factory — supply the config directly (type-safe; the IDE rejects illegal combos)
 cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 profile = fx.evaluate(panel, cfg)
 
@@ -40,7 +40,7 @@ If you are not sure which factory to use, let factrix infer it from the
 panel shape:
 
 ```python
-# Path A — inferred config + reasoning trace
+# Inferred config — factrix picks the factory from the panel shape
 result  = fx.suggest_config(panel)
 profile = fx.evaluate(panel, result.suggested)
 # result.reasoning explains how each axis was inferred

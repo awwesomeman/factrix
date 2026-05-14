@@ -29,10 +29,12 @@ research operates in.
 
 ### `COMMON`
 
-A single broadcast series shared across **all** assets on a given
-date — the same value for every `asset_id` at that `date`. Macro
-factors (VIX, USD index, term spread, monetary-policy shocks) and
-broadcast event dummies (FOMC announcement days) live here.
+A factor that does not vary across assets: on any given date every
+`asset_id` carries the same factor value. The panel layout is
+unchanged (still long-format `(date, asset_id)` rows) — `scope` is a
+factor attribute, not a data shape. Macro factors (VIX, USD index,
+term spread, monetary-policy shocks) and broadcast event dummies
+(FOMC announcement days) live here.
 
 **Industry equivalents and collisions**:
 
