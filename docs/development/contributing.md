@@ -550,10 +550,12 @@ block the PR if tests are missing.
 The project's style policy is split between two complementary but distinct conventions; conflating them invites drift.
 
 - **Code formatting and structure** (line length, naming, imports, indentation, formatter tool) follows PEP 8 and the Black / ruff defaults configured in `pyproject.toml [tool.ruff]`. The selector set (`E/W/F/I/B/UP/SIM/RUF`) and 88-character line length there are the source of truth.
-- **Docstring format** follows Google docstring style, because the mkdocstrings python handler is configured for `docstring_style: google` (see `mkdocs.yml`). Section headers are colon-terminated and ordered `Args:` → `Returns:` → `Raises:` → `Warns:` → `Notes:` → `Examples:` → `References:`, plural (`Examples:` not `Example:`, `Notes:` not `Note:`, `Warns:` not `Warning:`); the handler accepts singular too, but plural-only keeps rendered admonitions consistent.
+- **Docstring format** follows the griffe / mkdocstrings interpretation of Google section convention, because the mkdocstrings python handler is configured for `docstring_style: google` (see `mkdocs.yml`). Recognised section headers — the complete set this project commits to — are colon-terminated and ordered `Args:` → `Returns:` → `Yields:` → `Raises:` → `Warns:` → `Attributes:` → `Notes:` → `Examples:` → `References:`, plural (`Examples:` not `Example:`, `Notes:` not `Note:`, `Warns:` not `Warning:`); the handler accepts singular too, but plural-only keeps rendered admonitions consistent. Dataclasses use `Attributes:` in place of `Args:`. `References:` is a project-local extension — griffe handles it via fallthrough rather than as a strict Google section, so it is listed here so future contributors do not "fix" it away.
 - **The Google Python Style Guide as a whole is not adopted.** Its 80-character line limit, single-quote string preference, and yapf formatter conflict with the ruff configuration above and do not apply. Only the docstring section convention is taken from Google.
 
 NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists (`:param x:` / `:returns:`) are not parsed by the Google handler and render as plain prose under generic headings. Convert on sight.
+
+`Examples:` blocks are covered by `pytest --doctest-modules` (enabled in #314). Any sweep touching `Examples:` must keep them runnable; non-runnable illustrative code belongs in `.md` under the intent-layer policy below, not in docstrings.
 
 ### Module docstring layering — navigation vs implementation
 
@@ -563,7 +565,7 @@ Module-level and function-level docstrings carry different roles. The split is s
     - A one-to-three-sentence TL;DR of what the module is for and which entry point / public surface consumes it.
     - When the module hosts several callables sharing one theoretical frame (e.g. `_stats/bootstrap.py` covering stationary + fixed schemes): a brief inventory naming each public callable with a one-line distinguishing characteristic.
     - Non-obvious sibling-module relationships when the boundary matters (e.g. `_stats/multiple_testing.py` is sister to public `factrix.stats.multiple_testing`).
-- **Function / class / method docstring** holds the implementation contract: `Args:` / `Returns:` / `Raises:` / `Notes:` / `Examples:` / `References:`.
+- **Function / class / method docstring** holds the implementation contract: `Args:` / `Returns:` / `Yields:` / `Raises:` / `Warns:` / `Attributes:` / `Notes:` / `Examples:` / `References:` (see the recognised-set list under "Docstring style boundary" above).
 - The module docstring does **not** hold parameter contracts, return shape, pipeline `Notes:`, runnable `Examples:`, or implementation rationale.
 
 #### Section order — body prose before structured sections
