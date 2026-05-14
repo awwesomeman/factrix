@@ -21,6 +21,7 @@ statistical meaning — see
 [`profile.mode`](../factor-profile.md) for which path ran.
 
 The `Common × Sparse` cell shares the time-series-first aggregation
-shape but with a `{0, R}` broadcast event dummy (canonical
-`{-1, 0, +1}`) in place of the continuous regressor; metrics live
-under [Individual sparse](individual-sparse.md).
+shape but with a `{0, R}` broadcast event dummy (`R` unrestricted;
+`{0, 1}` for a pure event flag is the simplest form) in place of the
+continuous regressor; metrics live under
+[Individual sparse](individual-sparse.md).

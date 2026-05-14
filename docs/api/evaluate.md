@@ -114,7 +114,9 @@ Minimum-viable `AnalysisConfig` for each of the four cells. The
 
 === "Individual × Sparse"
 
-    Event study with `factor ∈ {-1, 0, +1}` triggers. Attach a `price`
+    Event study with sparse `{0, R}` event triggers (`R` is any real
+    magnitude; `{0, 1}` for a pure event flag is the simplest form).
+    Attach a `price`
     column on the panel to also get `event_around_return` /
     `mfe_mae_summary` in the profile.
 

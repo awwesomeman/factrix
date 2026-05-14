@@ -64,11 +64,11 @@ Most equity characteristics; macro factors; ML predictor scores.
 ### `SPARSE`
 
 Factor is non-zero only on event dates and zero elsewhere; the panel
-encodes a discrete event arrival process. Canonical encoding is
-`{−1, 0, +1}` (signed event direction); factrix also accepts
-magnitude-weighted `{0, R}` for continuous-magnitude events
-(see `compute_caar`'s input-form table for the resulting estimator
-distinction).
+encodes a discrete event arrival process. The general schema is
+`{0, R}` where `R` is any real value (positive, negative, or any
+magnitude); the simplest form is `{0, 1}` for a pure event flag.
+See `compute_caar`'s input-form table for the resulting estimator
+distinction.
 
 **Industry equivalents**:
 

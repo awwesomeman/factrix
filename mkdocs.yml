@@ -149,6 +149,7 @@ nav:
       - How-to:
           - Overview: guides/index.md
           - Cross-function reference: api/decision-tree.md
+          - Preparing data: guides/preparing-data.md
           - Information coefficient vs Fama-MacBeth: guides/choosing-metric.md
           - Panel vs timeseries: guides/panel-timeseries.md
           - Reading results: guides/reading-results.md

@@ -58,7 +58,7 @@ title: factrix.AnalysisConfig
 |---------------------------------------------------|-------------------------------------------|-------------------------------------------|
 | Per-asset real-valued signal, want rank IC        | [`individual_continuous(metric=Metric.IC)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, IC)`            |
 | Per-asset real-valued signal, want FM λ premium   | [`individual_continuous(metric=Metric.FM)`](metrics/individual-continuous.md) | `(INDIVIDUAL, CONTINUOUS, FM)`            |
-| Per-asset `{-1, 0, +1}` event trigger             | [`individual_sparse()`](metrics/individual-sparse.md)                     | `(INDIVIDUAL, SPARSE, None)`              |
+| Per-asset `{0, R}` event trigger (event flag or signed magnitude) | [`individual_sparse()`](metrics/individual-sparse.md)                     | `(INDIVIDUAL, SPARSE, None)`              |
 | Broadcast real-valued factor (e.g. VIX)           | [`common_continuous()`](metrics/common-continuous.md)                     | `(COMMON, CONTINUOUS, None)`              |
 | Broadcast event dummy (FOMC, index rebalance)     | [`common_sparse()`](metrics/individual-sparse.md) | `(COMMON, SPARSE, None)`                  |
 
