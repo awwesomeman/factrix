@@ -1,0 +1,12 @@
+/* Group labels (Concepts / How-to / Reference tables / Entry points / ...)
+ * default to the same weight and colour as page links, so the two read as
+ * a flat list. Lift them with uppercase + letter-spacing, the convention
+ * used by Material's own docs, Stripe, Vercel, and Tailwind.
+ */
+.md-nav__item--section > .md-nav__link {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.75;
+}
