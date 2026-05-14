@@ -29,7 +29,7 @@ _ADF_CRITS_CONSTANT: tuple[tuple[float, float], ...] = (
 
 
 def _adf_pvalue_interp(tau: float) -> float:
-    """Linear interpolation of ADF p-value from MacKinnon (1996) crits.
+    """Linear interpolation of ADF p-value from [MacKinnon (1996)][mackinnon-1996] crits.
 
     Behaviour at the tails is driven by the outermost critical points
     in ``_ADF_CRITS_CONSTANT``: τ below the leftmost point clamps to
@@ -53,7 +53,7 @@ def _adf(y: np.ndarray, lags: int = 0) -> tuple[float, float]:
 
     Estimates Δy_t = α + β·y_{t-1} + Σ γ_i·Δy_{t-i} + ε and returns
     (τ, p_approx) where τ = β̂ / SE(β̂) and p_approx comes from linear
-    interpolation of MacKinnon (1996) asymptotic critical values for
+    interpolation of [MacKinnon (1996)][mackinnon-1996] asymptotic critical values for
     the constant-only specification. H0: unit root (β = 0); small τ
     rejects in favour of stationarity.
 

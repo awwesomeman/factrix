@@ -26,16 +26,17 @@ class BlockBootstrap:
     Resamples a paired-difference series under H₀: ``E[diff] = 0`` using
     one of two dependent-bootstrap schemes:
 
-    - ``"stationary"`` (Politis & Romano 1994) — geometric block lengths
-      with mean ``L``; each resample is itself a stationary process.
-      Default; preferred when downstream stats (CI, Sharpe) rely on
-      stationarity.
-    - ``"fixed"`` (Künsch 1989) — deterministic block length ``L``;
-      cleaner for variance estimation; loses stationarity at block
-      joins but tighter at small ``B``.
+    - ``"stationary"`` ([Politis-Romano (1994)][politis-romano-1994]) —
+      geometric block lengths with mean ``L``; each resample is itself a
+      stationary process. Default; preferred when downstream stats (CI,
+      Sharpe) rely on stationarity.
+    - ``"fixed"`` ([Künsch (1989)][kunsch-1989]) — deterministic block
+      length ``L``; cleaner for variance estimation; loses stationarity
+      at block joins but tighter at small ``B``.
 
     Block length resolves automatically from the input series via
-    Politis-White (2004) when ``block_length="auto"``; pass an integer
+    [Politis-White (2004)][politis-white-2004] when ``block_length="auto"``;
+    pass an integer
     to fix it.
 
     Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` —

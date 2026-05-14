@@ -178,14 +178,14 @@ def fama_macbeth(
             ``compute_fm_betas`` is itself an **estimated** quantity
             (rolling ordinary least squares (OLS) $\beta$ to another factor, PCA score,
             ML-predicted score, residual from a first-stage regression).
-            Shanken (1992) shows the naive FM SE ignores sampling error
+            [Shanken (1992)][shanken-1992] shows the naive FM SE ignores sampling error
             in the regressor, inflating $t$-stats. **Do NOT** set this
             on raw characteristics (book-to-market, momentum price
             signal, accounting ratios) — those are observed, not
             estimated, and enabling the correction will spuriously
             deflate $t$-stats.
 
-            Implementation: Kan-Zhang (1999) single-factor simplification
+            Implementation: [Kan-Zhang (1999)][kan-zhang-1999] single-factor simplification
             — the NW SE is scaled by $\sqrt{1 + \hat\lambda^2/\sigma^2_f}$.
             This *omits* the additive $+\sigma^2_f/T$ term of the full
             Shanken variance and is therefore only honest for large $T$.
@@ -215,9 +215,9 @@ def fama_macbeth(
         single-factor correction scales SE by
         $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
 
-        factrix uses the Andrews (1991) $T^{1/3}$ bandwidth floored
+        factrix uses the [Andrews (1991)][andrews-1991] $T^{1/3}$ bandwidth floored
         against the Hansen-Hodrick overlap horizon rather than the
-        Newey-West (1994) data-adaptive plug-in — simpler, deterministic,
+        [Newey-West (1994)][newey-west-1994] data-adaptive plug-in — simpler, deterministic,
         and adequate at typical research $T$. The Kan-Zhang simplification
         omits the additive $+\sigma^2_f / T$ term of full Shanken EIV,
         so the correction is honest only for large $T$.
@@ -388,7 +388,7 @@ def pooled_ols(
 
     Clustering on date alone catches contemporaneous cross-sectional
     dependence but misses asset-level persistence; on asset alone the
-    reverse. Petersen (2009) shows panel data usually has both —
+    reverse. [Petersen (2009)][petersen-2009] shows panel data usually has both —
     single-way clusters understate SE by 20-50% in that regime.
 
     FM and single-way share the same point estimate under a balanced
@@ -424,7 +424,8 @@ def pooled_ols(
         $t = \hat\beta / \mathrm{SE}$, $\mathrm{df} = G - 1$.
 
         Two-way clustered sandwich SE (when ``two_way_cluster_col`` is
-        set — Cameron-Gelbach-Miller 2011 / Petersen 2009):
+        set — [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] /
+        [Petersen (2009)][petersen-2009]):
 
         $$
         V_{\text{two-way}} = V_A + V_B - V_{A \cap B}
@@ -433,14 +434,14 @@ def pooled_ols(
         where $V_A$, $V_B$, $V_{A \cap B}$ are single-way variances
         clustered on $A$, on $B$, and on the intersection cells
         $(A, B)$. Each component uses its own finite-sample correction.
-        $\mathrm{df} = \min(G_A, G_B) - 1$ (Thompson 2011).
+        $\mathrm{df} = \min(G_A, G_B) - 1$ ([Thompson (2011)][thompson-2011]).
 
     Notes:
         Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +
         beta * Signal + eps`` with the appropriate cluster-robust
         sandwich covariance described above. Single-way: ``df = G - 1``
         with ``G`` the number of clusters; two-way:
-        ``df = min(G_A, G_B) - 1`` per Thompson (2011).
+        ``df = min(G_A, G_B) - 1`` per [Thompson (2011)][thompson-2011].
 
         factrix reports ``stat = None`` (rather than 0) when ``G < 3``
         because the cluster-robust variance is undefined with too few

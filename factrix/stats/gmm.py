@@ -1,4 +1,4 @@
-"""``GMM`` MomentEstimator — Hansen (1982) two-step efficient J-test.
+"""``GMM`` MomentEstimator — [Hansen (1982)][hansen-1982] two-step efficient J-test.
 
 Names the over-identifying-restriction inference path that populates
 ``StatCode.J_GMM`` / ``StatCode.P_GMM``. ``compute(moments, *,
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class GMM:
-    """Hansen (1982) two-step efficient generalized method of moments (GMM) J-test estimator.
+    """[Hansen (1982)][hansen-1982] two-step efficient generalized method of moments (GMM) J-test estimator.
 
     Computes the J-statistic for a moment-condition system whose
     null is ``E[g] = 0`` (pure over-identification). The long-run

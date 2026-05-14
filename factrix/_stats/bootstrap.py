@@ -1,13 +1,14 @@
 """Block-bootstrap primitives backing the ``BlockBootstrap`` Estimator (#153).
 
-Two resampling schemes for dependent time series, plus the Politis-White
-(2004) automatic block-length selector and a paired-diff empirical p-value:
+Two resampling schemes for dependent time series, plus the
+[Politis-White (2004)][politis-white-2004] automatic block-length
+selector and a paired-diff empirical p-value:
 
-- **Stationary scheme** (Politis & Romano 1994) — geometric block lengths
-  with mean ``L``. Resamples are themselves stationary processes;
-  preferred when downstream estimators rely on stationarity (CI for
-  serially-correlated means, Sharpe).
-- **Fixed scheme** (Künsch 1989) — deterministic block length ``L``.
+- **Stationary scheme** ([Politis-Romano (1994)][politis-romano-1994]) —
+  geometric block lengths with mean ``L``. Resamples are themselves
+  stationary processes; preferred when downstream estimators rely on
+  stationarity (CI for serially-correlated means, Sharpe).
+- **Fixed scheme** ([Künsch (1989)][kunsch-1989]) — deterministic block length ``L``.
   Cleaner for variance estimation; loses stationarity at the join
   points but tighter at small ``B``.
 
@@ -47,7 +48,7 @@ def _flat_top_kernel(t: float) -> float:
     ``λ(t) = 1`` for ``|t| ≤ 0.5``; linear taper to 0 over ``0.5 < |t| < 1``;
     0 beyond. The flat top eliminates the small-bias term that hurts
     triangular / Bartlett kernels in spectral-density estimation at
-    frequency 0 — the load-bearing input to PW (2004).
+    frequency 0 — the load-bearing input to [Politis-White (2004)][politis-white-2004].
     """
     a = abs(t)
     if a <= 0.5:
@@ -62,7 +63,7 @@ def _politis_white_block_length(
     *,
     scheme: Scheme = "stationary",
 ) -> float:
-    """Politis-White (2004) automatic block length.
+    """[Politis-White (2004)][politis-white-2004] automatic block length.
 
     Implements the spectral plug-in described in PW §3-4:
     ``L̂ = (2 Ĝ² / D̂)^(1/3) · T^(1/3)`` where ``Ĝ`` and ``D̂`` are
@@ -142,7 +143,7 @@ def _stationary_block_indices(
     mean_block_length: float,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    """Politis-Romano (1994) geometric-block index matrix, shape ``(B, n)``.
+    """[Politis-Romano (1994)][politis-romano-1994] geometric-block index matrix, shape ``(B, n)``.
 
     Block length at each step is geometric with mean ``mean_block_length``;
     sampling is circular. Mirrors ``factrix.stats.bootstrap`` resampler
@@ -170,7 +171,7 @@ def _fixed_block_indices(
     block_length: int,
     rng: np.random.Generator,
 ) -> np.ndarray:
-    """Künsch (1989) fixed-block index matrix, shape ``(B, n)``.
+    """[Künsch (1989)][kunsch-1989] fixed-block index matrix, shape ``(B, n)``.
 
     Picks ``ceil(n / L)`` random block starts per resample, lays the
     blocks contiguously (modulo ``n`` for circular wrap), then truncates
@@ -214,7 +215,7 @@ def _block_bootstrap_diff_p(
             the supplied length unchanged. Stationary scheme uses the
             mean of the geometric distribution; fixed scheme uses the
             integer directly.
-        n_resamples: ``B``. PW (2004) recommends ≥ 999 for two-sided
+        n_resamples: ``B``. [Politis-White (2004)][politis-white-2004] recommends ≥ 999 for two-sided
             5% tests; default matches.
         scheme: ``"fixed"`` (Künsch) or ``"stationary"`` (Politis-Romano).
         rng_seed: ``None`` draws from system entropy; the resolved seed

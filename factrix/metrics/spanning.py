@@ -1,7 +1,7 @@
 """Spanning regression — single-factor test and multi-factor selection.
 
 ``spanning_alpha``: does a single factor have alpha after controlling for
-base factors? Standard factor research tool (Barillas & Shanken 2017).
+base factors? Standard factor research tool ([Barillas-Shanken (2017)][barillas-shanken-2017]).
 
 ``greedy_forward_selection``: given a pool of PASS factors, iteratively
 select those with incremental alpha (Stage 2).
@@ -66,8 +66,9 @@ class ForwardSelectionResult:
     searches over the candidate pool and picks by |alpha|, so the
     t-statistics on ``selected_factors`` and ``eliminated_factors`` are
     conditioned on having been chosen. They do not have a valid
-    t-distribution null and must not be used for inference (White 2000;
-    Harvey-Liu-Zhu 2016). For post-selection significance, re-evaluate
+    t-distribution null and must not be used for inference
+    ([White (2000)][white-2000]; [Harvey-Liu-Zhu (2016)][harvey-liu-zhu-2016]).
+    For post-selection significance, re-evaluate
     survivors on a held-out sample or with a bootstrap.
     """
 
@@ -247,8 +248,8 @@ def greedy_forward_selection(
         they are conditional on survival, not draws from the t-null.
         Use this function as a **model-construction helper**, not as
         an inference tool. For post-selection significance, re-evaluate
-        the surviving set on a held-out window, or use a White (2000)
-        Reality Check / Hansen (2005) SPA procedure on the pre-selection
+        the surviving set on a held-out window, or use a [White (2000)][white-2000]
+        Reality Check / [Hansen (2005)][hansen-2005] SPA procedure on the pre-selection
         stage. The returned ``t_stats_inference_invalid=True`` flag
         encodes this contract.
 

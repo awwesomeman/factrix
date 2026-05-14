@@ -13,7 +13,7 @@ Three layers of heteroskedasticity-and-autocorrelation-consistent (HAC) / cluste
   ``WaldNWCluster`` Estimator (#153).
 - **Two-way cluster on (date, asset)** —
   ``_wald_two_way_cluster(y, X, *, R, q, date_ids, asset_ids)`` for
-  the raw asset-date panel. Cameron-Gelbach-Miller (2011)
+  the raw asset-date panel. [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011]
   ``V_DC = V_date + V_asset - V_intersection`` shape. Backs the
   ``WaldTwoWayCluster`` Estimator — interface preserved this issue;
   no public function consumes it until ``factor_decomposition`` lands
@@ -155,7 +155,8 @@ def _cluster_meat(
 
     Sandwich pieces are cached at the cluster level; complexity is
     O(n · k²) regardless of cluster count. Used as the building block
-    for both single-cluster and CGM (2011) two-way cluster covariance.
+    for both single-cluster and [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011]
+    two-way cluster covariance.
     """
     _, k = X.shape
     score = X * u[:, None]
@@ -179,7 +180,7 @@ def _wald_two_way_cluster(
 ) -> tuple[float, float]:
     """Wald χ² with two-way cluster covariance on (date, asset).
 
-    Cameron-Gelbach-Miller (2011) construction:
+    [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] construction:
     ``V_DC = V_date + V_asset - V_intersection``, with each piece a
     sandwich ``(X'X)^{-1} M_cluster (X'X)^{-1}``. ``V_intersection``
     clusters by the (date, asset) intersection — for a panel where

@@ -11,7 +11,7 @@ mean inference (#163). ``NeweyWest`` / ``HansenHodrick`` implement it.
 *, forward_periods) -> GMMResult`` for over-identifying-restriction
 tests on a moment-condition system (#191). ``GMM`` implements it.
 ``GMMResult`` — harmonized return shape for ``MomentEstimator.compute``.
-``GMM`` — Hansen (1982) two-step efficient J-test ``MomentEstimator``;
+``GMM`` — [Hansen (1982)][hansen-1982] two-step efficient J-test ``MomentEstimator``;
 opt-in via ``AnalysisConfig.moment_estimator``.
 ``NeweyWest`` — Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) ``HACEstimator``; default for
 ``AnalysisConfig.estimator``.

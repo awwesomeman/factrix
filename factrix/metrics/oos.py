@@ -119,8 +119,8 @@ def multi_split_oos_decay(
         ``MIN_OOS_PERIODS`` floor would have power ≈ 0).
 
     References:
-        - McLean & Pontiff (2016): average OOS decay ~32%.
-        - de Prado (2018): CPCV for robust train/test split.
+        - [McLean-Pontiff (2016)][mclean-pontiff-2016]: average OOS decay ~32%.
+        - [Lopez-de-Prado (2018)][lopez-de-prado-2018]: CPCV for robust train/test split.
 
     Examples:
         Survival on a per-date information coefficient (IC) series from

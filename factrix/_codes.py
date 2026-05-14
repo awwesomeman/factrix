@@ -185,7 +185,7 @@ class StatCode(StrEnum):
     ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
     Currently shipping: ``(T_NW, P_NW)`` for Newey-West,
     ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(J_GMM, P_GMM)`` for
-    Hansen (1982) generalized method of moments (GMM) J-test
+    [Hansen (1982)][hansen-1982] generalized method of moments (GMM) J-test
     (over-identification is χ², not t, so GMM emits J rather than T),
     ``(WALD_NWCL, P_WALD_NWCL)`` for Newey-West (NW)
     heteroskedasticity-and-autocorrelation-consistent (HAC) + one-way

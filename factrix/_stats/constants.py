@@ -53,7 +53,7 @@ MIN_BROADCAST_EVENTS_WARN: int = 20
 
 
 def auto_bartlett(T: int) -> int:
-    """Newey & West (1994) automatic Bartlett-kernel lag.
+    """[Newey-West (1994)][newey-west-1994] automatic Bartlett-kernel lag.
 
     ``floor(4 * (T/100) ** (2/9))``, with a minimum of 1 lag so the
     heteroskedasticity-and-autocorrelation-consistent (HAC) sum always includes the first autocovariance.

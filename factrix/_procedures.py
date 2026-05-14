@@ -315,8 +315,8 @@ class _CAARSparsePanelProcedure:
     indexed series to the **dense calendar** (zero-fill on non-event
     dates), then runs an HH-floored NW HAC t-test on the dense series.
 
-    Densification is the calendar-time portfolio approach (Jaffe 1974,
-    Mandelker 1974; Fama 1998 §2) — restores the lag rule's "consecutive
+    Densification is the calendar-time portfolio approach ([Jaffe (1974)][jaffe-1974],
+    [Mandelker (1974)][mandelker-1974]; [Fama (1998)][fama-1998] §2) — restores the lag rule's "consecutive
     observations are 1 calendar period apart" assumption that
     ``compute_caar``'s event-date filter would otherwise break. With it,
     sparse events let zero-padding zero out spurious autocovariance
@@ -533,7 +533,7 @@ def _compute_common_panel(
     The cross-asset SE assumes asset-level independence (plan §4.3 spec).
     Under contemporaneous return correlation across assets — common in
     market-driven panels — the standard t will over-state significance;
-    Petersen (2009) clustered SE is deferred per plan §11.
+    [Petersen (2009)][petersen-2009] clustered SE is deferred per plan §11.
     """
     import numpy as np
     import polars as pl

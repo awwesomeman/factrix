@@ -1,9 +1,9 @@
 """Multiple-testing adjustments.
 
-Benjamini-Yekutieli (2001) step-up procedure for false discovery rate (FDR) control under
+[Benjamini-Yekutieli (2001)][benjamini-yekutieli-2001] step-up procedure for false discovery rate (FDR) control under
 arbitrary dependence among the tests. The BHY correction factor
 ``c(m) = sum_{i=1..m} 1/i`` makes the procedure conservative enough
-to handle dependent tests (as opposed to Benjamini-Hochberg (BH) 1995 which requires
+to handle dependent tests (as opposed to [Benjamini-Hochberg (1995)][benjamini-hochberg-1995] (BH) which requires
 independence or positive regression dependence on a subset (PRDS)).
 
 Rejection rule: order p-values ``p_(1) <= p_(2) <= ... <= p_(m)``.
@@ -173,7 +173,7 @@ def bhy_adjusted_p(
 
 
 def simes_p(p_values: npt.ArrayLike) -> float:
-    """Simes (1986) global-null p-value for a group of tests.
+    """[Simes (1986)][simes-1986] global-null p-value for a group of tests.
 
     Formula: ``p_Simes = min_{k=1..m} (m / k) * p_((k))`` where
     ``p_((k))`` is the ``k``-th smallest of the ``m`` p-values
@@ -181,7 +181,7 @@ def simes_p(p_values: npt.ArrayLike) -> float:
     "at least one alternative is true"; valid under independence and
     positive regression dependence on a subset (PRDS).
 
-    Yekutieli (2008) uses Simes as the default group representative
+    [Yekutieli (2008)][yekutieli-2008] uses Simes as the default group representative
     in hierarchical false discovery rate (FDR) procedures — it dominates Bonferroni
     (``m * min(p)``) and preserves group-level FDR control when fed
     to an outer Benjamini-Hochberg-Yekutieli (BHY) step-up.
@@ -220,7 +220,7 @@ def partial_conjunction_p(
     *,
     min_pass: int,
 ) -> float:
-    """Bonferroni-style partial conjunction p-value (Benjamini-Heller 2008).
+    """Bonferroni-style partial conjunction p-value ([Benjamini-Heller (2008)][benjamini-heller-2008]).
 
     Tests ``H_0^{k/m}``: at most ``k - 1`` of the ``m`` alternatives are
     true, against ``H_1^{k/m}``: at least ``k`` are true. The combined

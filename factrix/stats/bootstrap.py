@@ -1,4 +1,4 @@
-"""Stationary (Politis-Romano 1994) bootstrap for dependent time series.
+"""Stationary ([Politis-Romano (1994)][politis-romano-1994]) bootstrap for dependent time series.
 
 Parametric inference (standard t-test, Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC)) breaks down when
 the sample is short relative to the dependence horizon or the marginal
@@ -26,12 +26,12 @@ import numpy as np
 
 
 def _default_block_length(n: int) -> float:
-    """Practical fallback per Politis-White (2004) commentary.
+    """Practical fallback per [Politis-White (2004)][politis-white-2004] commentary.
 
     Full PW picks ``L`` from a plug-in of the spectral density; that
     needs another set of choices we don't want to inherit here. The
     ``1.75 * T^(1/3)`` rule is the widely-cited pragmatic compromise
-    (same cube-root cadence as Newey-West 1994, slightly larger constant
+    (same cube-root cadence as [Newey-West (1994)][newey-west-1994], slightly larger constant
     because the stationary bootstrap's kernel is different).
     """
     if n < 2:
@@ -57,7 +57,7 @@ def stationary_bootstrap_resamples(
         values: 1-D array of the original time series.
         n_bootstrap: Number of resamples to draw.
         block_length: Mean geometric block length. Defaults to
-            ``1.75 * T^(1/3)`` (Politis-White 2004 practical rule).
+            ``1.75 * T^(1/3)`` ([Politis-White (2004)][politis-white-2004] practical rule).
             Must be ``>= 1``; block_length=1 reduces to the ordinary
             iid bootstrap (Efron).
         seed: Seed for ``np.random.default_rng`` to make the resample

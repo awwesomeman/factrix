@@ -6,8 +6,8 @@ land alongside the v0.4 deletion sweep that retires the existing
 v0.4 ``redundancy_matrix`` / ``spanning`` modules.
 
 Family declaration is now explicit: the input list ``profiles`` *is*
-the family, optionally split per-bucket via ``expand_over`` (Benjamini
-& Bogomolov 2014 selective-inference framework). The previous
+the family, optionally split per-bucket via ``expand_over``
+([Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014] selective-inference framework). The previous
 auto-partition by dispatch cell × forward horizon was retired in #161 —
 caller responsibility now, both because the implicit policy was opaque
 and because ``identity`` already encodes ``forward_periods`` (and would
@@ -52,7 +52,7 @@ class Survivors:
         ``len(profiles) == len(adj_p)`` and entries align in input
         order. Per-bucket independent step-up uses bucket-local ``n``
         and ``p_array``; ``adj_p[i]`` reflects ``profiles[i]``'s own
-        bucket only (Benjamini & Bogomolov 2014 selective inference),
+        bucket only ([Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014] selective inference),
         not a global cross-bucket adjustment.
 
     Attributes:
@@ -70,8 +70,9 @@ class Survivors:
             case); ``partial_conjunction`` keys by ``identity`` tuple
             (``(factor_id, forward_periods)``) and records the ``m``
             condition count per identity.
-        pc_p: Raw partial-conjunction p-value per survivor (Benjamini
-            & Heller 2008 Bonferroni-style: ``(m - min_pass + 1) *
+        pc_p: Raw partial-conjunction p-value per survivor
+            ([Benjamini-Heller (2008)][benjamini-heller-2008] Bonferroni-style:
+            ``(m - min_pass + 1) *
             p_((min_pass))``, capped at 1). ``None`` when the producing
             function is not ``partial_conjunction``.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
@@ -406,8 +407,8 @@ def partial_conjunction(
 
     For "factor X is significant in universes A and B" style claims,
     naive ``set(survivors_A) & set(survivors_B)`` does not preserve FDR
-    [Benjamini & Bogomolov 2014]. The partial conjunction test
-    [Benjamini & Heller 2008] provides a contract-bearing path: per
+    [Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014]. The partial conjunction test
+    [Benjamini-Heller (2008)][benjamini-heller-2008] provides a contract-bearing path: per
     identity, combine the ``m`` per-condition p-values into a single
     PC p-value, then run Benjamini-Hochberg-Yekutieli (BHY) across identities.
 
@@ -662,7 +663,7 @@ def bhy_hierarchical(
     """Hierarchical Benjamini-Hochberg-Yekutieli (BHY): control false discovery rate (FDR) across groups then within groups.
 
     For factor sets with natural group structure (momentum / value /
-    quality families; cross-region universes), the Yekutieli 2008
+    quality families; cross-region universes), the [Yekutieli (2008)][yekutieli-2008]
     two-stage procedure controls *group-level* FDR ≤ ``q`` on the outer
     layer (Simes group representative + BHY) and *within-group* FDR
     ≤ ``q`` on the inner layer (BHY restricted to passing groups). Flat
@@ -720,7 +721,7 @@ def bhy_hierarchical(
 
     Notes:
         - **Simes as the outer representative**: dominates Bonferroni
-          ``m * min(p)`` and is the Yekutieli 2008 recommended choice.
+          ``m * min(p)`` and is the [Yekutieli (2008)][yekutieli-2008] recommended choice.
           The kwarg is not exposed at v1 (Edgington-style mean p has
           no valid null; Bonferroni-min is strictly worse than Simes
           under the procedure's positive regression dependence on a subset (PRDS) assumption).
