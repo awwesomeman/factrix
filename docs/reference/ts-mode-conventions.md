@@ -3,7 +3,7 @@ title: Timeseries-mode conventions
 ---
 
 !!! tip "Canonical reference"
-    For the `Mode.PANEL` vs `Mode.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). This page is the `Mode.TIMESERIES`-specific conventions table.
+    For the `Mode.PANEL` vs `Mode.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (HAC SE, ADF / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page is the `Mode.TIMESERIES`-specific operational conventions table.
 
 `Common × Continuous` evaluations on a single time series (`ts_beta`,
 `ts_quantile`, `ts_asymmetry` and their variants) inherit four shared
@@ -19,18 +19,17 @@ the resulting β. **Stage 1 deliberately retains plain OLS SE rather
 than NW / HAC** in TIMESERIES mode even when `forward_periods > 1`
 introduces overlap.
 
-Reasoning summarised in
-[Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns)
-(last paragraph): the dominant bias under a persistent predictor is
-[Stambaugh 1999][stambaugh-1999] coefficient bias, which HAC does not
-address. Stage 2 cross-asset inference handles whatever residual
-time-axis structure leaks through the β distribution.
+The rationale lives in
+[Statistical methods § stage-1 plain SE](statistical-methods.md#stage1-plain-se):
+the dominant bias under a persistent predictor is Stambaugh
+coefficient bias, which HAC does not address. Stage 2 cross-asset
+inference handles whatever residual time-axis structure leaks through
+the β distribution.
 
-If overlap-induced SE inflation is the binding concern, prefer
-`ic_newey_west` on the same series (Individual × Continuous cell)
-where the HAC adjustment is the canonical inferential primitive.
-
-[stambaugh-1999]: bibliography.md#stambaugh-1999
+Operational tip: if overlap-induced SE inflation is the binding
+concern, prefer `ic_newey_west` on the same series (Individual ×
+Continuous cell) where the HAC adjustment is the canonical
+inferential primitive.
 
 ## `FACTOR_ADF_P` persistence diagnostic
 
@@ -52,11 +51,12 @@ leave the threshold call to the caller.
 
 The diagnostic is on the *input* factor, not the regression residual.
 
-## Non-overlap convention — `forward_periods` vs `signal_horizon`
+## `forward_periods` vs `signal_horizon`: bias under mismatch
+[](){ #non-overlap-convention }
 
 The cell-canonical `Individual × Continuous` metrics (`ic`, `caar`)
-use **non-overlapping resampling** as the inferential default
-([Statistical methods § HAC SE](statistical-methods.md#1-hac-se-under-overlapping-returns)).
+use non-overlapping resampling as the inferential default
+([Statistical methods § non-overlap default](statistical-methods.md#non-overlap-default)).
 TIMESERIES mode inverts this: the per-asset stage-1 regression runs
 on the **full** overlapping series — TIMESERIES lacks the
 cross-section axis to "burn" `h` periods of samples, so
