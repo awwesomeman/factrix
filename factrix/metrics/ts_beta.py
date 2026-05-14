@@ -70,8 +70,9 @@ def compute_ts_betas(
         Per asset ``i``, run OLS ``R_{i,t} = alpha_i + beta_i * F_t +
         eps`` over the asset's full sample with homoskedastic SE; emit
         ``beta_i, alpha_i, t_i, R^2_i, n_i``. The output is the
-        per-asset stage feeding the cross-asset Black-Jensen-Scholes
-        style aggregation in ``ts_beta``.
+        per-asset stage feeding the cross-asset aggregation in
+        ``ts_beta`` (time-series-then-cross-section order in the
+        Black-Jensen-Scholes (BJS) tradition).
 
         factrix reports homoskedastic per-asset t (not Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)) at this
         stage because the inferential burden lives downstream — the
@@ -80,9 +81,13 @@ def compute_ts_betas(
         per-asset diagnostic without affecting stage-2 inference.
 
     References:
-        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]: per-
-        asset time-series beta then cross-asset aggregation; the
-        order this two-stage path mirrors.
+        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:
+        beta-sorted-portfolio time-series CAPM tests; the two-stage
+        time-series-then-cross-section aggregation order is what
+        ``ts_beta`` adopts. The cross-asset t on mean β here is a
+        simplified analogue of that aggregation order, not a
+        replication of the original BJS grouped-portfolio intercept
+        test.
 
     Examples:
         >>> import factrix as fx
@@ -216,7 +221,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     Uses the cross-sectional distribution of per-asset betas.
 
     Notes:
-        Stage 2 of the BJS aggregation:
+        Stage 2 of the BJS-style aggregation order:
         $\overline{\beta} = \mathrm{mean}_i \beta_i$;
         $t = \overline{\beta} / (\mathrm{std}(\beta) / \sqrt{N})$
         with $H_0: \mathbb{E}[\beta] = 0$ across assets. The std is the
@@ -229,8 +234,11 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         latent common factor links them.
 
     References:
-        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]: the
-        cross-asset t on E[beta] this function implements.
+        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:
+        beta-sorted-portfolio time-series CAPM tests. factrix's
+        cross-asset t on mean β is a simplified analogue of the BJS
+        aggregation order, not a replication of the grouped-portfolio
+        intercept test BJS run on assets sorted into beta deciles.
 
     Examples:
         Chain from :func:`compute_ts_betas` output:

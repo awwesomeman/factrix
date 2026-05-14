@@ -172,8 +172,15 @@ Black, F., Jensen, M. C. & Scholes, M. (1972). "The Capital Asset
 Pricing Model: Some Empirical Tests." In Jensen, M. (ed.), *Studies
 in the Theory of Capital Markets*. Praeger.
 
-Per-asset time-series β then cross-asset t on E[β]. The
-`common_continuous` cell mirrors this aggregation order.
+Beta-sorted-portfolio time-series test of the zero-beta CAPM:
+sort assets into beta-ranked portfolios, then run a time-series
+regression of each portfolio's excess return on the market. The
+contribution is the time-series-then-cross-section aggregation order
+(per-asset / per-portfolio time series first, then cross-asset
+inspection) that factrix's `common_continuous` cell adopts; the
+`ts_beta` cross-asset t on the mean of per-asset β is a simplified
+analogue of this aggregation order rather than a replication of BJS's
+grouped-portfolio intercept test.
 
 ### Petersen (2009)
 [](){ #petersen-2009 }
