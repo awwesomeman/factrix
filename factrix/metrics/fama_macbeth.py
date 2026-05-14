@@ -185,10 +185,22 @@ def fama_macbeth(
             estimated, and enabling the correction will spuriously
             deflate $t$-stats.
 
-            Implementation: [Kan-Zhang (1999)][kan-zhang-1999] single-factor simplification
-            — the NW SE is scaled by $\sqrt{1 + \hat\lambda^2/\sigma^2_f}$.
-            This *omits* the additive $+\sigma^2_f/T$ term of the full
-            Shanken variance and is therefore only honest for large $T$.
+            Implementation: [Shanken (1992)][shanken-1992] single-factor
+            special case — the NW SE is scaled by
+            $\sqrt{1 + \hat\lambda^2/\sigma^2_f}$ (Shanken's general
+            multi-factor multiplicative term $1 + \lambda'\Sigma_f^{-1}\lambda$
+            collapses to $1 + \hat\lambda^2/\sigma^2_f$ when there is
+            one factor). factrix's simplification *omits* the additive
+            $+\sigma^2_f/T$ term of the full Shanken variance and is
+            therefore only honest for large $T$.
+
+            Note: ``is_estimated_factor`` corrects the **sampling-error**
+            dimension of using an estimated regressor. A separate failure
+            mode — the estimated factor itself being weak or unidentified
+            — produces its own spuriously-significant FM $t$-stats and is
+            not addressed by this scaling; see
+            [Kan-Zhang (1999)][kan-zhang-1999] for the useless-factor
+            diagnostic literature.
 
         factor_return_var: $\sigma^2_f$, the time-series variance of the
             factor-mimicking portfolio return. Prefer supplying this when
@@ -211,15 +223,15 @@ def fama_macbeth(
         $t = \overline{\beta} / \mathrm{SE}_{\mathrm{NW}}(\beta)$
         with kernel lag
         $L = \max(\lfloor T^{1/3} \rfloor,\, h - 1)$.
-        With ``is_estimated_factor=True``, the Shanken-Kan-Zhang
-        single-factor correction scales SE by
-        $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
+        With ``is_estimated_factor=True``, the
+        [Shanken (1992)][shanken-1992] single-factor correction scales
+        SE by $\sqrt{1 + \overline{\beta}^2 / \sigma^2_f}$.
 
         factrix uses the [Andrews (1991)][andrews-1991] $T^{1/3}$ bandwidth floored
         against the Hansen-Hodrick overlap horizon rather than the
         [Newey-West (1994)][newey-west-1994] data-adaptive plug-in — simpler, deterministic,
-        and adequate at typical research $T$. The Kan-Zhang simplification
-        omits the additive $+\sigma^2_f / T$ term of full Shanken EIV,
+        and adequate at typical research $T$. factrix's simplification
+        of the Shanken variance omits the additive $+\sigma^2_f / T$ term,
         so the correction is honest only for large $T$.
 
     References:
@@ -243,8 +255,9 @@ def fama_macbeth(
           regressor is itself estimated.
         - [Kan & Zhang (1999)][kan-zhang-1999]. "Two-Pass Tests of Asset
           Pricing Models with Useless Factors." Journal of Finance,
-          54(1), 203–235. Single-factor simplification of the Shanken
-          EIV correction that factrix actually applies.
+          54(1), 203–235. Useless-factor diagnostic; cited as cautionary
+          background on factor validity beyond the EIV inflation that
+          ``is_estimated_factor`` addresses.
 
     Examples:
         Chain from :func:`compute_fm_betas` output:
