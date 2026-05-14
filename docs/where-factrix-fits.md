@@ -77,9 +77,11 @@ flowchart LR
     DISP -->|individual_continuous| CS[IC + FM<br/>+ diagnostics]
     DISP -->|individual_sparse| EV[CAAR<br/>+ diagnostics]
     DISP -->|common_continuous| CO[ts_beta<br/>+ diagnostics]
+    DISP -->|common_sparse| DUM[ts_beta on dummies<br/>+ diagnostics]
     CS --> PROF[FactorProfile<br/>stats · primary_p · diagnose]
     EV --> PROF
     CO --> PROF
+    DUM --> PROF
     PROF --> BHY[multi_factor.bhy<br/>FDR within family]
     BHY --> SURV[Surviving profiles]
 ```
