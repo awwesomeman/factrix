@@ -131,8 +131,8 @@ def evaluate(
         | `"PANEL"`        | `N ≥ 2` cross-sectional / event cells   | per-date statistic → time-series mean with NW HAC                    |
         | `"TIMESERIES"`   | `Common × Continuous` with `N == 1`     | single-series OLS with plain SE; HAC only on stage-2 aggregation     |
 
-        Full conventions: [TIMESERIES-mode conventions](../reference/ts-mode-conventions.md).
-        Sample-guard contract: [PANEL vs TIMESERIES](../guides/panel-timeseries.md).
+        Full conventions: [Timeseries-mode conventions](../reference/ts-mode-conventions.md).
+        Sample-guard contract: [Panel vs timeseries](../guides/panel-timeseries.md).
 
         **Multi-factor cost.** Each call repeats the per-date
         cross-section work (sort / group-by / rank / HHI) on its own, so

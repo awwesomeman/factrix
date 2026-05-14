@@ -105,7 +105,7 @@ Note that factrix `TIMESERIES` mode does **not** mean Alphalens'
 "time-series of cross-sectional means" (that is per-date aggregation
 of a `PANEL`); the two collide on the word *time-series* and disagree
 on what is aggregated. See
-[TIMESERIES-mode conventions](ts-mode-conventions.md) for the
+[Timeseries-mode conventions](ts-mode-conventions.md) for the
 specific contracts that apply when factrix routes here.
 
 ## Other terms

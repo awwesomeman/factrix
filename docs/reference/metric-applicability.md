@@ -28,7 +28,7 @@ cell-keyed reverse-index; the rest of the page is metric-keyed.
 Cells absent from the table raise `ModeAxisError` (e.g.
 `(INDIVIDUAL, CONTINUOUS) × TIMESERIES`); `(SPARSE × TIMESERIES)`
 collapses scope and tags `InfoCode.SCOPE_AXIS_COLLAPSED` — see
-[TIMESERIES-mode conventions](ts-mode-conventions.md).
+[Timeseries-mode conventions](ts-mode-conventions.md).
 
 ## Sample dimensions
 

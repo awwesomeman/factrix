@@ -221,6 +221,6 @@ escape hatch  → identities: ['ic_var', 'fm_var']
 ## 5. Where to go next
 
 For the broader `n_assets` × factory behaviour matrix see [Guides §
-PANEL vs TIMESERIES](../guides/panel-timeseries.md); for the BHY
+Panel vs timeseries](../guides/panel-timeseries.md); for the BHY
 contract specifically see [Guides § Batch
 screening](../guides/batch-screening.md).

@@ -325,7 +325,7 @@ listed below — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`
 `MIN_PERIODS_HARD ≤ n_periods < MIN_PERIODS_WARN` emits
 `UNRELIABLE_SE_SHORT_PERIODS`. The per-procedure "Failure modes" lists below
 record only the **procedure-specific** failures; for the user-facing tier
-matrix see [Guides § PANEL vs TIMESERIES](../guides/panel-timeseries.md).
+matrix see [Guides § Panel vs timeseries](../guides/panel-timeseries.md).
 
 ### Terminology — aggregation regime
 

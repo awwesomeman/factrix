@@ -14,12 +14,12 @@ title: factrix.metrics.ts_beta
 
 <hr>
 
-!!! info "TIMESERIES-mode conventions"
+!!! info "Timeseries-mode conventions"
     Stage-1 per-asset OLS uses **plain SE**, not HAC — the dominant
     bias under a persistent predictor is Stambaugh coefficient bias,
     which HAC does not address. `FACTOR_ADF_P` is emitted on the input
     series; non-overlap resampling is **not** applied. See
-    [TIMESERIES-mode conventions](../../reference/ts-mode-conventions.md)
+    [Timeseries-mode conventions](../../reference/ts-mode-conventions.md)
     for the full rationale.
 
 ## Use cases
@@ -138,7 +138,7 @@ title: factrix.metrics.ts_beta
 
     [api/by-slice →](../by-slice.md)
 
--   __TIMESERIES-mode conventions__
+-   __Timeseries-mode conventions__
 
     ---
 
