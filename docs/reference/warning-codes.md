@@ -18,18 +18,38 @@ The three enums:
 - **`StatCode`** — canonical names for the scalar statistics that
   populate `FactorProfile.metrics`.
 
-For the per-metric mapping of `WarningCode` to the procedure that
-emits it, see
+Each member's trigger / meaning is sourced from
+`factrix._codes.<Code>.description` (single source of truth, also
+returned at runtime by `profile.diagnose()`). For the per-procedure
+breakdown of which codes a given pipeline can emit, see
 [Architecture § Procedure pipelines](../development/architecture.md#procedure-pipelines).
 
 ## WarningCode
 
+--8<-- "docs/reference/_generated_warning_codes.md"
+
 ::: factrix.WarningCode
+    options:
+      show_root_heading: false
+      show_source: false
+      members: false
 
 ## InfoCode
 
+--8<-- "docs/reference/_generated_info_codes.md"
+
 ::: factrix.InfoCode
+    options:
+      show_root_heading: false
+      show_source: false
+      members: false
 
 ## StatCode
 
+--8<-- "docs/reference/_generated_stat_codes.md"
+
 ::: factrix.StatCode
+    options:
+      show_root_heading: false
+      show_source: false
+      members: false

@@ -4,7 +4,7 @@ title: Multi-factor screening
 
 Apply Benjamini-Hochberg-Yekutieli (BHY) FDR control to a batch of
 candidate factors. Demonstrates the explicit-family contract and the
-duplicate-identity defense (#161) — the behaviour that is impossible
+duplicate-identity defense — the behaviour that is impossible
 to learn from docstrings alone.
 
 Runnable notebook: [`examples/multi_factor_screening.ipynb`](https://github.com/awwesomeman/factrix/blob/main/examples/multi_factor_screening.ipynb).
@@ -17,7 +17,7 @@ factor_col=<name>)` for any registered cell — screening is
 factor-type-agnostic.
 
 The input list **is** the family. Each profile must carry a unique
-`identity = (factor_id, forward_periods)` (#160 anti-shopping defense).
+`identity = (factor_id, forward_periods)` — the anti-shopping defense.
 The recommended path: name the factor column distinctly per candidate
 panel and pass it via `factor_col=`; `evaluate` auto-stamps `factor_id`
 from that name. `dataclasses.replace(profile, factor_id=...)` is an
