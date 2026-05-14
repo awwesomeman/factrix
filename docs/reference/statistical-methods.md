@@ -8,6 +8,14 @@ describes the four discipline lines that recur across cells, explains
 the variant of each that factrix implements, and points at the
 [bibliography](bibliography.md) anchor for the source treatment.
 
+!!! note "Audience"
+    This page assumes working familiarity with applied econometrics
+    (HAC SE, FDR control, near-unit-root inference). If you are
+    looking for a first-pass orientation to factrix output, start at
+    [Quickstart](../getting-started/quickstart.md) and
+    [Concepts](../getting-started/concepts.md); return here when you
+    need the discipline-level rationale behind a specific metric.
+
 For per-metric formulae and signatures see the
 [Metrics API pages](../api/metrics/index.md). For the design choices
 behind which disciplines factrix does *not* implement, see
