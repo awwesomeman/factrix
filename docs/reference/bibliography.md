@@ -132,9 +132,13 @@ underlies the two-step efficient `GMM` ``MomentEstimator``
 Treynor, J. L. & Black, F. (1973). "How to Use Security Analysis to
 Improve Portfolio Selection." *Journal of Business* 46(1), 66–86.
 
-Original derivation of the alpha-vs-residual-risk active-management
-optimisation that yields the $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$ decomposition that
-[Grinold 1989][grinold-1989] later popularised.
+Original derivation of the alpha-over-residual-risk appraisal-ratio
+optimisation for active management — the single-asset appraisal
+ratio that [Grinold (1989)][grinold-1989] later generalised across
+many independent bets to derive the
+$\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
+identity. Conceptual ancestor of the breadth decomposition; the
+identity itself is Grinold's, not Treynor-Black's.
 
 ### Grinold (1989)
 [](){ #grinold-1989 }
@@ -191,8 +195,8 @@ Data Sets: Comparing Approaches." *Review of Financial Studies* 22(1),
 
 Comparison of FM, clustered, and two-way SE under firm/time
 correlation; supports FM + Newey-West as the default for time-effect
-panels and motivates the future clustered-SE extension noted in
-architecture.
+panels and motivates the two-way (date+asset) clustered SE option
+exposed in `pooled_ols` and `factrix.stats.WaldTwoWayCluster`.
 
 ### Cameron, Gelbach & Miller (2011)
 [](){ #cameron-gelbach-miller-2011 }
@@ -201,8 +205,10 @@ Cameron, A. C., Gelbach, J. B. & Miller, D. L. (2011). "Robust
 Inference With Multiway Clustering." *Journal of Business & Economic
 Statistics* 29(2), 238–249.
 
-Two-way clustering formula `V_AB = V_A + V_B − V_{A∩B}`; reference
-for the future date+asset clustered-SE upgrade in `pooled_ols`.
+Two-way clustering formula `V_AB = V_A + V_B − V_{A∩B}`; backs the
+date+asset two-way clustered SE option in `pooled_ols`
+(`two_way_cluster_col`) and the `factrix.stats.WaldTwoWayCluster`
+estimator.
 
 ### Thompson (2011)
 [](){ #thompson-2011 }
@@ -251,8 +257,9 @@ Fama, E. F. & French, K. R. (1992). "The Cross-Section of Expected
 Stock Returns." *Journal of Finance* 47(2), 427–465.
 
 Empirical anchor for size and value as cross-sectional risk premia;
-cited as the canonical example of an `Individual × Continuous` factor
-study in factrix's choosing-metric guide.
+prototypical `Individual × Continuous` factor study in the
+Fama-MacBeth tradition. Catalog-only reference in factrix; no inline
+citation site at present.
 
 ### Fama & French (1993)
 [](){ #fama-french-1993 }
@@ -1005,9 +1012,10 @@ Ambachtsheer, K. P. (1977). "Where Are the Customers' Alphas?"
 *Journal of Portfolio Management* 4(1), 52–56.
 
 Early operational use of IC-based alpha attribution in pension-fund
-performance discussion; the formal $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
-decomposition itself traces to Treynor & Black (1973) and is
-canonically stated in [Grinold 1989][grinold-1989].
+performance discussion; the appraisal-ratio ancestor of the formal
+$\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
+decomposition is Treynor & Black (1973), and the breadth identity
+itself is canonically derived in [Grinold 1989][grinold-1989].
 
 ---
 
