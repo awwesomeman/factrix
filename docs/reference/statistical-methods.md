@@ -96,7 +96,9 @@ inflation — i.e. an upper bound on the reported `t`.
 
 Default versus paired t-test is a separate choice: the cell-canonical
 metrics (`ic`, `caar`) use **non-overlapping resampling** as the
-default rather than NW HAC. NW is exposed as an explicit sibling
+default rather than NW HAC.
+[](){ #non-overlap-default }
+NW is exposed as an explicit sibling
 (`ic_newey_west`) for callers who prefer the HAC route. Resampling has
 the advantage of exact rather than asymptotic-Gaussian inference at
 the cost of a factor of `h` in effective sample size; users with long
@@ -246,10 +248,12 @@ section is on the *input* series itself, not the residual structure
 captured by HAC.
 
 For per-asset β regressions in `compute_ts_betas`, factrix
-deliberately retains plain OLS SE rather than HAC: the Stambaugh bias
-arises from the predictor's persistence, not from SE estimation, and
-HAC fixes only the SE while leaving the coefficient bias untouched.
-Adding HAC there would advertise robustness factrix does not deliver.
+deliberately retains plain OLS SE rather than HAC.
+[](){ #stage1-plain-se }
+The Stambaugh bias arises from the predictor's persistence, not from
+SE estimation, and HAC fixes only the SE while leaving the coefficient
+bias untouched. Adding HAC there would advertise robustness factrix
+does not deliver.
 
 ---
 
