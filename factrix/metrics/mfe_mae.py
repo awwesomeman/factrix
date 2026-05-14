@@ -38,8 +38,10 @@ DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
 
 def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
-    """Output schema with ``date`` dtype mirroring the caller's panel so
-    users with Datetime('us') or TZ-aware inputs get a joinable result."""
+    """Output schema with ``date`` dtype mirroring the caller's panel.
+
+    Users with Datetime('us') or TZ-aware inputs get a joinable result.
+    """
     return {
         "date": date_dtype,
         "asset_id": pl.String(),

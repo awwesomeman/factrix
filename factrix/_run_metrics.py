@@ -177,7 +177,7 @@ class MetricsBundle:
         )
 
     def to_frame(self) -> pl.DataFrame:
-        """Long-form view of the bundle: one row per metric.
+        r"""Long-form view of the bundle: one row per metric.
 
         Schema (8 columns, stable regardless of bundle contents):
 
