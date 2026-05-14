@@ -1,7 +1,8 @@
 """Statistical tooling shared across the library.
 
-``Estimator`` — base inference-method protocol selected via family-verb
-``estimator=`` kwarg (#170); pure selection semantics (no ``compute``).
+``Estimator`` — base inference-method protocol selected via the
+family-function ``estimator=`` kwarg (#170); pure selection
+semantics (no ``compute``).
 ``HACEstimator(Estimator)`` — sub-protocol adding cell-internal
 ``compute(series, *, forward_periods) -> InferenceResult`` for HAC-on-
 mean inference (#163). ``NeweyWest`` / ``HansenHodrick`` implement it.
@@ -48,7 +49,7 @@ from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 # of truth for "which estimators exist". Slice-test Estimators (#153)
 # enter the registry with default-constructed instances; callers
 # override the defaults by passing an explicitly-constructed instance
-# to the slice-test verb (#176).
+# to the slice-test function (#176).
 _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
     NeweyWest(),
     HansenHodrick(),

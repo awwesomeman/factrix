@@ -65,8 +65,8 @@ class MetricsBundle:
     Attributes:
         identity: ``(factor_id, forward_periods)`` — the hypothesis
             dimensions per #160. Aligns with ``FactorProfile.identity``
-            so downstream verbs (``compare`` / cross-slice analysis)
-            can stack profiles and bundles by the same key.
+            so downstream functions (``compare`` / cross-slice
+            analysis) can stack profiles and bundles by the same key.
         metrics: Metric name → ``MetricOutput`` mapping for every
             metric that produced a value (including short-circuit
             ``MetricOutput`` entries — ``value=NaN`` with a reason in
@@ -77,7 +77,7 @@ class MetricsBundle:
             ``__repr__`` / ``_repr_html_`` and a single ``logging.info``.
         context: Sample-restriction / conditioning dimensions per #160.
             v1 always empty; downstream slicers (``factrix.by_slice``
-            and the slice-test verb pair) populate via
+            and the slice-test function pair) populate via
             ``dataclasses.replace`` once available, or callers stamp
             manually after panel-side filtering.
 

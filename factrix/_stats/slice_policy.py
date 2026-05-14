@@ -1,21 +1,22 @@
 """Slice-test policy helpers — pre-flight subset detection + ``n_groups`` downscale.
 
-Two private helpers consumed by the slice-test verbs (#176)
+Two private helpers consumed by the slice-test functions (#176)
 (``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``_detect_strict_subsets`` — pre-flight check for paired tests.
   When slice A's (date, asset) key-set is strictly contained in slice
   B's, the pairwise diff inherits A's universe entirely; the SE
   estimate has degeneracies the standard cluster-NW formula does not
-  warn about. The verb emits a ``UserWarning`` on non-empty output
-  and steers the caller toward ``slice_joint_test`` (omnibus over all
-  slices) which handles the geometry properly.
+  warn about. The slice-test function emits a ``UserWarning`` on
+  non-empty output and steers the caller toward
+  ``slice_joint_test`` (omnibus over all slices) which handles the
+  geometry properly.
 - ``_downscale_n_groups`` — for slice tests on metrics that bucket
   cross-section assets (quantile spread, monotonicity), shrinks
   ``n_groups`` so each bucket retains at least ``min_per_group``
   assets. The per-metric ``min_per_group`` floor lives on the metric
-  module itself (#153 §5); the verb resolves it per slice and feeds
-  it here.
+  module itself (#153 §5); the slice-test function resolves it per
+  slice and feeds it here.
 
 Issue spec deviation: ``_downscale_n_groups`` takes ``int`` rather than
 ``AnalysisConfig`` because ``AnalysisConfig`` carries no ``n_groups``
