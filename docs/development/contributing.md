@@ -558,6 +558,8 @@ NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists
 
 `Examples:` blocks are covered by `pytest --doctest-modules` (enabled in #314). Any sweep touching `Examples:` must keep them runnable; non-runnable illustrative code belongs in `.md` under the intent-layer policy below, not in docstrings.
 
+**Narrative subsection headings** (`Algorithm:`, `Formula:`, `Construction:`, `Aggregation:`, `Scale:`, `Steps:`, `Invariants:`, `Reported:`, etc.) are permitted as in-body prose subsection labels — they sit before the structured-section block, are griffe-rendered as generic colon-terminated headings rather than typed admonitions, and document the algorithm / math / pipeline structure that does not belong in `Notes:`. They are not part of the recognised structured-section set listed above and have no canonical ordering among themselves; place each where it best explains the docstring's flow. Reach for one only when the content is a self-contained explanatory block; otherwise keep it in body prose.
+
 ### Module docstring layering — navigation vs implementation
 
 Module-level and function-level docstrings carry different roles. The split is structural, not stylistic.
