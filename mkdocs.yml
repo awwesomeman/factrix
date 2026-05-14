@@ -129,34 +129,42 @@ exclude_docs: |
 # orphan-page INFO without breaking the embed.
 not_in_nav: |
   **/_generated_*.md
+  api/multi-horizon.md
 
 nav:
-  - Get Started:
+  - Get started:
       - Home: index.md
-      - Where factrix fits: where-factrix-fits.md
       - Installation: getting-started/install.md
       - Quickstart: getting-started/quickstart.md
-  - User Guide:
+  - User guide:
       - Concepts:
           - Overview: getting-started/concepts.md
+          - Where factrix fits: where-factrix-fits.md
           - Architecture: development/architecture.md
           - Statistical methods: reference/statistical-methods.md
-          - TIMESERIES-mode conventions: reference/ts-mode-conventions.md
+          - Timeseries-mode conventions: reference/ts-mode-conventions.md
       - How-to:
           - Overview: guides/index.md
-          - Choosing a metric: guides/choosing-metric.md
-          - PANEL vs TIMESERIES: guides/panel-timeseries.md
-          - Batch screening (BHY): guides/batch-screening.md
+          - Decision tree: api/decision-tree.md
+          - Information coefficient vs Fama-MacBeth: guides/choosing-metric.md
+          - Panel vs timeseries: guides/panel-timeseries.md
+          - Batch screening with Benjamini-Hochberg-Yekutieli: guides/batch-screening.md
           - Slice analysis: guides/slice-analysis.md
           - Standalone metrics: guides/standalone-metrics.md
       - Examples:
           - Overview: examples/index.md
           - Multi-factor screening: examples/multi_factor_screening.md
           - Stock factor evaluation: examples/stock_factor_evaluation.md
-  - API Reference:
+      - Reference tables:
+          - Metrics applicability: reference/metric-applicability.md
+          - Stat keys: reference/stat-keys-by-metric.md
+          - Warning / info / stat codes: reference/warning-codes.md
+          - Metrics pipelines: reference/metric-pipelines.md
+          - Glossary: reference/glossary.md
+          - Bibliography: reference/bibliography.md
+  - API reference:
       - Overview: api/index.md
       - Panel schema: api/panel-schema.md
-      - Decision tree: api/decision-tree.md
       - Entry points:
           - Core:
               - AnalysisConfig: api/analysis-config.md
@@ -181,14 +189,7 @@ nav:
           - MetricsBundle: api/metrics-bundle.md
           - MetricOutput: api/metric-output.md
           - Identity / context: api/identity.md
-      - Tables:
-          - Glossary: reference/glossary.md
-          - Metrics applicability: reference/metric-applicability.md
-          - Metrics pipelines: reference/metric-pipelines.md
-          - Stat keys: reference/stat-keys-by-metric.md
-          - Warning / info / stat codes: reference/warning-codes.md
           - Errors: api/errors.md
-          - Bibliography: reference/bibliography.md
       - Metrics:
           - Overview: api/metrics/index.md
           - Individual continuous:
@@ -218,13 +219,12 @@ nav:
               - hit_rate: api/metrics/hit_rate.md
               - trend: api/metrics/trend.md
               - oos: api/metrics/oos.md
-      - Other modules:
+      - Supporting modules:
           - stats: api/stats.md
           - Estimator alternatives: api/estimator-alternatives.md
           - datasets: api/datasets.md
           - preprocess: api/preprocess.md
-          - Multi-horizon (migration): api/multi-horizon.md
   - Development:
       - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
-  - Release Notes: development/changelog.md
+  - Release notes: development/changelog.md

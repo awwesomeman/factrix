@@ -393,6 +393,60 @@ New example convention:
   `warning-codes.md`, `bibliography.md`: narrative roll-ups (not
   matrices)
 
+### Nav classification principle
+
+Pages are placed in the nav by **what reading task they serve**, not by
+which folder they happen to live in. Four shapes carry the whole site:
+
+- **symbol-centric** — one mkdocstrings page per public callable / class.
+  Lives under `API reference`. Reader knows the name, wants signature +
+  semantics. (`evaluate`, `bhy`, `FactorProfile`, every `metrics/<x>.md`.)
+- **question-centric** — answers a "how do I do X?" task with a short
+  walk-through. Lives under `User guide` > `How-to`. Title is the
+  question, body is the recipe. (`Information coefficient vs
+  Fama-MacBeth`, `Panel vs timeseries`, `Decision tree`.)
+- **lookup** — pure table or reverse-index, scanned not read. Lives
+  under `User guide` > `Reference tables`. Ordered by quant scan
+  frequency, not alphabetically. (`Metrics applicability`, `Stat keys`,
+  `Warning / info / stat codes`.)
+- **migration** — deprecation notes, rename recipes, BREAKING upgrade
+  paths. Belongs to the `Release notes` register. Linked from the
+  CHANGELOG entry that retired the surface; not given its own nav slot
+  unless ≥ 3 active migration pages accumulate (single-member groups
+  read as navigation cruft).
+
+#### Folder path and nav placement are decoupled
+
+The on-disk path under `docs/` is **never** changed to match a nav
+move. mike publishes versioned URLs from the file path, and external
+links (issue references, downstream notebooks, search indexes) pin to
+that URL — relocating `docs/api/decision-tree.md` to
+`docs/guides/decision-tree.md` would 404 every link captured before the
+move. Nav is the editorial layer; folders are the URL contract. When
+re-classifying a page, change only the `mkdocs.yml` entry; leave the
+file where it is.
+
+#### Title casing and acronym rules
+
+Nav labels and page `title:` frontmatter follow sentence case: only the
+first word, proper nouns, and code identifiers used as proper nouns
+take a capital. Tab labels (`Get started`, `User guide`, `API
+reference`, `Release notes`) follow the same rule.
+
+- **Acronyms in nav labels are spelled out** (`Information coefficient
+  vs Fama-MacBeth`, `Batch screening with Benjamini-Hochberg-Yekutieli`)
+  with no parenthetical short form. The short form is redundant for
+  domain readers and mis-leading for newcomers; first-use expansion is
+  the page's first paragraph or the `Glossary` entry, not the sidebar.
+- **Universal technical acronyms are an exception** — `API` is not
+  expanded.
+- **Code identifiers do not appear in CAPS in nav labels.** Mode enum
+  values (`Mode.PANEL` / `Mode.TIMESERIES`) become `Panel` / `Timeseries`
+  in nav; reach for backticks inside body prose when the literal
+  identifier matters. Dataclass / class names inside `Results` (e.g.
+  `MetricOutput`, `FactorProfile`) keep PascalCase because that node *is*
+  the mkdocstrings spec page for the symbol — the title is the symbol.
+
 ### Nav structure conventions
 
 The mkdocs nav follows a **pure-label** policy: every group label in
