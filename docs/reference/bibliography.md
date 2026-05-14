@@ -106,6 +106,16 @@ Estimator and a Direct Test for Heteroskedasticity." *Econometrica*
 HC0 sandwich estimator; the heteroskedasticity-only ancestor of NW
 HAC. Cited as background.
 
+### Hansen (1982)
+[](){ #hansen-1982 }
+
+Hansen, L. P. (1982). "Large Sample Properties of Generalized Method
+of Moments Estimators." *Econometrica* 50(4), 1029–1054.
+
+GMM framework and the over-identifying-restrictions J-statistic;
+underlies the two-step efficient `GMM` ``MomentEstimator``
+(`factrix.stats.gmm`).
+
 ---
 
 ## Cross-section and panel pricing
@@ -358,6 +368,39 @@ weighted CAAR factrix computes (`compute_caar` with continuous
 `factor`) is a per-event regression-slope statistic in this lineage,
 distinct from the equal-weighted MacKinlay-style CAAR.
 
+### Jaffe (1974)
+[](){ #jaffe-1974 }
+
+Jaffe, J. F. (1974). "Special Information and Insider Trading."
+*Journal of Business* 47(3), 410–428.
+
+Calendar-time portfolio approach to event studies; densifying the
+event-indexed return series to a dense calendar grid (zero-fill on
+non-event dates) so HAC-style inference can assume a fixed period
+between observations. Cited from `_CAARSparsePanelProcedure` as the
+historical anchor for factrix's dense-calendar CAAR HAC t-test.
+
+### Mandelker (1974)
+[](){ #mandelker-1974 }
+
+Mandelker, G. (1974). "Risk and Return: The Case of Merging Firms."
+*Journal of Financial Economics* 1(4), 303–335.
+
+Independent contemporaneous application of the calendar-time
+portfolio approach; cited alongside Jaffe (1974) as the joint origin
+of the densification convention factrix's sparse-panel CAAR adopts.
+
+### Fama (1998)
+[](){ #fama-1998 }
+
+Fama, E. F. (1998). "Market Efficiency, Long-term Returns, and
+Behavioral Finance." *Journal of Financial Economics* 49(3), 283–306.
+
+§2 review and defence of the calendar-time portfolio approach
+against the buy-and-hold abnormal return alternative; cited as the
+modern reference for the densification rationale in
+`_CAARSparsePanelProcedure`.
+
 ---
 
 ## Multiple-testing correction and selection inference
@@ -409,6 +452,19 @@ Methodology." *Journal of the American Statistical Association*
 
 Hierarchical FDR with Simes as group representative; cited as the
 theoretical context for the BHY + Simes composition.
+
+### Benjamini & Bogomolov (2014)
+[](){ #benjamini-bogomolov-2014 }
+
+Benjamini, Y. & Bogomolov, M. (2014). "Selective Inference on
+Multiple Families of Hypotheses." *Journal of the Royal Statistical
+Society: Series B* 76(1), 297–318.
+
+Selective-inference framework for partitioning a hypothesis set into
+independent families with per-family FDR control; underlies the
+explicit ``expand_over`` per-bucket step-up convention in
+`multi_factor.bhy` (per-bucket adjusted p-values, no global
+cross-bucket adjustment).
 
 ### Harvey, Liu & Zhu (2016)
 [](){ #harvey-liu-zhu-2016 }
