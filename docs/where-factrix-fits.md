@@ -86,7 +86,10 @@ flowchart LR
 
 The dispatch arrow is the single line that distinguishes factrix
 from peers that apply one uniform formula across factor types
-(see [§4](#4-same-purpose-peers)).
+(see [§4](#4-same-purpose-peers)). For the field-order walk of the
+`FactorProfile` shown in the graph — `primary_p`, `primary_stat`,
+`warnings`, and the rest — see
+[Reading results](guides/reading-results.md).
 
 ## 3. Scope boundaries
 

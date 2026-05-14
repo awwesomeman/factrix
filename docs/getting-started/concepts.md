@@ -98,6 +98,9 @@ the dispatch cells single-asset paths route to — see
 `N = panel["asset_id"].n_unique()`. Both modes return a real `primary_p`;
 neither is degraded.
 
+For the field-order walk of `FactorProfile.primary_p` and its companion
+fields, see [Reading results](../guides/reading-results.md).
+
 For the full sample-guard contract (PANEL/TIMESERIES tiers, behaviour
 per factory at each `n_assets` regime, special N = 1 paths) see
 [Guides § Panel vs timeseries](../guides/panel-timeseries.md).

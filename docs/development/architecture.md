@@ -647,6 +647,11 @@ Hard constraints — violating these breaks the API contract:
 9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
 10. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.
 
+For the user-facing field walk of `FactorProfile` (and the `Survivors` /
+`MetricsBundle` it composes with), see
+[Reading results](../guides/reading-results.md). Items 5 and 6 above are
+the contract the page links back to.
+
 ---
 
 ## Testing
