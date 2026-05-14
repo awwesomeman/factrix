@@ -2,12 +2,6 @@
 title: Statistical methods
 ---
 
-Cross-cutting statistical disciplines that govern multiple metrics in
-factrix. This page sits **above** the per-metric API pages: it
-describes the four discipline lines that recur across cells, explains
-the variant of each that factrix implements, and points at the
-[bibliography](bibliography.md) anchor for the source treatment.
-
 !!! note "Audience"
     This page assumes working familiarity with applied econometrics
     (HAC SE, FDR control, near-unit-root inference). If you are
@@ -15,6 +9,12 @@ the variant of each that factrix implements, and points at the
     [Quickstart](../getting-started/quickstart.md) and
     [Concepts](../getting-started/concepts.md); return here when you
     need the discipline-level rationale behind a specific metric.
+
+Cross-cutting statistical disciplines that govern multiple metrics in
+factrix. This page sits **above** the per-metric API pages: it
+describes the four discipline lines that recur across cells, explains
+the variant of each that factrix implements, and points at the
+[bibliography](bibliography.md) anchor for the source treatment.
 
 For per-metric formulae and signatures see the
 [Metrics API pages](../api/metrics/index.md). For the design choices
