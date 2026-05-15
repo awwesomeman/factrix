@@ -900,6 +900,16 @@ git commit -m "chore: bump factrix to v<X.Y.Z>"
 git push
 ```
 
+### CHANGELOG entry convention
+
+- Link via **PR number** (`(#PR)`) — the PR carries the diff / review /
+  discussion that downstream upgraders need when triaging a change.
+  Convention adopted from v0.14.0 onwards.
+- v0.13.0 and earlier entries used issue numbers (some v0.13.0 bullets
+  are mixed because the convention shift landed alongside that
+  release); **do not retroactively rewrite** — historical links still
+  resolve and the rewrite cost is not justified.
+
 ### BC change reminders
 
 Example: `q1_q5_spread → long_short_spread` (this rename actually

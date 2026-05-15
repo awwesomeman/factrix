@@ -10,9 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 While the version is below `1.0.0`, the public API should be considered unstable — breaking changes may occur in **MINOR** bumps. Consumers are expected to pin by commit SHA (e.g., via git submodule) rather than relying on semver range constraints until `1.0.0` is cut.
 
+Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) from v0.14.0 onwards. Entries dated v0.13.0 and earlier linked to issue numbers (some v0.13.0 entries are mixed because the convention shift landed alongside that release) and are kept as-is.
+
 ---
 
-## [Unreleased]
+## v0.13.0 (2026-05-15)
 
 ### Added
 
@@ -189,6 +191,14 @@ While the version is below `1.0.0`, the public API should be considered unstable
   ```
 
   The `gate=StatCode.X` kwarg (read alternative stat instead of `primary_p`) has no direct replacement; reach `profile.stats[StatCode.X]` and compare to your chosen threshold inline. The `examples/multi_factor_screening.ipynb` per-factor verdict loop is rewritten to demonstrate the BHY path instead.
+
+### Docs
+
+- **Citation accuracy + bibliography role-note layering** (#321, #330, #359). Project-wide sweep across docstrings and `docs/reference/bibliography.md`: every inline paper reference unified to autorefs-linked form (`[Newey-West 1987][newey-west-1987]`), bibliography organised by methodological role rather than chronology, and role-notes audited for attribution accuracy (Andrews vs HH `T^(1/3)`, Shanken EIV framing, factor-zoo / factor-spanning / unit-root / robust-stats / multiple-testing / event-study / cross-section pricing chains). Horizon-shopping multiplicity and per-period forward-return normalisation references added.
+- **Per-metric `Examples:` blocks across the public API** (#312, #322). All 44 metric callables and the remaining public-API surface ship runnable `Examples:` blocks under the call-shape-over-fragile-output convention, exercised by `pytest --doctest-modules` in CI (#314).
+- **Mkdocs navigation IA cleanup** (#329, #336 series, #341, #343, #347, #350, #351). Top-level nav restructured around Reading flows (User guide / Concepts / Reference / API / Development), new `Reading results` and `Preparing data` pages, `where-factrix-fits` exit pointer + `common_sparse` dispatch arm, glossary + axis-table dedup, routing surfaces demoted to API landing.
+- **Docstring style + register conventions** (#313, #331, #332, #357). Google-style section sweep (`Args:` / `Returns:` / `Raises:` / `Warns:` / `Notes:` / `Examples:` / `References:` plural, fixed order) + ruff `D` rule enablement; design-register "verb" prose dropped from user-facing docs (kept as RFC vocabulary); abbreviations expanded on first use per page.
+- **Mkdocs UX polish** (#328, #345, #360, #363, #376). Mkdocstrings inventory cross-refs wired for third-party data types; sidebar active item contrast fix scoped to primary nav so the right-side TOC active heading remains legible; internal dense-reindex / event-HHI bin-grid descriptions rephrased from "calendar" to period / time-axis vocabulary (academic methodology names preserved).
 
 ---
 

@@ -202,7 +202,7 @@ def evaluate(
     return _evaluate(panel, config, factor_col=factor_col)
 
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 __all__ = [
     # Configuration
