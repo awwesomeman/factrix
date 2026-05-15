@@ -2,22 +2,10 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
-import pytest
 from bench.scenarios.algo import SCENARIOS, s4_greedy_forward_selection
 from bench.validator import validate_file
-
-
-@pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
-    # Tiny scale trips factrix's sample-floor warnings; the algo
-    # itself also emits a snooping warning that the scenario already
-    # suppresses inside `compute`.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        yield
 
 
 def test_s4_runs_and_validates(tmp_path: Path):

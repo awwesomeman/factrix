@@ -31,12 +31,12 @@ from factrix.preprocess import compute_forward_return
 
 from bench.metric_sets import MetricSet
 from bench.preflight import preflight
-from bench.schema import BenchRecord, CacheState, Env
+from bench.schema import AxisCell, BenchRecord, CacheState, Env
 from bench.validator import validate_file
 from bench.wrapper import measure, write_records
 
-AXIS_CELL_CONT_IND = "continuous_individual_panel"
-AXIS_CELL_SPARSE_IND = "sparse_individual_panel"
+AXIS_CELL_CONT_IND: AxisCell = "continuous_individual_panel"
+AXIS_CELL_SPARSE_IND: AxisCell = "sparse_individual_panel"
 
 
 @dataclass(frozen=True)

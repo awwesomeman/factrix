@@ -7,10 +7,8 @@ budget on a CI runner: under 30 s for the whole module.
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
-import pytest
 from bench.scenarios.continuous import (
     SCENARIOS,
     m_ic,
@@ -20,15 +18,6 @@ from bench.scenarios.continuous import (
     s2_screen_50,
 )
 from bench.validator import validate_file
-
-
-@pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
-    # Tiny scale trips factrix's "median assets per group" warning;
-    # the bench harness intentionally runs under-spec sizes for CI.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        yield
 
 
 def test_every_scenario_runs_and_validates(tmp_path: Path):

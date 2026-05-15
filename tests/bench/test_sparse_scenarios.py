@@ -2,19 +2,10 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
-import pytest
 from bench.scenarios.sparse import SCENARIOS, m_corrado, s5_event_study
 from bench.validator import validate_file
-
-
-@pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        yield
 
 
 def test_every_sparse_scenario_runs_and_validates(tmp_path: Path):

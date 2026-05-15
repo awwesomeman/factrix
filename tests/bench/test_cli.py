@@ -9,19 +9,11 @@ subprocess fork cost is bounded.
 from __future__ import annotations
 
 import json
-import warnings
 from pathlib import Path
 
 import pytest
 from bench.__main__ import main
 from bench.validator import validate_file
-
-
-@pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        yield
 
 
 def test_tiny_target_runs_full_scenario_set(tmp_path: Path):

@@ -30,26 +30,21 @@ from bench.scenarios.algo import SCENARIOS as ALGO_SCENARIOS
 from bench.scenarios.continuous import SCENARIOS as CONTINUOUS_SCENARIOS
 from bench.scenarios.sparse import SCENARIOS as SPARSE_SCENARIOS
 
-# Default scenario coverage per target. `event` is a Sparse-only
-# subset; `tiny` / `small` / `large` run the full Continuous + algo
-# + Sparse coverage so a single run produces a complete baseline.
-CONT_ALGO_IDS = list(CONTINUOUS_SCENARIOS) + list(ALGO_SCENARIOS)
-SPARSE_IDS = list(SPARSE_SCENARIOS)
+# All scenarios, indexed by `scenario_id`. Targets pick subsets by name.
+ALL_SCENARIOS: dict[str, Callable[..., Any]] = {
+    **CONTINUOUS_SCENARIOS,
+    **ALGO_SCENARIOS,
+    **SPARSE_SCENARIOS,
+}
+_CONT_ALGO_IDS = list(CONTINUOUS_SCENARIOS) + list(ALGO_SCENARIOS)
+_SPARSE_IDS = list(SPARSE_SCENARIOS)
 
 TARGETS: dict[str, dict[str, Any]] = {
-    "tiny": {"preset": "tiny", "scenarios": CONT_ALGO_IDS + SPARSE_IDS},
-    "small": {"preset": "small", "scenarios": CONT_ALGO_IDS + SPARSE_IDS},
-    "large": {"preset": "large", "scenarios": CONT_ALGO_IDS + SPARSE_IDS},
-    "event": {"preset": "small", "scenarios": SPARSE_IDS},
+    "tiny": {"preset": "tiny", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
+    "small": {"preset": "small", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
+    "large": {"preset": "large", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
+    "event": {"preset": "small", "scenarios": _SPARSE_IDS},
 }
-
-
-def _all_scenarios() -> dict[str, Callable[..., Any]]:
-    merged: dict[str, Callable[..., Any]] = {}
-    merged.update(CONTINUOUS_SCENARIOS)
-    merged.update(ALGO_SCENARIOS)
-    merged.update(SPARSE_SCENARIOS)
-    return merged
 
 
 def _run_one(
@@ -60,7 +55,7 @@ def _run_one(
     cache_state: str,
 ) -> Path:
     """Invoke one scenario directly (in this process)."""
-    fn = _all_scenarios()[scenario_id]
+    fn = ALL_SCENARIOS[scenario_id]
     output = output_dir / f"{scenario_id}.jsonl"
     output.parent.mkdir(parents=True, exist_ok=True)
     fn(output, preset=preset, cache_state=cache_state)
