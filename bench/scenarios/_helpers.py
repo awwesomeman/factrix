@@ -3,9 +3,8 @@
 Centralises:
 
 - Scale presets (``tiny`` for tests / CI smoke; ``small`` / ``large``
-  baseline-grade scales pinned per #380 §7). Per-scenario overrides
-  win over preset defaults so fixed-scale scenarios (S2 = 50 factors)
-  stay fixed regardless of preset.
+  baseline-grade scales). Per-scenario overrides win over preset
+  defaults so fixed-scale scenarios stay fixed regardless of preset.
 - Continuous multi-factor panel construction + forward-return
   attachment, so every Cont × Ind scenario sees the same seed
   discipline.
@@ -56,16 +55,16 @@ class ContinuousScale:
         }
 
 
-# Scale presets per #380 §7. Every scenario module reads these so
-# preset-named runs are guaranteed identical in dimensionality
-# regardless of which scenarios are exercised.
+# Scale presets. Every scenario module reads these so preset-named
+# runs are guaranteed identical in dimensionality regardless of which
+# scenarios are exercised.
 PRESETS: dict[str, ContinuousScale] = {
-    # `tiny` is for tests and the eventual CI bench-tiny smoke — must
-    # complete in seconds on a CI runner.
+    # `tiny` is for tests and CI smoke — must complete in seconds on a
+    # CI runner.
     "tiny": ContinuousScale(n_factors=8, n_assets=20, n_dates=60),
-    # `small` — 16 GB laptop baseline (#380 §7).
+    # `small` — 16 GB laptop baseline.
     "small": ContinuousScale(n_factors=100, n_assets=1000, n_dates=1250),
-    # `large` — 32 GB cloud baseline (#380 §7); opt-in, not mandatory.
+    # `large` — 32 GB cloud baseline; opt-in.
     "large": ContinuousScale(n_factors=500, n_assets=1000, n_dates=1250),
 }
 
@@ -93,7 +92,7 @@ def resolve_scale(
 
 
 # A single horizon is sufficient for benchmark purposes — sweeping
-# across horizons is a separate user story not covered by #380.
+# across horizons is a separate user story not handled here.
 DEFAULT_FORWARD_PERIODS = 5
 
 
@@ -142,9 +141,9 @@ class SparseScale:
         }
 
 
-# Sparse-cell presets per #380 §4 (S5 spec: "20 events × 200 assets ×
-# 1250 dates"). Event rate at `small` is tuned to give ~20 events
-# expected; `tiny` mirrors the Cont preset's seconds-level budget.
+# Sparse-cell presets. Event rate at `small` is tuned to give an
+# expected event count comparable to the continuous panel's factor
+# count; `tiny` mirrors the continuous preset's seconds-level budget.
 SPARSE_PRESETS: dict[str, SparseScale] = {
     "tiny": SparseScale(
         n_assets=20, n_dates=60, window_pre=3, window_post=5, event_rate=0.05

@@ -1,6 +1,5 @@
 """Pinned metric sets — independent of ``factrix.run_metrics`` defaults
-so a default-set tweak in factrix cannot silently shift the baseline
-(#380 §3).
+so a default-set tweak in factrix cannot silently shift the baseline.
 
 Each ``MetricSet`` declares the names ``run_metrics`` should dispatch
 (``run_metrics_names``) and an optional ``custom`` callable for paths

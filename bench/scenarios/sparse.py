@@ -1,4 +1,4 @@
-"""Sparse × Individual scenarios (#380 §4 S5 + M-corrado).
+"""Sparse × Individual scenarios — event-study workloads.
 
 The sparse cell exercises a different factrix code path from the
 continuous one: ``corrado_rank_test`` is loop-heavy with a
@@ -34,10 +34,9 @@ from bench.scenarios._helpers import (
 )
 from bench.schema import BenchRecord, CacheState
 
-# MFE/MAE window parameters — pinned so a #378 sub-task tuning the
-# windows cannot silently shift the workload. Values match factrix's
-# function defaults at small/large preset; tiny shrinks via scenario
-# overrides below.
+# MFE/MAE window parameters — pinned so tuning the windows cannot
+# silently shift the workload. Values match factrix's function
+# defaults at small/large preset.
 _MFE_WINDOW = 10
 _MFE_ESTIMATION_WINDOW = 30
 
@@ -101,7 +100,7 @@ def s5_event_study(
     seed: int = 0,
     cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
-    """S5: event-study bundle (corrado + caar + mfe_mae)."""
+    """Event-study bundle: corrado rank test + CAAR + MFE/MAE."""
     scale = resolve_sparse_scale(preset)
     return _run_sparse_scenario(
         output,
@@ -121,10 +120,10 @@ def m_corrado(
     seed: int = 0,
     cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
-    """M-corrado: cost of ``corrado_rank_test`` alone on the sparse cell.
+    """Cost of ``corrado_rank_test`` alone on the sparse cell.
 
     Attributes the permutation-bootstrap cost to a single metric,
-    parallel to the M-ic / M-quantile / M-mono pattern on the
+    parallel to the single-metric attribution scenarios on the
     continuous cell.
     """
     scale = resolve_sparse_scale(preset)

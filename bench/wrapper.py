@@ -2,7 +2,8 @@
 
 Separates ``setup`` (data prep + I/O) from ``compute`` (the metric work
 under measurement) so the JSONL records both phases. Ratio analysis
-defaults to ``compute_s`` per #380 §9.
+defaults to ``compute_s`` (the measured phase) over ``wall_s`` so
+machine-to-machine I/O differences do not pollute comparisons.
 """
 
 from __future__ import annotations

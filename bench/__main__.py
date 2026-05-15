@@ -12,9 +12,9 @@ reference-baseline reruns share the same entry.
 
 `--cold-cache` re-execs ``python -m bench --run-one <id>`` per
 scenario in a fresh subprocess so OS-page-cache / numpy-import /
-BLAS-thread state is reset between scenarios. This is the cold-cache
-mode required for reference-baseline runs (#380 §1, §9.2); ad-hoc
-warm-cache runs (default) skip the subprocess overhead.
+BLAS-thread state is reset between scenarios. Reference-baseline
+runs must use this mode; ad-hoc warm-cache runs (default) skip the
+subprocess overhead.
 """
 
 from __future__ import annotations

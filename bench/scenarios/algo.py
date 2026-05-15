@@ -1,4 +1,4 @@
-"""Algo scenarios — ``greedy_forward_selection`` (#380 §4 S4).
+"""Algo scenarios — ``greedy_forward_selection``.
 
 `greedy_forward_selection` does not live behind ``factrix.run_metrics``;
 it consumes a ``dict[str, pl.DataFrame]`` of per-factor spread series.
@@ -8,10 +8,10 @@ The scenario therefore splits the work explicitly:
   via ``factrix.metrics.quantile.compute_spread_series``. Spread
   construction (rank → bucket → spread per date) is itself non-trivial
   but is the algorithm's prerequisite, not its hotspot — accounting
-  it under ``setup_s`` matches the §9 distinction between
-  preparation cost and the work under measurement.
-- **compute** runs the greedy + backward-elimination loop. This is
-  the per-iteration O(K²) hotspot #378 is targeting.
+  it under ``setup_s`` keeps the per-iteration loop alone under
+  ``compute_s``.
+- **compute** runs the greedy + backward-elimination loop, an O(K²)
+  inner loop in the candidate pool size.
 
 `suppress_snooping_warning=True` is set unconditionally — the bench
 runs are not inference, and emitting one warning per scenario per
@@ -41,13 +41,12 @@ from bench.schema import BenchRecord, CacheState
 
 # Greedy selection runs to convergence by default; cap candidates so
 # the inner loop terminates predictably under the benchmark budget.
-# #380 §4 pins S4 at "50 candidates"; capped further by preset for
-# tiny smoke runs.
+# Capped further by preset for tiny smoke runs.
 _S4_CANDIDATES = 50
 
 # Long-short bucket count for the spread series fed into spanning.
-# Pinned (not at call site) so a #378 sub-task cannot silently shift
-# the workload by tuning quantile granularity.
+# Pinned (not at call site) so tuning quantile granularity does not
+# silently shift the workload.
 _N_GROUPS = 5
 
 
@@ -74,11 +73,10 @@ def s4_greedy_forward_selection(
     seed: int = 0,
     cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
-    """S4: greedy forward selection over a candidate factor pool.
+    """Greedy forward selection over a candidate factor pool.
 
-    Candidate pool size follows the preset (capped at 50 per #380 §4).
-    The base set is empty — every selected factor competes on its
-    own merit, matching the §4 "greedy forward selection" framing.
+    Candidate pool size follows the preset, capped at 50. The base set
+    is empty — every selected factor competes on its own merit.
     """
     max_factors = resolve_scale(preset).n_factors
     n = min(_S4_CANDIDATES, max_factors)

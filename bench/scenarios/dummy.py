@@ -1,7 +1,7 @@
 """End-to-end smoke scenario — proves wrapper → JSONL → validator.
 
-Not one of the mandatory S/M scenarios from #380 §4. Used by tests
-and by ``bench-tiny`` CI smoke to prevent harness rot.
+Used by tests and by CI smoke jobs to prevent harness rot. The real
+benchmark workloads live in sibling modules under ``bench.scenarios``.
 """
 
 from __future__ import annotations

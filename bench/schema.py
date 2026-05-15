@@ -1,6 +1,6 @@
-"""JSONL record schema for the benchmark harness (#380 §9, v1).
+"""JSONL record schema for the benchmark harness.
 
-The schema is pinned here so #378 sub-tasks don't each roll their own
+Pinned here so downstream consumers do not need to roll their own
 parser. ``scale`` is an open schema keyed on ``axis_cell`` — new
 axis cells extend the union without breaking existing parsers.
 """
@@ -68,7 +68,7 @@ class Env(BaseModel):
 
 
 class BenchRecord(BaseModel):
-    """One row of the benchmark JSONL — #380 §9 v1."""
+    """One row of the benchmark JSONL."""
 
     model_config = ConfigDict(extra="forbid")
 

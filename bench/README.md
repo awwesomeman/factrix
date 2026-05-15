@@ -1,7 +1,7 @@
 # bench — benchmark harness
 
-Internal dev tooling for the multi-factor scale-out benchmark
-(issue #380). **Not packaged into the factrix wheel** —
+Internal dev tooling for the multi-factor scale-out benchmark.
+**Not packaged into the factrix wheel** —
 `tool.setuptools.packages.find` excludes `bench*`.
 
 For the harness roadmap and open work, see issue #380 and its open
@@ -9,8 +9,8 @@ sub-issues. This README describes the current surface only.
 
 ## Modules
 
-- `bench.schema` — pydantic v2 model for the JSONL record (`schema_version="1"`,
-  open-schema `scale` keyed on `axis_cell`). Aligns with #380 §9.
+- `bench.schema` — pydantic v2 model for the JSONL record
+  (`schema_version="1"`, open-schema `scale` keyed on `axis_cell`).
 - `bench.preflight` — BLAS thread lock (`OMP_/OPENBLAS_/MKL_NUM_THREADS`),
   numpy seed, `gc.collect()`, env fingerprint (git SHA, factrix version,
   python/numpy/BLAS, CPU model, cores, RAM).
@@ -23,21 +23,11 @@ sub-issues. This README describes the current surface only.
   `schema_version` mismatch, missing fields, enum violations, or
   scale ↔ axis_cell mismatch.
 - `bench.metric_sets` — pinned `core` / `heavy` / `algo` / `event`
-  bundles + `METRIC_SET_VERSION` (independent of
+  bundles + `METRIC_SET_VERSION`, independent of
   `factrix.run_metrics` defaults so a default-set tweak in factrix
-  cannot silently shift baselines, #380 §3).
-- `bench.scenarios.continuous` — mandatory Cont × Ind scenarios
-  (#380 §4): S1 (single factor + `evaluate` + `run_metrics(heavy)`),
-  S2 / S3 (50 / 200-factor screen, `core`), P1 (scaling probe), and
-  per-metric micros M-ic / M-ic-boot / M-quantile / M-mono.
-- `bench.scenarios.algo` — S4 greedy forward selection. Setup phase
-  pre-computes per-factor spread series (rank → bucket → spread);
-  compute phase runs the greedy + backward-elimination loop.
-- `bench.scenarios.sparse` — Sparse × Individual scenarios (#380 §4):
-  S5 (event-study bundle: `corrado_rank_test` + `compute_caar` +
-  `compute_mfe_mae`) and the M-corrado micro.
-- `bench.scenarios.dummy` — smoke scenario proving the wrapper →
-  JSONL → validator loop.
+  cannot silently shift baselines.
+- `bench.scenarios.*` — scenario implementations grouped by
+  analysis-axis cell (see scenario reference below).
 
 ## Running
 
@@ -46,7 +36,7 @@ installed**. Run from the repo root so `bench` resolves on
 `sys.path`:
 
 ```bash
-# run every mandatory scenario at the tiny preset (CI smoke)
+# run every scenario at the tiny preset (CI smoke)
 python -m bench --target tiny --output out/
 
 # baseline run (16 GB laptop) — cold-cache mode required for
@@ -72,20 +62,36 @@ before invoking any `python -m bench.*` entry point.
 
 | `--target` | Preset | Scenarios |
 |---|---|---|
-| `tiny` | `tiny` | All 11 mandatory scenarios (`#380` §4) |
-| `small` | `small` | All 11 — 16 GB laptop baseline |
-| `large` | `large` | All 11 — 32 GB cloud, opt-in |
-| `event` | `small` | Sparse × Individual only (S5 + M-corrado) |
+| `tiny` | `tiny` | All scenarios listed below |
+| `small` | `small` | All scenarios — 16 GB laptop baseline |
+| `large` | `large` | All scenarios — 32 GB cloud, opt-in |
+| `event` | `small` | Sparse × Individual cell only |
 
 `--cold-cache` re-execs `python -m bench --run-one <id>` in a fresh
 subprocess per scenario, resetting OS page cache / numpy import /
 BLAS thread state. Reference baselines must run in cold-cache mode;
 ad-hoc warm runs skip the subprocess overhead.
 
+### Scenarios
+
+| `scenario_id` | Cell | Compute |
+|---|---|---|
+| `S1` | Continuous × Individual | Single factor through `evaluate` + `run_metrics` + bootstrap CI on the IC series |
+| `S2` | Continuous × Individual | 50-factor screen with the `core` metric set per factor |
+| `S3` | Continuous × Individual | 200-factor screen with the `core` metric set per factor |
+| `S4` | Continuous × Individual | Greedy forward selection over a candidate factor pool |
+| `S5` | Sparse × Individual | Event-study bundle: corrado rank test + CAAR + MFE/MAE |
+| `P1` | Continuous × Individual | Scaling probe — three sub-runs at 100 / 200 / 500 factors |
+| `M-ic` | Continuous × Individual | Per-factor `ic` only — attributes cost to one metric |
+| `M-ic-boot` | Continuous × Individual | Per-factor `compute_ic` + `bootstrap_mean_ci` |
+| `M-quantile` | Continuous × Individual | Per-factor `quantile_spread` only |
+| `M-mono` | Continuous × Individual | Per-factor `monotonicity` only |
+| `M-corrado` | Sparse × Individual | `corrado_rank_test` only on the event panel |
+
 ## Scale presets
 
-`bench.scenarios._helpers.PRESETS` / `SPARSE_PRESETS` pin scales per
-#380 §7:
+`bench.scenarios._helpers.PRESETS` / `SPARSE_PRESETS` pin the
+dimensions used by every scenario:
 
 | Preset | Cont: factors / assets / dates | Sparse: assets / dates / event_rate | Use |
 |---|---|---|---|
@@ -93,12 +99,12 @@ ad-hoc warm runs skip the subprocess overhead.
 | `small` | 100 / 1000 / 1250 | 200 / 1250 / 0.0001 | 16 GB laptop baseline |
 | `large` | 500 / 1000 / 1250 | 500 / 1250 / 0.0002 | 32 GB cloud, opt-in |
 
-Fixed-scale scenarios (S2 = 50 factors, S3 = 200, M-* = 50) override
-the preset's `n_factors` so the workload stays fixed regardless of
-preset choice. Sparse-cell `n_events` is reported back from the
-realised event panel rather than configured directly — the seeded
-`make_event_panel` produces Binomial events whose count depends on
-`(n_dates × n_assets × event_rate)`.
+Fixed-scale scenarios (`S2`=50 factors, `S3`=200, `M-*`=50 factors)
+override the preset's `n_factors` so the workload stays fixed
+regardless of preset choice. Sparse-cell `n_events` is reported back
+from the realised event panel rather than configured directly — the
+seeded `make_event_panel` produces Binomial events whose count
+depends on `(n_dates × n_assets × event_rate)` and the seed.
 
 ## Schema / version invariants
 
@@ -110,5 +116,5 @@ must refuse to compare records that differ on any of them:
 - `env.dataset_spec_version` (synthetic generator recipe) — pinned in `factrix.datasets.DATASET_SPEC_VERSION`
 
 The wrapper validates its own output via `pydantic.BaseModel.model_validate`
-on construction; the dummy scenario additionally reads the written
-JSONL back through `bench.validator.validate_file`.
+on construction; every scenario reads the written JSONL back through
+`bench.validator.validate_file` before returning.
