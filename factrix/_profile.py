@@ -70,7 +70,7 @@ class FactorProfile:
             (``n_pairs / (n_periods * n_assets)``). Always
             ``>= n_obs`` (first-stage count vs. final-stage count).
         n_periods: Unique periods in the raw panel under the
-            any-non-null union. Calendar time, not event time.
+            any-non-null union. Panel time axis, not event time.
         n_assets: Unique assets in the raw panel under the
             any-non-null union. ``n_assets = 1`` is a legal signal
             (single-asset TIMESERIES).

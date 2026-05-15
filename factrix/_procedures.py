@@ -312,12 +312,12 @@ class _CAARSparsePanelProcedure:
 
     Plan §4.3 / Issue #24. Dispatches to ``compute_caar`` (see for the
     magnitude-preserving per-row formula), reindexes the event-date-
-    indexed series to the **dense calendar** (zero-fill on non-event
-    dates), then runs an HH-floored NW HAC t-test on the dense series.
+    indexed series to the **dense period grid** (zero-fill on non-event
+    periods), then runs an HH-floored NW HAC t-test on the dense series.
 
     Densification is the calendar-time portfolio approach ([Jaffe (1974)][jaffe-1974],
     [Mandelker (1974)][mandelker-1974]; [Fama (1998)][fama-1998] §2) — restores the lag rule's "consecutive
-    observations are 1 calendar period apart" assumption that
+    observations are 1 period apart" assumption that
     ``compute_caar``'s event-date filter would otherwise break. With it,
     sparse events let zero-padding zero out spurious autocovariance
     terms and clustered events get the real MA(h-1) overlap structure
@@ -720,7 +720,7 @@ class _TSDummySparseTimeseriesProcedure:
     1. event window overlap on consecutive event gaps
     2. Ljung-Box on residual ε_t (auto-lag ``min(10, n_periods//10)``)
     3. ``event_temporal_hhi`` Herfindahl on equal-time bin shares —
-       surfaces clustering of events along the calendar axis
+       surfaces clustering of events along the panel time axis
     4. ``UNRELIABLE_SE_SHORT_PERIODS`` for ``n_periods < MIN_PERIODS_WARN``
        (n_periods < ``MIN_PERIODS_HARD`` raises ``InsufficientSampleError`` upstream)
     """
@@ -822,7 +822,7 @@ class _TSDummySparseTimeseriesProcedure:
 
 
 def _event_temporal_hhi(d_signal: Any, *, n_bins: int = 10) -> float:
-    """Herfindahl share of events across ``n_bins`` equal-time calendar bins.
+    """Herfindahl share of events across ``n_bins`` equal-width period bins.
 
     HHI = ``Σ_k (n_k / N_total)²``. ``1/n_bins`` under uniform spread,
     ``1.0`` when all events land in one bin, ``0.0`` for an empty

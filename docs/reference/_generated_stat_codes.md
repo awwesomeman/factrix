@@ -16,4 +16,4 @@
 | `factor_adf_p` | ADF unit-root test p-value on the factor input series (MacKinnon 1996 response-surface; constant-only specification). p > 0.05 flags persistent regressor regime. |
 | `resid_ljung_box_q` | Ljung-Box Q statistic on regression residuals (TS-dummy single-asset path); compared against χ²(h) for `RESID_LJUNG_BOX_P`. |
 | `resid_ljung_box_p` | Ljung-Box p-value on residual autocorrelation (TS-dummy single-asset path); p < 0.05 flags under-set NW lag. |
-| `event_hhi_value` | Herfindahl concentration of event counts across calendar bins (cross-sectional / time-axis); high values flag calendar-time clumping. Does not measure within-asset event clustering. |
+| `event_hhi_value` | Herfindahl concentration of event counts across equal-width period bins on the panel's time axis; high values flag time-axis clumping. Does not measure within-asset event clustering. |

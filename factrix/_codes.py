@@ -363,6 +363,6 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     StatCode.RESID_LJUNG_BOX_P: "Ljung-Box p-value on residual autocorrelation "
     "(TS-dummy single-asset path); p < 0.05 flags under-set NW lag.",
     StatCode.EVENT_HHI_VALUE: "Herfindahl concentration of event counts "
-    "across calendar bins (cross-sectional / time-axis); high values flag "
-    "calendar-time clumping. Does not measure within-asset event clustering.",
+    "across equal-width period bins on the panel's time axis; high values "
+    "flag time-axis clumping. Does not measure within-asset event clustering.",
 }

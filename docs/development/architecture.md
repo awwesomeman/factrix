@@ -377,15 +377,15 @@ Failure modes:
 ```
 per-event-date mean of signed_car = return × factor      (cross-section step)
                                                        →  event-date-indexed CAAR
-reindex to dense calendar, zero-fill non-event dates   →  n_periods-length CAAR series
+reindex to dense period grid, zero-fill non-event periods   →  n_periods-length CAAR series
                                                        →  NW HAC t-test on mean(CAAR)   (time-series step)
 ```
 
-The CAAR series is **calendar-indexed**: `compute_caar` produces an
+The CAAR series is **period-grid-indexed**: `compute_caar` produces an
 event-date-indexed primitive (filter `factor != 0`), which the procedure
-then reindexes against the full date set with zero-fill. This is the
-calendar-time portfolio approach (Jaffe 1974, Mandelker 1974; Fama 1998
-§2) — restores the lag rule's "consecutive observations are 1 calendar
+then reindexes against the full panel period set with zero-fill. This is
+the calendar-time portfolio approach (Jaffe 1974, Mandelker 1974; Fama
+1998 §2) — restores the lag rule's "consecutive observations are 1
 period apart" assumption that an event-only series would otherwise
 break. With it, sparse events let zero-padding zero out spurious
 autocovariance terms and clustered events get the real MA(h-1) overlap
@@ -472,7 +472,7 @@ Failure modes:
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
 
 ```
-single-asset OLS y_t = α + β·D_t + ε on calendar-dense series   (time-series step)
+single-asset OLS y_t = α + β·D_t + ε on period-dense series   (time-series step)
                                                               →  NW HAC t-test on β
                                                               +  Ljung-Box on residual
                                                               +  event_temporal_hhi
@@ -481,8 +481,8 @@ single-asset OLS y_t = α + β·D_t + ε on calendar-dense series   (time-series
 
 Reached from both `individual_sparse` and `common_sparse` at N=1 via the
 `_SCOPE_COLLAPSED` sentinel — at N=1 the two scopes are statistically
-equivalent (plan §5.4.1). The series is the **full calendar grid** with
-zero-padding on non-event dates (distinct from the PANEL CAAR pipeline,
+equivalent (plan §5.4.1). The series is the **full period grid** with
+zero-padding on non-event periods (distinct from the PANEL CAAR pipeline,
 which works on the event-date-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
 
