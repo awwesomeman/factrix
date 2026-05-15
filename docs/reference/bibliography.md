@@ -1098,9 +1098,12 @@ itself is canonically derived in [Grinold 1989][grinold-1989].
 Goodhart, C. A. E. (1984). "Problems of Monetary Management: The UK
 Experience." In *Monetary Theory and Practice*. Macmillan.
 
-"When a measure becomes a target, it ceases to be a good measure";
-cited in design notes as the structural argument against composite
-factor scores.
+Original monetary-policy statement of Goodhart's Law: any observed
+statistical regularity tends to collapse once it is pressed into
+service as a control target. (The familiar paraphrase "when a measure
+becomes a target, it ceases to be a good measure" is Strathern's
+1997 reformulation, not Goodhart's own wording.) Cited as the
+structural argument against composite factor scores.
 
 ### Cochrane (2005)
 [](){ #cochrane-2005 }
@@ -1126,8 +1129,10 @@ discipline.
 Herfindahl, O. C. (1950). *Concentration in the U.S. Steel
 Industry*. PhD dissertation, Columbia University.
 
-Origin of the HHI used by factrix's top-concentration and
-clustering-diagnostic metrics.
+Independent formulation (squared-share form) of the index used by
+factrix's concentration / clustering diagnostics; paired with
+[Hirschman (1945)][hirschman-1945] as the full HHI lineage. The
+squared form that modern HHI follows comes from this paper.
 
 ### Hirschman (1945)
 [](){ #hirschman-1945 }
@@ -1135,8 +1140,10 @@ clustering-diagnostic metrics.
 Hirschman, A. O. (1945). *National Power and the Structure of
 Foreign Trade*. University of California Press.
 
-Independent earlier formulation of HHI; cited alongside Herfindahl
-(1950).
+Earlier (1945) priority for the foreign-trade concentration index,
+using the *square-root* form of the squared-share sum; paired with
+[Herfindahl (1950)][herfindahl-1950] (whose squared form modern HHI
+adopts) as the full HHI lineage.
 
 ### Jacquier, Kane & Marcus (2003)
 [](){ #jacquier-kane-marcus-2003 }
