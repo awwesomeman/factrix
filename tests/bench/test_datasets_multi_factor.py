@@ -32,9 +32,13 @@ def test_seed_is_deterministic():
 
 def test_factor_correlation_raises_outside_range():
     with pytest.raises(ValueError, match="factor_correlation"):
-        make_multi_factor_panel(n_factors=2, n_assets=4, n_dates=30, factor_correlation=1.0)
+        make_multi_factor_panel(
+            n_factors=2, n_assets=4, n_dates=30, factor_correlation=1.0
+        )
     with pytest.raises(ValueError, match="factor_correlation"):
-        make_multi_factor_panel(n_factors=2, n_assets=4, n_dates=30, factor_correlation=-0.1)
+        make_multi_factor_panel(
+            n_factors=2, n_assets=4, n_dates=30, factor_correlation=-0.1
+        )
 
 
 def test_factor_correlation_increases_pairwise_corr():

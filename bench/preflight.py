@@ -118,7 +118,9 @@ def collect_env() -> Env:
         blas=_detect_blas(),
         omp_threads=_omp_threads(),
         cpu_model=platform.processor() or platform.machine() or "unknown",
-        cpu_cores=psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True) or 1,
+        cpu_cores=psutil.cpu_count(logical=False)
+        or psutil.cpu_count(logical=True)
+        or 1,
         ram_gb=round(vm.total / (1024**3), 2),
         os=f"{platform.system().lower()}-{platform.machine().lower()}",
     )

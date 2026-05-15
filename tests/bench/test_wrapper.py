@@ -91,6 +91,7 @@ def test_warmup_record_is_preserved(tmp_path: Path):
 def test_scale_axis_cell_mismatch_fails_loudly():
     env = collect_env()
     from pydantic import ValidationError
+
     with pytest.raises(ValidationError):
         measure(
             setup=lambda: 0,
