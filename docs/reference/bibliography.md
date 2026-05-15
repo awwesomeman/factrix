@@ -586,8 +586,9 @@ screen, not as inference).
 Hansen, P. R. (2005). "A Test for Superior Predictive Ability."
 *Journal of Business & Economic Statistics* 23(4), 365–380.
 
-Refinement of the White (2000) reality check; cited as background
-for the SPA family that factrix does not implement.
+Studentised refinement of the White (2000) reality check with a
+sample-dependent null distribution; the superior-predictive-ability
+(SPA) family adjacent to factrix's greedy forward-selection path.
 
 ### Berk, Brown, Buja, Zhang & Zhao (2013)
 [](){ #berk-brown-buja-zhang-zhao-2013 }
@@ -854,12 +855,13 @@ Fama, E. F. & French, K. R. (1988). "Dividend Yields and Expected
 Stock Returns." *Journal of Financial Economics* 22(1), 3–25.
 
 Canonical direct long-horizon predictive regression: summed log
-returns `r_{t→t+N} = Σ log(P_{t+k}/P_{t+k−1})` regressed on the
-dividend yield at horizons 1–4 years. Linear-additive across
-horizons by construction, no compounding bias. The academic-standard
-alternative to factrix's `÷N` arithmetic per-period normalisation —
-factrix uses `÷N` for scale comparability across horizons, not
-because Fama-French (1988) recommends it.
+returns $r_{t \to t+N} = \sum \log(P_{t+k}/P_{t+k-1})$ regressed on
+the dividend yield at horizons from one month to four years. Linear-
+additive across horizons by construction, with no compounding bias.
+The academic-standard alternative to arithmetic per-period
+normalisation; factrix's per-period normalisation choice is a
+scale-comparability convention, not an empirical claim derived from
+this paper.
 
 ### Boudoukh, Richardson & Whitelaw (2008)
 [](){ #boudoukh-richardson-whitelaw-2008 }
@@ -1153,9 +1155,8 @@ Arithmetic Mean: A Reconsideration." *Financial Analysts Journal*
 59(6), 46–53.
 
 Compounding at the arithmetic mean is an upward-biased estimator of
-cumulative wealth; the geometric mean is itself biased; the unbiased
-estimator is a horizon-weighted blend of the two with weights
-depending on the forecast horizon / sample-length ratio. The
-compounding-bias caveat for factrix's `÷N` per-period forward-return
-normalisation — the bias affects signed-return mean and t-tests at
-large `N`, but is negligible for rank-based IC.
+cumulative wealth; the geometric mean is downward-biased; the
+unbiased estimator is a horizon-weighted blend of the two with
+weights depending on the forecast-horizon / sample-length ratio.
+The compounding-bias caveat underlying factrix's per-period
+forward-return normalisation.
