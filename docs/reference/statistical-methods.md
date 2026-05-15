@@ -199,7 +199,8 @@ factrix preprocesses cross-sectional factor exposures with
 **MAD-based winsorisation**: per date, clip values to
 $\text{median} \pm k \cdot \mathrm{MAD} \cdot 1.4826$. The $1.4826$ factor restores Gaussian
 consistency of the median absolute deviation as a scale estimator
-([Huber 1964][huber-1964], textbook treatment in
+([Hampel 1974][hampel-1974] is the canonical reference popularising
+MAD as a scale estimator; textbook treatment in
 [Huber 1981][huber-1981]). This avoids letting the same outlier that
 breaks a sample mean break the scale estimator that gates its
 treatment.
@@ -225,8 +226,9 @@ Two robust-scale choices factrix did not adopt:
   it is deterministic; the bootstrap is left to external packages
   (`arch`).
 
-The influence-function framework underlying the breakdown-point
-language is [Hampel 1974][hampel-1974].
+The influence-function framework that places robust-scale and
+breakdown-point reasoning on a common conceptual map is
+[Hampel 1974][hampel-1974].
 
 ---
 

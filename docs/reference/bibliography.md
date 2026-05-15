@@ -178,8 +178,8 @@ sort assets into beta-ranked portfolios, then run a time-series
 regression of each portfolio's excess return on the market. The
 contribution is the time-series-then-cross-section aggregation order
 (per-asset / per-portfolio time series first, then cross-asset
-inspection) that factrix's `common_continuous` cell adopts; the
-`ts_beta` cross-asset t on the mean of per-asset β is a simplified
+inspection) that factrix's `common_continuous` cell adopts; factrix's
+cross-asset $t$-test on the mean of per-asset β is a simplified
 analogue of this aggregation order rather than a replication of BJS's
 grouped-portfolio intercept test.
 
@@ -524,10 +524,9 @@ Empirical case that conventional single-factor `t ≥ 2.0` is too lax
 once the cross-section of tried factors and horizons is accounted
 for; HLZ argues a meaningfully higher threshold (typically `t ≳ 3`)
 under multiplicity-aware procedures. Motivation for factrix's
-BHY-first multi-factor discipline and the family-wise error rate
-(FWER)-across-horizons ∘ FDR-within-horizon discipline (see the
-"Horizon-shopping correction" section of
-`docs/guides/batch-screening.md`).
+BHY-first multi-factor discipline and its family-wise error rate
+(FWER)-across-horizons ∘ FDR-within-horizon stack on the
+horizon-shopping correction axis.
 
 ### Harvey (2017)
 [](){ #harvey-2017 }
@@ -577,9 +576,9 @@ White, H. (2000). "A Reality Check for Data Snooping." *Econometrica*
 68(5), 1097–1126.
 
 Bootstrap test for data-snooping bias in model-selection settings;
-cited from `greedy_forward_selection` as the canonical correction
-factrix does *not* apply (the function inflates t-stats by design
-and is documented as not for inference).
+the canonical correction factrix's greedy forward-selection path
+does *not* apply (the selection path is documented as a survivor
+screen, not as inference).
 
 ### Hansen (2005)
 [](){ #hansen-2005 }
@@ -596,9 +595,9 @@ for the SPA family that factrix does not implement.
 Berk, R., Brown, L., Buja, A., Zhang, K. & Zhao, L. (2013). "Valid
 Post-Selection Inference." *Annals of Statistics* 41(2), 802–837.
 
-PoSI inference after greedy selection; cited as background for the
-known invalidity of post-selection p-values from
-`greedy_forward_selection`.
+PoSI inference after greedy selection; background for the known
+invalidity of post-selection p-values from factrix's greedy
+forward-selection path.
 
 ### Leeb & Pötscher (2005)
 [](){ #leeb-potscher-2005 }
@@ -630,11 +629,9 @@ Non-Normality." *Journal of Portfolio Management* 40(5), 94–107.
 
 Parallel multiple-trials correction operating on the Sharpe rather
 than the p-value: deflates an observed Sharpe by the expected
-maximum under a number-of-trials null. Cited in the
-"Horizon-shopping correction" section of
-`docs/guides/batch-screening.md` as related literature for the
-multiple-trials problem on the Sharpe axis; not an implemented
-procedure in factrix.
+maximum under a number-of-trials null. Related literature for the
+horizon-shopping multiple-trials problem on the Sharpe axis; not an
+implemented procedure in factrix.
 
 ---
 
@@ -646,7 +643,12 @@ procedure in factrix.
 Huber, P. J. (1964). "Robust Estimation of a Location Parameter."
 *Annals of Mathematical Statistics* 35(1), 73–101.
 
-Foundation for MAD-based robust scale; underlies `mad_winsorize`.
+M-estimator framework for robust location estimation under
+contaminated-normal models. Foundational for the broader "robustify
+the central tendency before it gates downstream inference" stance
+that factrix applies to per-date cross-sections — the MAD-as-scale
+lineage itself runs through [Hampel (1974)][hampel-1974], not this
+paper.
 
 ### Huber (1981)
 [](){ #huber-1981 }
@@ -663,8 +665,15 @@ Hampel, F. R. (1974). "The Influence Curve and its Role in Robust
 Estimation." *Journal of the American Statistical Association*
 69(346), 383–393.
 
-Influence-function framework underlying the 29.3% breakdown point
-factrix advertises for Theil-Sen.
+Influence-function framework for local-robustness analysis and the
+canonical reference popularising the median absolute deviation as a
+robust scale estimator (attributing the MAD itself to Gauss).
+Supplies the conceptual language factrix uses for per-date
+robustification of scale and for breakdown-point claims on
+estimators such as Theil-Sen (the breakdown-point concept itself
+predates this paper — Hampel 1968 / 1971 — but the 1974 paper places
+breakdown-point reasoning and the influence function on the same
+conceptual map).
 
 ### Rousseeuw & Croux (1993)
 [](){ #rousseeuw-croux-1993 }
