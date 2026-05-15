@@ -393,8 +393,8 @@ def bmp_test(
         - [Kolari & Pynnönen (2010)][kolari-pynnonen-2010]. "Event Study
           Testing with Cross-sectional Correlation of Abnormal Returns."
           Review of Financial Studies, 23(11), 3996–4025. Clustering-
-          adjusted BMP variant referenced by ``EventConfig.adjust_clustering``
-          (not yet implemented).
+          adjusted BMP variant; enabled via
+          ``kolari_pynnonen_adjust=True`` on this function.
 
     Examples:
         >>> import factrix as fx

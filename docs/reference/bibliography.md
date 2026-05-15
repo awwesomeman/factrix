@@ -370,8 +370,10 @@ of the Sign Test in Event Study Hypothesis Tests Using Daily Stock
 Returns." *Journal of Financial and Quantitative Analysis* 27(3),
 465–478.
 
-Sign-test variant of the Corrado rank test; cited as the source of
-the direction-adjustment idea adopted by `corrado_rank_test`.
+Sign test for event-study abnormal returns and a modified rank-test
+variant for two-sided / cumulative inference (re-rank within the
+event window); cited as the source of the direction-adjustment idea
+adopted by `corrado_rank_test`.
 
 ### Kolari & Pynnönen (2010)
 [](){ #kolari-pynnonen-2010 }
@@ -380,10 +382,12 @@ Kolari, J. W. & Pynnönen, S. (2010). "Event Study Testing with
 Cross-sectional Correlation of Abnormal Returns." *Review of
 Financial Studies* 23(11), 3996–4025.
 
-Clustering-adjusted BMP variant; `EventConfig.adjust_clustering=
-'kolari_pynnonen'` is reserved for this but the adjustment is not
-yet implemented (high-Herfindahl-Hirschman index (HHI) events should fall back to manual
-calendar-block bootstrap until it ships).
+Clustering-adjusted BMP variant; implemented as
+`bmp_test(kolari_pynnonen_adjust=True)`, which scales the BMP $z$ by
+$\sqrt{(1 - \hat r)/(1 + (N_{\mathrm{eff}}-1)\,\hat r)}$ to absorb
+same-date abnormal-return cross-correlation. Recommended when the
+`clustering_hhi` diagnostic flags high event-date concentration
+(`hhi ≥ 0.3`).
 
 ### Sefcik & Thompson (1986)
 [](){ #sefcik-thompson-1986 }
