@@ -43,10 +43,13 @@ CORE = MetricSet(
 
 HEAVY = MetricSet(
     name="heavy",
-    run_metrics_names=("ic", "quantile_spread", "monotonicity"),
-    # custom slot is populated by scenarios that want to additionally
-    # time the bootstrap path on top of the core dispatch (avoids
-    # baking factrix internals into this module).
+    # Share CORE's tuple by reference so adding a metric to `core`
+    # automatically extends `heavy` — `heavy = core + bootstrap` is
+    # the conceptual relationship, not two parallel literals.
+    # Bootstrap supplement is layered at the scenario level (S1 /
+    # M-ic-boot) rather than via run_metrics, so it lives outside
+    # this tuple.
+    run_metrics_names=CORE.run_metrics_names,
 )
 
 ALGO = MetricSet(

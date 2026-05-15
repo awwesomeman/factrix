@@ -13,9 +13,11 @@ from pathlib import Path
 import pytest
 from bench.scenarios.continuous import (
     SCENARIOS,
+    m_ic,
     m_ic_bootstrap,
     p1_scaling_probe,
     s1_evaluate,
+    s2_screen_50,
 )
 from bench.validator import validate_file
 
@@ -56,10 +58,30 @@ def test_p1_emits_one_record_pair_per_scale_step(tmp_path: Path):
     assert len(n_factors_seen) == 3, sorted(n_factors_seen)
 
 
-def test_m_ic_boot_uses_heavy_set_label(tmp_path: Path):
+def test_micros_label_by_single_metric_not_bundle(tmp_path: Path):
+    """Micros use the metric name as `metric_set` so downstream
+    aggregation can distinguish single-metric attribution from
+    whole-bundle runs (S2/S3 emit metric_set='core'). M-ic-boot
+    labels the bootstrap path explicitly."""
     out = tmp_path / "m.jsonl"
     records = m_ic_bootstrap(out, preset="tiny")
-    assert all(r.metric_set == "heavy" for r in records)
+    assert all(r.metric_set == "ic_bootstrap" for r in records)
+
+
+def test_micro_vs_bundle_metric_set_labels_are_disjoint(tmp_path: Path):
+    """A micro (M-ic) and a bundle run (S2) on the same panel must
+    carry different `metric_set` labels — otherwise a downstream
+    aggregator that sums by metric_set will double-count M-ic
+    (subset of S2's per-factor work) into the bundle total."""
+    s2_out = tmp_path / "s2.jsonl"
+    m_out = tmp_path / "m_ic.jsonl"
+    s2_records = s2_screen_50(s2_out, preset="tiny")
+    m_records = m_ic(m_out, preset="tiny")
+    s2_labels = {r.metric_set for r in s2_records}
+    m_labels = {r.metric_set for r in m_records}
+    assert s2_labels == {"core"}
+    assert m_labels == {"ic"}
+    assert not (s2_labels & m_labels)
 
 
 def test_seed_determinism_across_runs(tmp_path: Path):

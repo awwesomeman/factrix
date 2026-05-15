@@ -25,12 +25,14 @@ from factrix.metrics.ic import compute_ic
 from factrix.stats import bootstrap_mean_ci
 
 from bench import metric_sets
+from bench.metric_sets import MetricSet
 from bench.scenarios._helpers import (
     factor_columns,
     resolve_scale,
     run_continuous_scenario,
 )
 from bench.schema import BenchRecord
+from bench.validator import validate_file
 from bench.wrapper import write_records
 
 # Bootstrap resample count for `heavy` / M-ic-boot scenarios. Pinned
@@ -196,6 +198,12 @@ def p1_scaling_probe(
         tmp.unlink(missing_ok=True)
 
     write_records(output, all_records)
+    # Mirror run_continuous_scenario's "harness self-validates every
+    # JSONL it writes" invariant (#380 §9.1) — the per-step temps
+    # were validated then unlinked, the final aggregated file has not.
+    report = validate_file(output)
+    if not report.ok:
+        raise RuntimeError(f"self-validation failed: {report.failures}")
     return all_records
 
 
@@ -217,7 +225,12 @@ def _micro(
     max_factors = resolve_scale(preset).n_factors
     n = min(_MICRO_FACTORS, max_factors)
     scale = resolve_scale(preset, n_factors=n)
-    core = metric_sets.CORE  # micros report under `core` membership
+    # Micros use the metric name as `metric_set` label so downstream
+    # aggregation can distinguish "ran the whole `core` bundle" (S2/S3)
+    # from "ran a single metric to attribute its cost". Stuffing both
+    # under `core` would let an aggregator double-count M-ic + S2 as
+    # combined core cost when M-ic is a strict subset of S2's work.
+    label = MetricSet(name=metric_name, run_metrics_names=(metric_name,))
 
     def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
         return _run_metrics_per_factor(
@@ -226,7 +239,7 @@ def _micro(
 
     return run_continuous_scenario(
         scenario_id=scenario_id,
-        metric_set=core,
+        metric_set=label,
         scale=scale,
         compute=compute,
         output=output,
@@ -280,13 +293,18 @@ def m_ic_bootstrap(
     max_factors = resolve_scale(preset).n_factors
     n = min(_MICRO_FACTORS, max_factors)
     scale = resolve_scale(preset, n_factors=n)
+    # Single-metric attribution: label by what is actually being
+    # timed (compute_ic + bootstrap_mean_ci), parallel to the other
+    # micros. The `heavy` bundle is reserved for S1 which times the
+    # full evaluate + run_metrics + bootstrap path together.
+    label = MetricSet(name="ic_bootstrap", run_metrics_names=())
 
     def compute(panel: pl.DataFrame, _cfg: fx.AnalysisConfig) -> int:
         return _bootstrap_ic_per_factor(panel, factor_columns(panel), seed=seed)
 
     return run_continuous_scenario(
         scenario_id="M-ic-boot",
-        metric_set=metric_sets.HEAVY,
+        metric_set=label,
         scale=scale,
         compute=compute,
         output=output,
