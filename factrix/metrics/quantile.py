@@ -320,7 +320,9 @@ def quantile_spread_vw(
         realized.
 
     References:
-        [Hou-Xue-Zhang (2020)][hou-xue-zhang-2020]: ~65% of factors disappear under VW.
+        [Hou-Xue-Zhang (2020)][hou-xue-zhang-2020]: ~65% of anomalies
+        fail $|t| \geq 1.96$ once microcaps are mitigated via NYSE
+        breakpoints and value weighting jointly.
 
     Examples:
         >>> import polars as pl
