@@ -27,6 +27,9 @@ Internal dev tooling for the multi-factor scale-out benchmark
   (#380 §4): S1 (single factor + `evaluate` + `run_metrics(heavy)`),
   S2 / S3 (50 / 200-factor screen, `core`), P1 (scaling probe), and
   per-metric micros M-ic / M-ic-boot / M-quantile / M-mono.
+- `bench.scenarios.algo` — S4 greedy forward selection. Setup phase
+  pre-computes per-factor spread series (rank → bucket → spread);
+  compute phase runs the greedy + backward-elimination loop.
 - `bench.scenarios.dummy` — smoke scenario proving the wrapper →
   JSONL → validator loop.
 
@@ -64,10 +67,9 @@ preset choice.
 
 ## What it does *not* do (yet)
 
-- Algo scenario S4 (`greedy_forward_selection`) — sub-PR #382-B
-- Sparse / event scenarios S5 + M-corrado — sub-PR #382-C
-- CLI dispatcher `python -m bench --target small|large|event|tiny` — sub-PR #382-C
-- Cold-cache subprocess re-exec — sub-PR #382-C
+- Sparse / event scenarios S5 + M-corrado — follow-up sub-PR of #382
+- CLI dispatcher `python -m bench --target small|large|event|tiny` — follow-up sub-PR of #382
+- Cold-cache subprocess re-exec — follow-up sub-PR of #382
 - Reference baselines in `bench/baselines/` + release-flow rerun (#383)
 - CI `bench-tiny` smoke (#383)
 - Ratio / summary markdown post-processing
