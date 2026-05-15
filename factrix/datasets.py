@@ -377,21 +377,23 @@ def make_multi_factor_panel(
     date_col = np.repeat(dates.to_numpy(), n_assets)
     asset_col = np.tile(np.asarray(assets, dtype=object), n_dates)
 
-    data: dict[str, np.ndarray] = {
-        "date": date_col,
-        "asset_id": asset_col,
-        "price": prices.flatten(),
-    }
-    schema: dict[str, pl.DataType] = {
-        "date": pl.Datetime("ms"),
-        "asset_id": pl.String,
-        "price": pl.Float64,
-    }
-    for name, arr in factor_columns.items():
-        data[name] = arr.flatten()
-        schema[name] = pl.Float64
-
-    return pl.DataFrame(data, schema=schema)
+    base = pl.DataFrame(
+        {
+            "date": date_col,
+            "asset_id": asset_col,
+            "price": prices.flatten(),
+        },
+        schema={
+            "date": pl.Datetime("ms"),
+            "asset_id": pl.String,
+            "price": pl.Float64,
+        },
+    )
+    factor_series = [
+        pl.Series(name, arr.flatten(), dtype=pl.Float64)
+        for name, arr in factor_columns.items()
+    ]
+    return base.with_columns(factor_series)
 
 
 def _to_long_panel(
