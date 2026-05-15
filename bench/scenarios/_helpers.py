@@ -1,4 +1,4 @@
-"""Shared scaffolding for the continuous-cell scenarios.
+"""Shared scaffolding for scenario modules.
 
 Centralises:
 
@@ -6,12 +6,16 @@ Centralises:
   baseline-grade scales pinned per #380 §7). Per-scenario overrides
   win over preset defaults so fixed-scale scenarios (S2 = 50 factors)
   stay fixed regardless of preset.
-- Panel construction: continuous multi-factor panel + forward return
-  attachment in one place, so every scenario sees the same seed
+- Continuous multi-factor panel construction + forward-return
+  attachment, so every Cont × Ind scenario sees the same seed
   discipline.
-- ``run_continuous_scenario`` — single entry that wires preflight →
-  measure → write + self-validate. Each scenario module just declares
-  ``metric_set``, ``scale``, and a ``compute`` callable.
+- ``run_scenario`` — generic measure / write / self-validate loop,
+  independent of axis cell.
+- ``run_continuous_scenario`` — Cont × Ind specialisation that
+  builds the panel + config and delegates to ``run_scenario``.
+  Algo scenarios call ``run_scenario`` directly because their
+  setup phase produces a per-factor spread dict, not the canonical
+  (panel, cfg) pair.
 """
 
 from __future__ import annotations
@@ -51,9 +55,9 @@ class ContinuousScale:
         }
 
 
-# Scale presets per #380 §7. Concrete `small` / `large` values land
-# here so #382-A / #382-C share a single source of truth; the CLI
-# (sub-PR #382-C) merely picks a preset by name.
+# Scale presets per #380 §7. Every scenario module reads these so
+# preset-named runs are guaranteed identical in dimensionality
+# regardless of which scenarios are exercised.
 PRESETS: dict[str, ContinuousScale] = {
     # `tiny` is for tests and the eventual CI bench-tiny smoke — must
     # complete in seconds on a CI runner.

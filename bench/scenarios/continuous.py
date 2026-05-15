@@ -1,5 +1,5 @@
-"""Mandatory continuous × individual scenarios (#380 §4 mandatory peak
-+ probe and per-metric micros).
+"""Continuous × Individual scenarios (#380 §4 mandatory peak + probe
+and per-metric micros).
 
 Each scenario is a small function with the same shape::
 
@@ -9,10 +9,7 @@ Each scenario is a small function with the same shape::
 self-validation. Scenarios only declare *what* to compute on the
 prepared panel.
 
-Algo (``spanning`` / ``greedy_forward_selection``) and event-cell
-(``corrado_rank_test`` / ``caar`` / ``mfe_mae_summary``) scenarios
-live in sibling modules added by follow-up sub-PRs of #382 — this
-module is the Cont × Ind slice.
+Algo scenarios (``greedy_forward_selection``) live in ``algo.py``.
 """
 
 from __future__ import annotations

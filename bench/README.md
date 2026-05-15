@@ -4,7 +4,10 @@ Internal dev tooling for the multi-factor scale-out benchmark
 (issue #380). **Not packaged into the factrix wheel** —
 `tool.setuptools.packages.find` excludes `bench*`.
 
-## What this foundation ships
+For the harness roadmap and open work, see issue #380 and its open
+sub-issues. This README describes the current surface only.
+
+## Modules
 
 - `bench.schema` — pydantic v2 model for the JSONL record (`schema_version="1"`,
   open-schema `scale` keyed on `axis_cell`). Aligns with #380 §9.
@@ -64,15 +67,6 @@ before invoking any `python -m bench.*` entry point.
 Fixed-scale scenarios (S2 = 50 factors, S3 = 200) override the
 preset's `n_factors` so the workload stays fixed regardless of
 preset choice.
-
-## What it does *not* do (yet)
-
-- Sparse / event scenarios S5 + M-corrado — follow-up sub-PR of #382
-- CLI dispatcher `python -m bench --target small|large|event|tiny` — follow-up sub-PR of #382
-- Cold-cache subprocess re-exec — follow-up sub-PR of #382
-- Reference baselines in `bench/baselines/` + release-flow rerun (#383)
-- CI `bench-tiny` smoke (#383)
-- Ratio / summary markdown post-processing
 
 ## Schema / version invariants
 
