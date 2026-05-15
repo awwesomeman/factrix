@@ -44,6 +44,18 @@
 ^https://onlinelibrary\.wiley\.com/
 ^https://www\.tandfonline\.com/
 
+# Site-internal absolute paths rendered from `site_url` (e.g.
+# `/factrix/api/evaluate/`). Lychee scans the built HTML as local
+# files but cannot map a root-relative URL back to the local site
+# directory without a URL → filesystem rewrite — every such link
+# errors with "Cannot convert path '/factrix/...' to a URI". These
+# internal links are already validated by `mkdocs build --strict`
+# (broken nav / cross-references fail the docs build), so duplicating
+# the check at the lychee layer adds no signal. Revisit if lychee
+# gains first-class support for `site_url`-prefixed URL → local-dir
+# remapping.
+^/factrix/
+
 # pola.rs (Polars project home) intermittently fails TLS handshake
 # from GitHub Actions runners with "Maybe a certificate error?" — the
 # site itself has a valid LE cert but the runner pool occasionally
