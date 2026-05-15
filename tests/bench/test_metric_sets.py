@@ -26,12 +26,12 @@ def test_heavy_extends_core():
     assert metric_sets.HEAVY.run_metrics_names == metric_sets.CORE.run_metrics_names
 
 
-def test_event_set_lists_sparse_metrics():
-    assert metric_sets.EVENT.run_metrics_names == (
-        "corrado_rank_test",
-        "caar",
-        "mfe_mae_summary",
-    )
+def test_event_set_lists_only_run_metrics_dispatchable():
+    # `caar` and `mfe_mae_summary` are part of the event bundle
+    # conceptually but require pre-computed event-row inputs;
+    # `run_metrics_names` must contain only metrics `run_metrics`
+    # can dispatch directly.
+    assert metric_sets.EVENT.run_metrics_names == ("corrado_rank_test",)
 
 
 def test_algo_is_run_metrics_empty():

@@ -17,8 +17,10 @@ sub-issues. This README describes the current surface only.
 - `bench.wrapper` — `measure(setup, compute, …)` produces one
   `BenchRecord` per call with `setup_s` / `compute_s` / `wall_s` /
   `cpu_s` / `peak_rss_mb` / `peak_alloc_mb` / `status` /
-  `started_at` / `is_warmup` / `cache_state`. `status="error"` rows
-  are preserved (not raised).
+  `started_at` / `is_warmup` / `cache_state`. Regular exceptions
+  become `status="error"` rows (preserved, not raised);
+  `KeyboardInterrupt` and `SystemExit` propagate so an interrupted
+  run does not poison the JSONL with partial state.
 - `bench.validator` — self-validates JSONL; fail-loud on
   `schema_version` mismatch, missing fields, enum violations, or
   scale ↔ axis_cell mismatch.

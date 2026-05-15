@@ -206,7 +206,7 @@ def make_cfg() -> fx.AnalysisConfig:
 def run_scenario(
     *,
     scenario_id: str,
-    axis_cell: str,
+    axis_cell: AxisCell,
     metric_set: MetricSet,
     scale: dict[str, Any],
     setup: Callable[[], Any],

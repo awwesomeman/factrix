@@ -26,6 +26,7 @@ from bench.metric_sets import EVENT, MetricSet
 from bench.preflight import preflight
 from bench.scenarios._helpers import (
     AXIS_CELL_SPARSE_IND,
+    DEFAULT_FORWARD_PERIODS,
     SparseScale,
     build_event_panel,
     count_events,
@@ -74,7 +75,9 @@ def _run_sparse_scenario(
 
     def setup() -> tuple[pl.DataFrame, fx.AnalysisConfig]:
         panel = build_event_panel(scale, seed=seed)
-        return panel, fx.AnalysisConfig.individual_sparse(forward_periods=5)
+        return panel, fx.AnalysisConfig.individual_sparse(
+            forward_periods=DEFAULT_FORWARD_PERIODS
+        )
 
     def compute_step(artifact: tuple[pl.DataFrame, fx.AnalysisConfig]) -> int:
         panel, cfg = artifact
