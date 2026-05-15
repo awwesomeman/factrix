@@ -14,7 +14,13 @@ Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) 
 
 ---
 
-## v0.13.0 (2026-05-15)
+## [Unreleased]
+
+### Added
+
+- **bench harness CI smoke + release-flow baseline rerun hook + first reference baseline** (#383). Closes the long-term-maintenance leg of the multi-factor scale-out harness (#380): a CI `bench-tiny` job runs every scenario at the seconds-level `tiny` preset on PR / push to `main` so harness rot (import breakage, schema drift, scenario crash) fails the build immediately rather than being discovered at release time. A new top-level `Makefile` exposes `bench-bump`, which derives a `<os>-<arch>-<ram>g` machine-id from `platform` + `psutil`, runs the `small` target cold-cache, and writes JSONL into `bench/baselines/v<version>-<machine-id>/`; the target is wired into the release flow via `.github/PULL_REQUEST_TEMPLATE/release.md` (a "Reference baseline rerun" checkbox the release author must tick) and documented in `bench/README.md` under "Release flow". `bench/README.md` also gains "Ratio reading", "`cache_state` operating rules", "Synthetic-data caveat" (the generators approximate computational load, not statistical reality), and "Cross-machine rebaseline" sections — the last codifies the "same `git_sha`, both machines, record per-scenario ratio" protocol for surviving primary-baseline-machine retirement. The first reference baseline is committed under `bench/baselines/v0.14.0-linux-x86_64-125g/` with an index row in `bench/baselines/README.md` (the cloud runner is not the eventual 16 GB-laptop primary; the index notes it as a cross-machine anchor candidate until the laptop baseline lands).
+
+
 
 ### Added
 
