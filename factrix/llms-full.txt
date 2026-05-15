@@ -111,7 +111,7 @@ survivors = fx.multi_factor.bhy(profiles, q=0.05)
 #   .adj_p       : np.ndarray of bucket-local BHY-adjusted p-values, aligned
 #   .q           : nominal target you passed
 #   .expand_over : tuple of context keys used to split families ((), or e.g. ("regime_id",))
-#   .n_total     : Mapping[bucket_key, m_per_bucket] for two-stage screening audit
+#   .n_tests     : Mapping[bucket_key, m_per_bucket] for two-stage screening audit
 # The input list IS the family. Each panel carries its factor under a
 # distinct column name; evaluate(..., factor_col=name) auto-stamps factor_id
 # from that name so identities stay unique. dataclasses.replace(profile,
@@ -375,7 +375,7 @@ the implicit `(dispatch cell, forward_periods)` auto-split).
 
 Returns a `Survivors` container with `.profiles` (input order), `.adj_p`
 (bucket-local BHY-adjusted p-values, same length as `.profiles`), `.q`,
-`.expand_over` (tuple), and `.n_total` (Mapping keyed by each bucket's
+`.expand_over` (tuple), and `.n_tests` (Mapping keyed by each bucket's
 expand_over_values tuple — `()` in the single-family case). `Survivors`
 carries only the kept rows; `bhy` constructs the survivor index set as
 `{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket, then slices both
@@ -414,6 +414,110 @@ Survivor → factor mapping: `[p.factor_id for p in survivors.profiles]`.
 `FactorProfile` is intentionally not hashable (`__hash__ = None`)
 because `context` defaults to a dict; equality remains field-by-field
 via the auto-generated `__eq__`.
+
+---
+
+### `multi_factor.bhy_hierarchical`
+
+```
+factrix.multi_factor.bhy_hierarchical(
+    profiles: Iterable[FactorProfile],
+    *,
+    group: str,
+    estimator: Estimator | None = None,
+    q: float = 0.05,
+) -> Survivors
+```
+
+Yekutieli (2008) two-stage FDR for factor sets with natural group
+structure (momentum / value / quality families, cross-region universes).
+Outer Benjamini-Yekutieli step-up on Simes group representatives
+controls *group-level* FDR ≤ `q`; inner BHY within each passing group
+controls *within-group* FDR ≤ `q`. The cell-level `.adj_p` is the
+max-of-layers fold `max(outer_adj_p[g], inner_adj_p[i])` so the universal
+`Survivors` duality `survivor[i] iff adj_p[i] <= q` still holds.
+
+`group` names a key that must exist in every `profile.context` (validated
+through `_resolve_family`; identity-shadowing rejected, missing-key
+fail-loud). The per-survivor group label is `profile.context[group]`.
+
+Failure modes blocked at the call site:
+- single-group input raises and points at `bhy()`;
+- every-profile-is-its-own-group at `n >= 3` raises (group axis is
+  near-unique, probably a continuous variable mistakenly passed);
+- majority-singleton-group inputs emit `RuntimeWarning` (inner BHY on
+  n=1 is a raw cutoff, outer Simes on n=1 equals that p — no FDR
+  correction at either layer for those groups).
+
+Closes the third leg of v0.13's multi-factor verb surface (alongside
+`bhy(expand_over=)` and `partial_conjunction`); the three are
+distinguished by *survivor unit* — pair / identity-joint /
+identity-group-then-within.
+
+---
+
+### `multi_factor.partial_conjunction`
+
+```
+factrix.multi_factor.partial_conjunction(
+    profiles: Iterable[FactorProfile],
+    *,
+    min_pass: int,
+    expand_over: Sequence[str],
+    n_conditions: int | None = None,
+    estimator: Estimator | None = None,
+    q: float = 0.05,
+) -> Survivors
+```
+
+Partial-conjunction test (Benjamini-Heller-Yekutieli 2009 family):
+declares an identity passes if **at least `min_pass` of its
+`expand_over` conditions** pass independently. Survivor unit is the
+identity (joint across conditions), not the per-condition pair. Use when
+the research claim is "factor works across ≥ k of N regimes / horizons /
+universes", not "factor works in any one condition".
+
+---
+
+### `stats.simes_p`
+
+```
+factrix.stats.multiple_testing.simes_p(p_values: Sequence[float]) -> float
+```
+
+Simes (1986) global-null combiner: returns
+`min_k (k * p_(k:n) / n)` where `p_(k:n)` is the k-th order statistic.
+Dominates Bonferroni `n * min(p)` and is valid under PRDS dependence.
+Used internally by `bhy_hierarchical` as each group's outer
+representative; exposed standalone for callers building custom
+global-null tests.
+
+---
+
+### `stats.GMM` / `MomentEstimator`
+
+```
+factrix.stats.GMM().compute(
+    moments: np.ndarray,            # shape (T, K)
+    *, forward_periods: int,
+) -> GMMResult                       # j_stat / df / overid_p / n_moments / n_params / metadata / warnings
+```
+
+Hand-rolled Hansen (1982) two-step efficient GMM on a multivariate
+moment-condition system. Pure over-identification path
+(`n_params = 0`); parametric GMM is a forward hook. The
+`MomentEstimator(Estimator)` sub-protocol parallels `HACEstimator`
+(scalar-mean axis) on the moment-matrix axis: `MomentEstimator` adds
+`min_periods: int` and `compute(moments, *, forward_periods) -> GMMResult`,
+and `AnalysisConfig.moment_estimator: MomentEstimator | None = None` is
+wired through the four factory methods + `to_dict` / `from_dict`. Ships
+as a standalone primitive — the integrated multi-horizon panel cell
+(auto-construction of `(T, K)` IC matrix from a raw forward-return
+panel) lands as a focused follow-up.
+
+`StatCode.J_GMM` / `StatCode.P_GMM` are the canonical stat-key pair;
+`WarningCode.SINGULAR_WEIGHT_MATRIX` distinguishes a rank-deficient
+long-run covariance from a generic short-sample warning.
 
 ---
 
@@ -520,9 +624,11 @@ factrix.list_estimators(scope: FactorScope, signal: Signal,
     # API. text → list[str] sorted by name; json → rows with
     # {name, description, import_path}. with_import (text-only)
     # returns "name → factrix.stats.<Class>" two-column lines.
-    # v0.11 ships only NeweyWest; HansenHodrick / GMM follow-ups
-    # are tracked under #170. Raises IncompatibleAxisError if the
-    # pair has no applicable estimator.
+    # Ships NeweyWest, HansenHodrick (HAC, scalar-mean axis) and
+    # GMM (J-test, moment-condition axis); slice-test estimators
+    # (WaldNWCluster / WaldTwoWayCluster / BlockBootstrap) stay on
+    # the selection-only base protocol. Raises IncompatibleAxisError
+    # if the pair has no applicable estimator.
 ```
 
 ---
@@ -645,8 +751,8 @@ sits outside `config`.
 | `MEAN`              | every cell      | Cell primary point estimate (IC mean / FM λ / E[β] / β / CAAR event-only mean) |
 | `T_NW`              | every cell      | NW HAC t-stat on the primary estimate |
 | `P_NW`              | every cell      | NW HAC p-value (= `primary_p`) |
-| `T_HH` / `P_HH`     | IC / FM PANEL when `forward_periods > 1` | Hansen-Hodrick rectangular-kernel HAC pair |
-| `P_GMM`             | reserved (#191) | GMM J-test p-value (paired with `J_GMM` chi-square statistic, lands in #191) |
+| `T_HH` / `P_HH`     | IC / FM / CAAR PANEL when `cfg.estimator=HansenHodrick()` | Hansen-Hodrick rectangular-kernel HAC pair (cfg-driven; default `NeweyWest()` cfg writes `T_NW` / `P_NW` only) |
+| `J_GMM` / `P_GMM`   | `fx.stats.GMM().compute(moments, ...)` | Hansen J statistic and over-identifying-restrictions p-value on a multivariate moment-condition system; ships as a standalone primitive — integrated multi-horizon panel cell auto-routing via `cfg.moment_estimator` is a follow-up |
 | `FACTOR_ADF_TAU`    | COMMON / TS β   | Diagnostic: ADF τ statistic on factor input |
 | `FACTOR_ADF_P`      | COMMON / TS β   | Diagnostic: ADF p-value on factor input |
 | `RESID_LJUNG_BOX_Q` | TS-dummy        | Diagnostic: Ljung-Box Q on residuals |
