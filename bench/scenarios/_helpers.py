@@ -1,4 +1,4 @@
-"""Shared scaffolding for the continuous-cell scenarios.
+"""Shared scaffolding for scenario modules.
 
 Centralises:
 
@@ -6,12 +6,16 @@ Centralises:
   baseline-grade scales pinned per #380 §7). Per-scenario overrides
   win over preset defaults so fixed-scale scenarios (S2 = 50 factors)
   stay fixed regardless of preset.
-- Panel construction: continuous multi-factor panel + forward return
-  attachment in one place, so every scenario sees the same seed
+- Continuous multi-factor panel construction + forward-return
+  attachment, so every Cont × Ind scenario sees the same seed
   discipline.
-- ``run_continuous_scenario`` — single entry that wires preflight →
-  measure → write + self-validate. Each scenario module just declares
-  ``metric_set``, ``scale``, and a ``compute`` callable.
+- ``run_scenario`` — generic measure / write / self-validate loop,
+  independent of axis cell.
+- ``run_continuous_scenario`` — Cont × Ind specialisation that
+  builds the panel + config and delegates to ``run_scenario``.
+  Algo scenarios call ``run_scenario`` directly because their
+  setup phase produces a per-factor spread dict, not the canonical
+  (panel, cfg) pair.
 """
 
 from __future__ import annotations
@@ -28,7 +32,7 @@ from factrix.preprocess import compute_forward_return
 
 from bench.metric_sets import MetricSet
 from bench.preflight import preflight
-from bench.schema import BenchRecord, CacheState
+from bench.schema import BenchRecord, CacheState, Env
 from bench.validator import validate_file
 from bench.wrapper import measure, write_records
 
@@ -51,9 +55,9 @@ class ContinuousScale:
         }
 
 
-# Scale presets per #380 §7. Concrete `small` / `large` values land
-# here so #382-A / #382-C share a single source of truth; the CLI
-# (sub-PR #382-C) merely picks a preset by name.
+# Scale presets per #380 §7. Every scenario module reads these so
+# preset-named runs are guaranteed identical in dimensionality
+# regardless of which scenarios are exercised.
 PRESETS: dict[str, ContinuousScale] = {
     # `tiny` is for tests and the eventual CI bench-tiny smoke — must
     # complete in seconds on a CI runner.
@@ -122,6 +126,63 @@ def make_cfg() -> fx.AnalysisConfig:
     )
 
 
+def run_scenario(
+    *,
+    scenario_id: str,
+    axis_cell: str,
+    metric_set: MetricSet,
+    scale: dict[str, Any],
+    setup: Callable[[], Any],
+    compute: Callable[[Any], Any],
+    output: Path,
+    env: Env,
+    warmup: bool = True,
+    cache_state: CacheState = "warm",
+) -> list[BenchRecord]:
+    """Run ``setup`` then ``compute`` (warmup + measured), write JSONL,
+    self-validate.
+
+    Generic over axis_cell / scale shape — the cell-specific helper
+    (e.g. ``run_continuous_scenario``) chooses panel construction,
+    config, and scale serialisation, then delegates here for the
+    measure / write / validate loop. Mirrors the §9.1 self-validation
+    invariant exactly once instead of per-cell.
+    """
+    records: list[BenchRecord] = []
+    if warmup:
+        records.append(
+            measure(
+                setup,
+                compute,
+                scenario_id=scenario_id,
+                axis_cell=axis_cell,
+                scale=scale,
+                metric_set=metric_set.name,
+                is_warmup=True,
+                cache_state=cache_state,
+                env=env,
+            )
+        )
+    records.append(
+        measure(
+            setup,
+            compute,
+            scenario_id=scenario_id,
+            axis_cell=axis_cell,
+            scale=scale,
+            metric_set=metric_set.name,
+            is_warmup=False,
+            cache_state=cache_state,
+            env=env,
+        )
+    )
+    write_records(output, records)
+    report = validate_file(output)
+    if not report.ok:
+        raise RuntimeError(f"self-validation failed: {report.failures}")
+    return records
+
+
 def run_continuous_scenario(
     *,
     scenario_id: str,
@@ -134,18 +195,14 @@ def run_continuous_scenario(
     seed: int = 0,
     threads: int = 1,
 ) -> list[BenchRecord]:
-    """Run a continuous × individual scenario end-to-end.
+    """Run a Continuous × Individual scenario end-to-end.
 
     ``compute`` receives the prepared panel and a default config; what
     it does inside (``run_metrics(metrics=...)``, direct algo call,
     bootstrap primitives) is up to the scenario — the helper only
     knows about timing + JSONL + validation.
-
-    Returns the produced records. The harness writes JSONL to
-    ``output`` and self-validates; a validation failure raises.
     """
     pre = preflight(threads=threads, seed=seed)
-    scale_dict = scale.as_scale_field()
 
     def setup() -> tuple[pl.DataFrame, fx.AnalysisConfig]:
         return build_panel(scale, seed=seed), make_cfg()
@@ -154,36 +211,15 @@ def run_continuous_scenario(
         panel, cfg = artifact
         return compute(panel, cfg)
 
-    records: list[BenchRecord] = []
-    if warmup:
-        records.append(
-            measure(
-                setup,
-                compute_step,
-                scenario_id=scenario_id,
-                axis_cell=AXIS_CELL_CONT_IND,
-                scale=scale_dict,
-                metric_set=metric_set.name,
-                is_warmup=True,
-                cache_state=cache_state,
-                env=pre.env,
-            )
-        )
-    records.append(
-        measure(
-            setup,
-            compute_step,
-            scenario_id=scenario_id,
-            axis_cell=AXIS_CELL_CONT_IND,
-            scale=scale_dict,
-            metric_set=metric_set.name,
-            is_warmup=False,
-            cache_state=cache_state,
-            env=pre.env,
-        )
+    return run_scenario(
+        scenario_id=scenario_id,
+        axis_cell=AXIS_CELL_CONT_IND,
+        metric_set=metric_set,
+        scale=scale.as_scale_field(),
+        setup=setup,
+        compute=compute_step,
+        output=output,
+        env=pre.env,
+        warmup=warmup,
+        cache_state=cache_state,
     )
-    write_records(output, records)
-    report = validate_file(output)
-    if not report.ok:
-        raise RuntimeError(f"self-validation failed: {report.failures}")
-    return records

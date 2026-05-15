@@ -4,7 +4,10 @@ Internal dev tooling for the multi-factor scale-out benchmark
 (issue #380). **Not packaged into the factrix wheel** —
 `tool.setuptools.packages.find` excludes `bench*`.
 
-## What this foundation ships
+For the harness roadmap and open work, see issue #380 and its open
+sub-issues. This README describes the current surface only.
+
+## Modules
 
 - `bench.schema` — pydantic v2 model for the JSONL record (`schema_version="1"`,
   open-schema `scale` keyed on `axis_cell`). Aligns with #380 §9.
@@ -27,6 +30,9 @@ Internal dev tooling for the multi-factor scale-out benchmark
   (#380 §4): S1 (single factor + `evaluate` + `run_metrics(heavy)`),
   S2 / S3 (50 / 200-factor screen, `core`), P1 (scaling probe), and
   per-metric micros M-ic / M-ic-boot / M-quantile / M-mono.
+- `bench.scenarios.algo` — S4 greedy forward selection. Setup phase
+  pre-computes per-factor spread series (rank → bucket → spread);
+  compute phase runs the greedy + backward-elimination loop.
 - `bench.scenarios.dummy` — smoke scenario proving the wrapper →
   JSONL → validator loop.
 
@@ -61,16 +67,6 @@ before invoking any `python -m bench.*` entry point.
 Fixed-scale scenarios (S2 = 50 factors, S3 = 200) override the
 preset's `n_factors` so the workload stays fixed regardless of
 preset choice.
-
-## What it does *not* do (yet)
-
-- Algo scenario S4 (`greedy_forward_selection`) — sub-PR #382-B
-- Sparse / event scenarios S5 + M-corrado — sub-PR #382-C
-- CLI dispatcher `python -m bench --target small|large|event|tiny` — sub-PR #382-C
-- Cold-cache subprocess re-exec — sub-PR #382-C
-- Reference baselines in `bench/baselines/` + release-flow rerun (#383)
-- CI `bench-tiny` smoke (#383)
-- Ratio / summary markdown post-processing
 
 ## Schema / version invariants
 
