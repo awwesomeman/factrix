@@ -25,7 +25,7 @@ Heteroskedasticity and Autocorrelation Consistent Covariance Matrix."
 *Econometrica* 55(3), 703–708.
 
 Bartlett-kernel HAC variance estimator; underlies every Newey-West (NW) HAC t-test
-in factrix (`_newey_west_se`, `_newey_west_t_test`).
+in factrix.
 
 ### Newey & West (1994)
 [](){ #newey-west-1994 }
@@ -68,13 +68,11 @@ Optimal Predictors of Future Spot Rates: An Econometric Analysis."
 
 K-period forecast residuals carry MA(K−1) structure under
 non-overlapping innovations. Underpins two pieces of factrix's HAC
-machinery: (i) the rectangular-kernel HAC SE on a sample mean,
-exposed as the `factrix.stats.HansenHodrick` estimator
-(`_hansen_hodrick_se` / `_hansen_hodrick_t_test`) for callers who
-prefer overlap-targeted rectangular kernel over the Bartlett kernel;
-(ii) the `forward_periods − 1` lag floor that factrix combines with
-the Andrews rule when running NW HAC under overlapping forward
-returns.
+machinery: (i) a standalone rectangular-kernel HAC SE estimator on
+sample means, available to callers who prefer an overlap-targeted
+rectangular kernel over the Bartlett kernel; (ii) the `h−1` lag
+floor that factrix combines with the Andrews rule when running NW
+HAC under overlapping forward returns.
 
 ### Hodrick (1992)
 [](){ #hodrick-1992 }
@@ -119,8 +117,7 @@ Hansen, L. P. (1982). "Large Sample Properties of Generalized Method
 of Moments Estimators." *Econometrica* 50(4), 1029–1054.
 
 GMM framework and the over-identifying-restrictions J-statistic;
-underlies the two-step efficient `GMM` ``MomentEstimator``
-(`factrix.stats.gmm`).
+underlies factrix's two-step efficient GMM moment-estimator path.
 
 ---
 
@@ -195,8 +192,8 @@ Data Sets: Comparing Approaches." *Review of Financial Studies* 22(1),
 
 Comparison of FM, clustered, and two-way SE under firm/time
 correlation; supports FM + Newey-West as the default for time-effect
-panels and motivates the two-way (date+asset) clustered SE option
-exposed in `pooled_ols` and `factrix.stats.WaldTwoWayCluster`.
+panels and motivates the two-way (date+asset) clustered SE option in
+factrix's FM pooled-OLS path.
 
 ### Cameron, Gelbach & Miller (2011)
 [](){ #cameron-gelbach-miller-2011 }
@@ -206,9 +203,8 @@ Inference With Multiway Clustering." *Journal of Business & Economic
 Statistics* 29(2), 238–249.
 
 Two-way clustering formula `V_AB = V_A + V_B − V_{A∩B}`; backs the
-date+asset two-way clustered SE option in `pooled_ols`
-(`two_way_cluster_col`) and the `factrix.stats.WaldTwoWayCluster`
-estimator.
+date+asset two-way clustered SE option in factrix's FM pooled-OLS
+path and the standalone two-way-cluster Wald estimator.
 
 ### Thompson (2011)
 [](){ #thompson-2011 }
@@ -217,8 +213,8 @@ Thompson, S. B. (2011). "Simple Formulas for Standard Errors that
 Cluster by Both Firm and Time." *Journal of Financial Economics*
 99(1), 1–10.
 
-Finite-sample correction `df = min(G_A, G_B) − 1` used by `pooled_ols`
-when two-way clustering is enabled.
+Finite-sample correction `df = min(G_A, G_B) − 1` used in factrix's
+two-way clustered SE path.
 
 ### Shanken (1992)
 [](){ #shanken-1992 }
@@ -228,9 +224,10 @@ Shanken, J. (1992). "On the Estimation of Beta-Pricing Models."
 
 Errors-in-variables correction for the Fama-MacBeth stage-2 $t$-stat
 when the stage-1 regressor is itself an estimated quantity (rolling
-$\beta$, PCA score, ML predictor). Used in `fama_macbeth` when
-`is_estimated_factor=True`. The general multi-factor multiplicative
-term $1 + \lambda'\Sigma_f^{-1}\lambda$ collapses to
+$\beta$, PCA score, ML predictor). Applied to the FM stage-2 SE in
+factrix's FM path when the stage-1 regressor is itself estimated.
+The general multi-factor multiplicative term
+$1 + \lambda'\Sigma_f^{-1}\lambda$ collapses to
 $1 + \hat\lambda^2/\sigma^2_f$ in the single-factor case factrix
 implements; factrix's simplification additionally drops the full
 variance's additive $+\sigma^2_f/T$ term and is therefore honest only
@@ -245,10 +242,11 @@ with Useless Factors." *Journal of Finance* 54(1), 203–235.
 Useless-factor diagnostics for two-pass cross-sectional tests: weak
 or unidentified factors yield spuriously significant Fama-MacBeth
 $t$-stats on risk premia even when the factor has no true pricing
-power. Cited from ``fama_macbeth`` as cautionary background on factor
-validity, separate from the errors-in-variables sampling-error
-correction (which is the [Shanken (1992)][shanken-1992] single-factor
-case that factrix's ``is_estimated_factor`` flag implements).
+power. Cautionary background on factor validity in factrix's
+Fama-MacBeth path, separate from the errors-in-variables
+sampling-error correction (which is the
+[Shanken (1992)][shanken-1992] single-factor case that factrix's
+estimated-factor correction implements).
 
 ### Fama & French (1992)
 [](){ #fama-french-1992 }
@@ -269,9 +267,9 @@ Returns on Stocks and Bonds." *Journal of Financial Economics*
 33(1), 3–56.
 
 Three-factor model; prototypical multi-factor spanning baseline of
-the kind that `spanning_alpha` evaluates a candidate factor against.
-Catalog-only reference in factrix; no inline citation site at
-present.
+the kind that factrix's spanning-alpha procedure evaluates a
+candidate factor against. Catalog-only reference in factrix; no
+inline citation site at present.
 
 ---
 
@@ -290,7 +288,7 @@ The cross-sectional `t` on CAAR is reasonably specified at moderate
 variance inflation around the event date — the BW1985 documentation
 of this failure is the motivation for the
 [Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]
-standardised AR test (factrix `bmp_test`).
+standardised AR test that factrix implements.
 
 ### Brown & Warner (1980)
 [](){ #brown-warner-1980 }
@@ -318,7 +316,7 @@ MacKinlay, A. C. (1997). "Event Studies in Economics and Finance."
 *Journal of Economic Literature* 35(1), 13–39.
 
 Standardised event-window / estimation-window vocabulary; followed by
-factrix's `EventConfig` schema.
+factrix's event-configuration schema.
 
 ### Campbell, Lo & MacKinlay (1997)
 [](){ #campbell-lo-mackinlay-1997 }
@@ -326,8 +324,9 @@ factrix's `EventConfig` schema.
 Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The
 Econometrics of Financial Markets*. Princeton University Press.
 
-Textbook treatment of event-study test statistics; cited from
-`mfe_mae` for the path-excursion / horizon-scaling vocabulary.
+Textbook treatment of event-study test statistics; cited for the
+path-excursion / horizon-scaling vocabulary that factrix's MFE / MAE
+path-excursion metric adopts.
 
 ### Boehmer, Musumeci & Poulsen (1991)
 [](){ #boehmer-musumeci-poulsen-1991 }
@@ -336,13 +335,12 @@ Boehmer, E., Musumeci, J. & Poulsen, A. B. (1991). "Event-study
 Methodology Under Conditions of Event-induced Variance." *Journal of
 Financial Economics* 30(2), 253–272.
 
-BMP standardised AR test. factrix's `bmp_test` is a **BMP-style**
-implementation using mean-adjusted (not market-model) abnormal
+BMP standardised AR test. factrix's implementation is a
+**BMP-style** variant using mean-adjusted (not market-model) abnormal
 returns; the prediction-error variance correction
 $\sigma_i \sqrt{1 + 1/T_{\mathrm{est}}}$ of the original BMP
-formulation is opt-in via `include_prediction_error_variance=True`
-and off by default, so default-setting results will not match a
-textbook BMP byte-for-byte.
+formulation is opt-in and off by default, so default-setting results
+will not match a textbook BMP byte-for-byte.
 
 ### Patell (1976)
 [](){ #patell-1976 }
@@ -361,8 +359,8 @@ Corrado, C. J. (1989). "A Nonparametric Test for Abnormal
 Security-price Performance in Event Studies." *Journal of Financial
 Economics* 23(2), 385–395.
 
-Rank test on event-window abnormal returns; implemented as
-`corrado_rank_test` with a direction-adjusted two-sided extension.
+Rank test on event-window abnormal returns; implemented in factrix
+with a direction-adjusted two-sided extension.
 
 ### Corrado & Zivney (1992)
 [](){ #corrado-zivney-1992 }
@@ -374,8 +372,8 @@ Returns." *Journal of Financial and Quantitative Analysis* 27(3),
 
 Sign test for event-study abnormal returns and a modified rank-test
 variant for two-sided / cumulative inference (re-rank within the
-event window); cited as the source of the direction-adjustment idea
-adopted by `corrado_rank_test`.
+event window); the source of the direction-adjustment idea adopted
+by factrix's Corrado rank-test path.
 
 ### Kolari & Pynnönen (2010)
 [](){ #kolari-pynnonen-2010 }
@@ -384,12 +382,12 @@ Kolari, J. W. & Pynnönen, S. (2010). "Event Study Testing with
 Cross-sectional Correlation of Abnormal Returns." *Review of
 Financial Studies* 23(11), 3996–4025.
 
-Clustering-adjusted BMP variant; implemented as
-`bmp_test(kolari_pynnonen_adjust=True)`, which scales the BMP $z$ by
+Clustering-adjustment option on factrix's BMP-style test, scaling
+the BMP $z$ by
 $\sqrt{(1 - \hat r)/(1 + (N_{\mathrm{eff}}-1)\,\hat r)}$ to absorb
-same-date abnormal-return cross-correlation. Recommended when the
-`clustering_hhi` diagnostic flags high event-date concentration
-(`hhi ≥ 0.3`).
+same-date abnormal-return cross-correlation. Recommended when
+factrix's event-date clustering HHI diagnostic flags high
+concentration.
 
 ### Sefcik & Thompson (1986)
 [](){ #sefcik-thompson-1986 }
@@ -400,10 +398,10 @@ as Dependent Variable." *Journal of Accounting Research* 24(2),
 316–334.
 
 Per-event cross-sectional regression of abnormal return on a
-continuous event characteristic; the `factor × return` magnitude-
-weighted CAAR factrix computes (`compute_caar` with continuous
-`factor`) is a per-event regression-slope statistic in this lineage,
-distinct from the equal-weighted MacKinlay-style CAAR.
+continuous event characteristic; the magnitude-weighted CAAR factrix
+computes when an event carries a continuous factor value is a
+per-event regression-slope statistic in this lineage, distinct from
+the equal-weighted MacKinlay-style CAAR.
 
 ### Jaffe (1974)
 [](){ #jaffe-1974 }
@@ -414,11 +412,10 @@ Jaffe, J. F. (1974). "Special Information and Insider Trading."
 Calendar-time portfolio approach to event studies — recasts
 event-indexed inference onto a calendar grid by forming each
 calendar period's portfolio of all firms with a recent event and
-analysing portfolio returns. Cited from `_CAARSparsePanelProcedure`
-as the historical anchor for factrix's dense-calendar CAAR HAC
-t-test, which adapts the calendar-time idea by zero-filling
-non-event dates on the per-event series rather than forming a
-calendar-period portfolio across event firms.
+analysing portfolio returns. Historical anchor for factrix's
+dense-calendar CAAR HAC t-test, which adapts the calendar-time idea
+by zero-filling non-event dates on the per-event series rather than
+forming a calendar-period portfolio across event firms.
 
 ### Mandelker (1974)
 [](){ #mandelker-1974 }
@@ -445,8 +442,8 @@ buy-and-hold abnormal returns (BHARs), strongly recommending the
 calendar-time approach on the grounds that monthly returns are less
 susceptible to the bad-model problem and that monthly portfolio
 formation automatically absorbs cross-correlations of event-firm
-abnormal returns. Cited as the modern reference for the densification
-rationale in `_CAARSparsePanelProcedure`.
+abnormal returns. The modern reference for the densification
+rationale underlying factrix's sparse-panel CAAR HAC path.
 
 ---
 
@@ -470,7 +467,8 @@ Discovery Rate in Multiple Testing under Dependency." *Annals of
 Statistics* 29(4), 1165–1188.
 
 BH under arbitrary dependence with the `c(m) = Σ 1/i` correction;
-implemented as `bhy_adjust` and consumed by `multi_factor.bhy`.
+provides the dependence-robust FDR adjustment that factrix's
+multi-factor BHY path consumes.
 
 ### Simes (1986)
 [](){ #simes-1986 }
@@ -478,8 +476,8 @@ implemented as `bhy_adjust` and consumed by `multi_factor.bhy`.
 Simes, R. J. (1986). "An Improved Bonferroni Procedure for Multiple
 Tests of Significance." *Biometrika* 73(3), 751–754.
 
-Simes' global test combining ordered p-values; used by `simes_p` as
-the group representative in hierarchical FDR procedures.
+Simes' global test combining ordered p-values; used as the group
+representative in factrix's hierarchical FDR procedures.
 
 ### Benjamini & Heller (2008)
 [](){ #benjamini-heller-2008 }
@@ -488,7 +486,7 @@ Benjamini, Y. & Heller, R. (2008). "Screening for Partial Conjunction
 Hypotheses." *Biometrics* 64(4), 1215–1222.
 
 Partial-conjunction test for "at least r of K hypotheses are true";
-backs `partial_conjunction_p`.
+backs factrix's partial-conjunction p-value path.
 
 ### Yekutieli (2008)
 [](){ #yekutieli-2008 }
@@ -511,10 +509,10 @@ Selective-inference framework for partitioning a hypothesis set into
 families and controlling FDR per family. The paper's recommended
 form inflates the within-family level by `R/m` (the fraction of
 families flagged by an outer selection step); factrix's
-``expand_over`` adopts the family-partition idea but applies plain
-per-bucket BHY without the BB14 selection-adjusted inflation —
-cross-bucket selection-bias control is the caller's responsibility
-(e.g. via `bhy_hierarchical`'s hierarchical procedure).
+family-partition entry point adopts the family-partition idea but
+applies plain per-bucket BHY without the BB14 selection-adjusted
+inflation — cross-bucket selection-bias control is the caller's
+responsibility (e.g. via factrix's hierarchical BHY procedure).
 
 ### Harvey, Liu & Zhu (2016)
 [](){ #harvey-liu-zhu-2016 }
@@ -525,12 +523,11 @@ Expected Returns." *Review of Financial Studies* 29(1), 5–68.
 Empirical case that conventional single-factor `t ≥ 2.0` is too lax
 once the cross-section of tried factors and horizons is accounted
 for; HLZ argues a meaningfully higher threshold (typically `t ≳ 3`)
-under multiplicity-aware procedures. Cited as motivation for
-factrix's BHY-first multi-factor discipline in
-`greedy_forward_selection` and the family-wise error rate (FWER)-
-across-horizons ∘ FDR-within-horizon discipline at
-`factrix.multi_factor.bhy` and the "Horizon-shopping correction"
-section of `docs/guides/batch-screening.md`.
+under multiplicity-aware procedures. Motivation for factrix's
+BHY-first multi-factor discipline and the family-wise error rate
+(FWER)-across-horizons ∘ FDR-within-horizon discipline (see the
+"Horizon-shopping correction" section of
+`docs/guides/batch-screening.md`).
 
 ### Harvey (2017)
 [](){ #harvey-2017 }
@@ -560,8 +557,8 @@ Procedure." *Scandinavian Journal of Statistics* 6(2), 65–70.
 
 FWER step-down procedure that uniformly dominates Bonferroni under
 the same dependence assumptions; the default slice-test adjustment
-in `_stats.multiple_testing` when callers do not supply a bootstrap
-distribution.
+in factrix's multiple-testing path when callers do not supply a
+bootstrap distribution.
 
 ### Romano & Wolf (2005)
 [](){ #romano-wolf-2005 }
@@ -570,8 +567,8 @@ Romano, J. P. & Wolf, M. (2005). "Stepwise Multiple Testing as
 Formalized Data Snooping." *Econometrica* 73(4), 1237–1282.
 
 Bootstrap-based FWER step-down exploiting the joint dependence of
-test statistics; implemented in `_stats.multiple_testing` for the
-date-shared slice-test setting (e.g. universe pairwise IC).
+test statistics; factrix's bootstrap-based FWER step-down option for
+the date-shared slice-test setting (e.g. universe pairwise IC).
 
 ### White (2000)
 [](){ #white-2000 }
@@ -686,7 +683,7 @@ Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General
 Stationary Observations." *Annals of Statistics* 17(3), 1217–1241.
 
 Fixed-block (moving-block) bootstrap for stationary time series;
-underlies the deterministic block scheme in `_stats.bootstrap`.
+underlies factrix's deterministic block-bootstrap scheme.
 
 ### Politis & Romano (1994)
 [](){ #politis-romano-1994 }
@@ -696,7 +693,7 @@ Politis, D. N. & Romano, J. P. (1994). "The Stationary Bootstrap."
 1303–1313.
 
 Stationary block bootstrap with geometric block lengths; underlies
-the stationary scheme in `_stats.bootstrap`.
+factrix's stationary block-bootstrap scheme.
 
 ### Politis & White (2004)
 [](){ #politis-white-2004 }
@@ -705,8 +702,8 @@ Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection
 for the Dependent Bootstrap." *Econometric Reviews* 23(1), 53–70.
 
 Data-driven block-length selector for stationary / circular
-bootstraps; supplies the automatic `L` choice in `_stats.bootstrap`
-when callers do not pass one.
+bootstraps; supplies the automatic block-length choice in factrix's
+bootstrap path when callers do not pass one.
 
 ### Sen (1968)
 [](){ #sen-1968 }
@@ -715,8 +712,8 @@ Sen, P. K. (1968). "Estimates of the Regression Coefficient Based on
 Kendall's Tau." *Journal of the American Statistical Association*
 63(324), 1379–1389.
 
-Theil-Sen median-slope estimator; the basis of `ic_trend`'s
-breakdown-robust slope.
+Theil-Sen median-slope estimator; the basis of factrix's
+breakdown-robust IC-trend slope.
 
 ---
 
@@ -729,8 +726,9 @@ Dickey, D. A. & Fuller, W. A. (1979). "Distribution of the Estimators
 for Autoregressive Time Series with a Unit Root." *Journal of the
 American Statistical Association* 74(366), 427–431.
 
-Augmented Dickey-Fuller (ADF) test on $H_0: \beta = 0$ in $\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the basis of
-factrix's `_adf` persistence diagnostic.
+Augmented Dickey-Fuller (ADF) test on $H_0: \beta = 0$ in
+$\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the basis of
+factrix's ADF persistence diagnostic.
 
 ### Said & Dickey (1984)
 [](){ #said-dickey-1984 }
@@ -740,7 +738,7 @@ Autoregressive-Moving Average Models of Unknown Order." *Biometrika*
 71(3), 599–607.
 
 ADF extension to ARMA errors; cited as background for the lag
-selection inside `_adf`.
+selection inside factrix's ADF persistence diagnostic.
 
 ### MacKinnon (1996)
 [](){ #mackinnon-1996 }
@@ -749,8 +747,9 @@ MacKinnon, J. G. (1996). "Numerical Distribution Functions for Unit
 Root and Cointegration Tests." *Journal of Applied Econometrics*
 11(6), 601–618.
 
-Response-surface critical values for ADF; `_adf_pvalue_interp` does
-linear interpolation against the constant-only specification.
+Response-surface critical values for ADF; factrix interpolates
+linearly against the constant-only specification when converting the
+ADF statistic to a p-value.
 
 ### Stambaugh (1999)
 [](){ #stambaugh-1999 }
@@ -809,10 +808,11 @@ Time Series." *Journal of Economic Perspectives* 2(3), 147–174.
 
 Practitioner-oriented review of the consequences of unit roots in
 macroeconomic time series; cited as general background for why an
-ADF flag matters in `ic_trend`. The specific `p > 0.10 ⇒ unit-root
-suspect` threshold is folklore from the unit-root literature
-(closer to Stock 1994 *Handbook of Econometrics* §III) rather than a
-direct prescription from this paper.
+ADF flag matters in factrix's IC-trend persistence path. The specific
+p-value threshold factrix uses for unit-root suspicion is folklore
+from the unit-root literature (closer to Stock 1994 *Handbook of
+Econometrics* §III) rather than a direct prescription from this
+paper.
 
 ### Fama & French (1988)
 [](){ #fama-french-1988 }
@@ -823,11 +823,10 @@ Stock Returns." *Journal of Financial Economics* 22(1), 3–25.
 Canonical direct long-horizon predictive regression: summed log
 returns `r_{t→t+N} = Σ log(P_{t+k}/P_{t+k−1})` regressed on the
 dividend yield at horizons 1–4 years. Linear-additive across
-horizons by construction, no compounding bias. Cited at
-`compute_forward_return` as the academic-standard alternative to
-factrix's `÷N` arithmetic per-period normalization — factrix uses
-`÷N` for scale comparability across horizons, not because
-Fama-French (1988) recommends it.
+horizons by construction, no compounding bias. The academic-standard
+alternative to factrix's `÷N` arithmetic per-period normalisation —
+factrix uses `÷N` for scale comparability across horizons, not
+because Fama-French (1988) recommends it.
 
 ### Boudoukh, Richardson & Whitelaw (2008)
 [](){ #boudoukh-richardson-whitelaw-2008 }
@@ -836,19 +835,18 @@ Boudoukh, J., Richardson, M. & Whitelaw, R. F. (2008). "The Myth of
 Long-Horizon Predictability." *Review of Financial Studies* 21(4),
 1577–1605.
 
-Under the null and a persistent regressor (most factor signals),
-OLS slope estimators across horizons are highly correlated —
-approaching unity between adjacent horizons at dividend-yield-like
-persistence — and `R²` is roughly proportional to horizon. Cited at
-`factrix.multi_factor.bhy` and the "Horizon-shopping correction"
-section of `docs/guides/batch-screening.md`: across-horizon test
-statistics are not independent and BHY's positive regression dependence on a subset (PRDS) assumption fails, so
-factrix uses an FWER (independence-free) inner step before BHY —
-the FWER prescription is factrix's response to BRW's correlation
-result, not BRW's own recommendation. Cited at
-`compute_forward_return` to motivate treating per-period scaling
-as separate from inference: the across-horizon dependence BRW
-documents is not addressed by any normalization choice.
+Under the null and a persistent regressor (most factor signals), OLS
+slope estimators across horizons are highly correlated — approaching
+unity between adjacent horizons at dividend-yield-like persistence —
+and `R²` is roughly proportional to horizon. Across-horizon test
+statistics are not independent and BHY's positive regression
+dependence on a subset (PRDS) assumption fails, so factrix uses an
+FWER (independence-free) inner step before BHY in its multi-factor
+BHY path — the FWER prescription is factrix's response to BRW's
+correlation result, not BRW's own recommendation. Also motivates
+treating per-period scaling as separate from inference in factrix's
+forward-return path: the across-horizon dependence BRW documents is
+not addressed by any normalisation choice.
 
 ---
 
@@ -861,7 +859,8 @@ McLean, R. D. & Pontiff, J. (2016). "Does Academic Research Destroy
 Stock Return Predictability?" *Journal of Finance* 71(1), 5–32.
 
 Empirical ~32% post-publication decay in factor returns; the
-canonical OOS-decay benchmark cited from `multi_split_oos_decay`.
+canonical OOS-decay benchmark underlying factrix's multi-split
+OOS-decay procedure.
 
 ### Hou, Xue & Zhang (2020)
 [](){ #hou-xue-zhang-2020 }
@@ -870,8 +869,8 @@ Hou, K., Xue, C. & Zhang, L. (2020). "Replicating Anomalies."
 *Review of Financial Studies* 33(5), 2019–2133.
 
 Large-scale replication of published anomalies under value-weighted
-testing; cited from `quantile_spread_vw` as the headline reason for
-preferring VW over EW spreads in capacity-constrained settings.
+testing; the headline reason factrix prefers value-weighted over
+equal-weighted spreads in capacity-constrained settings.
 
 ### Chen & Zimmermann (2022)
 [](){ #chen-zimmermann-2022 }
@@ -880,8 +879,9 @@ Chen, A. Y. & Zimmermann, T. (2022). "Open Source Cross-Sectional
 Asset Pricing." *Critical Finance Review* 11(2), 207–264.
 
 Open-source replication of 200+ anomalies with code; cited as the
-empirical motivation for regime-stratified IC analysis (now expressed
-via `slice_pairwise_test(ic, ..., label="regime")`).
+empirical motivation for regime-stratified IC analysis (now
+expressed via factrix's slice-pairwise IC path under a regime
+label).
 
 ### López de Prado (2018)
 [](){ #lopez-de-prado-2018 }
@@ -889,9 +889,9 @@ via `slice_pairwise_test(ic, ..., label="regime")`).
 López de Prado, M. (2018). *Advances in Financial Machine Learning*.
 Wiley.
 
-CPCV (Combinatorial Purged CV) and broader ML-aware
-backtesting discipline; cited from `multi_split_oos_decay` as the
-robust train/test alternative factrix does not yet implement.
+CPCV (Combinatorial Purged CV) and broader ML-aware backtesting
+discipline; the robust train/test alternative to factrix's
+multi-split OOS-decay path.
 
 ### Green, Hand & Zhang (2017)
 [](){ #green-hand-zhang-2017 }
@@ -922,11 +922,11 @@ Activity from Return Correlations." *Review of Financial Studies*
 35(7), 3272–3302.
 
 Comomentum measures crowding from cross-asset return correlations
-within momentum winners and losers. Cited from `ic_trend` as a
-suggestive *crowding* explanation for downward-sloping IC over time;
-the paper's direct subject is return comomentum, not IC slope —
-[McLean-Pontiff 2016][mclean-pontiff-2016] is the cleaner cite for
-post-publication IC decay.
+within momentum winners and losers. A suggestive *crowding*
+explanation for downward-sloping IC over time in factrix's IC-trend
+interpretation; the paper's direct subject is return comomentum, not
+IC slope — [McLean-Pontiff 2016][mclean-pontiff-2016] is the cleaner
+cite for post-publication IC decay.
 
 ---
 
@@ -939,7 +939,7 @@ Barillas, F. & Shanken, J. (2017). "Which Alpha?" *Review of
 Financial Studies* 30(4), 1316–1338.
 
 Spanning-test framework for nested factor models; the methodology
-behind `spanning_alpha`.
+behind factrix's spanning-alpha procedure.
 
 ### Barillas & Shanken (2018)
 [](){ #barillas-shanken-2018 }
@@ -956,10 +956,11 @@ Bayesian model-comparison alternative; cited in design notes as the
 Feng, G., Giglio, S. & Xiu, D. (2020). "Taming the Factor Zoo: A
 Test of New Factors." *Journal of Finance* 75(3), 1327–1370.
 
-Two-pass model-selection-corrected stochastic discount factor (SDF) estimator for testing whether
-a candidate factor adds incremental pricing power. Cited from
-`spanning.py` as the principled alternative to greedy forward
-selection.
+Two-pass model-selection-corrected stochastic discount factor (SDF)
+estimator for testing whether a candidate factor adds incremental
+pricing power; the principled alternative to greedy forward
+selection that factrix's spanning toolkit notes but does not
+implement.
 
 ### Gibbons, Ross & Shanken (1989)
 [](){ #gibbons-ross-shanken-1989 }
@@ -987,8 +988,8 @@ Returns: New Tests with Applications to the Term Structure, the
 CAPM, and Portfolio Sorts." *Journal of Financial Economics* 98(3),
 605–625.
 
-Formal monotonicity tests for portfolio sorts; cited as the rigour
-benchmark above factrix's per-date Spearman `monotonicity` metric.
+Formal monotonicity tests for portfolio sorts; the rigour benchmark
+above factrix's per-date Spearman monotonicity metric.
 
 ### Novy-Marx & Velikov (2016)
 [](){ #novy-marx-velikov-2016 }
@@ -997,7 +998,7 @@ Novy-Marx, R. & Velikov, M. (2016). "A Taxonomy of Anomalies and
 Their Trading Costs." *Review of Financial Studies* 29(1), 104–147.
 
 Notional-turnover $\tau$ and breakeven-cost framework; the source of
-`notional_turnover` and `breakeven_cost`.
+factrix's notional-turnover and breakeven-cost metrics.
 
 ### DeMiguel, Martin-Utrera, Nogales & Uppal (2020)
 [](){ #demiguel-martin-utrera-nogales-uppal-2020 }
@@ -1006,9 +1007,9 @@ DeMiguel, V., Martin-Utrera, A., Nogales, F. J. & Uppal, R. (2020).
 "A Transaction-cost Perspective on the Multitude of Firm
 Characteristics." *Review of Financial Studies* 33(5), 2180–2222.
 
-Transaction-cost-aware factor selection; cited from `net_spread`
-as the structural reason gross-spread metrics need a cost-deduction
-companion.
+Transaction-cost-aware factor selection; the structural reason
+gross-spread metrics need a cost-deduction companion in factrix's
+spread/cost-net path.
 
 ### DeMiguel, Garlappi & Uppal (2009)
 [](){ #demiguel-garlappi-uppal-2009 }
@@ -1080,8 +1081,8 @@ discipline.
 Herfindahl, O. C. (1950). *Concentration in the U.S. Steel
 Industry*. PhD dissertation, Columbia University.
 
-Origin of the HHI used by `top_concentration` and
-`clustering_diagnostic`.
+Origin of the HHI used by factrix's top-concentration and
+clustering-diagnostic metrics.
 
 ### Hirschman (1945)
 [](){ #hirschman-1945 }
@@ -1100,10 +1101,9 @@ Arithmetic Mean: A Reconsideration." *Financial Analysts Journal*
 59(6), 46–53.
 
 Compounding at the arithmetic mean is an upward-biased estimator of
-cumulative wealth; the geometric mean is itself biased; the
-unbiased estimator is a horizon-weighted blend of the two with
-weights depending on the forecast horizon / sample-length ratio.
-Cited at `compute_forward_return` for the compounding-bias caveat
-of factrix's `÷N` per-period normalization — the bias affects
-signed-return mean and t-tests at large `N`, but is negligible for
-rank-based IC.
+cumulative wealth; the geometric mean is itself biased; the unbiased
+estimator is a horizon-weighted blend of the two with weights
+depending on the forecast horizon / sample-length ratio. The
+compounding-bias caveat for factrix's `÷N` per-period forward-return
+normalisation — the bias affects signed-return mean and t-tests at
+large `N`, but is negligible for rank-based IC.
