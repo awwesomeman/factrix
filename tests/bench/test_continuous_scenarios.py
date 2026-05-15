@@ -7,10 +7,8 @@ budget on a CI runner: under 30 s for the whole module.
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
-import pytest
 from bench.scenarios.continuous import (
     SCENARIOS,
     m_ic,
@@ -22,15 +20,6 @@ from bench.scenarios.continuous import (
 from bench.validator import validate_file
 
 
-@pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
-    # Tiny scale trips factrix's "median assets per group" warning;
-    # the bench harness intentionally runs under-spec sizes for CI.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        yield
-
-
 def test_every_scenario_runs_and_validates(tmp_path: Path):
     for sid, fn in SCENARIOS.items():
         out = tmp_path / f"{sid}.jsonl"
@@ -39,6 +28,16 @@ def test_every_scenario_runs_and_validates(tmp_path: Path):
         assert rep.ok, (sid, rep.failures)
         assert records, sid
         assert all(r.scenario_id == sid for r in records)
+        assert all(r.axis_cell == "continuous_individual_panel" for r in records)
+
+
+def test_setup_compute_split(tmp_path: Path):
+    """Panel construction is setup; the metric work is compute."""
+    out = tmp_path / "S2.jsonl"
+    records = s2_screen_50(out, preset="tiny")
+    measured = records[1]
+    assert measured.setup_s is not None and measured.setup_s > 0
+    assert measured.compute_s is not None and measured.compute_s > 0
 
 
 def test_s1_emits_warmup_and_measured(tmp_path: Path):

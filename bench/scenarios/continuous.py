@@ -1,5 +1,4 @@
-"""Continuous × Individual scenarios (#380 §4 mandatory peak + probe
-and per-metric micros).
+"""Continuous × Individual scenarios.
 
 Each scenario is a small function with the same shape::
 
@@ -9,7 +8,8 @@ Each scenario is a small function with the same shape::
 self-validation. Scenarios only declare *what* to compute on the
 prepared panel.
 
-Algo scenarios (``greedy_forward_selection``) live in ``algo.py``.
+Algo scenarios (``greedy_forward_selection``) live in ``algo.py``;
+sparse-cell scenarios live in ``sparse.py``.
 """
 
 from __future__ import annotations
@@ -27,16 +27,14 @@ from bench.scenarios._helpers import (
     factor_columns,
     resolve_scale,
     run_continuous_scenario,
+    write_and_validate,
 )
-from bench.schema import BenchRecord
-from bench.validator import validate_file
-from bench.wrapper import write_records
+from bench.schema import BenchRecord, CacheState
 
-# Bootstrap resample count for `heavy` / M-ic-boot scenarios. Pinned
-# here (not at call site) so a #378 sub-task tuning compute cost cannot
-# silently drift the baseline workload. The value matches
-# factrix.stats.BlockBootstrap's default (n_resamples=999) plus one for
-# the trivial cost of the point statistic.
+# Bootstrap resample count for the heavy / bootstrap scenarios.
+# Pinned here (not at call site) so tuning compute cost does not
+# silently drift the baseline workload. The value matches factrix's
+# BlockBootstrap default.
 BOOTSTRAP_N = 999
 
 
@@ -84,7 +82,11 @@ def _bootstrap_ic_per_factor(
 
 
 def s1_evaluate(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
     """S1: single factor through ``evaluate`` + ``run_metrics(heavy)``.
 
@@ -110,6 +112,7 @@ def s1_evaluate(
         compute=compute,
         output=output,
         seed=seed,
+        cache_state=cache_state,
     )
 
 
@@ -119,12 +122,13 @@ def s1_evaluate(
 
 
 def _screen(
-    output: Path,
+    output: Path | None,
     *,
     scenario_id: str,
     n_factors: int,
     preset: str,
     seed: int,
+    cache_state: CacheState,
 ) -> list[BenchRecord]:
     scale = resolve_scale(preset, n_factors=n_factors)
     core = metric_sets.CORE
@@ -141,23 +145,46 @@ def _screen(
         compute=compute,
         output=output,
         seed=seed,
+        cache_state=cache_state,
     )
 
 
 def s2_screen_50(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
     """S2: 50-factor screening with the `core` metric set."""
     n = min(50, resolve_scale(preset).n_factors)  # tiny preset caps at 8
-    return _screen(output, scenario_id="S2", n_factors=n, preset=preset, seed=seed)
+    return _screen(
+        output,
+        scenario_id="S2",
+        n_factors=n,
+        preset=preset,
+        seed=seed,
+        cache_state=cache_state,
+    )
 
 
 def s3_screen_200(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
     """S3: 200-factor screening with the `core` metric set."""
     n = min(200, resolve_scale(preset).n_factors)
-    return _screen(output, scenario_id="S3", n_factors=n, preset=preset, seed=seed)
+    return _screen(
+        output,
+        scenario_id="S3",
+        n_factors=n,
+        preset=preset,
+        seed=seed,
+        cache_state=cache_state,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -166,11 +193,15 @@ def s3_screen_200(
 
 
 def p1_scaling_probe(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
-    """P1: scaling probe emits one record per scale step.
+    """Scaling probe — emits one record per scale step.
 
-    Step values follow #380 §4 (100 / 200 / 500) at `small` and above;
+    Step values are 100 / 200 / 500 factors at `small` and above;
     `tiny` proportionally shrinks to keep the probe under a second.
     """
     max_factors = resolve_scale(preset).n_factors
@@ -184,23 +215,20 @@ def p1_scaling_probe(
 
     all_records: list[BenchRecord] = []
     for step in steps:
-        # Reuse `_screen` plumbing but route output into an in-memory
-        # accumulator: write to a per-step path then re-aggregate at
-        # the end. (Each call self-validates its own slice.)
-        tmp = output.with_suffix(f".step{step}.jsonl")
+        # Collect records without writing; aggregate and write once
+        # at the end so the JSONL holds all sub-runs and the harness
+        # self-validates the aggregated file exactly once.
         records = _screen(
-            tmp, scenario_id="P1", n_factors=step, preset=preset, seed=seed
+            None,
+            scenario_id="P1",
+            n_factors=step,
+            preset=preset,
+            seed=seed,
+            cache_state=cache_state,
         )
         all_records.extend(records)
-        tmp.unlink(missing_ok=True)
 
-    write_records(output, all_records)
-    # Mirror run_continuous_scenario's "harness self-validates every
-    # JSONL it writes" invariant (#380 §9.1) — the per-step temps
-    # were validated then unlinked, the final aggregated file has not.
-    report = validate_file(output)
-    if not report.ok:
-        raise RuntimeError(f"self-validation failed: {report.failures}")
+    write_and_validate(output, all_records)
     return all_records
 
 
@@ -208,7 +236,7 @@ def p1_scaling_probe(
 # Per-metric micros — attribute compute cost to a single metric
 # ---------------------------------------------------------------------------
 
-_MICRO_FACTORS = 50  # #380 §4 micro table; scale capped by preset
+_MICRO_FACTORS = 50  # capped by preset for tiny smoke runs
 
 
 def _micro(
@@ -218,6 +246,7 @@ def _micro(
     metric_name: str,
     preset: str,
     seed: int,
+    cache_state: CacheState,
 ) -> list[BenchRecord]:
     max_factors = resolve_scale(preset).n_factors
     n = min(_MICRO_FACTORS, max_factors)
@@ -241,18 +270,34 @@ def _micro(
         compute=compute,
         output=output,
         seed=seed,
+        cache_state=cache_state,
     )
 
 
-def m_ic(output: Path, *, preset: str = "tiny", seed: int = 0) -> list[BenchRecord]:
+def m_ic(
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
+) -> list[BenchRecord]:
     """M-ic: cost of ``ic`` alone (no bootstrap)."""
     return _micro(
-        output, scenario_id="M-ic", metric_name="ic", preset=preset, seed=seed
+        output,
+        scenario_id="M-ic",
+        metric_name="ic",
+        preset=preset,
+        seed=seed,
+        cache_state=cache_state,
     )
 
 
 def m_quantile(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
     """M-quantile: cost of ``quantile_spread`` alone."""
     return _micro(
@@ -261,11 +306,16 @@ def m_quantile(
         metric_name="quantile_spread",
         preset=preset,
         seed=seed,
+        cache_state=cache_state,
     )
 
 
 def m_monotonicity(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
     """M-mono: cost of ``monotonicity`` alone."""
     return _micro(
@@ -274,18 +324,23 @@ def m_monotonicity(
         metric_name="monotonicity",
         preset=preset,
         seed=seed,
+        cache_state=cache_state,
     )
 
 
 def m_ic_bootstrap(
-    output: Path, *, preset: str = "tiny", seed: int = 0
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
-    """M-ic-boot: cost of the bootstrap path on a per-factor IC series.
+    """Cost of the bootstrap path on a per-factor IC series.
 
-    Unlike the other micros this scenario does **not** go through
-    ``run_metrics``; it times ``compute_ic`` + ``bootstrap_mean_ci``
-    directly, matching the optimisation target in #378 (bootstrap
-    vectorization on the IC path).
+    Unlike the other single-metric scenarios this one does **not** go
+    through ``run_metrics``; it times ``compute_ic`` +
+    ``bootstrap_mean_ci`` directly so the bootstrap cost is
+    attributable separately from the IC computation.
     """
     max_factors = resolve_scale(preset).n_factors
     n = min(_MICRO_FACTORS, max_factors)
@@ -306,6 +361,7 @@ def m_ic_bootstrap(
         compute=compute,
         output=output,
         seed=seed,
+        cache_state=cache_state,
     )
 
 

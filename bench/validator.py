@@ -1,4 +1,4 @@
-"""Self-validation of harness output (#380 §9.1).
+"""Self-validation of harness output.
 
 The harness reads back every JSONL it writes through ``validate_file``;
 the same code path is exposed as the ``python -m bench.validate`` CLI

@@ -2,22 +2,10 @@
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
-import pytest
 from bench.scenarios.algo import SCENARIOS, s4_greedy_forward_selection
 from bench.validator import validate_file
-
-
-@pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
-    # Tiny scale trips factrix's sample-floor warnings; the algo
-    # itself also emits a snooping warning that the scenario already
-    # suppresses inside `compute`.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        yield
 
 
 def test_s4_runs_and_validates(tmp_path: Path):
@@ -44,3 +32,17 @@ def test_s4_setup_compute_split(tmp_path: Path):
 
 def test_scenarios_dict_exports_s4():
     assert set(SCENARIOS) == {"S4"}
+
+
+def test_seed_determinism(tmp_path: Path):
+    """Same seed must produce identical scale + label fields across runs."""
+    out_a = tmp_path / "a.jsonl"
+    out_b = tmp_path / "b.jsonl"
+    a = s4_greedy_forward_selection(out_a, preset="tiny", seed=42)
+    b = s4_greedy_forward_selection(out_b, preset="tiny", seed=42)
+    assert len(a) == len(b)
+    for ra, rb in zip(a, b, strict=True):
+        assert ra.scenario_id == rb.scenario_id
+        assert ra.scale == rb.scale
+        assert ra.metric_set == rb.metric_set
+        assert ra.axis_cell == rb.axis_cell

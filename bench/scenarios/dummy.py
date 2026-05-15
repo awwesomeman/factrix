@@ -1,7 +1,7 @@
 """End-to-end smoke scenario — proves wrapper → JSONL → validator.
 
-Not one of the mandatory S/M scenarios from #380 §4. Used by tests
-and by ``bench-tiny`` CI smoke to prevent harness rot.
+Used by tests and by CI smoke jobs to prevent harness rot. The real
+benchmark workloads live in sibling modules under ``bench.scenarios``.
 """
 
 from __future__ import annotations
@@ -9,12 +9,15 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import polars as pl
 from factrix.datasets import make_multi_factor_panel
 
+from bench.metric_sets import MetricSet
 from bench.preflight import preflight
+from bench.scenarios._helpers import AXIS_CELL_CONT_IND, run_scenario
 from bench.schema import BenchRecord
-from bench.validator import validate_file
-from bench.wrapper import measure, write_records
+
+_DUMMY_SET = MetricSet(name="dummy", run_metrics_names=())
 
 
 def run(
@@ -23,13 +26,11 @@ def run(
     n_factors: int = 4,
     n_assets: int = 20,
     n_dates: int = 60,
-    warmup: bool = True,
 ) -> list[BenchRecord]:
     """Run the dummy scenario, write JSONL, self-validate."""
     pre = preflight(threads=1, seed=0)
-    scale = {"n_factors": n_factors, "n_dates": n_dates, "n_assets": n_assets}
 
-    def setup():
+    def setup() -> pl.DataFrame:
         return make_multi_factor_panel(
             n_factors=n_factors,
             n_assets=n_assets,
@@ -37,46 +38,21 @@ def run(
             seed=0,
         )
 
-    def compute(df):
+    def compute(df: pl.DataFrame) -> float:
         # Stand-in for real metric work: touch every factor column.
         factor_cols = [c for c in df.columns if c.startswith("factor_")]
         return float(df.select(factor_cols).sum().to_numpy().sum())
 
-    records: list[BenchRecord] = []
-    if warmup:
-        records.append(
-            measure(
-                setup,
-                compute,
-                scenario_id="dummy",
-                axis_cell="continuous_individual_panel",
-                scale=scale,
-                metric_set="core",
-                run_idx=0,
-                is_warmup=True,
-                cache_state="cold",
-                env=pre.env,
-            )
-        )
-    records.append(
-        measure(
-            setup,
-            compute,
-            scenario_id="dummy",
-            axis_cell="continuous_individual_panel",
-            scale=scale,
-            metric_set="core",
-            run_idx=0,
-            is_warmup=False,
-            cache_state="warm",
-            env=pre.env,
-        )
+    return run_scenario(
+        scenario_id="dummy",
+        axis_cell=AXIS_CELL_CONT_IND,
+        metric_set=_DUMMY_SET,
+        scale={"n_factors": n_factors, "n_dates": n_dates, "n_assets": n_assets},
+        setup=setup,
+        compute=compute,
+        output=output,
+        env=pre.env,
     )
-    write_records(output, records)
-    report = validate_file(output)
-    if not report.ok:
-        raise RuntimeError(f"self-validation failed: {report.failures}")
-    return records
 
 
 def main() -> int:

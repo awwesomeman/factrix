@@ -2,7 +2,8 @@
 
 Separates ``setup`` (data prep + I/O) from ``compute`` (the metric work
 under measurement) so the JSONL records both phases. Ratio analysis
-defaults to ``compute_s`` per #380 §9.
+defaults to ``compute_s`` (the measured phase) over ``wall_s`` so
+machine-to-machine I/O differences do not pollute comparisons.
 """
 
 from __future__ import annotations
@@ -12,7 +13,6 @@ import json
 import time
 import tracemalloc
 from collections.abc import Callable
-from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,7 +21,14 @@ import psutil
 
 from bench.metric_sets import METRIC_SET_VERSION
 from bench.preflight import collect_env, quiesce
-from bench.schema import SCHEMA_VERSION, BenchRecord, CacheState, Env, Status
+from bench.schema import (
+    SCHEMA_VERSION,
+    AxisCell,
+    BenchRecord,
+    CacheState,
+    Env,
+    Status,
+)
 
 
 def _utc_now_iso() -> str:
@@ -42,7 +49,7 @@ def measure[T](
     compute: Callable[[T], Any],
     *,
     scenario_id: str,
-    axis_cell: str,
+    axis_cell: AxisCell,
     scale: dict[str, Any],
     metric_set: str,
     metric_set_version: str = METRIC_SET_VERSION,
@@ -140,23 +147,6 @@ def measure[T](
         }
     )
     return record
-
-
-@contextmanager
-def jsonl_writer(path: str | Path):
-    """Append-mode JSONL sink yielding a single ``write(record)`` fn."""
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    fh = p.open("a", encoding="utf-8")
-    try:
-
-        def write(record: BenchRecord) -> None:
-            fh.write(record.model_dump_json() + "\n")
-            fh.flush()
-
-        yield write
-    finally:
-        fh.close()
 
 
 def write_records(path: str | Path, records: list[BenchRecord]) -> None:

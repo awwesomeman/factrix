@@ -1,8 +1,6 @@
-"""Benchmark harness foundation — wrapper, schema, validator.
+"""Benchmark harness — wrapper, schema, validator, scenarios.
 
-Sub-issue #381 of #380. Design SSOT is the v1 planning comment on #380.
-This package is dev tooling; not exported from the public ``factrix``
-namespace.
+Dev tooling; not exported from the public ``factrix`` namespace.
 """
 
 from bench.schema import (

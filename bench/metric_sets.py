@@ -1,6 +1,5 @@
 """Pinned metric sets — independent of ``factrix.run_metrics`` defaults
-so a default-set tweak in factrix cannot silently shift the baseline
-(#380 §3).
+so a default-set tweak in factrix cannot silently shift the baseline.
 
 Each ``MetricSet`` declares the names ``run_metrics`` should dispatch
 (``run_metrics_names``) and an optional ``custom`` callable for paths
@@ -59,7 +58,13 @@ ALGO = MetricSet(
 
 EVENT = MetricSet(
     name="event",
-    run_metrics_names=("corrado_rank_test", "caar", "mfe_mae_summary"),
+    # Only `corrado_rank_test` dispatches through ``run_metrics``;
+    # ``caar`` and ``mfe_mae_summary`` require pre-computed event-row
+    # inputs and are called directly by the sparse scenario. The set
+    # name is the JSONL label for the conceptual bundle; the
+    # ``run_metrics_names`` tuple reflects what ``run_metrics`` can
+    # actually take.
+    run_metrics_names=("corrado_rank_test",),
 )
 
 
