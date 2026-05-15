@@ -31,6 +31,12 @@ import polars as pl
 
 _DEFAULT_START = "2020-01-02"
 
+# Bumped whenever the default parameters or construction recipe of the
+# synthetic generators in this module change in ways that would shift
+# benchmark numbers. Recorded in JSONL `env.dataset_spec_version` so
+# baselines from different recipes refuse silent comparison.
+DATASET_SPEC_VERSION = "1"
+
 
 def _daily_date_index(start_date: str, n_dates: int) -> pl.Series:
     start = datetime.fromisoformat(start_date)
@@ -272,6 +278,120 @@ def make_event_panel(
         prices=prices,
         factor=factor,
     )
+
+
+def make_multi_factor_panel(
+    *,
+    n_factors: int = 10,
+    n_assets: int = 50,
+    n_dates: int = 252,
+    ic_target: float = 0.04,
+    factor_correlation: float = 0.0,
+    signal_horizon: int = 5,
+    seed: int = 42,
+    start_date: str = _DEFAULT_START,
+) -> pl.DataFrame:
+    """Synthetic multi-factor panel with calibrated IC and tunable
+    cross-factor correlation.
+
+    Each of ``n_factors`` factor columns is constructed as in
+    ``make_cs_panel`` (``ρ · z(fr) + √(1−ρ²) · z(η_k)``), with the
+    per-factor noise terms ``η_k`` sharing a common cross-sectional
+    component so that pairwise factor-factor correlation is controllable:
+
+        η_k = √c · ξ_common + √(1−c) · ξ_idio_k
+
+    where ``c = factor_correlation``. The realized factor-factor
+    cross-sectional correlation is approximately
+    ``ρ² + (1 − ρ²) · c``.
+
+    The last ``H + 1`` rows have no defined forward return; factor
+    values there are pure noise (same construction convention as
+    ``make_cs_panel``) and will be dropped along with the null forward
+    returns once ``compute_forward_return`` runs.
+
+    Args:
+        n_factors: Number of factor columns to emit.
+        n_assets: Cross-sectional width.
+        n_dates: Number of calendar dates.
+        ic_target: Target per-date Pearson CS correlation between each
+            factor and the forward return at ``signal_horizon``.
+        factor_correlation: Pairwise correlation between factor noise
+            terms in ``[0, 1)``. ``0`` reproduces independent factors;
+            higher values share more of a common cross-sectional driver.
+        signal_horizon: Horizon (in bars) at which the synthetic signal
+            lives.
+        seed: RNG seed.
+        start_date: ISO date for the first row.
+
+    Returns:
+        Long DataFrame with ``date, asset_id, price, factor_0000,
+        factor_0001, ...``. ``factor_*`` column count equals
+        ``n_factors`` and column width is zero-padded to a stable
+        sort order.
+    """
+    if n_factors < 1:
+        raise ValueError("n_factors must be >= 1")
+    if n_assets < 2:
+        raise ValueError("n_assets must be >= 2 for a cross-section")
+    if n_dates < signal_horizon + 2:
+        raise ValueError(
+            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
+            f"signal_horizon={signal_horizon})"
+        )
+    if not 0.0 <= factor_correlation < 1.0:
+        raise ValueError(
+            f"factor_correlation must be in [0, 1), got {factor_correlation}"
+        )
+
+    rng = np.random.default_rng(seed)
+    sigmas = rng.uniform(0.01, 0.03, size=n_assets)
+    daily_ret = rng.standard_normal((n_dates, n_assets)) * sigmas
+    prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
+
+    H = signal_horizon
+    last_valid = n_dates - H - 1
+    fr = (prices[1 + H : 1 + H + last_valid] / prices[1 : 1 + last_valid] - 1.0) / H
+    fr_z = _zscore_cs(fr)
+
+    rho = float(np.clip(ic_target, -0.99, 0.99))
+    c = float(factor_correlation)
+    sqrt_c = float(np.sqrt(c))
+    sqrt_1_c = float(np.sqrt(1.0 - c))
+    sqrt_1_rho2 = float(np.sqrt(1.0 - rho * rho))
+
+    common = rng.standard_normal((n_dates, n_assets))
+    common_z = _zscore_cs(common)
+
+    width = max(4, len(str(n_factors - 1)))
+    factor_columns: dict[str, np.ndarray] = {}
+    for k in range(n_factors):
+        idio = rng.standard_normal((n_dates, n_assets))
+        eta = sqrt_c * common_z + sqrt_1_c * _zscore_cs(idio)
+        f_k = eta.copy()
+        f_k[:last_valid] = rho * fr_z + sqrt_1_rho2 * _zscore_cs(eta[:last_valid])
+        factor_columns[f"factor_{k:0{width}d}"] = f_k
+
+    dates = _daily_date_index(start_date, n_dates)
+    assets = _asset_ids(n_assets)
+    date_col = np.repeat(dates.to_numpy(), n_assets)
+    asset_col = np.tile(np.asarray(assets, dtype=object), n_dates)
+
+    data: dict[str, np.ndarray] = {
+        "date": date_col,
+        "asset_id": asset_col,
+        "price": prices.flatten(),
+    }
+    schema: dict[str, pl.DataType] = {
+        "date": pl.Datetime("ms"),
+        "asset_id": pl.String,
+        "price": pl.Float64,
+    }
+    for name, arr in factor_columns.items():
+        data[name] = arr.flatten()
+        schema[name] = pl.Float64
+
+    return pl.DataFrame(data, schema=schema)
 
 
 def _to_long_panel(
