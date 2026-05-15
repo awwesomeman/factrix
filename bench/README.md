@@ -33,6 +33,9 @@ sub-issues. This README describes the current surface only.
 - `bench.scenarios.algo` — S4 greedy forward selection. Setup phase
   pre-computes per-factor spread series (rank → bucket → spread);
   compute phase runs the greedy + backward-elimination loop.
+- `bench.scenarios.sparse` — Sparse × Individual scenarios (#380 §4):
+  S5 (event-study bundle: `corrado_rank_test` + `compute_caar` +
+  `compute_mfe_mae`) and the M-corrado micro.
 - `bench.scenarios.dummy` — smoke scenario proving the wrapper →
   JSONL → validator loop.
 
@@ -43,30 +46,59 @@ installed**. Run from the repo root so `bench` resolves on
 `sys.path`:
 
 ```bash
+# run every mandatory scenario at the tiny preset (CI smoke)
+python -m bench --target tiny --output out/
+
+# baseline run (16 GB laptop) — cold-cache mode required for
+# reference baselines so OS page cache + numpy import state resets
+# between scenarios
+python -m bench --target small --output out/baselines/v0.13.1/ --cold-cache
+
+# sparse-cell only
+python -m bench --target event --output out/
+
+# re-run one scenario without spawning the full set
+python -m bench --run-one S2 --preset small --output out/
+
 # self-validate an existing JSONL
 python -m bench.validate path/to/run.jsonl
-
-# end-to-end smoke (dummy scenario)
-python -m bench.scenarios.dummy --output out/dummy.jsonl
 ```
 
 If launching from elsewhere, set `PYTHONPATH=<repo-root>` explicitly.
 CI smoke jobs should `cd` to the repo root or export `PYTHONPATH=.`
 before invoking any `python -m bench.*` entry point.
 
+### Targets
+
+| `--target` | Preset | Scenarios |
+|---|---|---|
+| `tiny` | `tiny` | All 11 mandatory scenarios (`#380` §4) |
+| `small` | `small` | All 11 — 16 GB laptop baseline |
+| `large` | `large` | All 11 — 32 GB cloud, opt-in |
+| `event` | `small` | Sparse × Individual only (S5 + M-corrado) |
+
+`--cold-cache` re-execs `python -m bench --run-one <id>` in a fresh
+subprocess per scenario, resetting OS page cache / numpy import /
+BLAS thread state. Reference baselines must run in cold-cache mode;
+ad-hoc warm runs skip the subprocess overhead.
+
 ## Scale presets
 
-`bench.scenarios._helpers.PRESETS` pins three scales per #380 §7:
+`bench.scenarios._helpers.PRESETS` / `SPARSE_PRESETS` pin scales per
+#380 §7:
 
-| Preset | n_factors | n_assets | n_dates | Use |
-|---|---|---|---|---|
-| `tiny` | 8 | 20 | 60 | Tests + CI smoke; seconds-level |
-| `small` | 100 | 1000 | 1250 | 16 GB laptop baseline (mandatory) |
-| `large` | 500 | 1000 | 1250 | 32 GB cloud baseline (opt-in) |
+| Preset | Cont: factors / assets / dates | Sparse: assets / dates / event_rate | Use |
+|---|---|---|---|
+| `tiny` | 8 / 20 / 60 | 20 / 60 / 0.05 | Tests + CI smoke; seconds-level |
+| `small` | 100 / 1000 / 1250 | 200 / 1250 / 0.0001 | 16 GB laptop baseline |
+| `large` | 500 / 1000 / 1250 | 500 / 1250 / 0.0002 | 32 GB cloud, opt-in |
 
-Fixed-scale scenarios (S2 = 50 factors, S3 = 200) override the
-preset's `n_factors` so the workload stays fixed regardless of
-preset choice.
+Fixed-scale scenarios (S2 = 50 factors, S3 = 200, M-* = 50) override
+the preset's `n_factors` so the workload stays fixed regardless of
+preset choice. Sparse-cell `n_events` is reported back from the
+realised event panel rather than configured directly — the seeded
+`make_event_panel` produces Binomial events whose count depends on
+`(n_dates × n_assets × event_rate)`.
 
 ## Schema / version invariants
 

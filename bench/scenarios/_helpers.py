@@ -27,7 +27,7 @@ from typing import Any
 
 import factrix as fx
 import polars as pl
-from factrix.datasets import make_multi_factor_panel
+from factrix.datasets import make_event_panel, make_multi_factor_panel
 from factrix.preprocess import compute_forward_return
 
 from bench.metric_sets import MetricSet
@@ -37,6 +37,7 @@ from bench.validator import validate_file
 from bench.wrapper import measure, write_records
 
 AXIS_CELL_CONT_IND = "continuous_individual_panel"
+AXIS_CELL_SPARSE_IND = "sparse_individual_panel"
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,83 @@ def build_panel(scale: ContinuousScale, *, seed: int = 0) -> pl.DataFrame:
         seed=seed,
     )
     return compute_forward_return(raw, forward_periods=DEFAULT_FORWARD_PERIODS)
+
+
+@dataclass(frozen=True)
+class SparseScale:
+    """Scale specification for the sparse individual panel cell.
+
+    `n_events` is reported back from the realised event panel rather
+    than configured directly — the seeded `make_event_panel` produces
+    `Binomial(n_dates × n_assets, event_rate)` events, with mean
+    `n_dates * n_assets * event_rate`. We pin `event_rate` instead so
+    the workload stays Poisson-deterministic given the seed.
+    """
+
+    n_assets: int
+    n_dates: int
+    window_pre: int
+    window_post: int
+    event_rate: float
+
+    def as_scale_field(self, *, n_events: int) -> dict[str, int]:
+        return {
+            "n_events": n_events,
+            "n_assets": self.n_assets,
+            "n_dates": self.n_dates,
+            "window_pre": self.window_pre,
+            "window_post": self.window_post,
+        }
+
+
+# Sparse-cell presets per #380 §4 (S5 spec: "20 events × 200 assets ×
+# 1250 dates"). Event rate at `small` is tuned to give ~20 events
+# expected; `tiny` mirrors the Cont preset's seconds-level budget.
+SPARSE_PRESETS: dict[str, SparseScale] = {
+    "tiny": SparseScale(
+        n_assets=20, n_dates=60, window_pre=3, window_post=5, event_rate=0.05
+    ),
+    "small": SparseScale(
+        n_assets=200, n_dates=1250, window_pre=5, window_post=10, event_rate=0.0001
+    ),
+    "large": SparseScale(
+        n_assets=500, n_dates=1250, window_pre=5, window_post=10, event_rate=0.0002
+    ),
+}
+
+
+def resolve_sparse_scale(
+    preset: str,
+    *,
+    n_assets: int | None = None,
+    n_dates: int | None = None,
+    event_rate: float | None = None,
+) -> SparseScale:
+    """Pick a sparse preset and apply per-scenario overrides."""
+    base = SPARSE_PRESETS[preset]
+    return replace(
+        base,
+        n_assets=n_assets if n_assets is not None else base.n_assets,
+        n_dates=n_dates if n_dates is not None else base.n_dates,
+        event_rate=event_rate if event_rate is not None else base.event_rate,
+    )
+
+
+def build_event_panel(scale: SparseScale, *, seed: int = 0) -> pl.DataFrame:
+    """Generate a sparse event panel with forward return attached."""
+    raw = make_event_panel(
+        n_assets=scale.n_assets,
+        n_dates=scale.n_dates,
+        event_rate=scale.event_rate,
+        signal_horizon=DEFAULT_FORWARD_PERIODS,
+        seed=seed,
+    )
+    return compute_forward_return(raw, forward_periods=DEFAULT_FORWARD_PERIODS)
+
+
+def count_events(panel: pl.DataFrame) -> int:
+    """Count non-zero factor cells (= event count) in a sparse panel."""
+    return int((panel["factor"] != 0).sum())
 
 
 def factor_columns(panel: pl.DataFrame) -> list[str]:
