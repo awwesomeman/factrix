@@ -979,8 +979,11 @@ cite for post-publication IC decay.
 Barillas, F. & Shanken, J. (2017). "Which Alpha?" *Review of
 Financial Studies* 30(4), 1316–1338.
 
-Spanning-test framework for nested factor models; the methodology
-behind factrix's spanning-alpha procedure.
+Spanning-test framework for traded-factor model comparison: model
+comparison reduces to whether each model prices the *other* model's
+factors (left-hand-side = competing factors, not test assets), and
+the result applies to nested and non-nested comparisons alike. The
+methodology behind factrix's spanning-alpha procedure.
 
 ### Barillas & Shanken (2018)
 [](){ #barillas-shanken-2018 }
@@ -998,10 +1001,9 @@ Feng, G., Giglio, S. & Xiu, D. (2020). "Taming the Factor Zoo: A
 Test of New Factors." *Journal of Finance* 75(3), 1327–1370.
 
 Two-pass model-selection-corrected stochastic discount factor (SDF)
-estimator for testing whether a candidate factor adds incremental
-pricing power; the principled alternative to greedy forward
-selection that factrix's spanning toolkit notes but does not
-implement.
+estimator with double-selection LASSO for testing whether a candidate
+factor adds incremental pricing power; the principled selection-aware
+counterpart to greedy stepwise factor spanning.
 
 ### Gibbons, Ross & Shanken (1989)
 [](){ #gibbons-ross-shanken-1989 }
@@ -1029,8 +1031,9 @@ Returns: New Tests with Applications to the Term Structure, the
 CAPM, and Portfolio Sorts." *Journal of Financial Economics* 98(3),
 605–625.
 
-Formal monotonicity tests for portfolio sorts; the rigour benchmark
-above factrix's per-date Spearman monotonicity metric.
+Bootstrap-based formal tests for monotonic relations across
+sorted-portfolio expected returns; the inference-grade benchmark for
+monotonicity diagnostics on portfolio sorts.
 
 ### Novy-Marx & Velikov (2016)
 [](){ #novy-marx-velikov-2016 }
@@ -1038,8 +1041,9 @@ above factrix's per-date Spearman monotonicity metric.
 Novy-Marx, R. & Velikov, M. (2016). "A Taxonomy of Anomalies and
 Their Trading Costs." *Review of Financial Studies* 29(1), 104–147.
 
-Notional-turnover $\tau$ and breakeven-cost framework; the source of
-factrix's notional-turnover and breakeven-cost metrics.
+Turnover, generalised buy/hold spreads, and breakeven-cost analysis
+of anomaly portfolios; the lineage for turnover-aware and
+breakeven-cost diagnostics.
 
 ### DeMiguel, Martin-Utrera, Nogales & Uppal (2020)
 [](){ #demiguel-martin-utrera-nogales-uppal-2020 }
@@ -1048,9 +1052,9 @@ DeMiguel, V., Martin-Utrera, A., Nogales, F. J. & Uppal, R. (2020).
 "A Transaction-cost Perspective on the Multitude of Firm
 Characteristics." *Review of Financial Studies* 33(5), 2180–2222.
 
-Transaction-cost-aware factor selection; the structural reason
-gross-spread metrics need a cost-deduction companion in factrix's
-spread/cost-net path.
+Transaction-cost-aware joint selection across firm characteristics;
+the structural reason gross-spread diagnostics require a
+cost-deduction counterpart for capacity-aware research.
 
 ### DeMiguel, Garlappi & Uppal (2009)
 [](){ #demiguel-garlappi-uppal-2009 }
@@ -1068,9 +1072,9 @@ optimisation" comparison.
 Asness, C. S., Moskowitz, T. J. & Pedersen, L. H. (2013). "Value and
 Momentum Everywhere." *Journal of Finance* 68(3), 929–985.
 
-Cross-asset factor evaluation methodology; cited in design notes as
-the cross-market evaluation pattern factrix does *not* aggregate at
-its scope boundary.
+Cross-asset, cross-market documentation of value and momentum premia
+with common factor structure across eight markets and asset classes;
+the canonical reference for cross-market factor-evaluation patterns.
 
 ### Ambachtsheer (1977)
 [](){ #ambachtsheer-1977 }
