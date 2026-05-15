@@ -34,7 +34,7 @@ sets → raw stats / metadata.
 | `cell` | `dict[str, Any]` | `{"scope", "signal", "metric", "mode"}` | Dispatch coordinate — the four axes that selected the procedure |
 | `n_obs` | `int` | `profile.n_obs` | Cell-canonical final-stage test denominator — see [§ sample axes](#sample-axes-by-cell) |
 | `n_pairs` | `int` | `profile.n_pairs` | Non-null (period, asset) pair count in the raw panel — first-stage observation count |
-| `n_periods` | `int` | `profile.n_periods` | Unique periods in the raw panel (calendar time, any-non-null union) |
+| `n_periods` | `int` | `profile.n_periods` | Unique periods in the raw panel (panel time axis, any-non-null union) |
 | `n_assets` | `int` | `profile.n_assets` | Unique assets in the raw panel (any-non-null union); `1` for single-asset TIMESERIES |
 | `primary_p` | `float` | `profile.primary_p` | Procedure-canonical p-value consumed by `multi_factor.bhy` |
 | `primary_stat` | `float \| None` | `profile.primary_stat` | Test statistic paired with `primary_p` (`None` for no-test-stat primaries like block-bootstrap p) |
@@ -237,7 +237,7 @@ Each procedure-internal `StatCode` maps to one section of
 | `P_GMM` | Reserved — Hansen (1982) generalized method of moments (GMM) J-test p-value |
 | `FACTOR_ADF_TAU`, `FACTOR_ADF_P` | [Persistence diagnostics under near-unit-root predictors](../reference/statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors) — ADF τ statistic and unit-root p-value on the continuous factor |
 | `RESID_LJUNG_BOX_Q`, `RESID_LJUNG_BOX_P` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Ljung-Box Q statistic and p-value on the TS-dummy single-asset residual |
-| `EVENT_HHI_VALUE` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Herfindahl concentration of event dates over the calendar grid |
+| `EVENT_HHI_VALUE` | [Architecture § Procedure pipelines](../development/architecture.md#-sparse---n1-ts-dummy--time-series-only) — Herfindahl concentration of event dates over the period grid |
 
 ### Example
 

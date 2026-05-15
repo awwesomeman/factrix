@@ -216,7 +216,7 @@ Descriptive; no test.
 
 #### `signal_density`
 
-Per-asset event frequency; descriptive (the calendar-time analogue
+Per-asset event frequency; descriptive (the period-axis analogue
 is `clustering_diagnostic`).
 
 - *descriptive*: `n_events_total`, `n_assets_with_events`,
@@ -280,7 +280,7 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 #### `clustering_diagnostic` (emits `MetricOutput.name = "clustering_hhi"`)
 
-Descriptive; calendar-time concentration of event dates.
+Descriptive; period-axis concentration of event dates.
 
 - *descriptive*: `n_events`, `n_event_dates`, `effective_n_dates`,
   `hhi_normalized`, `cluster_window`.
