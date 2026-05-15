@@ -643,7 +643,12 @@ implemented procedure in factrix.
 Huber, P. J. (1964). "Robust Estimation of a Location Parameter."
 *Annals of Mathematical Statistics* 35(1), 73–101.
 
-Foundation for MAD-based robust scale; underlies `mad_winsorize`.
+M-estimator framework for robust location estimation under
+contaminated-normal models. Foundational for the broader "robustify
+the central tendency before it gates downstream inference" stance
+that factrix applies to per-date cross-sections — the MAD-as-scale
+lineage itself runs through [Hampel (1974)][hampel-1974], not this
+paper.
 
 ### Huber (1981)
 [](){ #huber-1981 }
@@ -660,8 +665,15 @@ Hampel, F. R. (1974). "The Influence Curve and its Role in Robust
 Estimation." *Journal of the American Statistical Association*
 69(346), 383–393.
 
-Influence-function framework underlying the 29.3% breakdown point
-factrix advertises for Theil-Sen.
+Influence-function framework for local-robustness analysis and the
+canonical reference popularising the median absolute deviation as a
+robust scale estimator (attributing the MAD itself to Gauss).
+Supplies the conceptual language factrix uses for per-date
+robustification of scale and for breakdown-point claims on
+estimators such as Theil-Sen (the breakdown-point concept itself
+predates this paper — Hampel 1968 / 1971 — but the 1974 paper places
+breakdown-point reasoning and the influence function on the same
+conceptual map).
 
 ### Rousseeuw & Croux (1993)
 [](){ #rousseeuw-croux-1993 }
