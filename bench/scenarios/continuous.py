@@ -27,10 +27,9 @@ from bench.scenarios._helpers import (
     factor_columns,
     resolve_scale,
     run_continuous_scenario,
+    write_and_validate,
 )
 from bench.schema import BenchRecord, CacheState
-from bench.validator import validate_file
-from bench.wrapper import write_records
 
 # Bootstrap resample count for the heavy / bootstrap scenarios.
 # Pinned here (not at call site) so tuning compute cost does not
@@ -123,7 +122,7 @@ def s1_evaluate(
 
 
 def _screen(
-    output: Path,
+    output: Path | None,
     *,
     scenario_id: str,
     n_factors: int,
@@ -216,12 +215,11 @@ def p1_scaling_probe(
 
     all_records: list[BenchRecord] = []
     for step in steps:
-        # Reuse `_screen` plumbing but route output into an in-memory
-        # accumulator: write to a per-step path then re-aggregate at
-        # the end. (Each call self-validates its own slice.)
-        tmp = output.with_suffix(f".step{step}.jsonl")
+        # Collect records without writing; aggregate and write once
+        # at the end so the JSONL holds all sub-runs and the harness
+        # self-validates the aggregated file exactly once.
         records = _screen(
-            tmp,
+            None,
             scenario_id="P1",
             n_factors=step,
             preset=preset,
@@ -229,15 +227,8 @@ def p1_scaling_probe(
             cache_state=cache_state,
         )
         all_records.extend(records)
-        tmp.unlink(missing_ok=True)
 
-    write_records(output, all_records)
-    # Mirror run_continuous_scenario's "harness self-validates every
-    # JSONL it writes" invariant — the per-step temps were validated
-    # then unlinked, the final aggregated file has not been.
-    report = validate_file(output)
-    if not report.ok:
-        raise RuntimeError(f"self-validation failed: {report.failures}")
+    write_and_validate(output, all_records)
     return all_records
 
 

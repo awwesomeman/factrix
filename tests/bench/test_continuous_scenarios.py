@@ -28,6 +28,16 @@ def test_every_scenario_runs_and_validates(tmp_path: Path):
         assert rep.ok, (sid, rep.failures)
         assert records, sid
         assert all(r.scenario_id == sid for r in records)
+        assert all(r.axis_cell == "continuous_individual_panel" for r in records)
+
+
+def test_setup_compute_split(tmp_path: Path):
+    """Panel construction is setup; the metric work is compute."""
+    out = tmp_path / "S2.jsonl"
+    records = s2_screen_50(out, preset="tiny")
+    measured = records[1]
+    assert measured.setup_s is not None and measured.setup_s > 0
+    assert measured.compute_s is not None and measured.compute_s > 0
 
 
 def test_s1_emits_warmup_and_measured(tmp_path: Path):

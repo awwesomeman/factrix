@@ -203,6 +203,20 @@ def make_cfg() -> fx.AnalysisConfig:
     )
 
 
+def write_and_validate(output: Path, records: list[BenchRecord]) -> None:
+    """Write records as JSONL and read them back through ``validate_file``.
+
+    The harness must self-validate every JSONL it produces — a silent
+    shape drift now is an unparseable baseline six months from now.
+    Centralised here so every code path that emits JSONL flows
+    through the same fail-loud check.
+    """
+    write_records(output, records)
+    report = validate_file(output)
+    if not report.ok:
+        raise RuntimeError(f"self-validation failed: {report.failures}")
+
+
 def run_scenario(
     *,
     scenario_id: str,
@@ -211,19 +225,22 @@ def run_scenario(
     scale: dict[str, Any],
     setup: Callable[[], Any],
     compute: Callable[[Any], Any],
-    output: Path,
+    output: Path | None,
     env: Env,
     warmup: bool = True,
     cache_state: CacheState = "warm",
 ) -> list[BenchRecord]:
-    """Run ``setup`` then ``compute`` (warmup + measured), write JSONL,
-    self-validate.
+    """Run ``setup`` then ``compute`` (warmup + measured) and return records.
 
     Generic over axis_cell / scale shape — the cell-specific helper
-    (e.g. ``run_continuous_scenario``) chooses panel construction,
-    config, and scale serialisation, then delegates here for the
-    measure / write / validate loop. Mirrors the §9.1 self-validation
-    invariant exactly once instead of per-cell.
+    (``run_continuous_scenario`` / ``run_sparse_scenario``) chooses
+    panel construction, config, and scale serialisation, then
+    delegates here for the measure loop.
+
+    When ``output`` is given, records are written to JSONL and the
+    file is read back through the validator. Pass ``output=None`` to
+    skip the write (e.g. a multi-step scenario that aggregates
+    sub-runs and writes once at the end).
     """
     records: list[BenchRecord] = []
     if warmup:
@@ -253,10 +270,8 @@ def run_scenario(
             env=env,
         )
     )
-    write_records(output, records)
-    report = validate_file(output)
-    if not report.ok:
-        raise RuntimeError(f"self-validation failed: {report.failures}")
+    if output is not None:
+        write_and_validate(output, records)
     return records
 
 
@@ -266,18 +281,20 @@ def run_continuous_scenario(
     metric_set: MetricSet,
     scale: ContinuousScale,
     compute: Callable[[pl.DataFrame, fx.AnalysisConfig], Any],
-    output: Path,
+    output: Path | None,
     warmup: bool = True,
     cache_state: CacheState = "warm",
     seed: int = 0,
     threads: int = 1,
 ) -> list[BenchRecord]:
-    """Run a Continuous × Individual scenario end-to-end.
+    """Run a Continuous × Individual scenario.
 
     ``compute`` receives the prepared panel and a default config; what
     it does inside (``run_metrics(metrics=...)``, direct algo call,
     bootstrap primitives) is up to the scenario — the helper only
     knows about timing + JSONL + validation.
+
+    ``output=None`` skips the write (see ``run_scenario``).
     """
     pre = preflight(threads=threads, seed=seed)
 
@@ -293,6 +310,55 @@ def run_continuous_scenario(
         axis_cell=AXIS_CELL_CONT_IND,
         metric_set=metric_set,
         scale=scale.as_scale_field(),
+        setup=setup,
+        compute=compute_step,
+        output=output,
+        env=pre.env,
+        warmup=warmup,
+        cache_state=cache_state,
+    )
+
+
+def run_sparse_scenario(
+    *,
+    scenario_id: str,
+    metric_set: MetricSet,
+    scale: SparseScale,
+    compute: Callable[[pl.DataFrame, fx.AnalysisConfig], Any],
+    output: Path | None,
+    warmup: bool = True,
+    cache_state: CacheState = "warm",
+    seed: int = 0,
+    threads: int = 1,
+) -> list[BenchRecord]:
+    """Run a Sparse × Individual scenario.
+
+    Mirrors ``run_continuous_scenario`` for the sparse cell. A probe
+    panel is built once before the measured runs to read the realised
+    event count for the scale field; the measured ``setup`` rebuilds
+    the panel each call so ``setup_s`` reflects construction cost on
+    every record. The probe and measured panels are seeded identically
+    so the realised event count matches by construction.
+    """
+    pre = preflight(threads=threads, seed=seed)
+    n_events = count_events(build_event_panel(scale, seed=seed))
+    scale_dict = scale.as_scale_field(n_events=n_events)
+
+    def setup() -> tuple[pl.DataFrame, fx.AnalysisConfig]:
+        panel = build_event_panel(scale, seed=seed)
+        return panel, fx.AnalysisConfig.individual_sparse(
+            forward_periods=DEFAULT_FORWARD_PERIODS
+        )
+
+    def compute_step(artifact: tuple[pl.DataFrame, fx.AnalysisConfig]) -> Any:
+        panel, cfg = artifact
+        return compute(panel, cfg)
+
+    return run_scenario(
+        scenario_id=scenario_id,
+        axis_cell=AXIS_CELL_SPARSE_IND,
+        metric_set=metric_set,
+        scale=scale_dict,
         setup=setup,
         compute=compute_step,
         output=output,

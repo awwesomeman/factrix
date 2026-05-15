@@ -46,3 +46,25 @@ def test_scale_records_realised_event_count(tmp_path: Path):
     out2 = tmp_path / "S5b.jsonl"
     records2 = s5_event_study(out2, preset="tiny", seed=0)
     assert records[0].scale.n_events == records2[0].scale.n_events
+
+
+def test_setup_compute_split(tmp_path: Path):
+    """Panel construction is setup; the metric work is compute."""
+    out = tmp_path / "S5.jsonl"
+    records = s5_event_study(out, preset="tiny")
+    measured = records[1]
+    assert measured.setup_s is not None and measured.setup_s > 0
+    assert measured.compute_s is not None and measured.compute_s > 0
+
+
+def test_seed_determinism(tmp_path: Path):
+    """Same seed must produce identical scale + label fields across runs."""
+    out_a = tmp_path / "a.jsonl"
+    out_b = tmp_path / "b.jsonl"
+    a = s5_event_study(out_a, preset="tiny", seed=7)
+    b = s5_event_study(out_b, preset="tiny", seed=7)
+    for ra, rb in zip(a, b, strict=True):
+        assert ra.scenario_id == rb.scenario_id
+        assert ra.scale == rb.scale
+        assert ra.metric_set == rb.metric_set
+        assert ra.axis_cell == rb.axis_cell

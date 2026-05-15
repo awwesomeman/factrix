@@ -100,3 +100,20 @@ def test_run_one_invocation(tmp_path: Path):
 def test_target_required_when_no_run_one(tmp_path: Path):
     with pytest.raises(SystemExit):
         main(["--output", str(tmp_path)])
+
+
+def test_scenario_id_matches_registry_key(tmp_path: Path):
+    """Every scenario must stamp its `scenario_id` field to match the
+    key it is registered under. Drift between the two means a future
+    CLI dispatch by `scenario_id` (e.g. `--run-one`) would land on
+    the wrong function."""
+    from bench.__main__ import ALL_SCENARIOS
+
+    for sid, fn in ALL_SCENARIOS.items():
+        out = tmp_path / f"{sid}.jsonl"
+        records = fn(out, preset="tiny")
+        assert records, sid
+        assert all(r.scenario_id == sid for r in records), (
+            sid,
+            [r.scenario_id for r in records],
+        )
