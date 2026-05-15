@@ -89,7 +89,7 @@ a one-period regression on a moving-average of the predictor — the
 test statistic is then size-correct in finite samples even when the
 implied MA(h−1) overlap is severe.
 
-Cited as background, not implemented. Hodrick 1B reformulates the
+Cited as background. Hodrick 1B reformulates the
 long-horizon regression as a one-period regression of `r_{t,t+1}` on
 the predictor sum `X_t = Σ_{j=0}^{h-1} x_{t-j}`, swapping which side
 carries the moving average. The coefficient has a different
@@ -256,8 +256,7 @@ Stock Returns." *Journal of Finance* 47(2), 427–465.
 
 Empirical anchor for size and value as cross-sectional risk premia;
 prototypical `Individual × Continuous` factor study in the
-Fama-MacBeth tradition. Catalog-only reference in factrix; no inline
-citation site at present.
+Fama-MacBeth tradition.
 
 ### Fama & French (1993)
 [](){ #fama-french-1993 }
@@ -268,8 +267,7 @@ Returns on Stocks and Bonds." *Journal of Financial Economics*
 
 Three-factor model; prototypical multi-factor spanning baseline of
 the kind that factrix's spanning-alpha procedure evaluates a
-candidate factor against. Catalog-only reference in factrix; no
-inline citation site at present.
+candidate factor against.
 
 ---
 
@@ -618,8 +616,6 @@ for Estimation, Testing, and Prediction*. Cambridge University Press.
 Empirical-Bayes alternative to FDR for large-scale multiple testing;
 reference work on local-fdr and shrinkage estimation as the
 empirical-Bayes counterpart to factrix's frequentist BHY stance.
-Catalog-only reference in factrix; no inline citation site at
-present.
 
 ### Bailey & López de Prado (2014)
 [](){ #bailey-lopez-de-prado-2014 }
@@ -683,8 +679,10 @@ Rousseeuw, P. J. & Croux, C. (1993). "Alternatives to the Median
 Absolute Deviation." *Journal of the American Statistical
 Association* 88(424), 1273–1283.
 
-Sn / Qn estimators as MAD alternatives; cited as the "considered
-but not implemented" alternative robust scale.
+$S_n$ / $Q_n$ estimators as higher-efficiency alternatives to MAD
+for robust scale (50% breakdown point, Gaussian efficiency ≈ 58% and
+82% respectively vs MAD's ≈ 37%); the catalog alternative robust
+scale to factrix's MAD-based winsorisation.
 
 ### Künsch (1989)
 [](){ #kunsch-1989 }
