@@ -1,0 +1,671 @@
+<!-- GENERATED FILE — DO NOT EDIT.
+     SSOT lives at factrix/llms-full.txt; regenerated on every mkdocs build
+     by scripts/mkdocs_hooks/sync_llms_txt.py. Edits here will be overwritten. -->
+
+# factrix — LLM reference
+
+> factrix is a polars-native Python library that answers one question for a given
+> factor signal: **Does this factor carry statistical edge?** It runs the
+> appropriate statistical procedure (IC regression, Fama-MacBeth, CAAR event
+> study, or timeseries beta) based on a three-axis config, returns a structured
+> result with a p-value and warning flags, and screens large candidate sets with
+> per-family BHY FDR correction. Install:
+> `uv pip install git+https://github.com/awwesomeman/factrix.git`
+
+Source: https://github.com/awwesomeman/factrix
+Docs: https://awwesomeman.github.io/factrix/
+Full index: https://awwesomeman.github.io/factrix/llms.txt
+
+---
+
+## Core concept: three axes
+
+Every analysis is specified by three orthogonal axes that together select the
+statistical procedure.
+
+**FactorScope** — who carries the factor value:
+- `INDIVIDUAL` — each asset has its own factor value per date (cross-sectional
+  signal, e.g. P/B ratio)
+- `COMMON` — a single factor value is broadcast to all assets per date (macro
+  signal, e.g. VIX)
+
+**Signal** — the value type:
+- `CONTINUOUS` — real-valued (returns, z-scores, raw fundamentals)
+- `SPARSE` — `{0, R}` event trigger: zero on non-event entries, arbitrary real
+  magnitude otherwise (event flags, regime dummies; canonical `{-1, 0, +1}`)
+
+**Metric** — the statistical procedure. Only meaningful for the
+`(INDIVIDUAL, CONTINUOUS)` cell:
+- `Metric.IC` — Information Coefficient (Spearman rank correlation, Newey-West)
+- `Metric.FM` — Fama-MacBeth cross-sectional regression lambda
+
+For all other cells (`INDIVIDUAL × SPARSE`, `COMMON × CONTINUOUS`,
+`COMMON × SPARSE`) the procedure is uniquely determined by `scope × signal`,
+so `metric=None`.
+
+**Mode** — derived at evaluate time, never set by the user:
+- `PANEL` — `n_assets > 1`
+- `TIMESERIES` — `n_assets == 1`
+
+`SPARSE × TIMESERIES` collapses the scope axis at dispatch time and tags the
+returned profile with `InfoCode.SCOPE_AXIS_COLLAPSED`.
+`(INDIVIDUAL, CONTINUOUS) × TIMESERIES` is **not** registered — the dispatch
+raises `ModeAxisError` carrying a `suggested_fix` `AnalysisConfig`.
+
+---
+
+## Canonical panel schema
+
+Every `evaluate()` call expects a polars DataFrame with these columns:
+
+| Column          | Required at | Built by                        |
+|-----------------|-------------|---------------------------------|
+| `date`          | input       | caller                          |
+| `asset_id`      | input       | caller                          |
+| `factor`        | input       | caller (the signal under test)  |
+| `price`         | input       | caller                          |
+| `forward_return`| evaluate    | `compute_forward_return`        |
+
+Synthetic panels: `fx.datasets.make_cs_panel(...)` for CONTINUOUS,
+`fx.datasets.make_event_panel(...)` for SPARSE. Both require `n_assets >= 2`.
+
+---
+
+## Typical usage
+
+### 1. Single-factor IC evaluation
+
+```python
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+
+# raw has columns ["date", "asset_id", "price", "factor"]
+raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+panel = compute_forward_return(raw, forward_periods=5)   # appends `forward_return`
+
+cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+profile = fx.evaluate(panel, cfg)
+
+print(profile.primary_p)             # procedure-canonical p-value (float)
+print(profile.diagnose())            # dict — see FactorProfile below
+print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, etc.
+```
+
+### 2. Multi-factor BHY screening
+
+```python
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+
+raw_panels = {
+    f"variant_{i}": fx.datasets.make_cs_panel(
+        n_assets=80, n_dates=400, ic_target=ic, seed=s
+    ).rename({"factor": f"variant_{i}"})
+    for i, (ic, s) in enumerate([(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)])
+}
+cfg       = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+profiles  = [
+    fx.evaluate(compute_forward_return(p, forward_periods=5), cfg, factor_col=name)
+    for name, p in raw_panels.items()
+]
+
+survivors = fx.multi_factor.bhy(profiles, q=0.05)
+# survivors: Survivors container.
+#   .profiles    : list[FactorProfile] passing BHY at FDR 0.05 (input order)
+#   .adj_p       : np.ndarray of bucket-local BHY-adjusted p-values, aligned
+#   .q           : nominal target you passed
+#   .expand_over : tuple of context keys used to split families ((), or e.g. ("regime_id",))
+#   .n_total     : Mapping[bucket_key, m_per_bucket] for two-stage screening audit
+# The input list IS the family. Each panel carries its factor under a
+# distinct column name; evaluate(..., factor_col=name) auto-stamps factor_id
+# from that name so identities stay unique. dataclasses.replace(profile,
+# factor_id=...) is the escape hatch when you cannot rename the column.
+# Pass expand_over=[<context key>] to declare per-bucket families
+# (Benjamini & Bogomolov 2014 selective inference).
+```
+
+### 3. Single-asset panel — `ModeAxisError` with `suggested_fix`
+
+`(INDIVIDUAL, CONTINUOUS)` has no procedure when `n_assets == 1` (no
+cross-section to compute IC across). `evaluate` raises `ModeAxisError` carrying
+the nearest-legal config:
+
+```python
+import factrix as fx
+
+panel = build_single_asset_panel()   # n_assets == 1, columns as in §schema
+cfg   = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+
+try:
+    profile = fx.evaluate(panel, cfg)
+except fx.ModeAxisError as exc:
+    cfg = exc.suggested_fix           # AnalysisConfig.common_continuous(forward_periods=5)
+    profile = fx.evaluate(panel, cfg)
+
+# profile.mode == Mode.TIMESERIES; primary_p is the timeseries-beta p-value
+print(profile.stats[fx.StatCode.MEAN])
+```
+
+For `SPARSE × TIMESERIES` the dispatch silently collapses the scope axis
+instead of raising; the resulting profile carries
+`InfoCode.SCOPE_AXIS_COLLAPSED` in `info_notes`.
+
+---
+
+## Public API
+
+### `AnalysisConfig`
+
+Three-axis frozen dataclass. Construct via the four factory methods —
+direct construction works but every path runs through the same axis-validation
+gate. **All factory parameters are keyword-only.**
+
+```
+AnalysisConfig.individual_continuous(*, metric: Metric = Metric.IC,
+                                     forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
+AnalysisConfig.individual_sparse(*, forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
+                                     # CAAR event study
+AnalysisConfig.common_continuous(*, forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
+                                     # timeseries beta on broadcast factor
+AnalysisConfig.common_sparse(*, forward_periods: int = 5,
+                                     estimator: HACEstimator | None = None) -> AnalysisConfig
+                                     # CAAR on broadcast event flag
+```
+
+Serialisation: `cfg.to_dict()` → `dict` (carries `estimator` as name
+string); `AnalysisConfig.from_dict(d)` → `AnalysisConfig` (re-runs
+validation; missing `estimator` key falls back to `NeweyWest()` for
+forward-compat with v0.11 dicts).
+
+`forward_periods` counts **rows** of the time axis, not calendar days. Daily
+panel + `forward_periods=5` = 5 trading days; weekly = 5 weeks.
+
+`estimator` selects the HAC-on-mean inference path for IC PANEL / FM
+PANEL / CAAR PANEL cells; default `NeweyWest()`. Pass
+`HansenHodrick()` to drive `primary_p` from the rectangular-kernel
+HH path on overlapping forward returns. **BREAKING (#163)**: v0.11
+auto-side-emitted `P_HH` / `T_HH` on every IC / FM PANEL run
+regardless of cfg; v0.13 only emits them when the estimator is
+explicitly `HansenHodrick`. Downstream readers should use
+`profile.primary_p` / `profile.primary_stat_name` plus
+`profile.context["estimator"]` rather than hardcoded
+`stats[StatCode.T_NW]` / `stats[StatCode.P_HH]` lookups.
+
+---
+
+### `evaluate`
+
+```
+factrix.evaluate(panel: polars.DataFrame, config: AnalysisConfig,
+                 *, factor_col: str = "factor") -> FactorProfile
+```
+
+procedure. `factor_col=` lets a panel with a non-default signal column
+name (e.g. `"alpha"`) be evaluated without renaming first; looping over
+candidates with different `factor_col=` values is the canonical multi-
+factor pattern. Downstream aggregation goes through
+`factrix.multi_factor.bhy(profiles)`, which auto-partitions families
+by `(dispatch cell, forward_periods)`; do **not** reach into
+`factrix.stats.bhy_adjusted_p` directly — that is a low-level primitive
+that requires re-implementing the family split by hand.
+Raises (subclasses of `FactrixError`; see `## Errors`
+below for the full hierarchy + recovery payloads):
+- `MissingConfigError` — `evaluate(panel)` called without an `AnalysisConfig`
+- `IncompatibleAxisError` — config axes form an illegal cell (also raised when
+  `cfg.estimator` is not applicable to the cell)
+- `UnknownEstimatorError` — `AnalysisConfig.from_dict` /
+  `factrix.stats.get_estimator` saw a name not in the registry
+- `ModeAxisError` — legal cell has no procedure under the derived mode;
+  carries `.suggested_fix: AnalysisConfig | None`
+- `InsufficientSampleError` — `T` below the procedure's `MIN_PERIODS_HARD`
+  floor; carries `.actual_periods` / `.required_periods`
+- `ValueError` — `factor_col` not present on `raw`, or both `"factor"` and
+  `factor_col` present (ambiguous which is the signal)
+
+---
+
+### `run_metrics`
+
+```
+factrix.run_metrics(panel: polars.DataFrame, cfg: AnalysisConfig,
+                    *, factor_col: str = "factor",
+                    metrics: list[str] | None = None) -> MetricsBundle
+```
+
+Cell-level descriptive batch runner — the descriptive twin of
+`evaluate`. Same `(panel, cfg)` entry contract; disjoint result type
+(`evaluate` carries the primary inferential `FactorProfile`,
+`run_metrics` carries the cell's descriptive surface as a
+`MetricsBundle`). `metrics=None` auto-discovers via
+`list_metrics(cfg.scope, cfg.signal)` filtered for `panel`-input
+metrics; `metrics=[...]` validates names and raises
+`UserInputError` (with fuzzy suggestion) for unknown / excluded
+entries. v1 wires the IC stage-1 cache (`compute_ic` shared across
+`ic` / `ic_newey_west` / `ic_ir`); other stage-1
+consumers (`caar`, `fama_macbeth`, `ts_beta`, `mfe_mae_summary`,
+plus series / spread consumers) appear in `bundle.skipped` with the
+explicit-import recipe. Cross-horizon / cross-universe sweeps go
+through user comprehension into `compare(bundles[])` (descriptive)
+or `bhy(profiles, expand_over=["forward_periods"])` (FDR-controlled).
+Raises `RunMetricsError` (chained `__cause__`) when a metric or the
+stage-1 helper hits an unexpected exception; sample-floor failures
+are converted to short-circuit `MetricOutput` entries inside the
+bundle, not raised.
+
+### `MetricsBundle`
+
+Frozen dataclass produced by `run_metrics`. Identity / context split
+matches `FactorProfile` per #160.
+
+```
+bundle.identity        : tuple[str, int]               # (factor_id, forward_periods)
+bundle.metrics         : Mapping[str, MetricOutput]    # name → output (incl. NaN short-circuits)
+bundle.skipped         : Mapping[str, str]             # name → reason for excluded metrics
+bundle.context         : Mapping[str, Any]             # v1 always {}; populated downstream
+bundle.factor_id       : str                           # identity[0]
+bundle.forward_periods : int                           # identity[1]
+```
+
+Access: `bundle["ic"]` (dict-style); `"ic" in bundle`,
+`list(bundle)`, `iter(bundle)` operate on metric keys.
+`bundle.to_frame()` returns an 8-column long-form `pl.DataFrame`
+(`factor_id, forward_periods, metric, value, stat, significance,
+p_value, short_circuit_reason`) for stable
+`pl.concat([b.to_frame() ...])` across bundles.
+
+`__hash__ = None` — group bundles by `identity` (a hashable tuple),
+not by the bundle itself.
+
+---
+
+### `FactorProfile`
+
+Frozen dataclass. All fields are read-only.
+
+```
+profile.config            : AnalysisConfig
+profile.mode              : Mode                        # PANEL or TIMESERIES (derived)
+profile.primary_p         : float                       # procedure-canonical p-value
+profile.primary_stat      : float | None                # test stat paired with primary_p (None for empirical-p)
+profile.primary_stat_name : StatCode                    # stats-key pointer for primary_stat (e.g. StatCode.T_NW); serialised to .value in diagnose()
+profile.n_obs             : int                         # final-stage test denominator (per-cell semantics; see api/factor-profile.md)
+profile.n_pairs           : int                         # non-null (period, asset) pair count (first-stage)
+profile.n_periods         : int                         # unique periods (any-non-null union)
+profile.n_assets          : int                         # unique assets (any-non-null union)
+profile.factor_id         : str                         # user-supplied factor name (default "factor")
+profile.forward_periods   : int                         # derived from config.forward_periods
+profile.identity          : tuple[str, int]             # (factor_id, forward_periods); read-only view
+profile.context           : Mapping[str, Any]           # universe_id / regime_id / ...
+profile.warnings          : frozenset[WarningCode]
+profile.info_notes        : frozenset[InfoCode]
+profile.stats             : Mapping[StatCode, float]                 # cell-specific scalars
+profile.metadata          : Mapping[StatCode, Mapping[str, Any]]     # hyperparams that produced each stat (#188)
+
+profile.diagnose() -> dict[str, Any]
+    # Key order follows the reader-flow seven questions (#246):
+    # {"identity":  {"factor_id", "forward_periods"},
+    #  "context":   {...},              # sample / conditioning dimensions
+    #  "cell":      {"scope", "signal", "metric", "mode"},  # dispatch coordinate
+    #  "n_obs", "n_pairs", "n_periods", "n_assets",         # four sample axes
+    #  "primary_p", "primary_stat", "primary_stat_name",    # primary family
+    #  "warnings":  [str, ...],         # sorted WarningCode .value strings
+    #  "info_notes":[str, ...],         # sorted InfoCode .value strings
+    #  "stats":     {str: float, ...},  # StatCode .value → float
+    #  "metadata":  {str: {str: Any}}}  # StatCode .value → hyperparams dict
+    # Invariant: stats[primary_stat_name] == primary_stat when primary_stat is not None.
+```
+
+`identity` and `context` split hypothesis dimensions (factor_id × horizon)
+from sample-restriction dimensions (universe / regime / future axes).
+The split is the v1 anti-shopping defense: multi-horizon factor research's
+MTC family forms naturally over `identity` (running every horizon → BHY
+is the path of least resistance), while sample restrictions stay queryable
+via `profile.context[key]`. `_evaluate` stamps `identity` from the
+user-supplied `factor_col` and `config.forward_periods`; `context` is
+empty by default and populated by higher-level verbs (slice / regime
+consumers).
+
+`WarningCode`, `InfoCode`, and `StatCode` each expose a `.description`
+property — agents reading `diagnose()["stats"]` / `["warnings"]` /
+`["info_notes"]` can resolve a key like `"factor_adf_p"` or
+`"persistent_regressor"` to its statistical meaning without grepping
+`_codes.py` or `_procedures.py`.
+
+---
+
+### `by_slice` / `slice_pairwise_test` / `slice_joint_test`
+
+Cross-slice analysis lives in `factrix.slicing` and is re-exported at
+top-level. `by_slice(metric, df, *, label)` partitions a metric's
+date-keyed input by an existing column and applies the metric per
+slice — pure dispatcher, no cross-slice inference. Returns a
+`SliceResult`, a `Mapping[str, MetricOutput]` with a `.to_frame()`
+long-form renderer (fixed schema:
+`slice / name / value / stat / p_value`) for plotting, leaderboards,
+and Notebook display. For inferential
+contrasts, `slice_pairwise_test(metric, df, *, label, estimator,
+multiple_testing)` reports K(K-1)/2 pairwise Wald contrasts with
+Holm / Romano-Wolf / Bonferroni adjusted p; `slice_joint_test(metric,
+df, *, label, estimator)` reports the single omnibus Wald χ² that
+all K slice means are equal. Both verbs require the metric's module
+to declare a `per_date_series` capability (`ic` / `fama_macbeth` /
+`hit_rate` ship with it). Default estimator `WaldNWCluster` (joint
+NW HAC); `BlockBootstrap` flips the pairwise default to Romano-Wolf.
+See [`docs/api/slice-test.md`](https://awwesomeman.github.io/factrix/api/slice-test/).
+
+---
+
+### `multi_factor.bhy`
+
+```
+factrix.multi_factor.bhy(
+    profiles: Iterable[FactorProfile],
+    *,
+    expand_over: Sequence[str] | None = None,
+    estimator: Estimator | None = None,
+    q: float = 0.05,
+) -> Survivors
+```
+
+BHY step-up FDR within one declared family. The input list **is** the
+family — `bhy` does not auto-partition. When `expand_over` is set, one
+independent step-up runs per unique tuple of `profile.context[k] for k
+in expand_over` (Benjamini & Bogomolov 2014 selective inference). Cell
+/ horizon partitioning is the caller's responsibility (#161 retired
+the implicit `(dispatch cell, forward_periods)` auto-split).
+
+Returns a `Survivors` container with `.profiles` (input order), `.adj_p`
+(bucket-local BHY-adjusted p-values, same length as `.profiles`), `.q`,
+`.expand_over` (tuple), and `.n_total` (Mapping keyed by each bucket's
+expand_over_values tuple — `()` in the single-family case). `Survivors`
+carries only the kept rows; `bhy` constructs the survivor index set as
+`{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket, then slices both
+`.profiles` and `.adj_p` to that set. Survivor membership and the
+adjusted p-values downstream code reads come from the same
+`bhy_adjusted_p` call, so they cannot disagree on ties or boundary
+cases. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter —
+three-column `identity | primary_p | adj_p` text and HTML table, plus
+an `expand_over_values` column when buckets are declared.
+
+`estimator=` overrides which inference method's p-value drives BHY.
+Pass an `Estimator` instance (e.g. `factrix.stats.NeweyWest()`); the
+instance's `applicable_to(scope, signal)` is checked per profile, and
+its `emits_for(scope, signal, metric)` dispatches to a `StatCode` key
+in `profile.stats`. `UserInputError` raises on cell-not-applicable or
+missing dispatched key per profile. The v0.4 kwarg `threshold=` is
+still accepted with `DeprecationWarning` and routes to `q=`; the
+former `gate=` / `p_stat=` paths were removed in v0.11 alongside this
+breaking change (#170).
+
+Family-resolution invariants raise `UserInputError`:
+- `expand_over` names must exist in every `profile.context` and may not
+  collide with identity dimensions (`factor_id`, `forward_periods`).
+- The partition key `identity + tuple(profile.context[k] for k in
+  expand_over)` must be unique across the input — duplicates surface
+  with an actionable hint (`evaluate(..., factor_col=...)` canonical,
+  `dataclasses.replace(profile, factor_id=...)` escape hatch, or
+  `expand_over=[<context key>]`).
+
+`RuntimeWarning` fires when the input mixes `forward_periods` without
+`expand_over` (pooling horizons in one step-up dilutes the per-rank
+threshold), or when most `expand_over` buckets contain a single profile
+(BHY on n=1 is a raw cutoff, no FDR correction).
+
+Survivor → factor mapping: `[p.factor_id for p in survivors.profiles]`.
+`FactorProfile` is intentionally not hashable (`__hash__ = None`)
+because `context` defaults to a dict; equality remains field-by-field
+via the auto-generated `__eq__`.
+
+---
+
+### `compare`
+
+```
+factrix.compare(
+    artifacts: list[FactorProfile] | list[MetricsBundle] | Survivors,
+    *,
+    sort_by: str | None = None,
+) -> pl.DataFrame
+```
+
+Leaderboard renderer — stacks N artifacts side by side as a polars
+DataFrame. Pure projection (no metric is recomputed; `Survivors.adj_p`
+is read straight through). Single entrypoint with input-type dispatch:
+
+- `list[FactorProfile]` → `factor_id`, `forward_periods` + context
+  + `primary_stat`, `primary_stat_name`, `primary_p`.
+  `primary_stat_name` carries the `StatCode.value` slug (`"t_nw"` /
+  `"wald_nwcl"` / `"p_boot"` …) so mixed-procedure lists disambiguate.
+- `list[MetricsBundle]` → `factor_id`, `forward_periods` + context +
+  one column per metric (`MetricOutput.value`). Per-cell `n_obs` is
+  not flattened; look up `bundle[metric].n_obs` directly.
+- `Survivors` → as the profile branch plus a final `adj_p` column.
+  `expand_over` dimensions surface as ordinary context columns via
+  `profile.context[k]` — there is no sidecar field on `Survivors`.
+
+Context keys union across entries (matches `pl.concat(how="diagonal")`)
+and fill `null` where missing; ordering follows first appearance.
+`sort_by=None` keeps input order; a non-None value sorts with
+polars `nulls_last=True`.
+
+`UserInputError` raises on empty input (list or `Survivors`), mixed
+artifact types (e.g. `FactorProfile` + `MetricsBundle` in one list),
+unknown `sort_by` (with `difflib` fuzzy suggestion against the output
+schema).
+
+---
+
+### `describe_analysis_modes` / `suggest_config` / `list_metrics` / `list_estimators`
+
+```
+factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
+                                ) -> str | list[dict[str, Any]]
+    # Enumerate legal analysis cells with PANEL / TIMESERIES routing.
+
+factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
+    # Inspect a panel; propose an AnalysisConfig + structured reasoning + warnings.
+    # Suggestion is never auto-applied — caller (or agent) reads .reasoning.
+    # SuggestConfigResult fields:
+    #   .suggested  : AnalysisConfig
+    #   .detected   : dict[str, Any]      # scope/signal/mode/n_assets/n_periods/sparsity
+    #   .reasoning  : dict[str, str]      # per-axis human-readable rationale
+    #   .warnings   : list[WarningCode]   # Python ergonomic — keep enum identity
+    #
+    # SuggestConfigResult.diagnose() -> dict[str, Any]
+    #   # JSON-shape exit point; shares `warnings` serialisation with
+    #   # FactorProfile.diagnose() but the body is its own shape (the
+    #   # two surfaces answer different questions — this one recommends
+    #   # a config; FactorProfile reports inference on one).
+    #   # {"suggested": {...to_dict()...},
+    #   #  "detected":  {...},
+    #   #  "reasoning": {...},
+    #   #  "warnings":  [str, ...]}        # sorted WarningCode .value strings
+    #
+    # Wire-format rule: Python callers read .warnings (enum-typed);
+    # cross-wire / JSON / log consumers call .diagnose() — same
+    # convention as FactorProfile.
+    #
+    # Example .diagnose() output on an IC PANEL panel (100 assets,
+    # 494 periods, dense factor):
+    #   {
+    #     "suggested": {"scope": "individual", "signal": "continuous",
+    #                   "metric": "ic", "forward_periods": 5},
+    #     "detected":  {"scope": "individual", "signal": "continuous",
+    #                   "mode": "panel", "n_assets": 100,
+    #                   "n_periods": 494, "sparsity": 0.0},
+    #     "reasoning": {"scope": "...", "signal": "...",
+    #                   "metric": "...", "mode": "..."},
+    #     "warnings":  []
+    #   }
+
+factrix.list_metrics(scope: FactorScope, signal: Signal,
+                     *, format: Literal["text", "json"] = "text"
+                     ) -> list[str] | list[dict[str, Any]]
+    # Standalone metrics applicable to a (scope, signal) cell.
+    # text → list[str] sorted by (module, name); json → rows with
+    # {name, module, cell, agg_order, inference_se, import_path,
+    #  input_kind, docs_anchor, emitted_name}. docs_anchor is a
+    # docs-root-relative path + mkdocstrings symbol fragment;
+    # emitted_name is the literal MetricOutput.name (usually equals
+    # name, but a few metrics emit a different label — fama_macbeth
+    # → fm_beta, etc.). Mode is not an input — applicability does
+    # not change across PANEL / TIMESERIES.
+    # Raises IncompatibleAxisError if the pair has no registered metrics.
+
+factrix.list_estimators(scope: FactorScope, signal: Signal,
+                        *, format: Literal["text", "json"] = "text",
+                        with_import: bool = False
+                        ) -> list[str] | list[dict[str, Any]]
+    # Estimator instances applicable to a (scope, signal) cell —
+    # mirrors list_metrics shape so the pre-flight pattern is one
+    # API. text → list[str] sorted by name; json → rows with
+    # {name, description, import_path}. with_import (text-only)
+    # returns "name → factrix.stats.<Class>" two-column lines.
+    # v0.11 ships only NeweyWest; HansenHodrick / GMM follow-ups
+    # are tracked under #170. Raises IncompatibleAxisError if the
+    # pair has no applicable estimator.
+```
+
+---
+
+### Preprocessing
+
+```python
+from factrix.preprocess import compute_forward_return
+
+panel = compute_forward_return(
+    df,                                # cols: date, asset_id, price (sorted, regular spacing)
+    forward_periods: int = 5,          # row-count horizon, not calendar days
+) -> polars.DataFrame                  # appends `forward_return`; drops null rows;
+                                       # entry at t+1, exit at t+1+N; per-period normalised
+```
+
+Frequency / regular spacing is the caller's responsibility — factrix never
+inspects the `date` dtype.
+
+---
+
+## Errors
+
+All factrix exceptions inherit from `FactrixError`, so agents can write
+`except fx.FactrixError:` to catch every library-raised failure.
+
+```
+FactrixError                       # base — all factrix-raised errors
+├── ConfigError                    # AnalysisConfig validation / dispatch
+│   ├── MissingConfigError         # evaluate(panel) called without a config
+│   ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
+│   ├── ModeAxisError              # legal cell, no procedure at runtime mode;
+│   │                              # carries .suggested_fix: AnalysisConfig | None
+│   └── InsufficientSampleError    # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
+│                                  # carries .actual_periods / .required_periods
+└── UserInputError                 # user-supplied input does not match expected
+                                   # names or types (typo in named-set kwarg,
+                                   # column not in panel, wrong type)
+```
+
+`UserInputError` is keyword-constructed and renders its own canonical
+message; structured attributes (`.func_name`, `.field`, `.value`,
+`.candidates`, `.suggestions`, `.expected`, `.docs_url`) carry the
+diagnostic so callers (LLM agents, screening loops) recover without
+parsing `.args[0]`. Multi-inherits from `ValueError` for ecosystem
+compatibility.
+
+Recovery payloads — what each subclass carries beyond `.args[0]`:
+
+| Exception                | `.suggested_fix` | Extra fields                              |
+|--------------------------|:----------------:|-------------------------------------------|
+| `ConfigError` (base)     | optional         | —                                         |
+| `MissingConfigError`     | always `None`    | (call `factrix.suggest_config(raw)` to recover) |
+| `IncompatibleAxisError`  | optional         | —                                         |
+| `ModeAxisError`          | typically set    | —                                         |
+| `InsufficientSampleError`| optional         | `.actual_periods: int`, `.required_periods: int` |
+
+Agents can branch on these payloads without parsing message strings; the
+canonical pattern is `except fx.FactrixError as exc:` followed by
+`isinstance(exc, …)` dispatch on the subclass. `MissingConfigError` is the
+only subclass with `.suggested_fix` always `None` (the recovery path is
+calling `factrix.suggest_config(raw)`).
+
+---
+
+## MetricOutput
+
+Return type for the standalone `factrix.metrics.*` primitives invoked
+directly (outside of `evaluate`). Frozen dataclass: `name` (metric id),
+`value` (raw scalar), `n_obs` (`int | None` — per-metric single-stage
+estimator sample size; same family name as `FactorProfile.n_obs` but
+different scope, the latter being the final-stage test denominator at
+the dispatched-cell level), `stat` (test statistic when applicable),
+`significance` (`***` / `**` / `*` / `""` derived from
+`metadata["p_value"]`). The structured-procedure path returns
+`FactorProfile`; only callers reaching into `factrix.metrics.<module>`
+directly see `MetricOutput`.
+
+---
+
+## WarningCode reference (verbatim from `factrix._codes`)
+
+| WarningCode | Description (canonical) |
+|---|---|
+| `unreliable_se_short_periods` | `n_periods` is below `MIN_PERIODS_WARN=30`; NW HAC SE may be biased. |
+| `event_window_overlap` | Adjacent events sit within `forward_periods`; AR windows overlap. |
+| `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
+| `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
+| `small_cross_section_n` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS (10)`; df too low. |
+| `borderline_cross_section_n` | PANEL cross-asset t-test with `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN` (10..29); residual t_crit inflation 5–15%. |
+| `sparse_common_few_events` | `(COMMON, SPARSE, PANEL)` broadcast dummy has 5..19 events; per-asset β estimable but cross-event averaging too thin for asymptotic t. |
+| `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) rather than textbook MacKinlay signed CAAR — apply `.sign()` before calling for sign-flip semantics. |
+| `few_events_brown_warner` | CAAR significance test with `MIN_EVENTS_HARD ≤ n_event_dates < MIN_EVENTS_WARN` (4..29); t-stat returned but Brown-Warner (1985) convention treats sub-30 events as power-thin for the asymptotic t. |
+| `borderline_portfolio_periods` | `top_concentration` with `MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN` (3..19); one-sided t-test on the per-date diversification ratio is returned but `df=n-1` inflates t_crit. |
+
+`InfoCode.SCOPE_AXIS_COLLAPSED` — `N=1` collapsed scope axis; routed via the
+`_SCOPE_COLLAPSED` sentinel (only fires for `SPARSE × TIMESERIES`).
+
+Read live descriptions programmatically:
+`fx.WarningCode.PERSISTENT_REGRESSOR.description`.
+
+---
+
+## StatCode reference
+
+`StatCode.is_p_value` is `True` iff the value tokens (split on `_`)
+contain the token `p` (so `P_NW` → `["p", "nw"]` qualifies, as do
+`P_HH` / `P_GMM` / `FACTOR_ADF_P` / `RESID_LJUNG_BOX_P`). Used by
+downstream tooling to distinguish probability codes from test
+statistics. The family-verb `estimator=` override (#170) dispatches
+via `Estimator.emits_for` and does not gate on `is_p_value` directly.
+
+Naming grammar (#187): primary cell stats carry no TARGET prefix
+(cell identity lives on `profile.config`); diagnostics carry an
+explicit `FACTOR_` / `RESID_` / `EVENT_` prefix because the target
+sits outside `config`.
+
+| StatCode | Set by | Meaning |
+|---|---|---|
+| `MEAN`              | every cell      | Cell primary point estimate (IC mean / FM λ / E[β] / β / CAAR event-only mean) |
+| `T_NW`              | every cell      | NW HAC t-stat on the primary estimate |
+| `P_NW`              | every cell      | NW HAC p-value (= `primary_p`) |
+| `T_HH` / `P_HH`     | IC / FM PANEL when `forward_periods > 1` | Hansen-Hodrick rectangular-kernel HAC pair |
+| `P_GMM`             | reserved (#191) | GMM J-test p-value (paired with `J_GMM` chi-square statistic, lands in #191) |
+| `FACTOR_ADF_TAU`    | COMMON / TS β   | Diagnostic: ADF τ statistic on factor input |
+| `FACTOR_ADF_P`      | COMMON / TS β   | Diagnostic: ADF p-value on factor input |
+| `RESID_LJUNG_BOX_Q` | TS-dummy        | Diagnostic: Ljung-Box Q on residuals |
+| `RESID_LJUNG_BOX_P` | TS-dummy        | Diagnostic: Ljung-Box p-value on residuals |
+| `EVENT_HHI_VALUE`   | TS-dummy        | Diagnostic: temporal concentration HHI (0-1) |
+
+---
+
+## Removed
+
+- **`multi_horizon_ic` / `multi_horizon_hit_rate`** (deprecated v0.11.0, removed v0.12.0; #186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Migration: `run_metrics(panel, cfg.replace(forward_periods=h))` per horizon → `pl.concat([b.to_frame() for b in bundles])` for descriptive view, or `evaluate(...)` per horizon → `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
+
+## Links
+
+- Docs: https://awwesomeman.github.io/factrix/
+- Source: https://github.com/awwesomeman/factrix
+- Issues: https://github.com/awwesomeman/factrix/issues
+- llms.txt index: https://awwesomeman.github.io/factrix/llms.txt
