@@ -327,8 +327,7 @@ Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The
 Econometrics of Financial Markets*. Princeton University Press.
 
 Textbook treatment of event-study test statistics; cited from
-`mfe_mae` for the path-excursion vocabulary and elsewhere as a
-general econometrics reference.
+`mfe_mae` for the path-excursion / horizon-scaling vocabulary.
 
 ### Boehmer, Musumeci & Poulsen (1991)
 [](){ #boehmer-musumeci-poulsen-1991 }
@@ -338,9 +337,12 @@ Methodology Under Conditions of Event-induced Variance." *Journal of
 Financial Economics* 30(2), 253–272.
 
 BMP standardised AR test. factrix's `bmp_test` is a **BMP-style**
-simplification: it uses mean-adjusted abnormal returns and omits the
-prediction-error correction of the original BMP formulation, so
-results will not match a textbook BMP implementation byte-for-byte.
+implementation using mean-adjusted (not market-model) abnormal
+returns; the prediction-error variance correction
+$\sigma_i \sqrt{1 + 1/T_{\mathrm{est}}}$ of the original BMP
+formulation is opt-in via `include_prediction_error_variance=True`
+and off by default, so default-setting results will not match a
+textbook BMP byte-for-byte.
 
 ### Patell (1976)
 [](){ #patell-1976 }
@@ -409,11 +411,14 @@ distinct from the equal-weighted MacKinlay-style CAAR.
 Jaffe, J. F. (1974). "Special Information and Insider Trading."
 *Journal of Business* 47(3), 410–428.
 
-Calendar-time portfolio approach to event studies; densifying the
-event-indexed return series to a dense calendar grid (zero-fill on
-non-event dates) so HAC-style inference can assume a fixed period
-between observations. Cited from `_CAARSparsePanelProcedure` as the
-historical anchor for factrix's dense-calendar CAAR HAC t-test.
+Calendar-time portfolio approach to event studies — recasts
+event-indexed inference onto a calendar grid by forming each
+calendar period's portfolio of all firms with a recent event and
+analysing portfolio returns. Cited from `_CAARSparsePanelProcedure`
+as the historical anchor for factrix's dense-calendar CAAR HAC
+t-test, which adapts the calendar-time idea by zero-filling
+non-event dates on the per-event series rather than forming a
+calendar-period portfolio across event firms.
 
 ### Mandelker (1974)
 [](){ #mandelker-1974 }
@@ -421,9 +426,12 @@ historical anchor for factrix's dense-calendar CAAR HAC t-test.
 Mandelker, G. (1974). "Risk and Return: The Case of Merging Firms."
 *Journal of Financial Economics* 1(4), 303–335.
 
-Independent contemporaneous application of the calendar-time
-portfolio approach; cited alongside Jaffe (1974) as the joint origin
-of the densification convention factrix's sparse-panel CAAR adopts.
+Independent contemporaneous calendar-time portfolio paper; cited
+alongside Jaffe (1974) as the joint origin of the calendar-time
+inference idea that factrix's sparse-panel CAAR adapts (factrix's
+zero-fill densification on the per-event series is a related but
+distinct operation from the original cross-event calendar-portfolio
+construction).
 
 ### Fama (1998)
 [](){ #fama-1998 }
