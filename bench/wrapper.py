@@ -19,6 +19,7 @@ from typing import Any
 
 import psutil
 
+from bench.metric_sets import METRIC_SET_VERSION
 from bench.preflight import collect_env, quiesce
 from bench.schema import SCHEMA_VERSION, BenchRecord, CacheState, Env, Status
 
@@ -44,7 +45,7 @@ def measure[T](
     axis_cell: str,
     scale: dict[str, Any],
     metric_set: str,
-    metric_set_version: str = "1",
+    metric_set_version: str = METRIC_SET_VERSION,
     run_idx: int = 0,
     is_warmup: bool = False,
     cache_state: CacheState = "warm",
