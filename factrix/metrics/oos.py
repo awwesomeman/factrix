@@ -119,7 +119,10 @@ def multi_split_oos_decay(
         ``MIN_OOS_PERIODS`` floor would have power ≈ 0).
 
     References:
-        - [McLean-Pontiff (2016)][mclean-pontiff-2016]: average OOS decay ~32%.
+        - [McLean-Pontiff (2016)][mclean-pontiff-2016]: post-publication
+          returns ~58% lower than in-sample, with ~32% of that drop
+          attributable to publication itself (the remaining ~26% is
+          the pure out-of-sample decay).
         - [Lopez-de-Prado (2018)][lopez-de-prado-2018]: CPCV for robust train/test split.
 
     Examples:

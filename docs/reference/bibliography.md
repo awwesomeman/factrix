@@ -901,9 +901,11 @@ OOS-decay procedure.
 Hou, K., Xue, C. & Zhang, L. (2020). "Replicating Anomalies."
 *Review of Financial Studies* 33(5), 2019–2133.
 
-Large-scale replication of published anomalies under value-weighted
-testing; the headline reason factrix prefers value-weighted over
-equal-weighted spreads in capacity-constrained settings.
+Large-scale replication of published anomalies under NYSE-breakpoint,
+value-weighted testing that jointly mitigates microcap influence —
+~65% of 452 anomalies fail $|t| \geq 1.96$ once both microcap
+mitigations are applied. The headline reason factrix prefers
+value-weighted spreads in capacity-constrained settings.
 
 ### Chen & Zimmermann (2022)
 [](){ #chen-zimmermann-2022 }
@@ -911,10 +913,11 @@ equal-weighted spreads in capacity-constrained settings.
 Chen, A. Y. & Zimmermann, T. (2022). "Open Source Cross-Sectional
 Asset Pricing." *Critical Finance Review* 11(2), 207–264.
 
-Open-source replication of 200+ anomalies with code; cited as the
-empirical motivation for regime-stratified IC analysis (now
-expressed via factrix's slice-pairwise IC path under a regime
-label).
+Open-source reproduction of 300+ cross-sectional anomalies with
+public data and code; the empirical reproducibility anchor for
+factrix's downstream slice-conditional IC analyses (regime, universe,
+or other slice-axis stratifications layered on top of a reproducible
+characteristic set).
 
 ### López de Prado (2018)
 [](){ #lopez-de-prado-2018 }
@@ -933,8 +936,13 @@ Green, J., Hand, J. R. M. & Zhang, X. F. (2017). "The Characteristics
 that Provide Independent Information about Average U.S. Monthly
 Stock Returns." *Review of Financial Studies* 30(12), 4389–4436.
 
-Cross-sectional IC ranking of ~100 firm characteristics; cited as
-empirical anchor for IC-based screening.
+Simultaneous Fama-MacBeth regression of ~90 firm characteristics on
+cross-sectional returns, identifying the small subset that retains
+independent explanatory power and documenting the post-2003 collapse
+of the broader characteristic zoo. Empirical anchor for taking
+characteristic redundancy seriously in multi-factor screening (not
+for univariate IC ranking, which is the simpler — and weaker —
+methodology factrix exposes alongside the multi-factor BHY path).
 
 ### Jensen, Kelly & Pedersen (2023)
 [](){ #jensen-kelly-pedersen-2023 }
