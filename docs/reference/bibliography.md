@@ -413,7 +413,7 @@ Calendar-time portfolio approach to event studies — recasts
 event-indexed inference onto a calendar grid by forming each
 calendar period's portfolio of all firms with a recent event and
 analysing portfolio returns. Historical anchor for factrix's
-dense-calendar CAAR HAC t-test, which adapts the calendar-time idea
+dense-period-grid CAAR HAC t-test, which adapts the calendar-time idea
 by zero-filling non-event dates on the per-event series rather than
 forming a calendar-period portfolio across event firms.
 
