@@ -1,0 +1,337 @@
+"""Mandatory continuous × individual scenarios (#380 §4 mandatory peak
++ probe and per-metric micros).
+
+Each scenario is a small function with the same shape::
+
+    def <name>(output: Path, preset: str = "tiny", ...) -> list[BenchRecord]
+
+— the helper in ``_helpers`` handles preflight, timing, writing, and
+self-validation. Scenarios only declare *what* to compute on the
+prepared panel.
+
+Algo (``spanning`` / ``greedy_forward_selection``) and event-cell
+(``corrado_rank_test`` / ``caar`` / ``mfe_mae_summary``) scenarios
+live in sibling modules added by follow-up sub-PRs of #382 — this
+module is the Cont × Ind slice.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import factrix as fx
+import polars as pl
+from factrix.metrics.ic import compute_ic
+from factrix.stats import bootstrap_mean_ci
+
+from bench import metric_sets
+from bench.metric_sets import MetricSet
+from bench.scenarios._helpers import (
+    factor_columns,
+    resolve_scale,
+    run_continuous_scenario,
+)
+from bench.schema import BenchRecord
+from bench.validator import validate_file
+from bench.wrapper import write_records
+
+# Bootstrap resample count for `heavy` / M-ic-boot scenarios. Pinned
+# here (not at call site) so a #378 sub-task tuning compute cost cannot
+# silently drift the baseline workload. The value matches
+# factrix.stats.BlockBootstrap's default (n_resamples=999) plus one for
+# the trivial cost of the point statistic.
+BOOTSTRAP_N = 999
+
+
+# ---------------------------------------------------------------------------
+# Multi-factor compute primitives
+#
+# Single-factor scenarios (S1, micros) iterate over one column; multi-
+# factor scenarios (S2/S3/P1) loop and aggregate. Each helper returns
+# a tally we don't actually inspect — we time the call.
+# ---------------------------------------------------------------------------
+
+
+def _run_metrics_per_factor(
+    panel: pl.DataFrame,
+    cfg: fx.AnalysisConfig,
+    metric_names: tuple[str, ...],
+    factors: list[str],
+) -> int:
+    n = 0
+    for col in factors:
+        bundle = fx.run_metrics(panel, cfg, factor_col=col, metrics=list(metric_names))
+        n += len(bundle.metrics)
+    return n
+
+
+def _bootstrap_ic_per_factor(
+    panel: pl.DataFrame,
+    factors: list[str],
+    *,
+    seed: int,
+) -> int:
+    n = 0
+    for k, col in enumerate(factors):
+        ic_df = compute_ic(panel, factor_col=col)
+        arr = ic_df["ic"].to_numpy()
+        # Seed per factor so each call is independent but reproducible.
+        bootstrap_mean_ci(arr, n_bootstrap=BOOTSTRAP_N, seed=seed + k)
+        n += 1
+    return n
+
+
+# ---------------------------------------------------------------------------
+# S1 — single factor: evaluate + run_metrics(heavy)
+# ---------------------------------------------------------------------------
+
+
+def s1_evaluate(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """S1: single factor through ``evaluate`` + ``run_metrics(heavy)``.
+
+    Fixed scale: 1 factor; dates / assets follow the preset.
+    """
+    scale = resolve_scale(preset, n_factors=1)
+    heavy = metric_sets.HEAVY
+
+    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
+        col = factor_columns(panel)[0]
+        fx.evaluate(panel, cfg, factor_col=col)
+        fx.run_metrics(
+            panel, cfg, factor_col=col, metrics=list(heavy.run_metrics_names)
+        )
+        ic_df = compute_ic(panel, factor_col=col)
+        bootstrap_mean_ci(ic_df["ic"].to_numpy(), n_bootstrap=BOOTSTRAP_N, seed=seed)
+        return 1
+
+    return run_continuous_scenario(
+        scenario_id="S1",
+        metric_set=heavy,
+        scale=scale,
+        compute=compute,
+        output=output,
+        seed=seed,
+    )
+
+
+# ---------------------------------------------------------------------------
+# S2 / S3 — fixed-N factor screening with `core`
+# ---------------------------------------------------------------------------
+
+
+def _screen(
+    output: Path,
+    *,
+    scenario_id: str,
+    n_factors: int,
+    preset: str,
+    seed: int,
+) -> list[BenchRecord]:
+    scale = resolve_scale(preset, n_factors=n_factors)
+    core = metric_sets.CORE
+
+    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
+        return _run_metrics_per_factor(
+            panel, cfg, core.run_metrics_names, factor_columns(panel)
+        )
+
+    return run_continuous_scenario(
+        scenario_id=scenario_id,
+        metric_set=core,
+        scale=scale,
+        compute=compute,
+        output=output,
+        seed=seed,
+    )
+
+
+def s2_screen_50(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """S2: 50-factor screening with the `core` metric set."""
+    n = min(50, resolve_scale(preset).n_factors)  # tiny preset caps at 8
+    return _screen(output, scenario_id="S2", n_factors=n, preset=preset, seed=seed)
+
+
+def s3_screen_200(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """S3: 200-factor screening with the `core` metric set."""
+    n = min(200, resolve_scale(preset).n_factors)
+    return _screen(output, scenario_id="S3", n_factors=n, preset=preset, seed=seed)
+
+
+# ---------------------------------------------------------------------------
+# P1 — scaling probe at 100 / 200 / 500 factors
+# ---------------------------------------------------------------------------
+
+
+def p1_scaling_probe(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """P1: scaling probe emits one record per scale step.
+
+    Step values follow #380 §4 (100 / 200 / 500) at `small` and above;
+    `tiny` proportionally shrinks to keep the probe under a second.
+    """
+    max_factors = resolve_scale(preset).n_factors
+    if max_factors >= 500:
+        steps = [100, 200, 500]
+    elif max_factors >= 50:
+        steps = [10, 25, max_factors]
+    else:
+        # `tiny` (8 factors) — three observable points within the cap.
+        steps = [max(2, max_factors // 4), max(3, max_factors // 2), max_factors]
+
+    all_records: list[BenchRecord] = []
+    for step in steps:
+        # Reuse `_screen` plumbing but route output into an in-memory
+        # accumulator: write to a per-step path then re-aggregate at
+        # the end. (Each call self-validates its own slice.)
+        tmp = output.with_suffix(f".step{step}.jsonl")
+        records = _screen(
+            tmp, scenario_id="P1", n_factors=step, preset=preset, seed=seed
+        )
+        all_records.extend(records)
+        tmp.unlink(missing_ok=True)
+
+    write_records(output, all_records)
+    # Mirror run_continuous_scenario's "harness self-validates every
+    # JSONL it writes" invariant (#380 §9.1) — the per-step temps
+    # were validated then unlinked, the final aggregated file has not.
+    report = validate_file(output)
+    if not report.ok:
+        raise RuntimeError(f"self-validation failed: {report.failures}")
+    return all_records
+
+
+# ---------------------------------------------------------------------------
+# Per-metric micros — attribute compute cost to a single metric
+# ---------------------------------------------------------------------------
+
+_MICRO_FACTORS = 50  # #380 §4 micro table; scale capped by preset
+
+
+def _micro(
+    output: Path,
+    *,
+    scenario_id: str,
+    metric_name: str,
+    preset: str,
+    seed: int,
+) -> list[BenchRecord]:
+    max_factors = resolve_scale(preset).n_factors
+    n = min(_MICRO_FACTORS, max_factors)
+    scale = resolve_scale(preset, n_factors=n)
+    # Micros use the metric name as `metric_set` label so downstream
+    # aggregation can distinguish "ran the whole `core` bundle" (S2/S3)
+    # from "ran a single metric to attribute its cost". Stuffing both
+    # under `core` would let an aggregator double-count M-ic + S2 as
+    # combined core cost when M-ic is a strict subset of S2's work.
+    label = MetricSet(name=metric_name, run_metrics_names=(metric_name,))
+
+    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
+        return _run_metrics_per_factor(
+            panel, cfg, (metric_name,), factor_columns(panel)
+        )
+
+    return run_continuous_scenario(
+        scenario_id=scenario_id,
+        metric_set=label,
+        scale=scale,
+        compute=compute,
+        output=output,
+        seed=seed,
+    )
+
+
+def m_ic(output: Path, *, preset: str = "tiny", seed: int = 0) -> list[BenchRecord]:
+    """M-ic: cost of ``ic`` alone (no bootstrap)."""
+    return _micro(
+        output, scenario_id="M-ic", metric_name="ic", preset=preset, seed=seed
+    )
+
+
+def m_quantile(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """M-quantile: cost of ``quantile_spread`` alone."""
+    return _micro(
+        output,
+        scenario_id="M-quantile",
+        metric_name="quantile_spread",
+        preset=preset,
+        seed=seed,
+    )
+
+
+def m_monotonicity(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """M-mono: cost of ``monotonicity`` alone."""
+    return _micro(
+        output,
+        scenario_id="M-mono",
+        metric_name="monotonicity",
+        preset=preset,
+        seed=seed,
+    )
+
+
+def m_ic_bootstrap(
+    output: Path, *, preset: str = "tiny", seed: int = 0
+) -> list[BenchRecord]:
+    """M-ic-boot: cost of the bootstrap path on a per-factor IC series.
+
+    Unlike the other micros this scenario does **not** go through
+    ``run_metrics``; it times ``compute_ic`` + ``bootstrap_mean_ci``
+    directly, matching the optimisation target in #378 (bootstrap
+    vectorization on the IC path).
+    """
+    max_factors = resolve_scale(preset).n_factors
+    n = min(_MICRO_FACTORS, max_factors)
+    scale = resolve_scale(preset, n_factors=n)
+    # Single-metric attribution: label by what is actually being
+    # timed (compute_ic + bootstrap_mean_ci), parallel to the other
+    # micros. The `heavy` bundle is reserved for S1 which times the
+    # full evaluate + run_metrics + bootstrap path together.
+    label = MetricSet(name="ic_bootstrap", run_metrics_names=())
+
+    def compute(panel: pl.DataFrame, _cfg: fx.AnalysisConfig) -> int:
+        return _bootstrap_ic_per_factor(panel, factor_columns(panel), seed=seed)
+
+    return run_continuous_scenario(
+        scenario_id="M-ic-boot",
+        metric_set=label,
+        scale=scale,
+        compute=compute,
+        output=output,
+        seed=seed,
+    )
+
+
+SCENARIOS = {
+    "S1": s1_evaluate,
+    "S2": s2_screen_50,
+    "S3": s3_screen_200,
+    "P1": p1_scaling_probe,
+    "M-ic": m_ic,
+    "M-ic-boot": m_ic_bootstrap,
+    "M-quantile": m_quantile,
+    "M-mono": m_monotonicity,
+}
+
+
+__all__ = [
+    "SCENARIOS",
+    "m_ic",
+    "m_ic_bootstrap",
+    "m_monotonicity",
+    "m_quantile",
+    "p1_scaling_probe",
+    "s1_evaluate",
+    "s2_screen_50",
+    "s3_screen_200",
+]
