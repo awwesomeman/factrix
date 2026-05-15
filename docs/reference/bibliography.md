@@ -508,10 +508,13 @@ Multiple Families of Hypotheses." *Journal of the Royal Statistical
 Society: Series B* 76(1), 297–318.
 
 Selective-inference framework for partitioning a hypothesis set into
-independent families with per-family FDR control; underlies the
-explicit ``expand_over`` per-bucket step-up convention in
-`multi_factor.bhy` (per-bucket adjusted p-values, no global
-cross-bucket adjustment).
+families and controlling FDR per family. The paper's recommended
+form inflates the within-family level by `R/m` (the fraction of
+families flagged by an outer selection step); factrix's
+``expand_over`` adopts the family-partition idea but applies plain
+per-bucket BHY without the BB14 selection-adjusted inflation —
+cross-bucket selection-bias control is the caller's responsibility
+(e.g. via `bhy_hierarchical`'s hierarchical procedure).
 
 ### Harvey, Liu & Zhu (2016)
 [](){ #harvey-liu-zhu-2016 }
