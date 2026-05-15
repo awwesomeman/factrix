@@ -735,9 +735,12 @@ Dickey, D. A. & Fuller, W. A. (1979). "Distribution of the Estimators
 for Autoregressive Time Series with a Unit Root." *Journal of the
 American Statistical Association* 74(366), 427–431.
 
-Augmented Dickey-Fuller (ADF) test on $H_0: \beta = 0$ in
-$\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the basis of
-factrix's ADF persistence diagnostic.
+Dickey-Fuller unit-root test on $H_0: \beta = 0$ in
+$\Delta y_t = \alpha + \beta\, y_{t-1} + \varepsilon$; the foundational
+unit-root null underlying factrix's ADF persistence diagnostic. The
+*augmented* form factrix actually applies (lagged differences added
+to whiten serially-correlated errors) is [Said-Dickey
+(1984)][said-dickey-1984], not this 1979 paper.
 
 ### Said & Dickey (1984)
 [](){ #said-dickey-1984 }
@@ -746,8 +749,12 @@ Said, S. E. & Dickey, D. A. (1984). "Testing for Unit Roots in
 Autoregressive-Moving Average Models of Unknown Order." *Biometrika*
 71(3), 599–607.
 
-ADF extension to ARMA errors; cited as background for the lag
-selection inside factrix's ADF persistence diagnostic.
+Approximates ARMA errors by a long autoregression and proves the
+Dickey-Fuller $t$-statistic retains its limit distribution at
+lag-order rate $o(T^{1/3})$. Justifies the augmentation form that
+factrix's ADF persistence diagnostic relies on; concrete data-driven
+lag-selection rules (AIC / BIC / Ng-Perron) sit in a separate
+literature.
 
 ### MacKinnon (1996)
 [](){ #mackinnon-1996 }
@@ -766,8 +773,11 @@ ADF statistic to a p-value.
 Stambaugh, R. F. (1999). "Predictive Regressions." *Journal of
 Financial Economics* 54(3), 375–421.
 
-Bias of ordinary least squares (OLS) $\hat\beta$ in predictive regressions when the predictor is
-persistent; factrix flags via ADF rather than auto-correcting.
+Finite-sample bias of ordinary least squares (OLS) $\hat\beta$ in
+predictive regressions when the predictor is persistent *and* its
+innovation is correlated with the return innovation (both conditions
+are necessary); factrix flags the persistence channel via ADF rather
+than auto-correcting.
 
 ### Campbell & Yogo (2006)
 [](){ #campbell-yogo-2006 }
@@ -775,9 +785,10 @@ persistent; factrix flags via ADF rather than auto-correcting.
 Campbell, J. Y. & Yogo, M. (2006). "Efficient Tests of Stock Return
 Predictability." *Journal of Financial Economics* 81(1), 27–60.
 
-Bonferroni Q-test for predictive regressions under near-unit-root
-predictors; cited as the proper-inference alternative factrix does
-not implement.
+Bonferroni Q-test built on a DF-GLS confidence interval for the
+persistence parameter; a corrective-inference alternative to
+flag-only diagnostics for predictive regressions under near-unit-root
+predictors.
 
 ### Phillips & Magdalinos (2009)
 [](){ #phillips-magdalinos-2009 }
@@ -786,8 +797,11 @@ Phillips, P. C. B. & Magdalinos, T. (2009). "Econometric Inference
 in the Vicinity of Unity." Working paper, Singapore Management
 University.
 
-IVX predictive regression; foundation for the Kostakis et al. (2015)
-implementation that factrix does not include.
+Introduces IVX: mildly-integrated internal instruments yielding
+pivotal chi-square inference for predictive regression across
+integrated, near-integrated, and mildly-integrated regressors. The
+theoretical foundation for the Kostakis-Magdalinos-Stamatogiannis
+(2015) empirical implementation.
 
 ### Kostakis, Magdalinos & Stamatogiannis (2015)
 [](){ #kostakis-magdalinos-stamatogiannis-2015 }
@@ -796,8 +810,12 @@ Kostakis, A., Magdalinos, T. & Stamatogiannis, M. P. (2015). "Robust
 Econometric Inference for Stock Return Predictability." *Review of
 Financial Studies* 28(5), 1506–1553.
 
-Practical IVX implementation cited as background for the
-predictive-regression bias factrix flags but does not auto-correct.
+Empirical IVX-Wald test for stock-return predictability robust to
+regressor persistence (stationary through nonstationary), supporting
+multivariate and long-horizon predictive specifications; the
+practical complement to [Phillips-Magdalinos
+(2009)][phillips-magdalinos-2009] on the inference axis adjacent to
+factrix's ADF persistence flag.
 
 ### Richardson & Stock (1989)
 [](){ #richardson-stock-1989 }
@@ -806,8 +824,14 @@ Richardson, M. & Stock, J. H. (1989). "Drawing Inferences from
 Statistics Based on Multiyear Asset Returns." *Journal of Financial
 Economics* 25(2), 323–348.
 
-Asymptotic theory for overlapping multiyear returns; cited as
-background for the Hansen-Hodrick lag floor.
+Alternative asymptotic theory for overlapping multiyear-return
+statistics under a horizon-grows-with-sample limit, where
+conventional asymptotics misrepresent the finite-sample distribution
+of long-horizon predictive coefficients. The limit-theory backstop
+for the HAC and sub-sampling fixes factrix applies on long-horizon
+paths (the sub-sampling / lag-floor *remedies* themselves trace to
+[Hansen-Hodrick (1980)][hansen-hodrick-1980] and the broader HAC
+literature, not to this paper).
 
 ### Stock & Watson (1988)
 [](){ #stock-watson-1988 }

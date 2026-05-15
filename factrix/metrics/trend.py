@@ -52,10 +52,15 @@ def ic_trend(
             beta_trend pass their own names so method / cache key /
             primitive name stay three-point unified.
         adf_threshold: Augmented Dickey-Fuller (ADF) p-value above which the input is flagged as
-            unit-root suspect. Default ``0.10`` matches the conventional
-            [Stock-Watson (1988)][stock-watson-1988] cutoff: at p > 0.10 we cannot reject
-            I(1), so ordinary least squares (OLS) / Theil-Sen on the series reject the slope null
-            at inflated rates regardless of the true trend. When
+            unit-root suspect. Default ``0.10`` is a conventional
+            practitioner cutoff from the unit-root literature (folklore
+            on the back of [Stock-Watson (1988)][stock-watson-1988]'s
+            broader review of trends in macroeconomic time series, with
+            the specific 10% threshold closer to Stock 1994 *Handbook of
+            Econometrics* §III than a direct prescription of the 1988
+            paper): at p > 0.10 we cannot reject I(1), so ordinary least
+            squares (OLS) / Theil-Sen on the series reject the slope
+            null at inflated rates regardless of the true trend. When
             ``None``, the ADF check is skipped entirely and no
             ``adf_stat`` / ``adf_p`` / ``unit_root_suspected`` keys are
             written. When a float is provided it must lie in (0, 1).

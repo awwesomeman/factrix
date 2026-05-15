@@ -111,8 +111,9 @@ def _sample_non_overlapping(
     returns share h−1 bars of future data — the series has an MA(h−1)
     structure ([Hansen-Hodrick (1980)][hansen-hodrick-1980]). Sub-sampling at
     interval h breaks this dependence at the cost of throwing away h−1 of
-    every h observations. This is the most conservative of the
-    [Richardson-Stock (1989)][richardson-stock-1989] remedies;
+    every h observations. This is the most conservative overlap-aware
+    path on the long-horizon limit theory documented by
+    [Richardson-Stock (1989)][richardson-stock-1989];
     ``_newey_west_t_test`` is the less-lossy
     alternative (keeps all obs but corrects SE).
 
