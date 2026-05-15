@@ -508,10 +508,13 @@ Multiple Families of Hypotheses." *Journal of the Royal Statistical
 Society: Series B* 76(1), 297–318.
 
 Selective-inference framework for partitioning a hypothesis set into
-independent families with per-family FDR control; underlies the
-explicit ``expand_over`` per-bucket step-up convention in
-`multi_factor.bhy` (per-bucket adjusted p-values, no global
-cross-bucket adjustment).
+families and controlling FDR per family. The paper's recommended
+form inflates the within-family level by `R/m` (the fraction of
+families flagged by an outer selection step); factrix's
+``expand_over`` adopts the family-partition idea but applies plain
+per-bucket BHY without the BB14 selection-adjusted inflation —
+cross-bucket selection-bias control is the caller's responsibility
+(e.g. via `bhy_hierarchical`'s hierarchical procedure).
 
 ### Harvey, Liu & Zhu (2016)
 [](){ #harvey-liu-zhu-2016 }
@@ -519,12 +522,15 @@ cross-bucket adjustment).
 Harvey, C. R., Liu, Y. & Zhu, H. (2016). "…and the Cross-Section of
 Expected Returns." *Review of Financial Studies* 29(1), 5–68.
 
-Empirical case for raising t-thresholds in factor research; backs
-the single-factor `t ≥ 2.0` threshold and the BHY-first multi-factor
-discipline in `greedy_forward_selection`, and the family-wise error rate (FWER)-across-horizons
-∘ FDR-within-horizon discipline at `factrix.multi_factor.bhy` and the
-"Horizon-shopping correction" section of
-`docs/guides/batch-screening.md`.
+Empirical case that conventional single-factor `t ≥ 2.0` is too lax
+once the cross-section of tried factors and horizons is accounted
+for; HLZ argues a meaningfully higher threshold (typically `t ≳ 3`)
+under multiplicity-aware procedures. Cited as motivation for
+factrix's BHY-first multi-factor discipline in
+`greedy_forward_selection` and the family-wise error rate (FWER)-
+across-horizons ∘ FDR-within-horizon discipline at
+`factrix.multi_factor.bhy` and the "Horizon-shopping correction"
+section of `docs/guides/batch-screening.md`.
 
 ### Harvey (2017)
 [](){ #harvey-2017 }
@@ -541,8 +547,10 @@ factrix's pre-registered procedures and BHY-first stance.
 Harvey, C. R. & Liu, Y. (2020). "False (and Missed) Discoveries in
 Financial Economics." *Journal of Finance* 75(5), 2503–2553.
 
-FDR-adjusted t-thresholds for asset-pricing tests; complements
-Harvey-Liu-Zhu (2016).
+Double-bootstrap procedure that jointly calibrates Type I (FDR) and
+Type II (miss-rate) error in asset-pricing multiple tests; the
+"missed-discovery" axis complements Harvey-Liu-Zhu (2016)'s
+Type-I-only focus by adding power-aware hurdles.
 
 ### Holm (1979)
 [](){ #holm-1979 }
@@ -610,8 +618,11 @@ alongside Berk et al. (2013).
 Efron, B. (2010). *Large-Scale Inference: Empirical Bayes Methods
 for Estimation, Testing, and Prediction*. Cambridge University Press.
 
-Empirical-Bayes alternative to FDR; cited in design notes as the
-"why not Bayesian" comparison anchor.
+Empirical-Bayes alternative to FDR for large-scale multiple testing;
+reference work on local-fdr and shrinkage estimation as the
+empirical-Bayes counterpart to factrix's frequentist BHY stance.
+Catalog-only reference in factrix; no inline citation site at
+present.
 
 ### Bailey & López de Prado (2014)
 [](){ #bailey-lopez-de-prado-2014 }

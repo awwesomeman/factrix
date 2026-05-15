@@ -7,7 +7,9 @@ v0.4 ``redundancy_matrix`` / ``spanning`` modules.
 
 Family declaration is now explicit: the input list ``profiles`` *is*
 the family, optionally split per-bucket via ``expand_over``
-([Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014] selective-inference framework). The previous
+(family-partition idea from [Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014];
+factrix applies plain per-bucket BHY without BB14's selection-
+adjusted within-family level — see catalog role-note). The previous
 auto-partition by dispatch cell × forward horizon was retired in #161 —
 caller responsibility now, both because the implicit policy was opaque
 and because ``identity`` already encodes ``forward_periods`` (and would
@@ -52,8 +54,10 @@ class Survivors:
         ``len(profiles) == len(adj_p)`` and entries align in input
         order. Per-bucket independent step-up uses bucket-local ``n``
         and ``p_array``; ``adj_p[i]`` reflects ``profiles[i]``'s own
-        bucket only ([Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014] selective inference),
-        not a global cross-bucket adjustment.
+        bucket only (family-partition idea from
+        [Benjamini-Bogomolov (2014)][benjamini-bogomolov-2014];
+        factrix does not apply BB14's selection-adjusted within-
+        family level inflation), not a global cross-bucket adjustment.
 
     Attributes:
         profiles: Survivors in input order.
