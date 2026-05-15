@@ -979,8 +979,11 @@ cite for post-publication IC decay.
 Barillas, F. & Shanken, J. (2017). "Which Alpha?" *Review of
 Financial Studies* 30(4), 1316–1338.
 
-Spanning-test framework for nested factor models; the methodology
-behind factrix's spanning-alpha procedure.
+Spanning-test framework for traded-factor model comparison: model
+comparison reduces to whether each model prices the *other* model's
+factors (left-hand-side = competing factors, not test assets), and
+the result applies to nested and non-nested comparisons alike. The
+methodology behind factrix's spanning-alpha procedure.
 
 ### Barillas & Shanken (2018)
 [](){ #barillas-shanken-2018 }
@@ -1038,8 +1041,9 @@ above factrix's per-date Spearman monotonicity metric.
 Novy-Marx, R. & Velikov, M. (2016). "A Taxonomy of Anomalies and
 Their Trading Costs." *Review of Financial Studies* 29(1), 104–147.
 
-Notional-turnover $\tau$ and breakeven-cost framework; the source of
-factrix's notional-turnover and breakeven-cost metrics.
+Turnover, generalised buy/hold spreads, and breakeven-cost analysis
+of anomaly portfolios; the lineage for turnover-aware and
+breakeven-cost diagnostics.
 
 ### DeMiguel, Martin-Utrera, Nogales & Uppal (2020)
 [](){ #demiguel-martin-utrera-nogales-uppal-2020 }

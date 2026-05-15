@@ -126,8 +126,8 @@ factrix's [`multi_factor.bhy`](../api/bhy.md) runs Benjamini-Yekutieli
 with the `c(m) = Σ 1/i` dependence correction. It does not implement
 Bayesian alternatives such as
 [Harvey-Liu 2020][harvey-liu-2020] "Lucky Factors" or
-[Bryzgalova-Huang-Julliard 2023][barillas-shanken-2018] BMA stochastic discount factor (SDF)
-search.
+Bryzgalova-Huang-Julliard 2023 BMA stochastic discount factor (SDF)
+search (not in factrix's bibliography catalog).
 
 - BHY is a frequentist recipe with a deterministic threshold given
   `(p, m)`. It composes cleanly with downstream business logic that
