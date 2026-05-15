@@ -785,9 +785,10 @@ than auto-correcting.
 Campbell, J. Y. & Yogo, M. (2006). "Efficient Tests of Stock Return
 Predictability." *Journal of Financial Economics* 81(1), 27–60.
 
-Bonferroni Q-test for predictive regressions under near-unit-root
-predictors; cited as the proper-inference alternative factrix does
-not implement.
+Bonferroni Q-test built on a DF-GLS confidence interval for the
+persistence parameter; a corrective-inference alternative to
+flag-only diagnostics for predictive regressions under near-unit-root
+predictors.
 
 ### Phillips & Magdalinos (2009)
 [](){ #phillips-magdalinos-2009 }
@@ -796,8 +797,11 @@ Phillips, P. C. B. & Magdalinos, T. (2009). "Econometric Inference
 in the Vicinity of Unity." Working paper, Singapore Management
 University.
 
-IVX predictive regression; foundation for the Kostakis et al. (2015)
-implementation that factrix does not include.
+Introduces IVX: mildly-integrated internal instruments yielding
+pivotal chi-square inference for predictive regression across
+integrated, near-integrated, and mildly-integrated regressors. The
+theoretical foundation for the Kostakis-Magdalinos-Stamatogiannis
+(2015) empirical implementation.
 
 ### Kostakis, Magdalinos & Stamatogiannis (2015)
 [](){ #kostakis-magdalinos-stamatogiannis-2015 }
@@ -806,8 +810,12 @@ Kostakis, A., Magdalinos, T. & Stamatogiannis, M. P. (2015). "Robust
 Econometric Inference for Stock Return Predictability." *Review of
 Financial Studies* 28(5), 1506–1553.
 
-Practical IVX implementation cited as background for the
-predictive-regression bias factrix flags but does not auto-correct.
+Empirical IVX-Wald test for stock-return predictability robust to
+regressor persistence (stationary through nonstationary), supporting
+multivariate and long-horizon predictive specifications; the
+practical complement to [Phillips-Magdalinos
+(2009)][phillips-magdalinos-2009] on the inference axis adjacent to
+factrix's ADF persistence flag.
 
 ### Richardson & Stock (1989)
 [](){ #richardson-stock-1989 }
