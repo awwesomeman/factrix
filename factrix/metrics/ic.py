@@ -133,9 +133,10 @@ def compute_ic(
         [Grinold 1989][grinold-1989]:
         $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
         motivates
-        IC as the canonical signal-quality measure (the formal
-        decomposition is older — see [Treynor-Black
-        1973][treynor-black-1973]).
+        IC as the canonical signal-quality measure. The appraisal-ratio
+        single-asset ancestor is [Treynor-Black
+        1973][treynor-black-1973]; the breadth identity itself is
+        Grinold's generalisation.
 
     Examples:
         >>> import factrix as fx

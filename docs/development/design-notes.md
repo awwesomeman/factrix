@@ -107,9 +107,8 @@ market and comparing the returned `FactorProfile`s.
 - The global-vs-local pricing debate is unsettled empirically
   ([Asness-Moskowitz-Pedersen 2013][asness-moskowitz-pedersen-2013]
   argues for substantial commonality; the Fama-French international
-  evidence ([Fama-French 1993][fama-french-1993] and the 2012/2017
-  international tests, the latter not in bibliography) shows local
-  models price local cross-sections better). Either aggregation
+  tests (Fama-French 1998 / 2012 / 2017 — not in bibliography) show
+  local models price local cross-sections better). Either aggregation
   choice would foreclose a research path.
 - Standardisation across markets has industry conventions but no
   canonical academic answer. Picking one inside the library would
