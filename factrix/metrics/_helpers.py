@@ -1,6 +1,12 @@
 """Shared helpers used across multiple tool modules.
 
 These are internal utilities — not part of the public API.
+
+Naming convention: helpers that process N factors in a single polars
+pass use the ``_batch`` suffix (e.g. ``_assign_quantile_groups_batch``).
+The bare name (``_assign_quantile_groups``) is the single-factor variant.
+``_multi*`` is reserved for structural multivariate concepts, not for
+"this function handles many factors".
 """
 
 from __future__ import annotations
@@ -233,7 +239,7 @@ def _assign_quantile_groups(
     )
 
 
-def _assign_quantile_groups_multi(
+def _assign_quantile_groups_batch(
     df: pl.DataFrame,
     factor_cols: list[str],
     n_groups: int,
@@ -241,7 +247,7 @@ def _assign_quantile_groups_multi(
 ) -> pl.DataFrame:
     """Assign per-date quantile groups for N factors in one polars pass.
 
-    Multi-factor counterpart of :func:`_assign_quantile_groups`. Emits
+    Batch counterpart of :func:`_assign_quantile_groups`. Emits
     one ``_group__<factor_col>`` column per factor; the shared
     ``pl.len().over("date")`` is computed once and reused, and every
     rank expression lands in a single ``with_columns`` so the polars

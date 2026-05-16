@@ -67,7 +67,7 @@ def _run_metrics_per_factor(
     # (`core` = ic + quantile_spread + monotonicity per factor) clear
     # the UX wall at xlarge.
     if set(metric_names) <= _BATCHABLE_METRICS:
-        return _batched(panel, cfg, factors, metric_names)
+        return _dispatch_batch(panel, cfg, factors, metric_names)
     n = 0
     for col in factors:
         bundle = fx.run_metrics(panel, cfg, factor_col=col, metrics=list(metric_names))
@@ -75,7 +75,7 @@ def _run_metrics_per_factor(
     return n
 
 
-def _batched(
+def _dispatch_batch(
     panel: pl.DataFrame,
     cfg: fx.AnalysisConfig,
     factors: list[str],

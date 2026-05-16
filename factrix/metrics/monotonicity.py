@@ -31,7 +31,7 @@ from factrix._types import (
     MetricOutput,
 )
 from factrix.metrics._helpers import (
-    _assign_quantile_groups_multi,
+    _assign_quantile_groups_batch,
     _sample_non_overlapping,
     _short_circuit_output,
     _warn_high_tie_ratio,
@@ -135,11 +135,11 @@ def monotonicity(
     # Sample non-overlapping once — shared across all factors on the
     # same panel (depends only on `date` + `forward_periods`).
     filtered = _sample_non_overlapping(df, forward_periods)
-    tie_ratios = _compute_tie_ratios_batched(filtered, cols)
+    tie_ratios = _compute_tie_ratios_batch(filtered, cols)
     for f in cols:
         _warn_high_tie_ratio(tie_ratios[f], "monotonicity", tie_policy)
 
-    grouped = _assign_quantile_groups_multi(filtered, cols, n_groups, tie_policy)
+    grouped = _assign_quantile_groups_batch(filtered, cols, n_groups, tie_policy)
 
     # Stage 1: per-(date, factor, group) mean return, expressed as one
     # ``group_by("date").agg(...)`` carrying N × n_groups filter+mean
@@ -230,7 +230,7 @@ def monotonicity(
     return results
 
 
-def _compute_tie_ratios_batched(
+def _compute_tie_ratios_batch(
     df: pl.DataFrame, factor_cols: list[str]
 ) -> dict[str, float]:
     """Tie ratio (``1 - n_unique / n``) for many factors in one scan.

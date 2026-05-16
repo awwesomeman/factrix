@@ -32,7 +32,7 @@ from factrix._types import (
 )
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
-    _assign_quantile_groups_multi,
+    _assign_quantile_groups_batch,
     _compute_tie_ratio,
     _lag_within_asset,
     _median_universe_size,
@@ -141,7 +141,7 @@ def compute_spread_series(
             stacklevel=2,
         )
 
-    grouped = _assign_quantile_groups_multi(sampled, cols, n_groups, tie_policy)
+    grouped = _assign_quantile_groups_batch(sampled, cols, n_groups, tie_policy)
 
     top_group = n_groups - 1
     bottom_group = 0
