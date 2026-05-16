@@ -26,6 +26,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from bench.preflight import lock_threads
 from bench.scenarios.algo import SCENARIOS as ALGO_SCENARIOS
 from bench.scenarios.continuous import SCENARIOS as CONTINUOUS_SCENARIOS
 from bench.scenarios.sparse import SCENARIOS as SPARSE_SCENARIOS
@@ -53,16 +54,19 @@ def _run_one(
     preset: str,
     output_dir: Path,
     cache_state: str,
+    threads: int,
 ) -> Path:
     """Invoke one scenario directly (in this process)."""
     fn = ALL_SCENARIOS[scenario_id]
     output = output_dir / f"{scenario_id}.jsonl"
     output.parent.mkdir(parents=True, exist_ok=True)
-    fn(output, preset=preset, cache_state=cache_state)
+    fn(output, preset=preset, cache_state=cache_state, threads=threads)
     return output
 
 
-def _run_cold_cache(scenario_ids: list[str], *, preset: str, output_dir: Path) -> None:
+def _run_cold_cache(
+    scenario_ids: list[str], *, preset: str, output_dir: Path, threads: int
+) -> None:
     """Re-exec one subprocess per scenario for cold-cache mode."""
     for sid in scenario_ids:
         cmd = [
@@ -77,9 +81,12 @@ def _run_cold_cache(scenario_ids: list[str], *, preset: str, output_dir: Path) -
             str(output_dir),
             "--cache-state",
             "cold",
+            "--threads",
+            str(threads),
         ]
-        # Inherit env (preflight thread locks already in env via
-        # lock_threads); fail-fast on any subprocess error.
+        # Inherit env (lock_threads already set the thread env vars
+        # in this process, so the subprocess sees them before numpy
+        # initialises BLAS); fail-fast on any subprocess error.
         subprocess.run(cmd, check=True)
 
 
@@ -109,6 +116,17 @@ def main(argv: list[str] | None = None) -> int:
             "scenarios. Required for reference-baseline runs."
         ),
     )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help=(
+            "BLAS / OMP thread count. Default 1 matches reference-"
+            "baseline measurement. Multi-thread runs are for UX "
+            "validation; pair with `--cold-cache` so the subprocess "
+            "inherits the thread lock before numpy initialises BLAS."
+        ),
+    )
     # Internal flags used by --cold-cache subprocess invocations.
     parser.add_argument("--run-one", help=argparse.SUPPRESS, default=None)
     parser.add_argument("--preset", help=argparse.SUPPRESS, default=None)
@@ -121,6 +139,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     output_dir: Path = args.output
+    # Set thread env vars in this process so the cold-cache subprocess
+    # inherits them before numpy / BLAS initialise. In single-process
+    # warm mode this is mostly cosmetic — numpy has already imported
+    # via the scenario modules at the top of this file — but the env
+    # snapshot in each record will reflect the requested count.
+    lock_threads(args.threads)
 
     if args.run_one is not None:
         if args.preset is None:
@@ -130,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             preset=args.preset,
             output_dir=output_dir,
             cache_state=args.cache_state,
+            threads=args.threads,
         )
         return 0
 
@@ -141,10 +166,18 @@ def main(argv: list[str] | None = None) -> int:
     scenarios = target["scenarios"]
 
     if args.cold_cache:
-        _run_cold_cache(scenarios, preset=preset, output_dir=output_dir)
+        _run_cold_cache(
+            scenarios, preset=preset, output_dir=output_dir, threads=args.threads
+        )
     else:
         for sid in scenarios:
-            _run_one(sid, preset=preset, output_dir=output_dir, cache_state="warm")
+            _run_one(
+                sid,
+                preset=preset,
+                output_dir=output_dir,
+                cache_state="warm",
+                threads=args.threads,
+            )
     return 0
 
 

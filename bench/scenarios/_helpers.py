@@ -66,6 +66,14 @@ PRESETS: dict[str, ContinuousScale] = {
     "small": ContinuousScale(n_factors=100, n_assets=1000, n_dates=1250),
     # `large` — 32 GB cloud baseline; opt-in.
     "large": ContinuousScale(n_factors=500, n_assets=1000, n_dates=1250),
+    # `xlarge` — cloud-only stress preset for UX validation. Estimated
+    # peak RSS ≤ 100 GB on the 125 GB cloud host; will OOM a 32 GB
+    # laptop. Never used by `make bench-bump`.
+    "xlarge": ContinuousScale(n_factors=1000, n_assets=2000, n_dates=2000),
+    # `user-realistic-high` — upper end of a factor researcher's
+    # real-world workflow (500 factors over a ~10-year window across
+    # the global liquid universe). Cloud-only.
+    "user-realistic-high": ContinuousScale(n_factors=500, n_assets=3000, n_dates=2500),
 }
 
 
@@ -153,6 +161,12 @@ SPARSE_PRESETS: dict[str, SparseScale] = {
     ),
     "large": SparseScale(
         n_assets=500, n_dates=1250, window_pre=5, window_post=10, event_rate=0.0002
+    ),
+    "xlarge": SparseScale(
+        n_assets=2000, n_dates=2000, window_pre=5, window_post=10, event_rate=0.0002
+    ),
+    "user-realistic-high": SparseScale(
+        n_assets=3000, n_dates=2500, window_pre=5, window_post=10, event_rate=0.0002
     ),
 }
 

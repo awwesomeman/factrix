@@ -72,6 +72,7 @@ def s4_greedy_forward_selection(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """Greedy forward selection over a candidate factor pool.
 
@@ -81,7 +82,7 @@ def s4_greedy_forward_selection(
     max_factors = resolve_scale(preset).n_factors
     n = min(_S4_CANDIDATES, max_factors)
     scale = resolve_scale(preset, n_factors=n)
-    pre = preflight(threads=1, seed=seed)
+    pre = preflight(threads=threads, seed=seed)
 
     def setup() -> dict[str, pl.DataFrame]:
         panel = build_panel(scale, seed=seed)

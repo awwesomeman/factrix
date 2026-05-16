@@ -100,6 +100,12 @@ dimensions used by every scenario:
 | `tiny` | 8 / 20 / 60 | 20 / 60 / 0.05 | Tests + CI smoke; seconds-level |
 | `small` | 100 / 1000 / 1250 | 200 / 1250 / 0.0001 | 16 GB laptop baseline |
 | `large` | 500 / 1000 / 1250 | 500 / 1250 / 0.0002 | 32 GB cloud, opt-in |
+| `xlarge` | 1000 / 2000 / 2000 | 2000 / 2000 / 0.0002 | Cloud-only stress (UX validation) |
+| `user-realistic-high` | 500 / 3000 / 2500 | 3000 / 2500 / 0.0002 | Cloud-only (factor researcher upper bound) |
+
+`xlarge` and `user-realistic-high` will OOM a 32 GB laptop and are
+excluded from `make bench-bump` — they belong to the UX validation
+lane below, not to the reference baseline lane.
 
 Fixed-scale scenarios (`S2`=50 factors, `S3`=200, `M-*`=50 factors)
 override the preset's `n_factors` so the workload stays fixed
@@ -107,6 +113,58 @@ regardless of preset choice. Sparse-cell `n_events` is reported back
 from the realised event panel rather than configured directly — the
 seeded `make_event_panel` produces Binomial events whose count
 depends on `(n_dates × n_assets × event_rate)` and the seed.
+
+## UX validation
+
+The reference baseline measures *algorithm cost lower bound* —
+single-thread BLAS, cold cache, fixed seed — for cross-version
+regression detection. It does not answer "would a real user hit a
+perf wall?". UX validation is a separate lane on the same harness
+that does.
+
+| Axis | Reference baseline | UX validation |
+|---|---|---|
+| BLAS threads | locked to 1 | `--threads N` (typical 4 / 16) |
+| Cache | cold | warm |
+| Measurement target | `compute_s` ratio | `wall_s` absolute |
+| Acceptance | ratio vs history | assert vs `bench.ux_targets.UX_TARGETS` |
+| Frequency | per minor release | per release + ad-hoc |
+
+Run UX validation by combining `--threads` with the cloud-only
+presets, then pipe the output directory through `bench.ux_validate`:
+
+```bash
+python -m bench --target xlarge              --threads 16 --output /tmp/A1-xl
+python -m bench --target user-realistic-high --threads 16 --output /tmp/A1-rh
+python -m bench --target xlarge              --threads 4  --output /tmp/A2-xl
+python -m bench --target user-realistic-high --threads 4  --output /tmp/A2-rh
+
+for d in /tmp/A{1,2}-{xl,rh}; do python -m bench.ux_validate "$d"; done
+```
+
+`bench.ux_validate`:
+
+- Reads every `*.jsonl` under the directory, picks measured rows
+  (`is_warmup=false ∧ status="ok"`), and asserts each row's `wall_s`
+  against `UX_TARGETS`.
+- Prints a markdown table to stdout (scenario / `n_factors` /
+  `wall_s` / target / verdict / `peak_rss_mb` / `n_threads`).
+- Returns non-zero when any row fails its target (a *red flag*).
+- Records OOM / error / unknown-scenario rows as non-blocking
+  incidents — OOM on a 1000-factor screen is real data, not a CI
+  failure.
+
+Pair `--threads N` with `--cold-cache` whenever multi-thread effects
+actually matter: BLAS picks its thread count at numpy import time, so
+in single-process warm mode the in-process flag is partly cosmetic
+(it stamps `env.omp_threads=N` into every record but cannot re-thread
+an already-initialised BLAS). The cold-cache path forks a fresh
+subprocess per scenario with the thread env vars set before import.
+
+`bench.ux_targets.UX_TARGETS_VERSION` is bumped whenever the target
+table is edited so a stored report can be re-interpreted against the
+version it was produced under. The validator stamps the version it
+used into its markdown header.
 
 ## Schema / version invariants
 
