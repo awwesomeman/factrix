@@ -44,6 +44,11 @@ TARGETS: dict[str, dict[str, Any]] = {
     "tiny": {"preset": "tiny", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
     "small": {"preset": "small", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
     "large": {"preset": "large", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
+    "xlarge": {"preset": "xlarge", "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS},
+    "user-realistic-high": {
+        "preset": "user-realistic-high",
+        "scenarios": _CONT_ALGO_IDS + _SPARSE_IDS,
+    },
     "event": {"preset": "small", "scenarios": _SPARSE_IDS},
 }
 
