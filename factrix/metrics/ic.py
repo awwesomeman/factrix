@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
+from typing import overload
 
 import polars as pl
 
@@ -91,20 +92,46 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
+@overload
 def compute_ic(
     df: pl.DataFrame,
-    factor_col: str = "factor",
+    factor_col: str = ...,
+    return_col: str = ...,
+) -> pl.DataFrame: ...
+
+
+@overload
+def compute_ic(
+    df: pl.DataFrame,
+    factor_col: list[str],
+    return_col: str = ...,
+) -> dict[str, pl.DataFrame]: ...
+
+
+def compute_ic(
+    df: pl.DataFrame,
+    factor_col: str | list[str] = "factor",
     return_col: str = "forward_return",
-) -> pl.DataFrame:
+) -> pl.DataFrame | dict[str, pl.DataFrame]:
     r"""Per-date Spearman Rank information coefficient (IC).
 
     Args:
         df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
+        factor_col: A single factor column name (``str``) or a list of
+            names to score together. Passing a list runs all factors in
+            a single polars query (one ``with_columns`` + one
+            ``group_by("date").agg(...)`` + one ``collect``), avoiding
+            the per-factor query-plan overhead of repeated single-factor
+            calls. The single-factor path is the N=1 case of the same
+            engine — there is no "fast path / slow path" divergence.
+        return_col: Forward-return column shared across factors.
 
     Returns:
-        DataFrame with columns ``date, ic, tie_ratio`` sorted by date.
-        Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are dropped.
-        ``tie_ratio`` is the per-date factor tie density
+        Single factor (``str`` input) → DataFrame with columns
+        ``date, ic, tie_ratio`` sorted by date. List input → dict
+        mapping each factor name to the same per-factor DataFrame.
+        Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are
+        dropped. ``tie_ratio`` is the per-date factor tie density
         $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
 
     Notes:
@@ -150,21 +177,50 @@ def compute_ic(
         >>> set(ic_df.columns) >= {"date", "ic", "tie_ratio"}
         True
     """
-    ranked = df.with_columns(
-        pl.col(factor_col).rank(method="average").over("date").alias("_rank_factor"),
+    if isinstance(factor_col, str):
+        cols: list[str] = [factor_col]
+    else:
+        cols = list(factor_col)
+    if not cols:
+        raise ValueError("factor_col list must be non-empty")
+
+    # The "_rank__<col>" / "_ic__<col>" / "_tie__<col>" aliases are
+    # internal to this query and never escape — per-factor DataFrames
+    # are renamed back to the canonical ``ic`` / ``tie_ratio`` columns
+    # so the single-factor return shape stays drop-in identical.
+    rank_exprs: list[pl.Expr] = [
         pl.col(return_col).rank(method="average").over("date").alias("_rank_return"),
-    )
-    return (
-        ranked.group_by("date")
-        .agg(
-            pl.corr("_rank_factor", "_rank_return").alias("ic"),
-            pl.len().alias("n"),
-            (1.0 - pl.col(factor_col).n_unique() / pl.len()).alias("tie_ratio"),
-        )
+        *[
+            pl.col(f).rank(method="average").over("date").alias(f"_rank__{f}")
+            for f in cols
+        ],
+    ]
+    agg_exprs: list[pl.Expr] = [pl.len().alias("n")]
+    for f in cols:
+        agg_exprs.append(pl.corr(f"_rank__{f}", "_rank_return").alias(f"_ic__{f}"))
+        agg_exprs.append((1.0 - pl.col(f).n_unique() / pl.len()).alias(f"_tie__{f}"))
+
+    wide = (
+        df.lazy()
+        .with_columns(rank_exprs)
+        .group_by("date")
+        .agg(agg_exprs)
         .filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
         .sort("date")
-        .select("date", "ic", "tie_ratio")
+        .collect()
     )
+
+    per_factor = {
+        f: wide.select(
+            pl.col("date"),
+            pl.col(f"_ic__{f}").alias("ic"),
+            pl.col(f"_tie__{f}").alias("tie_ratio"),
+        )
+        for f in cols
+    }
+    if isinstance(factor_col, str):
+        return per_factor[factor_col]
+    return per_factor
 
 
 def ic(

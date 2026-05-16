@@ -18,7 +18,7 @@ from pathlib import Path
 
 import factrix as fx
 import polars as pl
-from factrix.metrics.ic import compute_ic
+from factrix.metrics.ic import compute_ic, ic
 from factrix.stats import bootstrap_mean_ci
 
 from bench import metric_sets
@@ -53,11 +53,30 @@ def _run_metrics_per_factor(
     metric_names: tuple[str, ...],
     factors: list[str],
 ) -> int:
+    # Single-metric IC: skip the per-factor run_metrics dispatch loop —
+    # the public batch entry point computes every factor's IC in one
+    # polars query (one with_columns + one group_by(date).agg + one
+    # collect), then the per-factor `ic()` aggregator is a cheap
+    # numpy-level op on the resulting per-factor IC series. Lets M-ic
+    # measure the metric proper, not the dispatch overhead.
+    if tuple(metric_names) == ("ic",):
+        return _ic_only_batched(panel, cfg, factors)
     n = 0
     for col in factors:
         bundle = fx.run_metrics(panel, cfg, factor_col=col, metrics=list(metric_names))
         n += len(bundle.metrics)
     return n
+
+
+def _ic_only_batched(
+    panel: pl.DataFrame,
+    cfg: fx.AnalysisConfig,
+    factors: list[str],
+) -> int:
+    ic_results = compute_ic(panel, factors)
+    for col in factors:
+        ic(ic_results[col], forward_periods=cfg.forward_periods)
+    return len(factors)
 
 
 def _bootstrap_ic_per_factor(
@@ -66,14 +85,15 @@ def _bootstrap_ic_per_factor(
     *,
     seed: int,
 ) -> int:
-    n = 0
+    # Batch the IC compute across factors (one polars query), then loop
+    # the bootstrap inner step — bootstrap vectorisation is tracked
+    # separately (see Refs in PR description).
+    ic_results = compute_ic(panel, factors)
     for k, col in enumerate(factors):
-        ic_df = compute_ic(panel, factor_col=col)
-        arr = ic_df["ic"].to_numpy()
+        arr = ic_results[col]["ic"].to_numpy()
         # Seed per factor so each call is independent but reproducible.
         bootstrap_mean_ci(arr, n_bootstrap=BOOTSTRAP_N, seed=seed + k)
-        n += 1
-    return n
+    return len(factors)
 
 
 # ---------------------------------------------------------------------------
