@@ -41,6 +41,19 @@ def test_tiny_target_runs_full_scenario_set(tmp_path: Path):
         assert rep.ok, (f.name, rep.failures)
 
 
+def test_cloud_targets_registered():
+    """Cloud-only presets must be reachable via --target; otherwise
+    UX validation runs fail at arg-parse time with no way to invoke
+    the preset short of --run-one. Regression: an earlier draft
+    added xlarge / user-realistic-high to PRESETS but forgot the
+    TARGETS dispatcher entry."""
+    from bench.__main__ import TARGETS
+
+    for name in ("xlarge", "user-realistic-high"):
+        assert name in TARGETS, name
+        assert TARGETS[name]["preset"] == name
+
+
 def test_event_target_runs_only_sparse_scenarios(tmp_path: Path):
     rc = main(["--target", "event", "--output", str(tmp_path)])
     assert rc == 0
