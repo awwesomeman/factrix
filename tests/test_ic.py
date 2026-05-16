@@ -137,6 +137,56 @@ class TestComputeIC:
             ic_ir(clean_ic)
 
 
+class TestComputeICBatch:
+    """Multi-factor (`list[str]`) path of ``compute_ic``.
+
+    Equivalence between the single-factor (`str`) and multi-factor
+    paths is the load-bearing contract — the batch path is the same
+    polars engine specialised at N=1, so a divergence here means a
+    silent numerics regression for every single-factor caller.
+    """
+
+    def test_single_in_list_equals_single_call(self, tiny_panel):
+        single = compute_ic(tiny_panel, factor_col="factor")
+        batch = compute_ic(tiny_panel, factor_col=["factor"])
+        assert isinstance(batch, dict)
+        assert set(batch) == {"factor"}
+        assert single.equals(batch["factor"])
+
+    def test_multi_factor_columns_match_per_factor_calls(self):
+        # Two correlated factor columns side-by-side; batch result must
+        # equal looping single-factor calls element-wise.
+        rng = np.random.default_rng(7)
+        n_assets, n_dates = 60, 40
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        records = []
+        for date in dates:
+            returns = rng.standard_normal(n_assets) * 0.02
+            f1 = returns + rng.standard_normal(n_assets) * 0.05
+            f2 = -returns + rng.standard_normal(n_assets) * 0.05
+            for asset_id in range(n_assets):
+                records.append(
+                    {
+                        "date": date,
+                        "asset_id": asset_id,
+                        "f1": float(f1[asset_id]),
+                        "f2": float(f2[asset_id]),
+                        "forward_return": float(returns[asset_id]),
+                    }
+                )
+        panel = pl.DataFrame(records).with_columns(
+            pl.col("date").cast(pl.Datetime("ms"))
+        )
+        batch = compute_ic(panel, factor_col=["f1", "f2"])
+        for col in ("f1", "f2"):
+            single = compute_ic(panel, factor_col=col)
+            assert batch[col].equals(single), col
+
+    def test_empty_factor_list_rejected(self, tiny_panel):
+        with pytest.raises(ValueError, match="non-empty"):
+            compute_ic(tiny_panel, factor_col=[])
+
+
 class TestIC:
     def test_positive_ic(self, noisy_panel):
         ic_df = compute_ic(noisy_panel)
