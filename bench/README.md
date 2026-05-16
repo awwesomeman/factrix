@@ -120,3 +120,122 @@ must refuse to compare records that differ on any of them:
 The wrapper validates its own output via `pydantic.BaseModel.model_validate`
 on construction; every scenario reads the written JSONL back through
 `bench.validator.validate_file` before returning.
+
+## Ratio reading
+
+JSONL rows store **raw observations only** — ratios are computed
+post-hoc by the comparison tool, not written by the harness. The
+rule of thumb when reading them:
+
+- **Default to `compute_s` ratios**, not `wall_s`. `setup_s` covers
+  synthetic-data generation + disk I/O, which varies with NVMe vs.
+  network-mounted home dirs and CI cache state; folding it into the
+  ratio dilutes the signal you care about (the metric computation).
+- **`wall_s = setup_s + compute_s`** is a sanity check, not a
+  primary metric. Use it to spot scenarios where setup dominates
+  (e.g. CI runners with slow disk) before drawing conclusions.
+- **`peak_rss_mb` vs. `peak_alloc_mb`**: RSS includes BLAS scratch
+  and C-level numpy buffers; `tracemalloc`'s `peak_alloc_mb` only
+  counts Python-side allocation. Expect `peak_rss_mb ≫ peak_alloc_mb`
+  on numeric workloads; the two are **not** interchangeable and
+  must not be subtracted.
+- **Comparison is gated on three keys**: `schema_version`,
+  `metric_set_version`, `env.dataset_spec_version`. Different on
+  any of them → refuse to compare, do not silently coerce.
+- **Cross-machine ratios** are valid; cross-machine absolute
+  numbers are not. See "Cross-machine rebaseline" below.
+
+## `cache_state` operating rules
+
+Every record carries `cache_state ∈ {"cold", "warm", "unknown"}`.
+The harness never infers it — the caller (CLI or Makefile)
+declares it; analysis tools refuse to compare across cache states.
+
+| Mode | When | How |
+|---|---|---|
+| `cold` | Reference baselines committed under `bench/baselines/` | `--cold-cache` flag (or `make bench-bump`). Re-execs one subprocess per scenario so OS page cache, numpy import, BLAS thread state reset between scenarios. |
+| `warm` | Ad-hoc iteration during a `#378`-style optimisation PR | Default (no flag). All scenarios share one process; faster, but absolute numbers are not comparable to a cold-cache baseline. |
+| `unknown` | Imported / replayed runs whose provenance is unclear | Only used when ingesting external JSONL with missing context. Avoid producing new `unknown` rows from the harness itself. |
+
+Rule of thumb: if it lands in `bench/baselines/`, it must be
+`cold`. If it lands in a PR description as an ad-hoc ratio, it is
+usually `warm` — say so explicitly and compare warm-to-warm.
+
+## Synthetic-data caveat
+
+`factrix.datasets.make_cs_panel` / `make_event_panel` approximate
+**computational load**, not **statistical reality**. The
+generators are designed to exercise the same code paths as
+production data at controlled scale, with a tunable IC strength
+and cross-sectional correlation knob — but the IC, autocorrelation,
+and event-clustering structure of real markets are not reproduced.
+
+- Use bench numbers to compare **harness configurations** (cold vs.
+  warm, before vs. after an optimisation, machine A vs. machine B).
+- Do **not** use them to predict production runtime on real
+  factors, or to validate that a metric's statistical behaviour is
+  correct — that is what `tests/` and `factrix.run_metrics`
+  invariants are for.
+- `dataset_spec_version` is bumped any time the generator default
+  parameters move (IC strength, correlation level, etc.); baselines
+  on different `dataset_spec_version` are explicitly refused by the
+  comparison gate above.
+
+## Cross-machine rebaseline
+
+The primary baseline machine will eventually retire. The procedure
+that keeps history comparable:
+
+1. **Anchor run** — on the **same `git_sha`**, run the `small`
+   target cold-cache on both the outgoing machine and the incoming
+   machine. Commit both under `bench/baselines/v<version>-<machine-id>/`.
+2. **Compute the per-scenario ratio** between the two machines'
+   `compute_s` (one row per scenario, ideally
+   `is_warmup=false ∧ status="ok"`). Record those ratios in
+   `bench/baselines/README.md` under a "Cross-machine anchors"
+   subsection.
+3. **From that point on**, the new machine is the reference. Old
+   absolute numbers stay readable via the anchor ratios; new PRs
+   compare against the new-machine baseline directly.
+4. **Never re-run an old commit on a new machine and overwrite a
+   prior baseline file** — keep both, dated by directory slug.
+
+If the outgoing machine has already gone offline before the anchor
+was captured, history before the swap becomes
+absolute-incomparable. Document the gap in
+`bench/baselines/README.md` rather than fabricating ratios.
+
+## Release flow
+
+Reference-baseline rerun is a **mandatory** step of every minor
+release. The hooks:
+
+- **`Makefile`** target `bench-bump` — runs the small target
+  cold-cache, derives the machine-id slug from `platform` + `psutil`,
+  writes to `bench/baselines/v<version>-<machine-id>/`. Invoke
+  **after** `cz bump` (so `factrix.__version__` resolves to the new
+  version) and **before** pushing the release tag.
+- **Release PR template** — `.github/PULL_REQUEST_TEMPLATE/release.md`
+  carries a "Reference baseline rerun" checkbox alongside the
+  CHANGELOG-polish checklist; the release author must tick it
+  before merge.
+- **`bench/baselines/README.md`** — append one row per new baseline
+  (version / commit SHA / machine slug / `dataset_spec_version` /
+  `metric_set_version` / `cache_state`).
+
+Operationally:
+
+```bash
+# on main, after CHANGELOG entries are polished and committed
+cz bump --changelog
+make bench-bump                          # writes bench/baselines/v<new>-<machine-id>/
+# edit bench/baselines/README.md index row
+git add bench/baselines CHANGELOG.md
+git commit --amend --no-edit             # fold baseline + index row into the release commit
+git tag -fa v<new> -m "v<new>"
+git push origin main --follow-tags
+```
+
+If `bench-bump` regresses a scenario into `status="error"` /
+`status="oom"`, **do not** tag — investigate first. The whole point
+of the rerun is to catch harness or factrix rot before it ships.
