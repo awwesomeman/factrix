@@ -57,6 +57,37 @@ def test_cold_cache_labels_jsonl_cold(tmp_path: Path):
             assert row["cache_state"] == "cold"
 
 
+def test_threads_flag_stamps_omp_threads_into_env(tmp_path: Path):
+    """``--threads N`` must show up in ``env.omp_threads`` of the
+    measured rows. We use ``--run-one`` against a single short
+    scenario so the test stays bounded."""
+    rc = main(
+        [
+            "--run-one",
+            "M-ic",
+            "--preset",
+            "tiny",
+            "--output",
+            str(tmp_path),
+            "--threads",
+            "4",
+        ]
+    )
+    assert rc == 0
+    with (tmp_path / "M-ic.jsonl").open() as fh:
+        for line in fh:
+            row = json.loads(line)
+            assert row["env"]["omp_threads"] == 4
+
+
+def test_threads_default_is_one(tmp_path: Path):
+    rc = main(["--run-one", "M-ic", "--preset", "tiny", "--output", str(tmp_path)])
+    assert rc == 0
+    with (tmp_path / "M-ic.jsonl").open() as fh:
+        first = json.loads(fh.readline())
+    assert first["env"]["omp_threads"] == 1
+
+
 def test_cold_cache_labels_continuous_scenarios_cold(tmp_path: Path):
     """Regression: an earlier draft of the CLI silently dropped
     `cache_state` for Continuous + algo scenarios because their

@@ -53,6 +53,7 @@ def s5_event_study(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """Event-study bundle: corrado rank test + CAAR + MFE/MAE."""
     return run_sparse_scenario(
@@ -63,6 +64,7 @@ def s5_event_study(
         output=output,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -72,6 +74,7 @@ def m_corrado(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """Cost of ``corrado_rank_test`` alone on the sparse cell.
 
@@ -95,6 +98,7 @@ def m_corrado(
         output=output,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 

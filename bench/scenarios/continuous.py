@@ -87,6 +87,7 @@ def s1_evaluate(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """S1: single factor through ``evaluate`` + ``run_metrics(heavy)``.
 
@@ -113,6 +114,7 @@ def s1_evaluate(
         output=output,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -129,6 +131,7 @@ def _screen(
     preset: str,
     seed: int,
     cache_state: CacheState,
+    threads: int = 1,
 ) -> list[BenchRecord]:
     scale = resolve_scale(preset, n_factors=n_factors)
     core = metric_sets.CORE
@@ -146,6 +149,7 @@ def _screen(
         output=output,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -155,6 +159,7 @@ def s2_screen_50(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """S2: 50-factor screening with the `core` metric set."""
     n = min(50, resolve_scale(preset).n_factors)  # tiny preset caps at 8
@@ -165,6 +170,7 @@ def s2_screen_50(
         preset=preset,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -174,6 +180,7 @@ def s3_screen_200(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """S3: 200-factor screening with the `core` metric set."""
     n = min(200, resolve_scale(preset).n_factors)
@@ -184,6 +191,7 @@ def s3_screen_200(
         preset=preset,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -198,6 +206,7 @@ def p1_scaling_probe(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """Scaling probe — emits one record per scale step.
 
@@ -225,6 +234,7 @@ def p1_scaling_probe(
             preset=preset,
             seed=seed,
             cache_state=cache_state,
+            threads=threads,
         )
         all_records.extend(records)
 
@@ -247,6 +257,7 @@ def _micro(
     preset: str,
     seed: int,
     cache_state: CacheState,
+    threads: int = 1,
 ) -> list[BenchRecord]:
     max_factors = resolve_scale(preset).n_factors
     n = min(_MICRO_FACTORS, max_factors)
@@ -271,6 +282,7 @@ def _micro(
         output=output,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -280,6 +292,7 @@ def m_ic(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """M-ic: cost of ``ic`` alone (no bootstrap)."""
     return _micro(
@@ -289,6 +302,7 @@ def m_ic(
         preset=preset,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -298,6 +312,7 @@ def m_quantile(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """M-quantile: cost of ``quantile_spread`` alone."""
     return _micro(
@@ -307,6 +322,7 @@ def m_quantile(
         preset=preset,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -316,6 +332,7 @@ def m_monotonicity(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """M-mono: cost of ``monotonicity`` alone."""
     return _micro(
@@ -325,6 +342,7 @@ def m_monotonicity(
         preset=preset,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
@@ -334,6 +352,7 @@ def m_ic_bootstrap(
     preset: str = "tiny",
     seed: int = 0,
     cache_state: CacheState = "warm",
+    threads: int = 1,
 ) -> list[BenchRecord]:
     """Cost of the bootstrap path on a per-factor IC series.
 
@@ -362,6 +381,7 @@ def m_ic_bootstrap(
         output=output,
         seed=seed,
         cache_state=cache_state,
+        threads=threads,
     )
 
 
