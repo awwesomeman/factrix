@@ -233,6 +233,38 @@ def _assign_quantile_groups(
     )
 
 
+def _assign_quantile_groups_multi(
+    df: pl.DataFrame,
+    factor_cols: list[str],
+    n_groups: int,
+    tie_policy: str = "ordinal",
+) -> pl.DataFrame:
+    """Assign per-date quantile groups for N factors in one polars pass.
+
+    Multi-factor counterpart of :func:`_assign_quantile_groups`. Emits
+    one ``_group__<factor_col>`` column per factor; the shared
+    ``pl.len().over("date")`` is computed once and reused, and every
+    rank expression lands in a single ``with_columns`` so the polars
+    query optimiser can fuse them. Used by the batch paths of
+    ``compute_spread_series`` and ``monotonicity``; both consume the
+    ``_group__<f>`` columns directly.
+    """
+    rank_exprs = [
+        pl.col(f).rank(method=tie_policy).over("date").alias(f"_rank__{f}")  # type: ignore[arg-type]
+        for f in factor_cols
+    ]
+    n_per_date_expr = pl.len().over("date").alias("_n_per_date")
+    with_ranks = df.with_columns(*rank_exprs, n_per_date_expr)
+    group_exprs = [
+        ((pl.col(f"_rank__{f}") - 1) * n_groups / pl.col("_n_per_date"))
+        .cast(pl.Int32)
+        .clip(0, n_groups - 1)
+        .alias(f"_group__{f}")
+        for f in factor_cols
+    ]
+    return with_ranks.with_columns(*group_exprs)
+
+
 def _compute_tie_ratio(
     df: pl.DataFrame,
     factor_col: str = "factor",

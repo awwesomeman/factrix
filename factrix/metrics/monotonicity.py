@@ -14,8 +14,11 @@ Notes:
 
 from __future__ import annotations
 
+from typing import overload
+
 import numpy as np
 import polars as pl
+import scipy.stats as scipy_stats
 
 __matrix_rows__ = (
     "monotonicity | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio",
@@ -28,8 +31,7 @@ from factrix._types import (
     MetricOutput,
 )
 from factrix.metrics._helpers import (
-    _assign_quantile_groups,
-    _compute_tie_ratio,
+    _assign_quantile_groups_multi,
     _sample_non_overlapping,
     _short_circuit_output,
     _warn_high_tie_ratio,
@@ -50,14 +52,37 @@ __all__ = [
 min_assets_per_group: int | None = 50
 
 
+@overload
+def monotonicity(
+    df: pl.DataFrame,
+    forward_periods: int = ...,
+    n_groups: int = ...,
+    factor_col: str = ...,
+    return_col: str = ...,
+    tie_policy: str = ...,
+) -> MetricOutput: ...
+
+
+@overload
+def monotonicity(
+    df: pl.DataFrame,
+    forward_periods: int = ...,
+    n_groups: int = ...,
+    *,
+    factor_col: list[str],
+    return_col: str = ...,
+    tie_policy: str = ...,
+) -> dict[str, MetricOutput]: ...
+
+
 def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 10,
-    factor_col: str = "factor",
+    factor_col: str | list[str] = "factor",
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
-) -> MetricOutput:
+) -> MetricOutput | dict[str, MetricOutput]:
     """Quantile return monotonicity (Spearman correlation).
 
     ``value`` = mean |Spearman| — magnitude of monotonicity (always ≥ 0).
@@ -100,76 +125,124 @@ def monotonicity(
         >>> result.name
         'monotonicity'
     """
+    if isinstance(factor_col, str):
+        cols: list[str] = [factor_col]
+    else:
+        cols = list(factor_col)
+    if not cols:
+        raise ValueError("factor_col list must be non-empty")
+
+    # Sample non-overlapping once — shared across all factors on the
+    # same panel (depends only on `date` + `forward_periods`).
     filtered = _sample_non_overlapping(df, forward_periods)
-    tie_ratio = _compute_tie_ratio(filtered, factor_col)
-    _warn_high_tie_ratio(tie_ratio, "monotonicity", tie_policy)
+    tie_ratios = _compute_tie_ratios_batched(filtered, cols)
+    for f in cols:
+        _warn_high_tie_ratio(tie_ratios[f], "monotonicity", tie_policy)
 
-    grouped = _assign_quantile_groups(
-        filtered,
-        factor_col,
-        n_groups,
-        tie_policy=tie_policy,
+    grouped = _assign_quantile_groups_multi(filtered, cols, n_groups, tie_policy)
+
+    # Stage 1: per-(date, factor, group) mean return, expressed as one
+    # ``group_by("date").agg(...)`` carrying N × n_groups filter+mean
+    # expressions. Wide output: (n_dates, 1 + N * n_groups). For large
+    # F × n_groups this is a tall ask of the planner, but a single
+    # ``collect()`` beats N separate per-factor queries because the
+    # rank / group columns get computed once and the panel is scanned
+    # only once.
+    agg_exprs: list[pl.Expr] = [
+        pl.col(return_col)
+        .filter(pl.col(f"_group__{f}") == g)
+        .mean()
+        .alias(f"_gr__{f}__{g}")
+        for f in cols
+        for g in range(n_groups)
+    ]
+    group_returns_wide = (
+        grouped.lazy().group_by("date").agg(agg_exprs).sort("date").collect()
     )
 
-    # Mean return per group per date
-    group_returns = (
-        grouped.group_by(["date", "_group"])
-        .agg(pl.col(return_col).mean().alias("group_ret"))
-        .sort(["date", "_group"])
-    )
+    # Stage 2: per-(factor, date) Spearman ρ between group index and
+    # the rank of the per-group mean return. Done in numpy because the
+    # inner shape (n_dates rows × n_groups cells per factor) is small
+    # and the operation is uniform — vectorising in numpy beats the
+    # polars-side rank+corr pipeline at this size. Materialise the
+    # full (n_dates, N * n_groups) block once (zero-copy via Arrow)
+    # and slice per factor — saves N * n_groups individual ``.to_numpy``
+    # calls.
+    gr_col_names = [f"_gr__{f}__{g}" for f in cols for g in range(n_groups)]
+    all_means = group_returns_wide.select(gr_col_names).to_numpy()
+    group_idx = np.arange(n_groups, dtype=np.float64)
+    group_idx_centered = group_idx - group_idx.mean()
+    group_idx_norm = float(np.sqrt(np.sum(group_idx_centered**2)))
+    results: dict[str, MetricOutput] = {}
+    for i, f in enumerate(cols):
+        mat = all_means[:, i * n_groups : (i + 1) * n_groups]
+        # Drop dates with any null/nan bucket mean (matches the
+        # original filter `n == n_groups` and `mono.is_not_null`).
+        mat = mat[np.all(np.isfinite(mat), axis=1)]
+        if mat.shape[0] == 0:
+            mono_arr = np.empty(0)
+        else:
+            # Spearman = Pearson(group_idx, rank(group_mean)).
+            ranks = scipy_stats.rankdata(mat, axis=1, method="average")
+            ranks_centered = ranks - ranks.mean(axis=1, keepdims=True)
+            ranks_norm = np.sqrt(np.sum(ranks_centered**2, axis=1))
+            with np.errstate(invalid="ignore", divide="ignore"):
+                mono_arr = (ranks_centered @ group_idx_centered) / (
+                    ranks_norm * group_idx_norm
+                )
+            mono_arr = mono_arr[np.isfinite(mono_arr)]
 
-    # WHY: Spearman(group_index, returns) = Pearson(group_index, rank(returns))
-    mono_df = (
-        group_returns.filter(
-            pl.col("group_ret").is_not_null() & pl.col("group_ret").is_not_nan()
+        if len(mono_arr) < MIN_MONOTONICITY_PERIODS:
+            results[f] = _short_circuit_output(
+                "monotonicity",
+                "insufficient_monotonicity_periods",
+                n_obs=len(mono_arr),
+                min_required=MIN_MONOTONICITY_PERIODS,
+                n_groups=n_groups,
+                tie_ratio=tie_ratios[f],
+                tie_policy=tie_policy,
+            )
+            continue
+        avg_mono = float(np.mean(np.abs(mono_arr)))
+        mean_mono = float(np.mean(mono_arr))
+        std_mono = float(np.std(mono_arr, ddof=DDOF))
+        t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
+        p = _p_value_from_t(t, len(mono_arr))
+        results[f] = MetricOutput(
+            name="monotonicity",
+            value=avg_mono,
+            stat=t,
+            significance=_significance_marker(p),
+            metadata={
+                "p_value": p,
+                "stat_type": "t",
+                "h0": "mu=0",
+                "mean_signed": mean_mono,
+                "n_valid_periods": len(mono_arr),
+                "n_groups": n_groups,
+                "tie_ratio": tie_ratios[f],
+                "tie_policy": tie_policy,
+            },
         )
-        .with_columns(
-            pl.col("group_ret").rank(method="average").over("date").alias("_ret_rank")
-        )
-        .group_by("date")
-        .agg(
-            pl.corr("_group", "_ret_rank").alias("mono"),
-            pl.len().alias("n"),
-        )
-        .filter(
-            (pl.col("n") == n_groups)
-            & pl.col("mono").is_not_null()
-            & pl.col("mono").is_not_nan()
-        )
-        .sort("date")
-    )
 
-    if len(mono_df) < MIN_MONOTONICITY_PERIODS:
-        return _short_circuit_output(
-            "monotonicity",
-            "insufficient_monotonicity_periods",
-            n_obs=len(mono_df),
-            min_required=MIN_MONOTONICITY_PERIODS,
-            n_groups=n_groups,
-            tie_ratio=tie_ratio,
-            tie_policy=tie_policy,
-        )
+    if isinstance(factor_col, str):
+        return results[factor_col]
+    return results
 
-    mono_arr = mono_df["mono"].to_numpy()
-    avg_mono = float(np.mean(np.abs(mono_arr)))
-    mean_mono = float(np.mean(mono_arr))
-    std_mono = float(np.std(mono_arr, ddof=DDOF))
-    t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
 
-    p = _p_value_from_t(t, len(mono_arr))
-    return MetricOutput(
-        name="monotonicity",
-        value=avg_mono,
-        stat=t,
-        significance=_significance_marker(p),
-        metadata={
-            "p_value": p,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "mean_signed": mean_mono,
-            "n_valid_periods": len(mono_arr),
-            "n_groups": n_groups,
-            "tie_ratio": tie_ratio,
-            "tie_policy": tie_policy,
-        },
-    )
+def _compute_tie_ratios_batched(
+    df: pl.DataFrame, factor_cols: list[str]
+) -> dict[str, float]:
+    """Tie ratio (``1 - n_unique / n``) for many factors in one scan.
+
+    The single-factor :func:`_compute_tie_ratio` runs a separate polars
+    aggregation per factor; this batches them into one ``select`` so
+    the sampled panel is scanned once for any number of factors.
+    """
+    if not factor_cols:
+        return {}
+    exprs = [
+        (1.0 - pl.col(f).n_unique() / pl.len()).alias(f"_tr__{f}") for f in factor_cols
+    ]
+    row = df.select(exprs).row(0, named=True)
+    return {f: float(row[f"_tr__{f}"]) for f in factor_cols}

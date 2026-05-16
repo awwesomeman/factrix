@@ -19,6 +19,8 @@ from pathlib import Path
 import factrix as fx
 import polars as pl
 from factrix.metrics.ic import compute_ic, ic
+from factrix.metrics.monotonicity import monotonicity
+from factrix.metrics.quantile import quantile_spread
 from factrix.stats import bootstrap_mean_ci
 
 from bench import metric_sets
@@ -37,6 +39,11 @@ from bench.schema import BenchRecord, CacheState
 # BlockBootstrap default.
 BOOTSTRAP_N = 999
 
+# Set of metrics for which `_run_metrics_per_factor` has a batched
+# fast-path. Anything outside this set falls back to the per-factor
+# ``fx.run_metrics`` dispatch loop.
+_BATCHABLE_METRICS = frozenset({"ic", "quantile_spread", "monotonicity"})
+
 
 # ---------------------------------------------------------------------------
 # Multi-factor compute primitives
@@ -53,14 +60,14 @@ def _run_metrics_per_factor(
     metric_names: tuple[str, ...],
     factors: list[str],
 ) -> int:
-    # Single-metric IC: skip the per-factor run_metrics dispatch loop —
-    # the public batch entry point computes every factor's IC in one
-    # polars query (one with_columns + one group_by(date).agg + one
-    # collect), then the per-factor `ic()` aggregator is a cheap
-    # numpy-level op on the resulting per-factor IC series. Lets M-ic
-    # measure the metric proper, not the dispatch overhead.
-    if tuple(metric_names) == ("ic",):
-        return _ic_only_batched(panel, cfg, factors)
+    # If every requested metric has a batched implementation, skip
+    # the per-factor ``fx.run_metrics`` dispatch loop — each metric's
+    # batch entry collapses N collect()s into 1 by computing all
+    # factors in one polars plan. This is what makes screen scenarios
+    # (`core` = ic + quantile_spread + monotonicity per factor) clear
+    # the UX wall at xlarge.
+    if set(metric_names) <= _BATCHABLE_METRICS:
+        return _batched(panel, cfg, factors, metric_names)
     n = 0
     for col in factors:
         bundle = fx.run_metrics(panel, cfg, factor_col=col, metrics=list(metric_names))
@@ -68,15 +75,26 @@ def _run_metrics_per_factor(
     return n
 
 
-def _ic_only_batched(
+def _batched(
     panel: pl.DataFrame,
     cfg: fx.AnalysisConfig,
     factors: list[str],
+    metric_names: tuple[str, ...],
 ) -> int:
-    ic_results = compute_ic(panel, factors)
-    for col in factors:
-        ic(ic_results[col], forward_periods=cfg.forward_periods)
-    return len(factors)
+    fwd = cfg.forward_periods
+    n = 0
+    if "ic" in metric_names:
+        ic_results = compute_ic(panel, factors)
+        for col in factors:
+            ic(ic_results[col], forward_periods=fwd)
+        n += len(factors)
+    if "quantile_spread" in metric_names:
+        quantile_spread(panel, fwd, factor_col=factors)
+        n += len(factors)
+    if "monotonicity" in metric_names:
+        monotonicity(panel, fwd, factor_col=factors)
+        n += len(factors)
+    return n
 
 
 def _bootstrap_ic_per_factor(

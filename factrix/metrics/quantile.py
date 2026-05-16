@@ -15,6 +15,7 @@ Notes:
 from __future__ import annotations
 
 import warnings
+from typing import overload
 
 import numpy as np
 import polars as pl
@@ -31,6 +32,7 @@ from factrix._types import (
 )
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
+    _assign_quantile_groups_multi,
     _compute_tie_ratio,
     _lag_within_asset,
     _median_universe_size,
@@ -47,14 +49,37 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 
+@overload
+def compute_spread_series(
+    df: pl.DataFrame,
+    forward_periods: int = ...,
+    n_groups: int = ...,
+    factor_col: str = ...,
+    return_col: str = ...,
+    tie_policy: str = ...,
+) -> pl.DataFrame: ...
+
+
+@overload
+def compute_spread_series(
+    df: pl.DataFrame,
+    forward_periods: int = ...,
+    n_groups: int = ...,
+    *,
+    factor_col: list[str],
+    return_col: str = ...,
+    tie_policy: str = ...,
+) -> dict[str, pl.DataFrame]: ...
+
+
 def compute_spread_series(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
-    factor_col: str = "factor",
+    factor_col: str | list[str] = "factor",
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
-) -> pl.DataFrame:
+) -> pl.DataFrame | dict[str, pl.DataFrame]:
     """Per-date long-short spread series (non-overlapping).
 
     Top bucket = highest factor rank; bottom bucket = lowest. Labels use
@@ -96,6 +121,13 @@ def compute_spread_series(
         >>> set(spreads.columns) >= {"date", "spread", "top_return", "bottom_return"}
         True
     """
+    if isinstance(factor_col, str):
+        cols: list[str] = [factor_col]
+    else:
+        cols = list(factor_col)
+    if not cols:
+        raise ValueError("factor_col list must be non-empty")
+
     sampled = _sample_non_overlapping(df, forward_periods)
 
     median_n = _median_universe_size(sampled)
@@ -109,34 +141,67 @@ def compute_spread_series(
             stacklevel=2,
         )
 
-    grouped = _assign_quantile_groups(
-        sampled,
-        factor_col,
-        n_groups,
-        tie_policy=tie_policy,
-    )
+    grouped = _assign_quantile_groups_multi(sampled, cols, n_groups, tie_policy)
 
     top_group = n_groups - 1
     bottom_group = 0
 
-    return (
-        grouped.group_by("date")
-        .agg(
+    # Per-factor top / bottom means + a single shared universe mean.
+    agg_exprs: list[pl.Expr] = [
+        pl.col(return_col).mean().alias("universe_return"),
+    ]
+    for f in cols:
+        agg_exprs.append(
             pl.col(return_col)
-            .filter(pl.col("_group") == top_group)
+            .filter(pl.col(f"_group__{f}") == top_group)
             .mean()
-            .alias("top_return"),
+            .alias(f"_top__{f}")
+        )
+        agg_exprs.append(
             pl.col(return_col)
-            .filter(pl.col("_group") == bottom_group)
+            .filter(pl.col(f"_group__{f}") == bottom_group)
             .mean()
-            .alias("bottom_return"),
-            pl.col(return_col).mean().alias("universe_return"),
+            .alias(f"_bot__{f}")
         )
-        .with_columns(
-            (pl.col("top_return") - pl.col("bottom_return")).alias("spread"),
+
+    wide = grouped.group_by("date").agg(agg_exprs).sort("date")
+
+    per_factor = {
+        f: wide.select(
+            pl.col("date"),
+            pl.col(f"_top__{f}").alias("top_return"),
+            pl.col(f"_bot__{f}").alias("bottom_return"),
+            pl.col("universe_return"),
+            (pl.col(f"_top__{f}") - pl.col(f"_bot__{f}")).alias("spread"),
         )
-        .sort("date")
-    )
+        for f in cols
+    }
+    if isinstance(factor_col, str):
+        return per_factor[factor_col]
+    return per_factor
+
+
+@overload
+def quantile_spread(
+    df: pl.DataFrame,
+    forward_periods: int = ...,
+    n_groups: int = ...,
+    _precomputed_series: pl.DataFrame | None = ...,
+    tie_policy: str = ...,
+    factor_col: str = ...,
+) -> MetricOutput: ...
+
+
+@overload
+def quantile_spread(
+    df: pl.DataFrame,
+    forward_periods: int = ...,
+    n_groups: int = ...,
+    _precomputed_series: None = ...,
+    tie_policy: str = ...,
+    *,
+    factor_col: list[str],
+) -> dict[str, MetricOutput]: ...
 
 
 def quantile_spread(
@@ -145,7 +210,8 @@ def quantile_spread(
     n_groups: int = 5,
     _precomputed_series: pl.DataFrame | None = None,
     tie_policy: str = "ordinal",
-) -> MetricOutput:
+    factor_col: str | list[str] = "factor",
+) -> MetricOutput | dict[str, MetricOutput]:
     """long-short spread (per-period mean).
 
     Args:
@@ -184,17 +250,74 @@ def quantile_spread(
         >>> result.name
         'quantile_spread'
     """
-    # Compute tie_ratio on the sampled subset (what bucketing actually sees)
-    # rather than the full panel — ~N/forward_periods smaller scan.
-    sampled = _sample_non_overlapping(df, forward_periods)
-    tie_ratio = _compute_tie_ratio(sampled)
-    _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
+    # Multi-factor batch path: sample once, batch spread series, then
+    # loop the cheap per-factor t-test. ``_precomputed_series`` is
+    # rejected here because the caller already opted into the batch
+    # contract (the series come from the shared compute_spread_series
+    # call inside this function).
+    if not isinstance(factor_col, str):
+        cols = list(factor_col)
+        if not cols:
+            raise ValueError("factor_col list must be non-empty")
+        if _precomputed_series is not None:
+            raise ValueError("_precomputed_series is incompatible with list factor_col")
+        sampled = _sample_non_overlapping(df, forward_periods)
+        batched_series = compute_spread_series(
+            df,
+            forward_periods,
+            n_groups,
+            factor_col=cols,
+            tie_policy=tie_policy,
+        )
+        return {
+            f: _quantile_spread_from_series(
+                series=batched_series[f],
+                sampled=sampled,
+                factor_col=f,
+                tie_policy=tie_policy,
+            )
+            for f in cols
+        }
 
+    # Single-factor path: compute tie_ratio on the sampled subset
+    # (what bucketing actually sees) rather than the full panel —
+    # ~N/forward_periods smaller scan.
+    sampled = _sample_non_overlapping(df, forward_periods)
     series = (
         _precomputed_series
         if _precomputed_series is not None
-        else compute_spread_series(df, forward_periods, n_groups, tie_policy=tie_policy)
+        else compute_spread_series(
+            df,
+            forward_periods,
+            n_groups,
+            factor_col=factor_col,
+            tie_policy=tie_policy,
+        )
     )
+    return _quantile_spread_from_series(
+        series=series,
+        sampled=sampled,
+        factor_col=factor_col,
+        tie_policy=tie_policy,
+    )
+
+
+def _quantile_spread_from_series(
+    *,
+    series: pl.DataFrame,
+    sampled: pl.DataFrame,
+    factor_col: str,
+    tie_policy: str,
+) -> MetricOutput:
+    """Per-factor t-test pipeline shared by single and batch paths.
+
+    ``sampled`` is the (already non-overlap-sampled) panel; ``series``
+    is this factor's spread DataFrame. Splitting this out lets the
+    batch path share the sample step across every factor while the
+    single-factor path stays a one-liner.
+    """
+    tie_ratio = _compute_tie_ratio(sampled, factor_col)
+    _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     if n < MIN_PORTFOLIO_PERIODS_HARD:
