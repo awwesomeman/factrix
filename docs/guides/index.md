@@ -7,6 +7,7 @@ research-task framing; right column is the page title as it appears in
 the sidebar.
 
 - **Comparison-axes matrix and shared-keyword semantics (`expand_over`, regime dispatch)** — [Cross-function reference](../api/decision-tree.md)
+- **Loading large factor panels without OOM (lazy projection / predicate pushdown / factor batching)** — [Efficient data loading for large panels](efficient-loading.md)
 - **Raw data to a four-column factrix panel (sort order, frequency alignment, missing data)** — [Preparing data](preparing-data.md)
 - **Picking information coefficient (IC) vs FM (the `individual_continuous` cell only)** — [Information coefficient vs Fama-MacBeth](choosing-metric.md)  
   *Other cells dispatch to a single procedure; see [Concepts § Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) for the per-cell map.*

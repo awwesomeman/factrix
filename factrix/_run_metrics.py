@@ -31,6 +31,7 @@ from factrix._errors import (
     UserInputError,
 )
 from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, user_facing_rows
+from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
@@ -284,7 +285,7 @@ def _raise_factor_col_error(*, value: str, expected: str) -> None:
 
 
 def run_metrics(
-    panel: pl.DataFrame,
+    panel: PanelInput,
     cfg: AnalysisConfig,
     *,
     factor_col: str = "factor",
@@ -300,8 +301,13 @@ def run_metrics(
 
     Args:
         panel: Canonical-column panel (``date, asset_id, factor,
-            forward_return``). Renamed internally if ``factor_col`` is
-            not ``"factor"``, mirroring :func:`factrix.evaluate`.
+            forward_return``). Accepts ``pl.DataFrame`` or
+            ``pl.LazyFrame`` (collected at the boundary). pandas
+            users convert via :func:`factrix.adapt` or
+            ``pl.from_pandas`` first; see
+            :doc:`/guides/efficient-loading` for large-panel recipes.
+            Renamed internally if ``factor_col`` is not ``"factor"``,
+            mirroring :func:`factrix.evaluate`.
         cfg: Validated :class:`AnalysisConfig`. ``cfg.scope`` and
             ``cfg.signal`` route metric discovery; ``cfg.forward_periods``
             (a single int) is the horizon every metric sees. Cross-horizon
@@ -356,6 +362,7 @@ def run_metrics(
 
         >>> bundle = fx.run_metrics(panel, cfg, metrics=["ic"])
     """
+    panel = _coerce_panel(panel)
     missing = {"date", "asset_id", factor_col, "forward_return"} - set(panel.columns)
     if missing:
         hint = (

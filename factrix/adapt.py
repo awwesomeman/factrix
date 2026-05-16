@@ -29,28 +29,37 @@ Usage::
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import polars as pl
 import polars.selectors as cs
 
+from factrix._panel_input import _is_pandas_dataframe
 
-def _to_polars(df: pl.DataFrame) -> pl.DataFrame:
-    """Convert pandas DataFrame to polars if needed; pass through polars as-is."""
-    try:
-        import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
-        if isinstance(df, pd.DataFrame):
-            return pl.from_pandas(df)
-    except ImportError:
-        pass
-    if isinstance(df, pl.DataFrame):
+type AdaptInput = pl.DataFrame | pl.LazyFrame | pd.DataFrame
+
+
+def _to_polars(df: AdaptInput) -> pl.DataFrame | pl.LazyFrame:
+    """Coerce ``adapt`` input to polars, preserving ``LazyFrame``.
+
+    ``pl.DataFrame`` / ``pl.LazyFrame`` pass through unchanged.
+    ``pd.DataFrame`` is converted via ``pl.from_pandas`` (pandas has
+    no lazy equivalent).
+    """
+    if isinstance(df, pl.DataFrame | pl.LazyFrame):
         return df
+    if _is_pandas_dataframe(df):
+        return pl.from_pandas(df)
     raise TypeError(
-        f"adapt: expected polars or pandas DataFrame, got {type(df).__name__}"
+        f"adapt: expected pl.DataFrame, pl.LazyFrame, or pd.DataFrame; got {type(df).__name__}"
     )
 
 
 def adapt(
-    df: pl.DataFrame,
+    df: AdaptInput,
     *,
     date: str = "date",
     asset_id: str = "asset_id",
@@ -60,15 +69,19 @@ def adapt(
     low: str | None = None,
     volume: str | None = None,
     fill_forward: bool = False,
-) -> pl.DataFrame:
+) -> pl.DataFrame | pl.LazyFrame:
     """Rename user columns to factrix canonical names.
 
-    Accepts both polars and pandas DataFrames (pandas is converted
-    to polars automatically).  Only renames columns that differ from
-    the canonical name.  All other columns are passed through unchanged.
+    Type-preserving for polars inputs: a ``pl.LazyFrame`` stays lazy
+    (rename / cast / fill happen inside the lazy chain, no implicit
+    ``.collect()``), a ``pl.DataFrame`` stays eager. ``pd.DataFrame``
+    is converted to ``pl.DataFrame`` (pandas has no lazy equivalent).
+    Only renames columns that differ from the canonical name; all other
+    columns pass through unchanged.
 
     Args:
-        df: Input DataFrame (polars or pandas).
+        df: Input frame — ``pl.DataFrame``, ``pl.LazyFrame``, or
+            ``pd.DataFrame``.
         date: User's date column name.
         asset_id: User's asset identifier column name.
         price: User's price column name.
@@ -85,13 +98,18 @@ def adapt(
             that may contain sporadic missing values.
 
     Returns:
-        Polars DataFrame with canonical column names.
+        Same polars type as input (``pl.DataFrame`` → ``pl.DataFrame``,
+        ``pl.LazyFrame`` → ``pl.LazyFrame``) with canonical column
+        names. ``pd.DataFrame`` input returns ``pl.DataFrame``.
 
     Raises:
-        TypeError: If *df* is neither polars nor pandas DataFrame.
+        TypeError: If *df* is none of ``pl.DataFrame``, ``pl.LazyFrame``,
+            ``pd.DataFrame``.
         ValueError: If any specified source column does not exist.
     """
     df = _to_polars(df)
+    schema = df.collect_schema()
+    columns = schema.names()
 
     renames: list[tuple[str, str | None]] = [
         ("date", date),
@@ -102,19 +120,17 @@ def adapt(
         ("low", low),
         ("volume", volume),
     ]
-    mapping = {}
+    mapping: dict[str, str] = {}
     for canonical, source in renames:
         if source is None or source == canonical:
             continue
-        if source not in df.columns:
+        if source not in columns:
             raise ValueError(
-                f"adapt: column '{source}' not found. Available: {df.columns}"
+                f"adapt: column '{source}' not found. Available: {columns}"
             )
-        if canonical in df.columns:
+        if canonical in columns:
             raise ValueError(
-                f"adapt: cannot rename '{source}' → '{canonical}' "
-                f"because '{canonical}' already exists in the DataFrame. "
-                f"Drop or rename the existing '{canonical}' column first."
+                f"adapt: cannot rename '{source}' → '{canonical}' because '{canonical}' already exists in the DataFrame. Drop or rename the existing '{canonical}' column first."
             )
         mapping[source] = canonical
 
@@ -126,7 +142,7 @@ def adapt(
     # common datetime dtype without the user writing an explicit cast.
     # Other Datetime variants (any time_unit, any TZ) pass through — the
     # library is TZ-agnostic and trusts the caller's precision choice.
-    if "date" in df.columns and df.schema["date"] == pl.Date:
+    if schema.get(date) == pl.Date:
         df = df.with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     if fill_forward:

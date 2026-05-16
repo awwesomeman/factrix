@@ -195,9 +195,18 @@ explicitly `HansenHodrick`. Downstream readers should use
 ### `evaluate`
 
 ```
-factrix.evaluate(panel: polars.DataFrame, config: AnalysisConfig,
+factrix.evaluate(panel: PanelInput, config: AnalysisConfig,
                  *, factor_col: str = "factor") -> FactorProfile
 ```
+
+`PanelInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native
+on its primary entry points; pandas users go through `factrix.adapt`
+(which also renames columns) or `pl.from_pandas` first. `LazyFrame`
+is collected at the API boundary (no projection / predicate pushdown
+applied by factrix — call `.select(...)` / `.filter(...)` upstream
+for memory efficiency on large sources). See
+`docs/guides/efficient-loading.md` for large-panel recipes.
+
 
 procedure. `factor_col=` lets a panel with a non-default signal column
 name (e.g. `"alpha"`) be evaluated without renaming first; looping over
