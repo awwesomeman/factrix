@@ -76,6 +76,13 @@ ad-hoc warm runs skip the subprocess overhead.
 
 ### Scenarios
 
+`scenario_id` prefix encodes the role rather than running order:
+
+- `S*` — baseline screen scenarios (full pipeline at one workload size).
+- `P*` — scaling probe (one scenario emits multiple records across scale steps).
+- `M-*` — per-metric micro attribution (isolates one metric so its cost is
+  separable from the bundled screen scenarios).
+
 | `scenario_id` | Cell | Compute |
 |---|---|---|
 | `S1` | Continuous × Individual | Single factor through `evaluate` + `run_metrics` + bootstrap CI on the IC series |
