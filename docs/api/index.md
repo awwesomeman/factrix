@@ -83,7 +83,7 @@ Click any node to jump to its API page. Nodes are grouped into category subgraph
 | Goal | Pipeline |
 |---|---|
 | Single-factor inference | `evaluate(panel, cfg)` → read `FactorProfile.primary_p` |
-| Single-factor descriptive scan | `run_metrics(panel, cfg, factor_col=...)` → read `MetricsBundle` |
+| Single-factor descriptive scan | `run_metrics(panel, cfg, factor_cols=[...])[name]` → read `MetricsBundle` |
 | Slice exploration (single axis) | `by_slice(metric, df, label="...")` → `SliceResult` |
 | Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Cell metric discovery | `list_metrics(scope, signal)` → names → `run_metrics(metrics=[...])` |

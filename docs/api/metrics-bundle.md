@@ -25,7 +25,7 @@ artifact families row-by-row.
 import factrix as fx
 
 cfg    = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-bundle = fx.run_metrics(panel, cfg, factor_col="momentum_12_1")
+bundle = fx.run_metrics(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]
 
 bundle.identity           # ('momentum_12_1', 5)
 bundle.metrics            # dict[str, MetricOutput]

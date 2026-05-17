@@ -136,7 +136,7 @@ sample-restriction vs hypothesis-dimension splits.
 ## `MetricsBundle` — descriptive twin of `FactorProfile`
 
 ```python
-bundle = fx.run_metrics(panel, cfg)
+bundle = fx.run_metrics(panel, cfg)["factor"]
 ```
 
 `run_metrics` fans out the cell's standalone descriptive metrics; the

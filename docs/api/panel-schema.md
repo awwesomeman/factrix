@@ -50,19 +50,20 @@ caller's frame:
 
 ```python
 profile = fx.evaluate(panel, cfg, factor_col="alpha")
-bundle  = fx.run_metrics(panel, cfg, factor_col="momentum_12_1")
+bundle  = fx.run_metrics(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]
 ```
 
 Behaviour:
 
-- The column is renamed to `"factor"` internally so every procedure's
-  `INPUT_SCHEMA` still sees the canonical schema.
-- `bundle.identity = (factor_col, cfg.forward_periods)` — looping
-  `factor_col=name` over a wide multi-factor panel is the canonical
-  pattern for batch screening; see
+- `evaluate` renames the chosen column to `"factor"` internally so
+  every procedure's `INPUT_SCHEMA` still sees the canonical schema.
+- `run_metrics(factor_cols=[...])` accepts factor column names
+  directly — pass a list to score multiple factors in one call; IC
+  stage-1 and batch-native primitives share one polars query across
+  the batch.
+- `bundle.identity = (factor_name, cfg.forward_periods)` per
+  per-factor bundle in the returned dict; see
   [Batch screening guide](../guides/batch-screening.md).
-- Each call repeats the per-date cross-section work, so cost scales as
-  `O(n_factors × per_date_cost)` — there is no shared-pass primitive.
 
 Error cases (both raise [`UserInputError`][factrix.UserInputError]):
 

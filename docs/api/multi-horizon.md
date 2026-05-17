@@ -47,7 +47,9 @@ import polars as pl
 cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
 horizons = [1, 5, 10, 20]
 bundles = [
-    fx.run_metrics(panel, cfg.replace(forward_periods=h), factor_col="mom_12_1")
+    fx.run_metrics(panel, cfg.replace(forward_periods=h), factor_cols=["mom_12_1"])[
+        "mom_12_1"
+    ]
     for h in horizons
 ]
 table = pl.concat([b.to_frame() for b in bundles])  # long-form: horizon x metric
