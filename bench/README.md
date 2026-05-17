@@ -210,6 +210,22 @@ rule of thumb when reading them:
 - **Cross-machine ratios** are valid; cross-machine absolute
   numbers are not. See "Cross-machine rebaseline" below.
 
+### Ad-hoc ratio table
+
+`scripts/bench_diff.py` renders a markdown ratio table from two output
+dirs for direct paste into PR descriptions:
+
+```
+python scripts/bench_diff.py <before-dir> <after-dir>
+```
+
+Gates on `schema_version` / `metric_set_version` /
+`env.dataset_spec_version` / `axis_cell` / `cache_state` — mismatched
+runs exit non-zero rather than silently coerce. Multi-scale scenarios
+(P1) align per `scale`. This is the PR-description helper for the
+#378 optimisation loop, **not** a long-term CLI; promoting to a
+proper `bench.compare` module is a separate decision.
+
 ## `cache_state` operating rules
 
 Every record carries `cache_state ∈ {"cold", "warm", "unknown"}`.
