@@ -18,9 +18,7 @@ from pathlib import Path
 
 import factrix as fx
 import polars as pl
-from factrix.metrics.ic import compute_ic, ic
-from factrix.metrics.monotonicity import monotonicity
-from factrix.metrics.quantile import quantile_spread
+from factrix.metrics.ic import compute_ic
 from factrix.stats import bootstrap_mean_ci
 
 from bench import metric_sets
@@ -39,11 +37,6 @@ from bench.schema import BenchRecord, CacheState
 # BlockBootstrap default.
 BOOTSTRAP_N = 999
 
-# Set of metrics for which `_run_metrics_per_factor` has a batched
-# fast-path. Anything outside this set falls back to the per-factor
-# ``fx.run_metrics`` dispatch loop.
-_BATCHABLE_METRICS = frozenset({"ic", "quantile_spread", "monotonicity"})
-
 
 # ---------------------------------------------------------------------------
 # Multi-factor compute primitives
@@ -54,48 +47,6 @@ _BATCHABLE_METRICS = frozenset({"ic", "quantile_spread", "monotonicity"})
 # ---------------------------------------------------------------------------
 
 
-def _run_metrics_per_factor(
-    panel: pl.DataFrame,
-    cfg: fx.AnalysisConfig,
-    metric_names: tuple[str, ...],
-    factors: list[str],
-) -> int:
-    # If every requested metric has a batched implementation, skip
-    # the per-factor ``fx.run_metrics`` dispatch loop — each metric's
-    # batch entry collapses N collect()s into 1 by computing all
-    # factors in one polars plan. This is what makes screen scenarios
-    # (`core` = ic + quantile_spread + monotonicity per factor) clear
-    # the UX wall at xlarge.
-    if set(metric_names) <= _BATCHABLE_METRICS:
-        return _dispatch_batch(panel, cfg, factors, metric_names)
-    bundles = fx.run_metrics(
-        panel, cfg, factor_cols=factors, metrics=list(metric_names)
-    )
-    return sum(len(b.metrics) for b in bundles.values())
-
-
-def _dispatch_batch(
-    panel: pl.DataFrame,
-    cfg: fx.AnalysisConfig,
-    factors: list[str],
-    metric_names: tuple[str, ...],
-) -> int:
-    fwd = cfg.forward_periods
-    n = 0
-    if "ic" in metric_names:
-        ic_results = compute_ic(panel, factor_cols=factors)
-        for col in factors:
-            ic(ic_results[col], forward_periods=fwd)
-        n += len(factors)
-    if "quantile_spread" in metric_names:
-        quantile_spread(panel, fwd, factor_cols=factors)
-        n += len(factors)
-    if "monotonicity" in metric_names:
-        monotonicity(panel, fwd, factor_cols=factors)
-        n += len(factors)
-    return n
-
-
 def _bootstrap_ic_per_factor(
     panel: pl.DataFrame,
     factors: list[str],
@@ -104,7 +55,10 @@ def _bootstrap_ic_per_factor(
 ) -> int:
     # Batch the IC compute across factors (one polars query), then loop
     # the bootstrap inner step — bootstrap vectorisation is tracked
-    # separately (see Refs in PR description).
+    # separately (see Refs in PR description). compute_ic is called
+    # directly (not via fx.run_metrics) because run_metrics' IC stage-1
+    # is shaped for the t-test consumers (ic / ic_newey_west / ic_ir),
+    # not for downstream non-metric numpy work like bootstrap.
     ic_results = compute_ic(panel, factor_cols=factors)
     for k, col in enumerate(factors):
         arr = ic_results[col]["ic"].to_numpy()
@@ -174,9 +128,13 @@ def _screen(
     core = metric_sets.CORE
 
     def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
-        return _run_metrics_per_factor(
-            panel, cfg, core.run_metrics_names, factor_columns(panel)
+        bundles = fx.run_metrics(
+            panel,
+            cfg,
+            factor_cols=factor_columns(panel),
+            metrics=list(core.run_metrics_names),
         )
+        return sum(len(b.metrics) for b in bundles.values())
 
     return run_continuous_scenario(
         scenario_id=scenario_id,
@@ -307,9 +265,10 @@ def _micro(
     label = MetricSet(name=metric_name, run_metrics_names=(metric_name,))
 
     def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
-        return _run_metrics_per_factor(
-            panel, cfg, (metric_name,), factor_columns(panel)
+        bundles = fx.run_metrics(
+            panel, cfg, factor_cols=factor_columns(panel), metrics=[metric_name]
         )
+        return sum(len(b.metrics) for b in bundles.values())
 
     return run_continuous_scenario(
         scenario_id=scenario_id,
