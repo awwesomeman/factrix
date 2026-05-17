@@ -46,15 +46,6 @@ _logger = logging.getLogger("factrix.run_metrics")
 # ``compute_event_returns`` pipelines is tracked as v1.x follow-up.
 _IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
-# Metrics whose primitive accepts ``factor_cols=list[str]`` and returns
-# ``dict[str, MetricOutput]`` keyed by factor column. run_metrics
-# dispatches these once across the full batch instead of looping
-# per-factor with the thin ``_project_factor`` projection used for the
-# non-batch metrics.
-_BATCH_PRIMITIVE_METRICS: frozenset[str] = frozenset(
-    {"quantile_spread", "monotonicity"}
-)
-
 
 @dataclass(frozen=True, slots=True, repr=False)
 class MetricsBundle:
@@ -502,14 +493,15 @@ def run_metrics(
                     stage = "consumer"
                 for c in cols:
                     results[c][name] = _safe_call(name, fn, ic_by_factor[c], kwargs)
-            elif name in _BATCH_PRIMITIVE_METRICS:
-                # Batch-native primitives raise InsufficientSampleError
-                # per-factor as a dict entry, not via exception — the
-                # short-circuit lives in the returned MetricOutput.
-                # If the call itself raises, the whole batch aborts
-                # (documented in Raises). Per-factor short-circuiting
-                # inside the primitive is the contract these metrics
-                # opt into by accepting factor_cols.
+            elif _accepts_kwarg(fn, "factor_cols"):
+                # Batch-native primitives (those whose signature accepts
+                # ``factor_cols``) take one call across the whole batch
+                # and return ``dict[str, MetricOutput]`` keyed per
+                # factor. They surface sample-floor failures as
+                # short-circuit entries inside that dict, not via
+                # exception (so no per-factor ``_safe_call`` wrap
+                # needed). An unexpected exception from the call aborts
+                # the whole batch — see ``Raises``.
                 out = fn(panel, factor_cols=cols, **kwargs)
                 for c in cols:
                     results[c][name] = out[c]
