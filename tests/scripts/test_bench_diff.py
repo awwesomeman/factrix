@@ -151,6 +151,36 @@ def test_cache_state_mismatch_fails_loud(tmp_path: Path) -> None:
         bench_diff.diff(before, after)
 
 
+def test_metric_set_version_mismatch_fails_loud(tmp_path: Path) -> None:
+    before = _write_dir(
+        tmp_path / "before",
+        [_record(scenario_id="S2", metric_set_version="1")],
+    )
+    after = _write_dir(
+        tmp_path / "after",
+        [_record(scenario_id="S2", metric_set_version="2")],
+    )
+    with pytest.raises(SystemExit, match="metric_set_version"):
+        bench_diff.diff(before, after)
+
+
+def test_axis_cell_mismatch_fails_loud(tmp_path: Path) -> None:
+    """Sparse vs continuous axis cells on the same scenario_id are incomparable."""
+    before = _write_dir(
+        tmp_path / "before",
+        [_record(scenario_id="S2")],
+    )
+    # Manually rewrite axis_cell on the after record (skip schema's
+    # nested scale validator — this is a fail-loud test fixture, the
+    # script's job is to refuse the comparison even if the input is
+    # inconsistent).
+    after_rec = _record(scenario_id="S2")
+    after_rec["axis_cell"] = "sparse_individual_panel"
+    after = _write_dir(tmp_path / "after", [after_rec])
+    with pytest.raises(SystemExit, match="axis_cell"):
+        bench_diff.diff(before, after)
+
+
 def test_dataset_spec_version_mismatch_fails_loud(tmp_path: Path) -> None:
     before = _write_dir(
         tmp_path / "before",
