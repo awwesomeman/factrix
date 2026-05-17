@@ -81,7 +81,7 @@ horizons = [1, 5, 21]
 
 # Descriptive sweep — no FDR claim
 bundles = [
-    fx.run_metrics(panel, cfg.replace(forward_periods=h))
+    fx.run_metrics(panel, cfg.replace(forward_periods=h))["factor"]
     for h in horizons
 ]
 # compare(bundles)  # descriptive cross-factor view; v1.x function, see #148

@@ -1,4 +1,4 @@
-"""``run_metrics`` v1 — IC-cell stage-1 cache + panel-direct metrics (#147)."""
+"""``run_metrics`` batch interface (#402) — IC-cell stage-1 cache + panel-direct metrics."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ def _build_panel(
     n_assets: int = 25,
     seed: int = 0,
     factor_strength: float = 0.2,
+    extra_factor: str | None = None,
 ) -> pl.DataFrame:
     rng = np.random.default_rng(seed)
     start = dt.date(2024, 1, 1)
@@ -34,17 +35,19 @@ def _build_panel(
         fwd = rng.standard_normal(n_assets)
         noise = rng.standard_normal(n_assets)
         factor = factor_strength * fwd + (1.0 - factor_strength) * noise
+        extra = rng.standard_normal(n_assets) if extra_factor else None
         price = rng.uniform(50.0, 150.0, n_assets)
         for j in range(n_assets):
-            rows.append(
-                {
-                    "date": d,
-                    "asset_id": f"A{j:03d}",
-                    "factor": float(factor[j]),
-                    "forward_return": float(fwd[j]),
-                    "price": float(price[j]),
-                }
-            )
+            row: dict[str, object] = {
+                "date": d,
+                "asset_id": f"A{j:03d}",
+                "factor": float(factor[j]),
+                "forward_return": float(fwd[j]),
+                "price": float(price[j]),
+            }
+            if extra_factor and extra is not None:
+                row[extra_factor] = float(extra[j])
+            rows.append(row)
     return pl.DataFrame(rows)
 
 
@@ -59,14 +62,14 @@ def cfg() -> AnalysisConfig:
 
 
 # ---------------------------------------------------------------------------
-# Default auto-discover
+# Default auto-discover (single factor list-of-1 default)
 # ---------------------------------------------------------------------------
 
 
 def test_auto_discover_runs_ic_family_and_panel_direct(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
-    bundle = run_metrics(panel, cfg)
+    bundle = run_metrics(panel, cfg)["factor"]
     assert _IC_CONSUMERS.issubset(set(bundle.metrics))
     assert "monotonicity" in bundle.metrics
     assert "turnover" in bundle.metrics
@@ -75,7 +78,7 @@ def test_auto_discover_runs_ic_family_and_panel_direct(
 def test_auto_discover_skipped_carries_excluded_reasons(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
-    bundle = run_metrics(panel, cfg)
+    bundle = run_metrics(panel, cfg)["factor"]
     for name, reason in bundle.skipped.items():
         assert reason == _AUTO_DISCOVER_EXCLUDED[name]
 
@@ -100,7 +103,7 @@ def test_auto_discover_skipped_logs_one_summary(
 def test_explicit_subset_runs_only_named(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
-    bundle = run_metrics(panel, cfg, metrics=["ic", "ic_ir"])
+    bundle = run_metrics(panel, cfg, metrics=["ic", "ic_ir"])["factor"]
     assert set(bundle.metrics) == {"ic", "ic_ir"}
     assert dict(bundle.skipped) == {}
 
@@ -129,7 +132,7 @@ def test_explicit_excluded_raises_with_reason(
 
 
 def test_bundle_dict_style_access(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
-    bundle = run_metrics(panel, cfg, metrics=["ic"])
+    bundle = run_metrics(panel, cfg, metrics=["ic"])["factor"]
     assert isinstance(bundle["ic"], MetricOutput)
     assert "ic" in bundle
     assert list(bundle) == ["ic"]
@@ -139,19 +142,19 @@ def test_bundle_dict_style_access(panel: pl.DataFrame, cfg: AnalysisConfig) -> N
 def test_bundle_identity_and_default_context(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
-    bundle = run_metrics(panel, cfg, factor_col="factor", metrics=["ic"])
+    bundle = run_metrics(panel, cfg, factor_cols=["factor"], metrics=["ic"])["factor"]
     assert bundle.identity == ("factor", cfg.forward_periods)
     assert dict(bundle.context) == {}
 
 
 def test_bundle_is_unhashable(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
-    bundle = run_metrics(panel, cfg, metrics=["ic"])
+    bundle = run_metrics(panel, cfg, metrics=["ic"])["factor"]
     with pytest.raises(TypeError):
         hash(bundle)
 
 
 def test_bundle_repr_html_smoke(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
-    bundle = run_metrics(panel, cfg)
+    bundle = run_metrics(panel, cfg)["factor"]
     html = bundle._repr_html_()
     assert "MetricsBundle" in html
     assert "ic" in html
@@ -175,7 +178,7 @@ _TO_FRAME_SCHEMA = {
 
 
 def test_to_frame_schema_is_stable(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
-    bundle = run_metrics(panel, cfg, metrics=["ic"])
+    bundle = run_metrics(panel, cfg, metrics=["ic"])["factor"]
     frame = bundle.to_frame()
     assert dict(frame.schema) == _TO_FRAME_SCHEMA
     assert frame.height == 1
@@ -217,7 +220,7 @@ def test_stage1_compute_ic_called_once_for_ic_family(
     counter = {"n": 0}
     real_compute_ic = metrics_pkg.compute_ic
 
-    def counting_compute_ic(*args: object, **kwargs: object) -> pl.DataFrame:
+    def counting_compute_ic(*args: object, **kwargs: object) -> object:
         counter["n"] += 1
         return real_compute_ic(*args, **kwargs)
 
@@ -225,6 +228,30 @@ def test_stage1_compute_ic_called_once_for_ic_family(
     run_metrics(
         panel,
         cfg,
+        metrics=["ic", "ic_newey_west", "ic_ir"],
+    )
+    assert counter["n"] == 1
+
+
+def test_stage1_compute_ic_called_once_across_factors(
+    cfg: AnalysisConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Multi-factor batch: IC stage-1 runs ONE polars query across N factors."""
+    import factrix.metrics as metrics_pkg
+
+    panel = _build_panel(extra_factor="momentum")
+    counter = {"n": 0}
+    real_compute_ic = metrics_pkg.compute_ic
+
+    def counting_compute_ic(*args: object, **kwargs: object) -> object:
+        counter["n"] += 1
+        return real_compute_ic(*args, **kwargs)
+
+    monkeypatch.setattr(metrics_pkg, "compute_ic", counting_compute_ic)
+    run_metrics(
+        panel,
+        cfg,
+        factor_cols=["factor", "momentum"],
         metrics=["ic", "ic_newey_west", "ic_ir"],
     )
     assert counter["n"] == 1
@@ -240,7 +267,7 @@ def test_class_a_short_circuit_keeps_other_metrics(
 ) -> None:
     # Tiny panel with too few periods for IC's non-overlap test.
     tiny = _build_panel(n_dates=5, n_assets=12)
-    bundle = run_metrics(tiny, cfg, metrics=["ic", "monotonicity"])
+    bundle = run_metrics(tiny, cfg, metrics=["ic", "monotonicity"])["factor"]
     ic_out = bundle["ic"]
     assert ic_out.metadata.get("reason", "").startswith(("insufficient", "no_"))
     assert "monotonicity" in bundle.metrics
@@ -264,23 +291,25 @@ def test_class_c_unexpected_exception_wrapped(
 
 
 # ---------------------------------------------------------------------------
-# factor_col rename path
+# factor_cols dispatch
 # ---------------------------------------------------------------------------
 
 
-def test_factor_col_renames_and_stamps_identity(
-    panel: pl.DataFrame, cfg: AnalysisConfig
+def test_factor_cols_user_named_stamps_identity(
+    cfg: AnalysisConfig,
 ) -> None:
-    renamed = panel.rename({"factor": "momentum_12_1"})
-    bundle = run_metrics(renamed, cfg, factor_col="momentum_12_1", metrics=["ic"])
+    panel = _build_panel().rename({"factor": "momentum_12_1"})
+    bundle = run_metrics(panel, cfg, factor_cols=["momentum_12_1"], metrics=["ic"])[
+        "momentum_12_1"
+    ]
     assert bundle.identity == ("momentum_12_1", cfg.forward_periods)
 
 
-def test_factor_col_missing_raises_user_input_error(
+def test_factor_cols_missing_raises_user_input_error(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
     with pytest.raises(UserInputError):
-        run_metrics(panel, cfg, factor_col="nonexistent", metrics=["ic"])
+        run_metrics(panel, cfg, factor_cols=["nonexistent"], metrics=["ic"])
 
 
 def test_missing_forward_return_raises_actionable_error(
@@ -298,10 +327,48 @@ def test_empty_metrics_list_rejected(panel: pl.DataFrame, cfg: AnalysisConfig) -
     assert "non-empty" in str(exc_info.value)
 
 
-def test_factor_col_collision_raises_user_input_error(
+def test_empty_factor_cols_rejected(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
+    with pytest.raises(UserInputError):
+        run_metrics(panel, cfg, factor_cols=[], metrics=["ic"])
+
+
+def test_duplicate_factor_cols_rejected(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
-    # both 'factor' (already present) and a new candidate column
-    panel_with_alias = panel.with_columns(pl.col("factor").alias("alt"))
     with pytest.raises(UserInputError):
-        run_metrics(panel_with_alias, cfg, factor_col="alt", metrics=["ic"])
+        run_metrics(panel, cfg, factor_cols=["factor", "factor"], metrics=["ic"])
+
+
+# ---------------------------------------------------------------------------
+# Multi-factor equivalence (fail-loud regression guard)
+# ---------------------------------------------------------------------------
+
+
+def test_batch_of_one_matches_default(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
+    bundle_default = run_metrics(panel, cfg, metrics=["ic", "monotonicity"])["factor"]
+    bundle_listed = run_metrics(
+        panel, cfg, factor_cols=["factor"], metrics=["ic", "monotonicity"]
+    )["factor"]
+    assert bundle_default.identity == bundle_listed.identity
+    for name in bundle_default.metrics:
+        assert bundle_default[name].value == pytest.approx(bundle_listed[name].value), (
+            name
+        )
+
+
+def test_batch_of_n_matches_list_of_one_per_factor(
+    cfg: AnalysisConfig,
+) -> None:
+    panel = _build_panel(extra_factor="momentum")
+    batch = run_metrics(
+        panel,
+        cfg,
+        factor_cols=["factor", "momentum"],
+        metrics=["ic", "monotonicity"],
+    )
+    for c in ("factor", "momentum"):
+        solo = run_metrics(panel, cfg, factor_cols=[c], metrics=["ic", "monotonicity"])[
+            c
+        ]
+        for name in ("ic", "monotonicity"):
+            assert batch[c][name].value == pytest.approx(solo[name].value), (c, name)

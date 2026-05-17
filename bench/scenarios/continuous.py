@@ -68,11 +68,10 @@ def _run_metrics_per_factor(
     # the UX wall at xlarge.
     if set(metric_names) <= _BATCHABLE_METRICS:
         return _dispatch_batch(panel, cfg, factors, metric_names)
-    n = 0
-    for col in factors:
-        bundle = fx.run_metrics(panel, cfg, factor_col=col, metrics=list(metric_names))
-        n += len(bundle.metrics)
-    return n
+    bundles = fx.run_metrics(
+        panel, cfg, factor_cols=factors, metrics=list(metric_names)
+    )
+    return sum(len(b.metrics) for b in bundles.values())
 
 
 def _dispatch_batch(
@@ -138,7 +137,7 @@ def s1_evaluate(
         col = factor_columns(panel)[0]
         fx.evaluate(panel, cfg, factor_col=col)
         fx.run_metrics(
-            panel, cfg, factor_col=col, metrics=list(heavy.run_metrics_names)
+            panel, cfg, factor_cols=[col], metrics=list(heavy.run_metrics_names)
         )
         ic_df = compute_ic(panel, factor_cols=[col])[col]
         bootstrap_mean_ci(ic_df["ic"].to_numpy(), n_bootstrap=BOOTSTRAP_N, seed=seed)

@@ -18,7 +18,7 @@ from __future__ import annotations
 import html
 import inspect
 import logging
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -36,8 +36,6 @@ from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from factrix._analysis_config import AnalysisConfig
 
 _logger = logging.getLogger("factrix.run_metrics")
@@ -96,7 +94,7 @@ class MetricsBundle:
         >>> from factrix.preprocess import compute_forward_return
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> panel = compute_forward_return(raw, forward_periods=5)
-        >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())
+        >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())["factor"]
         >>> isinstance(bundle, fx.MetricsBundle)
         True
         >>> "ic" in bundle
@@ -220,7 +218,7 @@ class MetricsBundle:
             >>> from factrix.preprocess import compute_forward_return
             >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
             >>> panel = compute_forward_return(raw, forward_periods=5)
-            >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())
+            >>> bundle = fx.run_metrics(panel, fx.AnalysisConfig.individual_continuous())["factor"]
             >>> df = bundle.to_frame()
             >>> set(df.columns) >= {"factor_id", "metric", "value", "p_value"}
             True
@@ -283,13 +281,13 @@ def _cell_label(cfg: AnalysisConfig) -> str:
     return f"{cfg.scope.value}/{cfg.signal.value}"
 
 
-def _raise_factor_col_error(*, value: str, expected: str) -> None:
+def _raise_factor_col_error(*, value: object, expected: str) -> None:
     raise UserInputError(
         func_name="run_metrics",
-        field="factor_col",
+        field="factor_cols",
         value=value,
         expected=expected,
-        docs_path="api/run_metrics#factor_col",
+        docs_path="api/run_metrics#factor_cols",
     )
 
 
@@ -297,26 +295,27 @@ def run_metrics(
     panel: PanelInput,
     cfg: AnalysisConfig,
     *,
-    factor_col: str = "factor",
+    factor_cols: Sequence[str] = ("factor",),
     metrics: list[str] | None = None,
-) -> MetricsBundle:
-    """Run every standalone descriptive metric the cell exposes.
+) -> dict[str, MetricsBundle]:
+    """Run every standalone descriptive metric the cell exposes, for one or many factors.
 
     Parallel to :func:`factrix.evaluate`: both consume ``(panel, cfg)``,
     each produces a disjoint result type. ``run_metrics`` collects the
-    cell's :mod:`factrix.metrics` surface — information coefficient (IC) family from one shared
-    ``compute_ic`` (cache), every other panel-direct metric called
-    directly — and returns a :class:`MetricsBundle` keyed by metric name.
+    cell's :mod:`factrix.metrics` surface — information coefficient (IC)
+    family from one shared ``compute_ic`` (cache, batched across
+    factors), batch-native primitives (``quantile_spread`` /
+    ``monotonicity``) in one call per metric, every other panel-direct
+    metric looped per factor on a thin projection — and returns one
+    :class:`MetricsBundle` per factor keyed by factor name.
 
     Args:
-        panel: Canonical-column panel (``date, asset_id, factor,
-            forward_return``). Accepts ``pl.DataFrame`` or
-            ``pl.LazyFrame`` (collected at the boundary). pandas
-            users convert via :func:`factrix.adapt` or
-            ``pl.from_pandas`` first; see
+        panel: Canonical-column panel (``date, asset_id, forward_return``
+            plus every name in ``factor_cols``). Accepts
+            ``pl.DataFrame`` or ``pl.LazyFrame`` (collected at the
+            boundary). pandas users convert via :func:`factrix.adapt`
+            or ``pl.from_pandas`` first; see
             :doc:`/guides/efficient-loading` for large-panel recipes.
-            Renamed internally if ``factor_col`` is not ``"factor"``,
-            mirroring :func:`factrix.evaluate`.
         cfg: Validated :class:`AnalysisConfig`. ``cfg.scope`` and
             ``cfg.signal`` route metric discovery; ``cfg.forward_periods``
             (a single int) is the horizon every metric sees. Cross-horizon
@@ -324,9 +323,12 @@ def run_metrics(
             or ``bhy(profiles, expand_over=["forward_periods"])`` —
             ``run_metrics`` itself does not loop horizons (#147 §E /
             #186).
-        factor_col: Name of the signal column on ``panel``. Renamed to
-            ``"factor"`` internally before dispatch so metric callables
-            see the canonical schema.
+        factor_cols: Factor column names on ``panel`` to score. N=1 is
+            the list-of-1 case of the general batch path. IC stage-1
+            and batch-native primitives share one polars query across
+            all factors; non-batch primitives are looped per factor on
+            a thin ``select`` projection that renames the chosen factor
+            to the canonical ``"factor"`` column.
         metrics: ``None`` (default) auto-discovers every applicable
             metric from :func:`factrix.list_metrics`. Pass an explicit
             list to run a subset; unknown or
@@ -336,10 +338,11 @@ def run_metrics(
             for stage-1 consumers).
 
     Returns:
-        A :class:`MetricsBundle` whose ``metrics`` map carries every
-        ``MetricOutput`` produced (including short-circuit outputs for
-        sample-floor failures) and whose ``skipped`` map carries
-        per-metric reasons for metrics that could not auto-run.
+        Dict mapping each factor name to its :class:`MetricsBundle`.
+        Each bundle's ``metrics`` map carries every ``MetricOutput``
+        produced (including short-circuit outputs for sample-floor
+        failures) and ``skipped`` map carries per-metric reasons for
+        metrics that could not auto-run.
 
     Raises:
         UserInputError: ``metrics`` contains an unknown name or a name
@@ -355,36 +358,60 @@ def run_metrics(
             ``MetricOutput`` entries inside the bundle, **not** raised.
 
     Examples:
-        Auto-discover every applicable metric for the cell:
+        Auto-discover every applicable metric for the canonical
+        single-factor panel:
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> bundle = fx.run_metrics(panel, cfg)
+        >>> bundles = fx.run_metrics(panel, cfg)
+        >>> bundle = bundles["factor"]
         >>> ic_output = bundle["ic"]
         >>> long_frame = bundle.to_frame()
-        >>> skipped = dict(bundle.skipped)
 
         Restrict to a subset by name:
 
-        >>> bundle = fx.run_metrics(panel, cfg, metrics=["ic"])
+        >>> bundles = fx.run_metrics(panel, cfg, metrics=["ic"])
     """
     panel = _coerce_panel(panel)
-    missing = {"date", "asset_id", factor_col, "forward_return"} - set(panel.columns)
-    if missing:
+    cols = list(factor_cols)
+    if not cols:
+        _raise_factor_col_error(
+            value=cols,
+            expected="a non-empty list of factor column names",
+        )
+    if len(set(cols)) != len(cols):
+        _raise_factor_col_error(
+            value=cols,
+            expected="factor_cols with no duplicates",
+        )
+
+    base_required = {"date", "asset_id", "forward_return"}
+    missing_base = base_required - set(panel.columns)
+    if missing_base:
         hint = (
             "factrix.preprocess.compute_forward_return(panel) attaches forward_return"
-            if "forward_return" in missing
-            else f"add column(s) {sorted(missing)!r} to the panel"
+            if "forward_return" in missing_base
+            else f"add column(s) {sorted(missing_base)!r} to the panel"
         )
         _raise_factor_col_error(
-            value=factor_col,
+            value=cols,
             expected=(
                 f"panel with canonical columns "
-                f"{{date, asset_id, {factor_col!r}, forward_return}}; "
-                f"missing {sorted(missing)!r} ({hint})"
+                f"{{date, asset_id, forward_return}} plus every name in "
+                f"factor_cols; missing {sorted(missing_base)!r} ({hint})"
+            ),
+        )
+
+    missing_factors = [c for c in cols if c not in panel.columns]
+    if missing_factors:
+        _raise_factor_col_error(
+            value=missing_factors,
+            expected=(
+                f"every name in factor_cols to exist on panel; "
+                f"got columns {list(panel.columns)!r}"
             ),
         )
 
@@ -401,23 +428,6 @@ def run_metrics(
             ),
             docs_path="api/run_metrics#metrics",
         )
-
-    if factor_col != "factor":
-        if factor_col not in panel.columns:
-            _raise_factor_col_error(
-                value=factor_col,
-                expected=f"a column on panel; got columns {list(panel.columns)!r}",
-            )
-        if "factor" in panel.columns:
-            _raise_factor_col_error(
-                value=factor_col,
-                expected=(
-                    "panel without an existing 'factor' column when "
-                    "factor_col != 'factor' (drop the unused column "
-                    "before calling)"
-                ),
-            )
-        panel = panel.rename({factor_col: "factor"})
 
     candidates = _candidate_metric_names(cfg.scope, cfg.signal)
     runnable = [m for m in candidates if m not in _AUTO_DISCOVER_EXCLUDED]
@@ -461,36 +471,34 @@ def run_metrics(
             )
 
     skipped: dict[str, str] = dict(excluded_reasons) if metrics is None else {}
-    results: dict[str, MetricOutput] = {}
-    ic_df: pl.DataFrame | None = None
+    results: dict[str, dict[str, MetricOutput]] = {c: {} for c in cols}
+    ic_by_factor: dict[str, pl.DataFrame] | None = None
 
     import factrix.metrics as _metrics
 
     for name in targets:
         fn = getattr(_metrics, name)
+        kwargs: dict[str, Any] = {}
+        if _accepts_kwarg(fn, "forward_periods"):
+            kwargs["forward_periods"] = cfg.forward_periods
         stage = "consumer"
         try:
             if name in _IC_CONSUMERS:
-                if ic_df is None:
+                if ic_by_factor is None:
                     stage = "stage1"
-                    ic_df = _metrics.compute_ic(panel)["factor"]
+                    ic_by_factor = _metrics.compute_ic(panel, factor_cols=cols)
                     stage = "consumer"
-                first_arg: pl.DataFrame = ic_df
+                for c in cols:
+                    results[c][name] = _safe_call(name, fn, ic_by_factor[c], kwargs)
+            elif name in _BATCH_PRIMITIVE_METRICS:
+                out = fn(panel, factor_cols=cols, **kwargs)
+                for c in cols:
+                    results[c][name] = out[c]
             else:
-                first_arg = panel
-            kwargs: dict[str, Any] = {}
-            if _accepts_kwarg(fn, "forward_periods"):
-                kwargs["forward_periods"] = cfg.forward_periods
-            out = fn(first_arg, **kwargs)
-            results[name] = out["factor"] if name in _BATCH_PRIMITIVE_METRICS else out
-        except InsufficientSampleError as exc:
-            results[name] = _short_circuit_output(
-                name,
-                "insufficient_sample",
-                actual_periods=exc.actual_periods,
-                required_periods=exc.required_periods,
-            )
-        except RunMetricsError:
+                for c in cols:
+                    pf_panel = _project_factor(panel, c)
+                    results[c][name] = _safe_call(name, fn, pf_panel, kwargs)
+        except (InsufficientSampleError, RunMetricsError):
             raise
         except Exception as exc:
             raise RunMetricsError(
@@ -504,18 +512,58 @@ def run_metrics(
 
     if skipped:
         _logger.info(
-            "run_metrics(cell=%s, factor_id=%s, fwd=%d): ran=%d skipped=%d (%s)",
+            "run_metrics(cell=%s, factor_ids=%s, fwd=%d): ran=%d skipped=%d (%s)",
             _cell_label(cfg),
-            factor_col,
+            cols,
             cfg.forward_periods,
-            len(results),
+            len(targets),
             len(skipped),
             ", ".join(sorted(skipped)),
         )
 
-    return MetricsBundle(
-        identity=(factor_col, cfg.forward_periods),
-        metrics=MappingProxyType(results),
-        skipped=MappingProxyType(skipped),
-        context=MappingProxyType({}),
+    return {
+        c: MetricsBundle(
+            identity=(c, cfg.forward_periods),
+            metrics=MappingProxyType(results[c]),
+            skipped=MappingProxyType(skipped),
+            context=MappingProxyType({}),
+        )
+        for c in cols
+    }
+
+
+def _project_factor(panel: pl.DataFrame, col: str) -> pl.DataFrame:
+    """Thin per-factor projection: rename ``col`` to canonical ``"factor"``.
+
+    Non-batch primitives expect a panel whose factor column is literally
+    ``"factor"``. When the caller passes ``factor_cols`` other than (or
+    in addition to) ``"factor"``, we materialise a thin per-factor view
+    by selecting only the columns the primitive needs and aliasing the
+    chosen factor. Zero-copy at the polars layer for the kept columns.
+    """
+    if col == "factor":
+        return panel
+    return panel.select(
+        pl.col("date"),
+        pl.col("asset_id"),
+        pl.col("forward_return"),
+        pl.col(col).alias("factor"),
     )
+
+
+def _safe_call(
+    name: str,
+    fn: Callable[..., MetricOutput],
+    arg: pl.DataFrame,
+    kwargs: dict[str, Any],
+) -> MetricOutput:
+    """Invoke ``fn(arg, **kwargs)`` converting sample-floor errors to short-circuit outputs."""
+    try:
+        return fn(arg, **kwargs)
+    except InsufficientSampleError as exc:
+        return _short_circuit_output(
+            name,
+            "insufficient_sample",
+            actual_periods=exc.actual_periods,
+            required_periods=exc.required_periods,
+        )
