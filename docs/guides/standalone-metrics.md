@@ -71,8 +71,8 @@ raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
 
-spread = fx.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)
-mono = fx.metrics.monotonicity(panel, forward_periods=5, n_groups=5)
+spread = fx.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
+mono = fx.metrics.monotonicity(panel, forward_periods=5, n_groups=5)["factor"]
 ```
 
 ### 2. Event panel `{factor ∈ {0, R}}` — sparse signal cells
@@ -128,8 +128,8 @@ side needs to know about the other:
 profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
 diagnostics = {
     "primary_p": profile.primary_p,
-    "spread": fx.metrics.quantile_spread(panel, forward_periods=5).value,
-    "monotonicity_p": fx.metrics.monotonicity(panel, forward_periods=5).p_value,
+    "spread": fx.metrics.quantile_spread(panel, forward_periods=5)["factor"].value,
+    "monotonicity_p": fx.metrics.monotonicity(panel, forward_periods=5)["factor"].p_value,
     "breakeven_bps": fx.metrics.breakeven_cost(panel).value,
 }
 ```

@@ -15,7 +15,9 @@ from factrix.metrics.quantile import (
 
 class TestQuantileSpreadSeries:
     def test_perfect_panel(self, tiny_panel):
-        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
+        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)[
+            "factor"
+        ]
         assert "spread" in series.columns
         assert "top_return" in series.columns
         assert "bottom_return" in series.columns
@@ -27,20 +29,9 @@ class TestQuantileSpreadSeries:
 
 
 class TestComputeSpreadSeriesBatch:
-    """Multi-factor (`list[str]`) path of ``compute_spread_series``."""
+    """Multi-factor path of ``compute_spread_series``."""
 
-    def test_single_in_list_equals_single_call(self, tiny_panel):
-        single = compute_spread_series(
-            tiny_panel, forward_periods=1, n_groups=5, factor_col="factor"
-        )
-        batch = compute_spread_series(
-            tiny_panel, forward_periods=1, n_groups=5, factor_col=["factor"]
-        )
-        assert isinstance(batch, dict)
-        assert set(batch) == {"factor"}
-        assert single.equals(batch["factor"])
-
-    def test_multi_factor_columns_match_per_factor_calls(self):
+    def test_multi_factor_columns_match_list_of_one(self):
         rng = np.random.default_rng(11)
         n_assets, n_dates = 100, 60
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -61,24 +52,26 @@ class TestComputeSpreadSeriesBatch:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         batch = compute_spread_series(
-            panel, forward_periods=1, n_groups=5, factor_col=["f1", "f2"]
+            panel, forward_periods=1, n_groups=5, factor_cols=["f1", "f2"]
         )
         for col in ("f1", "f2"):
             single = compute_spread_series(
-                panel, forward_periods=1, n_groups=5, factor_col=col
-            )
+                panel, forward_periods=1, n_groups=5, factor_cols=[col]
+            )[col]
             assert batch[col].equals(single), col
 
     def test_empty_factor_list_rejected(self, tiny_panel):
         with pytest.raises(ValueError, match="non-empty"):
             compute_spread_series(
-                tiny_panel, forward_periods=1, n_groups=5, factor_col=[]
+                tiny_panel, forward_periods=1, n_groups=5, factor_cols=[]
             )
 
 
 class TestQuantileSpread:
     def test_noisy_panel(self, noisy_panel):
-        series = compute_spread_series(noisy_panel, forward_periods=1, n_groups=5)
+        series = compute_spread_series(noisy_panel, forward_periods=1, n_groups=5)[
+            "factor"
+        ]
         assert len(series) >= 5
         assert series["spread"].null_count() == 0
 
@@ -96,19 +89,21 @@ class TestQuantileSpread:
                 "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05] * 2,
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = quantile_spread(df, forward_periods=1, n_groups=5)
+        result = quantile_spread(df, forward_periods=1, n_groups=5)["factor"]
         assert math.isnan(result.value)
 
     def test_decomposition_in_metadata(self, tiny_panel):
         """spread = long_alpha + short_alpha (per-period)."""
-        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)
+        series = compute_spread_series(tiny_panel, forward_periods=1, n_groups=5)[
+            "factor"
+        ]
         for row in series.iter_rows(named=True):
             long = row["top_return"] - row["universe_return"]
             short = row["universe_return"] - row["bottom_return"]
             assert long + short == pytest.approx(row["spread"])
 
     def test_metadata_has_long_short(self, noisy_panel):
-        result = quantile_spread(noisy_panel, forward_periods=1, n_groups=5)
+        result = quantile_spread(noisy_panel, forward_periods=1, n_groups=5)["factor"]
         if result.value != 0.0:
             assert "long_alpha" in result.metadata
             assert "short_alpha" in result.metadata

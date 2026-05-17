@@ -109,7 +109,7 @@ def ic_trend(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ic_df = compute_ic(panel)
+        >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_trend(ic_df, value_col="ic")
         >>> result.name
         'ic_trend'

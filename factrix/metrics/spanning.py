@@ -167,7 +167,7 @@ def spanning_alpha(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> spread = compute_spread_series(panel, forward_periods=5)
+        >>> spread = compute_spread_series(panel, forward_periods=5)["factor"]
         >>> result = spanning_alpha(spread)
         >>> result.name
         'spanning_alpha'
@@ -317,7 +317,7 @@ def greedy_forward_selection(
         ...             forward_periods=5,
         ...         ),
         ...         forward_periods=5,
-        ...     )
+        ...     )["factor"]
         ...     for s in seeds
         ... }
         >>> result = greedy_forward_selection(

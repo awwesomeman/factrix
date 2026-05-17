@@ -43,7 +43,7 @@ def test_pairwise_universe_block_bootstrap_romano_wolf() -> None:
 
     per_universe_ic = pl.concat(
         [
-            compute_ic(panel.filter(pl.col("universe") == u)).with_columns(
+            compute_ic(panel.filter(pl.col("universe") == u))["factor"].with_columns(
                 pl.lit(u).alias("universe")
             )
             for u in ["large_cap", "small_cap"]
@@ -90,7 +90,7 @@ def test_joint_sector_wald_nw_cluster() -> None:
 
     per_sector_ic = pl.concat(
         [
-            compute_ic(panel.filter(pl.col("sector") == s)).with_columns(
+            compute_ic(panel.filter(pl.col("sector") == s))["factor"].with_columns(
                 pl.lit(s).alias("sector")
             )
             for s in ["tech", "finance", "consumer"]

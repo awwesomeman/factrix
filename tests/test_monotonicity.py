@@ -15,7 +15,7 @@ class TestComputeMonotonicity:
         perfect = noisy_panel.with_columns(
             pl.col("factor").rank(method="average").over("date").alias("forward_return")
         )
-        result = monotonicity(perfect, forward_periods=1, n_groups=5)
+        result = monotonicity(perfect, forward_periods=1, n_groups=5)["factor"]
         assert result.value == pytest.approx(1.0)
 
     def test_inverse_monotonic(self, noisy_panel):
@@ -26,7 +26,7 @@ class TestComputeMonotonicity:
                 "forward_return"
             )
         )
-        result = monotonicity(inverted, forward_periods=1, n_groups=5)
+        result = monotonicity(inverted, forward_periods=1, n_groups=5)["factor"]
         assert result.value == pytest.approx(1.0)
         assert result.metadata["mean_signed"] == pytest.approx(-1.0)
 
@@ -43,33 +43,16 @@ class TestComputeMonotonicity:
                 "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
             }
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = monotonicity(df, forward_periods=1, n_groups=5)
+        result = monotonicity(df, forward_periods=1, n_groups=5)["factor"]
         # Only 1 date < MIN_MONOTONICITY_PERIODS=5
         assert math.isnan(result.value)
         assert result.significance == ""
 
 
 class TestMonotonicityBatch:
-    """Multi-factor (`list[str]`) path of ``monotonicity``."""
+    """Multi-factor path of ``monotonicity``."""
 
-    def test_single_in_list_equals_single_call(self, noisy_panel):
-        single = monotonicity(noisy_panel, forward_periods=1, n_groups=5)
-        batch = monotonicity(
-            noisy_panel, forward_periods=1, n_groups=5, factor_col=["factor"]
-        )
-        assert isinstance(batch, dict)
-        assert set(batch) == {"factor"}
-        b = batch["factor"]
-        if math.isnan(single.value):
-            assert math.isnan(b.value)
-        else:
-            assert b.value == pytest.approx(single.value)
-            assert b.stat == pytest.approx(single.stat)
-            assert b.metadata["mean_signed"] == pytest.approx(
-                single.metadata["mean_signed"]
-            )
-
-    def test_multi_factor_matches_per_factor_calls(self):
+    def test_multi_factor_matches_list_of_one(self):
         from datetime import datetime, timedelta
 
         import numpy as np
@@ -95,13 +78,15 @@ class TestMonotonicityBatch:
                 )
         panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         batch = monotonicity(
-            panel, forward_periods=1, n_groups=5, factor_col=["f1", "f2"]
+            panel, forward_periods=1, n_groups=5, factor_cols=["f1", "f2"]
         )
         for col in ("f1", "f2"):
-            single = monotonicity(panel, forward_periods=1, n_groups=5, factor_col=col)
+            single = monotonicity(
+                panel, forward_periods=1, n_groups=5, factor_cols=[col]
+            )[col]
             assert batch[col].value == pytest.approx(single.value)
             assert batch[col].stat == pytest.approx(single.stat)
 
     def test_empty_factor_list_rejected(self, noisy_panel):
         with pytest.raises(ValueError, match="non-empty"):
-            monotonicity(noisy_panel, forward_periods=1, n_groups=5, factor_col=[])
+            monotonicity(noisy_panel, forward_periods=1, n_groups=5, factor_cols=[])

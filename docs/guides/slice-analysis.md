@@ -89,7 +89,7 @@ from factrix.metrics import compute_ic, ic
 
 # compute_ic builds the per-date IC frame consumed by the ic metric;
 # see docs/api/metrics/ic.md for the schema.
-ic_df = compute_ic(panel, factor_col="value", return_col="forward_return")
+ic_df = compute_ic(panel, factor_cols=["value"], return_col="forward_return")["value"]
 merged = ic_df.join(vol_labels, on="date", how="inner")
 
 # Dispatcher — raw per-regime IC summaries (SliceResult is dict-shaped)

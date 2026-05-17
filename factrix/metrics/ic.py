@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
-from typing import overload
+from collections.abc import Sequence
 
 import polars as pl
 
@@ -92,46 +92,28 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
-@overload
 def compute_ic(
     df: pl.DataFrame,
-    factor_col: str = ...,
-    return_col: str = ...,
-) -> pl.DataFrame: ...
-
-
-@overload
-def compute_ic(
-    df: pl.DataFrame,
-    factor_col: list[str],
-    return_col: str = ...,
-) -> dict[str, pl.DataFrame]: ...
-
-
-def compute_ic(
-    df: pl.DataFrame,
-    factor_col: str | list[str] = "factor",
+    factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-) -> pl.DataFrame | dict[str, pl.DataFrame]:
+) -> dict[str, pl.DataFrame]:
     r"""Per-date Spearman Rank information coefficient (IC).
 
     Args:
-        df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
-        factor_col: A single factor column name (``str``) or a list of
-            names to score together. Passing a list runs all factors in
-            a single polars query (one ``with_columns`` + one
-            ``group_by("date").agg(...)`` + one ``collect``), avoiding
-            the per-factor query-plan overhead of repeated single-factor
-            calls. The single-factor path is the N=1 case of the same
-            engine — there is no "fast path / slow path" divergence.
+        df: Panel with ``date``, ``asset_id``, every name in
+            ``factor_cols``, and ``return_col``.
+        factor_cols: Factor column names to score. All factors run in a
+            single polars query (one ``with_columns`` + one
+            ``group_by("date").agg(...)`` + one ``collect``) regardless
+            of N. The N=1 case is just the general path specialised —
+            no fast/slow path divergence.
         return_col: Forward-return column shared across factors.
 
     Returns:
-        Single factor (``str`` input) → DataFrame with columns
-        ``date, ic, tie_ratio`` sorted by date. List input → dict
-        mapping each factor name to the same per-factor DataFrame.
-        Dates with fewer than ``MIN_ASSETS_PER_DATE_IC`` assets are
-        dropped. ``tie_ratio`` is the per-date factor tie density
+        Dict mapping each factor name to a DataFrame with columns
+        ``date, ic, tie_ratio`` sorted by date. Dates with fewer than
+        ``MIN_ASSETS_PER_DATE_IC`` assets are dropped. ``tie_ratio`` is
+        the per-date factor tie density
         $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
 
     Notes:
@@ -173,21 +155,19 @@ def compute_ic(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=120, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ic_df = compute_ic(panel)
+        >>> ic_by_factor = compute_ic(panel)
+        >>> ic_df = ic_by_factor["factor"]
         >>> set(ic_df.columns) >= {"date", "ic", "tie_ratio"}
         True
     """
-    if isinstance(factor_col, str):
-        cols: list[str] = [factor_col]
-    else:
-        cols = list(factor_col)
+    cols = list(factor_cols)
     if not cols:
-        raise ValueError("factor_col list must be non-empty")
+        raise ValueError("factor_cols must be non-empty")
 
     # The "_rank__<col>" / "_ic__<col>" / "_tie__<col>" aliases are
     # internal to this query and never escape — per-factor DataFrames
     # are renamed back to the canonical ``ic`` / ``tie_ratio`` columns
-    # so the single-factor return shape stays drop-in identical.
+    # before being placed in the returned dict.
     rank_exprs: list[pl.Expr] = [
         pl.col(return_col).rank(method="average").over("date").alias("_rank_return"),
         *[
@@ -210,7 +190,7 @@ def compute_ic(
         .collect()
     )
 
-    per_factor = {
+    return {
         f: wide.select(
             pl.col("date"),
             pl.col(f"_ic__{f}").alias("ic"),
@@ -218,9 +198,6 @@ def compute_ic(
         )
         for f in cols
     }
-    if isinstance(factor_col, str):
-        return per_factor[factor_col]
-    return per_factor
 
 
 def ic(
@@ -264,7 +241,7 @@ def ic(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ic_df = compute_ic(panel)
+        >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic(ic_df, forward_periods=5)
         >>> result.name
         'ic'
@@ -354,7 +331,7 @@ def ic_newey_west(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ic_df = compute_ic(panel)
+        >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_newey_west(ic_df, forward_periods=5)
         >>> result.name
         'ic_newey_west'
@@ -432,7 +409,7 @@ def ic_ir(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ic_df = compute_ic(panel)
+        >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_ir(ic_df)
         >>> result.name
         'ic_ir'
