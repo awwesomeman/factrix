@@ -48,6 +48,15 @@ _logger = logging.getLogger("factrix.run_metrics")
 # ``compute_event_returns`` pipelines is tracked as v1.x follow-up.
 _IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
+# Metrics whose primitive returns ``dict[str, MetricOutput]`` keyed by
+# factor column. run_metrics is single-factor at this layer: the panel
+# was renamed to the canonical ``"factor"`` column before dispatch, so
+# the dict carries exactly that key and must be unwrapped to a single
+# ``MetricOutput`` for the bundle.
+_BATCH_PRIMITIVE_METRICS: frozenset[str] = frozenset(
+    {"quantile_spread", "monotonicity"}
+)
+
 
 @dataclass(frozen=True, slots=True, repr=False)
 class MetricsBundle:
@@ -464,7 +473,7 @@ def run_metrics(
             if name in _IC_CONSUMERS:
                 if ic_df is None:
                     stage = "stage1"
-                    ic_df = _metrics.compute_ic(panel)
+                    ic_df = _metrics.compute_ic(panel)["factor"]
                     stage = "consumer"
                 first_arg: pl.DataFrame = ic_df
             else:
@@ -472,7 +481,8 @@ def run_metrics(
             kwargs: dict[str, Any] = {}
             if _accepts_kwarg(fn, "forward_periods"):
                 kwargs["forward_periods"] = cfg.forward_periods
-            results[name] = fn(first_arg, **kwargs)
+            out = fn(first_arg, **kwargs)
+            results[name] = out["factor"] if name in _BATCH_PRIMITIVE_METRICS else out
         except InsufficientSampleError as exc:
             results[name] = _short_circuit_output(
                 name,

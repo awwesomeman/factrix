@@ -54,16 +54,13 @@ def _build_spread_dict(
     panel: pl.DataFrame, factors: list[str]
 ) -> dict[str, pl.DataFrame]:
     """Per-factor ``(date, spread)`` series, ready for spanning."""
-    spreads: dict[str, pl.DataFrame] = {}
-    for col in factors:
-        series = compute_spread_series(
-            panel,
-            forward_periods=DEFAULT_FORWARD_PERIODS,
-            factor_col=col,
-            n_groups=_N_GROUPS,
-        )
-        spreads[col] = series.select(["date", "spread"])
-    return spreads
+    series_by_factor = compute_spread_series(
+        panel,
+        forward_periods=DEFAULT_FORWARD_PERIODS,
+        factor_cols=factors,
+        n_groups=_N_GROUPS,
+    )
+    return {col: series_by_factor[col].select(["date", "spread"]) for col in factors}
 
 
 def s4_greedy_forward_selection(

@@ -54,7 +54,7 @@ class TestDefaultNWBitEqual:
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC, forward_periods=5)
         profile = evaluate(panel, cfg)
 
-        ic_values = compute_ic(panel)["ic"].drop_nulls().to_numpy()
+        ic_values = compute_ic(panel)["factor"]["ic"].drop_nulls().to_numpy()
         n = len(ic_values)
         nw_lags = _resolve_nw_lags(n, auto_bartlett(n), 5)
         t_expected, p_expected, _ = _newey_west_t_test(ic_values, lags=nw_lags)
@@ -86,7 +86,7 @@ class TestHHDispatch:
         )
         profile = evaluate(panel, cfg)
 
-        ic_values = compute_ic(panel)["ic"].drop_nulls().to_numpy()
+        ic_values = compute_ic(panel)["factor"]["ic"].drop_nulls().to_numpy()
         t_expected, p_expected, _, _ = _hansen_hodrick_t_test(
             ic_values, forward_periods=5
         )

@@ -14,7 +14,7 @@ Notes:
 
 from __future__ import annotations
 
-from typing import overload
+from collections.abc import Sequence
 
 import numpy as np
 import polars as pl
@@ -52,37 +52,14 @@ __all__ = [
 min_assets_per_group: int | None = 50
 
 
-@overload
-def monotonicity(
-    df: pl.DataFrame,
-    forward_periods: int = ...,
-    n_groups: int = ...,
-    factor_col: str = ...,
-    return_col: str = ...,
-    tie_policy: str = ...,
-) -> MetricOutput: ...
-
-
-@overload
-def monotonicity(
-    df: pl.DataFrame,
-    forward_periods: int = ...,
-    n_groups: int = ...,
-    *,
-    factor_col: list[str],
-    return_col: str = ...,
-    tie_policy: str = ...,
-) -> dict[str, MetricOutput]: ...
-
-
 def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 10,
-    factor_col: str | list[str] = "factor",
+    factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
-) -> MetricOutput | dict[str, MetricOutput]:
+) -> dict[str, MetricOutput]:
     """Quantile return monotonicity (Spearman correlation).
 
     ``value`` = mean |Spearman| — magnitude of monotonicity (always ≥ 0).
@@ -122,15 +99,12 @@ def monotonicity(
         ...     forward_periods=5,
         ... )
         >>> result = monotonicity(panel, forward_periods=5, n_groups=5)
-        >>> result.name
+        >>> result["factor"].name
         'monotonicity'
     """
-    if isinstance(factor_col, str):
-        cols: list[str] = [factor_col]
-    else:
-        cols = list(factor_col)
+    cols = list(factor_cols)
     if not cols:
-        raise ValueError("factor_col list must be non-empty")
+        raise ValueError("factor_cols must be non-empty")
 
     # Sample non-overlapping once — shared across all factors on the
     # same panel (depends only on `date` + `forward_periods`).
@@ -225,8 +199,6 @@ def monotonicity(
             },
         )
 
-    if isinstance(factor_col, str):
-        return results[factor_col]
     return results
 
 

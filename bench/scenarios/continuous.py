@@ -84,15 +84,15 @@ def _dispatch_batch(
     fwd = cfg.forward_periods
     n = 0
     if "ic" in metric_names:
-        ic_results = compute_ic(panel, factors)
+        ic_results = compute_ic(panel, factor_cols=factors)
         for col in factors:
             ic(ic_results[col], forward_periods=fwd)
         n += len(factors)
     if "quantile_spread" in metric_names:
-        quantile_spread(panel, fwd, factor_col=factors)
+        quantile_spread(panel, fwd, factor_cols=factors)
         n += len(factors)
     if "monotonicity" in metric_names:
-        monotonicity(panel, fwd, factor_col=factors)
+        monotonicity(panel, fwd, factor_cols=factors)
         n += len(factors)
     return n
 
@@ -106,7 +106,7 @@ def _bootstrap_ic_per_factor(
     # Batch the IC compute across factors (one polars query), then loop
     # the bootstrap inner step — bootstrap vectorisation is tracked
     # separately (see Refs in PR description).
-    ic_results = compute_ic(panel, factors)
+    ic_results = compute_ic(panel, factor_cols=factors)
     for k, col in enumerate(factors):
         arr = ic_results[col]["ic"].to_numpy()
         # Seed per factor so each call is independent but reproducible.
@@ -140,7 +140,7 @@ def s1_evaluate(
         fx.run_metrics(
             panel, cfg, factor_col=col, metrics=list(heavy.run_metrics_names)
         )
-        ic_df = compute_ic(panel, factor_col=col)
+        ic_df = compute_ic(panel, factor_cols=[col])[col]
         bootstrap_mean_ci(ic_df["ic"].to_numpy(), n_bootstrap=BOOTSTRAP_N, seed=seed)
         return 1
 

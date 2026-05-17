@@ -74,7 +74,7 @@ title: factrix.metrics.trend
 
     # The series diagnostic consumes (date, value); the value column on
     # the compute_ic output is named ``ic``.
-    ic_df = compute_ic(panel)
+    ic_df = compute_ic(panel)["factor"]
     out   = ic_trend(ic_df, value_col="ic")
     print(out.value, out.stat, out.metadata["p_value"])
     # -3.2e-05  -0.91  0.36   (approximate; flat slope)

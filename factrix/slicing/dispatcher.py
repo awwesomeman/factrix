@@ -74,7 +74,7 @@ def by_slice(
         >>> from factrix.metrics import ic, compute_ic
         >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
         >>> panel = compute_forward_return(raw, forward_periods=5)
-        >>> ic_df = compute_ic(panel).with_columns(
+        >>> ic_df = compute_ic(panel)["factor"].with_columns(
         ...     pl.col("date").dt.year().alias("year")
         ... )
         >>> per_year = fx.by_slice(ic, ic_df, label="year")

@@ -99,7 +99,7 @@ title: factrix.metrics.spanning
         ]
     }
     spreads = {
-        name: compute_spread_series(p, forward_periods=5, n_groups=5)
+        name: compute_spread_series(p, forward_periods=5, n_groups=5)["factor"]
         for name, p in panels.items()
     }
 

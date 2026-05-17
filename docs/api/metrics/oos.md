@@ -80,7 +80,7 @@ title: factrix.metrics.oos
 
     # The series diagnostic consumes (date, value); the value column on
     # the compute_ic output is named ``ic``.
-    ic_df = compute_ic(panel)
+    ic_df = compute_ic(panel)["factor"]
     out   = multi_split_oos_decay(ic_df, value_col="ic")
     print(out.value, out.metadata["status"], out.metadata["sign_flipped"])
     # 0.94   PASS   False   (approximate)

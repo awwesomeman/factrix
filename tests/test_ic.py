@@ -11,7 +11,7 @@ from factrix.metrics.ic import compute_ic, ic, ic_ir
 
 class TestComputeIC:
     def test_perfect_rank(self, tiny_panel):
-        result = compute_ic(tiny_panel)
+        result = compute_ic(tiny_panel)["factor"]
         # factor and return have identical ranking → IC = 1.0
         for ic_val in result["ic"].to_list():
             assert ic_val == pytest.approx(1.0)
@@ -21,7 +21,7 @@ class TestComputeIC:
         inverted = tiny_panel.with_columns(
             (0.06 - pl.col("forward_return")).alias("forward_return")
         )
-        result = compute_ic(inverted)
+        result = compute_ic(inverted)["factor"]
         for ic_val in result["ic"].to_list():
             assert ic_val == pytest.approx(-1.0)
 
@@ -39,16 +39,16 @@ class TestComputeIC:
             for i in range(3)
         ]
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = compute_ic(df)
+        result = compute_ic(df)["factor"]
         assert len(result) == 0
 
     def test_output_schema(self, noisy_panel):
-        result = compute_ic(noisy_panel)
+        result = compute_ic(noisy_panel)["factor"]
         assert result.columns == ["date", "ic", "tie_ratio"]
         assert result["date"].dtype == pl.Datetime("ms")
 
     def test_tie_ratio_zero_on_unique_factor(self, noisy_panel):
-        result = compute_ic(noisy_panel)
+        result = compute_ic(noisy_panel)["factor"]
         # noisy_panel factor is continuous noise — no per-date ties expected.
         assert result["tie_ratio"].max() == pytest.approx(0.0)
 
@@ -67,7 +67,7 @@ class TestComputeIC:
             for i in range(n_assets)
         ]
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = compute_ic(df)
+        result = compute_ic(df)["factor"]
         # 12 obs, 3 unique → tie_ratio = 1 - 3/12 = 0.75
         assert result["tie_ratio"].max() == pytest.approx(0.75)
         assert result["tie_ratio"].min() == pytest.approx(0.75)
@@ -75,7 +75,7 @@ class TestComputeIC:
     def test_tie_ratio_propagated_to_metadata(self, noisy_panel):
         from factrix.metrics.ic import ic, ic_ir, ic_newey_west
 
-        ic_df = compute_ic(noisy_panel)
+        ic_df = compute_ic(noisy_panel)["factor"]
         for out in (
             ic(ic_df, forward_periods=1),
             ic_newey_west(ic_df, forward_periods=1),
@@ -105,7 +105,7 @@ class TestComputeIC:
             for i in range(n_assets)
         ]
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        ic_df = compute_ic(df)
+        ic_df = compute_ic(df)["factor"]
         for fn in (
             lambda d: ic(d, forward_periods=1),
             lambda d: ic_newey_west(d, forward_periods=1),
@@ -129,7 +129,7 @@ class TestComputeIC:
         clean = pl.DataFrame(clean_rows).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        clean_ic = compute_ic(clean)
+        clean_ic = compute_ic(clean)["factor"]
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             ic(clean_ic, forward_periods=1)
@@ -138,24 +138,14 @@ class TestComputeIC:
 
 
 class TestComputeICBatch:
-    """Multi-factor (`list[str]`) path of ``compute_ic``.
+    """Multi-factor path of ``compute_ic``.
 
-    Equivalence between the single-factor (`str`) and multi-factor
-    paths is the load-bearing contract — the batch path is the same
-    polars engine specialised at N=1, so a divergence here means a
-    silent numerics regression for every single-factor caller.
+    Each element of a multi-factor batch must equal the corresponding
+    list-of-1 call — divergence means a silent numerics regression for
+    callers that consume one factor at a time from a shared panel.
     """
 
-    def test_single_in_list_equals_single_call(self, tiny_panel):
-        single = compute_ic(tiny_panel, factor_col="factor")
-        batch = compute_ic(tiny_panel, factor_col=["factor"])
-        assert isinstance(batch, dict)
-        assert set(batch) == {"factor"}
-        assert single.equals(batch["factor"])
-
-    def test_multi_factor_columns_match_per_factor_calls(self):
-        # Two correlated factor columns side-by-side; batch result must
-        # equal looping single-factor calls element-wise.
+    def test_multi_factor_columns_match_list_of_one(self):
         rng = np.random.default_rng(7)
         n_assets, n_dates = 60, 40
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
@@ -177,19 +167,19 @@ class TestComputeICBatch:
         panel = pl.DataFrame(records).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        batch = compute_ic(panel, factor_col=["f1", "f2"])
+        batch = compute_ic(panel, factor_cols=["f1", "f2"])
         for col in ("f1", "f2"):
-            single = compute_ic(panel, factor_col=col)
+            single = compute_ic(panel, factor_cols=[col])[col]
             assert batch[col].equals(single), col
 
     def test_empty_factor_list_rejected(self, tiny_panel):
         with pytest.raises(ValueError, match="non-empty"):
-            compute_ic(tiny_panel, factor_col=[])
+            compute_ic(tiny_panel, factor_cols=[])
 
 
 class TestIC:
     def test_positive_ic(self, noisy_panel):
-        ic_df = compute_ic(noisy_panel)
+        ic_df = compute_ic(noisy_panel)["factor"]
         result = ic(ic_df, forward_periods=1)
         assert result.name == "ic"
         assert result.value > 0  # noisy_panel has positive IC
@@ -209,7 +199,7 @@ class TestIC:
 
 class TestICIR:
     def test_positive_ir(self, noisy_panel):
-        ic_df = compute_ic(noisy_panel)
+        ic_df = compute_ic(noisy_panel)["factor"]
         result = ic_ir(ic_df)
         assert result.value > 0
         assert result.name == "ic_ir"

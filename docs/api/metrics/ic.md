@@ -77,7 +77,7 @@ output without the inference framing.
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    ic_df = compute_ic(panel)
+    ic_df = compute_ic(panel)["factor"]
     print(ic_df.head())
     # ┌────────────┬───────────┬───────────┐
     # │ date       ┆ ic        ┆ tie_ratio │

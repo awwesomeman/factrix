@@ -221,7 +221,7 @@ class _ICContPanelProcedure:
         # ``compute_ic`` filters by MIN_ASSETS_PER_DATE_IC but does not drop nulls;
         # ``pl.corr`` returns null for zero-variance dates (degenerate
         # factor / tied returns) so the explicit drop is reachable.
-        ic_values = compute_ic(raw)["ic"].drop_nulls().to_numpy()
+        ic_values = compute_ic(raw)["factor"]["ic"].drop_nulls().to_numpy()
         n_periods = len(ic_values)
         n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
         ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0

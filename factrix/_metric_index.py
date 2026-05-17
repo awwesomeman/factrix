@@ -117,16 +117,16 @@ _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
     # a panel. Compose explicitly with compute_ic / compute_spread_series.
     "hit_rate": (
         "consumes a (date, value) series; e.g. "
-        "hit_rate(compute_ic(panel).rename({'ic': 'value'}))"
+        "hit_rate(compute_ic(panel)['factor'].rename({'ic': 'value'}))"
     ),
     "multi_split_oos_decay": (
         "consumes a (date, value) series; e.g. "
-        "multi_split_oos_decay(compute_spread_series(panel)"
+        "multi_split_oos_decay(compute_spread_series(panel)['factor']"
         ".rename({'spread': 'value'}))"
     ),
     "ic_trend": (
         "consumes a (date, value) series; e.g. "
-        "ic_trend(compute_ic(panel).rename({'ic': 'value'}))"
+        "ic_trend(compute_ic(panel)['factor'].rename({'ic': 'value'}))"
     ),
     # Multi-factor spread inputs — require a list/dict of factor spreads,
     # not a single panel.
