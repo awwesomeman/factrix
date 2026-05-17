@@ -344,6 +344,22 @@ def test_duplicate_factor_cols_rejected(
 # ---------------------------------------------------------------------------
 
 
+def _assert_output_equal(
+    a: MetricOutput, b: MetricOutput, *, where: tuple[str, ...]
+) -> None:
+    if np.isnan(a.value):
+        assert np.isnan(b.value), where
+    else:
+        assert a.value == pytest.approx(b.value), where
+    if a.stat is None:
+        assert b.stat is None, where
+    else:
+        assert b.stat is not None, where
+        assert a.stat == pytest.approx(b.stat), where
+    assert a.significance == b.significance, where
+    assert a.metadata.get("p_value") == pytest.approx(b.metadata.get("p_value")), where
+
+
 def test_batch_of_one_matches_default(panel: pl.DataFrame, cfg: AnalysisConfig) -> None:
     bundle_default = run_metrics(panel, cfg, metrics=["ic", "monotonicity"])["factor"]
     bundle_listed = run_metrics(
@@ -351,8 +367,8 @@ def test_batch_of_one_matches_default(panel: pl.DataFrame, cfg: AnalysisConfig) 
     )["factor"]
     assert bundle_default.identity == bundle_listed.identity
     for name in bundle_default.metrics:
-        assert bundle_default[name].value == pytest.approx(bundle_listed[name].value), (
-            name
+        _assert_output_equal(
+            bundle_default[name], bundle_listed[name], where=("default-vs-listed", name)
         )
 
 
@@ -371,4 +387,4 @@ def test_batch_of_n_matches_list_of_one_per_factor(
             c
         ]
         for name in ("ic", "monotonicity"):
-            assert batch[c][name].value == pytest.approx(solo[name].value), (c, name)
+            _assert_output_equal(batch[c][name], solo[name], where=(c, name))

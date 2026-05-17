@@ -357,6 +357,14 @@ def run_metrics(
             short-circuits are converted to short-circuit
             ``MetricOutput`` entries inside the bundle, **not** raised.
 
+            For shared-compute paths — IC stage-1 (``compute_ic`` across
+            all factors) and batch-native primitives (``quantile_spread``
+            / ``monotonicity`` with ``factor_cols=cols``) — an
+            unexpected exception aborts the entire batch; the cost of
+            per-factor isolation would be paying the per-factor query
+            plan we explicitly merged. Per-factor sample-floor
+            short-circuits remain entries inside the bundle.
+
     Examples:
         Auto-discover every applicable metric for the canonical
         single-factor panel:
@@ -473,6 +481,10 @@ def run_metrics(
     skipped: dict[str, str] = dict(excluded_reasons) if metrics is None else {}
     results: dict[str, dict[str, MetricOutput]] = {c: {} for c in cols}
     ic_by_factor: dict[str, pl.DataFrame] | None = None
+    # Per-factor projected views shared across every non-batch metric.
+    # Built once per factor (not per metric × factor) — the underlying
+    # polars buffers are refcounted so the projection is near-zero-copy.
+    projected: dict[str, pl.DataFrame] = {c: _project_factor(panel, c) for c in cols}
 
     import factrix.metrics as _metrics
 
@@ -491,13 +503,19 @@ def run_metrics(
                 for c in cols:
                     results[c][name] = _safe_call(name, fn, ic_by_factor[c], kwargs)
             elif name in _BATCH_PRIMITIVE_METRICS:
+                # Batch-native primitives raise InsufficientSampleError
+                # per-factor as a dict entry, not via exception — the
+                # short-circuit lives in the returned MetricOutput.
+                # If the call itself raises, the whole batch aborts
+                # (documented in Raises). Per-factor short-circuiting
+                # inside the primitive is the contract these metrics
+                # opt into by accepting factor_cols.
                 out = fn(panel, factor_cols=cols, **kwargs)
                 for c in cols:
                     results[c][name] = out[c]
             else:
                 for c in cols:
-                    pf_panel = _project_factor(panel, c)
-                    results[c][name] = _safe_call(name, fn, pf_panel, kwargs)
+                    results[c][name] = _safe_call(name, fn, projected[c], kwargs)
         except (InsufficientSampleError, RunMetricsError):
             raise
         except Exception as exc:
@@ -536,13 +554,11 @@ def _project_factor(panel: pl.DataFrame, col: str) -> pl.DataFrame:
     """Thin per-factor projection: rename ``col`` to canonical ``"factor"``.
 
     Non-batch primitives expect a panel whose factor column is literally
-    ``"factor"``. When the caller passes ``factor_cols`` other than (or
-    in addition to) ``"factor"``, we materialise a thin per-factor view
-    by selecting only the columns the primitive needs and aliasing the
-    chosen factor. Zero-copy at the polars layer for the kept columns.
+    ``"factor"``. Always projects to exactly the 4 canonical columns
+    so primitives see an identical schema regardless of whether the
+    caller's ``factor_cols`` happened to include ``"factor"`` itself
+    or a sibling extra column.
     """
-    if col == "factor":
-        return panel
     return panel.select(
         pl.col("date"),
         pl.col("asset_id"),
