@@ -46,11 +46,11 @@ _logger = logging.getLogger("factrix.run_metrics")
 # ``compute_event_returns`` pipelines is tracked as v1.x follow-up.
 _IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
-# Metrics whose primitive returns ``dict[str, MetricOutput]`` keyed by
-# factor column. run_metrics is single-factor at this layer: the panel
-# was renamed to the canonical ``"factor"`` column before dispatch, so
-# the dict carries exactly that key and must be unwrapped to a single
-# ``MetricOutput`` for the bundle.
+# Metrics whose primitive accepts ``factor_cols=list[str]`` and returns
+# ``dict[str, MetricOutput]`` keyed by factor column. run_metrics
+# dispatches these once across the full batch instead of looping
+# per-factor with the thin ``_project_factor`` projection used for the
+# non-batch metrics.
 _BATCH_PRIMITIVE_METRICS: frozenset[str] = frozenset(
     {"quantile_spread", "monotonicity"}
 )
