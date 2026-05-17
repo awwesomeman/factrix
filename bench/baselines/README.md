@@ -15,7 +15,7 @@ cross-machine rebaseline procedure.
 
 | Directory | factrix version | Commit SHA | Machine ID | CPU | RAM | `dataset_spec_version` | `metric_set_version` | `cache_state` | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| `v0.14.0-linux-x86_64-125g/` | 0.13.0 (pre-release pin) | `1dce8fb` | `linux-x86_64-125g` | x86_64 (8 phys / 16 logical) | 125.8 GB | 1 | 1 | cold | First reference baseline. Captured against `1dce8fb` (factrix 0.13.0) on a cloud runner ahead of the v0.14.0 release; the slug names the target version this baseline serves. `make bench-bump` rerun at v0.14.0 release time replaces these files with v0.14.0-versioned records. Not the eventual 16 GB-laptop primary — treat as cross-machine anchor candidate until a laptop baseline lands. |
+| `v0.14.0-linux-x86_64-125g/` | 0.13.0 (pre-release pin) | `1dce8fb` | `linux-x86_64-125g` | x86_64 (8 phys / 16 logical) | 125.8 GB | 1 | 1 | cold | Captured against `1dce8fb` (factrix 0.13.0) ahead of the v0.14.0 release; the slug names the target version this baseline serves. `make bench-bump` rerun at v0.14.0 release time overwrites these files with HEAD-versioned records — the captured `compute_s` shape reflects the commit it was pinned to (pre-batch-dispatch), not the current HEAD. |
 
 > The **JSONL `env` block** is the source of truth for any given
 > record's machine / version provenance. This index is a discovery
