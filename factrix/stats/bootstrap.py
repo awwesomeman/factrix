@@ -150,3 +150,119 @@ def bootstrap_mean_ci(
     lo = float(np.quantile(stats, alpha))
     hi = float(np.quantile(stats, 1.0 - alpha))
     return lo, hi, point
+
+
+# Target peak budget for the materialised resample tensor
+# ``values[k_slice][:, idx]`` in ``bootstrap_mean_ci_batch``. K-chunking
+# is bounded by this so memory does not scale linearly with n_factors;
+# the chosen 256 MB lands two orders of magnitude under the 32 GB laptop
+# preset envelope while still letting a 1000-factor / 250-date / B=999
+# batch fit in ~10 K-chunks.
+_BATCH_RESAMPLE_BYTES_BUDGET = 256 * 1024 * 1024
+
+
+def bootstrap_mean_ci_batch(
+    values: np.ndarray,
+    *,
+    n_bootstrap: int = 1000,
+    ci: float = 0.95,
+    block_length: float | None = None,
+    seed: int | None = None,
+    chunk_size: int | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Vectorised stationary-bootstrap CI across ``n_factors`` series.
+
+    Shares one ``(B, T)`` block-index matrix across all factors per
+    chunk: every factor sees the same resample positions, so the
+    bootstrap distributions are jointly drawn rather than independently
+    redrawn per factor. This collapses the per-factor Python loop into
+    a single batched advanced-index over ``values``.
+
+    For ``n_factors == 1`` the result equals
+    :func:`bootstrap_mean_ci` evaluated on ``values[0]`` with the same
+    ``seed`` (the index matrix is drawn identically).
+
+    Args:
+        values: ``(n_factors, n_observations)`` array. Each row is an
+            independent series; the bootstrap is applied per row but
+            shares one set of block indices.
+        n_bootstrap: Resample count ``B`` (same for every factor).
+        ci: Two-sided coverage (same as single-factor variant).
+        block_length: Mean geometric block length. Defaults to
+            ``1.75 * T^(1/3)`` (one value shared across factors —
+            matches single-factor default).
+        seed: Reproducibility seed; the drawn index matrix is identical
+            to the single-factor path under the same seed.
+        chunk_size: K-chunk for materialising the resample tensor.
+            ``None`` (default) picks a chunk that targets a 256 MB
+            peak on the resample tensor; pass an explicit value to
+            override (smaller = lower peak, slightly higher Python
+            overhead).
+
+    Returns:
+        ``(ci_low, ci_high, point)`` — each a ``(n_factors,)`` array.
+
+    References:
+        Same as :func:`bootstrap_mean_ci`.
+    """
+    if not 0.0 < ci < 1.0:
+        raise ValueError(f"ci must be in (0, 1), got {ci!r}")
+    values = np.asarray(values, dtype=float)
+    if values.ndim != 2:
+        raise ValueError(
+            f"values must be 2-D (n_factors, n_observations); got shape {values.shape!r}"
+        )
+    n_factors, n = values.shape
+    if n_factors == 0:
+        return (
+            np.empty((0,), dtype=float),
+            np.empty((0,), dtype=float),
+            np.empty((0,), dtype=float),
+        )
+
+    if n == 0:
+        # Match single-factor ``bootstrap_mean_ci`` which propagates
+        # NaN for an empty input — zero would silently claim "sample
+        # mean of nothing is 0" and mask a bad input.
+        return (
+            np.full(n_factors, np.nan, dtype=float),
+            np.full(n_factors, np.nan, dtype=float),
+            np.full(n_factors, np.nan, dtype=float),
+        )
+
+    if block_length is None:
+        block_length = _default_block_length(n)
+    if block_length < 1.0:
+        raise ValueError(f"block_length must be >= 1.0, got {block_length!r}")
+
+    from factrix._stats.bootstrap import _stationary_block_indices
+
+    rng = np.random.default_rng(seed)
+    # Single shared index matrix — preserves single-factor seed
+    # equivalence and bounds the per-chunk memory to the values tensor
+    # (the index matrix itself is B*T*8 bytes, ~2 MB at B=999 T=250).
+    idx = _stationary_block_indices(n, n_bootstrap, float(block_length), rng)
+
+    if chunk_size is None:
+        per_factor_bytes = n_bootstrap * n * 8
+        chunk_size = max(1, _BATCH_RESAMPLE_BYTES_BUDGET // max(per_factor_bytes, 1))
+    chunk_size = min(chunk_size, n_factors)
+
+    alpha = (1.0 - ci) / 2.0
+    lo = np.empty(n_factors, dtype=float)
+    hi = np.empty(n_factors, dtype=float)
+    for k_start in range(0, n_factors, chunk_size):
+        k_stop = min(k_start + chunk_size, n_factors)
+        # ``values[k_start:k_stop]`` is (k, T); advanced-indexing with
+        # ``idx`` of shape (B, T) broadcasts to (k, B, T).
+        chunk_resamples = values[k_start:k_stop][:, idx]
+        chunk_means = chunk_resamples.mean(axis=2)  # (k, B)
+        # ``overwrite_input`` lets quantile partition ``chunk_means`` in
+        # place — safe because it is a fresh per-chunk allocation, and
+        # saves a transient k×B copy inside the partition.
+        q = np.quantile(chunk_means, [alpha, 1.0 - alpha], axis=1, overwrite_input=True)
+        lo[k_start:k_stop] = q[0]
+        hi[k_start:k_stop] = q[1]
+
+    point = values.mean(axis=1)
+    return lo, hi, point

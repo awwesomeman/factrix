@@ -17,9 +17,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import factrix as fx
+import numpy as np
 import polars as pl
 from factrix.metrics.ic import compute_ic
-from factrix.stats import bootstrap_mean_ci
+from factrix.stats import bootstrap_mean_ci, bootstrap_mean_ci_batch
 
 from bench import metric_sets
 from bench.metric_sets import MetricSet
@@ -53,17 +54,14 @@ def _bootstrap_ic_per_factor(
     *,
     seed: int,
 ) -> int:
-    # Batch the IC compute across factors (one polars query), then loop
-    # the bootstrap inner step — bootstrap vectorisation is tracked
-    # separately (see Refs in PR description). compute_ic is called
+    # Batch the IC compute across factors (one polars query) and the
+    # bootstrap (one shared block-index matrix). compute_ic is called
     # directly (not via fx.run_metrics) because run_metrics' IC stage-1
     # is shaped for the t-test consumers (ic / ic_newey_west / ic_ir),
     # not for downstream non-metric numpy work like bootstrap.
     ic_results = compute_ic(panel, factor_cols=factors)
-    for k, col in enumerate(factors):
-        arr = ic_results[col]["ic"].to_numpy()
-        # Seed per factor so each call is independent but reproducible.
-        bootstrap_mean_ci(arr, n_bootstrap=BOOTSTRAP_N, seed=seed + k)
+    ic_matrix = np.stack([ic_results[col]["ic"].to_numpy() for col in factors])
+    bootstrap_mean_ci_batch(ic_matrix, n_bootstrap=BOOTSTRAP_N, seed=seed)
     return len(factors)
 
 
