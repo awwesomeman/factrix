@@ -118,10 +118,13 @@ class TestValidation:
         for arr in out:
             assert arr.shape == (0,)
 
-    def test_empty_observations_returns_zeros(self):
+    def test_empty_observations_returns_nan(self):
+        # Matches single-factor ``bootstrap_mean_ci`` which propagates
+        # NaN at n_observations==0 — zero would silently claim a sample
+        # mean of nothing and mask a bad input.
         out = bootstrap_mean_ci_batch(
             np.empty((3, 0), dtype=float), n_bootstrap=10, seed=0
         )
         for arr in out:
             assert arr.shape == (3,)
-            np.testing.assert_array_equal(arr, np.zeros(3))
+            assert np.all(np.isnan(arr))

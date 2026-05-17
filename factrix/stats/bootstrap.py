@@ -214,12 +214,21 @@ def bootstrap_mean_ci_batch(
         )
     n_factors, n = values.shape
     if n_factors == 0:
-        empty = np.empty((0,), dtype=float)
-        return empty, empty.copy(), empty.copy()
+        return (
+            np.empty((0,), dtype=float),
+            np.empty((0,), dtype=float),
+            np.empty((0,), dtype=float),
+        )
 
     if n == 0:
-        zeros = np.zeros(n_factors, dtype=float)
-        return zeros, zeros.copy(), zeros.copy()
+        # Match single-factor ``bootstrap_mean_ci`` which propagates
+        # NaN for an empty input — zero would silently claim "sample
+        # mean of nothing is 0" and mask a bad input.
+        return (
+            np.full(n_factors, np.nan, dtype=float),
+            np.full(n_factors, np.nan, dtype=float),
+            np.full(n_factors, np.nan, dtype=float),
+        )
 
     if block_length is None:
         block_length = _default_block_length(n)
@@ -248,8 +257,10 @@ def bootstrap_mean_ci_batch(
         # ``idx`` of shape (B, T) broadcasts to (k, B, T).
         chunk_resamples = values[k_start:k_stop][:, idx]
         chunk_means = chunk_resamples.mean(axis=2)  # (k, B)
-        # Per-row quantiles; axis=1 over the B dimension.
-        q = np.quantile(chunk_means, [alpha, 1.0 - alpha], axis=1)
+        # ``overwrite_input`` lets quantile partition ``chunk_means`` in
+        # place — safe because it is a fresh per-chunk allocation, and
+        # saves a transient k×B copy inside the partition.
+        q = np.quantile(chunk_means, [alpha, 1.0 - alpha], axis=1, overwrite_input=True)
         lo[k_start:k_stop] = q[0]
         hi[k_start:k_stop] = q[1]
 
