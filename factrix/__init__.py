@@ -37,8 +37,6 @@ typical usage patterns in a single fetch. Two access paths::
     text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
 
-from typing import Any
-
 from factrix import datasets, multi_factor, preprocess
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
@@ -68,6 +66,7 @@ from factrix._errors import (
     UserInputError,
 )
 from factrix._evaluate import _evaluate as _evaluate
+from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._run_metrics import MetricsBundle, run_metrics
 from factrix._types import MetricOutput
@@ -80,7 +79,7 @@ from factrix.slicing import (
 
 
 def evaluate(
-    panel: Any,
+    panel: PanelInput,
     config: AnalysisConfig | None = None,
     /,
     *,
@@ -142,9 +141,14 @@ def evaluate(
 
     Args:
         panel: Long-format panel satisfying the four-column floor
-            ``(date, asset_id, factor, forward_return)``. See
-            [Panel schema](panel-schema.md) for the canonical contract
-            and dtype semantics.
+            ``(date, asset_id, factor, forward_return)``. Accepts
+            ``pl.DataFrame`` or ``pl.LazyFrame`` (collected at the
+            boundary). pandas users go through ``factrix.adapt``
+            (which also renames columns) or ``pl.from_pandas`` first.
+            See
+            [Panel schema](panel-schema.md) for the column contract
+            and [Efficient data loading](../guides/efficient-loading.md)
+            for large-panel recipes.
         config: Validated ``AnalysisConfig`` selecting the dispatch cell
             (``Scope × Signal × Metric``). Construct via one of the four
             factories on the class.
@@ -199,6 +203,7 @@ def evaluate(
             "or see the Get Started guide: "
             "https://awwesomeman.github.io/factrix/getting-started/"
         )
+    panel = _coerce_panel(panel)
     return _evaluate(panel, config, factor_col=factor_col)
 
 
@@ -231,6 +236,7 @@ __all__ = [
     "FactorProfile",
     "MetricOutput",
     "MetricsBundle",
+    "PanelInput",
     "compare",
     "evaluate",
     "run_metrics",

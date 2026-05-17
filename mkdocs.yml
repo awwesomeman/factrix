@@ -155,6 +155,7 @@ nav:
       - How-to:
           - Overview: guides/index.md
           - Cross-function reference: api/decision-tree.md
+          - Efficient data loading for large panels: guides/efficient-loading.md
           - Preparing data: guides/preparing-data.md
           - Information coefficient vs Fama-MacBeth: guides/choosing-metric.md
           - Panel vs timeseries: guides/panel-timeseries.md

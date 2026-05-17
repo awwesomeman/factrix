@@ -118,3 +118,70 @@ class TestDateDtypePromotion:
         )
         out = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
         assert out.schema["date"] == pl.Datetime("ms", time_zone="UTC")
+
+
+class TestTypePreservation:
+    """`adapt()` preserves polars input type — a LazyFrame stays lazy so
+    the caller controls when to collect."""
+
+    def test_lazyframe_input_returns_lazyframe(self):
+        lf = _raw_panel().lazy()
+        out = adapt(lf, date="trade_date", asset_id="ticker", price="close_adj")
+        assert isinstance(out, pl.LazyFrame)
+        collected = out.collect()
+        assert "date" in collected.columns
+        assert "asset_id" in collected.columns
+        assert "price" in collected.columns
+
+    def test_lazyframe_rename_matches_eager(self):
+        df = _raw_panel()
+        eager = adapt(df, date="trade_date", asset_id="ticker", price="close_adj")
+        lazy = adapt(
+            df.lazy(), date="trade_date", asset_id="ticker", price="close_adj"
+        ).collect()
+        assert eager.equals(lazy)
+
+    def test_lazyframe_date_promotion(self):
+        from datetime import date
+
+        lf = pl.DataFrame(
+            {
+                "trade_date": [date(2024, 1, 1), date(2024, 1, 2)],
+                "ticker": ["A", "A"],
+                "close_adj": [100.0, 101.0],
+            }
+        ).lazy()
+        out = adapt(lf, date="trade_date", asset_id="ticker", price="close_adj")
+        assert isinstance(out, pl.LazyFrame)
+        assert out.collect().schema["date"] == pl.Datetime("ms")
+
+    def test_lazyframe_fill_forward_stays_lazy(self):
+        lf = _raw_panel().lazy()
+        out = adapt(
+            lf,
+            date="trade_date",
+            asset_id="ticker",
+            price="close_adj",
+            fill_forward=True,
+        )
+        assert isinstance(out, pl.LazyFrame)
+        assert out.collect().height == 2
+
+    def test_pandas_input_returns_dataframe(self):
+        pd = pytest.importorskip("pandas")
+        pdf = pd.DataFrame(
+            {
+                "trade_date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+                "ticker": ["A", "A"],
+                "close_adj": [100.0, 101.0],
+            }
+        )
+        out = adapt(pdf, date="trade_date", asset_id="ticker", price="close_adj")
+        assert isinstance(out, pl.DataFrame)
+        assert "date" in out.columns
+
+    def test_unsupported_type_raises(self):
+        with pytest.raises(
+            TypeError, match=r"pl\.DataFrame, pl\.LazyFrame, or pd\.DataFrame"
+        ):
+            adapt([{"a": 1}], date="a", asset_id="a", price="a")
