@@ -52,7 +52,7 @@ vol_labels = vix.with_columns(
 Join the labels onto the metric's per-date input upstream:
 
 ```python
-ic_df = compute_ic(panel).join(vol_labels, on="date", how="inner")
+ic_df = compute_ic(panel)["factor"].join(vol_labels, on="date", how="inner")
 ```
 
 !!! warning "Lookahead bias when constructing labels"

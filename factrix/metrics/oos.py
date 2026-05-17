@@ -137,7 +137,7 @@ def multi_split_oos_decay(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=240, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
+        >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
         >>> result = multi_split_oos_decay(series)
         >>> result.name
         'oos_decay'

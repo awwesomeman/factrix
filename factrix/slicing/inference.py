@@ -170,7 +170,7 @@ def slice_pairwise_test(
         ...     pl.col("asset_id").replace_strict(sector_map).alias("sector")
         ... )
         >>> per_sector_ic = pl.concat([
-        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))
+        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))["factor"]
         ...        .with_columns(pl.lit(s).alias("sector"))
         ...     for s in ("tech", "fin")
         ... ])
@@ -315,7 +315,7 @@ def slice_joint_test(
         ...     pl.col("asset_id").replace_strict(sector_map).alias("sector")
         ... )
         >>> per_sector_ic = pl.concat([
-        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))
+        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))["factor"]
         ...        .with_columns(pl.lit(s).alias("sector"))
         ...     for s in ("tech", "fin")
         ... ])

@@ -98,7 +98,7 @@ def hit_rate(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> series = compute_ic(panel).rename({"ic": "value"}).select("date", "value")
+        >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
         >>> result = hit_rate(series, forward_periods=5)
         >>> result.name
         'hit_rate'
