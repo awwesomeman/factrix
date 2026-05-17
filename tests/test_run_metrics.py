@@ -14,6 +14,7 @@ from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED
 from factrix._run_metrics import (
     _IC_CONSUMERS,
     MetricsBundle,
+    _accepts_kwarg,
     run_metrics,
 )
 from factrix._types import MetricOutput
@@ -388,3 +389,78 @@ def test_batch_of_n_matches_list_of_one_per_factor(
         ]
         for name in ("ic", "monotonicity"):
             _assert_output_equal(batch[c][name], solo[name], where=(c, name))
+
+
+# ---------------------------------------------------------------------------
+# Signature-driven batch dispatch (#407)
+# ---------------------------------------------------------------------------
+
+
+def test_accepts_kwarg_routes_known_batch_primitives() -> None:
+    """Signature introspection identifies the post-#401 batch primitives."""
+    import factrix.metrics as metrics_pkg
+
+    assert _accepts_kwarg(metrics_pkg.quantile_spread, "factor_cols")
+    assert _accepts_kwarg(metrics_pkg.monotonicity, "factor_cols")
+
+
+def test_accepts_kwarg_rejects_non_batch_metric() -> None:
+    """Non-batch panel-direct metrics do not declare factor_cols in their signature."""
+    import factrix.metrics as metrics_pkg
+
+    assert not _accepts_kwarg(metrics_pkg.top_concentration, "factor_cols")
+    assert not _accepts_kwarg(metrics_pkg.turnover, "factor_cols")
+
+
+def test_batch_primitive_dispatched_once_across_factors(
+    cfg: AnalysisConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Metrics whose signature accepts factor_cols get one batched call."""
+    import functools
+
+    import factrix.metrics as metrics_pkg
+
+    panel = _build_panel(extra_factor="momentum")
+    counter = {"n": 0}
+    real = metrics_pkg.quantile_spread
+
+    @functools.wraps(real)
+    def counting(*args: object, **kwargs: object) -> object:
+        counter["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(metrics_pkg, "quantile_spread", counting)
+    run_metrics(
+        panel,
+        cfg,
+        factor_cols=["factor", "momentum"],
+        metrics=["quantile_spread"],
+    )
+    assert counter["n"] == 1
+
+
+def test_non_batch_metric_dispatched_per_factor(
+    cfg: AnalysisConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Metrics without factor_cols param get one call per factor on a projected panel."""
+    import functools
+
+    import factrix.metrics as metrics_pkg
+
+    panel = _build_panel(extra_factor="momentum")
+    counter = {"n": 0}
+    real = metrics_pkg.turnover
+
+    @functools.wraps(real)
+    def counting(*args: object, **kwargs: object) -> object:
+        counter["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(metrics_pkg, "turnover", counting)
+    run_metrics(
+        panel,
+        cfg,
+        factor_cols=["factor", "momentum"],
+        metrics=["turnover"],
+    )
+    assert counter["n"] == 2
