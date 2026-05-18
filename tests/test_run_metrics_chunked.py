@@ -22,21 +22,13 @@ from factrix._run_metrics import (
     run_metrics_chunked,
 )
 from factrix.datasets import make_multi_factor_panel
-from factrix.preprocess import compute_forward_return
 
-
-def _multi_panel(
-    *, n_factors: int = 6, n_dates: int = 200, n_assets: int = 40, seed: int = 0
-) -> pl.DataFrame:
-    raw = make_multi_factor_panel(
-        n_factors=n_factors, n_dates=n_dates, n_assets=n_assets, seed=seed
-    )
-    return compute_forward_return(raw, forward_periods=5)
+from tests._run_metrics_helpers import bundle_equals, factor_cols, make_multi_panel
 
 
 @pytest.fixture
 def multi_panel() -> pl.DataFrame:
-    return _multi_panel()
+    return make_multi_panel()
 
 
 @pytest.fixture
@@ -51,45 +43,32 @@ def _merge(chunks):
     return out
 
 
-def _bundle_equals(a, b) -> bool:
-    """Compare two MetricsBundle instances by identity + per-metric output."""
-    if a.identity != b.identity:
-        return False
-    if set(a.metrics) != set(b.metrics):
-        return False
-    return all(repr(a.metrics[name]) == repr(b.metrics[name]) for name in a.metrics)
-
-
-def _factor_cols(panel: pl.DataFrame) -> list[str]:
-    return [c for c in panel.columns if c.startswith("factor_")]
-
-
 class TestEquivalence:
     @pytest.mark.parametrize("chunk_size", [1, 2, 3, 6, 100])
     def test_merged_chunks_match_full_batch(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig, chunk_size: int
     ) -> None:
-        factor_cols = _factor_cols(multi_panel)
-        full = run_metrics(multi_panel, cfg, factor_cols=factor_cols)
+        cols = factor_cols(multi_panel)
+        full = run_metrics(multi_panel, cfg, factor_cols=cols)
         merged = _merge(
             run_metrics_chunked(
-                multi_panel, cfg, factor_cols=factor_cols, chunk_size=chunk_size
+                multi_panel, cfg, factor_cols=cols, chunk_size=chunk_size
             )
         )
         assert set(merged) == set(full)
         for fid in full:
-            assert _bundle_equals(merged[fid], full[fid]), fid
+            assert bundle_equals(merged[fid], full[fid]), fid
 
     def test_yield_order_follows_factor_cols(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
-        factor_cols = _factor_cols(multi_panel)
+        cols = factor_cols(multi_panel)
         emitted: list[str] = []
         for chunk in run_metrics_chunked(
-            multi_panel, cfg, factor_cols=factor_cols, chunk_size=2
+            multi_panel, cfg, factor_cols=cols, chunk_size=2
         ):
             emitted.extend(chunk)
-        assert emitted == factor_cols
+        assert emitted == cols
 
 
 class TestValidation:
@@ -190,9 +169,9 @@ class TestAutoChunkSize:
     def test_uses_auto_when_chunk_size_is_none(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
-        factor_cols = _factor_cols(multi_panel)
-        chunks = list(run_metrics_chunked(multi_panel, cfg, factor_cols=factor_cols))
-        assert sum(len(c) for c in chunks) == len(factor_cols)
+        cols = factor_cols(multi_panel)
+        chunks = list(run_metrics_chunked(multi_panel, cfg, factor_cols=cols))
+        assert sum(len(c) for c in chunks) == len(cols)
 
     def test_missing_psutil_raises_actionable_error(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
@@ -205,7 +184,7 @@ class TestAutoChunkSize:
         ):
             list(
                 run_metrics_chunked(
-                    multi_panel, cfg, factor_cols=_factor_cols(multi_panel)
+                    multi_panel, cfg, factor_cols=factor_cols(multi_panel)
                 )
             )
 
@@ -214,30 +193,28 @@ class TestLazyFramePath:
     def test_lazy_input_per_chunk_projection(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
-        factor_cols = _factor_cols(multi_panel)
-        eager_full = run_metrics(multi_panel, cfg, factor_cols=factor_cols)
+        cols = factor_cols(multi_panel)
+        eager_full = run_metrics(multi_panel, cfg, factor_cols=cols)
         lazy_chunks = _merge(
-            run_metrics_chunked(
-                multi_panel.lazy(), cfg, factor_cols=factor_cols, chunk_size=2
-            )
+            run_metrics_chunked(multi_panel.lazy(), cfg, factor_cols=cols, chunk_size=2)
         )
         assert set(lazy_chunks) == set(eager_full)
         for fid in eager_full:
-            assert _bundle_equals(lazy_chunks[fid], eager_full[fid])
+            assert bundle_equals(lazy_chunks[fid], eager_full[fid])
 
 
 class TestBaseColsOverride:
     def test_custom_base_cols_passed_through(self, cfg: AnalysisConfig) -> None:
-        panel = _multi_panel(n_factors=3)
+        panel = make_multi_panel(n_factors=3)
         panel = panel.with_columns(pl.lit(1.0).alias("weight"))
-        factor_cols = _factor_cols(panel)
+        cols = factor_cols(panel)
         chunks = _merge(
             run_metrics_chunked(
                 panel,
                 cfg,
-                factor_cols=factor_cols,
+                factor_cols=cols,
                 chunk_size=2,
                 base_cols=("date", "asset_id", "forward_return", "weight"),
             )
         )
-        assert set(chunks) == set(factor_cols)
+        assert set(chunks) == set(cols)
