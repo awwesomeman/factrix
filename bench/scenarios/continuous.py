@@ -87,7 +87,7 @@ def s1_evaluate(
 
     def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
         col = factor_columns(panel)[0]
-        fx.evaluate(panel, cfg, factor_col=col)
+        fx.evaluate(panel, cfg, factor_cols=[col])
         fx.run_metrics(
             panel, cfg, factor_cols=[col], metrics=list(heavy.run_metrics_names)
         )
