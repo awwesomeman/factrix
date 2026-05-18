@@ -137,6 +137,7 @@ def test_generated_name_index_matches_renderer() -> None:
             "or 'mkdocs build' first."
         )
     from factrix._metric_index import emitted_name_of, public_specs
+
     from scripts.mkdocs_hooks.gen_metric_name_index import (
         _TABLE_HEADER,
         _render_row,
@@ -169,6 +170,7 @@ def test_generated_evaluate_metric_table_matches_renderer() -> None:
         )
     from factrix._metric_index import import_path_for, public_specs
     from factrix._registry import _DISPATCH_REGISTRY
+
     from scripts.mkdocs_hooks.gen_evaluate_metric_table import (
         _TABLE_HEADER,
         _render_row,

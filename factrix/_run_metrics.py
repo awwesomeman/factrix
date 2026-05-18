@@ -401,7 +401,8 @@ class _DispatchProtocol:
 
 class _IcConsumerProtocol(_DispatchProtocol):
     """``MetricSpec.requires={"ic_df": compute_ic}`` — share one
-    ``compute_ic`` stage-1 across consumers."""
+    ``compute_ic`` stage-1 across consumers.
+    """
 
     name = "ic_consumer"
 

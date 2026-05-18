@@ -15,9 +15,8 @@ from unittest.mock import patch
 
 import factrix as fx
 import pytest
-from factrix._axis import FactorScope, Signal
+from factrix._axis import FactorScope, Signal, Visibility
 from factrix._errors import IncompatibleAxisError
-from factrix._axis import Visibility
 from factrix._metric_index import (
     _all_specs,
     import_path_for,

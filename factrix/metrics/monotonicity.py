@@ -35,7 +35,6 @@ from factrix.metrics._helpers import (
     _warn_high_tie_ratio,
 )
 
-
 __all__ = [
     "monotonicity",
 ]

@@ -10,13 +10,12 @@ import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric
 from factrix._errors import RunMetricsError, UserInputError
-from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED
+from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, spec_by_name
 from factrix._run_metrics import (
     MetricsBundle,
     run_metrics,
 )
 from factrix._types import MetricOutput
-from factrix._metric_index import spec_by_name
 
 _IC_FAMILY = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
