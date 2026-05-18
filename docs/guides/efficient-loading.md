@@ -5,8 +5,9 @@ title: Efficient data loading for large panels
 When a factor exploration sweep reaches the 100–1000+ factor scale,
 the **data loading step** — not factrix's compute path — is usually
 what runs the machine out of memory. This guide shows the recipes
-that keep peak RSS bounded, and explains the contract `evaluate()` /
-`run_metrics()` follow at the API boundary.
+that keep peak RSS (Resident Set Size — the physical memory the
+process currently holds) bounded, and explains the contract
+`evaluate()` / `run_metrics()` follow at the API boundary.
 
 For the column contract itself, see
 [Panel schema](../api/panel-schema.md); for the reshape steps that
@@ -66,14 +67,14 @@ raw = adapt(
 )
 raw = raw.with_columns(my_factor_expr.alias("factor"))
 panel = compute_forward_return(raw, forward_periods=5)
-profile = fx.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg)["factor"]
 ```
 
 **Already-canonical 4-column panel — explicit Arrow conversion**:
 
 ```python
 panel = pl.from_pandas(my_pandas_df)  # has date, asset_id, factor, forward_return
-profile = fx.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg)["factor"]
 ```
 
 The conversion happens once at the seam between your data pipeline
@@ -117,7 +118,7 @@ panel = (
     .collect()                                   # 4. materialise the slice
 )
 
-profile = fx.evaluate(panel, cfg, factor_col="momentum_12_1")
+profile = fx.evaluate(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]
 ```
 
 Why this works:
@@ -139,7 +140,7 @@ panel = (
     .select(required)
     .filter(pl.col("date").is_between(date(2020, 1, 1), date(2024, 12, 31)))
 )
-profile = fx.evaluate(panel, cfg, factor_col="momentum_12_1")  # collects inside
+profile = fx.evaluate(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]  # collects inside
 ```
 
 Either form materialises the same in-memory frame.
@@ -164,33 +165,138 @@ panel = (
 `pl.DataFrame`; `adapt(pd.DataFrame)` returns `pl.DataFrame` (pandas
 has no lazy equivalent).
 
-## Batching across factors
+## API variants: choosing an entry point
 
-For a 1000-factor sweep, even with projection the union of all factor
-columns is too wide to hold simultaneously. Load and evaluate one
-batch of factors at a time:
+`run_metrics` is the eager entry point; `run_metrics_chunked` and
+`run_metrics_iter` are variants that trade a different axis (peak
+RSS, first-result latency) at the cost of giving up part of the
+batch-dispatch sharing. Pick by which axis matters for the call:
+
+| Variant | Return shape | First result lands after | Cross-factor sharing | Peak RSS bound |
+|---|---|---|---|---|
+| `run_metrics` | `dict[factor_id, …]` | the whole batch finishes | IC stage-1 + batch-native primitives shared across **all** factors | full `factor_cols` panel + per-factor query intermediates |
+| `run_metrics_chunked` | iterator of `dict[factor_id, …]`, one entry per chunk | the first chunk finishes | shared **within** each chunk; recomputed per chunk | one `chunk_size`-wide slice at a time |
+| `run_metrics_iter` | iterator of `(factor_id, bundle)` pairs | each factor finishes | shared across **all** factors before the first yield | full panel (no chunking); per-factor result released as soon as the caller consumes the yield |
+
+`evaluate` is the eager entry point for the `FactorProfile` shape and
+mirrors `run_metrics` at the boundary, but does **not** yet share
+IC stage-1 / batch primitives across factors — each factor is
+dispatched independently (`factrix/_evaluate.py`). Cross-factor
+sharing on the evaluate path is a tracked follow-up; once it lands,
+the chunked / iter siblings will extend the table above.
+
+Decision rule of thumb:
+
+- `n_factors × panel_height × 8 B × ~4` (per-factor overhead) fits in
+  ~25% of available RAM → `run_metrics` directly.
+- Otherwise → `run_metrics_chunked` (auto-sizes `chunk_size` against
+  `psutil.virtual_memory().available` when left as `None`).
+- Need first-factor latency / live sink writes → `run_metrics_iter`
+  (no chunk boundary, but full-batch RSS — combine with
+  `run_metrics_chunked` if you also need the memory bound).
+
+The same eager / chunked / iter shape is expected to appear on the
+`evaluate` family as its own variants land; when they do, they
+extend this table as additional rows under each variant.
+
+## Recipe: `scan_parquet` + `run_metrics_chunked` + streaming sink
+
+The canonical pattern for a 1000-factor screen on a single machine:
 
 ```python
-from itertools import batched
+import polars as pl
+import factrix as fx
 
-all_factors = ["mom_1", "mom_3", "mom_6", ..., "value_1", "value_3"]
-results = []
+all_factors = [f"alpha_{i}" for i in range(1000)]
 
-for batch in batched(all_factors, 50):
-    panel = (
-        pl.scan_parquet("factors.parquet")
-        .select(["date", "asset_id", "forward_return", *batch])
-        .filter(pl.col("date").is_between(date(2020, 1, 1), date(2024, 12, 31)))
-        .collect()
-    )
-    for col in batch:
-        results.append(fx.evaluate(panel, cfg, factor_col=col))
-    del panel   # release the thin panel before the next batch
+lazy_panel = (
+    pl.scan_parquet("factors.parquet")
+    .select(["date", "asset_id", "forward_return", *all_factors])
+)
+
+with sink.open("metrics.parquet") as out:
+    for bundles in fx.run_metrics_chunked(
+        lazy_panel, cfg, factor_cols=all_factors,
+    ):
+        for fid, bundle in bundles.items():
+            out.write(fid, bundle.to_frame())
 ```
 
-Peak RSS is bounded by the **batch panel size**, not the full universe.
-For the 1000-factor example above, a batch of 50 keeps peak load to
-roughly `50 / 1000` of the naïve scenario.
+What this buys over a hand-rolled loop:
+
+- **Projection pushdown per chunk**: passing the `LazyFrame` lets
+  `run_metrics_chunked` call `panel.select([base_cols + chunk]).collect()`
+  on each iteration, so only the chunk's factor columns leave disk
+  even though the lazy plan names all 1000.
+- **`chunk_size=None` auto-sizes** against
+  `psutil.virtual_memory().available` (requires `psutil`; install via
+  `pip install psutil` or `pip install 'factrix[bench]'`). Override
+  with an explicit integer when the downstream sink has its own
+  batching cadence.
+- **Base columns and `base_cols` defaults are wired in** (`date`,
+  `asset_id`, `forward_return`) — no per-call risk of dropping the
+  forward-return column from the projection list. Override `base_cols`
+  only when a metric needs an extra column (e.g. `weight_col` for
+  `quantile_spread_vw`).
+
+## Picking `chunk_size`
+
+`chunk_size=None` (default) is the right answer on most machines —
+the auto-sizer targets roughly a quarter of available RAM as the
+per-chunk peak, leaving slack for OS / BLAS / the downstream sink.
+
+Override when you have a reason: the sink batches at a different
+cadence, you are co-tenanting with another memory-hungry process,
+or you want deterministic chunk boundaries for testing.
+
+When sizing manually, anchor on the observed reference:
+
+| Preset (dims) | `chunk_size` | Observed peak RSS |
+|---|---:|---:|
+| `small` (1250 dates × 1000 assets) | 100 | ~3 GB |
+
+Peak scales roughly linearly in both `chunk_size` and panel rows
+(`n_dates × n_assets`). To pick a `chunk_size` for your panel:
+
+1. Take your RSS budget `B` (GB).
+2. Compute
+   `chunk_size ≈ 100 × (B / 3) × (1_250_000 / (n_dates × n_assets))`.
+
+If you find yourself fighting the arithmetic, drop back to
+`chunk_size=None` and let the auto-sizer handle it. See
+[`bench/baselines/`](https://github.com/awwesomeman/factrix/tree/main/bench/baselines)
+for the JSONL these numbers come from.
+
+## Streaming with `run_metrics_iter`
+
+When the friction is **per-factor latency** rather than peak RSS —
+you want to write each factor's bundle the moment it lands, drive a
+progress bar, or short-circuit on the first factor that meets a
+threshold — `run_metrics_iter` yields `(factor_id, bundle)` pairs as
+each factor's consumer pass finishes:
+
+```python
+for fid, bundle in fx.run_metrics_iter(panel, cfg, factor_cols=cols):
+    sink.write(fid, bundle.to_frame())
+    if bundle["ic"].value > threshold:
+        break
+```
+
+Cross-factor work (IC stage-1, batch-native primitives) is still
+amortised once before the first yield. The trade-off is full-batch
+RSS — no chunking. Combine with `run_metrics_chunked` when you need
+both bounds:
+
+```python
+for bundles in fx.run_metrics_chunked(lazy_panel, cfg, factor_cols=all_factors):
+    for fid, bundle in bundles.items():     # already in-order within chunk
+        sink.write(fid, bundle.to_frame())
+```
+
+The chunked path's inner `dict` is already insertion-ordered by
+`factor_cols`, so iterating its items inside the outer loop gives the
+same per-factor streaming shape as `run_metrics_iter`, with the
+chunk-level RSS bound layered on top.
 
 ## What stays out of scope
 

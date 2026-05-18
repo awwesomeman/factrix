@@ -636,6 +636,10 @@ def run_metrics_iter(
     letting callers write to a sink / update a progress bar / break
     early without paying the full-batch latency.
 
+    See :doc:`/guides/efficient-loading` for the streaming-sink
+    recipe and the chunked + iter combination for both RSS and
+    per-factor latency bounds.
+
     :func:`run_metrics` is now a one-line wrapper —
     ``dict(run_metrics_iter(...))`` — so eager and streaming paths
     share the same dispatcher and ``factor_cols`` / ``metrics``
@@ -922,6 +926,10 @@ def run_metrics_chunked(
     bounded by the chunk size rather than ``len(factor_cols)`` — so a
     1000-factor screen that would otherwise exceed RAM can stream
     through a fixed working-set budget.
+
+    See :doc:`/guides/efficient-loading` for the canonical
+    ``scan_parquet`` + ``run_metrics_chunked`` + streaming-sink
+    recipe and ``chunk_size`` selection guidance.
 
     Within a chunk the full batch-dispatch path runs unchanged: IC
     stage-1 is shared across the chunk's factors, batch-native

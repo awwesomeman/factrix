@@ -160,7 +160,12 @@ for d in /tmp/A{1,2}-{xl,rh}; do python -m bench.ux_validate "$d"; done
 - Returns non-zero when any row fails its target (a *red flag*).
 - Records OOM / error / unknown-scenario rows as non-blocking
   incidents — OOM on a 1000-factor screen is real data, not a CI
-  failure.
+  failure. The recommended caller-side recipe for 1000-factor
+  workloads is documented in
+  [Efficient data loading for large panels](../docs/guides/efficient-loading.md)
+  (`run_metrics_chunked` + `scan_parquet`); the absolute RSS
+  numbers in `UX_TARGETS` are scenario thresholds, not user
+  guidance.
 
 Pair `--threads N` with `--cold-cache` whenever multi-thread effects
 actually matter: BLAS picks its thread count at numpy import time, so
