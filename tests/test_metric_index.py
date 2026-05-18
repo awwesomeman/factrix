@@ -51,7 +51,9 @@ class TestDefaults:
 class TestVisibility:
     def test_internal_specs_excluded_from_public(self) -> None:
         all_internal = {
-            spec.name for _, spec in _all_specs() if spec.visibility is Visibility.INTERNAL
+            spec.name
+            for _, spec in _all_specs()
+            if spec.visibility is Visibility.INTERNAL
         }
         public_names = {spec.name for _, spec in public_specs()}
         assert all_internal.isdisjoint(public_names)
@@ -105,11 +107,16 @@ class TestRequires:
     def test_ts_beta_consumers_require_compute_ts_betas(self) -> None:
         specs = spec_by_name()
         for name in ("ts_beta", "mean_r_squared", "ts_beta_sign_consistency"):
-            assert specs[name].requires["ts_betas_df"].__name__ == "compute_ts_betas", name
+            assert specs[name].requires["ts_betas_df"].__name__ == "compute_ts_betas", (
+                name
+            )
 
     def test_mfe_mae_consumer_requires_compute_mfe_mae(self) -> None:
         specs = spec_by_name()
-        assert specs["mfe_mae_summary"].requires["mfe_mae_df"].__name__ == "compute_mfe_mae"
+        assert (
+            specs["mfe_mae_summary"].requires["mfe_mae_df"].__name__
+            == "compute_mfe_mae"
+        )
 
     def test_requires_values_are_callables(self) -> None:
         for _, spec in _all_specs():

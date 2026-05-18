@@ -288,7 +288,11 @@ def public_specs() -> tuple[tuple[str, MetricSpec], ...]:
     the DAG executor via :attr:`MetricSpec.requires` and do not
     surface in :func:`factrix.list_metrics` or result dict keys.
     """
-    out = [(stem, spec) for stem, spec in _all_specs() if spec.visibility is Visibility.PUBLIC]
+    out = [
+        (stem, spec)
+        for stem, spec in _all_specs()
+        if spec.visibility is Visibility.PUBLIC
+    ]
     out.sort(key=lambda pair: (pair[0], pair[1].name))
     return tuple(out)
 

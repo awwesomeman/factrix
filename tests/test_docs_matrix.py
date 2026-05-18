@@ -137,7 +137,6 @@ def test_generated_name_index_matches_renderer() -> None:
             "or 'mkdocs build' first."
         )
     from factrix._metric_index import emitted_name_of, public_specs
-
     from scripts.mkdocs_hooks.gen_metric_name_index import (
         _TABLE_HEADER,
         _render_row,
@@ -145,7 +144,9 @@ def test_generated_name_index_matches_renderer() -> None:
 
     expected = _TABLE_HEADER + "".join(
         _render_row(stem, spec)
-        for stem, spec in sorted(public_specs(), key=lambda pair: emitted_name_of(pair[1]))
+        for stem, spec in sorted(
+            public_specs(), key=lambda pair: emitted_name_of(pair[1])
+        )
     )
     actual = GENERATED_NAME_INDEX.read_text(encoding="utf-8")
     assert actual == expected, (
@@ -170,13 +171,14 @@ def test_generated_evaluate_metric_table_matches_renderer() -> None:
         )
     from factrix._metric_index import import_path_for, public_specs
     from factrix._registry import _DISPATCH_REGISTRY
-
     from scripts.mkdocs_hooks.gen_evaluate_metric_table import (
         _TABLE_HEADER,
         _render_row,
     )
 
-    import_path_by_name = {spec.name: import_path_for(stem) for stem, spec in public_specs()}
+    import_path_by_name = {
+        spec.name: import_path_for(stem) for stem, spec in public_specs()
+    }
     expected = _TABLE_HEADER + "".join(
         _render_row(e, import_path_by_name) for e in _DISPATCH_REGISTRY.values()
     )

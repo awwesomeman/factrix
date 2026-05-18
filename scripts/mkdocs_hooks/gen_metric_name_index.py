@@ -46,7 +46,9 @@ def _render_row(stem: str, spec: MetricSpec) -> str:
     import_path = import_path_for(stem)
     page_link = f"[`{spec.name}`](../{docs_anchor_for(stem, spec.name)})"
     module_link = f"[`{import_path}`][{import_path}]"
-    return f"| `{emitted_name_of(spec)}` | `{spec.name}` | {module_link} | {page_link} |\n"
+    return (
+        f"| `{emitted_name_of(spec)}` | `{spec.name}` | {module_link} | {page_link} |\n"
+    )
 
 
 def generate() -> None:

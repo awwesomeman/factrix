@@ -55,7 +55,9 @@ def _render_row(entry: _RegistryEntry, import_path_by_name: dict[str, str]) -> s
 
 def generate() -> None:
     """Generate ``_generated_evaluate_metric_table.md`` from the registry."""
-    import_path_by_name = {spec.name: import_path_for(stem) for stem, spec in public_specs()}
+    import_path_by_name = {
+        spec.name: import_path_for(stem) for stem, spec in public_specs()
+    }
     entries = list(_DISPATCH_REGISTRY.values())
     lines = [_TABLE_HEADER, *(_render_row(e, import_path_by_name) for e in entries)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)

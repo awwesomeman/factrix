@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from bench.ux_targets import UX_TARGETS, UX_TARGETS_VERSION
 from bench.ux_validate import evaluate_dir, main, render_markdown
 

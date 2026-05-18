@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from bench.schema import SCHEMA_VERSION, BenchRecord, record_json_schema
+from pydantic import ValidationError
 
 
 def _env_dict() -> dict:

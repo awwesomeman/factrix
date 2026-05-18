@@ -572,7 +572,9 @@ def list_metrics(
         ... )
     """
     matches = [
-        (stem, spec) for stem, spec in public_specs() if spec.cell.matches(scope, signal)
+        (stem, spec)
+        for stem, spec in public_specs()
+        if spec.cell.matches(scope, signal)
     ]
     if not matches:
         raise IncompatibleAxisError(
@@ -596,7 +598,9 @@ def list_metrics(
         ]
     if with_import:
         width = max(len(spec.name) for _, spec in matches)
-        return [f"{spec.name:<{width}} → {import_path_for(stem)}" for stem, spec in matches]
+        return [
+            f"{spec.name:<{width}} → {import_path_for(stem)}" for stem, spec in matches
+        ]
     return [spec.name for _, spec in matches]
 
 

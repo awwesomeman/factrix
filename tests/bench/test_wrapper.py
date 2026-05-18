@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from bench.preflight import collect_env
 from bench.validator import validate_file
 from bench.wrapper import measure, read_records, write_records
