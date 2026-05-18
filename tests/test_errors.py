@@ -72,14 +72,14 @@ def test_no_close_match_omits_suggestion() -> None:
 def test_expected_branch_for_type_mismatch() -> None:
     err = UserInputError(
         func_name="evaluate",
-        field="factor_col",
-        value="alpha_x",
+        field="factor_cols",
+        value=["alpha_x"],
         expected="column present in panel",
-        docs_path="api/evaluate#factor_col",
+        docs_path="api/evaluate#factor_cols",
     )
     assert err.candidates == ()
     assert err.expected == "column present in panel"
-    assert "evaluate(): invalid factor_col='alpha_x'" in str(err)
+    assert "evaluate(): invalid factor_cols=['alpha_x']" in str(err)
     assert "Expected: column present in panel" in str(err)
     assert "Available" not in str(err)
 

@@ -104,7 +104,7 @@ class Survivors:
         ...                 forward_periods=5,
         ...             ),
         ...             cfg,
-        ...         ),
+        ...         )["factor"],
         ...         factor_id=f"alpha_{i}",
         ...     )
         ...     for i in range(3)
@@ -341,7 +341,7 @@ def bhy(
         ...                 forward_periods=5,
         ...             ),
         ...             cfg,
-        ...         ),
+        ...         )["factor"],
         ...         factor_id=f"alpha_{i}",
         ...     )
         ...     for i in range(5)
@@ -483,7 +483,7 @@ def partial_conjunction(
         ...                 forward_periods=5,
         ...             ),
         ...             cfg,
-        ...         ),
+        ...         )["factor"],
         ...         factor_id=fid,
         ...         context={"region": region},
         ...     )
@@ -764,7 +764,7 @@ def bhy_hierarchical(
         ...                 forward_periods=5,
         ...             ),
         ...             cfg,
-        ...         ),
+        ...         )["factor"],
         ...         factor_id=f"f_{family}_{i}",
         ...         context={"family": family},
         ...     )

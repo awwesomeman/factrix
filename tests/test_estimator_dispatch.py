@@ -52,7 +52,7 @@ class TestDefaultNWBitEqual:
     def test_ic_panel_primary_p_matches_primitive(self) -> None:
         panel = _panel(seed=1)
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC, forward_periods=5)
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
 
         ic_values = compute_ic(panel)["factor"]["ic"].drop_nulls().to_numpy()
         n = len(ic_values)
@@ -71,7 +71,7 @@ class TestDefaultDoesNotEmitHH:
     def test_p_hh_absent(self, metric: Metric) -> None:
         panel = _panel(seed=2)
         cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert StatCode.P_HH not in profile.stats
         assert StatCode.T_HH not in profile.stats
 
@@ -84,7 +84,7 @@ class TestHHDispatch:
         cfg = AnalysisConfig.individual_continuous(
             metric=Metric.IC, forward_periods=5, estimator=HansenHodrick()
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
 
         ic_values = compute_ic(panel)["factor"]["ic"].drop_nulls().to_numpy()
         t_expected, p_expected, _, _ = _hansen_hodrick_t_test(
@@ -108,7 +108,7 @@ class TestContextProvenance:
         cfg = AnalysisConfig.individual_continuous(
             metric=Metric.IC, forward_periods=5, estimator=estimator
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert profile.context["estimator"] == expected_name
 
     def test_common_continuous_default_records_nw(self) -> None:
@@ -116,5 +116,5 @@ class TestContextProvenance:
         # but provenance is still written so all profiles carry the key.
         panel = _panel(seed=5)
         cfg = AnalysisConfig.common_continuous(forward_periods=5)
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert profile.context["estimator"] == "NeweyWest"

@@ -56,7 +56,7 @@ class TestHHDispatch:
         cfg = AnalysisConfig.individual_continuous(
             metric=metric, forward_periods=5, estimator=HansenHodrick()
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert StatCode.P_HH in profile.stats
         assert StatCode.T_HH in profile.stats
         p_hh = profile.stats[StatCode.P_HH]
@@ -73,14 +73,14 @@ class TestHHDispatch:
         cfg = AnalysisConfig.individual_continuous(
             metric=metric, forward_periods=5, estimator=HansenHodrick()
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert profile.primary_stat_name == StatCode.T_HH
         assert profile.primary_p == profile.stats[StatCode.P_HH]
 
     def test_default_nw_does_not_emit_p_hh(self, metric: Metric) -> None:
         panel = _build_panel(n_dates=80, n_assets=15, seed=2)
         cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert StatCode.P_HH not in profile.stats
         assert StatCode.T_HH not in profile.stats
         assert StatCode.P_NW in profile.stats
@@ -90,7 +90,7 @@ class TestHHDispatch:
         cfg = AnalysisConfig.individual_continuous(
             metric=metric, forward_periods=5, estimator=HansenHodrick()
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert profile.context["estimator"] == "HansenHodrick"
 
     def test_bhy_dispatches_hh_p_value(self, metric: Metric) -> None:
@@ -99,7 +99,7 @@ class TestHHDispatch:
         cfg = AnalysisConfig.individual_continuous(
             metric=metric, forward_periods=5, estimator=HansenHodrick()
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         family = bhy([profile], estimator=HansenHodrick())
         assert family.profiles[0].stats[StatCode.P_HH] == profile.stats[StatCode.P_HH]
 
@@ -107,7 +107,7 @@ class TestHHDispatch:
         panel = _build_panel(n_dates=80, n_assets=15, seed=5)
         # Default NW cfg — no P_HH emitted regardless of forward_periods now.
         cfg = AnalysisConfig.individual_continuous(metric=metric, forward_periods=5)
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         with pytest.raises(UserInputError) as exc:
             bhy([profile], estimator=HansenHodrick())
         assert exc.value.field == "estimator"
@@ -140,7 +140,7 @@ class TestNegativeVarianceWarning:
         cfg = AnalysisConfig.individual_continuous(
             metric=Metric.IC, forward_periods=2, estimator=HansenHodrick()
         )
-        profile = evaluate(panel, cfg)
+        profile = evaluate(panel, cfg)["factor"]
         assert WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE in profile.warnings
         assert profile.metadata[StatCode.P_HH]["variance_clamped"] is True
         assert profile.stats[StatCode.P_HH] == 1.0

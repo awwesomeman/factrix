@@ -20,7 +20,7 @@ def test_readme_quickstart_runs_end_to_end() -> None:
     cfg = fx.AnalysisConfig.individual_continuous(
         metric=fx.Metric.IC, forward_periods=5
     )
-    profile = fx.evaluate(panel, cfg)
+    profile = fx.evaluate(panel, cfg)["factor"]
 
     assert isinstance(profile.primary_p, float)
     assert 0.0 <= profile.primary_p <= 1.0

@@ -87,24 +87,28 @@ def test_replace_factor_id_works_via_real_field() -> None:
 
 
 def test_evaluate_stamps_factor_id_from_factor_col() -> None:
-    profile = evaluate(_panel(), _cfg(forward_periods=5), factor_col="momentum_12_1")
+    profile = evaluate(
+        _panel(), _cfg(forward_periods=5), factor_cols=["momentum_12_1"]
+    )["momentum_12_1"]
     assert profile.identity == ("momentum_12_1", 5)
     assert profile.factor_id == "momentum_12_1"
     assert profile.forward_periods == 5
 
 
 def test_evaluate_default_factor_col_stamps_canonical_name() -> None:
-    profile = evaluate(_panel(factor_col="factor"), _cfg())
+    profile = evaluate(_panel(factor_col="factor"), _cfg())["factor"]
     assert profile.factor_id == "factor"
 
 
 def test_context_carries_estimator_provenance() -> None:
-    profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    profile = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     assert dict(profile.context) == {"estimator": "NeweyWest"}
 
 
 def test_diagnose_includes_identity_and_context() -> None:
-    profile = evaluate(_panel(), _cfg(forward_periods=7), factor_col="momentum_12_1")
+    profile = evaluate(
+        _panel(), _cfg(forward_periods=7), factor_cols=["momentum_12_1"]
+    )["momentum_12_1"]
     d = profile.diagnose()
     assert d["identity"] == {
         "factor_id": "momentum_12_1",
@@ -114,7 +118,7 @@ def test_diagnose_includes_identity_and_context() -> None:
 
 
 def test_replace_preserves_identity_when_only_other_fields_change() -> None:
-    p1 = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p1 = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     p2 = dataclasses.replace(p1, primary_p=0.99)
     assert p2.identity == p1.identity
     assert dict(p2.context) == dict(p1.context)
@@ -123,8 +127,8 @@ def test_replace_preserves_identity_when_only_other_fields_change() -> None:
 def test_distinct_factor_cols_yield_distinct_identity() -> None:
     panel = _panel().with_columns(pl.lit(0.0).alias("noise"))
     cfg = _cfg()
-    p1 = evaluate(panel, cfg, factor_col="momentum_12_1")
-    p2 = evaluate(panel, cfg, factor_col="noise")
+    p1 = evaluate(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]
+    p2 = evaluate(panel, cfg, factor_cols=["noise"])["noise"]
     assert p1.identity != p2.identity
 
 
@@ -133,13 +137,13 @@ def test_identity_carries_config_forward_periods(forward_periods: int) -> None:
     profile = evaluate(
         _panel(n_dates=120),
         _cfg(forward_periods=forward_periods),
-        factor_col="momentum_12_1",
-    )
+        factor_cols=["momentum_12_1"],
+    )["momentum_12_1"]
     assert profile.identity == ("momentum_12_1", forward_periods)
 
 
 def test_context_can_be_extended_via_replace() -> None:
-    p1 = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p1 = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     p2 = dataclasses.replace(p1, context={"universe_id": "us_large_cap"})
     assert p2.context["universe_id"] == "us_large_cap"
     assert p2.identity == p1.identity
@@ -172,7 +176,7 @@ def test_repr_includes_context_and_warnings_only_when_set(
     expects_context: bool,
     expects_warnings: bool,
 ) -> None:
-    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     p = dataclasses.replace(p, context=context_extra, warnings=warning_set)
     text = repr(p)
     assert text.startswith("FactorProfile(")
@@ -183,7 +187,7 @@ def test_repr_includes_context_and_warnings_only_when_set(
 
 
 def test_repr_html_renders_identity_table() -> None:
-    profile = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    profile = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     html = profile._repr_html_()
     assert "<table" in html
     assert "factor_id" in html
@@ -192,7 +196,7 @@ def test_repr_html_renders_identity_table() -> None:
 
 
 def test_repr_html_lists_context_rows_when_set() -> None:
-    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     p2 = dataclasses.replace(
         p, context={"universe_id": "us_large", "regime_id": "low_vol"}
     )
@@ -203,7 +207,7 @@ def test_repr_html_lists_context_rows_when_set() -> None:
 
 
 def test_repr_html_renders_warnings_row_when_set() -> None:
-    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     p2 = dataclasses.replace(
         p, warnings=frozenset({WarningCode.UNRELIABLE_SE_SHORT_PERIODS})
     )
@@ -220,7 +224,7 @@ def test_repr_html_renders_warnings_row_when_set() -> None:
     ],
 )
 def test_repr_html_escapes_user_supplied_strings(field: str, value: object) -> None:
-    p = evaluate(_panel(), _cfg(), factor_col="momentum_12_1")
+    p = evaluate(_panel(), _cfg(), factor_cols=["momentum_12_1"])["momentum_12_1"]
     p2 = dataclasses.replace(p, **{field: value})
     html = p2._repr_html_()
     assert "<script>" not in html
@@ -234,6 +238,6 @@ def test_evaluate_preserves_info_notes_alongside_identity() -> None:
     panel = panel.with_columns(
         (pl.col("factor") * (pl.col("factor").abs() > 0.8)).alias("factor")
     )
-    profile = evaluate(panel, cfg)
+    profile = evaluate(panel, cfg)["factor"]
     assert profile.identity == ("factor", 5)
     assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes

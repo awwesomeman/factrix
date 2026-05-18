@@ -47,8 +47,8 @@ def test_coerce_unsupported_type_raises() -> None:
 
 def test_evaluate_accepts_lazyframe_end_to_end(panel_pl: pl.DataFrame) -> None:
     cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-    profile = fx.evaluate(panel_pl.lazy(), cfg)
-    assert profile.primary_p == fx.evaluate(panel_pl, cfg).primary_p
+    profile = fx.evaluate(panel_pl.lazy(), cfg)["factor"]
+    assert profile.primary_p == fx.evaluate(panel_pl, cfg)["factor"].primary_p
 
 
 def test_evaluate_rejects_pandas_with_guidance(panel_pl: pl.DataFrame) -> None:
