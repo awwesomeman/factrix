@@ -115,7 +115,7 @@ def measure[T](
         error_message = repr(e)
         wall_s = time.perf_counter() - wall0
         cpu_s = time.process_time() - cpu0
-        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+        if isinstance(e, KeyboardInterrupt | SystemExit):
             tracemalloc.stop()
             raise
     finally:

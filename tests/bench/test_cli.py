@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 import pytest
+
 from bench.__main__ import main
 from bench.validator import validate_file
 

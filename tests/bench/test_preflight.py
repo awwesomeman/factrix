@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
+
 from bench.preflight import collect_env, lock_threads, preflight, seed_numpy
 
 
