@@ -19,12 +19,21 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "clustering_diagnostic | (*, SPARSE, *, PANEL) | static-cs | no formal H₀ | _short_circuit_output",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
+
+__metric_specs__ = (
+    MetricSpec(
+        name="clustering_diagnostic",
+        cell=cell(None, Signal.SPARSE, mode=Mode.PANEL),
+        family="static-cs",
+        inference="no formal H_0",
+        primitives=("_short_circuit_output",),
+        emitted_name="clustering_hhi",
+    ),
+)
 
 __all__ = [
     "clustering_diagnostic",

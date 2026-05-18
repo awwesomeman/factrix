@@ -19,10 +19,8 @@ from collections.abc import Sequence
 
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_ic, ic, ic_newey_west, ic_ir | (INDIVIDUAL, CONTINUOUS, IC, PANEL) | cs-first | NW HAC / cross-asset t | _newey_west_t_test, _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output",
-)
-
+from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
     _newey_west_t_test,
@@ -49,6 +47,33 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "ic_newey_west",
     "ic_ir",
 ]
+
+_IC_CELL = cell(
+    FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric=Metric.IC, mode=Mode.PANEL,
+)
+_IC_PRIMITIVES = (
+    "_newey_west_t_test",
+    "_calc_t_stat",
+    "_p_value_from_t",
+    "_significance_marker",
+    "_sample_non_overlapping",
+    "_short_circuit_output",
+)
+_IC_INFERENCE = "NW HAC / cross-asset t"
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_ic",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(name="ic", cell=_IC_CELL, family="cs-first", inference=_IC_INFERENCE, primitives=_IC_PRIMITIVES),
+    MetricSpec(name="ic_newey_west", cell=_IC_CELL, family="cs-first", inference=_IC_INFERENCE, primitives=_IC_PRIMITIVES),
+    MetricSpec(name="ic_ir", cell=_IC_CELL, family="cs-first", inference=_IC_INFERENCE, primitives=_IC_PRIMITIVES),
+)
 
 # Slice-test contract (#153 §5): IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to

@@ -22,10 +22,8 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_mfe_mae, mfe_mae_summary | (*, SPARSE, *, PANEL) | per-event | no formal H₀ | _short_circuit_output",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
@@ -33,6 +31,27 @@ __all__ = [
     "compute_mfe_mae",
     "mfe_mae_summary",
 ]
+
+_MFE_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
+_MFE_PRIMITIVES = ("_short_circuit_output",)
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_mfe_mae",
+        cell=_MFE_CELL,
+        family="per-event",
+        inference="no formal H_0",
+        primitives=_MFE_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(
+        name="mfe_mae_summary",
+        cell=_MFE_CELL,
+        family="per-event",
+        inference="no formal H_0",
+        primitives=_MFE_PRIMITIVES,
+    ),
+)
 
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 

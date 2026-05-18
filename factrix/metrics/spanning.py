@@ -22,10 +22,6 @@ References:
 
 from __future__ import annotations
 
-__matrix_rows__ = (
-    "spanning_alpha, greedy_forward_selection | factor-return-series consumer (post-PANEL pipeline) | ts-only | NW HAC / OLS t | _p_value_from_t, _significance_marker, _short_circuit_output, _ols_alpha",
-)
-
 import logging
 import warnings
 from dataclasses import dataclass, field
@@ -33,6 +29,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
+from factrix._axis import FactorScope, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._stats import _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
@@ -44,6 +42,35 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "SpanningResult",
     "ForwardSelectionResult",
 ]
+
+_SPANNING_CELL = cell(
+    FactorScope.INDIVIDUAL,
+    Signal.CONTINUOUS,
+    raw="factor-return-series consumer (post-PANEL pipeline)",
+)
+_SPANNING_PRIMITIVES = (
+    "_p_value_from_t",
+    "_significance_marker",
+    "_short_circuit_output",
+    "_ols_alpha",
+)
+
+__metric_specs__ = (
+    MetricSpec(
+        name="spanning_alpha",
+        cell=_SPANNING_CELL,
+        family="ts-only",
+        inference="NW HAC / OLS t",
+        primitives=_SPANNING_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="greedy_forward_selection",
+        cell=_SPANNING_CELL,
+        family="ts-only",
+        inference="NW HAC / OLS t",
+        primitives=_SPANNING_PRIMITIVES,
+    ),
+)
 
 logger = logging.getLogger(__name__)
 

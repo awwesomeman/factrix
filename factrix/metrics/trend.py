@@ -18,13 +18,26 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
-__matrix_rows__ = (
-    "ic_trend | (*, CONTINUOUS, *, TIMESERIES) | ts-only | Theil-Sen rank-based CI | _significance_marker, _short_circuit_output, _adf, _p_value_from_t",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _adf, _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
+
+__metric_specs__ = (
+    MetricSpec(
+        name="ic_trend",
+        cell=cell(None, Signal.CONTINUOUS, mode=Mode.TIMESERIES),
+        family="ts-only",
+        inference="Theil-Sen rank-based CI",
+        primitives=(
+            "_significance_marker",
+            "_short_circuit_output",
+            "_adf",
+            "_p_value_from_t",
+        ),
+    ),
+)
 
 __all__ = [
     "ic_trend",

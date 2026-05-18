@@ -10,13 +10,27 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "corrado_rank_test | (*, SPARSE, *, PANEL) | per-event | nonparametric rank | _calc_t_stat, _p_value_from_z, _significance_marker, _short_circuit_output",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
+
+__metric_specs__ = (
+    MetricSpec(
+        name="corrado_rank_test",
+        cell=cell(None, Signal.SPARSE, mode=Mode.PANEL),
+        family="per-event",
+        inference="nonparametric rank",
+        primitives=(
+            "_calc_t_stat",
+            "_p_value_from_z",
+            "_significance_marker",
+            "_short_circuit_output",
+        ),
+        emitted_name="corrado_rank",
+    ),
+)
 
 __all__ = [
     "corrado_rank_test",

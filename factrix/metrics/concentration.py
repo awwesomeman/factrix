@@ -19,11 +19,9 @@ import warnings
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "top_concentration | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | across-time t (one-sided H₀: ratio ≥ 0.5) | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _compute_tie_ratio",
-)
-
+from factrix._axis import FactorScope, Mode, Signal
 from factrix._codes import WarningCode
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
@@ -42,6 +40,23 @@ from factrix.metrics._helpers import (
 __all__ = [
     "top_concentration",
 ]
+
+__metric_specs__ = (
+    MetricSpec(
+        name="top_concentration",
+        cell=cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL),
+        family="cs-first",
+        inference="across-time t (one-sided H_0: ratio >= 0.5)",
+        primitives=(
+            "_calc_t_stat",
+            "_p_value_from_t",
+            "_significance_marker",
+            "_sample_non_overlapping",
+            "_short_circuit_output",
+            "_compute_tie_ratio",
+        ),
+    ),
+)
 
 
 def top_concentration(

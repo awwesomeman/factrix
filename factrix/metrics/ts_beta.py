@@ -20,10 +20,8 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_ts_betas, ts_beta, mean_r_squared, compute_rolling_mean_beta, ts_beta_sign_consistency, ts_beta_single_asset_fallback | (COMMON, CONTINUOUS, *, PANEL) | ts-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _short_circuit_output",
-)
-
+from factrix._axis import FactorScope, Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
@@ -39,6 +37,63 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "ts_beta_sign_consistency",
     "compute_rolling_mean_beta",
 ]
+
+_TSB_CELL = cell(FactorScope.COMMON, Signal.CONTINUOUS, mode=Mode.PANEL)
+_TSB_PRIMITIVES = (
+    "_calc_t_stat",
+    "_p_value_from_t",
+    "_significance_marker",
+    "_short_circuit_output",
+)
+_TSB_FAMILY = "ts-first"
+_TSB_INFERENCE = "cross-asset t"
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_ts_betas",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(
+        name="ts_beta",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="mean_r_squared",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="compute_rolling_mean_beta",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="ts_beta_sign_consistency",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="ts_beta_single_asset_fallback",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        is_stage1=True,
+    ),
+)
 
 MIN_TS_OBS: int = 20
 

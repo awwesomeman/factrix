@@ -15,10 +15,8 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "hit_rate | (*, CONTINUOUS, *, TIMESERIES) | ts-only | binomial | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _sample_non_overlapping",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
     _binomial_test_method_name,
@@ -27,6 +25,21 @@ from factrix._stats import (
 )
 from factrix._types import MIN_ASSETS_PER_DATE_IC, MetricOutput
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
+
+__metric_specs__ = (
+    MetricSpec(
+        name="hit_rate",
+        cell=cell(None, Signal.CONTINUOUS, mode=Mode.TIMESERIES),
+        family="ts-only",
+        inference="binomial",
+        primitives=(
+            "_binomial_two_sided_p",
+            "_significance_marker",
+            "_short_circuit_output",
+            "_sample_non_overlapping",
+        ),
+    ),
+)
 
 __all__ = [
     "hit_rate",

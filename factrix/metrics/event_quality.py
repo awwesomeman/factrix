@@ -24,10 +24,8 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "event_hit_rate, event_ic, profit_factor, event_skewness, signal_density | (*, SPARSE, *, PANEL) | per-event | binomial / nonparametric rank | _binomial_two_sided_p, _significance_marker, _short_circuit_output, _signed_car",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
     _binomial_test_method_name,
@@ -44,6 +42,26 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "event_skewness",
     "signal_density",
 ]
+
+_EQ_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
+_EQ_PRIMITIVES = (
+    "_binomial_two_sided_p",
+    "_significance_marker",
+    "_short_circuit_output",
+    "_signed_car",
+)
+_EQ_INFERENCE = "binomial / nonparametric rank"
+
+__metric_specs__ = tuple(
+    MetricSpec(
+        name=_name,
+        cell=_EQ_CELL,
+        family="per-event",
+        inference=_EQ_INFERENCE,
+        primitives=_EQ_PRIMITIVES,
+    )
+    for _name in ("event_hit_rate", "event_ic", "profit_factor", "event_skewness", "signal_density")
+)
 
 
 def event_hit_rate(

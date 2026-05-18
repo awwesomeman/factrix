@@ -17,7 +17,7 @@ import factrix as fx
 import pytest
 from factrix._axis import FactorScope, Signal
 from factrix._errors import IncompatibleAxisError
-from factrix._metric_index import _STAGE1_HELPERS, MetricRow, user_facing_rows
+from factrix._metric_index import MetricRow, stage1_helper_names, user_facing_rows
 
 _APPLICABILITY_DOC = pathlib.Path("docs/reference/metric-applicability.md")
 
@@ -143,7 +143,7 @@ def test_list_metrics_matches_applicability_doc(
 
 def test_stage1_helpers_excluded_from_user_facing_rows() -> None:
     names = {row.name for row in user_facing_rows()}
-    assert _STAGE1_HELPERS.isdisjoint(names)
+    assert stage1_helper_names().isdisjoint(names)
 
 
 def test_compute_rolling_mean_beta_remains_user_facing() -> None:

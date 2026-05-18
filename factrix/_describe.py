@@ -512,8 +512,8 @@ def list_metrics(
 
     Mode is intentionally not an input — applicability does not change
     across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
-    Source of truth is the ``Matrix-row:`` tag in each metric module's
-    docstring, parsed by :mod:`factrix._metric_index`.
+    Source of truth is the module-level ``__metric_specs__`` tuple in
+    each metric module, loaded by :mod:`factrix._metric_index`.
 
     Args:
         scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or

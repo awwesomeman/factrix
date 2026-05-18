@@ -1,14 +1,18 @@
-"""Coverage test: ``__matrix_rows__`` tuples in ``factrix/metrics/`` modules.
+"""Coverage tests: ``__metric_specs__`` tuples in ``factrix/metrics/`` modules.
 
 Validates that:
-1. Every public metric module (non-underscore *.py) declares a non-empty
-   module-level ``__matrix_rows__`` tuple of strings.
-2. Every ``__matrix_rows__`` entry has exactly 5 pipe-separated fields
-   (public_functions | cell_scope | aggregation_order | inference_se | primitives).
-3. ``docs/reference/_generated_metric_matrix.md`` exists and is non-empty
-   (only meaningful after a build; skipped if the file is absent).
-
-Decision rationale: ARCHITECTURE.md §Docs SSOT strategy (Option B).
+1. Every public metric module (non-underscore ``*.py``) declares a
+   non-empty module-level ``__metric_specs__`` tuple of
+   :class:`~factrix._metric_index.MetricSpec` instances.
+2. ``docs/reference/_generated_metric_matrix.md`` exists and is
+   non-empty (only meaningful after a build; skipped if the file is
+   absent).
+3. Each spec's resolved ``emitted_name`` matches the literal in
+   ``MetricOutput(name=...)`` inside the declaring module.
+4. The generated docs-name-index file matches the live renderer
+   output (drift guard for #125).
+5. The generated evaluate-metric table file matches the live renderer
+   output (drift guard for #144).
 """
 
 from __future__ import annotations
@@ -31,36 +35,25 @@ def _public_metric_modules() -> set[str]:
     return {p.stem for p in METRICS_DIR.glob("*.py") if not p.stem.startswith("_")}
 
 
-def _matrix_rows_for(stem: str) -> list[str]:
-    """Return entries of the module-level ``__matrix_rows__`` tuple."""
-    from factrix._metric_index import _extract_matrix_rows
-
-    return _extract_matrix_rows(METRICS_DIR / f"{stem}.py")
-
-
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("stem", sorted(_public_metric_modules()))
-def test_module_has_matrix_row_tag(stem: str) -> None:
-    """Every public metric module must declare ``__matrix_rows__``."""
-    rows = _matrix_rows_for(stem)
-    assert rows, (
-        f"metrics/{stem}.py has no '__matrix_rows__' tuple at module scope. "
-        "Add one so the build-time generator can include it."
+def test_module_declares_metric_specs(stem: str) -> None:
+    """Every public metric module must declare a non-empty ``__metric_specs__``."""
+    from factrix._metric_index import MetricSpec, module_specs
+
+    specs = module_specs(stem)
+    assert specs, (
+        f"metrics/{stem}.py has no '__metric_specs__' tuple at module "
+        f"scope. Declare one MetricSpec per public callable."
     )
-
-
-@pytest.mark.parametrize("stem", sorted(_public_metric_modules()))
-def test_matrix_row_has_five_fields(stem: str) -> None:
-    """Every ``__matrix_rows__`` entry must have exactly 5 pipe-separated fields."""
-    for row in _matrix_rows_for(stem):
-        fields = [f.strip() for f in row.split("|")]
-        assert len(fields) == 5, (
-            f"metrics/{stem}.py: __matrix_rows__ entry has {len(fields)}"
-            f" pipe-separated fields (expected 5): {row!r}"
+    for spec in specs:
+        assert isinstance(spec, MetricSpec), (
+            f"metrics/{stem}.py: every __metric_specs__ entry must be a "
+            f"MetricSpec instance; got {type(spec).__name__}"
         )
 
 
@@ -82,17 +75,18 @@ def test_generated_matrix_exists_and_nonempty() -> None:
     )
 
 
-def test_emitted_name_overrides_match_source() -> None:
-    """``_EMITTED_NAME_OVERRIDES`` must reflect every divergent literal.
+def test_emitted_name_matches_metric_output_literal() -> None:
+    """Every ``MetricOutput(name=...)`` literal must match its spec's resolved
+    ``emitted_name``.
 
-    AST-grep every ``MetricOutput(name="<lit>")`` in
-    ``factrix/metrics/*.py``; for each registered user-facing function
-    name, the literal must equal either the function name or the
-    override map's value. Catches the case where someone adds a new
-    metric that emits a non-matching ``name=`` and forgets to update
-    the override map (#125 SSOT contract).
+    AST-greps every ``MetricOutput(name="<lit>")`` call in
+    ``factrix/metrics/*.py``; for each registered user-facing callable
+    the literal must equal the spec's resolved ``emitted_name`` (i.e.
+    ``spec.emitted_name or spec.name``). Catches the case where a
+    metric is added that emits a non-matching ``name=`` and the spec
+    author forgets to set ``emitted_name``.
     """
-    from factrix._metric_index import _EMITTED_NAME_OVERRIDES, user_facing_rows
+    from factrix._metric_index import user_facing_rows
 
     fn_to_emitted: dict[str, str] = {}
     for path in METRICS_DIR.glob("*.py"):
@@ -112,18 +106,19 @@ def test_emitted_name_overrides_match_source() -> None:
                         if kw.arg == "name" and isinstance(kw.value, ast.Constant):
                             fn_to_emitted.setdefault(fn.name, kw.value.value)
 
-    user_fns = {r.name for r in user_facing_rows()}
+    expected_by_name = {r.name: r.emitted_name for r in user_facing_rows()}
     mismatches: list[str] = []
     for fn, emitted in fn_to_emitted.items():
-        if fn not in user_fns or emitted == fn:
+        if fn not in expected_by_name:
             continue
-        expected = _EMITTED_NAME_OVERRIDES.get(fn)
+        expected = expected_by_name[fn]
         if expected != emitted:
             mismatches.append(
-                f"{fn}: emits MetricOutput(name={emitted!r}) but override map says {expected!r}"
+                f"{fn}: emits MetricOutput(name={emitted!r}) but spec "
+                f"resolves emitted_name={expected!r}"
             )
     assert not mismatches, (
-        "Emitted MetricOutput.name does not match _EMITTED_NAME_OVERRIDES:\n  "
+        "MetricOutput.name does not match MetricSpec.emitted_name:\n  "
         + "\n  ".join(mismatches)
     )
 
@@ -132,8 +127,8 @@ def test_generated_name_index_matches_renderer() -> None:
     """Generated name-index file must match what the renderer produces.
 
     Drift guard for #125: catches a stale checked-in file that no longer
-    reflects the ``Matrix-row:`` SSOT (e.g. a metric was added but mkdocs
-    wasn't rerun before commit).
+    reflects the spec SSOT (e.g. a metric was added but mkdocs wasn't
+    rerun before commit).
     """
     if not GENERATED_NAME_INDEX.exists():
         pytest.skip(

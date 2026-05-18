@@ -1,39 +1,41 @@
-"""Shared parser for ``__matrix_rows__`` tuples in ``factrix/metrics/*.py``.
+"""Typed metric-spec SSOT for ``factrix/metrics/*.py`` modules.
 
-Single source of truth for "which standalone metrics live in which
-cell." Consumed by:
+Each public metric module declares a module-level ``__metric_specs__``
+tuple of :class:`MetricSpec` dataclasses, one entry per public callable.
+This is the single source of truth for "which standalone metrics live
+in which cell" and drives:
 
-- ``scripts/mkdocs_hooks/gen_metric_matrix.py`` — renders the docs
-  matrix in ``docs/reference/_generated_metric_matrix.md``.
-- ``factrix.list_metrics`` — runtime API exposing the same data.
+- :func:`factrix.list_metrics` — runtime metric discovery API
+- ``scripts/mkdocs_hooks/gen_metric_matrix.py`` — docs matrix table
+- ``scripts/mkdocs_hooks/gen_metric_name_index.py`` — docs name index
+- ``scripts/mkdocs_hooks/gen_evaluate_metric_table.py`` — dispatch table
+- ``tests/test_docs_matrix.py`` — coverage + invariant tests
 
-Each metric module declares a module-level ``__matrix_rows__`` tuple
-of strings, one entry per row, each with the format::
+Why typed: IDE completion, mypy-checkable axes, refactor-safe field
+access. Adding a new metric module just imports :class:`MetricSpec` and
+:func:`cell` and declares::
 
-    {public_functions} | {cell_scope} | {agg_order} | {inference_se} | {primitives}
+    __metric_specs__ = (
+        MetricSpec(
+            name="my_metric",
+            cell=cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL),
+            family="cs-first",
+            inference="NW HAC / cross-asset t",
+            primitives=("_calc_t_stat", "_p_value_from_t"),
+        ),
+    )
 
-``public_functions`` is a comma-separated list. ``cell_scope`` is
-either a 4-tuple ``(scope, signal, metric, mode)`` (``*`` denotes
-wildcard) or — uniquely for ``factrix.metrics.spanning`` — the
-literal label ``factor-return-series consumer (post-PANEL pipeline)``,
-which is mapped to ``(INDIVIDUAL, CONTINUOUS, *, *)`` since spanning
-metrics consume the spread series produced by the Individual ×
-Continuous pipeline.
-
-Stage-1 aggregation helpers that produce intermediate panels / series
-(rather than a ``MetricOutput``) are filtered out by ``user_facing``
-rows — they are listed in ``__matrix_rows__`` for primitive-graph
-completeness but are not metrics a user would call directly. The
-exclusion set is explicit (not a ``compute_*`` prefix rule) because
-``compute_rolling_mean_beta`` is a genuine user-facing metric.
+Per-spec ``is_stage1`` / ``input_kind`` / ``emitted_name`` flags replace
+the legacy module-level side tables (``_STAGE1_HELPERS`` /
+``_SCALAR_INPUT_METRICS`` / ``_EMITTED_NAME_OVERRIDES``) so the per-
+metric properties travel with the spec that declares them.
 """
 
 from __future__ import annotations
 
-import ast
 import functools
+import importlib
 import pathlib
-import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -42,49 +44,22 @@ from factrix._axis import FactorScope, Metric, Mode, Signal
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 
-_TUPLE_RE = re.compile(r"^\((.*)\)$")
-
-_SPANNING_CELL_LABEL = "factor-return-series consumer (post-PANEL pipeline)"
-
-# Stage-1 helpers: produce intermediate panels / series consumed by the
-# user-facing metric in the same module. Listed in ``Matrix-row:`` for
-# primitive-graph completeness; excluded from ``user_facing`` rows.
-_STAGE1_HELPERS: frozenset[str] = frozenset(
-    {
-        "compute_caar",
-        "compute_event_returns",
-        "compute_fm_betas",
-        "compute_group_returns",
-        "compute_ic",
-        "compute_mfe_mae",
-        "compute_spread_series",
-        "compute_ts_betas",
-        # Single-asset fallback wired into the dispatch registry, not a
-        # standalone callable (``ts_beta`` itself dispatches to it).
-        "ts_beta_single_asset_fallback",
-    }
-)
-
-# Scalar-input metrics: pre-aggregated-scalar utilities that consume
-# scalars (``gross_spread: float``, ``turnover: float``, ...) rather
-# than the standard ``(date-keyed DataFrame, **kwargs) -> MetricOutput``
-# panel contract. Not eligible for date-slicing dispatchers like
-# ``by_slice``. Hard-coded exception set rather than a Matrix-row tag
-# extension — the population is small and stable; YAGNI applies until
-# it isn't.
-_SCALAR_INPUT_METRICS: frozenset[str] = frozenset({"breakeven_cost", "net_spread"})
+# Canonical reverse-index URL convention for ``MetricRow.docs_anchor``
+# (#125): docs-root-relative path + mkdocstrings symbol fragment.
+# Centralised here so a future docs URL change touches one literal —
+# external prose in ``factrix._describe.list_metrics`` and
+# ``docs/api/metric-output.md`` cite this constant by name rather
+# than restating the string.
+DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 
 # Metrics that ``run_metrics`` cannot auto-discover even though their
-# Matrix-row is user-facing. Each entry carries a short reason rendered
-# into ``MetricsBundle.skipped`` and into the ``UserInputError`` raised
-# when a caller names one explicitly via ``metrics=[...]``. v2 may
-# promote this to a Matrix-row tag once the population is stable.
+# spec is user-facing. Each entry carries a short reason rendered into
+# ``MetricsBundle.skipped`` and into the ``UserInputError`` raised when
+# a caller names one explicitly via ``metrics=[...]``. Stays as a side
+# table — these reasons describe cross-cutting dispatcher-wiring gaps
+# (stage-2 frame the runner cannot synthesise, series-input shape, etc.),
+# not properties intrinsic to a single metric.
 _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
-    # Stage-1 consumers without v1 dispatch wiring. These metrics are
-    # callable directly from ``factrix.metrics`` once the caller has the
-    # stage-1 frame; v1 ``run_metrics`` does not yet thread that wiring.
-    # Tracked as v1.x follow-up; not blocking the IC-cell stage-1 pattern
-    # validated in v1.
     "caar": (
         "consumes caar_df; call factrix.metrics.compute_event_returns + "
         "compute_caar then caar(caar_df) directly"
@@ -113,23 +88,19 @@ _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
         "consumes mfe_mae_df; call factrix.metrics.compute_mfe_mae then "
         "mfe_mae_summary(mfe_mae_df) directly"
     ),
-    # Series-input diagnostics — operate on a (date, value) series, not
-    # a panel. Compose explicitly with compute_ic / compute_spread_series.
     "hit_rate": (
         "consumes a (date, value) series; e.g. "
-        "hit_rate(compute_ic(panel)['factor'].rename({'ic': 'value'}))"
+        "hit_rate(compute_ic(panel).rename({'ic': 'value'}))"
     ),
     "multi_split_oos_decay": (
         "consumes a (date, value) series; e.g. "
-        "multi_split_oos_decay(compute_spread_series(panel)['factor']"
+        "multi_split_oos_decay(compute_spread_series(panel)"
         ".rename({'spread': 'value'}))"
     ),
     "ic_trend": (
         "consumes a (date, value) series; e.g. "
-        "ic_trend(compute_ic(panel)['factor'].rename({'ic': 'value'}))"
+        "ic_trend(compute_ic(panel).rename({'ic': 'value'}))"
     ),
-    # Multi-factor spread inputs — require a list/dict of factor spreads,
-    # not a single panel.
     "spanning_alpha": (
         "consumes factor_spread; call after compute_spread_series on the "
         "challenger factor"
@@ -140,27 +111,10 @@ _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
     ),
 }
 
-# Function name → emitted ``MetricOutput.name`` literal, where the two
-# diverge. Most metrics emit ``name=<function_name>``; the entries here
-# are the historical exceptions and the source of truth for the
-# ``MetricOutput.name`` reverse index (#125). Audit against
-# ``factrix/metrics/*.py``: every ``MetricOutput(name="X")`` literal in
-# a registered metric must either match the function name or appear here.
-_EMITTED_NAME_OVERRIDES: dict[str, str] = {
-    "clustering_diagnostic": "clustering_hhi",
-    "corrado_rank_test": "corrado_rank",
-    "fama_macbeth": "fm_beta",
-    "multi_split_oos_decay": "oos_decay",
-    "pooled_ols": "pooled_beta",
-}
 
-# Canonical reverse-index URL convention for ``MetricRow.docs_anchor``
-# (#125): docs-root-relative path + mkdocstrings symbol fragment.
-# Centralised here so a future docs URL change touches one literal —
-# external prose in ``factrix._describe.list_metrics`` and
-# ``docs/api/metric-output.md`` cite this constant by name rather
-# than restating the string.
-DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
+# ---------------------------------------------------------------------------
+# Cell + Spec dataclasses
+# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,10 +122,10 @@ class Cell:
     """Parsed ``(scope, signal, metric, mode)`` cell tuple.
 
     ``None`` represents the ``*`` wildcard along an axis. ``raw``
-    preserves the original string for matrix rendering. ``metric`` and
-    ``mode`` are parsed for completeness — :meth:`matches` only filters
-    on ``scope`` / ``signal`` (the public ``list_metrics`` axes); the
-    matrix renderer reads ``raw`` directly.
+    preserves the canonical display label rendered into the docs
+    matrix. :meth:`matches` only filters on ``scope`` / ``signal`` (the
+    public :func:`factrix.list_metrics` axes); the matrix renderer reads
+    ``raw`` directly.
     """
 
     scope: FactorScope | None
@@ -187,36 +141,101 @@ class Cell:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class _MatrixEntry:
-    """One ``Matrix-row:`` tag, un-exploded — drives matrix rendering."""
+def _axis_token(value: FactorScope | Signal | Metric | Mode | None) -> str:
+    """Render an axis enum (or ``None`` = wildcard) as its uppercase token."""
+    if value is None:
+        return "*"
+    return value.value.upper()
 
-    module: str
-    names: tuple[str, ...]
+
+def cell(
+    scope: FactorScope | None,
+    signal: Signal | None,
+    metric: Metric | None = None,
+    mode: Mode | None = None,
+    *,
+    raw: str | None = None,
+) -> Cell:
+    """Build a :class:`Cell` with an auto-rendered uppercase ``raw`` label.
+
+    Pass ``raw=`` explicitly only when the prose label carries
+    information not encoded in the axis tuple — the only current case
+    is ``factrix.metrics.spanning`` whose metrics consume a
+    post-pipeline factor-return series.
+    """
+    if raw is None:
+        raw = (
+            f"({_axis_token(scope)}, {_axis_token(signal)}, "
+            f"{_axis_token(metric)}, {_axis_token(mode)})"
+        )
+    return Cell(scope=scope, signal=signal, metric=metric, mode=mode, raw=raw)
+
+
+@dataclass(frozen=True, slots=True)
+class MetricSpec:
+    """Per-callable typed spec declared via module-level ``__metric_specs__``.
+
+    One :class:`MetricSpec` per public callable in the declaring
+    ``factrix/metrics/*.py`` module.
+
+    Fields:
+
+    - ``name``: function name in the declaring module.
+    - ``cell``: applicable ``(scope, signal, metric, mode)`` cell;
+      ``None`` along any axis denotes ``*`` wildcard.
+    - ``family``: aggregation / inference family label —
+      ``"cs-first"`` (cross-section step then time aggregation),
+      ``"per-event"``, ``"ts-only"``, ``"ts-first"``, ``"static-cs"``,
+      or free-form prose for special cases (e.g. spanning's
+      ``"factor-return-series consumer (post-PANEL pipeline)"``).
+    - ``inference``: inference / standard-error family — e.g.
+      ``"NW HAC / cross-asset t"``, ``"binomial"``,
+      ``"nonparametric rank"``, ``"no formal H_0"``.
+    - ``primitives``: informational tuple of underlying helper-function
+      names the public callable composes. Surfaces in the docs matrix
+      for primitive-graph completeness.
+    - ``input_kind``: ``"panel"`` (date-keyed DataFrame, eligible for
+      date-slicing dispatchers like :func:`factrix.by_slice`) or
+      ``"scalar"`` (pre-aggregated-scalar utility like
+      :func:`factrix.metrics.breakeven_cost`).
+    - ``is_stage1``: ``True`` for intermediate-frame producers
+      (typically ``compute_*``) that are user-callable but do not
+      themselves return ``MetricOutput``. Excluded from
+      :func:`user_facing_rows`.
+    - ``emitted_name``: literal ``MetricOutput.name`` string at
+      runtime. ``None`` (default) means the runtime label matches
+      ``name`` — the common case. Set explicitly when the callable
+      emits a different label (e.g. ``fama_macbeth`` emits
+      ``fm_beta``). Consumers holding a :class:`~factrix.MetricOutput`
+      should resolve via :attr:`MetricRow.emitted_name`.
+    """
+
+    name: str
     cell: Cell
-    agg_order: str
-    inference_se: str
+    family: str
+    inference: str
+    primitives: tuple[str, ...] = ()
+    input_kind: Literal["panel", "scalar"] = "panel"
+    is_stage1: bool = False
+    emitted_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class MetricRow:
-    """One ``(metric_name, module, cell)`` triple parsed from ``Matrix-row:``.
+    """User-facing view of one :class:`MetricSpec` plus derived metadata.
 
-    ``import_path`` is the fully-qualified submodule (``factrix.metrics.<module>``)
-    — every public metric is also re-exported from ``factrix.metrics``,
-    so ``from factrix.metrics import <name>`` works regardless. ``input_kind``
-    distinguishes the standard date-keyed-DataFrame contract (``"panel"``)
-    from pre-aggregated-scalar utilities (``"scalar"``); only ``"panel"``
-    metrics are eligible for date-slicing dispatchers like ``by_slice``.
-    ``docs_anchor`` is the docs-root-relative path + mkdocstrings symbol
-    anchor (``api/metrics/<module>.md#factrix.metrics.<module>.<name>``),
-    so a consumer holding the function name can resolve the API page
-    without scraping module conventions. ``emitted_name`` is the literal
-    string the metric writes into ``MetricOutput.name`` at runtime; for
-    most metrics this matches ``name``, but a small set of historical
-    exceptions (e.g. ``fama_macbeth`` → ``fm_beta``) emit a different
-    label. Consumers holding a ``MetricOutput`` value should look up
-    by ``emitted_name``.
+    Augments the declaring-module spec with ``import_path`` (every
+    public metric is also re-exported from ``factrix.metrics``),
+    ``docs_anchor`` (docs-root-relative path + mkdocstrings symbol
+    fragment per :data:`DOCS_ANCHOR_FMT`), and the resolved
+    ``emitted_name`` (falls back to ``name`` when the spec leaves it
+    ``None``).
+
+    ``agg_order`` and ``inference_se`` are aliases for the spec's
+    ``family`` / ``inference`` fields — preserved under their original
+    names so docs-hook and test-suite consumers do not have to change
+    field references when the source-of-truth migrates from string
+    parsing to typed spec.
     """
 
     name: str
@@ -230,153 +249,98 @@ class MetricRow:
     emitted_name: str
 
 
-def _parse_axis(token: str, enum_cls: type) -> object | None:
-    """Map a Matrix-row axis token (``*`` or enum value) to enum or None."""
-    token = token.strip()
-    if token == "*":
-        return None
-    try:
-        return enum_cls(token.lower())
-    except ValueError as exc:
-        raise ValueError(
-            f"unknown {enum_cls.__name__} token {token!r} in Matrix-row cell"
-        ) from exc
+# ---------------------------------------------------------------------------
+# Loader + caches
+# ---------------------------------------------------------------------------
 
 
-def _parse_cell(raw: str) -> Cell:
-    raw = raw.strip()
-    if raw == _SPANNING_CELL_LABEL:
-        return Cell(
-            scope=FactorScope.INDIVIDUAL,
-            signal=Signal.CONTINUOUS,
-            metric=None,
-            mode=None,
-            raw=raw,
-        )
-    m = _TUPLE_RE.match(raw)
-    if not m:
-        raise ValueError(f"unparseable Matrix-row cell: {raw!r}")
-    parts = [p.strip() for p in m.group(1).split(",")]
-    if len(parts) != 4:
-        raise ValueError(
-            f"Matrix-row cell tuple has {len(parts)} fields (expected 4): {raw!r}"
-        )
-    return Cell(
-        scope=_parse_axis(parts[0], FactorScope),  # type: ignore[arg-type]
-        signal=_parse_axis(parts[1], Signal),  # type: ignore[arg-type]
-        metric=_parse_axis(parts[2], Metric),  # type: ignore[arg-type]
-        mode=_parse_axis(parts[3], Mode),  # type: ignore[arg-type]
-        raw=raw,
+def _public_metric_stems() -> list[str]:
+    """Return sorted stems of every public ``factrix/metrics/*.py``."""
+    return sorted(
+        p.stem for p in _METRICS_DIR.glob("*.py") if not p.stem.startswith("_")
     )
 
 
-def _public_metric_modules() -> list[pathlib.Path]:
-    return sorted(p for p in _METRICS_DIR.glob("*.py") if not p.stem.startswith("_"))
+def _load_module_specs(stem: str) -> tuple[MetricSpec, ...]:
+    """Import ``factrix.metrics.<stem>`` and return its ``__metric_specs__``.
 
-
-def _extract_matrix_rows(path: pathlib.Path) -> list[str]:
-    """Return the module-level ``__matrix_rows__`` literal as a list of strings.
-
-    Parses the source via AST and looks for an ``Assign`` node binding the
-    name ``__matrix_rows__`` to a tuple or list of string constants. Returns
-    an empty list when the dunder is absent — the registered metric modules
-    are enumerated by directory scan, so a missing dunder simply means that
-    module contributes no rows (a coverage test in ``tests/test_docs_matrix.py``
-    enforces presence on every public ``factrix/metrics/*.py``).
+    Raises ``ValueError`` when the module does not declare a non-empty
+    ``__metric_specs__`` tuple — coverage enforced by
+    ``tests/test_docs_matrix.py``.
     """
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-    except SyntaxError:
-        return []
-    for node in tree.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        if not (
-            len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id == "__matrix_rows__"
-        ):
-            continue
-        if not isinstance(node.value, (ast.Tuple, ast.List)):
-            raise ValueError(
-                f"{path.name}: __matrix_rows__ must be a tuple or list literal"
-            )
-        rows: list[str] = []
-        for elt in node.value.elts:
-            if not (isinstance(elt, ast.Constant) and isinstance(elt.value, str)):
-                raise ValueError(
-                    f"{path.name}: __matrix_rows__ entries must be string literals"
-                )
-            rows.append(elt.value.strip())
-        return rows
-    return []
-
-
-def _parse_module_entries(path: pathlib.Path) -> list[_MatrixEntry]:
-    entries: list[_MatrixEntry] = []
-    for raw_value in _extract_matrix_rows(path):
-        parts = [p.strip() for p in raw_value.split("|")]
-        if len(parts) != 5:
-            raise ValueError(
-                f"{path.name}: Matrix-row has {len(parts)} pipe-separated"
-                f" fields (expected 5): {raw_value!r}"
-            )
-        names_csv, cell_str, agg_order, inference_se, _primitives = parts
-        names = tuple(n for n in (n.strip() for n in names_csv.split(",")) if n)
-        entries.append(
-            _MatrixEntry(
-                module=path.stem,
-                names=names,
-                cell=_parse_cell(cell_str),
-                agg_order=agg_order,
-                inference_se=inference_se,
-            )
+    mod = importlib.import_module(f"factrix.metrics.{stem}")
+    specs = getattr(mod, "__metric_specs__", None)
+    if not specs:
+        raise ValueError(
+            f"factrix.metrics.{stem}: module-level `__metric_specs__` tuple "
+            f"is required (one MetricSpec per public callable). See "
+            f"factrix._metric_index.MetricSpec docstring."
         )
-    return entries
+    if not all(isinstance(s, MetricSpec) for s in specs):
+        raise TypeError(
+            f"factrix.metrics.{stem}: every `__metric_specs__` entry must be "
+            f"a MetricSpec instance."
+        )
+    return tuple(specs)
 
 
 @functools.cache
-def _matrix_entries() -> tuple[_MatrixEntry, ...]:
-    """Return one entry per ``Matrix-row:`` tag (un-exploded by name).
+def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
+    """Return ``((module_stem, spec), ...)`` across every public metric module.
 
-    Sorted by module. Cached — metric module docstrings do not change
-    at runtime, so repeated callers (``list_metrics`` in agentic loops)
-    avoid re-parsing every public ``factrix/metrics/*.py``.
+    Cached — spec tuples are module-level constants, so repeated
+    callers (``list_metrics`` in agentic loops, docs-hook regeneration)
+    avoid re-importing every public module.
     """
-    out: list[_MatrixEntry] = []
-    for path in _public_metric_modules():
-        out.extend(_parse_module_entries(path))
-    out.sort(key=lambda e: e.module)
+    out: list[tuple[str, MetricSpec]] = []
+    for stem in _public_metric_stems():
+        for spec in _load_module_specs(stem):
+            out.append((stem, spec))
     return tuple(out)
+
+
+def _row_from_spec(stem: str, spec: MetricSpec) -> MetricRow:
+    return MetricRow(
+        name=spec.name,
+        module=stem,
+        cell=spec.cell,
+        agg_order=spec.family,
+        inference_se=spec.inference,
+        import_path=f"factrix.metrics.{stem}",
+        input_kind=spec.input_kind,
+        docs_anchor=DOCS_ANCHOR_FMT.format(module=stem, name=spec.name),
+        emitted_name=spec.emitted_name or spec.name,
+    )
 
 
 @functools.cache
 def _all_rows() -> list[MetricRow]:
-    """Return every parsed ``Matrix-row:`` row, exploded one per metric name.
-
-    Sorted by ``(module, name)``. Includes stage-1 helpers; for the
-    user-facing subset call :func:`user_facing_rows`.
+    """Return every spec exploded into a :class:`MetricRow`, sorted by
+    ``(module, name)``. Includes stage-1 helpers; for the user-facing
+    subset call :func:`user_facing_rows`.
     """
-    rows = [
-        MetricRow(
-            name=name,
-            module=entry.module,
-            cell=entry.cell,
-            agg_order=entry.agg_order,
-            inference_se=entry.inference_se,
-            import_path=f"factrix.metrics.{entry.module}",
-            input_kind="scalar" if name in _SCALAR_INPUT_METRICS else "panel",
-            docs_anchor=DOCS_ANCHOR_FMT.format(module=entry.module, name=name),
-            emitted_name=_EMITTED_NAME_OVERRIDES.get(name, name),
-        )
-        for entry in _matrix_entries()
-        for name in entry.names
-    ]
+    rows = [_row_from_spec(stem, spec) for stem, spec in _all_specs()]
     rows.sort(key=lambda r: (r.module, r.name))
     return rows
 
 
 @functools.cache
 def user_facing_rows() -> list[MetricRow]:
-    """Return parsed rows excluding stage-1 helpers."""
-    return [r for r in _all_rows() if r.name not in _STAGE1_HELPERS]
+    """Return parsed rows excluding stage-1 helpers, sorted by ``(module, name)``."""
+    return [r for r in _all_rows() if r.name not in stage1_helper_names()]
+
+
+@functools.cache
+def stage1_helper_names() -> frozenset[str]:
+    """Return the set of stage-1 helper callable names across all modules.
+
+    Derived from each spec's ``is_stage1`` flag so the per-metric
+    property travels with the spec that declares it.
+    """
+    return frozenset(spec.name for _, spec in _all_specs() if spec.is_stage1)
+
+
+@functools.cache
+def module_specs(stem: str) -> tuple[MetricSpec, ...]:
+    """Return the spec tuple declared by one metric module."""
+    return _load_module_specs(stem)

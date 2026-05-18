@@ -20,10 +20,8 @@ import numpy as np
 import polars as pl
 import scipy.stats as scipy_stats
 
-__matrix_rows__ = (
-    "monotonicity | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio",
-)
-
+from factrix._axis import FactorScope, Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
@@ -41,6 +39,24 @@ from factrix.metrics._protocol import batch_primitive
 __all__ = [
     "monotonicity",
 ]
+
+__metric_specs__ = (
+    MetricSpec(
+        name="monotonicity",
+        cell=cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL),
+        family="cs-first",
+        inference="cross-asset t",
+        primitives=(
+            "_calc_t_stat",
+            "_p_value_from_t",
+            "_significance_marker",
+            "_sample_non_overlapping",
+            "_short_circuit_output",
+            "_assign_quantile_groups",
+            "_compute_tie_ratio",
+        ),
+    ),
+)
 
 # Slice-test contract (#153 §5): monotonicity buckets the
 # cross-section into `n_groups` (default 10) and computes Spearman ρ

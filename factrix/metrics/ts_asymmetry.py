@@ -39,10 +39,8 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "ts_asymmetry | (COMMON, CONTINUOUS, *, PANEL) | cs-first | NW HAC Wald | _significance_marker, _short_circuit_output, _aggregate_to_per_date, _ols_nw_multivariate, _wald_p_linear",
-)
-
+from factrix._axis import FactorScope, Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _ols_nw_multivariate,
     _resolve_nw_lags,
@@ -58,6 +56,22 @@ from factrix.metrics._helpers import (
 __all__ = [
     "ts_asymmetry",
 ]
+
+__metric_specs__ = (
+    MetricSpec(
+        name="ts_asymmetry",
+        cell=cell(FactorScope.COMMON, Signal.CONTINUOUS, mode=Mode.PANEL),
+        family="cs-first",
+        inference="NW HAC Wald",
+        primitives=(
+            "_significance_marker",
+            "_short_circuit_output",
+            "_aggregate_to_per_date",
+            "_ols_nw_multivariate",
+            "_wald_p_linear",
+        ),
+    ),
+)
 
 
 def ts_asymmetry(
