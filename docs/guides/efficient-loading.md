@@ -67,14 +67,14 @@ raw = adapt(
 )
 raw = raw.with_columns(my_factor_expr.alias("factor"))
 panel = compute_forward_return(raw, forward_periods=5)
-profile = fx.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg)["factor"]
 ```
 
 **Already-canonical 4-column panel — explicit Arrow conversion**:
 
 ```python
 panel = pl.from_pandas(my_pandas_df)  # has date, asset_id, factor, forward_return
-profile = fx.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg)["factor"]
 ```
 
 The conversion happens once at the seam between your data pipeline
@@ -118,7 +118,7 @@ panel = (
     .collect()                                   # 4. materialise the slice
 )
 
-profile = fx.evaluate(panel, cfg, factor_col="momentum_12_1")
+profile = fx.evaluate(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]
 ```
 
 Why this works:
@@ -140,7 +140,7 @@ panel = (
     .select(required)
     .filter(pl.col("date").is_between(date(2020, 1, 1), date(2024, 12, 31)))
 )
-profile = fx.evaluate(panel, cfg, factor_col="momentum_12_1")  # collects inside
+profile = fx.evaluate(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]  # collects inside
 ```
 
 Either form materialises the same in-memory frame.
@@ -174,9 +174,16 @@ batch-dispatch sharing. Pick by which axis matters for the call:
 
 | Variant | Return shape | First result lands after | Cross-factor sharing | Peak RSS bound |
 |---|---|---|---|---|
-| `run_metrics` (and `evaluate`) | `dict[factor_id, …]` | the whole batch finishes | IC stage-1 + batch-native primitives shared across **all** factors | full `factor_cols` panel + per-factor query intermediates |
+| `run_metrics` | `dict[factor_id, …]` | the whole batch finishes | IC stage-1 + batch-native primitives shared across **all** factors | full `factor_cols` panel + per-factor query intermediates |
 | `run_metrics_chunked` | iterator of `dict[factor_id, …]`, one entry per chunk | the first chunk finishes | shared **within** each chunk; recomputed per chunk | one `chunk_size`-wide slice at a time |
-| `run_metrics_iter` | iterator of `(factor_id, bundle)` pairs | one factor's per-factor metrics complete | shared across **all** factors before the first yield | full panel (no chunking) plus per-factor consumer pass |
+| `run_metrics_iter` | iterator of `(factor_id, bundle)` pairs | each factor finishes | shared across **all** factors before the first yield | full panel (no chunking); per-factor result released as soon as the caller consumes the yield |
+
+`evaluate` is the eager entry point for the `FactorProfile` shape and
+mirrors `run_metrics` at the boundary, but does **not** yet share
+IC stage-1 / batch primitives across factors — each factor is
+dispatched independently (`factrix/_evaluate.py`). Cross-factor
+sharing on the evaluate path is a tracked follow-up; once it lands,
+the chunked / iter siblings will extend the table above.
 
 Decision rule of thumb:
 
@@ -234,37 +241,31 @@ What this buys over a hand-rolled loop:
 
 ## Picking `chunk_size`
 
-`chunk_size=None` (default) is the right answer on most machines.
+`chunk_size=None` (default) is the right answer on most machines —
+the auto-sizer targets roughly a quarter of available RAM as the
+per-chunk peak, leaving slack for OS / BLAS / the downstream sink.
+
 Override when you have a reason: the sink batches at a different
-cadence, you are co-tenanting with another memory-hungry process, or
-you want deterministic chunk boundaries for testing.
+cadence, you are co-tenanting with another memory-hungry process,
+or you want deterministic chunk boundaries for testing.
 
-When sizing manually, the relationship the auto-sizer encodes is:
+When sizing manually, anchor on the observed reference:
 
-```
-peak_rss_per_chunk ≈ chunk_size × n_rows × 8 B × 4
-```
+| Preset (dims) | `chunk_size` | Observed peak RSS |
+|---|---:|---:|
+| `small` (1250 dates × 1000 assets) | 100 | ~3 GB |
 
-The `× 4` is empirical overhead factor — covers panel materialise plus
-the `_rank__<f>` intermediates `compute_ic` adds per factor. Tracks
-observed peak RSS within ±20% across the `small` / `large` benchmark
-presets (see [`bench/baselines/`](https://github.com/awwesomeman/factrix/tree/main/bench/baselines)).
+Peak scales roughly linearly in both `chunk_size` and panel rows
+(`n_dates × n_assets`). To pick a `chunk_size` for your panel:
 
-Reference: the `small` preset (cross-sectional, ~2500 dates ×
-500 assets) reaches roughly **3 GB peak RSS at `chunk_size=100`**
-(`n_rows × 8 × 4 × 100 ≈ 4 GB`, within the ±20% band). Linear in
-`chunk_size`, so:
+1. Take your RSS budget `B` (GB).
+2. Compute
+   `chunk_size ≈ 100 × (B / 3) × (1_250_000 / (n_dates × n_assets))`.
 
-| Budget (peak RSS) | Approx `chunk_size` on the `small` preset |
-|---:|---:|
-| 1 GB | 30 |
-| 4 GB | 100 |
-| 16 GB | 400 |
-| 32 GB | 800 |
-
-For your own panel, multiply by `small_n_rows / your_n_rows` — wider
-or longer panels need smaller chunks at the same RSS budget. The
-auto-sizer applies this proportionality directly.
+If you find yourself fighting the arithmetic, drop back to
+`chunk_size=None` and let the auto-sizer handle it. See
+[`bench/baselines/`](https://github.com/awwesomeman/factrix/tree/main/bench/baselines)
+for the JSONL these numbers come from.
 
 ## Streaming with `run_metrics_iter`
 
@@ -277,7 +278,7 @@ each factor's consumer pass finishes:
 ```python
 for fid, bundle in fx.run_metrics_iter(panel, cfg, factor_cols=cols):
     sink.write(fid, bundle.to_frame())
-    if bundle["ic"].headline_value > threshold:
+    if bundle["ic"].value > threshold:
         break
 ```
 
