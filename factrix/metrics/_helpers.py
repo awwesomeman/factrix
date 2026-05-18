@@ -2,11 +2,31 @@
 
 These are internal utilities — not part of the public API.
 
-Naming convention: helpers that process N factors in a single polars
-pass use the ``_batch`` suffix (e.g. ``_assign_quantile_groups_batch``).
-The bare name (``_assign_quantile_groups``) is the single-factor variant.
-``_multi*`` is reserved for structural multivariate concepts, not for
-"this function handles many factors".
+Multi-factor function-name suffix taxonomy (project-wide convention):
+
+- **(no suffix)** — batch-native unified API. Function takes
+  ``factor_cols: list[str]`` and returns ``dict[str, ResultT]``; no
+  single-factor sibling. Examples: ``compute_ic``, ``quantile_spread``,
+  ``monotonicity``, ``fx.run_metrics``.
+- **``_batch``** — batch variant that coexists with a single-factor
+  sibling. Use when keeping the single-factor signature stable matters
+  (callable API, third-party callers). Examples:
+  ``bootstrap_mean_ci`` (1-D) + ``bootstrap_mean_ci_batch`` (2-D);
+  ``_assign_quantile_groups`` (single) + ``_assign_quantile_groups_batch``
+  (batch).
+- **``_chunked``** — split-and-yield variant of an already-batch
+  function. Takes the same ``factor_cols`` input but splits into K
+  sub-batches and yields K results; per-chunk peak RSS is bounded.
+  Example: ``fx.run_metrics_chunked``.
+- **``_iter``** — per-factor streaming yield variant. Takes the same
+  input but yields ``(factor_id, result)`` one factor at a time so
+  callers can compose with per-bundle sinks. Cross-factor batch
+  dispatch is preserved internally; the streaming is at the result
+  granularity.
+
+``_multi*`` is reserved for structural multivariate concepts (e.g.
+multivariate test statistics), not for "this function handles many
+factors".
 """
 
 from __future__ import annotations

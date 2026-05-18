@@ -68,7 +68,7 @@ from factrix._errors import (
 from factrix._evaluate import _evaluate as _evaluate
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
-from factrix._run_metrics import MetricsBundle, run_metrics
+from factrix._run_metrics import MetricsBundle, run_metrics, run_metrics_chunked
 from factrix._types import MetricOutput
 from factrix.slicing import (
     SliceResult,
@@ -240,6 +240,7 @@ __all__ = [
     "compare",
     "evaluate",
     "run_metrics",
+    "run_metrics_chunked",
     # Introspection
     "SuggestConfigResult",
     "describe_analysis_modes",
