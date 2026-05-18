@@ -12,12 +12,13 @@ from factrix._axis import Metric
 from factrix._errors import RunMetricsError, UserInputError
 from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED
 from factrix._run_metrics import (
-    _IC_CONSUMERS,
     MetricsBundle,
-    _accepts_kwarg,
     run_metrics,
 )
 from factrix._types import MetricOutput
+from factrix.metrics._dispatch import is_batch_primitive, is_ic_consumer
+
+_IC_FAMILY = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
 
 def _build_panel(
@@ -71,7 +72,7 @@ def test_auto_discover_runs_ic_family_and_panel_direct(
     panel: pl.DataFrame, cfg: AnalysisConfig
 ) -> None:
     bundle = run_metrics(panel, cfg)["factor"]
-    assert _IC_CONSUMERS.issubset(set(bundle.metrics))
+    assert _IC_FAMILY.issubset(set(bundle.metrics))
     assert "monotonicity" in bundle.metrics
     assert "turnover" in bundle.metrics
 
@@ -392,30 +393,40 @@ def test_batch_of_n_matches_list_of_one_per_factor(
 
 
 # ---------------------------------------------------------------------------
-# Signature-driven batch dispatch (#407)
+# Marker-driven batch dispatch (#418)
 # ---------------------------------------------------------------------------
 
 
-def test_accepts_kwarg_routes_known_batch_primitives() -> None:
-    """Signature introspection identifies the post-#401 batch primitives."""
+def test_known_batch_primitives_carry_marker() -> None:
+    """The post-#401 batch primitives are marked @batch_primitive."""
     import factrix.metrics as metrics_pkg
 
-    assert _accepts_kwarg(metrics_pkg.quantile_spread, "factor_cols")
-    assert _accepts_kwarg(metrics_pkg.monotonicity, "factor_cols")
+    assert is_batch_primitive(metrics_pkg.quantile_spread)
+    assert is_batch_primitive(metrics_pkg.monotonicity)
 
 
-def test_accepts_kwarg_rejects_non_batch_metric() -> None:
-    """Non-batch panel-direct metrics do not declare factor_cols in their signature."""
+def test_non_batch_metric_carries_no_marker() -> None:
+    """Non-batch panel-direct metrics do not carry the @batch_primitive marker."""
     import factrix.metrics as metrics_pkg
 
-    assert not _accepts_kwarg(metrics_pkg.top_concentration, "factor_cols")
-    assert not _accepts_kwarg(metrics_pkg.turnover, "factor_cols")
+    assert not is_batch_primitive(metrics_pkg.top_concentration)
+    assert not is_batch_primitive(metrics_pkg.turnover)
+
+
+def test_ic_family_carry_ic_consumer_marker() -> None:
+    """The IC consumer family is marked @ic_consumer; replaces the
+    pre-#418 hand-maintained _IC_CONSUMERS frozenset."""
+    import factrix.metrics as metrics_pkg
+
+    assert is_ic_consumer(metrics_pkg.ic)
+    assert is_ic_consumer(metrics_pkg.ic_newey_west)
+    assert is_ic_consumer(metrics_pkg.ic_ir)
 
 
 def test_batch_primitive_dispatched_once_across_factors(
     cfg: AnalysisConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Metrics whose signature accepts factor_cols get one batched call."""
+    """Metrics marked @batch_primitive get one batched call across factors."""
     import functools
 
     import factrix.metrics as metrics_pkg
@@ -442,7 +453,7 @@ def test_batch_primitive_dispatched_once_across_factors(
 def test_non_batch_metric_dispatched_per_factor(
     cfg: AnalysisConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Metrics without factor_cols param get one call per factor on a projected panel."""
+    """Metrics without @batch_primitive get one call per factor on a projected panel."""
     import functools
 
     import factrix.metrics as metrics_pkg

@@ -30,6 +30,7 @@ from factrix._types import (
     MIN_MONOTONICITY_PERIODS,
     MetricOutput,
 )
+from factrix.metrics._dispatch import batch_primitive
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _sample_non_overlapping,
@@ -52,6 +53,7 @@ __all__ = [
 min_assets_per_group: int | None = 50
 
 
+@batch_primitive
 def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,

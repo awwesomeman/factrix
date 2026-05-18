@@ -33,18 +33,13 @@ from factrix._errors import (
 from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, user_facing_rows
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
+from factrix.metrics._dispatch import is_batch_primitive, is_ic_consumer
 from factrix.metrics._helpers import _short_circuit_output
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
 
 _logger = logging.getLogger("factrix.run_metrics")
-
-# Metrics whose first positional argument is the ``compute_ic`` output
-# (the ``(date, ic, tie_ratio)`` frame). v1 wires this single stage-1
-# helper; expanding to ``compute_fm_betas`` / ``compute_ts_betas`` /
-# ``compute_event_returns`` pipelines is tracked as v1.x follow-up.
-_IC_CONSUMERS: frozenset[str] = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -479,17 +474,16 @@ def run_metrics(
             kwargs["forward_periods"] = cfg.forward_periods
         stage = "consumer"
         try:
-            if name in _IC_CONSUMERS:
+            if is_ic_consumer(fn):
                 if ic_by_factor is None:
                     stage = "stage1"
                     ic_by_factor = _metrics.compute_ic(panel, factor_cols=cols)
                     stage = "consumer"
                 for c in cols:
                     results[c][name] = _safe_call(name, fn, ic_by_factor[c], kwargs)
-            elif _accepts_kwarg(fn, "factor_cols"):
-                # Batch-native primitives (those whose signature accepts
-                # ``factor_cols``) take one call across the whole batch
-                # and return ``dict[str, MetricOutput]`` keyed per
+            elif is_batch_primitive(fn):
+                # Batch-native primitives take one call across the whole
+                # batch and return ``dict[str, MetricOutput]`` keyed per
                 # factor. They surface sample-floor failures as
                 # short-circuit entries inside that dict, not via
                 # exception (so no per-factor ``_safe_call`` wrap

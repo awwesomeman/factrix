@@ -34,6 +34,7 @@ from factrix._types import (
     MIN_ASSETS_PER_DATE_IC,
     MetricOutput,
 )
+from factrix.metrics._dispatch import batch_primitive, ic_consumer
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _sample_non_overlapping,
@@ -92,6 +93,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
+@batch_primitive
 def compute_ic(
     df: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
@@ -200,6 +202,7 @@ def compute_ic(
     }
 
 
+@ic_consumer
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -289,6 +292,7 @@ def ic(
     )
 
 
+@ic_consumer
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -369,6 +373,7 @@ def ic_newey_west(
     )
 
 
+@ic_consumer
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricOutput:

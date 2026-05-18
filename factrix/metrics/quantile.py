@@ -30,6 +30,7 @@ from factrix._types import (
     MIN_PORTFOLIO_PERIODS_HARD,
     MetricOutput,
 )
+from factrix.metrics._dispatch import batch_primitive
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _assign_quantile_groups_batch,
@@ -153,6 +154,7 @@ def compute_spread_series(
     }
 
 
+@batch_primitive
 def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,
