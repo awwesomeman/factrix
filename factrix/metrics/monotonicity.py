@@ -36,6 +36,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_high_tie_ratio,
 )
+from factrix.metrics._protocol import batch_primitive
 
 __all__ = [
     "monotonicity",
@@ -52,6 +53,7 @@ __all__ = [
 min_assets_per_group: int | None = 50
 
 
+@batch_primitive
 def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,

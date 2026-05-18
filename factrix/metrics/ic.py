@@ -41,6 +41,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
+from factrix.metrics._protocol import batch_primitive, ic_consumer
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_ic",
@@ -92,6 +93,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
+@batch_primitive
 def compute_ic(
     df: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
@@ -200,6 +202,7 @@ def compute_ic(
     }
 
 
+@ic_consumer
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -289,6 +292,7 @@ def ic(
     )
 
 
+@ic_consumer
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -369,6 +373,7 @@ def ic_newey_west(
     )
 
 
+@ic_consumer
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricOutput:
