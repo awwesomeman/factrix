@@ -38,7 +38,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_high_tie_ratio,
 )
-from factrix.metrics._protocol import batch_primitive
+
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_spread_series",
@@ -75,6 +75,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
+        batchable=True,
     ),
     MetricSpec(
         name="quantile_spread_vw",
@@ -198,7 +199,6 @@ def compute_spread_series(
     }
 
 
-@batch_primitive
 def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,

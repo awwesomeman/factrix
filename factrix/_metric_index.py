@@ -316,3 +316,9 @@ def emitted_name_of(spec: MetricSpec) -> str:
 def module_specs(stem: str) -> tuple[MetricSpec, ...]:
     """Return the spec tuple declared by one metric module."""
     return _load_module_specs(stem)
+
+
+@functools.cache
+def spec_by_name() -> dict[str, MetricSpec]:
+    """Return ``{name: spec}`` across every spec (public and internal)."""
+    return {spec.name: spec for _, spec in _all_specs()}

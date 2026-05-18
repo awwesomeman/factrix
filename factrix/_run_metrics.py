@@ -31,7 +31,7 @@ from factrix._errors import (
     RunMetricsError,
     UserInputError,
 )
-from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, public_specs
+from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, public_specs, spec_by_name
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -436,7 +436,7 @@ class _IcConsumerProtocol(_DispatchProtocol):
 
 
 class _BatchPrimitiveProtocol(_DispatchProtocol):
-    """``@batch_primitive`` — one call across the whole factor batch.
+    """``MetricSpec.batchable=True`` — one call across the whole factor batch.
 
     Sample-floor failures surface as short-circuit entries in the
     returned dict (the primitive's contract), not via exception, so
@@ -448,7 +448,8 @@ class _BatchPrimitiveProtocol(_DispatchProtocol):
     name = "batch_primitive"
 
     def matches(self, fn: Callable[..., Any]) -> bool:
-        return is_batch_primitive(fn)
+        spec = spec_by_name().get(fn.__name__)
+        return spec is not None and spec.batchable
 
     def bind(
         self,

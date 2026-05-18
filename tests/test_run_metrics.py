@@ -16,7 +16,8 @@ from factrix._run_metrics import (
     run_metrics,
 )
 from factrix._types import MetricOutput
-from factrix.metrics._protocol import is_batch_primitive, is_ic_consumer
+from factrix._metric_index import spec_by_name
+from factrix.metrics._protocol import is_ic_consumer
 
 _IC_FAMILY = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
@@ -397,20 +398,18 @@ def test_batch_of_n_matches_list_of_one_per_factor(
 # ---------------------------------------------------------------------------
 
 
-def test_known_batch_primitives_carry_marker() -> None:
-    """The post-#401 batch primitives are marked @batch_primitive."""
-    import factrix.metrics as metrics_pkg
+def test_known_batchable_specs() -> None:
+    """The post-#401 batch primitives declare batchable=True on the spec."""
+    specs = spec_by_name()
+    assert specs["quantile_spread"].batchable
+    assert specs["monotonicity"].batchable
 
-    assert is_batch_primitive(metrics_pkg.quantile_spread)
-    assert is_batch_primitive(metrics_pkg.monotonicity)
 
-
-def test_non_batch_metric_carries_no_marker() -> None:
-    """Non-batch panel-direct metrics do not carry the @batch_primitive marker."""
-    import factrix.metrics as metrics_pkg
-
-    assert not is_batch_primitive(metrics_pkg.top_concentration)
-    assert not is_batch_primitive(metrics_pkg.turnover)
+def test_non_batch_metric_not_batchable() -> None:
+    """Non-batch panel-direct metrics declare batchable=False (default)."""
+    specs = spec_by_name()
+    assert not specs["top_concentration"].batchable
+    assert not specs["turnover"].batchable
 
 
 def test_ic_family_carry_ic_consumer_marker() -> None:
