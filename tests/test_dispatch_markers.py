@@ -25,7 +25,7 @@ from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric
 from factrix._run_metrics import run_metrics
 from factrix._types import MetricOutput
-from factrix.metrics._dispatch import (
+from factrix.metrics._protocol import (
     batch_primitive,
     ic_consumer,
     is_batch_primitive,
@@ -69,13 +69,28 @@ class TestMarkerSignatureAgreement:
 
         assert is_batch_primitive(good)
 
-    def test_ic_consumer_marker_is_unconditional(self) -> None:
-        # ic_consumer does not constrain the signature — IC consumers
-        # take whatever shape suits the underlying inference call.
+    def test_ic_consumer_accepts_signature_with_ic_df_first(self) -> None:
         @ic_consumer
         def custom(ic_df: pl.DataFrame, **kwargs) -> MetricOutput: ...
 
         assert is_ic_consumer(custom)
+
+    def test_ic_consumer_rejects_signature_with_wrong_first_arg(self) -> None:
+        # Symmetric to @batch_primitive's signature contract: an
+        # ic_consumer that does not accept ic_df as its first
+        # positional would receive the per-factor IC frame in a
+        # parameter named `panel` (or similar), making the dispatcher's
+        # injection silently misleading.
+        with pytest.raises(TypeError, match="ic_df"):
+
+            @ic_consumer
+            def bogus(panel: pl.DataFrame, **kwargs) -> MetricOutput: ...
+
+    def test_ic_consumer_rejects_empty_signature(self) -> None:
+        with pytest.raises(TypeError, match="ic_df"):
+
+            @ic_consumer
+            def bogus() -> MetricOutput: ...
 
 
 class TestDispatcherHonoursMarkers:
@@ -120,3 +135,61 @@ class TestDispatcherHonoursMarkers:
         # The dispatcher must NOT have passed factor_cols on the per-
         # factor path (the fake's factor_cols default kicks in).
         assert counter["args_per_call"] == [None]
+
+
+class TestRegistryExtension:
+    """Pin the Open-Closed property — adding a new protocol class +
+    appending to `_PROTOCOLS` should be enough; the dispatcher itself
+    stays closed against change.
+    """
+
+    def test_new_protocol_class_routes_without_dispatcher_edit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from factrix import _run_metrics as rm
+        from factrix._run_metrics import _DispatchProtocol
+
+        # Custom marker + protocol class plugged in via monkeypatch.
+        _CUSTOM_ATTR = "_factrix_custom_role"
+
+        def custom_role(fn):
+            setattr(fn, _CUSTOM_ATTR, True)
+            return fn
+
+        class _CustomProtocol(_DispatchProtocol):
+            name = "custom_role"
+
+            def matches(self, fn):
+                return bool(getattr(fn, _CUSTOM_ATTR, False))
+
+            def dispatch(self, fn, name, kwargs, ctx):
+                # Route via a wholly different convention (skip the
+                # standard panel/factor_cols dance) — this is what new
+                # stage-1 protocol classes would do.
+                return {c: fn(c) for c in ctx.cols}
+
+        # Patch the registry to prepend our protocol (must come before
+        # the always-matching fallback).
+        original = rm._PROTOCOLS
+        monkeypatch.setattr(rm, "_PROTOCOLS", (_CustomProtocol(), *original))
+
+        import factrix.metrics as metrics_pkg
+
+        @custom_role
+        def fake_custom(factor_id: str) -> MetricOutput:
+            return MetricOutput(name="fake_custom", value=float(len(factor_id)))
+
+        monkeypatch.setattr(metrics_pkg, "fake_custom", fake_custom, raising=False)
+        monkeypatch.setattr(
+            rm, "_candidate_metric_names", lambda *a, **kw: ["fake_custom"]
+        )
+
+        panel = _panel()
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+        bundles = rm.run_metrics(
+            panel, cfg, factor_cols=["factor"], metrics=["fake_custom"]
+        )
+
+        # Custom protocol was actually invoked: its dispatch returns
+        # MetricOutput.value = len(factor_id) = len("factor") = 6.
+        assert bundles["factor"]["fake_custom"].value == 6.0

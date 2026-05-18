@@ -55,8 +55,20 @@ def ic_consumer[F: Callable](fn: F) -> F:
 
     The dispatcher will compute ``compute_ic(panel, factor_cols=cols)``
     once per batch, then call ``fn(ic_by_factor[c], ...)`` per factor
-    with the per-factor IC frame instead of the raw panel.
+    with the per-factor IC frame instead of the raw panel. Raises
+    ``TypeError`` at decoration time if the function's first
+    positional parameter is not named ``ic_df`` — the marker and the
+    signature must agree on what the first argument represents (the
+    IC frame, not a panel).
     """
+    params = list(inspect.signature(fn).parameters.values())
+    if not params or params[0].name != "ic_df":
+        first = params[0].name if params else "<no params>"
+        raise TypeError(
+            f"@ic_consumer on {fn.__qualname__!r}: first positional parameter "
+            f"must be named `ic_df` (the dispatcher injects the per-factor IC "
+            f"frame as the first argument); got {first!r}."
+        )
     setattr(fn, _IC_ATTR, True)
     return fn
 

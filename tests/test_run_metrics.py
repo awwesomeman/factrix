@@ -16,7 +16,7 @@ from factrix._run_metrics import (
     run_metrics,
 )
 from factrix._types import MetricOutput
-from factrix.metrics._dispatch import is_batch_primitive, is_ic_consumer
+from factrix.metrics._protocol import is_batch_primitive, is_ic_consumer
 
 _IC_FAMILY = frozenset({"ic", "ic_newey_west", "ic_ir"})
 

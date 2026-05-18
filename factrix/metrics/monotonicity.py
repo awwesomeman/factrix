@@ -30,13 +30,13 @@ from factrix._types import (
     MIN_MONOTONICITY_PERIODS,
     MetricOutput,
 )
-from factrix.metrics._dispatch import batch_primitive
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _sample_non_overlapping,
     _short_circuit_output,
     _warn_high_tie_ratio,
 )
+from factrix.metrics._protocol import batch_primitive
 
 __all__ = [
     "monotonicity",

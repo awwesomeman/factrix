@@ -33,8 +33,8 @@ from factrix._errors import (
 from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, user_facing_rows
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
-from factrix.metrics._dispatch import is_batch_primitive, is_ic_consumer
 from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._protocol import is_batch_primitive, is_ic_consumer
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
@@ -277,6 +277,178 @@ def _raise_factor_col_error(*, value: object, expected: str) -> None:
     )
 
 
+def _metrics_pkg() -> Any:
+    """Late-import shim — ``factrix.metrics`` imports must stay below
+    the function-call boundary so the dispatch protocols defined in
+    this module can be exercised before ``factrix.metrics`` is fully
+    populated (relevant when tests inject mock metrics).
+    """
+    import factrix.metrics as _metrics
+
+    return _metrics
+
+
+@dataclass(frozen=True, slots=True)
+class _DispatchContext:
+    """Per-run state passed to each dispatch protocol.
+
+    ``cache`` is mutable so protocols can memoise stage-1 results
+    (e.g. ``ic_by_factor``, lazily-built ``projected``) across the
+    metric loop without re-doing the work.
+    """
+
+    panel: pl.DataFrame
+    cfg: AnalysisConfig
+    cols: list[str]
+    cache: dict[str, Any]
+
+
+class _DispatchProtocol:
+    """One dispatch role recognised by :func:`run_metrics`.
+
+    Concrete subclasses declare:
+
+    - :attr:`name` — short label for error / log context.
+    - :meth:`matches` — whether this protocol owns dispatch for the
+      given metric function.
+    - :meth:`dispatch` — run the metric across all factors and return
+      one ``MetricOutput`` per factor.
+
+    Adding a new protocol class + appending to :data:`_PROTOCOLS` is
+    the extension point — :func:`run_metrics` itself stays closed
+    against change (Open-Closed). Order of :data:`_PROTOCOLS` matters
+    because the dispatcher picks the first matching protocol; the
+    fallback :class:`_PerFactorProtocol` always matches and must
+    therefore land last.
+    """
+
+    name: str
+
+    def matches(self, fn: Callable[..., Any]) -> bool:
+        raise NotImplementedError
+
+    def dispatch(
+        self,
+        fn: Callable[..., Any],
+        name: str,
+        kwargs: dict[str, Any],
+        ctx: _DispatchContext,
+    ) -> dict[str, MetricOutput]:
+        raise NotImplementedError
+
+
+class _IcConsumerProtocol(_DispatchProtocol):
+    """``@ic_consumer`` — share one ``compute_ic`` stage-1 across consumers."""
+
+    name = "ic_consumer"
+
+    def matches(self, fn: Callable[..., Any]) -> bool:
+        return is_ic_consumer(fn)
+
+    def dispatch(
+        self,
+        fn: Callable[..., Any],
+        name: str,
+        kwargs: dict[str, Any],
+        ctx: _DispatchContext,
+    ) -> dict[str, MetricOutput]:
+        ic_by_factor = ctx.cache.get("ic_by_factor")
+        if ic_by_factor is None:
+            try:
+                ic_by_factor = _metrics_pkg().compute_ic(
+                    ctx.panel, factor_cols=ctx.cols
+                )
+            except (InsufficientSampleError, RunMetricsError):
+                raise
+            except Exception as exc:
+                raise RunMetricsError(
+                    f"run_metrics() IC stage-1 (compute_ic) failed "
+                    f"(cell={_cell_label(ctx.cfg)}, stage=stage1). "
+                    f"Likely a factrix bug — please report.",
+                    cell=_cell_label(ctx.cfg),
+                    metric_name="compute_ic",
+                    stage="stage1",
+                ) from exc
+            ctx.cache["ic_by_factor"] = ic_by_factor
+        return {c: _safe_call(name, fn, ic_by_factor[c], kwargs) for c in ctx.cols}
+
+
+class _BatchPrimitiveProtocol(_DispatchProtocol):
+    """``@batch_primitive`` — one call across the whole factor batch.
+
+    Sample-floor failures surface as short-circuit entries in the
+    returned dict (the primitive's contract), not via exception, so
+    no per-factor ``_safe_call`` wrap is needed. An unexpected
+    exception aborts the whole batch.
+    """
+
+    name = "batch_primitive"
+
+    def matches(self, fn: Callable[..., Any]) -> bool:
+        return is_batch_primitive(fn)
+
+    def dispatch(
+        self,
+        fn: Callable[..., Any],
+        name: str,
+        kwargs: dict[str, Any],
+        ctx: _DispatchContext,
+    ) -> dict[str, MetricOutput]:
+        out = fn(ctx.panel, factor_cols=ctx.cols, **kwargs)
+        return {c: out[c] for c in ctx.cols}
+
+
+class _PerFactorProtocol(_DispatchProtocol):
+    """Fallback — one call per factor on a thin projected panel.
+
+    Lazy-builds the per-factor projected views into ``ctx.cache`` so
+    a batch consisting entirely of batch primitives / IC consumers
+    skips the projection cost.
+    """
+
+    name = "per_factor"
+
+    def matches(self, fn: Callable[..., Any]) -> bool:
+        return True
+
+    def dispatch(
+        self,
+        fn: Callable[..., Any],
+        name: str,
+        kwargs: dict[str, Any],
+        ctx: _DispatchContext,
+    ) -> dict[str, MetricOutput]:
+        projected = ctx.cache.get("projected")
+        if projected is None:
+            projected = {c: _project_factor(ctx.panel, c) for c in ctx.cols}
+            ctx.cache["projected"] = projected
+        return {c: _safe_call(name, fn, projected[c], kwargs) for c in ctx.cols}
+
+
+# Order matters — dispatcher picks the first match. The fallback must
+# stay last. Append a new protocol class here to extend the dispatcher
+# without touching ``run_metrics``.
+_PROTOCOLS: tuple[_DispatchProtocol, ...] = (
+    _IcConsumerProtocol(),
+    _BatchPrimitiveProtocol(),
+    _PerFactorProtocol(),
+)
+
+
+def _resolve_protocol(fn: Callable[..., Any]) -> _DispatchProtocol:
+    """Return the first :data:`_PROTOCOLS` entry that owns ``fn``.
+
+    The trailing :class:`_PerFactorProtocol` always matches so the
+    return is total — callers do not need to guard against ``None``.
+    """
+    for proto in _PROTOCOLS:
+        if proto.matches(fn):
+            return proto
+    raise RuntimeError(  # pragma: no cover — _PerFactorProtocol always matches
+        f"no dispatch protocol matched {fn!r}; _PROTOCOLS lost its fallback."
+    )
+
+
 def run_metrics(
     panel: PanelInput,
     cfg: AnalysisConfig,
@@ -459,53 +631,31 @@ def run_metrics(
 
     skipped: dict[str, str] = dict(excluded_reasons) if metrics is None else {}
     results: dict[str, dict[str, MetricOutput]] = {c: {} for c in cols}
-    ic_by_factor: dict[str, pl.DataFrame] | None = None
-    # Per-factor projected views shared across every non-batch metric.
-    # Built once per factor (not per metric × factor) — the underlying
-    # polars buffers are refcounted so the projection is near-zero-copy.
-    projected: dict[str, pl.DataFrame] = {c: _project_factor(panel, c) for c in cols}
 
-    import factrix.metrics as _metrics
+    ctx = _DispatchContext(panel=panel, cfg=cfg, cols=cols, cache={})
 
     for name in targets:
-        fn = getattr(_metrics, name)
+        fn = getattr(_metrics_pkg(), name)
         kwargs: dict[str, Any] = {}
         if _accepts_kwarg(fn, "forward_periods"):
             kwargs["forward_periods"] = cfg.forward_periods
-        stage = "consumer"
+
+        proto = _resolve_protocol(fn)
         try:
-            if is_ic_consumer(fn):
-                if ic_by_factor is None:
-                    stage = "stage1"
-                    ic_by_factor = _metrics.compute_ic(panel, factor_cols=cols)
-                    stage = "consumer"
-                for c in cols:
-                    results[c][name] = _safe_call(name, fn, ic_by_factor[c], kwargs)
-            elif is_batch_primitive(fn):
-                # Batch-native primitives take one call across the whole
-                # batch and return ``dict[str, MetricOutput]`` keyed per
-                # factor. They surface sample-floor failures as
-                # short-circuit entries inside that dict, not via
-                # exception (so no per-factor ``_safe_call`` wrap
-                # needed). An unexpected exception from the call aborts
-                # the whole batch — see ``Raises``.
-                out = fn(panel, factor_cols=cols, **kwargs)
-                for c in cols:
-                    results[c][name] = out[c]
-            else:
-                for c in cols:
-                    results[c][name] = _safe_call(name, fn, projected[c], kwargs)
+            per_factor = proto.dispatch(fn, name, kwargs, ctx)
         except (InsufficientSampleError, RunMetricsError):
             raise
         except Exception as exc:
             raise RunMetricsError(
                 f"run_metrics() failed in metric={name!r} "
-                f"(cell={_cell_label(cfg)}, stage={stage}). "
+                f"(cell={_cell_label(cfg)}, stage=consumer). "
                 f"Likely a factrix bug — please report.",
                 cell=_cell_label(cfg),
                 metric_name=name,
-                stage=stage,
+                stage="consumer",
             ) from exc
+        for c in cols:
+            results[c][name] = per_factor[c]
 
     if skipped:
         _logger.info(
