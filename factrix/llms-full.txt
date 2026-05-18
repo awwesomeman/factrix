@@ -253,6 +253,35 @@ below for the full hierarchy + recovery payloads):
 - `UserInputError` — `factor_cols` empty, contains duplicates, or
   references a column not present on `panel`
 
+### `evaluate_chunked`
+
+```
+factrix.evaluate_chunked(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
+                         *, factor_cols: Sequence[str],
+                         chunk_size: int | None = None,
+                         base_cols: Sequence[str] = ("date", "asset_id", "forward_return"),
+                         ) -> Iterator[dict[str, FactorProfile]]
+```
+
+Memory-bounded variant of `evaluate` for large-N factor screens —
+evaluate-side mirror of `run_metrics_chunked`. Splits `factor_cols`
+into chunks, narrows `panel` to `base_cols + chunk` per iteration
+(`pl.LazyFrame` inputs get per-chunk projection pushdown via
+`select().collect()`), calls `evaluate` on each chunk, and yields the
+per-chunk `dict[factor_id, FactorProfile]` so peak RSS is bounded by
+`chunk_size` rather than `len(factor_cols)`. Within a chunk the cell's
+procedure runs its normal `compute_batch` path so any cross-factor
+sharing (currently: IC stage-1 reuse) applies inside the chunk and is
+recomputed across chunks — very small `chunk_size` pays the per-chunk
+dispatcher overhead without the share. `chunk_size=None` (default)
+targets ~25% of `psutil.virtual_memory().available` as the per-chunk
+peak budget; pass an explicit value to override. Eager schema check
+on `base_cols + factor_cols` so a missing column raises
+`UserInputError` before the first yield rather than failing
+mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
+extras) required only by the auto-sizing path; explicit `chunk_size`
+skips it.
+
 ---
 
 ### `run_metrics`

@@ -18,8 +18,10 @@ here once it adopts the v0.5 contract.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from typing import TYPE_CHECKING, Any
+
+import polars as pl
 
 from factrix._analysis_config import _FALLBACK_MAP
 from factrix._axis import Mode
@@ -34,6 +36,9 @@ from factrix._registry import (
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
     from factrix._profile import FactorProfile
+
+
+_DEFAULT_BASE_COLS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 
 
 def _derive_mode(panel: Any) -> Mode:
@@ -168,3 +173,146 @@ def _evaluate(
             for col, p in profiles.items()
         }
     return profiles
+
+
+def evaluate_chunked(
+    panel: pl.DataFrame | pl.LazyFrame,
+    config: AnalysisConfig,
+    *,
+    factor_cols: Sequence[str],
+    chunk_size: int | None = None,
+    base_cols: Sequence[str] = _DEFAULT_BASE_COLS,
+) -> Iterator[dict[str, FactorProfile]]:
+    """Yield :func:`evaluate` output one chunk of factors at a time.
+
+    Splits ``factor_cols`` into chunks, narrows ``panel`` to
+    ``base_cols + chunk`` per iteration, calls :func:`evaluate`, and
+    yields each chunk's ``dict[factor_id, FactorProfile]``. Peak RSS is
+    bounded by the chunk size rather than ``len(factor_cols)`` — the
+    evaluate-side mirror of :func:`factrix.run_metrics_chunked`.
+
+    Within a chunk the cell's procedure runs its normal
+    ``compute_batch`` path (#426), so any cross-factor sharing on that
+    cell (currently: IC stage-1 reuse) applies inside the chunk and
+    is recomputed across chunks. Very small ``chunk_size`` (e.g. 1)
+    therefore pays the per-chunk overhead without the share — pick
+    ``chunk_size`` to fit your RAM budget, not to micromanage the
+    share / no-share trade.
+
+    Args:
+        panel: ``pl.DataFrame`` or ``pl.LazyFrame``. When passed a
+            ``LazyFrame``, the height is sampled via
+            ``select(pl.len()).collect()`` (one row) and each chunk
+            does a fresh ``panel.select([...]).collect()`` so
+            projection pushdown applies per chunk — only the chunk's
+            factor columns get scanned from the source.
+        config: Same as :func:`evaluate`.
+        factor_cols: Factor columns to chunk over. Must be non-empty
+            and contain no duplicates. ``base_cols`` plus every factor
+            in this list must exist on ``panel`` — schema is checked
+            eagerly before the first chunk yields.
+        chunk_size: Number of factors per chunk. ``None`` (default)
+            picks a chunk size targeting ~25% of available RAM, which
+            requires ``psutil`` (optional dependency — install via
+            ``pip install psutil`` or ``pip install 'factrix[bench]'``).
+            Pass an explicit value to override. An explicit
+            ``chunk_size`` larger than ``len(factor_cols)`` is accepted
+            and degenerates to a single chunk.
+        base_cols: Panel columns required by every chunk regardless of
+            which factor subset is active. Default
+            ``("date", "asset_id", "forward_return")`` matches
+            :func:`evaluate`'s base contract. Override when an extra
+            column is required (e.g. a weight column for a
+            future weighted procedure).
+
+    Yields:
+        ``dict[factor_id, FactorProfile]`` — same shape as
+        :func:`evaluate`, scoped to one chunk's factors. Iterate the
+        generator to consume chunks sequentially; each chunk's
+        profiles can be written to a sink and released before the
+        next chunk is produced.
+
+    Raises:
+        UserInputError: ``factor_cols`` empty / contains duplicates,
+            or ``panel`` missing a ``base_cols`` / factor column,
+            or ``chunk_size=None`` and ``psutil`` is not installed.
+        ValueError: ``chunk_size`` non-positive.
+        TypeError: ``panel`` not ``pl.DataFrame`` or ``pl.LazyFrame``.
+
+    Examples:
+        Stream 1000 factors through a parquet sink, 100 per chunk:
+
+        >>> import factrix as fx                                   # doctest: +SKIP
+        >>> for profiles in fx.evaluate_chunked(                   # doctest: +SKIP
+        ...     panel, cfg, factor_cols=cols, chunk_size=100,
+        ... ):
+        ...     for fid, profile in profiles.items():
+        ...         sink.write(fid, profile)
+
+        Auto-sized chunks (default):
+
+        >>> for profiles in fx.evaluate_chunked(                   # doctest: +SKIP
+        ...     panel, cfg, factor_cols=cols,
+        ... ):
+        ...     ...
+    """
+    cols = list(factor_cols)
+    if not cols:
+        _raise_factor_cols_error(
+            value=cols, expected="a non-empty list of factor column names"
+        )
+    if len(set(cols)) != len(cols):
+        _raise_factor_cols_error(value=cols, expected="factor_cols with no duplicates")
+
+    if chunk_size is not None and chunk_size <= 0:
+        raise ValueError(f"chunk_size must be positive, got {chunk_size!r}")
+
+    if not isinstance(panel, pl.DataFrame | pl.LazyFrame):
+        raise TypeError(
+            f"panel must be pl.DataFrame or pl.LazyFrame; got {type(panel).__name__}"
+        )
+
+    schema_cols = (
+        set(panel.collect_schema().names())
+        if isinstance(panel, pl.LazyFrame)
+        else set(panel.columns)
+    )
+    base = list(base_cols)
+    missing = (set(base) | set(cols)) - schema_cols
+    if missing:
+        _raise_factor_cols_error(
+            value=cols,
+            expected=(
+                f"panel with all of base_cols + factor_cols present; "
+                f"missing {sorted(missing)!r}"
+            ),
+        )
+
+    if chunk_size is None:
+        from factrix._chunk_size import auto_chunk_size
+
+        n_rows = (
+            panel.select(pl.len()).collect().item()
+            if isinstance(panel, pl.LazyFrame)
+            else panel.height
+        )
+        cs = auto_chunk_size(
+            n_rows,
+            len(cols),
+            func_name="evaluate_chunked",
+            docs_path="api/evaluate_chunked#chunk_size",
+        )
+    else:
+        cs = chunk_size
+
+    from itertools import batched
+
+    for chunk_tuple in batched(cols, cs):
+        chunk = list(chunk_tuple)
+        projection = [*base, *chunk]
+        sub_panel = (
+            panel.select(projection).collect()
+            if isinstance(panel, pl.LazyFrame)
+            else panel.select(projection)
+        )
+        yield _evaluate(sub_panel, config, factor_cols=chunk)

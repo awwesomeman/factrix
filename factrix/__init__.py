@@ -68,6 +68,7 @@ from factrix._errors import (
     UserInputError,
 )
 from factrix._evaluate import _evaluate as _evaluate
+from factrix._evaluate import evaluate_chunked as evaluate_chunked
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._run_metrics import (
@@ -260,6 +261,7 @@ __all__ = [
     "PanelInput",
     "compare",
     "evaluate",
+    "evaluate_chunked",
     "run_metrics",
     "run_metrics_chunked",
     "run_metrics_iter",
