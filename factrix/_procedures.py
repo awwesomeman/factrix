@@ -280,41 +280,11 @@ class _ICContPanelProcedure(_PerFactorBatchMixin):
         raw: Any,
         config: AnalysisConfig,
     ) -> FactorProfile:
-        import numpy as np
-
-        import factrix.metrics as _metrics
-        from factrix._codes import StatCode
-        from factrix._profile import FactorProfile
-
-        # ``compute_ic`` filters by MIN_ASSETS_PER_DATE_IC but does not drop nulls;
-        # ``pl.corr`` returns null for zero-variance dates (degenerate
-        # factor / tied returns) so the explicit drop is reachable.
-        # Route through ``factrix.metrics`` package attribute so the same
-        # ``monkeypatch.setattr(metrics, "compute_ic", ...)`` seam used
-        # by ``run_metrics`` tests also covers ``evaluate``.
-        ic_values = _metrics.compute_ic(raw)["factor"]["ic"].drop_nulls().to_numpy()
-        n_periods = len(ic_values)
-        n_pairs, n_periods_raw, n_assets = _panel_envelope(raw)
-        ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0
-
-        result, stats, metadata = _hac_inference(config, ic_values)
-        stats[StatCode.MEAN] = ic_mean
-
-        return FactorProfile(
-            config=config,
-            mode=Mode.PANEL,
-            primary_p=result.p,
-            primary_stat=result.stat,
-            primary_stat_name=result.stat_name,
-            n_obs=n_periods,
-            n_pairs=n_pairs,
-            n_periods=n_periods_raw,
-            n_assets=n_assets,
-            warnings=result.warnings,
-            stats=stats,
-            metadata=metadata,
-            context={"estimator": config.estimator.name},
-        )
+        # Single-factor case is just ``compute_batch`` with a one-element
+        # list — ``compute_ic(factor_cols=["factor"])`` returns the same
+        # per-factor frame ``compute_ic(panel)`` would. Delegating keeps
+        # IC stage-1 + envelope + HAC inference in one place.
+        return self.compute_batch(raw, config, ("factor",))["factor"]
 
     def compute_batch(
         self,
