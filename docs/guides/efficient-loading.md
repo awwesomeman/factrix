@@ -5,8 +5,9 @@ title: Efficient data loading for large panels
 When a factor exploration sweep reaches the 100–1000+ factor scale,
 the **data loading step** — not factrix's compute path — is usually
 what runs the machine out of memory. This guide shows the recipes
-that keep peak RSS bounded, and explains the contract `evaluate()` /
-`run_metrics()` follow at the API boundary.
+that keep peak RSS (Resident Set Size — the physical memory the
+process currently holds) bounded, and explains the contract
+`evaluate()` / `run_metrics()` follow at the API boundary.
 
 For the column contract itself, see
 [Panel schema](../api/panel-schema.md); for the reshape steps that
@@ -164,18 +165,18 @@ panel = (
 `pl.DataFrame`; `adapt(pd.DataFrame)` returns `pl.DataFrame` (pandas
 has no lazy equivalent).
 
-## Choosing an entry point
+## API variants: choosing an entry point
 
-For a 1000-factor sweep, even with projection the union of all factor
-columns is too wide to hold simultaneously. factrix exposes three
-entry points; pick by factor count, available RAM, and whether you
-need each factor's result the moment it is ready:
+`run_metrics` is the eager entry point; `run_metrics_chunked` and
+`run_metrics_iter` are variants that trade a different axis (peak
+RSS, first-result latency) at the cost of giving up part of the
+batch-dispatch sharing. Pick by which axis matters for the call:
 
-| Entry point | Use when | Peak RSS bound |
-|---|---|---|
-| `run_metrics` (or `evaluate`) | All factors fit comfortably (~one batch of `chunk_size` factors at panel-width) | full `factor_cols` panel + per-factor query intermediates |
-| `run_metrics_chunked` | Factor count or panel width would OOM at full breadth | one `chunk_size`-wide slice at a time |
-| `run_metrics_iter` | Streaming-flow ergonomic: write to a sink / update progress / break early without paying the full-batch latency | full panel (no chunking) but per-factor consumer pass |
+| Variant | Return shape | First result lands after | Cross-factor sharing | Peak RSS bound |
+|---|---|---|---|---|
+| `run_metrics` (and `evaluate`) | `dict[factor_id, …]` | the whole batch finishes | IC stage-1 + batch-native primitives shared across **all** factors | full `factor_cols` panel + per-factor query intermediates |
+| `run_metrics_chunked` | iterator of `dict[factor_id, …]`, one entry per chunk | the first chunk finishes | shared **within** each chunk; recomputed per chunk | one `chunk_size`-wide slice at a time |
+| `run_metrics_iter` | iterator of `(factor_id, bundle)` pairs | one factor's per-factor metrics complete | shared across **all** factors before the first yield | full panel (no chunking) plus per-factor consumer pass |
 
 Decision rule of thumb:
 
@@ -186,6 +187,10 @@ Decision rule of thumb:
 - Need first-factor latency / live sink writes → `run_metrics_iter`
   (no chunk boundary, but full-batch RSS — combine with
   `run_metrics_chunked` if you also need the memory bound).
+
+The same eager / chunked / iter shape is expected to appear on the
+`evaluate` family as its own variants land; when they do, they
+extend this table as additional rows under each variant.
 
 ## Recipe: `scan_parquet` + `run_metrics_chunked` + streaming sink
 
