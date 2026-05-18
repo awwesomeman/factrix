@@ -19,7 +19,7 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -71,7 +71,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
         name="ic",

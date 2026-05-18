@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import Mode, Signal, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -42,7 +42,7 @@ __metric_specs__ = (
         family="per-event",
         inference="no formal H_0",
         primitives=_MFE_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
         name="mfe_mae_summary",

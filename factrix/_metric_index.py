@@ -25,8 +25,8 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
         ),
     )
 
-Per-spec ``is_stage1`` / ``input_kind`` / ``emitted_name`` flags replace
-the legacy module-level side tables (``_STAGE1_HELPERS`` /
+Per-spec ``visibility`` / ``input_kind`` / ``emitted_name`` flags
+replace the legacy module-level side tables (``_STAGE1_HELPERS`` /
 ``_SCALAR_INPUT_METRICS`` / ``_EMITTED_NAME_OVERRIDES``) so the per-
 metric properties travel with the spec that declares them.
 """
@@ -199,11 +199,6 @@ class MetricSpec:
       date-slicing dispatchers like :func:`factrix.by_slice`) or
       ``"scalar"`` (pre-aggregated-scalar utility like
       :func:`factrix.metrics.breakeven_cost`).
-    - ``is_stage1``: ``True`` for intermediate-frame producers
-      (typically ``compute_*``) that are user-callable but do not
-      themselves return ``MetricOutput``. Excluded from
-      :func:`user_facing_rows`. Superseded by ``visibility`` (#440);
-      retained transiently until 9 producer registrations migrate.
     - ``emitted_name``: literal ``MetricOutput.name`` string at
       runtime. ``None`` (default) means the runtime label matches
       ``name`` — the common case. Set explicitly when the callable
@@ -223,7 +218,7 @@ class MetricSpec:
     - ``visibility``: ``PUBLIC`` for user-facing metric (default);
       ``INTERNAL`` for stage-1 helpers (excluded from
       ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
-      but pulled by the DAG via ``requires``). Replaces ``is_stage1``.
+      but pulled by the DAG via ``requires``).
     """
 
     name: str
@@ -232,7 +227,6 @@ class MetricSpec:
     inference: str
     primitives: tuple[str, ...] = ()
     input_kind: Literal["panel", "scalar"] = "panel"
-    is_stage1: bool = False
     emitted_name: str | None = None
     requires: dict[str, Callable] = field(default_factory=dict)
     batchable: bool = False
@@ -353,10 +347,14 @@ def user_facing_rows() -> list[MetricRow]:
 def stage1_helper_names() -> frozenset[str]:
     """Return the set of stage-1 helper callable names across all modules.
 
-    Derived from each spec's ``is_stage1`` flag so the per-metric
-    property travels with the spec that declares it.
+    Derived from each spec's ``visibility == INTERNAL`` so the per-
+    metric property travels with the spec that declares it.
     """
-    return frozenset(spec.name for _, spec in _all_specs() if spec.is_stage1)
+    return frozenset(
+        spec.name
+        for _, spec in _all_specs()
+        if spec.visibility is Visibility.INTERNAL
+    )
 
 
 @functools.cache

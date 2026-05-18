@@ -26,7 +26,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import Mode, Signal, Visibility
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -74,7 +74,7 @@ __metric_specs__ = (
         family="per-event",
         inference=_CAAR_INFERENCE,
         primitives=_CAAR_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
         name="caar",

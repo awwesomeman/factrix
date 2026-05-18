@@ -20,7 +20,7 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, Mode, Signal, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -67,7 +67,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
         name="quantile_spread",
@@ -89,7 +89,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
 )
 

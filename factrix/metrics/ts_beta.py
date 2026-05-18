@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, Mode, Signal, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -55,7 +55,7 @@ __metric_specs__ = (
         family=_TSB_FAMILY,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
         name="ts_beta",
@@ -91,7 +91,7 @@ __metric_specs__ = (
         family=_TSB_FAMILY,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
 )
 
