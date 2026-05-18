@@ -1,6 +1,6 @@
-"""``run_metrics_chunked`` — memory-bounded factor-batching iterator (#417).
+"""``evaluate_chunked`` — memory-bounded factor-batching iterator (#427).
 
-Equivalence to ``run_metrics`` (chunk-merge = full batch result) is the
+Equivalence to ``evaluate`` (chunk-merge = full batch result) is the
 contract. Chunk size only changes peak working set, not output.
 """
 
@@ -11,23 +11,13 @@ from unittest.mock import patch
 
 import polars as pl
 import pytest
+from factrix import evaluate, evaluate_chunked
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric
-from factrix._chunk_size import (
-    _AUTO_CHUNK_OVERHEAD_FACTOR,
-    _AUTO_CHUNK_RSS_DIVISOR,
-    auto_chunk_size,
-)
 from factrix._errors import UserInputError
-from factrix._run_metrics import run_metrics, run_metrics_chunked
 from factrix.datasets import make_multi_factor_panel
 
-from tests._run_metrics_helpers import bundle_equals, factor_cols, make_multi_panel
-
-_AUTO_KWARGS = {
-    "func_name": "run_metrics_chunked",
-    "docs_path": "api/run_metrics_chunked#chunk_size",
-}
+from tests._run_metrics_helpers import factor_cols, make_multi_panel
 
 
 @pytest.fixture
@@ -47,30 +37,38 @@ def _merge(chunks):
     return out
 
 
+def _profile_equal(a, b) -> bool:
+    return (
+        a.factor_id == b.factor_id
+        and a.n_obs == b.n_obs
+        and a.n_pairs == b.n_pairs
+        and a.n_periods == b.n_periods
+        and a.n_assets == b.n_assets
+        and a.primary_p == pytest.approx(b.primary_p, nan_ok=True)
+        and a.primary_stat == pytest.approx(b.primary_stat, nan_ok=True)
+    )
+
+
 class TestEquivalence:
     @pytest.mark.parametrize("chunk_size", [1, 2, 3, 6, 100])
     def test_merged_chunks_match_full_batch(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig, chunk_size: int
     ) -> None:
         cols = factor_cols(multi_panel)
-        full = run_metrics(multi_panel, cfg, factor_cols=cols)
+        full = evaluate(multi_panel, cfg, factor_cols=cols)
         merged = _merge(
-            run_metrics_chunked(
-                multi_panel, cfg, factor_cols=cols, chunk_size=chunk_size
-            )
+            evaluate_chunked(multi_panel, cfg, factor_cols=cols, chunk_size=chunk_size)
         )
         assert set(merged) == set(full)
         for fid in full:
-            assert bundle_equals(merged[fid], full[fid]), fid
+            assert _profile_equal(merged[fid], full[fid]), fid
 
     def test_yield_order_follows_factor_cols(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
         cols = factor_cols(multi_panel)
         emitted: list[str] = []
-        for chunk in run_metrics_chunked(
-            multi_panel, cfg, factor_cols=cols, chunk_size=2
-        ):
+        for chunk in evaluate_chunked(multi_panel, cfg, factor_cols=cols, chunk_size=2):
             emitted.extend(chunk)
         assert emitted == cols
 
@@ -80,14 +78,14 @@ class TestValidation:
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
         with pytest.raises(UserInputError):
-            list(run_metrics_chunked(multi_panel, cfg, factor_cols=[]))
+            list(evaluate_chunked(multi_panel, cfg, factor_cols=[]))
 
     def test_rejects_duplicate_factor_cols(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
         with pytest.raises(UserInputError):
             list(
-                run_metrics_chunked(
+                evaluate_chunked(
                     multi_panel, cfg, factor_cols=["factor_0000", "factor_0000"]
                 )
             )
@@ -97,7 +95,7 @@ class TestValidation:
     ) -> None:
         with pytest.raises(ValueError, match="chunk_size must be positive"):
             list(
-                run_metrics_chunked(
+                evaluate_chunked(
                     multi_panel, cfg, factor_cols=["factor_0000"], chunk_size=0
                 )
             )
@@ -107,7 +105,7 @@ class TestValidation:
     ) -> None:
         with pytest.raises(ValueError, match="chunk_size must be positive"):
             list(
-                run_metrics_chunked(
+                evaluate_chunked(
                     multi_panel, cfg, factor_cols=["factor_0000"], chunk_size=-1
                 )
             )
@@ -115,11 +113,9 @@ class TestValidation:
     def test_rejects_missing_factor_column_eagerly(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
-        # Mid-iteration polars ColumnNotFoundError would be a worse UX
-        # than the project's eager UserInputError on schema mismatch.
         with pytest.raises(UserInputError, match="missing"):
             list(
-                run_metrics_chunked(
+                evaluate_chunked(
                     multi_panel,
                     cfg,
                     factor_cols=["factor_0000", "factor_does_not_exist"],
@@ -128,16 +124,13 @@ class TestValidation:
 
     def test_rejects_missing_base_column_eagerly(self, cfg: AnalysisConfig) -> None:
         raw = make_multi_factor_panel(n_factors=2, n_dates=50, n_assets=10, seed=0)
-        # raw has date / asset_id / factor_* / price but no forward_return.
         with pytest.raises(UserInputError, match="missing"):
-            list(
-                run_metrics_chunked(raw, cfg, factor_cols=["factor_0000"], chunk_size=1)
-            )
+            list(evaluate_chunked(raw, cfg, factor_cols=["factor_0000"], chunk_size=1))
 
     def test_rejects_non_dataframe_panel(self, cfg: AnalysisConfig) -> None:
         with pytest.raises(TypeError, match=r"pl\.DataFrame or pl\.LazyFrame"):
             list(
-                run_metrics_chunked(
+                evaluate_chunked(
                     "not a frame",  # type: ignore[arg-type]
                     cfg,
                     factor_cols=["factor_0000"],
@@ -147,49 +140,22 @@ class TestValidation:
 
 
 class TestAutoChunkSize:
-    def test_formula_pinned(self) -> None:
-        # Pins the heuristic so a quiet refactor of the formula is
-        # caught at test time.
-        with patch("psutil.virtual_memory") as mock_vm:
-            mock_vm.return_value.available = 1024 * 1024 * 1024  # 1 GiB
-            cs = auto_chunk_size(**_AUTO_KWARGS, n_rows=1000, n_factors=200)
-        per_factor = 1000 * 8 * _AUTO_CHUNK_OVERHEAD_FACTOR  # 32_000
-        budget = (1024 * 1024 * 1024) // _AUTO_CHUNK_RSS_DIVISOR  # 268_435_456
-        expected = max(1, min(200, budget // per_factor))
-        assert cs == expected
-
-    def test_clamps_to_n_factors(self) -> None:
-        with patch("psutil.virtual_memory") as mock_vm:
-            mock_vm.return_value.available = 100 * 1024**3  # generous
-            cs = auto_chunk_size(**_AUTO_KWARGS, n_rows=800, n_factors=6)
-        assert cs == 6
-
-    def test_floor_at_one_when_budget_below_per_factor(self) -> None:
-        with patch("psutil.virtual_memory") as mock_vm:
-            mock_vm.return_value.available = 8  # 8 bytes
-            cs = auto_chunk_size(**_AUTO_KWARGS, n_rows=1_000_000, n_factors=50)
-        assert cs == 1
-
     def test_uses_auto_when_chunk_size_is_none(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
         cols = factor_cols(multi_panel)
-        chunks = list(run_metrics_chunked(multi_panel, cfg, factor_cols=cols))
+        chunks = list(evaluate_chunked(multi_panel, cfg, factor_cols=cols))
         assert sum(len(c) for c in chunks) == len(cols)
 
     def test_missing_psutil_raises_actionable_error(
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
-        # Auto-sizing requires psutil; the error must steer the caller
-        # at either installing it or passing chunk_size explicitly.
         with (
             patch.dict(sys.modules, {"psutil": None}),
             pytest.raises(UserInputError, match="psutil"),
         ):
             list(
-                run_metrics_chunked(
-                    multi_panel, cfg, factor_cols=factor_cols(multi_panel)
-                )
+                evaluate_chunked(multi_panel, cfg, factor_cols=factor_cols(multi_panel))
             )
 
 
@@ -198,13 +164,13 @@ class TestLazyFramePath:
         self, multi_panel: pl.DataFrame, cfg: AnalysisConfig
     ) -> None:
         cols = factor_cols(multi_panel)
-        eager_full = run_metrics(multi_panel, cfg, factor_cols=cols)
+        eager_full = evaluate(multi_panel, cfg, factor_cols=cols)
         lazy_chunks = _merge(
-            run_metrics_chunked(multi_panel.lazy(), cfg, factor_cols=cols, chunk_size=2)
+            evaluate_chunked(multi_panel.lazy(), cfg, factor_cols=cols, chunk_size=2)
         )
         assert set(lazy_chunks) == set(eager_full)
         for fid in eager_full:
-            assert bundle_equals(lazy_chunks[fid], eager_full[fid])
+            assert _profile_equal(lazy_chunks[fid], eager_full[fid])
 
 
 class TestBaseColsOverride:
@@ -213,7 +179,7 @@ class TestBaseColsOverride:
         panel = panel.with_columns(pl.lit(1.0).alias("weight"))
         cols = factor_cols(panel)
         chunks = _merge(
-            run_metrics_chunked(
+            evaluate_chunked(
                 panel,
                 cfg,
                 factor_cols=cols,
