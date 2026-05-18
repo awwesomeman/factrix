@@ -387,6 +387,12 @@ def greedy_forward_selection(
 
     base_arrays = {n: all_arrays[n] for n in base_spreads if n in all_arrays}
     candidate_arrays = {n: all_arrays[n] for n in factor_spreads if n in all_arrays}
+    # Release the intermediate union dict — every array we still need
+    # is held by ``base_arrays`` / ``candidate_arrays`` from here on,
+    # so selected/eliminated factors' buffers can be GC'd once their
+    # last surviving ref is popped (selected → moves into
+    # ``selected_arrays``; eliminated → fully dropped).
+    del all_series, all_arrays
 
     selected_names: list[str] = []
     selected_arrays: dict[str, np.ndarray] = {}
@@ -430,7 +436,11 @@ def greedy_forward_selection(
             break
 
         selected_names.append(best_name)
-        selected_arrays[best_name] = candidate_arrays[best_name]
+        # ``pop`` (not ``[]``-then-keep) so the only surviving ref to
+        # the selected factor's buffer is in ``selected_arrays``;
+        # invariant: ``candidate_arrays.keys() == remaining`` after
+        # this line and after every backward-elimination step.
+        selected_arrays[best_name] = candidate_arrays.pop(best_name)
         remaining.remove(best_name)
         result.selected_factors.append(
             SpanningResult(

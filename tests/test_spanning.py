@@ -203,3 +203,51 @@ class TestGreedyForwardSelection:
         for sr in result.selected_factors:
             assert isinstance(sr, SpanningResult)
             assert sr.selected is True
+
+    def test_candidate_dict_pruned_when_factor_selected(self, monkeypatch):
+        # Pin the retention invariant from #436: once a candidate is
+        # selected, its entry must be popped from the internal
+        # ``candidate_arrays`` dict so the buffer can be GC'd from the
+        # candidate pool. Spy on ``_ols_alpha`` to read caller-frame
+        # locals at each step; verify ``candidate_arrays.keys()`` and
+        # ``remaining`` stay equal across the loop.
+        import sys
+
+        from factrix.metrics import spanning
+
+        rng = np.random.default_rng(7)
+        n = 120
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        factors = {}
+        for i, mean in enumerate([0.025, 0.020, 0.018, 0.0]):
+            factors[f"f_{i}"] = pl.DataFrame(
+                {"date": dates, "spread": rng.normal(mean, 0.005, n)}
+            ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        invariant_violations: list[tuple[set, set]] = []
+        original = spanning._ols_alpha
+
+        def _spy(*args, **kwargs):
+            caller = sys._getframe(1).f_locals
+            cand = caller.get("candidate_arrays")
+            rem = caller.get("remaining")
+            if cand is not None and rem is not None and set(cand.keys()) != set(rem):
+                invariant_violations.append((set(cand.keys()), set(rem)))
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(spanning, "_ols_alpha", _spy)
+
+        result = greedy_forward_selection(
+            factors,
+            significance_threshold=2.0,
+            max_factors=3,
+            suppress_snooping_warning=True,
+        )
+        assert not invariant_violations, (
+            f"candidate_arrays.keys() drifted from remaining at "
+            f"{len(invariant_violations)} call site(s); first divergence: "
+            f"keys={invariant_violations[0][0]} vs remaining={invariant_violations[0][1]}"
+        )
+        # Sanity: at least one factor should have been selected for the
+        # invariant check to be meaningful.
+        assert len(result.selected_factors) >= 1
