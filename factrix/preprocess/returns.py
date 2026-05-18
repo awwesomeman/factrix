@@ -105,7 +105,7 @@ def compute_forward_return(
         The output panel is the canonical input to ``fx.evaluate``:
 
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, cfg)
+        >>> profile = fx.evaluate(panel, cfg)["factor"]
         >>> isinstance(profile, fx.FactorProfile)
         True
     """

@@ -77,7 +77,7 @@ def compare(
         ...                 forward_periods=5,
         ...             ),
         ...             cfg,
-        ...         ),
+        ...         )["factor"],
         ...         factor_id=f"alpha_{i}",
         ...     )
         ...     for i in range(3)

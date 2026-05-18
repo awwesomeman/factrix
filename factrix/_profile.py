@@ -75,8 +75,9 @@ class FactorProfile:
             any-non-null union. ``n_assets = 1`` is a legal signal
             (single-asset TIMESERIES).
         factor_id: User-supplied factor name; stamped by ``_evaluate``
-            from ``factor_col``. Defaults to ``"factor"`` when a
-            profile is constructed directly.
+            from each entry in ``factor_cols`` (matches the returned
+            dict key). Defaults to ``"factor"`` when a profile is
+            constructed directly.
         context: Sample-restriction / conditioning dimensions
             (``universe_id``, ``regime_id``, future axes). Populated
             by higher-level functions via ``dataclasses.replace``.
@@ -100,7 +101,7 @@ class FactorProfile:
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, cfg)
+        >>> profile = fx.evaluate(panel, cfg)["factor"]
         >>> isinstance(profile, fx.FactorProfile)
         True
         >>> 0.0 <= profile.primary_p <= 1.0
@@ -191,7 +192,7 @@ class FactorProfile:
             >>> from factrix.preprocess import compute_forward_return
             >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
             >>> panel = compute_forward_return(raw, forward_periods=5)
-            >>> profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous())
+            >>> profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous())["factor"]
             >>> d = profile.diagnose()
             >>> isinstance(d, dict)
             True
