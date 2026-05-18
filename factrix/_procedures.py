@@ -12,7 +12,7 @@ registry SSOT (§4.4 A1) is queryable as soon as the package loads.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
@@ -173,13 +173,19 @@ class FactorProcedure(Protocol):
     instance is dispatchable for the cell without running the
     procedure.
 
-    ``compute_batch`` is the dispatch seam ``_evaluate`` calls; the
-    default :class:`_PerFactorBatchMixin` implementation loops per
-    factor, projecting each via :func:`_project_factor` and calling
-    ``compute``. Procedures that can share cross-factor work (e.g.
-    IC stage-1) override ``compute_batch`` directly. Dispatch-layer
-    concerns such as ``SCOPE_AXIS_COLLAPSED`` info-note stamping
-    stay in ``_evaluate`` — procedures do not see them.
+    ``bind_batch`` is the streaming dispatch seam ``evaluate_iter``
+    calls: it runs any cross-factor work (e.g. IC stage-1) eagerly and
+    returns a per-factor accessor closure, so the first
+    ``next(gen)`` lands after one factor's inference rather than all
+    ``N``. ``compute_batch`` is the eager seam ``_evaluate`` calls; the
+    default :class:`_PerFactorBatchMixin` implementation derives it
+    from ``bind_batch`` (one closure call per factor, collected into a
+    dict). Procedures that can share cross-factor work (e.g. IC
+    stage-1) override ``bind_batch`` only — the dict-collecting
+    default propagates the share to the eager path automatically.
+    Dispatch-layer concerns such as ``SCOPE_AXIS_COLLAPSED`` info-note
+    stamping stay in ``_evaluate`` / ``evaluate_iter`` — procedures
+    do not see them.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema]
@@ -197,6 +203,13 @@ class FactorProcedure(Protocol):
         config: AnalysisConfig,
         factor_cols: Sequence[str],
     ) -> dict[str, FactorProfile]: ...
+
+    def bind_batch(
+        self,
+        panel: Any,
+        config: AnalysisConfig,
+        factor_cols: Sequence[str],
+    ) -> Callable[[str], FactorProfile]: ...
 
 
 def _project_factor(panel: Any, col: str, all_factor_cols: frozenset[str]) -> Any:
@@ -226,14 +239,32 @@ def _project_factor(panel: Any, col: str, all_factor_cols: frozenset[str]) -> An
 
 
 class _PerFactorBatchMixin:
-    """Default ``compute_batch`` — per-factor projection + ``compute()``.
+    """Default ``bind_batch`` / ``compute_batch`` — per-factor projection + ``compute()``.
 
     Equivalent to the pre-#426 ``_evaluate`` per-factor loop:
     project each factor to the canonical single-``factor``-column
     panel, call ``compute``, stamp ``factor_id`` to the original
     column name. Procedures that can amortise cross-factor work
-    (e.g. IC stage-1) override ``compute_batch`` and skip the mixin.
+    (e.g. IC stage-1) override ``bind_batch`` — the eager
+    ``compute_batch`` default below collects the closure's per-factor
+    outputs into a dict, so a single override propagates to both
+    streaming (``evaluate_iter``) and eager (``_evaluate``) paths.
     """
+
+    def bind_batch(
+        self,
+        panel: Any,
+        config: AnalysisConfig,
+        factor_cols: Sequence[str],
+    ) -> Callable[[str], FactorProfile]:
+        siblings = frozenset(factor_cols)
+
+        def _call(col: str) -> FactorProfile:
+            sub_panel = _project_factor(panel, col, siblings)
+            profile = self.compute(sub_panel, config)  # type: ignore[attr-defined]
+            return dataclasses.replace(profile, factor_id=col)
+
+        return _call
 
     def compute_batch(
         self,
@@ -241,14 +272,8 @@ class _PerFactorBatchMixin:
         config: AnalysisConfig,
         factor_cols: Sequence[str],
     ) -> dict[str, FactorProfile]:
-        cols = list(factor_cols)
-        siblings = frozenset(cols)
-        out: dict[str, FactorProfile] = {}
-        for col in cols:
-            sub_panel = _project_factor(panel, col, siblings)
-            profile = self.compute(sub_panel, config)  # type: ignore[attr-defined]
-            out[col] = dataclasses.replace(profile, factor_id=col)
-        return out
+        getter = self.bind_batch(panel, config, factor_cols)
+        return {col: getter(col) for col in factor_cols}
 
 
 class _ICContPanelProcedure(_PerFactorBatchMixin):
@@ -280,33 +305,32 @@ class _ICContPanelProcedure(_PerFactorBatchMixin):
         raw: Any,
         config: AnalysisConfig,
     ) -> FactorProfile:
-        # Single-factor case is just ``compute_batch`` with a one-element
+        # Single-factor case is just ``bind_batch`` with a one-element
         # list — ``compute_ic(factor_cols=["factor"])`` returns the same
         # per-factor frame ``compute_ic(panel)`` would. Delegating keeps
         # IC stage-1 + envelope + HAC inference in one place.
-        return self.compute_batch(raw, config, ("factor",))["factor"]
+        return self.bind_batch(raw, config, ("factor",))("factor")
 
-    def compute_batch(
+    def bind_batch(
         self,
         panel: Any,
         config: AnalysisConfig,
         factor_cols: Sequence[str],
-    ) -> dict[str, FactorProfile]:
+    ) -> Callable[[str], FactorProfile]:
         import numpy as np
 
         import factrix.metrics as _metrics
         from factrix._codes import StatCode
         from factrix._profile import FactorProfile
 
-        cols = list(factor_cols)
         # One polars query across all factors — the shared stage-1 win
-        # this override exists for. Per-factor envelope + HAC inference
-        # still run inside the loop because both depend on the factor's
-        # own non-null mask.
-        ic_by_factor = _metrics.compute_ic(panel, factor_cols=cols)
+        # this override exists for, run eagerly inside ``bind_batch``
+        # so the streaming path amortises it before the first yield.
+        # Per-factor envelope + HAC inference run inside the closure
+        # because both depend on the factor's own non-null mask.
+        ic_by_factor = _metrics.compute_ic(panel, factor_cols=factor_cols)
 
-        out: dict[str, FactorProfile] = {}
-        for col in cols:
+        def _call(col: str) -> FactorProfile:
             ic_values = ic_by_factor[col]["ic"].drop_nulls().to_numpy()
             n_periods = len(ic_values)
             n_pairs, n_periods_raw, n_assets = _panel_envelope(panel, factor_col=col)
@@ -315,7 +339,7 @@ class _ICContPanelProcedure(_PerFactorBatchMixin):
             result, stats, metadata = _hac_inference(config, ic_values)
             stats[StatCode.MEAN] = ic_mean
 
-            out[col] = FactorProfile(
+            return FactorProfile(
                 config=config,
                 mode=Mode.PANEL,
                 primary_p=result.p,
@@ -331,7 +355,8 @@ class _ICContPanelProcedure(_PerFactorBatchMixin):
                 context={"estimator": config.estimator.name},
                 factor_id=col,
             )
-        return out
+
+        return _call
 
 
 class _FMContPanelProcedure(_PerFactorBatchMixin):

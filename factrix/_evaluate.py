@@ -97,41 +97,11 @@ def _evaluate(
 ) -> dict[str, FactorProfile]:
     """Dispatch ``config + panel`` to the registered procedure for each factor.
 
-    All factors in ``factor_cols`` share the same dispatch cell and
-    mode **by design**: ``config`` uniquely determines the cell
-    (``scope × signal × metric``); the panel's
-    ``asset_id.n_unique()`` uniquely determines the mode
-    (``N == 1`` → ``TIMESERIES``, else ``PANEL``). Batching factors
-    only makes sense when the resulting profiles are comparable, and
-    comparability requires identical cell × mode — so this layer
-    pins both at the batch level instead of deriving per-factor.
-    Sparse signals at ``N == 1`` collapse the scope axis so
-    ``individual_sparse`` and ``common_sparse`` route to the same
-    cell, tagged with ``InfoCode.SCOPE_AXIS_COLLAPSED`` on each
-    returned profile.
-
-    Cross-factor compute sharing rides on each procedure's
-    ``compute_batch`` hook (#426): the default
-    :class:`factrix._procedures._PerFactorBatchMixin` keeps the
-    per-factor loop behaviour, and the IC-cell procedure overrides it
-    to call ``compute_ic(panel, factor_cols=cols)`` once and stitch
-    per-factor HAC inference. Adding shared stage-1 to other cells is
-    a per-procedure decision; this dispatch layer is agnostic.
-
-    Args:
-        panel: Canonical-column long panel (``date, asset_id, *factor_cols,
-            forward_return``). Schema is validated downstream by the
-            registered procedure on the per-factor projection.
-        config: Validated ``AnalysisConfig`` produced by one of the
-            four factory methods.
-        factor_cols: Names of the signal columns on ``panel`` to
-            evaluate. Each column is projected and renamed to
-            ``"factor"`` before being dispatched to the procedure, so
-            procedures keep their canonical schema. The return dict is
-            keyed by the original ``factor_cols`` name; each profile's
-            ``factor_id`` is also stamped to match. Default
-            ``("factor",)`` keeps the single-factor case ergonomic
-            (caller indexes via ``["factor"]``).
+    Thin eager wrapper — ``dict(evaluate_iter(panel, config,
+    factor_cols=factor_cols))`` — so eager and streaming paths share
+    one dispatcher (mirrors the ``run_metrics`` / ``run_metrics_iter``
+    pattern from #423). See :func:`evaluate_iter` for the full
+    contract; this docstring only covers what differs.
 
     Returns:
         ``dict[factor_name, FactorProfile]`` — one profile per input
@@ -144,6 +114,71 @@ def _evaluate(
             under the derived mode (e.g. ``(INDIVIDUAL, CONTINUOUS, *)``
             at ``N == 1``); the error carries a nearest-legal
             ``suggested_fix``.
+    """
+    return dict(evaluate_iter(panel, config, factor_cols=factor_cols))
+
+
+def evaluate_iter(
+    panel: Any,
+    config: AnalysisConfig,
+    *,
+    factor_cols: Sequence[str] = ("factor",),
+) -> Iterator[tuple[str, FactorProfile]]:
+    """Stream ``(factor_id, FactorProfile)`` pairs as each factor completes.
+
+    Per-factor streaming sibling of :func:`factrix.evaluate`. Cross-
+    factor work that the dispatcher would otherwise share is still
+    amortised once: the registered procedure's
+    :meth:`~factrix._procedures.FactorProcedure.bind_batch` runs any
+    eager stage-1 (currently the IC cell's ``compute_ic`` across the
+    batch) **before the first yield** and returns a per-factor
+    closure. The yield loop then calls the closure once per factor —
+    so the first ``next(gen)`` lands after one factor's inference,
+    not all ``N`` factors', letting callers write to a sink / update
+    a progress bar / break early without paying the full-batch
+    latency.
+
+    :func:`factrix.evaluate` is a one-line wrapper —
+    ``dict(evaluate_iter(...))`` — so eager and streaming paths share
+    the same dispatcher and the same cell × mode invariants. The same
+    cell + mode pinning applies (``config`` locks the cell;
+    ``panel["asset_id"].n_unique()`` locks the mode; ``SPARSE`` at
+    ``N == 1`` collapses to a single procedure and each yielded
+    profile is tagged with ``InfoCode.SCOPE_AXIS_COLLAPSED``).
+
+    Args:
+        panel: Same contract as :func:`factrix.evaluate`.
+        config: Same as :func:`factrix.evaluate`.
+        factor_cols: Same as :func:`factrix.evaluate`. Yield order
+            matches this sequence.
+
+    Yields:
+        ``(factor_id, FactorProfile)`` pairs in ``factor_cols`` order.
+        Each profile is identical to the matching entry of
+        ``evaluate(...)`` — same ``factor_id`` / ``stats`` /
+        ``info_notes`` content.
+
+    Raises:
+        UserInputError: Same conditions as :func:`factrix.evaluate`.
+            Raised eagerly (validation runs before the generator
+            emits anything).
+        ModeAxisError: Same conditions as :func:`factrix.evaluate`.
+            Raised eagerly.
+        InsufficientSampleError: Propagated from the per-factor
+            closure — surfaces mid-stream after earlier factors have
+            already been emitted (the trade-off any streaming
+            iterator carries; callers consuming the generator into a
+            sink will see a partial stream).
+
+    Examples:
+        Stream 1000 factors to a parquet sink without holding the
+        full result dict in memory:
+
+        >>> import factrix as fx                                   # doctest: +SKIP
+        >>> for fid, profile in fx.evaluate_iter(                  # doctest: +SKIP
+        ...     panel, cfg, factor_cols=cols,
+        ... ):
+        ...     sink.write(fid, profile)
     """
     cols = _validate_factor_cols(factor_cols, panel)
 
@@ -166,13 +201,38 @@ def _evaluate(
             suggested_fix=suggested,
         )
 
-    profiles = entry.procedure.compute_batch(panel, config, cols)
-    if extra_info:
-        profiles = {
-            col: dataclasses.replace(p, info_notes=p.info_notes | extra_info)
-            for col, p in profiles.items()
-        }
-    return profiles
+    return _evaluate_iter_inner(
+        procedure=entry.procedure,
+        panel=panel,
+        config=config,
+        cols=cols,
+        extra_info=extra_info,
+    )
+
+
+def _evaluate_iter_inner(
+    *,
+    procedure: Any,
+    panel: Any,
+    config: AnalysisConfig,
+    cols: list[str],
+    extra_info: frozenset[InfoCode],
+) -> Iterator[tuple[str, FactorProfile]]:
+    """Yield ``(factor_id, FactorProfile)`` after cross-factor bind.
+
+    Split out from :func:`evaluate_iter` so input validation and
+    dispatch resolution raise eagerly (before the first ``next()``)
+    while the per-factor yield loop is a true generator — yields land
+    between factors, not all at the end.
+    """
+    getter = procedure.bind_batch(panel, config, cols)
+    for col in cols:
+        profile = getter(col)
+        if extra_info:
+            profile = dataclasses.replace(
+                profile, info_notes=profile.info_notes | extra_info
+            )
+        yield col, profile
 
 
 def evaluate_chunked(
