@@ -48,52 +48,6 @@ _TSB_PRIMITIVES = (
 _TSB_FAMILY = "ts-first"
 _TSB_INFERENCE = "cross-asset t"
 
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_ts_betas",
-        cell=_TSB_CELL,
-        family=_TSB_FAMILY,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
-    ),
-    MetricSpec(
-        name="ts_beta",
-        cell=_TSB_CELL,
-        family=_TSB_FAMILY,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="mean_r_squared",
-        cell=_TSB_CELL,
-        family=_TSB_FAMILY,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="compute_rolling_mean_beta",
-        cell=_TSB_CELL,
-        family=_TSB_FAMILY,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="ts_beta_sign_consistency",
-        cell=_TSB_CELL,
-        family=_TSB_FAMILY,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="ts_beta_single_asset_fallback",
-        cell=_TSB_CELL,
-        family=_TSB_FAMILY,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
-    ),
-)
 
 MIN_TS_OBS: int = 20
 
@@ -581,3 +535,54 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
             "fraction_positive": positive,
         },
     )
+
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_ts_betas",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+    ),
+    MetricSpec(
+        name="ts_beta",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        requires={"ts_betas_df": compute_ts_betas},
+    ),
+    MetricSpec(
+        name="mean_r_squared",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        requires={"ts_betas_df": compute_ts_betas},
+    ),
+    MetricSpec(
+        name="compute_rolling_mean_beta",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="ts_beta_sign_consistency",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        requires={"ts_betas_df": compute_ts_betas},
+    ),
+    MetricSpec(
+        name="ts_beta_single_asset_fallback",
+        cell=_TSB_CELL,
+        family=_TSB_FAMILY,
+        inference=_TSB_INFERENCE,
+        primitives=_TSB_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+    ),
+)

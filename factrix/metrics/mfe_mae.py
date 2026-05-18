@@ -35,24 +35,6 @@ __all__ = [
 _MFE_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
 _MFE_PRIMITIVES = ("_short_circuit_output",)
 
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_mfe_mae",
-        cell=_MFE_CELL,
-        family="per-event",
-        inference="no formal H_0",
-        primitives=_MFE_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
-    ),
-    MetricSpec(
-        name="mfe_mae_summary",
-        cell=_MFE_CELL,
-        family="per-event",
-        inference="no formal H_0",
-        primitives=_MFE_PRIMITIVES,
-    ),
-)
-
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
 
@@ -358,3 +340,23 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         value=ratio,
         metadata=metadata,
     )
+
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_mfe_mae",
+        cell=_MFE_CELL,
+        family="per-event",
+        inference="no formal H_0",
+        primitives=_MFE_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+    ),
+    MetricSpec(
+        name="mfe_mae_summary",
+        cell=_MFE_CELL,
+        family="per-event",
+        inference="no formal H_0",
+        primitives=_MFE_PRIMITIVES,
+        requires={"mfe_mae_df": compute_mfe_mae},
+    ),
+)

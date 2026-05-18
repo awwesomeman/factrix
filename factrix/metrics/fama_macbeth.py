@@ -62,40 +62,6 @@ _FM_PRIMITIVES = (
 )
 _FM_INFERENCE = "NW HAC / clustered t"
 
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_fm_betas",
-        cell=_FM_CELL,
-        family="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
-    ),
-    MetricSpec(
-        name="fama_macbeth",
-        cell=_FM_CELL,
-        family="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
-        emitted_name="fm_beta",
-    ),
-    MetricSpec(
-        name="pooled_ols",
-        cell=_FM_CELL,
-        family="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
-        emitted_name="pooled_beta",
-    ),
-    MetricSpec(
-        name="beta_sign_consistency",
-        cell=_FM_CELL,
-        family="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
-    ),
-)
-
 # Slice-test contract (#153 §5): Fama-MacBeth runs a per-date
 # OLS regression on the cross-section, not a bucket sort, so slice
 # tests never need to downscale `n_groups`. Sample-size constraints
@@ -750,3 +716,40 @@ def beta_sign_consistency(
             "n_periods": n,
         },
     )
+
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_fm_betas",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+    ),
+    MetricSpec(
+        name="fama_macbeth",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        emitted_name="fm_beta",
+        requires={"beta_df": compute_fm_betas},
+    ),
+    MetricSpec(
+        name="pooled_ols",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        emitted_name="pooled_beta",
+    ),
+    MetricSpec(
+        name="beta_sign_consistency",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        requires={"beta_df": compute_fm_betas},
+    ),
+)

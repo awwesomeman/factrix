@@ -35,7 +35,6 @@ from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, public_specs, spec_by
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
-from factrix.metrics._protocol import is_batch_primitive, is_ic_consumer
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig

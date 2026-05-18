@@ -56,10 +56,9 @@ DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 # Metrics that ``run_metrics`` cannot auto-discover even though their
 # spec is user-facing. Each entry carries a short reason rendered into
 # ``MetricsBundle.skipped`` and into the ``UserInputError`` raised when
-# a caller names one explicitly via ``metrics=[...]``. Stays as a side
-# table — these reasons describe cross-cutting dispatcher-wiring gaps
-# (stage-2 frame the runner cannot synthesise, series-input shape, etc.),
-# not properties intrinsic to a single metric.
+# a caller names one explicitly via ``metrics=[...]``. Retires together
+# with ``_run_metrics`` itself (#448); the DAG executor (#442) resolves
+# these consumers via :attr:`MetricSpec.requires` directly.
 _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
     "caar": (
         "consumes caar_df; call factrix.metrics.compute_event_returns + "
