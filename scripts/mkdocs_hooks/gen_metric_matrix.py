@@ -1,9 +1,14 @@
 """Build-time generator for the standalone-metrics matrix table.
 
 Renders a Markdown table to ``docs/reference/_generated_metric_matrix.md``
-from the parsed ``Matrix-row:`` tags exposed by
+from the typed ``__metric_specs__`` declarations exposed by
 :mod:`factrix._metric_index` (single source of truth, also consumed at
 runtime by ``factrix.list_metrics``).
+
+One table row per distinct ``(module, cell.raw, family, inference)``
+group — modules whose specs cover multiple cells (e.g. ``tradability``
+splitting its panel-aggregated and rank-autocorrelation metrics across
+two rows) surface as multiple rows.
 
 Usage (manual)::
 
@@ -18,8 +23,9 @@ MkDocs hook usage (automatic, via ``hooks:`` in mkdocs.yml)::
 from __future__ import annotations
 
 import pathlib
+from dataclasses import dataclass
 
-from factrix._metric_index import _matrix_entries, _MatrixEntry
+from factrix._metric_index import MetricSpec, _all_specs
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
@@ -29,21 +35,50 @@ _TABLE_HEADER = (
 )
 
 
-def _render_row(entry: _MatrixEntry) -> str:
-    module_cell = f"[`metrics.{entry.module}`][factrix.metrics.{entry.module}]"
+@dataclass(frozen=True, slots=True)
+class _GroupedRow:
+    """One docs-matrix row: a ``(module, cell, family, inference)`` group."""
+
+    module: str
+    cell_raw: str
+    family: str
+    inference: str
+
+
+def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]:
+    """Collapse per-callable specs into per-(module, cell, family, inference) rows.
+
+    Stable on insertion order so the rendered table follows the
+    spec-declaration order in each module.
+    """
+    seen: dict[tuple[str, str, str, str], _GroupedRow] = {}
+    for stem, spec in specs:
+        key = (stem, spec.cell.raw, spec.family, spec.inference)
+        if key not in seen:
+            seen[key] = _GroupedRow(
+                module=stem,
+                cell_raw=spec.cell.raw,
+                family=spec.family,
+                inference=spec.inference,
+            )
+    return list(seen.values())
+
+
+def _render_row(row: _GroupedRow) -> str:
+    module_cell = f"[`metrics.{row.module}`][factrix.metrics.{row.module}]"
     return (
-        f"| {module_cell} | `{entry.cell.raw}` | "
-        f"{entry.agg_order} | {entry.inference_se} |\n"
+        f"| {module_cell} | `{row.cell_raw}` | "
+        f"{row.family} | {row.inference} |\n"
     )
 
 
 def generate() -> None:
-    """Generate ``_generated_metric_matrix.md`` from module docstrings."""
-    entries = _matrix_entries()
-    lines = [_TABLE_HEADER, *(_render_row(e) for e in entries)]
+    """Generate ``_generated_metric_matrix.md`` from ``__metric_specs__``."""
+    rows = _group_specs(_all_specs())
+    lines = [_TABLE_HEADER, *(_render_row(r) for r in rows)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     _OUT_FILE.write_text("".join(lines), encoding="utf-8")
-    print(f"gen_metric_matrix: wrote {len(entries)} row(s) to {_OUT_FILE}")
+    print(f"gen_metric_matrix: wrote {len(rows)} row(s) to {_OUT_FILE}")
 
 
 def on_pre_build(config: object) -> None:

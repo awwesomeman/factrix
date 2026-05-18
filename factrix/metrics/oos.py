@@ -22,12 +22,21 @@ from typing import Literal
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "multi_split_oos_decay | (*, CONTINUOUS, *, TIMESERIES) | ts-only | no formal H₀ | _short_circuit_output",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
+
+__metric_specs__ = (
+    MetricSpec(
+        name="multi_split_oos_decay",
+        cell=cell(None, Signal.CONTINUOUS, mode=Mode.TIMESERIES),
+        family="ts-only",
+        inference="no formal H_0",
+        primitives=("_short_circuit_output",),
+        emitted_name="oos_decay",
+    ),
+)
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "multi_split_oos_decay",

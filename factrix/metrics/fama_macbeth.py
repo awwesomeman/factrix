@@ -29,11 +29,9 @@ import warnings
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency | (INDIVIDUAL, CONTINUOUS, FM, PANEL) | cs-first | NW HAC / clustered t | _newey_west_t_test, _p_value_from_t, _significance_marker, _short_circuit_output",
-)
-
+from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import WarningCode
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _newey_west_t_test,
     _p_value_from_t,
@@ -49,6 +47,51 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "pooled_ols",
     "beta_sign_consistency",
 ]
+
+_FM_CELL = cell(
+    FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric=Metric.FM, mode=Mode.PANEL,
+)
+_FM_PRIMITIVES = (
+    "_newey_west_t_test",
+    "_p_value_from_t",
+    "_significance_marker",
+    "_short_circuit_output",
+)
+_FM_INFERENCE = "NW HAC / clustered t"
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_fm_betas",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(
+        name="fama_macbeth",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        emitted_name="fm_beta",
+    ),
+    MetricSpec(
+        name="pooled_ols",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+        emitted_name="pooled_beta",
+    ),
+    MetricSpec(
+        name="beta_sign_consistency",
+        cell=_FM_CELL,
+        family="cs-first",
+        inference=_FM_INFERENCE,
+        primitives=_FM_PRIMITIVES,
+    ),
+)
 
 # Slice-test contract (#153 §5): Fama-MacBeth runs a per-date
 # OLS regression on the cross-section, not a bucket sort, so slice

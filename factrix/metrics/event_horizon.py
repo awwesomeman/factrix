@@ -20,12 +20,31 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_event_returns, event_around_return | (*, SPARSE, *, PANEL) | per-event | binomial | _short_circuit_output",
-)
-
+from factrix._axis import Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
+
+_EH_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
+_EH_PRIMITIVES = ("_short_circuit_output",)
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_event_returns",
+        cell=_EH_CELL,
+        family="per-event",
+        inference="binomial",
+        primitives=_EH_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(
+        name="event_around_return",
+        cell=_EH_CELL,
+        family="per-event",
+        inference="binomial",
+        primitives=_EH_PRIMITIVES,
+    ),
+)
 
 __all__ = [
     "compute_event_returns",

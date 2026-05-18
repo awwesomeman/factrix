@@ -20,10 +20,8 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_spread_series, quantile_spread, quantile_spread_vw, compute_group_returns | (INDIVIDUAL, CONTINUOUS, *, PANEL) | cs-first | cross-asset t | _calc_t_stat, _p_value_from_t, _significance_marker, _sample_non_overlapping, _short_circuit_output, _assign_quantile_groups, _compute_tie_ratio, _lag_within_asset",
-)
-
+from factrix._axis import FactorScope, Mode, Signal
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
@@ -48,6 +46,52 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "quantile_spread",
     "quantile_spread_vw",
 ]
+
+_Q_CELL = cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL)
+_Q_PRIMITIVES = (
+    "_calc_t_stat",
+    "_p_value_from_t",
+    "_significance_marker",
+    "_sample_non_overlapping",
+    "_short_circuit_output",
+    "_assign_quantile_groups",
+    "_compute_tie_ratio",
+    "_lag_within_asset",
+)
+_Q_INFERENCE = "cross-asset t"
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_spread_series",
+        cell=_Q_CELL,
+        family="cs-first",
+        inference=_Q_INFERENCE,
+        primitives=_Q_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(
+        name="quantile_spread",
+        cell=_Q_CELL,
+        family="cs-first",
+        inference=_Q_INFERENCE,
+        primitives=_Q_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="quantile_spread_vw",
+        cell=_Q_CELL,
+        family="cs-first",
+        inference=_Q_INFERENCE,
+        primitives=_Q_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="compute_group_returns",
+        cell=_Q_CELL,
+        family="cs-first",
+        inference=_Q_INFERENCE,
+        primitives=_Q_PRIMITIVES,
+        is_stage1=True,
+    ),
+)
 
 
 def compute_spread_series(

@@ -26,11 +26,9 @@ import warnings
 import numpy as np
 import polars as pl
 
-__matrix_rows__ = (
-    "compute_caar, caar, bmp_test | (*, SPARSE, *, PANEL) | per-event | non-overlapping t / z | _calc_t_stat, _p_value_from_t, _p_value_from_z, _significance_marker, _sample_non_overlapping, _short_circuit_output",
-)
-
+from factrix._axis import Mode, Signal
 from factrix._codes import WarningCode
+from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
@@ -57,6 +55,42 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "caar",
     "bmp_test",
 ]
+
+_CAAR_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
+_CAAR_PRIMITIVES = (
+    "_calc_t_stat",
+    "_p_value_from_t",
+    "_p_value_from_z",
+    "_significance_marker",
+    "_sample_non_overlapping",
+    "_short_circuit_output",
+)
+_CAAR_INFERENCE = "non-overlapping t / z"
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_caar",
+        cell=_CAAR_CELL,
+        family="per-event",
+        inference=_CAAR_INFERENCE,
+        primitives=_CAAR_PRIMITIVES,
+        is_stage1=True,
+    ),
+    MetricSpec(
+        name="caar",
+        cell=_CAAR_CELL,
+        family="per-event",
+        inference=_CAAR_INFERENCE,
+        primitives=_CAAR_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="bmp_test",
+        cell=_CAAR_CELL,
+        family="per-event",
+        inference=_CAAR_INFERENCE,
+        primitives=_CAAR_PRIMITIVES,
+    ),
+)
 
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
