@@ -1,9 +1,10 @@
-"""Tests for the three new ``MetricSpec`` fields introduced in #440:
-``requires``, ``batchable``, ``visibility``.
+"""Tests for ``MetricSpec.requires`` / ``batchable`` / ``visibility``.
 
-The fields are spec-level contract; their consumers (DAG executor in
-#442, dispatcher today) read them via :func:`spec_by_name` /
-:func:`public_specs`. These tests pin the spec-side invariants.
+The fields are spec-level contract; consumers read them via
+:func:`spec_by_name` / :func:`public_specs`. These tests pin the
+spec-side invariants: default values, the visibility / batchable
+flags on known metrics, and that every ``requires`` value is a
+callable.
 """
 
 from __future__ import annotations

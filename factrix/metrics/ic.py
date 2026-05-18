@@ -463,8 +463,6 @@ def ic_ir(
     )
 
 
-# ``__metric_specs__`` lives at module bottom so the ``requires={...:
-# compute_ic}`` entries can reference the callable defined above.
 __metric_specs__ = (
     MetricSpec(
         name="compute_ic",

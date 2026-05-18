@@ -14,7 +14,7 @@ in which cell" and drives:
 Consumers iterate via :func:`public_specs` (visibility-filtered) or
 :func:`_all_specs` (everything, internal). Derived fields use the
 small helpers :func:`import_path_for` / :func:`docs_anchor_for` /
-:func:`emitted_name_of` rather than a denormalised row dataclass.
+:func:`emitted_name_of`.
 
 Why typed: IDE completion, mypy-checkable axes, refactor-safe field
 access. Adding a new metric module just imports :class:`MetricSpec` and
@@ -56,9 +56,7 @@ DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 # Metrics that ``run_metrics`` cannot auto-discover even though their
 # spec is user-facing. Each entry carries a short reason rendered into
 # ``MetricsBundle.skipped`` and into the ``UserInputError`` raised when
-# a caller names one explicitly via ``metrics=[...]``. Retires together
-# with ``_run_metrics`` itself (#448); the DAG executor (#442) resolves
-# these consumers via :attr:`MetricSpec.requires` directly.
+# a caller names one explicitly via ``metrics=[...]``.
 _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
     "caar": (
         "consumes caar_df; call factrix.metrics.compute_event_returns + "
@@ -206,14 +204,13 @@ class MetricSpec:
       should resolve via :func:`emitted_name_of`.
     - ``requires``: ``{consumer_param_name: producer_callable}``. Key
       is a parameter on the declaring callable; value is another
-      ``@metric_spec``-decorated callable whose per-factor output the
-      DAG executor injects at that parameter. Empty dict means no
-      upstream dependency. Callable values keep refactors safe (typo
-      → ``NameError`` at import time; IDE rename tracks both sites).
+      callable that has a :class:`MetricSpec` in its module's
+      ``__metric_specs__`` whose per-factor output the DAG executor
+      injects at that parameter. Empty dict means no upstream
+      dependency.
     - ``batchable``: ``True`` when the callable accepts
       ``factor_cols=`` and returns ``dict[factor_name, output]`` so
-      the DAG executor calls it once across the whole batch. Replaces
-      ``@batch_primitive``.
+      the DAG executor calls it once across the whole batch.
     - ``visibility``: ``PUBLIC`` for user-facing metric (default);
       ``INTERNAL`` for stage-1 helpers (excluded from
       ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
