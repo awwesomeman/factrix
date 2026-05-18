@@ -30,6 +30,20 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 | `common_continuous` | TIMESERIES single-series β | emits `SMALL_CROSS_SECTION_N` | emits `BORDERLINE_CROSS_SECTION_N` | normal PANEL |
 | `individual_sparse` / `common_sparse` | `_SCOPE_COLLAPSED` → TS dummy; `SCOPE_AXIS_COLLAPSED` info | normal PANEL CAAR | normal PANEL CAAR | normal PANEL CAAR |
 
+## Sample-deficiency surfacing by entry point
+
+The same insufficient-sample condition surfaces differently across the three public entry points. This is deliberate — each entry point answers a different caller contract — but the divergence is easy to mistake for inconsistency.
+
+| Entry point | HARD violation | Caller contract |
+|---|---|---|
+| `evaluate(panel, config)` | raises [`InsufficientSampleError`](../api/errors.md#factrix.InsufficientSampleError) carrying `.actual_periods` / `.required_periods` | Returns a single headline `primary_p` — silently emitting `NaN` would propagate into Benjamini-Hochberg-Yekutieli (BHY) and partial-conjunction FDR with no recoverable signal. |
+| `factrix.metrics.X(panel)` standalone callable | returns short-circuit `MetricOutput(value=NaN, metadata={"reason", "n_obs", "min_required"})` | Diagnostic-grade output; `MetricOutput` is a typed failure carrier so callers can inspect `result.metadata["reason"]` without `try` / `except` flow control. |
+| `run_metrics(panel)` batch | metric joins the `MetricsBundle.skipped` map keyed by metric name → reason string; other metrics in the batch continue | Multi-metric diagnostic battery — one metric's local failure must not abort the whole bundle. |
+
+`n_assets` deficiency follows a separate rule that holds across all three entry points: the cross-asset axis **never** hard-blocks, because the t-test on `E[β]` is well-defined for `N ≥ 2` — only statistical power degrades. Small `N` surfaces as [`SMALL_CROSS_SECTION_N`](../reference/warning-codes.md) / [`BORDERLINE_CROSS_SECTION_N`](../reference/warning-codes.md) warnings on the resulting `FactorProfile` / `MetricOutput`, regardless of entry point. The two-axis guard table above remains the source of truth for which axis triggers which behaviour.
+
+A separate "why did this metric not run" category — metrics that consume stage-2 frames (`caar`, `fama_macbeth`, `ts_beta`, ...) or per-date series (`hit_rate`, `ic_trend`, `multi_split_oos_decay`) — is excluded from `run_metrics` auto-discovery because the runner cannot synthesise their inputs from the panel alone. These appear in the `skipped` map with a `consumes …; call X then Y(…) directly` reason that points at the explicit composition recipe; they are not a sample-size issue. See `factrix._metric_index._AUTO_DISCOVER_EXCLUDED` for the full mapping.
+
 ## Aggregation order
 
 PANEL procedures split into **cross-section first** (`cs-first` —
