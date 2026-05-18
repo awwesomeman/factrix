@@ -378,19 +378,9 @@ def run_metrics(
         >>> bundles = fx.run_metrics(panel, cfg, metrics=["ic"])
     """
     panel = _coerce_panel(panel)
-    cols = list(factor_cols)
-    if not cols:
-        _raise_factor_col_error(
-            value=cols,
-            expected="a non-empty list of factor column names",
-        )
-    if len(set(cols)) != len(cols):
-        _raise_factor_col_error(
-            value=cols,
-            expected="factor_cols with no duplicates",
-        )
+    cols = _validate_factor_cols(factor_cols)
 
-    base_required = {"date", "asset_id", "forward_return"}
+    base_required = set(_DEFAULT_BASE_COLS)
     missing_base = base_required - set(panel.columns)
     if missing_base:
         hint = (
@@ -555,26 +545,55 @@ _DEFAULT_BASE_COLS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 # across the small / large presets — close enough for a budget knob.
 _AUTO_CHUNK_OVERHEAD_FACTOR = 4
 
-# Fraction of currently-available RAM the auto-heuristic targets as the
-# per-chunk peak budget. 1/4 leaves slack for OS, BLAS arenas, and the
-# caller's downstream sink without forcing every batch back to chunk_size=1
-# on tight machines.
-_AUTO_CHUNK_RSS_FRACTION = 4
+# Divisor applied to ``psutil.virtual_memory().available`` to derive
+# the per-chunk peak budget. Dividing by 4 (i.e. targeting ~25%) leaves
+# slack for OS, BLAS arenas, and the caller's downstream sink without
+# forcing every batch back to chunk_size=1 on tight machines.
+_AUTO_CHUNK_RSS_DIVISOR = 4
 
 
-def _auto_chunk_size(panel: pl.DataFrame, n_factors: int) -> int:
+def _validate_factor_cols(factor_cols: Sequence[str]) -> list[str]:
+    """Shared factor_cols validation for run_metrics + run_metrics_chunked."""
+    cols = list(factor_cols)
+    if not cols:
+        _raise_factor_col_error(
+            value=cols,
+            expected="a non-empty list of factor column names",
+        )
+    if len(set(cols)) != len(cols):
+        _raise_factor_col_error(
+            value=cols,
+            expected="factor_cols with no duplicates",
+        )
+    return cols
+
+
+def _auto_chunk_size(n_rows: int, n_factors: int) -> int:
     """Pick chunk size targeting ~25% of available RAM as per-chunk peak.
 
-    Uses ``psutil.virtual_memory().available`` (already a project
-    dependency via ``bench.preflight``) so the chunk shrinks
-    automatically on a memory-pressured host without the caller
-    needing to estimate themselves.
+    ``psutil`` is an optional dependency (``factrix[bench]`` extras);
+    when absent, callers must pass ``chunk_size`` explicitly — the
+    function raises so the user reaches for the right knob rather
+    than silently getting a degenerate default.
     """
-    import psutil  # type: ignore[import-untyped]
+    try:
+        import psutil  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise UserInputError(
+            func_name="run_metrics_chunked",
+            field="chunk_size",
+            value=None,
+            expected=(
+                "an explicit positive integer when psutil is not installed; "
+                "auto-sizing requires `pip install psutil` (or "
+                "`pip install 'factrix[bench]'`)"
+            ),
+            docs_path="api/run_metrics_chunked#chunk_size",
+        ) from exc
 
     available = psutil.virtual_memory().available
-    per_factor_bytes = max(panel.height * 8 * _AUTO_CHUNK_OVERHEAD_FACTOR, 1)
-    budget = max(available // _AUTO_CHUNK_RSS_FRACTION, per_factor_bytes)
+    per_factor_bytes = max(n_rows * 8 * _AUTO_CHUNK_OVERHEAD_FACTOR, 1)
+    budget = max(available // _AUTO_CHUNK_RSS_DIVISOR, per_factor_bytes)
     return max(1, min(n_factors, budget // per_factor_bytes))
 
 
@@ -598,25 +617,34 @@ def run_metrics_chunked(
 
     Within a chunk the full batch-dispatch path runs unchanged: IC
     stage-1 is shared across the chunk's factors, batch-native
-    primitives take one call per metric. Per-chunk yield is the
-    cost-bound granularity; finer per-factor yielding (which would
-    defeat batch dispatch) belongs to a separate streaming variant.
+    primitives take one call per metric. **Across chunks, IC stage-1
+    is recomputed per chunk** — chunking trades cross-chunk stage-1
+    reuse for the RSS bound, so very small ``chunk_size`` (e.g. 1)
+    pays the per-chunk dispatcher overhead without the batch-sharing
+    benefit. Per-factor streaming yield is a separate concern.
 
     Args:
         panel: Same contract as :func:`run_metrics`. When passed a
-            ``pl.LazyFrame``, each chunk does a fresh
-            ``panel.select([...]).collect()`` so projection pushdown
-            applies per chunk — only the chunk's factor columns get
-            scanned from the source.
+            ``pl.LazyFrame``, the height is sampled via
+            ``select(pl.len()).collect()`` (one row) and each chunk
+            does a fresh ``panel.select([...]).collect()`` so
+            projection pushdown applies per chunk — only the chunk's
+            factor columns get scanned from the source.
         cfg: Same as :func:`run_metrics`.
         factor_cols: Factor columns to chunk over. Must be non-empty
-            and contain no duplicates.
+            and contain no duplicates. ``base_cols`` plus every factor
+            in this list must exist on ``panel`` — schema is checked
+            eagerly before the first chunk yields.
         metrics: Same as :func:`run_metrics`.
         chunk_size: Number of factors per chunk. ``None`` (default)
             picks a chunk size targeting ~25% of available RAM via
-            :func:`_auto_chunk_size`. Pass an explicit value to
-            override (e.g. when the working sink has its own batching
-            cadence).
+            :func:`_auto_chunk_size`, which requires ``psutil`` (an
+            optional dependency — install via ``pip install psutil``
+            or ``pip install 'factrix[bench]'``). Pass an explicit
+            value to override (e.g. when the working sink has its
+            own batching cadence). An explicit ``chunk_size`` larger
+            than ``len(factor_cols)`` is accepted and degenerates to
+            a single chunk.
         base_cols: Panel columns required by every chunk regardless of
             which factor subset is active. Default
             ``("date", "asset_id", "forward_return")`` matches
@@ -632,7 +660,11 @@ def run_metrics_chunked(
         next chunk is produced.
 
     Raises:
-        UserInputError: ``factor_cols`` empty or contains duplicates.
+        UserInputError: ``factor_cols`` empty / contains duplicates,
+            or ``panel`` missing a ``base_cols`` / factor column,
+            or ``chunk_size=None`` and ``psutil`` is not installed.
+        ValueError: ``chunk_size`` non-positive.
+        TypeError: ``panel`` not ``pl.DataFrame`` or ``pl.LazyFrame``.
 
     Examples:
         Stream 1000 factors through a parquet sink, 100 per chunk:
@@ -651,41 +683,54 @@ def run_metrics_chunked(
         ... ):
         ...     ...
     """
-    cols = list(factor_cols)
-    if not cols:
-        _raise_factor_col_error(
-            value=cols,
-            expected="a non-empty list of factor column names",
-        )
-    if len(set(cols)) != len(cols):
-        _raise_factor_col_error(
-            value=cols,
-            expected="factor_cols with no duplicates",
+    cols = _validate_factor_cols(factor_cols)
+    if chunk_size is not None and chunk_size <= 0:
+        raise ValueError(f"chunk_size must be positive, got {chunk_size!r}")
+
+    if not isinstance(panel, pl.DataFrame | pl.LazyFrame):
+        raise TypeError(
+            f"panel must be pl.DataFrame or pl.LazyFrame; got {type(panel).__name__}"
         )
 
-    is_lazy = isinstance(panel, pl.LazyFrame)
-    eager_for_sizing: pl.DataFrame | None = None
+    # Schema check up front so a wrong ``base_cols`` / missing factor
+    # fails before the first yield (matches run_metrics' eager UX
+    # contract instead of failing mid-iteration with a polars error).
+    schema_cols = (
+        set(panel.collect_schema().names())
+        if isinstance(panel, pl.LazyFrame)
+        else set(panel.columns)
+    )
+    base = list(base_cols)
+    missing = (set(base) | set(cols)) - schema_cols
+    if missing:
+        _raise_factor_col_error(
+            value=cols,
+            expected=(
+                f"panel with all of base_cols + factor_cols present; "
+                f"missing {sorted(missing)!r}"
+            ),
+        )
+
     if chunk_size is None:
-        # The heuristic needs ``panel.height``; collect once up-front
-        # for sizing rather than re-collecting per chunk. For the lazy
-        # path this defeats projection pushdown's *sizing* benefit but
-        # not its *per-chunk* benefit (each chunk still re-selects).
-        eager_for_sizing = _coerce_panel(panel)
-        cs = _auto_chunk_size(eager_for_sizing, len(cols))
+        n_rows = (
+            panel.select(pl.len()).collect().item()
+            if isinstance(panel, pl.LazyFrame)
+            else panel.height
+        )
+        cs = _auto_chunk_size(n_rows, len(cols))
     else:
-        if chunk_size <= 0:
-            raise ValueError(f"chunk_size must be positive, got {chunk_size!r}")
         cs = chunk_size
 
-    base = list(base_cols)
-    for i in range(0, len(cols), cs):
-        chunk = cols[i : i + cs]
-        if is_lazy:
-            sub_panel = panel.select([*base, *chunk]).collect()  # type: ignore[union-attr]
-        else:
-            source = eager_for_sizing if eager_for_sizing is not None else panel
-            assert isinstance(source, pl.DataFrame)
-            sub_panel = source.select([*base, *chunk])
+    from itertools import batched
+
+    for chunk_tuple in batched(cols, cs):
+        chunk = list(chunk_tuple)
+        projection = [*base, *chunk]
+        sub_panel = (
+            panel.select(projection).collect()
+            if isinstance(panel, pl.LazyFrame)
+            else panel.select(projection)
+        )
         yield run_metrics(sub_panel, cfg, factor_cols=chunk, metrics=metrics)
 
 
