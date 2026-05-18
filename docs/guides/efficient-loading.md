@@ -164,33 +164,133 @@ panel = (
 `pl.DataFrame`; `adapt(pd.DataFrame)` returns `pl.DataFrame` (pandas
 has no lazy equivalent).
 
-## Batching across factors
+## Choosing an entry point
 
 For a 1000-factor sweep, even with projection the union of all factor
-columns is too wide to hold simultaneously. Load and evaluate one
-batch of factors at a time:
+columns is too wide to hold simultaneously. factrix exposes three
+entry points; pick by factor count, available RAM, and whether you
+need each factor's result the moment it is ready:
+
+| Entry point | Use when | Peak RSS bound |
+|---|---|---|
+| `run_metrics` (or `evaluate`) | All factors fit comfortably (~one batch of `chunk_size` factors at panel-width) | full `factor_cols` panel + per-factor query intermediates |
+| `run_metrics_chunked` | Factor count or panel width would OOM at full breadth | one `chunk_size`-wide slice at a time |
+| `run_metrics_iter` | Streaming-flow ergonomic: write to a sink / update progress / break early without paying the full-batch latency | full panel (no chunking) but per-factor consumer pass |
+
+Decision rule of thumb:
+
+- `n_factors × panel_height × 8 B × ~4` (per-factor overhead) fits in
+  ~25% of available RAM → `run_metrics` directly.
+- Otherwise → `run_metrics_chunked` (auto-sizes `chunk_size` against
+  `psutil.virtual_memory().available` when left as `None`).
+- Need first-factor latency / live sink writes → `run_metrics_iter`
+  (no chunk boundary, but full-batch RSS — combine with
+  `run_metrics_chunked` if you also need the memory bound).
+
+## Recipe: `scan_parquet` + `run_metrics_chunked` + streaming sink
+
+The canonical pattern for a 1000-factor screen on a single machine:
 
 ```python
-from itertools import batched
+import polars as pl
+import factrix as fx
 
-all_factors = ["mom_1", "mom_3", "mom_6", ..., "value_1", "value_3"]
-results = []
+all_factors = [f"alpha_{i}" for i in range(1000)]
 
-for batch in batched(all_factors, 50):
-    panel = (
-        pl.scan_parquet("factors.parquet")
-        .select(["date", "asset_id", "forward_return", *batch])
-        .filter(pl.col("date").is_between(date(2020, 1, 1), date(2024, 12, 31)))
-        .collect()
-    )
-    for col in batch:
-        results.append(fx.evaluate(panel, cfg, factor_col=col))
-    del panel   # release the thin panel before the next batch
+lazy_panel = (
+    pl.scan_parquet("factors.parquet")
+    .select(["date", "asset_id", "forward_return", *all_factors])
+)
+
+with sink.open("metrics.parquet") as out:
+    for bundles in fx.run_metrics_chunked(
+        lazy_panel, cfg, factor_cols=all_factors,
+    ):
+        for fid, bundle in bundles.items():
+            out.write(fid, bundle.to_frame())
 ```
 
-Peak RSS is bounded by the **batch panel size**, not the full universe.
-For the 1000-factor example above, a batch of 50 keeps peak load to
-roughly `50 / 1000` of the naïve scenario.
+What this buys over a hand-rolled loop:
+
+- **Projection pushdown per chunk**: passing the `LazyFrame` lets
+  `run_metrics_chunked` call `panel.select([base_cols + chunk]).collect()`
+  on each iteration, so only the chunk's factor columns leave disk
+  even though the lazy plan names all 1000.
+- **`chunk_size=None` auto-sizes** against
+  `psutil.virtual_memory().available` (requires `psutil`; install via
+  `pip install psutil` or `pip install 'factrix[bench]'`). Override
+  with an explicit integer when the downstream sink has its own
+  batching cadence.
+- **Base columns and `base_cols` defaults are wired in** (`date`,
+  `asset_id`, `forward_return`) — no per-call risk of dropping the
+  forward-return column from the projection list. Override `base_cols`
+  only when a metric needs an extra column (e.g. `weight_col` for
+  `quantile_spread_vw`).
+
+## Picking `chunk_size`
+
+`chunk_size=None` (default) is the right answer on most machines.
+Override when you have a reason: the sink batches at a different
+cadence, you are co-tenanting with another memory-hungry process, or
+you want deterministic chunk boundaries for testing.
+
+When sizing manually, the relationship the auto-sizer encodes is:
+
+```
+peak_rss_per_chunk ≈ chunk_size × n_rows × 8 B × 4
+```
+
+The `× 4` is empirical overhead factor — covers panel materialise plus
+the `_rank__<f>` intermediates `compute_ic` adds per factor. Tracks
+observed peak RSS within ±20% across the `small` / `large` benchmark
+presets (see [`bench/baselines/`](https://github.com/awwesomeman/factrix/tree/main/bench/baselines)).
+
+Reference: the `small` preset (cross-sectional, ~2500 dates ×
+500 assets) reaches roughly **3 GB peak RSS at `chunk_size=100`**
+(`n_rows × 8 × 4 × 100 ≈ 4 GB`, within the ±20% band). Linear in
+`chunk_size`, so:
+
+| Budget (peak RSS) | Approx `chunk_size` on the `small` preset |
+|---:|---:|
+| 1 GB | 30 |
+| 4 GB | 100 |
+| 16 GB | 400 |
+| 32 GB | 800 |
+
+For your own panel, multiply by `small_n_rows / your_n_rows` — wider
+or longer panels need smaller chunks at the same RSS budget. The
+auto-sizer applies this proportionality directly.
+
+## Streaming with `run_metrics_iter`
+
+When the friction is **per-factor latency** rather than peak RSS —
+you want to write each factor's bundle the moment it lands, drive a
+progress bar, or short-circuit on the first factor that meets a
+threshold — `run_metrics_iter` yields `(factor_id, bundle)` pairs as
+each factor's consumer pass finishes:
+
+```python
+for fid, bundle in fx.run_metrics_iter(panel, cfg, factor_cols=cols):
+    sink.write(fid, bundle.to_frame())
+    if bundle["ic"].headline_value > threshold:
+        break
+```
+
+Cross-factor work (IC stage-1, batch-native primitives) is still
+amortised once before the first yield. The trade-off is full-batch
+RSS — no chunking. Combine with `run_metrics_chunked` when you need
+both bounds:
+
+```python
+for bundles in fx.run_metrics_chunked(lazy_panel, cfg, factor_cols=all_factors):
+    for fid, bundle in bundles.items():     # already in-order within chunk
+        sink.write(fid, bundle.to_frame())
+```
+
+The chunked path's inner `dict` is already insertion-ordered by
+`factor_cols`, so iterating its items inside the outer loop gives the
+same per-factor streaming shape as `run_metrics_iter`, with the
+chunk-level RSS bound layered on top.
 
 ## What stays out of scope
 
