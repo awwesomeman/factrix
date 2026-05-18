@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import functools
 import importlib
+import inspect
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -261,7 +262,51 @@ def _load_module_specs(stem: str) -> tuple[MetricSpec, ...]:
             f"factrix.metrics.{stem}: every `__metric_specs__` entry must be "
             f"a MetricSpec instance."
         )
+    for spec in specs:
+        if spec.requires:
+            _validate_requires(stem, spec, mod)
     return tuple(specs)
+
+
+def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
+    """Check every ``MetricSpec.requires`` entry matches the consumer signature.
+
+    Decoration-time-equivalent check: runs once at module import via
+    :func:`_load_module_specs` so a typo'd parameter name or a
+    producer callable without its own ``MetricSpec`` raises at load
+    time rather than at first DAG dispatch. Replaces the runtime
+    ``@batch_primitive`` / ``@ic_consumer`` validation that #440
+    retired.
+    """
+    consumer = getattr(mod, spec.name, None)
+    if not callable(consumer):
+        raise ValueError(
+            f"factrix.metrics.{stem}.{spec.name}: declares `requires=` "
+            f"but no callable of that name is exported from the module."
+        )
+    consumer_params = set(inspect.signature(consumer).parameters)
+    for key, producer in spec.requires.items():
+        if key not in consumer_params:
+            raise ValueError(
+                f"factrix.metrics.{stem}.{spec.name}: `requires` key "
+                f"{key!r} is not a parameter of {spec.name}{tuple(consumer_params)}. "
+                f"The DAG executor injects upstream output via this kwarg, "
+                f"so the name must match the consumer signature exactly."
+            )
+        if not callable(producer):
+            raise ValueError(
+                f"factrix.metrics.{stem}.{spec.name}: `requires[{key!r}]` "
+                f"is not callable (got {type(producer).__name__})."
+            )
+        producer_module = importlib.import_module(producer.__module__)
+        module_specs = getattr(producer_module, "__metric_specs__", ())
+        if not any(s.name == producer.__name__ for s in module_specs):
+            raise ValueError(
+                f"factrix.metrics.{stem}.{spec.name}: producer "
+                f"{producer.__module__}.{producer.__name__} is required by "
+                f"key {key!r} but has no MetricSpec in its module's "
+                f"`__metric_specs__` tuple."
+            )
 
 
 @functools.cache
