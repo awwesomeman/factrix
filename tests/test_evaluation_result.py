@@ -51,7 +51,9 @@ def _sample_group(ic_spec, ic_ir_spec) -> MetricResultGroup:
     )
 
 
-def _sample_result(group: MetricResultGroup, warnings=None) -> EvaluationResult:
+def _sample_result(
+    group: MetricResultGroup, warnings=None, plan: str = "1. ic [per-factor]"
+) -> EvaluationResult:
     return EvaluationResult(
         factor="mom_12_1",
         axes=(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
@@ -59,6 +61,7 @@ def _sample_result(group: MetricResultGroup, warnings=None) -> EvaluationResult:
         n_obs=100,
         n_assets=25,
         metrics=group,
+        plan=plan,
         warnings=warnings or [],
     )
 
@@ -166,6 +169,7 @@ class TestEvaluationResultToDict:
         assert back["metrics_partition"]["primary"] == ["ic"]
         assert back["metrics_partition"]["diagnostic"] == ["ic_ir"]
         assert back["warnings"][0]["code"] == WarningCode.SMALL_CROSS_SECTION_N.value
+        assert back["plan"] == "1. ic [per-factor]"
 
     def test_nonfinite_floats_become_null(self, ic_spec, ic_ir_spec):
         bad = MetricOutput(
@@ -206,7 +210,7 @@ class TestReprHtml:
 
     def test_no_warnings_block_when_empty(self, ic_spec, ic_ir_spec):
         r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
-        assert "<details" not in r._repr_html_()
+        assert "summary>warnings" not in r._repr_html_()
 
 
 class TestMetricOutputSpecBackref:
