@@ -15,6 +15,7 @@ import hints; per-cell stage-1 wiring is a v1.x follow-up.
 
 from __future__ import annotations
 
+import contextlib
 import html
 import inspect
 import logging
@@ -303,6 +304,26 @@ class _DispatchContext:
     cache: dict[str, Any]
 
 
+@contextlib.contextmanager
+def _wrap_unexpected_as_run_metrics_error(
+    *, message: str, cell: str, metric_name: str, stage: str
+) -> Iterator[None]:
+    """Convert unexpected exceptions into :class:`RunMetricsError`.
+
+    ``InsufficientSampleError`` and pre-existing ``RunMetricsError``
+    propagate unchanged — only foreign exception types get wrapped, so
+    the chained ``__cause__`` always carries the original.
+    """
+    try:
+        yield
+    except (InsufficientSampleError, RunMetricsError):
+        raise
+    except Exception as exc:
+        raise RunMetricsError(
+            message, cell=cell, metric_name=metric_name, stage=stage
+        ) from exc
+
+
 class _DispatchProtocol:
     """One dispatch role recognised by :func:`run_metrics`.
 
@@ -311,21 +332,56 @@ class _DispatchProtocol:
     - :attr:`name` — short label for error / log context.
     - :meth:`matches` — whether this protocol owns dispatch for the
       given metric function.
-    - :meth:`dispatch` — run the metric across all factors and return
-      one ``MetricOutput`` per factor.
+    - :meth:`bind` (preferred) or :meth:`dispatch` — the streaming
+      contract returning a per-factor ``MetricOutput`` accessor, or
+      the eager contract returning the full ``{factor: output}`` map.
+      Subclasses must override at least one; ``__init_subclass__``
+      enforces this at class-definition time so a contributor who
+      forgets both gets a ``TypeError`` immediately instead of a
+      runtime ``RecursionError`` on first dispatch.
 
     Adding a new protocol class + appending to :data:`_PROTOCOLS` is
-    the extension point — :func:`run_metrics` itself stays closed
-    against change (Open-Closed). Order of :data:`_PROTOCOLS` matters
-    because the dispatcher picks the first matching protocol; the
-    fallback :class:`_PerFactorProtocol` always matches and must
-    therefore land last.
+    the extension point — :func:`run_metrics` and
+    :func:`run_metrics_iter` themselves stay closed against change
+    (Open-Closed). Order of :data:`_PROTOCOLS` matters because the
+    dispatcher picks the first matching protocol; the fallback
+    :class:`_PerFactorProtocol` always matches and must therefore
+    land last.
     """
 
     name: str
 
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        if (
+            cls.bind is _DispatchProtocol.bind
+            and cls.dispatch is _DispatchProtocol.dispatch
+        ):
+            raise TypeError(
+                f"{cls.__qualname__} must override at least one of "
+                f"`_DispatchProtocol.bind` or `_DispatchProtocol.dispatch`; "
+                f"both defaults delegate to each other and would recurse."
+            )
+
     def matches(self, fn: Callable[..., Any]) -> bool:
         raise NotImplementedError
+
+    def bind(
+        self,
+        fn: Callable[..., Any],
+        name: str,
+        kwargs: dict[str, Any],
+        ctx: _DispatchContext,
+    ) -> Callable[[str], MetricOutput]:
+        """Eagerly do cross-factor work; return a per-factor accessor.
+
+        Default implementation eagerly calls :meth:`dispatch` and
+        returns the resulting dict's ``__getitem__`` so back-compat
+        extensions overriding only ``dispatch`` keep working under the
+        streaming :func:`run_metrics_iter` path. Override ``bind``
+        directly to participate in real per-factor streaming.
+        """
+        return self.dispatch(fn, name, kwargs, ctx).__getitem__
 
     def dispatch(
         self,
@@ -334,7 +390,14 @@ class _DispatchProtocol:
         kwargs: dict[str, Any],
         ctx: _DispatchContext,
     ) -> dict[str, MetricOutput]:
-        raise NotImplementedError
+        """Eager full-batch contract: ``{factor: MetricOutput}``.
+
+        Default builds the dict by calling :meth:`bind` once and
+        accessing every factor — so subclasses that only override
+        ``bind`` still satisfy the eager :func:`run_metrics` path.
+        """
+        getter = self.bind(fn, name, kwargs, ctx)
+        return {c: getter(c) for c in ctx.cols}
 
 
 class _IcConsumerProtocol(_DispatchProtocol):
@@ -345,32 +408,31 @@ class _IcConsumerProtocol(_DispatchProtocol):
     def matches(self, fn: Callable[..., Any]) -> bool:
         return is_ic_consumer(fn)
 
-    def dispatch(
+    def bind(
         self,
         fn: Callable[..., Any],
         name: str,
         kwargs: dict[str, Any],
         ctx: _DispatchContext,
-    ) -> dict[str, MetricOutput]:
+    ) -> Callable[[str], MetricOutput]:
         ic_by_factor = ctx.cache.get("ic_by_factor")
         if ic_by_factor is None:
-            try:
+            cell = _cell_label(ctx.cfg)
+            with _wrap_unexpected_as_run_metrics_error(
+                message=(
+                    f"run_metrics() IC stage-1 (compute_ic) failed "
+                    f"(cell={cell}, stage=stage1). "
+                    f"Likely a factrix bug — please report."
+                ),
+                cell=cell,
+                metric_name="compute_ic",
+                stage="stage1",
+            ):
                 ic_by_factor = _metrics_pkg().compute_ic(
                     ctx.panel, factor_cols=ctx.cols
                 )
-            except (InsufficientSampleError, RunMetricsError):
-                raise
-            except Exception as exc:
-                raise RunMetricsError(
-                    f"run_metrics() IC stage-1 (compute_ic) failed "
-                    f"(cell={_cell_label(ctx.cfg)}, stage=stage1). "
-                    f"Likely a factrix bug — please report.",
-                    cell=_cell_label(ctx.cfg),
-                    metric_name="compute_ic",
-                    stage="stage1",
-                ) from exc
             ctx.cache["ic_by_factor"] = ic_by_factor
-        return {c: _safe_call(name, fn, ic_by_factor[c], kwargs) for c in ctx.cols}
+        return lambda c: _safe_call(name, fn, ic_by_factor[c], kwargs)
 
 
 class _BatchPrimitiveProtocol(_DispatchProtocol):
@@ -379,7 +441,8 @@ class _BatchPrimitiveProtocol(_DispatchProtocol):
     Sample-floor failures surface as short-circuit entries in the
     returned dict (the primitive's contract), not via exception, so
     no per-factor ``_safe_call`` wrap is needed. An unexpected
-    exception aborts the whole batch.
+    exception aborts the whole batch (it surfaces from ``bind``,
+    before any factor yields).
     """
 
     name = "batch_primitive"
@@ -387,23 +450,25 @@ class _BatchPrimitiveProtocol(_DispatchProtocol):
     def matches(self, fn: Callable[..., Any]) -> bool:
         return is_batch_primitive(fn)
 
-    def dispatch(
+    def bind(
         self,
         fn: Callable[..., Any],
         name: str,
         kwargs: dict[str, Any],
         ctx: _DispatchContext,
-    ) -> dict[str, MetricOutput]:
+    ) -> Callable[[str], MetricOutput]:
         out = fn(ctx.panel, factor_cols=ctx.cols, **kwargs)
-        return {c: out[c] for c in ctx.cols}
+        return out.__getitem__
 
 
 class _PerFactorProtocol(_DispatchProtocol):
     """Fallback — one call per factor on a thin projected panel.
 
-    Lazy-builds the per-factor projected views into ``ctx.cache`` so
-    a batch consisting entirely of batch primitives / IC consumers
-    skips the projection cost.
+    Projections are cached in ``ctx.cache["projected"]`` and built on
+    first use per factor, so a batch consisting entirely of batch
+    primitives / IC consumers skips the projection cost and the
+    streaming path only materialises each factor's view once across
+    multiple per-factor consumers.
     """
 
     name = "per_factor"
@@ -411,18 +476,23 @@ class _PerFactorProtocol(_DispatchProtocol):
     def matches(self, fn: Callable[..., Any]) -> bool:
         return True
 
-    def dispatch(
+    def bind(
         self,
         fn: Callable[..., Any],
         name: str,
         kwargs: dict[str, Any],
         ctx: _DispatchContext,
-    ) -> dict[str, MetricOutput]:
-        projected = ctx.cache.get("projected")
-        if projected is None:
-            projected = {c: _project_factor(ctx.panel, c) for c in ctx.cols}
-            ctx.cache["projected"] = projected
-        return {c: _safe_call(name, fn, projected[c], kwargs) for c in ctx.cols}
+    ) -> Callable[[str], MetricOutput]:
+        projected: dict[str, pl.DataFrame] = ctx.cache.setdefault("projected", {})
+
+        def _call(c: str) -> MetricOutput:
+            view = projected.get(c)
+            if view is None:
+                view = _project_factor(ctx.panel, c)
+                projected[c] = view
+            return _safe_call(name, fn, view, kwargs)
+
+        return _call
 
 
 # Order matters — dispatcher picks the first match. The fallback must
@@ -544,6 +614,68 @@ def run_metrics(
 
         >>> bundles = fx.run_metrics(panel, cfg, metrics=["ic"])
     """
+    return dict(run_metrics_iter(panel, cfg, factor_cols=factor_cols, metrics=metrics))
+
+
+def run_metrics_iter(
+    panel: PanelInput,
+    cfg: AnalysisConfig,
+    *,
+    factor_cols: Sequence[str] = ("factor",),
+    metrics: list[str] | None = None,
+) -> Iterator[tuple[str, MetricsBundle]]:
+    """Stream ``(factor_id, MetricsBundle)`` pairs as each factor completes.
+
+    Per-factor streaming sibling of :func:`run_metrics`. Cross-factor
+    work that the dispatcher would otherwise share is still amortised
+    once: IC stage-1 (``compute_ic``) and every batch-native primitive
+    (``@batch_primitive``) run before the first yield, via each
+    protocol's :meth:`bind` hook. The per-factor consumer pass then
+    runs inside the yield loop — so the first ``next(gen)`` lands
+    after one factor's per-factor metrics, not all ``N`` factors',
+    letting callers write to a sink / update a progress bar / break
+    early without paying the full-batch latency.
+
+    :func:`run_metrics` is now a one-line wrapper —
+    ``dict(run_metrics_iter(...))`` — so eager and streaming paths
+    share the same dispatcher and ``factor_cols`` / ``metrics``
+    contract.
+
+    Args:
+        panel: Same contract as :func:`run_metrics`.
+        cfg: Same as :func:`run_metrics`.
+        factor_cols: Same as :func:`run_metrics`. Yield order matches
+            this sequence.
+        metrics: Same as :func:`run_metrics`.
+
+    Yields:
+        ``(factor_id, MetricsBundle)`` pairs in ``factor_cols`` order.
+        Each bundle is identical to the matching entry of
+        ``run_metrics(...)`` — same ``identity`` / ``metrics`` /
+        ``skipped`` content.
+
+    Raises:
+        UserInputError: Same conditions as :func:`run_metrics`.
+            Raised eagerly (validation runs before the generator
+            emits anything).
+        RunMetricsError: Same conditions as :func:`run_metrics`.
+            Batch primitive / IC stage-1 failures surface before the
+            first yield; per-factor consumer failures surface mid-
+            stream after earlier factors have already been emitted
+            (the trade-off any streaming iterator carries — callers
+            consuming the generator into a sink will see a partial
+            stream).
+
+    Examples:
+        Stream 1000 factors to a parquet sink without holding the
+        full result dict in memory:
+
+        >>> import factrix as fx                                   # doctest: +SKIP
+        >>> for fid, bundle in fx.run_metrics_iter(                # doctest: +SKIP
+        ...     panel, cfg, factor_cols=cols,
+        ... ):
+        ...     sink.write(fid, bundle.to_frame())
+    """
     panel = _coerce_panel(panel)
     cols = _validate_factor_cols(factor_cols)
 
@@ -630,10 +762,29 @@ def run_metrics(
             )
 
     skipped: dict[str, str] = dict(excluded_reasons) if metrics is None else {}
-    results: dict[str, dict[str, MetricOutput]] = {c: {} for c in cols}
+    return _dispatch_iter(
+        panel=panel, cfg=cfg, cols=cols, targets=targets, skipped=skipped
+    )
 
+
+def _dispatch_iter(
+    *,
+    panel: pl.DataFrame,
+    cfg: AnalysisConfig,
+    cols: list[str],
+    targets: list[str],
+    skipped: dict[str, str],
+) -> Iterator[tuple[str, MetricsBundle]]:
+    """Bind every target metric eagerly, then yield bundles per factor.
+
+    Split out so :func:`run_metrics_iter`'s validation raises before
+    the first ``next()`` while the per-factor consumer loop is a true
+    generator (yields land between factors).
+    """
     ctx = _DispatchContext(panel=panel, cfg=cfg, cols=cols, cache={})
+    cell = _cell_label(cfg)
 
+    bindings: list[tuple[str, Callable[[str], MetricOutput]]] = []
     for name in targets:
         fn = getattr(_metrics_pkg(), name)
         kwargs: dict[str, Any] = {}
@@ -641,26 +792,23 @@ def run_metrics(
             kwargs["forward_periods"] = cfg.forward_periods
 
         proto = _resolve_protocol(fn)
-        try:
-            per_factor = proto.dispatch(fn, name, kwargs, ctx)
-        except (InsufficientSampleError, RunMetricsError):
-            raise
-        except Exception as exc:
-            raise RunMetricsError(
-                f"run_metrics() failed in metric={name!r} "
-                f"(cell={_cell_label(cfg)}, stage=consumer). "
-                f"Likely a factrix bug — please report.",
-                cell=_cell_label(cfg),
-                metric_name=name,
-                stage="consumer",
-            ) from exc
-        for c in cols:
-            results[c][name] = per_factor[c]
+        with _wrap_unexpected_as_run_metrics_error(
+            message=(
+                f"run_metrics() failed binding metric={name!r} "
+                f"(cell={cell}, stage=consumer). "
+                f"Likely a factrix bug — please report."
+            ),
+            cell=cell,
+            metric_name=name,
+            stage="consumer",
+        ):
+            getter = proto.bind(fn, name, kwargs, ctx)
+        bindings.append((name, getter))
 
     if skipped:
         _logger.info(
             "run_metrics(cell=%s, factor_ids=%s, fwd=%d): ran=%d skipped=%d (%s)",
-            _cell_label(cfg),
+            cell,
             cols,
             cfg.forward_periods,
             len(targets),
@@ -668,15 +816,31 @@ def run_metrics(
             ", ".join(sorted(skipped)),
         )
 
-    return {
-        c: MetricsBundle(
-            identity=(c, cfg.forward_periods),
-            metrics=MappingProxyType(results[c]),
-            skipped=MappingProxyType(skipped),
-            context=MappingProxyType({}),
+    skipped_view = MappingProxyType(skipped)
+    context_view: Mapping[str, Any] = MappingProxyType({})
+    for c in cols:
+        results: dict[str, MetricOutput] = {}
+        for name, getter in bindings:
+            with _wrap_unexpected_as_run_metrics_error(
+                message=(
+                    f"run_metrics() failed in metric={name!r} "
+                    f"(cell={cell}, factor={c!r}, stage=consumer). "
+                    f"Likely a factrix bug — please report."
+                ),
+                cell=cell,
+                metric_name=name,
+                stage="consumer",
+            ):
+                results[name] = getter(c)
+        yield (
+            c,
+            MetricsBundle(
+                identity=(c, cfg.forward_periods),
+                metrics=MappingProxyType(results),
+                skipped=skipped_view,
+                context=context_view,
+            ),
         )
-        for c in cols
-    }
 
 
 _DEFAULT_BASE_COLS: tuple[str, ...] = ("date", "asset_id", "forward_return")

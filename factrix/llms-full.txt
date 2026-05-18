@@ -295,6 +295,30 @@ mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
 extras) required only by the auto-sizing path; explicit
 `chunk_size` skips it.
 
+### `run_metrics_iter`
+
+```
+factrix.run_metrics_iter(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
+                         *, factor_cols: Sequence[str] = ("factor",),
+                         metrics: list[str] | None = None,
+                         ) -> Iterator[tuple[str, MetricsBundle]]
+```
+
+Per-factor streaming sibling of `run_metrics`. Yields
+`(factor_id, MetricsBundle)` in `factor_cols` order so callers can
+write to a sink / update a progress bar / break early without paying
+the full-batch latency. Cross-factor work the dispatcher amortises —
+IC stage-1 (`compute_ic`) and every `@batch_primitive` metric — still
+runs once before the first yield via each protocol's `bind` hook; the
+per-factor consumer pass then runs inside the yield loop, so the
+first `next(gen)` lands after one factor's per-factor metrics rather
+than all `N`. `run_metrics(...)` is now defined as
+`dict(run_metrics_iter(...))`, so eager and streaming paths share one
+dispatcher and identical `factor_cols` / `metrics` semantics. Input
+validation is eager (raised before any yield); per-factor consumer
+failures surface mid-stream after earlier factors have already been
+emitted — the standard streaming-iterator trade-off.
+
 ### `MetricsBundle`
 
 Frozen dataclass produced by `run_metrics`. Identity / context split
