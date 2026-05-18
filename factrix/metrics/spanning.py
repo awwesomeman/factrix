@@ -430,7 +430,11 @@ def greedy_forward_selection(
             break
 
         selected_names.append(best_name)
-        selected_arrays[best_name] = candidate_arrays[best_name]
+        # ``pop`` so ``selected_arrays`` becomes sole owner of the
+        # selected factor's buffer — when ``_backward_eliminate``
+        # later drops it from ``selected_arrays`` the buffer is freed
+        # immediately rather than lingering until function return.
+        selected_arrays[best_name] = candidate_arrays.pop(best_name)
         remaining.remove(best_name)
         result.selected_factors.append(
             SpanningResult(

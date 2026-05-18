@@ -203,3 +203,66 @@ class TestGreedyForwardSelection:
         for sr in result.selected_factors:
             assert isinstance(sr, SpanningResult)
             assert sr.selected is True
+
+    def test_candidate_dict_pruned_when_factor_selected(self, monkeypatch):
+        # #436: selected factors must be popped from ``candidate_arrays``
+        # so backward-eliminated buffers release immediately rather than
+        # linger to function return. Spy on ``_ols_alpha`` from the
+        # forward-selection frame and pin ``candidate_arrays.keys() ==
+        # remaining`` post-selection.
+        import sys
+
+        from factrix.metrics import spanning
+
+        # Two strong + redundant pair forces backward elimination:
+        # both pass the threshold solo, but once one is in, the other
+        # is spanned and gets dropped on the next backward step.
+        rng = np.random.default_rng(42)
+        n = 200
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
+        a_vals = rng.normal(0.04, 0.005, n)
+        b_vals = a_vals + rng.normal(0, 0.0005, n)  # ≈ A + tiny noise
+        c_vals = rng.normal(0.025, 0.005, n)  # independent strong
+        factors = {
+            name: pl.DataFrame({"date": dates, "spread": vals}).with_columns(
+                pl.col("date").cast(pl.Datetime("ms"))
+            )
+            for name, vals in [("A", a_vals), ("B", b_vals), ("C", c_vals)]
+        }
+
+        invariant_violations: list[tuple[set, set]] = []
+        forward_observations = 0
+        original = spanning._ols_alpha
+
+        def _spy(*args, **kwargs):
+            nonlocal forward_observations
+            caller = sys._getframe(1).f_locals
+            cand = caller.get("candidate_arrays")
+            rem = caller.get("remaining")
+            if cand is not None and rem is not None:
+                forward_observations += 1
+                if set(cand.keys()) != set(rem):
+                    invariant_violations.append((set(cand.keys()), set(rem)))
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(spanning, "_ols_alpha", _spy)
+
+        result = greedy_forward_selection(
+            factors,
+            significance_threshold=2.0,
+            max_factors=3,
+            suppress_snooping_warning=True,
+        )
+        assert not invariant_violations, (
+            f"candidate_arrays.keys() drifted from remaining at "
+            f"{len(invariant_violations)} call site(s); first divergence: "
+            f"keys={invariant_violations[0][0]} vs remaining={invariant_violations[0][1]}"
+        )
+        # Positive assertion: confirm the spy actually observed the
+        # forward-selection frame at least once (silent-skip on
+        # `caller.get(...) is None` would otherwise vacuously pass).
+        assert forward_observations >= 1, (
+            "spy never saw candidate_arrays/remaining in any caller frame; "
+            "the invariant check would have vacuously passed"
+        )
+        assert len(result.selected_factors) >= 1

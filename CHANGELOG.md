@@ -22,6 +22,8 @@ Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) 
 
 ### Changed
 
+- **`greedy_forward_selection` releases backward-eliminated buffers immediately** (#436). `factrix.metrics.spanning.greedy_forward_selection` now `pop`s selected factors out of the internal `candidate_arrays` dict so `selected_arrays` becomes sole owner of each buffer; when `_backward_eliminate` later drops a factor from `selected_arrays`, the buffer is freed at that point instead of lingering until function return. Pins the invariant `candidate_arrays.keys() == remaining` via a new spy test. No public-API or behavioural change.
+
 - **`fx.evaluate` signature unified with `fx.run_metrics`: `factor_cols: Sequence[str]` in, `dict[str, FactorProfile]` out** (#421). The single-factor `factor_col: str` / `FactorProfile` shape was asymmetric with `run_metrics`'s already-list/dict surface (#402) and made the per-factor Python-loop pattern (`[fx.evaluate(p, cfg, factor_col=c) for c in cols]`) the only multi-factor option. `evaluate` now accepts a list of column names and returns a dict keyed by them; every factor in one call shares the same dispatch cell (locked by `config`) and the same `Mode` (derived once from `panel["asset_id"].n_unique()`), so the returned profiles are comparable by construction. Per-profile `factor_id` is stamped from each column name automatically. **Migration**:
 
   | Before | After |
