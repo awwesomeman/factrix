@@ -854,6 +854,41 @@ directly see `MetricOutput`.
 
 ---
 
+## v0.14 result types (preview — not yet wired into `evaluate`)
+
+The unified DAG executor (#438 / #442) replaces `FactorProfile` /
+`MetricsBundle` with a single result-type group. The dataclasses ship
+in v0.14.0 as types-only; runner wiring lands with the DAG executor.
+
+- **`EvaluationResult`** — bundle-level result for one factor at one
+  cell. Fields: `factor` / `axes` (`(scope, signal, metric)` tuple) /
+  `mode` / `n_obs` / `n_assets` / `metrics` (a `MetricResultGroup`) /
+  `warnings` (`list[Warning]`). Serialisers:
+  - `to_df()` → `pl.DataFrame` long form (one row per metric;
+    `factor` / `n_assets` / `metric_name` / `value` / `p` / `stat` /
+    `n_obs` / `significance` / `warning_codes: list[str]`). Stable
+    schema for parquet stacking across factors:
+    `pl.concat([r.to_df() for r in results])`.
+  - `to_dict()` → JSON-friendly nested dict (NaN / Inf scrubbed to
+    `None`).
+  - `_repr_html_()` → Jupyter rich render with primary / diagnostic
+    role column and a collapsible warnings block.
+- **`MetricResultGroup`** — mirrors the `MetricGroups` shape from
+  `inspect_panel` (#443). Three `list[MetricSpec]` partitions
+  (`applicable` / `primary` / `diagnostic`) plus dict-like access to
+  the produced `MetricOutput` instances (`__getitem__` / `keys` /
+  `values` / `items` / `__iter__` all key by `MetricSpec.name`).
+- **`Warning`** — flat dataclass `(code: WarningCode, source: str | None, message: str)`.
+  `source=metric_name` for per-metric warnings; `source=None` for
+  bundle-level diagnostics. Note: shadows the Python builtin
+  `Warning` when imported with `from factrix import Warning`; prefer
+  `fx.Warning` after `import factrix as fx`.
+- **`MetricOutput.spec`** (new field, default `None`) — back-pointer
+  to the declaring `MetricSpec`. Stamped by runners at dispatch time;
+  consumers can recover the spec without a name-keyed lookup.
+
+---
+
 ## WarningCode reference (verbatim from `factrix._codes`)
 
 | WarningCode | Description (canonical) |
