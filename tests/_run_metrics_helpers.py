@@ -1,9 +1,11 @@
-"""Shared helpers for ``run_metrics`` / ``run_metrics_chunked`` /
-``run_metrics_iter`` tests.
+"""Shared helpers for batch-factor entry-point tests.
 
-The three test files all need the same multi-factor panel factory,
-factor-column selector, and bundle equality check. Centralised here
-so a schema or fixture tweak lands in one place.
+Used by ``run_metrics`` / ``run_metrics_chunked`` / ``run_metrics_iter``
+and the evaluate-side mirrors (``evaluate_chunked`` /
+``evaluate_iter`` / ``evaluate_ic_batch_share``). All consumers need
+the same multi-factor panel factory and ``factor_cols`` selector;
+``bundle_equals`` is bundle-specific and only the run_metrics-side
+tests use it.
 """
 
 from __future__ import annotations

@@ -282,6 +282,31 @@ mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
 extras) required only by the auto-sizing path; explicit `chunk_size`
 skips it.
 
+### `evaluate_iter`
+
+```
+factrix.evaluate_iter(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
+                      *, factor_cols: Sequence[str] = ("factor",),
+                      ) -> Iterator[tuple[str, FactorProfile]]
+```
+
+Per-factor streaming sibling of `evaluate`. Yields
+`(factor_id, FactorProfile)` in `factor_cols` order so callers can
+write to a sink / update a progress bar / break early without paying
+the full-batch latency. Cross-factor work the procedure amortises —
+currently IC stage-1 (`compute_ic` across the batch) — still runs
+once before the first yield via the procedure's
+`FactorProcedure.bind_batch` hook; the per-factor inference pass then
+runs inside the yield loop, so the first `next(gen)` lands after one
+factor's HAC inference rather than all `N`. `evaluate(...)` is now
+defined as `dict(evaluate_iter(...))`, so eager and streaming paths
+share one dispatcher and the same cell × mode invariants. Input
+validation and dispatch resolution are eager (`UserInputError` /
+`ModeAxisError` raised before any yield); per-factor inference
+failures (e.g. `InsufficientSampleError`) surface mid-stream after
+earlier factors have already been emitted — the standard
+streaming-iterator trade-off.
+
 ---
 
 ### `run_metrics`
