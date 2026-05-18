@@ -11,7 +11,8 @@ registry SSOT (§4.4 A1) is queryable as soon as the package loads.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import dataclasses
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, runtime_checkable
 
@@ -171,6 +172,14 @@ class FactorProcedure(Protocol):
     surfaces this so agents can cross-check that an ``Estimator``
     instance is dispatchable for the cell without running the
     procedure.
+
+    ``compute_batch`` is the dispatch seam ``_evaluate`` calls; the
+    default :class:`_PerFactorBatchMixin` implementation loops per
+    factor, projecting each via :func:`_project_factor` and calling
+    ``compute``. Procedures that can share cross-factor work (e.g.
+    IC stage-1) override ``compute_batch`` directly. Dispatch-layer
+    concerns such as ``SCOPE_AXIS_COLLAPSED`` info-note stamping
+    stay in ``_evaluate`` — procedures do not see them.
     """
 
     INPUT_SCHEMA: ClassVar[InputSchema]
@@ -182,8 +191,67 @@ class FactorProcedure(Protocol):
         config: AnalysisConfig,
     ) -> FactorProfile: ...
 
+    def compute_batch(
+        self,
+        panel: Any,
+        config: AnalysisConfig,
+        factor_cols: Sequence[str],
+    ) -> dict[str, FactorProfile]: ...
 
-class _ICContPanelProcedure:
+
+def _project_factor(panel: Any, col: str, all_factor_cols: frozenset[str]) -> Any:
+    """Project ``panel`` to canonical schema with ``col`` aliased to ``"factor"``.
+
+    Drops the sibling factor columns in ``all_factor_cols - {col}``
+    and an incumbent ``"factor"`` column (when ``col != "factor"``)
+    so the procedure receives a panel whose only signal column is
+    named ``"factor"``. Every other column passes through unchanged so
+    optional schema columns the procedure may consume (e.g. ``price``
+    for event-window metrics) stay available.
+    """
+    import polars as pl
+
+    drop = set(all_factor_cols - {col})
+    if col != "factor":
+        drop.add("factor")
+    selects = []
+    for c in panel.columns:
+        if c in drop:
+            continue
+        if c == col and col != "factor":
+            selects.append(pl.col(col).alias("factor"))
+        else:
+            selects.append(pl.col(c))
+    return panel.select(selects)
+
+
+class _PerFactorBatchMixin:
+    """Default ``compute_batch`` — per-factor projection + ``compute()``.
+
+    Equivalent to the pre-#426 ``_evaluate`` per-factor loop:
+    project each factor to the canonical single-``factor``-column
+    panel, call ``compute``, stamp ``factor_id`` to the original
+    column name. Procedures that can amortise cross-factor work
+    (e.g. IC stage-1) override ``compute_batch`` and skip the mixin.
+    """
+
+    def compute_batch(
+        self,
+        panel: Any,
+        config: AnalysisConfig,
+        factor_cols: Sequence[str],
+    ) -> dict[str, FactorProfile]:
+        cols = list(factor_cols)
+        siblings = frozenset(cols)
+        out: dict[str, FactorProfile] = {}
+        for col in cols:
+            sub_panel = _project_factor(panel, col, siblings)
+            profile = self.compute(sub_panel, config)  # type: ignore[attr-defined]
+            out[col] = dataclasses.replace(profile, factor_id=col)
+        return out
+
+
+class _ICContPanelProcedure(_PerFactorBatchMixin):
     """``(INDIVIDUAL, CONTINUOUS, IC, PANEL)`` — per-date Spearman IC.
 
     Aggregates per-date rank correlations between the factor and the
@@ -248,8 +316,55 @@ class _ICContPanelProcedure:
             context={"estimator": config.estimator.name},
         )
 
+    def compute_batch(
+        self,
+        panel: Any,
+        config: AnalysisConfig,
+        factor_cols: Sequence[str],
+    ) -> dict[str, FactorProfile]:
+        import numpy as np
 
-class _FMContPanelProcedure:
+        import factrix.metrics as _metrics
+        from factrix._codes import StatCode
+        from factrix._profile import FactorProfile
+
+        cols = list(factor_cols)
+        # One polars query across all factors — the shared stage-1 win
+        # this override exists for. Per-factor envelope + HAC inference
+        # still run inside the loop because both depend on the factor's
+        # own non-null mask.
+        ic_by_factor = _metrics.compute_ic(panel, factor_cols=cols)
+
+        out: dict[str, FactorProfile] = {}
+        for col in cols:
+            ic_values = ic_by_factor[col]["ic"].drop_nulls().to_numpy()
+            n_periods = len(ic_values)
+            n_pairs, n_periods_raw, n_assets = _panel_envelope(panel, factor_col=col)
+            ic_mean = float(np.mean(ic_values)) if n_periods > 0 else 0.0
+
+            result, stats, metadata = _hac_inference(config, ic_values)
+            stats[StatCode.MEAN] = ic_mean
+
+            out[col] = FactorProfile(
+                config=config,
+                mode=Mode.PANEL,
+                primary_p=result.p,
+                primary_stat=result.stat,
+                primary_stat_name=result.stat_name,
+                n_obs=n_periods,
+                n_pairs=n_pairs,
+                n_periods=n_periods_raw,
+                n_assets=n_assets,
+                warnings=result.warnings,
+                stats=stats,
+                metadata=metadata,
+                context={"estimator": config.estimator.name},
+                factor_id=col,
+            )
+        return out
+
+
+class _FMContPanelProcedure(_PerFactorBatchMixin):
     """``(INDIVIDUAL, CONTINUOUS, FM, PANEL)`` — per-date OLS slope λ.
 
     Aggregates per-date cross-sectional regression slopes into a time
@@ -310,7 +425,7 @@ class _FMContPanelProcedure:
         )
 
 
-class _CAARSparsePanelProcedure:
+class _CAARSparsePanelProcedure(_PerFactorBatchMixin):
     """``(INDIVIDUAL, SPARSE, None, PANEL)`` — calendar-time CAAR.
 
     Plan §4.3 / Issue #24. Dispatches to ``compute_caar`` (see for the
@@ -405,7 +520,7 @@ class _CAARSparsePanelProcedure:
         )
 
 
-class _CommonContPanelProcedure:
+class _CommonContPanelProcedure(_PerFactorBatchMixin):
     """``(COMMON, CONTINUOUS, None, PANEL)`` — broadcast factor β panel.
 
     Per-asset OLS β_i on the broadcast factor (single time series shared
@@ -434,7 +549,7 @@ class _CommonContPanelProcedure:
         return _compute_common_panel(raw, config, with_adf=True)
 
 
-class _CommonSparsePanelProcedure:
+class _CommonSparsePanelProcedure(_PerFactorBatchMixin):
     """``(COMMON, SPARSE, None, PANEL)`` — broadcast event-dummy β panel.
 
     Per-asset OLS β_i on a broadcast sparse ``{0, R}`` dummy
@@ -608,7 +723,7 @@ def _compute_common_panel(
     )
 
 
-class _TSBetaContTimeseriesProcedure:
+class _TSBetaContTimeseriesProcedure(_PerFactorBatchMixin):
     """``(COMMON, CONTINUOUS, None, TIMESERIES)`` — single-asset OLS β.
 
     Plan §5.2 TIMESERIES continuous: OLS ``y_t = α + β·factor_t + ε`` with
@@ -708,7 +823,7 @@ class _TSBetaContTimeseriesProcedure:
         )
 
 
-class _TSDummySparseTimeseriesProcedure:
+class _TSDummySparseTimeseriesProcedure(_PerFactorBatchMixin):
     """``(_, SPARSE, None, TIMESERIES)`` — single-asset OLS β on dummy.
 
     Plan §5.2 TIMESERIES sparse / §5.4.1 sentinel collapse: shared across
