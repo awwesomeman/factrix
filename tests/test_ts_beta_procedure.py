@@ -198,7 +198,7 @@ class TestEndToEndViaEvaluate:
         cfg: AnalysisConfig,
     ) -> None:
         ts = _make_ts(n_dates=80, seed=99, beta=0.7)
-        profile = _evaluate(ts, cfg)
+        profile = _evaluate(ts, cfg)["factor"]
         assert profile.mode is Mode.TIMESERIES
         assert StatCode.P_NW in profile.stats
         assert profile.primary_p < 0.05

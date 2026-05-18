@@ -18,12 +18,13 @@ here once it adopts the v0.5 contract.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from factrix._analysis_config import _FALLBACK_MAP
 from factrix._axis import Mode
 from factrix._codes import InfoCode
-from factrix._errors import ModeAxisError
+from factrix._errors import ModeAxisError, UserInputError
 from factrix._registry import (
     _DISPATCH_REGISTRY,
     _SCOPE_COLLAPSED,
@@ -45,64 +46,100 @@ def _derive_mode(panel: Any) -> Mode:
     return Mode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else Mode.PANEL
 
 
+def _raise_factor_cols_error(*, value: object, expected: str) -> None:
+    raise UserInputError(
+        func_name="evaluate",
+        field="factor_cols",
+        value=value,
+        expected=expected,
+        docs_path="api/evaluate#factor_cols",
+    )
+
+
+def _validate_factor_cols(factor_cols: Sequence[str], panel: Any) -> list[str]:
+    """Eager non-empty / no-dup / all-present check on ``factor_cols``.
+
+    Sibling of ``_run_metrics._validate_factor_cols`` — kept separate
+    because this variant also validates column presence on ``panel``
+    so ``evaluate`` fails fast at the API boundary; ``run_metrics``
+    defers schema validation to per-metric dispatch where each
+    primitive's call surfaces a column-specific error.
+    """
+    cols = list(factor_cols)
+    if not cols:
+        _raise_factor_cols_error(
+            value=cols, expected="a non-empty list of factor column names"
+        )
+    if len(set(cols)) != len(cols):
+        _raise_factor_cols_error(value=cols, expected="factor_cols with no duplicates")
+    missing = [c for c in cols if c not in panel.columns]
+    if missing:
+        _raise_factor_cols_error(
+            value=missing,
+            expected=(
+                f"every name in factor_cols to exist on panel; "
+                f"got columns {list(panel.columns)!r}"
+            ),
+        )
+    return cols
+
+
 def _evaluate(
     panel: Any,
     config: AnalysisConfig,
     *,
-    factor_col: str = "factor",
-) -> FactorProfile:
-    """Dispatch ``config + panel`` to the registered procedure.
+    factor_cols: Sequence[str] = ("factor",),
+) -> dict[str, FactorProfile]:
+    """Dispatch ``config + panel`` to the registered procedure for each factor.
 
-    Mode is derived from ``panel`` (``N == 1`` → ``TIMESERIES``, else
-    ``PANEL``). Sparse signals at ``N == 1`` collapse the scope axis
-    so ``individual_sparse`` and ``common_sparse`` route to the same
-    cell, tagged with ``InfoCode.SCOPE_AXIS_COLLAPSED`` on the
+    All factors in ``factor_cols`` share the same dispatch cell and
+    mode **by design**: ``config`` uniquely determines the cell
+    (``scope × signal × metric``); the panel's
+    ``asset_id.n_unique()`` uniquely determines the mode
+    (``N == 1`` → ``TIMESERIES``, else ``PANEL``). Batching factors
+    only makes sense when the resulting profiles are comparable, and
+    comparability requires identical cell × mode — so this layer
+    pins both at the batch level instead of deriving per-factor.
+    Sparse signals at ``N == 1`` collapse the scope axis so
+    ``individual_sparse`` and ``common_sparse`` route to the same
+    cell, tagged with ``InfoCode.SCOPE_AXIS_COLLAPSED`` on each
     returned profile.
 
+    Cross-factor compute sharing (IC stage-1 reuse, batch primitives)
+    is **not** done at this layer yet — each factor is dispatched
+    independently via a thin column projection. Adding shared stage-1
+    is tracked as a follow-up using the same protocol-class registry
+    that ``run_metrics`` adopted in #418.
+
     Args:
-        panel: Canonical-column long panel (``date, asset_id, factor,
+        panel: Canonical-column long panel (``date, asset_id, *factor_cols,
             forward_return``). Schema is validated downstream by the
-            registered procedure.
+            registered procedure on the per-factor projection.
         config: Validated ``AnalysisConfig`` produced by one of the
             four factory methods.
-        factor_col: Name of the signal column on ``panel``. Default
-            ``"factor"``; pass any other column name when the panel's
-            signal is named differently, or when looping over multiple
-            candidate signals on a wide panel. The column is renamed
-            to ``"factor"`` internally before dispatch so procedures
-            keep their canonical schema. Each call repays the per-date
-            cross-section work; ``factrix.multi_factor.bhy`` controls
-            FDR on the resulting profile list but does not share
-            computation across signals.
+        factor_cols: Names of the signal columns on ``panel`` to
+            evaluate. Each column is projected and renamed to
+            ``"factor"`` before being dispatched to the procedure, so
+            procedures keep their canonical schema. The return dict is
+            keyed by the original ``factor_cols`` name; each profile's
+            ``factor_id`` is also stamped to match. Default
+            ``("factor",)`` keeps the single-factor case ergonomic
+            (caller indexes via ``["factor"]``).
 
     Returns:
-        A ``FactorProfile`` populated by the procedure registered for
-        the routed dispatch cell.
+        ``dict[factor_name, FactorProfile]`` — one profile per input
+        column, keyed by the original ``factor_cols`` name.
 
     Raises:
-        ValueError: If ``factor_col`` is not present on ``panel``, or if
-            ``factor_col != "factor"`` while ``panel`` already carries a
-            different ``"factor"`` column (ambiguous which is the
-            signal).
+        UserInputError: ``factor_cols`` empty, contains duplicates, or
+            references a column not present on ``panel``.
         ModeAxisError: If the routed cell has no registered procedure
             under the derived mode (e.g. ``(INDIVIDUAL, CONTINUOUS, *)``
             at ``N == 1``); the error carries a nearest-legal
             ``suggested_fix``.
     """
-    if factor_col != "factor":
-        if factor_col not in panel.columns:
-            raise ValueError(
-                f"factor_col={factor_col!r} not found in panel columns: "
-                f"{list(panel.columns)}. Pass the actual signal column "
-                f"name, or rename the column to 'factor' before calling."
-            )
-        if "factor" in panel.columns:
-            raise ValueError(
-                f"panel carries both 'factor' and {factor_col!r} columns; "
-                f"ambiguous which is the signal under test. Drop the "
-                f"unused column before calling evaluate."
-            )
-        panel = panel.rename({factor_col: "factor"})
+    cols = _validate_factor_cols(factor_cols, panel)
+
     mode = _derive_mode(panel)
     key = _dispatch_key_for(config.scope, config.signal, config.metric, mode)
     extra_info: frozenset[InfoCode] = (
@@ -122,10 +159,40 @@ def _evaluate(
             suggested_fix=suggested,
         )
 
-    profile = entry.procedure.compute(panel, config)
-    profile = dataclasses.replace(
-        profile,
-        factor_id=factor_col,
-        info_notes=profile.info_notes | extra_info,
-    )
-    return profile
+    other_factor_cols = frozenset(cols)
+    profiles: dict[str, FactorProfile] = {}
+    for col in cols:
+        sub_panel = _project_factor(panel, col, other_factor_cols)
+        profile = entry.procedure.compute(sub_panel, config)
+        profiles[col] = dataclasses.replace(
+            profile,
+            factor_id=col,
+            info_notes=profile.info_notes | extra_info,
+        )
+    return profiles
+
+
+def _project_factor(panel: Any, col: str, all_factor_cols: frozenset[str]) -> Any:
+    """Project ``panel`` to canonical schema with ``col`` aliased to ``"factor"``.
+
+    Drops the sibling factor columns in ``all_factor_cols - {col}``
+    and an incumbent ``"factor"`` column (when ``col != "factor"``)
+    so the procedure receives a panel whose only signal column is
+    named ``"factor"``. Every other column passes through unchanged so
+    optional schema columns the procedure may consume (e.g. ``price``
+    for event-window metrics) stay available.
+    """
+    import polars as pl
+
+    drop = set(all_factor_cols - {col})
+    if col != "factor":
+        drop.add("factor")
+    selects = []
+    for c in panel.columns:
+        if c in drop:
+            continue
+        if c == col and col != "factor":
+            selects.append(pl.col(col).alias("factor"))
+        else:
+            selects.append(pl.col(c))
+    return panel.select(selects)

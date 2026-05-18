@@ -320,8 +320,8 @@ class TestSentinelCollapse:
             event_positions=list(range(5, 120, 10)),
             beta=1.5,
         )
-        prof_i = _evaluate(ts, cfg_individual)
-        prof_c = _evaluate(ts, cfg_common)
+        prof_i = _evaluate(ts, cfg_individual)["factor"]
+        prof_c = _evaluate(ts, cfg_common)["factor"]
         assert prof_i.stats == prof_c.stats
         assert prof_i.primary_p == prof_c.primary_p
         # Both paths attach the collapse info note.

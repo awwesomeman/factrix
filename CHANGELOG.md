@@ -16,7 +16,22 @@ Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) 
 
 ## [Unreleased]
 
+### Removed
+
+- **`fx.evaluate(..., factor_col=...)` kwarg + scalar `FactorProfile` return** (#421). Replaced by `factor_cols: Sequence[str]` / `dict[str, FactorProfile]` (see migration table in `### Changed` below). The old `ValueError`s for `factor_col not found` and `'factor' and factor_col both present (ambiguous)` are gone; the new `UserInputError`s on `factor_cols` cover the empty / duplicate / missing-column cases. Sibling factor columns are dropped silently when projecting per factor (the explicit `factor_cols` list is the unambiguous intent).
+
 ### Changed
+
+- **`fx.evaluate` signature unified with `fx.run_metrics`: `factor_cols: Sequence[str]` in, `dict[str, FactorProfile]` out** (#421). The single-factor `factor_col: str` / `FactorProfile` shape was asymmetric with `run_metrics`'s already-list/dict surface (#402) and made the per-factor Python-loop pattern (`[fx.evaluate(p, cfg, factor_col=c) for c in cols]`) the only multi-factor option. `evaluate` now accepts a list of column names and returns a dict keyed by them; every factor in one call shares the same dispatch cell (locked by `config`) and the same `Mode` (derived once from `panel["asset_id"].n_unique()`), so the returned profiles are comparable by construction. Per-profile `factor_id` is stamped from each column name automatically. **Migration**:
+
+  | Before | After |
+  |---|---|
+  | `profile = fx.evaluate(panel, cfg)` | `profile = fx.evaluate(panel, cfg)["factor"]` |
+  | `profile = fx.evaluate(panel, cfg, factor_col="alpha")` | `profile = fx.evaluate(panel, cfg, factor_cols=["alpha"])["alpha"]` |
+  | `profiles = [fx.evaluate(panel, cfg, factor_col=c) for c in cols]` | `profiles = fx.evaluate(panel, cfg, factor_cols=cols)` |
+  | `survivors = fx.bhy(profiles)` | `survivors = fx.bhy(profiles.values())` |
+
+  Cross-factor compute sharing (IC stage-1 batch reuse, batch primitives) is **not** done at this layer yet — each factor is dispatched independently via a thin column projection. The protocol-class registry from #418 is the natural seam for that follow-up. `evaluate_chunked` / `evaluate_iter` siblings (paralleling `run_metrics_chunked` / `run_metrics_iter`) will follow on their own issues once the shared-compute path lands.
 
 - **Dispatch protocol-class registry replaces marker cascade** (#418). The `run_metrics` dispatcher previously detected batch primitives by signature inspection (`"factor_cols" in inspect.signature(fn).parameters`, introduced in #407) and IC stage-1 consumers by membership in a hand-maintained `_IC_CONSUMERS` frozenset. Both paths drifted silently — renaming `factor_cols` to `factor_columns` demoted a batch primitive to a per-factor loop with no warning; adding a new IC consumer required remembering the central constant. New module `factrix/metrics/_protocol.py` exposes `@batch_primitive` / `@ic_consumer` decorators (both with decoration-time signature-agreement assertions so the marker and the signature stay in sync: `@batch_primitive` requires `factor_cols` in signature, `@ic_consumer` requires `ic_df` as the first positional parameter). Applied to `compute_ic` / `quantile_spread` / `monotonicity` (batch primitives) and `ic` / `ic_newey_west` / `ic_ir` (IC consumers). The dispatcher itself moves from a hard-coded if/elif/else cascade to a `_PROTOCOLS` registry of small `_DispatchProtocol` subclasses (`_IcConsumerProtocol` / `_BatchPrimitiveProtocol` / `_PerFactorProtocol`); adding a future dispatch role (e.g. `compute_fm_betas` stage-1 sharing) means appending a new protocol class to `_PROTOCOLS`, not editing the dispatcher body. Internal-only refactor — no user-facing behaviour change.
 

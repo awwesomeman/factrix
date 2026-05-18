@@ -148,7 +148,7 @@ class TestEndToEndViaEvaluate:
             seed=123,
             factor_strength=0.9,
         )
-        profile = _evaluate(panel, fm_config)
+        profile = _evaluate(panel, fm_config)["factor"]
         assert isinstance(profile, FactorProfile)
         assert StatCode.P_NW in profile.stats
         assert profile.primary_p < 0.05

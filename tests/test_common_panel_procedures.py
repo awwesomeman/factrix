@@ -261,7 +261,7 @@ class TestEndToEndViaEvaluate:
             true_beta=0.5,
             factor_kind="iid",
         )
-        profile = _evaluate(panel, cfg_continuous)
+        profile = _evaluate(panel, cfg_continuous)["factor"]
         assert profile.mode is Mode.PANEL
         assert profile.primary_p < 0.05
 
@@ -279,7 +279,7 @@ class TestEndToEndViaEvaluate:
             factor_kind="sparse",
             sparse_event_density=0.10,
         )
-        profile = _evaluate(panel, cfg_sparse)
+        profile = _evaluate(panel, cfg_sparse)["factor"]
         assert profile.mode is Mode.PANEL
         # SCOPE_AXIS_COLLAPSED only fires at N=1; PANEL routing keeps
         # COMMON scope intact.

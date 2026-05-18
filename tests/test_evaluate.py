@@ -10,7 +10,7 @@ import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode
-from factrix._errors import ModeAxisError
+from factrix._errors import ModeAxisError, UserInputError
 from factrix._evaluate import _derive_mode, _evaluate
 from factrix._profile import FactorProfile
 
@@ -99,7 +99,7 @@ class TestIcPanelEndToEnd:
             factor_strength=0.95,
         )
         cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
-        return _evaluate(panel, cfg)
+        return _evaluate(panel, cfg)["factor"]
 
     def test_returns_factor_profile(self, profile: FactorProfile) -> None:
         assert isinstance(profile, FactorProfile)
@@ -148,13 +148,13 @@ class TestSparseCollapse:
         # Sentinel cell is now wired — verify the routing reaches a real
         # FactorProfile and the collapse InfoCode is attached.
         ts = _build_timeseries(n_dates=40, seed=4)
-        profile = _evaluate(ts, AnalysisConfig.individual_sparse())
+        profile = _evaluate(ts, AnalysisConfig.individual_sparse())["factor"]
         assert profile.mode is Mode.TIMESERIES
         assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes
 
     def test_common_sparse_n1_routes_to_same_sentinel_entry(self) -> None:
         ts = _build_timeseries(n_dates=40, seed=5)
-        profile = _evaluate(ts, AnalysisConfig.common_sparse())
+        profile = _evaluate(ts, AnalysisConfig.common_sparse())["factor"]
         assert profile.mode is Mode.TIMESERIES
         assert InfoCode.SCOPE_AXIS_COLLAPSED in profile.info_notes
 
@@ -163,10 +163,9 @@ class TestSparseCollapse:
         # cell handles individual_sparse without going through the
         # _SCOPE_COLLAPSED sentinel (collapse only fires at N=1).
         panel = _build_panel(n_dates=30, n_assets=20, seed=6)
-        # Inject a sparse trigger column so compute_caar has events.
         sparse_factor = (np.arange(len(panel)) % 11 == 0).astype(np.float64)
         panel = panel.with_columns(pl.Series("factor", sparse_factor))
-        profile = _evaluate(panel, AnalysisConfig.individual_sparse())
+        profile = _evaluate(panel, AnalysisConfig.individual_sparse())["factor"]
         assert profile.mode is Mode.PANEL
         assert InfoCode.SCOPE_AXIS_COLLAPSED not in profile.info_notes
 
@@ -206,7 +205,6 @@ class TestFallbackNoneBranch:
                     AnalysisConfig.common_continuous(),
                 )
             assert exc.value.suggested_fix is None
-            # Suffix should be empty — no "Suggested fix:" tail.
             assert "Suggested fix:" not in str(exc.value)
         finally:
             _DISPATCH_REGISTRY[key] = original
@@ -229,14 +227,14 @@ class TestNAssetsExposure:
         profile = _evaluate(
             panel,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
-        )
+        )["factor"]
         assert profile.n_assets == 25
         assert profile.n_obs != profile.n_assets  # T vs N differ
 
     def test_timeseries_n_assets_is_one(self) -> None:
         panel = _build_panel(n_dates=60, n_assets=25, seed=8)
         single = panel.filter(pl.col("asset_id") == panel["asset_id"][0])
-        profile = _evaluate(single, AnalysisConfig.common_continuous())
+        profile = _evaluate(single, AnalysisConfig.common_continuous())["factor"]
         assert profile.mode is Mode.TIMESERIES
         assert profile.n_assets == 1
 
@@ -245,69 +243,118 @@ class TestNAssetsExposure:
         profile = _evaluate(
             panel,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
-        )
+        )["factor"]
         d = profile.diagnose()
         assert d["n_assets"] == 15
         assert d["n_obs"] != d["n_assets"]
 
 
-class TestFactorColumnAlias:
-    def test_default_factor_col_unchanged(self) -> None:
-        # Default factor_col="factor" goes through the existing happy path
-        # — no rename, no validation overhead. Sanity against accidental
-        # regression on the canonical schema.
+# ---------------------------------------------------------------------------
+# factor_cols — replaces the old factor_col=str surface (#421)
+# ---------------------------------------------------------------------------
+
+
+class TestFactorColsOption:
+    def test_default_factor_cols_canonical_panel(self) -> None:
+        # Default factor_cols=("factor",) goes through the existing happy
+        # path — sanity that the canonical-name single-factor case still
+        # produces the expected dict keyed by "factor".
         panel = _build_panel(n_dates=60, n_assets=15, seed=10)
-        profile = _evaluate(
+        profiles = _evaluate(
             panel,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
         )
-        assert StatCode.MEAN in profile.stats
+        assert set(profiles) == {"factor"}
+        assert profiles["factor"].factor_id == "factor"
+        assert StatCode.MEAN in profiles["factor"].stats
 
-    def test_aliased_factor_col_renamed_internally(self) -> None:
-        # Non-default factor_col is renamed to "factor" before dispatch;
-        # the resulting stats are identical to the default-named panel.
+    def test_named_factor_col_returned_under_its_name(self) -> None:
+        # factor_cols=["alpha"] on a renamed panel returns a dict keyed
+        # by "alpha"; the profile's factor_id is also stamped to match.
         panel = _build_panel(n_dates=60, n_assets=15, seed=11)
         renamed = panel.rename({"factor": "alpha"})
-        profile = _evaluate(
+        profiles = _evaluate(
             renamed,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
-            factor_col="alpha",
+            factor_cols=["alpha"],
         )
-        assert StatCode.MEAN in profile.stats
+        assert set(profiles) == {"alpha"}
+        assert profiles["alpha"].factor_id == "alpha"
+        assert StatCode.MEAN in profiles["alpha"].stats
 
-    def test_factor_col_missing_raises(self) -> None:
-        panel = _build_panel(n_dates=30, n_assets=10, seed=12)
-        with pytest.raises(ValueError, match="factor_col='alpha' not found"):
+    def test_batch_two_factors_returns_dict_keyed_by_name(self) -> None:
+        # The headline #421 capability: pass a list, get back a dict —
+        # both keys present, factor_id matches, each profile independent.
+        panel = _build_panel(n_dates=60, n_assets=15, seed=12)
+        wide = panel.with_columns(
+            pl.col("factor").alias("alpha"),
+            (pl.col("factor") * -1.0).alias("beta"),
+        ).drop("factor")
+        profiles = _evaluate(
+            wide,
+            AnalysisConfig.individual_continuous(metric=Metric.IC),
+            factor_cols=["alpha", "beta"],
+        )
+        assert list(profiles) == ["alpha", "beta"]
+        assert profiles["alpha"].factor_id == "alpha"
+        assert profiles["beta"].factor_id == "beta"
+
+    def test_batch_single_factor_equals_named_single_call(self) -> None:
+        # factor_cols=["alpha"] inside a batch must produce a profile
+        # bit-equivalent to the single-factor named call — pins that the
+        # per-factor projection does not leak sibling columns into the
+        # procedure.
+        panel = _build_panel(n_dates=60, n_assets=15, seed=13)
+        wide = panel.with_columns(
+            pl.col("factor").alias("alpha"),
+            (pl.col("factor") * 0.5).alias("beta"),
+        ).drop("factor")
+        cfg = AnalysisConfig.individual_continuous(metric=Metric.IC)
+        batched = _evaluate(wide, cfg, factor_cols=["alpha", "beta"])["alpha"]
+        alone = _evaluate(wide.drop("beta"), cfg, factor_cols=["alpha"])["alpha"]
+        assert batched.primary_p == alone.primary_p
+        assert batched.stats[StatCode.MEAN] == alone.stats[StatCode.MEAN]
+
+    def test_empty_factor_cols_raises_user_input_error(self) -> None:
+        panel = _build_panel(n_dates=30, n_assets=10, seed=14)
+        with pytest.raises(UserInputError, match="factor_cols"):
             _evaluate(
                 panel,
                 AnalysisConfig.individual_continuous(metric=Metric.IC),
-                factor_col="alpha",
+                factor_cols=[],
             )
 
-    def test_factor_col_collision_with_factor_raises(self) -> None:
-        # Panel carries both 'factor' and 'alpha'; user passes
-        # factor_col="alpha" — ambiguous which is the signal under test.
-        panel = _build_panel(n_dates=30, n_assets=10, seed=13)
-        ambig = panel.with_columns(pl.col("factor").alias("alpha"))
-        with pytest.raises(ValueError, match="ambiguous which is the signal"):
+    def test_duplicate_factor_cols_raises_user_input_error(self) -> None:
+        panel = _build_panel(n_dates=30, n_assets=10, seed=15)
+        with pytest.raises(UserInputError, match="duplicates"):
             _evaluate(
-                ambig,
+                panel,
                 AnalysisConfig.individual_continuous(metric=Metric.IC),
-                factor_col="alpha",
+                factor_cols=["factor", "factor"],
             )
 
-    def test_public_evaluate_threads_factor_col(self) -> None:
-        # The public factrix.evaluate wrapper must thread factor_col
-        # through to _evaluate; without that, the rename never happens
-        # and the procedure-level INPUT_SCHEMA check would fail loudly.
+    def test_missing_factor_col_raises_user_input_error(self) -> None:
+        panel = _build_panel(n_dates=30, n_assets=10, seed=16)
+        with pytest.raises(UserInputError, match="alpha"):
+            _evaluate(
+                panel,
+                AnalysisConfig.individual_continuous(metric=Metric.IC),
+                factor_cols=["alpha"],
+            )
+
+    def test_public_evaluate_threads_factor_cols(self) -> None:
+        # The public factrix.evaluate wrapper must thread factor_cols
+        # through to _evaluate; sanity-check the surface still indexes
+        # the same way the internal path does.
         import factrix as fx
 
-        panel = _build_panel(n_dates=60, n_assets=15, seed=14)
+        panel = _build_panel(n_dates=60, n_assets=15, seed=17)
         renamed = panel.rename({"factor": "alpha"})
-        profile = fx.evaluate(
+        profiles = fx.evaluate(
             renamed,
             AnalysisConfig.individual_continuous(metric=Metric.IC),
-            factor_col="alpha",
+            factor_cols=["alpha"],
         )
-        assert isinstance(profile, FactorProfile)
-        assert StatCode.MEAN in profile.stats
+        assert set(profiles) == {"alpha"}
+        assert isinstance(profiles["alpha"], FactorProfile)
+        assert StatCode.MEAN in profiles["alpha"].stats

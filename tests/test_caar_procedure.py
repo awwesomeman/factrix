@@ -151,7 +151,7 @@ class TestEndToEndViaEvaluate:
             seed=99,
             beta=0.8,
         )
-        profile = _evaluate(panel, cfg)
+        profile = _evaluate(panel, cfg)["factor"]
         assert profile.mode is Mode.PANEL
         assert StatCode.P_NW in profile.stats
         assert profile.primary_p < 0.05

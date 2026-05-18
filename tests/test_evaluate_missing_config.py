@@ -55,7 +55,7 @@ def test_missing_config_error_is_catchable_as_config_and_factrix_error():
 def test_evaluate_with_config_routes_to_private_dispatcher():
     panel = _build_panel()
     cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-    profile = fx.evaluate(panel, cfg)
+    profile = fx.evaluate(panel, cfg)["factor"]
     assert isinstance(profile, fx.FactorProfile)
 
 

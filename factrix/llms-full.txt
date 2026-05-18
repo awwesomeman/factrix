@@ -80,7 +80,7 @@ raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, see
 panel = compute_forward_return(raw, forward_periods=5)   # appends `forward_return`
 
 cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-profile = fx.evaluate(panel, cfg)
+profile = fx.evaluate(panel, cfg)["factor"]   # dict[factor_id, FactorProfile]; index by name
 
 print(profile.primary_p)             # procedure-canonical p-value (float)
 print(profile.diagnose())            # dict — see FactorProfile below
@@ -93,31 +93,41 @@ print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, et
 import factrix as fx
 from factrix.preprocess import compute_forward_return
 
+# Preferred shape: every variant is a column on one wide panel.
+# evaluate batches them in a single call and returns a dict keyed by
+# column name; bhy consumes the .values() view directly.
+cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+wide_panel = compute_forward_return(build_wide_factor_panel(...), forward_periods=5)
+profiles = fx.evaluate(wide_panel, cfg, factor_cols=["variant_0", "variant_1", "variant_2"])
+survivors = fx.multi_factor.bhy(profiles.values(), q=0.05)
+
+# Fallback shape: each variant arrives as its own panel (e.g. different
+# upstream loaders). Iterate and merge — semantically equivalent, just
+# loses the batch's cross-factor sharing potential.
 raw_panels = {
     f"variant_{i}": fx.datasets.make_cs_panel(
         n_assets=80, n_dates=400, ic_target=ic, seed=s
     ).rename({"factor": f"variant_{i}"})
     for i, (ic, s) in enumerate([(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)])
 }
-cfg       = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-profiles  = [
-    fx.evaluate(compute_forward_return(p, forward_periods=5), cfg, factor_col=name)
-    for name, p in raw_panels.items()
-]
+profiles_by_id: dict[str, fx.FactorProfile] = {}
+for name, p in raw_panels.items():
+    panel_fwd = compute_forward_return(p, forward_periods=5)
+    profiles_by_id.update(fx.evaluate(panel_fwd, cfg, factor_cols=[name]))
 
-survivors = fx.multi_factor.bhy(profiles, q=0.05)
+survivors = fx.multi_factor.bhy(profiles_by_id.values(), q=0.05)
 # survivors: Survivors container.
 #   .profiles    : list[FactorProfile] passing BHY at FDR 0.05 (input order)
 #   .adj_p       : np.ndarray of bucket-local BHY-adjusted p-values, aligned
 #   .q           : nominal target you passed
 #   .expand_over : tuple of context keys used to split families ((), or e.g. ("regime_id",))
 #   .n_tests     : Mapping[bucket_key, m_per_bucket] for two-stage screening audit
-# The input list IS the family. Each panel carries its factor under a
-# distinct column name; evaluate(..., factor_col=name) auto-stamps factor_id
-# from that name so identities stay unique. dataclasses.replace(profile,
-# factor_id=...) is the escape hatch when you cannot rename the column.
-# Pass expand_over=[<context key>] to declare per-bucket families
-# (Benjamini & Bogomolov 2014 selective inference).
+# `evaluate(..., factor_cols=[...])` returns a dict keyed by each column
+# name; the per-profile `factor_id` is stamped to match, so identities
+# stay unique without `dataclasses.replace`. Use `replace(profile,
+# factor_id=...)` only as the escape hatch when you cannot rename the
+# column. Pass `expand_over=[<context key>]` to declare per-bucket
+# families (Benjamini & Bogomolov 2014 selective inference).
 ```
 
 ### 3. Single-asset panel — `ModeAxisError` with `suggested_fix`
@@ -133,10 +143,10 @@ panel = build_single_asset_panel()   # n_assets == 1, columns as in §schema
 cfg   = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
 
 try:
-    profile = fx.evaluate(panel, cfg)
+    profile = fx.evaluate(panel, cfg)["factor"]
 except fx.ModeAxisError as exc:
     cfg = exc.suggested_fix           # AnalysisConfig.common_continuous(forward_periods=5)
-    profile = fx.evaluate(panel, cfg)
+    profile = fx.evaluate(panel, cfg)["factor"]
 
 # profile.mode == Mode.TIMESERIES; primary_p is the timeseries-beta p-value
 print(profile.stats[fx.StatCode.MEAN])
@@ -196,7 +206,8 @@ explicitly `HansenHodrick`. Downstream readers should use
 
 ```
 factrix.evaluate(panel: PanelInput, config: AnalysisConfig,
-                 *, factor_col: str = "factor") -> FactorProfile
+                 *, factor_cols: Sequence[str] = ("factor",)
+                 ) -> dict[str, FactorProfile]
 ```
 
 `PanelInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native
@@ -207,15 +218,27 @@ applied by factrix — call `.select(...)` / `.filter(...)` upstream
 for memory efficiency on large sources). See
 `docs/guides/efficient-loading.md` for large-panel recipes.
 
+`factor_cols` mirrors `run_metrics`: pass a list of column names on
+`panel`, get back a dict of `FactorProfile` keyed by those names —
+even when the list has one element (`fx.evaluate(panel, cfg)["factor"]`).
+All factors in one call share the same dispatch cell (locked by
+`config`) and the same `Mode` (derived once from
+`panel["asset_id"].n_unique()`) — comparability of the returned
+profiles is therefore guaranteed by construction. **Mode is
+batch-global by design**; per-factor mode derivation (e.g. routing
+each column independently based on its own NaN-pattern's
+`n_unique`) would let one call return profiles from different
+procedures and break the `bhy()` family contract, so it is not
+supported and should not be added. Downstream
+aggregation goes through `factrix.multi_factor.bhy(profiles.values())`,
+which auto-partitions families by `(dispatch cell, forward_periods)`;
+do **not** reach into `factrix.stats.bhy_adjusted_p` directly — that
+is a low-level primitive that requires re-implementing the family
+split by hand. Per-profile `factor_id` is stamped to match the
+column name automatically; `dataclasses.replace(profile,
+factor_id=...)` is the escape hatch when the column cannot be
+renamed.
 
-procedure. `factor_col=` lets a panel with a non-default signal column
-name (e.g. `"alpha"`) be evaluated without renaming first; looping over
-candidates with different `factor_col=` values is the canonical multi-
-factor pattern. Downstream aggregation goes through
-`factrix.multi_factor.bhy(profiles)`, which auto-partitions families
-by `(dispatch cell, forward_periods)`; do **not** reach into
-`factrix.stats.bhy_adjusted_p` directly — that is a low-level primitive
-that requires re-implementing the family split by hand.
 Raises (subclasses of `FactrixError`; see `## Errors`
 below for the full hierarchy + recovery payloads):
 - `MissingConfigError` — `evaluate(panel)` called without an `AnalysisConfig`
@@ -227,8 +250,8 @@ below for the full hierarchy + recovery payloads):
   carries `.suggested_fix: AnalysisConfig | None`
 - `InsufficientSampleError` — `T` below the procedure's `MIN_PERIODS_HARD`
   floor; carries `.actual_periods` / `.required_periods`
-- `ValueError` — `factor_col` not present on `raw`, or both `"factor"` and
-  `factor_col` present (ambiguous which is the signal)
+- `UserInputError` — `factor_cols` empty, contains duplicates, or
+  references a column not present on `panel`
 
 ---
 
@@ -387,8 +410,8 @@ from sample-restriction dimensions (universe / regime / future axes).
 The split is the v1 anti-shopping defense: multi-horizon factor research's
 MTC family forms naturally over `identity` (running every horizon → BHY
 is the path of least resistance), while sample restrictions stay queryable
-via `profile.context[key]`. `_evaluate` stamps `identity` from the
-user-supplied `factor_col` and `config.forward_periods`; `context` is
+via `profile.context[key]`. `_evaluate` stamps `identity` from each
+name in `factor_cols` and `config.forward_periods`; `context` is
 empty by default and populated by higher-level verbs (slice / regime
 consumers).
 
@@ -469,7 +492,7 @@ Family-resolution invariants raise `UserInputError`:
   collide with identity dimensions (`factor_id`, `forward_periods`).
 - The partition key `identity + tuple(profile.context[k] for k in
   expand_over)` must be unique across the input — duplicates surface
-  with an actionable hint (`evaluate(..., factor_col=...)` canonical,
+  with an actionable hint (`evaluate(..., factor_cols=[...])` canonical,
   `dataclasses.replace(profile, factor_id=...)` escape hatch, or
   `expand_over=[<context key>]`).
 

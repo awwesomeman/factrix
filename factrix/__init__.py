@@ -12,14 +12,14 @@ Single-factor::
     import factrix as fx
 
     cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-    profile = fx.evaluate(panel, cfg)
+    profile = fx.evaluate(panel, cfg)["factor"]
     print(profile.primary_p)
     print(profile.diagnose())
 
 Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
-    profiles = [fx.evaluate(panel, cfg) for cfg in candidate_configs]
-    survivors = fx.multi_factor.bhy(profiles, q=0.05)
+    profiles = fx.evaluate(wide_panel, cfg, factor_cols=candidate_cols)
+    survivors = fx.multi_factor.bhy(profiles.values(), q=0.05)
 
 Schema reflection::
 
@@ -36,6 +36,8 @@ typical usage patterns in a single fetch. Two access paths::
     import importlib.resources
     text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
+
+from collections.abc import Sequence
 
 from factrix import datasets, multi_factor, preprocess
 from factrix._analysis_config import AnalysisConfig
@@ -88,9 +90,15 @@ def evaluate(
     config: AnalysisConfig | None = None,
     /,
     *,
-    factor_col: str = "factor",
-) -> FactorProfile:
-    """Evaluate one factor against its forward returns and return a FactorProfile.
+    factor_cols: Sequence[str] = ("factor",),
+) -> dict[str, FactorProfile]:
+    """Evaluate one or more factors against forward returns.
+
+    Returns ``dict[factor_id, FactorProfile]`` keyed by the names in
+    ``factor_cols``. Mirrors the ``run_metrics`` contract from #402 so
+    the two entry points share an input arity model — pass a list,
+    get back a dict — even for the single-factor case
+    (``fx.evaluate(panel, cfg)["factor"]``).
 
     The profile carries ``primary_p`` (the headline p-value for downstream
     false discovery rate (FDR)), the cell-specific statistics, sample-size diagnostics, warnings,
@@ -157,16 +165,23 @@ def evaluate(
         config: Validated ``AnalysisConfig`` selecting the dispatch cell
             (``Scope × Signal × Metric``). Construct via one of the four
             factories on the class.
-        factor_col: Name of the signal column on ``panel`` (default
-            ``"factor"``). Renamed to ``"factor"`` internally before
-            dispatch. Looping over candidates with different
-            ``factor_col=`` values is the canonical multi-factor pattern.
+        factor_cols: Names of the signal columns on ``panel`` to
+            evaluate. Each column is projected and renamed to
+            ``"factor"`` before dispatch; the returned dict is keyed
+            by the original ``factor_cols`` name and each profile's
+            ``factor_id`` is stamped to match. Default ``("factor",)``
+            keeps the canonical single-factor case ergonomic — index
+            via ``["factor"]`` to get the profile.
 
     Returns:
-        [`FactorProfile`][factrix.FactorProfile] with ``primary_p``,
-        ``stats``, ``warnings``, ``info_notes``, ``mode``, ``n_obs``,
-        ``n_assets``, plus ``identity = (factor_id, forward_periods)``
-        and ``context = {universe_id, regime_id, ...}``.
+        ``dict[factor_name, FactorProfile]`` — one entry per name in
+        ``factor_cols``. Each [`FactorProfile`][factrix.FactorProfile]
+        carries ``primary_p``, ``stats``, ``warnings``, ``info_notes``,
+        ``mode``, ``n_obs``, ``n_assets``, plus
+        ``identity = (factor_id, forward_periods)`` and
+        ``context = {universe_id, regime_id, ...}``. Feed
+        ``.values()`` to [`bhy`][factrix.multi_factor.bhy] for FDR
+        screening.
 
     Raises:
         MissingConfigError: ``evaluate(panel)`` called without an
@@ -179,9 +194,8 @@ def evaluate(
         InsufficientSampleError: ``T`` below the procedure's
             ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
             ``.required_periods``.
-        ValueError: ``factor_col`` not present on ``panel``, or both
-            ``"factor"`` and ``factor_col`` present with differing values
-            (ambiguous which is the signal — drop the unused column).
+        UserInputError: ``factor_cols`` empty, contains duplicates, or
+            references a column not present on ``panel``.
 
     Examples:
         Single-factor inference on a cross-sectional panel:
@@ -191,15 +205,17 @@ def evaluate(
         >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, cfg)
+        >>> profile = fx.evaluate(panel, cfg)["factor"]
 
         Non-default signal column name:
 
         >>> panel_renamed = panel.rename({"factor": "alpha"})
-        >>> profile = fx.evaluate(panel_renamed, cfg, factor_col="alpha")
+        >>> profile = fx.evaluate(panel_renamed, cfg, factor_cols=["alpha"])["alpha"]
 
-        Multi-factor screening with FDR — see
-        :func:`factrix.multi_factor.bhy`.
+        Multi-factor batch:
+
+        >>> profiles = fx.evaluate(wide_panel, cfg, factor_cols=["alpha", "beta"])  # doctest: +SKIP
+        >>> survivors = fx.multi_factor.bhy(profiles.values())                       # doctest: +SKIP
     """
     if config is None:
         raise MissingConfigError(
@@ -209,7 +225,7 @@ def evaluate(
             "https://awwesomeman.github.io/factrix/getting-started/"
         )
     panel = _coerce_panel(panel)
-    return _evaluate(panel, config, factor_col=factor_col)
+    return _evaluate(panel, config, factor_cols=factor_cols)
 
 
 __version__ = "0.13.0"
