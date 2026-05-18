@@ -66,10 +66,7 @@ def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]
 
 def _render_row(row: _GroupedRow) -> str:
     module_cell = f"[`metrics.{row.module}`][factrix.metrics.{row.module}]"
-    return (
-        f"| {module_cell} | `{row.cell_raw}` | "
-        f"{row.family} | {row.inference} |\n"
-    )
+    return f"| {module_cell} | `{row.cell_raw}` | {row.family} | {row.inference} |\n"
 
 
 def generate() -> None:

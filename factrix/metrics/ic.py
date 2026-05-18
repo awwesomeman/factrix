@@ -49,7 +49,10 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 _IC_CELL = cell(
-    FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric=Metric.IC, mode=Mode.PANEL,
+    FactorScope.INDIVIDUAL,
+    Signal.CONTINUOUS,
+    metric=Metric.IC,
+    mode=Mode.PANEL,
 )
 _IC_PRIMITIVES = (
     "_newey_west_t_test",
@@ -70,9 +73,27 @@ __metric_specs__ = (
         primitives=_IC_PRIMITIVES,
         is_stage1=True,
     ),
-    MetricSpec(name="ic", cell=_IC_CELL, family="cs-first", inference=_IC_INFERENCE, primitives=_IC_PRIMITIVES),
-    MetricSpec(name="ic_newey_west", cell=_IC_CELL, family="cs-first", inference=_IC_INFERENCE, primitives=_IC_PRIMITIVES),
-    MetricSpec(name="ic_ir", cell=_IC_CELL, family="cs-first", inference=_IC_INFERENCE, primitives=_IC_PRIMITIVES),
+    MetricSpec(
+        name="ic",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="ic_newey_west",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+    ),
+    MetricSpec(
+        name="ic_ir",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+    ),
 )
 
 # Slice-test contract (#153 §5): IC is per-date Spearman rank

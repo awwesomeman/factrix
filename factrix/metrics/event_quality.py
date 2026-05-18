@@ -60,7 +60,13 @@ __metric_specs__ = tuple(
         inference=_EQ_INFERENCE,
         primitives=_EQ_PRIMITIVES,
     )
-    for _name in ("event_hit_rate", "event_ic", "profit_factor", "event_skewness", "signal_density")
+    for _name in (
+        "event_hit_rate",
+        "event_ic",
+        "profit_factor",
+        "event_skewness",
+        "signal_density",
+    )
 )
 
 

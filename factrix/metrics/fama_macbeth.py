@@ -49,7 +49,10 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 _FM_CELL = cell(
-    FactorScope.INDIVIDUAL, Signal.CONTINUOUS, metric=Metric.FM, mode=Mode.PANEL,
+    FactorScope.INDIVIDUAL,
+    Signal.CONTINUOUS,
+    metric=Metric.FM,
+    mode=Mode.PANEL,
 )
 _FM_PRIMITIVES = (
     "_newey_west_t_test",
