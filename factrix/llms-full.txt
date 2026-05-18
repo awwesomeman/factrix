@@ -235,16 +235,20 @@ below for the full hierarchy + recovery payloads):
 ### `run_metrics`
 
 ```
-factrix.run_metrics(panel: polars.DataFrame, cfg: AnalysisConfig,
-                    *, factor_col: str = "factor",
-                    metrics: list[str] | None = None) -> MetricsBundle
+factrix.run_metrics(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
+                    *, factor_cols: Sequence[str] = ("factor",),
+                    metrics: list[str] | None = None) -> dict[str, MetricsBundle]
 ```
 
 Cell-level descriptive batch runner — the descriptive twin of
 `evaluate`. Same `(panel, cfg)` entry contract; disjoint result type
 (`evaluate` carries the primary inferential `FactorProfile`,
-`run_metrics` carries the cell's descriptive surface as a
-`MetricsBundle`). `metrics=None` auto-discovers via
+`run_metrics` carries the cell's descriptive surface as one
+`MetricsBundle` per factor). N=1 is the list-of-1 case of the
+general batch path; IC stage-1 and batch-native primitives
+(`compute_ic` / `quantile_spread` / `monotonicity`) share one polars
+query across all factors, non-batch primitives are looped per factor
+on a thin projection. `metrics=None` auto-discovers via
 `list_metrics(cfg.scope, cfg.signal)` filtered for `panel`-input
 metrics; `metrics=[...]` validates names and raises
 `UserInputError` (with fuzzy suggestion) for unknown / excluded
@@ -259,6 +263,37 @@ Raises `RunMetricsError` (chained `__cause__`) when a metric or the
 stage-1 helper hits an unexpected exception; sample-floor failures
 are converted to short-circuit `MetricOutput` entries inside the
 bundle, not raised.
+
+### `run_metrics_chunked`
+
+```
+factrix.run_metrics_chunked(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
+                            *, factor_cols: Sequence[str],
+                            metrics: list[str] | None = None,
+                            chunk_size: int | None = None,
+                            base_cols: Sequence[str] = ("date", "asset_id", "forward_return"),
+                            ) -> Iterator[dict[str, MetricsBundle]]
+```
+
+Memory-bounded variant of `run_metrics` for large-N factor screens.
+Splits `factor_cols` into chunks, narrows `panel` to
+`base_cols + chunk` per iteration (`pl.LazyFrame` inputs get
+per-chunk projection pushdown via `select().collect()`), calls
+`run_metrics` on each chunk, and yields the per-chunk
+`dict[factor_id, MetricsBundle]` so peak RSS is bounded by
+`chunk_size` rather than `len(factor_cols)`. Within a chunk the
+full batch-dispatch path runs unchanged — IC stage-1 is shared
+across the chunk's factors and batch-native primitives still take
+one call per metric; across chunks IC stage-1 is recomputed, so
+very small `chunk_size` pays the per-chunk dispatcher overhead
+without the batch-sharing benefit. `chunk_size=None` (default)
+targets ~25% of `psutil.virtual_memory().available` as the
+per-chunk peak budget; pass an explicit value to override. Eager
+schema check on `base_cols + factor_cols` so a missing column
+raises `UserInputError` before the first yield rather than failing
+mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
+extras) required only by the auto-sizing path; explicit
+`chunk_size` skips it.
 
 ### `MetricsBundle`
 
