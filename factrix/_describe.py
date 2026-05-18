@@ -14,7 +14,12 @@ from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._errors import IncompatibleAxisError
 from factrix._evaluate import _derive_mode
-from factrix._metric_index import user_facing_rows
+from factrix._metric_index import (
+    docs_anchor_for,
+    emitted_name_of,
+    import_path_for,
+    public_specs,
+)
 from factrix._registry import (
     _DISPATCH_REGISTRY,
     _dispatch_key_for,
@@ -566,8 +571,10 @@ def list_metrics(
         ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
         ... )
     """
-    rows = [r for r in user_facing_rows() if r.cell.matches(scope, signal)]
-    if not rows:
+    matches = [
+        (stem, spec) for stem, spec in public_specs() if spec.cell.matches(scope, signal)
+    ]
+    if not matches:
         raise IncompatibleAxisError(
             f"no standalone metrics registered for "
             f"(scope={scope.value}, signal={signal.value})"
@@ -575,22 +582,22 @@ def list_metrics(
     if format == "json":
         return [
             {
-                "name": r.name,
-                "module": r.module,
-                "cell": r.cell.raw,
-                "agg_order": r.agg_order,
-                "inference_se": r.inference_se,
-                "import_path": r.import_path,
-                "input_kind": r.input_kind,
-                "docs_anchor": r.docs_anchor,
-                "emitted_name": r.emitted_name,
+                "name": spec.name,
+                "module": stem,
+                "cell": spec.cell.raw,
+                "agg_order": spec.family,
+                "inference_se": spec.inference,
+                "import_path": import_path_for(stem),
+                "input_kind": spec.input_kind,
+                "docs_anchor": docs_anchor_for(stem, spec.name),
+                "emitted_name": emitted_name_of(spec),
             }
-            for r in rows
+            for stem, spec in matches
         ]
     if with_import:
-        width = max(len(r.name) for r in rows)
-        return [f"{r.name:<{width}} → {r.import_path}" for r in rows]
-    return [r.name for r in rows]
+        width = max(len(spec.name) for _, spec in matches)
+        return [f"{spec.name:<{width}} → {import_path_for(stem)}" for stem, spec in matches]
+    return [spec.name for _, spec in matches]
 
 
 # ---------------------------------------------------------------------------

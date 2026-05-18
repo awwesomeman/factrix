@@ -86,7 +86,7 @@ def test_emitted_name_matches_metric_output_literal() -> None:
     metric is added that emits a non-matching ``name=`` and the spec
     author forgets to set ``emitted_name``.
     """
-    from factrix._metric_index import user_facing_rows
+    from factrix._metric_index import emitted_name_of, public_specs
 
     fn_to_emitted: dict[str, str] = {}
     for path in METRICS_DIR.glob("*.py"):
@@ -106,7 +106,7 @@ def test_emitted_name_matches_metric_output_literal() -> None:
                         if kw.arg == "name" and isinstance(kw.value, ast.Constant):
                             fn_to_emitted.setdefault(fn.name, kw.value.value)
 
-    expected_by_name = {r.name: r.emitted_name for r in user_facing_rows()}
+    expected_by_name = {spec.name: emitted_name_of(spec) for _, spec in public_specs()}
     mismatches: list[str] = []
     for fn, emitted in fn_to_emitted.items():
         if fn not in expected_by_name:
@@ -136,14 +136,15 @@ def test_generated_name_index_matches_renderer() -> None:
             "'python scripts/mkdocs_hooks/gen_metric_name_index.py' "
             "or 'mkdocs build' first."
         )
-    from factrix._metric_index import user_facing_rows
+    from factrix._metric_index import emitted_name_of, public_specs
     from scripts.mkdocs_hooks.gen_metric_name_index import (
         _TABLE_HEADER,
         _render_row,
     )
 
     expected = _TABLE_HEADER + "".join(
-        _render_row(r) for r in sorted(user_facing_rows(), key=lambda r: r.emitted_name)
+        _render_row(stem, spec)
+        for stem, spec in sorted(public_specs(), key=lambda pair: emitted_name_of(pair[1]))
     )
     actual = GENERATED_NAME_INDEX.read_text(encoding="utf-8")
     assert actual == expected, (
@@ -166,14 +167,14 @@ def test_generated_evaluate_metric_table_matches_renderer() -> None:
             "'python scripts/mkdocs_hooks/gen_evaluate_metric_table.py' "
             "or 'mkdocs build' first."
         )
-    from factrix._metric_index import user_facing_rows
+    from factrix._metric_index import import_path_for, public_specs
     from factrix._registry import _DISPATCH_REGISTRY
     from scripts.mkdocs_hooks.gen_evaluate_metric_table import (
         _TABLE_HEADER,
         _render_row,
     )
 
-    import_path_by_name = {r.name: r.import_path for r in user_facing_rows()}
+    import_path_by_name = {spec.name: import_path_for(stem) for stem, spec in public_specs()}
     expected = _TABLE_HEADER + "".join(
         _render_row(e, import_path_by_name) for e in _DISPATCH_REGISTRY.values()
     )

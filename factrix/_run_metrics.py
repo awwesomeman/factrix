@@ -31,7 +31,7 @@ from factrix._errors import (
     RunMetricsError,
     UserInputError,
 )
-from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, user_facing_rows
+from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, public_specs
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -254,9 +254,9 @@ def _coerce_optional_str(value: object) -> str | None:
 
 def _candidate_metric_names(scope: Any, signal: Any) -> list[str]:
     return [
-        r.name
-        for r in user_facing_rows()
-        if r.cell.matches(scope, signal) and r.input_kind == "panel"
+        spec.name
+        for _, spec in public_specs()
+        if spec.cell.matches(scope, signal) and spec.input_kind == "panel"
     ]
 
 

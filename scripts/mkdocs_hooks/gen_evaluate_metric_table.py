@@ -3,7 +3,7 @@
 Renders a Markdown table to
 ``docs/reference/_generated_evaluate_metric_table.md`` from
 ``factrix._registry._DISPATCH_REGISTRY`` and the
-``factrix._metric_index.user_facing_rows`` import-path index.
+``factrix._metric_index.public_specs`` import-path index.
 
 Usage (manual)::
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pathlib
 
-from factrix._metric_index import user_facing_rows
+from factrix._metric_index import import_path_for, public_specs
 from factrix._registry import (
     _DISPATCH_REGISTRY,
     _SCOPE_COLLAPSED,
@@ -55,7 +55,7 @@ def _render_row(entry: _RegistryEntry, import_path_by_name: dict[str, str]) -> s
 
 def generate() -> None:
     """Generate ``_generated_evaluate_metric_table.md`` from the registry."""
-    import_path_by_name = {row.name: row.import_path for row in user_facing_rows()}
+    import_path_by_name = {spec.name: import_path_for(stem) for stem, spec in public_specs()}
     entries = list(_DISPATCH_REGISTRY.values())
     lines = [_TABLE_HEADER, *(_render_row(e, import_path_by_name) for e in entries)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
