@@ -15,9 +15,13 @@ from unittest.mock import patch
 
 import factrix as fx
 import pytest
-from factrix._axis import FactorScope, Signal
+from factrix._axis import FactorScope, Signal, Visibility
 from factrix._errors import IncompatibleAxisError
-from factrix._metric_index import MetricRow, stage1_helper_names, user_facing_rows
+from factrix._metric_index import (
+    _all_specs,
+    import_path_for,
+    public_specs,
+)
 
 _APPLICABILITY_DOC = pathlib.Path("docs/reference/metric-applicability.md")
 
@@ -141,15 +145,18 @@ def test_list_metrics_matches_applicability_doc(
 # ---------------------------------------------------------------------------
 
 
-def test_stage1_helpers_excluded_from_user_facing_rows() -> None:
-    names = {row.name for row in user_facing_rows()}
-    assert stage1_helper_names().isdisjoint(names)
+def test_internal_specs_excluded_from_public_specs() -> None:
+    public_names = {spec.name for _, spec in public_specs()}
+    internal_names = {
+        spec.name for _, spec in _all_specs() if spec.visibility is Visibility.INTERNAL
+    }
+    assert internal_names.isdisjoint(public_names)
 
 
 def test_compute_rolling_mean_beta_remains_user_facing() -> None:
     # Sanity: it starts with ``compute_`` but is a real metric per the doc;
-    # exclusion must be by name set, not prefix.
-    names = {row.name for row in user_facing_rows()}
+    # exclusion is by visibility, not prefix.
+    names = {spec.name for _, spec in public_specs()}
     assert "compute_rolling_mean_beta" in names
 
 
@@ -266,7 +273,7 @@ def test_incompatible_axis_pair_raises() -> None:
     # All four real (scope, signal) combos are populated; simulate a
     # genuinely unrepresented pair by monkeypatching the index empty.
     with (
-        patch("factrix._describe.user_facing_rows", return_value=[]),
+        patch("factrix._describe.public_specs", return_value=()),
         pytest.raises(IncompatibleAxisError),
     ):
         fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
@@ -294,18 +301,17 @@ def test_list_metrics_in_public_namespace() -> None:
     assert callable(fx.list_metrics)
 
 
-def test_metric_row_dataclass_fields_are_serialisable() -> None:
-    row = user_facing_rows()[0]
-    assert isinstance(row, MetricRow)
+def test_public_spec_fields_are_serialisable() -> None:
+    stem, spec = public_specs()[0]
     serialised = json.dumps(
         {
-            "name": row.name,
-            "module": row.module,
-            "cell": row.cell.raw,
-            "agg_order": row.agg_order,
-            "inference_se": row.inference_se,
-            "import_path": row.import_path,
-            "input_kind": row.input_kind,
+            "name": spec.name,
+            "module": stem,
+            "cell": spec.cell.raw,
+            "agg_order": spec.family,
+            "inference_se": spec.inference,
+            "import_path": import_path_for(stem),
+            "input_kind": spec.input_kind,
         }
     )
-    assert json.loads(serialised)["name"] == row.name
+    assert json.loads(serialised)["name"] == spec.name

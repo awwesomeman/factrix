@@ -31,11 +31,10 @@ from factrix._errors import (
     RunMetricsError,
     UserInputError,
 )
-from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, user_facing_rows
+from factrix._metric_index import _AUTO_DISCOVER_EXCLUDED, public_specs, spec_by_name
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._types import MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
-from factrix.metrics._protocol import is_batch_primitive, is_ic_consumer
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
@@ -254,9 +253,9 @@ def _coerce_optional_str(value: object) -> str | None:
 
 def _candidate_metric_names(scope: Any, signal: Any) -> list[str]:
     return [
-        r.name
-        for r in user_facing_rows()
-        if r.cell.matches(scope, signal) and r.input_kind == "panel"
+        spec.name
+        for _, spec in public_specs()
+        if spec.cell.matches(scope, signal) and spec.input_kind == "panel"
     ]
 
 
@@ -401,12 +400,15 @@ class _DispatchProtocol:
 
 
 class _IcConsumerProtocol(_DispatchProtocol):
-    """``@ic_consumer`` — share one ``compute_ic`` stage-1 across consumers."""
+    """``MetricSpec.requires={"ic_df": compute_ic}`` — share one
+    ``compute_ic`` stage-1 across consumers.
+    """
 
     name = "ic_consumer"
 
     def matches(self, fn: Callable[..., Any]) -> bool:
-        return is_ic_consumer(fn)
+        spec = spec_by_name().get(fn.__name__)
+        return spec is not None and "ic_df" in spec.requires
 
     def bind(
         self,
@@ -436,7 +438,7 @@ class _IcConsumerProtocol(_DispatchProtocol):
 
 
 class _BatchPrimitiveProtocol(_DispatchProtocol):
-    """``@batch_primitive`` — one call across the whole factor batch.
+    """``MetricSpec.batchable=True`` — one call across the whole factor batch.
 
     Sample-floor failures surface as short-circuit entries in the
     returned dict (the primitive's contract), not via exception, so
@@ -448,7 +450,8 @@ class _BatchPrimitiveProtocol(_DispatchProtocol):
     name = "batch_primitive"
 
     def matches(self, fn: Callable[..., Any]) -> bool:
-        return is_batch_primitive(fn)
+        spec = spec_by_name().get(fn.__name__)
+        return spec is not None and spec.batchable
 
     def bind(
         self,

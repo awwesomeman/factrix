@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import Mode, Signal, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -34,24 +34,6 @@ __all__ = [
 
 _MFE_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
 _MFE_PRIMITIVES = ("_short_circuit_output",)
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_mfe_mae",
-        cell=_MFE_CELL,
-        family="per-event",
-        inference="no formal H_0",
-        primitives=_MFE_PRIMITIVES,
-        is_stage1=True,
-    ),
-    MetricSpec(
-        name="mfe_mae_summary",
-        cell=_MFE_CELL,
-        family="per-event",
-        inference="no formal H_0",
-        primitives=_MFE_PRIMITIVES,
-    ),
-)
 
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
@@ -358,3 +340,23 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         value=ratio,
         metadata=metadata,
     )
+
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_mfe_mae",
+        cell=_MFE_CELL,
+        family="per-event",
+        inference="no formal H_0",
+        primitives=_MFE_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+    ),
+    MetricSpec(
+        name="mfe_mae_summary",
+        cell=_MFE_CELL,
+        family="per-event",
+        inference="no formal H_0",
+        primitives=_MFE_PRIMITIVES,
+        requires={"mfe_mae_df": compute_mfe_mae},
+    ),
+)

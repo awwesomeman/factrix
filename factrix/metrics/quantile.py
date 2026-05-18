@@ -20,7 +20,7 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, Mode, Signal, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -38,7 +38,6 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_high_tie_ratio,
 )
-from factrix.metrics._protocol import batch_primitive
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_spread_series",
@@ -67,7 +66,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
         name="quantile_spread",
@@ -75,6 +74,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
+        batchable=True,
     ),
     MetricSpec(
         name="quantile_spread_vw",
@@ -89,7 +89,7 @@ __metric_specs__ = (
         family="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
-        is_stage1=True,
+        visibility=Visibility.INTERNAL,
     ),
 )
 
@@ -198,7 +198,6 @@ def compute_spread_series(
     }
 
 
-@batch_primitive
 def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,

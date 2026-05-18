@@ -16,8 +16,19 @@ Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) 
 
 ## [Unreleased]
 
+### Added
+
+- **`MetricSpec.requires` / `MetricSpec.batchable` / `MetricSpec.visibility` + `Visibility` enum** (#440). Three new typed fields on `MetricSpec` replace the side-table machinery used by the dispatcher: `visibility=Visibility.INTERNAL` marks stage-1 producers excluded from `list_metrics` / `inspection.metrics.applicable` (was `is_stage1=True`); `batchable=True` marks callables that accept `factor_cols=` and return `dict[factor, output]` (was the `@batch_primitive` decorator); `requires: dict[str, Callable]` declares upstream metric callables to be injected into the named consumer parameter (was the `@ic_consumer` decorator for IC consumers). The dispatcher consumes the new fields via `factrix._metric_index.spec_by_name()`. The dict-callable form for `requires` keeps refactors safe — typo at the producer reference raises `NameError` at import time, and IDE rename tracks both sites at once.
+
+### Changed
+
+- **`is_stage1=True` -> `visibility=Visibility.INTERNAL` on 9 stage-1 producer specs** (#440). `compute_ic`, `compute_caar`, `compute_fm_betas`, `compute_mfe_mae`, `compute_event_returns`, `compute_ts_betas` (×2), `compute_spread_series`, `compute_group_returns` migrate to the new field. The `is_stage1` field is removed outright (no transitional alias).
+- **`@batch_primitive` / `@ic_consumer` decorators retired** (#440). `factrix.metrics.ic` / `quantile` / `monotonicity` previously imported these decorators from `factrix.metrics._protocol`; the markers now live on the corresponding `MetricSpec` (`batchable=True` and `requires={"ic_df": compute_ic}` respectively). The decorator module is deleted entirely.
+
 ### Removed
 
+- **`MetricSpec.is_stage1` field** (#440). Replaced by `MetricSpec.visibility`. No deprecated alias.
+- **`factrix/metrics/_protocol.py`** (#440). Module deleted entirely (`@batch_primitive`, `@ic_consumer`, `_BATCH_ATTR`, `_IC_ATTR`, `is_batch_primitive`, `is_ic_consumer`); their roles fold into `MetricSpec.batchable` / `MetricSpec.requires`.
 - **`fx.evaluate(..., factor_col=...)` kwarg + scalar `FactorProfile` return** (#421). Replaced by `factor_cols: Sequence[str]` / `dict[str, FactorProfile]` (see migration table in `### Changed` below). The old `ValueError`s for `factor_col not found` and `'factor' and factor_col both present (ambiguous)` are gone; the new `UserInputError`s on `factor_cols` cover the empty / duplicate / missing-column cases. Sibling factor columns are dropped silently when projecting per factor (the explicit `factor_cols` list is the unambiguous intent).
 
 ### Changed

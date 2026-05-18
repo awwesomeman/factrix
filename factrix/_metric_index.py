@@ -11,6 +11,11 @@ in which cell" and drives:
 - ``scripts/mkdocs_hooks/gen_evaluate_metric_table.py`` — dispatch table
 - ``tests/test_docs_matrix.py`` — coverage + invariant tests
 
+Consumers iterate via :func:`public_specs` (visibility-filtered) or
+:func:`_all_specs` (everything, internal). Derived fields use the
+small helpers :func:`import_path_for` / :func:`docs_anchor_for` /
+:func:`emitted_name_of`.
+
 Why typed: IDE completion, mypy-checkable axes, refactor-safe field
 access. Adding a new metric module just imports :class:`MetricSpec` and
 :func:`cell` and declares::
@@ -24,11 +29,6 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
             primitives=("_calc_t_stat", "_p_value_from_t"),
         ),
     )
-
-Per-spec ``is_stage1`` / ``input_kind`` / ``emitted_name`` flags replace
-the legacy module-level side tables (``_STAGE1_HELPERS`` /
-``_SCALAR_INPUT_METRICS`` / ``_EMITTED_NAME_OVERRIDES``) so the per-
-metric properties travel with the spec that declares them.
 """
 
 from __future__ import annotations
@@ -36,29 +36,27 @@ from __future__ import annotations
 import functools
 import importlib
 import pathlib
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Literal
 
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 
-# Canonical reverse-index URL convention for ``MetricRow.docs_anchor``
-# (#125): docs-root-relative path + mkdocstrings symbol fragment.
-# Centralised here so a future docs URL change touches one literal —
-# external prose in ``factrix._describe.list_metrics`` and
-# ``docs/api/metric-output.md`` cite this constant by name rather
-# than restating the string.
+# Canonical reverse-index URL convention for
+# :func:`docs_anchor_for` (#125): docs-root-relative path +
+# mkdocstrings symbol fragment. Centralised here so a future docs URL
+# change touches one literal — external prose in
+# ``factrix._describe.list_metrics`` and ``docs/api/metric-output.md``
+# cite this constant by name rather than restating the string.
 DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 
 # Metrics that ``run_metrics`` cannot auto-discover even though their
 # spec is user-facing. Each entry carries a short reason rendered into
 # ``MetricsBundle.skipped`` and into the ``UserInputError`` raised when
-# a caller names one explicitly via ``metrics=[...]``. Stays as a side
-# table — these reasons describe cross-cutting dispatcher-wiring gaps
-# (stage-2 frame the runner cannot synthesise, series-input shape, etc.),
-# not properties intrinsic to a single metric.
+# a caller names one explicitly via ``metrics=[...]``.
 _AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
     "caar": (
         "consumes caar_df; call factrix.metrics.compute_event_returns + "
@@ -198,16 +196,25 @@ class MetricSpec:
       date-slicing dispatchers like :func:`factrix.by_slice`) or
       ``"scalar"`` (pre-aggregated-scalar utility like
       :func:`factrix.metrics.breakeven_cost`).
-    - ``is_stage1``: ``True`` for intermediate-frame producers
-      (typically ``compute_*``) that are user-callable but do not
-      themselves return ``MetricOutput``. Excluded from
-      :func:`user_facing_rows`.
     - ``emitted_name``: literal ``MetricOutput.name`` string at
       runtime. ``None`` (default) means the runtime label matches
       ``name`` — the common case. Set explicitly when the callable
       emits a different label (e.g. ``fama_macbeth`` emits
       ``fm_beta``). Consumers holding a :class:`~factrix.MetricOutput`
-      should resolve via :attr:`MetricRow.emitted_name`.
+      should resolve via :func:`emitted_name_of`.
+    - ``requires``: ``{consumer_param_name: producer_callable}``. Key
+      is a parameter on the declaring callable; value is another
+      callable that has a :class:`MetricSpec` in its module's
+      ``__metric_specs__`` whose per-factor output the DAG executor
+      injects at that parameter. Empty dict means no upstream
+      dependency.
+    - ``batchable``: ``True`` when the callable accepts
+      ``factor_cols=`` and returns ``dict[factor_name, output]`` so
+      the DAG executor calls it once across the whole batch.
+    - ``visibility``: ``PUBLIC`` for user-facing metric (default);
+      ``INTERNAL`` for stage-1 helpers (excluded from
+      ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
+      but pulled by the DAG via ``requires``).
     """
 
     name: str
@@ -216,37 +223,10 @@ class MetricSpec:
     inference: str
     primitives: tuple[str, ...] = ()
     input_kind: Literal["panel", "scalar"] = "panel"
-    is_stage1: bool = False
     emitted_name: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class MetricRow:
-    """User-facing view of one :class:`MetricSpec` plus derived metadata.
-
-    Augments the declaring-module spec with ``import_path`` (every
-    public metric is also re-exported from ``factrix.metrics``),
-    ``docs_anchor`` (docs-root-relative path + mkdocstrings symbol
-    fragment per :data:`DOCS_ANCHOR_FMT`), and the resolved
-    ``emitted_name`` (falls back to ``name`` when the spec leaves it
-    ``None``).
-
-    ``agg_order`` and ``inference_se`` are aliases for the spec's
-    ``family`` / ``inference`` fields — preserved under their original
-    names so docs-hook and test-suite consumers do not have to change
-    field references when the source-of-truth migrates from string
-    parsing to typed spec.
-    """
-
-    name: str
-    module: str
-    cell: Cell
-    agg_order: str
-    inference_se: str
-    import_path: str
-    input_kind: Literal["panel", "scalar"]
-    docs_anchor: str
-    emitted_name: str
+    requires: dict[str, Callable] = field(default_factory=dict)
+    batchable: bool = False
+    visibility: Visibility = Visibility.PUBLIC
 
 
 # ---------------------------------------------------------------------------
@@ -299,48 +279,46 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     return tuple(out)
 
 
-def _row_from_spec(stem: str, spec: MetricSpec) -> MetricRow:
-    return MetricRow(
-        name=spec.name,
-        module=stem,
-        cell=spec.cell,
-        agg_order=spec.family,
-        inference_se=spec.inference,
-        import_path=f"factrix.metrics.{stem}",
-        input_kind=spec.input_kind,
-        docs_anchor=DOCS_ANCHOR_FMT.format(module=stem, name=spec.name),
-        emitted_name=spec.emitted_name or spec.name,
-    )
-
-
 @functools.cache
-def _all_rows() -> list[MetricRow]:
-    """Return every spec exploded into a :class:`MetricRow`, sorted by
-    ``(module, name)``. Includes stage-1 helpers; for the user-facing
-    subset call :func:`user_facing_rows`.
+def public_specs() -> tuple[tuple[str, MetricSpec], ...]:
+    """Return ``((stem, spec), ...)`` for every ``visibility=PUBLIC`` spec.
+
+    Sorted by ``(stem, spec.name)``. Stage-1 helpers
+    (``visibility=INTERNAL``) are filtered out — they are pulled by
+    the DAG executor via :attr:`MetricSpec.requires` and do not
+    surface in :func:`factrix.list_metrics` or result dict keys.
     """
-    rows = [_row_from_spec(stem, spec) for stem, spec in _all_specs()]
-    rows.sort(key=lambda r: (r.module, r.name))
-    return rows
+    out = [
+        (stem, spec)
+        for stem, spec in _all_specs()
+        if spec.visibility is Visibility.PUBLIC
+    ]
+    out.sort(key=lambda pair: (pair[0], pair[1].name))
+    return tuple(out)
 
 
-@functools.cache
-def user_facing_rows() -> list[MetricRow]:
-    """Return parsed rows excluding stage-1 helpers, sorted by ``(module, name)``."""
-    return [r for r in _all_rows() if r.name not in stage1_helper_names()]
+def import_path_for(stem: str) -> str:
+    """Return the public import path for a metric module stem."""
+    return f"factrix.metrics.{stem}"
 
 
-@functools.cache
-def stage1_helper_names() -> frozenset[str]:
-    """Return the set of stage-1 helper callable names across all modules.
+def docs_anchor_for(stem: str, name: str) -> str:
+    """Return the docs-root-relative anchor for a metric callable."""
+    return DOCS_ANCHOR_FMT.format(module=stem, name=name)
 
-    Derived from each spec's ``is_stage1`` flag so the per-metric
-    property travels with the spec that declares it.
-    """
-    return frozenset(spec.name for _, spec in _all_specs() if spec.is_stage1)
+
+def emitted_name_of(spec: MetricSpec) -> str:
+    """Return the runtime ``MetricOutput.name`` label for a spec."""
+    return spec.emitted_name or spec.name
 
 
 @functools.cache
 def module_specs(stem: str) -> tuple[MetricSpec, ...]:
     """Return the spec tuple declared by one metric module."""
     return _load_module_specs(stem)
+
+
+@functools.cache
+def spec_by_name() -> dict[str, MetricSpec]:
+    """Return ``{name: spec}`` across every spec (public and internal)."""
+    return {spec.name: spec for _, spec in _all_specs()}

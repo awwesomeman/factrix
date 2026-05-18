@@ -26,7 +26,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import Mode, Signal, Visibility
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -66,31 +66,6 @@ _CAAR_PRIMITIVES = (
     "_short_circuit_output",
 )
 _CAAR_INFERENCE = "non-overlapping t / z"
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_caar",
-        cell=_CAAR_CELL,
-        family="per-event",
-        inference=_CAAR_INFERENCE,
-        primitives=_CAAR_PRIMITIVES,
-        is_stage1=True,
-    ),
-    MetricSpec(
-        name="caar",
-        cell=_CAAR_CELL,
-        family="per-event",
-        inference=_CAAR_INFERENCE,
-        primitives=_CAAR_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="bmp_test",
-        cell=_CAAR_CELL,
-        family="per-event",
-        inference=_CAAR_INFERENCE,
-        primitives=_CAAR_PRIMITIVES,
-    ),
-)
 
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
@@ -607,3 +582,30 @@ def _estimate_sar_icc(
     total = sigma2_between + sigma2_within
     r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
     return r_hat, n_eff, "icc"
+
+
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_caar",
+        cell=_CAAR_CELL,
+        family="per-event",
+        inference=_CAAR_INFERENCE,
+        primitives=_CAAR_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+    ),
+    MetricSpec(
+        name="caar",
+        cell=_CAAR_CELL,
+        family="per-event",
+        inference=_CAAR_INFERENCE,
+        primitives=_CAAR_PRIMITIVES,
+        requires={"caar_df": compute_caar},
+    ),
+    MetricSpec(
+        name="bmp_test",
+        cell=_CAAR_CELL,
+        family="per-event",
+        inference=_CAAR_INFERENCE,
+        primitives=_CAAR_PRIMITIVES,
+    ),
+)

@@ -131,7 +131,7 @@ _VERDICT_GLYPH: dict[RowVerdict, str] = {
 
 
 def _fmt(value: float | None, spec: str = ".2f") -> str:
-    return format(value, spec) if isinstance(value, (int, float)) else "—"
+    return format(value, spec) if isinstance(value, int | float) else "—"
 
 
 def render_markdown(rows: list[RowReport], incidents: list[IncidentReport]) -> str:
