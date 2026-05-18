@@ -886,6 +886,32 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
 - **`MetricOutput.spec`** (new field, default `None`) — back-pointer
   to the declaring `MetricSpec`. Stamped by runners at dispatch time;
   consumers can recover the spec without a name-keyed lookup.
+- **`DagExecutor`** — programmatic executor for a closed set of
+  `MetricSpec`. Topologically orders the graph
+  (`MetricSpec.requires` -> upstream callable), dispatches
+  `batchable=True` producers once per batch and `batchable=False`
+  callables once per factor on a thin projection, caches every
+  producer output per `(spec, factor)` so any number of downstream
+  consumers see one computation, propagates short-circuit
+  `MetricOutput` (`value=NaN` + `metadata["reason"]`) downstream
+  without invoking consumers, and emits a stable plan string per
+  `execute` call. Raises `CycleError` on dependency cycles and
+  `ValueError` when a referenced producer is missing from the
+  executor's spec set (no silent auto-close — the caller declares
+  the graph). Wiring as the default for `fx.evaluate` /
+  `fx.run_metrics` is the unification follow-up.
+- **`EvaluationResult.plan: str`** — required string emitted by the
+  DAG executor (numbered topological order with `[batchable]` /
+  `[per-factor]` role and a `requires=` upstream list when present).
+  No default; tests / manual constructions must pass an explicit
+  string. Upstream sharing is automatic — every producer runs once
+  and downstream consumers read from cache, so there is no separate
+  "share-hit" annotation.
+- **`WarningCode.UPSTREAM_UNAVAILABLE`** — fires when the DAG
+  executor short-circuits a downstream consumer because an upstream
+  producer returned a short-circuit `MetricOutput`. The downstream
+  `MetricOutput` carries `metadata["upstream"]` and
+  `metadata["upstream_reason"]` for root-cause recovery.
 
 ---
 
@@ -903,6 +929,7 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
 | `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) rather than textbook MacKinlay signed CAAR — apply `.sign()` before calling for sign-flip semantics. |
 | `few_events_brown_warner` | CAAR significance test with `MIN_EVENTS_HARD ≤ n_event_dates < MIN_EVENTS_WARN` (4..29); t-stat returned but Brown-Warner (1985) convention treats sub-30 events as power-thin for the asymptotic t. |
 | `borderline_portfolio_periods` | `top_concentration` with `MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN` (3..19); one-sided t-test on the per-date diversification ratio is returned but `df=n-1` inflates t_crit. |
+| `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited; downstream `MetricOutput.metadata` carries `upstream` / `upstream_reason` for root-cause recovery. |
 
 `InfoCode.SCOPE_AXIS_COLLAPSED` — `N=1` collapsed scope axis; routed via the
 `_SCOPE_COLLAPSED` sentinel (only fires for `SPARSE × TIMESERIES`).

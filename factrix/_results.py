@@ -123,6 +123,15 @@ class EvaluationResult:
         warnings: Flat list of :class:`Warning` records. Per-metric
             entries carry ``source=metric_name``; cross-metric or
             pre-dispatch entries carry ``source=None``.
+        plan: Multi-line execution plan emitted by the DAG executor —
+            numbered topological order of every spec the executor ran,
+            each line annotated with ``[batchable]`` / ``[per-factor]``,
+            the ``requires=`` upstream list, and any stage-1
+            share-hit marker. Required: callers constructing
+            :class:`EvaluationResult` outside the DAG (tests, manual
+            assembly) must supply an explicit string. There is no
+            default to avoid silent ``""`` placeholders that obscure
+            whether the DAG actually ran.
     """
 
     factor: str
@@ -131,6 +140,7 @@ class EvaluationResult:
     n_obs: int
     n_assets: int
     metrics: MetricResultGroup
+    plan: str
     warnings: list[Warning] = field(default_factory=list)
 
     def to_df(self) -> pl.DataFrame:
@@ -186,6 +196,7 @@ class EvaluationResult:
         - ``metrics_partition``: ``{"primary": [...], "diagnostic": [...]}``
           listing metric names in each partition
         - ``warnings``: list of ``{code, source, message}`` dicts
+        - ``plan``: the DAG execution plan string
 
         Float ``NaN`` / ``Inf`` are emitted as ``None`` so the dict
         survives ``json.dumps`` without ``allow_nan``.
@@ -217,6 +228,7 @@ class EvaluationResult:
                 }
                 for w in self.warnings
             ],
+            "plan": self.plan,
         }
 
     def _repr_html_(self) -> str:
@@ -274,11 +286,17 @@ class EvaluationResult:
                 f"<tbody>{w_rows}</tbody></table></details>"
             )
 
+        plan_block = (
+            "<details><summary>plan</summary>"
+            f"<pre>{html.escape(self.plan)}</pre></details>"
+            if self.plan
+            else ""
+        )
         return (
             "<div class='factrix-evaluation-result'>"
             "<table><caption>EvaluationResult</caption>"
             f"<tbody>{header_html}</tbody></table>"
-            f"{metric_table}{warnings_block}"
+            f"{metric_table}{warnings_block}{plan_block}"
             "</div>"
         )
 

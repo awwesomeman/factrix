@@ -69,6 +69,13 @@ class WarningCode(StrEnum):
     # or strongly collinear moment matrices.
     SINGULAR_WEIGHT_MATRIX = "singular_weight_matrix"
 
+    # Fired by the DAG executor when an upstream producer short-circuited
+    # (returned a NaN MetricOutput with metadata["reason"]) and the
+    # consumer is skipped. The downstream MetricOutput carries
+    # metadata["upstream"] / ["upstream_reason"] so the original cause
+    # is recoverable without re-walking the dependency graph.
+    UPSTREAM_UNAVAILABLE = "upstream_unavailable"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
@@ -113,6 +120,9 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.SINGULAR_WEIGHT_MATRIX: "GMM long-run covariance Ŝ was numerically "
         "singular; J-statistic was computed via Moore-Penrose pseudo-inverse rather than a "
         "true inverse. Fires on rank-deficient or strongly collinear moment matrices.",
+        WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
+        "producer short-circuited. The downstream MetricOutput carries "
+        "metadata['upstream'] / ['upstream_reason'] for the original cause.",
     }
 )
 

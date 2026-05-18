@@ -49,6 +49,7 @@ from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
+from factrix._dag import CycleError, DagExecutor
 from factrix._describe import (
     SuggestConfigResult,
     describe_analysis_modes,
@@ -257,6 +258,8 @@ __all__ = [
     "UnknownEstimatorError",
     "UserInputError",
     # Profile + dispatch
+    "CycleError",
+    "DagExecutor",
     "EvaluationResult",
     "FactorProfile",
     "MetricOutput",
