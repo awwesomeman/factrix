@@ -13,12 +13,21 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric
-from factrix._chunk_size import _AUTO_CHUNK_OVERHEAD_FACTOR, _AUTO_CHUNK_RSS_DIVISOR
+from factrix._chunk_size import (
+    _AUTO_CHUNK_OVERHEAD_FACTOR,
+    _AUTO_CHUNK_RSS_DIVISOR,
+    auto_chunk_size,
+)
 from factrix._errors import UserInputError
-from factrix._run_metrics import _auto_chunk_size, run_metrics, run_metrics_chunked
+from factrix._run_metrics import run_metrics, run_metrics_chunked
 from factrix.datasets import make_multi_factor_panel
 
 from tests._run_metrics_helpers import bundle_equals, factor_cols, make_multi_panel
+
+_AUTO_KWARGS = {
+    "func_name": "run_metrics_chunked",
+    "docs_path": "api/run_metrics_chunked#chunk_size",
+}
 
 
 @pytest.fixture
@@ -143,7 +152,7 @@ class TestAutoChunkSize:
         # caught at test time.
         with patch("psutil.virtual_memory") as mock_vm:
             mock_vm.return_value.available = 1024 * 1024 * 1024  # 1 GiB
-            cs = _auto_chunk_size(n_rows=1000, n_factors=200)
+            cs = auto_chunk_size(**_AUTO_KWARGS, n_rows=1000, n_factors=200)
         per_factor = 1000 * 8 * _AUTO_CHUNK_OVERHEAD_FACTOR  # 32_000
         budget = (1024 * 1024 * 1024) // _AUTO_CHUNK_RSS_DIVISOR  # 268_435_456
         expected = max(1, min(200, budget // per_factor))
@@ -152,13 +161,13 @@ class TestAutoChunkSize:
     def test_clamps_to_n_factors(self) -> None:
         with patch("psutil.virtual_memory") as mock_vm:
             mock_vm.return_value.available = 100 * 1024**3  # generous
-            cs = _auto_chunk_size(n_rows=800, n_factors=6)
+            cs = auto_chunk_size(**_AUTO_KWARGS, n_rows=800, n_factors=6)
         assert cs == 6
 
     def test_floor_at_one_when_budget_below_per_factor(self) -> None:
         with patch("psutil.virtual_memory") as mock_vm:
             mock_vm.return_value.available = 8  # 8 bytes
-            cs = _auto_chunk_size(n_rows=1_000_000, n_factors=50)
+            cs = auto_chunk_size(**_AUTO_KWARGS, n_rows=1_000_000, n_factors=50)
         assert cs == 1
 
     def test_uses_auto_when_chunk_size_is_none(

@@ -866,20 +866,6 @@ def _validate_factor_cols(factor_cols: Sequence[str]) -> list[str]:
     return cols
 
 
-def _auto_chunk_size(n_rows: int, n_factors: int) -> int:
-    """Thin wrapper around the shared helper — keeps the run_metrics caller's
-    ``func_name`` / ``docs_path`` in the missing-psutil hint.
-    """
-    from factrix._chunk_size import auto_chunk_size
-
-    return auto_chunk_size(
-        n_rows,
-        n_factors,
-        func_name="run_metrics_chunked",
-        docs_path="api/run_metrics_chunked#chunk_size",
-    )
-
-
 def run_metrics_chunked(
     panel: PanelInput,
     cfg: AnalysisConfig,
@@ -925,7 +911,7 @@ def run_metrics_chunked(
         metrics: Same as :func:`run_metrics`.
         chunk_size: Number of factors per chunk. ``None`` (default)
             picks a chunk size targeting ~25% of available RAM via
-            :func:`_auto_chunk_size`, which requires ``psutil`` (an
+            :func:`factrix._chunk_size.auto_chunk_size`, which requires ``psutil`` (an
             optional dependency — install via ``pip install psutil``
             or ``pip install 'factrix[bench]'``). Pass an explicit
             value to override (e.g. when the working sink has its
@@ -970,54 +956,16 @@ def run_metrics_chunked(
         ... ):
         ...     ...
     """
-    cols = _validate_factor_cols(factor_cols)
-    if chunk_size is not None and chunk_size <= 0:
-        raise ValueError(f"chunk_size must be positive, got {chunk_size!r}")
+    from factrix._chunk_size import chunk_panel
 
-    if not isinstance(panel, pl.DataFrame | pl.LazyFrame):
-        raise TypeError(
-            f"panel must be pl.DataFrame or pl.LazyFrame; got {type(panel).__name__}"
-        )
-
-    # Schema check up front so a wrong ``base_cols`` / missing factor
-    # fails before the first yield (matches run_metrics' eager UX
-    # contract instead of failing mid-iteration with a polars error).
-    schema_cols = (
-        set(panel.collect_schema().names())
-        if isinstance(panel, pl.LazyFrame)
-        else set(panel.columns)
-    )
-    base = list(base_cols)
-    missing = (set(base) | set(cols)) - schema_cols
-    if missing:
-        _raise_factor_col_error(
-            value=cols,
-            expected=(
-                f"panel with all of base_cols + factor_cols present; "
-                f"missing {sorted(missing)!r}"
-            ),
-        )
-
-    if chunk_size is None:
-        n_rows = (
-            panel.select(pl.len()).collect().item()
-            if isinstance(panel, pl.LazyFrame)
-            else panel.height
-        )
-        cs = _auto_chunk_size(n_rows, len(cols))
-    else:
-        cs = chunk_size
-
-    from itertools import batched
-
-    for chunk_tuple in batched(cols, cs):
-        chunk = list(chunk_tuple)
-        projection = [*base, *chunk]
-        sub_panel = (
-            panel.select(projection).collect()
-            if isinstance(panel, pl.LazyFrame)
-            else panel.select(projection)
-        )
+    for sub_panel, chunk in chunk_panel(
+        panel,
+        factor_cols,
+        chunk_size=chunk_size,
+        base_cols=base_cols,
+        func_name="run_metrics_chunked",
+        docs_path="api/run_metrics_chunked#chunk_size",
+    ):
         yield run_metrics(sub_panel, cfg, factor_cols=chunk, metrics=metrics)
 
 

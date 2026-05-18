@@ -256,63 +256,14 @@ def evaluate_chunked(
         ... ):
         ...     ...
     """
-    cols = list(factor_cols)
-    if not cols:
-        _raise_factor_cols_error(
-            value=cols, expected="a non-empty list of factor column names"
-        )
-    if len(set(cols)) != len(cols):
-        _raise_factor_cols_error(value=cols, expected="factor_cols with no duplicates")
+    from factrix._chunk_size import chunk_panel
 
-    if chunk_size is not None and chunk_size <= 0:
-        raise ValueError(f"chunk_size must be positive, got {chunk_size!r}")
-
-    if not isinstance(panel, pl.DataFrame | pl.LazyFrame):
-        raise TypeError(
-            f"panel must be pl.DataFrame or pl.LazyFrame; got {type(panel).__name__}"
-        )
-
-    schema_cols = (
-        set(panel.collect_schema().names())
-        if isinstance(panel, pl.LazyFrame)
-        else set(panel.columns)
-    )
-    base = list(base_cols)
-    missing = (set(base) | set(cols)) - schema_cols
-    if missing:
-        _raise_factor_cols_error(
-            value=cols,
-            expected=(
-                f"panel with all of base_cols + factor_cols present; "
-                f"missing {sorted(missing)!r}"
-            ),
-        )
-
-    if chunk_size is None:
-        from factrix._chunk_size import auto_chunk_size
-
-        n_rows = (
-            panel.select(pl.len()).collect().item()
-            if isinstance(panel, pl.LazyFrame)
-            else panel.height
-        )
-        cs = auto_chunk_size(
-            n_rows,
-            len(cols),
-            func_name="evaluate_chunked",
-            docs_path="api/evaluate_chunked#chunk_size",
-        )
-    else:
-        cs = chunk_size
-
-    from itertools import batched
-
-    for chunk_tuple in batched(cols, cs):
-        chunk = list(chunk_tuple)
-        projection = [*base, *chunk]
-        sub_panel = (
-            panel.select(projection).collect()
-            if isinstance(panel, pl.LazyFrame)
-            else panel.select(projection)
-        )
+    for sub_panel, chunk in chunk_panel(
+        panel,
+        factor_cols,
+        chunk_size=chunk_size,
+        base_cols=base_cols,
+        func_name="evaluate_chunked",
+        docs_path="api/evaluate_chunked#chunk_size",
+    ):
         yield _evaluate(sub_panel, config, factor_cols=chunk)
