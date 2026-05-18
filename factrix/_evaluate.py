@@ -105,11 +105,13 @@ def _evaluate(
     cell, tagged with ``InfoCode.SCOPE_AXIS_COLLAPSED`` on each
     returned profile.
 
-    Cross-factor compute sharing (IC stage-1 reuse, batch primitives)
-    is **not** done at this layer yet — each factor is dispatched
-    independently via a thin column projection. Adding shared stage-1
-    is tracked as a follow-up using the same protocol-class registry
-    that ``run_metrics`` adopted in #418.
+    Cross-factor compute sharing rides on each procedure's
+    ``compute_batch`` hook (#426): the default
+    :class:`factrix._procedures._PerFactorBatchMixin` keeps the
+    per-factor loop behaviour, and the IC-cell procedure overrides it
+    to call ``compute_ic(panel, factor_cols=cols)`` once and stitch
+    per-factor HAC inference. Adding shared stage-1 to other cells is
+    a per-procedure decision; this dispatch layer is agnostic.
 
     Args:
         panel: Canonical-column long panel (``date, asset_id, *factor_cols,
@@ -159,40 +161,10 @@ def _evaluate(
             suggested_fix=suggested,
         )
 
-    other_factor_cols = frozenset(cols)
-    profiles: dict[str, FactorProfile] = {}
-    for col in cols:
-        sub_panel = _project_factor(panel, col, other_factor_cols)
-        profile = entry.procedure.compute(sub_panel, config)
-        profiles[col] = dataclasses.replace(
-            profile,
-            factor_id=col,
-            info_notes=profile.info_notes | extra_info,
-        )
+    profiles = entry.procedure.compute_batch(panel, config, cols)
+    if extra_info:
+        profiles = {
+            col: dataclasses.replace(p, info_notes=p.info_notes | extra_info)
+            for col, p in profiles.items()
+        }
     return profiles
-
-
-def _project_factor(panel: Any, col: str, all_factor_cols: frozenset[str]) -> Any:
-    """Project ``panel`` to canonical schema with ``col`` aliased to ``"factor"``.
-
-    Drops the sibling factor columns in ``all_factor_cols - {col}``
-    and an incumbent ``"factor"`` column (when ``col != "factor"``)
-    so the procedure receives a panel whose only signal column is
-    named ``"factor"``. Every other column passes through unchanged so
-    optional schema columns the procedure may consume (e.g. ``price``
-    for event-window metrics) stay available.
-    """
-    import polars as pl
-
-    drop = set(all_factor_cols - {col})
-    if col != "factor":
-        drop.add("factor")
-    selects = []
-    for c in panel.columns:
-        if c in drop:
-            continue
-        if c == col and col != "factor":
-            selects.append(pl.col(col).alias("factor"))
-        else:
-            selects.append(pl.col(c))
-    return panel.select(selects)
