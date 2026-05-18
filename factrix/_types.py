@@ -10,7 +10,10 @@ keeps only the numerical constants and ``MetricOutput`` shared by the
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, NewType
+from typing import TYPE_CHECKING, Literal, NewType
+
+if TYPE_CHECKING:
+    from factrix._metric_index import MetricSpec
 
 # ---------------------------------------------------------------------------
 # Numerical constants
@@ -86,6 +89,13 @@ class MetricOutput:
             ``metadata["p_value"]`` when available.
         metadata: Tool-specific context (``p_value``, ``stat_type``,
             ``h0``, ``method`` are the standard keys).
+        spec: Back-pointer to the declaring :class:`MetricSpec` from
+            the producing module's ``__metric_specs__`` tuple.
+            ``None`` for outputs constructed outside the registry
+            (free-standing primitive calls, tests, ad-hoc consumers).
+            Runners stamp this at dispatch time so downstream code
+            (``MetricResultGroup``, serialisers, the DAG executor)
+            can recover the spec without a name-keyed lookup.
     """
 
     name: str
@@ -94,6 +104,7 @@ class MetricOutput:
     stat: float | None = None
     significance: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
+    spec: MetricSpec | None = None
 
     def __repr__(self) -> str:
         parts = [f"{self.name}={self.value:.4f}"]

@@ -72,6 +72,7 @@ from factrix._evaluate import evaluate_chunked as evaluate_chunked
 from factrix._evaluate import evaluate_iter as evaluate_iter
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
+from factrix._results import EvaluationResult, MetricResultGroup, Warning
 from factrix._run_metrics import (
     MetricsBundle,
     run_metrics,
@@ -256,10 +257,13 @@ __all__ = [
     "UnknownEstimatorError",
     "UserInputError",
     # Profile + dispatch
+    "EvaluationResult",
     "FactorProfile",
     "MetricOutput",
+    "MetricResultGroup",
     "MetricsBundle",
     "PanelInput",
+    "Warning",
     "compare",
     "evaluate",
     "evaluate_chunked",
