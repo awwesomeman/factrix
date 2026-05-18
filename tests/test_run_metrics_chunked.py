@@ -13,14 +13,9 @@ import polars as pl
 import pytest
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import Metric
+from factrix._chunk_size import _AUTO_CHUNK_OVERHEAD_FACTOR, _AUTO_CHUNK_RSS_DIVISOR
 from factrix._errors import UserInputError
-from factrix._run_metrics import (
-    _AUTO_CHUNK_OVERHEAD_FACTOR,
-    _AUTO_CHUNK_RSS_DIVISOR,
-    _auto_chunk_size,
-    run_metrics,
-    run_metrics_chunked,
-)
+from factrix._run_metrics import _auto_chunk_size, run_metrics, run_metrics_chunked
 from factrix.datasets import make_multi_factor_panel
 
 from tests._run_metrics_helpers import bundle_equals, factor_cols, make_multi_panel
