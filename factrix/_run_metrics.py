@@ -401,12 +401,14 @@ class _DispatchProtocol:
 
 
 class _IcConsumerProtocol(_DispatchProtocol):
-    """``@ic_consumer`` — share one ``compute_ic`` stage-1 across consumers."""
+    """``MetricSpec.requires={"ic_df": compute_ic}`` — share one
+    ``compute_ic`` stage-1 across consumers."""
 
     name = "ic_consumer"
 
     def matches(self, fn: Callable[..., Any]) -> bool:
-        return is_ic_consumer(fn)
+        spec = spec_by_name().get(fn.__name__)
+        return spec is not None and "ic_df" in spec.requires
 
     def bind(
         self,

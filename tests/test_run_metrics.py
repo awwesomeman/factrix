@@ -17,7 +17,6 @@ from factrix._run_metrics import (
 )
 from factrix._types import MetricOutput
 from factrix._metric_index import spec_by_name
-from factrix.metrics._protocol import is_ic_consumer
 
 _IC_FAMILY = frozenset({"ic", "ic_newey_west", "ic_ir"})
 
@@ -412,14 +411,13 @@ def test_non_batch_metric_not_batchable() -> None:
     assert not specs["turnover"].batchable
 
 
-def test_ic_family_carry_ic_consumer_marker() -> None:
-    """The IC consumer family is marked @ic_consumer; replaces the
-    pre-#418 hand-maintained _IC_CONSUMERS frozenset."""
+def test_ic_family_requires_compute_ic() -> None:
+    """The IC consumer family declares requires={"ic_df": compute_ic}."""
     import factrix.metrics as metrics_pkg
 
-    assert is_ic_consumer(metrics_pkg.ic)
-    assert is_ic_consumer(metrics_pkg.ic_newey_west)
-    assert is_ic_consumer(metrics_pkg.ic_ir)
+    specs = spec_by_name()
+    for name in ("ic", "ic_newey_west", "ic_ir"):
+        assert specs[name].requires.get("ic_df") is metrics_pkg.compute_ic
 
 
 def test_batch_primitive_dispatched_once_across_factors(

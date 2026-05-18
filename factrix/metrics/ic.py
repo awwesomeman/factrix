@@ -39,7 +39,6 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
-from factrix.metrics._protocol import ic_consumer
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_ic",
@@ -63,39 +62,6 @@ _IC_PRIMITIVES = (
     "_short_circuit_output",
 )
 _IC_INFERENCE = "NW HAC / cross-asset t"
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_ic",
-        cell=_IC_CELL,
-        family="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
-        batchable=True,
-    ),
-    MetricSpec(
-        name="ic",
-        cell=_IC_CELL,
-        family="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="ic_newey_west",
-        cell=_IC_CELL,
-        family="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
-    ),
-    MetricSpec(
-        name="ic_ir",
-        cell=_IC_CELL,
-        family="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
-    ),
-)
 
 # Slice-test contract (#153 §5): IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
@@ -248,7 +214,6 @@ def compute_ic(
     }
 
 
-@ic_consumer
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -338,7 +303,6 @@ def ic(
     )
 
 
-@ic_consumer
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -419,7 +383,6 @@ def ic_newey_west(
     )
 
 
-@ic_consumer
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricOutput:
@@ -498,3 +461,42 @@ def ic_ir(
             "tie_ratio": median_tie,
         },
     )
+
+
+# ``__metric_specs__`` lives at module bottom so the ``requires={...:
+# compute_ic}`` entries can reference the callable defined above.
+__metric_specs__ = (
+    MetricSpec(
+        name="compute_ic",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+        visibility=Visibility.INTERNAL,
+        batchable=True,
+    ),
+    MetricSpec(
+        name="ic",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+        requires={"ic_df": compute_ic},
+    ),
+    MetricSpec(
+        name="ic_newey_west",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+        requires={"ic_df": compute_ic},
+    ),
+    MetricSpec(
+        name="ic_ir",
+        cell=_IC_CELL,
+        family="cs-first",
+        inference=_IC_INFERENCE,
+        primitives=_IC_PRIMITIVES,
+        requires={"ic_df": compute_ic},
+    ),
+)
