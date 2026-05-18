@@ -90,6 +90,7 @@ ad-hoc warm runs skip the subprocess overhead.
 | `S3` | Continuous × Individual | 200-factor screen with the `core` metric set per factor |
 | `S4` | Continuous × Individual | Greedy forward selection over a candidate factor pool |
 | `S5` | Sparse × Individual | Event-study bundle: corrado rank test + CAAR + MFE/MAE |
+| `S6` | Continuous × Individual | `fx.evaluate` batch at the IC cell — scaling probe at 50 / 100 / 500 factors (surfaces cross-factor IC stage-1 share, #426) |
 | `P1` | Continuous × Individual | Scaling probe — three sub-runs at 100 / 200 / 500 factors |
 | `M-ic` | Continuous × Individual | Per-factor `ic` only — attributes cost to one metric |
 | `M-ic-boot` | Continuous × Individual | Per-factor `compute_ic` + `bootstrap_mean_ci` |

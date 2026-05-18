@@ -236,6 +236,78 @@ def p1_scaling_probe(
 
 
 # ---------------------------------------------------------------------------
+# S6 — evaluate batch scaling (IC cell, cross-factor stage-1 share)
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_batch(
+    output: Path | None,
+    *,
+    scenario_id: str,
+    n_factors: int,
+    preset: str,
+    seed: int,
+    cache_state: CacheState,
+    threads: int = 1,
+) -> list[BenchRecord]:
+    scale = resolve_scale(preset, n_factors=n_factors)
+
+    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
+        profiles = fx.evaluate(panel, cfg, factor_cols=factor_columns(panel))
+        return len(profiles)
+
+    return run_continuous_scenario(
+        scenario_id=scenario_id,
+        metric_set=metric_sets.CORE,
+        scale=scale,
+        compute=compute,
+        output=output,
+        seed=seed,
+        cache_state=cache_state,
+        threads=threads,
+    )
+
+
+def s6_evaluate_batch(
+    output: Path,
+    *,
+    preset: str = "tiny",
+    seed: int = 0,
+    cache_state: CacheState = "warm",
+    threads: int = 1,
+) -> list[BenchRecord]:
+    """S6: ``fx.evaluate`` batch over K factors at the IC cell.
+
+    Scales like ``P1`` (one record per K step) so the cross-factor
+    IC stage-1 share added in #426 surfaces as a sub-linear
+    ``compute_s`` curve vs the pre-#426 per-factor loop baseline.
+    """
+    max_factors = resolve_scale(preset).n_factors
+    if max_factors >= 500:
+        steps = [50, 100, 500]
+    elif max_factors >= 50:
+        steps = [10, 25, max_factors]
+    else:
+        steps = [max(2, max_factors // 4), max(3, max_factors // 2), max_factors]
+
+    all_records: list[BenchRecord] = []
+    for step in steps:
+        records = _evaluate_batch(
+            None,
+            scenario_id="S6",
+            n_factors=step,
+            preset=preset,
+            seed=seed,
+            cache_state=cache_state,
+            threads=threads,
+        )
+        all_records.extend(records)
+
+    write_and_validate(output, all_records)
+    return all_records
+
+
+# ---------------------------------------------------------------------------
 # Per-metric micros — attribute compute cost to a single metric
 # ---------------------------------------------------------------------------
 
@@ -383,6 +455,7 @@ SCENARIOS = {
     "S1": s1_evaluate,
     "S2": s2_screen_50,
     "S3": s3_screen_200,
+    "S6": s6_evaluate_batch,
     "P1": p1_scaling_probe,
     "M-ic": m_ic,
     "M-ic-boot": m_ic_bootstrap,
@@ -401,4 +474,5 @@ __all__ = [
     "s1_evaluate",
     "s2_screen_50",
     "s3_screen_200",
+    "s6_evaluate_batch",
 ]
