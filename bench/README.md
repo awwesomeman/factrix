@@ -41,9 +41,9 @@ installed**. Run from the repo root so `bench` resolves on
 # run every scenario at the tiny preset (CI smoke)
 python -m bench --target tiny --output out/
 
-# baseline run (16 GB laptop) — cold-cache mode required for
-# reference baselines so OS page cache + numpy import state resets
-# between scenarios
+# reference baseline (small preset, cold-cache) — cold-cache mode
+# resets OS page cache + numpy import state between scenarios
+# (required so per-run timings stay comparable across reruns)
 python -m bench --target small --output out/baselines/v0.13.1/ --cold-cache
 
 # sparse-cell only
@@ -65,8 +65,8 @@ before invoking any `python -m bench.*` entry point.
 | `--target` | Preset | Scenarios |
 |---|---|---|
 | `tiny` | `tiny` | All scenarios listed below |
-| `small` | `small` | All scenarios — 16 GB laptop baseline |
-| `large` | `large` | All scenarios — 32 GB cloud, opt-in |
+| `small` | `small` | All scenarios — reference baseline preset |
+| `large` | `large` | All scenarios — opt-in, larger panel |
 | `event` | `small` | Sparse × Individual cell only |
 
 `--cold-cache` re-execs `python -m bench --run-one <id>` in a fresh
@@ -105,14 +105,15 @@ dimensions used by every scenario:
 | Preset | Cont: factors / assets / dates | Sparse: assets / dates / event_rate | Use |
 |---|---|---|---|
 | `tiny` | 8 / 20 / 60 | 20 / 60 / 0.05 | Tests + CI smoke; seconds-level |
-| `small` | 100 / 1000 / 1250 | 200 / 1250 / 0.0001 | 16 GB laptop baseline |
-| `large` | 500 / 1000 / 1250 | 500 / 1250 / 0.0002 | 32 GB cloud, opt-in |
-| `xlarge` | 1000 / 2000 / 2000 | 2000 / 2000 / 0.0002 | Cloud-only stress (UX validation) |
-| `user-realistic-high` | 500 / 3000 / 2500 | 3000 / 2500 / 0.0002 | Cloud-only (factor researcher upper bound) |
+| `small` | 100 / 1000 / 1250 | 200 / 1250 / 0.0001 | Reference baseline preset |
+| `large` | 500 / 1000 / 1250 | 500 / 1250 / 0.0002 | Opt-in, larger panel |
+| `xlarge` | 1000 / 2000 / 2000 | 2000 / 2000 / 0.0002 | Stress profile (UX validation) |
+| `user-realistic-high` | 500 / 3000 / 2500 | 3000 / 2500 / 0.0002 | Factor-researcher upper bound (UX validation) |
 
-`xlarge` and `user-realistic-high` will OOM a 32 GB laptop and are
-excluded from `make bench-bump` — they belong to the UX validation
-lane below, not to the reference baseline lane.
+`xlarge` and `user-realistic-high` exceed the reference-baseline RAM
+envelope (peak RSS pushes well past 32 GB) and are excluded from
+`make bench-bump` — they belong to the UX validation lane below,
+not to the reference baseline lane.
 
 Fixed-scale scenarios (`S2`=50 factors, `S3`=200, `M-*`=50 factors)
 override the preset's `n_factors` so the workload stays fixed
@@ -264,8 +265,8 @@ and event-clustering structure of real markets are not reproduced.
 
 ## Cross-machine rebaseline
 
-The primary baseline machine will eventually retire. The procedure
-that keeps history comparable:
+When the primary baseline machine retires, the procedure that keeps
+history comparable:
 
 1. **Anchor run** — on the **same `git_sha`**, run the `small`
    target cold-cache on both the outgoing machine and the incoming

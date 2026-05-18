@@ -62,17 +62,17 @@ PRESETS: dict[str, ContinuousScale] = {
     # `tiny` is for tests and CI smoke — must complete in seconds on a
     # CI runner.
     "tiny": ContinuousScale(n_factors=8, n_assets=20, n_dates=60),
-    # `small` — 16 GB laptop baseline.
+    # `small` — reference baseline preset.
     "small": ContinuousScale(n_factors=100, n_assets=1000, n_dates=1250),
-    # `large` — 32 GB cloud baseline; opt-in.
+    # `large` — opt-in larger panel.
     "large": ContinuousScale(n_factors=500, n_assets=1000, n_dates=1250),
-    # `xlarge` — cloud-only stress preset for UX validation. Estimated
-    # peak RSS ≤ 100 GB on the 125 GB cloud host; will OOM a 32 GB
-    # laptop. Never used by `make bench-bump`.
+    # `xlarge` — stress preset for UX validation. Estimated peak RSS
+    # ≤ 100 GB; exceeds the reference-baseline envelope and is never
+    # used by `make bench-bump`.
     "xlarge": ContinuousScale(n_factors=1000, n_assets=2000, n_dates=2000),
     # `user-realistic-high` — upper end of a factor researcher's
     # real-world workflow (500 factors over a ~10-year window across
-    # the global liquid universe). Cloud-only.
+    # the global liquid universe). UX validation lane only.
     "user-realistic-high": ContinuousScale(n_factors=500, n_assets=3000, n_dates=2500),
 }
 
