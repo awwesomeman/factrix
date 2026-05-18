@@ -36,10 +36,11 @@ from __future__ import annotations
 import functools
 import importlib
 import pathlib
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Literal
 
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
@@ -201,13 +202,28 @@ class MetricSpec:
     - ``is_stage1``: ``True`` for intermediate-frame producers
       (typically ``compute_*``) that are user-callable but do not
       themselves return ``MetricOutput``. Excluded from
-      :func:`user_facing_rows`.
+      :func:`user_facing_rows`. Superseded by ``visibility`` (#440);
+      retained transiently until 9 producer registrations migrate.
     - ``emitted_name``: literal ``MetricOutput.name`` string at
       runtime. ``None`` (default) means the runtime label matches
       ``name`` — the common case. Set explicitly when the callable
       emits a different label (e.g. ``fama_macbeth`` emits
       ``fm_beta``). Consumers holding a :class:`~factrix.MetricOutput`
       should resolve via :attr:`MetricRow.emitted_name`.
+    - ``requires``: ``{consumer_param_name: producer_callable}``. Key
+      is a parameter on the declaring callable; value is another
+      ``@metric_spec``-decorated callable whose per-factor output the
+      DAG executor injects at that parameter. Empty dict means no
+      upstream dependency. Callable values keep refactors safe (typo
+      → ``NameError`` at import time; IDE rename tracks both sites).
+    - ``batchable``: ``True`` when the callable accepts
+      ``factor_cols=`` and returns ``dict[factor_name, output]`` so
+      the DAG executor calls it once across the whole batch. Replaces
+      ``@batch_primitive``.
+    - ``visibility``: ``PUBLIC`` for user-facing metric (default);
+      ``INTERNAL`` for stage-1 helpers (excluded from
+      ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
+      but pulled by the DAG via ``requires``). Replaces ``is_stage1``.
     """
 
     name: str
@@ -218,6 +234,9 @@ class MetricSpec:
     input_kind: Literal["panel", "scalar"] = "panel"
     is_stage1: bool = False
     emitted_name: str | None = None
+    requires: dict[str, Callable] = field(default_factory=dict)
+    batchable: bool = False
+    visibility: Visibility = Visibility.PUBLIC
 
 
 @dataclass(frozen=True, slots=True)
