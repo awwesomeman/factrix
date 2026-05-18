@@ -8,9 +8,9 @@ Single execution path that:
 - runs ``batchable=True`` producers once across the whole factor batch
   and ``batchable=False`` callables once per factor on a thin
   projection,
-- dedupes stage-1 producers by :func:`id` of the
-  ``requires`` callable value, so multiple consumers naming the same
-  producer share its output,
+- caches every producer's output per ``(spec, factor)`` so any
+  number of downstream consumers naming the same callable see one
+  computation,
 - propagates short-circuit :class:`MetricOutput` (NaN value with
   ``metadata["reason"]``) from upstream to downstream consumers
   without invoking the consumer,
@@ -57,7 +57,6 @@ class _PlanStep:
     spec: MetricSpec
     role: str
     requires: tuple[str, ...]
-    stage1_share: tuple[str, ...]
 
 
 class DagExecutor:
@@ -106,28 +105,14 @@ class DagExecutor:
         return self._fn_cache[spec.name]
 
     def _build_plan(self) -> list[_PlanStep]:
-        ordered = _topo_sort(self._specs)
-        producer_id_first_consumer: dict[int, str] = {}
-        steps: list[_PlanStep] = []
-        for spec in ordered:
-            role = "batchable" if spec.batchable else "per-factor"
-            requires = tuple(p.__name__ for p in spec.requires.values())
-            shares: list[str] = []
-            for producer in spec.requires.values():
-                pid = id(producer)
-                if pid in producer_id_first_consumer:
-                    shares.append(producer.__name__)
-                else:
-                    producer_id_first_consumer[pid] = spec.name
-            steps.append(
-                _PlanStep(
-                    spec=spec,
-                    role=role,
-                    requires=requires,
-                    stage1_share=tuple(shares),
-                )
+        return [
+            _PlanStep(
+                spec=spec,
+                role="batchable" if spec.batchable else "per-factor",
+                requires=tuple(p.__name__ for p in spec.requires.values()),
             )
-        return steps
+            for spec in _topo_sort(self._specs)
+        ]
 
     @property
     def plan(self) -> str:
@@ -137,8 +122,6 @@ class DagExecutor:
             parts = [f"{idx}. {step.spec.name} [{step.role}]"]
             if step.requires:
                 parts.append(f"requires={','.join(step.requires)}")
-            if step.stage1_share:
-                parts.append(f"stage1-share={','.join(step.stage1_share)}")
             lines.append(" ".join(parts))
         return "\n".join(lines)
 

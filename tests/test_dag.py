@@ -226,7 +226,7 @@ class TestShortCircuitPropagation:
 
 
 class TestPlanString:
-    def test_plan_lists_role_requires_and_share(self):
+    def test_plan_lists_role_and_requires(self):
         def producer(panel, factor_cols):
             return {c: 1.0 for c in factor_cols}
 
@@ -249,11 +249,10 @@ class TestPlanString:
                 "consumer_b": consumer_b,
             }.__getitem__,
         )
-        lines = ex.plan.split("\n")
-        assert lines[0] == "1. producer [batchable]"
-        assert lines[1] == "2. consumer_a [per-factor] requires=producer"
-        assert lines[2] == (
-            "3. consumer_b [per-factor] requires=producer stage1-share=producer"
+        assert ex.plan == (
+            "1. producer [batchable]\n"
+            "2. consumer_a [per-factor] requires=producer\n"
+            "3. consumer_b [per-factor] requires=producer"
         )
 
 

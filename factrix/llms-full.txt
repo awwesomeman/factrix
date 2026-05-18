@@ -890,19 +890,23 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
   `MetricSpec`. Topologically orders the graph
   (`MetricSpec.requires` -> upstream callable), dispatches
   `batchable=True` producers once per batch and `batchable=False`
-  callables once per factor on a thin projection, dedupes stage-1
-  share by `id(producer)`, propagates short-circuit `MetricOutput`
-  (`value=NaN` + `metadata["reason"]`) downstream without invoking
-  consumers, and emits a stable plan string per `execute` call. Raises
-  `CycleError` on dependency cycles and `ValueError` when a referenced
-  producer is missing from the executor's spec set (no silent
-  auto-close — the caller declares the graph). Wiring as the default
-  for `fx.evaluate` / `fx.run_metrics` is the unification follow-up.
+  callables once per factor on a thin projection, caches every
+  producer output per `(spec, factor)` so any number of downstream
+  consumers see one computation, propagates short-circuit
+  `MetricOutput` (`value=NaN` + `metadata["reason"]`) downstream
+  without invoking consumers, and emits a stable plan string per
+  `execute` call. Raises `CycleError` on dependency cycles and
+  `ValueError` when a referenced producer is missing from the
+  executor's spec set (no silent auto-close — the caller declares
+  the graph). Wiring as the default for `fx.evaluate` /
+  `fx.run_metrics` is the unification follow-up.
 - **`EvaluationResult.plan: str`** — required string emitted by the
   DAG executor (numbered topological order with `[batchable]` /
-  `[per-factor]` role, `requires=` upstream list, and any
-  `stage1-share=` hit marker). No default; tests / manual
-  constructions must pass an explicit string.
+  `[per-factor]` role and a `requires=` upstream list when present).
+  No default; tests / manual constructions must pass an explicit
+  string. Upstream sharing is automatic — every producer runs once
+  and downstream consumers read from cache, so there is no separate
+  "share-hit" annotation.
 - **`WarningCode.UPSTREAM_UNAVAILABLE`** — fires when the DAG
   executor short-circuits a downstream consumer because an upstream
   producer returned a short-circuit `MetricOutput`. The downstream
