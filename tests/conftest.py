@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult
 from factrix._types import MetricOutput
@@ -23,7 +23,7 @@ def make_spec(name: str) -> MetricSpec:
     """Minimal panel-cell MetricSpec for test fixtures."""
     return MetricSpec(
         name=name,
-        cell=Cell(scope=None, signal=None, metric=None, mode=None, raw="*"),
+        cell=Cell(scope=None, signal=None, mode=None, raw="*"),
         family="cs-first",
         inference="test",
     )
@@ -55,8 +55,7 @@ def make_result(
     primaries = [primary, *extra_primaries]
     return EvaluationResult(
         factor=factor,
-        cell=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
-        mode=PanelMode.PANEL,
+        cell=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, PanelMode.PANEL),
         forward_periods=forward_periods,
         n_obs=100,
         n_assets=25,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode
 from factrix.stats import (
     _ESTIMATOR_REGISTRY,
@@ -34,7 +34,7 @@ class TestEstimatorProtocol:
 class TestWaldNWCluster:
     def test_emits_p_wald_nwcl(self):
         est = WaldNWCluster()
-        code = est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)
+        code = est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
         assert code is StatCode.P_WALD_NWCL
 
     def test_applicable_to_individual_continuous(self):
@@ -58,7 +58,7 @@ class TestWaldNWCluster:
 class TestWaldTwoWayCluster:
     def test_emits_p_wald_twoway(self):
         est = WaldTwoWayCluster()
-        code = est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)
+        code = est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
         assert code is StatCode.P_WALD_TWOWAY
 
     def test_applicable_to_individual_continuous(self):
@@ -81,7 +81,7 @@ class TestBlockBootstrap:
     def test_emits_p_boot(self):
         est = BlockBootstrap()
         assert (
-            est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)
+            est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
             is StatCode.P_BOOT
         )
 
@@ -125,8 +125,8 @@ class TestBlockBootstrap:
         # Both still emit the same StatCode (scheme is metadata, not
         # a separate StatCode key).
         assert a.emits_for(
-            FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC
-        ) == b.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)
+            FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS
+        ) == b.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
 
 
 class TestRegistryIntegration:

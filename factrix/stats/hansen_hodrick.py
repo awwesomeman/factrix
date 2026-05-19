@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import InferenceResult
@@ -51,9 +51,7 @@ class HansenHodrick:
     Pass an instance to ``AnalysisConfig`` to drive evaluate-time
     inference::
 
-        cfg = AnalysisConfig.individual_continuous(
-            metric=Metric.IC, estimator=HansenHodrick(),
-        )
+        cfg = AnalysisConfig.individual_continuous(estimator=HansenHodrick())
 
     Constructor takes no arguments; the kernel and lag-rule are fixed by
     the HH-pure convention.
@@ -81,7 +79,6 @@ class HansenHodrick:
         self,
         _scope: FactorScope,
         _signal: FactorSignal,
-        _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_HH
 

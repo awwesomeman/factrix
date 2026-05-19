@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import InferenceResult
@@ -85,7 +85,6 @@ class NeweyWest:
         self,
         _scope: FactorScope,
         _signal: FactorSignal,
-        _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_NW
 

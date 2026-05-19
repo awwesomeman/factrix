@@ -7,7 +7,7 @@ dispatch can rely on `isinstance(obj, Estimator)` and the four required members
 
 from __future__ import annotations
 
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode
 from factrix.stats import Estimator
 
@@ -26,9 +26,7 @@ class _Stub:
     def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
         return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
-    def emits_for(
-        self, scope: FactorScope, signal: FactorSignal, metric: Metric | None
-    ) -> StatCode:
+    def emits_for(self, scope: FactorScope, signal: FactorSignal) -> StatCode:
         return StatCode.P_NW
 
 
@@ -59,7 +57,4 @@ def test_member_calls_route_through_protocol() -> None:
     assert e.description == "Test stub."
     assert e.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
     assert not e.applicable_to(FactorScope.COMMON, FactorSignal.SPARSE)
-    assert (
-        e.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)
-        is StatCode.P_NW
-    )
+    assert e.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS) is StatCode.P_NW

@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     import numpy as np
 
-    from factrix._axis import FactorScope, FactorSignal, Metric
+    from factrix._axis import FactorScope, FactorSignal
     from factrix._codes import StatCode, WarningCode
 
 
@@ -72,7 +72,6 @@ class Estimator(Protocol):
         self,
         scope: FactorScope,
         signal: FactorSignal,
-        metric: Metric | None,
     ) -> StatCode:
         """Map a cell to the ``StatCode`` whose value this estimator names.
 

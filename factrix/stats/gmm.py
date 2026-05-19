@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import GMMResult
@@ -53,9 +53,7 @@ class GMM:
     construction time, but is a no-op at ``evaluate()`` until cell
     auto-dispatch lands::
 
-        cfg = AnalysisConfig.individual_continuous(
-            metric=Metric.IC, moment_estimator=GMM(),
-        )
+        cfg = AnalysisConfig.individual_continuous(moment_estimator=GMM())
 
     Solver tuning lives on the dataclass: ``max_iter`` caps iterations
     beyond step 2 (no effect for pure overid since there is no
@@ -88,7 +86,6 @@ class GMM:
         self,
         _scope: FactorScope,
         _signal: FactorSignal,
-        _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_GMM
 

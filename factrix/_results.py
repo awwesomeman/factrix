@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec
 from factrix._types import MetricOutput
@@ -108,9 +108,9 @@ class EvaluationResult:
 
     Attributes:
         factor: Factor column name from the source panel.
-        cell: ``(scope, signal, metric)`` tuple of the dispatched cell.
-            ``metric`` may be ``None`` when the cell is metric-wildcard.
-        mode: ``PanelMode.PANEL`` or ``PanelMode.TIMESERIES`` resolved at dispatch.
+        cell: ``(scope, signal, mode)`` tuple of the dispatched cell.
+            ``mode`` is ``PanelMode.PANEL`` or ``PanelMode.TIMESERIES``
+            resolved from the panel's asset count at dispatch.
         forward_periods: Forward-return horizon (rows) the evaluation
             ran under. Carried through from the source ``AnalysisConfig``
             so multi-horizon callers can partition / mix-warn without
@@ -144,8 +144,7 @@ class EvaluationResult:
     """
 
     factor: str
-    cell: tuple[FactorScope, FactorSignal, Metric | None]
-    mode: PanelMode
+    cell: tuple[FactorScope, FactorSignal, PanelMode]
     forward_periods: int
     n_obs: int
     n_assets: int
@@ -200,7 +199,7 @@ class EvaluationResult:
 
         Layout (top-level keys, stable order):
 
-        - ``factor`` / ``cell`` / ``mode`` / ``n_obs`` / ``n_assets``
+        - ``factor`` / ``cell`` / ``n_obs`` / ``n_assets``
         - ``metrics``: dict ``metric_name -> MetricOutput-as-dict``
           (``value`` / ``p`` / ``stat`` / ``n_obs`` / ``significance``
           / ``metadata``)
@@ -212,15 +211,14 @@ class EvaluationResult:
         Float ``NaN`` / ``Inf`` are emitted as ``None`` so the dict
         survives ``json.dumps`` without ``allow_nan``.
         """
-        scope, signal, metric = self.cell
+        scope, signal, mode = self.cell
         return {
             "factor": self.factor,
             "cell": {
                 "scope": scope.value,
                 "signal": signal.value,
-                "metric": metric.value if metric is not None else None,
+                "mode": mode.value,
             },
-            "mode": self.mode.value,
             "forward_periods": self.forward_periods,
             "n_obs": self.n_obs,
             "n_assets": self.n_assets,
@@ -245,12 +243,10 @@ class EvaluationResult:
         }
 
     def _repr_html_(self) -> str:
-        scope, signal, metric = self.cell
-        metric_token = metric.value if metric is not None else "*"
+        scope, signal, mode = self.cell
         header_rows: list[tuple[str, Any]] = [
             ("factor", self.factor),
-            ("cell", f"({scope.value}, {signal.value}, {metric_token})"),
-            ("mode", self.mode.value),
+            ("cell", f"({scope.value}, {signal.value}, {mode.value})"),
             ("forward_periods", self.forward_periods),
             ("n_obs", self.n_obs),
             ("n_assets", self.n_assets),

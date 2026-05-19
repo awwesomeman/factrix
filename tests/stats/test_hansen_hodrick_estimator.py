@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 from factrix import list_estimators
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode
 from factrix.stats import Estimator, HansenHodrick
 
@@ -44,11 +44,8 @@ def test_applicable_to(
     assert HansenHodrick().applicable_to(scope, signal) is expected
 
 
-@pytest.mark.parametrize("metric", [Metric.IC, Metric.FM])
-def test_emits_for_returns_p_hh(metric: Metric) -> None:
-    code = HansenHodrick().emits_for(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, metric
-    )
+def test_emits_for_returns_p_hh() -> None:
+    code = HansenHodrick().emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
     assert code is StatCode.P_HH
 
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode
 
 
@@ -92,6 +92,5 @@ class BlockBootstrap:
         self,
         _scope: FactorScope,
         _signal: FactorSignal,
-        _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_BOOT
