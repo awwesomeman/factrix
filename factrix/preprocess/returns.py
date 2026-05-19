@@ -104,9 +104,12 @@ def compute_forward_return(
 
         The output panel is the canonical input to ``fx.evaluate``:
 
-        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, cfg)["factor"]
-        >>> isinstance(profile, fx.FactorProfile)
+        >>> from factrix._metric_index import spec_by_name
+        >>> ic = spec_by_name()["ic"]
+        >>> results = fx.evaluate(
+        ...     panel, metrics=[ic], factor_cols=["factor"], forward_periods=5
+        ... )
+        >>> isinstance(results, list) and len(results) == 1
         True
     """
     return (

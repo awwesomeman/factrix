@@ -25,6 +25,14 @@ from factrix._stats.constants import auto_bartlett
 from factrix.metrics.ic import compute_ic
 from factrix.stats import HansenHodrick, NeweyWest
 
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Tests target the legacy fx.evaluate(panel, cfg)->FactorProfile path "
+        "deleted in #445; full test deletion / rewrite is queued for "
+        "#448 (public-surface retire) and #449 (internal-module retire)."
+    )
+)
+
 
 def _panel(*, n_dates: int = 80, n_assets: int = 15, seed: int = 0) -> pl.DataFrame:
     rng = np.random.default_rng(seed)

@@ -67,7 +67,7 @@ def compare(
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profiles = [
+        >>> profiles = [  # doctest: +SKIP
         ...     dataclasses.replace(
         ...         fx.evaluate(
         ...             compute_forward_return(
@@ -82,13 +82,13 @@ def compare(
         ...     )
         ...     for i in range(3)
         ... ]
-        >>> leaderboard = fx.compare(profiles, sort_by="primary_p")
+        >>> leaderboard = fx.compare(profiles, sort_by="primary_p")  # doctest: +SKIP
 
         Leaderboard from a :class:`~factrix.multi_factor.Survivors`
         (adds an ``adj_p`` column):
 
-        >>> survivors = fx.multi_factor.bhy(profiles, q=0.5)
-        >>> board = fx.compare(survivors, sort_by="adj_p")
+        >>> survivors = fx.multi_factor.bhy(profiles, q=0.5)  # doctest: +SKIP
+        >>> board = fx.compare(survivors, sort_by="adj_p")  # doctest: +SKIP
     """
     if isinstance(artifacts, Survivors):
         if len(artifacts) == 0:

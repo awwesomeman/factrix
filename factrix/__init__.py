@@ -37,7 +37,10 @@ typical usage patterns in a single fetch. Two access paths::
     text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
 
-from collections.abc import Sequence
+import inspect
+from typing import Any
+
+import polars as pl
 
 from factrix import datasets, multi_factor, preprocess
 from factrix._analysis_config import AnalysisConfig
@@ -78,7 +81,7 @@ from factrix._inspect import (
     PanelReasoning,
     inspect_panel,
 )
-from factrix._metric_index import SampleFloor
+from factrix._metric_index import MetricSpec, SampleFloor, spec_by_name
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._results import EvaluationResult, MetricResult, Warning
@@ -99,145 +102,304 @@ from factrix.slicing import (
 
 def evaluate(
     panel: PanelInput,
-    config: AnalysisConfig | None = None,
-    /,
     *,
-    factor_cols: Sequence[str] = ("factor",),
-) -> dict[str, FactorProfile]:
-    """Evaluate one or more factors against forward returns.
+    metrics: list[MetricSpec],
+    factor_cols: list[str],
+    forward_periods: int | None = None,
+) -> list[EvaluationResult]:
+    """Evaluate one or more factors against forward returns through the DAG executor.
 
-    Returns ``dict[factor_id, FactorProfile]`` keyed by the names in
-    ``factor_cols``. Mirrors the ``run_metrics`` contract from #402 so
-    the two entry points share an input arity model — pass a list,
-    get back a dict — even for the single-factor case
-    (``fx.evaluate(panel, cfg)["factor"]``).
-
-    The profile carries ``primary_p`` (the headline p-value for downstream
-    false discovery rate (FDR)), the cell-specific statistics, sample-size diagnostics, warnings,
-    and the ``identity`` / ``context`` tuple used by multi-factor
-    aggregators ([`bhy`][factrix.multi_factor.bhy] /
-    [`partial_conjunction`][factrix.multi_factor.partial_conjunction] /
-    [`bhy_hierarchical`][factrix.multi_factor.bhy_hierarchical]).
-
-    All factrix-raised errors inherit from
-    [`FactrixError`](errors.md).
-
-    ??? note "Dispatch lore — cell schema, Mode, multi-factor cost"
-        **Dispatch is explicit.** No auto-fallback when the panel shape
-        does not match the cell. The one exception: `Common × Continuous`
-        at `N == 1` auto-routes to the TIMESERIES single-series path
-        (`profile.mode == "TIMESERIES"`) so single-asset macro factors
-        still flow through.
-
-        **Required columns per cell.** Every cell floors its
-        `INPUT_SCHEMA` at the same four columns; optional columns
-        activate additional standalone metrics and short-circuit
-        gracefully (`NaN` + `reason`) when absent.
-
-        | Cell                                              | Required                                | Optional column → enables                                                                                  |
-        |---------------------------------------------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------|
-        | Individual × Continuous (`ic`, `fama_macbeth`)    | `date, asset_id, factor, forward_return` | `market_cap` (or any name passed as `weight_col=`) → `quantile_spread_vw` value-weighting                  |
-        | Individual × Sparse (event studies)               | `date, asset_id, factor, forward_return` | `price` → `event_around_return`, `mfe_mae_summary` (degrade gracefully if absent)                          |
-        | Common × Continuous (broadcast macro factor)      | `date, asset_id, factor, forward_return` | —                                                                                                          |
-        | Common × Sparse (broadcast event dummy)           | `date, asset_id, factor, forward_return` | —                                                                                                          |
-
-        `forward_return` is part of the input contract — attach it via
-        [`compute_forward_return`][factrix.preprocess.compute_forward_return]
-        before the call so the horizon is explicit and aligned with
-        `config.forward_periods`.
-
-        **Mode — PANEL vs TIMESERIES.** Derived at evaluate-time from
-        `N = panel["asset_id"].n_unique()` and surfaced on
-        `profile.mode`:
-
-        | `profile.mode`   | When                                    | Inference                                                            |
-        |------------------|-----------------------------------------|----------------------------------------------------------------------|
-        | `"PANEL"`        | `N ≥ 2` cross-sectional / event cells   | per-date statistic → time-series mean with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) |
-        | `"TIMESERIES"`   | `Common × Continuous` with `N == 1`     | single-series ordinary least squares (OLS) with plain SE; HAC only on stage-2 aggregation |
-
-        Full conventions: [Timeseries-mode conventions](../reference/ts-mode-conventions.md).
-        Sample-guard contract: [Panel vs timeseries](../guides/panel-timeseries.md).
-
-        **Multi-factor cost.** Each call repeats the per-date
-        cross-section work (sort / group-by / rank / Herfindahl-Hirschman index (HHI)) on its own, so
-        cost scales as `O(n_factors × per_date_cost)`. There is no
-        shared-pass primitive; [`bhy`][factrix.multi_factor.bhy] controls
-        FDR but does **not** reduce the per-signal evaluation cost.
+    Closed-set DAG dispatch — every spec referenced by another spec's
+    ``requires`` is auto-pulled into the executor, batched stage-1
+    producers run once across the whole factor batch (IC's
+    ``compute_ic`` etc.), and per-factor consumers run once per factor.
 
     Args:
         panel: Long-format panel satisfying the four-column floor
-            ``(date, asset_id, factor, forward_return)``. Accepts
-            ``pl.DataFrame`` or ``pl.LazyFrame`` (collected at the
-            boundary). pandas users go through ``factrix.adapt``
-            (which also renames columns) or ``pl.from_pandas`` first.
-            See
-            [Panel schema](panel-schema.md) for the column contract
-            and [Efficient data loading](../guides/efficient-loading.md)
-            for large-panel recipes.
-        config: Validated ``AnalysisConfig`` selecting the dispatch cell
-            (``Scope × Signal × Metric``). Construct via one of the four
-            factories on the class.
-        factor_cols: Names of the signal columns on ``panel`` to
-            evaluate. Each column is projected and renamed to
-            ``"factor"`` before dispatch; the returned dict is keyed
-            by the original ``factor_cols`` name and each profile's
-            ``factor_id`` is stamped to match. Default ``("factor",)``
-            keeps the canonical single-factor case ergonomic — index
-            via ``["factor"]`` to get the profile.
+            ``(date, asset_id, <factor_col>, forward_return)``. The
+            three fixed-name columns ``(date, asset_id, forward_return)``
+            are validated eagerly; the factor-column name is dynamic
+            and supplied via ``factor_cols=``. ``forward_return`` must
+            already be attached via
+            :func:`factrix.preprocess.compute_forward_return`. ``price``
+            is **not** required at the baseline — it is an optional
+            column consumed by event-study metrics (caar /
+            event_around_return / mfe_mae_summary), which short-circuit
+            to NaN with a ``reason`` when ``price`` is absent.
+        metrics: User-facing :class:`MetricSpec` instances. Element type
+            is checked at runtime; ``str`` / ``Callable`` /
+            :class:`MetricOutput` are rejected. The first entry is
+            tagged as the primary metric (drives ``EvaluationResult.n_obs``
+            and the primary / diagnostic partition on
+            :class:`MetricResult`); the rest become diagnostics.
+        factor_cols: Names of signal columns on ``panel``. List-only —
+            single ``str`` is rejected. Non-empty, no duplicates, every
+            name must exist on ``panel``.
+        forward_periods: Forward-return horizon in rows of the panel's
+            time axis. ``None`` (default) lets every metric's own
+            ``forward_periods=`` default fire; pass an explicit value
+            whenever the panel's forward-return horizon is not 5.
+            Injected into ``kwargs_by_metric`` only for specs whose
+            callable signature accepts the parameter.
 
     Returns:
-        ``dict[factor_name, FactorProfile]`` — one entry per name in
-        ``factor_cols``. Each [`FactorProfile`][factrix.FactorProfile]
-        carries ``primary_p``, ``stats``, ``warnings``, ``info_notes``,
-        ``mode``, ``n_obs``, ``n_assets``, plus
-        ``identity = (factor_id, forward_periods)`` and
-        ``context = {universe_id, regime_id, ...}``. Feed
-        ``.values()`` to [`bhy`][factrix.multi_factor.bhy] for FDR
-        screening.
+        ``list[EvaluationResult]`` in ``factor_cols`` order. Always a
+        list — single factor calls return a one-element list. The cell
+        axes stamped on each result derive from the first metric's
+        cell and are informational only; ``DagExecutor`` does not
+        consult them for dispatch.
 
     Raises:
-        MissingConfigError: ``evaluate(panel)`` called without an
-            ``AnalysisConfig``. Recovery: call
-            [`suggest_config`][factrix.suggest_config].
-        IncompatibleAxisError: ``config`` axes form an illegal cell.
-        ModeAxisError: Legal cell has no procedure under the derived
-            ``Mode``. Carries ``.suggested_fix: AnalysisConfig | None``
-            with the nearest-legal config.
-        InsufficientSampleError: ``T`` below the procedure's
-            ``MIN_PERIODS_HARD`` floor. Carries ``.actual_periods`` /
-            ``.required_periods``.
-        UserInputError: ``factor_cols`` empty, contains duplicates, or
-            references a column not present on ``panel``.
+        UserInputError: ``metrics`` not a ``list[MetricSpec]``;
+            ``factor_cols`` empty / single ``str`` / contains duplicates
+            / references a column not on ``panel``; ``panel`` missing
+            any of the baseline columns ``(date, asset_id, forward_return)``;
+            ``forward_periods=None`` but a closure metric's callable
+            declares a ``forward_periods`` parameter.
 
     Examples:
-        Single-factor inference on a cross-sectional panel:
+        Single-factor IC + IC information ratio (IR):
 
         >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
-        >>> panel = compute_forward_return(raw, forward_periods=5)
-        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, cfg)["factor"]
-
-        Non-default signal column name:
-
-        >>> panel_renamed = panel.rename({"factor": "alpha"})
-        >>> profile = fx.evaluate(panel_renamed, cfg, factor_cols=["alpha"])["alpha"]
-
-        Multi-factor batch:
-
-        >>> profiles = fx.evaluate(wide_panel, cfg, factor_cols=["alpha", "beta"])  # doctest: +SKIP
-        >>> survivors = fx.multi_factor.bhy(profiles.values())                       # doctest: +SKIP
+        >>> from factrix._metric_index import spec_by_name
+        >>> raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
+        >>> panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        >>> specs = spec_by_name()
+        >>> results = fx.evaluate(
+        ...     panel,
+        ...     metrics=[specs["ic"], specs["ic_ir"]],
+        ...     factor_cols=["factor"],
+        ...     forward_periods=5,
+        ... )
+        >>> len(results)
+        1
+        >>> "ic" in results[0].metrics and "ic_ir" in results[0].metrics
+        True
     """
-    if config is None:
-        raise MissingConfigError(
-            "evaluate() requires an AnalysisConfig. "
-            "Call factrix.suggest_config(panel) for a recommendation, "
-            "or see the Get Started guide: "
-            "https://awwesomeman.github.io/factrix/getting-started/"
-        )
+    _validate_metrics_arg(metrics)
+    cols = _validate_factor_cols_arg(factor_cols)
     panel = _coerce_panel(panel)
-    return _evaluate(panel, config, factor_cols=factor_cols)
+    _validate_baseline_columns(panel)
+    _validate_factor_cols_on_panel(panel, cols)
+
+    closure_specs = _close_requires(metrics)
+    _validate_forward_periods_when_required(closure_specs, forward_periods)
+
+    cfg = _synthesize_cfg(metrics, forward_periods)
+    kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
+    primary_names = (metrics[0].name,)
+    executor = DagExecutor(closure_specs, primary_names=primary_names)
+    result_dict = executor.execute(panel, cfg, cols, kwargs_by_metric=kwargs_by_metric)
+    return [result_dict[c] for c in cols]
+
+
+_DOCS_METRICS = "api/evaluate#metrics"
+_DOCS_FACTOR_COLS = "api/evaluate#factor_cols"
+_DOCS_PANEL = "api/evaluate#panel"
+_DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods"
+
+
+def _validate_metrics_arg(metrics: object) -> None:
+    if not isinstance(metrics, list):
+        raise UserInputError(
+            func_name="evaluate",
+            field="metrics",
+            value=type(metrics).__name__,
+            expected="list[MetricSpec] (non-empty)",
+            docs_path=_DOCS_METRICS,
+        )
+    if not metrics:
+        raise UserInputError(
+            func_name="evaluate",
+            field="metrics",
+            value=metrics,
+            expected="a non-empty list of MetricSpec",
+            docs_path=_DOCS_METRICS,
+        )
+    for m in metrics:
+        if not isinstance(m, MetricSpec):
+            raise UserInputError(
+                func_name="evaluate",
+                field="metrics",
+                value=type(m).__name__,
+                expected="every element to be a MetricSpec",
+                docs_path=_DOCS_METRICS,
+            )
+
+
+def _validate_factor_cols_arg(factor_cols: object) -> list[str]:
+    if isinstance(factor_cols, str) or not isinstance(factor_cols, list):
+        raise UserInputError(
+            func_name="evaluate",
+            field="factor_cols",
+            value=factor_cols
+            if isinstance(factor_cols, str)
+            else type(factor_cols).__name__,
+            expected="list[str] (single str is rejected)",
+            docs_path=_DOCS_FACTOR_COLS,
+        )
+    if not factor_cols:
+        raise UserInputError(
+            func_name="evaluate",
+            field="factor_cols",
+            value=factor_cols,
+            expected="a non-empty list of factor column names",
+            docs_path=_DOCS_FACTOR_COLS,
+        )
+    if len(set(factor_cols)) != len(factor_cols):
+        raise UserInputError(
+            func_name="evaluate",
+            field="factor_cols",
+            value=factor_cols,
+            expected="factor_cols with no duplicates",
+            docs_path=_DOCS_FACTOR_COLS,
+        )
+    for c in factor_cols:
+        if not isinstance(c, str):
+            raise UserInputError(
+                func_name="evaluate",
+                field="factor_cols",
+                value=type(c).__name__,
+                expected="every element to be a str",
+                docs_path=_DOCS_FACTOR_COLS,
+            )
+    return list(factor_cols)
+
+
+def _validate_factor_cols_on_panel(panel: pl.DataFrame, cols: list[str]) -> None:
+    missing = [c for c in cols if c not in panel.columns]
+    if missing:
+        raise UserInputError(
+            func_name="evaluate",
+            field="factor_cols",
+            value=missing,
+            expected=(
+                f"every name in factor_cols to exist on panel; "
+                f"got columns {list(panel.columns)!r}"
+            ),
+            docs_path=_DOCS_FACTOR_COLS,
+        )
+
+
+_BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
+
+
+def _validate_baseline_columns(panel: pl.DataFrame) -> None:
+    missing = [c for c in _BASELINE_COLUMNS if c not in panel.columns]
+    if not missing:
+        return
+    if "forward_return" in missing:
+        hint = (
+            ". Attach forward_return:\n"
+            "    panel = factrix.preprocess.compute_forward_return("
+            "panel, forward_periods=<N>)"
+        )
+    else:
+        hint = ""
+    raise UserInputError(
+        func_name="evaluate",
+        field="panel",
+        value=list(panel.columns),
+        expected=(
+            f"panel must include baseline columns {list(_BASELINE_COLUMNS)!r}; "
+            f"missing {missing!r}{hint}"
+        ),
+        docs_path=_DOCS_PANEL,
+    )
+
+
+def _close_requires(metrics: list[MetricSpec]) -> list[MetricSpec]:
+    by_name = spec_by_name()
+    closed: dict[str, MetricSpec] = {m.name: m for m in metrics}
+    stack: list[MetricSpec] = list(metrics)
+    while stack:
+        s = stack.pop()
+        for producer in s.requires.values():
+            pname = producer.__name__
+            if pname in closed:
+                continue
+            if pname not in by_name:
+                raise UserInputError(
+                    func_name="evaluate",
+                    field="metrics",
+                    value=pname,
+                    expected=(
+                        f"{s.name!r} requires producer {pname!r} but no "
+                        f"MetricSpec for it exists in the registry"
+                    ),
+                    docs_path=_DOCS_METRICS,
+                )
+            producer_spec = by_name[pname]
+            closed[pname] = producer_spec
+            stack.append(producer_spec)
+    return list(closed.values())
+
+
+def _resolve_callable(name: str):
+    from factrix._dag import _registry_callable_table
+
+    return _registry_callable_table().get(name)
+
+
+def _signature_has_forward_periods(name: str) -> bool:
+    fn = _resolve_callable(name)
+    if fn is None or not callable(fn):
+        return False
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return False
+    return "forward_periods" in sig.parameters
+
+
+def _validate_forward_periods_when_required(
+    closure_specs: list[MetricSpec], forward_periods: int | None
+) -> None:
+    if forward_periods is not None:
+        return
+    needing = [s.name for s in closure_specs if _signature_has_forward_periods(s.name)]
+    if needing:
+        raise UserInputError(
+            func_name="evaluate",
+            field="forward_periods",
+            value=None,
+            expected=(
+                f"int — required by metric(s) {needing!r} that consume the "
+                f"forward-return horizon"
+            ),
+            docs_path=_DOCS_FORWARD_PERIODS,
+        )
+
+
+def _build_kwargs_by_metric(
+    closure_specs: list[MetricSpec], forward_periods: int | None
+) -> dict[str, dict[str, Any]]:
+    if forward_periods is None:
+        return {}
+    return {
+        s.name: {"forward_periods": forward_periods}
+        for s in closure_specs
+        if _signature_has_forward_periods(s.name)
+    }
+
+
+def _synthesize_cfg(
+    metrics: list[MetricSpec], forward_periods: int | None
+) -> AnalysisConfig:
+    """Synthesize an axis stamp from the first metric's cell."""
+    first = metrics[0].cell
+    scope = first.scope if first.scope is not None else FactorScope.INDIVIDUAL
+    signal = first.signal if first.signal is not None else Signal.CONTINUOUS
+    if scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS:
+        metric_axis: Metric | None = (
+            first.metric if first.metric is not None else Metric.IC
+        )
+    else:
+        metric_axis = None
+    fp = forward_periods if forward_periods is not None else 5
+    return AnalysisConfig(
+        scope=scope, signal=signal, metric=metric_axis, forward_periods=fp
+    )
 
 
 __version__ = "0.13.0"

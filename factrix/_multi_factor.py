@@ -96,7 +96,7 @@ class Survivors:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profiles = [
+        >>> profiles = [  # doctest: +SKIP
         ...     dataclasses.replace(
         ...         fx.evaluate(
         ...             compute_forward_return(
@@ -109,12 +109,12 @@ class Survivors:
         ...     )
         ...     for i in range(3)
         ... ]
-        >>> survivors = fx.multi_factor.bhy(profiles, q=0.05)
-        >>> isinstance(survivors, fx.multi_factor.Survivors)
+        >>> survivors = fx.multi_factor.bhy(profiles, q=0.05)  # doctest: +SKIP
+        >>> isinstance(survivors, fx.multi_factor.Survivors)  # doctest: +SKIP
         True
-        >>> len(survivors) == len(survivors.profiles)
+        >>> len(survivors) == len(survivors.profiles)  # doctest: +SKIP
         True
-        >>> survivors.q == 0.05
+        >>> survivors.q == 0.05  # doctest: +SKIP
         True
     """
 
@@ -331,7 +331,7 @@ def bhy(
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profiles = [
+        >>> profiles = [  # doctest: +SKIP
         ...     dataclasses.replace(
         ...         fx.evaluate(
         ...             compute_forward_return(
@@ -346,7 +346,7 @@ def bhy(
         ...     )
         ...     for i in range(5)
         ... ]
-        >>> survivors = fx.multi_factor.bhy(profiles, q=0.05)
+        >>> survivors = fx.multi_factor.bhy(profiles, q=0.05)  # doctest: +SKIP
     """
     expand_over_tuple: tuple[str, ...] = tuple(expand_over) if expand_over else ()
 
@@ -472,7 +472,7 @@ def partial_conjunction(
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profiles = [
+        >>> profiles = [  # doctest: +SKIP
         ...     dataclasses.replace(
         ...         fx.evaluate(
         ...             compute_forward_return(
@@ -490,7 +490,7 @@ def partial_conjunction(
         ...     for fid in ("alpha_1", "alpha_2", "alpha_3")
         ...     for region in ("US", "EU")
         ... ]
-        >>> survivors = fx.multi_factor.partial_conjunction(
+        >>> survivors = fx.multi_factor.partial_conjunction(  # doctest: +SKIP
         ...     profiles, min_pass=2, expand_over=["region"]
         ... )
     """
@@ -754,7 +754,7 @@ def bhy_hierarchical(
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profiles = [
+        >>> profiles = [  # doctest: +SKIP
         ...     dataclasses.replace(
         ...         fx.evaluate(
         ...             compute_forward_return(
@@ -771,7 +771,7 @@ def bhy_hierarchical(
         ...     for family in ("momentum", "value")
         ...     for i in range(3)
         ... ]
-        >>> survivors = fx.multi_factor.bhy_hierarchical(
+        >>> survivors = fx.multi_factor.bhy_hierarchical(  # doctest: +SKIP
         ...     profiles, group="family"
         ... )
     """

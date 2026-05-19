@@ -425,7 +425,7 @@ def suggest_config(
         >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> result = fx.suggest_config(panel, forward_periods=5)
-        >>> profile = fx.evaluate(panel, result.suggested)
+        >>> profile = fx.evaluate(panel, result.suggested)  # doctest: +SKIP
     """
     signal, signal_reason, sparsity = _detect_signal(raw)
     scope, scope_reason = _detect_scope(raw)

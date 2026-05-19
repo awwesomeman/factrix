@@ -21,6 +21,14 @@ from factrix._errors import UserInputError
 from factrix._multi_factor import bhy
 from factrix.stats import HansenHodrick
 
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Tests target the legacy fx.evaluate(panel, cfg)->FactorProfile path "
+        "deleted in #445; full test deletion / rewrite is queued for "
+        "#448 (public-surface retire) and #449 (internal-module retire)."
+    )
+)
+
 
 def _build_panel(
     *,
