@@ -274,12 +274,14 @@ def _default_fn_resolver(name: str) -> Callable[..., Any]:
 
 @functools.cache
 def _registry_callable_table() -> dict[str, Callable[..., Any]]:
-    """Single-pass ``{spec.name: callable}`` across every public metric module.
+    """Single-pass ``{spec.name: callable}`` across every registered metric.
 
-    Module-level cache so executor construction stays O(1) per spec
-    lookup instead of re-walking ``_public_metric_stems`` per call.
+    Walks first-party ``factrix.metrics.*`` modules and the third-party
+    registry populated via :func:`factrix.metrics.register`. Cache is
+    cleared by :func:`factrix.metrics.register` so newly-registered
+    callables become resolvable on the next executor construction.
     """
-    from factrix._metric_index import _all_specs, import_path_for
+    from factrix._metric_index import _METRIC_REGISTRY, _all_specs, import_path_for
 
     table: dict[str, Callable[..., Any]] = {}
     for stem, spec in _all_specs():
@@ -287,6 +289,12 @@ def _registry_callable_table() -> dict[str, Callable[..., Any]]:
         fn = getattr(mod, spec.name, None)
         if callable(fn):
             table[spec.name] = fn
+    import factrix.metrics as _metrics_pkg
+
+    for name in _METRIC_REGISTRY:
+        fn = getattr(_metrics_pkg, name, None)
+        if callable(fn):
+            table[name] = fn
     return table
 
 

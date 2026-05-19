@@ -778,6 +778,38 @@ factrix.list_estimators(scope: FactorScope, signal: Signal,
 
 ---
 
+### Third-party metric registration
+
+Custom metrics plug into the registry via the `@metric_spec(...)` decorator
+(metadata stamp only — does **not** auto-register) plus an explicit
+`factrix.metrics.register(fn)` call. The pair lets IDE / mypy see a real
+attribute on `factrix.metrics` while keeping registration side-effects
+explicit.
+
+```python
+import factrix as fx
+from factrix._metric_index import MetricSpec, cell
+
+@fx.metric_spec(
+    MetricSpec(
+        name="custom_ic",
+        cell=cell(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS),
+        family="cs-first",
+        inference="NW HAC",
+    )
+)
+def custom_ic(panel):
+    ...
+
+fx.metrics.register(custom_ic)
+# Now resolvable: getattr(fx.metrics, "custom_ic"), and pass
+# custom_ic.__metric_spec__ in fx.evaluate(metrics=[...]).
+```
+
+`register(fn)` rejects duplicate names and clashes with first-party specs;
+the decorator accepts the full `MetricSpec` object (not kwargs) so the
+decorator surface stays stable across MetricSpec field changes.
+
 ### Preprocessing
 
 ```python

@@ -39,7 +39,7 @@ import inspect
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
 
@@ -408,6 +408,108 @@ def module_specs(stem: str) -> tuple[MetricSpec, ...]:
 
 
 @functools.cache
-def spec_by_name() -> dict[str, MetricSpec]:
-    """Return ``{name: spec}`` across every spec (public and internal)."""
+def _first_party_spec_by_name() -> dict[str, MetricSpec]:
+    """Return ``{name: spec}`` for first-party specs only (cached)."""
     return {spec.name: spec for _, spec in _all_specs()}
+
+
+def spec_by_name() -> dict[str, MetricSpec]:
+    """Return ``{name: spec}`` unioning first-party + third-party registered specs.
+
+    First-party specs are auto-discovered from ``factrix.metrics.*``
+    modules' ``__metric_specs__`` tuples (cached). Third-party specs
+    are added via :func:`register`; the third-party slice is reflected
+    here without recomputing the first-party walk.
+    """
+    out = dict(_first_party_spec_by_name())
+    out.update(_METRIC_REGISTRY)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Third-party metric registration surface
+# ---------------------------------------------------------------------------
+
+
+_METRIC_REGISTRY: dict[str, MetricSpec] = {}
+"""Third-party metric registry populated via :func:`register`.
+
+Kept separate from the first-party cache so first-party discovery
+stays a single import-time walk and third-party additions don't
+invalidate that cache. :func:`spec_by_name` unions both sources.
+"""
+
+
+def metric_spec(spec: MetricSpec) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Stamp ``__metric_spec__`` onto a metric callable.
+
+    Pure metadata stamp — does **not** register. Pair with an explicit
+    :func:`register` call to make the spec visible to
+    :func:`list_metrics` / :func:`spec_by_name` / DAG dispatch::
+
+        @metric_spec(MetricSpec(name="custom_ic", cell=..., ...))
+        def custom_ic(panel, ...): ...
+
+        factrix.metrics.register(custom_ic)
+
+    Accepts the full :class:`MetricSpec` object rather than spreading
+    kwargs so the decorator surface stays evergreen across MetricSpec
+    field changes (e.g. the structural rework in the
+    panel-dataclass-unification follow-up).
+    """
+
+    def _wrap(fn: Callable[..., Any]) -> Callable[..., Any]:
+        fn.__metric_spec__ = spec  # type: ignore[attr-defined]
+        return fn
+
+    return _wrap
+
+
+def register(fn: Callable[..., Any]) -> None:
+    """Register a third-party metric callable carrying ``__metric_spec__``.
+
+    The callable must have been decorated with :func:`metric_spec` (or
+    have ``__metric_spec__`` attached by other means). Registration
+    side-effects:
+
+    1. Adds the spec to ``_METRIC_REGISTRY`` so :func:`spec_by_name`
+       and the DAG executor can resolve it by name.
+    2. Sets ``factrix.metrics.<spec.name>`` to the callable so IDE /
+       mypy / interactive use see a real attribute (parallel to
+       first-party metrics imported into the namespace).
+    3. Clears any caches that would otherwise mask the new spec.
+
+    Raises:
+        TypeError: ``fn`` is not callable or has no ``__metric_spec__``.
+        ValueError: a spec with the same name is already registered
+            (third-party) or exists as a first-party spec; explicit
+            re-registration is disallowed to keep the registry
+            authoritative.
+    """
+    if not callable(fn):
+        raise TypeError(f"register(): expected a callable; got {type(fn).__name__}.")
+    spec = getattr(fn, "__metric_spec__", None)
+    if not isinstance(spec, MetricSpec):
+        raise TypeError(
+            "register(): callable has no __metric_spec__ attribute. "
+            "Apply @metric_spec(MetricSpec(...)) first."
+        )
+    name = spec.name
+    if name in _METRIC_REGISTRY:
+        raise ValueError(
+            f"register(): metric {name!r} already registered (third-party)."
+        )
+    if name in _first_party_spec_by_name():
+        raise ValueError(
+            f"register(): metric {name!r} clashes with a first-party spec; "
+            f"pick a different name."
+        )
+
+    import factrix.metrics as _metrics_pkg
+
+    _METRIC_REGISTRY[name] = spec
+    setattr(_metrics_pkg, name, fn)
+
+    from factrix._dag import _registry_callable_table
+
+    _registry_callable_table.cache_clear()

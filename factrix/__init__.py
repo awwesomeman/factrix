@@ -42,7 +42,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix import datasets, multi_factor, preprocess
+from factrix import datasets, estimators, multi_factor, preprocess
 from factrix._analysis_config import AnalysisConfig
 from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
     FactorScope,
@@ -81,7 +81,7 @@ from factrix._inspect import (
     PanelReasoning,
     inspect_panel,
 )
-from factrix._metric_index import MetricSpec, SampleFloor, spec_by_name
+from factrix._metric_index import MetricSpec, SampleFloor, metric_spec, spec_by_name
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._results import EvaluationResult, MetricResult, Warning
@@ -467,4 +467,9 @@ __all__ = [
     "datasets",
     # Forward-return preprocessing
     "preprocess",
+    # Estimator entry points (lowercase callables consumed by metric impls)
+    "estimators",
+    # Metric registration surface
+    "MetricSpec",
+    "metric_spec",
 ]
