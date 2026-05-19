@@ -3,7 +3,7 @@ title: Warning, info, and stat codes
 ---
 
 Structured enum payloads attached to every
-[`FactorProfile`](../api/factor-profile.md). Use these as the SSOT
+`FactorProfile`. Use these as the SSOT
 when you need to filter, route, or trigger downstream behaviour from
 factrix output without parsing free-text strings.
 

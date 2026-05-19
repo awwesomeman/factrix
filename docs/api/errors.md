@@ -66,7 +66,7 @@ Use the table to skim; jump to the linked page for the why.
 
 | Exception / message | Trigger | Fix |
 |---|---|---|
-| `MissingConfigError: evaluate(panel) needs AnalysisConfig` | `evaluate(panel)` called with no `cfg` | Pass an explicit `AnalysisConfig` (one of the four factory methods on [`AnalysisConfig`](analysis-config.md)). |
+| `MissingConfigError: evaluate(panel) needs AnalysisConfig` | `evaluate(panel)` called with no `cfg` | Pass an explicit `AnalysisConfig` (one of the four factory methods on `AnalysisConfig`). |
 | `IncompatibleAxisError: (scope, signal, metric) is not a legal cell` | Combination like `(INDIVIDUAL, SPARSE, IC)` that the dispatch table never registers | Use one of the four factories (`individual_continuous`, `individual_sparse`, `common_continuous`, `common_sparse`) — illegal combos are unreachable via factories. See [Concepts](../getting-started/concepts.md). |
 | `ModeAxisError: no procedure at runtime Mode=TIMESERIES` | Legal cell, but `N = panel["asset_id"].n_unique()` triggers a Mode the cell does not implement (typical case: `individual_continuous` at `N=1`) | Read `.suggested_fix` — it carries the nearest-legal `AnalysisConfig` for the actual `Mode`. See [Quickstart § N = 1](../getting-started/quickstart.md). |
 | `InsufficientSampleError: T below required` | `n_periods` below the procedure's `MIN_PERIODS_HARD` floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or — if the procedure is not the right one for short series — switching to a TIMESERIES-friendly cell. `evaluate()` raises; standalone metric callables (e.g. [`quantile_spread`](metrics/quantile.md#factrix.metrics.quantile.quantile_spread)) and `run_metrics()` surface the same condition differently — see [Panel vs timeseries § Sample-deficiency surfacing by entry point](../guides/panel-timeseries.md#sample-deficiency-surfacing-by-entry-point). |
@@ -188,17 +188,7 @@ Autodoc anchors for cross-references of the form
       show_root_toc_entry: false
       heading_level: 4
 
-::: factrix.MissingConfigError
-    options:
-      show_root_toc_entry: false
-      heading_level: 4
-
 ::: factrix.IncompatibleAxisError
-    options:
-      show_root_toc_entry: false
-      heading_level: 4
-
-::: factrix.ModeAxisError
     options:
       show_root_toc_entry: false
       heading_level: 4

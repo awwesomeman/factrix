@@ -14,9 +14,8 @@ For the SE / test machinery itself see
 [Statistical methods](statistical-methods.md). For the
 `MetricOutput.name` → docs-page reverse index see
 [`MetricOutput`](../api/metric-output.md#name-index). The
-`evaluate()`-side equivalent — `FactorProfile.stats` keyed by
-`StatCode` — lives at
-[`FactorProfile` § `stats` keys by cell](../api/factor-profile.md#stats-keys-by-cell).
+`evaluate()`-side equivalent is `FactorProfile.stats` keyed by
+`StatCode`.
 
 `metadata` keys are tagged by role in the per-metric subsections
 below:

@@ -5,7 +5,7 @@ title: Reading results
 Each entry point in factrix returns a frozen result dataclass. This page
 walks the field order for the two a quant researcher will encounter:
 
-- [`FactorProfile`](../api/factor-profile.md) — what `evaluate()` returns
+- `FactorProfile` — what `evaluate()` returns
   for one factor (the primary inferential artifact).
 - [`Survivors`](../api/multi-factor.md) — what `bhy()` /
   `partial_conjunction()` / `bhy_hierarchical()` return after False
@@ -132,7 +132,7 @@ sample-restriction vs hypothesis-dimension splits.
 
 ## See also
 
-- [`FactorProfile`](../api/factor-profile.md) / [`Survivors`](../api/multi-factor.md) — full symbol references.
+- [`Survivors`](../api/multi-factor.md) — full symbol reference.
 - [Quickstart § profile.diagnose() and warnings](../getting-started/quickstart.md#profilediagnose-and-warnings) — runnable end-to-end example.
 - [Errors](../api/errors.md) — exception classes for the failure modes the result trio does not cover (`InsufficientSampleError`, `ModeAxisError`, ...).
 - [Architecture § Invariants](../development/architecture.md#invariants) — `primary_p` semantic contract (items 5 and 6).

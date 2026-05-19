@@ -42,7 +42,7 @@ The same insufficient-sample condition surfaces differently across the three pub
 
 `n_assets` deficiency follows a separate rule that holds across all three entry points: the cross-asset axis **never** hard-blocks, because the t-test on `E[β]` is well-defined for `N ≥ 2` — only statistical power degrades. Small `N` surfaces as [`SMALL_CROSS_SECTION_N`](../reference/warning-codes.md) / [`BORDERLINE_CROSS_SECTION_N`](../reference/warning-codes.md) warnings on the resulting `FactorProfile` / `MetricOutput`, regardless of entry point. The two-axis guard table above remains the source of truth for which axis triggers which behaviour.
 
-A separate "why did this metric not run" category — metrics that consume stage-2 frames (`caar`, `fama_macbeth`, `ts_beta`, ...) or per-date series (`hit_rate`, `ic_trend`, `multi_split_oos_decay`) — is excluded from `run_metrics` auto-discovery because the runner cannot synthesise their inputs from the panel alone. These appear in the `skipped` map with a `consumes …; call X then Y(…) directly` reason that points at the explicit composition recipe; they are not a sample-size issue. See `factrix._metric_index._AUTO_DISCOVER_EXCLUDED` for the full mapping.
+A separate "why did this metric not run" category — metrics that consume stage-2 frames (`caar`, `fama_macbeth`, `ts_beta`, ...) or per-date series (`hit_rate`, `ic_trend`, `multi_split_oos_decay`) — is excluded from auto-discovery because the runner cannot synthesise their inputs from the panel alone. These appear in the `skipped` map with a `consumes …; call X then Y(…) directly` reason that points at the explicit composition recipe; they are not a sample-size issue.
 
 ## Aggregation order
 

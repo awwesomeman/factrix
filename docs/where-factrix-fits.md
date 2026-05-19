@@ -378,9 +378,7 @@ from factrix.preprocess import compute_forward_return
 panel = pl.from_pandas(zipline_out.reset_index())
 panel = compute_forward_return(panel, forward_periods=5)
 
-cfg = fx.AnalysisConfig.individual_continuous(
-    metric=fx.Metric.IC, forward_periods=5,
-)
+cfg = ...  # config construction pending v0.14.0 docs rewrite
 profile = fx.evaluate(panel, cfg)
 primary_p = profile.primary_p
 ```

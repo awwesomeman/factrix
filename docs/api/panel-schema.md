@@ -129,5 +129,4 @@ the panel — see the
 ## See also
 
 - [`evaluate`](evaluate.md) — dispatch entry
-- [`AnalysisConfig`](analysis-config.md) — axis selection
 - [Concepts](../getting-started/concepts.md) — three-axis taxonomy and dispatch cells

@@ -42,8 +42,7 @@ slope significance should be read with that caveat.
 Full derivation, threshold rationale, and interpolation accuracy live
 in
 [Statistical methods § Persistence diagnostics](statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors).
-The
-[`FactorProfile` StatCode → method table](../api/factor-profile.md#statcode--statistical-method)
+The `FactorProfile` StatCode → method mapping
 maps `FACTOR_ADF_P` to that section directly. The
 `unit_root_suspected=True` flag is `ic_trend` metadata only — the
 TIMESERIES-mode cells expose the raw `FACTOR_ADF_P` *p*-value and

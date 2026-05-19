@@ -15,7 +15,7 @@ title: factrix.multi_factor.bhy
     ---
 
     Run `evaluate` over `m` candidate signals on the same return panel,
-    feed the resulting list of [`FactorProfile`][factrix.FactorProfile]
+    feed the resulting list of `FactorProfile`
     to `bhy`, and read the surviving subset off the
     [`BhyResult`][factrix.multi_factor.BhyResult] container. Controls
     FDR ≤ `q` under arbitrary dependence — the regime that matches a

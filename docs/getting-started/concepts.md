@@ -15,7 +15,7 @@ function that answers it.
 
 ## Three orthogonal axes
 
-[`AnalysisConfig`][factrix.AnalysisConfig] is defined by three user-facing
+`AnalysisConfig` is defined by three user-facing
 axes. They are **orthogonal**: each supported combination maps to one
 specific statistical test.
 
@@ -88,10 +88,6 @@ literature behind it.
 | `individual_sparse()` | [`caar`][factrix.metrics.caar.caar] | per-event AR → CAAR → cross-event t | [Brown-Warner 1985][brown-warner-1985] |
 | `common_continuous()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β → cross-asset t on E[β] | [Black-Jensen-Scholes 1972][black-jensen-scholes-1972] |
 | `common_sparse()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β on dummy → cross-asset t | TS-β + event-study hybrid |
-
-For the cell-keyed (rather than factory-keyed) reverse-index — including
-the dispatch cells single-asset paths route to — see
-[Metric applicability § Cell to evaluate-metric](../reference/metric-applicability.md#cell-to-evaluate-metric).
 
 ## Mode: PANEL vs TIMESERIES
 

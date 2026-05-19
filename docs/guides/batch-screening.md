@@ -18,7 +18,7 @@ BHY controls false discovery rate (FDR) **within a statistical family**: evaluat
 import factrix as fx
 
 candidates = ["mom_5d", "mom_20d", "mom_60d"]
-cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+cfg = ...  # config construction pending v0.14.0 docs rewrite
 
 profiles = [fx.evaluate(panel, cfg, factor_col=name) for name in candidates]
 survivors = fx.multi_factor.bhy(profiles, q=0.05)

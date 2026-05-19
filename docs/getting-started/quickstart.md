@@ -17,8 +17,8 @@ from factrix.preprocess import compute_forward_return
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
-# Typed factory — supply the config directly (type-safe; the IDE rejects illegal combos)
-cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+# example pending v0.14.0 docs rewrite
+cfg     = ...  # config construction pending v0.14.0 docs rewrite
 profile = fx.evaluate(panel, cfg)
 
 print('primary_p =', round(profile.primary_p, 4))
@@ -59,7 +59,7 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
 
 ## `profile.diagnose()` and warnings
 
-[`diagnose()`][factrix.FactorProfile.diagnose] returns a flat dict for human inspection or AI agent triage:
+`diagnose()` returns a flat dict for human inspection or AI agent triage:
 
 ```python
 {

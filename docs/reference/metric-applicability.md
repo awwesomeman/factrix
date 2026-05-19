@@ -17,19 +17,6 @@ cross-metric overview. For the runtime API that returns the per-cell
 metric list programmatically, see
 [`list_metrics`](../api/list-metrics.md).
 
-## Cell to evaluate-metric
-
-Each `(scope, signal, metric, mode)` cell maps to exactly one metric
-that [`evaluate()`](../api/evaluate.md) runs. This section is the
-cell-keyed reverse-index; the rest of the page is metric-keyed.
-
---8<-- "docs/reference/_generated_evaluate_metric_table.md"
-
-Cells absent from the table raise `ModeAxisError` (e.g.
-`(INDIVIDUAL, CONTINUOUS) × TIMESERIES`); `(SPARSE × TIMESERIES)`
-collapses scope and tags `InfoCode.SCOPE_AXIS_COLLAPSED` — see
-[Timeseries-mode conventions](ts-mode-conventions.md).
-
 ## Sample dimensions
 
 factrix expresses sample size on three axes (see
@@ -49,8 +36,8 @@ across Modes, only the sample axis that constrains it.
 
 ## Other metrics by family
 
-Primary metrics (`ic`, `fama_macbeth`, `caar`, `ts_beta`) are the SSOT
-in the [primary table](#cell-to-evaluate-metric) above. The remaining
+Primary metrics (`ic`, `fama_macbeth`, `caar`, `ts_beta`) are the SSOT.
+The remaining
 metrics group by family below; the section heading carries the cell
 context, so each per-row schema reduces to *Metric / Sample axis /
 Min sample*. `MIN_*` constants resolve to values in the

@@ -42,30 +42,26 @@ The single `FactorProcedure` node above stands in for the seven concrete
 procedures (`_ICContPanelProcedure`, `_FMContPanelProcedure`,
 `_CAARSparsePanelProcedure`, `_CommonContPanelProcedure`,
 `_CommonSparsePanelProcedure`, `_TSBetaContTimeseriesProcedure`,
-`_TSDummySparseTimeseriesProcedure`). The cell-keyed mapping from
-`(scope, signal, metric, mode)` to the concrete procedure lives in
-[Reference § Metric applicability — cell to evaluate-metric](../reference/metric-applicability.md#cell-to-evaluate-metric);
-the in-graph collapse here keeps the high-level dispatch path legible
+`_TSDummySparseTimeseriesProcedure`).
+The in-graph collapse here keeps the high-level dispatch path legible
 on mobile widths.
 
 ---
 
 ## Public API surface
 
-Three entry points, all in `factrix.__init__`:
+Entry points, all in `factrix.__init__`:
 
 | Symbol | Purpose |
 |--------|---------|
-| `fx.AnalysisConfig` | Three-axis frozen dataclass; construct via 4 factory methods |
-| `fx.evaluate(panel, config)` | Dispatch to the registered procedure → `FactorProfile` |
+| `fx.evaluate(panel, config)` | Dispatch to the registered procedure |
 | `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 
-- `fx.FactorScope`, `fx.Signal`, `fx.Metric`, `fx.Mode` — three user-facing axes + the evaluate-time-derived fourth
-- `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured codes carried on `FactorProfile`
-- `fx.FactorProfile` — single unified result type
-- `fx.FactrixError`, `fx.ConfigError`, `fx.MissingConfigError`, `fx.IncompatibleAxisError`, `fx.ModeAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
+- `fx.FactorScope`, `fx.Signal` — user-facing axes
+- `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured result codes
+- `fx.FactrixError`, `fx.ConfigError`, `fx.IncompatibleAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
@@ -118,15 +114,11 @@ class FactorProcedure(Protocol):
 
 `InputSchema` lists `required_columns` — currently `("date", "asset_id", "factor", "forward_return")` for all 7 cells.
 
-The seven cells (cell tuple ↔ procedure class). For the user-facing factory
-mapping and per-cell canonical statistic / references, see
-[Concepts §Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) — that
-table is the SSOT for what each procedure computes.
-
---8<-- "docs/development/_generated_registry_cells.md"
-
-The two timeseries cells share the NW HAC + auto-Bartlett-with-Hansen-Hodrick-floor
-lag rule from `factrix/_stats/constants.py`.
+After #448, dispatch runs through the DAG executor on a closed
+`list[MetricSpec]` rather than a registry-keyed procedure table; see
+[Concepts §Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios)
+for the per-cell canonical statistic / references and
+`factrix._dag.DagExecutor` for the executor contract.
 
 ---
 

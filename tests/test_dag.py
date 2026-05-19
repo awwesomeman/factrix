@@ -7,7 +7,7 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import Visibility
+from factrix._axis import FactorScope, Metric, Signal, Visibility
 from factrix._dag import CycleError, DagExecutor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._types import MetricOutput
@@ -111,7 +111,12 @@ class TestBatchablePath:
         consumer_spec = _make_spec(
             "per_factor_consumer", requires={"ic_df": batch_producer}
         )
-        cfg = fx.AnalysisConfig.individual_continuous(forward_periods=1)
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "signal": Signal.CONTINUOUS,
+            "metric": Metric.IC,
+            "forward_periods": 1,
+        }
         panel = _build_panel(factor_cols=("a", "b", "c"))
 
         ex = DagExecutor(
@@ -121,7 +126,7 @@ class TestBatchablePath:
                 "per_factor_consumer": per_factor_consumer,
             }.__getitem__,
         )
-        out = ex.execute(panel, cfg, ["a", "b", "c"])
+        out = ex.execute(panel, ["a", "b", "c"], **axes)
         assert call_count["n"] == 1
         assert {
             c: out[c].metrics["per_factor_consumer"].value for c in ["a", "b", "c"]
@@ -141,12 +146,17 @@ class TestPerFactorPath:
             return MetricOutput(name="panel_consumer", value=float(panel.height))
 
         spec = _make_spec("panel_consumer")
-        cfg = fx.AnalysisConfig.individual_continuous(forward_periods=1)
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "signal": Signal.CONTINUOUS,
+            "metric": Metric.IC,
+            "forward_periods": 1,
+        }
         panel = _build_panel(factor_cols=("a", "b"))
         ex = DagExecutor(
             [spec], fn_resolver={"panel_consumer": panel_consumer}.__getitem__
         )
-        out = ex.execute(panel, cfg, ["a", "b"])
+        out = ex.execute(panel, ["a", "b"], **axes)
         assert len(called) == 2
         assert out["a"].metrics["panel_consumer"].value > 0
 
@@ -171,7 +181,12 @@ class TestStage1Share:
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
         b_spec = _make_spec("consumer_b", requires={"ic_df": producer})
 
-        cfg = fx.AnalysisConfig.individual_continuous(forward_periods=1)
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "signal": Signal.CONTINUOUS,
+            "metric": Metric.IC,
+            "forward_periods": 1,
+        }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
             [producer_spec, a_spec, b_spec],
@@ -181,7 +196,7 @@ class TestStage1Share:
                 "consumer_b": consumer_b,
             }.__getitem__,
         )
-        out = ex.execute(panel, cfg, ["x"])
+        out = ex.execute(panel, ["x"], **axes)
         assert producer_calls["n"] == 1
         assert out["x"].metrics["consumer_a"].value == 43.0
         assert out["x"].metrics["consumer_b"].value == 44.0
@@ -207,13 +222,18 @@ class TestShortCircuitPropagation:
 
         producer_spec = _make_spec("producer", batchable=True)
         consumer_spec = _make_spec("consumer", requires={"ic_df": producer})
-        cfg = fx.AnalysisConfig.individual_continuous(forward_periods=1)
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "signal": Signal.CONTINUOUS,
+            "metric": Metric.IC,
+            "forward_periods": 1,
+        }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
             [producer_spec, consumer_spec],
             fn_resolver={"producer": producer, "consumer": consumer}.__getitem__,
         )
-        out = ex.execute(panel, cfg, ["x"])
+        out = ex.execute(panel, ["x"], **axes)
         assert consumer_called["n"] == 0
         downstream = out["x"].metrics["consumer"]
         assert math.isnan(downstream.value)
@@ -325,11 +345,16 @@ class TestEndToEndIcCell:
     def test_real_ic_specs_dispatch_through_executor(self):
         by_name = spec_by_name()
         specs = [by_name["compute_ic"], by_name["ic"], by_name["ic_ir"]]
-        cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "signal": Signal.CONTINUOUS,
+            "metric": Metric.IC,
+            "forward_periods": 5,
+        }
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         ex = DagExecutor(specs, primary_names=["ic"])
-        out = ex.execute(panel, cfg, ["factor"])
+        out = ex.execute(panel, ["factor"], **axes)
         r = out["factor"]
         assert isinstance(r, fx.EvaluationResult)
         assert r.factor == "factor"

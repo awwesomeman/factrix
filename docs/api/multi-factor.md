@@ -5,7 +5,7 @@ title: factrix.multi_factor
 # factrix.multi_factor
 
 Collection-level false-discovery-rate (FDR) control across a list of
-[`FactorProfile`][factrix.FactorProfile] objects. Use after `evaluate`
+`FactorProfile` objects. Use after `evaluate`
 has produced one profile per candidate factor (or per factor × context
 combination): the functions in this module adjust per-factor p-values
 for multiple testing under the dependence structure that factor pools

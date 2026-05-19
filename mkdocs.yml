@@ -42,10 +42,6 @@ hooks:
   - scripts/mkdocs_hooks/gen_metric_matrix.py
   # factrix/metrics/*.py Matrix-row: -> docs/reference/_generated_metric_name_index.md
   - scripts/mkdocs_hooks/gen_metric_name_index.py
-  # factrix/_registry._DISPATCH_REGISTRY -> docs/development/_generated_registry_cells.md
-  - scripts/mkdocs_hooks/gen_registry_cells.py
-  # factrix/_registry._DISPATCH_REGISTRY -> docs/reference/_generated_evaluate_metric_table.md
-  - scripts/mkdocs_hooks/gen_evaluate_metric_table.py
   # factrix/_codes.{WarningCode,InfoCode,StatCode}.description ->
   # docs/reference/_generated_{warning,info,stat}_codes.md
   - scripts/mkdocs_hooks/gen_code_descriptions.py
@@ -178,7 +174,6 @@ nav:
       - Panel schema: api/panel-schema.md
       - Entry points:
           - Core:
-              - AnalysisConfig: api/analysis-config.md
               - evaluate: api/evaluate.md
           - Slicing:
               - by_slice: api/by-slice.md
@@ -194,7 +189,6 @@ nav:
           - Diagnostics:
               - compare: api/compare.md
       - Results:
-          - FactorProfile: api/factor-profile.md
           - MetricOutput: api/metric-output.md
           - Identity / context: api/identity.md
           - Errors: api/errors.md
