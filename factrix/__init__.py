@@ -67,7 +67,6 @@ from factrix._errors import (
     InsufficientSampleError,
     MissingConfigError,
     ModeAxisError,
-    RunMetricsError,
     UnknownEstimatorError,
     UserInputError,
 )
@@ -85,12 +84,6 @@ from factrix._metric_index import MetricSpec, SampleFloor, metric_spec, spec_by_
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._results import EvaluationResult, MetricResult, Warning
-from factrix._run_metrics import (
-    MetricsBundle,
-    run_metrics,
-    run_metrics_chunked,
-    run_metrics_iter,
-)
 from factrix._types import MetricOutput
 from factrix.slicing import (
     SliceResult,
@@ -424,7 +417,6 @@ __all__ = [
     "InsufficientSampleError",
     "MissingConfigError",
     "ModeAxisError",
-    "RunMetricsError",
     "UnknownEstimatorError",
     "UserInputError",
     # Profile + dispatch
@@ -434,16 +426,12 @@ __all__ = [
     "FactorProfile",
     "MetricOutput",
     "MetricResult",
-    "MetricsBundle",
     "PanelInput",
     "Warning",
     "compare",
     "evaluate",
     "evaluate_chunked",
     "evaluate_iter",
-    "run_metrics",
-    "run_metrics_chunked",
-    "run_metrics_iter",
     # Introspection
     "MetricApplicability",
     "PanelInspection",

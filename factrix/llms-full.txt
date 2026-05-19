@@ -215,12 +215,11 @@ on its primary entry points; pandas users go through `factrix.adapt`
 (which also renames columns) or `pl.from_pandas` first. `LazyFrame`
 is collected at the API boundary (no projection / predicate pushdown
 applied by factrix — call `.select(...)` / `.filter(...)` upstream
-for memory efficiency on large sources). See
-`docs/guides/efficient-loading.md` for large-panel recipes.
+for memory efficiency on large sources).
 
-`factor_cols` mirrors `run_metrics`: pass a list of column names on
-`panel`, get back a dict of `FactorProfile` keyed by those names —
-even when the list has one element (`fx.evaluate(panel, cfg)["factor"]`).
+`factor_cols` accepts a list of column names on
+`panel`; the returned list of `FactorProfile` is aligned to that order —
+even when the list has one element (`fx.evaluate(panel, cfg)[0]`).
 All factors in one call share the same dispatch cell (locked by
 `config`) and the same `Mode` (derived once from
 `panel["asset_id"].n_unique()`) — comparability of the returned
@@ -263,9 +262,9 @@ factrix.evaluate_chunked(panel: polars.DataFrame | polars.LazyFrame, cfg: Analys
                          ) -> Iterator[dict[str, FactorProfile]]
 ```
 
-Memory-bounded variant of `evaluate` for large-N factor screens —
-evaluate-side mirror of `run_metrics_chunked`. Splits `factor_cols`
-into chunks, narrows `panel` to `base_cols + chunk` per iteration
+Memory-bounded variant of `evaluate` for large-N factor screens.
+Splits `factor_cols` into chunks, narrows `panel` to
+`base_cols + chunk` per iteration
 (`pl.LazyFrame` inputs get per-chunk projection pushdown via
 `select().collect()`), calls `evaluate` on each chunk, and yields the
 per-chunk `dict[factor_id, FactorProfile]` so peak RSS is bounded by
@@ -306,119 +305,6 @@ validation and dispatch resolution are eager (`UserInputError` /
 failures (e.g. `InsufficientSampleError`) surface mid-stream after
 earlier factors have already been emitted — the standard
 streaming-iterator trade-off.
-
----
-
-### `run_metrics`
-
-```
-factrix.run_metrics(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                    *, factor_cols: Sequence[str] = ("factor",),
-                    metrics: list[str] | None = None) -> dict[str, MetricsBundle]
-```
-
-Cell-level descriptive batch runner — the descriptive twin of
-`evaluate`. Same `(panel, cfg)` entry contract; disjoint result type
-(`evaluate` carries the primary inferential `FactorProfile`,
-`run_metrics` carries the cell's descriptive surface as one
-`MetricsBundle` per factor). N=1 is the list-of-1 case of the
-general batch path; IC stage-1 and batch-native primitives
-(`compute_ic` / `quantile_spread` / `monotonicity`) share one polars
-query across all factors, non-batch primitives are looped per factor
-on a thin projection. `metrics=None` auto-discovers via
-`list_metrics(cfg.scope, cfg.signal)` filtered for `panel`-input
-metrics; `metrics=[...]` validates names and raises
-`UserInputError` (with fuzzy suggestion) for unknown / excluded
-entries. v1 wires the IC stage-1 cache (`compute_ic` shared across
-`ic` / `ic_newey_west` / `ic_ir`); other stage-1
-consumers (`caar`, `fama_macbeth`, `ts_beta`, `mfe_mae_summary`,
-plus series / spread consumers) appear in `bundle.skipped` with the
-explicit-import recipe. Cross-horizon / cross-universe sweeps go
-through user comprehension into `compare(bundles[])` (descriptive)
-or `bhy(profiles, expand_over=["forward_periods"])` (FDR-controlled).
-Raises `RunMetricsError` (chained `__cause__`) when a metric or the
-stage-1 helper hits an unexpected exception; sample-floor failures
-are converted to short-circuit `MetricOutput` entries inside the
-bundle, not raised.
-
-### `run_metrics_chunked`
-
-```
-factrix.run_metrics_chunked(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                            *, factor_cols: Sequence[str],
-                            metrics: list[str] | None = None,
-                            chunk_size: int | None = None,
-                            base_cols: Sequence[str] = ("date", "asset_id", "forward_return"),
-                            ) -> Iterator[dict[str, MetricsBundle]]
-```
-
-Memory-bounded variant of `run_metrics` for large-N factor screens.
-Splits `factor_cols` into chunks, narrows `panel` to
-`base_cols + chunk` per iteration (`pl.LazyFrame` inputs get
-per-chunk projection pushdown via `select().collect()`), calls
-`run_metrics` on each chunk, and yields the per-chunk
-`dict[factor_id, MetricsBundle]` so peak RSS is bounded by
-`chunk_size` rather than `len(factor_cols)`. Within a chunk the
-full batch-dispatch path runs unchanged — IC stage-1 is shared
-across the chunk's factors and batch-native primitives still take
-one call per metric; across chunks IC stage-1 is recomputed, so
-very small `chunk_size` pays the per-chunk dispatcher overhead
-without the batch-sharing benefit. `chunk_size=None` (default)
-targets ~25% of `psutil.virtual_memory().available` as the
-per-chunk peak budget; pass an explicit value to override. Eager
-schema check on `base_cols + factor_cols` so a missing column
-raises `UserInputError` before the first yield rather than failing
-mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
-extras) required only by the auto-sizing path; explicit
-`chunk_size` skips it.
-
-### `run_metrics_iter`
-
-```
-factrix.run_metrics_iter(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                         *, factor_cols: Sequence[str] = ("factor",),
-                         metrics: list[str] | None = None,
-                         ) -> Iterator[tuple[str, MetricsBundle]]
-```
-
-Per-factor streaming sibling of `run_metrics`. Yields
-`(factor_id, MetricsBundle)` in `factor_cols` order so callers can
-write to a sink / update a progress bar / break early without paying
-the full-batch latency. Cross-factor work the dispatcher amortises —
-IC stage-1 (`compute_ic`) and every `@batch_primitive` metric — still
-runs once before the first yield via each protocol's `bind` hook; the
-per-factor consumer pass then runs inside the yield loop, so the
-first `next(gen)` lands after one factor's per-factor metrics rather
-than all `N`. `run_metrics(...)` is now defined as
-`dict(run_metrics_iter(...))`, so eager and streaming paths share one
-dispatcher and identical `factor_cols` / `metrics` semantics. Input
-validation is eager (raised before any yield); per-factor consumer
-failures surface mid-stream after earlier factors have already been
-emitted — the standard streaming-iterator trade-off.
-
-### `MetricsBundle`
-
-Frozen dataclass produced by `run_metrics`. Identity / context split
-matches `FactorProfile` per #160.
-
-```
-bundle.identity        : tuple[str, int]               # (factor_id, forward_periods)
-bundle.metrics         : Mapping[str, MetricOutput]    # name → output (incl. NaN short-circuits)
-bundle.skipped         : Mapping[str, str]             # name → reason for excluded metrics
-bundle.context         : Mapping[str, Any]             # v1 always {}; populated downstream
-bundle.factor_id       : str                           # identity[0]
-bundle.forward_periods : int                           # identity[1]
-```
-
-Access: `bundle["ic"]` (dict-style); `"ic" in bundle`,
-`list(bundle)`, `iter(bundle)` operate on metric keys.
-`bundle.to_frame()` returns an 8-column long-form `pl.DataFrame`
-(`factor_id, forward_periods, metric, value, stat, significance,
-p_value, short_circuit_reason`) for stable
-`pl.concat([b.to_frame() ...])` across bundles.
-
-`__hash__ = None` — group bundles by `identity` (a hashable tuple),
-not by the bundle itself.
 
 ---
 
@@ -670,7 +556,7 @@ long-run covariance from a generic short-sample warning.
 
 ```
 factrix.compare(
-    artifacts: list[FactorProfile] | list[MetricsBundle] | Survivors,
+    artifacts: list[FactorProfile] | Survivors,
     *,
     sort_by: str | None = None,
 ) -> pl.DataFrame
@@ -684,9 +570,6 @@ is read straight through). Single entrypoint with input-type dispatch:
   + `primary_stat`, `primary_stat_name`, `primary_p`.
   `primary_stat_name` carries the `StatCode.value` slug (`"t_nw"` /
   `"wald_nwcl"` / `"p_boot"` …) so mixed-procedure lists disambiguate.
-- `list[MetricsBundle]` → `factor_id`, `forward_periods` + context +
-  one column per metric (`MetricOutput.value`). Per-cell `n_obs` is
-  not flattened; look up `bundle[metric].n_obs` directly.
 - `Survivors` → as the profile branch plus a final `adj_p` column.
   `expand_over` dimensions surface as ordinary context columns via
   `profile.context[k]` — there is no sidecar field on `Survivors`.
@@ -696,8 +579,7 @@ and fill `null` where missing; ordering follows first appearance.
 `sort_by=None` keeps input order; a non-None value sorts with
 polars `nulls_last=True`.
 
-`UserInputError` raises on empty input (list or `Survivors`), mixed
-artifact types (e.g. `FactorProfile` + `MetricsBundle` in one list),
+`UserInputError` raises on empty input (list or `Survivors`),
 unknown `sort_by` (with `difflib` fuzzy suggestion against the output
 schema).
 
@@ -888,9 +770,9 @@ directly see `MetricOutput`.
 
 ## v0.14 result types (preview — not yet wired into `evaluate`)
 
-The unified DAG executor (#438 / #442) replaces `FactorProfile` /
-`MetricsBundle` with a single result-type group. The dataclasses ship
-in v0.14.0 as types-only; runner wiring lands with the DAG executor.
+The unified DAG executor (#438 / #442) replaces `FactorProfile` with a
+single result-type group. The dataclasses ship in v0.14.0 as
+types-only; runner wiring lands with the DAG executor.
 
 - **`EvaluationResult`** — bundle-level result for one factor at one
   cell. Fields: `factor` / `axes` (`(scope, signal, metric)` tuple) /
@@ -930,8 +812,7 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
   `execute` call. Raises `CycleError` on dependency cycles and
   `ValueError` when a referenced producer is missing from the
   executor's spec set (no silent auto-close — the caller declares
-  the graph). Wiring as the default for `fx.evaluate` /
-  `fx.run_metrics` is the unification follow-up.
+  the graph). Wired as the default for `fx.evaluate`.
 - **`EvaluationResult.plan: str`** — required string emitted by the
   DAG executor (numbered topological order with `[batchable]` /
   `[per-factor]` role and a `requires=` upstream list when present).
@@ -1039,7 +920,7 @@ sits outside `config`.
 
 ## Removed
 
-- **`multi_horizon_ic` / `multi_horizon_hit_rate`** (deprecated v0.11.0, removed v0.12.0; #186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Migration: `run_metrics(panel, cfg.replace(forward_periods=h))` per horizon → `pl.concat([b.to_frame() for b in bundles])` for descriptive view, or `evaluate(...)` per horizon → `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
+- **`multi_horizon_ic` / `multi_horizon_hit_rate`** (deprecated v0.11.0, removed v0.12.0; #186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Migration: call `evaluate(...)` per horizon and concat each `EvaluationResult.to_frame()`, or feed the per-horizon results into `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
 
 ## Links
 

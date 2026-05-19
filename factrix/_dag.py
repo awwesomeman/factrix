@@ -17,10 +17,7 @@ Single execution path that:
 - emits a stable, diff-friendly plan string per execute call and
   stamps it onto every :class:`EvaluationResult` returned.
 
-Wiring this executor as the user-facing default for
-:func:`factrix.evaluate` / :func:`factrix.run_metrics` is the
-follow-up unification (#438); #442 ships the executor as a
-programmatic surface only.
+Wired as the user-facing default for :func:`factrix.evaluate`.
 """
 
 from __future__ import annotations
@@ -39,11 +36,26 @@ from factrix._axis import Mode
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, Visibility, emitted_name_of
 from factrix._results import EvaluationResult, MetricResult, Warning
-from factrix._run_metrics import _project_factor
 from factrix._types import MetricOutput
 
 if TYPE_CHECKING:
     from factrix._analysis_config import AnalysisConfig
+
+
+def _project_factor(panel: pl.DataFrame, col: str) -> pl.DataFrame:
+    """Project ``panel`` to the canonical 4-column per-factor view.
+
+    Non-batch primitives expect a panel whose factor column is literally
+    named ``"factor"``; this projection renames ``col`` and drops any
+    sibling columns so primitives see an identical schema regardless of
+    the caller's ``factor_cols`` choice.
+    """
+    return panel.select(
+        pl.col("date"),
+        pl.col("asset_id"),
+        pl.col("forward_return"),
+        pl.col(col).alias("factor"),
+    )
 
 
 class CycleError(ValueError):

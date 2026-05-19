@@ -65,14 +65,6 @@ def test_evaluate_rejects_pandas_with_guidance(panel_pl: pl.DataFrame) -> None:
         fx.evaluate(pdf, metrics=[ic], factor_cols=["factor"], forward_periods=5)
 
 
-def test_run_metrics_rejects_pandas_with_guidance(panel_pl: pl.DataFrame) -> None:
-    pytest.importorskip("pandas")
-    pdf = panel_pl.to_pandas()
-    cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-    with pytest.raises(TypeError, match=r"factrix\.adapt|pl\.from_pandas"):
-        fx.run_metrics(pdf, cfg, metrics=["ic"])
-
-
 def test_evaluate_rejects_unsupported_type() -> None:
     ic = spec_by_name()["ic"]
     with pytest.raises(TypeError, match=r"pl\.DataFrame or pl\.LazyFrame"):

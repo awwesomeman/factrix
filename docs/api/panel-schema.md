@@ -3,10 +3,10 @@ title: Panel schema
 ---
 
 Single-source contract for every `factrix` entry point that consumes a
-panel. Every dispatch cell registered through `evaluate` /
-`run_metrics` floors its `INPUT_SCHEMA` at the same four columns
-described here. Per-cell extensions (optional weight / price columns)
-are listed under [Optional columns](#optional-columns).
+panel. Every dispatch cell `evaluate` runs floors its input schema at
+the same four columns described here. Per-cell extensions (optional
+weight / price columns) are listed under
+[Optional columns](#optional-columns).
 
 ## Four-column contract
 
@@ -49,21 +49,25 @@ Panels often arrive with the signal column named something other than
 caller's frame:
 
 ```python
-profile = fx.evaluate(panel, cfg, factor_col="alpha")
-bundle  = fx.run_metrics(panel, cfg, factor_cols=["momentum_12_1"])["momentum_12_1"]
+from factrix._metric_index import spec_by_name
+specs = spec_by_name()
+results = fx.evaluate(
+    panel,
+    metrics=[specs["ic"]],
+    factor_cols=["momentum_12_1"],
+    forward_periods=5,
+)
 ```
 
 Behaviour:
 
-- `evaluate` renames the chosen column to `"factor"` internally so
-  every procedure's `INPUT_SCHEMA` still sees the canonical schema.
-- `run_metrics(factor_cols=[...])` accepts factor column names
-  directly — pass a list to score multiple factors in one call; IC
-  stage-1 and batch-native primitives share one polars query across
-  the batch.
-- `bundle.identity = (factor_name, cfg.forward_periods)` per
-  per-factor bundle in the returned dict; see
-  [Batch screening guide](../guides/batch-screening.md).
+- `evaluate` projects each entry in `factor_cols` to the canonical
+  `"factor"` name internally so every metric callable still sees the
+  four-column schema.
+- `factor_cols=[...]` accepts a list of column names — IC stage-1 and
+  batch-native primitives share one polars query across the batch.
+- Each `EvaluationResult.identity = (factor_name, forward_periods)`;
+  see [Batch screening guide](../guides/batch-screening.md).
 
 Error cases (both raise [`UserInputError`][factrix.UserInputError]):
 
@@ -110,20 +114,20 @@ The canonical pipeline from raw price/event data to evaluate-ready panel:
 raw price panel  ──compute_forward_return(h)──▶  (date, asset_id, factor, forward_return)
                                                           │
                                                           ▼
-                                                       evaluate / run_metrics / by_slice / ...
+                                                       evaluate / by_slice / ...
 ```
 
 Pre-attachment helpers live in [`factrix.preprocess`](preprocess.md);
 synthetic panels in [`factrix.datasets`](datasets.md). Wide-format
-multi-factor inputs are handled by looping `evaluate` / `run_metrics`
-with `factor_col=` rather than by reshaping the panel — see the
+multi-factor inputs are handled by passing the column names through
+`factor_cols=` on a single `evaluate` call rather than by reshaping
+the panel — see the
 [Batch screening guide](../guides/batch-screening.md).
 
 ---
 
 ## See also
 
-- [`evaluate`](evaluate.md) — single-factor dispatch entry
-- [`run_metrics`](run-metrics.md) — descriptive metric bundle
+- [`evaluate`](evaluate.md) — dispatch entry
 - [`AnalysisConfig`](analysis-config.md) — axis selection
 - [Concepts](../getting-started/concepts.md) — three-axis taxonomy and dispatch cells

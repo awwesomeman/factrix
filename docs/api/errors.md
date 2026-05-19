@@ -212,10 +212,3 @@ Autodoc anchors for cross-references of the form
     options:
       show_root_toc_entry: false
       heading_level: 4
-
-### Run-metrics failures
-
-::: factrix.RunMetricsError
-    options:
-      show_root_toc_entry: false
-      heading_level: 4

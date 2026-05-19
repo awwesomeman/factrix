@@ -3,15 +3,13 @@ title: Reading results
 ---
 
 Each entry point in factrix returns a frozen result dataclass. This page
-walks the field order for the three a quant researcher will encounter:
+walks the field order for the two a quant researcher will encounter:
 
 - [`FactorProfile`](../api/factor-profile.md) — what `evaluate()` returns
   for one factor (the primary inferential artifact).
 - [`Survivors`](../api/multi-factor.md) — what `bhy()` /
   `partial_conjunction()` / `bhy_hierarchical()` return after False
   Discovery Rate (FDR) screening.
-- [`MetricsBundle`](../api/metrics-bundle.md) — what `run_metrics()`
-  returns (descriptive twin of `FactorProfile`).
 
 The cheat sheet below is the scanning version; the sections after walk
 each field with its reading rationale.
@@ -22,7 +20,6 @@ each field with its reading rationale.
 |---|---|---|---|
 | `FactorProfile` | `primary_p` | `primary_stat` / `primary_stat_name` | `warnings` · `info_notes` · `stats` · `metadata` |
 | `Survivors` | `survivor[i] iff adj_p[i] <= q` | `profiles[i].primary_p` alongside `adj_p[i]` | `expand_over` · `n_tests` |
-| `MetricsBundle` | per-metric `.value` | `.significance` (`***` / `**` / `*` / `""`) | `.stat` · `.metadata` · `.n_obs` |
 
 ---
 
@@ -42,7 +39,7 @@ order, which itself reflects the reader-flow from "what was tested" to
 |---|---|---|
 | `factor_id` | `str` | Stable id stamped from the factor column name; the hypothesis dimension that screening / `compare` group by. |
 | `forward_periods` | `int` | Forward-return horizon. |
-| `identity` | `tuple[str, int]` | `(factor_id, forward_periods)`; aligns with `MetricsBundle.identity` so downstream `compare()` can stack the two artifacts. |
+| `identity` | `tuple[str, int]` | `(factor_id, forward_periods)`. |
 | `context` | `Mapping[str, Any]` | Extra hypothesis-dimension keys (`regime_id`, `universe`, ...); empty by default, populated by upstream slicing. |
 | `config.scope` / `config.signal` / `config.metric` / `mode` | enums | The four-axis dispatch coordinate that selected the procedure. |
 
@@ -133,46 +130,10 @@ sample-restriction vs hypothesis-dimension splits.
 
 ---
 
-## `MetricsBundle` — descriptive twin of `FactorProfile`
-
-```python
-bundle = fx.run_metrics(panel, cfg)["factor"]
-```
-
-`run_metrics` fans out the cell's standalone descriptive metrics; the
-bundle wraps the per-metric `MetricOutput` map.
-
-### Reading order
-
-| Field | Type | Reads as |
-|---|---|---|
-| `bundle.identity` | `tuple[str, int]` | `(factor_id, forward_periods)`; aligns with `FactorProfile.identity` for `compare(profiles, bundles)`. |
-| `bundle.metrics["<name>"]` | `MetricOutput` | Per-metric record — see fields below. |
-| `bundle.skipped` | `Mapping[str, str]` | Metrics that did not auto-run, with one-line reasons. |
-| `bundle.context` | `Mapping[str, Any]` | Sample-restriction / conditioning dimensions; empty unless populated by `factrix.by_slice`. |
-
-Each `MetricOutput` carries:
-
-| Field | Type | Reads as |
-|---|---|---|
-| `name` | `str` | Metric identifier (`ic`, `ic_ir`, `oos_decay`, ...). |
-| `value` | `float` | Headline number for the metric. |
-| `significance` | `str \| None` | Procedure-dependent ladder: `***` / `**` / `*` / `""`. |
-| `stat` | `float \| None` | Test statistic, where applicable. |
-| `n_obs` | `int \| None` | Sample size the metric's estimator consumed. |
-| `metadata` | `dict` | Per-metric context (`p_value`, `stat_type`, ...). |
-
-A `MetricsBundle` does not carry a single `primary_p` because
-"descriptive" rules out a single canonical inference target by design;
-reach for `evaluate()` when a single p-value is what is needed.
-
----
-
 ## See also
 
-- [`FactorProfile`](../api/factor-profile.md) / [`Survivors`](../api/multi-factor.md) / [`MetricsBundle`](../api/metrics-bundle.md) — full symbol references.
+- [`FactorProfile`](../api/factor-profile.md) / [`Survivors`](../api/multi-factor.md) — full symbol references.
 - [Quickstart § profile.diagnose() and warnings](../getting-started/quickstart.md#profilediagnose-and-warnings) — runnable end-to-end example.
 - [Errors](../api/errors.md) — exception classes for the failure modes the result trio does not cover (`InsufficientSampleError`, `ModeAxisError`, ...).
 - [Architecture § Invariants](../development/architecture.md#invariants) — `primary_p` semantic contract (items 5 and 6).
 - [Batch screening with BHY](batch-screening.md) — `Survivors` lifecycle end-to-end.
-- [Standalone metrics](standalone-metrics.md) — `MetricsBundle` composition patterns.
