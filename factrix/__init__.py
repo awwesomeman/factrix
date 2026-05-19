@@ -126,10 +126,10 @@ def evaluate(
 
     Returns:
         ``list[EvaluationResult]`` in ``factor_cols`` order. Always a
-        list — single factor calls return a one-element list. The cell
-        axes stamped on each result derive from the first metric's
-        cell and are informational only; ``DagExecutor`` does not
-        consult them for dispatch.
+        list — single factor calls return a one-element list. The
+        ``cell`` tuple stamped on each result derives from the first
+        metric's cell and is informational only; ``DagExecutor`` does
+        not consult it for dispatch.
 
     Raises:
         UserInputError: ``metrics`` not a ``list[MetricSpec]``;
@@ -168,7 +168,7 @@ def evaluate(
     _validate_forward_periods_when_required(closure_specs, forward_periods)
     _validate_primary_metric_applicable(metrics[0], panel)
 
-    scope, signal, metric_axis = _axes_from_first_metric(metrics[0])
+    scope, signal, metric_axis = _cell_from_first_metric(metrics[0])
     fp = forward_periods if forward_periods is not None else 5
     kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
     primary_names = (metrics[0].name,)
@@ -410,10 +410,10 @@ def _validate_primary_metric_applicable(
     )
 
 
-def _axes_from_first_metric(
+def _cell_from_first_metric(
     primary: MetricSpec,
 ) -> tuple[FactorScope, FactorSignal, Metric | None]:
-    """Derive the axis stamp for ``EvaluationResult`` from the primary metric's cell."""
+    """Derive the cell tuple for ``EvaluationResult`` from the primary metric's cell."""
     cell = primary.cell
     scope = cell.scope if cell.scope is not None else FactorScope.INDIVIDUAL
     signal = cell.signal if cell.signal is not None else FactorSignal.CONTINUOUS

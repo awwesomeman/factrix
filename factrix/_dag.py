@@ -263,7 +263,7 @@ class DagExecutor:
             n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,
-                axes=(scope, signal, metric),
+                cell=(scope, signal, metric),
                 mode=mode,
                 forward_periods=forward_periods,
                 n_obs=n_obs,

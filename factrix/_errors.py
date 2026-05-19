@@ -103,11 +103,11 @@ class UserInputError(FactrixError, ValueError):
 
 
 class ConfigError(FactrixError):
-    """Base for axis / dispatch validation errors.
+    """Base for cell / dispatch validation errors.
 
     ``suggested_fix`` carries any caller-actionable recovery payload
-    (e.g. nearest-legal cell axes); stays ``None`` when the failure is
-    a data limitation rather than an axis-tuple miswire.
+    (e.g. nearest-legal cell); stays ``None`` when the failure is a
+    data limitation rather than a cell miswire.
     """
 
     def __init__(
@@ -143,7 +143,7 @@ class InsufficientSampleError(ConfigError):
 
     Below the floor, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE is too biased for ``primary_p`` to be
     trustworthy. Raised at evaluate-time. ``suggested_fix`` is ``None``
-    — this is a data limitation, not an axis-tuple miswire. ``actual_periods``
+    — this is a data limitation, not a cell miswire. ``actual_periods``
     and ``required_periods`` carry the numbers so callers can recover or
     aggregate programmatically (review fix UX-3).
     """
