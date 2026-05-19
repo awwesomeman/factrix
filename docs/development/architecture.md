@@ -65,8 +65,6 @@ Plus introspection / error / enum re-exports:
 - `fx.FactorScope`, `fx.Signal`, `fx.Metric`, `fx.Mode` — three user-facing axes + the evaluate-time-derived fourth
 - `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured codes carried on `FactorProfile`
 - `fx.FactorProfile` — single unified result type
-- `fx.describe_analysis_modes(format="text"|"json")` — registry-reflected cell catalogue
-- `fx.suggest_config(panel)` — heuristic factory call from a raw panel
 - `fx.FactrixError`, `fx.ConfigError`, `fx.MissingConfigError`, `fx.IncompatibleAxisError`, `fx.ModeAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).

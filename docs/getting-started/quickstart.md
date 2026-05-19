@@ -36,17 +36,6 @@ print(profile.diagnose())
 #  'metadata': {'t_nw': {'nw_lags': 5}, 'p_nw': {'nw_lags': 5}}}
 ```
 
-If you are not sure which factory to use, let factrix infer it from the
-panel shape:
-
-```python
-# Inferred config — factrix picks the factory from the panel shape
-result  = fx.suggest_config(panel)
-profile = fx.evaluate(panel, result.suggested)
-# result.reasoning explains how each axis was inferred
-# result.warnings flags potential risks (small N, persistence, …)
-```
-
 See [Concepts](concepts.md) for what each axis means.
 
 ---

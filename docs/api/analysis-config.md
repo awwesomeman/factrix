@@ -174,13 +174,4 @@ than failing silently later.
 
     [api/list-estimators →](list-estimators.md)
 
--   __`suggest_config`__
-
-    ---
-
-    Recommend the nearest legal config from panel shape; the recovery
-    path for [`MissingConfigError`][factrix.MissingConfigError] from `evaluate`.
-
-    [api/suggest-config →](suggest-config.md)
-
 </div>

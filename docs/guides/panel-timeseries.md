@@ -59,13 +59,3 @@ the metric matrix and `list_metrics()` output — see
 
 Full per-procedure pseudocode for all 7 registered pipelines lives in [Development § Procedure pipelines](../development/architecture.md#procedure-pipelines).
 
-## Introspection
-
-```python
-# heuristic config suggestion + risk warnings
-result = fx.suggest_config(panel)
-print(result.reasoning, result.warnings)
-
-# list all cells and their MIN_PERIODS thresholds
-print(fx.describe_analysis_modes())
-```

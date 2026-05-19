@@ -191,7 +191,6 @@ nav:
           - Discovery:
               - list_metrics: api/list-metrics.md
               - list_estimators: api/list-estimators.md
-              - suggest_config: api/suggest-config.md
           - Diagnostics:
               - compare: api/compare.md
       - Results:

@@ -21,11 +21,6 @@ Batch + Benjamini-Hochberg-Yekutieli (BHY)::
     profiles = fx.evaluate(wide_panel, cfg, factor_cols=candidate_cols)
     survivors = fx.multi_factor.bhy(profiles.values(), q=0.05)
 
-Schema reflection::
-
-    print(fx.describe_analysis_modes())
-    print(fx.suggest_config(panel))
-
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
 typical usage patterns in a single fetch. Two access paths::
 
@@ -53,13 +48,6 @@ from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor
-from factrix._describe import (
-    SuggestConfigResult,
-    describe_analysis_modes,
-    list_estimators,
-    list_metrics,
-    suggest_config,
-)
 from factrix._errors import (
     ConfigError,
     FactrixError,
@@ -80,7 +68,13 @@ from factrix._inspect import (
     PanelReasoning,
     inspect_panel,
 )
-from factrix._metric_index import MetricSpec, SampleFloor, metric_spec, spec_by_name
+from factrix._metric_index import (
+    MetricSpec,
+    SampleFloor,
+    list_metrics,
+    metric_spec,
+    spec_by_name,
+)
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._results import EvaluationResult, MetricResult, Warning
@@ -91,6 +85,7 @@ from factrix.slicing import (
     slice_joint_test,
     slice_pairwise_test,
 )
+from factrix.stats import list_estimators
 
 
 def evaluate(
@@ -438,12 +433,9 @@ __all__ = [
     "PanelProperties",
     "PanelReasoning",
     "SampleFloor",
-    "SuggestConfigResult",
-    "describe_analysis_modes",
     "inspect_panel",
     "list_estimators",
     "list_metrics",
-    "suggest_config",
     # Slicing dispatcher + cross-slice inference functions
     "SliceResult",
     "by_slice",

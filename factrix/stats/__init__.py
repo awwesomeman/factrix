@@ -25,6 +25,11 @@ paired-diff slice tests (#153); remains on base ``Estimator``.
 ``bootstrap`` — stationary-bootstrap resampling + CI for dependent series.
 """
 
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from factrix._axis import FactorScope, Signal
 from factrix.stats._estimator import (
     Estimator,
     GMMResult,
@@ -84,6 +89,82 @@ def get_estimator(name: str) -> Estimator:
     raise UnknownEstimatorError(f"unknown estimator {name!r}. Available: {available}")
 
 
+def list_estimators(
+    scope: FactorScope,
+    signal: Signal,
+    *,
+    format: Literal["text", "json"] = "text",
+    with_import: bool = False,
+) -> list[str] | list[dict[str, Any]]:
+    """Return Estimator instances applicable to ``(scope, signal)``.
+
+    Mirrors :func:`factrix.list_metrics` shape so callers can build a
+    single pre-flight pattern: ``list_metrics`` says which scalars a
+    cell can emit, ``list_estimators`` says which inference methods
+    can drive the family function's ``estimator=`` kwarg for that
+    cell. Mode is intentionally not an input — Estimator applicability
+    is not mode-dependent.
+
+    Args:
+        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
+            ``FactorScope.COMMON``).
+        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
+            ``Signal.SPARSE``).
+        format: ``"text"`` (default) returns Estimator names sorted
+            alphabetically. ``"json"`` returns ``list[dict]`` rows with
+            keys ``name``, ``description``, ``import_path``.
+        with_import: ``"text"`` only. When ``True``, returns
+            ``"name → import_path"`` two-column lines so each row is
+            copy-paste-ready into ``from factrix.stats import <name>``.
+            Ignored under JSON (``import_path`` is always present
+            there).
+
+    Raises:
+        IncompatibleAxisError: ``(scope, signal)`` matches no
+            registered Estimator. ``NeweyWest`` applies to every
+            user-facing cell, so as long as it stays in the registry
+            this branch is defensive.
+
+    Examples:
+        Discover applicable estimators for an INDIVIDUAL × CONTINUOUS cell:
+
+        >>> import factrix as fx
+        >>> names = fx.list_estimators(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
+        ... )
+
+        JSON form for tooling:
+
+        >>> rows = fx.list_estimators(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        ... )
+    """
+    from factrix._errors import IncompatibleAxisError
+
+    matches = [e for e in _ESTIMATOR_REGISTRY if e.applicable_to(scope, signal)]
+    if not matches:
+        raise IncompatibleAxisError(
+            f"no estimators applicable to (scope={scope.value}, signal={signal.value})"
+        )
+
+    matches.sort(key=lambda e: e.name)
+
+    rows = [
+        {
+            "name": e.name,
+            "description": e.description,
+            "import_path": f"factrix.stats.{type(e).__name__}",
+        }
+        for e in matches
+    ]
+    if format == "json":
+        return rows
+    if with_import:
+        width = max(len(r["name"]) for r in rows)
+        return [f"{r['name']:<{width}} → {r['import_path']}" for r in rows]
+    return [r["name"] for r in rows]
+
+
 __all__ = [
     "GMM",
     "BlockBootstrap",
@@ -101,5 +182,6 @@ __all__ = [
     "bootstrap_mean_ci",
     "bootstrap_mean_ci_batch",
     "get_estimator",
+    "list_estimators",
     "stationary_bootstrap_resamples",
 ]

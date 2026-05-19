@@ -42,6 +42,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
+from factrix._errors import IncompatibleAxisError
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
@@ -513,3 +514,99 @@ def register(fn: Callable[..., Any]) -> None:
     from factrix._dag import _registry_callable_table
 
     _registry_callable_table.cache_clear()
+
+
+# ---------------------------------------------------------------------------
+# list_metrics — programmatic standalone-metric discovery
+# ---------------------------------------------------------------------------
+
+
+def list_metrics(
+    scope: FactorScope,
+    signal: Signal,
+    *,
+    format: Literal["text", "json"] = "text",
+    with_import: bool = False,
+) -> list[str] | list[dict[str, Any]]:
+    """Return standalone metrics applicable to ``(scope, signal)``.
+
+    Mode is intentionally not an input — applicability does not change
+    across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
+    Source of truth is the module-level ``__metric_specs__`` tuple in
+    each metric module, loaded by :mod:`factrix._metric_index`.
+
+    Args:
+        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
+            ``FactorScope.COMMON``).
+        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
+            ``Signal.SPARSE``).
+        format: ``"text"`` (default) returns metric names sorted by
+            ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
+            with keys ``name``, ``module``, ``cell``, ``agg_order``,
+            ``inference_se``, ``import_path``, ``input_kind``,
+            ``docs_anchor``, ``emitted_name`` — JSON-serialisable,
+            suitable for tooling. ``docs_anchor`` follows
+            :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
+            docs-root-relative path + mkdocstrings symbol fragment).
+            ``emitted_name`` is the literal ``MetricOutput.name`` value
+            at runtime — usually equal to ``name`` (the function name),
+            but differs for a small set of historical exceptions.
+            Consumers holding a ``MetricOutput`` should resolve via
+            ``emitted_name``.
+        with_import: ``"text"`` only. When ``True``, returns a
+            two-column ``"name → factrix.metrics.<module>"`` list so
+            each row is copy-paste-ready into
+            ``from factrix.metrics import <name>``. Ignored under
+            ``format="json"`` (the ``import_path`` field is always
+            present there).
+
+    Raises:
+        IncompatibleAxisError: ``(scope, signal)`` matches no
+            registered metric. In practice all four combos are
+            populated, so this is defensive.
+
+    Examples:
+        Discover standalone metrics for an INDIVIDUAL × CONTINUOUS cell:
+
+        >>> import factrix as fx
+        >>> names = fx.list_metrics(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
+        ... )
+
+        JSON form (for tooling — adds module / cell / import_path keys):
+
+        >>> rows = fx.list_metrics(
+        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        ... )
+    """
+    matches = [
+        (stem, spec)
+        for stem, spec in public_specs()
+        if spec.cell.matches(scope, signal)
+    ]
+    if not matches:
+        raise IncompatibleAxisError(
+            f"no standalone metrics registered for "
+            f"(scope={scope.value}, signal={signal.value})"
+        )
+    if format == "json":
+        return [
+            {
+                "name": spec.name,
+                "module": stem,
+                "cell": spec.cell.raw,
+                "agg_order": spec.family,
+                "inference_se": spec.inference,
+                "import_path": import_path_for(stem),
+                "input_kind": spec.input_kind,
+                "docs_anchor": docs_anchor_for(stem, spec.name),
+                "emitted_name": emitted_name_of(spec),
+            }
+            for stem, spec in matches
+        ]
+    if with_import:
+        width = max(len(spec.name) for _, spec in matches)
+        return [
+            f"{spec.name:<{width}} → {import_path_for(stem)}" for stem, spec in matches
+        ]
+    return [spec.name for _, spec in matches]

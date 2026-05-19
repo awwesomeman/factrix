@@ -585,49 +585,9 @@ schema).
 
 ---
 
-### `describe_analysis_modes` / `suggest_config` / `list_metrics` / `list_estimators`
+### `list_metrics` / `list_estimators`
 
 ```
-factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
-                                ) -> str | list[dict[str, Any]]
-    # Enumerate legal analysis cells with PANEL / TIMESERIES routing.
-
-factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
-    # Inspect a panel; propose an AnalysisConfig + structured reasoning + warnings.
-    # Suggestion is never auto-applied — caller (or agent) reads .reasoning.
-    # SuggestConfigResult fields:
-    #   .suggested  : AnalysisConfig
-    #   .detected   : dict[str, Any]      # scope/signal/mode/n_assets/n_periods/sparsity
-    #   .reasoning  : dict[str, str]      # per-axis human-readable rationale
-    #   .warnings   : list[WarningCode]   # Python ergonomic — keep enum identity
-    #
-    # SuggestConfigResult.diagnose() -> dict[str, Any]
-    #   # JSON-shape exit point; shares `warnings` serialisation with
-    #   # FactorProfile.diagnose() but the body is its own shape (the
-    #   # two surfaces answer different questions — this one recommends
-    #   # a config; FactorProfile reports inference on one).
-    #   # {"suggested": {...to_dict()...},
-    #   #  "detected":  {...},
-    #   #  "reasoning": {...},
-    #   #  "warnings":  [str, ...]}        # sorted WarningCode .value strings
-    #
-    # Wire-format rule: Python callers read .warnings (enum-typed);
-    # cross-wire / JSON / log consumers call .diagnose() — same
-    # convention as FactorProfile.
-    #
-    # Example .diagnose() output on an IC PANEL panel (100 assets,
-    # 494 periods, dense factor):
-    #   {
-    #     "suggested": {"scope": "individual", "signal": "continuous",
-    #                   "metric": "ic", "forward_periods": 5},
-    #     "detected":  {"scope": "individual", "signal": "continuous",
-    #                   "mode": "panel", "n_assets": 100,
-    #                   "n_periods": 494, "sparsity": 0.0},
-    #     "reasoning": {"scope": "...", "signal": "...",
-    #                   "metric": "...", "mode": "..."},
-    #     "warnings":  []
-    #   }
-
 factrix.list_metrics(scope: FactorScope, signal: Signal,
                      *, format: Literal["text", "json"] = "text"
                      ) -> list[str] | list[dict[str, Any]]
@@ -740,7 +700,7 @@ Recovery payloads — what each subclass carries beyond `.args[0]`:
 | Exception                | `.suggested_fix` | Extra fields                              |
 |--------------------------|:----------------:|-------------------------------------------|
 | `ConfigError` (base)     | optional         | —                                         |
-| `MissingConfigError`     | always `None`    | (call `factrix.suggest_config(raw)` to recover) |
+| `MissingConfigError`     | always `None`    | (pass an explicit `AnalysisConfig` factory call)  |
 | `IncompatibleAxisError`  | optional         | —                                         |
 | `ModeAxisError`          | typically set    | —                                         |
 | `InsufficientSampleError`| optional         | `.actual_periods: int`, `.required_periods: int` |
@@ -748,8 +708,8 @@ Recovery payloads — what each subclass carries beyond `.args[0]`:
 Agents can branch on these payloads without parsing message strings; the
 canonical pattern is `except fx.FactrixError as exc:` followed by
 `isinstance(exc, …)` dispatch on the subclass. `MissingConfigError` is the
-only subclass with `.suggested_fix` always `None` (the recovery path is
-calling `factrix.suggest_config(raw)`).
+only subclass with `.suggested_fix` always `None` — the recovery path is
+to pass an explicit `AnalysisConfig` to `evaluate`.
 
 ---
 
