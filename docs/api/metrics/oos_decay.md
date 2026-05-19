@@ -1,18 +1,17 @@
 ---
-title: factrix.metrics.oos
+title: factrix.metrics.oos_decay
 ---
 
-::: factrix.metrics.oos
+::: factrix.metrics.oos_decay
     options:
       show_root_members_full_path: true
       members:
-        - multi_split_oos_decay
-        - SplitDetail
+        - oos_decay
 
 <hr>
 
 !!! info "Descriptive only — no formal $H_0$"
-    `multi_split_oos_decay` emits a survival ratio + sign-flip detail;
+    `oos_decay` emits a survival ratio + sign-flip detail;
     no `p_value` is attached and `stat` is `None`. A $t$-test at the
     `MIN_OOS_PERIODS` floor would have power $\approx 0$ and would
     invite mis-reading the diagnostic as a significance test. Callers
@@ -27,7 +26,7 @@ title: factrix.metrics.oos
 
     ---
 
-    `multi_split_oos_decay` is a `(*, CONTINUOUS, *, TIMESERIES)`
+    `oos_decay` is a `(*, CONTINUOUS, *, TIMESERIES)`
     diagnostic — input is a 1-D `(date, value)` series, typically information coefficient (IC)
     from `compute_ic`, spread from `compute_spread_series`, or any
     other factor-mimicking-portfolio return series. Reports
@@ -60,17 +59,17 @@ title: factrix.metrics.oos
 
 | Goal                                                                          | Function                |
 |-------------------------------------------------------------------------------|-------------------------|
-| Multi-split OOS survival + sign-flip gate on a `(date, value)` series         | `multi_split_oos_decay` |
+| Multi-split OOS survival + sign-flip gate on a `(date, value)` series         | `oos_decay` |
 | Typed accessor for an individual split's `(is_ratio, mean_is, mean_oos, ...)` | `SplitDetail`           |
 
-## Worked example — IC series fed into multi_split_oos_decay
+## Worked example — IC series fed into oos_decay
 
-!!! example "compute_ic → multi_split_oos_decay"
+!!! example "compute_ic → oos_decay"
 
     ```python
     import factrix as fx
     from factrix.metrics.ic import compute_ic
-    from factrix.metrics.oos import multi_split_oos_decay
+    from factrix.metrics.oos_decay import oos_decay
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
@@ -81,7 +80,7 @@ title: factrix.metrics.oos
     # The series diagnostic consumes (date, value); the value column on
     # the compute_ic output is named ``ic``.
     ic_df = compute_ic(panel)["factor"]
-    out   = multi_split_oos_decay(ic_df, value_col="ic")
+    out   = oos_decay(ic_df, value_col="ic")
     print(out.value, out.metadata["status"], out.metadata["sign_flipped"])
     # 0.94   PASS   False   (approximate)
     for split in out.metadata["per_split"]:

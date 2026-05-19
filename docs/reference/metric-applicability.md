@@ -36,7 +36,7 @@ across Modes, only the sample axis that constrains it.
 
 ## Other metrics by family
 
-Primary metrics (`ic`, `fama_macbeth`, `caar`, `ts_beta`) are the SSOT.
+Primary metrics (`ic`, `fm_beta`, `caar`, `ts_beta`) are the SSOT.
 The remaining
 metrics group by family below; the section heading carries the cell
 context, so each per-row schema reduces to *Metric / Sample axis /
@@ -54,8 +54,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
-| [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
+| [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
+| [`beta_sign_consistency`][factrix.metrics.fm_beta.beta_sign_consistency] | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
 
 ### Quantile / Monotonicity / Concentration — Cell: Individual × Continuous
 
@@ -87,8 +87,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | `K` | `K ≥ 2` |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
-| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
-| [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
 
 ### TS-β family — Cell: Common × Continuous
 
@@ -113,7 +113,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 |---|---|---|
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
-| [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
+| [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
 
 ## Sample-size constants
 [](){ #sample-size-constants }
@@ -128,9 +128,9 @@ below.
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
 | `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `hit_rate` |
-| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_diagnostic`, `corrado_rank_test` |
+| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
-| `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `multi_split_oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
+| `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
 | `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
 | `MIN_PORTFOLIO_PERIODS_WARN` | 20 | `T/h` | warn | `factrix/_types.py` | `top_concentration` only (`quantile_spread` and the `ts_*` siblings are descriptive at the WARN tier and gate on HARD only) |
 | `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
@@ -140,8 +140,8 @@ below.
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.BORDERLINE_CROSS_SECTION_N` |
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
-| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fama_macbeth.py` | `fama_macbeth`, `beta_sign_consistency` |
-| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fama_macbeth` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
+| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fama_macbeth.py` | `fm_beta`, `beta_sign_consistency` |
+| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `compute_rolling_mean_beta`, `ts_beta_sign_consistency` |
 
 Naming caveats:
@@ -179,7 +179,7 @@ Inferential metrics enforce two separate floors:
   `MetricOutput.metadata["warning_codes"]` so `FactorProfile.warnings`
   can propagate it. `n ≥ WARN` is silent.
 
-**Descriptive metrics** (`clustering_diagnostic`, `corrado_rank_test`,
+**Descriptive metrics** (`clustering_hhi`, `corrado_rank`,
 `event_around_return`, `event_hit_rate`,
 `event_ic`, `profit_factor`, `event_skewness`, `mfe_mae_summary`,
 `quantile_spread`, `ts_quantile_spread`, `ts_asymmetry`, `bmp_test`)
@@ -191,7 +191,7 @@ canonicals.
 A few specific caveats worth flagging:
 
 - **`MIN_FM_PERIODS_HARD = 4` / `MIN_FM_PERIODS_WARN = 30`** for
-  `fama_macbeth`. `T = 4` is the math floor at which the NW HAC `t`
+  `fm_beta`. `T = 4` is the math floor at which the NW HAC `t`
   is computable; the small-sample HAC is known to **over-reject**, so
   in `T ∈ [4, 30)` the metric emits
   `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` and treats *p*-values as
@@ -202,12 +202,12 @@ A few specific caveats worth flagging:
   power at `K ≥ 50` and use `K ≥ 30` as the conventional minimum; in
   `K ∈ [4, 30)` the parametric `caar` is under-powered and
   `WarningCode.FEW_EVENTS_BROWN_WARNER` fires. The `bmp_test` /
-  `corrado_rank_test` siblings only partly mitigate.
+  `corrado_rank` siblings only partly mitigate.
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
   in `top_concentration` and `ts_quantile_spread`. Below 3 there is
   no spread / concentration t to compute; in `[3, 20)` the metric
   returns the stat with `WarningCode.BORDERLINE_PORTFOLIO_PERIODS`.
-  **`MIN_OOS_PERIODS = 5`** in `multi_split_oos_decay` remains
+  **`MIN_OOS_PERIODS = 5`** in `oos_decay` remains
   single-tier — the metric is now descriptive-only (no `p_value` in
   metadata), so a literature power floor is moot. Treat its output as
   descriptive; the formal inference reading should rely on the
@@ -250,7 +250,7 @@ metric instantiates the abnormal-return primitive differently:
 |---|---|---|
 | [`caar`][factrix.metrics.caar.caar], [`bmp_test`][factrix.metrics.caar.bmp_test] | `signed_car = forward_return × factor` (magnitude preserved) | Generalises MacKinlay's signed CAAR to continuous factors (Sefcik-Thompson 1986 lineage); on `factor ∈ {0, ±1}` it reduces to the textbook signed CAAR. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic], [`profit_factor`][factrix.metrics.event_quality.profit_factor], [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `signed_car = forward_return × sign(factor)` (sign-only) | These metrics measure direction quality independent of factor magnitude; magnitude-weighting would conflate "direction was right" with "magnitude was big". |
-| [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | `signed_rank = uniform_rank(forward_return) × sign(factor)` | Corrado (1989) ranks the raw return distribution, then direction-adjusts the rank. The sign-adjustment is on the rank, not the return. |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `signed_rank = uniform_rank(forward_return) × sign(factor)` | Corrado (1989) ranks the raw return distribution, then direction-adjusts the rank. The sign-adjustment is on the rank, not the return. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Post-event (k > 0): `sign(factor) × cumulative_return`; pre-event (k < 0): unsigned single-bar return | Asymmetric on purpose: post-event reads signal *quality*, pre-event reads *leakage* — leakage is independent of eventual direction and must be inspected unsigned. |
 
 The shared function "abnormal return" therefore covers four different
@@ -280,7 +280,7 @@ the abnormal-return baseline. factrix uses it in two places:
 - [`bmp_test`][factrix.metrics.caar.bmp_test]: standardises each
   event's abnormal return by the event's own pre-event SE, computed
   over the estimation window.
-- [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test]:
+- [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank]:
   ranks the abnormal return against the per-asset distribution drawn
   from the estimation window.
 
@@ -288,14 +288,14 @@ Conventions:
 
 - **Length**: per-asset `T ≥ 30` non-event observations is the
   literature default (Brown-Warner 1985 §2.B). factrix enforces
-  this floor at the `corrado_rank_test` per-asset gate.
+  this floor at the `corrado_rank` per-asset gate.
 - **Alignment**: ends one period before the event date; gap-before
   -event of zero (no skip period). Users running a skip-period
   convention must pre-shift the panel.
 - **Overlap exclusion**: factrix's primitives do **not** drop
   pre-event windows that overlap an earlier event for the same asset.
   In practice this means contaminated estimation windows for clustered
-  events; use `clustering_diagnostic` to gauge severity and consider
+  events; use `clustering_hhi` to gauge severity and consider
   pre-filtering the panel for tightly clustered names.
 - **Forward-return horizon**: the event window is `forward_periods`
   bars; the estimation window is the **pre-event** sample, so
@@ -314,9 +314,9 @@ the inner event. The chosen mitigation depends on the metric:
 | [`bmp_test`][factrix.metrics.caar.bmp_test] | The Kolari-Pynnönen adjustment (`kolari_pynnonen_adjust=True`) corrects the BMP statistic for cross-sectional dependence on the same event date. It does **not** correct same-asset event clustering. |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate], [`event_ic`][factrix.metrics.event_quality.event_ic] | Each event row is counted independently; same-asset overlapping events double-contribute to the binomial / Spearman statistic. The null implicitly assumes independence — under heavy clustering the variance is understated. |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | Same: each `(asset, event_date)` row is independent in the binomial null at every offset. Adjacent-offset hit rates are also serially correlated within the same event (k=6 and k=12 share the t+1 entry price), which the binomial null does not adjust for. |
-| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | Quantifies cross-sectional concentration on event dates only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | Quantifies cross-sectional concentration on event dates only. Does not detect within-asset temporal clustering — pair with `signal_density` for the asset-axis view. |
 
-Operationally: trust `caar` *p*-values when `clustering_diagnostic`
+Operationally: trust `caar` *p*-values when `clustering_hhi`
 Herfindahl-Hirschman index (HHI) is low and `signal_density` shows events well-spaced per asset;
-otherwise downweight the parametric *p* and lean on `corrado_rank_test`
+otherwise downweight the parametric *p* and lean on `corrado_rank`
 or external block-bootstrap.

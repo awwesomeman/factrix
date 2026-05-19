@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix import slice_pairwise_test
-from factrix.metrics import fama_macbeth, ic
+from factrix.metrics import fm_beta, ic
 from factrix.stats import BlockBootstrap, WaldNWCluster
 
 from tests._slice_panel import build_labelled_ic_panel
@@ -88,7 +88,7 @@ def test_fama_macbeth_metric_accepted() -> None:
             )
         )
     df = pl.concat(frames)
-    out = slice_pairwise_test(fama_macbeth, df, label="regime")
+    out = slice_pairwise_test(fm_beta, df, label="regime")
     assert out.height == 1
     assert out.columns == ["slice_a", "slice_b", "n_obs", "stat", "p_raw", "p_adj"]
 

@@ -34,7 +34,7 @@ import polars as pl
 
 from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec, Visibility, emitted_name_of
+from factrix._metric_index import MetricSpec, Visibility
 from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._types import MetricOutput
 
@@ -249,7 +249,7 @@ class DagExecutor:
                 if key not in metric_outputs:
                     continue
                 out = metric_outputs[key]
-                label = emitted_name_of(spec)
+                label = spec.name
                 outputs[label] = out
                 reason = out.metadata.get("reason")
                 if isinstance(reason, str) and math.isnan(out.value):

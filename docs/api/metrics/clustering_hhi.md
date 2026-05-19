@@ -1,12 +1,12 @@
 ---
-title: factrix.metrics.clustering
+title: factrix.metrics.clustering_hhi
 ---
 
-::: factrix.metrics.clustering
+::: factrix.metrics.clustering_hhi
     options:
       show_root_members_full_path: true
       members:
-        - clustering_diagnostic
+        - clustering_hhi
 
 <hr>
 
@@ -36,11 +36,11 @@ title: factrix.metrics.clustering
 
 ## Worked example — HHI on event dates
 
-!!! example "clustering_diagnostic on a synthetic event panel"
+!!! example "clustering_hhi on a synthetic event panel"
 
     ```python
     import factrix as fx
-    from factrix.metrics.clustering import clustering_diagnostic
+    from factrix.metrics.clustering_hhi import clustering_hhi
     from factrix.metrics.caar import bmp_test
 
     panel = fx.datasets.make_event_panel(
@@ -48,7 +48,7 @@ title: factrix.metrics.clustering
         cluster_dates=True, seed=2024,
     )
 
-    diag = clustering_diagnostic(panel)
+    diag = clustering_hhi(panel)
     print(diag.value,
           diag.metadata["effective_n_dates"],
           diag.metadata["hhi_normalized"])

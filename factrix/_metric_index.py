@@ -13,8 +13,7 @@ in which cell" and drives:
 
 Consumers iterate via :func:`public_specs` (visibility-filtered) or
 :func:`_all_specs` (everything, internal). Derived fields use the
-small helpers :func:`import_path_for` / :func:`docs_anchor_for` /
-:func:`emitted_name_of`.
+small helpers :func:`import_path_for` / :func:`docs_anchor_for`.
 
 Why typed: IDE completion, mypy-checkable axes, refactor-safe field
 access. Adding a new metric module just imports :class:`MetricSpec` and
@@ -179,12 +178,6 @@ class MetricSpec:
       date-slicing dispatchers like :func:`factrix.by_slice`) or
       ``"scalar"`` (pre-aggregated-scalar utility like
       :func:`factrix.metrics.breakeven_cost`).
-    - ``emitted_name``: literal ``MetricOutput.name`` string at
-      runtime. ``None`` (default) means the runtime label matches
-      ``name`` — the common case. Set explicitly when the callable
-      emits a different label (e.g. ``fama_macbeth`` emits
-      ``fm_beta``). Consumers holding a :class:`~factrix.MetricOutput`
-      should resolve via :func:`emitted_name_of`.
     - ``requires``: ``{consumer_param_name: producer_callable}``. Key
       is a parameter on the declaring callable; value is another
       callable that has a :class:`MetricSpec` in its module's
@@ -211,7 +204,6 @@ class MetricSpec:
     inference: str
     primitives: tuple[str, ...] = ()
     input_kind: Literal["panel", "scalar"] = "panel"
-    emitted_name: str | None = None
     requires: dict[str, Callable] = field(default_factory=dict)
     batchable: bool = False
     visibility: Visibility = Visibility.PUBLIC
@@ -338,11 +330,6 @@ def import_path_for(stem: str) -> str:
 def docs_anchor_for(stem: str, name: str) -> str:
     """Return the docs-root-relative anchor for a metric callable."""
     return DOCS_ANCHOR_FMT.format(module=stem, name=name)
-
-
-def emitted_name_of(spec: MetricSpec) -> str:
-    """Return the runtime ``MetricOutput.name`` label for a spec."""
-    return spec.emitted_name or spec.name
 
 
 @functools.cache
@@ -487,15 +474,12 @@ def list_metrics(
             ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
             with keys ``name``, ``module``, ``cell``, ``agg_order``,
             ``inference_se``, ``import_path``, ``input_kind``,
-            ``docs_anchor``, ``emitted_name`` — JSON-serialisable,
-            suitable for tooling. ``docs_anchor`` follows
+            ``docs_anchor`` — JSON-serialisable, suitable for tooling.
+            ``docs_anchor`` follows
             :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
             docs-root-relative path + mkdocstrings symbol fragment).
-            ``emitted_name`` is the literal ``MetricOutput.name`` value
-            at runtime — usually equal to ``name`` (the function name),
-            but differs for a small set of historical exceptions.
-            Consumers holding a ``MetricOutput`` should resolve via
-            ``emitted_name``.
+            ``name`` == ``MetricOutput.name`` for all current specs
+            (function name = registry key = emitted label).
         with_import: ``"text"`` only. When ``True``, returns a
             two-column ``"name → factrix.metrics.<module>"`` list so
             each row is copy-paste-ready into
@@ -543,7 +527,6 @@ def list_metrics(
                 "import_path": import_path_for(stem),
                 "input_kind": spec.input_kind,
                 "docs_anchor": docs_anchor_for(stem, spec.name),
-                "emitted_name": emitted_name_of(spec),
             }
             for stem, spec in matches
         ]

@@ -2,7 +2,7 @@
 
 Standalone metric in cell ``(*, SPARSE, *, PANEL)`` — not part of the
 default profile. Available via
-``from factrix.metrics import corrado_rank_test``.
+``from factrix.metrics import corrado_rank``.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from factrix.metrics._helpers import _short_circuit_output
 
 __metric_specs__ = (
     MetricSpec(
-        name="corrado_rank_test",
+        name="corrado_rank",
         cell=cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL),
         family="per-event",
         inference="nonparametric rank",
@@ -28,16 +28,15 @@ __metric_specs__ = (
             "_significance_marker",
             "_short_circuit_output",
         ),
-        emitted_name="corrado_rank",
     ),
 )
 
 __all__ = [
-    "corrado_rank_test",
+    "corrado_rank",
 ]
 
 
-def corrado_rank_test(
+def corrado_rank(
     df: pl.DataFrame,
     *,
     factor_col: str = "factor",
@@ -95,12 +94,12 @@ def corrado_rank_test(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.corrado import corrado_rank_test
+        >>> from factrix.metrics.corrado_rank import corrado_rank
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = corrado_rank_test(panel)
+        >>> result = corrado_rank(panel)
         >>> result.name
         'corrado_rank'
     """

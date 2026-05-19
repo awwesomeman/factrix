@@ -26,21 +26,20 @@ from factrix.metrics._helpers import _short_circuit_output
 
 __metric_specs__ = (
     MetricSpec(
-        name="clustering_diagnostic",
+        name="clustering_hhi",
         cell=cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL),
         family="static-cs",
         inference="no formal H_0",
         primitives=("_short_circuit_output",),
-        emitted_name="clustering_hhi",
     ),
 )
 
 __all__ = [
-    "clustering_diagnostic",
+    "clustering_hhi",
 ]
 
 
-def clustering_diagnostic(
+def clustering_hhi(
     df: pl.DataFrame,
     *,
     factor_col: str = "factor",
@@ -80,9 +79,9 @@ def clustering_diagnostic(
 
     Examples:
         >>> import factrix as fx
-        >>> from factrix.metrics.clustering import clustering_diagnostic
+        >>> from factrix.metrics.clustering_hhi import clustering_hhi
         >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
-        >>> result = clustering_diagnostic(panel)
+        >>> result = clustering_hhi(panel)
         >>> result.name
         'clustering_hhi'
     """

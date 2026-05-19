@@ -1,6 +1,6 @@
 """Two-tier sample-size guards for inference primitives (issue #48 D).
 
-Each primitive (``fama_macbeth``, ``caar``, ``top_concentration``)
+Each primitive (``fm_beta``, ``caar``, ``top_concentration``)
 must implement three tiers:
 
 1. ``n < HARD`` → short-circuit (NaN ``MetricOutput``).
@@ -27,10 +27,10 @@ from factrix._types import (
 )
 from factrix.metrics.caar import caar
 from factrix.metrics.concentration import top_concentration
-from factrix.metrics.fama_macbeth import (
+from factrix.metrics.fm_beta import (
     MIN_FM_PERIODS_HARD,
     MIN_FM_PERIODS_WARN,
-    fama_macbeth,
+    fm_beta,
 )
 
 
@@ -74,7 +74,7 @@ def _concentration_panel(
 
 
 # ---------------------------------------------------------------------------
-# fama_macbeth
+# fm_beta
 # ---------------------------------------------------------------------------
 
 
@@ -83,7 +83,7 @@ class TestFamaMacbethTwoTier:
         df = _beta_df(MIN_FM_PERIODS_HARD - 1)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            out = fama_macbeth(df)
+            out = fm_beta(df)
         assert math.isnan(out.value)
         assert out.stat is None
         assert out.metadata["reason"] == "insufficient_fm_periods"
@@ -92,7 +92,7 @@ class TestFamaMacbethTwoTier:
         n = (MIN_FM_PERIODS_HARD + MIN_FM_PERIODS_WARN) // 2
         df = _beta_df(n)
         with pytest.warns(UserWarning, match="MIN_FM_PERIODS_WARN"):
-            out = fama_macbeth(df)
+            out = fm_beta(df)
         assert out.stat is not None
         assert (
             WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value
@@ -103,7 +103,7 @@ class TestFamaMacbethTwoTier:
         df = _beta_df(MIN_FM_PERIODS_WARN + 5)
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
-            out = fama_macbeth(df)
+            out = fm_beta(df)
         assert out.stat is not None
         assert "warning_codes" not in out.metadata
 

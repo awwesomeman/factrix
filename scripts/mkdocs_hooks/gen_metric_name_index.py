@@ -29,7 +29,6 @@ import pathlib
 from factrix._metric_index import (
     MetricSpec,
     docs_anchor_for,
-    emitted_name_of,
     import_path_for,
     public_specs,
 )
@@ -37,23 +36,19 @@ from factrix._metric_index import (
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_name_index.md"
 
-_TABLE_HEADER = (
-    "| `MetricOutput.name` | Function | Source module | API page |\n|---|---|---|---|\n"
-)
+_TABLE_HEADER = "| `MetricOutput.name` | Source module | API page |\n|---|---|---|\n"
 
 
 def _render_row(stem: str, spec: MetricSpec) -> str:
     import_path = import_path_for(stem)
     page_link = f"[`{spec.name}`](../{docs_anchor_for(stem, spec.name)})"
     module_link = f"[`{import_path}`][{import_path}]"
-    return (
-        f"| `{emitted_name_of(spec)}` | `{spec.name}` | {module_link} | {page_link} |\n"
-    )
+    return f"| `{spec.name}` | {module_link} | {page_link} |\n"
 
 
 def generate() -> None:
     """Generate ``_generated_metric_name_index.md`` from MetricSpec SSOT."""
-    rows = sorted(public_specs(), key=lambda pair: emitted_name_of(pair[1]))
+    rows = sorted(public_specs(), key=lambda pair: pair[1].name)
     lines = [_TABLE_HEADER, *(_render_row(stem, spec) for stem, spec in rows)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     _OUT_FILE.write_text("".join(lines), encoding="utf-8")

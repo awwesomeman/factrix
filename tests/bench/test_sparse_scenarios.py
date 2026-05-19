@@ -31,7 +31,7 @@ def test_m_corrado_labels_by_single_metric(tmp_path: Path):
     distinguish single-metric attribution from whole-bundle runs."""
     out = tmp_path / "M.jsonl"
     records = m_corrado(out, preset="tiny")
-    assert all(r.metric_set == "corrado_rank_test" for r in records)
+    assert all(r.metric_set == "corrado_rank" for r in records)
 
 
 def test_scale_records_realised_event_count(tmp_path: Path):

@@ -1,12 +1,12 @@
 ---
-title: factrix.metrics.corrado
+title: factrix.metrics.corrado_rank
 ---
 
-::: factrix.metrics.corrado
+::: factrix.metrics.corrado_rank
     options:
       show_root_members_full_path: true
       members:
-        - corrado_rank_test
+        - corrado_rank
 
 <hr>
 
@@ -47,11 +47,11 @@ title: factrix.metrics.corrado
 
 ## Worked example — rank test alongside parametric CAAR
 
-!!! example "corrado_rank_test on a synthetic event panel"
+!!! example "corrado_rank on a synthetic event panel"
 
     ```python
     import factrix as fx
-    from factrix.metrics.corrado import corrado_rank_test
+    from factrix.metrics.corrado_rank import corrado_rank
     from factrix.metrics.caar import compute_caar, caar
     from factrix.preprocess import compute_forward_return
 
@@ -61,7 +61,7 @@ title: factrix.metrics.corrado
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    rank_out = corrado_rank_test(panel)
+    rank_out = corrado_rank(panel)
     print(rank_out.value, rank_out.stat, rank_out.metadata["p_value"])
     # 0.041  5.18  2.2e-07   (approximate)
 
@@ -84,7 +84,7 @@ title: factrix.metrics.corrado
 
     [api/metrics/caar →](caar.md)
 
--   __`clustering_diagnostic`__
+-   __`clustering_hhi`__
 
     ---
 
