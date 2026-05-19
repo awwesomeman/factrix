@@ -917,7 +917,9 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
   per-metric usability verdict.
   - `PanelInspection.detected: PanelProperties` carries the typed
     enums (`scope` / `signal` / `mode`) plus shape numerics
-    (`n_assets` / `n_periods` / `sparsity`).
+    (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
+    `n_pairs` counts non-null `(date, asset_id)` factor observations
+    — the upper bound on sample size for pair-counting metrics.
   - `PanelInspection.reasoning: PanelReasoning` carries per-axis
     rationale strings.
   - `PanelInspection.metrics: list[MetricApplicability]` — one
@@ -934,9 +936,10 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
     — mode is integral so e.g. `IC` (cell declares `mode=PANEL`) is
     unusable on a single-asset panel, not just degraded. (2)
     `MetricSpec.sample_floor: SampleFloor | None` — declarative
-    `min_periods` / `warn_periods` / `min_assets` / `warn_assets`
-    gates evaluated against `PanelProperties`. Specs without
-    `sample_floor` only get the cell-match check.
+    `min_periods` / `warn_periods` / `min_assets` / `warn_assets` /
+    `min_pairs` / `warn_pairs` gates evaluated against
+    `PanelProperties`. Specs without `sample_floor` only get the
+    cell-match check.
 - **`Cell.matches(scope, signal, mode=None)`** — gains optional
   `mode` argument. Existing `list_metrics` callers stay backward
   compatible (default `None` skips the mode axis); `inspect_panel`
