@@ -43,10 +43,10 @@ For the `(scope, signal)` filter at runtime, see
 | Quintile spread, monotonicity, top concentration | `quantile_spread`, `monotonicity`, `top_concentration` |
 | Tradability / cost break-even | `notional_turnover`, `breakeven_cost`, `net_spread`, `turnover` |
 | Spanning regression vs an existing pool | `spanning_alpha`, `greedy_forward_selection` |
-| Event-side robustness on top of CAAR | `bmp_test`, `corrado_rank_test`, `event_hit_rate`, `clustering_diagnostic` |
+| Event-side robustness on top of CAAR | `bmp_test`, `corrado_rank`, `event_hit_rate`, `clustering_hhi` |
 | Per-event return shape | `mfe_mae_summary`, `event_around_return` |
 | Asymmetry / quantile-spread on a broadcast factor | `ts_asymmetry`, `ts_quantile_spread` |
-| Out-of-sample (OOS) decay / trend / hit rate on any `(date, value)` series | `multi_split_oos_decay`, `ic_trend`, `hit_rate` |
+| Out-of-sample (OOS) decay / trend / hit rate on any `(date, value)` series | `oos_decay`, `ic_trend`, `hit_rate` |
 
 `evaluate()` only writes the `StatCode` keys listed for its cell on
 `FactorProfile`;
@@ -91,12 +91,12 @@ events = fx.preprocess.compute_forward_return(events, forward_periods=5)
 
 # Robustness on top of the canonical CAAR:
 hit = fx.metrics.event_hit_rate(events)
-rank_p = fx.metrics.corrado_rank_test(events, forward_periods=5)
+rank_p = fx.metrics.corrado_rank(events, forward_periods=5)
 ```
 
 ### 3. Derived `(date, value)` series — series diagnostics
 
-`hit_rate`, `ic_trend`, and `multi_split_oos_decay` are axis-agnostic:
+`hit_rate`, `ic_trend`, and `oos_decay` are axis-agnostic:
 they take whatever per-date series an upstream cell metric produced.
 This decouples the diagnostic from the cell contract — a per-date IC
 series, a per-date quantile spread, and a per-date FM λ all share the
@@ -107,7 +107,7 @@ import polars as pl
 
 ic_series: pl.DataFrame = ...  # columns: date, value (per-date IC)
 
-decay = fx.metrics.multi_split_oos_decay(ic_series)
+decay = fx.metrics.oos_decay(ic_series)
 trend = fx.metrics.ic_trend(ic_series)
 hits = fx.metrics.hit_rate(ic_series, value_col="value")
 ```
@@ -140,5 +140,5 @@ Use it as the runtime equivalent of the static matrix:
 
 ```python
 fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS)
-# ['concentration.top_concentration', 'fama_macbeth.beta_sign_consistency', ...]
+# ['concentration.top_concentration', 'fm_beta.beta_sign_consistency', ...]
 ```

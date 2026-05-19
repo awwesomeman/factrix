@@ -135,19 +135,17 @@ class TestEvaluationResultToFrame:
         assert ic_row["warning_codes"] == [WarningCode.SMALL_CROSS_SECTION_N.value]
         assert ic_ir_row["warning_codes"] == []
 
-    def test_metric_name_uses_emitted_name(self):
-        from factrix._metric_index import emitted_name_of
-
-        fm_spec = spec_by_name()["fama_macbeth"]
-        out = MetricOutput(name=emitted_name_of(fm_spec), value=0.01, spec=fm_spec)
+    def test_metric_name_uses_spec_name(self):
+        fm_spec = spec_by_name()["fm_beta"]
+        out = MetricOutput(name=fm_spec.name, value=0.01, spec=fm_spec)
         g = MetricResult(
             applicable=[fm_spec],
             primary=[fm_spec],
             diagnostic=[],
-            outputs={emitted_name_of(fm_spec): out},
+            outputs={fm_spec.name: out},
         )
         df = _sample_result(g).to_frame()
-        assert df.row(0, named=True)["metric_name"] == emitted_name_of(fm_spec)
+        assert df.row(0, named=True)["metric_name"] == fm_spec.name
 
 
 class TestEvaluationResultToDict:

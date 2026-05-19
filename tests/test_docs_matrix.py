@@ -7,7 +7,7 @@ Validates that:
 2. ``docs/reference/_generated_metric_matrix.md`` exists and is
    non-empty (only meaningful after a build; skipped if the file is
    absent).
-3. Each spec's resolved ``emitted_name`` matches the literal in
+3. Each registered spec's name matches the literal in
    ``MetricOutput(name=...)`` inside the declaring module.
 4. The generated docs-name-index file matches the live renderer
    output (drift guard for #125).
@@ -75,18 +75,15 @@ def test_generated_matrix_exists_and_nonempty() -> None:
     )
 
 
-def test_emitted_name_matches_metric_output_literal() -> None:
-    """Every ``MetricOutput(name=...)`` literal must match its spec's resolved
-    ``emitted_name``.
+def test_metric_output_name_matches_spec_name() -> None:
+    """Every ``MetricOutput(name=...)`` literal must match its spec's ``name``.
 
     AST-greps every ``MetricOutput(name="<lit>")`` call in
     ``factrix/metrics/*.py``; for each registered user-facing callable
-    the literal must equal the spec's resolved ``emitted_name`` (i.e.
-    ``spec.emitted_name or spec.name``). Catches the case where a
-    metric is added that emits a non-matching ``name=`` and the spec
-    author forgets to set ``emitted_name``.
+    the literal must equal ``spec.name``. Catches the case where a
+    metric is added that emits a non-matching ``name=``.
     """
-    from factrix._metric_index import emitted_name_of, public_specs
+    from factrix._metric_index import public_specs
 
     fn_to_emitted: dict[str, str] = {}
     for path in METRICS_DIR.glob("*.py"):
@@ -106,19 +103,17 @@ def test_emitted_name_matches_metric_output_literal() -> None:
                         if kw.arg == "name" and isinstance(kw.value, ast.Constant):
                             fn_to_emitted.setdefault(fn.name, kw.value.value)
 
-    expected_by_name = {spec.name: emitted_name_of(spec) for _, spec in public_specs()}
+    registered = {spec.name for _, spec in public_specs()}
     mismatches: list[str] = []
     for fn, emitted in fn_to_emitted.items():
-        if fn not in expected_by_name:
+        if fn not in registered:
             continue
-        expected = expected_by_name[fn]
-        if expected != emitted:
+        if fn != emitted:
             mismatches.append(
-                f"{fn}: emits MetricOutput(name={emitted!r}) but spec "
-                f"resolves emitted_name={expected!r}"
+                f"{fn}: emits MetricOutput(name={emitted!r}) but spec name is {fn!r}"
             )
     assert not mismatches, (
-        "MetricOutput.name does not match MetricSpec.emitted_name:\n  "
+        "MetricOutput.name does not match MetricSpec.name:\n  "
         + "\n  ".join(mismatches)
     )
 
@@ -136,7 +131,7 @@ def test_generated_name_index_matches_renderer() -> None:
             "'python scripts/mkdocs_hooks/gen_metric_name_index.py' "
             "or 'mkdocs build' first."
         )
-    from factrix._metric_index import emitted_name_of, public_specs
+    from factrix._metric_index import public_specs
     from scripts.mkdocs_hooks.gen_metric_name_index import (
         _TABLE_HEADER,
         _render_row,
@@ -144,9 +139,7 @@ def test_generated_name_index_matches_renderer() -> None:
 
     expected = _TABLE_HEADER + "".join(
         _render_row(stem, spec)
-        for stem, spec in sorted(
-            public_specs(), key=lambda pair: emitted_name_of(pair[1])
-        )
+        for stem, spec in sorted(public_specs(), key=lambda pair: pair[1].name)
     )
     actual = GENERATED_NAME_INDEX.read_text(encoding="utf-8")
     assert actual == expected, (

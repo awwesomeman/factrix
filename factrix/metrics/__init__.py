@@ -14,7 +14,7 @@ Individual × Continuous:
     compute_spread_series, quantile_spread, quantile_spread_vw,
     compute_group_returns, monotonicity, top_concentration,
     turnover, notional_turnover, breakeven_cost, net_spread,
-    compute_fm_betas, fama_macbeth, pooled_ols, beta_sign_consistency,
+    compute_fm_betas, fm_beta, pooled_beta, beta_sign_consistency,
     spanning_alpha, greedy_forward_selection
 
 Individual × Sparse (the ``Common × Sparse`` cell has its own
@@ -23,7 +23,7 @@ no separate Common-sparse module set):
     compute_caar, caar, bmp_test, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
     compute_event_returns, event_around_return,
-    signal_density, clustering_diagnostic, corrado_rank_test
+    signal_density, clustering_hhi, corrado_rank
 
 Common × Continuous:
     compute_ts_betas, ts_beta, mean_r_squared,
@@ -31,7 +31,7 @@ Common × Continuous:
     ts_quantile_spread, ts_asymmetry
 
 Series diagnostics — axis-agnostic on ``(date, value)``:
-    hit_rate, ic_trend, multi_split_oos_decay
+    hit_rate, ic_trend, oos_decay
 """
 
 from factrix._metric_index import metric_spec, register
@@ -40,9 +40,9 @@ from factrix.metrics.caar import (
     caar,
     compute_caar,
 )
-from factrix.metrics.clustering import clustering_diagnostic
+from factrix.metrics.clustering_hhi import clustering_hhi
 from factrix.metrics.concentration import top_concentration
-from factrix.metrics.corrado import corrado_rank_test
+from factrix.metrics.corrado_rank import corrado_rank
 from factrix.metrics.event_horizon import (
     compute_event_returns,
     event_around_return,
@@ -54,11 +54,11 @@ from factrix.metrics.event_quality import (
     profit_factor,
     signal_density,
 )
-from factrix.metrics.fama_macbeth import (
+from factrix.metrics.fm_beta import (
     beta_sign_consistency,
     compute_fm_betas,
-    fama_macbeth,
-    pooled_ols,
+    fm_beta,
+    pooled_beta,
 )
 from factrix.metrics.hit_rate import hit_rate
 from factrix.metrics.ic import (
@@ -72,7 +72,7 @@ from factrix.metrics.mfe_mae import (
     mfe_mae_summary,
 )
 from factrix.metrics.monotonicity import monotonicity
-from factrix.metrics.oos import multi_split_oos_decay
+from factrix.metrics.oos_decay import oos_decay
 from factrix.metrics.quantile import (
     compute_group_returns,
     compute_spread_series,
@@ -102,7 +102,7 @@ __all__ = [
     "bmp_test",
     "breakeven_cost",
     "caar",
-    "clustering_diagnostic",
+    "clustering_hhi",
     "compute_caar",
     "compute_event_returns",
     "compute_fm_betas",
@@ -112,12 +112,12 @@ __all__ = [
     "compute_rolling_mean_beta",
     "compute_spread_series",
     "compute_ts_betas",
-    "corrado_rank_test",
+    "corrado_rank",
     "event_around_return",
     "event_hit_rate",
     "event_ic",
     "event_skewness",
-    "fama_macbeth",
+    "fm_beta",
     "greedy_forward_selection",
     "hit_rate",
     "ic",
@@ -127,10 +127,10 @@ __all__ = [
     "mean_r_squared",
     "mfe_mae_summary",
     "monotonicity",
-    "multi_split_oos_decay",
+    "oos_decay",
     "net_spread",
     "notional_turnover",
-    "pooled_ols",
+    "pooled_beta",
     "profit_factor",
     "quantile_spread",
     "quantile_spread_vw",

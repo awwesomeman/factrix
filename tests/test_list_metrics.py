@@ -36,7 +36,7 @@ _APPLICABILITY_DOC = pathlib.Path("docs/reference/metric-applicability.md")
 # literal here, the same cadence as updating Matrix-row tags.
 _PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorSignal]]] = {
     "ic": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
-    "fama_macbeth": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
+    "fm_beta": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
     "caar": [
         (FactorScope.INDIVIDUAL, FactorSignal.SPARSE),
         (FactorScope.COMMON, FactorSignal.SPARSE),
@@ -193,7 +193,6 @@ def test_json_format_round_trips() -> None:
         "import_path",
         "input_kind",
         "docs_anchor",
-        "emitted_name",
     }
 
 
@@ -207,12 +206,6 @@ def test_json_carries_import_path_and_input_kind() -> None:
     assert by_name["ic"]["import_path"] == "factrix.metrics.ic"
     assert by_name["ic"]["input_kind"] == "panel"
     assert by_name["ic"]["docs_anchor"] == "api/metrics/ic.md#factrix.metrics.ic.ic"
-    assert by_name["ic"]["emitted_name"] == "ic"
-
-    # Function name and emitted name diverge for the historical
-    # exceptions tracked in _EMITTED_NAME_OVERRIDES.
-    assert by_name["fama_macbeth"]["emitted_name"] == "fm_beta"
-    assert by_name["pooled_ols"]["emitted_name"] == "pooled_beta"
 
     # ``breakeven_cost`` / ``net_spread`` are the scalar-input utilities.
     assert by_name["breakeven_cost"]["import_path"] == "factrix.metrics.tradability"

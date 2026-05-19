@@ -415,7 +415,7 @@ def signal_density(
     frequency), then averaged across assets. This is **not** the mean
     of actual inter-event gaps: bars-per-event depends only on counts,
     so clustered events and evenly-spaced events yield the same value.
-    See ``clustering_diagnostic`` for event-date concentration.
+    See ``clustering_hhi`` for event-date concentration.
 
     Low density (large gaps) means the signal is selective; high
     density (small gaps) means the signal fires often — capacity is
@@ -434,7 +434,7 @@ def signal_density(
         clustered and evenly-spaced events at the same total count map to
         the same value.
 
-        factrix exposes ``clustering_diagnostic`` for event-date
+        factrix exposes ``clustering_hhi`` for event-date
         concentration; pair the two when independence assumptions matter.
 
     Examples:

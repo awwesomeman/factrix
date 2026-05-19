@@ -44,12 +44,12 @@ contrasts, not a sidecar to a primary value.
 | [`ic`][factrix.metrics.ic.ic] | Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) `t` on per-date information coefficient (IC) series | `p_value` | mean(IC) |
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | NW HAC `t` (overlapping) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
-| [`fama_macbeth`][factrix.metrics.fama_macbeth.fama_macbeth] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
-| [`pooled_ols`][factrix.metrics.fama_macbeth.pooled_ols] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
-| [`beta_sign_consistency`][factrix.metrics.fama_macbeth.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
+| [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
+| [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
+| [`beta_sign_consistency`][factrix.metrics.fm_beta.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
 | [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
 | [`bmp_test`][factrix.metrics.caar.bmp_test] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
-| [`corrado_rank_test`][factrix.metrics.corrado.corrado_rank_test] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
+| [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | Fisher-transformed Spearman `z` | `p_value` | Spearman ρ |
@@ -61,9 +61,9 @@ contrasts, not a sidecar to a primary value.
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n / n_top) |
-| [`clustering_diagnostic`][factrix.metrics.clustering.clustering_diagnostic] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
+| [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
 | [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
-| [`multi_split_oos_decay`][factrix.metrics.oos.multi_split_oos_decay] | none — descriptive | — | median(survival) |
+| [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | median(survival) |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | Theil-Sen slope `t` (CI-based) | `p_value` | Theil-Sen slope |
@@ -100,9 +100,9 @@ is emitted.
 
 - *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`.
 
-### `fama_macbeth` family (`factrix.metrics.fama_macbeth`)
+### `fm_beta` family (`factrix.metrics.fm_beta`)
 
-#### `fama_macbeth` (emits `MetricOutput.name = "fm_beta"`)
+#### `fm_beta` (emits `MetricOutput.name = "fm_beta"`)
 
 - *primary*: `p_value` — NW HAC `t` on per-date λ. With
   `is_estimated_factor=True` the Shanken EIV correction is applied
@@ -118,7 +118,7 @@ is emitted.
   when the factor-return variance collapses; the uncorrected NW
   result is reported.
 
-#### `pooled_ols` (emits `MetricOutput.name = "pooled_beta"`)
+#### `pooled_beta` (emits `MetricOutput.name = "pooled_beta"`)
 
 - *primary*: `p_value` — single- or two-way clustered OLS `t`. When
   the cluster count G < 3 the test is short-circuited with `stat =
@@ -159,9 +159,9 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
   `kolari_pynnonen_applied`, `kolari_pynnonen_scaling`,
   `stat_uncorrected`.
 
-### `corrado` (`factrix.metrics.corrado`)
+### `corrado` (`factrix.metrics.corrado_rank`)
 
-#### `corrado_rank_test` (emits `MetricOutput.name = "corrado_rank"`)
+#### `corrado_rank` (emits `MetricOutput.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
 - *descriptive*: `n_events`, `n_total_obs`.
@@ -216,7 +216,7 @@ Descriptive; no test.
 #### `signal_density`
 
 Per-asset event frequency; descriptive (the period-axis analogue
-is `clustering_diagnostic`).
+is `clustering_hhi`).
 
 - *descriptive*: `n_events_total`, `n_assets_with_events`,
   `mean_events_per_asset`, `mean_bars_between_events`.
@@ -275,9 +275,9 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 - *descriptive*: `mean_n_top`, `ratio_eff_to_total`, `tie_ratio`,
   `weight_by`, `warning_codes` (conditional).
 
-### `clustering` (`factrix.metrics.clustering`)
+### `clustering` (`factrix.metrics.clustering_hhi`)
 
-#### `clustering_diagnostic` (emits `MetricOutput.name = "clustering_hhi"`)
+#### `clustering_hhi` (emits `MetricOutput.name = "clustering_hhi"`)
 
 Descriptive; period-axis concentration of event dates.
 
@@ -296,9 +296,9 @@ Descriptive; no test.
   `mfe_z_p50`, `mae_z_p75`, `mfe_mae_ratio_z`, `n_events_z`.
 - *descriptive*: `p_value` (sentinel).
 
-### `oos` (`factrix.metrics.oos`)
+### `oos` (`factrix.metrics.oos_decay`)
 
-#### `multi_split_oos_decay` (emits `MetricOutput.name = "oos_decay"`)
+#### `oos_decay` (emits `MetricOutput.name = "oos_decay"`)
 
 `MetricOutput.stat = None`; rank-based PASS/VETO gate, no formal
 hypothesis test.

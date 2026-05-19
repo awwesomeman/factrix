@@ -7,7 +7,7 @@ slice means are equal.
 
 The ``_test`` suffix marks "function whose headline output is a
 comparison test result (stat + p)" — distinct from metrics like
-``ic`` / ``fama_macbeth`` whose significance is sidecar to a value,
+``ic`` / ``fm_beta`` whose significance is sidecar to a value,
 and from ``compare`` which renders existing stats without
 recomputing. Convention aligns with scipy (``ttest_ind`` /
 ``kruskal``) and R (``t.test`` / ``chisq.test``).

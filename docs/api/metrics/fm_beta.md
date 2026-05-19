@@ -1,14 +1,14 @@
 ---
-title: factrix.metrics.fama_macbeth
+title: factrix.metrics.fm_beta
 ---
 
-::: factrix.metrics.fama_macbeth
+::: factrix.metrics.fm_beta
     options:
       show_root_members_full_path: true
       members:
         - compute_fm_betas
-        - fama_macbeth
-        - pooled_ols
+        - fm_beta
+        - pooled_beta
         - beta_sign_consistency
 
 <hr>
@@ -23,7 +23,7 @@ title: factrix.metrics.fama_macbeth
 
     Stage 1 of Fama-MacBeth: per-date cross-sectional ordinary least squares (OLS) slope
     $\beta_t$ in $R_{i,t} = \alpha_t + \beta_t \cdot \text{FactorSignal}_{i,t} + \varepsilon_{i,t}$.
-    Pre-step for `fama_macbeth` and the descriptive
+    Pre-step for `fm_beta` and the descriptive
     `beta_sign_consistency` check.
 
 -   __Mean-$\beta$ significance, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)__
@@ -50,7 +50,7 @@ title: factrix.metrics.fama_macbeth
 
     ---
 
-    `pooled_ols` runs a single regression across the stacked panel with
+    `pooled_beta` runs a single regression across the stacked panel with
     cluster-robust SE (one-way on `date`, or two-way with
     `two_way_cluster_col`). When pooled $\hat\beta$ and FM
     $\hat\lambda$ disagree in sign, `profile.diagnose()` flags a
@@ -63,17 +63,17 @@ title: factrix.metrics.fama_macbeth
 | Goal                                                                         | Function                |
 |------------------------------------------------------------------------------|-------------------------|
 | Per-date FM beta table for downstream inspection / slicing                   | `compute_fm_betas`      |
-| Mean-$\beta$ significance with NW HAC SE (default Stage 2)                   | `fama_macbeth`          |
-| Pooled OLS with cluster-robust SE (one-way on date, or two-way)              | `pooled_ols`            |
+| Mean-$\beta$ significance with NW HAC SE (default Stage 2)                   | `fm_beta`          |
+| Pooled OLS with cluster-robust SE (one-way on date, or two-way)              | `pooled_beta`            |
 | Directional stability — fraction of periods with the expected $\beta$ sign   | `beta_sign_consistency` |
 
 ## Worked example — per-date FM beta then NW HAC significance
 
-!!! example "compute_fm_betas → fama_macbeth on a synthetic cross-sectional panel"
+!!! example "compute_fm_betas → fm_beta on a synthetic cross-sectional panel"
 
     ```python
     import factrix as fx
-    from factrix.metrics.fama_macbeth import compute_fm_betas, fama_macbeth
+    from factrix.metrics.fm_beta import compute_fm_betas, fm_beta
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
@@ -91,7 +91,7 @@ title: factrix.metrics.fama_macbeth
     # │ ...        ┆  ...      │
     # └────────────┴───────────┘
 
-    out = fama_macbeth(beta_df, forward_periods=5)
+    out = fm_beta(beta_df, forward_periods=5)
     print(out.value, out.stat, out.metadata["p_value"])
     # 0.0084  6.10  1.3e-09   (approximate)
     ```

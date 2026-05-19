@@ -31,7 +31,7 @@ print("\n".join(fx.list_metrics(
 )))
 # ic                       → factrix.metrics.ic
 # ic_ir                    → factrix.metrics.ic
-# fama_macbeth             → factrix.metrics.fama_macbeth
+# fm_beta             → factrix.metrics.fm_beta
 # breakeven_cost           → factrix.metrics.tradability
 # ...
 ```
@@ -40,7 +40,7 @@ Every name on the right is also re-exported from `factrix.metrics`,
 so the canonical wire-up is always:
 
 ```python
-from factrix.metrics import ic, fama_macbeth, breakeven_cost
+from factrix.metrics import ic, fm_beta, breakeven_cost
 ```
 
 The submodule path is shown so you know *where the implementation
@@ -77,7 +77,7 @@ parser MkDocs uses to render
 | Key | Meaning |
 |---|---|
 | `name` | Function name as exported under `factrix.metrics` |
-| `module` | Submodule stem (e.g. `ic`, `fama_macbeth`) |
+| `module` | Submodule stem (e.g. `ic`, `fm_beta`) |
 | `cell` | Raw cell string from the `Matrix-row:` tag |
 | `agg_order` | Aggregation order (`cs-first`, `ts-first`, `ts-only`, `static-cs`, `per-event`) |
 | `inference_se` | Inference / SE method or `no formal H₀` for descriptive metrics |

@@ -18,7 +18,7 @@ import polars as pl
 
 from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec, emitted_name_of
+from factrix._metric_index import MetricSpec
 from factrix._types import MetricOutput
 
 if TYPE_CHECKING:
@@ -58,7 +58,7 @@ class MetricResult:
     access to the produced :class:`MetricOutput` instances.
 
     Iteration / membership / ``keys`` / ``values`` / ``items`` all key
-    by metric name (``MetricSpec.name``). Use :func:`emitted_name_of`
+    by metric name (``MetricSpec.name``). Use :func:`spec.name`
     on the spec when a user-facing label is needed.
 
     Attributes:
@@ -163,7 +163,7 @@ class EvaluationResult:
         |---|---|---|
         | ``factor`` | str | :attr:`factor` |
         | ``n_assets`` | i64 | :attr:`n_assets` |
-        | ``metric_name`` | str | :func:`emitted_name_of` of the spec, falls back to mapping key |
+        | ``metric_name`` | str | :func:`spec.name` of the spec, falls back to mapping key |
         | ``value`` | f64 \\| null | ``MetricOutput.value`` (``NaN`` / ``Inf`` -> null) |
         | ``p`` | f64 \\| null | ``MetricOutput.metadata["p_value"]`` |
         | ``stat`` | f64 \\| null | ``MetricOutput.stat`` |
@@ -335,7 +335,7 @@ def _output_row(
     out: MetricOutput,
     warnings_by_metric: Mapping[str, list[str]],
 ) -> dict[str, Any]:
-    label = emitted_name_of(out.spec) if out.spec is not None else key
+    label = out.spec.name if out.spec is not None else key
     return {
         "metric_name": label,
         "value": _float_or_none(out.value),

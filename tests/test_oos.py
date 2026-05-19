@@ -1,21 +1,20 @@
-"""Tests for factrix.metrics.oos."""
+"""Tests for factrix.metrics.oos_decay."""
 
 import math
 
-import pytest
-from factrix.metrics.oos import SplitDetail, multi_split_oos_decay
+from factrix.metrics.oos_decay import oos_decay
 
 
-class TestMultiSplitOOSDecay:
+class TestOOSDecay:
     def test_stable_series_passes(self, ic_series_positive):
-        result = multi_split_oos_decay(ic_series_positive)
+        result = oos_decay(ic_series_positive)
         assert result.name == "oos_decay"
         assert result.metadata["status"] == "PASS"
         assert result.value > 0.5
         assert result.metadata["sign_flipped"] is False
 
     def test_sign_flip_vetoed(self, ic_series_sign_flip):
-        result = multi_split_oos_decay(ic_series_sign_flip)
+        result = oos_decay(ic_series_sign_flip)
         assert result.metadata["status"] == "VETOED"
         assert result.metadata["sign_flipped"] is True
 
@@ -29,14 +28,14 @@ class TestMultiSplitOOSDecay:
         series = pl.DataFrame({"date": dates, "value": [0.01] * 6}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        result = multi_split_oos_decay(series)
+        result = oos_decay(series)
         assert result.metadata["status"] == "VETOED"
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_oos_periods"
 
-    def test_custom_single_split(self, ic_series_positive):
-        result = multi_split_oos_decay(ic_series_positive, splits=[(0.5, 0.5)])
-        assert len(result.metadata["per_split"]) == 1
+    def test_custom_is_ratio(self, ic_series_positive):
+        result = oos_decay(ic_series_positive, is_ratio=0.5)
+        assert result.metadata["is_ratio"] == 0.5
 
     def test_survival_below_threshold_vetoed(self):
         from datetime import datetime, timedelta
@@ -53,78 +52,31 @@ class TestMultiSplitOOSDecay:
         series = pl.DataFrame({"date": dates, "value": values}).with_columns(
             pl.col("date").cast(pl.Datetime("ms"))
         )
-        result = multi_split_oos_decay(series, survival_threshold=0.5)
+        result = oos_decay(series, is_ratio=0.6, survival_threshold=0.5)
         # OOS mean / IS mean ≈ 0.01/0.10 = 0.1 < 0.5
         assert result.metadata["status"] == "VETOED"
         assert result.metadata["sign_flipped"] is False
 
-    def test_median_not_mean(self):
-        """Verify value is median of per-split ratios, not mean."""
-        from datetime import datetime, timedelta
-
-        import numpy as np
-        import polars as pl
-
-        rng = np.random.default_rng(123)
-        values = rng.normal(0.05, 0.02, 60)
-        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(60)]
-        series = pl.DataFrame({"date": dates, "value": values}).with_columns(
-            pl.col("date").cast(pl.Datetime("ms"))
-        )
-        result = multi_split_oos_decay(series)
-        ratios = sorted(sd["survival_ratio"] for sd in result.metadata["per_split"])
-        assert result.value == ratios[1]
-
     def test_returns_metric_output(self, ic_series_positive):
-        """Single-contract check: oos_decay returns MetricOutput, not OOSResult."""
+        """Single-contract check: oos_decay returns MetricOutput."""
         from factrix._types import MetricOutput
 
-        result = multi_split_oos_decay(ic_series_positive)
+        result = oos_decay(ic_series_positive)
         assert isinstance(result, MetricOutput)
         assert result.name == "oos_decay"
         assert result.stat is None  # descriptive, not hypothesis test
         # Descriptive-only: no p_value emitted (would invite mis-routing
         # the diagnostic into BHY / gate logic).
         assert "p_value" not in result.metadata
-        assert result.metadata["method"] == "multi-split OOS decay"
 
-    def test_per_split_shape(self, ic_series_positive):
-        """per_split entries are serializable dicts, not dataclass instances."""
-        result = multi_split_oos_decay(ic_series_positive)
-        for entry in result.metadata["per_split"]:
-            assert isinstance(entry, dict)
-            assert set(entry.keys()) == {
-                "is_ratio",
-                "mean_is",
-                "mean_oos",
-                "survival_ratio",
-                "sign_flipped",
-            }
-
-
-class TestSplitDetail:
-    def test_oos_ratio_property(self):
-        detail = SplitDetail(
-            is_ratio=0.7,
-            mean_is=0.05,
-            mean_oos=0.04,
-            survival_ratio=0.8,
-            sign_flipped=False,
-        )
-        assert detail.oos_ratio == pytest.approx(0.3)
-
-    def test_to_dict(self):
-        detail = SplitDetail(
-            is_ratio=0.7,
-            mean_is=0.05,
-            mean_oos=0.04,
-            survival_ratio=0.8,
-            sign_flipped=False,
-        )
-        assert detail.to_dict() == {
-            "is_ratio": 0.7,
-            "mean_is": 0.05,
-            "mean_oos": 0.04,
-            "survival_ratio": 0.8,
-            "sign_flipped": False,
+    def test_metadata_shape(self, ic_series_positive):
+        """metadata carries the single-split fields."""
+        result = oos_decay(ic_series_positive)
+        assert set(result.metadata.keys()) >= {
+            "sign_flipped",
+            "status",
+            "is_ratio",
+            "mean_is",
+            "mean_oos",
+            "survival_threshold",
         }

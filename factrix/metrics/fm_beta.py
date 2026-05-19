@@ -2,8 +2,8 @@ r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
 ``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → (date, beta) DataFrame.
-``fama_macbeth``: Newey-West t-test on the beta series.
-``pooled_ols``: pooled OLS with clustered SE by date.
+``fm_beta``: Newey-West t-test on the beta series.
+``pooled_beta``: pooled OLS with clustered SE by date.
 ``beta_sign_consistency``: fraction of periods with correct beta sign.
 
 Notes:
@@ -43,8 +43,8 @@ from factrix.metrics._metric_capabilities import per_date_series_rename
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_fm_betas",
-    "fama_macbeth",
-    "pooled_ols",
+    "fm_beta",
+    "pooled_beta",
     "beta_sign_consistency",
 ]
 
@@ -109,7 +109,7 @@ def compute_fm_betas(
         $R_{i,t} = \alpha_t + \beta_t \cdot \text{Signal}_{i,t} + \varepsilon_{i,t}$
         and emit the slope $\beta_t$. The output series feeds the
         stage-2 Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test in
-        ``fama_macbeth``.
+        ``fm_beta``.
 
         factrix drops dates with fewer than 3 cross-sectional
         observations or a singular design rather than coercing to NaN —
@@ -125,7 +125,7 @@ def compute_fm_betas(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.fama_macbeth import compute_fm_betas
+        >>> from factrix.metrics.fm_beta import compute_fm_betas
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
@@ -169,7 +169,7 @@ def compute_fm_betas(
 # ---------------------------------------------------------------------------
 
 
-def fama_macbeth(
+def fm_beta(
     beta_df: pl.DataFrame,
     *,
     newey_west_lags: int | None = None,
@@ -276,13 +276,13 @@ def fama_macbeth(
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.fama_macbeth import compute_fm_betas, fama_macbeth
+        >>> from factrix.metrics.fm_beta import compute_fm_betas, fm_beta
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
         >>> beta_df = compute_fm_betas(panel)
-        >>> result = fama_macbeth(beta_df, forward_periods=5)
+        >>> result = fm_beta(beta_df, forward_periods=5)
         >>> result.name
         'fm_beta'
     """
@@ -301,7 +301,7 @@ def fama_macbeth(
     if n < MIN_FM_PERIODS_WARN:
         warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
         warnings.warn(
-            f"fama_macbeth: n_periods={n} below MIN_FM_PERIODS_WARN="
+            f"fm_beta: n_periods={n} below MIN_FM_PERIODS_WARN="
             f"{MIN_FM_PERIODS_WARN}; NW HAC SE on a short β series is "
             f"borderline (Fama-MacBeth convention is T≥30). t-stat is "
             f"returned but read p-values cautiously.",
@@ -401,7 +401,7 @@ def _cluster_meat(
     return meat, len(unique)
 
 
-def pooled_ols(
+def pooled_beta(
     df: pl.DataFrame,
     *,
     factor_col: str = "factor",
@@ -491,12 +491,12 @@ def pooled_ols(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.fama_macbeth import pooled_ols
+        >>> from factrix.metrics.fm_beta import pooled_beta
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = pooled_ols(panel)
+        >>> result = pooled_beta(panel)
         >>> result.name
         'pooled_beta'
     """
@@ -668,7 +668,7 @@ def beta_sign_consistency(
         ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$
         over the FM per-date beta series. Range $[0, 1]$; $1.0$ = beta
         always agrees with the prior. Descriptive (no formal $H_0$);
-        pair with ``fama_macbeth`` for inferential significance.
+        pair with ``fm_beta`` for inferential significance.
 
         factrix splits this directional check from the symmetric
         ``ts_beta_sign_consistency`` so the two answer different
@@ -680,7 +680,7 @@ def beta_sign_consistency(
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.fama_macbeth import (
+        >>> from factrix.metrics.fm_beta import (
         ...     compute_fm_betas,
         ...     beta_sign_consistency,
         ... )
@@ -728,21 +728,19 @@ __metric_specs__ = (
         visibility=Visibility.INTERNAL,
     ),
     MetricSpec(
-        name="fama_macbeth",
+        name="fm_beta",
         cell=_FM_CELL,
         family="cs-first",
         inference=_FM_INFERENCE,
         primitives=_FM_PRIMITIVES,
-        emitted_name="fm_beta",
         requires={"beta_df": compute_fm_betas},
     ),
     MetricSpec(
-        name="pooled_ols",
+        name="pooled_beta",
         cell=_FM_CELL,
         family="cs-first",
         inference=_FM_INFERENCE,
         primitives=_FM_PRIMITIVES,
-        emitted_name="pooled_beta",
     ),
     MetricSpec(
         name="beta_sign_consistency",
