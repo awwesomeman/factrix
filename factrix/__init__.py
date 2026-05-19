@@ -71,6 +71,14 @@ from factrix._errors import (
 from factrix._evaluate import _evaluate as _evaluate
 from factrix._evaluate import evaluate_chunked as evaluate_chunked
 from factrix._evaluate import evaluate_iter as evaluate_iter
+from factrix._inspect import (
+    MetricApplicability,
+    PanelInspection,
+    PanelProperties,
+    PanelReasoning,
+    inspect_panel,
+)
+from factrix._metric_index import SampleFloor
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
 from factrix._results import EvaluationResult, MetricResultGroup, Warning
@@ -275,8 +283,14 @@ __all__ = [
     "run_metrics_chunked",
     "run_metrics_iter",
     # Introspection
+    "MetricApplicability",
+    "PanelInspection",
+    "PanelProperties",
+    "PanelReasoning",
+    "SampleFloor",
     "SuggestConfigResult",
     "describe_analysis_modes",
+    "inspect_panel",
     "list_estimators",
     "list_metrics",
     "suggest_config",

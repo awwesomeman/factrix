@@ -20,13 +20,14 @@ from collections.abc import Sequence
 import polars as pl
 
 from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import MetricSpec, SampleFloor, cell
 from factrix._stats import (
     _calc_t_stat,
     _newey_west_t_test,
     _p_value_from_t,
     _significance_marker,
 )
+from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
     EPSILON,
     MIN_ASSETS_PER_DATE_IC,
@@ -488,6 +489,10 @@ __metric_specs__ = (
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},
+        sample_floor=SampleFloor(
+            min_periods=MIN_PERIODS_HARD,
+            warn_periods=MIN_PERIODS_WARN,
+        ),
     ),
     MetricSpec(
         name="ic_ir",
@@ -496,5 +501,9 @@ __metric_specs__ = (
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},
+        sample_floor=SampleFloor(
+            min_periods=MIN_PERIODS_HARD,
+            warn_periods=MIN_PERIODS_WARN,
+        ),
     ),
 )
