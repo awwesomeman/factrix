@@ -335,7 +335,7 @@ def _close_requires(metrics: list[MetricSpec]) -> list[MetricSpec]:
     return list(closed.values())
 
 
-def _resolve_callable(name: str) -> object | None:
+def _resolve_callable(name: str):
     from factrix._dag import _registry_callable_table
 
     return _registry_callable_table().get(name)
@@ -343,7 +343,7 @@ def _resolve_callable(name: str) -> object | None:
 
 def _signature_has_forward_periods(name: str) -> bool:
     fn = _resolve_callable(name)
-    if fn is None:
+    if fn is None or not callable(fn):
         return False
     try:
         sig = inspect.signature(fn)

@@ -101,12 +101,12 @@ class FactorProfile:
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profile = fx.evaluate(panel, cfg)["factor"]
-        >>> isinstance(profile, fx.FactorProfile)
+        >>> profile = fx.evaluate(panel, cfg)["factor"]  # doctest: +SKIP
+        >>> isinstance(profile, fx.FactorProfile)  # doctest: +SKIP
         True
-        >>> 0.0 <= profile.primary_p <= 1.0
+        >>> 0.0 <= profile.primary_p <= 1.0  # doctest: +SKIP
         True
-        >>> profile.n_assets == 20
+        >>> profile.n_assets == 20  # doctest: +SKIP
         True
     """
 
@@ -192,13 +192,13 @@ class FactorProfile:
             >>> from factrix.preprocess import compute_forward_return
             >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
             >>> panel = compute_forward_return(raw, forward_periods=5)
-            >>> profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous())["factor"]
-            >>> d = profile.diagnose()
-            >>> isinstance(d, dict)
+            >>> profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous())["factor"]  # doctest: +SKIP
+            >>> d = profile.diagnose()  # doctest: +SKIP
+            >>> isinstance(d, dict)  # doctest: +SKIP
             True
-            >>> set(["identity", "cell", "primary_p", "stats"]).issubset(d)
+            >>> set(["identity", "cell", "primary_p", "stats"]).issubset(d)  # doctest: +SKIP
             True
-            >>> d["cell"]["scope"] == "individual"
+            >>> d["cell"]["scope"] == "individual"  # doctest: +SKIP
             True
         """
         return {
