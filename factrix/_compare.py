@@ -1,209 +1,128 @@
-"""``compare`` — leaderboard renderer for factrix artifacts (#177).
+"""``compare`` — leaderboard renderer for :class:`EvaluationResult` lists.
 
-Pure projection: stacks ``FactorProfile`` / ``MetricsBundle`` /
-``Survivors`` artifacts into a wide ``pl.DataFrame`` for sorting and
-visual diff. No metric is recomputed; ``Survivors.adj_p`` is read
-through, so Benjamini-Hochberg-Yekutieli (BHY) survivor leaderboards keep their adjusted p-values
-without manual re-attach.
+Pure projection: stacks per-factor metric values into a wide
+``pl.DataFrame`` for sorting and visual diff. No metric is recomputed.
 
 Heterogeneous context keys follow ``pl.concat(how="diagonal")`` —
-union + null-fill — so an entry missing ``regime_id`` surfaces as a
+union + null-fill — so a result missing ``region`` surfaces as a
 ``null`` cell rather than a silent drop.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, cast
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import polars as pl
 
 from factrix._errors import UserInputError
-from factrix._multi_factor import Survivors
-from factrix._profile import FactorProfile
-from factrix._run_metrics import MetricsBundle
-
-CompareInput = list[FactorProfile] | list[MetricsBundle] | Survivors
+from factrix._metric_index import MetricSpec
+from factrix._results import EvaluationResult, _float_or_none
 
 
 def compare(
-    artifacts: CompareInput,
+    results: list[EvaluationResult],
     *,
-    sort_by: str | None = None,
+    metric: MetricSpec,
+    descending: bool = True,
 ) -> pl.DataFrame:
-    """Render a leaderboard ``pl.DataFrame`` for a list of artifacts.
+    """Render a leaderboard ``pl.DataFrame`` for one metric across results.
 
     Args:
-        artifacts: One of three input shapes (input-type dispatch — no
-            ``compare_profiles`` / ``compare_bundles`` split):
-
-            - ``list[FactorProfile]`` → identity + context +
-              ``primary_stat`` / ``primary_stat_name`` / ``primary_p``
-            - ``list[MetricsBundle]`` → identity + context + one column
-              per standalone metric (``MetricOutput.value``)
-            - :class:`~factrix.multi_factor.Survivors` → as the
-              profile branch plus a final ``adj_p`` column (read from
-              ``Survivors.adj_p``). ``expand_over`` dimensions surface
-              as ordinary context columns (via ``profile.context[k]``).
-
-            Mixed-type lists raise.
-        sort_by: Column name to sort by. ``None`` keeps input order.
-            ``nulls_last=True`` matches polars default so heterogeneous
-            context / metric coverage stays robust.
+        results: Non-empty list of :class:`EvaluationResult`. Each must
+            carry ``metric`` in its outputs.
+        metric: :class:`MetricSpec` whose ``MetricOutput.value`` (and
+            ``metadata['p_value']`` when present) is projected per row.
+            ``str`` / ``Callable`` not accepted — pick the spec from
+            ``fx.metrics.spec_by_name()``.
+        descending: Sort direction on ``value``. Default ``True``
+            (higher-is-better, the common case for ``ic`` / ``alpha`` /
+            information ratio). Pass ``descending=False`` for
+            lower-is-better metrics such as ``turnover`` or any
+            cost / drag metric. ``MetricSpec`` deliberately does not
+            carry a ``higher_is_better`` flag — encoding sort direction
+            in the type system bakes in a default that silently
+            mis-ranks when wrong.
 
     Returns:
-        ``pl.DataFrame`` with columns laid out as ``factor_id``,
-        ``forward_periods``, then context keys (union across entries,
-        first-seen order), then branch-specific columns.
+        ``pl.DataFrame`` with columns laid out as ``factor``,
+        ``forward_periods``, context keys (union across results,
+        first-seen order), ``value``, ``p``, ``rank``.
 
     Raises:
-        UserInputError: Empty input; mixed artifact types; ``sort_by``
-            not present in the output schema (with fuzzy suggestion).
+        UserInputError: Empty ``results``; ``metric`` not a
+            :class:`MetricSpec`; metric absent from any result's outputs.
 
     Examples:
-        Leaderboard from a list of :class:`FactorProfile`:
+        Higher-is-better (default):
 
-        >>> import dataclasses
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-        >>> profiles = [  # doctest: +SKIP
-        ...     dataclasses.replace(
-        ...         fx.evaluate(
-        ...             compute_forward_return(
-        ...                 fx.datasets.make_cs_panel(
-        ...                     n_assets=100, n_dates=250, seed=i,
-        ...                 ),
-        ...                 forward_periods=5,
-        ...             ),
-        ...             cfg,
-        ...         )["factor"],
-        ...         factor_id=f"alpha_{i}",
-        ...     )
-        ...     for i in range(3)
-        ... ]
-        >>> leaderboard = fx.compare(profiles, sort_by="primary_p")  # doctest: +SKIP
+        >>> board = fx.compare(  # doctest: +SKIP
+        ...     results, metric=fx.metrics.spec_by_name()["ic"]
+        ... )
 
-        Leaderboard from a :class:`~factrix.multi_factor.Survivors`
-        (adds an ``adj_p`` column):
+        Lower-is-better (``descending=False``):
 
-        >>> survivors = fx.multi_factor.bhy(profiles, q=0.5)  # doctest: +SKIP
-        >>> board = fx.compare(survivors, sort_by="adj_p")  # doctest: +SKIP
+        >>> board = fx.compare(  # doctest: +SKIP
+        ...     results,
+        ...     metric=fx.metrics.spec_by_name()["turnover"],
+        ...     descending=False,
+        ... )
     """
-    if isinstance(artifacts, Survivors):
-        if len(artifacts) == 0:
-            raise UserInputError(
-                func_name="compare",
-                field="artifacts",
-                value=artifacts,
-                expected="non-empty Survivors",
-                docs_path="api/compare/",
-            )
-        df = _profile_frame(artifacts.profiles).with_columns(
-            pl.Series("adj_p", artifacts.adj_p)
+    if not isinstance(metric, MetricSpec):
+        raise UserInputError(
+            func_name="compare",
+            field="metric",
+            value=type(metric).__name__,
+            expected=(
+                "MetricSpec instance (str / Callable not accepted — pick "
+                "the spec from fx.metrics.spec_by_name() or the metric "
+                "module's __metric_specs__ tuple)"
+            ),
+            docs_path="api/compare/",
         )
-    else:
-        entries = list(artifacts)
-        if not entries:
+    if not results:
+        raise UserInputError(
+            func_name="compare",
+            field="results",
+            value=results,
+            expected="non-empty list[EvaluationResult]",
+            docs_path="api/compare/",
+        )
+
+    context_keys = _ordered_keys(r.context for r in results)
+    rows: list[dict[str, Any]] = []
+    for r in results:
+        if metric.name not in r.metrics.outputs:
             raise UserInputError(
                 func_name="compare",
-                field="artifacts",
-                value=entries,
-                expected="non-empty list of FactorProfile or MetricsBundle",
+                field="metric",
+                value=metric.name,
+                expected=(
+                    f"every result to carry metric {metric.name!r}; "
+                    f"missing on factor={r.factor!r}"
+                ),
+                candidates=sorted(r.metrics.outputs),
                 docs_path="api/compare/",
             )
-        kind = _classify(entries)
-        if kind is FactorProfile:
-            df = _profile_frame(cast("list[FactorProfile]", entries))
-        else:
-            df = _bundle_frame(cast("list[MetricsBundle]", entries))
+        out = r.metrics.outputs[metric.name]
+        row: dict[str, Any] = {
+            "factor": r.factor,
+            "forward_periods": r.forward_periods,
+        }
+        for k in context_keys:
+            row[k] = r.context.get(k)
+        row["value"] = _float_or_none(out.value)
+        row["p"] = _float_or_none(out.metadata.get("p_value"))
+        rows.append(row)
 
-    if sort_by is not None:
-        if sort_by not in df.columns:
-            raise UserInputError(
-                func_name="compare",
-                field="sort_by",
-                value=sort_by,
-                candidates=df.columns,
-                docs_path="api/compare/",
-            )
-        df = df.sort(sort_by, nulls_last=True)
-
+    df = pl.DataFrame(rows)
+    df = df.sort("value", descending=descending, nulls_last=True)
+    rank_col = pl.int_range(1, df.height + 1, dtype=pl.Int64).alias("rank")
+    df = df.with_columns(rank_col)
     return df
 
 
-def _classify(entries: list[Any]) -> type:
-    head = entries[0]
-    if isinstance(head, FactorProfile):
-        kind: type = FactorProfile
-    elif isinstance(head, MetricsBundle):
-        kind = MetricsBundle
-    else:
-        raise UserInputError(
-            func_name="compare",
-            field="artifacts[0]",
-            value=head,
-            expected="FactorProfile or MetricsBundle",
-            docs_path="api/compare/",
-        )
-    mismatches = [
-        (i, type(e).__name__)
-        for i, e in enumerate(entries[1:], start=1)
-        if not isinstance(e, kind)
-    ]
-    if mismatches:
-        rendered = ", ".join(f"[{i}]={name}" for i, name in mismatches)
-        raise UserInputError(
-            func_name="compare",
-            field="artifacts",
-            value=f"mixed types ({kind.__name__} + {rendered})",
-            expected=f"all entries to be {kind.__name__}",
-            docs_path="api/compare/",
-        )
-    return kind
-
-
-def _profile_frame(profiles: Sequence[FactorProfile]) -> pl.DataFrame:
-    context_keys = _ordered_keys(p.context for p in profiles)
-    rows: list[dict[str, Any]] = []
-    for p in profiles:
-        row: dict[str, Any] = {
-            "factor_id": p.factor_id,
-            "forward_periods": p.forward_periods,
-        }
-        for k in context_keys:
-            row[k] = p.context.get(k)
-        row["primary_stat"] = p.primary_stat
-        row["primary_stat_name"] = p.primary_stat_name.value
-        row["primary_p"] = p.primary_p
-        rows.append(row)
-    return pl.DataFrame(rows)
-
-
-def _bundle_frame(bundles: Sequence[MetricsBundle]) -> pl.DataFrame:
-    context_keys = _ordered_keys(b.context for b in bundles)
-    metric_keys = _ordered_keys(b.metrics for b in bundles)
-    rows: list[dict[str, Any]] = []
-    for b in bundles:
-        row: dict[str, Any] = {
-            "factor_id": b.factor_id,
-            "forward_periods": b.forward_periods,
-        }
-        for k in context_keys:
-            row[k] = b.context.get(k)
-        for m in metric_keys:
-            output = b.metrics.get(m)
-            row[m] = output.value if output is not None else None
-        rows.append(row)
-    return pl.DataFrame(rows)
-
-
 def _ordered_keys(maps: Iterable[Mapping[str, Any]]) -> list[str]:
-    """Union of mapping keys, ordered by first appearance.
-
-    Matches ``pl.concat(how="diagonal")`` semantics without imposing
-    alphabetic re-shuffling.
-    """
     seen: dict[str, None] = {}
     for m in maps:
         for k in m:

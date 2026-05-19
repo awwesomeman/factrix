@@ -248,6 +248,7 @@ class DagExecutor:
                 factor=c,
                 axes=(cfg.scope, cfg.signal, cfg.metric),
                 mode=mode,
+                forward_periods=cfg.forward_periods,
                 n_obs=n_obs,
                 n_assets=n_assets,
                 metrics=MetricResult(
