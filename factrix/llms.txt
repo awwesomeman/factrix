@@ -12,8 +12,7 @@
 - [Guides](https://awwesomeman.github.io/factrix/guides/): Panel vs timeseries, BHY batch screening, choosing a metric
 - [API — AnalysisConfig](https://awwesomeman.github.io/factrix/api/analysis-config/): four factory methods, from_dict / to_dict
 - [API — evaluate](https://awwesomeman.github.io/factrix/api/evaluate/): single-factor dispatch entry point
-- [API — run_metrics](https://awwesomeman.github.io/factrix/api/run-metrics/): cell-level descriptive batch runner — returns MetricsBundle
-- [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): migration recipes after multi_horizon_* removal — run_metrics + compare / evaluate + bhy(expand_over=)
+- [API — Multi-horizon](https://awwesomeman.github.io/factrix/api/multi-horizon/): migration recipes after multi_horizon_* removal — evaluate per horizon + bhy(expand_over=)
 - [API — FactorProfile](https://awwesomeman.github.io/factrix/api/factor-profile/): result schema, diagnose()
 - [API — multi_factor](https://awwesomeman.github.io/factrix/api/multi-factor/): bhy() / bhy_hierarchical() / partial_conjunction() — FDR-corrected screening (distinguished by survivor unit: pair / identity-group-then-within / identity-joint)
 - [Reference — warning codes](https://awwesomeman.github.io/factrix/reference/warning-codes/): WarningCode / InfoCode / StatCode enums

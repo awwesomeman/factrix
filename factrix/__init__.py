@@ -21,11 +21,6 @@ Batch + Benjamini-Hochberg-Yekutieli (BHY)::
     profiles = fx.evaluate(wide_panel, cfg, factor_cols=candidate_cols)
     survivors = fx.multi_factor.bhy(profiles.values(), q=0.05)
 
-Schema reflection::
-
-    print(fx.describe_analysis_modes())
-    print(fx.suggest_config(panel))
-
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
 typical usage patterns in a single fetch. Two access paths::
 
@@ -43,8 +38,7 @@ from typing import Any
 import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
-from factrix._analysis_config import AnalysisConfig
-from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
+from factrix._axis import (  # noqa: F401  Metric / Mode re-exported for namespace access; intentionally not in __all__
     FactorScope,
     Metric,
     Mode,
@@ -53,44 +47,31 @@ from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor
-from factrix._describe import (
-    SuggestConfigResult,
-    describe_analysis_modes,
-    list_estimators,
-    list_metrics,
-    suggest_config,
-)
 from factrix._errors import (
     ConfigError,
     FactrixError,
     IncompatibleAxisError,
     InsufficientSampleError,
-    MissingConfigError,
-    ModeAxisError,
-    RunMetricsError,
     UnknownEstimatorError,
     UserInputError,
 )
-from factrix._evaluate import _evaluate as _evaluate
-from factrix._evaluate import evaluate_chunked as evaluate_chunked
-from factrix._evaluate import evaluate_iter as evaluate_iter
 from factrix._inspect import (
     MetricApplicability,
     PanelInspection,
     PanelProperties,
     PanelReasoning,
+    _derive_mode,
     inspect_panel,
 )
-from factrix._metric_index import MetricSpec, SampleFloor, metric_spec, spec_by_name
-from factrix._panel_input import PanelInput, _coerce_panel
-from factrix._profile import FactorProfile
-from factrix._results import EvaluationResult, MetricResult, Warning
-from factrix._run_metrics import (
-    MetricsBundle,
-    run_metrics,
-    run_metrics_chunked,
-    run_metrics_iter,
+from factrix._metric_index import (
+    MetricSpec,
+    SampleFloor,
+    list_metrics,
+    metric_spec,
+    spec_by_name,
 )
+from factrix._panel_input import PanelInput, _coerce_panel
+from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._types import MetricOutput
 from factrix.slicing import (
     SliceResult,
@@ -98,6 +79,7 @@ from factrix.slicing import (
     slice_joint_test,
     slice_pairwise_test,
 )
+from factrix.stats import list_estimators
 
 
 def evaluate(
@@ -184,12 +166,22 @@ def evaluate(
 
     closure_specs = _close_requires(metrics)
     _validate_forward_periods_when_required(closure_specs, forward_periods)
+    _validate_primary_metric_applicable(metrics[0], panel)
 
-    cfg = _synthesize_cfg(metrics, forward_periods)
+    scope, signal, metric_axis = _axes_from_first_metric(metrics[0])
+    fp = forward_periods if forward_periods is not None else 5
     kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
     primary_names = (metrics[0].name,)
     executor = DagExecutor(closure_specs, primary_names=primary_names)
-    result_dict = executor.execute(panel, cfg, cols, kwargs_by_metric=kwargs_by_metric)
+    result_dict = executor.execute(
+        panel,
+        cols,
+        scope=scope,
+        signal=signal,
+        metric=metric_axis,
+        forward_periods=fp,
+        kwargs_by_metric=kwargs_by_metric,
+    )
     return [result_dict[c] for c in cols]
 
 
@@ -383,35 +375,65 @@ def _build_kwargs_by_metric(
     }
 
 
-def _synthesize_cfg(
-    metrics: list[MetricSpec], forward_periods: int | None
-) -> AnalysisConfig:
-    """Synthesize an axis stamp from the first metric's cell."""
-    first = metrics[0].cell
-    scope = first.scope if first.scope is not None else FactorScope.INDIVIDUAL
-    signal = first.signal if first.signal is not None else Signal.CONTINUOUS
+def _validate_primary_metric_applicable(
+    primary: MetricSpec, panel: pl.DataFrame
+) -> None:
+    """Reject a primary metric whose ``cell.mode`` disagrees with the panel.
+
+    Mode is the cheap pre-flight gate: IC / FM / quantile_spread declare
+    ``cell.mode = Mode.PANEL`` and produce only NaN short-circuits on a
+    single-asset panel; surfacing that as a UserInputError keeps the
+    diagnostic specific instead of letting the executor return a result
+    bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
+    Cell-axis (scope / signal) applicability requires panel detection
+    and is left to ``fx.inspect_panel`` for the explicit pre-flight path.
+    """
+    cell_mode = primary.cell.mode
+    if cell_mode is None:
+        return
+    panel_mode = _derive_mode(panel)
+    if cell_mode is panel_mode:
+        return
+    n_assets = int(panel["asset_id"].n_unique())
+    raise UserInputError(
+        func_name="evaluate",
+        field="metrics",
+        value=primary.name,
+        expected=(
+            f"primary metric {primary.name!r} declares "
+            f"cell.mode={cell_mode.value!r} but panel has "
+            f"mode={panel_mode.value!r} (n_assets={n_assets}); "
+            f"call fx.inspect_panel(panel) to see metrics applicable "
+            f"to this panel shape"
+        ),
+        docs_path=_DOCS_METRICS,
+    )
+
+
+def _axes_from_first_metric(
+    primary: MetricSpec,
+) -> tuple[FactorScope, Signal, Metric | None]:
+    """Derive the axis stamp for ``EvaluationResult`` from the primary metric's cell."""
+    cell = primary.cell
+    scope = cell.scope if cell.scope is not None else FactorScope.INDIVIDUAL
+    signal = cell.signal if cell.signal is not None else Signal.CONTINUOUS
     if scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS:
         metric_axis: Metric | None = (
-            first.metric if first.metric is not None else Metric.IC
+            cell.metric if cell.metric is not None else Metric.IC
         )
     else:
         metric_axis = None
-    fp = forward_periods if forward_periods is not None else 5
-    return AnalysisConfig(
-        scope=scope, signal=signal, metric=metric_axis, forward_periods=fp
-    )
+    return scope, signal, metric_axis
 
 
 __version__ = "0.13.0"
 
 __all__ = [
-    # Configuration
-    "AnalysisConfig",
-    # Axis enums (Mode intentionally NOT exported — it is derived at
-    # evaluate-time from N and read off profile.mode, never set by user
-    # code; review fix UX-7. Still importable from factrix._axis.)
+    # Axis enums (Mode / Metric intentionally NOT exported — Mode is
+    # evaluate-time-derived from N; Metric only labels MetricSpec.cell
+    # and is not part of the user-facing call shape after #448.
+    # Both stay importable from factrix._axis for internal callers.)
     "FactorScope",
-    "Metric",
     "Signal",
     # Code enums
     "InfoCode",
@@ -422,40 +444,27 @@ __all__ = [
     "FactrixError",
     "IncompatibleAxisError",
     "InsufficientSampleError",
-    "MissingConfigError",
-    "ModeAxisError",
-    "RunMetricsError",
     "UnknownEstimatorError",
     "UserInputError",
-    # Profile + dispatch
+    # Result + dispatch
     "CycleError",
     "DagExecutor",
     "EvaluationResult",
-    "FactorProfile",
     "MetricOutput",
     "MetricResult",
-    "MetricsBundle",
     "PanelInput",
     "Warning",
     "compare",
     "evaluate",
-    "evaluate_chunked",
-    "evaluate_iter",
-    "run_metrics",
-    "run_metrics_chunked",
-    "run_metrics_iter",
     # Introspection
     "MetricApplicability",
     "PanelInspection",
     "PanelProperties",
     "PanelReasoning",
     "SampleFloor",
-    "SuggestConfigResult",
-    "describe_analysis_modes",
     "inspect_panel",
     "list_estimators",
     "list_metrics",
-    "suggest_config",
     # Slicing dispatcher + cross-slice inference functions
     "SliceResult",
     "by_slice",

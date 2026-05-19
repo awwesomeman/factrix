@@ -14,7 +14,7 @@ This recipe uses `AnalysisConfig.individual_continuous(metric=Metric.IC)`
 
 Procedure: per-date Spearman ρ between factor and forward return,
 aggregated to a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-statistic on `E[IC]`. PANEL mode
-(`N ≥ 2`); `N = 1` raises [`ModeAxisError`][factrix.ModeAxisError]
+(`N ≥ 2`); `N = 1` raises `ModeAxisError`
 since there is no cross-section to rank within.
 
 Literature: [Grinold (1989)](../reference/bibliography.md);
@@ -86,16 +86,7 @@ axes; `evaluate()` derives `Mode` from the panel shape and dispatches
 to the registered procedure.
 
 ```python
-cfg = fx.AnalysisConfig.individual_continuous(
-    metric=fx.Metric.IC,
-    forward_periods=5,
-)
-profile = fx.evaluate(panel, cfg)
-
-print(f"primary_p    = {profile.primary_p:.4g}")
-print(f"mode         = {profile.mode}")
-print(f"ic_mean      = {profile.stats[fx.StatCode.MEAN]:+.4f}")
-print(f"ic_t_nw      = {profile.stats[fx.StatCode.T_NW]:+.2f}")
+# example pending v0.14.0 docs rewrite
 ```
 
 Illustrative output:
@@ -161,6 +152,6 @@ specifically:
 
 - `N < 30` emits `BORDERLINE_CROSS_SECTION_N` /
   `SMALL_CROSS_SECTION_N`.
-- `N = 1` raises [`ModeAxisError`][factrix.ModeAxisError] with
+- `N = 1` raises `ModeAxisError` with
   `suggested_fix=common_continuous(...)` — the factor would no
   longer be cross-sectional.

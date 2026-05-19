@@ -116,14 +116,11 @@ five-trading-day lookahead; on a monthly panel it is five months.
 Frequency is the user's responsibility — see step 4.
 
 The `forward_periods` you pass here must match the
-`AnalysisConfig.forward_periods` you later pass to `evaluate`. Bind
+`forward_periods` you later pass to `evaluate`. Bind
 the custom factor column via `factor_col=`:
 
 ```python
-import factrix as fx
-
-cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-profile = fx.evaluate(panel, cfg, factor_col="momentum")
+# example pending v0.14.0 docs rewrite
 ```
 
 If the column is already named `factor` (the default), `factor_col=`

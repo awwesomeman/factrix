@@ -17,8 +17,8 @@ from factrix.preprocess import compute_forward_return
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = compute_forward_return(raw, forward_periods=5)
 
-# Typed factory — supply the config directly (type-safe; the IDE rejects illegal combos)
-cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
+# example pending v0.14.0 docs rewrite
+cfg     = ...  # config construction pending v0.14.0 docs rewrite
 profile = fx.evaluate(panel, cfg)
 
 print('primary_p =', round(profile.primary_p, 4))
@@ -34,17 +34,6 @@ print(profile.diagnose())
 #  'warnings': [], 'info_notes': [],
 #  'stats': {'mean': 0.0722, 't_nw': 14.60, 'p_nw': 2.13e-40},
 #  'metadata': {'t_nw': {'nw_lags': 5}, 'p_nw': {'nw_lags': 5}}}
-```
-
-If you are not sure which factory to use, let factrix infer it from the
-panel shape:
-
-```python
-# Inferred config — factrix picks the factory from the panel shape
-result  = fx.suggest_config(panel)
-profile = fx.evaluate(panel, result.suggested)
-# result.reasoning explains how each axis was inferred
-# result.warnings flags potential risks (small N, persistence, …)
 ```
 
 See [Concepts](concepts.md) for what each axis means.
@@ -70,7 +59,7 @@ when to add standalone metrics), see [Choosing a metric](../guides/choosing-metr
 
 ## `profile.diagnose()` and warnings
 
-[`diagnose()`][factrix.FactorProfile.diagnose] returns a flat dict for human inspection or AI agent triage:
+`diagnose()` returns a flat dict for human inspection or AI agent triage:
 
 ```python
 {
@@ -109,9 +98,8 @@ catch pattern, and recovery via `suggested_fix`, see
 it is a risk flag. The user decides whether to filter on warnings before
 Benjamini-Hochberg-Yekutieli (BHY). For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
 
-For the full field-order walk of `FactorProfile` — and of
-`Survivors` (after `bhy`) and `MetricsBundle` (after `run_metrics`) —
-see [Reading results](../guides/reading-results.md).
+For the full field-order walk of `FactorProfile` and `Survivors`
+(after `bhy`), see [Reading results](../guides/reading-results.md).
 
 ---
 
@@ -122,7 +110,6 @@ You have one `FactorProfile` for one factor. The common follow-ups:
 | You want to… | Reach for | Guide |
 |---|---|---|
 | Screen N candidate factors with false discovery rate (FDR) control | [`multi_factor.bhy(profiles)`](../api/multi-factor.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [Batch screening with BHY](../guides/batch-screening.md) |
-| Compare the descriptive surface across factors | [`run_metrics`](../api/run-metrics.md) × N → [`compare(bundles)`](../api/compare.md) | [Standalone metrics](../guides/standalone-metrics.md) |
 | Rank factors after screening | [`compare(survivors)`](../api/compare.md) — leaderboard with `adj_q` | — |
 | Explore one metric across slices (sector / regime / universe / ADV bucket) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |
 | Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
@@ -131,5 +118,5 @@ For function semantics, the input contract, and cross-function topics
 (`expand_over` semantics, regime-analysis dispatch), see the
 [API reference landing](../api/index.md) and
 [Cross-function reference](../api/decision-tree.md). For the field-order
-walk of `FactorProfile` / `Survivors` / `MetricsBundle`, see
+walk of `FactorProfile` / `Survivors`, see
 [Reading results](../guides/reading-results.md).

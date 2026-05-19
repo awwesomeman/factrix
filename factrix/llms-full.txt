@@ -43,10 +43,7 @@ so `metric=None`.
 - `PANEL` — `n_assets > 1`
 - `TIMESERIES` — `n_assets == 1`
 
-`SPARSE × TIMESERIES` collapses the scope axis at dispatch time and tags the
-returned profile with `InfoCode.SCOPE_AXIS_COLLAPSED`.
-`(INDIVIDUAL, CONTINUOUS) × TIMESERIES` is **not** registered — the dispatch
-raises `ModeAxisError` carrying a `suggested_fix` `AnalysisConfig`.
+`(INDIVIDUAL, CONTINUOUS) × TIMESERIES` is **not** registered.
 
 ---
 
@@ -72,142 +69,32 @@ Synthetic panels: `fx.datasets.make_cs_panel(...)` for CONTINUOUS,
 ### 1. Single-factor IC evaluation
 
 ```python
-import factrix as fx
-from factrix.preprocess import compute_forward_return
-
-# raw has columns ["date", "asset_id", "price", "factor"]
-raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
-panel = compute_forward_return(raw, forward_periods=5)   # appends `forward_return`
-
-cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-profile = fx.evaluate(panel, cfg)["factor"]   # dict[factor_id, FactorProfile]; index by name
-
-print(profile.primary_p)             # procedure-canonical p-value (float)
-print(profile.diagnose())            # dict — see FactorProfile below
-print(dict(profile.stats))           # {StatCode: float} — IC mean, t-stat, etc.
+# example pending v0.14.0 docs rewrite
 ```
 
 ### 2. Multi-factor BHY screening
 
 ```python
-import factrix as fx
-from factrix.preprocess import compute_forward_return
-
-# Preferred shape: every variant is a column on one wide panel.
-# evaluate batches them in a single call and returns a dict keyed by
-# column name; bhy consumes the .values() view directly.
-cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-wide_panel = compute_forward_return(build_wide_factor_panel(...), forward_periods=5)
-profiles = fx.evaluate(wide_panel, cfg, factor_cols=["variant_0", "variant_1", "variant_2"])
-survivors = fx.multi_factor.bhy(profiles.values(), q=0.05)
-
-# Fallback shape: each variant arrives as its own panel (e.g. different
-# upstream loaders). Iterate and merge — semantically equivalent, just
-# loses the batch's cross-factor sharing potential.
-raw_panels = {
-    f"variant_{i}": fx.datasets.make_cs_panel(
-        n_assets=80, n_dates=400, ic_target=ic, seed=s
-    ).rename({"factor": f"variant_{i}"})
-    for i, (ic, s) in enumerate([(0.08, 1), (0.06, 2), (0.01, 3), (0.0, 4), (0.05, 5)])
-}
-profiles_by_id: dict[str, fx.FactorProfile] = {}
-for name, p in raw_panels.items():
-    panel_fwd = compute_forward_return(p, forward_periods=5)
-    profiles_by_id.update(fx.evaluate(panel_fwd, cfg, factor_cols=[name]))
-
-survivors = fx.multi_factor.bhy(profiles_by_id.values(), q=0.05)
-# survivors: Survivors container.
-#   .profiles    : list[FactorProfile] passing BHY at FDR 0.05 (input order)
-#   .adj_p       : np.ndarray of bucket-local BHY-adjusted p-values, aligned
-#   .q           : nominal target you passed
-#   .expand_over : tuple of context keys used to split families ((), or e.g. ("regime_id",))
-#   .n_tests     : Mapping[bucket_key, m_per_bucket] for two-stage screening audit
-# `evaluate(..., factor_cols=[...])` returns a dict keyed by each column
-# name; the per-profile `factor_id` is stamped to match, so identities
-# stay unique without `dataclasses.replace`. Use `replace(profile,
-# factor_id=...)` only as the escape hatch when you cannot rename the
-# column. Pass `expand_over=[<context key>]` to declare per-bucket
-# families (Benjamini & Bogomolov 2014 selective inference).
+# example pending v0.14.0 docs rewrite
 ```
 
-### 3. Single-asset panel — `ModeAxisError` with `suggested_fix`
+### 3. Single-asset panel
 
 `(INDIVIDUAL, CONTINUOUS)` has no procedure when `n_assets == 1` (no
-cross-section to compute IC across). `evaluate` raises `ModeAxisError` carrying
-the nearest-legal config:
+cross-section to compute IC across).
 
 ```python
-import factrix as fx
-
-panel = build_single_asset_panel()   # n_assets == 1, columns as in §schema
-cfg   = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-
-try:
-    profile = fx.evaluate(panel, cfg)["factor"]
-except fx.ModeAxisError as exc:
-    cfg = exc.suggested_fix           # AnalysisConfig.common_continuous(forward_periods=5)
-    profile = fx.evaluate(panel, cfg)["factor"]
-
-# profile.mode == Mode.TIMESERIES; primary_p is the timeseries-beta p-value
-print(profile.stats[fx.StatCode.MEAN])
+# example pending v0.14.0 docs rewrite
 ```
-
-For `SPARSE × TIMESERIES` the dispatch silently collapses the scope axis
-instead of raising; the resulting profile carries
-`InfoCode.SCOPE_AXIS_COLLAPSED` in `info_notes`.
 
 ---
 
 ## Public API
 
-### `AnalysisConfig`
-
-Three-axis frozen dataclass. Construct via the four factory methods —
-direct construction works but every path runs through the same axis-validation
-gate. **All factory parameters are keyword-only.**
-
-```
-AnalysisConfig.individual_continuous(*, metric: Metric = Metric.IC,
-                                     forward_periods: int = 5,
-                                     estimator: HACEstimator | None = None) -> AnalysisConfig
-AnalysisConfig.individual_sparse(*, forward_periods: int = 5,
-                                     estimator: HACEstimator | None = None) -> AnalysisConfig
-                                     # CAAR event study
-AnalysisConfig.common_continuous(*, forward_periods: int = 5,
-                                     estimator: HACEstimator | None = None) -> AnalysisConfig
-                                     # timeseries beta on broadcast factor
-AnalysisConfig.common_sparse(*, forward_periods: int = 5,
-                                     estimator: HACEstimator | None = None) -> AnalysisConfig
-                                     # CAAR on broadcast event flag
-```
-
-Serialisation: `cfg.to_dict()` → `dict` (carries `estimator` as name
-string); `AnalysisConfig.from_dict(d)` → `AnalysisConfig` (re-runs
-validation; missing `estimator` key falls back to `NeweyWest()` for
-forward-compat with v0.11 dicts).
-
-`forward_periods` counts **rows** of the time axis, not calendar days. Daily
-panel + `forward_periods=5` = 5 trading days; weekly = 5 weeks.
-
-`estimator` selects the HAC-on-mean inference path for IC PANEL / FM
-PANEL / CAAR PANEL cells; default `NeweyWest()`. Pass
-`HansenHodrick()` to drive `primary_p` from the rectangular-kernel
-HH path on overlapping forward returns. **BREAKING (#163)**: v0.11
-auto-side-emitted `P_HH` / `T_HH` on every IC / FM PANEL run
-regardless of cfg; v0.13 only emits them when the estimator is
-explicitly `HansenHodrick`. Downstream readers should use
-`profile.primary_p` / `profile.primary_stat_name` plus
-`profile.context["estimator"]` rather than hardcoded
-`stats[StatCode.T_NW]` / `stats[StatCode.P_HH]` lookups.
-
----
-
 ### `evaluate`
 
 ```
-factrix.evaluate(panel: PanelInput, config: AnalysisConfig,
-                 *, factor_cols: Sequence[str] = ("factor",)
-                 ) -> dict[str, FactorProfile]
+# signature pending v0.14.0 docs rewrite
 ```
 
 `PanelInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native
@@ -215,12 +102,11 @@ on its primary entry points; pandas users go through `factrix.adapt`
 (which also renames columns) or `pl.from_pandas` first. `LazyFrame`
 is collected at the API boundary (no projection / predicate pushdown
 applied by factrix — call `.select(...)` / `.filter(...)` upstream
-for memory efficiency on large sources). See
-`docs/guides/efficient-loading.md` for large-panel recipes.
+for memory efficiency on large sources).
 
-`factor_cols` mirrors `run_metrics`: pass a list of column names on
-`panel`, get back a dict of `FactorProfile` keyed by those names —
-even when the list has one element (`fx.evaluate(panel, cfg)["factor"]`).
+`factor_cols` accepts a list of column names on
+`panel`; the returned list of `FactorProfile` is aligned to that order —
+even when the list has one element (`fx.evaluate(panel, cfg)[0]`).
 All factors in one call share the same dispatch cell (locked by
 `config`) and the same `Mode` (derived once from
 `panel["asset_id"].n_unique()`) — comparability of the returned
@@ -241,188 +127,17 @@ renamed.
 
 Raises (subclasses of `FactrixError`; see `## Errors`
 below for the full hierarchy + recovery payloads):
-- `MissingConfigError` — `evaluate(panel)` called without an `AnalysisConfig`
 - `IncompatibleAxisError` — config axes form an illegal cell (also raised when
   `cfg.estimator` is not applicable to the cell)
-- `UnknownEstimatorError` — `AnalysisConfig.from_dict` /
-  `factrix.stats.get_estimator` saw a name not in the registry
-- `ModeAxisError` — legal cell has no procedure under the derived mode;
-  carries `.suggested_fix: AnalysisConfig | None`
+- `UnknownEstimatorError` — saw an estimator name not in the registry
 - `InsufficientSampleError` — `T` below the procedure's `MIN_PERIODS_HARD`
   floor; carries `.actual_periods` / `.required_periods`
 - `UserInputError` — `factor_cols` empty, contains duplicates, or
   references a column not present on `panel`
 
-### `evaluate_chunked`
-
-```
-factrix.evaluate_chunked(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                         *, factor_cols: Sequence[str],
-                         chunk_size: int | None = None,
-                         base_cols: Sequence[str] = ("date", "asset_id", "forward_return"),
-                         ) -> Iterator[dict[str, FactorProfile]]
-```
-
-Memory-bounded variant of `evaluate` for large-N factor screens —
-evaluate-side mirror of `run_metrics_chunked`. Splits `factor_cols`
-into chunks, narrows `panel` to `base_cols + chunk` per iteration
-(`pl.LazyFrame` inputs get per-chunk projection pushdown via
-`select().collect()`), calls `evaluate` on each chunk, and yields the
-per-chunk `dict[factor_id, FactorProfile]` so peak RSS is bounded by
-`chunk_size` rather than `len(factor_cols)`. Within a chunk the cell's
-procedure runs its normal `compute_batch` path so any cross-factor
-sharing (currently: IC stage-1 reuse) applies inside the chunk and is
-recomputed across chunks — very small `chunk_size` pays the per-chunk
-dispatcher overhead without the share. `chunk_size=None` (default)
-targets ~25% of `psutil.virtual_memory().available` as the per-chunk
-peak budget; pass an explicit value to override. Eager schema check
-on `base_cols + factor_cols` so a missing column raises
-`UserInputError` before the first yield rather than failing
-mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
-extras) required only by the auto-sizing path; explicit `chunk_size`
-skips it.
-
-### `evaluate_iter`
-
-```
-factrix.evaluate_iter(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                      *, factor_cols: Sequence[str] = ("factor",),
-                      ) -> Iterator[tuple[str, FactorProfile]]
-```
-
-Per-factor streaming sibling of `evaluate`. Yields
-`(factor_id, FactorProfile)` in `factor_cols` order so callers can
-write to a sink / update a progress bar / break early without paying
-the full-batch latency. Cross-factor work the procedure amortises —
-currently IC stage-1 (`compute_ic` across the batch) — still runs
-once before the first yield via the procedure's
-`FactorProcedure.bind_batch` hook; the per-factor inference pass then
-runs inside the yield loop, so the first `next(gen)` lands after one
-factor's HAC inference rather than all `N`. `evaluate(...)` is now
-defined as `dict(evaluate_iter(...))`, so eager and streaming paths
-share one dispatcher and the same cell × mode invariants. Input
-validation and dispatch resolution are eager (`UserInputError` /
-`ModeAxisError` raised before any yield); per-factor inference
-failures (e.g. `InsufficientSampleError`) surface mid-stream after
-earlier factors have already been emitted — the standard
-streaming-iterator trade-off.
-
 ---
 
-### `run_metrics`
-
-```
-factrix.run_metrics(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                    *, factor_cols: Sequence[str] = ("factor",),
-                    metrics: list[str] | None = None) -> dict[str, MetricsBundle]
-```
-
-Cell-level descriptive batch runner — the descriptive twin of
-`evaluate`. Same `(panel, cfg)` entry contract; disjoint result type
-(`evaluate` carries the primary inferential `FactorProfile`,
-`run_metrics` carries the cell's descriptive surface as one
-`MetricsBundle` per factor). N=1 is the list-of-1 case of the
-general batch path; IC stage-1 and batch-native primitives
-(`compute_ic` / `quantile_spread` / `monotonicity`) share one polars
-query across all factors, non-batch primitives are looped per factor
-on a thin projection. `metrics=None` auto-discovers via
-`list_metrics(cfg.scope, cfg.signal)` filtered for `panel`-input
-metrics; `metrics=[...]` validates names and raises
-`UserInputError` (with fuzzy suggestion) for unknown / excluded
-entries. v1 wires the IC stage-1 cache (`compute_ic` shared across
-`ic` / `ic_newey_west` / `ic_ir`); other stage-1
-consumers (`caar`, `fama_macbeth`, `ts_beta`, `mfe_mae_summary`,
-plus series / spread consumers) appear in `bundle.skipped` with the
-explicit-import recipe. Cross-horizon / cross-universe sweeps go
-through user comprehension into `compare(bundles[])` (descriptive)
-or `bhy(profiles, expand_over=["forward_periods"])` (FDR-controlled).
-Raises `RunMetricsError` (chained `__cause__`) when a metric or the
-stage-1 helper hits an unexpected exception; sample-floor failures
-are converted to short-circuit `MetricOutput` entries inside the
-bundle, not raised.
-
-### `run_metrics_chunked`
-
-```
-factrix.run_metrics_chunked(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                            *, factor_cols: Sequence[str],
-                            metrics: list[str] | None = None,
-                            chunk_size: int | None = None,
-                            base_cols: Sequence[str] = ("date", "asset_id", "forward_return"),
-                            ) -> Iterator[dict[str, MetricsBundle]]
-```
-
-Memory-bounded variant of `run_metrics` for large-N factor screens.
-Splits `factor_cols` into chunks, narrows `panel` to
-`base_cols + chunk` per iteration (`pl.LazyFrame` inputs get
-per-chunk projection pushdown via `select().collect()`), calls
-`run_metrics` on each chunk, and yields the per-chunk
-`dict[factor_id, MetricsBundle]` so peak RSS is bounded by
-`chunk_size` rather than `len(factor_cols)`. Within a chunk the
-full batch-dispatch path runs unchanged — IC stage-1 is shared
-across the chunk's factors and batch-native primitives still take
-one call per metric; across chunks IC stage-1 is recomputed, so
-very small `chunk_size` pays the per-chunk dispatcher overhead
-without the batch-sharing benefit. `chunk_size=None` (default)
-targets ~25% of `psutil.virtual_memory().available` as the
-per-chunk peak budget; pass an explicit value to override. Eager
-schema check on `base_cols + factor_cols` so a missing column
-raises `UserInputError` before the first yield rather than failing
-mid-iteration. `psutil` is an optional dependency (`factrix[bench]`
-extras) required only by the auto-sizing path; explicit
-`chunk_size` skips it.
-
-### `run_metrics_iter`
-
-```
-factrix.run_metrics_iter(panel: polars.DataFrame | polars.LazyFrame, cfg: AnalysisConfig,
-                         *, factor_cols: Sequence[str] = ("factor",),
-                         metrics: list[str] | None = None,
-                         ) -> Iterator[tuple[str, MetricsBundle]]
-```
-
-Per-factor streaming sibling of `run_metrics`. Yields
-`(factor_id, MetricsBundle)` in `factor_cols` order so callers can
-write to a sink / update a progress bar / break early without paying
-the full-batch latency. Cross-factor work the dispatcher amortises —
-IC stage-1 (`compute_ic`) and every `@batch_primitive` metric — still
-runs once before the first yield via each protocol's `bind` hook; the
-per-factor consumer pass then runs inside the yield loop, so the
-first `next(gen)` lands after one factor's per-factor metrics rather
-than all `N`. `run_metrics(...)` is now defined as
-`dict(run_metrics_iter(...))`, so eager and streaming paths share one
-dispatcher and identical `factor_cols` / `metrics` semantics. Input
-validation is eager (raised before any yield); per-factor consumer
-failures surface mid-stream after earlier factors have already been
-emitted — the standard streaming-iterator trade-off.
-
-### `MetricsBundle`
-
-Frozen dataclass produced by `run_metrics`. Identity / context split
-matches `FactorProfile` per #160.
-
-```
-bundle.identity        : tuple[str, int]               # (factor_id, forward_periods)
-bundle.metrics         : Mapping[str, MetricOutput]    # name → output (incl. NaN short-circuits)
-bundle.skipped         : Mapping[str, str]             # name → reason for excluded metrics
-bundle.context         : Mapping[str, Any]             # v1 always {}; populated downstream
-bundle.factor_id       : str                           # identity[0]
-bundle.forward_periods : int                           # identity[1]
-```
-
-Access: `bundle["ic"]` (dict-style); `"ic" in bundle`,
-`list(bundle)`, `iter(bundle)` operate on metric keys.
-`bundle.to_frame()` returns an 8-column long-form `pl.DataFrame`
-(`factor_id, forward_periods, metric, value, stat, significance,
-p_value, short_circuit_reason`) for stable
-`pl.concat([b.to_frame() ...])` across bundles.
-
-`__hash__ = None` — group bundles by `identity` (a hashable tuple),
-not by the bundle itself.
-
----
-
-### `FactorProfile`
+### Result type (v0.13 legacy; replaced by `EvaluationResult` in v0.14)
 
 Frozen dataclass. All fields are read-only.
 
@@ -670,7 +385,7 @@ long-run covariance from a generic short-sample warning.
 
 ```
 factrix.compare(
-    artifacts: list[FactorProfile] | list[MetricsBundle] | Survivors,
+    artifacts: list[FactorProfile] | Survivors,
     *,
     sort_by: str | None = None,
 ) -> pl.DataFrame
@@ -684,9 +399,6 @@ is read straight through). Single entrypoint with input-type dispatch:
   + `primary_stat`, `primary_stat_name`, `primary_p`.
   `primary_stat_name` carries the `StatCode.value` slug (`"t_nw"` /
   `"wald_nwcl"` / `"p_boot"` …) so mixed-procedure lists disambiguate.
-- `list[MetricsBundle]` → `factor_id`, `forward_periods` + context +
-  one column per metric (`MetricOutput.value`). Per-cell `n_obs` is
-  not flattened; look up `bundle[metric].n_obs` directly.
 - `Survivors` → as the profile branch plus a final `adj_p` column.
   `expand_over` dimensions surface as ordinary context columns via
   `profile.context[k]` — there is no sidecar field on `Survivors`.
@@ -696,56 +408,15 @@ and fill `null` where missing; ordering follows first appearance.
 `sort_by=None` keeps input order; a non-None value sorts with
 polars `nulls_last=True`.
 
-`UserInputError` raises on empty input (list or `Survivors`), mixed
-artifact types (e.g. `FactorProfile` + `MetricsBundle` in one list),
+`UserInputError` raises on empty input (list or `Survivors`),
 unknown `sort_by` (with `difflib` fuzzy suggestion against the output
 schema).
 
 ---
 
-### `describe_analysis_modes` / `suggest_config` / `list_metrics` / `list_estimators`
+### `list_metrics` / `list_estimators`
 
 ```
-factrix.describe_analysis_modes(*, format: Literal["text", "json"] = "text"
-                                ) -> str | list[dict[str, Any]]
-    # Enumerate legal analysis cells with PANEL / TIMESERIES routing.
-
-factrix.suggest_config(raw, *, forward_periods: int = 5) -> SuggestConfigResult
-    # Inspect a panel; propose an AnalysisConfig + structured reasoning + warnings.
-    # Suggestion is never auto-applied — caller (or agent) reads .reasoning.
-    # SuggestConfigResult fields:
-    #   .suggested  : AnalysisConfig
-    #   .detected   : dict[str, Any]      # scope/signal/mode/n_assets/n_periods/sparsity
-    #   .reasoning  : dict[str, str]      # per-axis human-readable rationale
-    #   .warnings   : list[WarningCode]   # Python ergonomic — keep enum identity
-    #
-    # SuggestConfigResult.diagnose() -> dict[str, Any]
-    #   # JSON-shape exit point; shares `warnings` serialisation with
-    #   # FactorProfile.diagnose() but the body is its own shape (the
-    #   # two surfaces answer different questions — this one recommends
-    #   # a config; FactorProfile reports inference on one).
-    #   # {"suggested": {...to_dict()...},
-    #   #  "detected":  {...},
-    #   #  "reasoning": {...},
-    #   #  "warnings":  [str, ...]}        # sorted WarningCode .value strings
-    #
-    # Wire-format rule: Python callers read .warnings (enum-typed);
-    # cross-wire / JSON / log consumers call .diagnose() — same
-    # convention as FactorProfile.
-    #
-    # Example .diagnose() output on an IC PANEL panel (100 assets,
-    # 494 periods, dense factor):
-    #   {
-    #     "suggested": {"scope": "individual", "signal": "continuous",
-    #                   "metric": "ic", "forward_periods": 5},
-    #     "detected":  {"scope": "individual", "signal": "continuous",
-    #                   "mode": "panel", "n_assets": 100,
-    #                   "n_periods": 494, "sparsity": 0.0},
-    #     "reasoning": {"scope": "...", "signal": "...",
-    #                   "metric": "...", "mode": "..."},
-    #     "warnings":  []
-    #   }
-
 factrix.list_metrics(scope: FactorScope, signal: Signal,
                      *, format: Literal["text", "json"] = "text"
                      ) -> list[str] | list[dict[str, Any]]
@@ -858,7 +529,7 @@ Recovery payloads — what each subclass carries beyond `.args[0]`:
 | Exception                | `.suggested_fix` | Extra fields                              |
 |--------------------------|:----------------:|-------------------------------------------|
 | `ConfigError` (base)     | optional         | —                                         |
-| `MissingConfigError`     | always `None`    | (call `factrix.suggest_config(raw)` to recover) |
+| `MissingConfigError`     | always `None`    | (pass an explicit `AnalysisConfig` factory call)  |
 | `IncompatibleAxisError`  | optional         | —                                         |
 | `ModeAxisError`          | typically set    | —                                         |
 | `InsufficientSampleError`| optional         | `.actual_periods: int`, `.required_periods: int` |
@@ -866,8 +537,8 @@ Recovery payloads — what each subclass carries beyond `.args[0]`:
 Agents can branch on these payloads without parsing message strings; the
 canonical pattern is `except fx.FactrixError as exc:` followed by
 `isinstance(exc, …)` dispatch on the subclass. `MissingConfigError` is the
-only subclass with `.suggested_fix` always `None` (the recovery path is
-calling `factrix.suggest_config(raw)`).
+only subclass with `.suggested_fix` always `None` — the recovery path is
+to pass an explicit `AnalysisConfig` to `evaluate`.
 
 ---
 
@@ -888,9 +559,9 @@ directly see `MetricOutput`.
 
 ## v0.14 result types (preview — not yet wired into `evaluate`)
 
-The unified DAG executor (#438 / #442) replaces `FactorProfile` /
-`MetricsBundle` with a single result-type group. The dataclasses ship
-in v0.14.0 as types-only; runner wiring lands with the DAG executor.
+The unified DAG executor (#438 / #442) replaces `FactorProfile` with a
+single result-type group. The dataclasses ship in v0.14.0 as
+types-only; runner wiring lands with the DAG executor.
 
 - **`EvaluationResult`** — bundle-level result for one factor at one
   cell. Fields: `factor` / `axes` (`(scope, signal, metric)` tuple) /
@@ -930,8 +601,7 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
   `execute` call. Raises `CycleError` on dependency cycles and
   `ValueError` when a referenced producer is missing from the
   executor's spec set (no silent auto-close — the caller declares
-  the graph). Wiring as the default for `fx.evaluate` /
-  `fx.run_metrics` is the unification follow-up.
+  the graph). Wired as the default for `fx.evaluate`.
 - **`EvaluationResult.plan: str`** — required string emitted by the
   DAG executor (numbered topological order with `[batchable]` /
   `[per-factor]` role and a `requires=` upstream list when present).
@@ -1000,9 +670,6 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
 | `borderline_portfolio_periods` | `top_concentration` with `MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN` (3..19); one-sided t-test on the per-date diversification ratio is returned but `df=n-1` inflates t_crit. |
 | `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited; downstream `MetricOutput.metadata` carries `upstream` / `upstream_reason` for root-cause recovery. |
 
-`InfoCode.SCOPE_AXIS_COLLAPSED` — `N=1` collapsed scope axis; routed via the
-`_SCOPE_COLLAPSED` sentinel (only fires for `SPARSE × TIMESERIES`).
-
 Read live descriptions programmatically:
 `fx.WarningCode.PERSISTENT_REGRESSOR.description`.
 
@@ -1039,7 +706,7 @@ sits outside `config`.
 
 ## Removed
 
-- **`multi_horizon_ic` / `multi_horizon_hit_rate`** (deprecated v0.11.0, removed v0.12.0; #186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Migration: `run_metrics(panel, cfg.replace(forward_periods=h))` per horizon → `pl.concat([b.to_frame() for b in bundles])` for descriptive view, or `evaluate(...)` per horizon → `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
+- **`multi_horizon_ic` / `multi_horizon_hit_rate`** (deprecated v0.11.0, removed v0.12.0; #186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Migration: call `evaluate(...)` per horizon and concat each `EvaluationResult.to_frame()`, or feed the per-horizon results into `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
 
 ## Links
 

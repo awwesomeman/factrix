@@ -17,9 +17,8 @@ title: factrix.evaluate
 
     ---
 
-    One panel + one [`AnalysisConfig`][factrix.AnalysisConfig]
-    → one [`FactorProfile`][factrix.FactorProfile] carrying
-    `primary_p` and the cell-specific statistics.
+    One panel + one config → one result carrying `primary_p` and the
+    cell-specific statistics.
 
 -   __Batch screening with false discovery rate (FDR)__
 
@@ -34,10 +33,10 @@ title: factrix.evaluate
 
     ---
 
-    Swap the `AnalysisConfig` factory to compare information coefficient (IC) rank-ordering
-    against Fama-MacBeth λ on the same panel, or individual-asset
-    factors against broadcast macro factors. Return shape is identical
-    across cells.
+    Compare information coefficient (IC) rank-ordering against
+    Fama-MacBeth λ on the same panel, or individual-asset factors
+    against broadcast macro factors. Return shape is identical across
+    cells.
 
 -   __TIMESERIES auto-routing__
 
@@ -57,90 +56,14 @@ title: factrix.evaluate
     above with realistic console output and a `diagnose()` dump.
 
     ```python
-    import factrix as fx
-    from factrix.preprocess import compute_forward_return
-
-    raw   = fx.datasets.make_cs_panel(
-        n_assets=100, n_dates=500, ic_target=0.08, seed=2024,
-    )
-    panel = compute_forward_return(raw, forward_periods=5)
-
-    cfg     = fx.AnalysisConfig.individual_continuous(
-        metric=fx.Metric.IC, forward_periods=5,
-    )
-    profile = fx.evaluate(panel, cfg)
-
-    print("primary_p =", round(profile.primary_p, 4))
-    # → primary_p = 0.0
-
-    print(profile.diagnose())
-    # {'identity': {'factor_id': 'factor', 'forward_periods': 5},
-    #  'context': {},
-    #  'cell':     {'scope': 'individual', 'signal': 'continuous',
-    #               'metric': 'ic', 'mode': 'panel'},
-    #  'n_obs':    494, 'n_pairs': 49400, 'n_periods': 494, 'n_assets': 100,
-    #  'primary_p':     2.13e-40,
-    #  'primary_stat':  14.60,
-    #  'primary_stat_name': 't_nw',
-    #  'warnings': [], 'info_notes': [],
-    #  'stats':    {'mean': 0.0722, 't_nw': 14.60, 'p_nw': 2.13e-40},
-    #  'metadata': {'t_nw': {'nw_lags': 5}, 'p_nw': {'nw_lags': 5}}}
+    # example pending v0.14.0 docs rewrite
     ```
 
 ## Config recipes — one per dispatch cell
 
-Minimum-viable `AnalysisConfig` for each of the four cells. The
-`evaluate(panel, cfg)` call site is identical; only `cfg` changes.
-
-=== "Individual × Continuous (IC)"
-
-    Rank predictive ordering — Spearman IC + Newey-West (NW) HAC.
-
-    ```python
-    cfg = fx.AnalysisConfig.individual_continuous(
-        metric=fx.Metric.IC, forward_periods=5,
-    )
-    ```
-
-=== "Individual × Continuous (FM)"
-
-    Unit-of-exposure premium — Fama-MacBeth λ.
-
-    ```python
-    cfg = fx.AnalysisConfig.individual_continuous(
-        metric=fx.Metric.FM, forward_periods=5,
-    )
-    ```
-
-=== "Individual × Sparse"
-
-    Event study with sparse `{0, R}` event triggers (`R` is any real
-    magnitude; `{0, 1}` for a pure event flag is the simplest form).
-    Attach a `price`
-    column on the panel to also get `event_around_return` /
-    `mfe_mae_summary` in the profile.
-
-    ```python
-    cfg = fx.AnalysisConfig.individual_sparse(forward_periods=5)
-    ```
-
-=== "Common × Continuous"
-
-    Broadcast macro factor (e.g. VIX). With `N == 1` on the panel,
-    `evaluate` auto-routes to single-series OLS with NW HAC SE
-    (`profile.mode == "TIMESERIES"`).
-
-    ```python
-    cfg = fx.AnalysisConfig.common_continuous(forward_periods=5)
-    ```
-
-=== "Common × Sparse"
-
-    Broadcast event dummy (FOMC, index rebalance).
-
-    ```python
-    cfg = fx.AnalysisConfig.common_sparse(forward_periods=5)
-    ```
+```python
+# example pending v0.14.0 docs rewrite
+```
 
 Per-cell required / optional columns and the PANEL ↔ TIMESERIES Mode
 derivation are documented in the **Dispatch lore** admonition above.
@@ -194,14 +117,5 @@ derivation are documented in the **Dispatch lore** admonition above.
     Sample-size floors and the `InsufficientSampleError` recovery path.
 
     [guides/panel-timeseries →](../guides/panel-timeseries.md)
-
--   __`run_metrics` — descriptive twin__
-
-    ---
-
-    Computes the same statistics but makes no FDR claim. Use when you
-    want the numbers without the inference framing.
-
-    [api/run-metrics →](run-metrics.md)
 
 </div>

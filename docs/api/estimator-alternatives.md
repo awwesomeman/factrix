@@ -16,32 +16,7 @@ which HAC standard-error path computes `primary_p`:
 | `HansenHodrick()` | Rectangular kernel matched to the MA(h-1) overlap structure forward returns induce. Closed-form variance under the textbook overlap assumption; no PSD guarantee on short / mildly anti-correlated samples (factrix clamps to 0 and emits `WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`). Applicable to `(INDIVIDUAL, CONTINUOUS)` cells only. |
 
 ```python
-import factrix as fx
-from factrix.stats import HansenHodrick
-
-cfg = fx.AnalysisConfig.individual_continuous(
-    metric=fx.Metric.IC,
-    forward_periods=5,
-    estimator=HansenHodrick(),       # default NeweyWest()
-)
-profile = fx.evaluate(panel, cfg)
-
-profile.primary_stat_name             # StatCode.T_HH
-profile.primary_p                     # HH p-value, drives bhy / bonferroni / etc.
-profile.context["estimator"]          # "HansenHodrick" — audit trail
-```
-
-The estimator is part of the cfg, so it serializes with `to_dict()`
-and rehydrates via `AnalysisConfig.from_dict(...)`:
-
-```python
-cfg.to_dict()
-# {"scope": "individual", "signal": "continuous", "metric": "ic",
-#  "forward_periods": 5, "estimator": "HansenHodrick"}
-
-# Round-trip is exact; missing-key legacy dicts fall back to NeweyWest()
-restored = fx.AnalysisConfig.from_dict(cfg.to_dict())
-restored == cfg                       # True
+# example pending v0.14.0 docs rewrite
 ```
 
 ## Why study-scoped, not per-call
@@ -57,9 +32,9 @@ itself.
 
 factrix's design splits the difference:
 
-1. **`AnalysisConfig.estimator` is set once per study.** The factory
-   call sites are the only place to wire it; there is no
-   `evaluate(panel, cfg, estimator=...)` per-call kwarg by design.
+1. **The estimator is set once per study.** The factory call sites are
+   the only place to wire it; there is no `evaluate(panel, cfg,
+   estimator=...)` per-call kwarg by design.
 2. **Provenance lands in `profile.context["estimator"]`.** Audit-time
    review can see which estimator drove each profile; running the
    same factor under both Newey-West (NW) and Hansen-Hodrick (HH) produces two profiles whose
@@ -81,16 +56,7 @@ The shape of `profile.stats` changes — only the chosen estimator's
 `(stat_name, p_name)` pair populates the inference layer:
 
 ```python
-# default cfg — NW path
-profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
-sorted(profile.stats)         # [MEAN, P_NW, T_NW]
-
-# HH cfg
-profile = fx.evaluate(
-    panel,
-    fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, estimator=HansenHodrick()),
-)
-sorted(profile.stats)         # [MEAN, P_HH, T_HH]
+# example pending v0.14.0 docs rewrite
 ```
 
 This is a v0.13 BREAKING change from v0.12, which auto-side-emitted
@@ -102,13 +68,11 @@ migration note.
 
 ## Inapplicable estimators raise early
 
-The applicability gate runs at `AnalysisConfig` construction, not at
+The applicability gate runs at config construction, not at
 `evaluate`. Mis-matched cells fail loud:
 
 ```python
-fx.AnalysisConfig.common_continuous(estimator=HansenHodrick())
-# IncompatibleAxisError: estimator='HansenHodrick' not applicable to
-# (scope=common, signal=continuous). Applicable HAC estimators: NeweyWest
+# example pending v0.14.0 docs rewrite
 ```
 
 To inspect what's available for a given cell:
@@ -183,7 +147,7 @@ follow-up so its design (horizon-grid spec, alternative-path vs
 side-emit, EMITS_STATS extension, K-scaled `min_periods`) gets a
 clean review pass.
 
-### Wiring in `AnalysisConfig`
+### Wiring in the config
 
 `cfg.moment_estimator: MomentEstimator | None` exists for the
 integrated path; setting it without a corresponding cell procedure
@@ -191,8 +155,7 @@ is a no-op at evaluate-time but round-trips through
 `to_dict` / `from_dict`:
 
 ```python
-cfg = fx.AnalysisConfig.individual_continuous(moment_estimator=GMM())
-cfg.to_dict()["moment_estimator"]   # "GMM"
+# example pending v0.14.0 docs rewrite
 ```
 
 Pre-#191 serialized configs without the `moment_estimator` key are

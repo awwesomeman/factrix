@@ -36,29 +36,28 @@ automatically; the previous shape special-cased IC and hit-rate.
 
 ### Descriptive sweep — horizon-by-metric magnitudes
 
-Use [`run_metrics`](run-metrics.md) per horizon and assemble a long
-horizon × metric table from each bundle's `.to_frame()`. No FDR claim
-is made.
+Call [`evaluate`](evaluate.md) per horizon and assemble a long
+horizon × metric table from each `EvaluationResult.to_frame()`.
+No FDR claim is made.
 
 ```python
 import factrix as fx
 import polars as pl
+from factrix._metric_index import spec_by_name
 
-cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
+specs = spec_by_name()
 horizons = [1, 5, 10, 20]
-bundles = [
-    fx.run_metrics(panel, cfg.replace(forward_periods=h), factor_cols=["mom_12_1"])[
-        "mom_12_1"
-    ]
+results = [
+    fx.evaluate(
+        panel,
+        metrics=[specs["ic"]],
+        factor_cols=["mom_12_1"],
+        forward_periods=h,
+    )[0]
     for h in horizons
 ]
-table = pl.concat([b.to_frame() for b in bundles])  # long-form: horizon x metric
+table = pl.concat([r.to_frame() for r in results])  # long-form: horizon x metric
 ```
-
-Every metric the cell exposes — not just IC — gets a horizon view
-through this single call. A higher-level `compare(bundles)` function that
-pivots this long-form table is tracked in #148 as a follow-up; today
-the `pl.concat` recipe above is the supported path.
 
 ### Inferential sweep — FDR-controlled across horizons
 
@@ -69,14 +68,20 @@ other declared `expand_over` key) so the step-up threshold is correct.
 
 ```python
 import factrix as fx
+from factrix._metric_index import spec_by_name
 
-cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-profiles = [
-    fx.evaluate(panel, cfg.replace(forward_periods=h))
+specs = spec_by_name()
+results = [
+    fx.evaluate(
+        panel,
+        metrics=[specs["ic"]],
+        factor_cols=["mom_12_1"],
+        forward_periods=h,
+    )[0]
     for h in horizons
 ]
 survivors = fx.multi_factor.bhy(
-    profiles,
+    results,
     expand_over=["forward_periods"],
 )
 ```

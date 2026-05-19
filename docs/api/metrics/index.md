@@ -32,7 +32,7 @@ factrix has **two orthogonal classifications** that are easy to confuse:
 
 | | Describes | Set by | Values |
 |---|---|---|---|
-| **Cell** (`Scope × Signal × Metric`) | What kind of factor it is | The user, via [`AnalysisConfig`](../analysis-config.md) | `Individual` / `Common`; `Continuous` / `Sparse`; `IC` / `FM` / `None` |
+| **Cell** (`Scope × Signal × Metric`) | What kind of factor it is | The user, via `AnalysisConfig` | `Individual` / `Common`; `Continuous` / `Sparse`; `IC` / `FM` / `None` |
 | **Mode** | Sample regime | Derived from `N` at evaluate-time | `PANEL` (`N ≥ 2`) / `TIMESERIES` (`N == 1`) |
 
 **This page groups metrics by *cell*, not by Mode.** Any cell can run

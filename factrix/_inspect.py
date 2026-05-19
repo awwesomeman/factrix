@@ -19,11 +19,6 @@ exposing ``usable`` / ``warnings`` / ``blockers``. The flat
 ``list[MetricApplicability]`` on :class:`PanelInspection` is the
 single source of truth; partitioning by ``.usable`` is a one-line
 list comprehension at the call site.
-
-``suggest_config`` retires as part of #438 unification; this module
-shares its detection helpers (``_detect_signal`` / ``_detect_scope``)
-via direct import from :mod:`factrix._describe` to avoid duplication
-during the overlap window.
 """
 
 from __future__ import annotations
@@ -33,12 +28,64 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+import polars as pl
+
 from factrix._axis import FactorScope, Mode, Signal
 from factrix._codes import WarningCode, cross_section_tier
-from factrix._describe import _detect_scope, _detect_signal
-from factrix._evaluate import _derive_mode
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
+
+_SPARSITY_THRESHOLD: float = 0.5
+
+
+def _derive_mode(panel: Any) -> Mode:
+    """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
+    return Mode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else Mode.PANEL
+
+
+def _detect_signal(raw: Any) -> tuple[Signal, str, float]:
+    """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
+
+    Returns ``(signal, reason, sparsity)`` where ``sparsity`` is the
+    zero-ratio in the factor column.
+    """
+    n = len(raw)
+    if n == 0:
+        return (
+            Signal.CONTINUOUS,
+            "factor column empty: defaulting to CONTINUOUS",
+            math.nan,
+        )
+    n_zero = int((raw["factor"] == 0).sum())
+    sparsity = n_zero / n
+    signal = Signal.SPARSE if sparsity >= _SPARSITY_THRESHOLD else Signal.CONTINUOUS
+    reason = (
+        f"sparsity ratio = {sparsity:.2f} "
+        f"(threshold {_SPARSITY_THRESHOLD}): → {signal.value.upper()}"
+    )
+    return signal, reason, sparsity
+
+
+def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
+    """COMMON if factor is constant per date across assets, else INDIVIDUAL."""
+    n_assets = int(raw["asset_id"].n_unique())
+    if n_assets <= 1:
+        return (
+            FactorScope.COMMON,
+            f"n_assets = {n_assets}: scope axis trivially COMMON at N=1",
+        )
+    per_date_unique = raw.group_by("date").agg(
+        pl.col("factor").n_unique().alias("n_unique_per_date")
+    )
+    is_broadcast = bool(
+        (per_date_unique["n_unique_per_date"] == 1).all(),
+    )
+    decision = "COMMON" if is_broadcast else "INDIVIDUAL"
+    return (
+        FactorScope.COMMON if is_broadcast else FactorScope.INDIVIDUAL,
+        f"factor varies across assets at given date: "
+        f"{'NO' if is_broadcast else 'YES'} → {decision}",
+    )
 
 
 @dataclass(frozen=True, slots=True)

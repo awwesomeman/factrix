@@ -35,7 +35,7 @@ For the lookup table — which metrics are supported under which `(scope, signal
 | When to use `evaluate()` | When to use standalone metrics |
 |---|---|
 | Canonical signal validity inference | Diagnose shape, asymmetry, regime splits |
-| Benjamini-Hochberg-Yekutieli (BHY) family input (needs [`FactorProfile`][factrix.FactorProfile]) | Multi-statistic decomposition |
+| Benjamini-Hochberg-Yekutieli (BHY) family input (needs `FactorProfile`) | Multi-statistic decomposition |
 | Primary screening gate | out-of-sample (OOS) decay, tradability, concentration |
 
 See [Metric pipelines](../reference/metric-pipelines.md) for the full module list.

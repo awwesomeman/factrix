@@ -3,7 +3,7 @@ title: Standalone metrics
 ---
 
 [`evaluate()`][factrix.evaluate] runs one canonical procedure per cell
-and returns a [`FactorProfile`][factrix.FactorProfile] with a single
+and returns a `FactorProfile` with a single
 `primary_p`. Every other module under `factrix.metrics` is a
 **standalone metric** — a `MetricOutput`-returning helper the user
 invokes directly to add diagnostics around the canonical inference.
@@ -49,7 +49,7 @@ For the `(scope, signal)` filter at runtime, see
 | Out-of-sample (OOS) decay / trend / hit rate on any `(date, value)` series | `multi_split_oos_decay`, `ic_trend`, `hit_rate` |
 
 `evaluate()` only writes the `StatCode` keys listed for its cell on
-[`FactorProfile`](../api/factor-profile.md#stats-keys-by-cell);
+`FactorProfile`;
 standalone metrics return their own
 [`MetricOutput`](../api/metric-output.md) and never mutate
 `profile.stats`. The two surfaces compose without coordination.
@@ -69,8 +69,7 @@ import factrix as fx
 
 raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
-
+# example pending v0.14.0 docs rewrite
 spread = fx.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
 mono = fx.metrics.monotonicity(panel, forward_periods=5, n_groups=5)["factor"]
 ```
@@ -88,7 +87,7 @@ filter your own panel.
 events = fx.datasets.make_event_panel(n_assets=80, n_dates=500, event_rate=0.05, seed=7)
 events = fx.preprocess.compute_forward_return(events, forward_periods=5)
 
-profile = fx.evaluate(events, fx.AnalysisConfig.individual_sparse(forward_periods=5))
+# example pending v0.14.0 docs rewrite
 
 # Robustness on top of the canonical CAAR:
 hit = fx.metrics.event_hit_rate(events)
@@ -125,17 +124,11 @@ profile and the metric outputs travel together; nothing on either
 side needs to know about the other:
 
 ```python
-profile = fx.evaluate(panel, fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC))
-diagnostics = {
-    "primary_p": profile.primary_p,
-    "spread": fx.metrics.quantile_spread(panel, forward_periods=5)["factor"].value,
-    "monotonicity_p": fx.metrics.monotonicity(panel, forward_periods=5)["factor"].p_value,
-    "breakeven_bps": fx.metrics.breakeven_cost(panel).value,
-}
+# example pending v0.14.0 docs rewrite
 ```
 
 For the BHY family across many factors, `multi_factor.bhy` consumes
-[`FactorProfile`][factrix.FactorProfile] objects only — standalone
+`FactorProfile` objects only — standalone
 metrics are not in the multiple-testing partition. Run them in a
 separate pass after BHY narrows the candidate set.
 

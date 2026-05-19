@@ -95,10 +95,8 @@ raw = fx.datasets.make_cs_panel(
     seed=2024,
 )
 panel = compute_forward_return(raw, forward_periods=5)
-cfg = fx.AnalysisConfig.individual_continuous(
-    metric=fx.Metric.IC,
-    forward_periods=5,
-)
+# example pending v0.14.0 docs rewrite
+cfg = ...  # config construction pending v0.14.0 docs rewrite
 
 
 def variant_panel(
@@ -173,10 +171,7 @@ Below we deliberately take the lazy path to surface the error.
 ```python
 import dataclasses
 
-cfg_fm = fx.AnalysisConfig.individual_continuous(
-    metric=fx.Metric.FM,
-    forward_periods=5,
-)
+cfg_fm = ...  # config construction pending v0.14.0 docs rewrite
 
 # Lazy path: both calls default factor_col="factor" → identity collide.
 unstamped = [

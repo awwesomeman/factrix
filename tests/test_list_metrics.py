@@ -273,7 +273,7 @@ def test_incompatible_axis_pair_raises() -> None:
     # All four real (scope, signal) combos are populated; simulate a
     # genuinely unrepresented pair by monkeypatching the index empty.
     with (
-        patch("factrix._describe.public_specs", return_value=()),
+        patch("factrix._metric_index.public_specs", return_value=()),
         pytest.raises(IncompatibleAxisError),
     ):
         fx.list_metrics(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)

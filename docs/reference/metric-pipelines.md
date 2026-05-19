@@ -16,8 +16,7 @@ follows.
 
 The matrix lists **all** metric modules — both the metrics
 [`evaluate()`](../api/evaluate.md) runs for each cell
-(`ic`, `fama_macbeth`, `caar`, `ts_beta`; see the
-[evaluate-metric table](metric-applicability.md#cell-to-evaluate-metric))
+(`ic`, `fama_macbeth`, `caar`, `ts_beta`)
 and the standalone helpers the user calls directly on a `FactorProfile`
 (`quantile`, `monotonicity`, `tradability`, `clustering`, `corrado`, …).
 The [`list_metrics`](../api/list-metrics.md) runtime API filters this same
