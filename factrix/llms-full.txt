@@ -790,7 +790,14 @@ explicit.
 import factrix as fx
 from factrix._metric_index import MetricSpec, cell
 
-@fx.metric_spec(MetricSpec(name="custom_ic", cell=cell(...), ...))
+@fx.metric_spec(
+    MetricSpec(
+        name="custom_ic",
+        cell=cell(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS),
+        family="cs-first",
+        inference="NW HAC",
+    )
+)
 def custom_ic(panel):
     ...
 

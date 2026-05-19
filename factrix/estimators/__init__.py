@@ -76,6 +76,14 @@ def block_bootstrap(
     resolved block length, scheme, n_resamples, and the seed actually
     used (so reproducibility survives ``rng_seed=None``).
     """
+    if block_length != "auto" and block_length < 1:
+        raise ValueError(
+            f"block_length must be 'auto' or int >= 1; got {block_length!r}."
+        )
+    if n_resamples < 1:
+        raise ValueError(f"n_resamples must be >= 1; got {n_resamples!r}.")
+    if scheme not in ("fixed", "stationary"):
+        raise ValueError(f"scheme must be 'fixed' or 'stationary'; got {scheme!r}.")
     from factrix._stats.bootstrap import _block_bootstrap_diff_p
 
     return _block_bootstrap_diff_p(
