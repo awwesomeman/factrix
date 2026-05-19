@@ -76,11 +76,10 @@ def test_strong_group_survives_dead_group_does_not():
     assert surviving == {"hit_1", "hit_2"}
 
 
-def test_empty_input_returns_empty_per_primary():
+def test_empty_input_raises():
     ic = make_spec("ic")
-    out = bhy_hierarchical([], primary=[ic], group="family", q=0.05)
-    assert out["ic"].survivors == []
-    assert out["ic"].adj_p.shape == (0,)
+    with pytest.raises(UserInputError, match="non-empty list\\[EvaluationResult\\]"):
+        bhy_hierarchical([], primary=[ic], group="family", q=0.05)
 
 
 def test_primary_must_be_list_of_metricspec():

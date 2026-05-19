@@ -38,37 +38,62 @@ if TYPE_CHECKING:
     from factrix._results import EvaluationResult
 
 
-def _validate_primary(primary: Any, func_name: str) -> list[MetricSpec]:
-    if not isinstance(primary, list):
+_NOT_METRICSPEC_EXPECTED = (
+    "MetricSpec instance (str / Callable not accepted — pick the spec from "
+    "fx.metrics.spec_by_name() or the metric module's __metric_specs__ tuple)"
+)
+
+
+def _validate_spec_list(value: Any, *, func_name: str, field: str) -> list[MetricSpec]:
+    """Shared validator: ``list[MetricSpec]`` canonical form.
+
+    Used by ``bhy.primary`` / ``compare.metrics`` so both surfaces give
+    identical error messages for the same misuse.
+    """
+    anchor = f"api/{func_name}#{field}"
+    if not isinstance(value, list):
         raise UserInputError(
             func_name=func_name,
-            field="primary",
-            value=type(primary).__name__,
-            expected="list[MetricSpec] (always a list, even for a single primary)",
-            docs_path=f"api/{func_name}#primary",
+            field=field,
+            value=type(value).__name__,
+            expected=(f"list[MetricSpec] (always a list, even for a single {field})"),
+            docs_path=anchor,
         )
-    if not primary:
+    if not value:
         raise UserInputError(
             func_name=func_name,
-            field="primary",
-            value=primary,
+            field=field,
+            value=value,
             expected="non-empty list[MetricSpec]",
-            docs_path=f"api/{func_name}#primary",
+            docs_path=anchor,
         )
-    for i, spec in enumerate(primary):
+    for i, spec in enumerate(value):
         if not isinstance(spec, MetricSpec):
             raise UserInputError(
                 func_name=func_name,
-                field=f"primary[{i}]",
+                field=f"{field}[{i}]",
                 value=type(spec).__name__,
-                expected=(
-                    "MetricSpec instance (str / Callable not accepted — pick "
-                    "the spec from fx.metrics.spec_by_name() or the metric "
-                    "module's __metric_specs__ tuple)"
-                ),
-                docs_path=f"api/{func_name}#primary",
+                expected=_NOT_METRICSPEC_EXPECTED,
+                docs_path=anchor,
             )
-    return list(primary)
+    return list(value)
+
+
+def _require_non_empty_results(
+    results: Sequence[EvaluationResult], *, func_name: str
+) -> None:
+    """Shared empty-input guard: every public function raises rather than
+    returning an empty container — FDR over an empty candidate set has
+    no meaning and ranking an empty leaderboard is undefined.
+    """
+    if not results:
+        raise UserInputError(
+            func_name=func_name,
+            field="results",
+            value=results,
+            expected="non-empty list[EvaluationResult]",
+            docs_path=f"api/{func_name}#results",
+        )
 
 
 def _render_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> str:
@@ -363,21 +388,9 @@ def bhy(
             per-rank threshold). Or most ``expand_over`` buckets are
             singletons (BHY on n=1 provides no FDR correction).
     """
-    primary_list = _validate_primary(primary, func_name="bhy")
+    primary_list = _validate_spec_list(primary, func_name="bhy", field="primary")
+    _require_non_empty_results(results, func_name="bhy")
     expand_over_tuple = tuple(expand_over)
-
-    if not results:
-        return {
-            spec.name: BhyResult(
-                primary_name=spec.name,
-                survivors=[],
-                adj_p=np.zeros(0, dtype=np.float64),
-                q=q,
-                expand_over=expand_over_tuple,
-                n_tests={},
-            )
-            for spec in primary_list
-        }
 
     _warn_on_mixed_horizons(results, expand_over=expand_over_tuple)
 
@@ -468,7 +481,10 @@ def partial_conjunction(
             identity with fewer than ``min_pass`` conditions; any
             ``_resolve_family`` invariant failure.
     """
-    primary_list = _validate_primary(primary, func_name="partial_conjunction")
+    primary_list = _validate_spec_list(
+        primary, func_name="partial_conjunction", field="primary"
+    )
+    _require_non_empty_results(results, func_name="partial_conjunction")
 
     if min_pass < 2:
         expected = "positive integer >= 2"
@@ -518,22 +534,6 @@ def partial_conjunction(
         )
 
     expand_over_tuple = tuple(expand_over)
-
-    if not results:
-        return {
-            spec.name: PartialConjunctionResult(
-                primary_name=spec.name,
-                survivors=[],
-                adj_p=np.zeros(0, dtype=np.float64),
-                pc_p=np.zeros(0, dtype=np.float64),
-                q=q,
-                expand_over=expand_over_tuple,
-                min_pass=min_pass,
-                n_tests={},
-                n_passed_uncorr=np.zeros(0, dtype=np.int64),
-            )
-            for spec in primary_list
-        }
 
     out: dict[str, PartialConjunctionResult] = {}
     for spec in primary_list:
@@ -687,20 +687,10 @@ def bhy_hierarchical(
             result — inner BHY on n=1 is a raw cutoff and the outer
             Simes representative equals that single p-value.
     """
-    primary_list = _validate_primary(primary, func_name="bhy_hierarchical")
-
-    if not results:
-        return {
-            spec.name: HierarchicalBhyResult(
-                primary_name=spec.name,
-                survivors=[],
-                adj_p=np.zeros(0, dtype=np.float64),
-                q=q,
-                group=group,
-                n_tests={},
-            )
-            for spec in primary_list
-        }
+    primary_list = _validate_spec_list(
+        primary, func_name="bhy_hierarchical", field="primary"
+    )
+    _require_non_empty_results(results, func_name="bhy_hierarchical")
 
     out: dict[str, HierarchicalBhyResult] = {}
     for spec in primary_list:

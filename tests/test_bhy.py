@@ -49,11 +49,10 @@ def test_multi_primary_runs_independent_screens():
     assert len(out["ic_ir"]) == 0
 
 
-def test_empty_input_returns_empty_per_primary():
+def test_empty_input_raises():
     ic = make_spec("ic")
-    out = bhy([], primary=[ic], q=0.05)
-    assert out["ic"].survivors == []
-    assert out["ic"].adj_p.shape == (0,)
+    with pytest.raises(UserInputError, match="non-empty list\\[EvaluationResult\\]"):
+        bhy([], primary=[ic], q=0.05)
 
 
 def test_no_surviving_results_returns_empty_record():

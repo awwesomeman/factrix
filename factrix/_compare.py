@@ -17,40 +17,8 @@ import polars as pl
 
 from factrix._errors import UserInputError
 from factrix._metric_index import MetricSpec
+from factrix._multi_factor import _require_non_empty_results, _validate_spec_list
 from factrix._results import EvaluationResult, _float_or_none
-
-
-def _validate_metrics(metrics: Any) -> list[MetricSpec]:
-    if not isinstance(metrics, list):
-        raise UserInputError(
-            func_name="compare",
-            field="metrics",
-            value=type(metrics).__name__,
-            expected="list[MetricSpec] (always a list, even for a single metric)",
-            docs_path="api/compare/",
-        )
-    if not metrics:
-        raise UserInputError(
-            func_name="compare",
-            field="metrics",
-            value=metrics,
-            expected="non-empty list[MetricSpec]",
-            docs_path="api/compare/",
-        )
-    for i, spec in enumerate(metrics):
-        if not isinstance(spec, MetricSpec):
-            raise UserInputError(
-                func_name="compare",
-                field=f"metrics[{i}]",
-                value=type(spec).__name__,
-                expected=(
-                    "MetricSpec instance (str / Callable not accepted — pick "
-                    "the spec from fx.metrics.spec_by_name() or the metric "
-                    "module's __metric_specs__ tuple)"
-                ),
-                docs_path="api/compare/",
-            )
-    return list(metrics)
 
 
 def compare(
@@ -114,15 +82,8 @@ def compare(
         ...     results, metrics=[turnover], sort_by=turnover, descending=False
         ... )
     """
-    metric_list = _validate_metrics(metrics)
-    if not results:
-        raise UserInputError(
-            func_name="compare",
-            field="results",
-            value=results,
-            expected="non-empty list[EvaluationResult]",
-            docs_path="api/compare/",
-        )
+    metric_list = _validate_spec_list(metrics, func_name="compare", field="metrics")
+    _require_non_empty_results(results, func_name="compare")
     if sort_by is not None and sort_by.name not in {m.name for m in metric_list}:
         raise UserInputError(
             func_name="compare",
@@ -130,7 +91,7 @@ def compare(
             value=sort_by.name,
             expected="MetricSpec that appears in `metrics`",
             candidates=[m.name for m in metric_list],
-            docs_path="api/compare/",
+            docs_path="api/compare#sort_by",
         )
 
     context_keys = _ordered_keys(r.context for r in results)
@@ -153,7 +114,7 @@ def compare(
                         f"missing on factor={r.factor!r}"
                     ),
                     candidates=sorted(r.metrics.outputs),
-                    docs_path="api/compare/",
+                    docs_path="api/compare#metrics",
                 )
             out = r.metrics.outputs[spec.name]
             row[spec.name] = _float_or_none(out.value)

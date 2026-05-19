@@ -31,20 +31,29 @@ def test_returns_dict_per_primary():
 
 def test_pc_min_pass_one_raises():
     ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
     with pytest.raises(UserInputError, match="union semantics"):
-        partial_conjunction([], primary=[ic], min_pass=1, expand_over=("region",))
+        partial_conjunction(results, primary=[ic], min_pass=1, expand_over=("region",))
 
 
 def test_pc_min_pass_below_two_raises():
     ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
     with pytest.raises(UserInputError, match=">= 2"):
-        partial_conjunction([], primary=[ic], min_pass=0, expand_over=("region",))
+        partial_conjunction(results, primary=[ic], min_pass=0, expand_over=("region",))
 
 
 def test_pc_empty_expand_over_raises():
     ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01], ic, regions=("US",))
     with pytest.raises(UserInputError, match="non-empty"):
-        partial_conjunction([], primary=[ic], min_pass=2, expand_over=())
+        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=())
+
+
+def test_pc_empty_results_raises():
+    ic = make_spec("ic")
+    with pytest.raises(UserInputError, match="non-empty list\\[EvaluationResult\\]"):
+        partial_conjunction([], primary=[ic], min_pass=2, expand_over=("region",))
 
 
 def test_pc_n_conditions_strict_mismatch_raises():
