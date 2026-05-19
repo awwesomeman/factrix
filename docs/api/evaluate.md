@@ -195,13 +195,4 @@ derivation are documented in the **Dispatch lore** admonition above.
 
     [guides/panel-timeseries →](../guides/panel-timeseries.md)
 
--   __`run_metrics` — descriptive twin__
-
-    ---
-
-    Computes the same statistics but makes no FDR claim. Use when you
-    want the numbers without the inference framing.
-
-    [api/run-metrics →](run-metrics.md)
-
 </div>

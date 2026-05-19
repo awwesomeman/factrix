@@ -109,9 +109,8 @@ catch pattern, and recovery via `suggested_fix`, see
 it is a risk flag. The user decides whether to filter on warnings before
 Benjamini-Hochberg-Yekutieli (BHY). For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
 
-For the full field-order walk of `FactorProfile` — and of
-`Survivors` (after `bhy`) and `MetricsBundle` (after `run_metrics`) —
-see [Reading results](../guides/reading-results.md).
+For the full field-order walk of `FactorProfile` and `Survivors`
+(after `bhy`), see [Reading results](../guides/reading-results.md).
 
 ---
 
@@ -122,7 +121,6 @@ You have one `FactorProfile` for one factor. The common follow-ups:
 | You want to… | Reach for | Guide |
 |---|---|---|
 | Screen N candidate factors with false discovery rate (FDR) control | [`multi_factor.bhy(profiles)`](../api/multi-factor.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [Batch screening with BHY](../guides/batch-screening.md) |
-| Compare the descriptive surface across factors | [`run_metrics`](../api/run-metrics.md) × N → [`compare(bundles)`](../api/compare.md) | [Standalone metrics](../guides/standalone-metrics.md) |
 | Rank factors after screening | [`compare(survivors)`](../api/compare.md) — leaderboard with `adj_q` | — |
 | Explore one metric across slices (sector / regime / universe / ADV bucket) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |
 | Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
@@ -131,5 +129,5 @@ For function semantics, the input contract, and cross-function topics
 (`expand_over` semantics, regime-analysis dispatch), see the
 [API reference landing](../api/index.md) and
 [Cross-function reference](../api/decision-tree.md). For the field-order
-walk of `FactorProfile` / `Survivors` / `MetricsBundle`, see
+walk of `FactorProfile` / `Survivors`, see
 [Reading results](../guides/reading-results.md).
