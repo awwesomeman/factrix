@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 
+import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
@@ -12,7 +13,9 @@ from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import InfoCode, StatCode
 from factrix._errors import ModeAxisError, UserInputError
 from factrix._evaluate import _derive_mode, _evaluate
+from factrix._metric_index import spec_by_name
 from factrix._profile import FactorProfile
+from factrix._results import EvaluationResult
 
 
 def _build_panel(
@@ -342,19 +345,92 @@ class TestFactorColsOption:
                 factor_cols=["alpha"],
             )
 
-    def test_public_evaluate_threads_factor_cols(self) -> None:
-        # The public factrix.evaluate wrapper must thread factor_cols
-        # through to _evaluate; sanity-check the surface still indexes
-        # the same way the internal path does.
-        import factrix as fx
 
-        panel = _build_panel(n_dates=60, n_assets=15, seed=17)
-        renamed = panel.rename({"factor": "alpha"})
-        profiles = fx.evaluate(
-            renamed,
-            AnalysisConfig.individual_continuous(metric=Metric.IC),
-            factor_cols=["alpha"],
+class TestPublicEvaluateNewSignature:
+    """``factrix.evaluate`` — DAG-executor-backed signature (#445)."""
+
+    def test_single_factor_returns_one_element_list(self) -> None:
+        panel = _build_panel(n_dates=80, n_assets=15, seed=21)
+        ic = spec_by_name()["ic"]
+        results = fx.evaluate(
+            panel, metrics=[ic], factor_cols=["factor"], forward_periods=5
         )
-        assert set(profiles) == {"alpha"}
-        assert isinstance(profiles["alpha"], FactorProfile)
-        assert StatCode.MEAN in profiles["alpha"].stats
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert isinstance(results[0], EvaluationResult)
+        assert results[0].factor == "factor"
+        assert "ic" in results[0].metrics
+
+    def test_multi_factor_preserves_order(self) -> None:
+        panel = _build_panel(n_dates=80, n_assets=15, seed=22)
+        panel = panel.with_columns(
+            pl.col("factor").alias("alpha"),
+            pl.col("factor").alias("beta"),
+        )
+        ic = spec_by_name()["ic"]
+        results = fx.evaluate(
+            panel,
+            metrics=[ic],
+            factor_cols=["beta", "alpha"],
+            forward_periods=5,
+        )
+        assert [r.factor for r in results] == ["beta", "alpha"]
+
+    def test_metrics_must_be_list(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=23)
+        ic = spec_by_name()["ic"]
+        with pytest.raises(UserInputError, match="list"):
+            fx.evaluate(panel, metrics=ic, factor_cols=["factor"], forward_periods=5)  # type: ignore[arg-type]
+
+    def test_metrics_elements_must_be_metric_spec(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=24)
+        with pytest.raises(UserInputError, match="MetricSpec"):
+            fx.evaluate(
+                panel,
+                metrics=["ic"],
+                factor_cols=["factor"],
+                forward_periods=5,  # type: ignore[list-item]
+            )
+
+    def test_metrics_empty_list_rejected(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=25)
+        with pytest.raises(UserInputError, match="non-empty"):
+            fx.evaluate(panel, metrics=[], factor_cols=["factor"], forward_periods=5)
+
+    def test_factor_cols_single_str_rejected(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=26)
+        ic = spec_by_name()["ic"]
+        with pytest.raises(UserInputError, match="single str is rejected"):
+            fx.evaluate(panel, metrics=[ic], factor_cols="factor", forward_periods=5)  # type: ignore[arg-type]
+
+    def test_missing_metrics_kwarg_raises_typeerror(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=27)
+        with pytest.raises(TypeError, match="metrics"):
+            fx.evaluate(panel)  # type: ignore[call-arg]
+
+    def test_panel_missing_forward_return_raises(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=28)
+        panel_no_fwd = panel.drop("forward_return")
+        ic = spec_by_name()["ic"]
+        with pytest.raises(UserInputError, match="forward_return"):
+            fx.evaluate(
+                panel_no_fwd, metrics=[ic], factor_cols=["factor"], forward_periods=5
+            )
+
+    def test_panel_missing_baseline_column_raises(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=29)
+        panel_no_asset = panel.drop("asset_id")
+        ic = spec_by_name()["ic"]
+        with pytest.raises(UserInputError, match="asset_id"):
+            fx.evaluate(
+                panel_no_asset,
+                metrics=[ic],
+                factor_cols=["factor"],
+                forward_periods=5,
+            )
+
+    def test_forward_periods_missing_when_required_raises(self) -> None:
+        panel = _build_panel(n_dates=40, n_assets=10, seed=30)
+        ic = spec_by_name()["ic"]
+        with pytest.raises(UserInputError, match="forward_periods"):
+            fx.evaluate(panel, metrics=[ic], factor_cols=["factor"])

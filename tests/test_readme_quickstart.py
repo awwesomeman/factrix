@@ -8,6 +8,7 @@ re-export is removed, this test fails before the README does.
 from __future__ import annotations
 
 import factrix as fx
+from factrix._metric_index import spec_by_name
 from factrix.preprocess import compute_forward_return
 
 
@@ -17,13 +18,15 @@ def test_readme_quickstart_runs_end_to_end() -> None:
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    cfg = fx.AnalysisConfig.individual_continuous(
-        metric=fx.Metric.IC, forward_periods=5
+    ic = spec_by_name()["ic"]
+    results = fx.evaluate(
+        panel, metrics=[ic], factor_cols=["factor"], forward_periods=5
     )
-    profile = fx.evaluate(panel, cfg)["factor"]
 
-    assert isinstance(profile.primary_p, float)
-    assert 0.0 <= profile.primary_p <= 1.0
+    assert len(results) == 1
+    p = results[0].metrics["ic"].metadata.get("p_value")
+    assert isinstance(p, float)
+    assert 0.0 <= p <= 1.0
 
 
 def test_compute_forward_return_is_reachable_from_namespace() -> None:

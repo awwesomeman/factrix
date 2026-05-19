@@ -19,6 +19,14 @@ from factrix.datasets import make_multi_factor_panel
 
 from tests._run_metrics_helpers import factor_cols, make_multi_panel
 
+pytestmark = pytest.mark.skip(
+    reason=(
+        "Tests target the legacy fx.evaluate(panel, cfg)->FactorProfile path "
+        "deleted in #445; full test deletion / rewrite is queued for "
+        "#448 (public-surface retire) and #449 (internal-module retire)."
+    )
+)
+
 
 @pytest.fixture
 def multi_panel() -> pl.DataFrame:
