@@ -32,7 +32,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, Visibility
 from factrix._results import EvaluationResult, MetricResult, Warning
@@ -141,7 +141,6 @@ class DagExecutor:
         *,
         scope: FactorScope,
         signal: FactorSignal,
-        metric: Metric | None,
         forward_periods: int,
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> dict[str, EvaluationResult]:
@@ -209,7 +208,7 @@ class DagExecutor:
                     metric_outputs[(spec.name, c)] = _stamp_spec(out, spec)
 
         return self._assemble(
-            cols, scope, signal, metric, forward_periods, mode, n_assets, metric_outputs
+            cols, scope, signal, forward_periods, mode, n_assets, metric_outputs
         )
 
     def _gather_upstream_batch(
@@ -229,7 +228,6 @@ class DagExecutor:
         cols: Sequence[str],
         scope: FactorScope,
         signal: FactorSignal,
-        metric: Metric | None,
         forward_periods: int,
         mode: PanelMode,
         n_assets: int,
@@ -263,8 +261,7 @@ class DagExecutor:
             n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,
-                cell=(scope, signal, metric),
-                mode=mode,
+                cell=(scope, signal, mode),
                 forward_periods=forward_periods,
                 n_obs=n_obs,
                 n_assets=n_assets,

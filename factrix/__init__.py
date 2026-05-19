@@ -1,7 +1,7 @@
 """factrix — Single-factor evaluation toolkit.
 
-Three orthogonal user-facing axes — ``FactorScope``, ``FactorSignal``,
-``Metric`` — plus an evaluate-time-derived ``PanelMode`` define the analysis
+Two orthogonal user-facing axes — ``FactorScope`` and ``FactorSignal`` —
+plus an evaluate-time-derived ``PanelMode`` define the analysis
 cell. Resolve metric specs via ``spec_by_name()`` (or register custom ones
 with ``metric_spec`` + ``factrix.metrics.register``), dispatch through the
 DAG executor via ``evaluate()``, inspect a panel's applicable metrics via
@@ -38,10 +38,9 @@ from typing import Any
 import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
-from factrix._axis import (  # noqa: F401  Metric / PanelMode re-exported for namespace access; intentionally not in __all__
+from factrix._axis import (  # noqa: F401  PanelMode re-exported for namespace access; intentionally not in __all__
     FactorScope,
     FactorSignal,
-    Metric,
     PanelMode,
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
@@ -168,7 +167,15 @@ def evaluate(
     _validate_forward_periods_when_required(closure_specs, forward_periods)
     _validate_primary_metric_applicable(metrics[0], panel)
 
-    scope, signal, metric_axis = _cell_from_first_metric(metrics[0])
+    primary_cell = metrics[0].cell
+    scope = (
+        primary_cell.scope if primary_cell.scope is not None else FactorScope.INDIVIDUAL
+    )
+    signal = (
+        primary_cell.signal
+        if primary_cell.signal is not None
+        else FactorSignal.CONTINUOUS
+    )
     fp = forward_periods if forward_periods is not None else 5
     kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
     primary_names = (metrics[0].name,)
@@ -178,7 +185,6 @@ def evaluate(
         cols,
         scope=scope,
         signal=signal,
-        metric=metric_axis,
         forward_periods=fp,
         kwargs_by_metric=kwargs_by_metric,
     )
@@ -410,29 +416,12 @@ def _validate_primary_metric_applicable(
     )
 
 
-def _cell_from_first_metric(
-    primary: MetricSpec,
-) -> tuple[FactorScope, FactorSignal, Metric | None]:
-    """Derive the cell tuple for ``EvaluationResult`` from the primary metric's cell."""
-    cell = primary.cell
-    scope = cell.scope if cell.scope is not None else FactorScope.INDIVIDUAL
-    signal = cell.signal if cell.signal is not None else FactorSignal.CONTINUOUS
-    if scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS:
-        metric_axis: Metric | None = (
-            cell.metric if cell.metric is not None else Metric.IC
-        )
-    else:
-        metric_axis = None
-    return scope, signal, metric_axis
-
-
 __version__ = "0.13.0"
 
 __all__ = [
-    # Axis enums (PanelMode / Metric intentionally NOT exported — PanelMode is
-    # evaluate-time-derived from N; Metric only labels MetricSpec.cell
-    # and is not part of the user-facing call shape after #448.
-    # Both stay importable from factrix._axis for internal callers.)
+    # Axis enums (PanelMode intentionally NOT exported — it is
+    # evaluate-time-derived from N. It stays importable from
+    # factrix._axis for internal callers.)
     "FactorScope",
     "FactorSignal",
     # Code enums

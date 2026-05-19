@@ -23,7 +23,7 @@ functions dispatch to.
 
 from __future__ import annotations
 
-from factrix._axis import FactorScope, FactorSignal, Metric
+from factrix._axis import FactorScope, FactorSignal
 from factrix._codes import StatCode
 
 
@@ -72,7 +72,6 @@ class WaldNWCluster:
         self,
         _scope: FactorScope,
         _signal: FactorSignal,
-        _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_WALD_NWCL
 
@@ -111,6 +110,5 @@ class WaldTwoWayCluster:
         self,
         _scope: FactorScope,
         _signal: FactorSignal,
-        _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_WALD_TWOWAY

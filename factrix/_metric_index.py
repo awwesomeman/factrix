@@ -40,7 +40,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode, Visibility
+from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
 from factrix._errors import IncompatibleAxisError
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -61,7 +61,7 @@ DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 
 @dataclass(frozen=True, slots=True)
 class Cell:
-    """Parsed ``(scope, signal, metric, mode)`` cell tuple.
+    """Parsed ``(scope, signal, mode)`` cell tuple.
 
     ``None`` represents the ``*`` wildcard along an axis. ``raw``
     preserves the canonical display label rendered into the docs
@@ -76,7 +76,6 @@ class Cell:
 
     scope: FactorScope | None
     signal: FactorSignal | None
-    metric: Metric | None
     mode: PanelMode | None
     raw: str
 
@@ -97,7 +96,7 @@ class Cell:
         return scope_ok and signal_ok and mode_ok
 
 
-def _axis_token(value: FactorScope | FactorSignal | Metric | PanelMode | None) -> str:
+def _axis_token(value: FactorScope | FactorSignal | PanelMode | None) -> str:
     """Render an axis enum (or ``None`` = wildcard) as its uppercase token."""
     if value is None:
         return "*"
@@ -107,7 +106,6 @@ def _axis_token(value: FactorScope | FactorSignal | Metric | PanelMode | None) -
 def cell(
     scope: FactorScope | None,
     signal: FactorSignal | None,
-    metric: Metric | None = None,
     mode: PanelMode | None = None,
     *,
     raw: str | None = None,
@@ -120,11 +118,8 @@ def cell(
     post-pipeline factor-return series.
     """
     if raw is None:
-        raw = (
-            f"({_axis_token(scope)}, {_axis_token(signal)}, "
-            f"{_axis_token(metric)}, {_axis_token(mode)})"
-        )
-    return Cell(scope=scope, signal=signal, metric=metric, mode=mode, raw=raw)
+        raw = f"({_axis_token(scope)}, {_axis_token(signal)}, {_axis_token(mode)})"
+    return Cell(scope=scope, signal=signal, mode=mode, raw=raw)
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,7 +156,7 @@ class MetricSpec:
     Fields:
 
     - ``name``: function name in the declaring module.
-    - ``cell``: applicable ``(scope, signal, metric, mode)`` cell;
+    - ``cell``: applicable ``(scope, signal, mode)`` cell;
       ``None`` along any axis denotes ``*`` wildcard.
     - ``family``: aggregation / inference family label —
       ``"cs-first"`` (cross-section step then time aggregation),

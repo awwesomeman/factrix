@@ -1,6 +1,6 @@
 """Shared types and constants for the v0.4 metric primitives.
 
-The v0.5 axis enums (``FactorScope`` / ``FactorSignal`` / ``Metric`` / ``PanelMode``)
+The v0.5 axis enums (``FactorScope`` / ``FactorSignal`` / ``PanelMode``)
 live in :mod:`factrix._axis`; the v0.5 result type
 (``FactorProfile``) lives in :mod:`factrix._profile`. This module
 keeps only the numerical constants and ``MetricOutput`` shared by the

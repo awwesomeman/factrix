@@ -29,7 +29,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode, Visibility
+from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -51,7 +51,6 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 _FM_CELL = cell(
     FactorScope.INDIVIDUAL,
     FactorSignal.CONTINUOUS,
-    metric=Metric.FM,
     mode=PanelMode.PANEL,
 )
 _FM_PRIMITIVES = (
