@@ -34,6 +34,7 @@ Series diagnostics — axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, multi_split_oos_decay
 """
 
+from factrix._metric_index import metric_spec, register
 from factrix.metrics.caar import (
     bmp_test,
     caar,
@@ -141,4 +142,7 @@ __all__ = [
     "ts_beta_sign_consistency",
     "ts_quantile_spread",
     "turnover",
+    # Third-party registration
+    "metric_spec",
+    "register",
 ]
