@@ -122,9 +122,13 @@ class Cell:
 
     ``None`` represents the ``*`` wildcard along an axis. ``raw``
     preserves the canonical display label rendered into the docs
-    matrix. :meth:`matches` only filters on ``scope`` / ``signal`` (the
-    public :func:`factrix.list_metrics` axes); the matrix renderer reads
-    ``raw`` directly.
+    matrix.
+
+    :meth:`matches` filters on whichever axes the caller supplies a
+    concrete value for. Pass ``mode=`` to enforce mode applicability
+    (e.g. ``IC`` cell declares ``mode=Mode.PANEL`` because IC has no
+    cross-section in TIMESERIES); omit it for axis-only queries that
+    do not care about runtime mode.
     """
 
     scope: FactorScope | None
@@ -133,11 +137,21 @@ class Cell:
     mode: Mode | None
     raw: str
 
-    def matches(self, scope: FactorScope, signal: Signal) -> bool:
-        """Return True if this cell is applicable to ``(scope, signal)``."""
-        return (self.scope is None or self.scope == scope) and (
-            self.signal is None or self.signal == signal
-        )
+    def matches(
+        self,
+        scope: FactorScope,
+        signal: Signal,
+        mode: Mode | None = None,
+    ) -> bool:
+        """Return True if this cell is applicable to ``(scope, signal[, mode])``.
+
+        ``mode=None`` (default) skips the mode axis check — useful
+        for purely structural axis queries.
+        """
+        scope_ok = self.scope is None or self.scope == scope
+        signal_ok = self.signal is None or self.signal == signal
+        mode_ok = mode is None or self.mode is None or self.mode == mode
+        return scope_ok and signal_ok and mode_ok
 
 
 def _axis_token(value: FactorScope | Signal | Metric | Mode | None) -> str:
@@ -168,6 +182,28 @@ def cell(
             f"{_axis_token(metric)}, {_axis_token(mode)})"
         )
     return Cell(scope=scope, signal=signal, metric=metric, mode=mode, raw=raw)
+
+
+@dataclass(frozen=True, slots=True)
+class SampleFloor:
+    """Per-metric statistical pre-flight gates against panel shape.
+
+    Declares the sample-size floors below which a metric is
+    statistically unusable (``min_*``) or runs with a documented
+    bias warning (``warn_*``). :func:`factrix.inspect_panel`
+    evaluates these against the inspected panel's
+    :class:`PanelProperties` and partitions specs into
+    ``usable`` / ``unusable``.
+
+    The same constants are read by the metric's own short-circuit
+    logic at run time — single source of truth for what counts as
+    "thin sample" per metric.
+    """
+
+    min_periods: int | None = None
+    warn_periods: int | None = None
+    min_assets: int | None = None
+    warn_assets: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +252,11 @@ class MetricSpec:
       ``INTERNAL`` for stage-1 helpers (excluded from
       ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
       but pulled by the DAG via ``requires``).
+    - ``sample_floor``: optional :class:`SampleFloor` declaring the
+      panel-shape thresholds below which the metric is statistically
+      unusable / degraded. ``None`` (default) means no pre-flight
+      sample-size gate is declared; :func:`inspect_panel` will only
+      apply the cell-match check for this spec.
     """
 
     name: str
@@ -228,6 +269,7 @@ class MetricSpec:
     requires: dict[str, Callable] = field(default_factory=dict)
     batchable: bool = False
     visibility: Visibility = Visibility.PUBLIC
+    sample_floor: SampleFloor | None = None
 
 
 # ---------------------------------------------------------------------------

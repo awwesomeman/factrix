@@ -862,18 +862,18 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
 
 - **`EvaluationResult`** — bundle-level result for one factor at one
   cell. Fields: `factor` / `axes` (`(scope, signal, metric)` tuple) /
-  `mode` / `n_obs` / `n_assets` / `metrics` (a `MetricResultGroup`) /
+  `mode` / `n_obs` / `n_assets` / `metrics` (a `MetricResult`) /
   `warnings` (`list[Warning]`). Serialisers:
-  - `to_df()` → `pl.DataFrame` long form (one row per metric;
+  - `to_frame()` → `pl.DataFrame` long form (one row per metric;
     `factor` / `n_assets` / `metric_name` / `value` / `p` / `stat` /
     `n_obs` / `significance` / `warning_codes: list[str]`). Stable
     schema for parquet stacking across factors:
-    `pl.concat([r.to_df() for r in results])`.
+    `pl.concat([r.to_frame() for r in results])`.
   - `to_dict()` → JSON-friendly nested dict (NaN / Inf scrubbed to
     `None`).
   - `_repr_html_()` → Jupyter rich render with primary / diagnostic
     role column and a collapsible warnings block.
-- **`MetricResultGroup`** — mirrors the `MetricGroups` shape from
+- **`MetricResult`** — mirrors the `MetricGroups` shape from
   `inspect_panel` (#443). Three `list[MetricSpec]` partitions
   (`applicable` / `primary` / `diagnostic`) plus dict-like access to
   the produced `MetricOutput` instances (`__getitem__` / `keys` /
@@ -912,6 +912,40 @@ in v0.14.0 as types-only; runner wiring lands with the DAG executor.
   producer returned a short-circuit `MetricOutput`. The downstream
   `MetricOutput` carries `metadata["upstream"]` and
   `metadata["upstream_reason"]` for root-cause recovery.
+- **`fx.inspect_panel(panel) -> PanelInspection`** — typed
+  pre-flight introspection that combines axis detection with a
+  per-metric usability verdict.
+  - `PanelInspection.detected: PanelProperties` carries the typed
+    enums (`scope` / `signal` / `mode`) plus shape numerics
+    (`n_assets` / `n_periods` / `sparsity`).
+  - `PanelInspection.reasoning: PanelReasoning` carries per-axis
+    rationale strings.
+  - `PanelInspection.metrics: list[MetricApplicability]` — one
+    verdict per `visibility=PUBLIC` spec. Each carries `usable:
+    bool`, a `warnings: list[Warning]` for degraded inference (above
+    HARD floor but below WARN floor), and `blockers: list[str]` for
+    unusable reasons (cell mismatch or HARD floor violation).
+    Caller partitions via list comprehension —
+    `[m for m in info.metrics if m.usable]`.
+  - `PanelInspection.warnings: list[Warning]` carries panel-level
+    sample-shape diagnostics (`source=None`); per-metric degraded
+    warnings live on each `MetricApplicability`.
+  - Two-stage applicability: (1) `Cell.matches(scope, signal, mode)`
+    — mode is integral so e.g. `IC` (cell declares `mode=PANEL`) is
+    unusable on a single-asset panel, not just degraded. (2)
+    `MetricSpec.sample_floor: SampleFloor | None` — declarative
+    `min_periods` / `warn_periods` / `min_assets` / `warn_assets`
+    gates evaluated against `PanelProperties`. Specs without
+    `sample_floor` only get the cell-match check.
+- **`Cell.matches(scope, signal, mode=None)`** — gains optional
+  `mode` argument. Existing `list_metrics` callers stay backward
+  compatible (default `None` skips the mode axis); `inspect_panel`
+  passes the detected mode.
+- **`MetricSpec.sample_floor: SampleFloor | None`** — new optional
+  field carrying per-metric pre-flight thresholds. Currently
+  populated on `ic_newey_west` / `ic_ir` (representative
+  demonstration); other metrics get the cell-match-only check.
+  Broader population is tracked as a follow-up audit.
 
 ---
 

@@ -38,7 +38,7 @@ import polars as pl
 from factrix._axis import Mode
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, Visibility, emitted_name_of
-from factrix._results import EvaluationResult, MetricResultGroup, Warning
+from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._run_metrics import _project_factor
 from factrix._types import MetricOutput
 
@@ -250,7 +250,7 @@ class DagExecutor:
                 mode=mode,
                 n_obs=n_obs,
                 n_assets=n_assets,
-                metrics=MetricResultGroup(
+                metrics=MetricResult(
                     applicable=public_specs,
                     primary=primary,
                     diagnostic=diagnostic,

@@ -1,4 +1,4 @@
-"""v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResultGroup`` / ``Warning``.
+"""v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResult`` / ``Warning``.
 
 Lands the result-type group that #438 unification will surface from the
 DAG executor (#442). This module ships the dataclasses + serialisation
@@ -50,7 +50,7 @@ class Warning:
 
 
 @dataclass(frozen=True, slots=True)
-class MetricResultGroup:
+class MetricResult:
     """Group of metric outputs for one factor at one cell.
 
     Mirrors the ``MetricGroups`` shape that #443 ``inspect_panel``
@@ -117,7 +117,7 @@ class EvaluationResult:
             so consumers don't have to reach inside ``metrics``.
         n_assets: Unique assets in the panel under the any-non-null
             union (cell-invariant; ``1`` is legal for TIMESERIES).
-        metrics: :class:`MetricResultGroup` carrying the per-metric
+        metrics: :class:`MetricResult` carrying the per-metric
             outputs and the applicable / primary / diagnostic spec
             partitions.
         warnings: Flat list of :class:`Warning` records. Per-metric
@@ -139,11 +139,11 @@ class EvaluationResult:
     mode: Mode
     n_obs: int
     n_assets: int
-    metrics: MetricResultGroup
+    metrics: MetricResult
     plan: str
     warnings: list[Warning] = field(default_factory=list)
 
-    def to_df(self) -> pl.DataFrame:
+    def to_frame(self) -> pl.DataFrame:
         r"""One row per produced metric, prefixed with bundle identity.
 
         Schema (column order is stable):
@@ -166,7 +166,7 @@ class EvaluationResult:
         produce rows; read them from :attr:`warnings` directly.
 
         Designed for stacking across factors:
-        ``pl.concat([r.to_df() for r in results])`` is the parquet
+        ``pl.concat([r.to_frame() for r in results])`` is the parquet
         write path.
         """
         by_metric: dict[str, list[str]] = {}
@@ -182,7 +182,7 @@ class EvaluationResult:
             }
             for key, out in self.metrics.outputs.items()
         ]
-        return pl.DataFrame(rows, schema=_TO_DF_SCHEMA)
+        return pl.DataFrame(rows, schema=_TO_FRAME_SCHEMA)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly nested dict view.
@@ -301,7 +301,7 @@ class EvaluationResult:
         )
 
 
-_TO_DF_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
+_TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "factor": pl.Utf8,
     "n_assets": pl.Int64,
     "metric_name": pl.Utf8,
