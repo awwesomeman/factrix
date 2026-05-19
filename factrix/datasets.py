@@ -233,14 +233,6 @@ def make_event_panel(
         >>> raw = fx.datasets.make_event_panel(n_assets=20, n_dates=120, event_rate=0.05)
         >>> set(raw["factor"].unique().to_list()) <= {-1.0, 0.0, 1.0}
         True
-
-        Pair with the sparse factory:
-
-        >>> from factrix.preprocess import compute_forward_return
-        >>> panel = compute_forward_return(raw, forward_periods=5)
-        >>> cfg = fx.AnalysisConfig.individual_sparse(forward_periods=5)
-        >>> cfg.signal is fx.Signal.SPARSE
-        True
     """
     if n_assets < 1:
         raise ValueError("n_assets must be >= 1")
