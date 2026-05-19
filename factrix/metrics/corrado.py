@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import FactorSignal, PanelMode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
@@ -19,7 +19,7 @@ from factrix.metrics._helpers import _short_circuit_output
 __metric_specs__ = (
     MetricSpec(
         name="corrado_rank_test",
-        cell=cell(None, Signal.SPARSE, mode=Mode.PANEL),
+        cell=cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL),
         family="per-event",
         inference="nonparametric rank",
         primitives=(

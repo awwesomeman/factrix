@@ -78,7 +78,7 @@ The applicability gate runs at config construction, not at
 To inspect what's available for a given cell:
 
 ```python
-fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS)
+fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS)
 # ['BlockBootstrap', 'HansenHodrick', 'NeweyWest', 'WaldNWCluster', 'WaldTwoWayCluster']
 ```
 

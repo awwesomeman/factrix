@@ -10,7 +10,7 @@ Runnable notebook: [`examples/stock_factor_evaluation.ipynb`](https://github.com
 ## Factor type
 
 This recipe uses `AnalysisConfig.individual_continuous(metric=Metric.IC)`
-— axes `(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC)`.
+— axes `(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)`.
 
 Procedure: per-date Spearman ρ between factor and forward return,
 aggregated to a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-statistic on `E[IC]`. PANEL mode
@@ -82,7 +82,7 @@ panel shape=(49400, 5)  N=100
 ## 3. Evaluate
 
 One factory call, one `evaluate()`. The factory commits to the three
-axes; `evaluate()` derives `Mode` from the panel shape and dispatches
+axes; `evaluate()` derives `PanelMode` from the panel shape and dispatches
 to the registered procedure.
 
 ```python

@@ -7,8 +7,8 @@ produced by an upstream cell metric — information coefficient (IC) time series
 series, CAAR time series, an external factor return, etc. They do not
 care which cell produced the series.
 
-!!! warning "Not the same as `Mode.TIMESERIES`"
-    `Mode.TIMESERIES` is the dispatch regime for `n_assets == 1` (set on
+!!! warning "Not the same as `PanelMode.TIMESERIES`"
+    `PanelMode.TIMESERIES` is the dispatch regime for `n_assets == 1` (set on
     `FactorProfile.mode`); the metrics on this page run on a
     `(date, value)` series regardless of which mode produced it.
 

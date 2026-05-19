@@ -38,8 +38,8 @@ class TestPanelPropertiesDetection:
     def test_individual_continuous_cs_panel(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         assert info.detected.scope is fx.FactorScope.INDIVIDUAL
-        assert info.detected.signal is fx.Signal.CONTINUOUS
-        assert info.detected.mode is fx.Mode.PANEL
+        assert info.detected.signal is fx.FactorSignal.CONTINUOUS
+        assert info.detected.mode is fx.PanelMode.PANEL
         assert info.detected.n_assets == 20
         assert info.detected.n_periods == 80
         assert info.detected.n_pairs == 20 * 80
@@ -47,14 +47,14 @@ class TestPanelPropertiesDetection:
 
     def test_n1_routes_to_timeseries(self):
         info = inspect_panel(_single_asset_panel(n_dates=80))
-        assert info.detected.mode is fx.Mode.TIMESERIES
+        assert info.detected.mode is fx.PanelMode.TIMESERIES
         assert info.detected.n_assets == 1
         assert "TIMESERIES" in info.reasoning.mode_reason
 
     def test_common_continuous_detection(self):
         info = inspect_panel(_common_continuous_panel())
         assert info.detected.scope is fx.FactorScope.COMMON
-        assert info.detected.signal is fx.Signal.CONTINUOUS
+        assert info.detected.signal is fx.FactorSignal.CONTINUOUS
 
     def test_empty_panel_sparse_ratio_is_nan(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
@@ -227,18 +227,26 @@ class TestCellMatchesSignature:
     def test_matches_skips_mode_when_omitted(self):
         from factrix._metric_index import cell
 
-        c = cell(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, mode=fx.Mode.PANEL)
-        assert c.matches(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS) is True
+        c = cell(
+            fx.FactorScope.INDIVIDUAL,
+            fx.FactorSignal.CONTINUOUS,
+            mode=fx.PanelMode.PANEL,
+        )
+        assert c.matches(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS) is True
 
     def test_matches_with_mode_rejects_mismatch(self):
         from factrix._metric_index import cell
 
-        c = cell(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, mode=fx.Mode.PANEL)
+        c = cell(
+            fx.FactorScope.INDIVIDUAL,
+            fx.FactorSignal.CONTINUOUS,
+            mode=fx.PanelMode.PANEL,
+        )
         assert (
             c.matches(
                 fx.FactorScope.INDIVIDUAL,
-                fx.Signal.CONTINUOUS,
-                mode=fx.Mode.TIMESERIES,
+                fx.FactorSignal.CONTINUOUS,
+                mode=fx.PanelMode.TIMESERIES,
             )
             is False
         )
@@ -246,12 +254,12 @@ class TestCellMatchesSignature:
     def test_matches_wildcard_mode_accepts_anything(self):
         from factrix._metric_index import cell
 
-        c = cell(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS)
+        c = cell(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS)
         assert (
             c.matches(
                 fx.FactorScope.INDIVIDUAL,
-                fx.Signal.CONTINUOUS,
-                mode=fx.Mode.TIMESERIES,
+                fx.FactorSignal.CONTINUOUS,
+                mode=fx.PanelMode.TIMESERIES,
             )
             is True
         )

@@ -4,8 +4,8 @@ Two-stage applicability model:
 
 1. **Cell match** — ``(scope, signal, mode)`` axes on
    :class:`MetricSpec.cell` must agree with the inspected panel's
-   :class:`PanelProperties`. Mode is integral to the match — a metric
-   whose cell declares ``mode=Mode.PANEL`` (e.g. IC, which has no
+   :class:`PanelProperties`. PanelMode is integral to the match — a metric
+   whose cell declares ``mode=PanelMode.PANEL`` (e.g. IC, which has no
    cross-section in TIMESERIES) is unusable when the panel is
    single-asset, not just "degraded".
 2. **Sample floor** — :class:`MetricSpec.sample_floor` declares the
@@ -30,7 +30,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
@@ -38,12 +38,14 @@ from factrix._results import Warning
 _SPARSITY_THRESHOLD: float = 0.5
 
 
-def _derive_mode(panel: Any) -> Mode:
+def _derive_mode(panel: Any) -> PanelMode:
     """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
-    return Mode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else Mode.PANEL
+    return (
+        PanelMode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else PanelMode.PANEL
+    )
 
 
-def _detect_signal(raw: Any) -> tuple[Signal, str, float]:
+def _detect_signal(raw: Any) -> tuple[FactorSignal, str, float]:
     """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
 
     Returns ``(signal, reason, sparsity)`` where ``sparsity`` is the
@@ -52,13 +54,17 @@ def _detect_signal(raw: Any) -> tuple[Signal, str, float]:
     n = len(raw)
     if n == 0:
         return (
-            Signal.CONTINUOUS,
+            FactorSignal.CONTINUOUS,
             "factor column empty: defaulting to CONTINUOUS",
             math.nan,
         )
     n_zero = int((raw["factor"] == 0).sum())
     sparsity = n_zero / n
-    signal = Signal.SPARSE if sparsity >= _SPARSITY_THRESHOLD else Signal.CONTINUOUS
+    signal = (
+        FactorSignal.SPARSE
+        if sparsity >= _SPARSITY_THRESHOLD
+        else FactorSignal.CONTINUOUS
+    )
     reason = (
         f"sparsity ratio = {sparsity:.2f} "
         f"(threshold {_SPARSITY_THRESHOLD}): → {signal.value.upper()}"
@@ -101,8 +107,8 @@ class PanelProperties:
 
     Attributes:
         scope: Detected :class:`FactorScope`.
-        signal: Detected :class:`Signal`.
-        mode: Derived :class:`Mode` — ``TIMESERIES`` iff
+        signal: Detected :class:`FactorSignal`.
+        mode: Derived :class:`PanelMode` — ``TIMESERIES`` iff
             ``n_assets == 1`` (single-asset panel), ``PANEL`` otherwise.
         n_assets: Unique ``asset_id`` count under any-non-null union.
         n_periods: Unique ``date`` count under any-non-null union.
@@ -116,8 +122,8 @@ class PanelProperties:
     """
 
     scope: FactorScope
-    signal: Signal
-    mode: Mode
+    signal: FactorSignal
+    mode: PanelMode
     n_assets: int
     n_periods: int
     n_pairs: int
@@ -363,7 +369,7 @@ def inspect_panel(panel: Any) -> PanelInspection:
 
     mode_reason = (
         f"n_assets={n_assets} → "
-        f"{'TIMESERIES (single-asset panel)' if mode is Mode.TIMESERIES else 'PANEL'}"
+        f"{'TIMESERIES (single-asset panel)' if mode is PanelMode.TIMESERIES else 'PANEL'}"
     )
 
     properties = PanelProperties(
@@ -470,12 +476,12 @@ def _panel_level_warnings(properties: PanelProperties) -> list[Warning]:
 
     warnings: list[Warning] = []
     if (
-        properties.mode is Mode.TIMESERIES
+        properties.mode is PanelMode.TIMESERIES
         and MIN_PERIODS_HARD <= properties.n_periods < MIN_PERIODS_WARN
     ):
         code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS
         warnings.append(Warning(code=code, source=None, message=code.description))
-    if properties.mode is Mode.PANEL:
+    if properties.mode is PanelMode.PANEL:
         tier = cross_section_tier(properties.n_assets)
         if tier is not None:
             warnings.append(Warning(code=tier, source=None, message=tier.description))

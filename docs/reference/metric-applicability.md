@@ -29,9 +29,9 @@ factrix expresses sample size on three axes (see
 - `T/h` — non-overlapping date count given
   `forward_periods = h`.
 
-`Mode` is derived from `N` at evaluate-time: `PANEL` for `N ≥ 2`,
+`PanelMode` is derived from `N` at evaluate-time: `PANEL` for `N ≥ 2`,
 `TIMESERIES` for `N == 1`. The dispatch registry routes to the cell's
-procedure in either Mode; the metric's applicability does not change
+procedure in either PanelMode; the metric's applicability does not change
 across Modes, only the sample axis that constrains it.
 
 ## Other metrics by family
@@ -231,7 +231,7 @@ returns a meaningful-looking result. Three deterministic outcomes:
   `diagnose()` records the degradation.
 
 Structural errors (wrong cell, missing column, `N == 1` on a cell that
-requires `PANEL` Mode) raise `ValueError` / [`ConfigError`][factrix.ConfigError] rather than
+requires `PANEL` PanelMode) raise `ValueError` / [`ConfigError`][factrix.ConfigError] rather than
 falling back.
 
 ## Event-study contracts

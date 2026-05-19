@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import GMMResult
@@ -81,13 +81,13 @@ class GMM:
     def min_periods(self) -> int:
         return MIN_PERIODS_WARN
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
+        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: Signal,
+        _signal: FactorSignal,
         _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_GMM

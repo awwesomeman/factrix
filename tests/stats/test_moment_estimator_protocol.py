@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric
 from factrix._codes import StatCode, WarningCode
 from factrix.stats import (
     Estimator,
@@ -34,11 +34,11 @@ class _StubGMM:
     def min_periods(self) -> int:
         return 30
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
+        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
     def emits_for(
-        self, scope: FactorScope, signal: Signal, metric: Metric | None
+        self, scope: FactorScope, signal: FactorSignal, metric: Metric | None
     ) -> StatCode:
         return StatCode.P_GMM
 
@@ -67,11 +67,11 @@ class _MissingCompute:
     def min_periods(self) -> int:
         return 1
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
         return True
 
     def emits_for(
-        self, scope: FactorScope, signal: Signal, metric: Metric | None
+        self, scope: FactorScope, signal: FactorSignal, metric: Metric | None
     ) -> StatCode:
         return StatCode.P_GMM
 

@@ -31,6 +31,7 @@ Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) 
 
 ### Changed
 
+- **Axis enum rename: `Signal` → `FactorSignal`, `Mode` → `PanelMode`** (#466). Pure rename — no behaviour change. Aligns all three axis enums with the `FactorScope` naming so each carries an explicit domain prefix, avoiding namespace collision under `from factrix import *` against the broader Python ecosystem (`enum.Signal`, generic `Mode` names). `factrix._axis.Signal` / `Mode` renamed in-place with no transitional aliases. `__all__` swaps `Signal → FactorSignal`; `PanelMode` stays out of `__all__` (matching the prior treatment of `Mode` — derived-axis, surfaced via `PanelProperties.mode` rather than constructed directly). Internal imports, type annotations, docstrings, tests, docs (including mermaid), and `llms*.txt` SSOT updated in lock-step.
 - **`is_stage1=True` -> `visibility=Visibility.INTERNAL` on 9 stage-1 producer specs** (#440). `compute_ic`, `compute_caar`, `compute_fm_betas`, `compute_mfe_mae`, `compute_event_returns`, `compute_ts_betas` (×2), `compute_spread_series`, `compute_group_returns` migrate to the new field. The `is_stage1` field is removed outright (no transitional alias).
 - **`@batch_primitive` / `@ic_consumer` decorators retired** (#440). `factrix.metrics.ic` / `quantile` / `monotonicity` previously imported these decorators from `factrix.metrics._protocol`; the markers now live on the corresponding `MetricSpec` (`batchable=True` and `requires={"ic_df": compute_ic}` respectively). The decorator module is deleted entirely.
 

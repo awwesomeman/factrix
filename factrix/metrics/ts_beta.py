@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal, Visibility
+from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -38,7 +38,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_rolling_mean_beta",
 ]
 
-_TSB_CELL = cell(FactorScope.COMMON, Signal.CONTINUOUS, mode=Mode.PANEL)
+_TSB_CELL = cell(FactorScope.COMMON, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL)
 _TSB_PRIMITIVES = (
     "_calc_t_stat",
     "_p_value_from_t",

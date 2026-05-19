@@ -2,16 +2,16 @@
 
 Three orthogonal user-facing axes describe an analysis cell:
 
-- ``FactorScope``  — does the factor vary per-asset (``INDIVIDUAL``) or
+- ``FactorScope`` — does the factor vary per-asset (``INDIVIDUAL``) or
   carry a single value broadcast to every asset (``COMMON``)?
-- ``Signal``       — continuous numeric exposure (``CONTINUOUS``) vs.
+- ``FactorSignal`` — continuous numeric exposure (``CONTINUOUS``) vs.
   ``{0, R}`` event triggers (``SPARSE`` — zero on non-event entries,
   arbitrary real magnitude otherwise; canonical example ``{-1, 0, +1}``)?
-- ``Metric``       — procedure-canonical scalar (``IC`` or ``FM``).
+- ``Metric`` — procedure-canonical scalar (``IC`` or ``FM``).
   Only meaningful for ``INDIVIDUAL × CONTINUOUS``; ``None`` for the
   remaining cells.
 
-``Mode`` is the fourth axis used by registry keys / dispatch but is not
+``PanelMode`` is the fourth axis used by registry keys / dispatch but is not
 user-set: it is derived from ``N`` at evaluate-time and surfaced as
 ``Profile.mode`` for downstream pattern-match.
 """
@@ -28,7 +28,7 @@ class FactorScope(StrEnum):
     COMMON = "common"
 
 
-class Signal(StrEnum):
+class FactorSignal(StrEnum):
     """Continuous numeric exposure vs. ``{0, R}`` sparse event trigger.
 
     Sparse columns are zero on non-event entries with arbitrary real
@@ -46,7 +46,7 @@ class Metric(StrEnum):
     FM = "fm"
 
 
-class Mode(StrEnum):
+class PanelMode(StrEnum):
     """Sample regime, derived from ``N`` at evaluate-time.
 
     ``PANEL``      — ``N >= 2`` (multi-asset / multi-event panel).

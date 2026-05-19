@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, emitted_name_of
 from factrix._types import MetricOutput
@@ -110,7 +110,7 @@ class EvaluationResult:
         factor: Factor column name from the source panel.
         axes: ``(scope, signal, metric)`` tuple of the dispatched cell.
             ``metric`` may be ``None`` when the cell is metric-wildcard.
-        mode: ``Mode.PANEL`` or ``Mode.TIMESERIES`` resolved at dispatch.
+        mode: ``PanelMode.PANEL`` or ``PanelMode.TIMESERIES`` resolved at dispatch.
         forward_periods: Forward-return horizon (rows) the evaluation
             ran under. Carried through from the source ``AnalysisConfig``
             so multi-horizon callers can partition / mix-warn without
@@ -144,8 +144,8 @@ class EvaluationResult:
     """
 
     factor: str
-    axes: tuple[FactorScope, Signal, Metric | None]
-    mode: Mode
+    axes: tuple[FactorScope, FactorSignal, Metric | None]
+    mode: PanelMode
     forward_periods: int
     n_obs: int
     n_assets: int

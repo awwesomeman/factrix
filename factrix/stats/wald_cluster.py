@@ -23,7 +23,7 @@ functions dispatch to.
 
 from __future__ import annotations
 
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric
 from factrix._codes import StatCode
 
 
@@ -65,13 +65,13 @@ class WaldNWCluster:
             "slice grouping) on a stacked per-date metric panel."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
+        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: Signal,
+        _signal: FactorSignal,
         _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_WALD_NWCL
@@ -104,13 +104,13 @@ class WaldTwoWayCluster:
             "(2011). Reserved interface for the raw asset-date panel path."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
+        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: Signal,
+        _signal: FactorSignal,
         _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_WALD_TWOWAY

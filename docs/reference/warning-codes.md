@@ -14,7 +14,7 @@ The three enums:
   the user decides whether to pre-filter on warnings before
   multi-factor Benjamini-Hochberg-Yekutieli (BHY).
 - **`InfoCode`** — information-severity diagnose annotations (e.g.
-  scope-axis collapsed under `Mode = TIMESERIES`).
+  scope-axis collapsed under `PanelMode = TIMESERIES`).
 - **`StatCode`** — canonical names for the scalar statistics that
   populate `FactorProfile.metrics`.
 

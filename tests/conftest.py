@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult
 from factrix._types import MetricOutput
@@ -55,8 +55,8 @@ def make_result(
     primaries = [primary, *extra_primaries]
     return EvaluationResult(
         factor=factor,
-        axes=(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
-        mode=Mode.PANEL,
+        axes=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
+        mode=PanelMode.PANEL,
         forward_periods=forward_periods,
         n_obs=100,
         n_assets=25,

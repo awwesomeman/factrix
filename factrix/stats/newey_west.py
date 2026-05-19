@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import InferenceResult
@@ -76,7 +76,7 @@ class NeweyWest:
     def min_periods(self) -> int:
         return MIN_PERIODS_WARN
 
-    def applicable_to(self, _scope: FactorScope, _signal: Signal) -> bool:
+    def applicable_to(self, _scope: FactorScope, _signal: FactorSignal) -> bool:
         # NW HAC drives `primary_p` on every user-facing cell, so the
         # estimator applies universally until a cell opts out.
         return True
@@ -84,7 +84,7 @@ class NeweyWest:
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: Signal,
+        _signal: FactorSignal,
         _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_NW

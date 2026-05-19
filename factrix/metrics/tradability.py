@@ -28,7 +28,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import DDOF, EPSILON, MetricOutput
 from factrix.metrics._helpers import (
@@ -37,7 +37,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
-_TR_CELL = cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL)
+_TR_CELL = cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL)
 _TR_CS_PRIMITIVES = (
     "_sample_non_overlapping",
     "_short_circuit_output",

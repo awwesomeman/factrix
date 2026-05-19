@@ -20,7 +20,7 @@ import numpy as np
 import polars as pl
 import scipy.stats as scipy_stats
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -42,7 +42,9 @@ __all__ = [
 __metric_specs__ = (
     MetricSpec(
         name="monotonicity",
-        cell=cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL),
+        cell=cell(
+            FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL
+        ),
         family="cs-first",
         inference="cross-asset t",
         batchable=True,

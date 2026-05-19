@@ -186,7 +186,7 @@ SE.
 
 ## 7. Per-metric registered procedures rather than a unified test
 
-factrix dispatches each `Scope × Signal × Metric` cell to a
+factrix dispatches each `Scope × FactorSignal × Metric` cell to a
 **registered procedure** that runs a fixed pipeline (sample guards →
 cross-section step → significance test → diagnostics). It does not
 combine cell-canonical scalars into a single procedure-level F-test
