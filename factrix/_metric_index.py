@@ -55,63 +55,6 @@ _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 # cite this constant by name rather than restating the string.
 DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 
-# Metrics that ``run_metrics`` cannot auto-discover even though their
-# spec is user-facing. Each entry carries a short reason rendered into
-# ``MetricsBundle.skipped`` and into the ``UserInputError`` raised when
-# a caller names one explicitly via ``metrics=[...]``.
-_AUTO_DISCOVER_EXCLUDED: dict[str, str] = {
-    "caar": (
-        "consumes caar_df; call factrix.metrics.compute_event_returns + "
-        "compute_caar then caar(caar_df) directly"
-    ),
-    "fama_macbeth": (
-        "consumes beta_df; call factrix.metrics.compute_fm_betas then "
-        "fama_macbeth(beta_df) directly"
-    ),
-    "beta_sign_consistency": (
-        "consumes beta_df; call factrix.metrics.compute_fm_betas then "
-        "beta_sign_consistency(beta_df) directly"
-    ),
-    "ts_beta": (
-        "consumes ts_betas_df; call factrix.metrics.compute_ts_betas then "
-        "ts_beta(ts_betas_df) directly"
-    ),
-    "mean_r_squared": (
-        "consumes ts_betas_df; call factrix.metrics.compute_ts_betas then "
-        "mean_r_squared(ts_betas_df) directly"
-    ),
-    "ts_beta_sign_consistency": (
-        "consumes ts_betas_df; call factrix.metrics.compute_ts_betas then "
-        "ts_beta_sign_consistency(ts_betas_df) directly"
-    ),
-    "mfe_mae_summary": (
-        "consumes mfe_mae_df; call factrix.metrics.compute_mfe_mae then "
-        "mfe_mae_summary(mfe_mae_df) directly"
-    ),
-    "hit_rate": (
-        "consumes a (date, value) series; e.g. "
-        "hit_rate(compute_ic(panel).rename({'ic': 'value'}))"
-    ),
-    "multi_split_oos_decay": (
-        "consumes a (date, value) series; e.g. "
-        "multi_split_oos_decay(compute_spread_series(panel)"
-        ".rename({'spread': 'value'}))"
-    ),
-    "ic_trend": (
-        "consumes a (date, value) series; e.g. "
-        "ic_trend(compute_ic(panel).rename({'ic': 'value'}))"
-    ),
-    "spanning_alpha": (
-        "consumes factor_spread; call after compute_spread_series on the "
-        "challenger factor"
-    ),
-    "greedy_forward_selection": (
-        "consumes factor_spreads dict; call after compute_spread_series on "
-        "each candidate factor"
-    ),
-}
-
-
 # ---------------------------------------------------------------------------
 # Cell + Spec dataclasses
 # ---------------------------------------------------------------------------

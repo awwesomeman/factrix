@@ -38,7 +38,7 @@ from typing import Any
 import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
-from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
+from factrix._axis import (  # noqa: F401  Metric / Mode re-exported for namespace access; intentionally not in __all__
     FactorScope,
     Metric,
     Mode,
@@ -392,11 +392,11 @@ def _axes_from_first_metric(
 __version__ = "0.13.0"
 
 __all__ = [
-    # Axis enums (Mode intentionally NOT exported — it is derived at
-    # evaluate-time from N and read off profile.mode, never set by user
-    # code; review fix UX-7. Still importable from factrix._axis.)
+    # Axis enums (Mode / Metric intentionally NOT exported — Mode is
+    # evaluate-time-derived from N; Metric only labels MetricSpec.cell
+    # and is not part of the user-facing call shape after #448.
+    # Both stay importable from factrix._axis for internal callers.)
     "FactorScope",
-    "Metric",
     "Signal",
     # Code enums
     "InfoCode",
