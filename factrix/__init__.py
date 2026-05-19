@@ -60,6 +60,7 @@ from factrix._inspect import (
     PanelInspection,
     PanelProperties,
     PanelReasoning,
+    _derive_mode,
     inspect_panel,
 )
 from factrix._metric_index import (
@@ -165,6 +166,7 @@ def evaluate(
 
     closure_specs = _close_requires(metrics)
     _validate_forward_periods_when_required(closure_specs, forward_periods)
+    _validate_primary_metric_applicable(metrics[0], panel)
 
     scope, signal, metric_axis = _axes_from_first_metric(metrics[0])
     fp = forward_periods if forward_periods is not None else 5
@@ -371,6 +373,41 @@ def _build_kwargs_by_metric(
         for s in closure_specs
         if _signature_has_forward_periods(s.name)
     }
+
+
+def _validate_primary_metric_applicable(
+    primary: MetricSpec, panel: pl.DataFrame
+) -> None:
+    """Reject a primary metric whose ``cell.mode`` disagrees with the panel.
+
+    Mode is the cheap pre-flight gate: IC / FM / quantile_spread declare
+    ``cell.mode = Mode.PANEL`` and produce only NaN short-circuits on a
+    single-asset panel; surfacing that as a UserInputError keeps the
+    diagnostic specific instead of letting the executor return a result
+    bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
+    Cell-axis (scope / signal) applicability requires panel detection
+    and is left to ``fx.inspect_panel`` for the explicit pre-flight path.
+    """
+    cell_mode = primary.cell.mode
+    if cell_mode is None:
+        return
+    panel_mode = _derive_mode(panel)
+    if cell_mode is panel_mode:
+        return
+    n_assets = int(panel["asset_id"].n_unique())
+    raise UserInputError(
+        func_name="evaluate",
+        field="metrics",
+        value=primary.name,
+        expected=(
+            f"primary metric {primary.name!r} declares "
+            f"cell.mode={cell_mode.value!r} but panel has "
+            f"mode={panel_mode.value!r} (n_assets={n_assets}); "
+            f"call fx.inspect_panel(panel) to see metrics applicable "
+            f"to this panel shape"
+        ),
+        docs_path=_DOCS_METRICS,
+    )
 
 
 def _axes_from_first_metric(

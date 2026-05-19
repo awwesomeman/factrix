@@ -155,18 +155,20 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
 
 
 class InfoCode(StrEnum):
-    """Neutral facts surfaced to the caller — not warnings, not errors."""
+    """Neutral facts surfaced to the caller — not warnings, not errors.
 
-    SCOPE_AXIS_COLLAPSED = "scope_axis_collapsed"
+    Empty after the procedure-based dispatcher retired in #448 — the
+    only member, ``SCOPE_AXIS_COLLAPSED``, tracked a legacy routing
+    collapse that no longer happens under the DAG executor. The enum
+    stays exported as the home for future neutral notes.
+    """
 
     @property
     def description(self) -> str:
         return _INFO_DESCRIPTIONS[self]
 
 
-_INFO_DESCRIPTIONS: dict[InfoCode, str] = {
-    InfoCode.SCOPE_AXIS_COLLAPSED: "N=1 collapsed scope axis; routed via _SCOPE_COLLAPSED sentinel.",
-}
+_INFO_DESCRIPTIONS: dict[InfoCode, str] = {}
 
 
 class StatCode(StrEnum):
