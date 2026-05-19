@@ -56,7 +56,7 @@ def _sample_result(
 ) -> EvaluationResult:
     return EvaluationResult(
         factor="mom_12_1",
-        axes=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
+        cell=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
         mode=PanelMode.PANEL,
         forward_periods=5,
         n_obs=100,
@@ -162,8 +162,8 @@ class TestEvaluationResultToDict:
         encoded = json.dumps(d)
         back = json.loads(encoded)
         assert back["factor"] == "mom_12_1"
-        assert back["axes"]["scope"] == "individual"
-        assert back["axes"]["signal"] == "continuous"
+        assert back["cell"]["scope"] == "individual"
+        assert back["cell"]["signal"] == "continuous"
         assert back["mode"] == "panel"
         assert back["n_obs"] == 100
         assert back["metrics"]["ic"]["p"] == 0.012

@@ -108,7 +108,7 @@ class EvaluationResult:
 
     Attributes:
         factor: Factor column name from the source panel.
-        axes: ``(scope, signal, metric)`` tuple of the dispatched cell.
+        cell: ``(scope, signal, metric)`` tuple of the dispatched cell.
             ``metric`` may be ``None`` when the cell is metric-wildcard.
         mode: ``PanelMode.PANEL`` or ``PanelMode.TIMESERIES`` resolved at dispatch.
         forward_periods: Forward-return horizon (rows) the evaluation
@@ -144,7 +144,7 @@ class EvaluationResult:
     """
 
     factor: str
-    axes: tuple[FactorScope, FactorSignal, Metric | None]
+    cell: tuple[FactorScope, FactorSignal, Metric | None]
     mode: PanelMode
     forward_periods: int
     n_obs: int
@@ -200,7 +200,7 @@ class EvaluationResult:
 
         Layout (top-level keys, stable order):
 
-        - ``factor`` / ``axes`` / ``mode`` / ``n_obs`` / ``n_assets``
+        - ``factor`` / ``cell`` / ``mode`` / ``n_obs`` / ``n_assets``
         - ``metrics``: dict ``metric_name -> MetricOutput-as-dict``
           (``value`` / ``p`` / ``stat`` / ``n_obs`` / ``significance``
           / ``metadata``)
@@ -212,10 +212,10 @@ class EvaluationResult:
         Float ``NaN`` / ``Inf`` are emitted as ``None`` so the dict
         survives ``json.dumps`` without ``allow_nan``.
         """
-        scope, signal, metric = self.axes
+        scope, signal, metric = self.cell
         return {
             "factor": self.factor,
-            "axes": {
+            "cell": {
                 "scope": scope.value,
                 "signal": signal.value,
                 "metric": metric.value if metric is not None else None,
@@ -245,11 +245,11 @@ class EvaluationResult:
         }
 
     def _repr_html_(self) -> str:
-        scope, signal, metric = self.axes
+        scope, signal, metric = self.cell
         metric_token = metric.value if metric is not None else "*"
         header_rows: list[tuple[str, Any]] = [
             ("factor", self.factor),
-            ("axes", f"({scope.value}, {signal.value}, {metric_token})"),
+            ("cell", f"({scope.value}, {signal.value}, {metric_token})"),
             ("mode", self.mode.value),
             ("forward_periods", self.forward_periods),
             ("n_obs", self.n_obs),

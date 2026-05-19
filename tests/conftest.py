@@ -55,7 +55,7 @@ def make_result(
     primaries = [primary, *extra_primaries]
     return EvaluationResult(
         factor=factor,
-        axes=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
+        cell=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
         mode=PanelMode.PANEL,
         forward_periods=forward_periods,
         n_obs=100,
