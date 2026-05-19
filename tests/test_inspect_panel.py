@@ -42,7 +42,8 @@ class TestPanelPropertiesDetection:
         assert info.detected.mode is fx.Mode.PANEL
         assert info.detected.n_assets == 20
         assert info.detected.n_periods == 80
-        assert 0.0 <= info.detected.sparsity < 0.5
+        assert info.detected.n_pairs == 20 * 80
+        assert 0.0 <= info.detected.sparse_ratio < 0.5
 
     def test_n1_routes_to_timeseries(self):
         info = inspect_panel(_single_asset_panel(n_dates=80))
@@ -55,10 +56,23 @@ class TestPanelPropertiesDetection:
         assert info.detected.scope is fx.FactorScope.COMMON
         assert info.detected.signal is fx.Signal.CONTINUOUS
 
-    def test_empty_panel_sparsity_is_nan(self):
+    def test_empty_panel_sparse_ratio_is_nan(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
         info = inspect_panel(empty)
-        assert math.isnan(info.detected.sparsity)
+        assert math.isnan(info.detected.sparse_ratio)
+        assert info.detected.n_pairs == 0
+
+    def test_n_pairs_counts_non_null_factor_only(self):
+        raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=10)
+        with_nulls = raw.with_columns(
+            pl.when(pl.int_range(0, raw.height) % 3 == 0)
+            .then(None)
+            .otherwise(pl.col("factor"))
+            .alias("factor")
+        )
+        info = inspect_panel(with_nulls)
+        assert info.detected.n_pairs == with_nulls.drop_nulls("factor").height
+        assert info.detected.n_pairs < raw.height
 
 
 class TestPanelReasoning:
@@ -110,6 +124,38 @@ class TestSampleFloorGate:
         assert nw.usable is True
         assert nw.warnings == []
 
+    def test_below_min_pairs_is_unusable(self):
+        from factrix._metric_index import SampleFloor
+
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        floor = SampleFloor(min_pairs=info.detected.n_pairs + 1)
+        spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
+        from dataclasses import replace
+
+        from factrix._inspect import _evaluate_applicability
+
+        verdict = _evaluate_applicability(
+            replace(spec, sample_floor=floor), info.detected
+        )
+        assert verdict.usable is False
+        assert any("min_pairs" in b for b in verdict.blockers)
+
+    def test_between_min_and_warn_pairs_is_usable_with_warning(self):
+        from dataclasses import replace
+
+        from factrix._inspect import _evaluate_applicability
+        from factrix._metric_index import SampleFloor
+
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        n = info.detected.n_pairs
+        floor = SampleFloor(min_pairs=n - 1, warn_pairs=n + 1)
+        spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
+        verdict = _evaluate_applicability(
+            replace(spec, sample_floor=floor), info.detected
+        )
+        assert verdict.usable is True
+        assert any("n_pairs" in w.message for w in verdict.warnings)
+
     def test_metric_without_sample_floor_only_cell_checked(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
         ic = _by_name(info, "ic")
@@ -147,10 +193,11 @@ class TestToDict:
         assert nw["usable"] is True
         assert any(w["code"] == "unreliable_se_short_periods" for w in nw["warnings"])
 
-    def test_nan_sparsity_becomes_null(self):
+    def test_nan_sparse_ratio_becomes_null(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
         d = inspect_panel(empty).to_dict()
-        assert d["detected"]["sparsity"] is None
+        assert d["detected"]["sparse_ratio"] is None
+        assert d["detected"]["n_pairs"] == 0
 
     def test_panel_level_warnings_serialised(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))

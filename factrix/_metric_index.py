@@ -204,6 +204,8 @@ class SampleFloor:
     warn_periods: int | None = None
     min_assets: int | None = None
     warn_assets: int | None = None
+    min_pairs: int | None = None
+    warn_pairs: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

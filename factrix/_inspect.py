@@ -47,10 +47,10 @@ class PanelProperties:
 
     Carries both the dispatch axes (``scope`` / ``signal`` / ``mode``
     as typed enums) and the panel-shape numerics the user typically
-    wants next to them (``n_assets`` / ``n_periods`` / ``sparsity``).
-    Named ``Properties`` rather than ``Axes`` because the numeric
-    fields are not axes — they are observations supporting the axis
-    decisions.
+    wants next to them (``n_assets`` / ``n_periods`` / ``n_pairs`` /
+    ``sparse_ratio``). Named ``Properties`` rather than ``Axes``
+    because the numeric fields are not axes — they are observations
+    supporting the axis decisions.
 
     Attributes:
         scope: Detected :class:`FactorScope`.
@@ -59,8 +59,13 @@ class PanelProperties:
             ``n_assets == 1`` (single-asset panel), ``PANEL`` otherwise.
         n_assets: Unique ``asset_id`` count under any-non-null union.
         n_periods: Unique ``date`` count under any-non-null union.
-        sparsity: Zero-ratio in the ``factor`` column.
-            ``math.nan`` for an empty panel.
+        n_pairs: Non-null ``(date, asset_id)`` factor observation
+            count — the upper bound on usable sample size for any
+            pair-counting metric (IC, rank-IC, FM cross-section).
+            Equals ``panel.height`` for a dense panel; smaller when
+            the factor column has nulls.
+        sparse_ratio: Zero-ratio in the ``factor`` column (denominator
+            is non-null cell count). ``math.nan`` for an empty panel.
     """
 
     scope: FactorScope
@@ -68,7 +73,8 @@ class PanelProperties:
     mode: Mode
     n_assets: int
     n_periods: int
-    sparsity: float
+    n_pairs: int
+    sparse_ratio: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,8 +147,9 @@ class PanelInspection:
         Layout (top-level keys, stable order):
 
         - ``detected``: ``{scope, signal, mode, n_assets, n_periods,
-          sparsity}`` — enum fields rendered as their ``.value``
-          string; ``sparsity`` ``NaN`` emitted as ``None``.
+          n_pairs, sparse_ratio}`` — enum fields rendered as their
+          ``.value`` string; ``sparse_ratio`` ``NaN`` emitted as
+          ``None``.
         - ``reasoning``: ``{scope, signal, mode}``.
         - ``metrics``: list of per-spec dicts
           ``{name, cell, usable, warnings, blockers}`` — same row
@@ -161,7 +168,10 @@ class PanelInspection:
                 "mode": d.mode.value,
                 "n_assets": d.n_assets,
                 "n_periods": d.n_periods,
-                "sparsity": None if math.isnan(d.sparsity) else d.sparsity,
+                "n_pairs": d.n_pairs,
+                "sparse_ratio": (
+                    None if math.isnan(d.sparse_ratio) else d.sparse_ratio
+                ),
             },
             "reasoning": {
                 "scope": self.reasoning.scope_reason,
@@ -203,9 +213,10 @@ class PanelInspection:
             ("mode", d.mode.value),
             ("n_assets", d.n_assets),
             ("n_periods", d.n_periods),
+            ("n_pairs", d.n_pairs),
             (
-                "sparsity",
-                f"{d.sparsity:.3f}" if not math.isnan(d.sparsity) else "nan",
+                "sparse_ratio",
+                f"{d.sparse_ratio:.3f}" if not math.isnan(d.sparse_ratio) else "nan",
             ),
         ]
         header_html = "".join(
@@ -296,11 +307,12 @@ def inspect_panel(panel: Any) -> PanelInspection:
         >>> all(m.spec.cell.matches(info.detected.scope, info.detected.signal, info.detected.mode) for m in usable)
         True
     """
-    signal, signal_reason, sparsity = _detect_signal(panel)
+    signal, signal_reason, sparse_ratio = _detect_signal(panel)
     scope, scope_reason = _detect_scope(panel)
     mode = _derive_mode(panel)
     n_assets = int(panel["asset_id"].n_unique())
     n_periods = int(panel["date"].n_unique())
+    n_pairs = int(panel.drop_nulls("factor").height)
 
     mode_reason = (
         f"n_assets={n_assets} → "
@@ -313,7 +325,8 @@ def inspect_panel(panel: Any) -> PanelInspection:
         mode=mode,
         n_assets=n_assets,
         n_periods=n_periods,
-        sparsity=sparsity,
+        n_pairs=n_pairs,
+        sparse_ratio=sparse_ratio,
     )
     reasoning = PanelReasoning(
         scope_reason=scope_reason,
@@ -375,6 +388,21 @@ def _evaluate_applicability(
                 warnings.append(
                     Warning(code=tier, source=spec.name, message=tier.description)
                 )
+        if floor.min_pairs is not None and properties.n_pairs < floor.min_pairs:
+            blockers.append(
+                f"n_pairs={properties.n_pairs} < min_pairs={floor.min_pairs}"
+            )
+        elif floor.warn_pairs is not None and properties.n_pairs < floor.warn_pairs:
+            warnings.append(
+                Warning(
+                    code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+                    source=spec.name,
+                    message=(
+                        f"n_pairs={properties.n_pairs} < warn_pairs="
+                        f"{floor.warn_pairs}: inference degraded"
+                    ),
+                )
+            )
 
     return MetricApplicability(
         spec=spec,
