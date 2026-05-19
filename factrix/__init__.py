@@ -59,8 +59,6 @@ from factrix._errors import (
     UserInputError,
 )
 from factrix._evaluate import _evaluate as _evaluate
-from factrix._evaluate import evaluate_chunked as evaluate_chunked
-from factrix._evaluate import evaluate_iter as evaluate_iter
 from factrix._inspect import (
     MetricApplicability,
     PanelInspection,
@@ -425,8 +423,6 @@ __all__ = [
     "Warning",
     "compare",
     "evaluate",
-    "evaluate_chunked",
-    "evaluate_iter",
     # Introspection
     "MetricApplicability",
     "PanelInspection",
