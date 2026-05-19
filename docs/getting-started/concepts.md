@@ -89,9 +89,9 @@ literature behind it.
 | `common_continuous()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β → cross-asset t on E[β] | [Black-Jensen-Scholes 1972][black-jensen-scholes-1972] |
 | `common_sparse()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β on dummy → cross-asset t | TS-β + event-study hybrid |
 
-## Mode: PANEL vs TIMESERIES
+## PanelMode: PANEL vs TIMESERIES
 
-`Mode` is **not user-facing** — it is derived at evaluate-time from
+`PanelMode` is **not user-facing** — it is derived at evaluate-time from
 `N = panel["asset_id"].n_unique()`. Both modes return a real `primary_p`;
 neither is degraded.
 

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from factrix._axis import FactorScope, Signal
+from factrix._axis import FactorScope, FactorSignal
 from factrix.stats._estimator import (
     Estimator,
     GMMResult,
@@ -91,7 +91,7 @@ def get_estimator(name: str) -> Estimator:
 
 def list_estimators(
     scope: FactorScope,
-    signal: Signal,
+    signal: FactorSignal,
     *,
     format: Literal["text", "json"] = "text",
     with_import: bool = False,
@@ -102,14 +102,14 @@ def list_estimators(
     single pre-flight pattern: ``list_metrics`` says which scalars a
     cell can emit, ``list_estimators`` says which inference methods
     can drive the family function's ``estimator=`` kwarg for that
-    cell. Mode is intentionally not an input — Estimator applicability
+    cell. PanelMode is intentionally not an input — Estimator applicability
     is not mode-dependent.
 
     Args:
         scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
             ``FactorScope.COMMON``).
-        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
-            ``Signal.SPARSE``).
+        signal: Cell axis to filter on (``FactorSignal.CONTINUOUS`` or
+            ``FactorSignal.SPARSE``).
         format: ``"text"`` (default) returns Estimator names sorted
             alphabetically. ``"json"`` returns ``list[dict]`` rows with
             keys ``name``, ``description``, ``import_path``.
@@ -130,13 +130,13 @@ def list_estimators(
 
         >>> import factrix as fx
         >>> names = fx.list_estimators(
-        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
+        ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS,
         ... )
 
         JSON form for tooling:
 
         >>> rows = fx.list_estimators(
-        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
         ... )
     """
     from factrix._errors import IncompatibleAxisError

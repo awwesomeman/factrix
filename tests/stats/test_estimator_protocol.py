@@ -7,7 +7,7 @@ dispatch can rely on `isinstance(obj, Estimator)` and the four required members
 
 from __future__ import annotations
 
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric
 from factrix._codes import StatCode
 from factrix.stats import Estimator
 
@@ -23,11 +23,11 @@ class _Stub:
     def description(self) -> str:
         return "Test stub."
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
+        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
     def emits_for(
-        self, scope: FactorScope, signal: Signal, metric: Metric | None
+        self, scope: FactorScope, signal: FactorSignal, metric: Metric | None
     ) -> StatCode:
         return StatCode.P_NW
 
@@ -41,7 +41,7 @@ class _MissingEmitsFor:
     def description(self) -> str:
         return "x"
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
         return True
 
 
@@ -57,9 +57,9 @@ def test_member_calls_route_through_protocol() -> None:
     e: Estimator = _Stub()
     assert e.name == "Stub"
     assert e.description == "Test stub."
-    assert e.applicable_to(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
-    assert not e.applicable_to(FactorScope.COMMON, Signal.SPARSE)
+    assert e.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+    assert not e.applicable_to(FactorScope.COMMON, FactorSignal.SPARSE)
     assert (
-        e.emits_for(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC)
+        e.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)
         is StatCode.P_NW
     )

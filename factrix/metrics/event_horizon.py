@@ -20,12 +20,12 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal, Visibility
+from factrix._axis import FactorSignal, PanelMode, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
-_EH_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
+_EH_CELL = cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL)
 _EH_PRIMITIVES = ("_short_circuit_output",)
 
 __metric_specs__ = (

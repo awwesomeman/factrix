@@ -1,25 +1,25 @@
 """factrix — Single-factor evaluation toolkit.
 
-Three orthogonal user-facing axes — ``FactorScope``, ``Signal``,
-``Metric`` — plus an evaluate-time-derived ``Mode`` define the analysis
-cell. Construct a config via the four type-safe factories on
-``AnalysisConfig``, dispatch via ``evaluate()``, inspect via the
-returned ``FactorProfile``, and aggregate across factors with
-``multi_factor.bhy`` for FDR-corrected screening.
+Three orthogonal user-facing axes — ``FactorScope``, ``FactorSignal``,
+``Metric`` — plus an evaluate-time-derived ``PanelMode`` define the analysis
+cell. Resolve metric specs via ``spec_by_name()`` (or register custom ones
+with ``metric_spec`` + ``factrix.metrics.register``), dispatch through the
+DAG executor via ``evaluate()``, inspect a panel's applicable metrics via
+``inspect_panel()``, and aggregate across factors with ``multi_factor.bhy``
+for FDR-corrected screening.
 
 Single-factor::
 
     import factrix as fx
 
-    cfg = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC)
-    profile = fx.evaluate(panel, cfg)["factor"]
-    print(profile.primary_p)
-    print(profile.diagnose())
+    ic = fx.spec_by_name("ic_newey_west")
+    [result] = fx.evaluate(panel, metrics=[ic], factor_cols=["factor"])
+    print(result.metrics["ic_newey_west"])
 
 Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
-    profiles = fx.evaluate(wide_panel, cfg, factor_cols=candidate_cols)
-    survivors = fx.multi_factor.bhy(profiles.values(), q=0.05)
+    results = fx.evaluate(panel, metrics=[ic], factor_cols=candidate_cols)
+    survivors = fx.multi_factor.bhy(results, primary=[ic], q=0.05)
 
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
 typical usage patterns in a single fetch. Two access paths::
@@ -38,11 +38,11 @@ from typing import Any
 import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
-from factrix._axis import (  # noqa: F401  Metric / Mode re-exported for namespace access; intentionally not in __all__
+from factrix._axis import (  # noqa: F401  Metric / PanelMode re-exported for namespace access; intentionally not in __all__
     FactorScope,
+    FactorSignal,
     Metric,
-    Mode,
-    Signal,
+    PanelMode,
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
@@ -380,8 +380,8 @@ def _validate_primary_metric_applicable(
 ) -> None:
     """Reject a primary metric whose ``cell.mode`` disagrees with the panel.
 
-    Mode is the cheap pre-flight gate: IC / FM / quantile_spread declare
-    ``cell.mode = Mode.PANEL`` and produce only NaN short-circuits on a
+    PanelMode is the cheap pre-flight gate: IC / FM / quantile_spread declare
+    ``cell.mode = PanelMode.PANEL`` and produce only NaN short-circuits on a
     single-asset panel; surfacing that as a UserInputError keeps the
     diagnostic specific instead of letting the executor return a result
     bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
@@ -412,12 +412,12 @@ def _validate_primary_metric_applicable(
 
 def _axes_from_first_metric(
     primary: MetricSpec,
-) -> tuple[FactorScope, Signal, Metric | None]:
+) -> tuple[FactorScope, FactorSignal, Metric | None]:
     """Derive the axis stamp for ``EvaluationResult`` from the primary metric's cell."""
     cell = primary.cell
     scope = cell.scope if cell.scope is not None else FactorScope.INDIVIDUAL
-    signal = cell.signal if cell.signal is not None else Signal.CONTINUOUS
-    if scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS:
+    signal = cell.signal if cell.signal is not None else FactorSignal.CONTINUOUS
+    if scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS:
         metric_axis: Metric | None = (
             cell.metric if cell.metric is not None else Metric.IC
         )
@@ -429,12 +429,12 @@ def _axes_from_first_metric(
 __version__ = "0.13.0"
 
 __all__ = [
-    # Axis enums (Mode / Metric intentionally NOT exported — Mode is
+    # Axis enums (PanelMode / Metric intentionally NOT exported — PanelMode is
     # evaluate-time-derived from N; Metric only labels MetricSpec.cell
     # and is not part of the user-facing call shape after #448.
     # Both stay importable from factrix._axis for internal callers.)
     "FactorScope",
-    "Signal",
+    "FactorSignal",
     # Code enums
     "InfoCode",
     "StatCode",

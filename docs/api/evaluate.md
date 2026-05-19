@@ -65,7 +65,7 @@ title: factrix.evaluate
 # example pending v0.14.0 docs rewrite
 ```
 
-Per-cell required / optional columns and the PANEL ↔ TIMESERIES Mode
+Per-cell required / optional columns and the PANEL ↔ TIMESERIES PanelMode
 derivation are documented in the **Dispatch lore** admonition above.
 
 ## Next steps

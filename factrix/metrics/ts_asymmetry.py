@@ -39,7 +39,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, PanelMode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _ols_nw_multivariate,
@@ -60,7 +60,7 @@ __all__ = [
 __metric_specs__ = (
     MetricSpec(
         name="ts_asymmetry",
-        cell=cell(FactorScope.COMMON, Signal.CONTINUOUS, mode=Mode.PANEL),
+        cell=cell(FactorScope.COMMON, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL),
         family="cs-first",
         inference="NW HAC Wald",
         primitives=(

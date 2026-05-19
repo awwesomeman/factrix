@@ -19,7 +19,7 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
+from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode, Visibility
 from factrix._metric_index import MetricSpec, SampleFloor, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -50,9 +50,9 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 
 _IC_CELL = cell(
     FactorScope.INDIVIDUAL,
-    Signal.CONTINUOUS,
+    FactorSignal.CONTINUOUS,
     metric=Metric.IC,
-    mode=Mode.PANEL,
+    mode=PanelMode.PANEL,
 )
 _IC_PRIMITIVES = (
     "_newey_west_t_test",

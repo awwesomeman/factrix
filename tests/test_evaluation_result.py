@@ -13,7 +13,7 @@ from factrix import (
     Warning,
     WarningCode,
 )
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
 from factrix._metric_index import spec_by_name
 
 
@@ -56,8 +56,8 @@ def _sample_result(
 ) -> EvaluationResult:
     return EvaluationResult(
         factor="mom_12_1",
-        axes=(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
-        mode=Mode.PANEL,
+        axes=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC),
+        mode=PanelMode.PANEL,
         forward_periods=5,
         n_obs=100,
         n_assets=25,

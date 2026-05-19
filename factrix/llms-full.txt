@@ -25,7 +25,7 @@ statistical procedure.
 - `COMMON` — a single factor value is broadcast to all assets per date (macro
   signal, e.g. VIX)
 
-**Signal** — the value type:
+**FactorSignal** — the value type:
 - `CONTINUOUS` — real-valued (returns, z-scores, raw fundamentals)
 - `SPARSE` — `{0, R}` event trigger: zero on non-event entries, arbitrary real
   magnitude otherwise (event flags, regime dummies; canonical `{-1, 0, +1}`)
@@ -39,7 +39,7 @@ For all other cells (`INDIVIDUAL × SPARSE`, `COMMON × CONTINUOUS`,
 `COMMON × SPARSE`) the procedure is uniquely determined by `scope × signal`,
 so `metric=None`.
 
-**Mode** — derived at evaluate time, never set by the user:
+**PanelMode** — derived at evaluate time, never set by the user:
 - `PANEL` — `n_assets > 1`
 - `TIMESERIES` — `n_assets == 1`
 
@@ -108,9 +108,9 @@ for memory efficiency on large sources).
 `panel`; the returned list of `FactorProfile` is aligned to that order —
 even when the list has one element (`fx.evaluate(panel, cfg)[0]`).
 All factors in one call share the same dispatch cell (locked by
-`config`) and the same `Mode` (derived once from
+`config`) and the same `PanelMode` (derived once from
 `panel["asset_id"].n_unique()`) — comparability of the returned
-profiles is therefore guaranteed by construction. **Mode is
+profiles is therefore guaranteed by construction. **PanelMode is
 batch-global by design**; per-factor mode derivation (e.g. routing
 each column independently based on its own NaN-pattern's
 `n_unique`) would let one call return profiles from different
@@ -143,7 +143,7 @@ Frozen dataclass. All fields are read-only.
 
 ```
 profile.config            : AnalysisConfig
-profile.mode              : Mode                        # PANEL or TIMESERIES (derived)
+profile.mode              : PanelMode                        # PANEL or TIMESERIES (derived)
 profile.primary_p         : float                       # procedure-canonical p-value
 profile.primary_stat      : float | None                # test stat paired with primary_p (None for empirical-p)
 profile.primary_stat_name : StatCode                    # stats-key pointer for primary_stat (e.g. StatCode.T_NW); serialised to .value in diagnose()
@@ -417,7 +417,7 @@ schema).
 ### `list_metrics` / `list_estimators`
 
 ```
-factrix.list_metrics(scope: FactorScope, signal: Signal,
+factrix.list_metrics(scope: FactorScope, signal: FactorSignal,
                      *, format: Literal["text", "json"] = "text"
                      ) -> list[str] | list[dict[str, Any]]
     # Standalone metrics applicable to a (scope, signal) cell.
@@ -427,11 +427,11 @@ factrix.list_metrics(scope: FactorScope, signal: Signal,
     # docs-root-relative path + mkdocstrings symbol fragment;
     # emitted_name is the literal MetricOutput.name (usually equals
     # name, but a few metrics emit a different label — fama_macbeth
-    # → fm_beta, etc.). Mode is not an input — applicability does
+    # → fm_beta, etc.). PanelMode is not an input — applicability does
     # not change across PANEL / TIMESERIES.
     # Raises IncompatibleAxisError if the pair has no registered metrics.
 
-factrix.list_estimators(scope: FactorScope, signal: Signal,
+factrix.list_estimators(scope: FactorScope, signal: FactorSignal,
                         *, format: Literal["text", "json"] = "text",
                         with_import: bool = False
                         ) -> list[str] | list[dict[str, Any]]
@@ -464,7 +464,7 @@ from factrix._metric_index import MetricSpec, cell
 @fx.metric_spec(
     MetricSpec(
         name="custom_ic",
-        cell=cell(fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS),
+        cell=cell(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS),
         family="cs-first",
         inference="NW HAC",
     )

@@ -32,7 +32,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, Visibility, emitted_name_of
 from factrix._results import EvaluationResult, MetricResult, Warning
@@ -140,7 +140,7 @@ class DagExecutor:
         factor_cols: Sequence[str],
         *,
         scope: FactorScope,
-        signal: Signal,
+        signal: FactorSignal,
         metric: Metric | None,
         forward_periods: int,
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
@@ -158,7 +158,7 @@ class DagExecutor:
         kwargs_by_metric = kwargs_by_metric or {}
         cols = list(factor_cols)
         n_assets = panel.select(pl.col("asset_id").n_unique()).item()
-        mode = Mode.PANEL if n_assets > 1 else Mode.TIMESERIES
+        mode = PanelMode.PANEL if n_assets > 1 else PanelMode.TIMESERIES
         projections: dict[str, pl.DataFrame] = {}
 
         producer_outputs: dict[tuple[str, str], Any] = {}
@@ -228,10 +228,10 @@ class DagExecutor:
         self,
         cols: Sequence[str],
         scope: FactorScope,
-        signal: Signal,
+        signal: FactorSignal,
         metric: Metric | None,
         forward_periods: int,
-        mode: Mode,
+        mode: PanelMode,
         n_assets: int,
         metric_outputs: Mapping[tuple[str, str], MetricOutput],
     ) -> dict[str, EvaluationResult]:

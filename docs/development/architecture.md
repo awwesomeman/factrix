@@ -8,7 +8,7 @@ Current-state snapshot of the public API surface and internal layout.
 
 ## Positioning
 
-**factrix is a Factor Signal Validator, not a backtest engine.**
+**factrix is a Factor FactorSignal Validator, not a backtest engine.**
 
 The library produces a single `primary_p` per factor cell from a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
 canonical procedure (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
@@ -24,7 +24,7 @@ flowchart TD
     User["User<br/>(scope / signal / metric)"]
     AC["AnalysisConfig<br/>4 factory methods"]
     REG["Registry<br/>_registry.py SSOT (7 cells)"]
-    MODE{"Mode<br/>N = panel.asset_id.n_unique()"}
+    MODE{"PanelMode<br/>N = panel.asset_id.n_unique()"}
     PROC["FactorProcedure<br/>cell-dispatched"]
     FP["FactorProfile<br/>primary_p · diagnose()"]
     BHY["multi_factor.bhy()<br/>BHY FDR correction"]
@@ -59,7 +59,7 @@ Entry points, all in `factrix.__init__`:
 
 Plus introspection / error / enum re-exports:
 
-- `fx.FactorScope`, `fx.Signal` — user-facing axes
+- `fx.FactorScope`, `fx.FactorSignal` — user-facing axes
 - `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured result codes
 - `fx.FactrixError`, `fx.ConfigError`, `fx.IncompatibleAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
@@ -67,13 +67,13 @@ Plus introspection / error / enum re-exports:
 
 ---
 
-## Mode — the derived fourth axis
+## PanelMode — the derived fourth axis
 
-The three user-facing axes (`FactorScope`, `Signal`, `Metric`) are the SSOT;
+The three user-facing axes (`FactorScope`, `FactorSignal`, `Metric`) are the SSOT;
 see [Concepts § Three orthogonal axes](../getting-started/concepts.md#three-orthogonal-axes)
 for their values and orthogonality.
 
-`Mode` is the fourth axis but is **not user-facing** — it is derived at
+`PanelMode` is the fourth axis but is **not user-facing** — it is derived at
 evaluate-time from `panel["asset_id"].n_unique()`: `PANEL` for `N ≥ 2`,
 `TIMESERIES` for `N = 1`. Five legal `(scope, signal, metric)` triples ×
 two modes give seven legal `(scope, signal, metric, mode)` cells
@@ -130,7 +130,7 @@ for the per-cell canonical statistic / references and
 @dataclass(frozen=True, slots=True)
 class FactorProfile:
     config: AnalysisConfig
-    mode: Mode
+    mode: PanelMode
     primary_p: float
     primary_stat: float | None     # test stat paired with primary_p
     primary_stat_name: StatCode    # stats-key pointer (serialised to .value in diagnose())
@@ -347,7 +347,7 @@ Failure modes:
 ### `individual_continuous(FM)` — cross-section first
 
 ```
-per-date OLS R = α + β·Signal across n_assets   (cross-section step)
+per-date OLS R = α + β·FactorSignal across n_assets   (cross-section step)
                                               →  n_periods-length λ time series
                                               →  NW HAC t-test on mean(λ)   (time-series step)
 ```
@@ -557,7 +557,7 @@ Two-tier metric organisation. Choosing the right tier when adding a new metric:
 ### When to register
 
 Add a registry procedure **only** when introducing a new legal cell on the axis
-(`FactorScope × Signal × Metric × Mode`). The 7-cell invariant (`_registry.py::_EXPECTED_REGISTRY_SIZE`)
+(`FactorScope × FactorSignal × Metric × PanelMode`). The 7-cell invariant (`_registry.py::_EXPECTED_REGISTRY_SIZE`)
 is a load-bearing assert — adding to the registry without adding a new cell would
 mean two canonical procedures compete for the same dispatch, breaking the SSOT
 contract.
@@ -595,7 +595,7 @@ themselves if FDR control is needed across a batch of standalone runs.
 ```
 factrix/
 ├── __init__.py              # public surface
-├── _axis.py                 # FactorScope / Signal / Metric / Mode StrEnums
+├── _axis.py                 # FactorScope / FactorSignal / Metric / PanelMode StrEnums
 ├── _codes.py                # WarningCode / InfoCode / StatCode StrEnums
 ├── _errors.py               # FactrixError → ConfigError → {IncompatibleAxisError, ModeAxisError, InsufficientSampleError}
 ├── _analysis_config.py      # AnalysisConfig + 4 factories + _FALLBACK_MAP

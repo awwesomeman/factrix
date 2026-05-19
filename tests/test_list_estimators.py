@@ -8,7 +8,7 @@ on the empty cell.
 from __future__ import annotations
 
 import pytest
-from factrix import FactorScope, Signal, list_estimators
+from factrix import FactorScope, FactorSignal, list_estimators
 from factrix._errors import IncompatibleAxisError
 
 
@@ -19,7 +19,7 @@ from factrix._errors import IncompatibleAxisError
         # (INDIVIDUAL, CONTINUOUS); NW applies universally.
         (
             FactorScope.INDIVIDUAL,
-            Signal.CONTINUOUS,
+            FactorSignal.CONTINUOUS,
             [
                 "BlockBootstrap",
                 "GMM",
@@ -29,19 +29,21 @@ from factrix._errors import IncompatibleAxisError
                 "WaldTwoWayCluster",
             ],
         ),
-        (FactorScope.INDIVIDUAL, Signal.SPARSE, ["NeweyWest"]),
-        (FactorScope.COMMON, Signal.CONTINUOUS, ["NeweyWest"]),
-        (FactorScope.COMMON, Signal.SPARSE, ["NeweyWest"]),
+        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE, ["NeweyWest"]),
+        (FactorScope.COMMON, FactorSignal.CONTINUOUS, ["NeweyWest"]),
+        (FactorScope.COMMON, FactorSignal.SPARSE, ["NeweyWest"]),
     ],
 )
 def test_text_format_returns_name_list(
-    scope: FactorScope, signal: Signal, expected: list[str]
+    scope: FactorScope, signal: FactorSignal, expected: list[str]
 ) -> None:
     assert list_estimators(scope, signal) == expected
 
 
 def test_json_format_includes_metadata_keys() -> None:
-    rows = list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, format="json")
+    rows = list_estimators(
+        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json"
+    )
     by_name = {row["name"]: row for row in rows}
     assert "Bartlett" in by_name["NeweyWest"]["description"]
     assert by_name["NeweyWest"]["import_path"] == "factrix.stats.NeweyWest"
@@ -50,7 +52,9 @@ def test_json_format_includes_metadata_keys() -> None:
 
 
 def test_with_import_returns_two_column_lines() -> None:
-    rows = list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, with_import=True)
+    rows = list_estimators(
+        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, with_import=True
+    )
     assert rows == [
         "BlockBootstrap    → factrix.stats.BlockBootstrap",
         "GMM               → factrix.stats.GMM",
@@ -64,7 +68,7 @@ def test_with_import_returns_two_column_lines() -> None:
 def test_with_import_ignored_under_json() -> None:
     json_rows = list_estimators(
         FactorScope.INDIVIDUAL,
-        Signal.CONTINUOUS,
+        FactorSignal.CONTINUOUS,
         format="json",
         with_import=True,
     )
@@ -82,4 +86,4 @@ def test_empty_match_raises_incompatible_axis_error(
 
     monkeypatch.setattr(stats_pkg, "_ESTIMATOR_REGISTRY", ())
     with pytest.raises(IncompatibleAxisError):
-        list_estimators(FactorScope.INDIVIDUAL, Signal.CONTINUOUS)
+        list_estimators(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)

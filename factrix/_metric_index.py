@@ -23,7 +23,7 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
     __metric_specs__ = (
         MetricSpec(
             name="my_metric",
-            cell=cell(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, mode=Mode.PANEL),
+            cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL),
             family="cs-first",
             inference="NW HAC / cross-asset t",
             primitives=("_calc_t_stat", "_p_value_from_t"),
@@ -41,7 +41,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from factrix._axis import FactorScope, Metric, Mode, Signal, Visibility
+from factrix._axis import FactorScope, FactorSignal, Metric, PanelMode, Visibility
 from factrix._errors import IncompatibleAxisError
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -70,22 +70,22 @@ class Cell:
 
     :meth:`matches` filters on whichever axes the caller supplies a
     concrete value for. Pass ``mode=`` to enforce mode applicability
-    (e.g. ``IC`` cell declares ``mode=Mode.PANEL`` because IC has no
+    (e.g. ``IC`` cell declares ``mode=PanelMode.PANEL`` because IC has no
     cross-section in TIMESERIES); omit it for axis-only queries that
     do not care about runtime mode.
     """
 
     scope: FactorScope | None
-    signal: Signal | None
+    signal: FactorSignal | None
     metric: Metric | None
-    mode: Mode | None
+    mode: PanelMode | None
     raw: str
 
     def matches(
         self,
         scope: FactorScope,
-        signal: Signal,
-        mode: Mode | None = None,
+        signal: FactorSignal,
+        mode: PanelMode | None = None,
     ) -> bool:
         """Return True if this cell is applicable to ``(scope, signal[, mode])``.
 
@@ -98,7 +98,7 @@ class Cell:
         return scope_ok and signal_ok and mode_ok
 
 
-def _axis_token(value: FactorScope | Signal | Metric | Mode | None) -> str:
+def _axis_token(value: FactorScope | FactorSignal | Metric | PanelMode | None) -> str:
     """Render an axis enum (or ``None`` = wildcard) as its uppercase token."""
     if value is None:
         return "*"
@@ -107,9 +107,9 @@ def _axis_token(value: FactorScope | Signal | Metric | Mode | None) -> str:
 
 def cell(
     scope: FactorScope | None,
-    signal: Signal | None,
+    signal: FactorSignal | None,
     metric: Metric | None = None,
-    mode: Mode | None = None,
+    mode: PanelMode | None = None,
     *,
     raw: str | None = None,
 ) -> Cell:
@@ -466,14 +466,14 @@ def register(fn: Callable[..., Any]) -> None:
 
 def list_metrics(
     scope: FactorScope,
-    signal: Signal,
+    signal: FactorSignal,
     *,
     format: Literal["text", "json"] = "text",
     with_import: bool = False,
 ) -> list[str] | list[dict[str, Any]]:
     """Return standalone metrics applicable to ``(scope, signal)``.
 
-    Mode is intentionally not an input — applicability does not change
+    PanelMode is intentionally not an input — applicability does not change
     across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
     Source of truth is the module-level ``__metric_specs__`` tuple in
     each metric module, loaded by :mod:`factrix._metric_index`.
@@ -481,8 +481,8 @@ def list_metrics(
     Args:
         scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
             ``FactorScope.COMMON``).
-        signal: Cell axis to filter on (``Signal.CONTINUOUS`` or
-            ``Signal.SPARSE``).
+        signal: Cell axis to filter on (``FactorSignal.CONTINUOUS`` or
+            ``FactorSignal.SPARSE``).
         format: ``"text"`` (default) returns metric names sorted by
             ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
             with keys ``name``, ``module``, ``cell``, ``agg_order``,
@@ -513,13 +513,13 @@ def list_metrics(
 
         >>> import factrix as fx
         >>> names = fx.list_metrics(
-        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS,
+        ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS,
         ... )
 
         JSON form (for tooling — adds module / cell / import_path keys):
 
         >>> rows = fx.list_metrics(
-        ...     fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
         ... )
     """
     matches = [

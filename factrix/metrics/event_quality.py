@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import FactorSignal, PanelMode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -43,7 +43,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "signal_density",
 ]
 
-_EQ_CELL = cell(None, Signal.SPARSE, mode=Mode.PANEL)
+_EQ_CELL = cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL)
 _EQ_PRIMITIVES = (
     "_binomial_two_sided_p",
     "_significance_marker",

@@ -3,7 +3,7 @@ title: Glossary
 ---
 
 factrix names its dispatch axes after the structure of the data
-(`Scope × Signal`) and the regression layout (`Mode`). The literature
+(`Scope × FactorSignal`) and the regression layout (`PanelMode`). The literature
 this borrows from uses overlapping but **not identical** vocabulary —
 this glossary maps the factrix terms to their nearest industry
 equivalents and flags collisions where the same word means different
@@ -56,7 +56,7 @@ problem (the loadings *are* the per-asset characteristic). A Barra
 "common factor" treated as a single series shared across assets is a
 factrix `COMMON × CONTINUOUS` problem.
 
-## Signal axis — `CONTINUOUS` vs `SPARSE`
+## FactorSignal axis — `CONTINUOUS` vs `SPARSE`
 
 ### `CONTINUOUS`
 
@@ -81,9 +81,9 @@ distinction.
 - **Alphalens**: no direct equivalent — Alphalens assumes continuous
   characteristics. Event-study workflows live outside Alphalens.
 
-## Mode axis — `PANEL` vs `TIMESERIES`
+## PanelMode axis — `PANEL` vs `TIMESERIES`
 
-Mode is **derived from data** at evaluate-time, not configured:
+PanelMode is **derived from data** at evaluate-time, not configured:
 
 - `N ≥ 2` → `PANEL`.
 - `N == 1` → `TIMESERIES`.

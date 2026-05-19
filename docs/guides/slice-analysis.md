@@ -73,7 +73,7 @@ import factrix as fx
 panel_metrics = [
     r["name"]
     for r in fx.list_metrics(
-        fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
     )
     if r["input_kind"] == "panel"
 ]

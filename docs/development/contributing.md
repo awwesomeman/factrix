@@ -11,7 +11,7 @@ conventions (licensing / DCO / CLA).
 
 ## 1. Two development modes
 
-### Mode A — Standalone development (recommended for most cases)
+### PanelMode A — Standalone development (recommended for most cases)
 
 Clone the factrix repo directly, isolated venv, fastest cycle:
 
@@ -26,7 +26,7 @@ uv run pytest        # confirm baseline is green
 Isolated environment, no risk of accidentally touching downstream
 research, shortest test cycle.
 
-### Mode B — In-workspace development (via submodule)
+### PanelMode B — In-workspace development (via submodule)
 
 Edit from the downstream workspace (`factor-analysis`) under
 `external/factorlib/`—you can change factrix and observe the effect in
@@ -53,9 +53,9 @@ uv run jupyter notebook
 - Debugging a "bug that only appears in the research environment"—real
   data context required to reproduce
 - Changing an API for a known downstream need, with immediate verification
-- Small tweaks (< 10 lines) that don't justify Mode A's setup overhead
+- Small tweaks (< 10 lines) that don't justify PanelMode A's setup overhead
 
-**Caution**: Mode B has three critical pitfalls; see §4 below.
+**Caution**: PanelMode B has three critical pitfalls; see §4 below.
 
 ---
 
@@ -211,7 +211,7 @@ git config --global user.email "your-new-email@example.com"
 
 ---
 
-## 4. Three critical pitfalls of Mode B
+## 4. Three critical pitfalls of PanelMode B
 
 ### G1. Submodule = detached HEAD (the biggest trap)
 
@@ -268,7 +268,7 @@ git commit -m "chore: bump factrix to <short-sha>: <why>"
 
 ## 5. Submodule sync reference
 
-Command index for Mode B and consumer-workspace daily ops. The cheat
+Command index for PanelMode B and consumer-workspace daily ops. The cheat
 sheet covers 90% of cases; read the mental model and scenarios below
 only when the cheat sheet is unclear.
 
@@ -440,8 +440,8 @@ reference`, `Release notes`) follow the same rule.
   the page's first paragraph or the `Glossary` entry, not the sidebar.
 - **Universal technical acronyms are an exception** — `API` is not
   expanded.
-- **Code identifiers do not appear in CAPS in nav labels.** Mode enum
-  values (`Mode.PANEL` / `Mode.TIMESERIES`) become `Panel` / `Timeseries`
+- **Code identifiers do not appear in CAPS in nav labels.** PanelMode enum
+  values (`PanelMode.PANEL` / `PanelMode.TIMESERIES`) become `Panel` / `Timeseries`
   in nav; reach for backticks inside body prose when the literal
   identifier matters. Dataclass / class names inside `Results` (e.g.
   `MetricOutput`, `FactorProfile`) keep PascalCase because that node *is*
@@ -755,7 +755,7 @@ PR (no CI gate):
   `FactorProfile`)
 - `WarningCode` / `InfoCode` / `StatCode` additions, renames, or
   description rewrites
-- Mode dispatch rules or canonical panel schema changes
+- PanelMode dispatch rules or canonical panel schema changes
 
 PR self-check: run all three code blocks, `uv run mkdocs build
 --strict` clean, `tiktoken` cl100k count < 8000.
@@ -925,7 +925,7 @@ Downstream research workspaces should generally **pin to a tag** (not
 main HEAD), so each workspace commit corresponds to a clear factrix
 version and remains reproducible.
 
-Main HEAD is used only temporarily during Mode B development (debug
+Main HEAD is used only temporarily during PanelMode B development (debug
 flow); once finished, merge back into factrix main, tag, and let the
 workspace bump to the tag.
 

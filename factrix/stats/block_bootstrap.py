@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from factrix._axis import FactorScope, Metric, Signal
+from factrix._axis import FactorScope, FactorSignal, Metric
 from factrix._codes import StatCode
 
 
@@ -85,13 +85,13 @@ class BlockBootstrap:
             f"({self.scheme} scheme, {bl}, B={self.n_resamples})."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: Signal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
+        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: Signal,
+        _signal: FactorSignal,
         _metric: Metric | None,
     ) -> StatCode:
         return StatCode.P_BOOT

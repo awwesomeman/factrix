@@ -7,7 +7,7 @@
 ## Pages
 
 - [Get Started](https://awwesomeman.github.io/factrix/getting-started/): installation, quickstart, three-axis concepts
-- [Concepts](https://awwesomeman.github.io/factrix/getting-started/concepts/): FactorScope / Signal / Metric / Mode explained
+- [Concepts](https://awwesomeman.github.io/factrix/getting-started/concepts/): FactorScope / FactorSignal / Metric / PanelMode explained
 - [Quickstart](https://awwesomeman.github.io/factrix/getting-started/quickstart/): five-minute end-to-end example
 - [Guides](https://awwesomeman.github.io/factrix/guides/): Panel vs timeseries, BHY batch screening, choosing a metric
 - [API — AnalysisConfig](https://awwesomeman.github.io/factrix/api/analysis-config/): four factory methods, from_dict / to_dict

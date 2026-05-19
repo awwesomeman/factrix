@@ -51,7 +51,7 @@ factory. For task-oriented help on **picking** the right factory (information co
 when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 
 !!! note "N = 1 (single asset / series)"
-    `Mode` auto-switches to `TIMESERIES`. The `common_continuous` and
+    `PanelMode` auto-switches to `TIMESERIES`. The `common_continuous` and
     `*_sparse` factories work as-is. `individual_continuous` at N=1 raises
     `ModeAxisError` with `suggested_fix=common_continuous(...)`.
 

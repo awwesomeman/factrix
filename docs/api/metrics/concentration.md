@@ -59,7 +59,7 @@ title: factrix.metrics.concentration
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    # Signal-level concentration (no return dependence)
+    # FactorSignal-level concentration (no return dependence)
     sig = top_concentration(panel, forward_periods=5, q_top=0.2,
                             weight_by="abs_factor")
     print(sig.value, sig.metadata["ratio_eff_to_total"], sig.stat)

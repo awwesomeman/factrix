@@ -12,9 +12,9 @@ returns the full set of standalone callables under
 [`factrix.metrics`](metrics/index.md) that the user can additionally
 invoke once `evaluate()` has produced a `FactorProfile`.
 
-## Mode axis is not an input
+## PanelMode axis is not an input
 
-`Mode` is intentionally not a parameter — applicability does not
+`PanelMode` is intentionally not a parameter — applicability does not
 change across PANEL / TIMESERIES (see
 [Metric applicability](../reference/metric-applicability.md) for the
 underlying matrix). See the docstring Examples block above for the
@@ -27,7 +27,7 @@ that pairs each metric with its submodule path:
 
 ```python
 print("\n".join(fx.list_metrics(
-    fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, with_import=True,
+    fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, with_import=True,
 )))
 # ic                       → factrix.metrics.ic
 # ic_ir                    → factrix.metrics.ic
@@ -52,7 +52,7 @@ the module-level `Matrix-row:` tag.
 ```python
 fx.list_metrics(
     fx.FactorScope.INDIVIDUAL,
-    fx.Signal.CONTINUOUS,
+    fx.FactorSignal.CONTINUOUS,
     format="json",
 )
 # -> [
@@ -99,7 +99,7 @@ Filter the JSON output to enumerate `by_slice`-eligible metrics:
 ```python
 panel_metrics = [
     r for r in fx.list_metrics(
-        fx.FactorScope.INDIVIDUAL, fx.Signal.CONTINUOUS, format="json",
+        fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
     )
     if r["input_kind"] == "panel"
 ]

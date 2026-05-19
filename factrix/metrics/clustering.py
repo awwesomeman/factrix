@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Mode, Signal
+from factrix._axis import FactorSignal, PanelMode
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -27,7 +27,7 @@ from factrix.metrics._helpers import _short_circuit_output
 __metric_specs__ = (
     MetricSpec(
         name="clustering_diagnostic",
-        cell=cell(None, Signal.SPARSE, mode=Mode.PANEL),
+        cell=cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL),
         family="static-cs",
         inference="no formal H_0",
         primitives=("_short_circuit_output",),

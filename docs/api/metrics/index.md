@@ -26,28 +26,28 @@ Reverse index — match your situation to the likely landing page:
 For sample-size guards (when a metric short-circuits to NaN) see
 [Reference § Metric applicability](../../reference/metric-applicability.md).
 
-## Cell vs. Mode
+## Cell vs. PanelMode
 
 factrix has **two orthogonal classifications** that are easy to confuse:
 
 | | Describes | Set by | Values |
 |---|---|---|---|
-| **Cell** (`Scope × Signal × Metric`) | What kind of factor it is | The user, via `AnalysisConfig` | `Individual` / `Common`; `Continuous` / `Sparse`; `IC` / `FM` / `None` |
-| **Mode** | Sample regime | Derived from `N` at evaluate-time | `PANEL` (`N ≥ 2`) / `TIMESERIES` (`N == 1`) |
+| **Cell** (`Scope × FactorSignal × Metric`) | What kind of factor it is | The user, via `AnalysisConfig` | `Individual` / `Common`; `Continuous` / `Sparse`; `IC` / `FM` / `None` |
+| **PanelMode** | Sample regime | Derived from `N` at evaluate-time | `PANEL` (`N ≥ 2`) / `TIMESERIES` (`N == 1`) |
 
-**This page groups metrics by *cell*, not by Mode.** Any cell can run
-in either Mode — the dispatch registry picks the matching procedure
+**This page groups metrics by *cell*, not by PanelMode.** Any cell can run
+in either PanelMode — the dispatch registry picks the matching procedure
 variant when a `Common × Continuous` factor is evaluated against
 single-asset data, the cell is still `Common × Continuous`, the
 metrics still live under **Common continuous** below, and the only
-thing that changes is `Mode = TIMESERIES`.
+thing that changes is `PanelMode = TIMESERIES`.
 
 See [Concepts](../../getting-started/concepts.md) for the full
 three-axis design and how factories map to cells.
 
 ## Layout
 
-The four `Scope × Signal` cells map to **three groups of metric
+The four `Scope × FactorSignal` cells map to **three groups of metric
 modules plus a fourth axis-agnostic group**:
 
 | Cell | Group on this nav | Notes |
@@ -60,7 +60,7 @@ modules plus a fourth axis-agnostic group**:
 **Series diagnostics** (`hit_rate`, `trend`, `oos`) are axis-agnostic —
 they operate on any `(date, value)` series produced by the upstream
 cell metrics and are not bound to a specific cell. Distinct from
-`Mode.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
+`PanelMode.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
 
 ## How to read a metric page
 

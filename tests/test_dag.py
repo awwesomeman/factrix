@@ -7,7 +7,7 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, Metric, Signal, Visibility
+from factrix._axis import FactorScope, FactorSignal, Metric, Visibility
 from factrix._dag import CycleError, DagExecutor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._types import MetricOutput
@@ -113,7 +113,7 @@ class TestBatchablePath:
         )
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": Signal.CONTINUOUS,
+            "signal": FactorSignal.CONTINUOUS,
             "metric": Metric.IC,
             "forward_periods": 1,
         }
@@ -148,7 +148,7 @@ class TestPerFactorPath:
         spec = _make_spec("panel_consumer")
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": Signal.CONTINUOUS,
+            "signal": FactorSignal.CONTINUOUS,
             "metric": Metric.IC,
             "forward_periods": 1,
         }
@@ -183,7 +183,7 @@ class TestStage1Share:
 
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": Signal.CONTINUOUS,
+            "signal": FactorSignal.CONTINUOUS,
             "metric": Metric.IC,
             "forward_periods": 1,
         }
@@ -224,7 +224,7 @@ class TestShortCircuitPropagation:
         consumer_spec = _make_spec("consumer", requires={"ic_df": producer})
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": Signal.CONTINUOUS,
+            "signal": FactorSignal.CONTINUOUS,
             "metric": Metric.IC,
             "forward_periods": 1,
         }
@@ -347,7 +347,7 @@ class TestEndToEndIcCell:
         specs = [by_name["compute_ic"], by_name["ic"], by_name["ic_ir"]]
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": Signal.CONTINUOUS,
+            "signal": FactorSignal.CONTINUOUS,
             "metric": Metric.IC,
             "forward_periods": 5,
         }
