@@ -8,10 +8,67 @@ synthetic panels locally.
 """
 
 from datetime import datetime, timedelta
+from typing import Any
 
 import numpy as np
 import polars as pl
 import pytest
+from factrix._axis import FactorScope, Metric, Mode, Signal
+from factrix._metric_index import Cell, MetricSpec
+from factrix._results import EvaluationResult, MetricResult
+from factrix._types import MetricOutput
+
+
+def make_spec(name: str) -> MetricSpec:
+    """Minimal panel-cell MetricSpec for test fixtures."""
+    return MetricSpec(
+        name=name,
+        cell=Cell(scope=None, signal=None, metric=None, mode=None, raw="*"),
+        family="cs-first",
+        inference="test",
+    )
+
+
+def make_result(
+    *,
+    factor: str,
+    p: float | None,
+    primary: MetricSpec,
+    value: float = 0.05,
+    forward_periods: int = 5,
+    context: dict[str, Any] | None = None,
+    extra_outputs: dict[str, MetricOutput] | None = None,
+    extra_primaries: tuple[MetricSpec, ...] = (),
+) -> EvaluationResult:
+    """Build an :class:`EvaluationResult` carrying the named primary metric.
+
+    ``p=None`` simulates a metric output that emitted no p-value
+    (exercising the family resolver's missing-p path).
+    """
+    metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
+    primary_out = MetricOutput(
+        name=primary.name, value=value, n_obs=100, spec=primary, metadata=metadata
+    )
+    outputs = {primary.name: primary_out}
+    if extra_outputs:
+        outputs.update(extra_outputs)
+    primaries = [primary, *extra_primaries]
+    return EvaluationResult(
+        factor=factor,
+        axes=(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
+        mode=Mode.PANEL,
+        forward_periods=forward_periods,
+        n_obs=100,
+        n_assets=25,
+        metrics=MetricResult(
+            applicable=list(primaries),
+            primary=list(primaries),
+            diagnostic=[],
+            outputs=outputs,
+        ),
+        plan="1. test [per-factor]",
+        context=context or {},
+    )
 
 
 @pytest.fixture

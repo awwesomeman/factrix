@@ -58,6 +58,7 @@ def _sample_result(
         factor="mom_12_1",
         axes=(FactorScope.INDIVIDUAL, Signal.CONTINUOUS, Metric.IC),
         mode=Mode.PANEL,
+        forward_periods=5,
         n_obs=100,
         n_assets=25,
         metrics=group,

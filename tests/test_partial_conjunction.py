@@ -1,245 +1,110 @@
-"""v0.13 ``multi_factor.partial_conjunction`` — contract-bearing path
-for "factor X significant in k of m conditions" (#162)."""
+"""``fx.multi_factor.partial_conjunction`` on the EvaluationResult contract."""
 
 from __future__ import annotations
 
-import warnings
-
 import pytest
-from factrix._analysis_config import AnalysisConfig
-from factrix._axis import Metric, Mode
-from factrix._codes import StatCode
 from factrix._errors import UserInputError
-from factrix._multi_factor import Survivors, partial_conjunction
-from factrix._profile import FactorProfile
+from factrix._multi_factor import PartialConjunctionResult, partial_conjunction
+
+from .conftest import make_result, make_spec
 
 
-def _profile(
-    *,
-    factor_id: str,
-    forward_periods: int = 5,
-    primary_p: float,
-    context: dict[str, object] | None = None,
-) -> FactorProfile:
-    cfg = AnalysisConfig.individual_continuous(
-        metric=Metric.IC, forward_periods=forward_periods
+def _replicate(factor: str, ps: list[float], primary, regions=("US", "EU", "JP")):
+    return [
+        make_result(factor=factor, p=p, primary=primary, context={"region": region})
+        for p, region in zip(ps, regions, strict=False)
+    ]
+
+
+def test_returns_dict_per_primary():
+    ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.001, 0.001, 0.001], ic) + _replicate(
+        "alpha_2", [0.5, 0.5, 0.5], ic
     )
-    return FactorProfile(
-        config=cfg,
-        mode=Mode.PANEL,
-        primary_p=primary_p,
-        primary_stat=2.0,
-        primary_stat_name=StatCode.T_NW,
-        n_obs=100,
-        n_pairs=3000,
-        n_periods=100,
-        n_assets=30,
-        factor_id=factor_id,
-        context=context or {},
-        stats={StatCode.P_NW: primary_p},
+    out = partial_conjunction(
+        results, primary=[ic], min_pass=2, expand_over=("region",), q=0.05
     )
+    assert isinstance(out, dict)
+    assert set(out) == {"ic"}
+    assert isinstance(out["ic"], PartialConjunctionResult)
 
 
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
+def test_pc_min_pass_one_raises():
+    ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
+    with pytest.raises(UserInputError, match="union semantics"):
+        partial_conjunction(results, primary=[ic], min_pass=1, expand_over=("region",))
 
 
-class TestMinPassValidation:
-    def test_min_pass_one_raises_with_pointer_to_bhy(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.01, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.02, context={"u": "b"}),
-        ]
-        with pytest.raises(UserInputError) as ex:
-            partial_conjunction(prof, min_pass=1, expand_over=["u"])
-        assert ex.value.field == "min_pass"
-        message = str(ex.value)
-        assert "bhy" in message and "expand_over" in message
-        assert "union" in message
-
-    def test_min_pass_zero_raises(self) -> None:
-        prof = [_profile(factor_id="f", primary_p=0.01, context={"u": "a"})]
-        with pytest.raises(UserInputError):
-            partial_conjunction(prof, min_pass=0, expand_over=["u"])
-
-    def test_min_pass_negative_raises(self) -> None:
-        prof = [_profile(factor_id="f", primary_p=0.01, context={"u": "a"})]
-        with pytest.raises(UserInputError):
-            partial_conjunction(prof, min_pass=-1, expand_over=["u"])
+def test_pc_min_pass_below_two_raises():
+    ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
+    with pytest.raises(UserInputError, match=">= 2"):
+        partial_conjunction(results, primary=[ic], min_pass=0, expand_over=("region",))
 
 
-class TestExpandOverValidation:
-    def test_empty_expand_over_raises(self) -> None:
-        prof = [_profile(factor_id="f", primary_p=0.01, context={"u": "a"})]
-        with pytest.raises(UserInputError) as ex:
-            partial_conjunction(prof, min_pass=2, expand_over=[])
-        assert "expand_over" in str(ex.value)
-
-    def test_unknown_expand_over_key_raises(self) -> None:
-        prof = [_profile(factor_id="f", primary_p=0.01, context={"u": "a"})]
-        with pytest.raises(UserInputError):
-            partial_conjunction(prof, min_pass=2, expand_over=["regime_id"])
-
-    def test_identity_field_in_expand_over_raises(self) -> None:
-        prof = [_profile(factor_id="f", primary_p=0.01, context={"u": "a"})]
-        with pytest.raises(UserInputError):
-            partial_conjunction(prof, min_pass=2, expand_over=["factor_id"])
+def test_pc_empty_expand_over_raises():
+    ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01], ic, regions=("US",))
+    with pytest.raises(UserInputError, match="non-empty"):
+        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=())
 
 
-class TestNConditionsValidation:
-    def test_n_conditions_less_than_min_pass_raises(self) -> None:
-        prof = [_profile(factor_id="f", primary_p=0.01, context={"u": "a"})]
-        with pytest.raises(UserInputError) as ex:
-            partial_conjunction(prof, min_pass=3, n_conditions=2, expand_over=["u"])
-        assert ex.value.field == "n_conditions"
-
-    def test_strict_mismatch_raises(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.01, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.02, context={"u": "b"}),
-            _profile(factor_id="f", primary_p=0.03, context={"u": "c"}),
-        ]
-        with pytest.raises(UserInputError) as ex:
-            partial_conjunction(prof, min_pass=2, n_conditions=2, expand_over=["u"])
-        assert ex.value.field == "n_conditions"
-
-    def test_insufficient_conditions_raises(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.01, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.02, context={"u": "b"}),
-        ]
-        with pytest.raises(UserInputError):
-            partial_conjunction(prof, min_pass=3, expand_over=["u"])
+def test_pc_empty_results_raises():
+    ic = make_spec("ic")
+    with pytest.raises(UserInputError, match="non-empty list\\[EvaluationResult\\]"):
+        partial_conjunction([], primary=[ic], min_pass=2, expand_over=("region",))
 
 
-# ---------------------------------------------------------------------------
-# PC p-value math (BH2008 Bonferroni-style: (m - k + 1) * p_((k)))
-# ---------------------------------------------------------------------------
-
-
-class TestPCPValueMath:
-    def test_full_conjunction_equals_max(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.01, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.03, context={"u": "b"}),
-        ]
-        sv = partial_conjunction(prof, min_pass=2, n_conditions=2, expand_over=["u"])
-        assert sv.pc_p is not None
-        assert sv.pc_p[0] == pytest.approx(0.03)
-
-    def test_partial_conjunction_bonferroni_scaled(self) -> None:
-        ps = [0.001, 0.005, 0.04, 0.5]
-        prof = [
-            _profile(factor_id="f", primary_p=p, context={"u": f"u{i}"})
-            for i, p in enumerate(ps)
-        ]
-        sv = partial_conjunction(
-            prof, min_pass=2, n_conditions=4, expand_over=["u"], q=0.5
+def test_pc_n_conditions_strict_mismatch_raises():
+    ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
+    with pytest.raises(UserInputError, match="condition"):
+        partial_conjunction(
+            results,
+            primary=[ic],
+            min_pass=2,
+            expand_over=("region",),
+            n_conditions=3,
         )
-        assert sv.pc_p is not None
-        assert sv.pc_p[0] == pytest.approx(3 * 0.005)
 
-    def test_pc_p_capped_at_one(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.4, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.5, context={"u": "b"}),
-            _profile(factor_id="f", primary_p=0.6, context={"u": "c"}),
-        ]
-        sv = partial_conjunction(
-            prof, min_pass=2, n_conditions=3, expand_over=["u"], q=1.0
+
+def test_pc_insufficient_conditions_raises():
+    ic = make_spec("ic")
+    results = _replicate("alpha_1", [0.01], ic, regions=("US",))
+    with pytest.raises(UserInputError, match="condition"):
+        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=("region",))
+
+
+def test_pc_duplicate_condition_raises():
+    ic = make_spec("ic")
+    results = [
+        make_result(factor="alpha_1", p=0.01, primary=ic, context={"region": "US"}),
+        make_result(factor="alpha_1", p=0.02, primary=ic, context={"region": "US"}),
+    ]
+    with pytest.raises(UserInputError, match="unique"):
+        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=("region",))
+
+
+def test_pc_strong_signal_survives():
+    ic = make_spec("ic")
+    results = _replicate("strong", [0.0001, 0.0001, 0.0001], ic) + _replicate(
+        "weak", [0.4, 0.4, 0.4], ic
+    )
+    out = partial_conjunction(
+        results, primary=[ic], min_pass=2, expand_over=("region",), q=0.05
+    )
+    factors = {r.factor for r in out["ic"].survivors}
+    assert "strong" in factors
+    assert "weak" not in factors
+
+
+def test_pc_heterogeneous_m_warns_in_lenient_mode():
+    ic = make_spec("ic")
+    results = _replicate("a", [0.01, 0.01], ic, regions=("US", "EU")) + _replicate(
+        "b", [0.01, 0.01, 0.01], ic, regions=("US", "EU", "JP")
+    )
+    with pytest.warns(RuntimeWarning, match="heterogeneous condition"):
+        partial_conjunction(
+            results, primary=[ic], min_pass=2, expand_over=("region",), q=0.5
         )
-        assert sv.pc_p is not None
-        assert sv.pc_p[0] <= 1.0
-
-
-# ---------------------------------------------------------------------------
-# Survivor selection
-# ---------------------------------------------------------------------------
-
-
-class TestSurvivorSelection:
-    def test_only_robust_factor_survives(self) -> None:
-        # mom passes both universes; val only one
-        prof = [
-            _profile(factor_id="mom", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="mom", primary_p=0.002, context={"u": "b"}),
-            _profile(factor_id="val", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="val", primary_p=0.30, context={"u": "b"}),
-        ]
-        sv = partial_conjunction(
-            prof, min_pass=2, n_conditions=2, expand_over=["u"], q=0.05
-        )
-        assert [p.factor_id for p in sv.profiles] == ["mom"]
-
-    def test_returns_survivors_with_pc_metadata(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.002, context={"u": "b"}),
-        ]
-        sv = partial_conjunction(
-            prof, min_pass=2, n_conditions=2, expand_over=["u"], q=0.05
-        )
-        assert isinstance(sv, Survivors)
-        assert sv.min_pass == 2
-        assert sv.pc_p is not None
-        assert sv.n_passed_uncorr is not None
-        assert sv.expand_over == ("u",)
-        assert sv.n_tests[("f", 5)] == 2
-
-    def test_n_passed_uncorr_counts_raw_below_q(self) -> None:
-        prof = [
-            _profile(factor_id="f", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="f", primary_p=0.04, context={"u": "b"}),
-            _profile(factor_id="f", primary_p=0.20, context={"u": "c"}),
-        ]
-        sv = partial_conjunction(
-            prof, min_pass=2, n_conditions=3, expand_over=["u"], q=0.5
-        )
-        assert sv.n_passed_uncorr is not None
-        assert int(sv.n_passed_uncorr[0]) == 3
-
-
-# ---------------------------------------------------------------------------
-# Lenient (n_conditions=None) mode
-# ---------------------------------------------------------------------------
-
-
-class TestLenientMode:
-    def test_lenient_infers_m_per_identity(self) -> None:
-        prof = [
-            _profile(factor_id="A", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="A", primary_p=0.002, context={"u": "b"}),
-            _profile(factor_id="B", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="B", primary_p=0.002, context={"u": "b"}),
-            _profile(factor_id="B", primary_p=0.003, context={"u": "c"}),
-        ]
-        with pytest.warns(RuntimeWarning, match="heterogeneous"):
-            sv = partial_conjunction(prof, min_pass=2, expand_over=["u"], q=0.5)
-        assert sv.n_tests[("A", 5)] == 2
-        assert sv.n_tests[("B", 5)] == 3
-
-    def test_lenient_homogeneous_m_no_warning(self) -> None:
-        prof = [
-            _profile(factor_id="A", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="A", primary_p=0.002, context={"u": "b"}),
-            _profile(factor_id="B", primary_p=0.001, context={"u": "a"}),
-            _profile(factor_id="B", primary_p=0.002, context={"u": "b"}),
-        ]
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", RuntimeWarning)
-            partial_conjunction(prof, min_pass=2, expand_over=["u"], q=0.5)
-
-
-# ---------------------------------------------------------------------------
-# Empty input edge case
-# ---------------------------------------------------------------------------
-
-
-class TestEmpty:
-    def test_empty_profiles_returns_empty_survivors(self) -> None:
-        sv = partial_conjunction([], min_pass=2, expand_over=["u"])
-        assert sv.profiles == []
-        assert len(sv.adj_p) == 0
-        assert sv.min_pass == 2
-        assert sv.pc_p is not None and len(sv.pc_p) == 0

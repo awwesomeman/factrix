@@ -111,6 +111,10 @@ class EvaluationResult:
         axes: ``(scope, signal, metric)`` tuple of the dispatched cell.
             ``metric`` may be ``None`` when the cell is metric-wildcard.
         mode: ``Mode.PANEL`` or ``Mode.TIMESERIES`` resolved at dispatch.
+        forward_periods: Forward-return horizon (rows) the evaluation
+            ran under. Carried through from the source ``AnalysisConfig``
+            so multi-horizon callers can partition / mix-warn without
+            re-threading the config.
         n_obs: Final-stage estimator sample size — the n the primary
             metric saw after trimming. Matches the cell's primary
             ``MetricOutput.n_obs`` when one exists; bundle-level field
@@ -120,6 +124,11 @@ class EvaluationResult:
         metrics: :class:`MetricResult` carrying the per-metric
             outputs and the applicable / primary / diagnostic spec
             partitions.
+        context: Caller-supplied free-form labels (e.g.
+            ``{"region": "US"}``, ``{"family": "momentum"}``). Read by
+            ``bhy(expand_over=...)`` / ``partial_conjunction`` /
+            ``bhy_hierarchical`` to partition or aggregate inputs;
+            empty dict means no labels attached.
         warnings: Flat list of :class:`Warning` records. Per-metric
             entries carry ``source=metric_name``; cross-metric or
             pre-dispatch entries carry ``source=None``.
@@ -137,10 +146,12 @@ class EvaluationResult:
     factor: str
     axes: tuple[FactorScope, Signal, Metric | None]
     mode: Mode
+    forward_periods: int
     n_obs: int
     n_assets: int
     metrics: MetricResult
     plan: str
+    context: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
 
     def to_frame(self) -> pl.DataFrame:
@@ -210,8 +221,10 @@ class EvaluationResult:
                 "metric": metric.value if metric is not None else None,
             },
             "mode": self.mode.value,
+            "forward_periods": self.forward_periods,
             "n_obs": self.n_obs,
             "n_assets": self.n_assets,
+            "context": dict(self.context),
             "metrics": {
                 name: _metric_output_to_record(out)
                 for name, out in self.metrics.outputs.items()
@@ -234,14 +247,17 @@ class EvaluationResult:
     def _repr_html_(self) -> str:
         scope, signal, metric = self.axes
         metric_token = metric.value if metric is not None else "*"
-        header_rows = [
+        header_rows: list[tuple[str, Any]] = [
             ("factor", self.factor),
             ("axes", f"({scope.value}, {signal.value}, {metric_token})"),
             ("mode", self.mode.value),
+            ("forward_periods", self.forward_periods),
             ("n_obs", self.n_obs),
             ("n_assets", self.n_assets),
             ("n_metrics", len(self.metrics)),
         ]
+        if self.context:
+            header_rows.append(("context", dict(self.context)))
         if self.warnings:
             header_rows.append(("n_warnings", len(self.warnings)))
         header_html = "".join(

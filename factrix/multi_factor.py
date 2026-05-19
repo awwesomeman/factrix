@@ -1,16 +1,24 @@
-"""Public ``multi_factor`` namespace (plan §7.4).
+"""Public ``multi_factor`` namespace — collection-level FDR control.
 
-Currently exposes ``bhy`` only. ``redundancy_matrix`` /
-``spanning_test`` / ``orthogonalize`` from §7.4 land alongside the
-v0.4 deletion sweep that retires the existing v0.4 implementations
-of those primitives.
+Three procedure-paired result dataclasses (one per function) replace
+the v0.13 unified ``Survivors``; each function returns
+``dict[primary_name, *Result]`` keyed by ``MetricSpec.name``.
 """
 
 from factrix._multi_factor import (
-    Survivors,
+    BhyResult,
+    HierarchicalBhyResult,
+    PartialConjunctionResult,
     bhy,
     bhy_hierarchical,
     partial_conjunction,
 )
 
-__all__ = ["Survivors", "bhy", "bhy_hierarchical", "partial_conjunction"]
+__all__ = [
+    "BhyResult",
+    "HierarchicalBhyResult",
+    "PartialConjunctionResult",
+    "bhy",
+    "bhy_hierarchical",
+    "partial_conjunction",
+]

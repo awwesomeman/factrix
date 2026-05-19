@@ -85,36 +85,41 @@ jobs:
       - name: Run doctests
         run: uv run pytest --doctest-modules factrix/
 
-  examples:
-    name: example notebooks execute
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.8.x"
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen --python 3.12 --all-extras
-
-      - name: Execute examples/*.ipynb
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          notebooks=(examples/*.ipynb)
-          if [ ${#notebooks[@]} -eq 0 ]; then
-            echo "No notebooks found under examples/" >&2
-            exit 1
-          fi
-          for nb in "${notebooks[@]}"; do
-            echo "::group::$nb"
-            uv run jupyter nbconvert --to notebook --execute "$nb" --output-dir /tmp
-            echo "::endgroup::"
-          done
+  # examples job paused — examples/*.ipynb were deleted alongside #447 because
+  # they demoed the FactorProfile-era API (factor_id stamping, dataclasses.replace
+  # escape hatch, Survivors container) that retires under v0.14.0. Re-enable
+  # this job once fresh EvaluationResult-shaped notebooks land under examples/.
+  #
+  # examples:
+  #   name: example notebooks execute
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 10
+  #   steps:
+  #     - uses: actions/checkout@v6
+  #
+  #     - name: Install uv
+  #       uses: astral-sh/setup-uv@v7
+  #       with:
+  #         version: "0.8.x"
+  #         enable-cache: true
+  #
+  #     - name: Install dependencies
+  #       run: uv sync --frozen --python 3.12 --all-extras
+  #
+  #     - name: Execute examples/*.ipynb
+  #       run: |
+  #         set -euo pipefail
+  #         shopt -s nullglob
+  #         notebooks=(examples/*.ipynb)
+  #         if [ ${#notebooks[@]} -eq 0 ]; then
+  #           echo "No notebooks found under examples/" >&2
+  #           exit 1
+  #         fi
+  #         for nb in "${notebooks[@]}"; do
+  #           echo "::group::$nb"
+  #           uv run jupyter nbconvert --to notebook --execute "$nb" --output-dir /tmp
+  #           echo "::endgroup::"
+  #         done
 
   bench-tiny:
     name: bench-tiny smoke

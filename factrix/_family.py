@@ -1,44 +1,44 @@
-"""Shared family resolution layer for multiple-testing functions (#161, #170).
+"""Shared family resolution layer for multiple-testing functions.
 
 Every closed-form family function (``bhy`` / ``bhy_hierarchical`` /
-``partial_conjunction`` / ``bonferroni`` / ``holm``) and the
-resampling-based ``romano_wolf`` runs through ``_resolve_family`` to
-turn a list of :class:`~factrix._profile.FactorProfile` into flat
+``partial_conjunction``) runs through ``_resolve_family`` to turn a
+list of :class:`~factrix._results.EvaluationResult` into flat
 ``_FamilyEntry`` records ready for the procedure-specific step-up math.
 
-The four invariants enforced here are the family-layer extension of the
-identity / context anti-shopping defense from #160: ``identity``
-dimensions (``factor_id`` / ``forward_periods``) name *the hypothesis*,
-``context`` dimensions name *the slicing condition*, and ``expand_over``
-must stay in the latter — otherwise users would unwittingly let horizon
-or factor name participate in family partitioning.
-
-The ``estimator=`` override (#170) replaces the v0.10 ``p_stat=StatCode``
-placeholder. An :class:`~factrix.stats.Estimator` instance names *the
-inference method* whose p-value should drive the step-up math; the
-instance reports its applicability per cell and dispatches to the
-appropriate ``StatCode`` key in ``profile.stats``.
+The invariants enforced here are the family-layer extension of the
+anti-shopping defense: the hypothesis identity is
+``(factor, *expand_over_values)``; ``expand_over`` names are read
+from ``forward_periods`` (the lone non-context built-in slicing axis)
+or from ``EvaluationResult.context``. The estimator-override hook is
+gone — the new ``fx.estimators`` namespace bakes the inference choice
+into each MetricSpec name (e.g. ``ic_newey_west``), so callers pick
+the estimator by passing the corresponding ``primary`` MetricSpec.
 """
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from factrix._errors import UserInputError
+from factrix._metric_index import MetricSpec
 
 if TYPE_CHECKING:
-    from factrix._profile import FactorProfile
-    from factrix.stats import Estimator
+    from factrix._results import EvaluationResult
 
 
-_IDENTITY_FIELDS: frozenset[str] = frozenset({"factor_id", "forward_periods"})
+_BUILTIN_EXPAND_OVER_FIELDS: frozenset[str] = frozenset({"forward_periods"})
 
-# Docs fragment anchor for ``estimator=`` error messages. Single source
-# of truth so the family-resolution failure paths and any future docs
-# generation agree on the URL shape.
-_ESTIMATOR_DOCS_ANCHOR = "estimator"
+
+@dataclass(frozen=True, slots=True)
+class _PartitionEntry:
+    """Result-side partition record — identity + result, no p-value yet."""
+
+    identifier: tuple[Any, ...]
+    expand_over_values: tuple[Any, ...]
+    result: EvaluationResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,171 +46,189 @@ class _FamilyEntry:
     """Flat record fed to family-function procedures after invariant checks.
 
     Attributes:
-        identity: ``(factor_id, forward_periods)`` from
-            :attr:`FactorProfile.identity`.
-        expand_over_values: ``tuple(profile.context[k] for k in expand_over)``
-            in the order the caller passed ``expand_over``; empty tuple
-            when ``expand_over`` is None / empty.
-        p_value: Resolved per the ``estimator`` selection rule —
-            ``profile.primary_p`` when ``estimator is None``, else the
-            value at ``profile.stats[estimator.emits_for(...)]``.
-        profile: Back-reference for survivor-renderer use; never read by
-            the resolution layer itself.
+        identifier: ``(factor, *expand_over_values)`` — the hypothesis
+            key. With no ``expand_over``, collapses to ``(factor,)``.
+        expand_over_values: ``tuple`` in caller-supplied key order;
+            empty when ``expand_over`` is empty.
+        p_value: ``MetricOutput.metadata['p_value']`` for the resolved
+            ``primary`` spec.
+        result: Back-reference for survivor rendering; not read by the
+            resolution layer itself.
     """
 
-    identity: tuple[str, int]
+    identifier: tuple[Any, ...]
     expand_over_values: tuple[Any, ...]
     p_value: float
-    profile: FactorProfile
+    result: EvaluationResult
 
 
-def _resolve_family(
-    profiles: Sequence[FactorProfile],
+def _partition(
+    results: Sequence[EvaluationResult],
     *,
     func_name: str,
-    expand_over: Sequence[str] | None = None,
-    estimator: Estimator | None = None,
-) -> list[_FamilyEntry]:
-    """Validate four invariants and return flat ``_FamilyEntry`` records.
+    expand_over: Sequence[str] = (),
+) -> list[_PartitionEntry]:
+    """Validate ``expand_over`` keys and partition-key uniqueness.
 
-    Steps (raise on failure, in order):
-
-    1. ``expand_over`` names must exist in every profile's ``context``
-       and must not collide with identity dimensions
-       (``factor_id`` / ``forward_periods``).
-    2. The partition key
-       ``identity + tuple(profile.context[k] for k in expand_over)``
-       must be unique across the input.
-    3. When ``estimator`` is supplied, every profile's cell must be in
-       its applicability set and the dispatched ``StatCode`` must be
-       populated in ``profile.stats``.
-    4. Resolve ``p_value`` per profile: ``primary_p`` when
-       ``estimator is None``, else
-       ``profile.stats[estimator.emits_for(scope, signal, metric)]``.
-
-    Args:
-        profiles: Input profiles. ``__hash__`` is disabled on
-            ``FactorProfile``; dedup uses the partition-key tuple, never
-            profile hashing.
-        func_name: Calling function name for error rendering (e.g. ``"bhy"``).
-        expand_over: Optional context keys to include in the partition
-            key. ``None`` and ``[]`` are equivalent.
-        estimator: Optional inference-method override. ``None`` falls
-            back to ``primary_p``.
-
-    Returns:
-        One ``_FamilyEntry`` per input profile, in input order.
-
-    Raises:
-        UserInputError: On any of the named-set / availability /
-            applicability failures.
+    Pulled out of ``_resolve_family`` so multi-primary callers run
+    the per-result walk once, then attach per-primary p-values via
+    ``_attach_p_values``.
     """
-    keys = list(expand_over) if expand_over else []
+    keys = list(expand_over)
     for name in keys:
-        if name in _IDENTITY_FIELDS:
+        if name == "factor":
             raise UserInputError(
                 func_name=func_name,
                 field="expand_over",
                 value=name,
-                expected="context key, not an identity dimension (see #160)",
+                expected="slicing axis, not the hypothesis identifier 'factor'",
                 docs_path=f"api/{func_name}#expand_over",
             )
 
-    entries: list[_FamilyEntry] = []
+    entries: list[_PartitionEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
-
-    for idx, profile in enumerate(profiles):
-        values = _expand_over_values(profile, keys=keys, func_name=func_name)
-        partition_key = (*profile.identity, *values)
-        if partition_key in seen:
+    for idx, result in enumerate(results):
+        values = _expand_over_values(result, keys=keys, func_name=func_name)
+        identifier = (result.factor, *values)
+        if identifier in seen:
             raise UserInputError(
                 func_name=func_name,
-                field="profiles",
-                value=partition_key,
+                field="results",
+                value=identifier,
                 expected=(
-                    "unique partition key across input; duplicate first "
-                    f"seen at index {seen[partition_key]}, again at {idx}. "
-                    "Stamp distinct factor_id per profile via "
-                    "`evaluate(..., factor_cols=[<names>])` (canonical — "
-                    "each profile keys / stamps off its column name) or "
-                    "`dataclasses.replace(profile, factor_id=<name>)` "
-                    "(escape hatch when the column cannot be renamed); "
-                    "or pass `expand_over=[<context key>]` to declare "
-                    "per-bucket families"
+                    "unique (factor, *expand_over_values) identifier across "
+                    f"input; duplicate first seen at index {seen[identifier]}, "
+                    f"again at {idx}. Either stamp a distinct factor column "
+                    "per evaluation, or pass `expand_over=[<key>]` to declare "
+                    "per-bucket families (e.g. `expand_over=('forward_periods',)` "
+                    "for multi-horizon screening)"
                 ),
                 docs_path=f"api/{func_name}#partition-key",
             )
-        seen[partition_key] = idx
-
+        seen[identifier] = idx
         entries.append(
-            _FamilyEntry(
-                identity=profile.identity,
+            _PartitionEntry(
+                identifier=identifier,
                 expand_over_values=values,
-                p_value=_resolve_p_value(
-                    profile, estimator=estimator, func_name=func_name
-                ),
-                profile=profile,
+                result=result,
             )
         )
-
     return entries
 
 
+def _attach_p_values(
+    partition: Sequence[_PartitionEntry],
+    *,
+    func_name: str,
+    primary: MetricSpec,
+) -> list[_FamilyEntry]:
+    """Resolve per-primary p-value for each partition entry."""
+    return [
+        _FamilyEntry(
+            identifier=p.identifier,
+            expand_over_values=p.expand_over_values,
+            p_value=_resolve_p_value(p.result, primary=primary, func_name=func_name),
+            result=p.result,
+        )
+        for p in partition
+    ]
+
+
+def _resolve_family(
+    results: Sequence[EvaluationResult],
+    *,
+    func_name: str,
+    primary: MetricSpec,
+    expand_over: Sequence[str] = (),
+) -> list[_FamilyEntry]:
+    """Single-primary convenience wrapper around ``_partition`` +
+    ``_attach_p_values``.
+
+    Steps (raise on failure, in order):
+
+    1. ``expand_over`` names must exist either as a built-in slicing
+       field (``forward_periods``) or as a key in every result's
+       ``context``. ``factor`` is rejected (it is the hypothesis
+       identifier, not a slicing axis).
+    2. The partition key ``(factor, *expand_over_values)`` must be
+       unique across the input.
+    3. Each result must produce the ``primary`` metric's p-value;
+       the p must be present and non-NaN.
+    """
+    partition = _partition(results, func_name=func_name, expand_over=expand_over)
+    return _attach_p_values(partition, func_name=func_name, primary=primary)
+
+
 def _expand_over_values(
-    profile: FactorProfile,
+    result: EvaluationResult,
     *,
     keys: list[str],
     func_name: str,
 ) -> tuple[Any, ...]:
     values: list[Any] = []
     for name in keys:
-        if name not in profile.context:
+        if name in _BUILTIN_EXPAND_OVER_FIELDS:
+            values.append(getattr(result, name))
+            continue
+        if name not in result.context:
             raise UserInputError(
                 func_name=func_name,
                 field="expand_over",
                 value=name,
-                candidates=sorted(profile.context)
-                or ["<no context keys on this profile>"],
+                candidates=sorted(result.context)
+                or ["<no context keys on this result>"],
                 docs_path=f"api/{func_name}#expand_over",
             )
-        values.append(profile.context[name])
+        values.append(result.context[name])
     return tuple(values)
 
 
 def _resolve_p_value(
-    profile: FactorProfile,
+    result: EvaluationResult,
     *,
-    estimator: Estimator | None,
+    primary: MetricSpec,
     func_name: str,
 ) -> float:
-    if estimator is None:
-        return profile.primary_p
-
-    cfg = profile.config
-    if not estimator.applicable_to(cfg.scope, cfg.signal):
-        raise UserInputError(
-            func_name=func_name,
-            field="estimator",
-            value=estimator.name,
-            expected=(
-                f"estimator applicable to (scope={cfg.scope.value}, "
-                f"signal={cfg.signal.value}) cell"
-            ),
-            docs_path=f"api/{func_name}#{_ESTIMATOR_DOCS_ANCHOR}",
-        )
-
-    code = estimator.emits_for(cfg.scope, cfg.signal, cfg.metric)
     try:
-        return profile.stats[code]
+        out = result.metrics.outputs[primary.name]
     except KeyError:
         raise UserInputError(
             func_name=func_name,
-            field="estimator",
-            value=estimator.name,
+            field="primary",
+            value=primary.name,
             expected=(
-                f"profile.stats to populate {code.name} when {estimator.name} "
-                "is supplied; populated keys listed below"
+                f"every result to carry the primary metric "
+                f"{primary.name!r}; missing on factor={result.factor!r}"
             ),
-            candidates=sorted(s.name for s in profile.stats),
-            docs_path=f"api/{func_name}#{_ESTIMATOR_DOCS_ANCHOR}",
+            candidates=sorted(result.metrics.outputs),
+            docs_path=f"api/{func_name}#primary",
         ) from None
+
+    p = out.metadata.get("p_value")
+    if p is None:
+        raise UserInputError(
+            func_name=func_name,
+            field="primary",
+            value=primary.name,
+            expected=(
+                f"metadata['p_value'] populated on every result; "
+                f"factor={result.factor!r} has no p-value for "
+                f"metric {primary.name!r}"
+            ),
+            docs_path=f"api/{func_name}#primary",
+        )
+
+    p_float = float(p)  # type: ignore[arg-type]
+    if math.isnan(p_float):
+        raise UserInputError(
+            func_name=func_name,
+            field="primary",
+            value=primary.name,
+            expected=(
+                f"finite p-value on every result; factor={result.factor!r} "
+                f"has NaN p for metric {primary.name!r} — drop the result "
+                "or pick a different primary"
+            ),
+            docs_path=f"api/{func_name}#primary",
+        )
+    return p_float
