@@ -32,11 +32,15 @@ import polars as pl
 
 from factrix._axis import FactorScope, Mode, Signal
 from factrix._codes import WarningCode, cross_section_tier
-from factrix._evaluate import _derive_mode
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 
 _SPARSITY_THRESHOLD: float = 0.5
+
+
+def _derive_mode(panel: Any) -> Mode:
+    """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
+    return Mode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else Mode.PANEL
 
 
 def _detect_signal(raw: Any) -> tuple[Signal, str, float]:

@@ -10,11 +10,7 @@ from __future__ import annotations
 
 import difflib
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from factrix._analysis_config import AnalysisConfig
-
+from typing import Any
 
 _DOCS_BASE = "https://awwesomeman.github.io/factrix/"
 _VALUE_REPR_CAP = 120
@@ -107,32 +103,21 @@ class UserInputError(FactrixError, ValueError):
 
 
 class ConfigError(FactrixError):
-    """Base for ``AnalysisConfig`` validation / dispatch errors.
+    """Base for axis / dispatch validation errors.
 
-    ``suggested_fix`` is populated from ``_FALLBACK_MAP`` when the
-    nearest legal cell is unambiguous (e.g. ``ModeAxisError`` on
-    ``(INDIVIDUAL, CONTINUOUS, N=1)`` suggests ``common_continuous``).
-    Stays ``None`` when the failure is a data limitation rather than
-    an axis-tuple miswire.
+    ``suggested_fix`` carries any caller-actionable recovery payload
+    (e.g. nearest-legal cell axes); stays ``None`` when the failure is
+    a data limitation rather than an axis-tuple miswire.
     """
 
     def __init__(
         self,
         message: str,
         *,
-        suggested_fix: AnalysisConfig | None = None,
+        suggested_fix: Any | None = None,
     ) -> None:
         super().__init__(message)
         self.suggested_fix = suggested_fix
-
-
-class MissingConfigError(ConfigError):
-    """``evaluate(panel)`` called without an ``AnalysisConfig``.
-
-    Friendly replacement for the bare ``TypeError`` from the private
-    ``_evaluate`` signature. ``suggested_fix`` stays ``None`` — call
-    ``factrix.suggest_config(panel)`` to get a concrete recommendation.
-    """
 
 
 class UnknownEstimatorError(ConfigError, ValueError):
@@ -140,27 +125,16 @@ class UnknownEstimatorError(ConfigError, ValueError):
 
     Inherits ``ValueError`` so ``pytest.raises(ValueError)`` and the
     ecosystem ``UserInputError`` convention both catch it. Raised by
-    ``factrix.stats.get_estimator`` and by ``AnalysisConfig.from_dict``
-    when ``estimator`` name is not in the registry.
+    ``factrix.stats.get_estimator`` when ``estimator`` name is not in
+    the registry.
     """
 
 
 class IncompatibleAxisError(ConfigError):
     """``(scope, signal, metric)`` tuple is not a legal analysis cell.
 
-    Reachable via direct construction or ``from_dict``; factory methods
-    never trigger this. Covers e.g. ``signal=SPARSE`` paired with
-    ``metric=IC``, or ``(INDIVIDUAL, CONTINUOUS)`` with ``metric=None``.
-    """
-
-
-class ModeAxisError(ConfigError):
-    """Axis tuple is legal but undefined at the runtime ``Mode``.
-
-    Raised at evaluate-time (``Mode`` is not part of ``AnalysisConfig``).
-    Canonical example: ``(INDIVIDUAL, CONTINUOUS, IC)`` with ``N == 1``
-    has no cross-sectional dispersion → information coefficient (IC) undefined; ``suggested_fix``
-    points the user at ``common_continuous(...)``.
+    Covers e.g. ``signal=SPARSE`` paired with ``metric=IC``, or
+    ``(INDIVIDUAL, CONTINUOUS)`` with ``metric=None``.
     """
 
 
@@ -180,7 +154,7 @@ class InsufficientSampleError(ConfigError):
         *,
         actual_periods: int,
         required_periods: int,
-        suggested_fix: AnalysisConfig | None = None,
+        suggested_fix: Any | None = None,
     ) -> None:
         super().__init__(message, suggested_fix=suggested_fix)
         self.actual_periods = actual_periods

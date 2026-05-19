@@ -38,7 +38,6 @@ from typing import Any
 import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
-from factrix._analysis_config import AnalysisConfig
 from factrix._axis import (  # noqa: F401  Mode re-exported for namespace access; intentionally not in __all__
     FactorScope,
     Metric,
@@ -53,12 +52,9 @@ from factrix._errors import (
     FactrixError,
     IncompatibleAxisError,
     InsufficientSampleError,
-    MissingConfigError,
-    ModeAxisError,
     UnknownEstimatorError,
     UserInputError,
 )
-from factrix._evaluate import _evaluate as _evaluate
 from factrix._inspect import (
     MetricApplicability,
     PanelInspection,
@@ -74,7 +70,6 @@ from factrix._metric_index import (
     spec_by_name,
 )
 from factrix._panel_input import PanelInput, _coerce_panel
-from factrix._profile import FactorProfile
 from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._types import MetricOutput
 from factrix.slicing import (
@@ -171,11 +166,20 @@ def evaluate(
     closure_specs = _close_requires(metrics)
     _validate_forward_periods_when_required(closure_specs, forward_periods)
 
-    cfg = _synthesize_cfg(metrics, forward_periods)
+    scope, signal, metric_axis = _axes_from_first_metric(metrics[0])
+    fp = forward_periods if forward_periods is not None else 5
     kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
     primary_names = (metrics[0].name,)
     executor = DagExecutor(closure_specs, primary_names=primary_names)
-    result_dict = executor.execute(panel, cfg, cols, kwargs_by_metric=kwargs_by_metric)
+    result_dict = executor.execute(
+        panel,
+        cols,
+        scope=scope,
+        signal=signal,
+        metric=metric_axis,
+        forward_periods=fp,
+        kwargs_by_metric=kwargs_by_metric,
+    )
     return [result_dict[c] for c in cols]
 
 
@@ -369,30 +373,25 @@ def _build_kwargs_by_metric(
     }
 
 
-def _synthesize_cfg(
-    metrics: list[MetricSpec], forward_periods: int | None
-) -> AnalysisConfig:
-    """Synthesize an axis stamp from the first metric's cell."""
-    first = metrics[0].cell
-    scope = first.scope if first.scope is not None else FactorScope.INDIVIDUAL
-    signal = first.signal if first.signal is not None else Signal.CONTINUOUS
+def _axes_from_first_metric(
+    primary: MetricSpec,
+) -> tuple[FactorScope, Signal, Metric | None]:
+    """Derive the axis stamp for ``EvaluationResult`` from the primary metric's cell."""
+    cell = primary.cell
+    scope = cell.scope if cell.scope is not None else FactorScope.INDIVIDUAL
+    signal = cell.signal if cell.signal is not None else Signal.CONTINUOUS
     if scope is FactorScope.INDIVIDUAL and signal is Signal.CONTINUOUS:
         metric_axis: Metric | None = (
-            first.metric if first.metric is not None else Metric.IC
+            cell.metric if cell.metric is not None else Metric.IC
         )
     else:
         metric_axis = None
-    fp = forward_periods if forward_periods is not None else 5
-    return AnalysisConfig(
-        scope=scope, signal=signal, metric=metric_axis, forward_periods=fp
-    )
+    return scope, signal, metric_axis
 
 
 __version__ = "0.13.0"
 
 __all__ = [
-    # Configuration
-    "AnalysisConfig",
     # Axis enums (Mode intentionally NOT exported — it is derived at
     # evaluate-time from N and read off profile.mode, never set by user
     # code; review fix UX-7. Still importable from factrix._axis.)
@@ -408,15 +407,12 @@ __all__ = [
     "FactrixError",
     "IncompatibleAxisError",
     "InsufficientSampleError",
-    "MissingConfigError",
-    "ModeAxisError",
     "UnknownEstimatorError",
     "UserInputError",
-    # Profile + dispatch
+    # Result + dispatch
     "CycleError",
     "DagExecutor",
     "EvaluationResult",
-    "FactorProfile",
     "MetricOutput",
     "MetricResult",
     "PanelInput",

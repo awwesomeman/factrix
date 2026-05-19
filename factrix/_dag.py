@@ -28,18 +28,15 @@ import importlib
 import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import polars as pl
 
-from factrix._axis import Mode
+from factrix._axis import FactorScope, Metric, Mode, Signal
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, Visibility, emitted_name_of
 from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._types import MetricOutput
-
-if TYPE_CHECKING:
-    from factrix._analysis_config import AnalysisConfig
 
 
 def _project_factor(panel: pl.DataFrame, col: str) -> pl.DataFrame:
@@ -140,9 +137,12 @@ class DagExecutor:
     def execute(
         self,
         panel: pl.DataFrame,
-        cfg: AnalysisConfig,
         factor_cols: Sequence[str],
         *,
+        scope: FactorScope,
+        signal: Signal,
+        metric: Metric | None,
+        forward_periods: int,
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> dict[str, EvaluationResult]:
         """Run every spec against every factor and return one bundle per factor.
@@ -208,7 +208,9 @@ class DagExecutor:
                 if isinstance(out, MetricOutput):
                     metric_outputs[(spec.name, c)] = _stamp_spec(out, spec)
 
-        return self._assemble(cols, cfg, mode, n_assets, metric_outputs)
+        return self._assemble(
+            cols, scope, signal, metric, forward_periods, mode, n_assets, metric_outputs
+        )
 
     def _gather_upstream_batch(
         self,
@@ -225,7 +227,10 @@ class DagExecutor:
     def _assemble(
         self,
         cols: Sequence[str],
-        cfg: AnalysisConfig,
+        scope: FactorScope,
+        signal: Signal,
+        metric: Metric | None,
+        forward_periods: int,
         mode: Mode,
         n_assets: int,
         metric_outputs: Mapping[tuple[str, str], MetricOutput],
@@ -258,9 +263,9 @@ class DagExecutor:
             n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,
-                axes=(cfg.scope, cfg.signal, cfg.metric),
+                axes=(scope, signal, metric),
                 mode=mode,
-                forward_periods=cfg.forward_periods,
+                forward_periods=forward_periods,
                 n_obs=n_obs,
                 n_assets=n_assets,
                 metrics=MetricResult(
