@@ -80,6 +80,7 @@ def _short_circuit_output(
     reason: str,
     *,
     n_obs: int | None = None,
+    descriptive: bool = False,
     **extra_metadata: object,
 ) -> MetricOutput:
     """Canonical short-circuit ``MetricOutput`` for "cannot compute".
@@ -95,17 +96,23 @@ def _short_circuit_output(
 
     ``p_value=1.0`` is the conservative default so BHY treats short-circuited
     metrics as rejected rather than crashing; ``_pv`` reads the same key.
+    Pass ``descriptive=True`` for metrics that emit no hypothesis test
+    (`oos_decay`, `clustering_hhi`, ...) so callers cannot mis-route the
+    short-circuit into BHY / gate logic expecting a probability.
 
     Use this instead of hand-rolling ``MetricOutput(value=float("nan"),
     stat=None, significance="", metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
+    metadata: dict[str, object] = {"reason": reason, **extra_metadata}
+    if not descriptive:
+        metadata["p_value"] = 1.0
     return MetricOutput(
         name=name,
         value=float("nan"),
         n_obs=n_obs,
         stat=None,
         significance="",
-        metadata={"reason": reason, "p_value": 1.0, **extra_metadata},
+        metadata=metadata,
     )
 
 

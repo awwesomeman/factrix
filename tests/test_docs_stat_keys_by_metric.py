@@ -19,6 +19,10 @@ _COMMON_KEYS: frozenset[str] = frozenset(
     {"p_value", "stat_type", "h0", "method", "reason"}
 )
 
+# Explicit-keyword params of ``_short_circuit_output`` — control flags that
+# do not surface as ``MetricOutput.metadata`` keys at runtime.
+_HELPER_CONTROL_KWARGS: frozenset[str] = frozenset({"n_obs", "descriptive"})
+
 # Inner keys of nested dict / list-of-dict metadata payloads. Documented
 # at the outer-key level (e.g. ``per_regime`` covers its inner shape),
 # not as standalone bullets.
@@ -89,7 +93,11 @@ def _emitted_metadata_keys(path: pathlib.Path) -> set[str]:
                 keys |= _dict_string_keys(node.args[0])
             # _short_circuit_output(name, reason, k1=v1, k2=v2, ...)
             if isinstance(func, ast.Name) and func.id == "_short_circuit_output":
-                keys.update(kw.arg for kw in node.keywords if kw.arg is not None)
+                keys.update(
+                    kw.arg
+                    for kw in node.keywords
+                    if kw.arg is not None and kw.arg not in _HELPER_CONTROL_KWARGS
+                )
 
         if isinstance(node, ast.Assign):
             for target in node.targets:

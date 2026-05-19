@@ -119,27 +119,26 @@ def oos_decay(
     vals = sorted_series[value_col].drop_nulls()
     n = len(vals)
 
+    # Need MIN_OOS_PERIODS in both IS and OOS halves for a meaningful ratio.
     if n < MIN_OOS_PERIODS * 2:
-        out = _short_circuit_output(
+        return _short_circuit_output(
             "oos_decay",
             "insufficient_oos_periods",
             n_obs=n,
+            descriptive=True,
             min_required=MIN_OOS_PERIODS * 2,
             sign_flipped=False,
             status="VETOED",
             is_ratio=is_ratio,
             survival_threshold=survival_threshold,
         )
-        # Descriptive-only: drop ``p_value`` so callers cannot
-        # accidentally route oos_decay into BHY / gate logic that
-        # expects a probability.
-        out.metadata.pop("p_value", None)
-        return out
 
     split_idx = int(n * is_ratio)
     is_vals = vals[:split_idx]
     oos_vals = vals[split_idx:]
 
+    # `n >= MIN_OOS_PERIODS * 2` and `0 < is_ratio < 1` guarantee both
+    # slices are non-empty, so polars mean() returns a numeric.
     mean_is = float(is_vals.mean())  # type: ignore[arg-type]
     mean_oos = float(oos_vals.mean())  # type: ignore[arg-type]
 
