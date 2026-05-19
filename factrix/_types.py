@@ -94,7 +94,7 @@ class MetricOutput:
             ``None`` for outputs constructed outside the registry
             (free-standing primitive calls, tests, ad-hoc consumers).
             Runners stamp this at dispatch time so downstream code
-            (``MetricResultGroup``, serialisers, the DAG executor)
+            (``MetricResult``, serialisers, the DAG executor)
             can recover the spec without a name-keyed lookup.
     """
 

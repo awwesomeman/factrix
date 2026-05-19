@@ -81,7 +81,7 @@ from factrix._inspect import (
 from factrix._metric_index import SampleFloor
 from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._profile import FactorProfile
-from factrix._results import EvaluationResult, MetricResultGroup, Warning
+from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._run_metrics import (
     MetricsBundle,
     run_metrics,
@@ -271,7 +271,7 @@ __all__ = [
     "EvaluationResult",
     "FactorProfile",
     "MetricOutput",
-    "MetricResultGroup",
+    "MetricResult",
     "MetricsBundle",
     "PanelInput",
     "Warning",

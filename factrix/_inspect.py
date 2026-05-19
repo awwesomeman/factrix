@@ -135,6 +135,66 @@ class PanelInspection:
     metrics: list[MetricApplicability]
     warnings: list[Warning] = field(default_factory=list)
 
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-friendly nested dict view.
+
+        Layout (top-level keys, stable order):
+
+        - ``detected``: ``{scope, signal, mode, n_assets, n_periods,
+          sparsity}`` — enum fields rendered as their ``.value``
+          string; ``sparsity`` ``NaN`` emitted as ``None``.
+        - ``reasoning``: ``{scope, signal, mode}``.
+        - ``metrics``: list of per-spec dicts
+          ``{name, cell, usable, warnings, blockers}`` — same row
+          shape suits ``pl.from_dicts`` for cross-panel audit.
+        - ``warnings``: panel-level ``[{code, source, message}, ...]``.
+
+        Mirrors :meth:`factrix.EvaluationResult.to_dict` shape — single
+        ``to_dict`` convention across the public result-type group so
+        log / parquet sinks treat them uniformly.
+        """
+        d = self.detected
+        return {
+            "detected": {
+                "scope": d.scope.value,
+                "signal": d.signal.value,
+                "mode": d.mode.value,
+                "n_assets": d.n_assets,
+                "n_periods": d.n_periods,
+                "sparsity": None if math.isnan(d.sparsity) else d.sparsity,
+            },
+            "reasoning": {
+                "scope": self.reasoning.scope_reason,
+                "signal": self.reasoning.signal_reason,
+                "mode": self.reasoning.mode_reason,
+            },
+            "metrics": [
+                {
+                    "name": m.spec.name,
+                    "cell": m.spec.cell.raw,
+                    "usable": m.usable,
+                    "warnings": [
+                        {
+                            "code": w.code.value,
+                            "source": w.source,
+                            "message": w.message,
+                        }
+                        for w in m.warnings
+                    ],
+                    "blockers": list(m.blockers),
+                }
+                for m in self.metrics
+            ],
+            "warnings": [
+                {
+                    "code": w.code.value,
+                    "source": w.source,
+                    "message": w.message,
+                }
+                for w in self.warnings
+            ],
+        }
+
     def _repr_html_(self) -> str:
         d = self.detected
         header_rows = [

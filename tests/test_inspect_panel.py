@@ -131,6 +131,33 @@ class TestPanelLevelWarnings:
         assert any("cross_section" in c for c in codes)
 
 
+class TestToDict:
+    def test_round_trips_through_json(self):
+        import json
+
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        d = info.to_dict()
+        back = json.loads(json.dumps(d))
+        assert back["detected"]["scope"] == "individual"
+        assert back["detected"]["mode"] == "panel"
+        assert back["detected"]["n_assets"] == 20
+        assert back["reasoning"]["scope"]
+        assert any(m["name"] == "ic_newey_west" for m in back["metrics"])
+        nw = next(m for m in back["metrics"] if m["name"] == "ic_newey_west")
+        assert nw["usable"] is True
+        assert any(w["code"] == "unreliable_se_short_periods" for w in nw["warnings"])
+
+    def test_nan_sparsity_becomes_null(self):
+        empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
+        d = inspect_panel(empty).to_dict()
+        assert d["detected"]["sparsity"] is None
+
+    def test_panel_level_warnings_serialised(self):
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))
+        d = info.to_dict()
+        assert any(w["source"] is None for w in d["warnings"])
+
+
 class TestReprHtml:
     def test_smoke(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))

@@ -1,4 +1,4 @@
-"""``EvaluationResult`` / ``MetricResultGroup`` dataclasses + serialisation (#441)."""
+"""``EvaluationResult`` / ``MetricResult`` dataclasses + serialisation (#441)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 from factrix import (
     EvaluationResult,
     MetricOutput,
-    MetricResultGroup,
+    MetricResult,
     Warning,
     WarningCode,
 )
@@ -27,7 +27,7 @@ def ic_ir_spec():
     return spec_by_name()["ic_ir"]
 
 
-def _sample_group(ic_spec, ic_ir_spec) -> MetricResultGroup:
+def _sample_group(ic_spec, ic_ir_spec) -> MetricResult:
     ic_out = MetricOutput(
         name="ic",
         value=0.05,
@@ -43,7 +43,7 @@ def _sample_group(ic_spec, ic_ir_spec) -> MetricResultGroup:
         n_obs=100,
         spec=ic_ir_spec,
     )
-    return MetricResultGroup(
+    return MetricResult(
         applicable=[ic_spec, ic_ir_spec],
         primary=[ic_spec],
         diagnostic=[ic_ir_spec],
@@ -52,7 +52,7 @@ def _sample_group(ic_spec, ic_ir_spec) -> MetricResultGroup:
 
 
 def _sample_result(
-    group: MetricResultGroup, warnings=None, plan: str = "1. ic [per-factor]"
+    group: MetricResult, warnings=None, plan: str = "1. ic [per-factor]"
 ) -> EvaluationResult:
     return EvaluationResult(
         factor="mom_12_1",
@@ -66,7 +66,7 @@ def _sample_result(
     )
 
 
-class TestMetricResultGroup:
+class TestMetricResult:
     def test_dict_like_access(self, ic_spec, ic_ir_spec):
         g = _sample_group(ic_spec, ic_ir_spec)
         assert "ic" in g
@@ -85,10 +85,10 @@ class TestMetricResultGroup:
         assert g.applicable == [ic_spec, ic_ir_spec]
 
 
-class TestEvaluationResultToDf:
+class TestEvaluationResultToFrame:
     def test_schema_and_dtypes(self, ic_spec, ic_ir_spec):
         r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
-        df = r.to_df()
+        df = r.to_frame()
         assert df.columns == [
             "factor",
             "n_assets",
@@ -108,10 +108,10 @@ class TestEvaluationResultToDf:
 
     def test_short_circuit_row_is_null(self, ic_spec, ic_ir_spec):
         bad = MetricOutput(name="ic", value=float("nan"), spec=ic_spec)
-        g = MetricResultGroup(
+        g = MetricResult(
             applicable=[ic_spec], primary=[ic_spec], diagnostic=[], outputs={"ic": bad}
         )
-        df = _sample_result(g).to_df()
+        df = _sample_result(g).to_frame()
         row = df.row(0, named=True)
         assert row["value"] is None
         assert row["p"] is None
@@ -128,7 +128,7 @@ class TestEvaluationResultToDf:
             ),
         ]
         r = _sample_result(_sample_group(ic_spec, ic_ir_spec), warnings=warnings)
-        df = r.to_df()
+        df = r.to_frame()
         ic_row = df.filter(pl.col("metric_name") == "ic").row(0, named=True)
         ic_ir_row = df.filter(pl.col("metric_name") == "ic_ir").row(0, named=True)
         assert ic_row["warning_codes"] == [WarningCode.SMALL_CROSS_SECTION_N.value]
@@ -139,13 +139,13 @@ class TestEvaluationResultToDf:
 
         fm_spec = spec_by_name()["fama_macbeth"]
         out = MetricOutput(name=emitted_name_of(fm_spec), value=0.01, spec=fm_spec)
-        g = MetricResultGroup(
+        g = MetricResult(
             applicable=[fm_spec],
             primary=[fm_spec],
             diagnostic=[],
             outputs={emitted_name_of(fm_spec): out},
         )
-        df = _sample_result(g).to_df()
+        df = _sample_result(g).to_frame()
         assert df.row(0, named=True)["metric_name"] == emitted_name_of(fm_spec)
 
 
@@ -179,7 +179,7 @@ class TestEvaluationResultToDict:
             metadata={"p_value": float("nan")},
             spec=ic_spec,
         )
-        g = MetricResultGroup(
+        g = MetricResult(
             applicable=[ic_spec], primary=[ic_spec], diagnostic=[], outputs={"ic": bad}
         )
         d = _sample_result(g).to_dict()
@@ -191,7 +191,7 @@ class TestEvaluationResultToDict:
 
 class TestReprHtml:
     def test_group_renders(self, ic_spec, ic_ir_spec):
-        # MetricResultGroup itself ships only dict-like access; HTML
+        # MetricResult itself ships only dict-like access; HTML
         # lives on the bundle. Smoke-test the bundle render.
         r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
         html_out = r._repr_html_()
