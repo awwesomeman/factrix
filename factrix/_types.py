@@ -44,7 +44,7 @@ MIN_ASSETS_PER_DATE_IC: int = 10
 # ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricOutput (math floor —
 # below 4 events the per-event-date series cannot support a meaningful
 # t-statistic). ``MIN_EVENTS_HARD ≤ n < MIN_EVENTS_WARN`` returns the
-# stat AND emits ``WarningCode.FEW_EVENTS_BROWN_WARNER`` so the caller
+# stat AND emits ``WarningCode.FEW_EVENTS`` so the caller
 # knows power is thin (Brown-Warner 1985 convention is ~30 events for
 # the asymptotic t to be honest). Descriptive event-quality / horizon /
 # clustering metrics use only the HARD floor — they have no formal

@@ -27,8 +27,7 @@ import functools
 import importlib
 import math
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, NamedTuple
 
 import polars as pl
 
@@ -59,8 +58,7 @@ class CycleError(ValueError):
     """Raised when ``MetricSpec.requires`` declares a dependency cycle."""
 
 
-@dataclass(frozen=True, slots=True)
-class _PlanStep:
+class _PlanStep(NamedTuple):
     """One topologically-ordered step in an execution plan."""
 
     spec: MetricSpec

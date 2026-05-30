@@ -130,33 +130,64 @@ def _render_html(
 
 
 @dataclass(frozen=True, slots=True, repr=False)
-class BhyResult:
-    """Result of one BHY step-up for one primary metric.
+class _FdrResultBase:
+    """Shared fields and render protocol for the FDR survivor result trio.
 
-    Attributes:
-        primary_name: ``MetricSpec.name`` of the primary that drove this
-            step-up; also the key under which this record is returned
-            from :func:`bhy`.
-        survivors: Surviving :class:`EvaluationResult` records in input
-            order (``adj_p[i] <= q``).
-        adj_p: Bucket-local BHY-adjusted p-value aligned with
-            ``survivors``.
+    Carries the five fields common to :class:`BhyResult`,
+    :class:`PartialConjunctionResult`, and :class:`HierarchicalBhyResult`
+    plus the ``__len__`` / ``__repr__`` / ``_repr_html_`` machinery.
+    Subclasses append their own fields and supply ``_header`` / ``_rows``.
+
+    Common attributes:
+        primary_name: ``MetricSpec.name`` of the primary driving the screen;
+            also the key under which the record is returned.
+        survivors: Surviving :class:`EvaluationResult` records.
+        adj_p: BHY-adjusted p-value aligned with ``survivors``.
         q: Nominal FDR target.
-        expand_over: Keys used to partition the input into independent
-            step-up buckets; empty tuple for the single-bucket case.
-        n_tests: Per-bucket family size fed to the step-up math, keyed
-            by ``expand_over_values`` tuple (``()`` for single-bucket).
+        n_tests: Per-bucket / per-identity family size keyed by tuple.
     """
 
     primary_name: str
     survivors: list[EvaluationResult]
     adj_p: np.ndarray
     q: float
-    expand_over: tuple[str, ...]
     n_tests: Mapping[tuple[Any, ...], int]
 
     def __len__(self) -> int:
         return len(self.survivors)
+
+    def _header(self) -> str:
+        raise NotImplementedError
+
+    def _rows(self) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
+        raise NotImplementedError
+
+    def __repr__(self) -> str:
+        head = f"{type(self).__name__}({self._header()})"
+        if not self.survivors:
+            return head
+        headers, rows = self._rows()
+        return f"{head}\n{_render_table(headers, rows)}"
+
+    def _repr_html_(self) -> str:
+        headers, rows = self._rows()
+        return _render_html(f"{type(self).__name__} ({self._header()})", headers, rows)
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class BhyResult(_FdrResultBase):
+    """Result of one BHY step-up for one primary metric.
+
+    Shares ``primary_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
+    with :class:`_FdrResultBase`. ``adj_p`` is bucket-local; ``n_tests`` is
+    keyed by ``expand_over_values`` tuple (``()`` for single-bucket).
+
+    Attributes:
+        expand_over: Keys used to partition the input into independent
+            step-up buckets; empty tuple for the single-bucket case.
+    """
+
+    expand_over: tuple[str, ...]
 
     def _header(self) -> str:
         parts = [
@@ -189,49 +220,29 @@ class BhyResult:
             ]
         return headers, rows
 
-    def __repr__(self) -> str:
-        head = f"BhyResult({self._header()})"
-        if not self.survivors:
-            return head
-        headers, rows = self._rows()
-        return f"{head}\n{_render_table(headers, rows)}"
-
-    def _repr_html_(self) -> str:
-        headers, rows = self._rows()
-        return _render_html(f"BhyResult ({self._header()})", headers, rows)
-
 
 @dataclass(frozen=True, slots=True, repr=False)
-class PartialConjunctionResult:
+class PartialConjunctionResult(_FdrResultBase):
     """Per-identity partial-conjunction survivors for one primary metric.
 
+    Shares ``primary_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
+    with :class:`_FdrResultBase`. ``survivors`` is one representative
+    :class:`EvaluationResult` per surviving identity; ``adj_p`` is the
+    BHY-adjusted PC p-value; ``n_tests`` is the condition count per
+    surviving identifier.
+
     Attributes:
-        primary_name: ``MetricSpec.name`` that produced the per-condition
-            p-values combined into PC p-values.
-        survivors: Representative :class:`EvaluationResult` per surviving
-            identity (first input member of that identity).
-        adj_p: BHY-adjusted PC p-value aligned with ``survivors``.
         pc_p: Raw PC p-value aligned with ``survivors``.
-        q: Nominal FDR target.
         expand_over: Context keys defining the condition axis.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
-        n_tests: Condition count per surviving identifier.
         n_passed_uncorr: Per-survivor count of raw p-values strictly
             below ``q`` (descriptive — not used in inference).
     """
 
-    primary_name: str
-    survivors: list[EvaluationResult]
-    adj_p: np.ndarray
     pc_p: np.ndarray
-    q: float
     expand_over: tuple[str, ...]
     min_pass: int
-    n_tests: Mapping[tuple[Any, ...], int]
     n_passed_uncorr: np.ndarray
-
-    def __len__(self) -> int:
-        return len(self.survivors)
 
     def _header(self) -> str:
         return (
@@ -266,45 +277,23 @@ class PartialConjunctionResult:
         ]
         return headers, rows
 
-    def __repr__(self) -> str:
-        head = f"PartialConjunctionResult({self._header()})"
-        if not self.survivors:
-            return head
-        headers, rows = self._rows()
-        return f"{head}\n{_render_table(headers, rows)}"
-
-    def _repr_html_(self) -> str:
-        headers, rows = self._rows()
-        return _render_html(
-            f"PartialConjunctionResult ({self._header()})", headers, rows
-        )
-
 
 @dataclass(frozen=True, slots=True, repr=False)
-class HierarchicalBhyResult:
+class HierarchicalBhyResult(_FdrResultBase):
     """Two-stage hierarchical BHY survivors for one primary metric.
 
+    Shares ``primary_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
+    with :class:`_FdrResultBase`. ``adj_p`` is
+    ``max(outer_adj_p[group], inner_adj_p[i])`` aligned with ``survivors``
+    so ``survivor[i] iff adj_p[i] <= q`` holds; ``q`` is shared by both
+    layers; ``n_tests`` is the per-group inner family size keyed by
+    ``(group_value,)`` — covering *all* input groups, not just survivors.
+
     Attributes:
-        primary_name: ``MetricSpec.name`` that drove both layers.
-        survivors: Surviving :class:`EvaluationResult` records in input
-            order.
-        adj_p: ``max(outer_adj_p[group], inner_adj_p[i])`` aligned with
-            ``survivors`` so ``survivor[i] iff adj_p[i] <= q`` holds.
-        q: Nominal FDR target shared by both layers.
         group: Context key naming the group axis.
-        n_tests: Per-group inner family size, keyed by ``(group_value,)``
-            tuple — covers *all* input groups, not just survivors.
     """
 
-    primary_name: str
-    survivors: list[EvaluationResult]
-    adj_p: np.ndarray
-    q: float
     group: str
-    n_tests: Mapping[tuple[Any, ...], int]
-
-    def __len__(self) -> int:
-        return len(self.survivors)
 
     def _header(self) -> str:
         return (
@@ -323,17 +312,6 @@ class HierarchicalBhyResult:
             for r, a in zip(self.survivors, self.adj_p, strict=True)
         ]
         return headers, rows
-
-    def __repr__(self) -> str:
-        head = f"HierarchicalBhyResult({self._header()})"
-        if not self.survivors:
-            return head
-        headers, rows = self._rows()
-        return f"{head}\n{_render_table(headers, rows)}"
-
-    def _repr_html_(self) -> str:
-        headers, rows = self._rows()
-        return _render_html(f"HierarchicalBhyResult ({self._header()})", headers, rows)
 
 
 def _lookup_expand(result: EvaluationResult, key: str) -> Any:

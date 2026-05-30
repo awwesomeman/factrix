@@ -201,7 +201,7 @@ primitives that procedures wrap:
   at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
-  primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS_BROWN_WARNER`.
+  primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.
 - `compute_fm_betas` carries an inline `if len(y) < 3: continue` guard, no per-date min above 3.
 
 ### Inflation cost at low `n_assets`
@@ -392,7 +392,7 @@ Failure modes:
 - `n_events < MIN_EVENTS_HARD = 4` → event series too short →
   primary_p reverts to insufficient.
 - `MIN_EVENTS_HARD ≤ n_events < MIN_EVENTS_WARN = 30` → CAAR `t` is
-  returned but `WarningCode.FEW_EVENTS_BROWN_WARNER` fires and the
+  returned but `WarningCode.FEW_EVENTS` fires and the
   `_CAARSparsePanelProcedure` propagates it into `FactorProfile.warnings`.
 
 ### `common_continuous` — time-series first

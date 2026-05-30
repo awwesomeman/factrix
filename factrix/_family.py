@@ -33,33 +33,29 @@ _BUILTIN_EXPAND_OVER_FIELDS: frozenset[str] = frozenset({"forward_periods"})
 
 
 @dataclass(frozen=True, slots=True)
-class _PartitionEntry:
-    """Result-side partition record — identity + result, no p-value yet."""
-
-    identifier: tuple[Any, ...]
-    expand_over_values: tuple[Any, ...]
-    result: EvaluationResult
-
-
-@dataclass(frozen=True, slots=True)
 class _FamilyEntry:
-    """Flat record fed to family-function procedures after invariant checks.
+    """Flat record carrying one hypothesis through the family pipeline.
+
+    Spans both stages: ``_partition`` emits entries with ``p_value=None``
+    (identity resolved, p-value not yet attached); ``_attach_p_values``
+    re-emits them per primary with ``p_value`` populated. Procedures read
+    ``p_value`` only after the attach stage, where it is always non-None.
 
     Attributes:
         identifier: ``(factor, *expand_over_values)`` — the hypothesis
             key. With no ``expand_over``, collapses to ``(factor,)``.
         expand_over_values: ``tuple`` in caller-supplied key order;
             empty when ``expand_over`` is empty.
-        p_value: ``MetricOutput.metadata['p_value']`` for the resolved
-            ``primary`` spec.
         result: Back-reference for survivor rendering; not read by the
             resolution layer itself.
+        p_value: ``MetricOutput.metadata['p_value']`` for the resolved
+            ``primary`` spec. ``None`` until ``_attach_p_values`` runs.
     """
 
     identifier: tuple[Any, ...]
     expand_over_values: tuple[Any, ...]
-    p_value: float
     result: EvaluationResult
+    p_value: float | None = None
 
 
 def _partition(
@@ -67,12 +63,12 @@ def _partition(
     *,
     func_name: str,
     expand_over: Sequence[str] = (),
-) -> list[_PartitionEntry]:
+) -> list[_FamilyEntry]:
     """Validate ``expand_over`` keys and partition-key uniqueness.
 
     Pulled out of ``_resolve_family`` so multi-primary callers run
     the per-result walk once, then attach per-primary p-values via
-    ``_attach_p_values``.
+    ``_attach_p_values``. Returns entries with ``p_value=None``.
     """
     keys = list(expand_over)
     for name in keys:
@@ -85,7 +81,7 @@ def _partition(
                 docs_path=f"api/{func_name}#expand_over",
             )
 
-    entries: list[_PartitionEntry] = []
+    entries: list[_FamilyEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
     for idx, result in enumerate(results):
         values = _expand_over_values(result, keys=keys, func_name=func_name)
@@ -107,7 +103,7 @@ def _partition(
             )
         seen[identifier] = idx
         entries.append(
-            _PartitionEntry(
+            _FamilyEntry(
                 identifier=identifier,
                 expand_over_values=values,
                 result=result,
@@ -117,7 +113,7 @@ def _partition(
 
 
 def _attach_p_values(
-    partition: Sequence[_PartitionEntry],
+    partition: Sequence[_FamilyEntry],
     *,
     func_name: str,
     primary: MetricSpec,
@@ -127,8 +123,8 @@ def _attach_p_values(
         _FamilyEntry(
             identifier=p.identifier,
             expand_over_values=p.expand_over_values,
-            p_value=_resolve_p_value(p.result, primary=primary, func_name=func_name),
             result=p.result,
+            p_value=_resolve_p_value(p.result, primary=primary, func_name=func_name),
         )
         for p in partition
     ]
