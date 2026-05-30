@@ -131,9 +131,7 @@ class TestCaarTwoTier:
         with pytest.warns(UserWarning, match="MIN_EVENTS_WARN"):
             out = caar(df, forward_periods=1)
         assert out.stat is not None
-        assert (
-            WarningCode.FEW_EVENTS_BROWN_WARNER.value in out.metadata["warning_codes"]
-        )
+        assert WarningCode.FEW_EVENTS.value in out.metadata["warning_codes"]
 
     def test_at_or_above_warn_is_silent(self) -> None:
         df = _caar_df(MIN_EVENTS_WARN + 5)

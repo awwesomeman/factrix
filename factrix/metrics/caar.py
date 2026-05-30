@@ -70,7 +70,7 @@ _CAAR_INFERENCE = "non-overlapping t / z"
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
 # so slice tests skip the `n_groups` downscale step. Minimum event
-# count for the cross-event t-test (FEW_EVENTS_BROWN_WARNER threshold)
+# count for the cross-event t-test (FEW_EVENTS threshold)
 # lives in the procedure short-circuit and is parallel to (not
 # exposed via) this attribute.
 min_assets_per_group: int | None = None
@@ -260,7 +260,7 @@ def caar(
 
     warning_codes: list[str] = []
     if n < raw_min_warn:
-        warning_codes.append(WarningCode.FEW_EVENTS_BROWN_WARNER.value)
+        warning_codes.append(WarningCode.FEW_EVENTS.value)
         warnings.warn(
             f"caar: n_event_dates={n} below MIN_EVENTS_WARN-scaled floor="
             f"{raw_min_warn}; Brown-Warner (1985) convention treats sub-30 "

@@ -201,7 +201,7 @@ A few specific caveats worth flagging:
   event-study CAAR `t`. Brown & Warner (1985) tabulate well-behaved
   power at `K ≥ 50` and use `K ≥ 30` as the conventional minimum; in
   `K ∈ [4, 30)` the parametric `caar` is under-powered and
-  `WarningCode.FEW_EVENTS_BROWN_WARNER` fires. The `bmp_test` /
+  `WarningCode.FEW_EVENTS` fires. The `bmp_test` /
   `corrado_rank` siblings only partly mitigate.
 - **`MIN_PORTFOLIO_PERIODS_HARD = 3` / `MIN_PORTFOLIO_PERIODS_WARN = 20`**
   in `top_concentration` and `ts_quantile_spread`. Below 3 there is

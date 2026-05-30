@@ -666,7 +666,7 @@ types-only; runner wiring lands with the DAG executor.
 | `borderline_cross_section_n` | PANEL cross-asset t-test with `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN` (10..29); residual t_crit inflation 5–15%. |
 | `sparse_common_few_events` | `(COMMON, SPARSE, PANEL)` broadcast dummy has 5..19 events; per-asset β estimable but cross-event averaging too thin for asymptotic t. |
 | `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) rather than textbook MacKinlay signed CAAR — apply `.sign()` before calling for sign-flip semantics. |
-| `few_events_brown_warner` | CAAR significance test with `MIN_EVENTS_HARD ≤ n_event_dates < MIN_EVENTS_WARN` (4..29); t-stat returned but Brown-Warner (1985) convention treats sub-30 events as power-thin for the asymptotic t. |
+| `few_events` | CAAR significance test with `MIN_EVENTS_HARD ≤ n_event_dates < MIN_EVENTS_WARN` (4..29); t-stat returned but Brown-Warner (1985) convention treats sub-30 events as power-thin for the asymptotic t. |
 | `borderline_portfolio_periods` | `top_concentration` with `MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN` (3..19); one-sided t-test on the per-date diversification ratio is returned but `df=n-1` inflates t_crit. |
 | `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited; downstream `MetricOutput.metadata` carries `upstream` / `upstream_reason` for root-cause recovery. |
 

@@ -48,7 +48,9 @@ class WarningCode(StrEnum):
     # is returned but the Brown-Warner (1985) convention treats sub-30
     # event-date counts as power-thin for the asymptotic t-distribution.
     # Below the HARD floor the primitive short-circuits to NaN instead.
-    FEW_EVENTS_BROWN_WARNER = "few_events_brown_warner"
+    # Naming follows the ``<axis>_<condition>`` grammar; the Brown-Warner
+    # method reference lives in this gloss rather than the member name.
+    FEW_EVENTS = "few_events"
     # Fired by ``top_concentration`` when the per-date ratio series sits
     # in ``[MIN_PORTFOLIO_PERIODS_HARD, MIN_PORTFOLIO_PERIODS_WARN)`` —
     # the one-sided t-test on the diversification ratio is returned but
@@ -106,7 +108,7 @@ _WARNING_DESCRIPTIONS.update(
         "clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) "
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
         "calling for sign-flip semantics.",
-        WarningCode.FEW_EVENTS_BROWN_WARNER: "CAAR significance test with MIN_EVENTS_HARD ≤ "
+        WarningCode.FEW_EVENTS: "CAAR significance test with MIN_EVENTS_HARD ≤ "
         "n_event_dates < MIN_EVENTS_WARN (4..29); t-stat returned but "
         "Brown-Warner (1985) convention treats sub-30 events as power-thin "
         "for the asymptotic t-distribution — read borderline p-values cautiously.",
