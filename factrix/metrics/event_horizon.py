@@ -32,7 +32,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_event_returns",
         cell=_EH_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference="binomial",
         primitives=_EH_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -40,7 +40,7 @@ __metric_specs__ = (
     MetricSpec(
         name="event_around_return",
         cell=_EH_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference="binomial",
         primitives=_EH_PRIMITIVES,
     ),

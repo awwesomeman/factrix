@@ -346,7 +346,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_mfe_mae",
         cell=_MFE_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference="no formal H_0",
         primitives=_MFE_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -354,7 +354,7 @@ __metric_specs__ = (
     MetricSpec(
         name="mfe_mae_summary",
         cell=_MFE_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference="no formal H_0",
         primitives=_MFE_PRIMITIVES,
         requires={"mfe_mae_df": compute_mfe_mae},

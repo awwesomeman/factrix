@@ -721,7 +721,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_fm_betas",
         cell=_FM_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_FM_INFERENCE,
         primitives=_FM_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -729,7 +729,7 @@ __metric_specs__ = (
     MetricSpec(
         name="fm_beta",
         cell=_FM_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_FM_INFERENCE,
         primitives=_FM_PRIMITIVES,
         requires={"beta_df": compute_fm_betas},
@@ -737,14 +737,14 @@ __metric_specs__ = (
     MetricSpec(
         name="pooled_beta",
         cell=_FM_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_FM_INFERENCE,
         primitives=_FM_PRIMITIVES,
     ),
     MetricSpec(
         name="beta_sign_consistency",
         cell=_FM_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_FM_INFERENCE,
         primitives=_FM_PRIMITIVES,
         requires={"beta_df": compute_fm_betas},

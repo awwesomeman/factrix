@@ -29,7 +29,7 @@ __metric_specs__ = (
     MetricSpec(
         name="oos_decay",
         cell=cell(None, FactorSignal.CONTINUOUS, mode=PanelMode.TIMESERIES),
-        family="ts-only",
+        agg_order="ts-only",
         inference="no formal H_0",
         primitives=("_short_circuit_output",),
     ),

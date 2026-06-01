@@ -24,7 +24,7 @@ def make_spec(name: str) -> MetricSpec:
     return MetricSpec(
         name=name,
         cell=Cell(scope=None, signal=None, mode=None, raw="*"),
-        family="cs-first",
+        agg_order="cs-first",
         inference="test",
     )
 

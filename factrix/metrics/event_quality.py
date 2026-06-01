@@ -56,7 +56,7 @@ __metric_specs__ = tuple(
     MetricSpec(
         name=_name,
         cell=_EQ_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference=_EQ_INFERENCE,
         primitives=_EQ_PRIMITIVES,
     )

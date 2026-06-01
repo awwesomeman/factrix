@@ -28,7 +28,7 @@ __metric_specs__ = (
     MetricSpec(
         name="clustering_hhi",
         cell=cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL),
-        family="static-cs",
+        agg_order="static-cs",
         inference="no formal H_0",
         primitives=("_short_circuit_output",),
     ),

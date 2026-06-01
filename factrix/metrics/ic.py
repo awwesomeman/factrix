@@ -467,7 +467,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_ic",
         cell=_IC_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -476,7 +476,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ic",
         cell=_IC_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},
@@ -484,7 +484,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ic_newey_west",
         cell=_IC_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},
@@ -496,7 +496,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ic_ir",
         cell=_IC_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},

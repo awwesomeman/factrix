@@ -45,7 +45,7 @@ __metric_specs__ = (
         cell=cell(
             FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL
         ),
-        family="cs-first",
+        agg_order="cs-first",
         inference="cross-asset t",
         batchable=True,
         primitives=(

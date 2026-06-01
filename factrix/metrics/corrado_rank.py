@@ -20,7 +20,7 @@ __metric_specs__ = (
     MetricSpec(
         name="corrado_rank",
         cell=cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL),
-        family="per-event",
+        agg_order="per-event",
         inference="nonparametric rank",
         primitives=(
             "_calc_t_stat",

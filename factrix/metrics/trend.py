@@ -28,7 +28,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ic_trend",
         cell=cell(None, FactorSignal.CONTINUOUS, mode=PanelMode.TIMESERIES),
-        family="ts-only",
+        agg_order="ts-only",
         inference="Theil-Sen rank-based CI",
         primitives=(
             "_significance_marker",
