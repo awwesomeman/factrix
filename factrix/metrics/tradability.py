@@ -48,14 +48,14 @@ __metric_specs__ = (
     MetricSpec(
         name="notional_turnover",
         cell=_TR_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference="no formal H_0",
         primitives=_TR_CS_PRIMITIVES,
     ),
     MetricSpec(
         name="breakeven_cost",
         cell=_TR_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference="no formal H_0",
         primitives=_TR_CS_PRIMITIVES,
         input_kind="scalar",
@@ -63,7 +63,7 @@ __metric_specs__ = (
     MetricSpec(
         name="net_spread",
         cell=_TR_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference="no formal H_0",
         primitives=_TR_CS_PRIMITIVES,
         input_kind="scalar",
@@ -71,7 +71,9 @@ __metric_specs__ = (
     MetricSpec(
         name="turnover",
         cell=_TR_CELL,
-        family="ts-only (rank autocorrelation across consecutive dates)",
+        # WHY: rank autocorrelation across consecutive dates — no cross-section
+        # step, so the aggregation order is pure time series.
+        agg_order="ts-only",
         inference="no formal H_0",
         primitives=("_short_circuit_output",),
     ),

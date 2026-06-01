@@ -45,7 +45,7 @@ _TSB_PRIMITIVES = (
     "_significance_marker",
     "_short_circuit_output",
 )
-_TSB_FAMILY = "ts-first"
+_TSB_AGG_ORDER = "ts-first"
 _TSB_INFERENCE = "cross-asset t"
 
 
@@ -541,7 +541,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_ts_betas",
         cell=_TSB_CELL,
-        family=_TSB_FAMILY,
+        agg_order=_TSB_AGG_ORDER,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -549,7 +549,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ts_beta",
         cell=_TSB_CELL,
-        family=_TSB_FAMILY,
+        agg_order=_TSB_AGG_ORDER,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
         requires={"ts_betas_df": compute_ts_betas},
@@ -557,7 +557,7 @@ __metric_specs__ = (
     MetricSpec(
         name="mean_r_squared",
         cell=_TSB_CELL,
-        family=_TSB_FAMILY,
+        agg_order=_TSB_AGG_ORDER,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
         requires={"ts_betas_df": compute_ts_betas},
@@ -565,14 +565,14 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_rolling_mean_beta",
         cell=_TSB_CELL,
-        family=_TSB_FAMILY,
+        agg_order=_TSB_AGG_ORDER,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
     ),
     MetricSpec(
         name="ts_beta_sign_consistency",
         cell=_TSB_CELL,
-        family=_TSB_FAMILY,
+        agg_order=_TSB_AGG_ORDER,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
         requires={"ts_betas_df": compute_ts_betas},
@@ -580,7 +580,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ts_beta_single_asset_fallback",
         cell=_TSB_CELL,
-        family=_TSB_FAMILY,
+        agg_order=_TSB_AGG_ORDER,
         inference=_TSB_INFERENCE,
         primitives=_TSB_PRIMITIVES,
         visibility=Visibility.INTERNAL,

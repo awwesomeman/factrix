@@ -24,7 +24,7 @@ class TestDefaults:
         spec = MetricSpec(
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
-            family="cs-first",
+            agg_order="cs-first",
             inference="probe",
         )
         assert spec.requires == {}
@@ -33,7 +33,7 @@ class TestDefaults:
         spec = MetricSpec(
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
-            family="cs-first",
+            agg_order="cs-first",
             inference="probe",
         )
         assert spec.batchable is False
@@ -42,7 +42,7 @@ class TestDefaults:
         spec = MetricSpec(
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
-            family="cs-first",
+            agg_order="cs-first",
             inference="probe",
         )
         assert spec.visibility is Visibility.PUBLIC

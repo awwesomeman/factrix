@@ -18,6 +18,7 @@ import pytest
 from factrix._axis import FactorScope, FactorSignal, Visibility
 from factrix._errors import IncompatibleAxisError
 from factrix._metric_index import (
+    MetricSpec,
     _all_specs,
     import_path_for,
     public_specs,
@@ -187,6 +188,7 @@ def test_json_format_round_trips() -> None:
     assert set(sample) == {
         "name",
         "module",
+        "family",
         "cell",
         "agg_order",
         "inference_se",
@@ -304,11 +306,58 @@ def test_public_spec_fields_are_serialisable() -> None:
         {
             "name": spec.name,
             "module": stem,
+            "family": stem,
             "cell": spec.cell.raw,
-            "agg_order": spec.family,
+            "agg_order": spec.agg_order,
             "inference_se": spec.inference,
             "import_path": import_path_for(stem),
             "input_kind": spec.input_kind,
         }
     )
     assert json.loads(serialised)["name"] == spec.name
+
+
+class TestNoArgOverview:
+    def test_no_arg_returns_family_grouped_dict(self) -> None:
+        overview = fx.list_metrics()
+        assert isinstance(overview, dict)
+        # Keys are concept families (module stems); ic family present.
+        assert "ic" in overview
+        assert {s.name for s in overview["ic"]} >= {"ic", "ic_newey_west", "ic_ir"}
+
+    def test_overview_keys_match_public_spec_stems(self) -> None:
+        overview = fx.list_metrics()
+        assert set(overview) == {stem for stem, _ in public_specs()}
+
+    def test_overview_values_are_specs_not_callables(self) -> None:
+        overview = fx.list_metrics()
+        assert all(
+            isinstance(spec, MetricSpec)
+            for specs in overview.values()
+            for spec in specs
+        )
+
+    def test_overview_covers_every_public_spec_once(self) -> None:
+        overview = fx.list_metrics()
+        flattened = [spec for specs in overview.values() for spec in specs]
+        assert len(flattened) == len(public_specs())
+
+    def test_overview_keys_are_sorted(self) -> None:
+        overview = fx.list_metrics()
+        assert list(overview) == sorted(overview)
+
+    def test_single_axis_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="exactly one axis"):
+            fx.list_metrics(FactorScope.INDIVIDUAL)  # type: ignore[call-overload]
+        with pytest.raises(ValueError, match="exactly one axis"):
+            fx.list_metrics(signal=FactorSignal.CONTINUOUS)  # type: ignore[call-overload]
+
+
+def test_json_agg_order_and_family_are_distinct_fields() -> None:
+    rows = fx.list_metrics(
+        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json"
+    )
+    by_name = {r["name"]: r for r in rows}
+    # agg_order is the reduction order; family is the concept group.
+    assert by_name["ic"]["agg_order"] == "cs-first"
+    assert by_name["ic"]["family"] == "ic"

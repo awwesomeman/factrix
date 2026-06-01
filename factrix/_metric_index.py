@@ -23,7 +23,7 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
         MetricSpec(
             name="my_metric",
             cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL),
-            family="cs-first",
+            agg_order="cs-first",
             inference="NW HAC / cross-asset t",
             primitives=("_calc_t_stat", "_p_value_from_t"),
         ),
@@ -38,7 +38,7 @@ import inspect
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
 from factrix._errors import IncompatibleAxisError
@@ -158,11 +158,14 @@ class MetricSpec:
     - ``name``: function name in the declaring module.
     - ``cell``: applicable ``(scope, signal, mode)`` cell;
       ``None`` along any axis denotes ``*`` wildcard.
-    - ``family``: aggregation / inference family label —
+    - ``agg_order``: aggregation order — the order in which the
+      cross-section and time-series reductions compose:
       ``"cs-first"`` (cross-section step then time aggregation),
-      ``"per-event"``, ``"ts-only"``, ``"ts-first"``, ``"static-cs"``,
-      or free-form prose for special cases (e.g. spanning's
-      ``"factor-return-series consumer (post-PANEL pipeline)"``).
+      ``"per-event"``, ``"ts-only"``, ``"ts-first"``, ``"static-cs"``.
+      Load-bearing for the DAG executor / FDR. Distinct from the
+      *concept family* (``ic`` / ``decay`` / ``quantile``), which is
+      the declaring module's stem and is derived from file location
+      (the ``file = family`` invariant), never stored on the spec.
     - ``inference``: inference / standard-error family — e.g.
       ``"NW HAC / cross-asset t"``, ``"binomial"``,
       ``"nonparametric rank"``, ``"no formal H_0"``.
@@ -195,7 +198,7 @@ class MetricSpec:
 
     name: str
     cell: Cell
-    family: str
+    agg_order: str
     inference: str
     primitives: tuple[str, ...] = ()
     input_kind: Literal["panel", "scalar"] = "panel"
@@ -446,14 +449,51 @@ def register(fn: Callable[..., Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _metrics_overview() -> dict[str, list[MetricSpec]]:
+    """Family-grouped catalog of every public metric spec.
+
+    Keys are concept-family names (the declaring module stem, per the
+    ``file = family`` invariant); values are that module's public specs
+    in registry order — sorted, because :func:`public_specs` yields
+    ``(stem, name)`` sorted. See :func:`list_metrics` for the public
+    contract.
+    """
+    out: dict[str, list[MetricSpec]] = {}
+    for stem, spec in public_specs():
+        out.setdefault(stem, []).append(spec)
+    return out
+
+
+@overload
+def list_metrics() -> dict[str, list[MetricSpec]]: ...
+@overload
 def list_metrics(
     scope: FactorScope,
     signal: FactorSignal,
     *,
+    format: Literal["text", "json"] = ...,
+    with_import: bool = ...,
+) -> list[str] | list[dict[str, Any]]: ...
+def list_metrics(
+    scope: FactorScope | None = None,
+    signal: FactorSignal | None = None,
+    *,
     format: Literal["text", "json"] = "text",
     with_import: bool = False,
-) -> list[str] | list[dict[str, Any]]:
-    """Return standalone metrics applicable to ``(scope, signal)``.
+) -> dict[str, list[MetricSpec]] | list[str] | list[dict[str, Any]]:
+    """Discover standalone metrics — family-grouped overview or cell filter.
+
+    Two call shapes:
+
+    - **No arguments** → a family-grouped overview
+      ``dict[str, list[MetricSpec]]`` keyed by concept family (the
+      module stem). This is a catalog, *not* runnable — see
+      :func:`_metrics_overview`.
+    - **Both ``scope`` and ``signal``** → the metrics applicable to that
+      ``(scope, signal)`` cell, as names (``format="text"``) or
+      JSON-serialisable rows (``format="json"``).
+
+    Passing exactly one axis is a usage error.
 
     PanelMode is intentionally not an input — applicability does not change
     across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
@@ -462,14 +502,18 @@ def list_metrics(
 
     Args:
         scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
-            ``FactorScope.COMMON``).
+            ``FactorScope.COMMON``). Omit together with ``signal`` for
+            the overview.
         signal: Cell axis to filter on (``FactorSignal.CONTINUOUS`` or
-            ``FactorSignal.SPARSE``).
+            ``FactorSignal.SPARSE``). Omit together with ``scope`` for
+            the overview.
         format: ``"text"`` (default) returns metric names sorted by
             ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
-            with keys ``name``, ``module``, ``cell``, ``agg_order``,
-            ``inference_se``, ``import_path``, ``input_kind``,
-            ``docs_anchor`` — JSON-serialisable, suitable for tooling.
+            with keys ``name``, ``module``, ``family``, ``cell``,
+            ``agg_order``, ``inference_se``, ``import_path``,
+            ``input_kind``, ``docs_anchor`` — JSON-serialisable, suitable
+            for tooling. ``family`` is the concept family (module stem);
+            ``agg_order`` is the cross-section/time reduction order.
             ``docs_anchor`` follows
             :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
             docs-root-relative path + mkdocstrings symbol fragment).
@@ -483,24 +527,40 @@ def list_metrics(
             present there).
 
     Raises:
+        ValueError: exactly one of ``scope`` / ``signal`` is given
+            (pass both for a filtered list, or neither for the overview).
         IncompatibleAxisError: ``(scope, signal)`` matches no
             registered metric. In practice all four combos are
             populated, so this is defensive.
 
     Examples:
-        Discover standalone metrics for an INDIVIDUAL × CONTINUOUS cell:
+        Family-grouped overview (no arguments):
 
         >>> import factrix as fx
+        >>> overview = fx.list_metrics()
+        >>> "ic" in overview
+        True
+
+        Discover standalone metrics for an INDIVIDUAL × CONTINUOUS cell:
+
         >>> names = fx.list_metrics(
         ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS,
         ... )
 
-        JSON form (for tooling — adds module / cell / import_path keys):
+        JSON form (for tooling — adds module / family / import_path keys):
 
         >>> rows = fx.list_metrics(
         ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
         ... )
     """
+    if scope is None and signal is None:
+        return _metrics_overview()
+    if scope is None or signal is None:
+        raise ValueError(
+            "list_metrics() takes either no arguments (family-grouped "
+            "overview) or both scope and signal (cell-filtered list); "
+            "got exactly one axis."
+        )
     matches = [
         (stem, spec)
         for stem, spec in public_specs()
@@ -516,8 +576,9 @@ def list_metrics(
             {
                 "name": spec.name,
                 "module": stem,
+                "family": stem,
                 "cell": spec.cell.raw,
-                "agg_order": spec.family,
+                "agg_order": spec.agg_order,
                 "inference_se": spec.inference,
                 "import_path": import_path_for(stem),
                 "input_kind": spec.input_kind,

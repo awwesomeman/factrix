@@ -37,28 +37,28 @@ _TABLE_HEADER = (
 
 @dataclass(frozen=True, slots=True)
 class _GroupedRow:
-    """One docs-matrix row: a ``(module, cell, family, inference)`` group."""
+    """One docs-matrix row: a ``(module, cell, agg_order, inference)`` group."""
 
     module: str
     cell_raw: str
-    family: str
+    agg_order: str
     inference: str
 
 
 def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]:
-    """Collapse per-callable specs into per-(module, cell, family, inference) rows.
+    """Collapse per-callable specs into per-(module, cell, agg_order, inference) rows.
 
     Stable on insertion order so the rendered table follows the
     spec-declaration order in each module.
     """
     seen: dict[tuple[str, str, str, str], _GroupedRow] = {}
     for stem, spec in specs:
-        key = (stem, spec.cell.raw, spec.family, spec.inference)
+        key = (stem, spec.cell.raw, spec.agg_order, spec.inference)
         if key not in seen:
             seen[key] = _GroupedRow(
                 module=stem,
                 cell_raw=spec.cell.raw,
-                family=spec.family,
+                agg_order=spec.agg_order,
                 inference=spec.inference,
             )
     return list(seen.values())
@@ -66,7 +66,7 @@ def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]
 
 def _render_row(row: _GroupedRow) -> str:
     module_cell = f"[`metrics.{row.module}`][factrix.metrics.{row.module}]"
-    return f"| {module_cell} | `{row.cell_raw}` | {row.family} | {row.inference} |\n"
+    return f"| {module_cell} | `{row.cell_raw}` | {row.agg_order} | {row.inference} |\n"
 
 
 def generate() -> None:

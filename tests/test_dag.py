@@ -27,7 +27,7 @@ def _make_spec(
     return MetricSpec(
         name=name,
         cell=cell(None, None),
-        family="test",
+        agg_order="test",
         inference="test",
         requires=requires or {},
         batchable=batchable,

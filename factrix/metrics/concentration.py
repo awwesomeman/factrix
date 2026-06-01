@@ -47,7 +47,7 @@ __metric_specs__ = (
         cell=cell(
             FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL
         ),
-        family="cs-first",
+        agg_order="cs-first",
         inference="across-time t (one-sided H_0: ratio >= 0.5)",
         primitives=(
             "_calc_t_stat",

@@ -59,14 +59,14 @@ __metric_specs__ = (
     MetricSpec(
         name="spanning_alpha",
         cell=_SPANNING_CELL,
-        family="ts-only",
+        agg_order="ts-only",
         inference="NW HAC / OLS t",
         primitives=_SPANNING_PRIMITIVES,
     ),
     MetricSpec(
         name="greedy_forward_selection",
         cell=_SPANNING_CELL,
-        family="ts-only",
+        agg_order="ts-only",
         inference="NW HAC / OLS t",
         primitives=_SPANNING_PRIMITIVES,
     ),

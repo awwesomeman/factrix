@@ -63,7 +63,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_spread_series",
         cell=_Q_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -71,7 +71,7 @@ __metric_specs__ = (
     MetricSpec(
         name="quantile_spread",
         cell=_Q_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
         batchable=True,
@@ -79,14 +79,14 @@ __metric_specs__ = (
     MetricSpec(
         name="quantile_spread_vw",
         cell=_Q_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
     ),
     MetricSpec(
         name="compute_group_returns",
         cell=_Q_CELL,
-        family="cs-first",
+        agg_order="cs-first",
         inference=_Q_INFERENCE,
         primitives=_Q_PRIMITIVES,
         visibility=Visibility.INTERNAL,

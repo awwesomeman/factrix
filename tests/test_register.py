@@ -31,7 +31,7 @@ def _isolate_registry():
 class TestMetricSpecDecorator:
     def test_stamps_metric_spec_attribute(self) -> None:
         spec = MetricSpec(
-            name="stamp_only", cell=cell(None, None), family="test", inference="test"
+            name="stamp_only", cell=cell(None, None), agg_order="test", inference="test"
         )
 
         @fx.metric_spec(spec)
@@ -44,7 +44,7 @@ class TestMetricSpecDecorator:
         spec = MetricSpec(
             name="no_auto_register",
             cell=cell(None, None),
-            family="test",
+            agg_order="test",
             inference="test",
         )
 
@@ -61,7 +61,7 @@ class TestRegister:
         spec = MetricSpec(
             name="custom_ic_smoke",
             cell=cell(None, None),
-            family="test",
+            agg_order="test",
             inference="test",
         )
 
@@ -81,7 +81,7 @@ class TestRegister:
         spec = MetricSpec(
             name="dag_resolves_me",
             cell=cell(None, None),
-            family="test",
+            agg_order="test",
             inference="test",
         )
 
@@ -107,7 +107,7 @@ class TestRegister:
         spec = MetricSpec(
             name="dup_metric",
             cell=cell(None, None),
-            family="test",
+            agg_order="test",
             inference="test",
         )
 
@@ -121,7 +121,7 @@ class TestRegister:
 
     def test_register_rejects_first_party_clash(self) -> None:
         clash_spec = MetricSpec(
-            name="ic", cell=cell(None, None), family="x", inference="x"
+            name="ic", cell=cell(None, None), agg_order="x", inference="x"
         )
 
         @fx.metric_spec(clash_spec)

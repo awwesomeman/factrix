@@ -588,7 +588,7 @@ __metric_specs__ = (
     MetricSpec(
         name="compute_caar",
         cell=_CAAR_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference=_CAAR_INFERENCE,
         primitives=_CAAR_PRIMITIVES,
         visibility=Visibility.INTERNAL,
@@ -596,7 +596,7 @@ __metric_specs__ = (
     MetricSpec(
         name="caar",
         cell=_CAAR_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference=_CAAR_INFERENCE,
         primitives=_CAAR_PRIMITIVES,
         requires={"caar_df": compute_caar},
@@ -604,7 +604,7 @@ __metric_specs__ = (
     MetricSpec(
         name="bmp_test",
         cell=_CAAR_CELL,
-        family="per-event",
+        agg_order="per-event",
         inference=_CAAR_INFERENCE,
         primitives=_CAAR_PRIMITIVES,
     ),

@@ -61,7 +61,7 @@ __metric_specs__ = (
     MetricSpec(
         name="ts_asymmetry",
         cell=cell(FactorScope.COMMON, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL),
-        family="cs-first",
+        agg_order="cs-first",
         inference="NW HAC Wald",
         primitives=(
             "_significance_marker",

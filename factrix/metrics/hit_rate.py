@@ -30,7 +30,7 @@ __metric_specs__ = (
     MetricSpec(
         name="hit_rate",
         cell=cell(None, FactorSignal.CONTINUOUS, mode=PanelMode.TIMESERIES),
-        family="ts-only",
+        agg_order="ts-only",
         inference="binomial",
         primitives=(
             "_binomial_two_sided_p",
