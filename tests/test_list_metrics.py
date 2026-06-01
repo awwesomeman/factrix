@@ -14,6 +14,7 @@ import re
 from unittest.mock import patch
 
 import factrix as fx
+import polars as pl
 import pytest
 from factrix._axis import FactorScope, FactorSignal, Visibility
 from factrix._errors import IncompatibleAxisError
@@ -351,6 +352,34 @@ class TestNoArgOverview:
             fx.list_metrics(FactorScope.INDIVIDUAL)  # type: ignore[call-overload]
         with pytest.raises(ValueError, match="exactly one axis"):
             fx.list_metrics(signal=FactorSignal.CONTINUOUS)  # type: ignore[call-overload]
+
+
+class TestOverviewNotRunnable:
+    """The §6 overview is a catalog; evaluate must reject it with guidance."""
+
+    def test_is_metrics_overview_recognises_overview(self) -> None:
+        from factrix import _is_metrics_overview
+
+        assert _is_metrics_overview(fx.list_metrics()) is True
+
+    def test_is_metrics_overview_rejects_runnable_and_empty(self) -> None:
+        from factrix import _is_metrics_overview
+
+        _, spec = public_specs()[0]
+        assert _is_metrics_overview([spec]) is False  # a runnable list
+        assert _is_metrics_overview({}) is False  # empty dict
+        assert _is_metrics_overview({"x": [1, 2]}) is False  # not specs
+
+    def test_evaluate_rejects_overview_with_guidance(self) -> None:
+        from factrix._errors import UserInputError
+
+        with pytest.raises(UserInputError, match="overview catalog"):
+            fx.evaluate(
+                pl.DataFrame(),
+                metrics=fx.list_metrics(),  # type: ignore[arg-type]
+                factor_cols=["alpha"],
+                forward_periods=5,
+            )
 
 
 def test_json_agg_order_and_family_are_distinct_fields() -> None:

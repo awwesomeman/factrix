@@ -197,7 +197,37 @@ _DOCS_PANEL = "api/evaluate#panel"
 _DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods"
 
 
+def _is_metrics_overview(metrics: object) -> bool:
+    """True when ``metrics`` is a ``list_metrics()`` family-grouped overview.
+
+    The overview is ``dict[str, list[MetricSpec]]`` — a catalog, not a
+    runnable argument. Recognising its exact shape lets ``evaluate``
+    point the user at the right path instead of a generic type error.
+    """
+    return (
+        isinstance(metrics, dict)
+        and bool(metrics)
+        and all(
+            isinstance(v, list) and all(isinstance(s, MetricSpec) for s in v)
+            for v in metrics.values()
+        )
+    )
+
+
 def _validate_metrics_arg(metrics: object) -> None:
+    if _is_metrics_overview(metrics):
+        raise UserInputError(
+            func_name="evaluate",
+            field="metrics",
+            value=f"<list_metrics() overview: {len(metrics)} families>",  # type: ignore[arg-type]
+            expected=(
+                "an explicit list[MetricSpec]. fx.list_metrics() returns an "
+                "overview catalog (family -> specs), not a runnable list; "
+                "pick the specs you want, or pre-filter the panel with "
+                "[m.spec for m in factrix.inspect_panel(panel).usable]"
+            ),
+            docs_path=_DOCS_METRICS,
+        )
     if not isinstance(metrics, list):
         raise UserInputError(
             func_name="evaluate",
