@@ -164,6 +164,45 @@ class TestSampleFloorGate:
         assert ic.warnings == []
 
 
+class TestTierPartition:
+    def test_three_tiers_partition_metrics_disjointly(self):
+        # n_dates=25 puts ic_newey_west between min and warn -> degraded.
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        usable = {m.spec.name for m in info.usable}
+        degraded = {m.spec.name for m in info.degraded}
+        unusable = {m.spec.name for m in info.unusable}
+        # Mutually exclusive.
+        assert usable & degraded == set()
+        assert usable & unusable == set()
+        assert degraded & unusable == set()
+        # Exhaustive: union covers every verdict exactly once.
+        assert len(info.usable) + len(info.degraded) + len(info.unusable) == len(
+            info.metrics
+        )
+        assert usable | degraded | unusable == {m.spec.name for m in info.metrics}
+
+    def test_usable_excludes_degraded(self):
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        nw = _by_name(info, "ic_newey_west")
+        assert nw.usable is True and nw.warnings  # the degraded case
+        assert nw not in info.usable
+        assert nw in info.degraded
+
+    def test_usable_is_clean_only(self):
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        assert all(m.usable and not m.warnings for m in info.usable)
+
+    def test_degraded_is_usable_with_warnings(self):
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        assert all(m.usable and m.warnings for m in info.degraded)
+
+    def test_unusable_is_not_usable(self):
+        info = inspect_panel(_single_asset_panel(n_dates=80))
+        assert all(not m.usable for m in info.unusable)
+        # ic (cell=PANEL) is unusable on a single-asset panel.
+        assert "ic" in {m.spec.name for m in info.unusable}
+
+
 class TestPanelLevelWarnings:
     def test_thin_panel_short_n_periods_emits_panel_warning(self):
         info = inspect_panel(_single_asset_panel(n_dates=25))

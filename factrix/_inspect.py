@@ -16,9 +16,9 @@ Two-stage applicability model:
 
 Each public spec receives one :class:`MetricApplicability` verdict
 exposing ``usable`` / ``warnings`` / ``blockers``. The flat
-``list[MetricApplicability]`` on :class:`PanelInspection` is the
-single source of truth; partitioning by ``.usable`` is a one-line
-list comprehension at the call site.
+``list[MetricApplicability]`` on :class:`PanelInspection.metrics` is
+the single source of truth; the ``usable`` / ``degraded`` /
+``unusable`` properties expose it as a mutually exclusive partition.
 """
 
 from __future__ import annotations
@@ -180,8 +180,9 @@ class PanelInspection:
             (scope / signal / mode).
         metrics: Flat ``list[MetricApplicability]`` — one verdict
             per ``visibility=PUBLIC`` spec the inspector considered.
-            Caller partitions via list comprehension:
-            ``usable = [m for m in info.metrics if m.usable]``.
+            Single source of truth; the :attr:`usable` /
+            :attr:`degraded` / :attr:`unusable` properties expose it
+            as a mutually exclusive partition.
         warnings: Panel-level sample-shape diagnostics (NW HAC SE
             unreliable, cross-asset df low). ``source=None`` on
             every entry because these are panel-level, not
@@ -193,6 +194,45 @@ class PanelInspection:
     reasoning: PanelReasoning
     metrics: list[MetricApplicability]
     warnings: list[Warning] = field(default_factory=list)
+
+    @property
+    def usable(self) -> list[MetricApplicability]:
+        """Metrics that are applicable AND carry no degraded warning.
+
+        The production-safe set: every verdict here passed cell match
+        and every ``min_*`` floor with zero ``warn_*`` violations.
+
+        ``usable`` / :attr:`degraded` / :attr:`unusable` form a
+        **mutually exclusive** partition of :attr:`metrics` — a
+        verdict appears in exactly one. ``usable`` deliberately
+        *excludes* degraded verdicts so it can be the single safe set
+        a bulk discovery flow runs without re-filtering. The
+        "usable but warned" verdicts live in :attr:`degraded`.
+        """
+        return [m for m in self.metrics if m.usable and not m.warnings]
+
+    @property
+    def degraded(self) -> list[MetricApplicability]:
+        """Applicable metrics that run but with degraded inference.
+
+        ``usable=True`` yet at least one ``warn_*``-tier
+        :class:`Warning` attached (e.g. NW HAC SE unreliable at short
+        ``n_periods``). They produce a value, but the caller should
+        read the warnings before trusting the inference. Disjoint from
+        :attr:`usable` and :attr:`unusable`.
+        """
+        return [m for m in self.metrics if m.usable and m.warnings]
+
+    @property
+    def unusable(self) -> list[MetricApplicability]:
+        """Metrics that cannot run on this panel.
+
+        ``usable=False`` — blocked by cell mismatch or a ``min_*``
+        floor violation; :attr:`MetricApplicability.blockers` carries
+        the concrete reasons. Disjoint from :attr:`usable` and
+        :attr:`degraded`.
+        """
+        return [m for m in self.metrics if not m.usable]
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly nested dict view.
@@ -356,8 +396,7 @@ def inspect_panel(panel: Any) -> PanelInspection:
         >>> import factrix as fx
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> info = fx.inspect_panel(raw)
-        >>> usable = [m for m in info.metrics if m.usable]
-        >>> all(m.spec.cell.matches(info.detected.scope, info.detected.signal, info.detected.mode) for m in usable)
+        >>> all(m.spec.cell.matches(info.detected.scope, info.detected.signal, info.detected.mode) for m in info.usable)
         True
     """
     signal, signal_reason, sparse_ratio = _detect_signal(panel)
