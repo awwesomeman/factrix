@@ -452,21 +452,22 @@ def _evaluate_applicability(
         )
 
     floor = spec.sample_threshold
-    if floor.min_periods is not None and properties.n_periods < floor.min_periods:
-        blockers.append(
-            f"n_periods={properties.n_periods} < min_periods={floor.min_periods}"
-        )
-    elif floor.warn_periods is not None and properties.n_periods < floor.warn_periods:
-        warnings.append(
-            Warning(
-                code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
-                source=spec.name,
-                message=(
-                    f"n_periods={properties.n_periods} < warn_periods="
-                    f"{floor.warn_periods}: inference degraded"
-                ),
+    for axis, n_actual in (
+        ("periods", properties.n_periods),
+        ("pairs", properties.n_pairs),
+    ):
+        min_v = getattr(floor, f"min_{axis}")
+        warn_v = getattr(floor, f"warn_{axis}")
+        if min_v is not None and n_actual < min_v:
+            blockers.append(f"n_{axis}={n_actual} < min_{axis}={min_v}")
+        elif warn_v is not None and n_actual < warn_v:
+            warnings.append(
+                Warning(
+                    code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+                    source=spec.name,
+                    message=f"n_{axis}={n_actual} < warn_{axis}={warn_v}: inference degraded",
+                )
             )
-        )
     if floor.min_assets is not None and properties.n_assets < floor.min_assets:
         blockers.append(
             f"n_assets={properties.n_assets} < min_assets={floor.min_assets}"
@@ -477,21 +478,6 @@ def _evaluate_applicability(
             warnings.append(
                 Warning(code=tier, source=spec.name, message=tier.description)
             )
-    if floor.min_pairs is not None and properties.n_pairs < floor.min_pairs:
-        blockers.append(
-            f"n_pairs={properties.n_pairs} < min_pairs={floor.min_pairs}"
-        )
-    elif floor.warn_pairs is not None and properties.n_pairs < floor.warn_pairs:
-        warnings.append(
-            Warning(
-                code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
-                source=spec.name,
-                message=(
-                    f"n_pairs={properties.n_pairs} < warn_pairs="
-                    f"{floor.warn_pairs}: inference degraded"
-                ),
-            )
-        )
 
     return MetricApplicability(
         spec=spec,
