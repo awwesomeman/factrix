@@ -38,7 +38,7 @@ import inspect
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal, overload
+from typing import Any, ClassVar, Literal, overload
 
 from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
 from factrix._errors import IncompatibleAxisError
@@ -123,7 +123,7 @@ def cell(
 
 
 @dataclass(frozen=True, slots=True)
-class SampleFloor:
+class SampleThreshold:
     """Per-metric statistical pre-flight gates against panel shape.
 
     Declares the sample-size floors below which a metric is
@@ -136,6 +136,12 @@ class SampleFloor:
     The same constants are read by the metric's own short-circuit
     logic at run time — single source of truth for what counts as
     "thin sample" per metric.
+
+    Per axis the ``min_*`` floor must not exceed the ``warn_*`` floor:
+    a metric is unusable below ``min``, degraded between ``min`` and
+    ``warn``, and clean at or above ``warn``, so ``min <= warn`` is
+    required for that ordering to hold. :meth:`__post_init__` enforces
+    it at construction.
     """
 
     min_periods: int | None = None
@@ -144,6 +150,20 @@ class SampleFloor:
     warn_assets: int | None = None
     min_pairs: int | None = None
     warn_pairs: int | None = None
+
+    _AXES: ClassVar[tuple[str, ...]] = ("periods", "assets", "pairs")
+
+    def __post_init__(self) -> None:
+        for axis in self._AXES:
+            lo, hi = self._bounds(axis)
+            if lo is not None and hi is not None and lo > hi:
+                raise ValueError(
+                    f"SampleThreshold.{axis}: min ({lo}) must not exceed warn ({hi})"
+                )
+
+    def _bounds(self, axis: str) -> tuple[int | None, int | None]:
+        """Return ``(min_<axis>, warn_<axis>)`` for one shape axis."""
+        return getattr(self, f"min_{axis}"), getattr(self, f"warn_{axis}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,7 +209,7 @@ class MetricSpec:
       ``INTERNAL`` for stage-1 helpers (excluded from
       ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
       but pulled by the DAG via ``requires``).
-    - ``sample_floor``: optional :class:`SampleFloor` declaring the
+    - ``sample_floor``: optional :class:`SampleThreshold` declaring the
       panel-shape thresholds below which the metric is statistically
       unusable / degraded. ``None`` (default) means no pre-flight
       sample-size gate is declared; :func:`inspect_panel` will only
@@ -205,7 +225,7 @@ class MetricSpec:
     requires: dict[str, Callable] = field(default_factory=dict)
     batchable: bool = False
     visibility: Visibility = Visibility.PUBLIC
-    sample_floor: SampleFloor | None = None
+    sample_floor: SampleThreshold | None = None
 
 
 # ---------------------------------------------------------------------------

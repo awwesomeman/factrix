@@ -150,7 +150,7 @@ class MetricApplicability:
     Attributes:
         spec: The :class:`MetricSpec` being evaluated.
         usable: ``True`` iff the metric passes cell match AND every
-            ``min_*`` floor on its :class:`SampleFloor`. ``warn_*``
+            ``min_*`` floor on its :class:`SampleThreshold`. ``warn_*``
             violations do NOT flip ``usable`` to ``False`` — they
             attach a degraded :class:`Warning` to :attr:`warnings`.
         warnings: ``warn_*``-tier diagnostics (the metric will run
@@ -378,7 +378,7 @@ def inspect_panel(panel: Any) -> PanelInspection:
     ``visibility=PUBLIC`` :class:`MetricSpec` in the registry, a
     :class:`MetricApplicability` verdict combining (a) cell-match
     against the detected ``(scope, signal, mode)`` and (b) the
-    spec's optional :class:`SampleFloor` against the panel's
+    spec's optional :class:`SampleThreshold` against the panel's
     ``n_periods`` / ``n_assets``.
 
     Sample-floor checks against ``n_events`` (factor-column-dependent)

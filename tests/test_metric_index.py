@@ -9,14 +9,34 @@ callable.
 
 from __future__ import annotations
 
+import pytest
 from factrix._axis import FactorScope, FactorSignal, Visibility
 from factrix._metric_index import (
     MetricSpec,
+    SampleThreshold,
     _all_specs,
     cell,
     public_specs,
     spec_by_name,
 )
+
+
+class TestSampleThresholdInvariant:
+    def test_min_above_warn_rejected_per_axis(self) -> None:
+        for axis in ("periods", "assets", "pairs"):
+            with pytest.raises(ValueError, match=f"{axis}: min"):
+                SampleThreshold(**{f"min_{axis}": 30, f"warn_{axis}": 10})
+
+    def test_min_equal_warn_allowed(self) -> None:
+        assert SampleThreshold(min_periods=20, warn_periods=20).min_periods == 20
+
+    def test_min_below_warn_allowed(self) -> None:
+        st = SampleThreshold(min_periods=20, warn_periods=30)
+        assert (st.min_periods, st.warn_periods) == (20, 30)
+
+    def test_one_sided_floor_allowed(self) -> None:
+        assert SampleThreshold(min_pairs=100).warn_pairs is None
+        assert SampleThreshold(warn_assets=5).min_assets is None
 
 
 class TestDefaults:
