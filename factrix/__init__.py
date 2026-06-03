@@ -59,7 +59,7 @@ from factrix._inspect import (
     PanelInspection,
     PanelProperties,
     PanelReasoning,
-    _derive_mode,
+    _detect_mode,
     inspect_panel,
 )
 from factrix._metric_index import (
@@ -427,7 +427,7 @@ def _validate_primary_metric_applicable(
     cell_mode = primary.cell.mode
     if cell_mode is None:
         return
-    panel_mode = _derive_mode(panel)
+    panel_mode = _detect_mode(panel)
     if cell_mode is panel_mode:
         return
     n_assets = int(panel["asset_id"].n_unique())

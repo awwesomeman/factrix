@@ -602,7 +602,7 @@ factrix/
 ├── _registry.py             # _DispatchKey, _RegistryEntry, _SCOPE_COLLAPSED, register()
 ├── _procedures.py           # 7 FactorProcedure classes; bootstrap-registered at import
 ├── _profile.py              # FactorProfile dataclass + diagnose
-├── _evaluate.py             # _derive_mode + _evaluate dispatch wrapper
+├── _evaluate.py             # _detect_mode + _evaluate dispatch wrapper
 ├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
 ├── _family.py               # _resolve_family + _FamilyEntry (shared invariants)
 ├── _multi_factor.py         # bhy on the resolution layer
