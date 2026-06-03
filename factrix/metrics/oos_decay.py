@@ -20,7 +20,13 @@ from typing import Literal
 
 import polars as pl
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    SEMethod,
+    TestMethod,
+)
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output

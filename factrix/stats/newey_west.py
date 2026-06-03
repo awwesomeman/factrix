@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorDensity
+from factrix._axis import FactorDensity, FactorScope
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import InferenceResult

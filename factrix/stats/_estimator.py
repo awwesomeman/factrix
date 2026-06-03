@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     import numpy as np
 
-    from factrix._axis import FactorScope, FactorDensity
+    from factrix._axis import FactorDensity, FactorScope
     from factrix._codes import StatCode, WarningCode
 
 

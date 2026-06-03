@@ -18,7 +18,13 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    SEMethod,
+    TestMethod,
+)
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _adf, _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput

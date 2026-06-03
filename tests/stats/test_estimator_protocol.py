@@ -7,7 +7,7 @@ dispatch can rely on `isinstance(obj, Estimator)` and the four required members
 
 from __future__ import annotations
 
-from factrix._axis import FactorScope, FactorDensity
+from factrix._axis import FactorDensity, FactorScope
 from factrix._codes import StatCode
 from factrix.stats import Estimator
 

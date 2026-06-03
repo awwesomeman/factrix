@@ -20,7 +20,14 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, SpecRole, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    SEMethod,
+    SpecRole,
+    TestMethod,
+)
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output

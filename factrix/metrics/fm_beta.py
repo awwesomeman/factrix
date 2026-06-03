@@ -29,7 +29,15 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    FactorScope,
+    SEMethod,
+    SpecRole,
+    TestMethod,
+)
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (

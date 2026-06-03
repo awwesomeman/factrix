@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from factrix._axis import FactorScope, FactorDensity
+from factrix._axis import FactorDensity, FactorScope
 from factrix._codes import StatCode, WarningCode
 from factrix.stats import (
     Estimator,

@@ -10,7 +10,14 @@ callable.
 from __future__ import annotations
 
 import pytest
-from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
+from factrix._axis import (
+    Aggregation,
+    FactorDensity,
+    FactorScope,
+    SEMethod,
+    SpecRole,
+    TestMethod,
+)
 from factrix._metric_index import (
     MetricSpec,
     SampleThreshold,
