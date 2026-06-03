@@ -44,6 +44,7 @@ __all__ = [
     "ic_trend",
 ]
 
+
 def ic_trend(
     series: pl.DataFrame,
     value_col: str = "value",

@@ -52,7 +52,8 @@ class TestDefaults:
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
         assert spec.requires == {}
 
@@ -61,7 +62,8 @@ class TestDefaults:
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
         assert spec.batchable is False
 
@@ -70,7 +72,8 @@ class TestDefaults:
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
         assert spec.role is SpecRole.METRIC
 
@@ -78,9 +81,7 @@ class TestDefaults:
 class TestVisibility:
     def test_internal_specs_excluded_from_public(self) -> None:
         all_pipeline = {
-            spec.name
-            for _, spec in _all_specs()
-            if spec.role is SpecRole.PIPELINE
+            spec.name for _, spec in _all_specs() if spec.role is SpecRole.PIPELINE
         }
         public_names = {spec.name for _, spec in public_specs()}
         assert all_pipeline.isdisjoint(public_names)

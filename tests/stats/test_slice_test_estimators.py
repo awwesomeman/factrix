@@ -124,9 +124,9 @@ class TestBlockBootstrap:
         assert a.scheme != b.scheme
         # Both still emit the same StatCode (scheme is metadata, not
         # a separate StatCode key).
-        assert a.emits_for(
+        assert a.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE) == b.emits_for(
             FactorScope.INDIVIDUAL, FactorDensity.DENSE
-        ) == b.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
+        )
 
 
 class TestRegistryIntegration:

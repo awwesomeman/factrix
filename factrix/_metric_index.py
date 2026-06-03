@@ -102,7 +102,9 @@ class Cell:
         """
         scope_ok = self.scope is None or self.scope == scope
         density_ok = self.density is None or self.density == density
-        structure_ok = structure is None or self.structure is None or self.structure == structure
+        structure_ok = (
+            structure is None or self.structure is None or self.structure == structure
+        )
         return scope_ok and density_ok and structure_ok
 
 
@@ -128,7 +130,9 @@ def cell(
     post-pipeline factor-return series.
     """
     if raw is None:
-        raw = f"({_axis_token(scope)}, {_axis_token(density)}, {_axis_token(structure)})"
+        raw = (
+            f"({_axis_token(scope)}, {_axis_token(density)}, {_axis_token(structure)})"
+        )
     return Cell(scope=scope, density=density, structure=structure, raw=raw)
 
 
@@ -342,11 +346,7 @@ def public_specs() -> tuple[tuple[str, MetricSpec], ...]:
     the DAG executor via :attr:`MetricSpec.requires` and do not
     surface in :func:`factrix.list_metrics` or result dict keys.
     """
-    out = [
-        (stem, spec)
-        for stem, spec in _all_specs()
-        if spec.role is SpecRole.METRIC
-    ]
+    out = [(stem, spec) for stem, spec in _all_specs() if spec.role is SpecRole.METRIC]
     out.sort(key=lambda pair: (pair[0], pair[1].name))
     return tuple(out)
 

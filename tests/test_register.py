@@ -32,7 +32,11 @@ def _isolate_registry():
 class TestMetricSpecDecorator:
     def test_stamps_metric_spec_attribute(self) -> None:
         spec = MetricSpec(
-            name="stamp_only", cell=cell(None, None), aggregation=Aggregation.CS_THEN_TS, test_method=TestMethod.T, se_method=SEMethod.HAC
+            name="stamp_only",
+            cell=cell(None, None),
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -46,7 +50,8 @@ class TestMetricSpecDecorator:
             name="no_auto_register",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -63,7 +68,8 @@ class TestRegister:
             name="custom_ic_smoke",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -83,7 +89,8 @@ class TestRegister:
             name="dag_resolves_me",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -109,7 +116,8 @@ class TestRegister:
             name="dup_metric",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T, se_method=SEMethod.HAC,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -122,7 +130,11 @@ class TestRegister:
 
     def test_register_rejects_first_party_clash(self) -> None:
         clash_spec = MetricSpec(
-            name="ic", cell=cell(None, None), aggregation=Aggregation.CS_THEN_TS, test_method=TestMethod.T, se_method=SEMethod.HAC
+            name="ic",
+            cell=cell(None, None),
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(clash_spec)

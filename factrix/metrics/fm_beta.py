@@ -83,6 +83,7 @@ MIN_FM_PERIODS_WARN: int = 30
 # Raw computation (parallel to compute_ic)
 # ---------------------------------------------------------------------------
 
+
 def compute_fm_betas(
     df: pl.DataFrame,
     *,
@@ -160,9 +161,11 @@ def compute_fm_betas(
 
     return pl.DataFrame(rows)
 
+
 # ---------------------------------------------------------------------------
 # Fama-MacBeth significance (parallel to ic())
 # ---------------------------------------------------------------------------
+
 
 def fm_beta(
     beta_df: pl.DataFrame,
@@ -371,9 +374,11 @@ def fm_beta(
         metadata=metadata,
     )
 
+
 # ---------------------------------------------------------------------------
 # Pooled OLS with clustered SE
 # ---------------------------------------------------------------------------
+
 
 def _cluster_meat(
     X: np.ndarray,
@@ -392,6 +397,7 @@ def _cluster_meat(
         score = X[mask].T @ resid[mask]
         meat += np.outer(score, score)
     return meat, len(unique)
+
 
 def pooled_beta(
     df: pl.DataFrame,
@@ -634,9 +640,11 @@ def pooled_beta(
         metadata=metadata,
     )
 
+
 # ---------------------------------------------------------------------------
 # Beta sign consistency (parallel to hit_rate)
 # ---------------------------------------------------------------------------
+
 
 def beta_sign_consistency(
     beta_df: pl.DataFrame,
@@ -706,6 +714,7 @@ def beta_sign_consistency(
             "n_periods": n,
         },
     )
+
 
 __metric_specs__ = (
     MetricSpec(

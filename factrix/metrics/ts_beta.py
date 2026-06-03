@@ -54,6 +54,7 @@ MIN_TS_OBS: int = 20
 # Per-asset TS regression
 # ---------------------------------------------------------------------------
 
+
 def compute_ts_betas(
     df: pl.DataFrame,
     *,
@@ -172,9 +173,11 @@ def compute_ts_betas(
 
     return pl.DataFrame(rows)
 
+
 # ---------------------------------------------------------------------------
 # Cross-sectional test on β distribution
 # ---------------------------------------------------------------------------
+
 
 def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
@@ -217,6 +220,7 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
             "method": "single-asset TS regression (no cross-asset test)",
         },
     )
+
 
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
@@ -290,9 +294,11 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         },
     )
 
+
 # ---------------------------------------------------------------------------
 # Mean R²
 # ---------------------------------------------------------------------------
+
 
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
@@ -355,9 +361,11 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
         },
     )
 
+
 # ---------------------------------------------------------------------------
 # Rolling mean beta for stability / OOS analysis
 # ---------------------------------------------------------------------------
+
 
 def compute_rolling_mean_beta(
     df: pl.DataFrame,
@@ -455,9 +463,11 @@ def compute_rolling_mean_beta(
 
     return pl.DataFrame(rows)
 
+
 # ---------------------------------------------------------------------------
 # β sign consistency (per-asset version)
 # ---------------------------------------------------------------------------
+
 
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
@@ -523,6 +533,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
             "fraction_positive": positive,
         },
     )
+
 
 __metric_specs__ = (
     MetricSpec(

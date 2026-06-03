@@ -43,6 +43,7 @@ _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 
+
 def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     """Output schema with ``date`` dtype mirroring the caller's panel.
 
@@ -59,6 +60,7 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
         "bars_to_mfe": pl.Int32(),
         "bars_to_mae": pl.Int32(),
     }
+
 
 def compute_mfe_mae(
     df: pl.DataFrame,
@@ -246,6 +248,7 @@ def compute_mfe_mae(
         pl.col("bars_to_mae").cast(pl.Int32),
     )
 
+
 def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     """Aggregate MFE/MAE statistics.
 
@@ -343,6 +346,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         value=ratio,
         metadata=metadata,
     )
+
 
 __metric_specs__ = (
     MetricSpec(

@@ -54,7 +54,9 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "quantile_spread_vw",
 ]
 
-_Q_CELL = cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL)
+_Q_CELL = cell(
+    FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
+)
 
 __metric_specs__ = (
     MetricSpec(
@@ -89,6 +91,7 @@ __metric_specs__ = (
         role=SpecRole.PIPELINE,
     ),
 )
+
 
 def compute_spread_series(
     df: pl.DataFrame,
@@ -193,6 +196,7 @@ def compute_spread_series(
         for f in cols
     }
 
+
 def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,
@@ -274,6 +278,7 @@ def quantile_spread(
         for f in cols
     }
 
+
 def _quantile_spread_from_series(
     *,
     series: pl.DataFrame,
@@ -348,6 +353,7 @@ def _quantile_spread_from_series(
             "tie_policy": tie_policy,
         },
     )
+
 
 def quantile_spread_vw(
     df: pl.DataFrame,
@@ -509,6 +515,7 @@ def quantile_spread_vw(
             "weights_lagged": lag_weights,
         },
     )
+
 
 def compute_group_returns(
     df: pl.DataFrame,

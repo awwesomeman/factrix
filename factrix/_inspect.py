@@ -41,7 +41,9 @@ _SPARSITY_THRESHOLD: float = 0.5
 def _detect_structure(panel: Any) -> DataStructure:
     """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
     return (
-        DataStructure.TIMESERIES if panel["asset_id"].n_unique() <= 1 else DataStructure.PANEL
+        DataStructure.TIMESERIES
+        if panel["asset_id"].n_unique() <= 1
+        else DataStructure.PANEL
     )
 
 
@@ -61,9 +63,7 @@ def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
     n_zero = int((raw["factor"] == 0).sum())
     sparsity = n_zero / n
     density = (
-        FactorDensity.SPARSE
-        if sparsity >= _SPARSITY_THRESHOLD
-        else FactorDensity.DENSE
+        FactorDensity.SPARSE if sparsity >= _SPARSITY_THRESHOLD else FactorDensity.DENSE
     )
     reason = (
         f"sparsity ratio = {sparsity:.2f} "
@@ -443,7 +443,9 @@ def _evaluate_applicability(
     blockers: list[str] = []
     warnings: list[Warning] = []
 
-    if not spec.cell.matches(properties.scope, properties.density, properties.structure):
+    if not spec.cell.matches(
+        properties.scope, properties.density, properties.structure
+    ):
         blockers.append(
             f"cell mismatch: spec={spec.cell.raw}, panel="
             f"({properties.scope.value.upper()}, "

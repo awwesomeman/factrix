@@ -179,9 +179,7 @@ def test_text_output_is_sorted_by_module_then_name() -> None:
 
 
 def test_json_format_round_trips() -> None:
-    rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
-    )
+    rows = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
     text = json.dumps(rows)
     decoded = json.loads(text)
     assert decoded == rows
@@ -201,9 +199,7 @@ def test_json_format_round_trips() -> None:
 
 
 def test_json_carries_import_path_and_input_kind() -> None:
-    rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
-    )
+    rows = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
     by_name = {r["name"]: r for r in rows}
 
     # ``ic`` is the canonical panel-input metric.
@@ -385,9 +381,7 @@ class TestOverviewNotRunnable:
 
 
 def test_json_agg_order_and_family_are_distinct_fields() -> None:
-    rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
-    )
+    rows = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
     by_name = {r["name"]: r for r in rows}
     # aggregation is the reduction order; family is the concept group.
     assert by_name["ic"]["aggregation"] == "cs_then_ts"

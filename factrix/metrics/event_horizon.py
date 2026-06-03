@@ -57,6 +57,7 @@ __all__ = [
     "event_around_return",
 ]
 
+
 def compute_event_returns(
     df: pl.DataFrame,
     *,
@@ -186,6 +187,7 @@ def compute_event_returns(
         pl.col("offset").cast(pl.Int32),
         pl.col("date").cast(date_dtype),
     )
+
 
 def event_around_return(
     df: pl.DataFrame,

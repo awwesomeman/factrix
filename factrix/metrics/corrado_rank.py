@@ -36,6 +36,7 @@ __all__ = [
     "corrado_rank",
 ]
 
+
 def corrado_rank(
     df: pl.DataFrame,
     *,

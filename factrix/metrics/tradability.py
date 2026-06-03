@@ -45,7 +45,9 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 
-_TR_CELL = cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL)
+_TR_CELL = cell(
+    FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
+)
 _TR_CS_PRIMITIVES = (
     "_sample_non_overlapping",
     "_short_circuit_output",
@@ -93,6 +95,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "breakeven_cost",
     "net_spread",
 ]
+
 
 def turnover(
     df: pl.DataFrame,
@@ -260,6 +263,7 @@ def turnover(
             "n_cross_section_mean": n_cs_mean,
         },
     )
+
 
 def notional_turnover(
     df: pl.DataFrame,
@@ -431,6 +435,7 @@ def notional_turnover(
         },
     )
 
+
 def breakeven_cost(
     gross_spread: float,
     turnover: float,
@@ -513,6 +518,7 @@ def breakeven_cost(
             "forward_periods": forward_periods,
         },
     )
+
 
 def net_spread(
     gross_spread: float,

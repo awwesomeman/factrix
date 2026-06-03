@@ -41,9 +41,7 @@ def test_text_format_returns_name_list(
 
 
 def test_json_format_includes_metadata_keys() -> None:
-    rows = list_estimators(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
-    )
+    rows = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
     by_name = {row["name"]: row for row in rows}
     assert "Bartlett" in by_name["NeweyWest"]["description"]
     assert by_name["NeweyWest"]["import_path"] == "factrix.stats.NeweyWest"

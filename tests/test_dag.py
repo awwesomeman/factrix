@@ -181,9 +181,7 @@ class TestStage1Share:
         def consumer_b(ic_df):
             return MetricOutput(name="b", value=ic_df + 2.0)
 
-        producer_spec = _make_spec(
-            "producer", batchable=True, role=SpecRole.PIPELINE
-        )
+        producer_spec = _make_spec("producer", batchable=True, role=SpecRole.PIPELINE)
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
         b_spec = _make_spec("consumer_b", requires={"ic_df": producer})
 
@@ -260,9 +258,7 @@ class TestPlanString:
         def consumer_b(ic_df):
             return MetricOutput(name="b", value=ic_df)
 
-        producer_spec = _make_spec(
-            "producer", batchable=True, role=SpecRole.PIPELINE
-        )
+        producer_spec = _make_spec("producer", batchable=True, role=SpecRole.PIPELINE)
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
         b_spec = _make_spec("consumer_b", requires={"ic_df": producer})
         ex = DagExecutor(

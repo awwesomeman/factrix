@@ -72,12 +72,14 @@ _IC_CELL = cell(
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
 
+
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
     """Median of the per-date ``tie_ratio`` column, or ``nan`` if absent/empty."""
     if "tie_ratio" not in ic_df.columns:
         return float("nan")
     med = ic_df["tie_ratio"].median()
     return float("nan") if med is None else float(med)  # type: ignore[arg-type]
+
 
 def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     """Emit ``UserWarning`` when median tie_ratio exceeds the global threshold.
@@ -101,6 +103,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
             stacklevel=2,
         )
     return med
+
 
 def compute_ic(
     df: pl.DataFrame,
@@ -209,6 +212,7 @@ def compute_ic(
         for f in cols
     }
 
+
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -297,6 +301,7 @@ def ic(
         },
     )
 
+
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -376,6 +381,7 @@ def ic_newey_west(
         },
     )
 
+
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricOutput:
@@ -454,6 +460,7 @@ def ic_ir(
             "tie_ratio": median_tie,
         },
     )
+
 
 __metric_specs__ = (
     MetricSpec(

@@ -47,6 +47,7 @@ __all__ = [
 
 GateStatus = Literal["PASS", "VETOED"]
 
+
 def oos_decay(
     series: pl.DataFrame,
     value_col: str = "value",
