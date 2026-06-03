@@ -1,16 +1,17 @@
-import pytest
 import polars as pl
-from typing import Any
-
+import pytest
 from factrix._axis import Aggregation, SEMethod, TestMethod
-from factrix._metric_index import Cell, SampleThreshold, spec_by_name
+from factrix._metric_index import Cell, spec_by_name
 from factrix.metrics import MetricBase, metric
 
 _TEST_CELL = Cell(scope=None, density=None, structure=None, raw="(*, *, *)")
 
+
 def test_metric_base_dataclass_properties():
     from factrix.metrics._registry import REGISTRY
+
     try:
+
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
@@ -27,17 +28,20 @@ def test_metric_base_dataclass_properties():
             se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
-        def dummy_metric(df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = "") -> str:
+        def dummy_metric(
+            df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = ""
+        ) -> str:
             val = df_input["value"][0]
             return f"val={val * multiplier}{suffix}"
 
         # Verify dummy_metric is a subclass of MetricBase
         assert issubclass(dummy_metric, MetricBase)
-        
+
         # Verify it is a dataclass
         import dataclasses
+
         assert dataclasses.is_dataclass(dummy_metric)
-        
+
         # Instantiate it with config
         m = dummy_metric(multiplier=3.0, suffix="!")
         assert m.multiplier == 3.0
@@ -49,11 +53,15 @@ def test_metric_base_dataclass_properties():
             if name in REGISTRY:
                 del REGISTRY[name]
         from factrix._metric_index import _all_specs
+
         _all_specs.cache_clear()
+
 
 def test_metric_spec_generation():
     from factrix.metrics._registry import REGISTRY
+
     try:
+
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
@@ -70,7 +78,9 @@ def test_metric_spec_generation():
             se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
-        def dummy_metric(df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = "") -> str:
+        def dummy_metric(
+            df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = ""
+        ) -> str:
             val = df_input["value"][0]
             return f"val={val * multiplier}{suffix}"
 
@@ -85,11 +95,15 @@ def test_metric_spec_generation():
             if name in REGISTRY:
                 del REGISTRY[name]
         from factrix._metric_index import _all_specs
+
         _all_specs.cache_clear()
+
 
 def test_metric_dual_interface():
     from factrix.metrics._registry import REGISTRY
+
     try:
+
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
@@ -106,25 +120,27 @@ def test_metric_dual_interface():
             se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
-        def dummy_metric(df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = "") -> str:
+        def dummy_metric(
+            df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = ""
+        ) -> str:
             val = df_input["value"][0]
             return f"val={val * multiplier}{suffix}"
 
         df = pl.DataFrame({"value": [10]})
-        
+
         # 1. Instantiation + call style
         pipeline_inst = dummy_pipeline(shift=5)
         pipeline_out = pipeline_inst(df)
         assert pipeline_out["value"][0] == 15
-        
+
         metric_inst = dummy_metric(multiplier=2.0, suffix="-ok")
         res = metric_inst(pipeline_out)
         assert res == "val=30.0-ok"
-        
+
         # 2. Direct function-call style
         pipeline_out_direct = dummy_pipeline(df, shift=5)
         assert pipeline_out_direct["value"][0] == 15
-        
+
         res_direct = dummy_metric(pipeline_out_direct, multiplier=2.0, suffix="-ok")
         assert res_direct == "val=30.0-ok"
     finally:
@@ -132,11 +148,15 @@ def test_metric_dual_interface():
             if name in REGISTRY:
                 del REGISTRY[name]
         from factrix._metric_index import _all_specs
+
         _all_specs.cache_clear()
+
 
 def test_registry_integration():
     from factrix.metrics._registry import REGISTRY
+
     try:
+
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
@@ -153,7 +173,9 @@ def test_registry_integration():
             se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
-        def dummy_metric(df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = "") -> str:
+        def dummy_metric(
+            df_input: pl.DataFrame, multiplier: float = 2.0, suffix: str = ""
+        ) -> str:
             val = df_input["value"][0]
             return f"val={val * multiplier}{suffix}"
 
@@ -161,7 +183,7 @@ def test_registry_integration():
         specs = spec_by_name()
         assert "dummy_pipeline" in specs
         assert "dummy_metric" in specs
-        
+
         pipeline_spec = specs["dummy_pipeline"]
         assert pipeline_spec.name == "dummy_pipeline"
         assert pipeline_spec.cell == _TEST_CELL
@@ -170,11 +192,15 @@ def test_registry_integration():
             if name in REGISTRY:
                 del REGISTRY[name]
         from factrix._metric_index import _all_specs
+
         _all_specs.cache_clear()
+
 
 def test_registry_validation_raises():
     from factrix.metrics._registry import REGISTRY
+
     try:
+
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
@@ -193,11 +219,12 @@ def test_registry_validation_raises():
         )
         def invalid_metric(df: pl.DataFrame):
             pass
-        
+
         # Trigger registry validation by rebuilding specs
         from factrix._metric_index import _all_specs
+
         _all_specs.cache_clear()
-        with pytest.raises(ValueError, match="requires.*is not a parameter"):
+        with pytest.raises(ValueError, match=r"requires.*is not a parameter"):
             _all_specs()
     finally:
         # Clean up the registry to avoid polluting other tests!
@@ -205,10 +232,13 @@ def test_registry_validation_raises():
             if name in REGISTRY:
                 del REGISTRY[name]
         from factrix._metric_index import _all_specs
+
         _all_specs.cache_clear()
+
 
 def test_metric_parameter_ordering_and_reflection():
     from factrix.metrics._registry import REGISTRY
+
     try:
         # A function with default argument before keyword-only non-default argument.
         # Standard dataclasses.make_dataclass would crash unless ordered non-default first.
@@ -231,7 +261,7 @@ def test_metric_parameter_ordering_and_reflection():
         df = pl.DataFrame({"value": [1]})
         res = inst(df)
         assert res == "a=5, b=42"
-        
+
         # Test default value preservation
         inst_default = ordered_metric(b=99)
         res_default = inst_default(df)
@@ -240,5 +270,5 @@ def test_metric_parameter_ordering_and_reflection():
         if "ordered_metric" in REGISTRY:
             del REGISTRY["ordered_metric"]
         from factrix._metric_index import _all_specs
-        _all_specs.cache_clear()
 
+        _all_specs.cache_clear()

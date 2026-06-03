@@ -1,13 +1,12 @@
 from __future__ import annotations
-import inspect
+
 import dataclasses
-from typing import Any, Callable, Type
+import inspect
+from collections.abc import Callable
+from typing import Any
 
 from factrix._axis import (
     Aggregation,
-    DataStructure,
-    FactorDensity,
-    FactorScope,
     InputShape,
     OutputShape,
     SEMethod,
@@ -18,6 +17,7 @@ from factrix._metric_index import Cell, SampleThreshold
 from factrix.metrics._base import MetricBase
 from factrix.metrics._registry import register
 
+
 def metric(
     cell: Cell,
     aggregation: Aggregation,
@@ -27,15 +27,16 @@ def metric(
     input_shape: InputShape = InputShape.PANEL,
     output_shape: OutputShape = OutputShape.SCALAR,
     role: SpecRole = SpecRole.METRIC,
-    requires: dict[str, Any] = None,
+    requires: dict[str, Any] | None = None,
     batchable: bool = False,
-    sample_threshold: SampleThreshold = None,
-) -> Callable[[Callable[..., Any]], Type[MetricBase]]:
+    sample_threshold: SampleThreshold | None = None,
+) -> Callable[[Callable[..., Any]], type[MetricBase]]:
     """Decorator to define a Metric class from a function definition.
 
     Constructs a frozen dataclass inheriting from MetricBase and registers it.
     """
-    def decorator(fn: Callable[..., Any]) -> Type[MetricBase]:
+
+    def decorator(fn: Callable[..., Any]) -> type[MetricBase]:
         # 1. Inspect the function signature to determine fields (skipping the first argument)
         sig = inspect.signature(fn)
         params = list(sig.parameters.values())
@@ -48,9 +49,16 @@ def metric(
 
         for param in params[1:]:
             # Ignore *args and **kwargs in signature (if any)
-            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            if param.kind in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            ):
                 continue
-            annotation = param.annotation if param.annotation is not inspect.Parameter.empty else Any
+            annotation = (
+                param.annotation
+                if param.annotation is not inspect.Parameter.empty
+                else Any
+            )
             if param.default is not inspect.Parameter.empty:
                 default_fields.append((param.name, annotation, param.default))
             else:

@@ -1,22 +1,19 @@
 from __future__ import annotations
-import inspect
-import dataclasses
-from typing import Any, Callable, ClassVar, Type
-from abc import ABC
+
+from collections.abc import Callable
+from typing import Any, ClassVar
 
 from factrix._axis import (
     Aggregation,
-    DataStructure,
-    FactorDensity,
-    FactorScope,
     InputShape,
     OutputShape,
     SEMethod,
     SpecRole,
     TestMethod,
 )
-from factrix._metric_index import Cell, SampleThreshold, MetricSpec
+from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 from factrix._results import MetricResult
+
 
 class MetricMeta(type):
     """Metaclass that intercepts calling the Metric class.
@@ -55,6 +52,7 @@ class MetricMeta(type):
         else:
             # Standard instantiation
             return super().__call__(*args, **kwargs)
+
 
 class MetricBase(metaclass=MetricMeta):
     """Abstract Base Class for all metrics.
@@ -101,4 +99,3 @@ class MetricBase(metaclass=MetricMeta):
         kwargs = {name: getattr(self, name) for name in self._param_names}
         # Call the underlying implementation function (accessed via __class__ to avoid binding)
         return self.__class__._impl(df, **kwargs)
-

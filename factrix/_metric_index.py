@@ -313,13 +313,16 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
                 f"factrix.metrics.{stem}.{spec.name}: `requires[{key!r}]` "
                 f"is not callable (got {type(producer).__name__})."
             )
-        
+
         producer_module_name = producer.__module__
         producer_name = producer.__name__
         producer_module = importlib.import_module(producer_module_name)
         module_specs = getattr(producer_module, "__metric_specs__", ())
-        
-        is_registered = any(s.name == producer_name for s in module_specs) or producer_name in REGISTRY
+
+        is_registered = (
+            any(s.name == producer_name for s in module_specs)
+            or producer_name in REGISTRY
+        )
         if not is_registered:
             raise ValueError(
                 f"factrix.metrics.{stem}.{spec.name}: producer "
@@ -338,7 +341,7 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     avoid re-importing every public module.
     """
     out: list[tuple[str, MetricSpec]] = []
-    
+
     # 1. Load legacy module specs
     for stem in _public_metric_stems():
         try:
@@ -353,8 +356,9 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
 
     # 2. Load from the new class-based registry
     from factrix.metrics._registry import REGISTRY
-    for name, cls in REGISTRY.items():
-        stem = cls.__module__.split('.')[-1]
+
+    for _, cls in REGISTRY.items():
+        stem = cls.__module__.split(".")[-1]
         spec = cls.spec()
         if not any(s.name == spec.name for _, s in out):
             out.append((stem, spec))
@@ -374,11 +378,13 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
                         f"Metric {name!r}: `requires[{key!r}]` is not callable."
                     )
                 producer_name = producer.__name__
-                if producer_name not in REGISTRY and not any(s.name == producer_name for _, s in out):
+                if producer_name not in REGISTRY and not any(
+                    s.name == producer_name for _, s in out
+                ):
                     raise ValueError(
                         f"Metric {name!r}: required producer {producer_name!r} is not registered."
                     )
-            
+
     return tuple(out)
 
 
@@ -477,6 +483,7 @@ def register(fn: Callable[..., Any]) -> None:
     # If it is a MetricBase subclass, use the new registry
     if isinstance(fn, type) and issubclass(fn, MetricBase):
         from factrix.metrics._registry import register as reg
+
         reg(fn)
         return
 
