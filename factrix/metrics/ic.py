@@ -20,7 +20,7 @@ from collections.abc import Sequence
 import polars as pl
 
 from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
-from factrix._metric_index import MetricSpec, SampleFloor, cell
+from factrix._metric_index import MetricSpec, SampleThreshold, cell
 from factrix._stats import (
     _calc_t_stat,
     _newey_west_t_test,
@@ -488,7 +488,7 @@ __metric_specs__ = (
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},
-        sample_floor=SampleFloor(
+        sample_floor=SampleThreshold(
             min_periods=MIN_PERIODS_HARD,
             warn_periods=MIN_PERIODS_WARN,
         ),
@@ -500,7 +500,7 @@ __metric_specs__ = (
         inference=_IC_INFERENCE,
         primitives=_IC_PRIMITIVES,
         requires={"ic_df": compute_ic},
-        sample_floor=SampleFloor(
+        sample_floor=SampleThreshold(
             min_periods=MIN_PERIODS_HARD,
             warn_periods=MIN_PERIODS_WARN,
         ),

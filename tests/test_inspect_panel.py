@@ -104,7 +104,7 @@ class TestCellMatchGate:
         assert "ic" in names
 
 
-class TestSampleFloorGate:
+class TestSampleThresholdGate:
     def test_below_min_periods_is_unusable(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
         nw = _by_name(info, "ic_newey_west")
@@ -125,10 +125,10 @@ class TestSampleFloorGate:
         assert nw.warnings == []
 
     def test_below_min_pairs_is_unusable(self):
-        from factrix._metric_index import SampleFloor
+        from factrix._metric_index import SampleThreshold
 
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
-        floor = SampleFloor(min_pairs=info.detected.n_pairs + 1)
+        floor = SampleThreshold(min_pairs=info.detected.n_pairs + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
         from dataclasses import replace
 
@@ -144,11 +144,11 @@ class TestSampleFloorGate:
         from dataclasses import replace
 
         from factrix._inspect import _evaluate_applicability
-        from factrix._metric_index import SampleFloor
+        from factrix._metric_index import SampleThreshold
 
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         n = info.detected.n_pairs
-        floor = SampleFloor(min_pairs=n - 1, warn_pairs=n + 1)
+        floor = SampleThreshold(min_pairs=n - 1, warn_pairs=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
         verdict = _evaluate_applicability(
             replace(spec, sample_floor=floor), info.detected
@@ -259,7 +259,7 @@ class TestPublicSurface:
         assert fx.PanelReasoning is PanelReasoning
         assert fx.MetricApplicability is MetricApplicability
         assert fx.inspect_panel is inspect_panel
-        assert fx.SampleFloor is not None
+        assert fx.SampleThreshold is not None
 
 
 class TestCellMatchesSignature:

@@ -64,7 +64,7 @@ from factrix._inspect import (
 )
 from factrix._metric_index import (
     MetricSpec,
-    SampleFloor,
+    SampleThreshold,
     list_metrics,
     metric_spec,
     spec_by_name,
@@ -480,7 +480,7 @@ __all__ = [
     "PanelInspection",
     "PanelProperties",
     "PanelReasoning",
-    "SampleFloor",
+    "SampleThreshold",
     "inspect_panel",
     "list_estimators",
     "list_metrics",
