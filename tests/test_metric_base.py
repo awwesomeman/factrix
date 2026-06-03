@@ -206,3 +206,39 @@ def test_registry_validation_raises():
                 del REGISTRY[name]
         from factrix._metric_index import _all_specs
         _all_specs.cache_clear()
+
+def test_metric_parameter_ordering_and_reflection():
+    from factrix.metrics._registry import REGISTRY
+    try:
+        # A function with default argument before keyword-only non-default argument.
+        # Standard dataclasses.make_dataclass would crash unless ordered non-default first.
+        @metric(
+            cell=_TEST_CELL,
+            aggregation=Aggregation.TS_ONLY,
+            test_method=TestMethod.T,
+            se_method=SEMethod.BUILT_IN,
+        )
+        def ordered_metric(df: pl.DataFrame, a: int = 10, *, b: int) -> str:
+            return f"a={a}, b={b}"
+
+        assert issubclass(ordered_metric, MetricBase)
+        assert ordered_metric._first_param_name == "df"
+        # The fields should be sorted: non-default ("b") first, then default ("a")
+        assert ordered_metric._param_names == ("b", "a")
+
+        # Test instantiation & execution (ordering is checked and bound properly)
+        inst = ordered_metric(b=42, a=5)
+        df = pl.DataFrame({"value": [1]})
+        res = inst(df)
+        assert res == "a=5, b=42"
+        
+        # Test default value preservation
+        inst_default = ordered_metric(b=99)
+        res_default = inst_default(df)
+        assert res_default == "a=10, b=99"
+    finally:
+        if "ordered_metric" in REGISTRY:
+            del REGISTRY["ordered_metric"]
+        from factrix._metric_index import _all_specs
+        _all_specs.cache_clear()
+

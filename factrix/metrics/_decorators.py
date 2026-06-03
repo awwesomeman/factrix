@@ -40,16 +40,23 @@ def metric(
         sig = inspect.signature(fn)
         params = list(sig.parameters.values())
 
-        fields = []
+        first_param_name = params[0].name if params else None
+
+        # Sort fields to put non-default arguments before default arguments
+        non_default_fields = []
+        default_fields = []
+
         for param in params[1:]:
             # Ignore *args and **kwargs in signature (if any)
             if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
                 continue
             annotation = param.annotation if param.annotation is not inspect.Parameter.empty else Any
             if param.default is not inspect.Parameter.empty:
-                fields.append((param.name, annotation, param.default))
+                default_fields.append((param.name, annotation, param.default))
             else:
-                fields.append((param.name, annotation))
+                non_default_fields.append((param.name, annotation))
+
+        fields = non_default_fields + default_fields
 
         # 2. Build the class namespace with metadata ClassVars
         cls_attrs = {
@@ -64,6 +71,8 @@ def metric(
             "batchable": batchable,
             "sample_threshold": sample_threshold or SampleThreshold(),
             "_impl": fn,
+            "_first_param_name": first_param_name,
+            "_param_names": tuple(f[0] for f in fields),
             "__module__": fn.__module__,
             "__doc__": fn.__doc__,
         }

@@ -27,13 +27,10 @@ class MetricMeta(type):
     """
 
     def __call__(cls, *args, **kwargs):
-        # cls._impl is the original function wrapped by the decorator
-        sig = inspect.signature(cls._impl)
-        params = list(sig.parameters.values())
-        if not params:
+        # Retrieve the pre-cached first parameter name
+        first_param_name = getattr(cls, "_first_param_name", None)
+        if not first_param_name:
             return super().__call__(*args, **kwargs)
-
-        first_param_name = params[0].name
 
         # Determine if the first parameter is present in the call
         has_first_param = False
@@ -78,6 +75,8 @@ class MetricBase(metaclass=MetricMeta):
     sample_threshold: ClassVar[SampleThreshold]
 
     _impl: ClassVar[Callable]
+    _first_param_name: ClassVar[str | None]
+    _param_names: ClassVar[tuple[str, ...]]
 
     @classmethod
     def spec(cls) -> MetricSpec:
@@ -98,7 +97,8 @@ class MetricBase(metaclass=MetricMeta):
 
     def __call__(self, df: Any) -> MetricResult:
         """Evaluate the metric on the given input DataFrame or series."""
-        # Convert self (dataclass fields representing configs) to a dict of kwargs
-        kwargs = dataclasses.asdict(self)
+        # Fast extraction of parameters using pre-cached slot field names
+        kwargs = {name: getattr(self, name) for name in self._param_names}
         # Call the underlying implementation function (accessed via __class__ to avoid binding)
         return self.__class__._impl(df, **kwargs)
+
