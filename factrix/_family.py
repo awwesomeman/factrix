@@ -214,7 +214,7 @@ def _resolve_p_value(
             docs_path=f"api/{func_name}#primary",
         )
 
-    p_float = float(p)  # type: ignore[arg-type]
+    p_float = float(p)
     if math.isnan(p_float):
         raise UserInputError(
             func_name=func_name,

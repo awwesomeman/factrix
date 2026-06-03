@@ -106,11 +106,12 @@ def _short_circuit_output(
     p=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
-    if not descriptive:
-        metadata["p_value"] = 1.0
+    p: float | None = None if descriptive else 1.0
+    if p is not None:
+        metadata["p_value"] = p
     return MetricResult(
-        p=metadata.get("p_value"),
         value=float("nan"),
+        p=p,
         n_obs=n_obs,
         stat=None,
         metadata=metadata,
