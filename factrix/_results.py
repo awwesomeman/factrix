@@ -106,12 +106,11 @@ class MetricResultGroup:
     """Group of metric outputs for one factor at one cell.
 
     Mirrors the ``MetricGroups`` shape that #443 ``inspect_panel``
-    exposes: three ``list[MetricSpec]`` partitions plus dict-like
+    exposes: three ``list[str]`` (metric name) partitions plus dict-like
     access to the produced :class:`MetricResult` instances.
 
     Iteration / membership / ``keys`` / ``values`` / ``items`` all key
-    by metric name (``MetricSpec.name``). Use :func:`spec.name`
-    on the spec when a user-facing label is needed.
+    by metric name; the partition lists hold those same names directly.
 
     Attributes:
         applicable: Names of every metric applicable to the dispatched
@@ -174,7 +173,7 @@ class EvaluationResult:
         n_assets: Unique assets in the panel under the any-non-null
             union (cell-invariant; ``1`` is legal for TIMESERIES).
         metrics: :class:`MetricResultGroup` carrying the per-metric
-            outputs and the applicable / primary / diagnostic spec
+            outputs and the applicable / primary / diagnostic name
             partitions.
         context: Caller-supplied free-form labels (e.g.
             ``{"region": "US"}``, ``{"family": "momentum"}``). Read by
@@ -214,7 +213,7 @@ class EvaluationResult:
         |---|---|---|
         | ``factor`` | str | :attr:`factor` |
         | ``n_assets`` | i64 | :attr:`n_assets` |
-        | ``metric_name`` | str | :func:`spec.name` of the spec, falls back to mapping key |
+        | ``metric_name`` | str | ``MetricResult.name`` (stamped at dispatch), falls back to mapping key |
         | ``value`` | f64 \\| null | ``MetricResult.value`` (``NaN`` / ``Inf`` -> null) |
         | ``p`` | f64 \\| null | ``MetricResult.p`` |
         | ``stat`` | f64 \\| null | ``MetricResult.stat`` |
