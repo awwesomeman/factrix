@@ -23,13 +23,13 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
     _binomial_test_method_name,
     _binomial_two_sided_p,
-    _significance_marker,
 )
-from factrix._types import MIN_ASSETS_PER_DATE_IC, MetricOutput
+from factrix._types import MIN_ASSETS_PER_DATE_IC
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 
 __metric_specs__ = (
@@ -75,7 +75,7 @@ def hit_rate(
     series: pl.DataFrame,
     value_col: str = "value",
     forward_periods: int = 5,
-) -> MetricOutput:
+) -> MetricResult:
     """Hit rate = proportion of periods where value > 0.
 
     Args:
@@ -83,7 +83,7 @@ def hit_rate(
         forward_periods: Sampling interval for non-overlapping dates.
 
     Returns:
-        MetricOutput with value = hit rate (0.0-1.0).
+        MetricResult with value = hit rate (0.0-1.0).
 
     Notes:
         ``rate = (#{t : value_t > 0}) / n`` on a non-overlapping subsample
@@ -114,8 +114,8 @@ def hit_rate(
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
         >>> result = hit_rate(series, forward_periods=5)
-        >>> result.name
-        'hit_rate'
+        >>> result.spec is None
+        True
     """
     sampled = _sample_non_overlapping(series, forward_periods)
     vals = sampled[value_col].drop_nulls()
@@ -144,11 +144,10 @@ def hit_rate(
         stat = float((rate - 0.5) * np.sqrt(n) / 0.5)
         stat_type = "z"
 
-    return MetricOutput(
-        name="hit_rate",
+    return MetricResult(
+        p=p,
         value=rate,
         stat=stat,
-        significance=_significance_marker(p),
         metadata={
             "n_hits": hits,
             "n_total": n,

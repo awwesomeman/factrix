@@ -1,7 +1,7 @@
-"""Drift guard: ``MetricOutput.metadata`` keys ⊆ docs reference page.
+"""Drift guard: ``MetricResult.metadata`` keys ⊆ docs reference page.
 
 AST-scans every public ``factrix/metrics/*.py`` for literal string keys
-that flow into ``MetricOutput.metadata`` and asserts each appears as a
+that flow into ``MetricResult.metadata`` and asserts each appears as a
 backtick token in ``docs/reference/stat-keys-by-metric.md``.
 """
 
@@ -20,7 +20,7 @@ _COMMON_KEYS: frozenset[str] = frozenset(
 )
 
 # Explicit-keyword params of ``_short_circuit_output`` — control flags that
-# do not surface as ``MetricOutput.metadata`` keys at runtime.
+# do not surface as ``MetricResult.metadata`` keys at runtime.
 _HELPER_CONTROL_KWARGS: frozenset[str] = frozenset({"n_obs", "descriptive"})
 
 # Inner keys of nested dict / list-of-dict metadata payloads. Documented
@@ -63,10 +63,10 @@ def _is_metadata_name(node: ast.AST) -> bool:
 
 
 def _emitted_metadata_keys(path: pathlib.Path) -> set[str]:
-    """Collect literal string keys flowing into ``MetricOutput.metadata``.
+    """Collect literal string keys flowing into ``MetricResult.metadata``.
 
     Covers:
-    - ``MetricOutput(..., metadata={...})`` kwarg dict literal.
+    - ``MetricResult(..., metadata={...})`` kwarg dict literal.
     - ``metadata = {...}`` / annotated assign — later passed by name.
     - ``metadata["key"] = ...`` subscript writes.
     - ``metadata.update({...})`` calls.
@@ -78,7 +78,7 @@ def _emitted_metadata_keys(path: pathlib.Path) -> set[str]:
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
-            # MetricOutput(..., metadata={...})
+            # MetricResult(..., metadata={...})
             for kw in node.keywords:
                 if kw.arg == "metadata":
                     keys |= _dict_string_keys(kw.value)

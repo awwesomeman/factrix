@@ -1,4 +1,4 @@
-"""``EvaluationResult`` / ``MetricResult`` dataclasses + serialisation (#441)."""
+"""``EvaluationResult`` / ``MetricResultGroup`` dataclasses + serialisation (#441)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import polars as pl
 import pytest
 from factrix import (
     EvaluationResult,
-    MetricOutput,
     MetricResult,
+    MetricResultGroup,
     Warning,
     WarningCode,
 )
@@ -27,23 +27,21 @@ def ic_ir_spec():
     return spec_by_name()["ic_ir"]
 
 
-def _sample_group(ic_spec, ic_ir_spec) -> MetricResult:
-    ic_out = MetricOutput(
-        name="ic",
+def _sample_group(ic_spec, ic_ir_spec) -> MetricResultGroup:
+    ic_out = MetricResult(
         value=0.05,
+        p=0.012,
         n_obs=100,
         stat=2.5,
-        significance="*",
         metadata={"p_value": 0.012},
         spec=ic_spec,
     )
-    ic_ir_out = MetricOutput(
-        name="ic_ir",
+    ic_ir_out = MetricResult(
         value=0.42,
         n_obs=100,
         spec=ic_ir_spec,
     )
-    return MetricResult(
+    return MetricResultGroup(
         applicable=[ic_spec, ic_ir_spec],
         primary=[ic_spec],
         diagnostic=[ic_ir_spec],
@@ -52,7 +50,7 @@ def _sample_group(ic_spec, ic_ir_spec) -> MetricResult:
 
 
 def _sample_result(
-    group: MetricResult, warnings=None, plan: str = "1. ic [per-factor]"
+    group: MetricResultGroup, warnings=None, plan: str = "1. ic [per-factor]"
 ) -> EvaluationResult:
     return EvaluationResult(
         factor="mom_12_1",
@@ -74,7 +72,7 @@ class TestMetricResult:
         assert g["ic"].value == 0.05
         assert len(g) == 2
         assert set(g.keys()) == {"ic", "ic_ir"}
-        assert {o.name for o in g.values()} == {"ic", "ic_ir"}
+        assert {o.spec.name for o in g.values()} == {"ic", "ic_ir"}
         assert {k for k, _ in g.items()} == {"ic", "ic_ir"}
         assert list(iter(g)) == ["ic", "ic_ir"]
 
@@ -97,7 +95,6 @@ class TestEvaluationResultToFrame:
             "p",
             "stat",
             "n_obs",
-            "significance",
             "warning_codes",
         ]
         assert df.schema["value"] == pl.Float64
@@ -107,8 +104,8 @@ class TestEvaluationResultToFrame:
         assert df.height == 2
 
     def test_short_circuit_row_is_null(self, ic_spec, ic_ir_spec):
-        bad = MetricOutput(name="ic", value=float("nan"), spec=ic_spec)
-        g = MetricResult(
+        bad = MetricResult(value=float("nan"), spec=ic_spec)
+        g = MetricResultGroup(
             applicable=[ic_spec], primary=[ic_spec], diagnostic=[], outputs={"ic": bad}
         )
         df = _sample_result(g).to_frame()
@@ -136,8 +133,8 @@ class TestEvaluationResultToFrame:
 
     def test_metric_name_uses_spec_name(self):
         fm_spec = spec_by_name()["fm_beta"]
-        out = MetricOutput(name=fm_spec.name, value=0.01, spec=fm_spec)
-        g = MetricResult(
+        out = MetricResult(value=0.01, spec=fm_spec)
+        g = MetricResultGroup(
             applicable=[fm_spec],
             primary=[fm_spec],
             diagnostic=[],
@@ -170,14 +167,14 @@ class TestEvaluationResultToDict:
         assert back["plan"] == "1. ic [per-factor]"
 
     def test_nonfinite_floats_become_null(self, ic_spec, ic_ir_spec):
-        bad = MetricOutput(
-            name="ic",
+        bad = MetricResult(
             value=float("nan"),
+            p=float("nan"),
             stat=float("inf"),
             metadata={"p_value": float("nan")},
             spec=ic_spec,
         )
-        g = MetricResult(
+        g = MetricResultGroup(
             applicable=[ic_spec], primary=[ic_spec], diagnostic=[], outputs={"ic": bad}
         )
         d = _sample_result(g).to_dict()
@@ -189,7 +186,7 @@ class TestEvaluationResultToDict:
 
 class TestReprHtml:
     def test_group_renders(self, ic_spec, ic_ir_spec):
-        # MetricResult itself ships only dict-like access; HTML
+        # MetricResultGroup itself ships only dict-like access; HTML
         # lives on the bundle. Smoke-test the bundle render.
         r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
         html_out = r._repr_html_()
@@ -211,11 +208,11 @@ class TestReprHtml:
         assert "summary>warnings" not in r._repr_html_()
 
 
-class TestMetricOutputSpecBackref:
+class TestMetricResultSpecBackref:
     def test_default_none(self):
-        out = MetricOutput(name="x", value=1.0)
+        out = MetricResult(value=1.0)
         assert out.spec is None
 
     def test_carries_spec(self, ic_spec):
-        out = MetricOutput(name="ic", value=0.1, spec=ic_spec)
+        out = MetricResult(value=0.1, spec=ic_spec)
         assert out.spec is ic_spec

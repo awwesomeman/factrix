@@ -40,12 +40,12 @@ from factrix._axis import (
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _newey_west_t_test,
     _p_value_from_t,
-    _significance_marker,
 )
-from factrix._types import DDOF, EPSILON, MetricOutput, ShankenVarSource
+from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics._metric_capabilities import per_date_series_rename
 
@@ -174,7 +174,7 @@ def fm_beta(
     forward_periods: int | None = None,
     is_estimated_factor: bool = False,
     factor_return_var: float | None = None,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Newey-West t-test on FM beta series. $H_0: \mathrm{mean}(\beta) = 0$.
 
     Args:
@@ -281,8 +281,8 @@ def fm_beta(
         ... )
         >>> beta_df = compute_fm_betas(panel)
         >>> result = fm_beta(beta_df, forward_periods=5)
-        >>> result.name
-        'fm_beta'
+        >>> result.spec is None
+        True
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -310,7 +310,7 @@ def fm_beta(
     from factrix._stats import _resolve_nw_lags
 
     mean_beta = float(np.mean(betas))
-    t, p, sig = _newey_west_t_test(
+    t, p, _ = _newey_west_t_test(
         betas,
         lags=newey_west_lags,
         forward_periods=forward_periods,
@@ -347,7 +347,6 @@ def fm_beta(
             sqrt_c = math.sqrt(c)
             t_shanken = t / sqrt_c
             p_shanken = _p_value_from_t(t_shanken, n)
-            sig_shanken = _significance_marker(p_shanken)
             source: ShankenVarSource = (
                 "user_supplied"
                 if factor_return_var is not None
@@ -364,13 +363,12 @@ def fm_beta(
                     "method": ("Fama-MacBeth + Newey-West + Shanken (1992) EIV"),
                 }
             )
-            t, sig = t_shanken, sig_shanken
+            t = t_shanken
 
-    return MetricOutput(
-        name="fm_beta",
+    return MetricResult(
+        p=metadata.get("p_value"),
         value=mean_beta,
         stat=t,
-        significance=sig,
         metadata=metadata,
     )
 
@@ -406,7 +404,7 @@ def pooled_beta(
     return_col: str = "forward_return",
     cluster_col: str = "date",
     two_way_cluster_col: str | None = None,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Pooled ordinary least squares (OLS) with clustered SE — robustness check against FM.
 
     Clustering on date alone catches contemporaneous cross-sectional
@@ -495,8 +493,8 @@ def pooled_beta(
         ...     forward_periods=5,
         ... )
         >>> result = pooled_beta(panel)
-        >>> result.name
-        'pooled_beta'
+        >>> result.spec is None
+        True
     """
     y = df[return_col].to_numpy().astype(np.float64)
     x = df[factor_col].to_numpy().astype(np.float64)
@@ -534,12 +532,11 @@ def pooled_beta(
 
     if two_way_cluster_col is None:
         if g_a < 3:
-            return MetricOutput(
-                name="pooled_beta",
+            return MetricResult(
+                p=1.0,
                 value=slope,
                 n_obs=n_obs,
                 stat=None,
-                significance="",
                 metadata={
                     "reason": "insufficient_clusters",
                     "n_clusters": g_a,
@@ -562,12 +559,11 @@ def pooled_beta(
         inter_ids = ids_a.astype(np.int64) * (int(ids_b.max()) + 1) + ids_b
         meat_i, g_i = _cluster_meat(X, resid, inter_ids)
         if min(g_a, g_b) < 3:
-            return MetricOutput(
-                name="pooled_beta",
+            return MetricResult(
+                p=1.0,
                 value=slope,
                 n_obs=n_obs,
                 stat=None,
-                significance="",
                 metadata={
                     "reason": "insufficient_clusters",
                     "n_clusters": min(g_a, g_b),
@@ -595,11 +591,9 @@ def pooled_beta(
     try:
         xtx_inv = np.linalg.inv(X.T @ X)
     except np.linalg.LinAlgError:
-        return MetricOutput(
-            name="pooled_beta",
+        return MetricResult(
             value=slope,
             stat=0.0,
-            significance="",
         )
 
     V = c_obs * xtx_inv @ effective_meat @ xtx_inv
@@ -631,12 +625,11 @@ def pooled_beta(
     if non_psd_fallback:
         metadata["variance_non_psd_fallback"] = f"one_way_{cluster_col}"
 
-    return MetricOutput(
-        name="pooled_beta",
+    return MetricResult(
+        p=p,
         value=slope,
         n_obs=n_obs,
         stat=t_stat,
-        significance=_significance_marker(p),
         metadata=metadata,
     )
 
@@ -650,7 +643,7 @@ def beta_sign_consistency(
     beta_df: pl.DataFrame,
     *,
     expected_sign: int = 1,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Fraction of FM per-date $\beta$s carrying the expected sign — ``value`` $= \mathrm{mean}_t \mathbb{1}\{\mathrm{sign}(\beta_t) = s^\star\}$.
 
     $\beta_t$ is the per-date ordinary least squares (OLS) $\beta$ from ``compute_fm_betas``.
@@ -688,8 +681,8 @@ def beta_sign_consistency(
         ... )
         >>> beta_df = compute_fm_betas(panel)
         >>> result = beta_sign_consistency(beta_df, expected_sign=1)
-        >>> result.name
-        'beta_sign_consistency'
+        >>> result.spec is None
+        True
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -706,8 +699,7 @@ def beta_sign_consistency(
     else:
         consistent = float(np.mean(betas < 0))
 
-    return MetricOutput(
-        name="beta_sign_consistency",
+    return MetricResult(
         value=consistent,
         metadata={
             "expected_sign": expected_sign,

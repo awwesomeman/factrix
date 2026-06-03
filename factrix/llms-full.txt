@@ -198,7 +198,7 @@ Cross-slice analysis lives in `factrix.slicing` and is re-exported at
 top-level. `by_slice(metric, df, *, label)` partitions a metric's
 date-keyed input by an existing column and applies the metric per
 slice — pure dispatcher, no cross-slice inference. Returns a
-`SliceResult`, a `Mapping[str, MetricOutput]` with a `.to_frame()`
+`SliceResult`, a `Mapping[str, MetricResult]` with a `.to_frame()`
 long-form renderer (fixed schema:
 `slice / name / value / stat / p_value`) for plotting, leaderboards,
 and Notebook display. For inferential
@@ -425,7 +425,7 @@ factrix.list_metrics(scope: FactorScope, density: FactorDensity,
     # {name, module, cell, agg_order, inference_se, import_path,
     #  input_kind, docs_anchor, emitted_name}. docs_anchor is a
     # docs-root-relative path + mkdocstrings symbol fragment;
-    # emitted_name is the literal MetricOutput.name (usually equals
+    # emitted_name is the literal MetricResult.name (usually equals
     # name, but a few metrics emit a different label — fama_macbeth
     # → fm_beta, etc.). DataStructure is not an input — applicability does
     # not change across PANEL / TIMESERIES.
@@ -542,18 +542,21 @@ to pass an explicit `AnalysisConfig` to `evaluate`.
 
 ---
 
-## MetricOutput
+## MetricResult
 
 Return type for the standalone `factrix.metrics.*` primitives invoked
-directly (outside of `evaluate`). Frozen dataclass: `name` (metric id),
-`value` (raw scalar), `n_obs` (`int | None` — per-metric single-stage
-estimator sample size; same family name as `FactorProfile.n_obs` but
-different scope, the latter being the final-stage test denominator at
-the dispatched-cell level), `stat` (test statistic when applicable),
-`significance` (`***` / `**` / `*` / `""` derived from
-`metadata["p_value"]`). The structured-procedure path returns
-`FactorProfile`; only callers reaching into `factrix.metrics.<module>`
-directly see `MetricOutput`.
+directly (outside of `evaluate`). Frozen dataclass: `value` (raw
+scalar), `p` (`float | None` — two-sided p-value, promoted from
+`metadata["p_value"]` to a typed field; `None` for descriptive metrics),
+`n_obs` (`int | None` — per-metric single-stage estimator sample size;
+same family name as `FactorProfile.n_obs` but different scope, the
+latter being the final-stage test denominator at the dispatched-cell
+level), `stat` (test statistic when applicable), `metadata`
+(tool-specific context; `p_value` / `stat_type` / `h0` / `method` are
+the standard keys), `spec` (back-pointer to the declaring `MetricSpec`,
+default `None`). The structured-procedure path returns `FactorProfile`;
+only callers reaching into `factrix.metrics.<module>` directly see
+`MetricResult`.
 
 ---
 
@@ -565,28 +568,28 @@ types-only; runner wiring lands with the DAG executor.
 
 - **`EvaluationResult`** — bundle-level result for one factor at one
   cell. Fields: `factor` / `axes` (`(scope, density, metric)` tuple) /
-  `structure` / `n_obs` / `n_assets` / `metrics` (a `MetricResult`) /
+  `structure` / `n_obs` / `n_assets` / `metrics` (a `MetricResultGroup`) /
   `warnings` (`list[Warning]`). Serialisers:
   - `to_frame()` → `pl.DataFrame` long form (one row per metric;
     `factor` / `n_assets` / `metric_name` / `value` / `p` / `stat` /
-    `n_obs` / `significance` / `warning_codes: list[str]`). Stable
+    `n_obs` / `warning_codes: list[str]`). Stable
     schema for parquet stacking across factors:
     `pl.concat([r.to_frame() for r in results])`.
   - `to_dict()` → JSON-friendly nested dict (NaN / Inf scrubbed to
     `None`).
   - `_repr_html_()` → Jupyter rich render with primary / diagnostic
     role column and a collapsible warnings block.
-- **`MetricResult`** — mirrors the `MetricGroups` shape from
+- **`MetricResultGroup`** — mirrors the `MetricGroups` shape from
   `inspect_panel` (#443). Three `list[MetricSpec]` partitions
   (`applicable` / `primary` / `diagnostic`) plus dict-like access to
-  the produced `MetricOutput` instances (`__getitem__` / `keys` /
+  the produced `MetricResult` instances (`__getitem__` / `keys` /
   `values` / `items` / `__iter__` all key by `MetricSpec.name`).
 - **`Warning`** — flat dataclass `(code: WarningCode, source: str | None, message: str)`.
   `source=metric_name` for per-metric warnings; `source=None` for
   bundle-level diagnostics. Note: shadows the Python builtin
   `Warning` when imported with `from factrix import Warning`; prefer
   `fx.Warning` after `import factrix as fx`.
-- **`MetricOutput.spec`** (new field, default `None`) — back-pointer
+- **`MetricResult.spec`** (new field, default `None`) — back-pointer
   to the declaring `MetricSpec`. Stamped by runners at dispatch time;
   consumers can recover the spec without a name-keyed lookup.
 - **`DagExecutor`** — programmatic executor for a closed set of
@@ -596,7 +599,7 @@ types-only; runner wiring lands with the DAG executor.
   callables once per factor on a thin projection, caches every
   producer output per `(spec, factor)` so any number of downstream
   consumers see one computation, propagates short-circuit
-  `MetricOutput` (`value=NaN` + `metadata["reason"]`) downstream
+  `MetricResult` (`value=NaN` + `metadata["reason"]`) downstream
   without invoking consumers, and emits a stable plan string per
   `execute` call. Raises `CycleError` on dependency cycles and
   `ValueError` when a referenced producer is missing from the
@@ -611,8 +614,8 @@ types-only; runner wiring lands with the DAG executor.
   "share-hit" annotation.
 - **`WarningCode.UPSTREAM_UNAVAILABLE`** — fires when the DAG
   executor short-circuits a downstream consumer because an upstream
-  producer returned a short-circuit `MetricOutput`. The downstream
-  `MetricOutput` carries `metadata["upstream"]` and
+  producer returned a short-circuit `MetricResult`. The downstream
+  `MetricResult` carries `metadata["upstream"]` and
   `metadata["upstream_reason"]` for root-cause recovery.
 - **`fx.inspect_panel(panel) -> PanelInspection`** — typed
   pre-flight introspection that combines axis detection with a
@@ -668,7 +671,7 @@ types-only; runner wiring lands with the DAG executor.
 | `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) rather than textbook MacKinlay signed CAAR — apply `.sign()` before calling for sign-flip semantics. |
 | `few_events` | CAAR significance test with `MIN_EVENTS_HARD ≤ n_event_dates < MIN_EVENTS_WARN` (4..29); t-stat returned but Brown-Warner (1985) convention treats sub-30 events as power-thin for the asymptotic t. |
 | `borderline_portfolio_periods` | `top_concentration` with `MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN` (3..19); one-sided t-test on the per-date diversification ratio is returned but `df=n-1` inflates t_crit. |
-| `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited; downstream `MetricOutput.metadata` carries `upstream` / `upstream_reason` for root-cause recovery. |
+| `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited; downstream `MetricResult.metadata` carries `upstream` / `upstream_reason` for root-cause recovery. |
 
 Read live descriptions programmatically:
 `fx.WarningCode.PERSISTENT_REGRESSOR.description`.

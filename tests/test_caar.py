@@ -228,10 +228,9 @@ class TestCaar:
     def test_strong_signal_significant(self, strong_signal):
         caar_df = compute_caar(strong_signal)
         result = caar(caar_df)
-        assert result.name == "caar"
         assert result.value > 0
         assert abs(result.stat) > 2.0
-        assert result.significance in ("***", "**")
+        assert result.p < 0.05
 
     def test_noise_not_significant(self, noise_signal):
         caar_df = compute_caar(noise_signal)
@@ -258,7 +257,6 @@ class TestCaar:
 class TestBmpTest:
     def test_strong_signal_significant(self, strong_signal):
         result = bmp_test(strong_signal)
-        assert result.name == "bmp_test"
         assert abs(result.stat) > 2.0
         assert result.metadata["stat_type"] == "z"
 
@@ -386,7 +384,6 @@ class TestBmpTest:
 class TestEventHitRate:
     def test_strong_signal_high_hit_rate(self, strong_signal):
         result = event_hit_rate(strong_signal)
-        assert result.name == "event_hit_rate"
         assert result.value > 0.5
         assert abs(result.stat) > 2.0
 
@@ -460,7 +457,6 @@ class TestEventIc:
     def test_continuous_signal_positive_ic(self):
         df = _make_continuous_signal()
         result = event_ic(df)
-        assert result.name == "event_ic"
         assert result.value > 0
         assert (
             result.metadata["method"]

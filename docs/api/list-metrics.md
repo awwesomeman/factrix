@@ -82,7 +82,7 @@ parser MkDocs uses to render
 | `agg_order` | Aggregation order (`cs-first`, `ts-first`, `ts-only`, `static-cs`, `per-event`) |
 | `inference_se` | Inference / SE method or `no formal H₀` for descriptive metrics |
 | `import_path` | Fully-qualified submodule (`factrix.metrics.<module>`) — also re-exported from `factrix.metrics` |
-| `input_kind` | `"panel"` for the standard `(date-keyed DataFrame, **kwargs) -> MetricOutput` contract; `"scalar"` for pre-aggregated-scalar utilities |
+| `input_kind` | `"panel"` for the standard `(date-keyed DataFrame, **kwargs) -> MetricResult` contract; `"scalar"` for pre-aggregated-scalar utilities |
 
 ### `panel` vs `scalar` — and why it matters
 
@@ -90,7 +90,7 @@ Most metrics take a date-keyed DataFrame as their first positional
 argument; a few (`breakeven_cost`, `net_spread` in
 `factrix.metrics.tradability`) consume pre-aggregated scalars
 (`gross_spread: float`, `turnover: float`, …) and return a
-`MetricOutput` directly. The date-slicing dispatcher
+`MetricResult` directly. The date-slicing dispatcher
 [`by_slice`](by-slice.md) only accepts the `panel` shape — there is
 no date column in a scalar to slice on.
 

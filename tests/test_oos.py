@@ -2,13 +2,13 @@
 
 import math
 
+from factrix._results import MetricResult
 from factrix.metrics.oos_decay import oos_decay
 
 
 class TestOOSDecay:
     def test_stable_series_passes(self, ic_series_positive):
         result = oos_decay(ic_series_positive)
-        assert result.name == "oos_decay"
         assert result.metadata["status"] == "PASS"
         assert result.value > 0.5
         assert result.metadata["sign_flipped"] is False
@@ -58,12 +58,10 @@ class TestOOSDecay:
         assert result.metadata["sign_flipped"] is False
 
     def test_returns_metric_output(self, ic_series_positive):
-        """Single-contract check: oos_decay returns MetricOutput."""
-        from factrix._types import MetricOutput
+        """Single-contract check: oos_decay returns MetricResult."""
 
         result = oos_decay(ic_series_positive)
-        assert isinstance(result, MetricOutput)
-        assert result.name == "oos_decay"
+        assert isinstance(result, MetricResult)
         assert result.stat is None  # descriptive, not hypothesis test
         # Descriptive-only: no p_value emitted (would invite mis-routing
         # the diagnostic into BHY / gate logic).

@@ -71,7 +71,7 @@ def test_every_imported_name_resolves() -> None:
 def test_every_public_symbol_mentioned_in_llms_full() -> None:
     text = LLMS_FULL.read_text(encoding="utf-8")
     # Word-boundary match: prevents `Metric` from being silently satisfied
-    # by `MetricOutput` (and similarly for other short prefix names).
+    # by `MetricResult` (and similarly for other short prefix names).
     missing = [
         name
         for name in sorted(factrix.__all__)

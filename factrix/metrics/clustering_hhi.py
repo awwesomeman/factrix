@@ -27,7 +27,8 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._types import MIN_EVENTS_HARD, MetricOutput
+from factrix._results import MetricResult
+from factrix._types import MIN_EVENTS_HARD
 from factrix.metrics._helpers import _short_circuit_output
 
 __metric_specs__ = (
@@ -50,7 +51,7 @@ def clustering_hhi(
     *,
     factor_col: str = "factor",
     cluster_window: int = 3,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Event clustering Herfindahl index on event dates.
 
     Computes $\mathrm{HHI} = \sum_d s_d^2$ where
@@ -66,7 +67,7 @@ def clustering_hhi(
             future block-bootstrap clustering adjustment.
 
     Returns:
-        MetricOutput with value=HHI, metadata includes effective_n_dates
+        MetricResult with value=HHI, metadata includes effective_n_dates
         and concentration ratio.
 
     Notes:
@@ -88,8 +89,8 @@ def clustering_hhi(
         >>> from factrix.metrics.clustering_hhi import clustering_hhi
         >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
         >>> result = clustering_hhi(panel)
-        >>> result.name
-        'clustering_hhi'
+        >>> result.spec is None
+        True
     """
     events = df.filter(pl.col(factor_col) != 0)
     n_events = len(events)
@@ -117,8 +118,7 @@ def clustering_hhi(
     hhi_min = 1.0 / n_dates if n_dates > 0 else 0.0
     hhi_normalized = (hhi - hhi_min) / (1.0 - hhi_min) if n_dates > 1 else 0.0
 
-    return MetricOutput(
-        name="clustering_hhi",
+    return MetricResult(
         value=hhi,
         metadata={
             "n_events": n_events,

@@ -46,7 +46,7 @@ class TestComputeMonotonicity:
         result = monotonicity(df, forward_periods=1, n_groups=5)["factor"]
         # Only 1 date < MIN_MONOTONICITY_PERIODS=5
         assert math.isnan(result.value)
-        assert result.significance == ""
+        assert result.p is None or result.p >= 0.10
 
 
 class TestMonotonicityBatch:

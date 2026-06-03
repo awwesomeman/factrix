@@ -17,7 +17,7 @@ from factrix._axis import (
 )
 from factrix._dag import CycleError, DagExecutor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 
 # ---------------------------------------------------------------------------
 # Pure-graph fixtures (no factrix.metrics registry dependency)
@@ -111,7 +111,7 @@ class TestBatchablePath:
             return {c: pl.DataFrame({"x": [1.0, 2.0]}) for c in factor_cols}
 
         def per_factor_consumer(ic_df):
-            return MetricOutput(name="consumer", value=float(ic_df["x"].mean()))
+            return MetricResult(value=float(ic_df["x"].mean()))
 
         producer_spec = _make_spec(
             "batch_producer", batchable=True, role=SpecRole.PIPELINE
@@ -150,7 +150,7 @@ class TestPerFactorPath:
 
         def panel_consumer(panel):
             called.append(panel.height)
-            return MetricOutput(name="panel_consumer", value=float(panel.height))
+            return MetricResult(value=float(panel.height))
 
         spec = _make_spec("panel_consumer")
         axes = {
@@ -176,10 +176,10 @@ class TestStage1Share:
             return {c: 42.0 for c in factor_cols}
 
         def consumer_a(ic_df):
-            return MetricOutput(name="a", value=ic_df + 1.0)
+            return MetricResult(value=ic_df + 1.0)
 
         def consumer_b(ic_df):
-            return MetricOutput(name="b", value=ic_df + 2.0)
+            return MetricResult(value=ic_df + 2.0)
 
         producer_spec = _make_spec("producer", batchable=True, role=SpecRole.PIPELINE)
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
@@ -211,8 +211,7 @@ class TestShortCircuitPropagation:
 
         def producer(panel, factor_cols):
             return {
-                c: MetricOutput(
-                    name="producer",
+                c: MetricResult(
                     value=float("nan"),
                     metadata={"reason": "insufficient_sample"},
                 )
@@ -221,7 +220,7 @@ class TestShortCircuitPropagation:
 
         def consumer(ic_df):
             consumer_called["n"] += 1
-            return MetricOutput(name="consumer", value=1.0)
+            return MetricResult(value=1.0)
 
         producer_spec = _make_spec("producer", batchable=True)
         consumer_spec = _make_spec("consumer", requires={"ic_df": producer})
@@ -253,10 +252,10 @@ class TestPlanString:
             return {c: 1.0 for c in factor_cols}
 
         def consumer_a(ic_df):
-            return MetricOutput(name="a", value=ic_df)
+            return MetricResult(value=ic_df)
 
         def consumer_b(ic_df):
-            return MetricOutput(name="b", value=ic_df)
+            return MetricResult(value=ic_df)
 
         producer_spec = _make_spec("producer", batchable=True, role=SpecRole.PIPELINE)
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})

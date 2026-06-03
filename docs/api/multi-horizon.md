@@ -15,7 +15,7 @@ underlying metric across a horizon axis exactly the way
 created three structural problems:
 
 1. **Cross-cuts the metric registry.** The horizon loop produced one
-   `MetricOutput` aggregating `k` horizons, but the registry is keyed
+   `MetricResult` aggregating `k` horizons, but the registry is keyed
    per `(scope, signal, metric)` — so a horizon-loop result had to
    pretend to be a single metric, hiding the loop in `metadata`.
 2. **Conflicted with the identity-as-family contract** ([#160][i160]).

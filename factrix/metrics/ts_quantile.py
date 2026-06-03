@@ -34,13 +34,13 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _ols_nw_multivariate,
     _resolve_nw_lags,
-    _significance_marker,
     _wald_p_linear,
 )
-from factrix._types import EPSILON, MIN_PORTFOLIO_PERIODS_HARD, MetricOutput
+from factrix._types import EPSILON, MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _short_circuit_output,
@@ -71,7 +71,7 @@ def ts_quantile_spread(
     n_groups: int = 5,
     forward_periods: int | None = None,
     nw_lags: int | None = None,
-) -> MetricOutput:
+) -> MetricResult:
     """Bucket time-series factor by historical quantiles, test conditional means.
 
     Reported:
@@ -98,7 +98,7 @@ def ts_quantile_spread(
             the standard rule given ``forward_periods`` and ``T``.
 
     Returns:
-        ``MetricOutput`` whose ``value`` is the top-bottom bucket
+        ``MetricResult`` whose ``value`` is the top-bottom bucket
         spread; bucket detail and the Spearman monotonicity diagnostic
         live in ``metadata``. Short-circuits with a reason code when
         input shape is insufficient (no ``date`` / factor / return
@@ -136,8 +136,8 @@ def ts_quantile_spread(
         ...     forward_periods=5,
         ... )
         >>> result = ts_quantile_spread(panel, n_groups=5)
-        >>> result.name
-        'ts_quantile_spread'
+        >>> result.spec is None
+        True
     """
     if "date" not in df.columns:
         return _short_circuit_output(
@@ -229,11 +229,10 @@ def ts_quantile_spread(
     else:
         rho, rho_p = float("nan"), 1.0
 
-    return MetricOutput(
-        name="ts_quantile_spread",
+    return MetricResult(
+        p=p_spread,
         value=spread_value,
         stat=spread_t,
-        significance=_significance_marker(p_spread),
         metadata={
             "p_value": p_spread,
             "stat_type": "wald (NW HAC)",

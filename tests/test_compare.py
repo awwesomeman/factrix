@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from factrix._compare import compare
 from factrix._errors import UserInputError
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 
 from .conftest import make_result, make_spec
 
@@ -17,9 +17,9 @@ def _with_extra(factor: str, ic, sharpe, ic_value: float, sharpe_value: float):
         primary=ic,
         value=ic_value,
         extra_outputs={
-            "sharpe": MetricOutput(
-                name="sharpe",
+            "sharpe": MetricResult(
                 value=sharpe_value,
+                p=0.2,
                 n_obs=100,
                 spec=sharpe,
                 metadata={"p_value": 0.2},
