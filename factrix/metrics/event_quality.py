@@ -32,13 +32,13 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
     _binomial_test_method_name,
     _binomial_two_sided_p,
-    _significance_marker,
 )
-from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
+from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
@@ -74,14 +74,14 @@ def event_hit_rate(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-) -> MetricOutput:
+) -> MetricResult:
     """Fraction of events where signed abnormal return > 0.
 
     Args:
         df: Panel with event density and forward return.
 
     Returns:
-        MetricOutput with value=hit_rate, stat=z from binomial test.
+        MetricResult with value=hit_rate, stat=z from binomial test.
 
     Notes:
         ``hits = sum_i 1{signed_car_i > 0}``, ``rate = hits / N``.
@@ -102,8 +102,8 @@ def event_hit_rate(
         ...     forward_periods=5,
         ... )
         >>> result = event_hit_rate(panel)
-        >>> result.name
-        'event_hit_rate'
+        >>> result.spec is None
+        True
     """
     events = df.filter(pl.col(factor_col) != 0)
 
@@ -129,11 +129,10 @@ def event_hit_rate(
         stat = (hits - n * 0.5) / (np.sqrt(n) * 0.5)
         stat_type = "z"
 
-    return MetricOutput(
-        name="event_hit_rate",
+    return MetricResult(
+        p=p,
         value=rate,
         stat=stat,
-        significance=_significance_marker(p),
         metadata={
             "n_events": n,
             "n_hits": hits,
@@ -150,7 +149,7 @@ def event_ic(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-) -> MetricOutput:
+) -> MetricResult:
     """Signal strength → directional return correlation among events.
 
     Spearman correlation between ``|factor|`` and ``signed_car``
@@ -167,7 +166,7 @@ def event_ic(
         df: Panel with event density and forward return.
 
     Returns:
-        MetricOutput with value=Spearman rho, stat=z from Fisher transform.
+        MetricResult with value=Spearman rho, stat=z from Fisher transform.
 
     Notes:
         ``rho = Spearman(|factor|, signed_car)`` over event rows; Fisher
@@ -189,8 +188,8 @@ def event_ic(
         ...     forward_periods=5,
         ... )
         >>> result = event_ic(panel)
-        >>> result.name
-        'event_ic'
+        >>> result.spec is None
+        True
     """
     from scipy import stats as sp_stats
 
@@ -225,11 +224,10 @@ def event_ic(
 
     z = np.arctanh(rho) * np.sqrt(n - 3) if abs(rho) < 1.0 - 1e-10 and n > 3 else 0.0
 
-    return MetricOutput(
-        name="event_ic",
+    return MetricResult(
+        p=p,
         value=rho,
         stat=z,
-        significance=_significance_marker(p),
         metadata={
             "n_events": n,
             "p_value": p,
@@ -245,7 +243,7 @@ def profit_factor(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-) -> MetricOutput:
+) -> MetricResult:
     """sum(positive signed_car) / sum(negative signed_car).
 
     Per-event aggregate — no strategy assumptions. A profit factor > 1
@@ -255,7 +253,7 @@ def profit_factor(
         df: Panel with event density and forward return.
 
     Returns:
-        MetricOutput with value=profit_factor.
+        MetricResult with value=profit_factor.
 
     Notes:
         ``PF = sum(signed_car > 0) / |sum(signed_car < 0)|``. Descriptive
@@ -277,8 +275,8 @@ def profit_factor(
         ...     forward_periods=5,
         ... )
         >>> result = profit_factor(panel)
-        >>> result.name
-        'profit_factor'
+        >>> result.spec is None
+        True
     """
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
@@ -298,8 +296,7 @@ def profit_factor(
 
     pf = gains / losses if losses > EPSILON else 0.0
 
-    return MetricOutput(
-        name="profit_factor",
+    return MetricResult(
         value=pf,
         metadata={
             "total_gains": gains,
@@ -316,7 +313,7 @@ def event_skewness(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-) -> MetricOutput:
+) -> MetricResult:
     """Skewness of signed_car distribution.
 
     Positive skew = occasional large gains, frequent small losses
@@ -329,7 +326,7 @@ def event_skewness(
         df: Panel with event density and forward return.
 
     Returns:
-        MetricOutput with value=skewness, stat=z from D'Agostino test.
+        MetricResult with value=skewness, stat=z from D'Agostino test.
 
     Notes:
         ``skew = m_3 / m_2^(3/2)`` (Fisher, bias-corrected via
@@ -352,8 +349,8 @@ def event_skewness(
         ...     forward_periods=5,
         ... )
         >>> result = event_skewness(panel)
-        >>> result.name
-        'event_skewness'
+        >>> result.spec is None
+        True
     """
     from scipy import stats as sp_stats
 
@@ -380,11 +377,10 @@ def event_skewness(
         z = None
         p = None
 
-    return MetricOutput(
-        name="event_skewness",
+    return MetricResult(
+        p=p,
         value=skew,
         stat=z,
-        significance=_significance_marker(p) if p is not None else None,
         metadata={
             "n_events": n,
             **(
@@ -405,7 +401,7 @@ def signal_density(
     df: pl.DataFrame,
     *,
     factor_col: str = "factor",
-) -> MetricOutput:
+) -> MetricResult:
     """Average bars per event (inverse frequency).
 
     Answers: "how frequently does this density fire?"
@@ -424,7 +420,7 @@ def signal_density(
         df: Panel with ``date, asset_id, factor``.
 
     Returns:
-        MetricOutput with value = mean bars-per-event across assets.
+        MetricResult with value = mean bars-per-event across assets.
 
     Notes:
         Per asset ``i``: ``bars_per_event_i = total_bars_i / n_events_i``;
@@ -441,8 +437,8 @@ def signal_density(
         >>> from factrix.metrics.event_quality import signal_density
         >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
         >>> result = signal_density(panel)
-        >>> result.name
-        'signal_density'
+        >>> result.spec is None
+        True
     """
     events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
     n_events = len(events)
@@ -488,8 +484,7 @@ def signal_density(
     mean_gap = float(per_asset["bars_per_event"].mean())  # type: ignore[arg-type]
     events_per_asset = float(per_asset["n"].mean())  # type: ignore[arg-type]
 
-    return MetricOutput(
-        name="signal_density",
+    return MetricResult(
         value=mean_gap,
         metadata={
             "n_events_total": n_events,

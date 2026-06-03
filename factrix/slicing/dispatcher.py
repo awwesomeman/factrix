@@ -15,13 +15,13 @@ from typing import Any
 
 import polars as pl
 
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 from factrix.slicing._primitive import _slice_by_label
 from factrix.slicing.result import SliceResult
 
 
 def by_slice(
-    metric: Callable[..., MetricOutput],
+    metric: Callable[..., MetricResult],
     df: pl.DataFrame,
     *,
     label: str,
@@ -36,7 +36,7 @@ def by_slice(
     :func:`factrix.slice_pairwise_test` / :func:`factrix.slice_joint_test`.
 
     Args:
-        metric: Callable returning a ``MetricOutput`` (e.g.
+        metric: Callable returning a ``MetricResult`` (e.g.
             :func:`factrix.metrics.ic`, :func:`factrix.metrics.caar`).
         df: Metric's primary DataFrame; must already contain ``label``
             as a column. If you have a separate labels DataFrame, join
@@ -51,7 +51,7 @@ def by_slice(
             call.
 
     Returns:
-        :class:`SliceResult` — ``Mapping[str, MetricOutput]`` (so every
+        :class:`SliceResult` — ``Mapping[str, MetricResult]`` (so every
         ``dict``-shaped consumer keeps working) plus a
         :meth:`SliceResult.to_frame` long-form renderer. Keys are
         stringified (an ``Int64`` decile column yields ``"1".."10"``);

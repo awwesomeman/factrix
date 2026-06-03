@@ -37,7 +37,8 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._types import EPSILON, MetricOutput
+from factrix._results import MetricResult
+from factrix._types import EPSILON
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -82,8 +83,8 @@ def _short_circuit_output(
     n_obs: int | None = None,
     descriptive: bool = False,
     **extra_metadata: object,
-) -> MetricOutput:
-    """Canonical short-circuit ``MetricOutput`` for "cannot compute".
+) -> MetricResult:
+    """Canonical short-circuit ``MetricResult`` for "cannot compute".
 
     Reason vocabulary (matches ``_insufficient_metrics`` prefixes):
         - ``insufficient_<thing>`` — data shortage (dropped from BHY)
@@ -95,23 +96,24 @@ def _short_circuit_output(
     and plots, making data shortages impossible to misread as valid zeros.
 
     ``p_value=1.0`` is the conservative default so BHY treats short-circuited
-    metrics as rejected rather than crashing; ``_pv`` reads the same key.
+    metrics as rejected rather than crashing; the promoted ``p`` field
+    mirrors it.
     Pass ``descriptive=True`` for metrics that emit no hypothesis test
     (`oos_decay`, `clustering_hhi`, ...) so callers cannot mis-route the
     short-circuit into BHY / gate logic expecting a probability.
 
-    Use this instead of hand-rolling ``MetricOutput(value=float("nan"),
-    stat=None, significance="", metadata={"reason": ..., "p_value": 1.0, ...})``.
+    Use this instead of hand-rolling ``MetricResult(value=float("nan"),
+    p=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
-    if not descriptive:
-        metadata["p_value"] = 1.0
-    return MetricOutput(
-        name=name,
+    p: float | None = None if descriptive else 1.0
+    if p is not None:
+        metadata["p_value"] = p
+    return MetricResult(
         value=float("nan"),
+        p=p,
         n_obs=n_obs,
         stat=None,
-        significance="",
         metadata=metadata,
     )
 
@@ -310,7 +312,7 @@ def _compute_tie_ratio(
 
     Used as a diagnostic on quantile-bucketing metrics — callers log a
     warning when the return exceeds ``TIE_RATIO_WARN_THRESHOLD`` and
-    stash the value in ``MetricOutput.metadata["tie_ratio"]`` for
+    stash the value in ``MetricResult.metadata["tie_ratio"]`` for
     downstream inspection.
     """
     if df.is_empty():

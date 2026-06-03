@@ -12,4 +12,4 @@
 | `borderline_portfolio_periods` | top_concentration with MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test on the per-date diversification ratio is returned but df=n-1 inflates t_crit relative to the asymptotic cutoff. |
 | `rect_kernel_negative_variance` | Rectangular-kernel HAC variance-of-mean came out negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. Fires only on short / mildly anti-correlated samples. |
 | `singular_weight_matrix` | GMM long-run covariance Ŝ was numerically singular; J-statistic was computed via Moore-Penrose pseudo-inverse rather than a true inverse. Fires on rank-deficient or strongly collinear moment matrices. |
-| `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited. The downstream MetricOutput carries metadata['upstream'] / ['upstream_reason'] for the original cause. |
+| `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited. The downstream MetricResult carries metadata['upstream'] / ['upstream_reason'] for the original cause. |

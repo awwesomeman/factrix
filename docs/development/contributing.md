@@ -444,7 +444,7 @@ reference`, `Release notes`) follow the same rule.
   values (`PanelMode.PANEL` / `PanelMode.TIMESERIES`) become `Panel` / `Timeseries`
   in nav; reach for backticks inside body prose when the literal
   identifier matters. Dataclass / class names inside `Results` (e.g.
-  `MetricOutput`, `FactorProfile`) keep PascalCase because that node *is*
+  `MetricResult`, `FactorProfile`) keep PascalCase because that node *is*
   the mkdocstrings spec page for the symbol — the title is the symbol.
 
 ### Nav structure conventions

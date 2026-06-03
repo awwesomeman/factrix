@@ -72,8 +72,8 @@ class WarningCode(StrEnum):
     SINGULAR_WEIGHT_MATRIX = "singular_weight_matrix"
 
     # Fired by the DAG executor when an upstream producer short-circuited
-    # (returned a NaN MetricOutput with metadata["reason"]) and the
-    # consumer is skipped. The downstream MetricOutput carries
+    # (returned a NaN MetricResult with metadata["reason"]) and the
+    # consumer is skipped. The downstream MetricResult carries
     # metadata["upstream"] / ["upstream_reason"] so the original cause
     # is recoverable without re-walking the dependency graph.
     UPSTREAM_UNAVAILABLE = "upstream_unavailable"
@@ -123,7 +123,7 @@ _WARNING_DESCRIPTIONS.update(
         "singular; J-statistic was computed via Moore-Penrose pseudo-inverse rather than a "
         "true inverse. Fires on rank-deficient or strongly collinear moment matrices.",
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
-        "producer short-circuited. The downstream MetricOutput carries "
+        "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
     }
 )

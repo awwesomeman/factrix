@@ -9,7 +9,7 @@ title: factrix.by_slice
 Axis-agnostic research dispatcher. Slices any metric's date-keyed
 input by a column already present in the DataFrame and runs the metric
 per slice. Returns a [`SliceResult`](#sliceresult) — a
-`Mapping[str, MetricOutput]` with a `.to_frame()` long-form renderer.
+`Mapping[str, MetricResult]` with a `.to_frame()` long-form renderer.
 
 The axis name does not bake into the API — market, sector, regime,
 market-cap tier, ADV bucket all share the same dispatcher.
@@ -23,7 +23,7 @@ that column; remaining keyword args (`forward_periods=...`, etc.)
 forward unchanged on every per-slice call. See the docstring
 Examples block above for the canonical call shape.
 
-`SliceResult` is a `Mapping[str, MetricOutput]`:
+`SliceResult` is a `Mapping[str, MetricResult]`:
 `result["<slice-key>"].value` for dict-style access,
 `result.to_frame()` for the long-form `pl.DataFrame`.
 
@@ -44,7 +44,7 @@ compose the column upstream with `df.with_columns(...)` or
 
 `by_slice` performs **no cross-slice statistical inference**. It
 returns the per-slice outputs and stops. Per-slice t-stats / SE in
-each `MetricOutput` are computed on that slice alone (different `N`,
+each `MetricResult` are computed on that slice alone (different `N`,
 different autocorrelation structure per slice) and are **not**
 directly comparable — `max(out.values(), key=lambda m: m.tstat)` is
 not a defensible cross-regime selection rule. A generic cross-slice test
@@ -141,7 +141,7 @@ by_slice(ic, df, label="uni_sec")
 
 The API does not accept `label: list[str]`: single-column vs
 multi-column semantics would diverge on output dict key type
-(`str` vs `tuple`), breaking the `dict[str, MetricOutput]` convention
+(`str` vs `tuple`), breaking the `dict[str, MetricResult]` convention
 downstream.
 
 ### General template
@@ -160,25 +160,25 @@ by_slice(metric, expanded, label="group")
 
 ## SliceResult
 
-`by_slice` returns a `SliceResult`, a `Mapping[str, MetricOutput]`
+`by_slice` returns a `SliceResult`, a `Mapping[str, MetricResult]`
 subclass — every `dict`-shaped consumer (`for k, v in result.items()`,
 `result["bull"]`, `len(result)`) keeps working unchanged. The added
-value is `.to_frame()`, which flattens per-slice `MetricOutput` rows
+value is `.to_frame()`, which flattens per-slice `MetricResult` rows
 into a fixed-schema long-form `pl.DataFrame` for plotting,
 leaderboards, and Notebook rendering.
 
 ```python
 result = by_slice(ic, ic_df, label="regime")
 result.to_frame().sort("slice")           # plot-ready, lexicographic order
-# shape: (2, 5)
-# ┌────────┬──────┬───────┬───────┬──────────┐
-# │ slice  │ name │ value │ stat  │ p_value  │
-# │ ---    │ ---  │ ---   │ ---   │ ---      │
-# │ str    │ str  │ f64   │ f64   │ f64      │
-# ╞════════╪══════╪═══════╪═══════╪══════════╡
-# │ bear   │ ic   │ -0.02 │ -0.41 │ 0.683    │
-# │ bull   │ ic   │ 0.07  │ 2.31  │ 0.024    │
-# └────────┴──────┴───────┴───────┴──────────┘
+# shape: (2, 4)
+# ┌────────┬───────┬───────┬──────────┐
+# │ slice  │ value │ stat  │ p_value  │
+# │ ---    │ ---   │ ---   │ ---      │
+# │ str    │ f64   │ f64   │ f64      │
+# ╞════════╪═══════╪═══════╪══════════╡
+# │ bear   │ -0.02 │ -0.41 │ 0.683    │
+# │ bull   │ 0.07  │ 2.31  │ 0.024    │
+# └────────┴───────┴───────┴──────────┘
 
 # leaderboard: rank slices by t-stat magnitude
 result.to_frame().sort(pl.col("stat").abs(), descending=True)
@@ -199,15 +199,14 @@ result.to_frame().sort(pl.col("stat").abs(), descending=True)
 
 ### Schema
 
-`to_frame()` always returns the same five columns in the same order:
+`to_frame()` always returns the same four columns in the same order:
 
 | Column      | Source                     | `None` when                                  |
 |-------------|----------------------------|----------------------------------------------|
 | `slice`     | mapping key (rename via `slice_col=`) | never                              |
-| `name`      | `MetricOutput.name`        | never                                        |
-| `value`     | `MetricOutput.value`       | never                                        |
-| `stat`      | `MetricOutput.stat`        | descriptive metric / short-circuit failure   |
-| `p_value`   | `metadata["p_value"]`      | descriptive metric / short-circuit failure   |
+| `value`     | `MetricResult.value`       | never                                        |
+| `stat`      | `MetricResult.stat`        | descriptive metric / short-circuit failure   |
+| `p_value`   | `MetricResult.p`           | descriptive metric / short-circuit failure   |
 
 `stat` and `p_value` semantics follow the underlying metric (`stat` may
 be a *t*, *z*, *F*, or *χ²* — see `metadata["stat_type"]`; `p_value`

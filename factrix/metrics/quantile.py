@@ -30,11 +30,11 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
     MIN_PORTFOLIO_PERIODS_HARD,
-    MetricOutput,
 )
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
@@ -205,7 +205,7 @@ def quantile_spread(
     tie_policy: str = "ordinal",
     *,
     _precomputed_series: dict[str, pl.DataFrame] | None = None,
-) -> dict[str, MetricOutput]:
+) -> dict[str, MetricResult]:
     """long-short spread (per-period mean).
 
     Args:
@@ -215,7 +215,7 @@ def quantile_spread(
             ``tie_ratio`` diagnostic — the series itself was already built.
 
     Returns:
-        MetricOutput with per-period mean spread, t-stat from non-overlapping periods.
+        MetricResult with per-period mean spread, t-stat from non-overlapping periods.
 
     Notes:
         ``t = mean(spread) / (std(spread) / sqrt(n))`` on the non-overlap
@@ -241,8 +241,8 @@ def quantile_spread(
         ...     forward_periods=5,
         ... )
         >>> result = quantile_spread(panel, forward_periods=5, n_groups=5)
-        >>> result["factor"].name
-        'quantile_spread'
+        >>> result["factor"].spec is None
+        True
     """
     cols = list(factor_cols)
     if not cols:
@@ -285,7 +285,7 @@ def _quantile_spread_from_series(
     sampled: pl.DataFrame,
     factor_col: str,
     tie_policy: str,
-) -> MetricOutput:
+) -> MetricResult:
     """Per-factor t-test pipeline shared by single and batch paths.
 
     ``sampled`` is the (already non-overlap-sampled) panel; ``series``
@@ -331,11 +331,10 @@ def _quantile_spread_from_series(
     t_short = _calc_t_stat(mean_short, std_short, len(short_arr))
     p_short = _p_value_from_t(t_short, len(short_arr))
 
-    return MetricOutput(
-        name="quantile_spread",
+    return MetricResult(
+        p=p,
         value=mean_spread,
         stat=t,
-        significance=_significance_marker(p),
         metadata={
             "n_periods": n,
             "p_value": p,
@@ -364,7 +363,7 @@ def quantile_spread_vw(
     weight_col: str = "market_cap",
     tie_policy: str = "ordinal",
     lag_weights: bool = True,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Value-weighted long-short spread — alpha concentration diagnostic.
 
     Formula (per non-overlapping date $t$):
@@ -401,7 +400,7 @@ def quantile_spread_vw(
             weighting. When False, use weights as supplied.
 
     Returns:
-        MetricOutput with per-period mean VW spread, t-stat, and p-value.
+        MetricResult with per-period mean VW spread, t-stat, and p-value.
         Short-circuits if ``weight_col`` is missing or post-sampling n <
         ``MIN_PORTFOLIO_PERIODS_HARD``.
 
@@ -434,8 +433,8 @@ def quantile_spread_vw(
         ...     forward_periods=5,
         ... ).with_columns(pl.lit(1e6).alias("market_cap"))
         >>> result = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
-        >>> result.name
-        'quantile_spread_vw'
+        >>> result.spec is None
+        True
     """
     if weight_col not in df.columns:
         return _short_circuit_output(
@@ -500,11 +499,10 @@ def quantile_spread_vw(
     t = _calc_t_stat(mean_spread, std_spread, n)
 
     p = _p_value_from_t(t, n)
-    return MetricOutput(
-        name="quantile_spread_vw",
+    return MetricResult(
+        p=p,
         value=mean_spread,
         stat=t,
-        significance=_significance_marker(p),
         metadata={
             "n_periods": n,
             "p_value": p,

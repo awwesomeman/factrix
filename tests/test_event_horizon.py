@@ -110,7 +110,6 @@ class TestEventAroundReturn:
     def test_returns_metric_output(self, event_data):
         result = event_around_return(event_data)
         assert result is not None
-        assert result.name == "event_around_return"
         assert "per_offset" in result.metadata
 
     def test_per_offset_has_stats(self, event_data):
@@ -127,7 +126,6 @@ class TestEventAroundReturn:
 
     def test_short_circuit_without_price(self, no_price_data):
         result = event_around_return(no_price_data)
-        assert result.name == "event_around_return"
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["per_offset"] == {}
@@ -141,7 +139,6 @@ class TestEventAroundReturn:
 class TestSignalDensity:
     def test_returns_metric_output(self, event_data):
         result = signal_density(event_data)
-        assert result.name == "signal_density"
         assert result.value > 0
 
     def test_sparse_events_large_gap(self):

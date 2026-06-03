@@ -1,4 +1,4 @@
-| `MetricOutput.name` | Source module | API page |
+| Metric name | Source module | API page |
 |---|---|---|
 | `beta_sign_consistency` | [`factrix.metrics.fm_beta`][factrix.metrics.fm_beta] | [`beta_sign_consistency`](../api/metrics/fm_beta.md#factrix.metrics.fm_beta.beta_sign_consistency) |
 | `bmp_test` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`bmp_test`](../api/metrics/caar.md#factrix.metrics.caar.bmp_test) |

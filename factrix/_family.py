@@ -48,8 +48,8 @@ class _FamilyEntry:
             empty when ``expand_over`` is empty.
         result: Back-reference for survivor rendering; not read by the
             resolution layer itself.
-        p_value: ``MetricOutput.metadata['p_value']`` for the resolved
-            ``primary`` spec. ``None`` until ``_attach_p_values`` runs.
+        p_value: ``MetricResult.p`` for the resolved ``primary`` spec.
+            ``None`` until ``_attach_p_values`` runs.
     """
 
     identifier: tuple[Any, ...]
@@ -200,21 +200,21 @@ def _resolve_p_value(
             docs_path=f"api/{func_name}#primary",
         ) from None
 
-    p = out.metadata.get("p_value")
+    p = out.p
     if p is None:
         raise UserInputError(
             func_name=func_name,
             field="primary",
             value=primary.name,
             expected=(
-                f"metadata['p_value'] populated on every result; "
+                f"a p-value (`.p`) populated on every result; "
                 f"factor={result.factor!r} has no p-value for "
                 f"metric {primary.name!r}"
             ),
             docs_path=f"api/{func_name}#primary",
         )
 
-    p_float = float(p)  # type: ignore[arg-type]
+    p_float = float(p)
     if math.isnan(p_float):
         raise UserInputError(
             func_name=func_name,

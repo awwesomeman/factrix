@@ -1,4 +1,4 @@
-"""v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResult`` / ``Warning``.
+"""v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResultGroup`` / ``Warning``.
 
 Lands the result-type group that #438 unification will surface from the
 DAG executor (#442). This module ships the dataclasses + serialisation
@@ -19,10 +19,60 @@ import polars as pl
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec
-from factrix._types import MetricOutput
 
 if TYPE_CHECKING:
     from collections.abc import ItemsView
+
+
+@dataclass(frozen=True, slots=True)
+class MetricResult:
+    """Single-metric result produced by a ``factrix.metrics.*`` primitive.
+
+    Moved here from :mod:`factrix._types` (renamed from ``MetricOutput``)
+    so every result dataclass lives in one module.
+
+    Attributes:
+        value: Raw metric value.
+        p: Two-sided p-value for the metric's hypothesis test, promoted
+            from ``metadata["p_value"]`` to a typed first-class field.
+            Serialisers (:meth:`EvaluationResult.to_frame` / ``to_dict``)
+            read this field; the raw ``metadata["p_value"]`` key is still
+            populated by producers for tool-specific context. ``None`` for
+            descriptive / diagnostic metrics that carry no formal test
+            (primary metrics are never ``None``).
+        n_obs: Sample size the primitive's estimator actually saw. Same
+            family name as ``FactorProfile.n_obs`` but a different scope:
+            per-metric single-stage count, vs. the final-stage test
+            denominator at the dispatched-cell level. ``None`` where a
+            single integer count is not meaningful (e.g. multi-window
+            CAAR series).
+        stat: Test statistic (t, z, W, chi2, ...), when applicable.
+        metadata: Tool-specific context (``p_value``, ``stat_type``,
+            ``h0``, ``method`` are the standard keys). Read :attr:`p`
+            for the typed promoted view of ``p_value``.
+        spec: Back-pointer to the declaring :class:`MetricSpec`. ``None``
+            for outputs constructed outside the registry (free-standing
+            primitive calls, tests). Runners stamp this at dispatch time
+            so downstream code can recover the spec without a name lookup.
+    """
+
+    value: float
+    p: float | None = None
+    n_obs: int | None = None
+    stat: float | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
+    spec: MetricSpec | None = None
+
+    def __repr__(self) -> str:
+        name = self.spec.name if self.spec is not None else "?"
+        parts = [f"{name}={self.value:.4f}"]
+        if self.p is not None:
+            parts.append(f"p={self.p:.4g}")
+        if self.n_obs is not None:
+            parts.append(f"n_obs={self.n_obs}")
+        if self.stat is not None:
+            parts.append(f"stat={self.stat:.2f}")
+        return f"MetricResult({', '.join(parts)})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +100,12 @@ class Warning:
 
 
 @dataclass(frozen=True, slots=True)
-class MetricResult:
+class MetricResultGroup:
     """Group of metric outputs for one factor at one cell.
 
     Mirrors the ``MetricGroups`` shape that #443 ``inspect_panel``
     exposes: three ``list[MetricSpec]`` partitions plus dict-like
-    access to the produced :class:`MetricOutput` instances.
+    access to the produced :class:`MetricResult` instances.
 
     Iteration / membership / ``keys`` / ``values`` / ``items`` all key
     by metric name (``MetricSpec.name``). Use :func:`spec.name`
@@ -64,19 +114,19 @@ class MetricResult:
     Attributes:
         applicable: Every spec applicable to the dispatched cell
             (superset of ``primary + diagnostic``).
-        primary: Specs whose ``MetricOutput`` carries the bundle's
+        primary: Specs whose ``MetricResult`` carries the bundle's
             primary p-value (driver of downstream multi-factor FDR).
         diagnostic: Specs whose output is descriptive / supplementary.
-        outputs: ``metric_name -> MetricOutput`` for every spec that
+        outputs: ``metric_name -> MetricResult`` for every spec that
             produced a value (including short-circuit outputs).
     """
 
     applicable: list[MetricSpec]
     primary: list[MetricSpec]
     diagnostic: list[MetricSpec]
-    outputs: Mapping[str, MetricOutput] = field(default_factory=dict)
+    outputs: Mapping[str, MetricResult] = field(default_factory=dict)
 
-    def __getitem__(self, key: str) -> MetricOutput:
+    def __getitem__(self, key: str) -> MetricResult:
         return self.outputs[key]
 
     def __contains__(self, key: object) -> bool:
@@ -91,10 +141,10 @@ class MetricResult:
     def keys(self) -> KeysView[str]:
         return self.outputs.keys()
 
-    def values(self) -> ValuesView[MetricOutput]:
+    def values(self) -> ValuesView[MetricResult]:
         return self.outputs.values()
 
-    def items(self) -> ItemsView[str, MetricOutput]:
+    def items(self) -> ItemsView[str, MetricResult]:
         return self.outputs.items()
 
 
@@ -117,11 +167,11 @@ class EvaluationResult:
             re-threading the config.
         n_obs: Final-stage estimator sample size — the n the primary
             metric saw after trimming. Matches the cell's primary
-            ``MetricOutput.n_obs`` when one exists; bundle-level field
+            ``MetricResult.n_obs`` when one exists; bundle-level field
             so consumers don't have to reach inside ``metrics``.
         n_assets: Unique assets in the panel under the any-non-null
             union (cell-invariant; ``1`` is legal for TIMESERIES).
-        metrics: :class:`MetricResult` carrying the per-metric
+        metrics: :class:`MetricResultGroup` carrying the per-metric
             outputs and the applicable / primary / diagnostic spec
             partitions.
         context: Caller-supplied free-form labels (e.g.
@@ -148,7 +198,7 @@ class EvaluationResult:
     forward_periods: int
     n_obs: int
     n_assets: int
-    metrics: MetricResult
+    metrics: MetricResultGroup
     plan: str
     context: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
@@ -163,11 +213,10 @@ class EvaluationResult:
         | ``factor`` | str | :attr:`factor` |
         | ``n_assets`` | i64 | :attr:`n_assets` |
         | ``metric_name`` | str | :func:`spec.name` of the spec, falls back to mapping key |
-        | ``value`` | f64 \\| null | ``MetricOutput.value`` (``NaN`` / ``Inf`` -> null) |
-        | ``p`` | f64 \\| null | ``MetricOutput.metadata["p_value"]`` |
-        | ``stat`` | f64 \\| null | ``MetricOutput.stat`` |
-        | ``n_obs`` | i64 \\| null | ``MetricOutput.n_obs`` |
-        | ``significance`` | str \\| null | ``MetricOutput.significance`` |
+        | ``value`` | f64 \\| null | ``MetricResult.value`` (``NaN`` / ``Inf`` -> null) |
+        | ``p`` | f64 \\| null | ``MetricResult.p`` |
+        | ``stat`` | f64 \\| null | ``MetricResult.stat`` |
+        | ``n_obs`` | i64 \\| null | ``MetricResult.n_obs`` |
         | ``warning_codes`` | list[str] | per-metric :class:`Warning` codes (``source == metric_name``); empty list when none |
 
         Short-circuit rows surface as ``value=null`` / ``p=null``; the
@@ -200,9 +249,8 @@ class EvaluationResult:
         Layout (top-level keys, stable order):
 
         - ``factor`` / ``cell`` / ``n_obs`` / ``n_assets``
-        - ``metrics``: dict ``metric_name -> MetricOutput-as-dict``
-          (``value`` / ``p`` / ``stat`` / ``n_obs`` / ``significance``
-          / ``metadata``)
+        - ``metrics``: dict ``metric_name -> MetricResult-as-dict``
+          (``value`` / ``p`` / ``stat`` / ``n_obs`` / ``metadata``)
         - ``metrics_partition``: ``{"primary": [...], "diagnostic": [...]}``
           listing metric names in each partition
         - ``warnings``: list of ``{code, source, message}`` dicts
@@ -267,18 +315,16 @@ class EvaluationResult:
         for name, out in sorted(self.metrics.outputs.items()):
             tag = "primary" if name in primary_names else "diagnostic"
             val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
-            p_value = out.metadata.get("p_value")
-            p_repr = f"{p_value:.4g}" if isinstance(p_value, float) else ""
+            p_repr = f"{out.p:.4g}" if isinstance(out.p, float) else ""
             metric_rows.append(
                 f"<tr><td>{html.escape(name)}</td>"
                 f"<td>{tag}</td>"
                 f"<td style='text-align:right'>{val_repr}</td>"
-                f"<td style='text-align:right'>{p_repr}</td>"
-                f"<td>{html.escape(out.significance or '')}</td></tr>"
+                f"<td style='text-align:right'>{p_repr}</td></tr>"
             )
         metric_table = (
             "<table><thead><tr><th>metric</th><th>role</th><th>value</th>"
-            "<th>p</th><th>sig</th></tr></thead>"
+            "<th>p</th></tr></thead>"
             f"<tbody>{''.join(metric_rows)}</tbody></table>"
         )
 
@@ -321,24 +367,22 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "p": pl.Float64,
     "stat": pl.Float64,
     "n_obs": pl.Int64,
-    "significance": pl.Utf8,
     "warning_codes": pl.List(pl.Utf8),
 }
 
 
 def _output_row(
     key: str,
-    out: MetricOutput,
+    out: MetricResult,
     warnings_by_metric: Mapping[str, list[str]],
 ) -> dict[str, Any]:
     label = out.spec.name if out.spec is not None else key
     return {
         "metric_name": label,
         "value": _float_or_none(out.value),
-        "p": _float_or_none(out.metadata.get("p_value")),
+        "p": _float_or_none(out.p),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
-        "significance": out.significance,
         "warning_codes": list(warnings_by_metric.get(label, [])),
     }
 
@@ -353,13 +397,12 @@ def _float_or_none(x: object) -> float | None:
     return None
 
 
-def _metric_output_to_record(out: MetricOutput) -> dict[str, Any]:
+def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
     return {
         "value": _float_or_none(out.value),
-        "p": _float_or_none(out.metadata.get("p_value")),
+        "p": _float_or_none(out.p),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
-        "significance": out.significance,
         "metadata": {k: _scrub_nonfinite(v) for k, v in out.metadata.items()},
     }
 

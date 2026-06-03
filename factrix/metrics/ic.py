@@ -29,17 +29,16 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, SampleThreshold, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
     _newey_west_t_test,
     _p_value_from_t,
-    _significance_marker,
 )
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
     EPSILON,
     MIN_ASSETS_PER_DATE_IC,
-    MetricOutput,
 )
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
@@ -141,7 +140,7 @@ def compute_ic(
         downstream callers can detect bucketed / categorical signals
         without re-inspecting the input; ``ic`` / ``ic_newey_west`` /
         ``ic_ir`` aggregate it as the median across dates and stash it in
-        ``MetricOutput.metadata["tie_ratio"]``. When the median exceeds
+        ``MetricResult.metadata["tie_ratio"]``. When the median exceeds
         ``TIE_RATIO_WARN_THRESHOLD`` (0.3) those aggregators also emit a
         ``UserWarning``: treat the IC magnitude as a lower bound and
         consider a tie-corrected correlation or a continuous transform
@@ -216,7 +215,7 @@ def compute_ic(
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
     Args:
@@ -224,7 +223,7 @@ def ic(
         forward_periods: Sampling interval for non-overlapping dates.
 
     Returns:
-        MetricOutput with value=mean IC, t_stat from non-overlapping sampling.
+        MetricResult with value=mean IC, t_stat from non-overlapping sampling.
 
     Notes:
         Given the per-date IC series $\mathrm{IC}_t$, significance is
@@ -256,8 +255,8 @@ def ic(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic(ic_df, forward_periods=5)
-        >>> result.name
-        'ic'
+        >>> result.spec is None
+        True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
     ic_vals = ic_df["ic"].drop_nulls()
@@ -286,11 +285,10 @@ def ic(
     t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
     p = _p_value_from_t(t, n_sampled)
 
-    return MetricOutput(
-        name="ic",
+    return MetricResult(
+        p=p,
         value=mean_ic,
         stat=t,
-        significance=_significance_marker(p),
         metadata={
             "n_periods": n,
             "p_value": p,
@@ -305,7 +303,7 @@ def ic(
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Information coefficient (IC) mean significance via Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test on the overlapping series.
 
     Sibling of ``ic()``: same null hypothesis ($H_0$: mean IC = 0), but
@@ -346,8 +344,8 @@ def ic_newey_west(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_newey_west(ic_df, forward_periods=5)
-        >>> result.name
-        'ic_newey_west'
+        >>> result.spec is None
+        True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_newey_west")
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
@@ -363,12 +361,11 @@ def ic_newey_west(
     from factrix._stats import _resolve_nw_lags
 
     lags = _resolve_nw_lags(n, lags=None, forward_periods=forward_periods)
-    t, p, sig = _newey_west_t_test(ic_vals, forward_periods=forward_periods)
-    return MetricOutput(
-        name="ic_newey_west",
+    t, p, _ = _newey_west_t_test(ic_vals, forward_periods=forward_periods)
+    return MetricResult(
+        p=p,
         value=float(ic_vals.mean()),
         stat=t,
-        significance=sig,
         metadata={
             "n_periods": n,
             "p_value": p,
@@ -384,7 +381,7 @@ def ic_newey_west(
 
 def ic_ir(
     ic_df: pl.DataFrame,
-) -> MetricOutput:
+) -> MetricResult:
     r"""$\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$.
 
     Signed ratio — positive when information coefficient (IC) is consistently positive, negative
@@ -398,7 +395,7 @@ def ic_ir(
         ic_df: Output of ``compute_ic()``.
 
     Returns:
-        MetricOutput with value=IC_IR (signed), t_stat=None.
+        MetricResult with value=IC_IR (signed), t_stat=None.
 
     Notes:
         $\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
@@ -424,8 +421,8 @@ def ic_ir(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_ir(ic_df)
-        >>> result.name
-        'ic_ir'
+        >>> result.spec is None
+        True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
     ic_vals = ic_df["ic"].drop_nulls()
@@ -450,8 +447,7 @@ def ic_ir(
 
     ratio = mean_ic / std_ic
 
-    return MetricOutput(
-        name="ic_ir",
+    return MetricResult(
         value=ratio,
         metadata={
             "mean_ic": mean_ic,

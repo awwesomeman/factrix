@@ -22,7 +22,7 @@ fx.compare(profiles, sort_by="primary_p")
 | Use case | Function | Notes |
 |---|---|---|
 | Rank N `evaluate` results | `compare(list[FactorProfile])` | Identity + context + `primary_stat` / `primary_stat_name` / `primary_p` |
-| Rank N `run_metrics` results | `compare(list[MetricsBundle])` | Identity + context + one column per standalone metric (`MetricOutput.value`) |
+| Rank N `run_metrics` results | `compare(list[MetricsBundle])` | Identity + context + one column per standalone metric (`MetricResult.value`) |
 | Rank BHY survivors | `compare(Survivors)` | Profile schema plus `adj_p` (read from `Survivors.adj_p`) |
 | Re-run inference under perturbations | [`robustness`](../api/index.md) (#178) | `compare` is a pure view; `robustness` recomputes |
 | Test factor across slices | [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Re-runs inference per slice; `compare` does not |
@@ -76,8 +76,8 @@ The column carries the `StatCode.value` slug (`"t_nw"` / `"wald_nwcl"`
 └───────────────┴─────────────────┴─────────────┴───────┴───────┴───────────┴──────────┘
 ```
 
-One column per metric, projected from `MetricOutput.value`. Per-cell
-`n_obs` (first-class on [`MetricOutput`](metric-output.md)) is *not*
+One column per metric, projected from `MetricResult.value`. Per-cell
+`n_obs` (first-class on [`MetricResult`](metric-output.md)) is *not*
 flattened — for 4 metrics that would double the table to 8 columns
 and drown the leaderboard. When you need sample-size honesty for a
 specific cell, look up `bundle[metric].n_obs` directly.

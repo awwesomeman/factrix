@@ -181,10 +181,9 @@ class TestIC:
     def test_positive_ic(self, noisy_panel):
         ic_df = compute_ic(noisy_panel)["factor"]
         result = ic(ic_df, forward_periods=1)
-        assert result.name == "ic"
         assert result.value > 0  # noisy_panel has positive IC
         assert result.stat > 0
-        assert result.significance != ""
+        assert result.p < 0.10
 
     def test_insufficient_periods(self):
         df = pl.DataFrame(
@@ -202,7 +201,6 @@ class TestICIR:
         ic_df = compute_ic(noisy_panel)["factor"]
         result = ic_ir(ic_df)
         assert result.value > 0
-        assert result.name == "ic_ir"
         assert result.stat is None
         assert "mean_ic" in result.metadata
 

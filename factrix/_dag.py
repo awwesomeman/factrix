@@ -11,7 +11,7 @@ Single execution path that:
 - caches every producer's output per ``(spec, factor)`` so any
   number of downstream consumers naming the same callable see one
   computation,
-- propagates short-circuit :class:`MetricOutput` (NaN value with
+- propagates short-circuit :class:`MetricResult` (NaN value with
   ``metadata["reason"]``) from upstream to downstream consumers
   without invoking the consumer,
 - emits a stable, diff-friendly plan string per execute call and
@@ -34,8 +34,12 @@ import polars as pl
 from factrix._axis import DataStructure, FactorDensity, FactorScope, SpecRole
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec
-from factrix._results import EvaluationResult, MetricResult, Warning
-from factrix._types import MetricOutput
+from factrix._results import (
+    EvaluationResult,
+    MetricResult,
+    MetricResultGroup,
+    Warning,
+)
 
 
 def _project_factor(panel: pl.DataFrame, col: str) -> pl.DataFrame:
@@ -80,7 +84,7 @@ class DagExecutor:
             spec.name)`` via the spec's declaring module. Tests pass an
             explicit resolver to use locally-defined callables without
             building a fake module tree.
-        primary_names: Names of specs whose :class:`MetricOutput` is
+        primary_names: Names of specs whose :class:`MetricResult` is
             the bundle's primary p-value driver. Empty by default —
             the primary-vs-diagnostic classification is a cell-level
             policy decision and lives outside this executor (#438).
@@ -159,7 +163,7 @@ class DagExecutor:
         projections: dict[str, pl.DataFrame] = {}
 
         producer_outputs: dict[tuple[str, str], Any] = {}
-        metric_outputs: dict[tuple[str, str], MetricOutput] = {}
+        metric_outputs: dict[tuple[str, str], MetricResult] = {}
 
         for spec in (step.spec for step in self._plan_steps):
             fn = self._fn(spec)
@@ -180,7 +184,7 @@ class DagExecutor:
                             f"{spec.name}: batchable result missing factor {c!r}"
                         )
                     producer_outputs[(spec.name, c)] = result[c]
-                    if isinstance(result[c], MetricOutput):
+                    if isinstance(result[c], MetricResult):
                         metric_outputs[(spec.name, c)] = _stamp_spec(result[c], spec)
                 continue
 
@@ -202,7 +206,7 @@ class DagExecutor:
                             projections[c] = view
                         out = fn(view, **kwargs)
                 producer_outputs[(spec.name, c)] = out
-                if isinstance(out, MetricOutput):
+                if isinstance(out, MetricResult):
                     metric_outputs[(spec.name, c)] = _stamp_spec(out, spec)
 
         return self._assemble(
@@ -229,7 +233,7 @@ class DagExecutor:
         forward_periods: int,
         structure: DataStructure,
         n_assets: int,
-        metric_outputs: Mapping[tuple[str, str], MetricOutput],
+        metric_outputs: Mapping[tuple[str, str], MetricResult],
     ) -> dict[str, EvaluationResult]:
         public_specs = [s for s in self._specs if s.role is SpecRole.METRIC]
         primary = [s for s in public_specs if s.name in self._primary_names]
@@ -238,7 +242,7 @@ class DagExecutor:
 
         results: dict[str, EvaluationResult] = {}
         for c in cols:
-            outputs: dict[str, MetricOutput] = {}
+            outputs: dict[str, MetricResult] = {}
             warnings: list[Warning] = []
             for spec in public_specs:
                 key = (spec.name, c)
@@ -263,7 +267,7 @@ class DagExecutor:
                 forward_periods=forward_periods,
                 n_obs=n_obs,
                 n_assets=n_assets,
-                metrics=MetricResult(
+                metrics=MetricResultGroup(
                     applicable=public_specs,
                     primary=primary,
                     diagnostic=diagnostic,
@@ -315,12 +319,11 @@ def _check_upstream_short_circuit(
     spec: MetricSpec,
     factor: str,
     producer_outputs: Mapping[tuple[str, str], Any],
-) -> MetricOutput | None:
+) -> MetricResult | None:
     for key, producer in spec.requires.items():
         upstream = producer_outputs.get((producer.__name__, factor))
-        if isinstance(upstream, MetricOutput) and math.isnan(upstream.value):
-            return MetricOutput(
-                name=spec.name,
+        if isinstance(upstream, MetricResult) and math.isnan(upstream.value):
+            return MetricResult(
                 value=float("nan"),
                 metadata={
                     "reason": "upstream_unavailable",
@@ -332,14 +335,14 @@ def _check_upstream_short_circuit(
     return None
 
 
-def _stamp_spec(out: MetricOutput, spec: MetricSpec) -> MetricOutput:
+def _stamp_spec(out: MetricResult, spec: MetricSpec) -> MetricResult:
     return dataclasses.replace(out, spec=spec)
 
 
 def _resolve_n_obs(
     primary: Sequence[MetricSpec],
     factor: str,
-    metric_outputs: Mapping[tuple[str, str], MetricOutput],
+    metric_outputs: Mapping[tuple[str, str], MetricResult],
 ) -> int:
     for spec in primary:
         out = metric_outputs.get((spec.name, factor))

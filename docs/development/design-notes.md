@@ -148,7 +148,7 @@ search (not in factrix's bibliography catalog).
   concentrated in the corners of the decision space where neither is
   decisive.
 - Users who want Bayesian inference can run it externally on the
-  per-factor `MetricOutput.stat` series; factrix does not block that
+  per-factor `MetricResult.stat` series; factrix does not block that
   path.
 
 ---

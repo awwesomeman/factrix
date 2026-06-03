@@ -7,23 +7,21 @@ from collections.abc import Mapping
 import polars as pl
 import pytest
 from factrix import SliceResult
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 
 
-def _make_outputs() -> dict[str, MetricOutput]:
+def _make_outputs() -> dict[str, MetricResult]:
     return {
-        "bull": MetricOutput(
-            name="ic",
+        "bull": MetricResult(
             value=0.07,
+            p=0.024,
             stat=2.31,
-            significance="*",
             metadata={"p_value": 0.024, "method": "non-overlapping t-test"},
         ),
-        "bear": MetricOutput(
-            name="ic",
+        "bear": MetricResult(
             value=-0.02,
+            p=0.683,
             stat=-0.41,
-            significance="",
             metadata={"p_value": 0.683, "method": "non-overlapping t-test"},
         ),
     }
@@ -46,9 +44,8 @@ class TestMappingBehaviour:
 class TestToFrame:
     def test_default_schema(self):
         df = SliceResult(_make_outputs()).to_frame()
-        assert df.columns == ["slice", "name", "value", "stat", "p_value"]
+        assert df.columns == ["slice", "value", "stat", "p_value"]
         assert df.schema["slice"] == pl.Utf8
-        assert df.schema["name"] == pl.Utf8
         assert df.schema["value"] == pl.Float64
         assert df.schema["stat"] == pl.Float64
         assert df.schema["p_value"] == pl.Float64
@@ -63,14 +60,14 @@ class TestToFrame:
 
     def test_custom_slice_col(self):
         df = SliceResult(_make_outputs()).to_frame(slice_col="regime")
-        assert df.columns == ["regime", "name", "value", "stat", "p_value"]
+        assert df.columns == ["regime", "value", "stat", "p_value"]
         assert df["regime"].to_list() == ["bull", "bear"]
 
     def test_missing_stat_and_p_value_become_null(self):
         # Descriptive metric without stat or p_value (e.g. event count summary).
         outputs = {
-            "g1": MetricOutput(name="counts", value=42.0),
-            "g2": MetricOutput(name="counts", value=17.0, metadata={"note": "x"}),
+            "g1": MetricResult(value=42.0),
+            "g2": MetricResult(value=17.0, metadata={"note": "x"}),
         }
         df = SliceResult(outputs).to_frame()
         assert df["stat"].to_list() == [None, None]
@@ -79,7 +76,7 @@ class TestToFrame:
 
     def test_empty_result(self):
         df = SliceResult({}).to_frame()
-        assert df.columns == ["slice", "name", "value", "stat", "p_value"]
+        assert df.columns == ["slice", "value", "stat", "p_value"]
         assert df.height == 0
 
 

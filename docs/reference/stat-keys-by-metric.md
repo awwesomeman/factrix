@@ -3,17 +3,17 @@ title: Stat keys by metric
 ---
 
 !!! abstract "Answers"
-    `MetricOutput` schema — which `metadata` key is the primary inference target, which are auxiliary, what the headline `stat` carries.
+    `MetricResult` schema — which `metadata` key is the primary inference target, which are auxiliary, what the headline `stat` carries.
     For applicability gates, see [Metric applicability](metric-applicability.md).
     For computation pipeline, see [Metric pipelines](metric-pipelines.md).
 
-Per-metric schema of the [`MetricOutput`](../api/metric-output.md)
+Per-metric schema of the [`MetricResult`](../api/metric-output.md)
 returned by every public callable in `factrix.metrics`.
 
 For the SE / test machinery itself see
 [Statistical methods](statistical-methods.md). For the
-`MetricOutput.name` → docs-page reverse index see
-[`MetricOutput`](../api/metric-output.md#name-index). The
+`MetricResult.name` → docs-page reverse index see
+[`MetricResult`](../api/metric-output.md#name-index). The
 `evaluate()`-side equivalent is `FactorProfile.stats` keyed by
 `StatCode`.
 
@@ -39,7 +39,7 @@ contrasts, not a sidecar to a primary value.
 
 ## Cross-metric summary
 
-| Metric | Primary stat (`MetricOutput.stat`) | Primary `metadata` key | `value` |
+| Metric | Primary stat (`MetricResult.stat`) | Primary `metadata` key | `value` |
 |---|---|---|---|
 | [`ic`][factrix.metrics.ic.ic] | Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) `t` on per-date information coefficient (IC) series | `p_value` | mean(IC) |
 | [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | NW HAC `t` (overlapping) | `p_value` | mean(IC) |
@@ -95,14 +95,14 @@ contrasts, not a sidecar to a primary value.
 
 #### `ic_ir`
 
-Descriptive metric — `MetricOutput.stat` is `None` and no `p_value`
+Descriptive metric — `MetricResult.stat` is `None` and no `p_value`
 is emitted.
 
 - *descriptive*: `mean_ic`, `std_ic`, `n_periods`, `tie_ratio`.
 
 ### `fm_beta` family (`factrix.metrics.fm_beta`)
 
-#### `fm_beta` (emits `MetricOutput.name = "fm_beta"`)
+#### `fm_beta` (emits `MetricResult.name = "fm_beta"`)
 
 - *primary*: `p_value` — NW HAC `t` on per-date λ. With
   `is_estimated_factor=True` the Shanken EIV correction is applied
@@ -118,12 +118,12 @@ is emitted.
   when the factor-return variance collapses; the uncorrected NW
   result is reported.
 
-#### `pooled_beta` (emits `MetricOutput.name = "pooled_beta"`)
+#### `pooled_beta` (emits `MetricResult.name = "pooled_beta"`)
 
 - *primary*: `p_value` — single- or two-way clustered OLS `t`. When
   the cluster count G < 3 the test is short-circuited with `stat =
   None` and `p_value = 1.0`.
-- Sample size: `MetricOutput.n_obs` (row count entering the test).
+- Sample size: `MetricResult.n_obs` (row count entering the test).
 - *descriptive*: `n_clusters` (one-way) or `n_clusters_a`,
   `n_clusters_b`, `n_clusters_intersection` (two-way).
 - *descriptive* (conditional, short-circuit): `reason =
@@ -161,7 +161,7 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 
 ### `corrado` (`factrix.metrics.corrado_rank`)
 
-#### `corrado_rank` (emits `MetricOutput.name = "corrado_rank"`)
+#### `corrado_rank` (emits `MetricResult.name = "corrado_rank"`)
 
 - *primary*: `p_value` — Corrado nonparametric rank `z`.
 - *descriptive*: `n_events`, `n_total_obs`.
@@ -170,7 +170,7 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 
 #### `hit_rate`
 
-`MetricOutput.stat` is the binomial hit count when the exact branch
+`MetricResult.stat` is the binomial hit count when the exact branch
 runs, the normal `z` when the approximation branch runs;
 `stat_type` discriminates (`"binomial_hits"` vs `"z"`).
 
@@ -193,7 +193,7 @@ Same shape as `hit_rate` (binomial / normal-approx branches).
   `|factor|` and `signed_car`.
 - *descriptive*: `n_events`.
 
-`MetricOutput.stat = None` and the short-circuit `reason` is set to
+`MetricResult.stat = None` and the short-circuit `reason` is set to
 `"not_applicable_discrete_signal"` when the signal lacks magnitude
 variance (e.g. binary {-1, +1}).
 
@@ -202,7 +202,7 @@ variance (e.g. binary {-1, +1}).
 - *primary* (conditional, N ≥ 20): `p_value` — D'Agostino skew `z`.
 - *descriptive*: `n_events`.
 
-When `N < 20`, `MetricOutput.stat = None` and `p_value` / `stat_type`
+When `N < 20`, `MetricResult.stat = None` and `p_value` / `stat_type`
 / `h0` / `method` are omitted — the metric reports the Fisher
 skewness in `value` only.
 
@@ -230,14 +230,14 @@ Pre/post-event return profile; descriptive.
 - *descriptive*: `per_offset` (dict `offset → {mean, median, p25, p75,
   hit_rate, n}`), `interpretation`.
 - *descriptive*: `p_value` (sentinel; not a test result — kept for
-  uniform `MetricOutput` shape).
+  uniform `MetricResult` shape).
 
 ### `monotonicity` (`factrix.metrics.monotonicity`)
 
 #### `monotonicity`
 
-`MetricOutput.value` carries the *magnitude* (mean `|Spearman|`);
-`MetricOutput.stat` carries the cross-asset `t` on the *signed*
+`MetricResult.value` carries the *magnitude* (mean `|Spearman|`);
+`MetricResult.stat` carries the cross-asset `t` on the *signed*
 Spearman series. The split is intentional — magnitude and direction
 consistency are read separately.
 
@@ -277,7 +277,7 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 ### `clustering` (`factrix.metrics.clustering_hhi`)
 
-#### `clustering_hhi` (emits `MetricOutput.name = "clustering_hhi"`)
+#### `clustering_hhi` (emits `MetricResult.name = "clustering_hhi"`)
 
 Descriptive; period-axis concentration of event dates.
 
@@ -298,9 +298,9 @@ Descriptive; no test.
 
 ### `oos` (`factrix.metrics.oos_decay`)
 
-#### `oos_decay` (emits `MetricOutput.name = "oos_decay"`)
+#### `oos_decay` (emits `MetricResult.name = "oos_decay"`)
 
-`MetricOutput.stat = None`; rank-based PASS/VETO gate, no formal
+`MetricResult.stat = None`; rank-based PASS/VETO gate, no formal
 hypothesis test.
 
 - *descriptive*: `status` (`"PASS"` / `"VETOED"`), `sign_flipped`,
@@ -315,7 +315,7 @@ hypothesis test.
 - *primary*: `p_value` — OLS `t` on α from the multivariate spanning
   regression. Plain (non-HAC) SE — assumes the input spread series
   are non-overlapping.
-- Sample size: `MetricOutput.n_obs` (length of the aligned
+- Sample size: `MetricResult.n_obs` (length of the aligned
   candidate-series).
 - *descriptive*: `n_base_factors`, `base_factors` (list of base-factor
   names), `betas` (per-base OLS slope dict), `r_squared`.
@@ -323,8 +323,8 @@ hypothesis test.
 
 #### `greedy_forward_selection`
 
-Stepwise selection meta-metric; `MetricOutput.value` is `NaN` and
-`MetricOutput.stat = None`. Per-candidate `t`-stats are *not* valid
+Stepwise selection meta-metric; `MetricResult.value` is `NaN` and
+`MetricResult.stat = None`. Per-candidate `t`-stats are *not* valid
 for inference (selection bias).
 
 - *descriptive*: `selected_factors` (list of `SpanningResult`),
@@ -335,7 +335,7 @@ for inference (selection bias).
 
 #### `ic_trend`
 
-Theil-Sen median slope on the IC series. The reported `MetricOutput.stat`
+Theil-Sen median slope on the IC series. The reported `MetricResult.stat`
 is the slope-`t` derived from the rank-based confidence interval.
 
 - *primary*: `p_value` — slope significance from the Theil-Sen CI.
@@ -397,7 +397,7 @@ Two complementary methods:
 
 ### `tradability` (`factrix.metrics.tradability`)
 
-All four are descriptive — `MetricOutput.stat = None` and no
+All four are descriptive — `MetricResult.stat = None` and no
 `p_value` is emitted. They feed cost/benefit arithmetic, not
 inference.
 
@@ -428,12 +428,12 @@ Scalar-input metric.
 
 ## Short-circuit envelope
 
-Every metric falls back to a uniform short-circuit `MetricOutput`
+Every metric falls back to a uniform short-circuit `MetricResult`
 when input data fails the metric's preconditions (insufficient
 sample, no events, degenerate signal, …). The fallback shape is:
 
 - `value = float("nan")`, `stat = None`, `significance = ""`.
-- `MetricOutput.n_obs: int | None` — first-class sample size the
+- `MetricResult.n_obs: int | None` — first-class sample size the
   estimator saw before bailing (e.g. how many periods / events were
   actually available). Populated when the short-circuit knows the
   number; `None` otherwise.

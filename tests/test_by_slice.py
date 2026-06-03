@@ -7,7 +7,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix import SliceResult, by_slice
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 from factrix.metrics import ic
 from factrix.slicing._primitive import _slice_by_label
 
@@ -81,8 +81,7 @@ class TestBySlice:
         assert isinstance(out, Mapping)
         assert set(out) == {"bull", "bear"}
         for v in out.values():
-            assert isinstance(v, MetricOutput)
-            assert v.name == "ic"
+            assert isinstance(v, MetricResult)
 
     def test_kwargs_forwarded(self):
         df = _ic_series_with_label(60)
@@ -102,13 +101,13 @@ class TestBySlice:
         assert set(out) == {"bull", "bear"}
 
     def test_accepts_arbitrary_callable(self):
-        def fake(df: pl.DataFrame, *, mult: float = 1.0) -> MetricOutput:
-            return MetricOutput(name="fake", value=float(df["ic"].mean()) * mult)
+        def fake(df: pl.DataFrame, *, mult: float = 1.0) -> MetricResult:
+            return MetricResult(value=float(df["ic"].mean()) * mult)
 
         df = _ic_series_with_label(20)
         out = by_slice(fake, df, label="regime", mult=2.0)
         assert set(out) == {"bull", "bear"}
-        assert all(o.name == "fake" for o in out.values())
+        assert all(isinstance(o, MetricResult) for o in out.values())
 
     def test_cross_product_via_composite_column(self):
         """Cross-product slicing: caller composes the composite column."""

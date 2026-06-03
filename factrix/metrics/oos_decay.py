@@ -10,7 +10,7 @@ Notes:
     **Input.** DataFrame with ``date, value`` (IC series, CAAR series,
     spread series).
 
-    **Output.** MetricOutput with ``value`` = survival ratio +
+    **Output.** MetricResult with ``value`` = survival ratio +
     sign-flip / status detail in ``metadata``.
 """
 
@@ -28,7 +28,8 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
+from factrix._results import MetricResult
+from factrix._types import EPSILON, MIN_OOS_PERIODS
 from factrix.metrics._helpers import _short_circuit_output
 
 __metric_specs__ = (
@@ -53,7 +54,7 @@ def oos_decay(
     value_col: str = "value",
     is_ratio: float = 0.7,
     survival_threshold: float = 0.5,
-) -> MetricOutput:
+) -> MetricResult:
     """Single-split out-of-sample (OOS) survival ratio with sign-flip detection.
 
     Splits the sorted series at ``is_ratio`` (IS = first ``is_ratio * n``
@@ -68,9 +69,8 @@ def oos_decay(
             (default ``0.5``).
 
     Returns:
-        MetricOutput with:
+        MetricResult with:
 
-        - ``name``: ``"oos_decay"``
         - ``value``: survival ratio (NaN on short-circuit)
         - ``stat``: ``None`` — descriptive only (no hypothesis test
           attached; a t-stat at ``MIN_OOS_PERIODS = 5`` would have power
@@ -118,8 +118,8 @@ def oos_decay(
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
         >>> result = oos_decay(series)
-        >>> result.name
-        'oos_decay'
+        >>> result.spec is None
+        True
     """
     sorted_series = series.sort("date")
     vals = sorted_series[value_col].drop_nulls()
@@ -158,11 +158,9 @@ def oos_decay(
     else:
         status = "VETOED"
 
-    return MetricOutput(
-        name="oos_decay",
+    return MetricResult(
         value=survival,
         stat=None,
-        significance="",
         metadata={
             "sign_flipped": sign_flipped,
             "status": status,

@@ -29,14 +29,14 @@ from factrix._axis import (
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
-from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
+from factrix._results import MetricResult
+from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
     DDOF,
     EPSILON,
     MIN_PORTFOLIO_PERIODS_HARD,
     MIN_PORTFOLIO_PERIODS_WARN,
     ConcentrationWeight,
-    MetricOutput,
 )
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
@@ -68,7 +68,7 @@ def top_concentration(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     weight_by: ConcentrationWeight = "abs_factor",
-) -> MetricOutput:
+) -> MetricResult:
     r"""Top-bucket concentration via Herfindahl-Hirschman index (HHI) inverse.
 
     Per date, selects top ``q_top`` stocks by factor rank, computes
@@ -95,7 +95,7 @@ def top_concentration(
               signed ``sign(factor) · forward_return`` series yourself.
 
     Returns:
-        MetricOutput with value = mean(1/HHI) across dates.
+        MetricResult with value = mean(1/HHI) across dates.
         Higher = more diversified top bucket.
 
     Notes:
@@ -125,8 +125,8 @@ def top_concentration(
         ...     forward_periods=5,
         ... )
         >>> result = top_concentration(panel, forward_periods=5, q_top=0.2)
-        >>> result.name
-        'top_concentration'
+        >>> result.spec is None
+        True
     """
     if weight_by == "alpha_contribution" and return_col not in df.columns:
         return _short_circuit_output(
@@ -222,10 +222,9 @@ def top_concentration(
     }
     if warning_codes:
         metadata["warning_codes"] = warning_codes
-    return MetricOutput(
-        name="top_concentration",
+    return MetricResult(
+        p=p,
         value=mean_eff_n,
         stat=t,
-        significance=_significance_marker(p),
         metadata=metadata,
     )

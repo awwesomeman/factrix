@@ -70,8 +70,12 @@ from factrix._metric_index import (
     spec_by_name,
 )
 from factrix._panel_input import PanelInput, _coerce_panel
-from factrix._results import EvaluationResult, MetricResult, Warning
-from factrix._types import MetricOutput
+from factrix._results import (
+    EvaluationResult,
+    MetricResult,
+    MetricResultGroup,
+    Warning,
+)
 from factrix.slicing import (
     SliceResult,
     by_slice,
@@ -109,10 +113,10 @@ def evaluate(
             to NaN with a ``reason`` when ``price`` is absent.
         metrics: User-facing :class:`MetricSpec` instances. Element type
             is checked at runtime; ``str`` / ``Callable`` /
-            :class:`MetricOutput` are rejected. The first entry is
+            :class:`MetricResult` are rejected. The first entry is
             tagged as the primary metric (drives ``EvaluationResult.n_obs``
             and the primary / diagnostic partition on
-            :class:`MetricResult`); the rest become diagnostics.
+            :class:`MetricResultGroup`); the rest become diagnostics.
         factor_cols: Names of density columns on ``panel``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``panel``.
@@ -469,8 +473,8 @@ __all__ = [
     "CycleError",
     "DagExecutor",
     "EvaluationResult",
-    "MetricOutput",
     "MetricResult",
+    "MetricResultGroup",
     "PanelInput",
     "Warning",
     "compare",

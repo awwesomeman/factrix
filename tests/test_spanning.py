@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix._results import MetricResult
 from factrix.metrics.spanning import (
     ForwardSelectionResult,
     SpanningResult,
@@ -32,7 +33,6 @@ class TestSpanningTest:
     def test_significant_alpha(self):
         factor = _make_spread_series(100, 0.02, 0.005, 42)
         result = spanning_alpha(factor)
-        assert result.name == "spanning_alpha"
         assert result.value != 0.0
         assert abs(result.stat) > 2.0
 
@@ -58,11 +58,10 @@ class TestSpanningTest:
         assert result.metadata["n_base_factors"] == 0
 
     def test_returns_metric_output(self):
-        from factrix._types import MetricOutput
 
         factor = _make_spread_series(100, 0.02, 0.005, 42)
         result = spanning_alpha(factor)
-        assert isinstance(result, MetricOutput)
+        assert isinstance(result, MetricResult)
 
 
 class TestOLSAlpha:

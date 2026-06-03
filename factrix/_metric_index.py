@@ -549,7 +549,7 @@ def list_metrics(
             ``docs_anchor`` follows
             :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
             docs-root-relative path + mkdocstrings symbol fragment).
-            ``name`` == ``MetricOutput.name`` for all current specs
+            ``name`` == ``MetricResult.name`` for all current specs
             (function name = registry key = emitted label).
         with_import: ``"text"`` only. When ``True``, returns a
             two-column ``"name → factrix.metrics.<module>"`` list so

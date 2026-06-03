@@ -3,7 +3,7 @@
 Each primitive (``fm_beta``, ``caar``, ``top_concentration``)
 must implement three tiers:
 
-1. ``n < HARD`` → short-circuit (NaN ``MetricOutput``).
+1. ``n < HARD`` → short-circuit (NaN ``MetricResult``).
 2. ``HARD ≤ n < WARN`` → return stat AND emit ``UserWarning`` AND
    surface the relevant ``WarningCode.value`` in ``metadata["warning_codes"]``.
 3. ``n ≥ WARN`` → silent: stat returned, no warning, no warning_codes.

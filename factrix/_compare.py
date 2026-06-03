@@ -31,8 +31,8 @@ def compare(
     """Render a wide leaderboard ``pl.DataFrame`` for multiple metrics.
 
     One row per :class:`EvaluationResult`; two columns per metric —
-    ``<metric_name>`` (``MetricOutput.value``) and ``<metric_name>_p``
-    (``metadata['p_value']`` when present, else ``null``).
+    ``<metric_name>`` (``MetricResult.value``) and ``<metric_name>_p``
+    (``MetricResult.p`` when present, else ``null``).
 
     Args:
         results: Non-empty list of :class:`EvaluationResult`. Each must
@@ -118,7 +118,7 @@ def compare(
                 )
             out = r.metrics.outputs[spec.name]
             row[spec.name] = _float_or_none(out.value)
-            row[f"{spec.name}_p"] = _float_or_none(out.metadata.get("p_value"))
+            row[f"{spec.name}_p"] = _float_or_none(out.p)
         rows.append(row)
 
     df = pl.DataFrame(rows)

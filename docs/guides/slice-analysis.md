@@ -14,7 +14,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 
 | Role | Function | What it does | What it does not do |
 |---|---|---|---|
-| Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns [`SliceResult`](../api/by-slice.md) — a `Mapping[str, MetricOutput]` subclass with `.to_frame()` for long-form rendering | **No cross-slice statistical test** |
+| Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns [`SliceResult`](../api/by-slice.md) — a `Mapping[str, MetricResult]` subclass with `.to_frame()` for long-form rendering | **No cross-slice statistical test** |
 | Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`) |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
