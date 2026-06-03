@@ -35,6 +35,8 @@ Series diagnostics — axis-agnostic on ``(date, value)``:
 """
 
 from factrix._metric_index import metric_spec, register
+from factrix.metrics._base import MetricBase
+from factrix.metrics._decorators import metric
 from factrix.metrics.caar import (
     bmp_test,
     caar,
@@ -145,4 +147,6 @@ __all__ = [
     # Third-party registration
     "metric_spec",
     "register",
+    "MetricBase",
+    "metric",
 ]
