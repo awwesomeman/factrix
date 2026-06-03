@@ -20,7 +20,15 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    FactorScope,
+    SEMethod,
+    SpecRole,
+    TestMethod,
+)
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (

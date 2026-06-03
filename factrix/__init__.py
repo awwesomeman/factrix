@@ -39,9 +39,9 @@ import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
 from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespace access; intentionally not in __all__
-    FactorScope,
-    FactorDensity,
     DataStructure,
+    FactorDensity,
+    FactorScope,
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare

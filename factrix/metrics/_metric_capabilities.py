@@ -22,6 +22,7 @@ from typing import Protocol
 
 import polars as pl
 
+
 class PerDateSeries(Protocol):
     """Callable contract for ``module.per_date_series``.
 

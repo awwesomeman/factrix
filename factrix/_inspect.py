@@ -30,7 +30,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning

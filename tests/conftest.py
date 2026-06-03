@@ -13,7 +13,14 @@ from typing import Any
 import numpy as np
 import polars as pl
 import pytest
-from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    FactorScope,
+    SEMethod,
+    TestMethod,
+)
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult
 from factrix._types import MetricOutput

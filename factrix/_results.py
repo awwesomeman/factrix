@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec
 from factrix._types import MetricOutput

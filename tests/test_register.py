@@ -5,7 +5,7 @@ from __future__ import annotations
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import Aggregation, SEMethod, SpecRole, TestMethod
+from factrix._axis import Aggregation, SEMethod, TestMethod
 from factrix._metric_index import (
     _METRIC_REGISTRY,
     MetricSpec,

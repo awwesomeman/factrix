@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from factrix._axis import FactorScope, FactorDensity
+from factrix._axis import FactorDensity, FactorScope
 from factrix.stats._estimator import (
     Estimator,
     GMMResult,

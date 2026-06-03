@@ -10,7 +10,13 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    SEMethod,
+    TestMethod,
+)
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput

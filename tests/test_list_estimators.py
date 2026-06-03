@@ -8,7 +8,7 @@ on the empty cell.
 from __future__ import annotations
 
 import pytest
-from factrix import FactorScope, FactorDensity, list_estimators
+from factrix import FactorDensity, FactorScope, list_estimators
 from factrix._errors import IncompatibleAxisError
 
 

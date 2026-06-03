@@ -28,7 +28,15 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, InputShape, SEMethod, TestMethod
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    FactorScope,
+    InputShape,
+    SEMethod,
+    TestMethod,
+)
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import DDOF, EPSILON, MetricOutput
 from factrix.metrics._helpers import (

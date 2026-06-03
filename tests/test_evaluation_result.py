@@ -13,7 +13,7 @@ from factrix import (
     Warning,
     WarningCode,
 )
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._metric_index import spec_by_name
 
 
