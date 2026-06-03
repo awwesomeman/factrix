@@ -19,7 +19,7 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
 from factrix._metric_index import MetricSpec, SampleThreshold, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -50,8 +50,8 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 
 _IC_CELL = cell(
     FactorScope.INDIVIDUAL,
-    FactorSignal.CONTINUOUS,
-    mode=PanelMode.PANEL,
+    FactorDensity.DENSE,
+    structure=DataStructure.PANEL,
 )
 _IC_PRIMITIVES = (
     "_newey_west_t_test",
@@ -156,7 +156,7 @@ def compute_ic(
         [Grinold 1989][grinold-1989]:
         $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
         motivates
-        IC as the canonical signal-quality measure. The appraisal-ratio
+        IC as the canonical density-quality measure. The appraisal-ratio
         single-asset ancestor is [Treynor-Black
         1973][treynor-black-1973]; the breadth identity itself is
         Grinold's generalisation.
@@ -239,7 +239,7 @@ def ic(
         as ``ic_newey_west`` for callers who prefer to keep every sample.
 
     References:
-        [Grinold 1989][grinold-1989]: IC as the canonical signal-quality
+        [Grinold 1989][grinold-1989]: IC as the canonical density-quality
         measure under the Fundamental Law of Active Management.
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: K-period overlapping
         returns carry MA(K-1) autocorrelation — the motivation for the
@@ -390,7 +390,7 @@ def ic_ir(
 
     Signed ratio — positive when information coefficient (IC) is consistently positive, negative
     when consistently negative.  Analogous to a Sharpe ratio for the
-    factor signal.
+    factor density.
 
     This is a **descriptive statistic**, not a hypothesis test (t_stat=None).
     For significance testing, use ``ic()``.
@@ -404,7 +404,7 @@ def ic_ir(
     Notes:
         $\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
         over the per-date IC series — a Sharpe-style ratio describing
-        time-series stability of the signal. Reported as a descriptive
+        time-series stability of the density. Reported as a descriptive
         statistic; no inference is attached because the heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
         significance test on $\mathrm{mean}(\mathrm{IC})$ lives in ``ic``
         / ``ic_newey_west``.

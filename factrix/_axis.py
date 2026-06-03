@@ -4,11 +4,11 @@ Two orthogonal user-facing axes describe an analysis cell:
 
 - ``FactorScope`` — does the factor vary per-asset (``INDIVIDUAL``) or
   carry a single value broadcast to every asset (``COMMON``)?
-- ``FactorSignal`` — continuous numeric exposure (``CONTINUOUS``) vs.
+- ``FactorDensity`` — continuous numeric exposure (``DENSE``) vs.
   ``{0, R}`` event triggers (``SPARSE`` — zero on non-event entries,
   arbitrary real magnitude otherwise; canonical example ``{-1, 0, +1}``)?
 
-``PanelMode`` is the third axis used by registry keys / dispatch but is not
+``DataStructure`` is the third axis used by registry keys / dispatch but is not
 user-set: it is derived from ``N`` at evaluate-time and surfaced as the
 third position of ``EvaluationResult.cell`` for downstream pattern-match.
 """
@@ -25,18 +25,18 @@ class FactorScope(StrEnum):
     COMMON = "common"
 
 
-class FactorSignal(StrEnum):
+class FactorDensity(StrEnum):
     """Continuous numeric exposure vs. ``{0, R}`` sparse event trigger.
 
     Sparse columns are zero on non-event entries with arbitrary real
     magnitude otherwise (canonical example ``{-1, 0, +1}``).
     """
 
-    CONTINUOUS = "continuous"
+    DENSE = "dense"
     SPARSE = "sparse"
 
 
-class PanelMode(StrEnum):
+class DataStructure(StrEnum):
     """Sample regime, derived from ``N`` at evaluate-time.
 
     ``PANEL``      — ``N >= 2`` (multi-asset / multi-event panel).

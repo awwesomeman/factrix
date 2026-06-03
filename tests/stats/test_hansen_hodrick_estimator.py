@@ -1,7 +1,7 @@
 """``HansenHodrick`` Estimator instance tests (#184).
 
 Cell-agnostic dispatch (`emits_for` → `StatCode.P_HH`) plus restricted
-applicability ((INDIVIDUAL, CONTINUOUS) only). Math correctness is owned
+applicability ((INDIVIDUAL, DENSE) only). Math correctness is owned
 by ``tests/stats/test_hansen_hodrick.py``.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 from factrix import list_estimators
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode
 from factrix.stats import Estimator, HansenHodrick
 
@@ -30,35 +30,35 @@ def test_description_is_cell_agnostic() -> None:
 
 
 @pytest.mark.parametrize(
-    ("scope", "signal", "expected"),
+    ("scope", "density", "expected"),
     [
-        (FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, True),
-        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE, False),
-        (FactorScope.COMMON, FactorSignal.CONTINUOUS, False),
-        (FactorScope.COMMON, FactorSignal.SPARSE, False),
+        (FactorScope.INDIVIDUAL, FactorDensity.DENSE, True),
+        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE, False),
+        (FactorScope.COMMON, FactorDensity.DENSE, False),
+        (FactorScope.COMMON, FactorDensity.SPARSE, False),
     ],
 )
 def test_applicable_to(
-    scope: FactorScope, signal: FactorSignal, expected: bool
+    scope: FactorScope, density: FactorDensity, expected: bool
 ) -> None:
-    assert HansenHodrick().applicable_to(scope, signal) is expected
+    assert HansenHodrick().applicable_to(scope, density) is expected
 
 
 def test_emits_for_returns_p_hh() -> None:
-    code = HansenHodrick().emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+    code = HansenHodrick().emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
     assert code is StatCode.P_HH
 
 
 def test_listed_for_individual_continuous() -> None:
-    names = list_estimators(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+    names = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
     assert "HansenHodrick" in names
     assert "NeweyWest" in names
 
 
 def test_not_listed_for_sparse_or_common() -> None:
-    for scope, signal in [
-        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE),
-        (FactorScope.COMMON, FactorSignal.CONTINUOUS),
-        (FactorScope.COMMON, FactorSignal.SPARSE),
+    for scope, density in [
+        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
+        (FactorScope.COMMON, FactorDensity.DENSE),
+        (FactorScope.COMMON, FactorDensity.SPARSE),
     ]:
-        assert "HansenHodrick" not in list_estimators(scope, signal)
+        assert "HansenHodrick" not in list_estimators(scope, density)

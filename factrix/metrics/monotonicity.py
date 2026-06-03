@@ -20,7 +20,7 @@ import numpy as np
 import polars as pl
 import scipy.stats as scipy_stats
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -43,7 +43,7 @@ __metric_specs__ = (
     MetricSpec(
         name="monotonicity",
         cell=cell(
-            FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL
+            FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
         ),
         agg_order="cs-first",
         inference="cross-asset t",

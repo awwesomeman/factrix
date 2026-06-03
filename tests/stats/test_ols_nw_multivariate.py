@@ -70,7 +70,7 @@ class TestWaldLinear:
             x1 = rng.standard_normal(n)
             x2 = rng.standard_normal(n)
             X = np.column_stack([np.ones(n), x1, x2])
-            y = rng.standard_normal(n) * 0.5  # no signal
+            y = rng.standard_normal(n) * 0.5  # no density
             beta, V, _ = _ols_nw_multivariate(y, X, lags=0)
             R = np.array([[0.0, 1.0, -1.0]])
             _, p = _wald_p_linear(beta, V, R, q=0.0)

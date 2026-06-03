@@ -242,7 +242,7 @@ def _assign_quantile_groups(
     buckets (arbitrary but consistent).
 
     ``tie_policy="average"``: tied assets share an average rank → same
-    bucket → honest signal resolution, group sizes may be unbalanced.
+    bucket → honest density resolution, group sizes may be unbalanced.
     Prefer this for low-cardinality factors (binary, bucketed, or
     categorical signals) where ordinal tie-breaking would inject
     sorting-artifact noise indistinguishable from alpha.

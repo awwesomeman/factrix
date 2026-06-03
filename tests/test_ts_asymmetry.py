@@ -90,7 +90,7 @@ class TestGateCMethodBSkip:
         assert "beta_short" in out.metadata
 
     def test_three_state_signed_skips_method_b(self):
-        # {-1, 0, +1} sparse signal: each side has 1 unique value too.
+        # {-1, 0, +1} sparse density: each side has 1 unique value too.
         rng = np.random.default_rng(0)
         T = 300
         f = rng.choice([-1.0, 0.0, 1.0], size=T)

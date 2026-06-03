@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorDensity, DataStructure, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -32,7 +32,7 @@ __all__ = [
     "mfe_mae_summary",
 ]
 
-_MFE_CELL = cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL)
+_MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 _MFE_PRIMITIVES = ("_short_circuit_output",)
 
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
@@ -69,7 +69,7 @@ def compute_mfe_mae(
 
     For each event ($\text{factor} \neq 0$), examines the ``window``
     subsequent bars to find the peak gain (MFE) and peak loss (MAE)
-    relative to event entry price, adjusted for signal direction.
+    relative to event entry price, adjusted for density direction.
 
     Also reports an estimation-window-normalised z-score per event:
 
@@ -82,7 +82,7 @@ def compute_mfe_mae(
     ``estimation_window`` bars preceding the event. MFE/MAE are order
     statistics whose expected magnitude grows as
     $\sqrt{W \cdot \sigma^2}$; comparing raw MFE across horizons or vol
-    regimes conflates time-scale with signal strength. The z-scored
+    regimes conflates time-scale with density strength. The z-scored
     versions are the apples-to-apples quantity for cross-setup
     comparisons ([Campbell-Lo-MacKinlay (1997)][campbell-lo-mackinlay-1997] Ch 4 on horizon scaling of
     order statistics).
@@ -99,7 +99,7 @@ def compute_mfe_mae(
             convention; weekly panels can drop to ~8-10. Below the
             threshold, ``mfe_z`` / ``mae_z`` report ``NaN``. Must be
             ≥2 (the std degrees-of-freedom floor).
-        factor_col: Event signal column.
+        factor_col: Event density column.
         price_col: Price column for bar-by-bar path.
 
     Returns:
@@ -124,9 +124,9 @@ def compute_mfe_mae(
         factrix scales by $\sqrt{W}$ because MFE/MAE are order
         statistics whose expected magnitude grows as
         $\sqrt{W \cdot \sigma^2}$ — comparing raw MFE across horizons
-        or vol regimes conflates time-scale with signal strength.
+        or vol regimes conflates time-scale with density strength.
         $\hat\sigma$ excludes the event-day bar to avoid feeding the
-        signal back into its own denominator.
+        density back into its own denominator.
 
     Examples:
         >>> import factrix as fx
@@ -194,9 +194,9 @@ def compute_mfe_mae(
         bars_to_mae = int(np.argmin(signed_returns)) + 1
 
         # σ̂ comes from strictly pre-event bars — excluding prices[idx]
-        # avoids feeding the event-day move (the signal itself) back
+        # avoids feeding the event-day move (the density itself) back
         # into the volatility denominator, which would suppress z-scores
-        # precisely when the signal is strong.
+        # precisely when the density is strong.
         est_start = max(0, idx - estimation_window)
         est_prices = prices[est_start:idx]
         est_sigma = float("nan")

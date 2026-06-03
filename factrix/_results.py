@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec
 from factrix._types import MetricOutput
@@ -108,8 +108,8 @@ class EvaluationResult:
 
     Attributes:
         factor: Factor column name from the source panel.
-        cell: ``(scope, signal, mode)`` tuple of the dispatched cell.
-            ``mode`` is ``PanelMode.PANEL`` or ``PanelMode.TIMESERIES``
+        cell: ``(scope, density, structure)`` tuple of the dispatched cell.
+            ``structure`` is ``DataStructure.PANEL`` or ``DataStructure.TIMESERIES``
             resolved from the panel's asset count at dispatch.
         forward_periods: Forward-return horizon (rows) the evaluation
             ran under. Carried through from the source ``AnalysisConfig``
@@ -144,7 +144,7 @@ class EvaluationResult:
     """
 
     factor: str
-    cell: tuple[FactorScope, FactorSignal, PanelMode]
+    cell: tuple[FactorScope, FactorDensity, DataStructure]
     forward_periods: int
     n_obs: int
     n_assets: int
@@ -211,13 +211,13 @@ class EvaluationResult:
         Float ``NaN`` / ``Inf`` are emitted as ``None`` so the dict
         survives ``json.dumps`` without ``allow_nan``.
         """
-        scope, signal, mode = self.cell
+        scope, density, structure = self.cell
         return {
             "factor": self.factor,
             "cell": {
                 "scope": scope.value,
-                "signal": signal.value,
-                "mode": mode.value,
+                "density": density.value,
+                "structure": structure.value,
             },
             "forward_periods": self.forward_periods,
             "n_obs": self.n_obs,
@@ -243,10 +243,10 @@ class EvaluationResult:
         }
 
     def _repr_html_(self) -> str:
-        scope, signal, mode = self.cell
+        scope, density, structure = self.cell
         header_rows: list[tuple[str, Any]] = [
             ("factor", self.factor),
-            ("cell", f"({scope.value}, {signal.value}, {mode.value})"),
+            ("cell", f"({scope.value}, {density.value}, {structure.value})"),
             ("forward_periods", self.forward_periods),
             ("n_obs", self.n_obs),
             ("n_assets", self.n_assets),

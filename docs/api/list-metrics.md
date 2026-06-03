@@ -12,9 +12,9 @@ returns the full set of standalone callables under
 [`factrix.metrics`](metrics/index.md) that the user can additionally
 invoke once `evaluate()` has produced a `FactorProfile`.
 
-## PanelMode axis is not an input
+## DataStructure axis is not an input
 
-`PanelMode` is intentionally not a parameter — applicability does not
+`DataStructure` is intentionally not a parameter — applicability does not
 change across PANEL / TIMESERIES (see
 [Metric applicability](../reference/metric-applicability.md) for the
 underlying matrix). See the docstring Examples block above for the
@@ -27,7 +27,7 @@ that pairs each metric with its submodule path:
 
 ```python
 print("\n".join(fx.list_metrics(
-    fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, with_import=True,
+    fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE, with_import=True,
 )))
 # ic                       → factrix.metrics.ic
 # ic_ir                    → factrix.metrics.ic
@@ -52,14 +52,14 @@ the module-level `Matrix-row:` tag.
 ```python
 fx.list_metrics(
     fx.FactorScope.INDIVIDUAL,
-    fx.FactorSignal.CONTINUOUS,
+    fx.FactorDensity.DENSE,
     format="json",
 )
 # -> [
 #     {
 #         "name": "ic",
 #         "module": "ic",
-#         "cell": "(INDIVIDUAL, CONTINUOUS, IC, PANEL)",
+#         "cell": "(INDIVIDUAL, DENSE, IC, PANEL)",
 #         "agg_order": "cs-first",
 #         "inference_se": "NW HAC / cross-asset t",
 #         "import_path": "factrix.metrics.ic",
@@ -99,7 +99,7 @@ Filter the JSON output to enumerate `by_slice`-eligible metrics:
 ```python
 panel_metrics = [
     r for r in fx.list_metrics(
-        fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
+        fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE, format="json",
     )
     if r["input_kind"] == "panel"
 ]

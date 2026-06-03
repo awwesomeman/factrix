@@ -132,7 +132,7 @@ class TestGreedyForwardSelection:
         n = 200
         dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
 
-        # A: strong signal
+        # A: strong density
         a_vals = rng.normal(0.03, 0.005, n)
         # B: initially looks good, but once A is in, B is redundant (B ≈ A + tiny noise)
         b_vals = a_vals + rng.normal(0, 0.0005, n)

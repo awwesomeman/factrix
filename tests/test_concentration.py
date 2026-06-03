@@ -66,7 +66,7 @@ class TestQ1Concentration:
                     }
                 )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        signal = top_concentration(
+        density = top_concentration(
             df,
             forward_periods=1,
             q_top=0.2,
@@ -80,9 +80,9 @@ class TestQ1Concentration:
         )
         # Signal says top bucket is balanced (two near-equal |factor|).
         # Alpha says bucket is driven by one outlier → far more concentrated.
-        assert alpha.value < signal.value
+        assert alpha.value < density.value
         assert alpha.metadata["weight_by"] == "alpha_contribution"
-        assert signal.metadata["weight_by"] == "abs_factor"
+        assert density.metadata["weight_by"] == "abs_factor"
 
     def test_alpha_contribution_missing_return_column(self):
         df = pl.DataFrame(

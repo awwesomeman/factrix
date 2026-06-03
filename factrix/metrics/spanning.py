@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._metric_index import MetricSpec, cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._stats import _p_value_from_t, _significance_marker
@@ -45,7 +45,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 
 _SPANNING_CELL = cell(
     FactorScope.INDIVIDUAL,
-    FactorSignal.CONTINUOUS,
+    FactorDensity.DENSE,
     raw="factor-return-series consumer (post-PANEL pipeline)",
 )
 _SPANNING_PRIMITIVES = (

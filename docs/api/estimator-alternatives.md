@@ -13,7 +13,7 @@ which HAC standard-error path computes `primary_p`:
 | Estimator | When to pick |
 |---|---|
 | `NeweyWest()` *(default)* | Bartlett kernel + NW1994 auto-bandwidth + Hansen-Hodrick overlap floor. Universally applicable; produces a positive-semidefinite variance estimate by construction. |
-| `HansenHodrick()` | Rectangular kernel matched to the MA(h-1) overlap structure forward returns induce. Closed-form variance under the textbook overlap assumption; no PSD guarantee on short / mildly anti-correlated samples (factrix clamps to 0 and emits `WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`). Applicable to `(INDIVIDUAL, CONTINUOUS)` cells only. |
+| `HansenHodrick()` | Rectangular kernel matched to the MA(h-1) overlap structure forward returns induce. Closed-form variance under the textbook overlap assumption; no PSD guarantee on short / mildly anti-correlated samples (factrix clamps to 0 and emits `WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`). Applicable to `(INDIVIDUAL, DENSE)` cells only. |
 
 ```python
 # example pending v0.14.0 docs rewrite
@@ -78,7 +78,7 @@ The applicability gate runs at config construction, not at
 To inspect what's available for a given cell:
 
 ```python
-fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS)
+fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE)
 # ['BlockBootstrap', 'HansenHodrick', 'NeweyWest', 'WaldNWCluster', 'WaldTwoWayCluster']
 ```
 

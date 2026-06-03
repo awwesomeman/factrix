@@ -26,7 +26,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorDensity, DataStructure, Visibility
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -56,7 +56,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "bmp_test",
 ]
 
-_CAAR_CELL = cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL)
+_CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 _CAAR_PRIMITIVES = (
     "_calc_t_stat",
     "_p_value_from_t",

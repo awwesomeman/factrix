@@ -1,8 +1,8 @@
-"""Multi-horizon event analysis — how does the signal behave across time?
+"""Multi-horizon event analysis — how does the density behave across time?
 
 Answers:
     - Is there pre-event leakage? (T-6..T-1 should be ~0)
-    - At which horizon is the signal strongest?
+    - At which horizon is the density strongest?
     - Does the alpha persist or decay quickly?
 
 Metrics:
@@ -20,12 +20,12 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorDensity, DataStructure, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
 
-_EH_CELL = cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL)
+_EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 _EH_PRIMITIVES = ("_short_circuit_output",)
 
 __metric_specs__ = (
@@ -86,7 +86,7 @@ def compute_event_returns(
         factrix asymmetrically signs only post-event returns. Pre-event
         single-bar returns are unsigned because they are read for
         leakage detection, where the absolute response (independent of
-        the eventual signal direction) is what matters.
+        the eventual density direction) is what matters.
 
     Examples:
         >>> import factrix as fx
@@ -196,7 +196,7 @@ def event_around_return(
 
     The primary value is the pre-event leakage score:
     mean absolute return at pre-event offsets (should be ~0).
-    High leakage → signal may be reactive, not predictive.
+    High leakage → density may be reactive, not predictive.
 
     Args:
         df: Panel with ``date, asset_id, factor, price``.
@@ -212,7 +212,7 @@ def event_around_return(
         For each offset ``k``: ``mean, median, p25, p75, hit_rate``
         across events with valid ``signed_return``. The headline
         ``value = mean_{k < 0} |mean_k|`` summarises pre-event leakage —
-        a healthy signal has flat pre-event means.
+        a healthy density has flat pre-event means.
 
         factrix uses ``|mean|`` rather than absolute returns to avoid
         rewarding offsets where positive and negative pre-event drifts

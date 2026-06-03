@@ -13,7 +13,7 @@ from factrix import (
     Warning,
     WarningCode,
 )
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._metric_index import spec_by_name
 
 
@@ -56,7 +56,7 @@ def _sample_result(
 ) -> EvaluationResult:
     return EvaluationResult(
         factor="mom_12_1",
-        cell=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, PanelMode.PANEL),
+        cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),
         forward_periods=5,
         n_obs=100,
         n_assets=25,
@@ -160,8 +160,8 @@ class TestEvaluationResultToDict:
         back = json.loads(encoded)
         assert back["factor"] == "mom_12_1"
         assert back["cell"]["scope"] == "individual"
-        assert back["cell"]["signal"] == "continuous"
-        assert back["cell"]["mode"] == "panel"
+        assert back["cell"]["density"] == "dense"
+        assert back["cell"]["structure"] == "panel"
         assert back["n_obs"] == 100
         assert back["metrics"]["ic"]["p"] == 0.012
         assert back["metrics_partition"]["primary"] == ["ic"]

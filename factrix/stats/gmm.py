@@ -8,7 +8,7 @@ auto-builds the moment matrix from a raw forward-return panel is
 tracked as a follow-up so users with a specific moment system can
 run J-tests immediately while the cell-design pass converges.
 
-Pure over-identification (``n_params = 0``) is the only mode supported
+Pure over-identification (``n_params = 0``) is the only structure supported
 in this release — parametric GMM (common-mean / shared-β restrictions)
 is a forward hook on the underlying primitive and on this class.
 """
@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import GMMResult
@@ -38,7 +38,7 @@ class GMM:
     ``forward_periods - 1`` overlap floor is uniform across heteroskedasticity-and-autocorrelation-consistent (HAC) and
     GMM inference.
 
-    Applicability is advertised on ``(INDIVIDUAL, CONTINUOUS)`` cells
+    Applicability is advertised on ``(INDIVIDUAL, DENSE)`` cells
     — the multi-horizon forward-return panel will be the first cell
     to dispatch this estimator (tracked separately); multi-bucket and
     cross-sectional shared-β moment systems are deferred.
@@ -79,13 +79,13 @@ class GMM:
     def min_periods(self) -> int:
         return MIN_PERIODS_WARN
 
-    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
+        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: FactorSignal,
+        _signal: FactorDensity,
     ) -> StatCode:
         return StatCode.P_GMM
 

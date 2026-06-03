@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     import numpy as np
 
-    from factrix._axis import FactorScope, FactorSignal
+    from factrix._axis import FactorScope, FactorDensity
     from factrix._codes import StatCode, WarningCode
 
 
@@ -64,14 +64,14 @@ class Estimator(Protocol):
         """
         ...
 
-    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
-        """Whether this estimator applies to the ``(scope, signal)`` cell."""
+    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
+        """Whether this estimator applies to the ``(scope, density)`` cell."""
         ...
 
     def emits_for(
         self,
         scope: FactorScope,
-        signal: FactorSignal,
+        density: FactorDensity,
     ) -> StatCode:
         """Map a cell to the ``StatCode`` whose value this estimator names.
 

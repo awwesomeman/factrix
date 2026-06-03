@@ -38,8 +38,8 @@ class TestPanelPropertiesDetection:
     def test_individual_continuous_cs_panel(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         assert info.detected.scope is fx.FactorScope.INDIVIDUAL
-        assert info.detected.signal is fx.FactorSignal.CONTINUOUS
-        assert info.detected.mode is fx.PanelMode.PANEL
+        assert info.detected.density is fx.FactorDensity.DENSE
+        assert info.detected.structure is fx.DataStructure.PANEL
         assert info.detected.n_assets == 20
         assert info.detected.n_periods == 80
         assert info.detected.n_pairs == 20 * 80
@@ -47,14 +47,14 @@ class TestPanelPropertiesDetection:
 
     def test_n1_routes_to_timeseries(self):
         info = inspect_panel(_single_asset_panel(n_dates=80))
-        assert info.detected.mode is fx.PanelMode.TIMESERIES
+        assert info.detected.structure is fx.DataStructure.TIMESERIES
         assert info.detected.n_assets == 1
-        assert "TIMESERIES" in info.reasoning.mode_reason
+        assert "TIMESERIES" in info.reasoning.structure_reason
 
     def test_common_continuous_detection(self):
         info = inspect_panel(_common_continuous_panel())
         assert info.detected.scope is fx.FactorScope.COMMON
-        assert info.detected.signal is fx.FactorSignal.CONTINUOUS
+        assert info.detected.density is fx.FactorDensity.DENSE
 
     def test_empty_panel_sparse_ratio_is_nan(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
@@ -79,13 +79,13 @@ class TestPanelReasoning:
     def test_three_axis_fields_populated(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         assert "INDIVIDUAL" in info.reasoning.scope_reason
-        assert "CONTINUOUS" in info.reasoning.signal_reason
-        assert "PANEL" in info.reasoning.mode_reason
+        assert "DENSE" in info.reasoning.density_reason
+        assert "PANEL" in info.reasoning.structure_reason
 
 
 class TestCellMatchGate:
     def test_panel_mode_metric_unusable_under_timeseries(self):
-        # IC's cell declares mode=PANEL; single-asset panel must reject it.
+        # IC's cell declares structure=PANEL; single-asset panel must reject it.
         info = inspect_panel(_single_asset_panel(n_dates=80))
         ic = _by_name(info, "ic")
         assert ic.usable is False
@@ -224,7 +224,7 @@ class TestToDict:
         d = info.to_dict()
         back = json.loads(json.dumps(d))
         assert back["detected"]["scope"] == "individual"
-        assert back["detected"]["mode"] == "panel"
+        assert back["detected"]["structure"] == "panel"
         assert back["detected"]["n_assets"] == 20
         assert back["reasoning"]["scope"]
         assert any(m["name"] == "ic_newey_west" for m in back["metrics"])
@@ -268,24 +268,24 @@ class TestCellMatchesSignature:
 
         c = cell(
             fx.FactorScope.INDIVIDUAL,
-            fx.FactorSignal.CONTINUOUS,
-            mode=fx.PanelMode.PANEL,
+            fx.FactorDensity.DENSE,
+            structure=fx.DataStructure.PANEL,
         )
-        assert c.matches(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS) is True
+        assert c.matches(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE) is True
 
     def test_matches_with_mode_rejects_mismatch(self):
         from factrix._metric_index import cell
 
         c = cell(
             fx.FactorScope.INDIVIDUAL,
-            fx.FactorSignal.CONTINUOUS,
-            mode=fx.PanelMode.PANEL,
+            fx.FactorDensity.DENSE,
+            structure=fx.DataStructure.PANEL,
         )
         assert (
             c.matches(
                 fx.FactorScope.INDIVIDUAL,
-                fx.FactorSignal.CONTINUOUS,
-                mode=fx.PanelMode.TIMESERIES,
+                fx.FactorDensity.DENSE,
+                structure=fx.DataStructure.TIMESERIES,
             )
             is False
         )
@@ -293,12 +293,12 @@ class TestCellMatchesSignature:
     def test_matches_wildcard_mode_accepts_anything(self):
         from factrix._metric_index import cell
 
-        c = cell(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS)
+        c = cell(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE)
         assert (
             c.matches(
                 fx.FactorScope.INDIVIDUAL,
-                fx.FactorSignal.CONTINUOUS,
-                mode=fx.PanelMode.TIMESERIES,
+                fx.FactorDensity.DENSE,
+                structure=fx.DataStructure.TIMESERIES,
             )
             is True
         )

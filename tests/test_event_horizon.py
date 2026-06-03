@@ -86,7 +86,7 @@ class TestComputeEventReturns:
 
     def test_post_event_signed(self, event_data):
         """Post-event returns are direction-adjusted (signed)."""
-        # Use longer horizon for stronger signal-to-noise
+        # Use longer horizon for stronger density-to-noise
         result = compute_event_returns(event_data, offsets=[12])
         assert result["signed_return"].mean() > 0
 

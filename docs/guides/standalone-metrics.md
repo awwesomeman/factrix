@@ -112,9 +112,9 @@ trend = fx.metrics.ic_trend(ic_series)
 hits = fx.metrics.hit_rate(ic_series, value_col="value")
 ```
 
-`PanelMode.TIMESERIES` (the dispatch regime for `n_assets == 1`) is a
+`DataStructure.TIMESERIES` (the dispatch regime for `n_assets == 1`) is a
 distinct concept — these diagnostics are series-shaped regardless of
-which PanelMode the upstream procedure ran in.
+which DataStructure the upstream procedure ran in.
 
 ## Post-`evaluate()` integration
 
@@ -139,6 +139,6 @@ standalone subset for a given cell, sorted by module then function.
 Use it as the runtime equivalent of the static matrix:
 
 ```python
-fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS)
+fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE)
 # ['concentration.top_concentration', 'fm_beta.beta_sign_consistency', ...]
 ```

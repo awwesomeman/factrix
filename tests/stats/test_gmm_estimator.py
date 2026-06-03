@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode, WarningCode
 from factrix._stats import _two_step_gmm_j_stat
 from factrix.stats import (
@@ -49,15 +49,15 @@ class TestSelectionContract:
 
     def test_emits_p_gmm(self) -> None:
         assert (
-            GMM().emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+            GMM().emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
             is StatCode.P_GMM
         )
 
     def test_applicable_only_individual_continuous(self) -> None:
         gmm = GMM()
-        assert gmm.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
-        assert not gmm.applicable_to(FactorScope.COMMON, FactorSignal.CONTINUOUS)
-        assert not gmm.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.SPARSE)
+        assert gmm.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
+        assert not gmm.applicable_to(FactorScope.COMMON, FactorDensity.DENSE)
+        assert not gmm.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.SPARSE)
 
 
 class TestComputeFidelity:

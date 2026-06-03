@@ -16,7 +16,7 @@ from unittest.mock import patch
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorSignal, Visibility
+from factrix._axis import FactorScope, FactorDensity, Visibility
 from factrix._errors import IncompatibleAxisError
 from factrix._metric_index import (
     MetricSpec,
@@ -32,45 +32,45 @@ _APPLICABILITY_DOC = pathlib.Path("docs/reference/metric-applicability.md")
 # table at the top of metric-applicability.md (#142), whose tuple keys
 # are dispatch-keyed and broader than authoring scope (e.g. ts_beta
 # dispatches on (COMMON, SPARSE, *, PANEL) but its Matrix-row authoring
-# cell is (COMMON, CONTINUOUS, *, PANEL); list_metrics returns the
+# cell is (COMMON, DENSE, *, PANEL); list_metrics returns the
 # authoring set). Inject primaries by their authoring cell rather than
 # parse the dispatch table — adding a primary requires updating one
 # literal here, the same cadence as updating Matrix-row tags.
-_PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorSignal]]] = {
-    "ic": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
-    "fm_beta": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
+_PRIMARY_METRIC_CELLS: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
+    "ic": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
+    "fm_beta": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
     "caar": [
-        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE),
-        (FactorScope.COMMON, FactorSignal.SPARSE),
+        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
+        (FactorScope.COMMON, FactorDensity.SPARSE),
     ],
-    "ts_beta": [(FactorScope.COMMON, FactorSignal.CONTINUOUS)],
+    "ts_beta": [(FactorScope.COMMON, FactorDensity.DENSE)],
 }
 
-# Family-subsection cell-name → (scope, signal) cells.
-_CELL_HEADING_MAP: dict[str, list[tuple[FactorScope, FactorSignal]]] = {
-    "Individual × Continuous": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
-    "Common × Continuous": [(FactorScope.COMMON, FactorSignal.CONTINUOUS)],
+# Family-subsection cell-name → (scope, density) cells.
+_CELL_HEADING_MAP: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
+    "Individual × Continuous": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
+    "Common × Continuous": [(FactorScope.COMMON, FactorDensity.DENSE)],
     # Matrix-row tags use ``(*, SPARSE, *, PANEL)``: wildcard scope.
     "Individual × Sparse": [
-        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE),
-        (FactorScope.COMMON, FactorSignal.SPARSE),
+        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
+        (FactorScope.COMMON, FactorDensity.SPARSE),
     ],
-    "Common × Sparse": [(FactorScope.COMMON, FactorSignal.SPARSE)],
+    "Common × Sparse": [(FactorScope.COMMON, FactorDensity.SPARSE)],
 }
 
 # Not-cell-bound family-name → cells. Spread-series consumers operate on
 # the Individual × Continuous quantile spread output; series-tools are
-# wildcard-scope, ``(*, CONTINUOUS, *, TIMESERIES)``.
-_NOT_CELL_BOUND_MAP: dict[str, list[tuple[FactorScope, FactorSignal]]] = {
-    "Spread-series consumers": [(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)],
+# wildcard-scope, ``(*, DENSE, *, TIMESERIES)``.
+_NOT_CELL_BOUND_MAP: dict[str, list[tuple[FactorScope, FactorDensity]]] = {
+    "Spread-series consumers": [(FactorScope.INDIVIDUAL, FactorDensity.DENSE)],
     "Series-tools": [
-        (FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
-        (FactorScope.COMMON, FactorSignal.CONTINUOUS),
+        (FactorScope.INDIVIDUAL, FactorDensity.DENSE),
+        (FactorScope.COMMON, FactorDensity.DENSE),
     ],
 }
 
 
-def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorSignal], set[str]]:
+def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorDensity], set[str]]:
     """Build per-cell expected name sets from the applicability matrix.
 
     Walks the family subsections under ``## Other metrics by family``:
@@ -82,11 +82,11 @@ def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorSignal], set[str
     heading clears the active list so rows in unrelated sections
     (event-study contracts, sample-size constants) are ignored.
     """
-    expected: dict[tuple[FactorScope, FactorSignal], set[str]] = {
-        (FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS): set(),
-        (FactorScope.COMMON, FactorSignal.CONTINUOUS): set(),
-        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE): set(),
-        (FactorScope.COMMON, FactorSignal.SPARSE): set(),
+    expected: dict[tuple[FactorScope, FactorDensity], set[str]] = {
+        (FactorScope.INDIVIDUAL, FactorDensity.DENSE): set(),
+        (FactorScope.COMMON, FactorDensity.DENSE): set(),
+        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE): set(),
+        (FactorScope.COMMON, FactorDensity.SPARSE): set(),
     }
     for name, cells in _PRIMARY_METRIC_CELLS.items():
         for cell in cells:
@@ -98,7 +98,7 @@ def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorSignal], set[str
     row_re = re.compile(r"^\|\s*\[`([^`]+)`\]")
     h2_re = re.compile(r"^##\s")
 
-    active: list[tuple[FactorScope, FactorSignal]] = []
+    active: list[tuple[FactorScope, FactorDensity]] = []
     for line in text.splitlines():
         if h2_re.match(line):
             active = []
@@ -121,22 +121,22 @@ def _parse_applicability_doc() -> dict[tuple[FactorScope, FactorSignal], set[str
 
 
 @pytest.mark.parametrize(
-    ("scope", "signal"),
+    ("scope", "density"),
     [
-        (FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
-        (FactorScope.COMMON, FactorSignal.CONTINUOUS),
-        (FactorScope.INDIVIDUAL, FactorSignal.SPARSE),
-        (FactorScope.COMMON, FactorSignal.SPARSE),
+        (FactorScope.INDIVIDUAL, FactorDensity.DENSE),
+        (FactorScope.COMMON, FactorDensity.DENSE),
+        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
+        (FactorScope.COMMON, FactorDensity.SPARSE),
     ],
 )
 def test_list_metrics_matches_applicability_doc(
-    scope: FactorScope, signal: FactorSignal
+    scope: FactorScope, density: FactorDensity
 ) -> None:
-    expected = _parse_applicability_doc()[(scope, signal)]
+    expected = _parse_applicability_doc()[(scope, density)]
     assert expected, "applicability doc parser found no rows for this cell"
-    actual = set(fx.list_metrics(scope, signal))
+    actual = set(fx.list_metrics(scope, density))
     assert actual == expected, (
-        f"({scope.value}, {signal.value}) drift\n"
+        f"({scope.value}, {density.value}) drift\n"
         f"  only in list_metrics: {sorted(actual - expected)}\n"
         f"  only in doc table:    {sorted(expected - actual)}"
     )
@@ -168,9 +168,9 @@ def test_compute_rolling_mean_beta_remains_user_facing() -> None:
 
 
 def test_text_output_is_sorted_by_module_then_name() -> None:
-    out = fx.list_metrics(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+    out = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
     json_rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json"
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
     )
     expected_order = [r["name"] for r in json_rows]
     assert out == expected_order
@@ -180,7 +180,7 @@ def test_text_output_is_sorted_by_module_then_name() -> None:
 
 def test_json_format_round_trips() -> None:
     rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json"
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
     )
     text = json.dumps(rows)
     decoded = json.loads(text)
@@ -201,7 +201,7 @@ def test_json_format_round_trips() -> None:
 
 def test_json_carries_import_path_and_input_kind() -> None:
     rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json"
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
     )
     by_name = {r["name"]: r for r in rows}
 
@@ -228,8 +228,8 @@ def test_import_path_resolves_for_every_row() -> None:
 
     seen: set[str] = set()
     for scope in FactorScope:
-        for signal in FactorSignal:
-            for r in fx.list_metrics(scope, signal, format="json"):
+        for density in FactorDensity:
+            for r in fx.list_metrics(scope, density, format="json"):
                 if r["name"] in seen:
                     continue
                 seen.add(r["name"])
@@ -241,42 +241,42 @@ def test_import_path_resolves_for_every_row() -> None:
 
 def test_with_import_renders_two_column_text() -> None:
     rendered = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, with_import=True
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, with_import=True
     )
     assert all(" → factrix.metrics." in line for line in rendered)
     # Same row order as the plain text output — only the rendering changes.
-    plain = fx.list_metrics(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+    plain = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
     assert [line.split(" → ", 1)[0].rstrip() for line in rendered] == plain
 
 
 def test_with_import_is_ignored_under_json_format() -> None:
     # ``with_import`` is a text-only knob; JSON always carries the field.
-    a = fx.list_metrics(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json")
+    a = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
     b = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json", with_import=True
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json", with_import=True
     )
     assert a == b
 
 
 def test_json_output_is_stable_across_calls() -> None:
-    a = fx.list_metrics(FactorScope.COMMON, FactorSignal.CONTINUOUS, format="json")
-    b = fx.list_metrics(FactorScope.COMMON, FactorSignal.CONTINUOUS, format="json")
+    a = fx.list_metrics(FactorScope.COMMON, FactorDensity.DENSE, format="json")
+    b = fx.list_metrics(FactorScope.COMMON, FactorDensity.DENSE, format="json")
     assert a == b
 
 
 # ---------------------------------------------------------------------------
-# unrepresented (scope, signal) pair
+# unrepresented (scope, density) pair
 # ---------------------------------------------------------------------------
 
 
 def test_incompatible_axis_pair_raises() -> None:
-    # All four real (scope, signal) combos are populated; simulate a
+    # All four real (scope, density) combos are populated; simulate a
     # genuinely unrepresented pair by monkeypatching the index empty.
     with (
         patch("factrix._metric_index.public_specs", return_value=()),
         pytest.raises(IncompatibleAxisError),
     ):
-        fx.list_metrics(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+        fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
 
 
 # ---------------------------------------------------------------------------
@@ -285,8 +285,8 @@ def test_incompatible_axis_pair_raises() -> None:
 
 
 def test_spanning_metrics_appear_for_individual_continuous_only() -> None:
-    ind = set(fx.list_metrics(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS))
-    com = set(fx.list_metrics(FactorScope.COMMON, FactorSignal.CONTINUOUS))
+    ind = set(fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE))
+    com = set(fx.list_metrics(FactorScope.COMMON, FactorDensity.DENSE))
     assert {"spanning_alpha", "greedy_forward_selection"}.issubset(ind)
     assert {"spanning_alpha", "greedy_forward_selection"}.isdisjoint(com)
 
@@ -351,7 +351,7 @@ class TestNoArgOverview:
         with pytest.raises(ValueError, match="exactly one axis"):
             fx.list_metrics(FactorScope.INDIVIDUAL)  # type: ignore[call-overload]
         with pytest.raises(ValueError, match="exactly one axis"):
-            fx.list_metrics(signal=FactorSignal.CONTINUOUS)  # type: ignore[call-overload]
+            fx.list_metrics(density=FactorDensity.DENSE)  # type: ignore[call-overload]
 
 
 class TestOverviewNotRunnable:
@@ -384,7 +384,7 @@ class TestOverviewNotRunnable:
 
 def test_json_agg_order_and_family_are_distinct_fields() -> None:
     rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, format="json"
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
     )
     by_name = {r["name"]: r for r in rows}
     # agg_order is the reduction order; family is the concept group.

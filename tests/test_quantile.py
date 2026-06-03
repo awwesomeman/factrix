@@ -137,7 +137,7 @@ class TestQuantileSpreadVW:
         df = self._make_panel_with_cap()
         result = quantile_spread_vw(df, forward_periods=1, n_groups=5)
         assert result.name == "quantile_spread_vw"
-        # With signal, VW spread should be nonzero
+        # With density, VW spread should be nonzero
         assert result.value != 0.0 or result.metadata.get("reason")
 
     def test_lag_weights_flag_recorded(self):

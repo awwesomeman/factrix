@@ -26,7 +26,7 @@ def _make_event_signal(
     signal_strength: float = 0.01,
     seed: int = 42,
 ) -> pl.DataFrame:
-    """Synthetic event signal data.
+    """Synthetic event density data.
 
     Each day, each asset has ``event_prob`` chance of triggering an event
     (factor = +1 or -1). Post-event forward_return = signal_strength *
@@ -423,7 +423,7 @@ def _make_continuous_signal(
     event_prob: float = 0.02,
     seed: int = 42,
 ) -> pl.DataFrame:
-    """Synthetic continuous event signal: stronger |signal| → larger return."""
+    """Synthetic continuous event density: stronger |density| → larger return."""
     rng = np.random.default_rng(seed)
     dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
     assets = [f"asset_{i}" for i in range(n_assets)]
@@ -435,18 +435,18 @@ def _make_continuous_signal(
             if is_event:
                 magnitude = rng.uniform(0.5, 5.0)
                 direction = rng.choice([-1.0, 1.0])
-                signal = direction * magnitude
-                # Stronger signal → larger directional return
+                density = direction * magnitude
+                # Stronger density → larger directional return
                 ret = 0.005 * magnitude * direction + rng.normal(0, 0.02)
             else:
-                signal = 0.0
+                density = 0.0
                 ret = rng.normal(0, 0.02)
 
             rows.append(
                 {
                     "date": d,
                     "asset_id": a,
-                    "factor": signal,
+                    "factor": density,
                     "forward_return": ret,
                 }
             )
@@ -464,7 +464,7 @@ class TestEventIc:
         assert result.value > 0
         assert (
             result.metadata["method"]
-            == "Spearman rank correlation (|signal| vs signed_car)"
+            == "Spearman rank correlation (|density| vs signed_car)"
         )
 
     def test_discrete_signal_skipped(self, strong_signal):

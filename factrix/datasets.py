@@ -16,9 +16,9 @@ Usage:
     profile = fx.evaluate(panel, cfg)
 
 The dataset's ``signal_horizon`` (default 5) is a property of the
-synthetic signal, not a pipeline parameter. When
+synthetic density, not a pipeline parameter. When
 ``cfg.forward_periods == signal_horizon`` the pipeline realizes the
-nominal information coefficient (IC); other horizons realize a decayed signal. No disk I/O, no
+nominal information coefficient (IC); other horizons realize a decayed density. No disk I/O, no
 external data — everything is seeded RNG.
 """
 
@@ -108,12 +108,12 @@ def make_cs_panel(
             returns reduce effective independent dates by
             ``signal_horizon`` so s.e. ≈
             ``1 / √((n_dates / signal_horizon) · n_assets)``.
-        signal_horizon: Horizon (in bars) at which the synthetic signal
+        signal_horizon: Horizon (in bars) at which the synthetic density
             lives — a property of the generated data, not a pipeline
             parameter. Pipelines measuring at
             ``AnalysisConfig.forward_periods == signal_horizon``
             realize the nominal IC; different horizons realize a
-            decayed IC (correct physics for a signal with a natural
+            decayed IC (correct physics for a density with a natural
             time-scale, not a bug).
         seed: RNG seed.
         start_date: ISO date for the first row.
@@ -183,7 +183,7 @@ def make_event_panel(
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
-    """Synthetic event-signal panel — sparse ``{0, R}`` schema, emitted
+    """Synthetic event-density panel — sparse ``{0, R}`` schema, emitted
     here as the canonical signed ternary ``factor ∈ {-1, 0, +1}``.
 
     Construction:
@@ -197,7 +197,7 @@ def make_event_panel(
            ``signal_horizon`` bars ``t+2 .. t+1+H`` of that asset — the
            exact window a pipeline measuring forward return at the same
            horizon will see. Drift magnitude is small (≈ bps-per-day)
-           so the event signal is discoverable but not trivial.
+           so the event density is discoverable but not trivial.
         4. Prices are cumulated after drift injection.
 
     Suitable for ``AnalysisConfig.individual_sparse()`` /
@@ -216,7 +216,7 @@ def make_event_panel(
             pipeline parameter. Pipelines measuring at
             ``AnalysisConfig.forward_periods == signal_horizon`` realize
             the nominal drift; different horizons realize a weakened or
-            diluted signal (correct physics for a signal with a natural
+            diluted density (correct physics for a density with a natural
             time-scale, not a bug).
         seed: RNG seed.
         start_date: ISO date for the first row.
@@ -311,7 +311,7 @@ def make_multi_factor_panel(
         factor_correlation: Pairwise correlation between factor noise
             terms in ``[0, 1)``. ``0`` reproduces independent factors;
             higher values share more of a common cross-sectional driver.
-        signal_horizon: Horizon (in bars) at which the synthetic signal
+        signal_horizon: Horizon (in bars) at which the synthetic density
             lives.
         seed: RNG seed.
         start_date: ISO date for the first row.

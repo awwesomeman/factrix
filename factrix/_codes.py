@@ -19,7 +19,7 @@ class WarningCode(StrEnum):
 
     UNRELIABLE_SE_SHORT_PERIODS = "unreliable_se_short_periods"
     EVENT_WINDOW_OVERLAP = "event_window_overlap"
-    # Fired when ADF p > 0.1 on a CONTINUOUS factor (Stambaugh-style
+    # Fired when ADF p > 0.1 on a DENSE factor (Stambaugh-style
     # persistent-regressor flag, §5.2 / §7.3). Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
@@ -145,7 +145,7 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     BORDERLINE — so callers can membership-check the more severe code
     without an else branch. Returns ``None`` at ``n_assets ≥
     MIN_ASSETS_WARN`` (clean) or ``n_assets < 2`` (PANEL impossible
-    by upstream mode routing; defensive).
+    by upstream structure routing; defensive).
     """
     from factrix._stats.constants import MIN_ASSETS, MIN_ASSETS_WARN
 
@@ -180,7 +180,7 @@ class StatCode(StrEnum):
 
     - ``TARGET`` — what is being measured. **Primary** (cell main
       effect) carries no prefix because ``FactorProfile.config``
-      (``scope`` / ``signal`` / ``metric``) is the single source of
+      (``scope`` / ``density`` / ``metric``) is the single source of
       truth for cell identity. **Diagnostic** carries an explicit
       prefix (``FACTOR_`` / ``RESID_`` / ``EVENT_``) because the
       target lives outside ``config``.

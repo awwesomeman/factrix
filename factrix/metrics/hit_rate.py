@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorSignal, PanelMode
+from factrix._axis import FactorDensity, DataStructure
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -29,7 +29,7 @@ from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_out
 __metric_specs__ = (
     MetricSpec(
         name="hit_rate",
-        cell=cell(None, FactorSignal.CONTINUOUS, mode=PanelMode.TIMESERIES),
+        cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
         agg_order="ts-only",
         inference="binomial",
         primitives=(
