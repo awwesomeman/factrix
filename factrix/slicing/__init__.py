@@ -11,7 +11,7 @@ Public surface:
 
 These functions are intentionally *not* hosted under
 ``factrix.metrics``: that package is a structural registry where
-every public ``*.py`` is a per-(scope, signal) cell metric. Slicing
+every public ``*.py`` is a per-(scope, density) cell metric. Slicing
 functions are infrastructure that consumes a metric callable, so
 they live in their own package.
 """

@@ -23,7 +23,7 @@ functions dispatch to.
 
 from __future__ import annotations
 
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode
 
 
@@ -36,7 +36,7 @@ class WaldNWCluster:
     the K-vector. Numerics live in
     ``factrix._stats.wald._wald_nw_cluster_means``.
 
-    Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` — the
+    Applicability is restricted to ``(INDIVIDUAL, DENSE)`` — the
     PANEL inference cells whose per-date scalars feed the stacked
     panel. ``COMMON`` cells produce one number per date by definition
     of the scope and have no within-cell cross-section to slice over.
@@ -65,13 +65,13 @@ class WaldNWCluster:
             "slice grouping) on a stacked per-date metric panel."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
+        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: FactorSignal,
+        _signal: FactorDensity,
     ) -> StatCode:
         return StatCode.P_WALD_NWCL
 
@@ -85,7 +85,7 @@ class WaldTwoWayCluster:
 
     Interface ships this PR; no function consumes it until
     ``factor_decomposition`` lands later. ``list_estimators`` surfaces
-    it for ``(INDIVIDUAL, CONTINUOUS)`` cells — calling
+    it for ``(INDIVIDUAL, DENSE)`` cells — calling
     ``bhy(estimator=WaldTwoWayCluster())`` against a profile produced
     by ``evaluate()`` lands on a missing-stat error pointing at the
     precondition (same pattern as ``HansenHodrick`` on a non-overlapping
@@ -103,12 +103,12 @@ class WaldTwoWayCluster:
             "(2011). Reserved interface for the raw asset-date panel path."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
+        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: FactorSignal,
+        _signal: FactorDensity,
     ) -> StatCode:
         return StatCode.P_WALD_TWOWAY

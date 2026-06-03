@@ -1,7 +1,7 @@
 """factrix — Single-factor evaluation toolkit.
 
-Two orthogonal user-facing axes — ``FactorScope`` and ``FactorSignal`` —
-plus an evaluate-time-derived ``PanelMode`` define the analysis
+Two orthogonal user-facing axes — ``FactorScope`` and ``FactorDensity`` —
+plus an evaluate-time-derived ``DataStructure`` define the analysis
 cell. Resolve metric specs via ``spec_by_name()`` (or register custom ones
 with ``metric_spec`` + ``factrix.metrics.register``), dispatch through the
 DAG executor via ``evaluate()``, inspect a panel's applicable metrics via
@@ -38,10 +38,10 @@ from typing import Any
 import polars as pl
 
 from factrix import datasets, estimators, multi_factor, preprocess
-from factrix._axis import (  # noqa: F401  PanelMode re-exported for namespace access; intentionally not in __all__
+from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespace access; intentionally not in __all__
     FactorScope,
-    FactorSignal,
-    PanelMode,
+    FactorDensity,
+    DataStructure,
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
@@ -59,7 +59,7 @@ from factrix._inspect import (
     PanelInspection,
     PanelProperties,
     PanelReasoning,
-    _detect_mode,
+    _detect_structure,
     inspect_panel,
 )
 from factrix._metric_index import (
@@ -113,7 +113,7 @@ def evaluate(
             tagged as the primary metric (drives ``EvaluationResult.n_obs``
             and the primary / diagnostic partition on
             :class:`MetricResult`); the rest become diagnostics.
-        factor_cols: Names of signal columns on ``panel``. List-only —
+        factor_cols: Names of density columns on ``panel``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``panel``.
         forward_periods: Forward-return horizon in rows of the panel's
@@ -171,10 +171,10 @@ def evaluate(
     scope = (
         primary_cell.scope if primary_cell.scope is not None else FactorScope.INDIVIDUAL
     )
-    signal = (
-        primary_cell.signal
-        if primary_cell.signal is not None
-        else FactorSignal.CONTINUOUS
+    density = (
+        primary_cell.density
+        if primary_cell.density is not None
+        else FactorDensity.DENSE
     )
     fp = forward_periods if forward_periods is not None else 5
     kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
@@ -184,7 +184,7 @@ def evaluate(
         panel,
         cols,
         scope=scope,
-        signal=signal,
+        density=density,
         forward_periods=fp,
         kwargs_by_metric=kwargs_by_metric,
     )
@@ -414,21 +414,21 @@ def _build_kwargs_by_metric(
 def _validate_primary_metric_applicable(
     primary: MetricSpec, panel: pl.DataFrame
 ) -> None:
-    """Reject a primary metric whose ``cell.mode`` disagrees with the panel.
+    """Reject a primary metric whose ``cell.structure`` disagrees with the panel.
 
-    PanelMode is the cheap pre-flight gate: IC / FM / quantile_spread declare
-    ``cell.mode = PanelMode.PANEL`` and produce only NaN short-circuits on a
+    DataStructure is the cheap pre-flight gate: IC / FM / quantile_spread declare
+    ``cell.structure = DataStructure.PANEL`` and produce only NaN short-circuits on a
     single-asset panel; surfacing that as a UserInputError keeps the
     diagnostic specific instead of letting the executor return a result
     bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
-    Cell-axis (scope / signal) applicability requires panel detection
+    Cell-axis (scope / density) applicability requires panel detection
     and is left to ``fx.inspect_panel`` for the explicit pre-flight path.
     """
-    cell_mode = primary.cell.mode
-    if cell_mode is None:
+    cell_structure = primary.cell.structure
+    if cell_structure is None:
         return
-    panel_mode = _detect_mode(panel)
-    if cell_mode is panel_mode:
+    panel_structure = _detect_structure(panel)
+    if cell_structure is panel_structure:
         return
     n_assets = int(panel["asset_id"].n_unique())
     raise UserInputError(
@@ -437,8 +437,8 @@ def _validate_primary_metric_applicable(
         value=primary.name,
         expected=(
             f"primary metric {primary.name!r} declares "
-            f"cell.mode={cell_mode.value!r} but panel has "
-            f"mode={panel_mode.value!r} (n_assets={n_assets}); "
+            f"cell.structure={cell_structure.value!r} but panel has "
+            f"structure={panel_structure.value!r} (n_assets={n_assets}); "
             f"call fx.inspect_panel(panel) to see metrics applicable "
             f"to this panel shape"
         ),
@@ -449,11 +449,11 @@ def _validate_primary_metric_applicable(
 __version__ = "0.13.0"
 
 __all__ = [
-    # Axis enums (PanelMode intentionally NOT exported — it is
+    # Axis enums (DataStructure intentionally NOT exported — it is
     # evaluate-time-derived from N. It stays importable from
     # factrix._axis for internal callers.)
     "FactorScope",
-    "FactorSignal",
+    "FactorDensity",
     # Code enums
     "InfoCode",
     "StatCode",

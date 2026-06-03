@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import InferenceResult
@@ -42,7 +42,7 @@ class NeweyWest:
     slope-axis cells until a slope-shaped sub-protocol lands).
 
     Cell interpretation comes from ``profile.config`` (``scope`` /
-    ``signal`` / ``metric``) — ``StatCode.P_NW`` is the same key for
+    ``density`` / ``metric``) — ``StatCode.P_NW`` is the same key for
     correlation-mean tests (information coefficient (IC)), event-window mean-effect tests (CAAR),
     cross-asset slope tests (TS β), etc. Downstream readers must consult
     the config to know which null is being rejected; the StatCode is
@@ -76,7 +76,7 @@ class NeweyWest:
     def min_periods(self) -> int:
         return MIN_PERIODS_WARN
 
-    def applicable_to(self, _scope: FactorScope, _signal: FactorSignal) -> bool:
+    def applicable_to(self, _scope: FactorScope, _signal: FactorDensity) -> bool:
         # NW HAC drives `primary_p` on every user-facing cell, so the
         # estimator applies universally until a cell opts out.
         return True
@@ -84,7 +84,7 @@ class NeweyWest:
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: FactorSignal,
+        _signal: FactorDensity,
     ) -> StatCode:
         return StatCode.P_NW
 

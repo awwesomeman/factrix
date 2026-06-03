@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode
 from factrix.stats import (
     _ESTIMATOR_REGISTRY,
@@ -34,20 +34,20 @@ class TestEstimatorProtocol:
 class TestWaldNWCluster:
     def test_emits_p_wald_nwcl(self):
         est = WaldNWCluster()
-        code = est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+        code = est.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
         assert code is StatCode.P_WALD_NWCL
 
     def test_applicable_to_individual_continuous(self):
         est = WaldNWCluster()
-        assert est.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+        assert est.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
 
     def test_not_applicable_to_common(self):
         est = WaldNWCluster()
-        assert not est.applicable_to(FactorScope.COMMON, FactorSignal.CONTINUOUS)
+        assert not est.applicable_to(FactorScope.COMMON, FactorDensity.DENSE)
 
     def test_not_applicable_to_sparse(self):
         est = WaldNWCluster()
-        assert not est.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.SPARSE)
+        assert not est.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.SPARSE)
 
     def test_description_mentions_cluster_and_nw(self):
         d = WaldNWCluster().description.lower()
@@ -58,12 +58,12 @@ class TestWaldNWCluster:
 class TestWaldTwoWayCluster:
     def test_emits_p_wald_twoway(self):
         est = WaldTwoWayCluster()
-        code = est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+        code = est.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
         assert code is StatCode.P_WALD_TWOWAY
 
     def test_applicable_to_individual_continuous(self):
         est = WaldTwoWayCluster()
-        assert est.applicable_to(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+        assert est.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
 
     def test_description_mentions_two_way(self):
         d = WaldTwoWayCluster().description.lower()
@@ -81,7 +81,7 @@ class TestBlockBootstrap:
     def test_emits_p_boot(self):
         est = BlockBootstrap()
         assert (
-            est.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+            est.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
             is StatCode.P_BOOT
         )
 
@@ -125,8 +125,8 @@ class TestBlockBootstrap:
         # Both still emit the same StatCode (scheme is metadata, not
         # a separate StatCode key).
         assert a.emits_for(
-            FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS
-        ) == b.emits_for(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+            FactorScope.INDIVIDUAL, FactorDensity.DENSE
+        ) == b.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
 
 
 class TestRegistryIntegration:
@@ -147,7 +147,7 @@ class TestRegistryIntegration:
     def test_list_estimators_surfaces_slice_test_estimators(self):
         from factrix import list_estimators
 
-        names = list_estimators(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS)
+        names = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
         assert "WaldNWCluster" in names
         assert "WaldTwoWayCluster" in names
         assert "BlockBootstrap" in names
@@ -155,8 +155,8 @@ class TestRegistryIntegration:
     def test_list_estimators_excludes_slice_test_estimators_for_common(self):
         from factrix import list_estimators
 
-        names = list_estimators(FactorScope.COMMON, FactorSignal.CONTINUOUS)
-        # NW applies universally; slice-test Estimators + HH restricted to (INDIVIDUAL, CONTINUOUS).
+        names = list_estimators(FactorScope.COMMON, FactorDensity.DENSE)
+        # NW applies universally; slice-test Estimators + HH restricted to (INDIVIDUAL, DENSE).
         assert "NeweyWest" in names
         assert "WaldNWCluster" not in names
         assert "WaldTwoWayCluster" not in names

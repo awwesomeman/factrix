@@ -20,7 +20,7 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -46,7 +46,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "quantile_spread_vw",
 ]
 
-_Q_CELL = cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL)
+_Q_CELL = cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL)
 _Q_PRIMITIVES = (
     "_calc_t_stat",
     "_p_value_from_t",

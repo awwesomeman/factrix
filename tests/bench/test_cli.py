@@ -1,7 +1,7 @@
 """CLI dispatcher smoke (``python -m bench``).
 
 The full continuous + algo + sparse coverage at `tiny` runs in
-~20 seconds on a CI runner. Cold-cache mode re-execs Python per
+~20 seconds on a CI runner. Cold-cache structure re-execs Python per
 scenario; tested on a 2-scenario subset (`event` target) so the
 subprocess fork cost is bounded.
 """

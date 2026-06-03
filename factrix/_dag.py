@@ -31,7 +31,7 @@ from typing import Any, NamedTuple
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, Visibility
 from factrix._results import EvaluationResult, MetricResult, Warning
@@ -138,7 +138,7 @@ class DagExecutor:
         factor_cols: Sequence[str],
         *,
         scope: FactorScope,
-        signal: FactorSignal,
+        density: FactorDensity,
         forward_periods: int,
         kwargs_by_metric: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> dict[str, EvaluationResult]:
@@ -155,7 +155,7 @@ class DagExecutor:
         kwargs_by_metric = kwargs_by_metric or {}
         cols = list(factor_cols)
         n_assets = panel.select(pl.col("asset_id").n_unique()).item()
-        mode = PanelMode.PANEL if n_assets > 1 else PanelMode.TIMESERIES
+        structure = DataStructure.PANEL if n_assets > 1 else DataStructure.TIMESERIES
         projections: dict[str, pl.DataFrame] = {}
 
         producer_outputs: dict[tuple[str, str], Any] = {}
@@ -206,7 +206,7 @@ class DagExecutor:
                     metric_outputs[(spec.name, c)] = _stamp_spec(out, spec)
 
         return self._assemble(
-            cols, scope, signal, forward_periods, mode, n_assets, metric_outputs
+            cols, scope, density, forward_periods, structure, n_assets, metric_outputs
         )
 
     def _gather_upstream_batch(
@@ -225,9 +225,9 @@ class DagExecutor:
         self,
         cols: Sequence[str],
         scope: FactorScope,
-        signal: FactorSignal,
+        density: FactorDensity,
         forward_periods: int,
-        mode: PanelMode,
+        structure: DataStructure,
         n_assets: int,
         metric_outputs: Mapping[tuple[str, str], MetricOutput],
     ) -> dict[str, EvaluationResult]:
@@ -259,7 +259,7 @@ class DagExecutor:
             n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,
-                cell=(scope, signal, mode),
+                cell=(scope, density, structure),
                 forward_periods=forward_periods,
                 n_obs=n_obs,
                 n_assets=n_assets,

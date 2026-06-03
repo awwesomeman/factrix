@@ -130,15 +130,15 @@ def test_value_repr_truncated_for_huge_value() -> None:
 
 
 def test_non_string_candidates_coerced() -> None:
-    class PanelMode(enum.Enum):
+    class DataStructure(enum.Enum):
         A = "alpha"
         B = "beta"
 
     err = UserInputError(
         func_name="x",
-        field="mode",
+        field="structure",
         value="alfa",
-        candidates=list(PanelMode),
+        candidates=list(DataStructure),
         docs_path="api/x",
     )
-    assert err.candidates == tuple(sorted(str(m) for m in PanelMode))
+    assert err.candidates == tuple(sorted(str(m) for m in DataStructure))

@@ -2,10 +2,10 @@
 
 Two-stage applicability model:
 
-1. **Cell match** — ``(scope, signal, mode)`` axes on
+1. **Cell match** — ``(scope, density, structure)`` axes on
    :class:`MetricSpec.cell` must agree with the inspected panel's
-   :class:`PanelProperties`. PanelMode is integral to the match — a metric
-   whose cell declares ``mode=PanelMode.PANEL`` (e.g. IC, which has no
+   :class:`PanelProperties`. DataStructure is integral to the match — a metric
+   whose cell declares ``structure=DataStructure.PANEL`` (e.g. IC, which has no
    cross-section in TIMESERIES) is unusable when the panel is
    single-asset, not just "degraded".
 2. **Sample floor** — :class:`MetricSpec.sample_floor` declares the
@@ -30,7 +30,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
@@ -38,38 +38,38 @@ from factrix._results import Warning
 _SPARSITY_THRESHOLD: float = 0.5
 
 
-def _detect_mode(panel: Any) -> PanelMode:
+def _detect_structure(panel: Any) -> DataStructure:
     """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
     return (
-        PanelMode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else PanelMode.PANEL
+        DataStructure.TIMESERIES if panel["asset_id"].n_unique() <= 1 else DataStructure.PANEL
     )
 
 
-def _detect_signal(raw: Any) -> tuple[FactorSignal, str, float]:
-    """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else CONTINUOUS.
+def _detect_density(raw: Any) -> tuple[FactorDensity, str, float]:
+    """Sparsity ratio in ``factor`` ≥ 0.5 → SPARSE, else DENSE.
 
-    Returns ``(signal, reason, sparsity)`` where ``sparsity`` is the
+    Returns ``(density, reason, sparsity)`` where ``sparsity`` is the
     zero-ratio in the factor column.
     """
     n = len(raw)
     if n == 0:
         return (
-            FactorSignal.CONTINUOUS,
-            "factor column empty: defaulting to CONTINUOUS",
+            FactorDensity.DENSE,
+            "factor column empty: defaulting to DENSE",
             math.nan,
         )
     n_zero = int((raw["factor"] == 0).sum())
     sparsity = n_zero / n
-    signal = (
-        FactorSignal.SPARSE
+    density = (
+        FactorDensity.SPARSE
         if sparsity >= _SPARSITY_THRESHOLD
-        else FactorSignal.CONTINUOUS
+        else FactorDensity.DENSE
     )
     reason = (
         f"sparsity ratio = {sparsity:.2f} "
-        f"(threshold {_SPARSITY_THRESHOLD}): → {signal.value.upper()}"
+        f"(threshold {_SPARSITY_THRESHOLD}): → {density.value.upper()}"
     )
-    return signal, reason, sparsity
+    return density, reason, sparsity
 
 
 def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
@@ -98,7 +98,7 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
 class PanelProperties:
     """Inspected panel properties driving cell dispatch.
 
-    Carries both the dispatch axes (``scope`` / ``signal`` / ``mode``
+    Carries both the dispatch axes (``scope`` / ``density`` / ``structure``
     as typed enums) and the panel-shape numerics the user typically
     wants next to them (``n_assets`` / ``n_periods`` / ``n_pairs`` /
     ``sparse_ratio``). Named ``Properties`` rather than ``Axes``
@@ -107,8 +107,8 @@ class PanelProperties:
 
     Attributes:
         scope: Detected :class:`FactorScope`.
-        signal: Detected :class:`FactorSignal`.
-        mode: Detected :class:`PanelMode` — ``TIMESERIES`` iff
+        density: Detected :class:`FactorDensity`.
+        structure: Detected :class:`DataStructure` — ``TIMESERIES`` iff
             ``n_assets == 1`` (single-asset panel), ``PANEL`` otherwise.
         n_assets: Unique ``asset_id`` count under any-non-null union.
         n_periods: Unique ``date`` count under any-non-null union.
@@ -122,8 +122,8 @@ class PanelProperties:
     """
 
     scope: FactorScope
-    signal: FactorSignal
-    mode: PanelMode
+    density: FactorDensity
+    structure: DataStructure
     n_assets: int
     n_periods: int
     n_pairs: int
@@ -135,12 +135,12 @@ class PanelReasoning:
     """Per-axis human-readable rationale for the panel's detection.
 
     Three fields parallel the three axis enums on
-    :class:`PanelProperties` (``scope`` / ``signal`` / ``mode``).
+    :class:`PanelProperties` (``scope`` / ``density`` / ``structure``).
     """
 
     scope_reason: str
-    signal_reason: str
-    mode_reason: str
+    density_reason: str
+    structure_reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,7 +177,7 @@ class PanelInspection:
         detected: :class:`PanelProperties` with typed enum axes and
             shape numerics.
         reasoning: :class:`PanelReasoning` carrying per-axis prose
-            (scope / signal / mode).
+            (scope / density / structure).
         metrics: Flat ``list[MetricApplicability]`` — one verdict
             per ``visibility=PUBLIC`` spec the inspector considered.
             Single source of truth; the :attr:`usable` /
@@ -239,11 +239,11 @@ class PanelInspection:
 
         Layout (top-level keys, stable order):
 
-        - ``detected``: ``{scope, signal, mode, n_assets, n_periods,
+        - ``detected``: ``{scope, density, structure, n_assets, n_periods,
           n_pairs, sparse_ratio}`` — enum fields rendered as their
           ``.value`` string; ``sparse_ratio`` ``NaN`` emitted as
           ``None``.
-        - ``reasoning``: ``{scope, signal, mode}``.
+        - ``reasoning``: ``{scope, density, structure}``.
         - ``metrics``: list of per-spec dicts
           ``{name, cell, usable, warnings, blockers}`` — same row
           shape suits ``pl.from_dicts`` for cross-panel audit.
@@ -257,8 +257,8 @@ class PanelInspection:
         return {
             "detected": {
                 "scope": d.scope.value,
-                "signal": d.signal.value,
-                "mode": d.mode.value,
+                "density": d.density.value,
+                "structure": d.structure.value,
                 "n_assets": d.n_assets,
                 "n_periods": d.n_periods,
                 "n_pairs": d.n_pairs,
@@ -268,8 +268,8 @@ class PanelInspection:
             },
             "reasoning": {
                 "scope": self.reasoning.scope_reason,
-                "signal": self.reasoning.signal_reason,
-                "mode": self.reasoning.mode_reason,
+                "density": self.reasoning.density_reason,
+                "structure": self.reasoning.structure_reason,
             },
             "metrics": [
                 {
@@ -302,8 +302,8 @@ class PanelInspection:
         d = self.detected
         header_rows = [
             ("scope", d.scope.value),
-            ("signal", d.signal.value),
-            ("mode", d.mode.value),
+            ("density", d.density.value),
+            ("structure", d.structure.value),
             ("n_assets", d.n_assets),
             ("n_periods", d.n_periods),
             ("n_pairs", d.n_pairs),
@@ -323,8 +323,8 @@ class PanelInspection:
             f"<td>{html.escape(reason)}</td></tr>"
             for axis, reason in (
                 ("scope", self.reasoning.scope_reason),
-                ("signal", self.reasoning.signal_reason),
-                ("mode", self.reasoning.mode_reason),
+                ("density", self.reasoning.density_reason),
+                ("structure", self.reasoning.structure_reason),
             )
         )
 
@@ -377,7 +377,7 @@ def inspect_panel(panel: Any) -> PanelInspection:
     Pre-flight introspection: typed detection plus, for every
     ``visibility=PUBLIC`` :class:`MetricSpec` in the registry, a
     :class:`MetricApplicability` verdict combining (a) cell-match
-    against the detected ``(scope, signal, mode)`` and (b) the
+    against the detected ``(scope, density, structure)`` and (b) the
     spec's optional :class:`SampleThreshold` against the panel's
     ``n_periods`` / ``n_assets``.
 
@@ -396,25 +396,25 @@ def inspect_panel(panel: Any) -> PanelInspection:
         >>> import factrix as fx
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> info = fx.inspect_panel(raw)
-        >>> all(m.spec.cell.matches(info.detected.scope, info.detected.signal, info.detected.mode) for m in info.usable)
+        >>> all(m.spec.cell.matches(info.detected.scope, info.detected.density, info.detected.structure) for m in info.usable)
         True
     """
-    signal, signal_reason, sparse_ratio = _detect_signal(panel)
+    density, density_reason, sparse_ratio = _detect_density(panel)
     scope, scope_reason = _detect_scope(panel)
-    mode = _detect_mode(panel)
+    structure = _detect_structure(panel)
     n_assets = int(panel["asset_id"].n_unique())
     n_periods = int(panel["date"].n_unique())
     n_pairs = int(panel.drop_nulls("factor").height)
 
-    mode_reason = (
+    structure_reason = (
         f"n_assets={n_assets} → "
-        f"{'TIMESERIES (single-asset panel)' if mode is PanelMode.TIMESERIES else 'PANEL'}"
+        f"{'TIMESERIES (single-asset panel)' if structure is DataStructure.TIMESERIES else 'PANEL'}"
     )
 
     properties = PanelProperties(
         scope=scope,
-        signal=signal,
-        mode=mode,
+        density=density,
+        structure=structure,
         n_assets=n_assets,
         n_periods=n_periods,
         n_pairs=n_pairs,
@@ -422,8 +422,8 @@ def inspect_panel(panel: Any) -> PanelInspection:
     )
     reasoning = PanelReasoning(
         scope_reason=scope_reason,
-        signal_reason=signal_reason,
-        mode_reason=mode_reason,
+        density_reason=density_reason,
+        structure_reason=structure_reason,
     )
 
     panel_warnings = _panel_level_warnings(properties)
@@ -443,12 +443,12 @@ def _evaluate_applicability(
     blockers: list[str] = []
     warnings: list[Warning] = []
 
-    if not spec.cell.matches(properties.scope, properties.signal, properties.mode):
+    if not spec.cell.matches(properties.scope, properties.density, properties.structure):
         blockers.append(
             f"cell mismatch: spec={spec.cell.raw}, panel="
             f"({properties.scope.value.upper()}, "
-            f"{properties.signal.value.upper()}, "
-            f"*, {properties.mode.value.upper()})"
+            f"{properties.density.value.upper()}, "
+            f"*, {properties.structure.value.upper()})"
         )
 
     floor = spec.sample_floor
@@ -515,12 +515,12 @@ def _panel_level_warnings(properties: PanelProperties) -> list[Warning]:
 
     warnings: list[Warning] = []
     if (
-        properties.mode is PanelMode.TIMESERIES
+        properties.structure is DataStructure.TIMESERIES
         and MIN_PERIODS_HARD <= properties.n_periods < MIN_PERIODS_WARN
     ):
         code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS
         warnings.append(Warning(code=code, source=None, message=code.description))
-    if properties.mode is PanelMode.PANEL:
+    if properties.structure is DataStructure.PANEL:
         tier = cross_section_tier(properties.n_assets)
         if tier is not None:
             warnings.append(Warning(code=tier, source=None, message=tier.description))

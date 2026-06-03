@@ -10,7 +10,7 @@ callable.
 from __future__ import annotations
 
 import pytest
-from factrix._axis import FactorScope, FactorSignal, Visibility
+from factrix._axis import FactorScope, FactorDensity, Visibility
 from factrix._metric_index import (
     MetricSpec,
     SampleThreshold,
@@ -43,7 +43,7 @@ class TestDefaults:
     def test_requires_defaults_to_empty_dict(self) -> None:
         spec = MetricSpec(
             name="probe",
-            cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
+            cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             agg_order="cs-first",
             inference="probe",
         )
@@ -52,7 +52,7 @@ class TestDefaults:
     def test_batchable_defaults_false(self) -> None:
         spec = MetricSpec(
             name="probe",
-            cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
+            cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             agg_order="cs-first",
             inference="probe",
         )
@@ -61,7 +61,7 @@ class TestDefaults:
     def test_visibility_defaults_public(self) -> None:
         spec = MetricSpec(
             name="probe",
-            cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS),
+            cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             agg_order="cs-first",
             inference="probe",
         )

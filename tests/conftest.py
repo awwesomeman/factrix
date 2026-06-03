@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult
 from factrix._types import MetricOutput
@@ -23,7 +23,7 @@ def make_spec(name: str) -> MetricSpec:
     """Minimal panel-cell MetricSpec for test fixtures."""
     return MetricSpec(
         name=name,
-        cell=Cell(scope=None, signal=None, mode=None, raw="*"),
+        cell=Cell(scope=None, density=None, structure=None, raw="*"),
         agg_order="cs-first",
         inference="test",
     )
@@ -55,7 +55,7 @@ def make_result(
     primaries = [primary, *extra_primaries]
     return EvaluationResult(
         factor=factor,
-        cell=(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, PanelMode.PANEL),
+        cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),
         forward_periods=forward_periods,
         n_obs=100,
         n_assets=25,
@@ -154,7 +154,7 @@ def ic_series_sign_flip() -> pl.DataFrame:
 def make_macro_panel(
     n_dates: int,
     n_countries: int,
-    signal: float,
+    density: float,
     seed: int,
 ) -> pl.DataFrame:
     """Macro-panel factor panel (public — shared by parity tests)."""
@@ -164,7 +164,7 @@ def make_macro_panel(
     for d in dates:
         fvals = rng.standard_normal(n_countries)
         for i in range(n_countries):
-            r = signal * fvals[i] + (1 - abs(signal)) * rng.standard_normal()
+            r = density * fvals[i] + (1 - abs(density)) * rng.standard_normal()
             rows.append(
                 {
                     "date": d,

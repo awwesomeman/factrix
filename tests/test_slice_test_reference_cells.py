@@ -23,7 +23,7 @@ def test_pairwise_universe_block_bootstrap_romano_wolf() -> None:
     n_dates = 200
     dates = [base + dt.timedelta(days=i) for i in range(n_dates)]
 
-    # Two universes share dates; signal stronger in 'large_cap'
+    # Two universes share dates; density stronger in 'large_cap'
     rows = []
     for d in dates:
         for u, mu in [("large_cap", 0.10), ("small_cap", 0.02)]:

@@ -19,13 +19,13 @@ def compute_forward_return(
 
     ``forward_return = (price[t+1+N] / price[t+1] - 1) / N``
 
-    Entry at t+1 (next bar after signal), exit at t+1+N.
+    Entry at t+1 (next bar after density), exit at t+1+N.
 
-    WHY t+1 entry: The signal at t is computed using data up to and
-    including price[t]. Using price[t] as both signal input and entry
+    WHY t+1 entry: The density at t is computed using data up to and
+    including price[t]. Using price[t] as both density input and entry
     price assumes you can trade at the same price used to generate the
-    signal — unrealistic in practice. Entry at t+1 enforces a strict
-    causal boundary: signal → wait → trade → measure.
+    density — unrealistic in practice. Entry at t+1 enforces a strict
+    causal boundary: density → wait → trade → measure.
 
     This also keeps the return window cleanly separated from the
     estimation window in event studies (BMP test), eliminating the

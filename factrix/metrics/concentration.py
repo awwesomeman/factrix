@@ -19,7 +19,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
@@ -45,7 +45,7 @@ __metric_specs__ = (
     MetricSpec(
         name="top_concentration",
         cell=cell(
-            FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL
+            FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
         ),
         agg_order="cs-first",
         inference="across-time t (one-sided H_0: ratio >= 0.5)",
@@ -82,8 +82,8 @@ def top_concentration(
             top 20%).
         weight_by: HHI weight convention.
             - ``"abs_factor"`` (default): weight by ``|factor|``. Answers
-              "how concentrated is the signal itself in the top bucket".
-              Conservative, signal-level.
+              "how concentrated is the density itself in the top bucket".
+              Conservative, density-level.
             - ``"alpha_contribution"``: weight by the magnitude of each
               name's realised contribution ``|sign(factor) · forward_return|``.
               Captures **risk-concentration**: the top bucket's realised

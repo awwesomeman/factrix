@@ -22,7 +22,7 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
     __metric_specs__ = (
         MetricSpec(
             name="my_metric",
-            cell=cell(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL),
+            cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL),
             agg_order="cs-first",
             inference="NW HAC / cross-asset t",
             primitives=("_calc_t_stat", "_p_value_from_t"),
@@ -40,7 +40,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Literal, overload
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
 from factrix._errors import IncompatibleAxisError
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -61,42 +61,42 @@ DOCS_ANCHOR_FMT: str = "api/metrics/{module}.md#factrix.metrics.{module}.{name}"
 
 @dataclass(frozen=True, slots=True)
 class Cell:
-    """Parsed ``(scope, signal, mode)`` cell tuple.
+    """Parsed ``(scope, density, structure)`` cell tuple.
 
     ``None`` represents the ``*`` wildcard along an axis. ``raw``
     preserves the canonical display label rendered into the docs
     matrix.
 
     :meth:`matches` filters on whichever axes the caller supplies a
-    concrete value for. Pass ``mode=`` to enforce mode applicability
-    (e.g. ``IC`` cell declares ``mode=PanelMode.PANEL`` because IC has no
+    concrete value for. Pass ``structure=`` to enforce structure applicability
+    (e.g. ``IC`` cell declares ``structure=DataStructure.PANEL`` because IC has no
     cross-section in TIMESERIES); omit it for axis-only queries that
-    do not care about runtime mode.
+    do not care about runtime structure.
     """
 
     scope: FactorScope | None
-    signal: FactorSignal | None
-    mode: PanelMode | None
+    density: FactorDensity | None
+    structure: DataStructure | None
     raw: str
 
     def matches(
         self,
         scope: FactorScope,
-        signal: FactorSignal,
-        mode: PanelMode | None = None,
+        density: FactorDensity,
+        structure: DataStructure | None = None,
     ) -> bool:
-        """Return True if this cell is applicable to ``(scope, signal[, mode])``.
+        """Return True if this cell is applicable to ``(scope, density[, structure])``.
 
-        ``mode=None`` (default) skips the mode axis check — useful
+        ``structure=None`` (default) skips the structure axis check — useful
         for purely structural axis queries.
         """
         scope_ok = self.scope is None or self.scope == scope
-        signal_ok = self.signal is None or self.signal == signal
-        mode_ok = mode is None or self.mode is None or self.mode == mode
-        return scope_ok and signal_ok and mode_ok
+        density_ok = self.density is None or self.density == density
+        structure_ok = structure is None or self.structure is None or self.structure == structure
+        return scope_ok and density_ok and structure_ok
 
 
-def _axis_token(value: FactorScope | FactorSignal | PanelMode | None) -> str:
+def _axis_token(value: FactorScope | FactorDensity | DataStructure | None) -> str:
     """Render an axis enum (or ``None`` = wildcard) as its uppercase token."""
     if value is None:
         return "*"
@@ -105,8 +105,8 @@ def _axis_token(value: FactorScope | FactorSignal | PanelMode | None) -> str:
 
 def cell(
     scope: FactorScope | None,
-    signal: FactorSignal | None,
-    mode: PanelMode | None = None,
+    density: FactorDensity | None,
+    structure: DataStructure | None = None,
     *,
     raw: str | None = None,
 ) -> Cell:
@@ -118,8 +118,8 @@ def cell(
     post-pipeline factor-return series.
     """
     if raw is None:
-        raw = f"({_axis_token(scope)}, {_axis_token(signal)}, {_axis_token(mode)})"
-    return Cell(scope=scope, signal=signal, mode=mode, raw=raw)
+        raw = f"({_axis_token(scope)}, {_axis_token(density)}, {_axis_token(structure)})"
+    return Cell(scope=scope, density=density, structure=structure, raw=raw)
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,7 +176,7 @@ class MetricSpec:
     Fields:
 
     - ``name``: function name in the declaring module.
-    - ``cell``: applicable ``(scope, signal, mode)`` cell;
+    - ``cell``: applicable ``(scope, density, structure)`` cell;
       ``None`` along any axis denotes ``*`` wildcard.
     - ``agg_order``: aggregation order — the order in which the
       cross-section and time-series reductions compose:
@@ -489,14 +489,14 @@ def list_metrics() -> dict[str, list[MetricSpec]]: ...
 @overload
 def list_metrics(
     scope: FactorScope,
-    signal: FactorSignal,
+    density: FactorDensity,
     *,
     format: Literal["text", "json"] = ...,
     with_import: bool = ...,
 ) -> list[str] | list[dict[str, Any]]: ...
 def list_metrics(
     scope: FactorScope | None = None,
-    signal: FactorSignal | None = None,
+    density: FactorDensity | None = None,
     *,
     format: Literal["text", "json"] = "text",
     with_import: bool = False,
@@ -509,23 +509,23 @@ def list_metrics(
       ``dict[str, list[MetricSpec]]`` keyed by concept family (the
       module stem). This is a catalog, *not* runnable — see
       :func:`_metrics_overview`.
-    - **Both ``scope`` and ``signal``** → the metrics applicable to that
-      ``(scope, signal)`` cell, as names (``format="text"``) or
+    - **Both ``scope`` and ``density``** → the metrics applicable to that
+      ``(scope, density)`` cell, as names (``format="text"``) or
       JSON-serialisable rows (``format="json"``).
 
     Passing exactly one axis is a usage error.
 
-    PanelMode is intentionally not an input — applicability does not change
+    DataStructure is intentionally not an input — applicability does not change
     across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
     Source of truth is the module-level ``__metric_specs__`` tuple in
     each metric module, loaded by :mod:`factrix._metric_index`.
 
     Args:
         scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
-            ``FactorScope.COMMON``). Omit together with ``signal`` for
+            ``FactorScope.COMMON``). Omit together with ``density`` for
             the overview.
-        signal: Cell axis to filter on (``FactorSignal.CONTINUOUS`` or
-            ``FactorSignal.SPARSE``). Omit together with ``scope`` for
+        density: Cell axis to filter on (``FactorDensity.DENSE`` or
+            ``FactorDensity.SPARSE``). Omit together with ``scope`` for
             the overview.
         format: ``"text"`` (default) returns metric names sorted by
             ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
@@ -547,9 +547,9 @@ def list_metrics(
             present there).
 
     Raises:
-        ValueError: exactly one of ``scope`` / ``signal`` is given
+        ValueError: exactly one of ``scope`` / ``density`` is given
             (pass both for a filtered list, or neither for the overview).
-        IncompatibleAxisError: ``(scope, signal)`` matches no
+        IncompatibleAxisError: ``(scope, density)`` matches no
             registered metric. In practice all four combos are
             populated, so this is defensive.
 
@@ -561,35 +561,35 @@ def list_metrics(
         >>> "ic" in overview
         True
 
-        Discover standalone metrics for an INDIVIDUAL × CONTINUOUS cell:
+        Discover standalone metrics for an INDIVIDUAL × DENSE cell:
 
         >>> names = fx.list_metrics(
-        ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS,
+        ...     fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE,
         ... )
 
         JSON form (for tooling — adds module / family / import_path keys):
 
         >>> rows = fx.list_metrics(
-        ...     fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS, format="json",
+        ...     fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE, format="json",
         ... )
     """
-    if scope is None and signal is None:
+    if scope is None and density is None:
         return _metrics_overview()
-    if scope is None or signal is None:
+    if scope is None or density is None:
         raise ValueError(
             "list_metrics() takes either no arguments (family-grouped "
-            "overview) or both scope and signal (cell-filtered list); "
+            "overview) or both scope and density (cell-filtered list); "
             "got exactly one axis."
         )
     matches = [
         (stem, spec)
         for stem, spec in public_specs()
-        if spec.cell.matches(scope, signal)
+        if spec.cell.matches(scope, density)
     ]
     if not matches:
         raise IncompatibleAxisError(
             f"no standalone metrics registered for "
-            f"(scope={scope.value}, signal={signal.value})"
+            f"(scope={scope.value}, density={density.value})"
         )
     if format == "json":
         return [

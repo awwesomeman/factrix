@@ -1,7 +1,7 @@
 """v0.5 exception hierarchy (§4.5).
 
 Three concrete ``ConfigError`` subclasses cover every config-validation
-or evaluate-time failure mode; ``suggested_fix`` carries the nearest
+or evaluate-time failure structure; ``suggested_fix`` carries the nearest
 legal :class:`factrix._analysis_config.AnalysisConfig` (when one exists)
 so the user — or a calling AI agent — can recover programmatically.
 """
@@ -131,10 +131,10 @@ class UnknownEstimatorError(ConfigError, ValueError):
 
 
 class IncompatibleAxisError(ConfigError):
-    """``(scope, signal, metric)`` tuple is not a legal analysis cell.
+    """``(scope, density, metric)`` tuple is not a legal analysis cell.
 
-    Covers e.g. ``signal=SPARSE`` paired with ``metric=IC``, or
-    ``(INDIVIDUAL, CONTINUOUS)`` with ``metric=None``.
+    Covers e.g. ``density=SPARSE`` paired with ``metric=IC``, or
+    ``(INDIVIDUAL, DENSE)`` with ``metric=None``.
     """
 
 

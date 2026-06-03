@@ -7,7 +7,7 @@ analysis (mfe_mae.py).
 
 Metrics:
     event_hit_rate — fraction of correct-direction events (binomial test)
-    event_ic       — signal strength → return correlation (Spearman)
+    event_ic       — density strength → return correlation (Spearman)
     signal_density — average time gap between events
     profit_factor  — sum(gains) / sum(losses)
     event_skewness — skewness of signed_car distribution
@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorSignal, PanelMode
+from factrix._axis import FactorDensity, DataStructure
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -43,7 +43,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "signal_density",
 ]
 
-_EQ_CELL = cell(None, FactorSignal.SPARSE, mode=PanelMode.PANEL)
+_EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 _EQ_PRIMITIVES = (
     "_binomial_two_sided_p",
     "_significance_marker",
@@ -79,7 +79,7 @@ def event_hit_rate(
     """Fraction of events where signed abnormal return > 0.
 
     Args:
-        df: Panel with event signal and forward return.
+        df: Panel with event density and forward return.
 
     Returns:
         MetricOutput with value=hit_rate, stat=z from binomial test.
@@ -158,14 +158,14 @@ def event_ic(
     (``return × sign(factor)``), computed only on event rows.
 
     Unlike standard information coefficient (IC) (full cross-section per date), this measures
-    whether signal **magnitude** predicts return magnitude among
+    whether density **magnitude** predicts return magnitude among
     triggered events. Direction is already accounted for via sign().
 
-    Only meaningful when signal values have magnitude variance
+    Only meaningful when density values have magnitude variance
     (not all ±1). Profile auto-skips when variance is absent.
 
     Args:
-        df: Panel with event signal and forward return.
+        df: Panel with event density and forward return.
 
     Returns:
         MetricOutput with value=Spearman rho, stat=z from Fisher transform.
@@ -174,7 +174,7 @@ def event_ic(
         ``rho = Spearman(|factor|, signed_car)`` over event rows; Fisher
         z-transform ``z = atanh(rho) * sqrt(N - 3)`` against ``H0: rho =
         0``. Direction is already absorbed into ``signed_car`` so this
-        isolates the magnitude-of-signal → magnitude-of-return link.
+        isolates the magnitude-of-density → magnitude-of-return link.
 
         factrix short-circuits ``"not_applicable_discrete_signal"`` when
         ``|factor|`` lacks variance (e.g. ``{0, ±1}`` events): event-IC
@@ -236,7 +236,7 @@ def event_ic(
             "p_value": p,
             "stat_type": "z",
             "h0": "rho=0",
-            "method": "Spearman rank correlation (|signal| vs signed_car)",
+            "method": "Spearman rank correlation (|density| vs signed_car)",
         },
     )
 
@@ -253,7 +253,7 @@ def profit_factor(
     means gross gains exceed gross losses across all events.
 
     Args:
-        df: Panel with event signal and forward return.
+        df: Panel with event density and forward return.
 
     Returns:
         MetricOutput with value=profit_factor.
@@ -327,7 +327,7 @@ def event_skewness(
     Also tests H₀: skewness = 0 via D'Agostino's skew test.
 
     Args:
-        df: Panel with event signal and forward return.
+        df: Panel with event density and forward return.
 
     Returns:
         MetricOutput with value=skewness, stat=z from D'Agostino test.
@@ -409,7 +409,7 @@ def signal_density(
 ) -> MetricOutput:
     """Average bars per event (inverse frequency).
 
-    Answers: "how frequently does this signal fire?"
+    Answers: "how frequently does this density fire?"
 
     Computed per-asset as ``total_bars / n_events`` (inverse event
     frequency), then averaged across assets. This is **not** the mean
@@ -417,8 +417,8 @@ def signal_density(
     so clustered events and evenly-spaced events yield the same value.
     See ``clustering_hhi`` for event-date concentration.
 
-    Low density (large gaps) means the signal is selective; high
-    density (small gaps) means the signal fires often — capacity is
+    Low density (large gaps) means the density is selective; high
+    density (small gaps) means the density fires often — capacity is
     higher but independence may be weaker.
 
     Args:

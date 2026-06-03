@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode, WarningCode
 from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix.stats._estimator import InferenceResult
@@ -37,7 +37,7 @@ class HansenHodrick:
     negative; ``compute`` clamps variance to 0 and surfaces
     ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`` in the result.
 
-    Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` cells —
+    Applicability is restricted to ``(INDIVIDUAL, DENSE)`` cells —
     information coefficient (IC) PANEL and FM PANEL. CAAR (SPARSE PANEL) is a mean t-test on the
     dense per-event-date series and is structurally HH-compatible, but
     is deferred: the v0.5 procedure had no HH side-emit there so the
@@ -72,13 +72,13 @@ class HansenHodrick:
     def min_periods(self) -> int:
         return MIN_PERIODS_WARN
 
-    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
+        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: FactorSignal,
+        _signal: FactorDensity,
     ) -> StatCode:
         return StatCode.P_HH
 

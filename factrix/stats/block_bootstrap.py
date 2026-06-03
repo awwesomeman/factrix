@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from factrix._axis import FactorScope, FactorSignal
+from factrix._axis import FactorScope, FactorDensity
 from factrix._codes import StatCode
 
 
@@ -39,7 +39,7 @@ class BlockBootstrap:
     pass an integer
     to fix it.
 
-    Applicability is restricted to ``(INDIVIDUAL, CONTINUOUS)`` —
+    Applicability is restricted to ``(INDIVIDUAL, DENSE)`` —
     consistent with the slice-test functions that produce paired per-date
     diffs (slice information coefficient (IC), slice FM-λ, …).
 
@@ -85,12 +85,12 @@ class BlockBootstrap:
             f"({self.scheme} scheme, {bl}, B={self.n_resamples})."
         )
 
-    def applicable_to(self, scope: FactorScope, signal: FactorSignal) -> bool:
-        return scope is FactorScope.INDIVIDUAL and signal is FactorSignal.CONTINUOUS
+    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
+        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
 
     def emits_for(
         self,
         _scope: FactorScope,
-        _signal: FactorSignal,
+        _signal: FactorDensity,
     ) -> StatCode:
         return StatCode.P_BOOT

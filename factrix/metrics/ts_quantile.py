@@ -1,6 +1,6 @@
 """Time-series quantile bucketing + monotonicity test (issue #5).
 
-Diagnostic for `(COMMON, CONTINUOUS, *)` and single-asset TIMESERIES
+Diagnostic for `(COMMON, DENSE, *)` and single-asset TIMESERIES
 cells: bucket factor history into quantiles and check the conditional
 mean forward return per bucket. Catches U-shape / inverted-U /
 extreme-only signals that ordinary least squares (OLS) β assumes away (linear) and reports
@@ -25,7 +25,7 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode
+from factrix._axis import FactorScope, FactorDensity, DataStructure
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _ols_nw_multivariate,
@@ -46,7 +46,7 @@ __all__ = [
 __metric_specs__ = (
     MetricSpec(
         name="ts_quantile_spread",
-        cell=cell(FactorScope.COMMON, FactorSignal.CONTINUOUS, mode=PanelMode.PANEL),
+        cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
         agg_order="cs-first",
         inference="NW HAC Wald",
         primitives=(

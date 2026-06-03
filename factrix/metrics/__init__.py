@@ -2,10 +2,10 @@
 
 All metrics return ``MetricOutput`` and can be used standalone.
 
-Grouping below follows the ``Scope × FactorSignal`` cells defined in
-``factrix._axis`` — *not* ``PanelMode`` (which is a derived sample regime,
+Grouping below follows the ``Scope × FactorDensity`` cells defined in
+``factrix._axis`` — *not* ``DataStructure`` (which is a derived sample regime,
 ``PANEL`` for ``N ≥ 2`` and ``TIMESERIES`` for ``N == 1``). Every
-cell can run in either PanelMode; the dispatch registry handles that.
+cell can run in either DataStructure; the dispatch registry handles that.
 Series diagnostics are axis-agnostic and operate on any ``(date, value)``
 series produced upstream.
 

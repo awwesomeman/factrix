@@ -29,7 +29,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorSignal, PanelMode, Visibility
+from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -50,8 +50,8 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 
 _FM_CELL = cell(
     FactorScope.INDIVIDUAL,
-    FactorSignal.CONTINUOUS,
-    mode=PanelMode.PANEL,
+    FactorDensity.DENSE,
+    structure=DataStructure.PANEL,
 )
 _FM_PRIMITIVES = (
     "_newey_west_t_test",
@@ -192,7 +192,7 @@ def fm_beta(
             [Shanken (1992)][shanken-1992] shows the naive FM SE ignores sampling error
             in the regressor, inflating $t$-stats. **Do NOT** set this
             on raw characteristics (book-to-market, momentum price
-            signal, accounting ratios) — those are observed, not
+            density, accounting ratios) — those are observed, not
             estimated, and enabling the correction will spuriously
             deflate $t$-stats.
 
@@ -207,7 +207,7 @@ def fm_beta(
 
             Note: ``is_estimated_factor`` corrects the **sampling-error**
             dimension of using an estimated regressor. A separate failure
-            mode — the estimated factor itself being weak or unidentified
+            structure — the estimated factor itself being weak or unidentified
             — produces its own spuriously-significant FM $t$-stats and is
             not addressed by this scaling; see
             [Kan-Zhang (1999)][kan-zhang-1999] for the useless-factor
@@ -216,7 +216,7 @@ def fm_beta(
         factor_return_var: $\sigma^2_f$, the time-series variance of the
             factor-mimicking portfolio return. Prefer supplying this when
             you have a spread-portfolio return series (the long-short
-            spread actually traded on the signal). When ``None`` and
+            spread actually traded on the density). When ``None`` and
             ``is_estimated_factor=True``, falls back to
             $\mathrm{var}(\beta_t)$ as a rough placeholder —
             $\hat\beta_t$ is *not* the factor-mimicking return but is

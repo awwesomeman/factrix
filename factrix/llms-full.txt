@@ -1,7 +1,7 @@
 # factrix — LLM reference
 
 > factrix is a polars-native Python library that answers one question for a given
-> factor signal: **Does this factor carry statistical edge?** It runs the
+> factor density: **Does this factor carry statistical edge?** It runs the
 > appropriate statistical procedure (IC regression, Fama-MacBeth, CAAR event
 > study, or timeseries beta) based on a three-axis config, returns a structured
 > result with a p-value and warning flags, and screens large candidate sets with
@@ -21,29 +21,29 @@ statistical procedure.
 
 **FactorScope** — who carries the factor value:
 - `INDIVIDUAL` — each asset has its own factor value per date (cross-sectional
-  signal, e.g. P/B ratio)
+  density, e.g. P/B ratio)
 - `COMMON` — a single factor value is broadcast to all assets per date (macro
-  signal, e.g. VIX)
+  density, e.g. VIX)
 
-**FactorSignal** — the value type:
-- `CONTINUOUS` — real-valued (returns, z-scores, raw fundamentals)
+**FactorDensity** — the value type:
+- `DENSE` — real-valued (returns, z-scores, raw fundamentals)
 - `SPARSE` — `{0, R}` event trigger: zero on non-event entries, arbitrary real
   magnitude otherwise (event flags, regime dummies; canonical `{-1, 0, +1}`)
 
 **Metric** — the statistical procedure. Only meaningful for the
-`(INDIVIDUAL, CONTINUOUS)` cell:
+`(INDIVIDUAL, DENSE)` cell:
 - `Metric.IC` — Information Coefficient (Spearman rank correlation, Newey-West)
 - `Metric.FM` — Fama-MacBeth cross-sectional regression lambda
 
-For all other cells (`INDIVIDUAL × SPARSE`, `COMMON × CONTINUOUS`,
-`COMMON × SPARSE`) the procedure is uniquely determined by `scope × signal`,
+For all other cells (`INDIVIDUAL × SPARSE`, `COMMON × DENSE`,
+`COMMON × SPARSE`) the procedure is uniquely determined by `scope × density`,
 so `metric=None`.
 
-**PanelMode** — derived at evaluate time, never set by the user:
+**DataStructure** — derived at evaluate time, never set by the user:
 - `PANEL` — `n_assets > 1`
 - `TIMESERIES` — `n_assets == 1`
 
-`(INDIVIDUAL, CONTINUOUS) × TIMESERIES` is **not** registered.
+`(INDIVIDUAL, DENSE) × TIMESERIES` is **not** registered.
 
 ---
 
@@ -55,11 +55,11 @@ Every `evaluate()` call expects a polars DataFrame with these columns:
 |-----------------|-------------|---------------------------------|
 | `date`          | input       | caller                          |
 | `asset_id`      | input       | caller                          |
-| `factor`        | input       | caller (the signal under test)  |
+| `factor`        | input       | caller (the density under test)  |
 | `price`         | input       | caller                          |
 | `forward_return`| evaluate    | `compute_forward_return`        |
 
-Synthetic panels: `fx.datasets.make_cs_panel(...)` for CONTINUOUS,
+Synthetic panels: `fx.datasets.make_cs_panel(...)` for DENSE,
 `fx.datasets.make_event_panel(...)` for SPARSE. Both require `n_assets >= 2`.
 
 ---
@@ -80,7 +80,7 @@ Synthetic panels: `fx.datasets.make_cs_panel(...)` for CONTINUOUS,
 
 ### 3. Single-asset panel
 
-`(INDIVIDUAL, CONTINUOUS)` has no procedure when `n_assets == 1` (no
+`(INDIVIDUAL, DENSE)` has no procedure when `n_assets == 1` (no
 cross-section to compute IC across).
 
 ```python
@@ -108,10 +108,10 @@ for memory efficiency on large sources).
 `panel`; the returned list of `FactorProfile` is aligned to that order —
 even when the list has one element (`fx.evaluate(panel, cfg)[0]`).
 All factors in one call share the same dispatch cell (locked by
-`config`) and the same `PanelMode` (derived once from
+`config`) and the same `DataStructure` (derived once from
 `panel["asset_id"].n_unique()`) — comparability of the returned
-profiles is therefore guaranteed by construction. **PanelMode is
-batch-global by design**; per-factor mode derivation (e.g. routing
+profiles is therefore guaranteed by construction. **DataStructure is
+batch-global by design**; per-factor structure derivation (e.g. routing
 each column independently based on its own NaN-pattern's
 `n_unique`) would let one call return profiles from different
 procedures and break the `bhy()` family contract, so it is not
@@ -143,7 +143,7 @@ Frozen dataclass. All fields are read-only.
 
 ```
 profile.config            : AnalysisConfig
-profile.mode              : PanelMode                        # PANEL or TIMESERIES (derived)
+profile.structure              : DataStructure                        # PANEL or TIMESERIES (derived)
 profile.primary_p         : float                       # procedure-canonical p-value
 profile.primary_stat      : float | None                # test stat paired with primary_p (None for empirical-p)
 profile.primary_stat_name : StatCode                    # stats-key pointer for primary_stat (e.g. StatCode.T_NW); serialised to .value in diagnose()
@@ -164,7 +164,7 @@ profile.diagnose() -> dict[str, Any]
     # Key order follows the reader-flow seven questions (#246):
     # {"identity":  {"factor_id", "forward_periods"},
     #  "context":   {...},              # sample / conditioning dimensions
-    #  "cell":      {"scope", "signal", "metric", "mode"},  # dispatch coordinate
+    #  "cell":      {"scope", "density", "metric", "structure"},  # dispatch coordinate
     #  "n_obs", "n_pairs", "n_periods", "n_assets",         # four sample axes
     #  "primary_p", "primary_stat", "primary_stat_name",    # primary family
     #  "warnings":  [str, ...],         # sorted WarningCode .value strings
@@ -248,8 +248,8 @@ an `expand_over_values` column when buckets are declared.
 
 `estimator=` overrides which inference method's p-value drives BHY.
 Pass an `Estimator` instance (e.g. `factrix.stats.NeweyWest()`); the
-instance's `applicable_to(scope, signal)` is checked per profile, and
-its `emits_for(scope, signal, metric)` dispatches to a `StatCode` key
+instance's `applicable_to(scope, density)` is checked per profile, and
+its `emits_for(scope, density, metric)` dispatches to a `StatCode` key
 in `profile.stats`. `UserInputError` raises on cell-not-applicable or
 missing dispatched key per profile. The v0.4 kwarg `threshold=` is
 still accepted with `DeprecationWarning` and routes to `q=`; the
@@ -417,25 +417,25 @@ schema).
 ### `list_metrics` / `list_estimators`
 
 ```
-factrix.list_metrics(scope: FactorScope, signal: FactorSignal,
+factrix.list_metrics(scope: FactorScope, density: FactorDensity,
                      *, format: Literal["text", "json"] = "text"
                      ) -> list[str] | list[dict[str, Any]]
-    # Standalone metrics applicable to a (scope, signal) cell.
+    # Standalone metrics applicable to a (scope, density) cell.
     # text → list[str] sorted by (module, name); json → rows with
     # {name, module, cell, agg_order, inference_se, import_path,
     #  input_kind, docs_anchor, emitted_name}. docs_anchor is a
     # docs-root-relative path + mkdocstrings symbol fragment;
     # emitted_name is the literal MetricOutput.name (usually equals
     # name, but a few metrics emit a different label — fama_macbeth
-    # → fm_beta, etc.). PanelMode is not an input — applicability does
+    # → fm_beta, etc.). DataStructure is not an input — applicability does
     # not change across PANEL / TIMESERIES.
     # Raises IncompatibleAxisError if the pair has no registered metrics.
 
-factrix.list_estimators(scope: FactorScope, signal: FactorSignal,
+factrix.list_estimators(scope: FactorScope, density: FactorDensity,
                         *, format: Literal["text", "json"] = "text",
                         with_import: bool = False
                         ) -> list[str] | list[dict[str, Any]]
-    # Estimator instances applicable to a (scope, signal) cell —
+    # Estimator instances applicable to a (scope, density) cell —
     # mirrors list_metrics shape so the pre-flight pattern is one
     # API. text → list[str] sorted by name; json → rows with
     # {name, description, import_path}. with_import (text-only)
@@ -464,7 +464,7 @@ from factrix._metric_index import MetricSpec, cell
 @fx.metric_spec(
     MetricSpec(
         name="custom_ic",
-        cell=cell(fx.FactorScope.INDIVIDUAL, fx.FactorSignal.CONTINUOUS),
+        cell=cell(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE),
         family="cs-first",
         inference="NW HAC",
     )
@@ -507,8 +507,8 @@ All factrix exceptions inherit from `FactrixError`, so agents can write
 FactrixError                       # base — all factrix-raised errors
 ├── ConfigError                    # AnalysisConfig validation / dispatch
 │   ├── MissingConfigError         # evaluate(panel) called without a config
-│   ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
-│   ├── ModeAxisError              # legal cell, no procedure at runtime mode;
+│   ├── IncompatibleAxisError      # (scope, density, metric) is not a legal cell
+│   ├── ModeAxisError              # legal cell, no procedure at runtime structure;
 │   │                              # carries .suggested_fix: AnalysisConfig | None
 │   └── InsufficientSampleError    # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
 │                                  # carries .actual_periods / .required_periods
@@ -564,8 +564,8 @@ single result-type group. The dataclasses ship in v0.14.0 as
 types-only; runner wiring lands with the DAG executor.
 
 - **`EvaluationResult`** — bundle-level result for one factor at one
-  cell. Fields: `factor` / `axes` (`(scope, signal, metric)` tuple) /
-  `mode` / `n_obs` / `n_assets` / `metrics` (a `MetricResult`) /
+  cell. Fields: `factor` / `axes` (`(scope, density, metric)` tuple) /
+  `structure` / `n_obs` / `n_assets` / `metrics` (a `MetricResult`) /
   `warnings` (`list[Warning]`). Serialisers:
   - `to_frame()` → `pl.DataFrame` long form (one row per metric;
     `factor` / `n_assets` / `metric_name` / `value` / `p` / `stat` /
@@ -618,7 +618,7 @@ types-only; runner wiring lands with the DAG executor.
   pre-flight introspection that combines axis detection with a
   per-metric usability verdict.
   - `PanelInspection.detected: PanelProperties` carries the typed
-    enums (`scope` / `signal` / `mode`) plus shape numerics
+    enums (`scope` / `density` / `structure`) plus shape numerics
     (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
     `n_pairs` counts non-null `(date, asset_id)` factor observations
     — the upper bound on sample size for pair-counting metrics.
@@ -634,18 +634,18 @@ types-only; runner wiring lands with the DAG executor.
   - `PanelInspection.warnings: list[Warning]` carries panel-level
     sample-shape diagnostics (`source=None`); per-metric degraded
     warnings live on each `MetricApplicability`.
-  - Two-stage applicability: (1) `Cell.matches(scope, signal, mode)`
-    — mode is integral so e.g. `IC` (cell declares `mode=PANEL`) is
+  - Two-stage applicability: (1) `Cell.matches(scope, density, structure)`
+    — structure is integral so e.g. `IC` (cell declares `structure=PANEL`) is
     unusable on a single-asset panel, not just degraded. (2)
     `MetricSpec.sample_floor: SampleThreshold | None` — declarative
     `min_periods` / `warn_periods` / `min_assets` / `warn_assets` /
     `min_pairs` / `warn_pairs` gates evaluated against
     `PanelProperties`. Specs without `sample_floor` only get the
     cell-match check.
-- **`Cell.matches(scope, signal, mode=None)`** — gains optional
-  `mode` argument. Existing `list_metrics` callers stay backward
-  compatible (default `None` skips the mode axis); `inspect_panel`
-  passes the detected mode.
+- **`Cell.matches(scope, density, structure=None)`** — gains optional
+  `structure` argument. Existing `list_metrics` callers stay backward
+  compatible (default `None` skips the structure axis); `inspect_panel`
+  passes the detected structure.
 - **`MetricSpec.sample_floor: SampleThreshold | None`** — new optional
   field carrying per-metric pre-flight thresholds. Currently
   populated on `ic_newey_west` / `ic_ir` (representative

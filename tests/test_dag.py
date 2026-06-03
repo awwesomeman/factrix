@@ -7,7 +7,7 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorSignal, Visibility
+from factrix._axis import FactorScope, FactorDensity, Visibility
 from factrix._dag import CycleError, DagExecutor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._types import MetricOutput
@@ -113,7 +113,7 @@ class TestBatchablePath:
         )
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": FactorSignal.CONTINUOUS,
+            "density": FactorDensity.DENSE,
             "forward_periods": 1,
         }
         panel = _build_panel(factor_cols=("a", "b", "c"))
@@ -147,7 +147,7 @@ class TestPerFactorPath:
         spec = _make_spec("panel_consumer")
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": FactorSignal.CONTINUOUS,
+            "density": FactorDensity.DENSE,
             "forward_periods": 1,
         }
         panel = _build_panel(factor_cols=("a", "b"))
@@ -181,7 +181,7 @@ class TestStage1Share:
 
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": FactorSignal.CONTINUOUS,
+            "density": FactorDensity.DENSE,
             "forward_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
@@ -221,7 +221,7 @@ class TestShortCircuitPropagation:
         consumer_spec = _make_spec("consumer", requires={"ic_df": producer})
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": FactorSignal.CONTINUOUS,
+            "density": FactorDensity.DENSE,
             "forward_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
@@ -343,7 +343,7 @@ class TestEndToEndIcCell:
         specs = [by_name["compute_ic"], by_name["ic"], by_name["ic_ir"]]
         axes = {
             "scope": FactorScope.INDIVIDUAL,
-            "signal": FactorSignal.CONTINUOUS,
+            "density": FactorDensity.DENSE,
             "forward_periods": 5,
         }
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
