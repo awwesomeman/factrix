@@ -554,11 +554,9 @@ latter being the final-stage test denominator at the dispatched-cell
 level), `stat` (test statistic when applicable), `metadata`
 (tool-specific context; `p_value` / `stat_type` / `h0` / `method` are
 the standard keys), `name` (metric name stamped by the DAG executor at
-dispatch time; empty string `""` for free-standing primitive calls),
-`kwargs` (per-call keyword overrides active when this result was produced;
-empty dict for registry-default calls). The structured-procedure path
-returns `FactorProfile`; only callers reaching into
-`factrix.metrics.<module>` directly see `MetricResult`.
+dispatch time; empty string `""` for free-standing primitive calls). The
+structured-procedure path returns `FactorProfile`; only callers reaching
+into `factrix.metrics.<module>` directly see `MetricResult`.
 
 ---
 

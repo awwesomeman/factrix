@@ -186,7 +186,7 @@ class DagExecutor:
                     producer_outputs[(spec.name, c)] = result[c]
                     if isinstance(result[c], MetricResult):
                         metric_outputs[(spec.name, c)] = dataclasses.replace(
-                            result[c], name=spec.name, kwargs=kwargs
+                            result[c], name=spec.name
                         )
                 continue
 
@@ -210,7 +210,7 @@ class DagExecutor:
                 producer_outputs[(spec.name, c)] = out
                 if isinstance(out, MetricResult):
                     metric_outputs[(spec.name, c)] = dataclasses.replace(
-                        out, name=spec.name, kwargs=kwargs
+                        out, name=spec.name
                     )
 
         return self._assemble(

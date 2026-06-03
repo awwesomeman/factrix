@@ -52,9 +52,6 @@ class MetricResult:
         name: Metric name stamped by the DAG executor at dispatch time.
             Empty string for outputs constructed outside the registry
             (free-standing primitive calls, tests).
-        kwargs: Per-call keyword overrides that were active when this
-            result was produced (e.g. ``forward_periods`` overrides).
-            Empty dict for registry-default calls.
     """
 
     value: float
@@ -63,7 +60,6 @@ class MetricResult:
     stat: float | None = None
     metadata: dict[str, object] = field(default_factory=dict)
     name: str = ""
-    kwargs: Mapping[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         name = self.name or "?"
