@@ -118,7 +118,7 @@ def oos_decay(
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
         >>> result = oos_decay(series)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     sorted_series = series.sort("date")

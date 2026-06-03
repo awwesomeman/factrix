@@ -151,7 +151,7 @@ def ts_asymmetry(
         ...     forward_periods=5,
         ... )
         >>> result = ts_asymmetry(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if "date" not in df.columns:

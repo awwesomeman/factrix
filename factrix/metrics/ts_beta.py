@@ -259,7 +259,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
         ... )
         >>> ts_betas_df = compute_ts_betas(panel)
         >>> result = ts_beta(ts_betas_df)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
@@ -335,7 +335,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
         ... )
         >>> ts_betas_df = compute_ts_betas(panel)
         >>> result = mean_r_squared(ts_betas_df)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
@@ -507,7 +507,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
         ... )
         >>> ts_betas_df = compute_ts_betas(panel)
         >>> result = ts_beta_sign_consistency(ts_betas_df)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()

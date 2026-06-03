@@ -235,7 +235,7 @@ def event_around_return(
         ...     forward_periods=5,
         ... )
         >>> result = event_around_return(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if offsets is None:

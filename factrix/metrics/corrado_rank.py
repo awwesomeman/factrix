@@ -102,7 +102,7 @@ def corrado_rank(
         ...     forward_periods=5,
         ... )
         >>> result = corrado_rank(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     ranked = df.with_columns(

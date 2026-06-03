@@ -18,7 +18,6 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec
 
 if TYPE_CHECKING:
     from collections.abc import ItemsView
@@ -50,10 +49,12 @@ class MetricResult:
         metadata: Tool-specific context (``p_value``, ``stat_type``,
             ``h0``, ``method`` are the standard keys). Read :attr:`p`
             for the typed promoted view of ``p_value``.
-        spec: Back-pointer to the declaring :class:`MetricSpec`. ``None``
-            for outputs constructed outside the registry (free-standing
-            primitive calls, tests). Runners stamp this at dispatch time
-            so downstream code can recover the spec without a name lookup.
+        name: Metric name stamped by the DAG executor at dispatch time.
+            Empty string for outputs constructed outside the registry
+            (free-standing primitive calls, tests).
+        kwargs: Per-call keyword overrides that were active when this
+            result was produced (e.g. ``forward_periods`` overrides).
+            Empty dict for registry-default calls.
     """
 
     value: float
@@ -61,10 +62,11 @@ class MetricResult:
     n_obs: int | None = None
     stat: float | None = None
     metadata: dict[str, object] = field(default_factory=dict)
-    spec: MetricSpec | None = None
+    name: str = ""
+    kwargs: Mapping[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
-        name = self.spec.name if self.spec is not None else "?"
+        name = self.name or "?"
         parts = [f"{name}={self.value:.4f}"]
         if self.p is not None:
             parts.append(f"p={self.p:.4g}")
@@ -112,18 +114,18 @@ class MetricResultGroup:
     on the spec when a user-facing label is needed.
 
     Attributes:
-        applicable: Every spec applicable to the dispatched cell
-            (superset of ``primary + diagnostic``).
-        primary: Specs whose ``MetricResult`` carries the bundle's
-            primary p-value (driver of downstream multi-factor FDR).
-        diagnostic: Specs whose output is descriptive / supplementary.
+        applicable: Names of every metric applicable to the dispatched
+            cell (superset of ``primary + diagnostic``).
+        primary: Names of metrics whose ``MetricResult`` carries the
+            bundle's primary p-value (driver of downstream multi-factor FDR).
+        diagnostic: Names of metrics whose output is descriptive / supplementary.
         outputs: ``metric_name -> MetricResult`` for every spec that
             produced a value (including short-circuit outputs).
     """
 
-    applicable: list[MetricSpec]
-    primary: list[MetricSpec]
-    diagnostic: list[MetricSpec]
+    applicable: list[str]
+    primary: list[str]
+    diagnostic: list[str]
     outputs: Mapping[str, MetricResult] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> MetricResult:
@@ -276,8 +278,8 @@ class EvaluationResult:
                 for name, out in self.metrics.outputs.items()
             },
             "metrics_partition": {
-                "primary": [s.name for s in self.metrics.primary],
-                "diagnostic": [s.name for s in self.metrics.diagnostic],
+                "primary": list(self.metrics.primary),
+                "diagnostic": list(self.metrics.diagnostic),
             },
             "warnings": [
                 {
@@ -310,7 +312,7 @@ class EvaluationResult:
             for k, v in header_rows
         )
 
-        primary_names = {s.name for s in self.metrics.primary}
+        primary_names = set(self.metrics.primary)
         metric_rows = []
         for name, out in sorted(self.metrics.outputs.items()):
             tag = "primary" if name in primary_names else "diagnostic"
@@ -376,7 +378,7 @@ def _output_row(
     out: MetricResult,
     warnings_by_metric: Mapping[str, list[str]],
 ) -> dict[str, Any]:
-    label = out.spec.name if out.spec is not None else key
+    label = out.name or key
     return {
         "metric_name": label,
         "value": _float_or_none(out.value),

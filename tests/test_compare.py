@@ -21,7 +21,7 @@ def _with_extra(factor: str, ic, sharpe, ic_value: float, sharpe_value: float):
                 value=sharpe_value,
                 p=0.2,
                 n_obs=100,
-                spec=sharpe,
+                name=sharpe.name,
                 metadata={"p_value": 0.2},
             )
         },

@@ -102,7 +102,7 @@ def event_hit_rate(
         ...     forward_periods=5,
         ... )
         >>> result = event_hit_rate(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     events = df.filter(pl.col(factor_col) != 0)
@@ -188,7 +188,7 @@ def event_ic(
         ...     forward_periods=5,
         ... )
         >>> result = event_ic(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     from scipy import stats as sp_stats
@@ -275,7 +275,7 @@ def profit_factor(
         ...     forward_periods=5,
         ... )
         >>> result = profit_factor(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     events = df.filter(pl.col(factor_col) != 0)
@@ -349,7 +349,7 @@ def event_skewness(
         ...     forward_periods=5,
         ... )
         >>> result = event_skewness(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     from scipy import stats as sp_stats
@@ -437,7 +437,7 @@ def signal_density(
         >>> from factrix.metrics.event_quality import signal_density
         >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
         >>> result = signal_density(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])

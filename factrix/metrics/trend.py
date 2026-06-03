@@ -126,7 +126,7 @@ def ic_trend(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_trend(ic_df, value_col="ic")
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):

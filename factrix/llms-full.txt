@@ -553,10 +553,12 @@ same family name as `FactorProfile.n_obs` but different scope, the
 latter being the final-stage test denominator at the dispatched-cell
 level), `stat` (test statistic when applicable), `metadata`
 (tool-specific context; `p_value` / `stat_type` / `h0` / `method` are
-the standard keys), `spec` (back-pointer to the declaring `MetricSpec`,
-default `None`). The structured-procedure path returns `FactorProfile`;
-only callers reaching into `factrix.metrics.<module>` directly see
-`MetricResult`.
+the standard keys), `name` (metric name stamped by the DAG executor at
+dispatch time; empty string `""` for free-standing primitive calls),
+`kwargs` (per-call keyword overrides active when this result was produced;
+empty dict for registry-default calls). The structured-procedure path
+returns `FactorProfile`; only callers reaching into
+`factrix.metrics.<module>` directly see `MetricResult`.
 
 ---
 
@@ -580,18 +582,15 @@ types-only; runner wiring lands with the DAG executor.
   - `_repr_html_()` → Jupyter rich render with primary / diagnostic
     role column and a collapsible warnings block.
 - **`MetricResultGroup`** — mirrors the `MetricGroups` shape from
-  `inspect_panel` (#443). Three `list[MetricSpec]` partitions
+  `inspect_panel` (#443). Three `list[str]` (metric name) partitions
   (`applicable` / `primary` / `diagnostic`) plus dict-like access to
   the produced `MetricResult` instances (`__getitem__` / `keys` /
-  `values` / `items` / `__iter__` all key by `MetricSpec.name`).
+  `values` / `items` / `__iter__` all key by metric name).
 - **`Warning`** — flat dataclass `(code: WarningCode, source: str | None, message: str)`.
   `source=metric_name` for per-metric warnings; `source=None` for
   bundle-level diagnostics. Note: shadows the Python builtin
   `Warning` when imported with `from factrix import Warning`; prefer
   `fx.Warning` after `import factrix as fx`.
-- **`MetricResult.spec`** (new field, default `None`) — back-pointer
-  to the declaring `MetricSpec`. Stamped by runners at dispatch time;
-  consumers can recover the spec without a name-keyed lookup.
 - **`DagExecutor`** — programmatic executor for a closed set of
   `MetricSpec`. Topologically orders the graph
   (`MetricSpec.requires` -> upstream callable), dispatches

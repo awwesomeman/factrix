@@ -114,7 +114,7 @@ def hit_rate(
         ... )
         >>> series = compute_ic(panel)["factor"].rename({"ic": "value"}).select("date", "value")
         >>> result = hit_rate(series, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     sampled = _sample_non_overlapping(series, forward_periods)

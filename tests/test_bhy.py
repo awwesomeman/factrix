@@ -35,7 +35,7 @@ def test_multi_primary_runs_independent_screens():
                     value=0.4,
                     p=0.5,
                     n_obs=100,
-                    spec=ir,
+                    name=ir.name,
                     metadata={"p_value": 0.5},
                 )
             },

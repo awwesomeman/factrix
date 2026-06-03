@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 
 import polars as pl
-import pytest
 from factrix import (
     EvaluationResult,
     MetricResult,
@@ -14,37 +13,26 @@ from factrix import (
     WarningCode,
 )
 from factrix._axis import DataStructure, FactorDensity, FactorScope
-from factrix._metric_index import spec_by_name
 
 
-@pytest.fixture
-def ic_spec():
-    return spec_by_name()["ic"]
-
-
-@pytest.fixture
-def ic_ir_spec():
-    return spec_by_name()["ic_ir"]
-
-
-def _sample_group(ic_spec, ic_ir_spec) -> MetricResultGroup:
+def _sample_group() -> MetricResultGroup:
     ic_out = MetricResult(
         value=0.05,
         p=0.012,
         n_obs=100,
         stat=2.5,
         metadata={"p_value": 0.012},
-        spec=ic_spec,
+        name="ic",
     )
     ic_ir_out = MetricResult(
         value=0.42,
         n_obs=100,
-        spec=ic_ir_spec,
+        name="ic_ir",
     )
     return MetricResultGroup(
-        applicable=[ic_spec, ic_ir_spec],
-        primary=[ic_spec],
-        diagnostic=[ic_ir_spec],
+        applicable=["ic", "ic_ir"],
+        primary=["ic"],
+        diagnostic=["ic_ir"],
         outputs={"ic": ic_out, "ic_ir": ic_ir_out},
     )
 
@@ -65,27 +53,27 @@ def _sample_result(
 
 
 class TestMetricResult:
-    def test_dict_like_access(self, ic_spec, ic_ir_spec):
-        g = _sample_group(ic_spec, ic_ir_spec)
+    def test_dict_like_access(self):
+        g = _sample_group()
         assert "ic" in g
         assert "missing" not in g
         assert g["ic"].value == 0.05
         assert len(g) == 2
         assert set(g.keys()) == {"ic", "ic_ir"}
-        assert {o.spec.name for o in g.values()} == {"ic", "ic_ir"}
+        assert {o.name for o in g.values()} == {"ic", "ic_ir"}
         assert {k for k, _ in g.items()} == {"ic", "ic_ir"}
         assert list(iter(g)) == ["ic", "ic_ir"]
 
-    def test_partition_lists_carry_specs(self, ic_spec, ic_ir_spec):
-        g = _sample_group(ic_spec, ic_ir_spec)
-        assert g.primary == [ic_spec]
-        assert g.diagnostic == [ic_ir_spec]
-        assert g.applicable == [ic_spec, ic_ir_spec]
+    def test_partition_lists_are_names(self):
+        g = _sample_group()
+        assert g.primary == ["ic"]
+        assert g.diagnostic == ["ic_ir"]
+        assert g.applicable == ["ic", "ic_ir"]
 
 
 class TestEvaluationResultToFrame:
-    def test_schema_and_dtypes(self, ic_spec, ic_ir_spec):
-        r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
+    def test_schema_and_dtypes(self):
+        r = _sample_result(_sample_group())
         df = r.to_frame()
         assert df.columns == [
             "factor",
@@ -103,17 +91,17 @@ class TestEvaluationResultToFrame:
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)
         assert df.height == 2
 
-    def test_short_circuit_row_is_null(self, ic_spec, ic_ir_spec):
-        bad = MetricResult(value=float("nan"), spec=ic_spec)
+    def test_short_circuit_row_is_null(self):
+        bad = MetricResult(value=float("nan"), name="ic")
         g = MetricResultGroup(
-            applicable=[ic_spec], primary=[ic_spec], diagnostic=[], outputs={"ic": bad}
+            applicable=["ic"], primary=["ic"], diagnostic=[], outputs={"ic": bad}
         )
         df = _sample_result(g).to_frame()
         row = df.row(0, named=True)
         assert row["value"] is None
         assert row["p"] is None
 
-    def test_warning_codes_filter_by_source(self, ic_spec, ic_ir_spec):
+    def test_warning_codes_filter_by_source(self):
         warnings = [
             Warning(
                 code=WarningCode.SMALL_CROSS_SECTION_N, source="ic", message="thin"
@@ -124,34 +112,33 @@ class TestEvaluationResultToFrame:
                 message="bundle",
             ),
         ]
-        r = _sample_result(_sample_group(ic_spec, ic_ir_spec), warnings=warnings)
+        r = _sample_result(_sample_group(), warnings=warnings)
         df = r.to_frame()
         ic_row = df.filter(pl.col("metric_name") == "ic").row(0, named=True)
         ic_ir_row = df.filter(pl.col("metric_name") == "ic_ir").row(0, named=True)
         assert ic_row["warning_codes"] == [WarningCode.SMALL_CROSS_SECTION_N.value]
         assert ic_ir_row["warning_codes"] == []
 
-    def test_metric_name_uses_spec_name(self):
-        fm_spec = spec_by_name()["fm_beta"]
-        out = MetricResult(value=0.01, spec=fm_spec)
+    def test_metric_name_from_name_field(self):
+        out = MetricResult(value=0.01, name="fm_beta")
         g = MetricResultGroup(
-            applicable=[fm_spec],
-            primary=[fm_spec],
+            applicable=["fm_beta"],
+            primary=["fm_beta"],
             diagnostic=[],
-            outputs={fm_spec.name: out},
+            outputs={"fm_beta": out},
         )
         df = _sample_result(g).to_frame()
-        assert df.row(0, named=True)["metric_name"] == fm_spec.name
+        assert df.row(0, named=True)["metric_name"] == "fm_beta"
 
 
 class TestEvaluationResultToDict:
-    def test_round_trips_through_json(self, ic_spec, ic_ir_spec):
+    def test_round_trips_through_json(self):
         warnings = [
             Warning(
                 code=WarningCode.SMALL_CROSS_SECTION_N, source="ic", message="thin"
             ),
         ]
-        r = _sample_result(_sample_group(ic_spec, ic_ir_spec), warnings=warnings)
+        r = _sample_result(_sample_group(), warnings=warnings)
         d = r.to_dict()
         encoded = json.dumps(d)
         back = json.loads(encoded)
@@ -166,16 +153,16 @@ class TestEvaluationResultToDict:
         assert back["warnings"][0]["code"] == WarningCode.SMALL_CROSS_SECTION_N.value
         assert back["plan"] == "1. ic [per-factor]"
 
-    def test_nonfinite_floats_become_null(self, ic_spec, ic_ir_spec):
+    def test_nonfinite_floats_become_null(self):
         bad = MetricResult(
             value=float("nan"),
             p=float("nan"),
             stat=float("inf"),
             metadata={"p_value": float("nan")},
-            spec=ic_spec,
+            name="ic",
         )
         g = MetricResultGroup(
-            applicable=[ic_spec], primary=[ic_spec], diagnostic=[], outputs={"ic": bad}
+            applicable=["ic"], primary=["ic"], diagnostic=[], outputs={"ic": bad}
         )
         d = _sample_result(g).to_dict()
         assert d["metrics"]["ic"]["value"] is None
@@ -185,34 +172,34 @@ class TestEvaluationResultToDict:
 
 
 class TestReprHtml:
-    def test_group_renders(self, ic_spec, ic_ir_spec):
+    def test_group_renders(self):
         # MetricResultGroup itself ships only dict-like access; HTML
         # lives on the bundle. Smoke-test the bundle render.
-        r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
+        r = _sample_result(_sample_group())
         html_out = r._repr_html_()
         assert "EvaluationResult" in html_out
         assert "mom_12_1" in html_out
         assert "ic" in html_out
 
-    def test_renders_warnings_when_present(self, ic_spec, ic_ir_spec):
+    def test_renders_warnings_when_present(self):
         warnings = [
             Warning(code=WarningCode.SMALL_CROSS_SECTION_N, source="ic", message="thin")
         ]
-        r = _sample_result(_sample_group(ic_spec, ic_ir_spec), warnings=warnings)
+        r = _sample_result(_sample_group(), warnings=warnings)
         html_out = r._repr_html_()
         assert "warnings" in html_out
         assert WarningCode.SMALL_CROSS_SECTION_N.value in html_out
 
-    def test_no_warnings_block_when_empty(self, ic_spec, ic_ir_spec):
-        r = _sample_result(_sample_group(ic_spec, ic_ir_spec))
+    def test_no_warnings_block_when_empty(self):
+        r = _sample_result(_sample_group())
         assert "summary>warnings" not in r._repr_html_()
 
 
-class TestMetricResultSpecBackref:
-    def test_default_none(self):
+class TestMetricResultNameField:
+    def test_default_empty(self):
         out = MetricResult(value=1.0)
-        assert out.spec is None
+        assert out.name == ""
 
-    def test_carries_spec(self, ic_spec):
-        out = MetricResult(value=0.1, spec=ic_spec)
-        assert out.spec is ic_spec
+    def test_carries_name(self):
+        out = MetricResult(value=0.1, name="ic")
+        assert out.name == "ic"

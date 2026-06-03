@@ -54,12 +54,13 @@ def make_result(
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     primary_out = MetricResult(
-        value=value, p=p, n_obs=100, spec=primary, metadata=metadata
+        value=value, p=p, n_obs=100, name=primary.name, metadata=metadata
     )
     outputs = {primary.name: primary_out}
     if extra_outputs:
         outputs.update(extra_outputs)
     primaries = [primary, *extra_primaries]
+    primary_names = [s.name for s in primaries]
     return EvaluationResult(
         factor=factor,
         cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),
@@ -67,8 +68,8 @@ def make_result(
         n_obs=100,
         n_assets=25,
         metrics=MetricResultGroup(
-            applicable=list(primaries),
-            primary=list(primaries),
+            applicable=primary_names,
+            primary=primary_names,
             diagnostic=[],
             outputs=outputs,
         ),

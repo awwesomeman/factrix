@@ -117,7 +117,7 @@ def monotonicity(
         ...     forward_periods=5,
         ... )
         >>> result = monotonicity(panel, forward_periods=5, n_groups=5)
-        >>> result["factor"].spec is None
+        >>> result["factor"].name == ""
         True
     """
     cols = list(factor_cols)

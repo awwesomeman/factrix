@@ -289,7 +289,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
         ... )
         >>> per_event = compute_mfe_mae(panel, window=20)
         >>> result = mfe_mae_summary(per_event)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if mfe_mae_df.is_empty():

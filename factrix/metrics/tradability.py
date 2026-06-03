@@ -180,7 +180,7 @@ def turnover(
         >>> from factrix.metrics.tradability import turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
         >>> result = turnover(panel, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if quantile is not None and not 0.0 < quantile < 0.5:
@@ -334,7 +334,7 @@ def notional_turnover(
         >>> from factrix.metrics.tradability import notional_turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
         >>> result = notional_turnover(panel, n_groups=10, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if forward_periods < 1:
@@ -488,7 +488,7 @@ def breakeven_cost(
         >>> result = breakeven_cost(
         ...     gross_spread=0.001, turnover=0.2, forward_periods=5,
         ... )
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if forward_periods < 1:
@@ -578,7 +578,7 @@ def net_spread(
         ...     gross_spread=0.001, turnover=0.2,
         ...     estimated_cost_bps=30.0, forward_periods=5,
         ... )
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if forward_periods < 1:

@@ -239,7 +239,7 @@ def caar(
         ... )
         >>> caar_df = compute_caar(panel)
         >>> result = caar(caar_df, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     vals = caar_df["caar"].drop_nulls()
@@ -410,7 +410,7 @@ def bmp_test(
         ...     forward_periods=5,
         ... )
         >>> result = bmp_test(panel, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     sorted_df = df.sort(["asset_id", "date"])
