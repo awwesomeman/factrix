@@ -51,21 +51,6 @@ class DataStructure(StrEnum):
     TIMESERIES = "timeseries"
 
 
-class Visibility(StrEnum):
-    """Whether a metric appears in user-facing discovery surfaces.
-
-    ``PUBLIC``   — surfaced by :func:`factrix.list_metrics`,
-    :attr:`PanelInspection.metrics.applicable`, and
-    :attr:`EvaluationResult.metrics` dict keys.
-    ``INTERNAL`` — stage-1 helper (intermediate-frame producer such as
-    ``compute_ic``); pulled by the DAG executor via
-    :attr:`MetricSpec.requires` but not listed as a runnable metric.
-    """
-
-    PUBLIC = "public"
-    INTERNAL = "internal"
-
-
 # ---------------------------------------------------------------------------
 # Metric-spec structural enums (#472)
 # ---------------------------------------------------------------------------

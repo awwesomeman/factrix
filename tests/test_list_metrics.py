@@ -16,7 +16,7 @@ from unittest.mock import patch
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import FactorDensity, FactorScope, SpecRole, Visibility
+from factrix._axis import FactorDensity, FactorScope, SpecRole
 from factrix._errors import IncompatibleAxisError
 from factrix._metric_index import (
     MetricSpec,

@@ -7,7 +7,7 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod, Visibility
+from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
 from factrix._dag import CycleError, DagExecutor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._types import MetricOutput
