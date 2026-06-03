@@ -68,6 +68,7 @@ __metric_specs__ = (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class SpanningResult:
     """Result of a single spanning regression for one candidate factor."""
@@ -76,6 +77,7 @@ class SpanningResult:
     alpha: float
     t_stat: float
     selected: bool
+
 
 @dataclass
 class ForwardSelectionResult:
@@ -96,9 +98,11 @@ class ForwardSelectionResult:
     all_candidates: list[SpanningResult] = field(default_factory=list)
     t_stats_inference_invalid: bool = field(default=True, init=False)
 
+
 # ---------------------------------------------------------------------------
 # Date alignment helper
 # ---------------------------------------------------------------------------
+
 
 def _align_spread_series(
     series_dict: dict[str, pl.DataFrame],
@@ -132,9 +136,11 @@ def _align_spread_series(
         )["spread"].to_numpy()
     return common_dates, arrays
 
+
 # ---------------------------------------------------------------------------
 # Public API: single-factor spanning test
 # ---------------------------------------------------------------------------
+
 
 def spanning_alpha(
     factor_spread: pl.DataFrame,
@@ -240,9 +246,11 @@ def spanning_alpha(
         },
     )
 
+
 # ---------------------------------------------------------------------------
 # Public API: multi-factor greedy forward selection
 # ---------------------------------------------------------------------------
+
 
 def greedy_forward_selection(
     factor_spreads: dict[str, pl.DataFrame],
@@ -440,6 +448,7 @@ def greedy_forward_selection(
         )
 
     return result
+
 
 def _backward_eliminate(
     selected_names: list[str],

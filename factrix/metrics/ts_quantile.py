@@ -53,12 +53,15 @@ __all__ = [
 __metric_specs__ = (
     MetricSpec(
         name="ts_quantile_spread",
-        cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
+        cell=cell(
+            FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL
+        ),
         aggregation=Aggregation.CS_THEN_TS,
         test_method=TestMethod.CHI2,
         se_method=SEMethod.HAC,
     ),
 )
+
 
 def ts_quantile_spread(
     df: pl.DataFrame,

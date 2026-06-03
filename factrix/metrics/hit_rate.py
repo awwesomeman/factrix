@@ -53,6 +53,7 @@ __all__ = [
 # the series.
 min_assets_per_group: int | None = None
 
+
 def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     """Return ``(date, value)`` per-date hit indicator series.
 
@@ -68,6 +69,7 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
             (pl.col("value") > 0).cast(pl.Float64).alias("value"),
         ]
     ).drop_nulls()
+
 
 def hit_rate(
     series: pl.DataFrame,

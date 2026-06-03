@@ -35,6 +35,7 @@ class PerDateSeries(Protocol):
 
     def __call__(self, df: pl.DataFrame, /) -> pl.DataFrame: ...
 
+
 def per_date_series_rename(source_col: str) -> PerDateSeries:
     """Factory: ``per_date_series`` for metrics whose input is already
     a ``(date, source_col)`` per-date frame.
@@ -52,6 +53,7 @@ def per_date_series_rename(source_col: str) -> PerDateSeries:
 
     return _per_date
 
+
 def resolve_per_date_series(metric: Callable) -> PerDateSeries:
     """Look up ``per_date_series`` on the module that defines ``metric``.
 
@@ -68,6 +70,7 @@ def resolve_per_date_series(metric: Callable) -> PerDateSeries:
             f"`per_date_series(df) -> pl.DataFrame[(date, value)]` callable."
         )
     return fn
+
 
 def resolve_min_assets_per_group(metric: Callable) -> int | None:
     """Look up ``min_assets_per_group`` on the module that defines ``metric``.

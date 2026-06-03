@@ -68,6 +68,7 @@ __metric_specs__ = tuple(
     )
 )
 
+
 def event_hit_rate(
     df: pl.DataFrame,
     *,
@@ -142,6 +143,7 @@ def event_hit_rate(
             "method": _binomial_test_method_name(n),
         },
     )
+
 
 def event_ic(
     df: pl.DataFrame,
@@ -237,6 +239,7 @@ def event_ic(
         },
     )
 
+
 def profit_factor(
     df: pl.DataFrame,
     *,
@@ -306,6 +309,7 @@ def profit_factor(
             "n_losses": int(np.sum(signed < 0)),
         },
     )
+
 
 def event_skewness(
     df: pl.DataFrame,
@@ -395,6 +399,7 @@ def event_skewness(
             ),
         },
     )
+
 
 def signal_density(
     df: pl.DataFrame,

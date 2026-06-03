@@ -60,6 +60,7 @@ __metric_specs__ = (
     ),
 )
 
+
 def top_concentration(
     df: pl.DataFrame,
     forward_periods: int = 5,

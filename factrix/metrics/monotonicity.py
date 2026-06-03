@@ -69,6 +69,7 @@ __metric_specs__ = (
 # `n_groups` accordingly inside the slice-test function.
 min_assets_per_group: int | None = 50
 
+
 def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,
@@ -217,6 +218,7 @@ def monotonicity(
         )
 
     return results
+
 
 def _compute_tie_ratios_batch(
     df: pl.DataFrame, factor_cols: list[str]

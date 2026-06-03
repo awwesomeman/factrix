@@ -44,6 +44,7 @@ __all__ = [
     "clustering_hhi",
 ]
 
+
 def clustering_hhi(
     df: pl.DataFrame,
     *,

@@ -73,6 +73,7 @@ _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 # exposed via) this attribute.
 min_assets_per_group: int | None = None
 
+
 def compute_caar(
     df: pl.DataFrame,
     *,
@@ -189,6 +190,7 @@ def compute_caar(
         .sort("date")
     )
 
+
 def caar(
     caar_df: pl.DataFrame,
     *,
@@ -295,6 +297,7 @@ def caar(
         significance=_significance_marker(p),
         metadata=metadata,
     )
+
 
 def bmp_test(
     df: pl.DataFrame,
@@ -523,6 +526,7 @@ def bmp_test(
         metadata=metadata,
     )
 
+
 def _estimate_sar_icc(
     sar_by_date: pl.DataFrame,
 ) -> tuple[float | None, float, KPSource]:
@@ -576,6 +580,7 @@ def _estimate_sar_icc(
     total = sigma2_between + sigma2_within
     r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
     return r_hat, n_eff, "icc"
+
 
 __metric_specs__ = (
     MetricSpec(
