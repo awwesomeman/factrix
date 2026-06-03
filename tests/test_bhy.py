@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from factrix._errors import UserInputError
 from factrix._multi_factor import BhyResult, bhy
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 
 from .conftest import make_result, make_spec
 
@@ -31,9 +31,9 @@ def test_multi_primary_runs_independent_screens():
             p=0.0001,
             primary=ic,
             extra_outputs={
-                "ic_ir": MetricOutput(
-                    name="ic_ir",
+                "ic_ir": MetricResult(
                     value=0.4,
+                    p=0.5,
                     n_obs=100,
                     spec=ir,
                     metadata={"p_value": 0.5},

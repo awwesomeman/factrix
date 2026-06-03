@@ -29,11 +29,11 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
+from factrix._results import MetricResult
+from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS,
-    MetricOutput,
 )
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
@@ -77,7 +77,7 @@ def monotonicity(
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
     tie_policy: str = "ordinal",
-) -> dict[str, MetricOutput]:
+) -> dict[str, MetricResult]:
     """Quantile return monotonicity (Spearman correlation).
 
     ``value`` = mean |Spearman| — magnitude of monotonicity (always ≥ 0).
@@ -93,7 +93,7 @@ def monotonicity(
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
 
     Returns:
-        MetricOutput with value = mean |Spearman(group_idx, group_return)|.
+        MetricResult with value = mean |Spearman(group_idx, group_return)|.
 
     Notes:
         Per non-overlap date ``t``, bucket assets into ``n_groups`` by
@@ -117,8 +117,8 @@ def monotonicity(
         ...     forward_periods=5,
         ... )
         >>> result = monotonicity(panel, forward_periods=5, n_groups=5)
-        >>> result["factor"].name
-        'monotonicity'
+        >>> result["factor"].spec is None
+        True
     """
     cols = list(factor_cols)
     if not cols:
@@ -165,7 +165,7 @@ def monotonicity(
     group_idx = np.arange(n_groups, dtype=np.float64)
     group_idx_centered = group_idx - group_idx.mean()
     group_idx_norm = float(np.sqrt(np.sum(group_idx_centered**2)))
-    results: dict[str, MetricOutput] = {}
+    results: dict[str, MetricResult] = {}
     for i, f in enumerate(cols):
         mat = all_means[:, i * n_groups : (i + 1) * n_groups]
         # Drop dates with any null/nan bucket mean (matches the
@@ -200,11 +200,10 @@ def monotonicity(
         std_mono = float(np.std(mono_arr, ddof=DDOF))
         t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
         p = _p_value_from_t(t, len(mono_arr))
-        results[f] = MetricOutput(
-            name="monotonicity",
+        results[f] = MetricResult(
+            p=p,
             value=avg_mono,
             stat=t,
-            significance=_significance_marker(p),
             metadata={
                 "p_value": p,
                 "stat_type": "t",

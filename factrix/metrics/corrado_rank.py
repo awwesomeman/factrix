@@ -18,8 +18,9 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
-from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
+from factrix._results import MetricResult
+from factrix._stats import _calc_t_stat, _p_value_from_z
+from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._helpers import _short_circuit_output
 
 __metric_specs__ = (
@@ -42,7 +43,7 @@ def corrado_rank(
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
-) -> MetricOutput:
+) -> MetricResult:
     r"""Corrado nonparametric rank test for event abnormal returns.
 
     A non-parametric alternative to the CAAR t-test. Robust to extreme
@@ -63,7 +64,7 @@ def corrado_rank(
             Must include non-event rows for ranking.
 
     Returns:
-        MetricOutput with value=mean rank deviation, stat=z.
+        MetricResult with value=mean rank deviation, stat=z.
 
     Notes:
         factrix uses the **pooled** std of ``U_all`` across all
@@ -75,7 +76,7 @@ def corrado_rank(
         substitute for a reference event-study package when strict
         size control matters.
 
-        Short-circuits to ``MetricOutput`` with
+        Short-circuits to ``MetricResult`` with
         ``metadata["reason"]="insufficient_events"`` when
         ``N_events < MIN_EVENTS_HARD``, and
         ``"degenerate_rank_variance"`` when ``std(U_all) < EPSILON``.
@@ -101,8 +102,8 @@ def corrado_rank(
         ...     forward_periods=5,
         ... )
         >>> result = corrado_rank(panel)
-        >>> result.name
-        'corrado_rank'
+        >>> result.spec is None
+        True
     """
     ranked = df.with_columns(
         (
@@ -139,11 +140,10 @@ def corrado_rank(
     z = _calc_t_stat(mean_u, std_u, n_events)
     p = _p_value_from_z(z)
 
-    return MetricOutput(
-        name="corrado_rank",
+    return MetricResult(
+        p=p,
         value=mean_u,
         stat=z,
-        significance=_significance_marker(p),
         metadata={
             "n_events": n_events,
             "n_total_obs": len(ranked),

@@ -5,7 +5,7 @@ title: Standalone metrics
 [`evaluate()`][factrix.evaluate] runs one canonical procedure per cell
 and returns a `FactorProfile` with a single
 `primary_p`. Every other module under `factrix.metrics` is a
-**standalone metric** — a `MetricOutput`-returning helper the user
+**standalone metric** — a `MetricResult`-returning helper the user
 invokes directly to add diagnostics around the canonical inference.
 
 This guide covers the three things a user needs to wire them in:
@@ -51,7 +51,7 @@ For the `(scope, signal)` filter at runtime, see
 `evaluate()` only writes the `StatCode` keys listed for its cell on
 `FactorProfile`;
 standalone metrics return their own
-[`MetricOutput`](../api/metric-output.md) and never mutate
+[`MetricResult`](../api/metric-output.md) and never mutate
 `profile.stats`. The two surfaces compose without coordination.
 
 ## Input shapes

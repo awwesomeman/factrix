@@ -193,7 +193,6 @@ class TestMfeMaeSummary:
         mfe_df = compute_mfe_mae(event_data, window=10)
         result = mfe_mae_summary(mfe_df)
         assert result is not None
-        assert result.name == "mfe_mae_summary"
         assert "mfe_p50" in result.metadata
         assert "mae_p75" in result.metadata
 
@@ -209,7 +208,6 @@ class TestMfeMaeSummary:
             },
         )
         result = mfe_mae_summary(empty)
-        assert result.name == "mfe_mae_summary"
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["n_events"] == 0
@@ -223,7 +221,6 @@ class TestMfeMaeSummary:
 class TestProfitFactor:
     def test_strong_signal_above_one(self, event_data):
         result = profit_factor(event_data)
-        assert result.name == "profit_factor"
         assert result.value > 0
 
     def test_metadata_has_gains_losses(self, event_data):
@@ -252,7 +249,6 @@ class TestProfitFactor:
 class TestEventSkewness:
     def test_returns_metric(self, event_data):
         result = event_skewness(event_data)
-        assert result.name == "event_skewness"
         assert isinstance(result.value, float)
 
     def test_insufficient_events(self):

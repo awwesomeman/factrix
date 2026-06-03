@@ -36,11 +36,11 @@ from factrix._axis import (
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
     _p_value_from_z,
-    _significance_marker,
 )
 from factrix._types import (
     DDOF,
@@ -48,7 +48,6 @@ from factrix._types import (
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
     KPSource,
-    MetricOutput,
 )
 from factrix.metrics._helpers import (
     _is_sparse_magnitude_weighted,
@@ -195,7 +194,7 @@ def caar(
     caar_df: pl.DataFrame,
     *,
     forward_periods: int = 5,
-) -> MetricOutput:
+) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
 
     Args:
@@ -206,7 +205,7 @@ def caar(
             ``EventConfig.event_window_post`` which controls MFE/MAE.
 
     Returns:
-        MetricOutput with value=mean CAAR, stat=t from non-overlapping sampling.
+        MetricResult with value=mean CAAR, stat=t from non-overlapping sampling.
 
     Notes:
         $t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})$
@@ -240,8 +239,8 @@ def caar(
         ... )
         >>> caar_df = compute_caar(panel)
         >>> result = caar(caar_df, forward_periods=5)
-        >>> result.name
-        'caar'
+        >>> result.spec is None
+        True
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
@@ -290,11 +289,10 @@ def caar(
     if warning_codes:
         metadata["warning_codes"] = warning_codes
 
-    return MetricOutput(
-        name="caar",
+    return MetricResult(
+        p=p,
         value=mean_caar,
         stat=t,
-        significance=_significance_marker(p),
         metadata=metadata,
     )
 
@@ -308,7 +306,7 @@ def bmp_test(
     forward_periods: int = 5,
     kolari_pynnonen_adjust: bool = False,
     include_prediction_error_variance: bool = False,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
 
     Standardizes each event's abnormal return by the asset's pre-event
@@ -372,7 +370,7 @@ def bmp_test(
             matters.
 
     Returns:
-        MetricOutput(name="bmp_test", value=mean_SAR, stat=z_bmp, ...).
+        MetricResult(value=mean_SAR, p=p_bmp, stat=z_bmp, ...).
 
     Notes:
         For each event $i$: estimate pre-event vol $\sigma_i$ over the
@@ -412,8 +410,8 @@ def bmp_test(
         ...     forward_periods=5,
         ... )
         >>> result = bmp_test(panel, forward_periods=5)
-        >>> result.name
-        'bmp_test'
+        >>> result.spec is None
+        True
     """
     sorted_df = df.sort(["asset_id", "date"])
 
@@ -518,11 +516,10 @@ def bmp_test(
     p = _p_value_from_z(z)
     metadata["p_value"] = p
 
-    return MetricOutput(
-        name="bmp_test",
+    return MetricResult(
+        p=p,
         value=mean_sar,
         stat=z,
-        significance=_significance_marker(p),
         metadata=metadata,
     )
 

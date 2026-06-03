@@ -112,7 +112,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | Page | What it is |
 |---|---|
 | [Panel schema](panel-schema.md) | The four-column input contract every panel-consuming function depends on. |
-| [`MetricOutput`](metric-output.md) | Common wrapper returned by every standalone metric — `value`, `p_value`, `stats`, `metadata`. |
+| [`MetricResult`](metric-output.md) | Common wrapper returned by every standalone metric — `value`, `p`, `stat`, `metadata`. |
 | [`datasets`](datasets.md) | Synthetic panels (`make_cs_panel`, `make_event_panel`) for smoke tests and docs examples. |
 
 ## Naming convention
@@ -122,6 +122,6 @@ distinction is intentional, not inconsistent:
 
 | Sidebar entry | Identifier kind | Example call |
 |---|---|---|
-| `MetricOutput` | Class | `fx.MetricOutput` |
+| `MetricResult` | Class | `fx.MetricResult` |
 | `evaluate`, `list_metrics` | Function | `fx.evaluate(panel, cfg)` |
 | `multi_factor`, `datasets`, `Metrics` (and submodules) | Module | `fx.multi_factor.bhy(profiles)` |

@@ -38,7 +38,8 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._types import DDOF, EPSILON, MetricOutput
+from factrix._results import MetricResult
+from factrix._types import DDOF, EPSILON
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _sample_non_overlapping,
@@ -102,7 +103,7 @@ def turnover(
     factor_col: str = "factor",
     forward_periods: int = 1,
     quantile: float | None = None,
-) -> MetricOutput:
+) -> MetricResult:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
     $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
@@ -145,7 +146,7 @@ def turnover(
             only against other tail-filtered estimates at the same q.
 
     Returns:
-        MetricOutput with ``value = turnover estimate (0–1)`` and metadata
+        MetricResult with ``value = turnover estimate (0–1)`` and metadata
         carrying ``mean_rank_autocorrelation``, ``std_rank_autocorrelation``,
         ``n_pairs``, ``forward_periods``, ``quantile``, and
         ``n_cross_section_mean`` (mean assets-per-pair post-filter).
@@ -179,8 +180,8 @@ def turnover(
         >>> from factrix.metrics.tradability import turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
         >>> result = turnover(panel, forward_periods=5)
-        >>> result.name
-        'turnover'
+        >>> result.spec is None
+        True
     """
     if quantile is not None and not 0.0 < quantile < 0.5:
         raise ValueError(f"quantile must be in (0, 0.5), got {quantile!r}")
@@ -251,8 +252,7 @@ def turnover(
     std_rc = float(np.std(rc_arr, ddof=DDOF))
     n_cs_mean = float(rc_per_date["n_pair"].mean())  # type: ignore[arg-type]
 
-    return MetricOutput(
-        name="turnover",
+    return MetricResult(
         value=1.0 - mean_rc,
         metadata={
             "mean_rank_autocorrelation": mean_rc,
@@ -271,7 +271,7 @@ def notional_turnover(
     *,
     n_groups: int = 10,
     forward_periods: int = 1,
-) -> MetricOutput:
+) -> MetricResult:
     """Portfolio notional turnover via top/bottom quantile membership churn.
 
     For an equal-weight Q1/Q_n long-short portfolio the only trades that
@@ -303,7 +303,7 @@ def notional_turnover(
             holding-period-aligned rebalance schedule.
 
     Returns:
-        MetricOutput with ``value`` = mean per-rebalance turnover ∈ [0, 1].
+        MetricResult with ``value`` = mean per-rebalance turnover ∈ [0, 1].
         ``0`` = identical tail sets every rebalance; ``1`` = full rotation.
         Metadata: ``n_rebalances``, ``n_groups``, ``forward_periods``,
         ``mean_tail_size`` (per-date average of ``(|Q_top| + |Q_bot|)/2``;
@@ -334,8 +334,8 @@ def notional_turnover(
         >>> from factrix.metrics.tradability import notional_turnover
         >>> panel = fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0)
         >>> result = notional_turnover(panel, n_groups=10, forward_periods=5)
-        >>> result.name
-        'notional_turnover'
+        >>> result.spec is None
+        True
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
@@ -420,8 +420,7 @@ def notional_turnover(
     mean_tail_size = float(
         per_date.select(((pl.col("n_top") + pl.col("n_bot")) / 2).mean()).item()
     )
-    return MetricOutput(
-        name="notional_turnover",
+    return MetricResult(
         value=mean_turnover,
         metadata={
             "n_rebalances": int(per_date.height),
@@ -441,7 +440,7 @@ def breakeven_cost(
     turnover: float,
     *,
     forward_periods: int,
-) -> MetricOutput:
+) -> MetricResult:
     """Breakeven single-leg trading cost in bps.
 
     ``Breakeven = Gross_Spread × forward_periods / (2 × Turnover)``
@@ -466,7 +465,7 @@ def breakeven_cost(
             ``compute_forward_return`` and ``notional_turnover`` stride.
 
     Returns:
-        MetricOutput with value = breakeven cost in bps.
+        MetricResult with value = breakeven cost in bps.
 
     Notes:
         ``breakeven_bps = (gross_spread × forward_periods) /
@@ -489,14 +488,13 @@ def breakeven_cost(
         >>> result = breakeven_cost(
         ...     gross_spread=0.001, turnover=0.2, forward_periods=5,
         ... )
-        >>> result.name
-        'breakeven_cost'
+        >>> result.spec is None
+        True
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
     if turnover < EPSILON:
-        return MetricOutput(
-            name="breakeven_cost",
+        return MetricResult(
             value=float("inf"),
             metadata={
                 "gross_spread": gross_spread,
@@ -509,8 +507,7 @@ def breakeven_cost(
     # per-period spread to per-rebalance to align with turnover; ×10000 → bps.
     be_bps = (gross_spread * forward_periods / (2 * turnover)) * 10000
 
-    return MetricOutput(
-        name="breakeven_cost",
+    return MetricResult(
         value=be_bps,
         metadata={
             "gross_spread": gross_spread,
@@ -526,7 +523,7 @@ def net_spread(
     estimated_cost_bps: float = 30.0,
     *,
     forward_periods: int,
-) -> MetricOutput:
+) -> MetricResult:
     """Net spread after estimated trading costs (per-period).
 
     ``Net = Gross_Spread - 2 × cost_bps × Turnover / forward_periods``
@@ -557,7 +554,7 @@ def net_spread(
             ``compute_forward_return`` and ``notional_turnover`` stride.
 
     Returns:
-        MetricOutput with value = net spread (per-period).
+        MetricResult with value = net spread (per-period).
 
     Notes:
         ``net = gross_spread - 2 × (cost_bps / 1e4) × turnover /
@@ -581,16 +578,15 @@ def net_spread(
         ...     gross_spread=0.001, turnover=0.2,
         ...     estimated_cost_bps=30.0, forward_periods=5,
         ... )
-        >>> result.name
-        'net_spread'
+        >>> result.spec is None
+        True
     """
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
     cost_drag = 2 * (estimated_cost_bps / 10000) * turnover / forward_periods
     net = gross_spread - cost_drag
 
-    return MetricOutput(
-        name="net_spread",
+    return MetricResult(
         value=net,
         metadata={
             "gross_spread": gross_spread,

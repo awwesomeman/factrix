@@ -4,7 +4,7 @@ Answers: "what does the price path look like after events?"
 
 Requires bar-by-bar ``price`` data within the event window.
 If ``price`` is not available, ``compute_mfe_mae`` returns an empty
-DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricOutput``
+DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricResult``
 (``value=NaN``, ``metadata["reason"]``) — never ``None``.
 
 Metrics:
@@ -31,7 +31,8 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
+from factrix._results import MetricResult
+from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._helpers import _short_circuit_output
 
 __all__ = [
@@ -249,7 +250,7 @@ def compute_mfe_mae(
     )
 
 
-def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
+def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
     """Aggregate MFE/MAE statistics.
 
     Reports MFE/MAE ratio as the primary value — higher is better
@@ -259,9 +260,9 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         mfe_mae_df: Output of ``compute_mfe_mae()``.
 
     Returns:
-        MetricOutput with value=MFE_p50/|MAE_p75| ratio. On insufficient
+        MetricResult with value=MFE_p50/|MAE_p75| ratio. On insufficient
         data (empty input or fewer than ``MIN_EVENTS_HARD`` rows), returns a
-        short-circuit MetricOutput (``value=NaN``, ``metadata["reason"]``
+        short-circuit MetricResult (``value=NaN``, ``metadata["reason"]``
         set) so all metrics share a single return contract.
 
     Notes:
@@ -288,8 +289,8 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         ... )
         >>> per_event = compute_mfe_mae(panel, window=20)
         >>> result = mfe_mae_summary(per_event)
-        >>> result.name
-        'mfe_mae_summary'
+        >>> result.spec is None
+        True
     """
     if mfe_mae_df.is_empty():
         return _short_circuit_output(
@@ -341,8 +342,8 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
             )
             metadata["n_events_z"] = int(min(len(mfe_z), len(mae_z)))
 
-    return MetricOutput(
-        name="mfe_mae_summary",
+    return MetricResult(
+        p=metadata.get("p_value"),
         value=ratio,
         metadata=metadata,
     )

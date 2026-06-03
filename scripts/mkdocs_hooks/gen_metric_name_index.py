@@ -1,14 +1,14 @@
-"""Build-time generator for the ``MetricOutput.name`` reverse index.
+"""Build-time generator for the metric-name reverse index.
 
 Renders a Markdown table to
 ``docs/reference/_generated_metric_name_index.md`` mapping every
-emitted ``MetricOutput.name`` value back to its source module, import
-path, and API-page anchor. Driven by the same ``Matrix-row:`` SSOT as
+emitted metric name back to its source module, import path, and
+API-page anchor. Driven by the same ``Matrix-row:`` SSOT as
 ``gen_metric_matrix.py`` and ``factrix.list_metrics``.
 
 Closes the asymmetry called out in #125: a consumer holding a
-``MetricOutput`` value (in a downstream pipeline, an agent loop, a
-report renderer) can mechanically resolve ``output.name`` to the
+``MetricResult`` (in a downstream pipeline, an agent loop, a report
+renderer) can mechanically resolve ``result.spec.name`` to the
 metric's docs page without grepping the codebase or guessing URL
 conventions.
 
@@ -36,7 +36,7 @@ from factrix._metric_index import (
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_name_index.md"
 
-_TABLE_HEADER = "| `MetricOutput.name` | Source module | API page |\n|---|---|---|\n"
+_TABLE_HEADER = "| Metric name | Source module | API page |\n|---|---|---|\n"
 
 
 def _render_row(stem: str, spec: MetricSpec) -> str:

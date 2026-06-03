@@ -30,12 +30,12 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
-    _significance_marker,
 )
-from factrix._types import DDOF, EPSILON, MetricOutput
+from factrix._types import DDOF, EPSILON
 from factrix.metrics._helpers import _short_circuit_output
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
@@ -179,7 +179,7 @@ def compute_ts_betas(
 # ---------------------------------------------------------------------------
 
 
-def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
+def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
 
     The cross-sectional $t$-test in ``ts_beta`` needs $N \geq 2$ assets.
@@ -210,8 +210,8 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
         diverge.
     """
     row = ts_betas_df.row(0, named=True)
-    return MetricOutput(
-        name="ts_beta",
+    return MetricResult(
+        p=1.0,
         value=float(row["beta"]),
         stat=float(row["t_stat"]),
         metadata={
@@ -222,7 +222,7 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     )
 
 
-def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
+def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
 
     Uses the cross-sectional distribution of per-asset betas.
@@ -259,8 +259,8 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         ... )
         >>> ts_betas_df = compute_ts_betas(panel)
         >>> result = ts_beta(ts_betas_df)
-        >>> result.name
-        'ts_beta'
+        >>> result.spec is None
+        True
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -278,11 +278,10 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     t = _calc_t_stat(mean_b, std_b, n)
     p = _p_value_from_t(t, n)
 
-    return MetricOutput(
-        name="ts_beta",
+    return MetricResult(
+        p=p,
         value=mean_b,
         stat=t,
-        significance=_significance_marker(p),
         metadata={
             "p_value": p,
             "stat_type": "t",
@@ -300,7 +299,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
 # ---------------------------------------------------------------------------
 
 
-def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
+def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
 
     $R^2_i$ comes from asset $i$'s regression
@@ -336,8 +335,8 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
         ... )
         >>> ts_betas_df = compute_ts_betas(panel)
         >>> result = mean_r_squared(ts_betas_df)
-        >>> result.name
-        'mean_r_squared'
+        >>> result.spec is None
+        True
     """
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
@@ -350,8 +349,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
             min_required=1,
         )
 
-    return MetricOutput(
-        name="mean_r_squared",
+    return MetricResult(
         value=float(np.mean(r2_vals)),
         metadata={
             "n_assets": n,
@@ -469,7 +467,7 @@ def compute_rolling_mean_beta(
 # ---------------------------------------------------------------------------
 
 
-def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
+def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
 
     Range [0.5, 1.0]: 0.5 = βs evenly split (no directional consensus);
@@ -509,8 +507,8 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
         ... )
         >>> ts_betas_df = compute_ts_betas(panel)
         >>> result = ts_beta_sign_consistency(ts_betas_df)
-        >>> result.name
-        'ts_beta_sign_consistency'
+        >>> result.spec is None
+        True
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
@@ -525,8 +523,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     positive = float(np.mean(betas > 0))
     consistency = max(positive, 1.0 - positive)
 
-    return MetricOutput(
-        name="ts_beta_sign_consistency",
+    return MetricResult(
         value=consistency,
         metadata={
             "n_assets": n,

@@ -29,7 +29,8 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._types import EPSILON, MetricOutput
+from factrix._results import MetricResult
+from factrix._types import EPSILON
 from factrix.metrics._helpers import _short_circuit_output
 
 _EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
@@ -195,7 +196,7 @@ def event_around_return(
     offsets: list[int] | None = None,
     factor_col: str = "factor",
     price_col: str = "price",
-) -> MetricOutput:
+) -> MetricResult:
     """Return profile at multiple offsets around event date.
 
     Summarizes per-offset: mean, median, p25, p75, hit_rate, n.
@@ -209,8 +210,8 @@ def event_around_return(
         offsets: Defaults to ``[-6, -3, -1, 1, 6, 12, 24]``.
 
     Returns:
-        MetricOutput with per-offset stats in metadata. When price data is
-        unavailable, returns a short-circuit MetricOutput (``value=NaN``,
+        MetricResult with per-offset stats in metadata. When price data is
+        unavailable, returns a short-circuit MetricResult (``value=NaN``,
         ``metadata["reason"]="no_price_data"``) so all metrics share a
         single return contract.
 
@@ -234,8 +235,8 @@ def event_around_return(
         ...     forward_periods=5,
         ... )
         >>> result = event_around_return(panel)
-        >>> result.name
-        'event_around_return'
+        >>> result.spec is None
+        True
     """
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
@@ -281,8 +282,8 @@ def event_around_return(
     # Primary value: pre-event leakage (mean of |pre-event returns|)
     leakage = float(np.mean(pre_leakage_vals)) if pre_leakage_vals else 0.0
 
-    return MetricOutput(
-        name="event_around_return",
+    return MetricResult(
+        p=1.0,
         value=leakage,
         metadata={
             "per_offset": per_offset,

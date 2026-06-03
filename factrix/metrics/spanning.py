@@ -32,8 +32,8 @@ import polars as pl
 from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._ols import ols_alpha as _ols_alpha
-from factrix._stats import _p_value_from_t, _significance_marker
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
+from factrix._stats import _p_value_from_t
 from factrix.metrics._helpers import _short_circuit_output
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
@@ -145,7 +145,7 @@ def _align_spread_series(
 def spanning_alpha(
     factor_spread: pl.DataFrame,
     base_spreads: dict[str, pl.DataFrame] | None = None,
-) -> MetricOutput:
+) -> MetricResult:
     """Test whether a factor has alpha after controlling for base factors.
 
     Runs: factor_spread = alpha + beta_1 * base_1 + ... + epsilon
@@ -157,7 +157,7 @@ def spanning_alpha(
             If None or empty, tests whether the factor has nonzero mean return.
 
     Returns:
-        MetricOutput with value=alpha, t_stat, significance.
+        MetricResult with value=alpha, t_stat, significance.
 
     Notes:
         Run ordinary least squares (OLS) ``r_t = alpha + sum_k beta_k * base_k(t) + eps_t`` on
@@ -190,8 +190,8 @@ def spanning_alpha(
         ... )
         >>> spread = compute_spread_series(panel, forward_periods=5)["factor"]
         >>> result = spanning_alpha(spread)
-        >>> result.name
-        'spanning_alpha'
+        >>> result.spec is None
+        True
     """
     if base_spreads is None:
         base_spreads = {}
@@ -228,12 +228,11 @@ def spanning_alpha(
     n_obs = len(candidate_arr)
     p = _p_value_from_t(ols.alpha_t, n_obs)
 
-    return MetricOutput(
-        name="spanning_alpha",
+    return MetricResult(
+        p=p,
         value=ols.alpha,
         n_obs=n_obs,
         stat=ols.alpha_t,
-        significance=_significance_marker(p),
         metadata={
             "p_value": p,
             "stat_type": "t",

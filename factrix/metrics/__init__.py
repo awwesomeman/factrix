@@ -1,6 +1,6 @@
 """factrix.metrics — Independent factor evaluation metrics.
 
-All metrics return ``MetricOutput`` and can be used standalone.
+All metrics return ``MetricResult`` and can be used standalone.
 
 Grouping below follows the ``Scope × FactorDensity`` cells defined in
 ``factrix._axis`` — *not* ``DataStructure`` (which is a derived sample regime,

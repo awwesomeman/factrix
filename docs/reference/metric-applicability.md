@@ -172,11 +172,11 @@ Inferential metrics enforce two separate floors:
 - **`_HARD`** — the **mathematical floor**. Below it, the statistic is
   not defined (e.g. `t = (μ − 0) / (s / √n)` requires `n ≥ 2`; the FM
   small-sample HAC needs at least a few lagged covariances). `n < HARD`
-  short-circuits to `MetricOutput(value=NaN, metadata={"reason": ...})`.
+  short-circuits to `MetricResult(value=NaN, metadata={"reason": ...})`.
 - **`_WARN`** — the **literature / power floor**. The statistic *is*
   computable, but the SE is biased small or power is poor; the metric
   returns the stat, emits a `UserWarning`, and adds a `WarningCode` to
-  `MetricOutput.metadata["warning_codes"]` so `FactorProfile.warnings`
+  `MetricResult.metadata["warning_codes"]` so `FactorProfile.warnings`
   can propagate it. `n ≥ WARN` is silent.
 
 **Descriptive metrics** (`clustering_hhi`, `corrado_rank`,
@@ -219,7 +219,7 @@ When the input fails a sample threshold, factrix never silently
 returns a meaningful-looking result. Three deterministic outcomes:
 
 - **Short-circuit** — the metric returns
-  `MetricOutput(value=NaN, metadata={"reason": "..."})` and
+  `MetricResult(value=NaN, metadata={"reason": "..."})` and
   `FactorProfile.primary_p` is conservatively pinned to `1.0` so
   `primary_p` is at or above the user's chosen threshold.
 - **Fallback** — the dispatch registry routes to a degraded but

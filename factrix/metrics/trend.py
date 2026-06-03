@@ -26,8 +26,8 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
-from factrix._stats import _adf, _p_value_from_t, _significance_marker
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
+from factrix._stats import _adf, _p_value_from_t
 from factrix.metrics._helpers import _short_circuit_output
 
 __metric_specs__ = (
@@ -51,7 +51,7 @@ def ic_trend(
     *,
     name: str = "ic_trend",
     adf_threshold: float | None = 0.10,
-) -> MetricOutput:
+) -> MetricResult:
     """Theil-Sen median slope of a time-indexed series.
 
     Answers "is this factor getting better or worse over time?"
@@ -61,10 +61,11 @@ def ic_trend(
 
     Args:
         series: DataFrame with ``date`` and ``value_col``.
-        name: MetricOutput.name for the returned output. Defaults to
-            ``"ic_trend"``; EventFactor.caar_trend / MacroPanelFactor.
-            beta_trend pass their own names so method / cache key /
-            primitive name stay three-point unified.
+        name: Emitted metric name, stashed in ``metadata`` and used as
+            the method / cache key. Defaults to ``"ic_trend"``;
+            EventFactor.caar_trend / MacroPanelFactor.beta_trend pass
+            their own names so method / cache key / primitive name stay
+            three-point unified.
         adf_threshold: Augmented Dickey-Fuller (ADF) p-value above which the input is flagged as
             unit-root suspect. Default ``0.10`` is a conventional
             practitioner cutoff from the unit-root literature (folklore
@@ -83,7 +84,7 @@ def ic_trend(
             but significance should be read with scepticism.
 
     Returns:
-        MetricOutput with value = slope, t_stat from Theil-Sen confidence interval.
+        MetricResult with value = slope, t_stat from Theil-Sen confidence interval.
 
     Notes:
         Theil-Sen median pairwise slope: ``slope = median{(y_j - y_i) /
@@ -125,8 +126,8 @@ def ic_trend(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_trend(ic_df, value_col="ic")
-        >>> result.name
-        'ic_trend'
+        >>> result.spec is None
+        True
     """
     if adf_threshold is not None and not (0.0 < adf_threshold < 1.0):
         raise ValueError(
@@ -188,10 +189,9 @@ def ic_trend(
         metadata["adf_stat"] = adf_stat
         metadata["adf_p"] = adf_p
         metadata["unit_root_suspected"] = adf_p > adf_threshold
-    return MetricOutput(
-        name=name,
+    return MetricResult(
+        p=p,
         value=slope,
         stat=approx_t,
-        significance=_significance_marker(p),
         metadata=metadata,
     )

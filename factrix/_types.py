@@ -2,18 +2,16 @@
 
 The v0.5 axis enums (``FactorScope`` / ``FactorDensity`` / ``DataStructure``)
 live in :mod:`factrix._axis`; the v0.5 result type
-(``FactorProfile``) lives in :mod:`factrix._profile`. This module
-keeps only the numerical constants and ``MetricOutput`` shared by the
-``factrix.metrics.*`` primitives that v0.5 procedures wrap.
+(``FactorProfile``) lives in :mod:`factrix._profile`. The unified
+single-metric result type (``MetricResult``) lives alongside the other
+result dataclasses in :mod:`factrix._results`. This module keeps only
+the numerical constants and metric-option ``Literal`` aliases shared by
+the ``factrix.metrics.*`` primitives that v0.5 procedures wrap.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, NewType
-
-if TYPE_CHECKING:
-    from factrix._metric_index import MetricSpec
+from typing import Literal, NewType
 
 # ---------------------------------------------------------------------------
 # Numerical constants
@@ -41,7 +39,7 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 MIN_ASSETS_PER_DATE_IC: int = 10
 
 # Two-tier event-count guard for CAAR / Brown-Warner-family tests.
-# ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricOutput (math floor —
+# ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricResult (math floor —
 # below 4 events the per-event-date series cannot support a meaningful
 # t-statistic). ``MIN_EVENTS_HARD ≤ n < MIN_EVENTS_WARN`` returns the
 # stat AND emits ``WarningCode.FEW_EVENTS`` so the caller
@@ -64,57 +62,6 @@ MIN_PORTFOLIO_PERIODS_HARD: int = 3
 MIN_PORTFOLIO_PERIODS_WARN: int = 20
 
 MIN_MONOTONICITY_PERIODS: int = 5
-
-
-# ---------------------------------------------------------------------------
-# Unified output type for metric primitives
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class MetricOutput:
-    """Return type for ``factrix.metrics.*`` primitives.
-
-    Args:
-        name: Metric identifier (e.g. "ic_ir", "oos_decay").
-        value: Raw metric value.
-        n_obs: Sample size the metric primitive's estimator actually
-            saw. Same family name as ``FactorProfile.n_obs`` but a
-            different scope: per-metric single-stage count, vs. the
-            final-stage test denominator at the dispatched-cell level.
-            ``None`` for metrics where a single integer count is not
-            meaningful (e.g. multi-window CAAR series).
-        stat: Test statistic (t, z, W, chi2, ...), when applicable.
-        significance: ``***`` / ``**`` / ``*`` / ``""`` derived from
-            ``metadata["p_value"]`` when available.
-        metadata: Tool-specific context (``p_value``, ``stat_type``,
-            ``h0``, ``method`` are the standard keys).
-        spec: Back-pointer to the declaring :class:`MetricSpec` from
-            the producing module's ``__metric_specs__`` tuple.
-            ``None`` for outputs constructed outside the registry
-            (free-standing primitive calls, tests, ad-hoc consumers).
-            Runners stamp this at dispatch time so downstream code
-            (``MetricResult``, serialisers, the DAG executor)
-            can recover the spec without a name-keyed lookup.
-    """
-
-    name: str
-    value: float
-    n_obs: int | None = None
-    stat: float | None = None
-    significance: str | None = None
-    metadata: dict[str, object] = field(default_factory=dict)
-    spec: MetricSpec | None = None
-
-    def __repr__(self) -> str:
-        parts = [f"{self.name}={self.value:.4f}"]
-        if self.n_obs is not None:
-            parts.append(f"n_obs={self.n_obs}")
-        if self.stat is not None:
-            parts.append(f"stat={self.stat:.2f}")
-        if self.significance:
-            parts.append(f"sig={self.significance}")
-        return f"MetricOutput({', '.join(parts)})"
 
 
 # Structural alias used by metric internals to mark "this float is a

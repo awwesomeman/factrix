@@ -48,13 +48,13 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import MetricSpec, cell
+from factrix._results import MetricResult
 from factrix._stats import (
     _ols_nw_multivariate,
     _resolve_nw_lags,
-    _significance_marker,
     _wald_p_linear,
 )
-from factrix._types import MIN_PORTFOLIO_PERIODS_HARD, MetricOutput
+from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _short_circuit_output,
@@ -84,7 +84,7 @@ def ts_asymmetry(
     return_col: str = "forward_return",
     forward_periods: int | None = None,
     nw_lags: int | None = None,
-) -> MetricOutput:
+) -> MetricResult:
     """Long/short asymmetry of factor → return relationship.
 
     Reported headline:
@@ -109,7 +109,7 @@ def ts_asymmetry(
             the standard rule given ``forward_periods`` and ``T``.
 
     Returns:
-        ``MetricOutput`` whose ``value`` is the method-A magnitude;
+        ``MetricResult`` whose ``value`` is the method-A magnitude;
         diagnostic statistics live in ``metadata``. Short-circuits
         with a reason code when input shape is insufficient (no
         ``date`` column, missing ``factor`` / return column, fewer
@@ -151,8 +151,8 @@ def ts_asymmetry(
         ...     forward_periods=5,
         ... )
         >>> result = ts_asymmetry(panel)
-        >>> result.name
-        'ts_asymmetry'
+        >>> result.spec is None
+        True
     """
     if "date" not in df.columns:
         return _short_circuit_output(
@@ -257,11 +257,10 @@ def ts_asymmetry(
             h0_method_b="beta_pos = beta_neg",
         )
 
-    return MetricOutput(
-        name="ts_asymmetry",
+    return MetricResult(
+        p=p_a,
         value=asym_value,
         stat=asym_t,
-        significance=_significance_marker(p_a),
         metadata={
             "p_value": p_a,
             "stat_type": "wald (NW HAC)",

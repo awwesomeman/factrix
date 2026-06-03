@@ -8,7 +8,7 @@ Validates that:
    non-empty (only meaningful after a build; skipped if the file is
    absent).
 3. Each registered spec's name matches the literal in
-   ``MetricOutput(name=...)`` inside the declaring module.
+   ``MetricResult(name=...)`` inside the declaring module.
 4. The generated docs-name-index file matches the live renderer
    output (drift guard for #125).
 5. The generated evaluate-metric table file matches the live renderer
@@ -76,9 +76,9 @@ def test_generated_matrix_exists_and_nonempty() -> None:
 
 
 def test_metric_output_name_matches_spec_name() -> None:
-    """Every ``MetricOutput(name=...)`` literal must match its spec's ``name``.
+    """Every ``MetricResult(name=...)`` literal must match its spec's ``name``.
 
-    AST-greps every ``MetricOutput(name="<lit>")`` call in
+    AST-greps every ``MetricResult(name="<lit>")`` call in
     ``factrix/metrics/*.py``; for each registered user-facing callable
     the literal must equal ``spec.name``. Catches the case where a
     metric is added that emits a non-matching ``name=``.
@@ -97,7 +97,7 @@ def test_metric_output_name_matches_spec_name() -> None:
                 if (
                     isinstance(ret, ast.Call)
                     and isinstance(ret.func, ast.Name)
-                    and ret.func.id == "MetricOutput"
+                    and ret.func.id == "MetricResult"
                 ):
                     for kw in ret.keywords:
                         if kw.arg == "name" and isinstance(kw.value, ast.Constant):
@@ -110,10 +110,10 @@ def test_metric_output_name_matches_spec_name() -> None:
             continue
         if fn != emitted:
             mismatches.append(
-                f"{fn}: emits MetricOutput(name={emitted!r}) but spec name is {fn!r}"
+                f"{fn}: emits MetricResult(name={emitted!r}) but spec name is {fn!r}"
             )
     assert not mismatches, (
-        "MetricOutput.name does not match MetricSpec.name:\n  "
+        "MetricResult.name does not match MetricSpec.name:\n  "
         + "\n  ".join(mismatches)
     )
 

@@ -552,7 +552,7 @@ Two-tier metric organisation. Choosing the right tier when adding a new metric:
 | Tier | Lives in | Count today | Definition | Surfaces |
 |------|----------|-------------|------------|----------|
 | **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `primary_p` for screening functions |
-| **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricOutput` |
+| **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricResult` |
 
 ### When to register
 
@@ -577,7 +577,7 @@ Everything else. Specifically:
 
 - Take `pl.DataFrame` with the cell's standard schema (`date, asset_id, factor, forward_return`)
   plus any optional columns
-- Return `MetricOutput` (`factrix/_types.py`) — `name`, `value`, optional `stat`, `significance`,
+- Return `MetricResult` (`factrix/_types.py`) — `name`, `value`, optional `stat`, `significance`,
   and a `metadata` dict for cell-specific scalars
 - Use `_short_circuit_output(...)` for sample-floor failures rather than raising
 - Reuse `_stats/` primitives (`_p_value_from_t`, `_calc_t_stat`, NW HAC helpers) so the
@@ -610,7 +610,7 @@ factrix/
 ├── _stats/
 │   ├── __init__.py          # _ols_nw_slope_t, _ljung_box, _adf, _newey_west_t_test, _resolve_nw_lags
 │   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_WARN / auto_bartlett
-├── _types.py                # MetricOutput, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
+├── _types.py                # MetricResult, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
 │                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS,
 │                            #   MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...

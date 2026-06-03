@@ -22,8 +22,7 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import Cell, MetricSpec
-from factrix._results import EvaluationResult, MetricResult
-from factrix._types import MetricOutput
+from factrix._results import EvaluationResult, MetricResult, MetricResultGroup
 
 
 def make_spec(name: str) -> MetricSpec:
@@ -45,7 +44,7 @@ def make_result(
     value: float = 0.05,
     forward_periods: int = 5,
     context: dict[str, Any] | None = None,
-    extra_outputs: dict[str, MetricOutput] | None = None,
+    extra_outputs: dict[str, MetricResult] | None = None,
     extra_primaries: tuple[MetricSpec, ...] = (),
 ) -> EvaluationResult:
     """Build an :class:`EvaluationResult` carrying the named primary metric.
@@ -54,8 +53,8 @@ def make_result(
     (exercising the family resolver's missing-p path).
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
-    primary_out = MetricOutput(
-        name=primary.name, value=value, n_obs=100, spec=primary, metadata=metadata
+    primary_out = MetricResult(
+        value=value, p=p, n_obs=100, spec=primary, metadata=metadata
     )
     outputs = {primary.name: primary_out}
     if extra_outputs:
@@ -67,7 +66,7 @@ def make_result(
         forward_periods=forward_periods,
         n_obs=100,
         n_assets=25,
-        metrics=MetricResult(
+        metrics=MetricResultGroup(
             applicable=list(primaries),
             primary=list(primaries),
             diagnostic=[],

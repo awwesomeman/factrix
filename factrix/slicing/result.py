@@ -1,10 +1,10 @@
 """Container returned by :func:`factrix.slicing.by_slice`.
 
-``SliceResult`` is a ``Mapping[str, MetricOutput]`` — every existing
+``SliceResult`` is a ``Mapping[str, MetricResult]`` — every existing
 ``dict``-shaped consumer (``for k, v in result.items()``,
 ``result["bull"]``, ``len(result)``) keeps working. The added value is
 :meth:`SliceResult.to_frame`: a fixed-schema long-form ``pl.DataFrame``
-that flattens per-slice ``MetricOutput`` rows for plotting,
+that flattens per-slice ``MetricResult`` rows for plotting,
 leaderboards, and Notebook rendering.
 """
 
@@ -14,11 +14,11 @@ from collections.abc import Iterator, Mapping
 
 import polars as pl
 
-from factrix._types import MetricOutput
+from factrix._results import MetricResult
 
 
-class SliceResult(Mapping[str, MetricOutput]):
-    """Mapping of slice label → :class:`MetricOutput` with a frame renderer.
+class SliceResult(Mapping[str, MetricResult]):
+    """Mapping of slice label → :class:`MetricResult` with a frame renderer.
 
     Returned by :func:`factrix.slicing.by_slice`. Iteration order matches
     the upstream ``polars.DataFrame.partition_by`` order (insertion-order
@@ -26,7 +26,7 @@ class SliceResult(Mapping[str, MetricOutput]):
     the rendered frame if a stable order is needed downstream.
 
     The container deliberately exposes only the universal projection
-    (``name``, ``value``, ``stat``, ``p_value``). For metric-specific
+    (``value``, ``stat``, ``p_value``). For metric-specific
     metadata (``tie_ratio``, ``shanken_correction``, ...), build the
     DataFrame directly from ``[(k, m.metadata) for k, m in result.items()]``.
 
@@ -60,10 +60,10 @@ class SliceResult(Mapping[str, MetricOutput]):
         True
     """
 
-    def __init__(self, data: Mapping[str, MetricOutput]) -> None:
-        self._data: dict[str, MetricOutput] = dict(data)
+    def __init__(self, data: Mapping[str, MetricResult]) -> None:
+        self._data: dict[str, MetricResult] = dict(data)
 
-    def __getitem__(self, key: str) -> MetricOutput:
+    def __getitem__(self, key: str) -> MetricResult:
         return self._data[key]
 
     def __iter__(self) -> Iterator[str]:
@@ -78,10 +78,10 @@ class SliceResult(Mapping[str, MetricOutput]):
     def to_frame(self, *, slice_col: str = "slice") -> pl.DataFrame:
         """Render slices as a long-form ``pl.DataFrame``.
 
-        Schema (always, in order): ``slice_col``, ``name``, ``value``,
-        ``stat``, ``p_value``. ``stat`` and ``p_value`` are ``None``
-        when the underlying ``MetricOutput`` does not carry them
-        (descriptive metric, short-circuit failure path, etc.).
+        Schema (always, in order): ``slice_col``, ``value``, ``stat``,
+        ``p_value``. ``stat`` and ``p_value`` are ``None`` when the
+        underlying ``MetricResult`` does not carry them (descriptive
+        metric, short-circuit failure path, etc.).
 
         Args:
             slice_col: Output column name for the slice label. Default
@@ -105,7 +105,7 @@ class SliceResult(Mapping[str, MetricOutput]):
             ... )
             >>> per_year = fx.by_slice(ic, ic_df, label="year")
             >>> df = per_year.to_frame()
-            >>> set(df.columns) >= {"slice", "name", "value"}
+            >>> set(df.columns) >= {"slice", "value"}
             True
 
             Override the slice column name to avoid collision:
@@ -114,18 +114,15 @@ class SliceResult(Mapping[str, MetricOutput]):
             >>> "year" in df2.columns
             True
         """
-        cols = (slice_col, "name", "value", "stat", "p_value")
+        cols = (slice_col, "value", "stat", "p_value")
         rows: dict[str, list[object]] = {c: [] for c in cols}
         for key, m in self._data.items():
             rows[slice_col].append(key)
-            rows["name"].append(m.name)
             rows["value"].append(m.value)
             rows["stat"].append(m.stat)
-            p = m.metadata.get("p_value")
-            rows["p_value"].append(float(p) if isinstance(p, int | float) else None)
+            rows["p_value"].append(float(m.p) if isinstance(m.p, int | float) else None)
         schema: dict[str, type[pl.DataType]] = {
             slice_col: pl.Utf8,
-            "name": pl.Utf8,
             "value": pl.Float64,
             "stat": pl.Float64,
             "p_value": pl.Float64,
