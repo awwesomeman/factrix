@@ -24,7 +24,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -44,21 +44,14 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
-_EQ_PRIMITIVES = (
-    "_binomial_two_sided_p",
-    "_significance_marker",
-    "_short_circuit_output",
-    "_signed_car",
-)
-_EQ_INFERENCE = "binomial / nonparametric rank"
 
 __metric_specs__ = tuple(
     MetricSpec(
         name=_name,
         cell=_EQ_CELL,
-        agg_order="per-event",
-        inference=_EQ_INFERENCE,
-        primitives=_EQ_PRIMITIVES,
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.RANK,
+        se_method=SEMethod.BUILT_IN,
     )
     for _name in (
         "event_hit_rate",
@@ -68,7 +61,6 @@ __metric_specs__ = tuple(
         "signal_density",
     )
 )
-
 
 def event_hit_rate(
     df: pl.DataFrame,
@@ -144,7 +136,6 @@ def event_hit_rate(
             "method": _binomial_test_method_name(n),
         },
     )
-
 
 def event_ic(
     df: pl.DataFrame,
@@ -240,7 +231,6 @@ def event_ic(
         },
     )
 
-
 def profit_factor(
     df: pl.DataFrame,
     *,
@@ -310,7 +300,6 @@ def profit_factor(
             "n_losses": int(np.sum(signed < 0)),
         },
     )
-
 
 def event_skewness(
     df: pl.DataFrame,
@@ -400,7 +389,6 @@ def event_skewness(
             ),
         },
     )
-
 
 def signal_density(
     df: pl.DataFrame,

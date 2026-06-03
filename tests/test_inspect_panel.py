@@ -135,7 +135,7 @@ class TestSampleThresholdGate:
         from factrix._inspect import _evaluate_applicability
 
         verdict = _evaluate_applicability(
-            replace(spec, sample_floor=floor), info.detected
+            replace(spec, sample_threshold=floor), info.detected
         )
         assert verdict.usable is False
         assert any("min_pairs" in b for b in verdict.blockers)
@@ -151,7 +151,7 @@ class TestSampleThresholdGate:
         floor = SampleThreshold(min_pairs=n - 1, warn_pairs=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
         verdict = _evaluate_applicability(
-            replace(spec, sample_floor=floor), info.detected
+            replace(spec, sample_threshold=floor), info.detected
         )
         assert verdict.usable is True
         assert any("n_pairs" in w.message for w in verdict.warnings)

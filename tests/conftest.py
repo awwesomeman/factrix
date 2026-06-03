@@ -13,7 +13,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, TestMethod
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult
 from factrix._types import MetricOutput
@@ -24,8 +24,9 @@ def make_spec(name: str) -> MetricSpec:
     return MetricSpec(
         name=name,
         cell=Cell(scope=None, density=None, structure=None, raw="*"),
-        agg_order="cs-first",
-        inference="test",
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
     )
 
 

@@ -29,7 +29,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -53,13 +53,6 @@ _FM_CELL = cell(
     FactorDensity.DENSE,
     structure=DataStructure.PANEL,
 )
-_FM_PRIMITIVES = (
-    "_newey_west_t_test",
-    "_p_value_from_t",
-    "_significance_marker",
-    "_short_circuit_output",
-)
-_FM_INFERENCE = "NW HAC / clustered t"
 
 # Slice-test contract (#153 §5): Fama-MacBeth runs a per-date
 # OLS regression on the cross-section, not a bucket sort, so slice
@@ -70,7 +63,6 @@ _FM_INFERENCE = "NW HAC / clustered t"
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("beta")
 
-
 # Two-tier sample-size guard on the FM β series. ``T < HARD`` short-
 # circuits — NW HAC SE on a 3-period series is undefined. ``HARD ≤ T <
 # WARN`` returns the stat with ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS``
@@ -79,11 +71,9 @@ per_date_series = per_date_series_rename("beta")
 MIN_FM_PERIODS_HARD: int = 4
 MIN_FM_PERIODS_WARN: int = 30
 
-
 # ---------------------------------------------------------------------------
 # Raw computation (parallel to compute_ic)
 # ---------------------------------------------------------------------------
-
 
 def compute_fm_betas(
     df: pl.DataFrame,
@@ -162,11 +152,9 @@ def compute_fm_betas(
 
     return pl.DataFrame(rows)
 
-
 # ---------------------------------------------------------------------------
 # Fama-MacBeth significance (parallel to ic())
 # ---------------------------------------------------------------------------
-
 
 def fm_beta(
     beta_df: pl.DataFrame,
@@ -375,11 +363,9 @@ def fm_beta(
         metadata=metadata,
     )
 
-
 # ---------------------------------------------------------------------------
 # Pooled OLS with clustered SE
 # ---------------------------------------------------------------------------
-
 
 def _cluster_meat(
     X: np.ndarray,
@@ -398,7 +384,6 @@ def _cluster_meat(
         score = X[mask].T @ resid[mask]
         meat += np.outer(score, score)
     return meat, len(unique)
-
 
 def pooled_beta(
     df: pl.DataFrame,
@@ -641,11 +626,9 @@ def pooled_beta(
         metadata=metadata,
     )
 
-
 # ---------------------------------------------------------------------------
 # Beta sign consistency (parallel to hit_rate)
 # ---------------------------------------------------------------------------
-
 
 def beta_sign_consistency(
     beta_df: pl.DataFrame,
@@ -716,37 +699,36 @@ def beta_sign_consistency(
         },
     )
 
-
 __metric_specs__ = (
     MetricSpec(
         name="compute_fm_betas",
         cell=_FM_CELL,
-        agg_order="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
+        role=SpecRole.PIPELINE,
     ),
     MetricSpec(
         name="fm_beta",
         cell=_FM_CELL,
-        agg_order="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires={"beta_df": compute_fm_betas},
     ),
     MetricSpec(
         name="pooled_beta",
         cell=_FM_CELL,
-        agg_order="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
     ),
     MetricSpec(
         name="beta_sign_consistency",
         cell=_FM_CELL,
-        agg_order="cs-first",
-        inference=_FM_INFERENCE,
-        primitives=_FM_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires={"beta_df": compute_fm_betas},
     ),
 )

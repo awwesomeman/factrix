@@ -7,7 +7,7 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorDensity, Visibility
+from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod, Visibility
 from factrix._dag import CycleError, DagExecutor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._types import MetricOutput
@@ -22,16 +22,17 @@ def _make_spec(
     *,
     requires=None,
     batchable: bool = False,
-    visibility: Visibility = Visibility.PUBLIC,
+    role: SpecRole = SpecRole.METRIC,
 ) -> MetricSpec:
     return MetricSpec(
         name=name,
         cell=cell(None, None),
-        agg_order="test",
-        inference="test",
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires=requires or {},
         batchable=batchable,
-        visibility=visibility,
+        role=role,
     )
 
 
@@ -106,7 +107,7 @@ class TestBatchablePath:
             return MetricOutput(name="consumer", value=float(ic_df["x"].mean()))
 
         producer_spec = _make_spec(
-            "batch_producer", batchable=True, visibility=Visibility.INTERNAL
+            "batch_producer", batchable=True, role=SpecRole.PIPELINE
         )
         consumer_spec = _make_spec(
             "per_factor_consumer", requires={"ic_df": batch_producer}
@@ -174,7 +175,7 @@ class TestStage1Share:
             return MetricOutput(name="b", value=ic_df + 2.0)
 
         producer_spec = _make_spec(
-            "producer", batchable=True, visibility=Visibility.INTERNAL
+            "producer", batchable=True, role=SpecRole.PIPELINE
         )
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
         b_spec = _make_spec("consumer_b", requires={"ic_df": producer})
@@ -253,7 +254,7 @@ class TestPlanString:
             return MetricOutput(name="b", value=ic_df)
 
         producer_spec = _make_spec(
-            "producer", batchable=True, visibility=Visibility.INTERNAL
+            "producer", batchable=True, role=SpecRole.PIPELINE
         )
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
         b_spec = _make_spec("consumer_b", requires={"ic_df": producer})

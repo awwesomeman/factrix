@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure, Visibility
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, SpecRole, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -33,10 +33,8 @@ __all__ = [
 ]
 
 _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
-_MFE_PRIMITIVES = ("_short_circuit_output",)
 
 DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
-
 
 def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     """Output schema with ``date`` dtype mirroring the caller's panel.
@@ -54,7 +52,6 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
         "bars_to_mfe": pl.Int32(),
         "bars_to_mae": pl.Int32(),
     }
-
 
 def compute_mfe_mae(
     df: pl.DataFrame,
@@ -242,7 +239,6 @@ def compute_mfe_mae(
         pl.col("bars_to_mae").cast(pl.Int32),
     )
 
-
 def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
     """Aggregate MFE/MAE statistics.
 
@@ -341,22 +337,21 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricOutput:
         metadata=metadata,
     )
 
-
 __metric_specs__ = (
     MetricSpec(
         name="compute_mfe_mae",
         cell=_MFE_CELL,
-        agg_order="per-event",
-        inference="no formal H_0",
-        primitives=_MFE_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
+        role=SpecRole.PIPELINE,
     ),
     MetricSpec(
         name="mfe_mae_summary",
         cell=_MFE_CELL,
-        agg_order="per-event",
-        inference="no formal H_0",
-        primitives=_MFE_PRIMITIVES,
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
         requires={"mfe_mae_df": compute_mfe_mae},
     ),
 )

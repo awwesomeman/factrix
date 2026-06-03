@@ -10,7 +10,7 @@ callable.
 from __future__ import annotations
 
 import pytest
-from factrix._axis import FactorScope, FactorDensity, Visibility
+from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod, Visibility
 from factrix._metric_index import (
     MetricSpec,
     SampleThreshold,
@@ -44,8 +44,8 @@ class TestDefaults:
         spec = MetricSpec(
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
-            agg_order="cs-first",
-            inference="probe",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
         assert spec.requires == {}
 
@@ -53,8 +53,8 @@ class TestDefaults:
         spec = MetricSpec(
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
-            agg_order="cs-first",
-            inference="probe",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
         assert spec.batchable is False
 
@@ -62,21 +62,21 @@ class TestDefaults:
         spec = MetricSpec(
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
-            agg_order="cs-first",
-            inference="probe",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
-        assert spec.visibility is Visibility.PUBLIC
+        assert spec.role is SpecRole.METRIC
 
 
 class TestVisibility:
     def test_internal_specs_excluded_from_public(self) -> None:
-        all_internal = {
+        all_pipeline = {
             spec.name
             for _, spec in _all_specs()
-            if spec.visibility is Visibility.INTERNAL
+            if spec.role is SpecRole.PIPELINE
         }
         public_names = {spec.name for _, spec in public_specs()}
-        assert all_internal.isdisjoint(public_names)
+        assert all_pipeline.isdisjoint(public_names)
 
     def test_known_stage1_producers_are_internal(self) -> None:
         specs = spec_by_name()
@@ -92,7 +92,7 @@ class TestVisibility:
             "compute_group_returns",
         )
         for name in stage1_producers:
-            assert specs[name].visibility is Visibility.INTERNAL, name
+            assert specs[name].role is SpecRole.PIPELINE, name
 
 
 class TestBatchable:

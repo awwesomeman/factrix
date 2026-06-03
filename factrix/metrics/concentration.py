@@ -19,7 +19,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, TestMethod
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
@@ -47,19 +47,11 @@ __metric_specs__ = (
         cell=cell(
             FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
         ),
-        agg_order="cs-first",
-        inference="across-time t (one-sided H_0: ratio >= 0.5)",
-        primitives=(
-            "_calc_t_stat",
-            "_p_value_from_t",
-            "_significance_marker",
-            "_sample_non_overlapping",
-            "_short_circuit_output",
-            "_compute_tie_ratio",
-        ),
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
     ),
 )
-
 
 def top_concentration(
     df: pl.DataFrame,

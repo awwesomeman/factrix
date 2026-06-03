@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_z, _significance_marker
 from factrix._types import EPSILON, MIN_EVENTS_HARD, MetricOutput
@@ -20,21 +20,15 @@ __metric_specs__ = (
     MetricSpec(
         name="corrado_rank",
         cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
-        agg_order="per-event",
-        inference="nonparametric rank",
-        primitives=(
-            "_calc_t_stat",
-            "_p_value_from_z",
-            "_significance_marker",
-            "_short_circuit_output",
-        ),
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.RANK,
+        se_method=SEMethod.BUILT_IN,
     ),
 )
 
 __all__ = [
     "corrado_rank",
 ]
-
 
 def corrado_rank(
     df: pl.DataFrame,

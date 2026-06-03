@@ -28,7 +28,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, InputShape, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import DDOF, EPSILON, MetricOutput
 from factrix.metrics._helpers import (
@@ -48,34 +48,34 @@ __metric_specs__ = (
     MetricSpec(
         name="notional_turnover",
         cell=_TR_CELL,
-        agg_order="cs-first",
-        inference="no formal H_0",
-        primitives=_TR_CS_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
     ),
     MetricSpec(
         name="breakeven_cost",
         cell=_TR_CELL,
-        agg_order="cs-first",
-        inference="no formal H_0",
-        primitives=_TR_CS_PRIMITIVES,
-        input_kind="scalar",
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
+        input_shape=InputShape.SCALAR,
     ),
     MetricSpec(
         name="net_spread",
         cell=_TR_CELL,
-        agg_order="cs-first",
-        inference="no formal H_0",
-        primitives=_TR_CS_PRIMITIVES,
-        input_kind="scalar",
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
+        input_shape=InputShape.SCALAR,
     ),
     MetricSpec(
         name="turnover",
         cell=_TR_CELL,
         # WHY: rank autocorrelation across consecutive dates — no cross-section
         # step, so the aggregation order is pure time series.
-        agg_order="ts-only",
-        inference="no formal H_0",
-        primitives=("_short_circuit_output",),
+        aggregation=Aggregation.TS_ONLY,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
     ),
 )
 
@@ -85,7 +85,6 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "breakeven_cost",
     "net_spread",
 ]
-
 
 def turnover(
     df: pl.DataFrame,
@@ -253,7 +252,6 @@ def turnover(
             "n_cross_section_mean": n_cs_mean,
         },
     )
-
 
 def notional_turnover(
     df: pl.DataFrame,
@@ -425,7 +423,6 @@ def notional_turnover(
         },
     )
 
-
 def breakeven_cost(
     gross_spread: float,
     turnover: float,
@@ -508,7 +505,6 @@ def breakeven_cost(
             "forward_periods": forward_periods,
         },
     )
-
 
 def net_spread(
     gross_spread: float,

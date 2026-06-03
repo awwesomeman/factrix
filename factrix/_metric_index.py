@@ -23,9 +23,9 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
         MetricSpec(
             name="my_metric",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL),
-            agg_order="cs-first",
-            inference="NW HAC / cross-asset t",
-            primitives=("_calc_t_stat", "_p_value_from_t"),
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T,
+            se_method=SEMethod.HAC,
         ),
     )
 """
@@ -40,7 +40,17 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Literal, overload
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
+from factrix._axis import (
+    Aggregation,
+    DataStructure,
+    FactorDensity,
+    FactorScope,
+    InputShape,
+    OutputShape,
+    SEMethod,
+    SpecRole,
+    TestMethod,
+)
 from factrix._errors import IncompatibleAxisError
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -178,24 +188,21 @@ class MetricSpec:
     - ``name``: function name in the declaring module.
     - ``cell``: applicable ``(scope, density, structure)`` cell;
       ``None`` along any axis denotes ``*`` wildcard.
-    - ``agg_order``: aggregation order — the order in which the
-      cross-section and time-series reductions compose:
-      ``"cs-first"`` (cross-section step then time aggregation),
-      ``"per-event"``, ``"ts-only"``, ``"ts-first"``, ``"static-cs"``.
-      Load-bearing for the DAG executor / FDR. Distinct from the
-      *concept family* (``ic`` / ``decay`` / ``quantile``), which is
+    - ``aggregation``: how the cross-section and time-series reductions
+      compose. Load-bearing for the DAG executor / FDR. Distinct from
+      the *concept family* (``ic`` / ``decay`` / ``quantile``), which is
       the declaring module's stem and is derived from file location
       (the ``file = family`` invariant), never stored on the spec.
-    - ``inference``: inference / standard-error family — e.g.
-      ``"NW HAC / cross-asset t"``, ``"binomial"``,
-      ``"nonparametric rank"``, ``"no formal H_0"``.
-    - ``primitives``: informational tuple of underlying helper-function
-      names the public callable composes. Surfaces in the docs matrix
-      for primitive-graph completeness.
-    - ``input_kind``: ``"panel"`` (date-keyed DataFrame, eligible for
-      date-slicing dispatchers like :func:`factrix.by_slice`) or
-      ``"scalar"`` (pre-aggregated-scalar utility like
-      :func:`factrix.metrics.breakeven_cost`).
+    - ``test_method``: primary statistical test family.
+    - ``se_method``: standard-error / variance-estimation family.
+    - ``input_shape``: shape of data the callable directly receives
+      (``PANEL`` / ``SERIES`` / ``SCALAR``).
+    - ``output_shape``: shape of the returned value. ``METRIC`` specs
+      must have ``SCALAR`` (enforced by ``__post_init__``).
+    - ``role``: ``METRIC`` for user-facing result-producing callables
+      (default); ``PIPELINE`` for stage-1 helpers excluded from
+      ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
+      but pulled by the DAG via ``requires``.
     - ``requires``: ``{consumer_param_name: producer_callable}``. Key
       is a parameter on the declaring callable; value is another
       callable that has a :class:`MetricSpec` in its module's
@@ -205,27 +212,31 @@ class MetricSpec:
     - ``batchable``: ``True`` when the callable accepts
       ``factor_cols=`` and returns ``dict[factor_name, output]`` so
       the DAG executor calls it once across the whole batch.
-    - ``visibility``: ``PUBLIC`` for user-facing metric (default);
-      ``INTERNAL`` for stage-1 helpers (excluded from
-      ``list_metrics`` / ``inspection.metrics.*`` / result dict keys
-      but pulled by the DAG via ``requires``).
-    - ``sample_floor``: optional :class:`SampleThreshold` declaring the
+    - ``sample_threshold``: :class:`SampleThreshold` declaring the
       panel-shape thresholds below which the metric is statistically
-      unusable / degraded. ``None`` (default) means no pre-flight
-      sample-size gate is declared; :func:`inspect_panel` will only
-      apply the cell-match check for this spec.
+      unusable / degraded. Defaults to ``SampleThreshold()`` (all
+      ``None`` — no pre-flight gate); :func:`inspect_panel` applies
+      the cell-match check and any declared thresholds.
     """
 
     name: str
     cell: Cell
-    agg_order: str
-    inference: str
-    primitives: tuple[str, ...] = ()
-    input_kind: Literal["panel", "scalar"] = "panel"
+    aggregation: Aggregation
+    test_method: TestMethod
+    se_method: SEMethod
+    input_shape: InputShape = InputShape.PANEL
+    output_shape: OutputShape = OutputShape.SCALAR
+    role: SpecRole = SpecRole.METRIC
     requires: dict[str, Callable] = field(default_factory=dict)
     batchable: bool = False
-    visibility: Visibility = Visibility.PUBLIC
-    sample_floor: SampleThreshold | None = None
+    sample_threshold: SampleThreshold = field(default_factory=SampleThreshold)
+
+    def __post_init__(self) -> None:
+        if self.role is SpecRole.METRIC and self.output_shape is not OutputShape.SCALAR:
+            raise ValueError(
+                f"MetricSpec '{self.name}': role=METRIC requires output_shape=SCALAR, "
+                f"got output_shape={self.output_shape.name}."
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +345,7 @@ def public_specs() -> tuple[tuple[str, MetricSpec], ...]:
     out = [
         (stem, spec)
         for stem, spec in _all_specs()
-        if spec.visibility is Visibility.PUBLIC
+        if spec.role is SpecRole.METRIC
     ]
     out.sort(key=lambda pair: (pair[0], pair[1].name))
     return tuple(out)
@@ -530,10 +541,11 @@ def list_metrics(
         format: ``"text"`` (default) returns metric names sorted by
             ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
             with keys ``name``, ``module``, ``family``, ``cell``,
-            ``agg_order``, ``inference_se``, ``import_path``,
-            ``input_kind``, ``docs_anchor`` — JSON-serialisable, suitable
-            for tooling. ``family`` is the concept family (module stem);
-            ``agg_order`` is the cross-section/time reduction order.
+            ``aggregation``, ``test_method``, ``se_method``,
+            ``import_path``, ``input_shape``, ``docs_anchor`` —
+            JSON-serialisable, suitable for tooling. ``family`` is the
+            concept family (module stem); ``aggregation`` is the
+            cross-section/time reduction order.
             ``docs_anchor`` follows
             :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
             docs-root-relative path + mkdocstrings symbol fragment).
@@ -598,10 +610,11 @@ def list_metrics(
                 "module": stem,
                 "family": stem,
                 "cell": spec.cell.raw,
-                "agg_order": spec.agg_order,
-                "inference_se": spec.inference,
+                "aggregation": spec.aggregation.value,
+                "test_method": spec.test_method.value,
+                "se_method": spec.se_method.value,
                 "import_path": import_path_for(stem),
-                "input_kind": spec.input_kind,
+                "input_shape": spec.input_shape.value,
                 "docs_anchor": docs_anchor_for(stem, spec.name),
             }
             for stem, spec in matches

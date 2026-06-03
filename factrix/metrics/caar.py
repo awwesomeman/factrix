@@ -26,7 +26,7 @@ import warnings
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure, Visibility
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, SpecRole, TestMethod
 from factrix._codes import WarningCode
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
@@ -57,15 +57,6 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
-_CAAR_PRIMITIVES = (
-    "_calc_t_stat",
-    "_p_value_from_t",
-    "_p_value_from_z",
-    "_significance_marker",
-    "_sample_non_overlapping",
-    "_short_circuit_output",
-)
-_CAAR_INFERENCE = "non-overlapping t / z"
 
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
@@ -74,7 +65,6 @@ _CAAR_INFERENCE = "non-overlapping t / z"
 # lives in the procedure short-circuit and is parallel to (not
 # exposed via) this attribute.
 min_assets_per_group: int | None = None
-
 
 def compute_caar(
     df: pl.DataFrame,
@@ -192,7 +182,6 @@ def compute_caar(
         .sort("date")
     )
 
-
 def caar(
     caar_df: pl.DataFrame,
     *,
@@ -299,7 +288,6 @@ def caar(
         significance=_significance_marker(p),
         metadata=metadata,
     )
-
 
 def bmp_test(
     df: pl.DataFrame,
@@ -528,7 +516,6 @@ def bmp_test(
         metadata=metadata,
     )
 
-
 def _estimate_sar_icc(
     sar_by_date: pl.DataFrame,
 ) -> tuple[float | None, float, KPSource]:
@@ -583,29 +570,28 @@ def _estimate_sar_icc(
     r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
     return r_hat, n_eff, "icc"
 
-
 __metric_specs__ = (
     MetricSpec(
         name="compute_caar",
         cell=_CAAR_CELL,
-        agg_order="per-event",
-        inference=_CAAR_INFERENCE,
-        primitives=_CAAR_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
+        role=SpecRole.PIPELINE,
     ),
     MetricSpec(
         name="caar",
         cell=_CAAR_CELL,
-        agg_order="per-event",
-        inference=_CAAR_INFERENCE,
-        primitives=_CAAR_PRIMITIVES,
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires={"caar_df": compute_caar},
     ),
     MetricSpec(
         name="bmp_test",
         cell=_CAAR_CELL,
-        agg_order="per-event",
-        inference=_CAAR_INFERENCE,
-        primitives=_CAAR_PRIMITIVES,
+        aggregation=Aggregation.EVENT_TIME,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
     ),
 )

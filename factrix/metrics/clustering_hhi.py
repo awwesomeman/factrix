@@ -19,7 +19,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import MIN_EVENTS_HARD, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -28,16 +28,15 @@ __metric_specs__ = (
     MetricSpec(
         name="clustering_hhi",
         cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
-        agg_order="static-cs",
-        inference="no formal H_0",
-        primitives=("_short_circuit_output",),
+        aggregation=Aggregation.CS_SNAPSHOT,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
     ),
 )
 
 __all__ = [
     "clustering_hhi",
 ]
-
 
 def clustering_hhi(
     df: pl.DataFrame,

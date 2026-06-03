@@ -31,9 +31,9 @@ from typing import Any, NamedTuple
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import DataStructure, FactorDensity, FactorScope, SpecRole
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec, Visibility
+from factrix._metric_index import MetricSpec
 from factrix._results import EvaluationResult, MetricResult, Warning
 from factrix._types import MetricOutput
 
@@ -231,7 +231,7 @@ class DagExecutor:
         n_assets: int,
         metric_outputs: Mapping[tuple[str, str], MetricOutput],
     ) -> dict[str, EvaluationResult]:
-        public_specs = [s for s in self._specs if s.visibility is Visibility.PUBLIC]
+        public_specs = [s for s in self._specs if s.role is SpecRole.METRIC]
         primary = [s for s in public_specs if s.name in self._primary_names]
         diagnostic = [s for s in public_specs if s.name not in self._primary_names]
         plan = self.plan

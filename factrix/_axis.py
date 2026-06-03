@@ -11,11 +11,15 @@ Two orthogonal user-facing axes describe an analysis cell:
 ``DataStructure`` is the third axis used by registry keys / dispatch but is not
 user-set: it is derived from ``N`` at evaluate-time and surfaced as the
 third position of ``EvaluationResult.cell`` for downstream pattern-match.
+
+Metric-spec structural enums (``Aggregation``, ``TestMethod``, ``SEMethod``,
+``SpecRole``, ``InputShape``, ``OutputShape``) live here alongside the axis
+enums so all enum definitions share one import path.
 """
 
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum, StrEnum
 
 
 class FactorScope(StrEnum):
@@ -60,3 +64,127 @@ class Visibility(StrEnum):
 
     PUBLIC = "public"
     INTERNAL = "internal"
+
+
+# ---------------------------------------------------------------------------
+# Metric-spec structural enums (#472)
+# ---------------------------------------------------------------------------
+
+
+class Aggregation(Enum):
+    """How the cross-section and time-series reductions compose.
+
+    Load-bearing for the DAG executor and FDR correction — determines
+    execution order and which samples are statistically independent.
+    """
+
+    CS_THEN_TS = "cs_then_ts"
+    """Cross-section step per date → form time series → time aggregation."""
+
+    TS_THEN_CS = "ts_then_cs"
+    """Per-asset time-series step → cross-asset aggregation."""
+
+    TS_ONLY = "ts_only"
+    """Pure time-series; no cross-asset reduction."""
+
+    EVENT_TIME = "event_time"
+    """Event-time stack aggregation (event study / CAAR / rank patterns)."""
+
+    CS_SNAPSHOT = "cs_snapshot"
+    """Single cross-section snapshot (static-cs diagnostics such as HHI)."""
+
+    RETURN_SPANNING = "return_spanning"
+    """Spanning regression on factor-return time series."""
+
+
+class TestMethod(Enum):
+    """Primary statistical test family.
+
+    Drives ``primary_eligible`` (``DESCRIPTIVE`` specs are excluded from
+    being the primary metric in ``evaluate()``).
+    """
+
+    __test__ = False
+
+    T = "t"
+    """t-test, including NW HAC-corrected variants."""
+
+    BINOMIAL = "binomial"
+    """Binomial proportion test."""
+
+    RANK = "rank"
+    """Nonparametric rank-based test (Corrado, Theil-Sen, etc.)."""
+
+    CHI2 = "chi2"
+    """Chi-square / Wald asymptotic test."""
+
+    DESCRIPTIVE = "descriptive"
+    """No formal H₀ — measurement / descriptive statistic only."""
+
+
+class SEMethod(Enum):
+    """Standard-error / variance-estimation family.
+
+    Intentionally coarse-grained — NW / HH / Driscoll-Kraay are all
+    ``HAC``; method details live in the spec's docstring. Coarseness
+    gives callers programmable filtering without coupling to literature
+    names that may expand.
+    """
+
+    HAC = "hac"
+    """Autocorrelation-robust (Newey-West / Hansen-Hodrick family)."""
+
+    CLUSTER = "cluster"
+    """Cluster-robust (reserved; no current spec uses this)."""
+
+    HETEROSKEDASTIC = "heteroskedastic"
+    """White-style HC / BMP standardization."""
+
+    OLS = "ols"
+    """Vanilla OLS standard error."""
+
+    BUILT_IN = "built_in"
+    """Test carries its own null distribution (rank / binomial); no external SE."""
+
+    NONE = "none"
+    """Descriptive — no inference, no SE."""
+
+
+class SpecRole(Enum):
+    """Whether a spec is a user-facing metric or an internal pipeline step.
+
+    ``METRIC``   — public result-producing callable; surfaced by
+    :func:`factrix.list_metrics` and included in
+    :attr:`EvaluationResult.metrics` dict keys.
+    ``PIPELINE`` — stage-1 intermediate-frame producer (e.g.
+    ``compute_ic``); pulled by the DAG executor via
+    :attr:`MetricSpec.requires` but not listed as a runnable metric.
+    """
+
+    METRIC = "metric"
+    PIPELINE = "pipeline"
+
+
+class InputShape(Enum):
+    """Shape of data the metric callable directly receives.
+
+    ``PANEL``  — full long-format panel (date × asset_id × factor × return).
+    ``SERIES`` — 1-D time series produced by an upstream PIPELINE step.
+    ``SCALAR`` — pre-aggregated scalar (e.g. breakeven cost calculation).
+    """
+
+    PANEL = "panel"
+    SERIES = "series"
+    SCALAR = "scalar"
+
+
+class OutputShape(Enum):
+    """Shape of the value the metric callable returns.
+
+    Every ``role=METRIC`` spec must have ``output_shape=SCALAR``
+    (enforced by :meth:`MetricSpec.__post_init__`).
+    """
+
+    SCALAR = "scalar"
+    SERIES = "series"
+    PANEL = "panel"

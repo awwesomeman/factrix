@@ -5,6 +5,7 @@ from __future__ import annotations
 import factrix as fx
 import polars as pl
 import pytest
+from factrix._axis import Aggregation, SEMethod, SpecRole, TestMethod
 from factrix._metric_index import (
     _METRIC_REGISTRY,
     MetricSpec,
@@ -31,7 +32,7 @@ def _isolate_registry():
 class TestMetricSpecDecorator:
     def test_stamps_metric_spec_attribute(self) -> None:
         spec = MetricSpec(
-            name="stamp_only", cell=cell(None, None), agg_order="test", inference="test"
+            name="stamp_only", cell=cell(None, None), aggregation=Aggregation.CS_THEN_TS, test_method=TestMethod.T, se_method=SEMethod.HAC
         )
 
         @fx.metric_spec(spec)
@@ -44,8 +45,8 @@ class TestMetricSpecDecorator:
         spec = MetricSpec(
             name="no_auto_register",
             cell=cell(None, None),
-            agg_order="test",
-            inference="test",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -61,8 +62,8 @@ class TestRegister:
         spec = MetricSpec(
             name="custom_ic_smoke",
             cell=cell(None, None),
-            agg_order="test",
-            inference="test",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -81,8 +82,8 @@ class TestRegister:
         spec = MetricSpec(
             name="dag_resolves_me",
             cell=cell(None, None),
-            agg_order="test",
-            inference="test",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -107,8 +108,8 @@ class TestRegister:
         spec = MetricSpec(
             name="dup_metric",
             cell=cell(None, None),
-            agg_order="test",
-            inference="test",
+            aggregation=Aggregation.CS_THEN_TS,
+            test_method=TestMethod.T, se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -121,7 +122,7 @@ class TestRegister:
 
     def test_register_rejects_first_party_clash(self) -> None:
         clash_spec = MetricSpec(
-            name="ic", cell=cell(None, None), agg_order="x", inference="x"
+            name="ic", cell=cell(None, None), aggregation=Aggregation.CS_THEN_TS, test_method=TestMethod.T, se_method=SEMethod.HAC
         )
 
         @fx.metric_spec(clash_spec)

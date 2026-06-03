@@ -18,7 +18,7 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
-from factrix._axis import FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _adf, _p_value_from_t, _significance_marker
 from factrix._types import MetricOutput
@@ -28,21 +28,15 @@ __metric_specs__ = (
     MetricSpec(
         name="ic_trend",
         cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
-        agg_order="ts-only",
-        inference="Theil-Sen rank-based CI",
-        primitives=(
-            "_significance_marker",
-            "_short_circuit_output",
-            "_adf",
-            "_p_value_from_t",
-        ),
+        aggregation=Aggregation.TS_ONLY,
+        test_method=TestMethod.RANK,
+        se_method=SEMethod.BUILT_IN,
     ),
 )
 
 __all__ = [
     "ic_trend",
 ]
-
 
 def ic_trend(
     series: pl.DataFrame,
