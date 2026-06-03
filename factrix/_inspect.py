@@ -38,7 +38,7 @@ from factrix._results import Warning
 _SPARSITY_THRESHOLD: float = 0.5
 
 
-def _derive_mode(panel: Any) -> PanelMode:
+def _detect_mode(panel: Any) -> PanelMode:
     """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
     return (
         PanelMode.TIMESERIES if panel["asset_id"].n_unique() <= 1 else PanelMode.PANEL
@@ -108,7 +108,7 @@ class PanelProperties:
     Attributes:
         scope: Detected :class:`FactorScope`.
         signal: Detected :class:`FactorSignal`.
-        mode: Derived :class:`PanelMode` — ``TIMESERIES`` iff
+        mode: Detected :class:`PanelMode` — ``TIMESERIES`` iff
             ``n_assets == 1`` (single-asset panel), ``PANEL`` otherwise.
         n_assets: Unique ``asset_id`` count under any-non-null union.
         n_periods: Unique ``date`` count under any-non-null union.
@@ -401,7 +401,7 @@ def inspect_panel(panel: Any) -> PanelInspection:
     """
     signal, signal_reason, sparse_ratio = _detect_signal(panel)
     scope, scope_reason = _detect_scope(panel)
-    mode = _derive_mode(panel)
+    mode = _detect_mode(panel)
     n_assets = int(panel["asset_id"].n_unique())
     n_periods = int(panel["date"].n_unique())
     n_pairs = int(panel.drop_nulls("factor").height)
