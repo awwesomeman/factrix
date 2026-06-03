@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -39,23 +39,12 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL)
-_TSB_PRIMITIVES = (
-    "_calc_t_stat",
-    "_p_value_from_t",
-    "_significance_marker",
-    "_short_circuit_output",
-)
-_TSB_AGG_ORDER = "ts-first"
-_TSB_INFERENCE = "cross-asset t"
-
 
 MIN_TS_OBS: int = 20
-
 
 # ---------------------------------------------------------------------------
 # Per-asset TS regression
 # ---------------------------------------------------------------------------
-
 
 def compute_ts_betas(
     df: pl.DataFrame,
@@ -175,11 +164,9 @@ def compute_ts_betas(
 
     return pl.DataFrame(rows)
 
-
 # ---------------------------------------------------------------------------
 # Cross-sectional test on β distribution
 # ---------------------------------------------------------------------------
-
 
 def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
@@ -222,7 +209,6 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricOutput:
             "method": "single-asset TS regression (no cross-asset test)",
         },
     )
-
 
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
@@ -296,11 +282,9 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricOutput:
         },
     )
 
-
 # ---------------------------------------------------------------------------
 # Mean R²
 # ---------------------------------------------------------------------------
-
 
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
@@ -363,11 +347,9 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricOutput:
         },
     )
 
-
 # ---------------------------------------------------------------------------
 # Rolling mean beta for stability / OOS analysis
 # ---------------------------------------------------------------------------
-
 
 def compute_rolling_mean_beta(
     df: pl.DataFrame,
@@ -465,11 +447,9 @@ def compute_rolling_mean_beta(
 
     return pl.DataFrame(rows)
 
-
 # ---------------------------------------------------------------------------
 # β sign consistency (per-asset version)
 # ---------------------------------------------------------------------------
-
 
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
@@ -536,53 +516,52 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricOutput:
         },
     )
 
-
 __metric_specs__ = (
     MetricSpec(
         name="compute_ts_betas",
         cell=_TSB_CELL,
-        agg_order=_TSB_AGG_ORDER,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.TS_THEN_CS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
+        role=SpecRole.PIPELINE,
     ),
     MetricSpec(
         name="ts_beta",
         cell=_TSB_CELL,
-        agg_order=_TSB_AGG_ORDER,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
+        aggregation=Aggregation.TS_THEN_CS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
         requires={"ts_betas_df": compute_ts_betas},
     ),
     MetricSpec(
         name="mean_r_squared",
         cell=_TSB_CELL,
-        agg_order=_TSB_AGG_ORDER,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
+        aggregation=Aggregation.TS_THEN_CS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
         requires={"ts_betas_df": compute_ts_betas},
     ),
     MetricSpec(
         name="compute_rolling_mean_beta",
         cell=_TSB_CELL,
-        agg_order=_TSB_AGG_ORDER,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
+        aggregation=Aggregation.TS_THEN_CS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
     ),
     MetricSpec(
         name="ts_beta_sign_consistency",
         cell=_TSB_CELL,
-        agg_order=_TSB_AGG_ORDER,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
+        aggregation=Aggregation.TS_THEN_CS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
         requires={"ts_betas_df": compute_ts_betas},
     ),
     MetricSpec(
         name="ts_beta_single_asset_fallback",
         cell=_TSB_CELL,
-        agg_order=_TSB_AGG_ORDER,
-        inference=_TSB_INFERENCE,
-        primitives=_TSB_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.TS_THEN_CS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
+        role=SpecRole.PIPELINE,
     ),
 )

@@ -20,7 +20,7 @@ from typing import Literal
 
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._types import EPSILON, MIN_OOS_PERIODS, MetricOutput
 from factrix.metrics._helpers import _short_circuit_output
@@ -29,9 +29,9 @@ __metric_specs__ = (
     MetricSpec(
         name="oos_decay",
         cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
-        agg_order="ts-only",
-        inference="no formal H_0",
-        primitives=("_short_circuit_output",),
+        aggregation=Aggregation.TS_ONLY,
+        test_method=TestMethod.DESCRIPTIVE,
+        se_method=SEMethod.NONE,
     ),
 )
 
@@ -40,7 +40,6 @@ __all__ = [
 ]
 
 GateStatus = Literal["PASS", "VETOED"]
-
 
 def oos_decay(
     series: pl.DataFrame,

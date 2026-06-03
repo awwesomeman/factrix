@@ -19,7 +19,7 @@ from collections.abc import Sequence
 
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
 from factrix._metric_index import MetricSpec, SampleThreshold, cell
 from factrix._stats import (
     _calc_t_stat,
@@ -53,15 +53,6 @@ _IC_CELL = cell(
     FactorDensity.DENSE,
     structure=DataStructure.PANEL,
 )
-_IC_PRIMITIVES = (
-    "_newey_west_t_test",
-    "_calc_t_stat",
-    "_p_value_from_t",
-    "_significance_marker",
-    "_sample_non_overlapping",
-    "_short_circuit_output",
-)
-_IC_INFERENCE = "NW HAC / cross-asset t"
 
 # Slice-test contract (#153 §5): IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
@@ -73,14 +64,12 @@ _IC_INFERENCE = "NW HAC / cross-asset t"
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
 
-
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
     """Median of the per-date ``tie_ratio`` column, or ``nan`` if absent/empty."""
     if "tie_ratio" not in ic_df.columns:
         return float("nan")
     med = ic_df["tie_ratio"].median()
     return float("nan") if med is None else float(med)  # type: ignore[arg-type]
-
 
 def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     """Emit ``UserWarning`` when median tie_ratio exceeds the global threshold.
@@ -104,7 +93,6 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
             stacklevel=2,
         )
     return med
-
 
 def compute_ic(
     df: pl.DataFrame,
@@ -213,7 +201,6 @@ def compute_ic(
         for f in cols
     }
 
-
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -302,7 +289,6 @@ def ic(
         },
     )
 
-
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -381,7 +367,6 @@ def ic_newey_west(
             "tie_ratio": median_tie,
         },
     )
-
 
 def ic_ir(
     ic_df: pl.DataFrame,
@@ -462,33 +447,32 @@ def ic_ir(
         },
     )
 
-
 __metric_specs__ = (
     MetricSpec(
         name="compute_ic",
         cell=_IC_CELL,
-        agg_order="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
+        role=SpecRole.PIPELINE,
         batchable=True,
     ),
     MetricSpec(
         name="ic",
         cell=_IC_CELL,
-        agg_order="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires={"ic_df": compute_ic},
     ),
     MetricSpec(
         name="ic_newey_west",
         cell=_IC_CELL,
-        agg_order="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires={"ic_df": compute_ic},
-        sample_floor=SampleThreshold(
+        sample_threshold=SampleThreshold(
             min_periods=MIN_PERIODS_HARD,
             warn_periods=MIN_PERIODS_WARN,
         ),
@@ -496,11 +480,11 @@ __metric_specs__ = (
     MetricSpec(
         name="ic_ir",
         cell=_IC_CELL,
-        agg_order="cs-first",
-        inference=_IC_INFERENCE,
-        primitives=_IC_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.HAC,
         requires={"ic_df": compute_ic},
-        sample_floor=SampleThreshold(
+        sample_threshold=SampleThreshold(
             min_periods=MIN_PERIODS_HARD,
             warn_periods=MIN_PERIODS_WARN,
         ),

@@ -16,7 +16,7 @@ from unittest.mock import patch
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import FactorScope, FactorDensity, Visibility
+from factrix._axis import FactorDensity, FactorScope, SpecRole, Visibility
 from factrix._errors import IncompatibleAxisError
 from factrix._metric_index import (
     MetricSpec,
@@ -150,7 +150,7 @@ def test_list_metrics_matches_applicability_doc(
 def test_internal_specs_excluded_from_public_specs() -> None:
     public_names = {spec.name for _, spec in public_specs()}
     internal_names = {
-        spec.name for _, spec in _all_specs() if spec.visibility is Visibility.INTERNAL
+        spec.name for _, spec in _all_specs() if spec.role is SpecRole.PIPELINE
     }
     assert internal_names.isdisjoint(public_names)
 
@@ -191,10 +191,11 @@ def test_json_format_round_trips() -> None:
         "module",
         "family",
         "cell",
-        "agg_order",
-        "inference_se",
+        "aggregation",
+        "test_method",
+        "se_method",
         "import_path",
-        "input_kind",
+        "input_shape",
         "docs_anchor",
     }
 
@@ -207,17 +208,17 @@ def test_json_carries_import_path_and_input_kind() -> None:
 
     # ``ic`` is the canonical panel-input metric.
     assert by_name["ic"]["import_path"] == "factrix.metrics.ic"
-    assert by_name["ic"]["input_kind"] == "panel"
+    assert by_name["ic"]["input_shape"] == "panel"
     assert by_name["ic"]["docs_anchor"] == "api/metrics/ic.md#factrix.metrics.ic.ic"
 
     # ``breakeven_cost`` / ``net_spread`` are the scalar-input utilities.
     assert by_name["breakeven_cost"]["import_path"] == "factrix.metrics.tradability"
-    assert by_name["breakeven_cost"]["input_kind"] == "scalar"
-    assert by_name["net_spread"]["input_kind"] == "scalar"
+    assert by_name["breakeven_cost"]["input_shape"] == "scalar"
+    assert by_name["net_spread"]["input_shape"] == "scalar"
 
     # Every other row is panel-input.
-    panels = {r["name"] for r in rows if r["input_kind"] == "panel"}
-    scalars = {r["name"] for r in rows if r["input_kind"] == "scalar"}
+    panels = {r["name"] for r in rows if r["input_shape"] == "panel"}
+    scalars = {r["name"] for r in rows if r["input_shape"] == "scalar"}
     assert scalars == {"breakeven_cost", "net_spread"}
     assert panels.isdisjoint(scalars)
 
@@ -309,10 +310,11 @@ def test_public_spec_fields_are_serialisable() -> None:
             "module": stem,
             "family": stem,
             "cell": spec.cell.raw,
-            "agg_order": spec.agg_order,
-            "inference_se": spec.inference,
+            "aggregation": spec.aggregation.value,
+            "test_method": spec.test_method.value,
+            "se_method": spec.se_method.value,
             "import_path": import_path_for(stem),
-            "input_kind": spec.input_kind,
+            "input_shape": spec.input_shape.value,
         }
     )
     assert json.loads(serialised)["name"] == spec.name
@@ -387,6 +389,6 @@ def test_json_agg_order_and_family_are_distinct_fields() -> None:
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
     )
     by_name = {r["name"]: r for r in rows}
-    # agg_order is the reduction order; family is the concept group.
-    assert by_name["ic"]["agg_order"] == "cs-first"
+    # aggregation is the reduction order; family is the concept group.
+    assert by_name["ic"]["aggregation"] == "cs_then_ts"
     assert by_name["ic"]["family"] == "ic"

@@ -20,7 +20,7 @@ import numpy as np
 import polars as pl
 import scipy.stats as scipy_stats
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -45,18 +45,10 @@ __metric_specs__ = (
         cell=cell(
             FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
         ),
-        agg_order="cs-first",
-        inference="cross-asset t",
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
         batchable=True,
-        primitives=(
-            "_calc_t_stat",
-            "_p_value_from_t",
-            "_significance_marker",
-            "_sample_non_overlapping",
-            "_short_circuit_output",
-            "_assign_quantile_groups",
-            "_compute_tie_ratio",
-        ),
     ),
 )
 
@@ -69,7 +61,6 @@ __metric_specs__ = (
 # `_downscale_n_groups(base, n_assets, min_per_group=50)` caps
 # `n_groups` accordingly inside the slice-test function.
 min_assets_per_group: int | None = 50
-
 
 def monotonicity(
     df: pl.DataFrame,
@@ -219,7 +210,6 @@ def monotonicity(
         )
 
     return results
-
 
 def _compute_tie_ratios_batch(
     df: pl.DataFrame, factor_cols: list[str]

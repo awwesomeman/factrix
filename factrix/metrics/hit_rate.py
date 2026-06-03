@@ -15,7 +15,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -30,14 +30,9 @@ __metric_specs__ = (
     MetricSpec(
         name="hit_rate",
         cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
-        agg_order="ts-only",
-        inference="binomial",
-        primitives=(
-            "_binomial_two_sided_p",
-            "_significance_marker",
-            "_short_circuit_output",
-            "_sample_non_overlapping",
-        ),
+        aggregation=Aggregation.TS_ONLY,
+        test_method=TestMethod.BINOMIAL,
+        se_method=SEMethod.BUILT_IN,
     ),
 )
 
@@ -51,7 +46,6 @@ __all__ = [
 # (if any) is the responsibility of the upstream metric that produced
 # the series.
 min_assets_per_group: int | None = None
-
 
 def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     """Return ``(date, value)`` per-date hit indicator series.
@@ -68,7 +62,6 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
             (pl.col("value") > 0).cast(pl.Float64).alias("value"),
         ]
     ).drop_nulls()
-
 
 def hit_rate(
     series: pl.DataFrame,

@@ -20,7 +20,7 @@ from collections.abc import Sequence
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure, Visibility
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, SpecRole, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -47,52 +47,40 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 _Q_CELL = cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL)
-_Q_PRIMITIVES = (
-    "_calc_t_stat",
-    "_p_value_from_t",
-    "_significance_marker",
-    "_sample_non_overlapping",
-    "_short_circuit_output",
-    "_assign_quantile_groups",
-    "_compute_tie_ratio",
-    "_lag_within_asset",
-)
-_Q_INFERENCE = "cross-asset t"
 
 __metric_specs__ = (
     MetricSpec(
         name="compute_spread_series",
         cell=_Q_CELL,
-        agg_order="cs-first",
-        inference=_Q_INFERENCE,
-        primitives=_Q_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
+        role=SpecRole.PIPELINE,
     ),
     MetricSpec(
         name="quantile_spread",
         cell=_Q_CELL,
-        agg_order="cs-first",
-        inference=_Q_INFERENCE,
-        primitives=_Q_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
         batchable=True,
     ),
     MetricSpec(
         name="quantile_spread_vw",
         cell=_Q_CELL,
-        agg_order="cs-first",
-        inference=_Q_INFERENCE,
-        primitives=_Q_PRIMITIVES,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
     ),
     MetricSpec(
         name="compute_group_returns",
         cell=_Q_CELL,
-        agg_order="cs-first",
-        inference=_Q_INFERENCE,
-        primitives=_Q_PRIMITIVES,
-        visibility=Visibility.INTERNAL,
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.T,
+        se_method=SEMethod.OLS,
+        role=SpecRole.PIPELINE,
     ),
 )
-
 
 def compute_spread_series(
     df: pl.DataFrame,
@@ -197,7 +185,6 @@ def compute_spread_series(
         for f in cols
     }
 
-
 def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,
@@ -279,7 +266,6 @@ def quantile_spread(
         for f in cols
     }
 
-
 def _quantile_spread_from_series(
     *,
     series: pl.DataFrame,
@@ -354,7 +340,6 @@ def _quantile_spread_from_series(
             "tie_policy": tie_policy,
         },
     )
-
 
 def quantile_spread_vw(
     df: pl.DataFrame,
@@ -516,7 +501,6 @@ def quantile_spread_vw(
             "weights_lagged": lag_weights,
         },
     )
-
 
 def compute_group_returns(
     df: pl.DataFrame,

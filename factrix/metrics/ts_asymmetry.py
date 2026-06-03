@@ -39,7 +39,7 @@ from __future__ import annotations
 import numpy as np
 import polars as pl
 
-from factrix._axis import FactorScope, FactorDensity, DataStructure
+from factrix._axis import Aggregation, DataStructure, FactorDensity, FactorScope, SEMethod, TestMethod
 from factrix._metric_index import MetricSpec, cell
 from factrix._stats import (
     _ols_nw_multivariate,
@@ -61,18 +61,11 @@ __metric_specs__ = (
     MetricSpec(
         name="ts_asymmetry",
         cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
-        agg_order="cs-first",
-        inference="NW HAC Wald",
-        primitives=(
-            "_significance_marker",
-            "_short_circuit_output",
-            "_aggregate_to_per_date",
-            "_ols_nw_multivariate",
-            "_wald_p_linear",
-        ),
+        aggregation=Aggregation.CS_THEN_TS,
+        test_method=TestMethod.CHI2,
+        se_method=SEMethod.HAC,
     ),
 )
-
 
 def ts_asymmetry(
     df: pl.DataFrame,

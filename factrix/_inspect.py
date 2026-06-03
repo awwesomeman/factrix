@@ -451,50 +451,47 @@ def _evaluate_applicability(
             f"*, {properties.structure.value.upper()})"
         )
 
-    floor = spec.sample_floor
-    if floor is not None:
-        if floor.min_periods is not None and properties.n_periods < floor.min_periods:
-            blockers.append(
-                f"n_periods={properties.n_periods} < min_periods={floor.min_periods}"
+    floor = spec.sample_threshold
+    if floor.min_periods is not None and properties.n_periods < floor.min_periods:
+        blockers.append(
+            f"n_periods={properties.n_periods} < min_periods={floor.min_periods}"
+        )
+    elif floor.warn_periods is not None and properties.n_periods < floor.warn_periods:
+        warnings.append(
+            Warning(
+                code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+                source=spec.name,
+                message=(
+                    f"n_periods={properties.n_periods} < warn_periods="
+                    f"{floor.warn_periods}: inference degraded"
+                ),
             )
-        elif (
-            floor.warn_periods is not None and properties.n_periods < floor.warn_periods
-        ):
+        )
+    if floor.min_assets is not None and properties.n_assets < floor.min_assets:
+        blockers.append(
+            f"n_assets={properties.n_assets} < min_assets={floor.min_assets}"
+        )
+    elif floor.warn_assets is not None and properties.n_assets < floor.warn_assets:
+        tier = cross_section_tier(properties.n_assets)
+        if tier is not None:
             warnings.append(
-                Warning(
-                    code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
-                    source=spec.name,
-                    message=(
-                        f"n_periods={properties.n_periods} < warn_periods="
-                        f"{floor.warn_periods}: inference degraded"
-                    ),
-                )
+                Warning(code=tier, source=spec.name, message=tier.description)
             )
-        if floor.min_assets is not None and properties.n_assets < floor.min_assets:
-            blockers.append(
-                f"n_assets={properties.n_assets} < min_assets={floor.min_assets}"
+    if floor.min_pairs is not None and properties.n_pairs < floor.min_pairs:
+        blockers.append(
+            f"n_pairs={properties.n_pairs} < min_pairs={floor.min_pairs}"
+        )
+    elif floor.warn_pairs is not None and properties.n_pairs < floor.warn_pairs:
+        warnings.append(
+            Warning(
+                code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+                source=spec.name,
+                message=(
+                    f"n_pairs={properties.n_pairs} < warn_pairs="
+                    f"{floor.warn_pairs}: inference degraded"
+                ),
             )
-        elif floor.warn_assets is not None and properties.n_assets < floor.warn_assets:
-            tier = cross_section_tier(properties.n_assets)
-            if tier is not None:
-                warnings.append(
-                    Warning(code=tier, source=spec.name, message=tier.description)
-                )
-        if floor.min_pairs is not None and properties.n_pairs < floor.min_pairs:
-            blockers.append(
-                f"n_pairs={properties.n_pairs} < min_pairs={floor.min_pairs}"
-            )
-        elif floor.warn_pairs is not None and properties.n_pairs < floor.warn_pairs:
-            warnings.append(
-                Warning(
-                    code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
-                    source=spec.name,
-                    message=(
-                        f"n_pairs={properties.n_pairs} < warn_pairs="
-                        f"{floor.warn_pairs}: inference degraded"
-                    ),
-                )
-            )
+        )
 
     return MetricApplicability(
         spec=spec,
