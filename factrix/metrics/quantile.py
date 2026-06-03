@@ -241,7 +241,7 @@ def quantile_spread(
         ...     forward_periods=5,
         ... )
         >>> result = quantile_spread(panel, forward_periods=5, n_groups=5)
-        >>> result["factor"].spec is None
+        >>> result["factor"].name == ""
         True
     """
     cols = list(factor_cols)
@@ -433,7 +433,7 @@ def quantile_spread_vw(
         ...     forward_periods=5,
         ... ).with_columns(pl.lit(1e6).alias("market_cap"))
         >>> result = quantile_spread_vw(panel, forward_periods=5, n_groups=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if weight_col not in df.columns:

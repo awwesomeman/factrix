@@ -190,7 +190,7 @@ def spanning_alpha(
         ... )
         >>> spread = compute_spread_series(panel, forward_periods=5)["factor"]
         >>> result = spanning_alpha(spread)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if base_spreads is None:

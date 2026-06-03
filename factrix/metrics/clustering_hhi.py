@@ -89,7 +89,7 @@ def clustering_hhi(
         >>> from factrix.metrics.clustering_hhi import clustering_hhi
         >>> panel = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
         >>> result = clustering_hhi(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     events = df.filter(pl.col(factor_col) != 0)

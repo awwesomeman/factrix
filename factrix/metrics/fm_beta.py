@@ -281,7 +281,7 @@ def fm_beta(
         ... )
         >>> beta_df = compute_fm_betas(panel)
         >>> result = fm_beta(beta_df, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
@@ -493,7 +493,7 @@ def pooled_beta(
         ...     forward_periods=5,
         ... )
         >>> result = pooled_beta(panel)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     y = df[return_col].to_numpy().astype(np.float64)
@@ -681,7 +681,7 @@ def beta_sign_consistency(
         ... )
         >>> beta_df = compute_fm_betas(panel)
         >>> result = beta_sign_consistency(beta_df, expected_sign=1)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()

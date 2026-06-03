@@ -255,7 +255,7 @@ def ic(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic(ic_df, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
@@ -344,7 +344,7 @@ def ic_newey_west(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_newey_west(ic_df, forward_periods=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_newey_west")
@@ -421,7 +421,7 @@ def ic_ir(
         ... )
         >>> ic_df = compute_ic(panel)["factor"]
         >>> result = ic_ir(ic_df)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")

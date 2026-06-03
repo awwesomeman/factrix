@@ -185,7 +185,9 @@ class DagExecutor:
                         )
                     producer_outputs[(spec.name, c)] = result[c]
                     if isinstance(result[c], MetricResult):
-                        metric_outputs[(spec.name, c)] = _stamp_spec(result[c], spec)
+                        metric_outputs[(spec.name, c)] = dataclasses.replace(
+                            result[c], name=spec.name
+                        )
                 continue
 
             for c in cols:
@@ -207,7 +209,9 @@ class DagExecutor:
                         out = fn(view, **kwargs)
                 producer_outputs[(spec.name, c)] = out
                 if isinstance(out, MetricResult):
-                    metric_outputs[(spec.name, c)] = _stamp_spec(out, spec)
+                    metric_outputs[(spec.name, c)] = dataclasses.replace(
+                        out, name=spec.name
+                    )
 
         return self._assemble(
             cols, scope, density, forward_periods, structure, n_assets, metric_outputs
@@ -236,8 +240,9 @@ class DagExecutor:
         metric_outputs: Mapping[tuple[str, str], MetricResult],
     ) -> dict[str, EvaluationResult]:
         public_specs = [s for s in self._specs if s.role is SpecRole.METRIC]
-        primary = [s for s in public_specs if s.name in self._primary_names]
-        diagnostic = [s for s in public_specs if s.name not in self._primary_names]
+        applicable = [s.name for s in public_specs]
+        primary = [s.name for s in public_specs if s.name in self._primary_names]
+        diagnostic = [s.name for s in public_specs if s.name not in self._primary_names]
         plan = self.plan
 
         results: dict[str, EvaluationResult] = {}
@@ -268,7 +273,7 @@ class DagExecutor:
                 n_obs=n_obs,
                 n_assets=n_assets,
                 metrics=MetricResultGroup(
-                    applicable=public_specs,
+                    applicable=applicable,
                     primary=primary,
                     diagnostic=diagnostic,
                     outputs=outputs,
@@ -335,17 +340,13 @@ def _check_upstream_short_circuit(
     return None
 
 
-def _stamp_spec(out: MetricResult, spec: MetricSpec) -> MetricResult:
-    return dataclasses.replace(out, spec=spec)
-
-
 def _resolve_n_obs(
-    primary: Sequence[MetricSpec],
+    primary: Sequence[str],
     factor: str,
     metric_outputs: Mapping[tuple[str, str], MetricResult],
 ) -> int:
-    for spec in primary:
-        out = metric_outputs.get((spec.name, factor))
+    for name in primary:
+        out = metric_outputs.get((name, factor))
         if out is not None and out.n_obs is not None:
             return out.n_obs
     return 0

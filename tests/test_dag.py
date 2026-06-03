@@ -359,4 +359,4 @@ class TestEndToEndIcCell:
         assert "ic" in r.metrics
         assert "ic_ir" in r.metrics
         assert r.plan.startswith("1. compute_ic [batchable]")
-        assert r.metrics["ic"].spec is by_name["ic"]
+        assert r.metrics["ic"].name == "ic"

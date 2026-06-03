@@ -125,7 +125,7 @@ def top_concentration(
         ...     forward_periods=5,
         ... )
         >>> result = top_concentration(panel, forward_periods=5, q_top=0.2)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if weight_by == "alpha_contribution" and return_col not in df.columns:

@@ -136,7 +136,7 @@ def ts_quantile_spread(
         ...     forward_periods=5,
         ... )
         >>> result = ts_quantile_spread(panel, n_groups=5)
-        >>> result.spec is None
+        >>> result.name == ""
         True
     """
     if "date" not in df.columns:
