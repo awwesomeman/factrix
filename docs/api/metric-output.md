@@ -35,12 +35,10 @@ carries its declaring spec, so the metric name is `result.spec.name`.
 
 The metric name maps back to its API page two ways:
 
-- **Programmatic** —
-  [`list_metrics(..., format="json")`](list-metrics.md) rows carry an
-  `emitted_name` field (the metric's runtime name) and a `docs_anchor`
-  field following the `DOCS_ANCHOR_FMT` convention defined in
-  `factrix._metric_index` (docs-root-relative path + mkdocstrings
-  symbol fragment), resolvable without scraping.
+- **Programmatic** — the docs-build hooks resolve each metric's page
+  anchor through `docs_anchor_for` in `factrix._metric_index`, which
+  follows the `DOCS_ANCHOR_FMT` convention (docs-root-relative path +
+  mkdocstrings symbol fragment), resolvable without scraping.
 - **Static** — the auto-generated table below maps every emitted
   metric name to the function that produced it and the API page
   anchor. Regenerated from the same `Matrix-row:` SSOT on every docs

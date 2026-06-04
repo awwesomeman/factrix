@@ -65,17 +65,16 @@ ic_df = compute_ic(panel)["factor"].join(vol_labels, on="date", how="inner")
 
 ## Discovering eligible metrics
 
-`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Use [`list_metrics`](../api/list-metrics.md) with `format="json"` and filter on `input_kind == "panel"` to enumerate the candidate set:
+`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Enumerate the candidate set from the [`list_metrics()`](../api/list-metrics.md) catalog by filtering each spec's `input_shape`:
 
 ```python
 import factrix as fx
 
 panel_metrics = [
-    r["name"]
-    for r in fx.list_metrics(
-        fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE, format="json",
-    )
-    if r["input_kind"] == "panel"
+    spec.name
+    for specs in fx.list_metrics().values()
+    for spec in specs
+    if spec.input_shape.value == "panel"
 ]
 ```
 

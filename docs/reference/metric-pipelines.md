@@ -31,8 +31,7 @@ and internal primitives, click the module link to the source.
 ## Aggregation vocabulary
 
 The `agg_order` column uses one canonical lowercase-hyphen form across
-the matrix, every `Matrix-row:` tag in `factrix/metrics/*.py`, and the
-`list_metrics()` JSON output:
+the matrix and every `Matrix-row:` tag in `factrix/metrics/*.py`:
 
 - **`cs-first`** — aggregate cross-section per date first, then aggregate
   the resulting time series. Pairs with the

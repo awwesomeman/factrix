@@ -134,11 +134,18 @@ separate pass after BHY narrows the candidate set.
 
 ## Discovery
 
-[`list_metrics(scope, signal)`](../api/list-metrics.md) returns the
-standalone subset for a given cell, sorted by module then function.
-Use it as the runtime equivalent of the static matrix:
+[`list_metrics()`](../api/list-metrics.md) returns the family-grouped
+catalog of every standalone metric (a `dict` keyed by concept family):
 
 ```python
-fx.list_metrics(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE)
-# ['concentration.top_concentration', 'fm_beta.beta_sign_consistency', ...]
+overview = fx.list_metrics()
+overview["ic"]    # [MetricSpec(name="ic", ...), MetricSpec(name="ic_ir", ...), ...]
+```
+
+For the subset applicable to a *specific panel* — accounting for its
+actual shape — inspect the panel and read the verdict partitions:
+
+```python
+info = fx.inspect_panel(panel)
+[m.name for m in info.usable]   # production-safe metrics for this panel
 ```
