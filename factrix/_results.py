@@ -82,6 +82,14 @@ class Warning:
     ``(code, source, message)`` so callers can filter on the metric
     that emitted the warning.
 
+    Source convention (uniform across every emission point):
+    a per-metric warning carries ``source == <metric name>`` (the
+    emitting :class:`MetricSpec`'s ``name``); a panel-level /
+    cross-metric warning carries ``source is None``. Callers filter on
+    this — ``w.source == name`` for one metric, ``w.source is None`` for
+    bundle diagnostics — so the two-state ``str | None`` is load-bearing,
+    not incidental.
+
     Attributes:
         code: The :class:`WarningCode` enum member.
         source: Metric name that emitted the warning, or ``None`` for
