@@ -625,11 +625,14 @@ types-only; runner wiring lands with the DAG executor.
   - `PanelInspection.reasoning: PanelReasoning` carries per-axis
     rationale strings.
   - `PanelInspection.metrics: list[MetricApplicability]` — one
-    verdict per `visibility=PUBLIC` spec. Each carries `usable:
-    bool`, a `warnings: list[Warning]` for degraded inference (above
-    HARD floor but below WARN floor), and `blockers: list[str]` for
-    unusable reasons (cell mismatch or HARD floor violation).
-    Caller partitions via list comprehension —
+    verdict per `visibility=PUBLIC` spec. Each carries `metric:
+    type[MetricBase]` (the callable class) and `name: str`
+    (`metric.__name__` == `spec.name`, the registry key) so callers
+    can identify the metric without reaching through `spec`, plus
+    `usable: bool`, a `warnings: list[Warning]` for degraded
+    inference (above HARD floor but below WARN floor), and
+    `blockers: list[str]` for unusable reasons (cell mismatch or HARD
+    floor violation). Caller partitions via list comprehension —
     `[m for m in info.metrics if m.usable]`.
   - `PanelInspection.warnings: list[Warning]` carries panel-level
     sample-shape diagnostics (`source=None`); per-metric degraded

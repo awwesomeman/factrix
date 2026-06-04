@@ -26,7 +26,7 @@ from __future__ import annotations
 import html
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 
@@ -34,6 +34,9 @@ from factrix._axis import DataStructure, FactorDensity, FactorScope, Tier
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
+
+if TYPE_CHECKING:
+    from factrix.metrics._base import MetricBase
 
 _SPARSITY_THRESHOLD: float = 0.5
 
@@ -148,6 +151,14 @@ class MetricApplicability:
     """Per-metric pre-flight verdict against one panel's properties.
 
     Attributes:
+        metric: The :class:`~factrix.metrics._base.MetricBase` subclass
+            this verdict is about — the callable a caller would
+            instantiate to run it. Lets consumers reach the class (and
+            its ``compute`` / params) without going through
+            :attr:`spec`.
+        name: The metric's registry name (``metric.__name__`` ==
+            ``spec.name``), surfaced directly so callers can key on it
+            without reaching through :attr:`spec`.
         spec: The :class:`MetricSpec` being evaluated.
         usable: ``True`` iff the metric passes cell match AND every
             ``min_*`` floor on its :class:`SampleThreshold`. ``warn_*``
@@ -161,6 +172,8 @@ class MetricApplicability:
             ``usable`` is True.
     """
 
+    metric: type[MetricBase]
+    name: str
     spec: MetricSpec
     usable: bool
     warnings: list[Warning] = field(default_factory=list)
@@ -440,6 +453,8 @@ def inspect_panel(panel: Any) -> PanelInspection:
 def _evaluate_applicability(
     spec: MetricSpec, properties: PanelProperties
 ) -> MetricApplicability:
+    from factrix.metrics._registry import REGISTRY
+
     blockers: list[str] = []
     warnings: list[Warning] = []
 
@@ -478,6 +493,8 @@ def _evaluate_applicability(
                 )
 
     return MetricApplicability(
+        metric=REGISTRY[spec.name],
+        name=spec.name,
         spec=spec,
         usable=not blockers,
         warnings=warnings,
