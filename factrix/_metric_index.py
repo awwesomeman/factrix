@@ -256,24 +256,33 @@ def _public_metric_stems() -> list[str]:
 
 
 def _load_module_specs(stem: str) -> tuple[MetricSpec, ...]:
-    """Import ``factrix.metrics.<stem>`` and return its ``__metric_specs__``.
+    """Import ``factrix.metrics.<stem>`` and return its specs.
 
     Raises ``ValueError`` when the module does not declare a non-empty
-    ``__metric_specs__`` tuple — coverage enforced by
-    ``tests/test_docs_matrix.py``.
+    ``__metric_specs__`` tuple or register `@metric` classes — coverage
+    enforced by ``tests/test_docs_matrix.py``.
     """
     mod = importlib.import_module(f"factrix.metrics.{stem}")
     specs = getattr(mod, "__metric_specs__", None)
     if not specs:
+        from factrix.metrics._registry import REGISTRY
+
+        reg_specs = []
+        for _, cls in REGISTRY.items():
+            if cls.__module__ == f"factrix.metrics.{stem}":
+                reg_specs.append(cls.spec())
+        if reg_specs:
+            specs = tuple(reg_specs)
+
+    if not specs:
         raise ValueError(
             f"factrix.metrics.{stem}: module-level `__metric_specs__` tuple "
-            f"is required (one MetricSpec per public callable). See "
+            f"or registered @metric classes are required. See "
             f"factrix._metric_index.MetricSpec docstring."
         )
     if not all(isinstance(s, MetricSpec) for s in specs):
         raise TypeError(
-            f"factrix.metrics.{stem}: every `__metric_specs__` entry must be "
-            f"a MetricSpec instance."
+            f"factrix.metrics.{stem}: every spec entry must be a MetricSpec instance."
         )
     for spec in specs:
         if spec.requires:
@@ -297,7 +306,8 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
             f"factrix.metrics.{stem}.{spec.name}: declares `requires=` "
             f"but no callable of that name is exported from the module."
         )
-    consumer_params = set(inspect.signature(consumer).parameters)
+    consumer_to_inspect = consumer._impl if hasattr(consumer, "_impl") else consumer
+    consumer_params = set(inspect.signature(consumer_to_inspect).parameters)
     from factrix.metrics._registry import REGISTRY
 
     for key, producer in spec.requires.items():
@@ -358,7 +368,10 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     from factrix.metrics._registry import REGISTRY
 
     for _, cls in REGISTRY.items():
-        stem = cls.__module__.split(".")[-1]
+        if cls.__module__.startswith("factrix.metrics."):
+            stem = cls.__module__.removeprefix("factrix.metrics.")
+        else:
+            stem = cls.__module__.split(".")[-1]
         spec = cls.spec()
         if not any(s.name == spec.name for _, s in out):
             out.append((stem, spec))

@@ -29,17 +29,18 @@ from factrix._axis import (
     SpecRole,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
     _p_value_from_t,
 )
-from factrix._types import DDOF, EPSILON
+from factrix._types import DDOF
+from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._primitives import compute_ts_betas
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
-    "compute_ts_betas",
     "ts_beta",
     "mean_r_squared",
     "ts_beta_sign_consistency",
@@ -50,135 +51,14 @@ _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructur
 
 MIN_TS_OBS: int = 20
 
-# ---------------------------------------------------------------------------
-# Per-asset TS regression
-# ---------------------------------------------------------------------------
 
-
-def compute_ts_betas(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> pl.DataFrame:
-    """Per-asset time-series ordinary least squares (OLS): R_{i,t} = α_i + β_i · F_t + ε.
-
-    Args:
-        df: Long panel with ``date, asset_id, factor, forward_return``.
-        factor_col: Column carrying the (broadcast) factor.
-        return_col: Column carrying the per-asset forward return.
-
-    Returns:
-        DataFrame with ``asset_id, beta, alpha, t_stat, r_squared,
-        n_obs``. Assets with fewer than ``MIN_TS_OBS`` valid rows or a
-        singular design are dropped.
-
-    Notes:
-        Per asset ``i``, run OLS ``R_{i,t} = alpha_i + beta_i * F_t +
-        eps`` over the asset's full sample with homoskedastic SE; emit
-        ``beta_i, alpha_i, t_i, R^2_i, n_i``. The output is the
-        per-asset stage feeding the cross-asset aggregation in
-        ``ts_beta`` (time-series-then-cross-section order in the
-        Black-Jensen-Scholes (BJS) tradition).
-
-        factrix reports homoskedastic per-asset t (not Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)) at this
-        stage because the inferential burden lives downstream — the
-        cross-asset t in ``ts_beta`` is what a caller decides on, and
-        adding HAC at the per-asset stage would only smear the
-        per-asset diagnostic without affecting stage-2 inference.
-
-    References:
-        [Black-Jensen-Scholes 1972][black-jensen-scholes-1972]:
-        beta-sorted-portfolio time-series CAPM tests; the two-stage
-        time-series-then-cross-section aggregation order is what
-        ``ts_beta`` adopts. The cross-asset t on mean β here is a
-        simplified analogue of that aggregation order, not a
-        replication of the original BJS grouped-portfolio intercept
-        test.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import compute_ts_betas
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> ts_betas_df = compute_ts_betas(panel)
-        >>> set(ts_betas_df.columns) >= {"asset_id", "beta", "r_squared"}
-        True
-    """
-    assets = df["asset_id"].unique().sort()
-    rows: list[dict] = []
-
-    for asset in assets:
-        chunk = df.filter(pl.col("asset_id") == asset).sort("date")
-        y = chunk[return_col].drop_nulls().to_numpy().astype(np.float64)
-        x = chunk[factor_col].drop_nulls().to_numpy().astype(np.float64)
-
-        n = min(len(y), len(x))
-        if n < MIN_TS_OBS:
-            continue
-        y, x = y[:n], x[:n]
-
-        X = np.column_stack([np.ones(n), x])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-        except np.linalg.LinAlgError:
-            continue
-
-        alpha_val = float(beta[0])
-        beta_val = float(beta[1])
-
-        resid = y - X @ beta
-        ss_res = float(np.dot(resid, resid))
-        centered = y - np.mean(y)
-        ss_tot = float(np.dot(centered, centered))
-        r_sq = 1.0 - ss_res / ss_tot if ss_tot > EPSILON else 0.0
-
-        dof = n - 2
-        if dof > 0 and ss_res / dof > EPSILON:
-            sigma2 = ss_res / dof
-            try:
-                xtx_inv = np.linalg.inv(X.T @ X)
-                se_beta = float(np.sqrt(sigma2 * xtx_inv[1, 1]))
-                t_stat = beta_val / se_beta if se_beta > EPSILON else 0.0
-            except np.linalg.LinAlgError:
-                t_stat = 0.0
-        else:
-            t_stat = 0.0
-
-        rows.append(
-            {
-                "asset_id": asset,
-                "beta": beta_val,
-                "alpha": alpha_val,
-                "t_stat": t_stat,
-                "r_squared": r_sq,
-                "n_obs": n,
-            }
-        )
-
-    if not rows:
-        return pl.DataFrame(
-            {
-                "asset_id": pl.Series([], dtype=pl.String),
-                "beta": pl.Series([], dtype=pl.Float64),
-                "alpha": pl.Series([], dtype=pl.Float64),
-                "t_stat": pl.Series([], dtype=pl.Float64),
-                "r_squared": pl.Series([], dtype=pl.Float64),
-                "n_obs": pl.Series([], dtype=pl.Int64),
-            }
-        )
-
-    return pl.DataFrame(rows)
-
-
-# ---------------------------------------------------------------------------
-# Cross-sectional test on β distribution
-# ---------------------------------------------------------------------------
-
-
+@metric(
+    cell=_TSB_CELL,
+    aggregation=Aggregation.TS_THEN_CS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+    role=SpecRole.PIPELINE,
+)
 def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
 
@@ -222,6 +102,13 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
     )
 
 
+@metric(
+    cell=_TSB_CELL,
+    aggregation=Aggregation.TS_THEN_CS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+    requires={"ts_betas_df": compute_ts_betas},
+)
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
 
@@ -299,6 +186,13 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_TSB_CELL,
+    aggregation=Aggregation.TS_THEN_CS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+    requires={"ts_betas_df": compute_ts_betas},
+)
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
 
@@ -365,6 +259,12 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_TSB_CELL,
+    aggregation=Aggregation.TS_THEN_CS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+)
 def compute_rolling_mean_beta(
     df: pl.DataFrame,
     *,
@@ -467,6 +367,13 @@ def compute_rolling_mean_beta(
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_TSB_CELL,
+    aggregation=Aggregation.TS_THEN_CS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+    requires={"ts_betas_df": compute_ts_betas},
+)
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
 
@@ -530,54 +437,3 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
             "fraction_positive": positive,
         },
     )
-
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_ts_betas",
-        cell=_TSB_CELL,
-        aggregation=Aggregation.TS_THEN_CS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        role=SpecRole.PIPELINE,
-    ),
-    MetricSpec(
-        name="ts_beta",
-        cell=_TSB_CELL,
-        aggregation=Aggregation.TS_THEN_CS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        requires={"ts_betas_df": compute_ts_betas},
-    ),
-    MetricSpec(
-        name="mean_r_squared",
-        cell=_TSB_CELL,
-        aggregation=Aggregation.TS_THEN_CS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        requires={"ts_betas_df": compute_ts_betas},
-    ),
-    MetricSpec(
-        name="compute_rolling_mean_beta",
-        cell=_TSB_CELL,
-        aggregation=Aggregation.TS_THEN_CS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-    ),
-    MetricSpec(
-        name="ts_beta_sign_consistency",
-        cell=_TSB_CELL,
-        aggregation=Aggregation.TS_THEN_CS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        requires={"ts_betas_df": compute_ts_betas},
-    ),
-    MetricSpec(
-        name="ts_beta_single_asset_fallback",
-        cell=_TSB_CELL,
-        aggregation=Aggregation.TS_THEN_CS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        role=SpecRole.PIPELINE,
-    ),
-)

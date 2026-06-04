@@ -40,13 +40,11 @@ from factrix.metrics._decorators import metric
 from factrix.metrics.caar import (
     bmp_test,
     caar,
-    compute_caar,
 )
 from factrix.metrics.clustering_hhi import clustering_hhi
 from factrix.metrics.concentration import top_concentration
 from factrix.metrics.corrado_rank import corrado_rank
 from factrix.metrics.event_horizon import (
-    compute_event_returns,
     event_around_return,
 )
 from factrix.metrics.event_quality import (
@@ -58,26 +56,21 @@ from factrix.metrics.event_quality import (
 )
 from factrix.metrics.fm_beta import (
     beta_sign_consistency,
-    compute_fm_betas,
     fm_beta,
     pooled_beta,
 )
 from factrix.metrics.hit_rate import hit_rate
 from factrix.metrics.ic import (
-    compute_ic,
     ic,
     ic_ir,
     ic_newey_west,
 )
 from factrix.metrics.mfe_mae import (
-    compute_mfe_mae,
     mfe_mae_summary,
 )
 from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.oos_decay import oos_decay
 from factrix.metrics.quantile import (
-    compute_group_returns,
-    compute_spread_series,
     quantile_spread,
     quantile_spread_vw,
 )
@@ -92,7 +85,6 @@ from factrix.metrics.trend import ic_trend
 from factrix.metrics.ts_asymmetry import ts_asymmetry
 from factrix.metrics.ts_beta import (
     compute_rolling_mean_beta,
-    compute_ts_betas,
     mean_r_squared,
     ts_beta,
     ts_beta_sign_consistency,
@@ -105,15 +97,7 @@ __all__ = [
     "breakeven_cost",
     "caar",
     "clustering_hhi",
-    "compute_caar",
-    "compute_event_returns",
-    "compute_fm_betas",
-    "compute_group_returns",
-    "compute_ic",
-    "compute_mfe_mae",
     "compute_rolling_mean_beta",
-    "compute_spread_series",
-    "compute_ts_betas",
     "corrado_rank",
     "event_around_return",
     "event_hit_rate",

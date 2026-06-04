@@ -6,7 +6,6 @@ title: factrix.metrics.ts_beta
     options:
       show_root_members_full_path: true
       members:
-        - compute_ts_betas
         - ts_beta
         - mean_r_squared
         - ts_beta_sign_consistency

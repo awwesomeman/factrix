@@ -6,7 +6,6 @@ title: factrix.metrics.event_horizon
     options:
       show_root_members_full_path: true
       members:
-        - compute_event_returns
         - event_around_return
 
 <hr>

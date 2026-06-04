@@ -12,7 +12,6 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
-from factrix._results import MetricResult
 
 
 class MetricMeta(type):
@@ -93,7 +92,7 @@ class MetricBase(metaclass=MetricMeta):
             sample_threshold=cls.sample_threshold,
         )
 
-    def __call__(self, df: Any) -> MetricResult:
+    def __call__(self, df: Any) -> Any:
         """Evaluate the metric on the given input DataFrame or series."""
         # Fast extraction of parameters using pre-cached slot field names
         kwargs = {name: getattr(self, name) for name in self._param_names}

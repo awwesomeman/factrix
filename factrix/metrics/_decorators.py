@@ -94,6 +94,7 @@ def metric(
             frozen=True,
             slots=True,
         )
+        cls.__module__ = fn.__module__
 
         # 4. Register the class
         register(cls)

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
-from collections.abc import Sequence
 
 import polars as pl
 
@@ -25,10 +24,9 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     SEMethod,
-    SpecRole,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, SampleThreshold, cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
@@ -40,6 +38,7 @@ from factrix._types import (
     EPSILON,
     MIN_ASSETS_PER_DATE_IC,
 )
+from factrix.metrics import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _sample_non_overlapping,
@@ -47,9 +46,9 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
+from factrix.metrics._primitives import compute_ic
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
-    "compute_ic",
     "ic",
     "ic_newey_west",
     "ic_ir",
@@ -104,114 +103,13 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
-def compute_ic(
-    df: pl.DataFrame,
-    factor_cols: Sequence[str] = ("factor",),
-    return_col: str = "forward_return",
-) -> dict[str, pl.DataFrame]:
-    r"""Per-date Spearman Rank information coefficient (IC).
-
-    Args:
-        df: Panel with ``date``, ``asset_id``, every name in
-            ``factor_cols``, and ``return_col``.
-        factor_cols: Factor column names to score. All factors run in a
-            single polars query (one ``with_columns`` + one
-            ``group_by("date").agg(...)`` + one ``collect``) regardless
-            of N. The N=1 case is just the general path specialised —
-            no fast/slow path divergence.
-        return_col: Forward-return column shared across factors.
-
-    Returns:
-        Dict mapping each factor name to a DataFrame with columns
-        ``date, ic, tie_ratio`` sorted by date. Dates with fewer than
-        ``MIN_ASSETS_PER_DATE_IC`` assets are dropped. ``tie_ratio`` is
-        the per-date factor tie density
-        $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
-
-    Notes:
-        Per-date Spearman IC is
-        $\mathrm{IC}_t = \mathrm{corr}(\mathrm{rank}(f_t), \mathrm{rank}(r_t))$
-        over the cross-section at date $t$; rank ties are broken with
-        average rank (``method="average"``).
-
-        At high tie rates Spearman $\rho$ on average ranks is biased
-        relative to the tie-corrected formula (Kendall-Stuart §31). The
-        per-date factor ``tie_ratio`` is surfaced alongside ``ic`` so
-        downstream callers can detect bucketed / categorical signals
-        without re-inspecting the input; ``ic`` / ``ic_newey_west`` /
-        ``ic_ir`` aggregate it as the median across dates and stash it in
-        ``MetricResult.metadata["tie_ratio"]``. When the median exceeds
-        ``TIE_RATIO_WARN_THRESHOLD`` (0.3) those aggregators also emit a
-        ``UserWarning``: treat the IC magnitude as a lower bound and
-        consider a tie-corrected correlation or a continuous transform
-        of the factor.
-
-        factrix drops dates whose cross-section has fewer than
-        ``MIN_ASSETS_PER_DATE_IC`` assets — undersized panels yield
-        rank-correlation estimates with degenerate variance.
-
-    References:
-        [Grinold 1989][grinold-1989]:
-        $\mathrm{IR} \approx \mathrm{IC} \times \sqrt{\mathrm{breadth}}$
-        motivates
-        IC as the canonical density-quality measure. The appraisal-ratio
-        single-asset ancestor is [Treynor-Black
-        1973][treynor-black-1973]; the breadth identity itself is
-        Grinold's generalisation.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ic import compute_ic
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=120, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> ic_by_factor = compute_ic(panel)
-        >>> ic_df = ic_by_factor["factor"]
-        >>> set(ic_df.columns) >= {"date", "ic", "tie_ratio"}
-        True
-    """
-    cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
-
-    # The "_rank__<col>" / "_ic__<col>" / "_tie__<col>" aliases are
-    # internal to this query and never escape — per-factor DataFrames
-    # are renamed back to the canonical ``ic`` / ``tie_ratio`` columns
-    # before being placed in the returned dict.
-    rank_exprs: list[pl.Expr] = [
-        pl.col(return_col).rank(method="average").over("date").alias("_rank_return"),
-        *[
-            pl.col(f).rank(method="average").over("date").alias(f"_rank__{f}")
-            for f in cols
-        ],
-    ]
-    agg_exprs: list[pl.Expr] = [pl.len().alias("n")]
-    for f in cols:
-        agg_exprs.append(pl.corr(f"_rank__{f}", "_rank_return").alias(f"_ic__{f}"))
-        agg_exprs.append((1.0 - pl.col(f).n_unique() / pl.len()).alias(f"_tie__{f}"))
-
-    wide = (
-        df.lazy()
-        .with_columns(rank_exprs)
-        .group_by("date")
-        .agg(agg_exprs)
-        .filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
-        .sort("date")
-        .collect()
-    )
-
-    return {
-        f: wide.select(
-            pl.col("date"),
-            pl.col(f"_ic__{f}").alias("ic"),
-            pl.col(f"_tie__{f}").alias("tie_ratio"),
-        )
-        for f in cols
-    }
-
-
+@metric(
+    cell=_IC_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    requires={"ic_df": compute_ic},
+)
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -300,6 +198,17 @@ def ic(
     )
 
 
+@metric(
+    cell=_IC_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    requires={"ic_df": compute_ic},
+    sample_threshold=SampleThreshold(
+        min_periods=MIN_PERIODS_HARD,
+        warn_periods=MIN_PERIODS_WARN,
+    ),
+)
 def ic_newey_west(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
@@ -379,6 +288,17 @@ def ic_newey_west(
     )
 
 
+@metric(
+    cell=_IC_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    requires={"ic_df": compute_ic},
+    sample_threshold=SampleThreshold(
+        min_periods=MIN_PERIODS_HARD,
+        warn_periods=MIN_PERIODS_WARN,
+    ),
+)
 def ic_ir(
     ic_df: pl.DataFrame,
 ) -> MetricResult:
@@ -456,48 +376,3 @@ def ic_ir(
             "tie_ratio": median_tie,
         },
     )
-
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_ic",
-        cell=_IC_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        role=SpecRole.PIPELINE,
-        batchable=True,
-    ),
-    MetricSpec(
-        name="ic",
-        cell=_IC_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        requires={"ic_df": compute_ic},
-    ),
-    MetricSpec(
-        name="ic_newey_west",
-        cell=_IC_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        requires={"ic_df": compute_ic},
-        sample_threshold=SampleThreshold(
-            min_periods=MIN_PERIODS_HARD,
-            warn_periods=MIN_PERIODS_WARN,
-        ),
-    ),
-    MetricSpec(
-        name="ic_ir",
-        cell=_IC_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        requires={"ic_df": compute_ic},
-        sample_threshold=SampleThreshold(
-            min_periods=MIN_PERIODS_HARD,
-            warn_periods=MIN_PERIODS_WARN,
-        ),
-    ),
-)
