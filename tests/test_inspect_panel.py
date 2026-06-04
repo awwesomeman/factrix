@@ -104,6 +104,26 @@ class TestCellMatchGate:
         assert "ic" in names
 
 
+class TestMetricApplicabilityIdentity:
+    def test_metric_and_name_resolve_to_registry_class(self):
+        from factrix.metrics._base import MetricBase
+        from factrix.metrics._registry import REGISTRY
+
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        for m in info.metrics:
+            assert issubclass(m.metric, MetricBase)
+            # name is the registry key and agrees with both the class and spec
+            assert m.name == m.spec.name
+            assert m.name == m.metric.__name__
+            assert REGISTRY[m.name] is m.metric
+
+    def test_name_lets_caller_key_without_spec(self):
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        ic = _by_name(info, "ic")
+        assert ic.name == "ic"
+        assert ic.metric is _by_name(info, "ic").metric
+
+
 class TestSampleThresholdGate:
     def test_below_min_periods_is_unusable(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
