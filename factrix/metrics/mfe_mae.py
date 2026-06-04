@@ -32,7 +32,7 @@ from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output
-from factrix.metrics._primitives import compute_mfe_mae
+from factrix.metrics._primitives.compute_mfe_mae import compute_mfe_mae
 
 __all__ = [
     "mfe_mae_summary",
@@ -118,7 +118,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
 
     ratio = mfe_p50 / abs(mae_p75) if abs(mae_p75) > EPSILON else 0.0
 
-    metadata = {
+    metadata: dict[str, object] = {
         "mfe_p50": mfe_p50,
         "mae_p75": mae_p75,
         "mfe_mae_ratio": ratio,
@@ -140,7 +140,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
             metadata["n_events_z"] = int(min(len(mfe_z), len(mae_z)))
 
     return MetricResult(
-        p=metadata.get("p_value"),
+        p=None,  # descriptive metric — no hypothesis test
         value=ratio,
         metadata=metadata,
     )

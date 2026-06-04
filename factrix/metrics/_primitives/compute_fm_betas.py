@@ -15,7 +15,7 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import cell
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 
 
 @metric(

@@ -54,7 +54,7 @@ from factrix.metrics._helpers import (
     _scaled_min_periods,
     _short_circuit_output,
 )
-from factrix.metrics._primitives import compute_caar
+from factrix.metrics._primitives.compute_caar import compute_caar
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "caar",

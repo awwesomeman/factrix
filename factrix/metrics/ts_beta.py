@@ -38,7 +38,7 @@ from factrix._stats import (
 from factrix._types import DDOF
 from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output
-from factrix.metrics._primitives import compute_ts_betas
+from factrix.metrics._primitives.compute_ts_betas import compute_ts_betas
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "ts_beta",

@@ -38,7 +38,7 @@ import inspect
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
 from factrix._axis import (
     Aggregation,
@@ -52,6 +52,9 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._errors import IncompatibleAxisError
+
+if TYPE_CHECKING:
+    from factrix.metrics._base import MetricBase
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
@@ -390,7 +393,7 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     return tuple(out)
 
 
-def _validate_registry_requires(cls: type, spec: MetricSpec) -> None:
+def _validate_registry_requires(cls: type[MetricBase], spec: MetricSpec) -> None:
     """Validate ``requires`` for a ``@metric`` class outside a public module.
 
     Mirrors :func:`_validate_requires` for registry-only classes (pipeline

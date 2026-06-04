@@ -16,7 +16,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._types import EPSILON
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 
 MIN_TS_OBS: int = 20
 

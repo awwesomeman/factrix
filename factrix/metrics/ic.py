@@ -46,7 +46,7 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
-from factrix.metrics._primitives import compute_ic
+from factrix.metrics._primitives.compute_ic import compute_ic
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "ic",
