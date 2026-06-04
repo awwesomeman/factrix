@@ -642,6 +642,11 @@ types-only; runner wiring lands with the DAG executor.
     `min_pairs` / `warn_pairs` gates evaluated against
     `PanelProperties`. Specs without `sample_floor` only get the
     cell-match check.
+- **`Tier`** — StrEnum representing usability tiers returned by `SampleThreshold.verdict` / `per_axis_verdict`:
+  - `CLEAN` — metric is fully usable with zero warnings.
+  - `DEGRADED` — metric is usable but with degraded inference warnings (between HARD and WARN floors).
+  - `UNUSABLE` — metric is unusable (below HARD floor). Cell mismatch is a
+    separate `inspect_panel` blocker and does not flow through `Tier`.
 - **`Cell.matches(scope, density, structure=None)`** — gains optional
   `structure` argument. Existing `list_metrics` callers stay backward
   compatible (default `None` skips the structure axis); `inspect_panel`

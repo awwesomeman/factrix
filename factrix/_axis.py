@@ -173,3 +173,20 @@ class OutputShape(Enum):
     SCALAR = "scalar"
     SERIES = "series"
     PANEL = "panel"
+
+
+class Tier(StrEnum):
+    """Usability tier for a metric on a given panel shape axis.
+
+    Reflects the sample-floor verdict only (cell-match is evaluated
+    separately by ``inspect_panel``):
+
+    CLEAN: at or above the ``warn`` floor — fully usable, no warning.
+    DEGRADED: between the ``min`` and ``warn`` floors — usable but inference
+        degraded (e.g. borderline sample size).
+    UNUSABLE: below the ``min`` floor — sample too thin to run.
+    """
+
+    CLEAN = "clean"
+    DEGRADED = "degraded"
+    UNUSABLE = "unusable"

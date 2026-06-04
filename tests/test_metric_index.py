@@ -12,12 +12,15 @@ from __future__ import annotations
 import pytest
 from factrix._axis import (
     Aggregation,
+    DataStructure,
     FactorDensity,
     FactorScope,
     SEMethod,
     SpecRole,
     TestMethod,
+    Tier,
 )
+from factrix._inspect import PanelProperties
 from factrix._metric_index import (
     MetricSpec,
     SampleThreshold,
@@ -44,6 +47,74 @@ class TestSampleThresholdInvariant:
     def test_one_sided_floor_allowed(self) -> None:
         assert SampleThreshold(min_pairs=100).warn_pairs is None
         assert SampleThreshold(warn_assets=5).min_assets is None
+
+
+class TestSampleThresholdHelpers:
+    def test_verdict_and_per_axis_verdict(self) -> None:
+        st = SampleThreshold(
+            min_periods=10,
+            warn_periods=30,
+            min_assets=5,
+            warn_assets=15,
+            min_pairs=20,
+            warn_pairs=50,
+        )
+
+        props_clean = PanelProperties(
+            scope=FactorScope.INDIVIDUAL,
+            density=FactorDensity.DENSE,
+            structure=DataStructure.PANEL,
+            n_periods=30,
+            n_assets=15,
+            n_pairs=50,
+            sparse_ratio=0.0,
+        )
+        assert st.per_axis_verdict(props_clean) == {
+            "periods": Tier.CLEAN,
+            "assets": Tier.CLEAN,
+            "pairs": Tier.CLEAN,
+        }
+        assert st.verdict(props_clean) is Tier.CLEAN
+
+        props_degraded = PanelProperties(
+            scope=FactorScope.INDIVIDUAL,
+            density=FactorDensity.DENSE,
+            structure=DataStructure.PANEL,
+            n_periods=20,
+            n_assets=15,
+            n_pairs=50,
+            sparse_ratio=0.0,
+        )
+        assert st.per_axis_verdict(props_degraded) == {
+            "periods": Tier.DEGRADED,
+            "assets": Tier.CLEAN,
+            "pairs": Tier.CLEAN,
+        }
+        assert st.verdict(props_degraded) is Tier.DEGRADED
+
+        props_unusable = PanelProperties(
+            scope=FactorScope.INDIVIDUAL,
+            density=FactorDensity.DENSE,
+            structure=DataStructure.PANEL,
+            n_periods=20,
+            n_assets=4,
+            n_pairs=50,
+            sparse_ratio=0.0,
+        )
+        assert st.per_axis_verdict(props_unusable) == {
+            "periods": Tier.DEGRADED,
+            "assets": Tier.UNUSABLE,
+            "pairs": Tier.CLEAN,
+        }
+        assert st.verdict(props_unusable) is Tier.UNUSABLE
+
+        st_empty = SampleThreshold()
+        assert st_empty.per_axis_verdict(props_unusable) == {
+            "periods": Tier.CLEAN,
+            "assets": Tier.CLEAN,
+            "pairs": Tier.CLEAN,
+        }
+        assert st_empty.verdict(props_unusable) is Tier.CLEAN
 
 
 class TestDefaults:
