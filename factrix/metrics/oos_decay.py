@@ -24,23 +24,15 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
+    InputShape,
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS
+from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output
-
-__metric_specs__ = (
-    MetricSpec(
-        name="oos_decay",
-        cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
-        aggregation=Aggregation.TS_ONLY,
-        test_method=TestMethod.DESCRIPTIVE,
-        se_method=SEMethod.NONE,
-    ),
-)
 
 __all__ = [
     "oos_decay",
@@ -49,6 +41,13 @@ __all__ = [
 GateStatus = Literal["PASS", "VETOED"]
 
 
+@metric(
+    cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
+    aggregation=Aggregation.TS_ONLY,
+    test_method=TestMethod.DESCRIPTIVE,
+    se_method=SEMethod.NONE,
+    input_shape=InputShape.SERIES,
+)
 def oos_decay(
     series: pl.DataFrame,
     value_col: str = "value",

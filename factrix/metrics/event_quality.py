@@ -31,7 +31,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -39,6 +39,7 @@ from factrix._stats import (
     _binomial_two_sided_p,
 )
 from factrix._types import EPSILON, MIN_EVENTS_HARD
+from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
@@ -51,24 +52,13 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 
 _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 
-__metric_specs__ = tuple(
-    MetricSpec(
-        name=_name,
-        cell=_EQ_CELL,
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.RANK,
-        se_method=SEMethod.BUILT_IN,
-    )
-    for _name in (
-        "event_hit_rate",
-        "event_ic",
-        "profit_factor",
-        "event_skewness",
-        "signal_density",
-    )
+
+@metric(
+    cell=_EQ_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.RANK,
+    se_method=SEMethod.BUILT_IN,
 )
-
-
 def event_hit_rate(
     df: pl.DataFrame,
     *,
@@ -144,6 +134,12 @@ def event_hit_rate(
     )
 
 
+@metric(
+    cell=_EQ_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.RANK,
+    se_method=SEMethod.BUILT_IN,
+)
 def event_ic(
     df: pl.DataFrame,
     *,
@@ -238,6 +234,12 @@ def event_ic(
     )
 
 
+@metric(
+    cell=_EQ_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.RANK,
+    se_method=SEMethod.BUILT_IN,
+)
 def profit_factor(
     df: pl.DataFrame,
     *,
@@ -308,6 +310,12 @@ def profit_factor(
     )
 
 
+@metric(
+    cell=_EQ_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.RANK,
+    se_method=SEMethod.BUILT_IN,
+)
 def event_skewness(
     df: pl.DataFrame,
     *,
@@ -397,6 +405,12 @@ def event_skewness(
     )
 
 
+@metric(
+    cell=_EQ_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.RANK,
+    se_method=SEMethod.BUILT_IN,
+)
 def signal_density(
     df: pl.DataFrame,
     *,

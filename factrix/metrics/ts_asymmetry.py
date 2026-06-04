@@ -47,7 +47,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _ols_nw_multivariate,
@@ -55,6 +55,7 @@ from factrix._stats import (
     _wald_p_linear,
 )
 from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
+from factrix.metrics import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _short_circuit_output,
@@ -64,19 +65,13 @@ __all__ = [
     "ts_asymmetry",
 ]
 
-__metric_specs__ = (
-    MetricSpec(
-        name="ts_asymmetry",
-        cell=cell(
-            FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL
-        ),
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.CHI2,
-        se_method=SEMethod.HAC,
-    ),
+
+@metric(
+    cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.CHI2,
+    se_method=SEMethod.HAC,
 )
-
-
 def ts_asymmetry(
     df: pl.DataFrame,
     *,

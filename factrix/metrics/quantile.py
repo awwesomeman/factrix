@@ -14,7 +14,6 @@ Notes:
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Sequence
 
 import numpy as np
@@ -26,25 +25,27 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     SEMethod,
-    SpecRole,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
     DDOF,
     MIN_PORTFOLIO_PERIODS_HARD,
 )
+from factrix.metrics import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
-    _assign_quantile_groups_batch,
     _compute_tie_ratio,
     _lag_within_asset,
-    _median_universe_size,
     _sample_non_overlapping,
     _short_circuit_output,
     _warn_high_tie_ratio,
+)
+from factrix.metrics._primitives import (
+    compute_group_returns,
+    compute_spread_series,
 )
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
@@ -58,145 +59,14 @@ _Q_CELL = cell(
     FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
 )
 
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_spread_series",
-        cell=_Q_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        role=SpecRole.PIPELINE,
-    ),
-    MetricSpec(
-        name="quantile_spread",
-        cell=_Q_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        batchable=True,
-    ),
-    MetricSpec(
-        name="quantile_spread_vw",
-        cell=_Q_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-    ),
-    MetricSpec(
-        name="compute_group_returns",
-        cell=_Q_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        role=SpecRole.PIPELINE,
-    ),
+
+@metric(
+    cell=_Q_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+    batchable=True,
 )
-
-
-def compute_spread_series(
-    df: pl.DataFrame,
-    forward_periods: int = 5,
-    n_groups: int = 5,
-    factor_cols: Sequence[str] = ("factor",),
-    return_col: str = "forward_return",
-    tie_policy: str = "ordinal",
-) -> dict[str, pl.DataFrame]:
-    """Per-date long-short spread series (non-overlapping).
-
-    Top bucket = highest factor rank; bottom bucket = lowest. Labels use
-    ``top_return`` / ``bottom_return`` rather than ``q1_return`` /
-    ``q5_return`` because the bucket width depends on ``n_groups`` — at
-    ``n_groups=10`` the bottom is Q10, not Q5.
-
-    Args:
-        df: Panel with ``date, asset_id, factor, forward_return``.
-        n_groups: Number of quantile groups.
-        tie_policy: See ``_assign_quantile_groups``. ``"ordinal"`` (default)
-            keeps balanced bucket sizes; ``"average"`` keeps tied assets
-            in the same bucket — prefer for low-cardinality factors.
-
-    Returns:
-        DataFrame with ``date, spread, top_return, bottom_return, universe_return``.
-
-    Notes:
-        Per non-overlapping date ``t``::
-
-            top_return[t]    = mean_{i in Q_top} return[i, t]
-            bottom_return[t] = mean_{i in Q_bot} return[i, t]
-            spread[t]        = top_return[t] - bottom_return[t]
-
-        factrix uses non-overlap sub-sampling (stride ``forward_periods``)
-        before bucketing, not overlapping panel re-balancing — keeps the
-        spread series free of MA(h-1) autocorrelation so downstream
-        non-overlap t-tests are valid without heteroskedasticity-and-autocorrelation-consistent (HAC).
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.quantile import compute_spread_series
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> spreads = compute_spread_series(panel, forward_periods=5, n_groups=5)
-        >>> spread_df = spreads["factor"]
-        >>> set(spread_df.columns) >= {"date", "spread", "top_return", "bottom_return"}
-        True
-    """
-    cols = list(factor_cols)
-    if not cols:
-        raise ValueError("factor_cols must be non-empty")
-
-    sampled = _sample_non_overlapping(df, forward_periods)
-
-    median_n = _median_universe_size(sampled)
-    per_group = median_n // n_groups if n_groups > 0 else 0
-    if per_group < 5:
-        warnings.warn(
-            f"Median {per_group} assets per group (N={median_n}, "
-            f"n_groups={n_groups}). Spread may be dominated by "
-            f"individual assets. Consider reducing n_groups.",
-            UserWarning,
-            stacklevel=2,
-        )
-
-    grouped = _assign_quantile_groups_batch(sampled, cols, n_groups, tie_policy)
-
-    top_group = n_groups - 1
-    bottom_group = 0
-
-    # Per-factor top / bottom means + a single shared universe mean.
-    agg_exprs: list[pl.Expr] = [
-        pl.col(return_col).mean().alias("universe_return"),
-    ]
-    for f in cols:
-        agg_exprs.append(
-            pl.col(return_col)
-            .filter(pl.col(f"_group__{f}") == top_group)
-            .mean()
-            .alias(f"_top__{f}")
-        )
-        agg_exprs.append(
-            pl.col(return_col)
-            .filter(pl.col(f"_group__{f}") == bottom_group)
-            .mean()
-            .alias(f"_bot__{f}")
-        )
-
-    wide = grouped.group_by("date").agg(agg_exprs).sort("date")
-
-    return {
-        f: wide.select(
-            pl.col("date"),
-            pl.col(f"_top__{f}").alias("top_return"),
-            pl.col(f"_bot__{f}").alias("bottom_return"),
-            pl.col("universe_return"),
-            (pl.col(f"_top__{f}") - pl.col(f"_bot__{f}")).alias("spread"),
-        )
-        for f in cols
-    }
-
-
 def quantile_spread(
     df: pl.DataFrame,
     forward_periods: int = 5,
@@ -354,6 +224,12 @@ def _quantile_spread_from_series(
     )
 
 
+@metric(
+    cell=_Q_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+)
 def quantile_spread_vw(
     df: pl.DataFrame,
     forward_periods: int = 5,
@@ -512,65 +388,4 @@ def quantile_spread_vw(
             "tie_policy": tie_policy,
             "weights_lagged": lag_weights,
         },
-    )
-
-
-def compute_group_returns(
-    df: pl.DataFrame,
-    forward_periods: int = 5,
-    n_groups: int = 5,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-    tie_policy: str = "ordinal",
-) -> pl.DataFrame:
-    """Mean forward return per quantile bucket (for monotonicity charts).
-
-    Formula:
-        1. Sample dates every ``forward_periods`` rows (non-overlapping).
-        2. Per sampled date, assign each asset to a quantile group
-           0..n_groups-1 by ``factor`` (see ``_assign_quantile_groups``
-           for tie_policy semantics).
-        3. For each group g:
-              mean_return[g] = mean across (date, asset) where _group=g
-                               of ``return_col``
-        (Equal-weighted across all obs in the bucket, not per-date then
-         averaged — use ``compute_spread_series`` if you want the latter.)
-
-    Returns:
-        DataFrame with ``group, mean_return`` sorted ascending by group.
-        Group 0 = lowest factor rank, n_groups-1 = highest.
-
-    Notes:
-        ``mean_return[g] = mean over (date, asset) where _group=g of
-        return_col`` — equal-weighted across all observations in the
-        bucket pooled across dates. Use ``compute_spread_series`` if you
-        want per-date bucket means averaged afterwards (the information coefficient (IC)/IR-style
-        aggregation order); the two differ when bucket cardinality moves
-        across dates.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.quantile import compute_group_returns
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> groups = compute_group_returns(panel, forward_periods=5, n_groups=5)
-        >>> set(groups.columns) >= {"group", "mean_return"}
-        True
-    """
-    sampled = _sample_non_overlapping(df, forward_periods)
-    grouped = _assign_quantile_groups(
-        sampled,
-        factor_col,
-        n_groups,
-        tie_policy=tie_policy,
-    )
-
-    return (
-        grouped.group_by("_group")
-        .agg(pl.col(return_col).mean().alias("mean_return"))
-        .sort("_group")
-        .rename({"_group": "group"})
     )

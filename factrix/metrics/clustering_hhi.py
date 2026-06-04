@@ -26,26 +26,23 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import MIN_EVENTS_HARD
+from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output
-
-__metric_specs__ = (
-    MetricSpec(
-        name="clustering_hhi",
-        cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
-        aggregation=Aggregation.CS_SNAPSHOT,
-        test_method=TestMethod.DESCRIPTIVE,
-        se_method=SEMethod.NONE,
-    ),
-)
 
 __all__ = [
     "clustering_hhi",
 ]
 
 
+@metric(
+    cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
+    aggregation=Aggregation.CS_SNAPSHOT,
+    test_method=TestMethod.DESCRIPTIVE,
+    se_method=SEMethod.NONE,
+)
 def clustering_hhi(
     df: pl.DataFrame,
     *,

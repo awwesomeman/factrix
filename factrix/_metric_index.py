@@ -351,54 +351,70 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     avoid re-importing every public module.
     """
     out: list[tuple[str, MetricSpec]] = []
+    seen: set[str] = set()
 
-    # 1. Load legacy module specs
+    # 1. Public modules: legacy ``__metric_specs__`` or in-place ``@metric``
+    #    classes — both surfaced by ``_load_module_specs``, which also
+    #    validates each spec's ``requires`` against its consumer signature.
     for stem in _public_metric_stems():
         try:
-            mod = importlib.import_module(f"factrix.metrics.{stem}")
-            specs = getattr(mod, "__metric_specs__", None)
-            if specs:
-                for spec in specs:
-                    if isinstance(spec, MetricSpec):
-                        out.append((stem, spec))
-        except (ImportError, ValueError, AttributeError):
-            pass
+            specs = _load_module_specs(stem)
+        except ImportError:
+            continue
+        for spec in specs:
+            if spec.name not in seen:
+                out.append((stem, spec))
+                seen.add(spec.name)
 
-    # 2. Load from the new class-based registry
+    # 2. Registry classes not owned by a public module (``_primitives/*``
+    #    pipeline producers, third-party or test registrations). These never
+    #    pass through ``_load_module_specs``, so validate their ``requires``
+    #    here — public-module classes are already validated in step 1.
     from factrix.metrics._registry import REGISTRY
 
-    for _, cls in REGISTRY.items():
-        if cls.__module__.startswith("factrix.metrics."):
-            stem = cls.__module__.removeprefix("factrix.metrics.")
-        else:
-            stem = cls.__module__.split(".")[-1]
+    for cls in REGISTRY.values():
         spec = cls.spec()
-        if not any(s.name == spec.name for _, s in out):
-            out.append((stem, spec))
-
-    # Validate registry metrics' requires
-    for name, cls in REGISTRY.items():
-        spec = cls.spec()
+        if spec.name in seen:
+            continue
         if spec.requires:
-            consumer_params = set(inspect.signature(cls._impl).parameters)
-            for key, producer in spec.requires.items():
-                if key not in consumer_params:
-                    raise ValueError(
-                        f"Metric {name!r}: `requires` key {key!r} is not a parameter of {name}."
-                    )
-                if not callable(producer):
-                    raise ValueError(
-                        f"Metric {name!r}: `requires[{key!r}]` is not callable."
-                    )
-                producer_name = producer.__name__
-                if producer_name not in REGISTRY and not any(
-                    s.name == producer_name for _, s in out
-                ):
-                    raise ValueError(
-                        f"Metric {name!r}: required producer {producer_name!r} is not registered."
-                    )
+            _validate_registry_requires(cls, spec)
+        module = cls.__module__
+        stem = (
+            module.removeprefix("factrix.metrics.")
+            if module.startswith("factrix.metrics.")
+            else module.split(".")[-1]
+        )
+        out.append((stem, spec))
+        seen.add(spec.name)
 
     return tuple(out)
+
+
+def _validate_registry_requires(cls: type, spec: MetricSpec) -> None:
+    """Validate ``requires`` for a ``@metric`` class outside a public module.
+
+    Mirrors :func:`_validate_requires` for registry-only classes (pipeline
+    primitives, third-party / test registrations) whose consumer is the
+    class's own ``_impl``.
+    """
+    from factrix.metrics._registry import REGISTRY
+
+    consumer_params = set(inspect.signature(cls._impl).parameters)
+    for key, producer in spec.requires.items():
+        if key not in consumer_params:
+            raise ValueError(
+                f"Metric {spec.name!r}: `requires` key {key!r} is not a "
+                f"parameter of {spec.name}."
+            )
+        if not callable(producer):
+            raise ValueError(
+                f"Metric {spec.name!r}: `requires[{key!r}]` is not callable."
+            )
+        if producer.__name__ not in REGISTRY:
+            raise ValueError(
+                f"Metric {spec.name!r}: required producer "
+                f"{producer.__name__!r} is not registered."
+            )
 
 
 @functools.cache

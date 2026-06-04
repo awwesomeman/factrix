@@ -17,27 +17,24 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_z
 from factrix._types import EPSILON, MIN_EVENTS_HARD
+from factrix.metrics import metric
 from factrix.metrics._helpers import _short_circuit_output
-
-__metric_specs__ = (
-    MetricSpec(
-        name="corrado_rank",
-        cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.RANK,
-        se_method=SEMethod.BUILT_IN,
-    ),
-)
 
 __all__ = [
     "corrado_rank",
 ]
 
 
+@metric(
+    cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.RANK,
+    se_method=SEMethod.BUILT_IN,
+)
 def corrado_rank(
     df: pl.DataFrame,
     *,

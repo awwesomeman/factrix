@@ -46,7 +46,11 @@ class MetricMeta(type):
 
         if has_first_param:
             # Instantiate with the remaining fields, then run on the first argument
-            instance = cls(*remaining_args, **kwargs)
+            param_names = getattr(cls, "_param_names", ())
+            resolved_kwargs = kwargs.copy()
+            for name, val in zip(param_names, remaining_args, strict=False):
+                resolved_kwargs[name] = val
+            instance = cls(**resolved_kwargs)
             return instance(first_arg)
         else:
             # Standard instantiation

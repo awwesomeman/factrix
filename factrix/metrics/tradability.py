@@ -37,9 +37,10 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
+from factrix.metrics import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _sample_non_overlapping,
@@ -55,41 +56,6 @@ _TR_CS_PRIMITIVES = (
     "_assign_quantile_groups",
 )
 
-__metric_specs__ = (
-    MetricSpec(
-        name="notional_turnover",
-        cell=_TR_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.DESCRIPTIVE,
-        se_method=SEMethod.NONE,
-    ),
-    MetricSpec(
-        name="breakeven_cost",
-        cell=_TR_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.DESCRIPTIVE,
-        se_method=SEMethod.NONE,
-        input_shape=InputShape.SCALAR,
-    ),
-    MetricSpec(
-        name="net_spread",
-        cell=_TR_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.DESCRIPTIVE,
-        se_method=SEMethod.NONE,
-        input_shape=InputShape.SCALAR,
-    ),
-    MetricSpec(
-        name="turnover",
-        cell=_TR_CELL,
-        # WHY: rank autocorrelation across consecutive dates — no cross-section
-        # step, so the aggregation order is pure time series.
-        aggregation=Aggregation.TS_ONLY,
-        test_method=TestMethod.DESCRIPTIVE,
-        se_method=SEMethod.NONE,
-    ),
-)
-
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "notional_turnover",
     "turnover",
@@ -98,6 +64,12 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
 ]
 
 
+@metric(
+    cell=_TR_CELL,
+    aggregation=Aggregation.TS_ONLY,
+    test_method=TestMethod.DESCRIPTIVE,
+    se_method=SEMethod.NONE,
+)
 def turnover(
     df: pl.DataFrame,
     factor_col: str = "factor",
@@ -265,6 +237,12 @@ def turnover(
     )
 
 
+@metric(
+    cell=_TR_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.DESCRIPTIVE,
+    se_method=SEMethod.NONE,
+)
 def notional_turnover(
     df: pl.DataFrame,
     factor_col: str = "factor",
@@ -435,6 +413,13 @@ def notional_turnover(
     )
 
 
+@metric(
+    cell=_TR_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.DESCRIPTIVE,
+    se_method=SEMethod.NONE,
+    input_shape=InputShape.SCALAR,
+)
 def breakeven_cost(
     gross_spread: float,
     turnover: float,
@@ -517,6 +502,13 @@ def breakeven_cost(
     )
 
 
+@metric(
+    cell=_TR_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.DESCRIPTIVE,
+    se_method=SEMethod.NONE,
+    input_shape=InputShape.SCALAR,
+)
 def net_spread(
     gross_spread: float,
     turnover: float,

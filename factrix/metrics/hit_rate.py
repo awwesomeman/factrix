@@ -19,10 +19,11 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
+    InputShape,
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -30,17 +31,8 @@ from factrix._stats import (
     _binomial_two_sided_p,
 )
 from factrix._types import MIN_ASSETS_PER_DATE_IC
+from factrix.metrics import metric
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
-
-__metric_specs__ = (
-    MetricSpec(
-        name="hit_rate",
-        cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
-        aggregation=Aggregation.TS_ONLY,
-        test_method=TestMethod.BINOMIAL,
-        se_method=SEMethod.BUILT_IN,
-    ),
-)
 
 __all__ = [
     "hit_rate",
@@ -71,6 +63,13 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     ).drop_nulls()
 
 
+@metric(
+    cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
+    aggregation=Aggregation.TS_ONLY,
+    test_method=TestMethod.BINOMIAL,
+    se_method=SEMethod.BUILT_IN,
+    input_shape=InputShape.SERIES,
+)
 def hit_rate(
     series: pl.DataFrame,
     value_col: str = "value",
