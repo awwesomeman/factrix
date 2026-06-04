@@ -10,7 +10,6 @@ from factrix._inspect import (
     MetricApplicability,
     PanelInspection,
     PanelProperties,
-    PanelReasoning,
     inspect_panel,
 )
 
@@ -49,7 +48,7 @@ class TestPanelPropertiesDetection:
         info = inspect_panel(_single_asset_panel(n_dates=80))
         assert info.detected.structure is fx.DataStructure.TIMESERIES
         assert info.detected.n_assets == 1
-        assert "TIMESERIES" in info.reasoning.structure_reason
+        assert "TIMESERIES" in info.detected.structure_reason
 
     def test_common_continuous_detection(self):
         info = inspect_panel(_common_continuous_panel())
@@ -78,9 +77,9 @@ class TestPanelPropertiesDetection:
 class TestPanelReasoning:
     def test_three_axis_fields_populated(self):
         info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
-        assert "INDIVIDUAL" in info.reasoning.scope_reason
-        assert "DENSE" in info.reasoning.density_reason
-        assert "PANEL" in info.reasoning.structure_reason
+        assert "INDIVIDUAL" in info.detected.scope_reason
+        assert "DENSE" in info.detected.density_reason
+        assert "PANEL" in info.detected.structure_reason
 
 
 class TestCellMatchGate:
@@ -276,7 +275,6 @@ class TestPublicSurface:
     def test_dataclass_types_exported(self):
         assert fx.PanelInspection is PanelInspection
         assert fx.PanelProperties is PanelProperties
-        assert fx.PanelReasoning is PanelReasoning
         assert fx.MetricApplicability is MetricApplicability
         assert fx.inspect_panel is inspect_panel
         assert fx.SampleThreshold is not None

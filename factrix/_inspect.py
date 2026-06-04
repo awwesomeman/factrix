@@ -101,18 +101,25 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
 class PanelProperties:
     """Inspected panel properties driving cell dispatch.
 
-    Carries both the dispatch axes (``scope`` / ``density`` / ``structure``
-    as typed enums) and the panel-shape numerics the user typically
-    wants next to them (``n_assets`` / ``n_periods`` / ``n_pairs`` /
-    ``sparse_ratio``). Named ``Properties`` rather than ``Axes``
-    because the numeric fields are not axes — they are observations
-    supporting the axis decisions.
+    Carries the dispatch axes (``scope`` / ``density`` / ``structure``
+    as typed enums), the human-readable rationale for each axis decision
+    (``scope_reason`` / ``density_reason`` / ``structure_reason``), and
+    the panel-shape numerics the user typically wants next to them
+    (``n_assets`` / ``n_periods`` / ``n_pairs`` / ``sparse_ratio``).
+    Named ``Properties`` rather than ``Axes`` because the numeric fields
+    are not axes — they are observations supporting the axis decisions.
+
+    Each ``*_reason`` sits next to the enum it explains so detection
+    verdict and rationale travel together as one value.
 
     Attributes:
         scope: Detected :class:`FactorScope`.
+        scope_reason: Human-readable rationale for ``scope``.
         density: Detected :class:`FactorDensity`.
+        density_reason: Human-readable rationale for ``density``.
         structure: Detected :class:`DataStructure` — ``TIMESERIES`` iff
             ``n_assets == 1`` (single-asset panel), ``PANEL`` otherwise.
+        structure_reason: Human-readable rationale for ``structure``.
         n_assets: Unique ``asset_id`` count under any-non-null union.
         n_periods: Unique ``date`` count under any-non-null union.
         n_pairs: Non-null ``(date, asset_id)`` factor observation
@@ -125,25 +132,15 @@ class PanelProperties:
     """
 
     scope: FactorScope
+    scope_reason: str
     density: FactorDensity
+    density_reason: str
     structure: DataStructure
+    structure_reason: str
     n_assets: int
     n_periods: int
     n_pairs: int
     sparse_ratio: float
-
-
-@dataclass(frozen=True, slots=True)
-class PanelReasoning:
-    """Per-axis human-readable rationale for the panel's detection.
-
-    Three fields parallel the three axis enums on
-    :class:`PanelProperties` (``scope`` / ``density`` / ``structure``).
-    """
-
-    scope_reason: str
-    density_reason: str
-    structure_reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,10 +184,8 @@ class PanelInspection:
     Pure data — no execution methods.
 
     Attributes:
-        detected: :class:`PanelProperties` with typed enum axes and
-            shape numerics.
-        reasoning: :class:`PanelReasoning` carrying per-axis prose
-            (scope / density / structure).
+        detected: :class:`PanelProperties` with typed enum axes, the
+            per-axis rationale strings, and shape numerics.
         metrics: Flat ``list[MetricApplicability]`` — one verdict
             per ``visibility=PUBLIC`` spec the inspector considered.
             Single source of truth; the :attr:`usable` /
@@ -204,7 +199,6 @@ class PanelInspection:
     """
 
     detected: PanelProperties
-    reasoning: PanelReasoning
     metrics: list[MetricApplicability]
     warnings: list[Warning] = field(default_factory=list)
 
@@ -280,9 +274,9 @@ class PanelInspection:
                 ),
             },
             "reasoning": {
-                "scope": self.reasoning.scope_reason,
-                "density": self.reasoning.density_reason,
-                "structure": self.reasoning.structure_reason,
+                "scope": d.scope_reason,
+                "density": d.density_reason,
+                "structure": d.structure_reason,
             },
             "metrics": [
                 {
@@ -335,9 +329,9 @@ class PanelInspection:
             f"<tr><th style='text-align:left'>{axis}</th>"
             f"<td>{html.escape(reason)}</td></tr>"
             for axis, reason in (
-                ("scope", self.reasoning.scope_reason),
-                ("density", self.reasoning.density_reason),
-                ("structure", self.reasoning.structure_reason),
+                ("scope", d.scope_reason),
+                ("density", d.density_reason),
+                ("structure", d.structure_reason),
             )
         )
 
@@ -426,17 +420,15 @@ def inspect_panel(panel: Any) -> PanelInspection:
 
     properties = PanelProperties(
         scope=scope,
+        scope_reason=scope_reason,
         density=density,
+        density_reason=density_reason,
         structure=structure,
+        structure_reason=structure_reason,
         n_assets=n_assets,
         n_periods=n_periods,
         n_pairs=n_pairs,
         sparse_ratio=sparse_ratio,
-    )
-    reasoning = PanelReasoning(
-        scope_reason=scope_reason,
-        density_reason=density_reason,
-        structure_reason=structure_reason,
     )
 
     panel_warnings = _panel_level_warnings(properties)
@@ -444,7 +436,6 @@ def inspect_panel(panel: Any) -> PanelInspection:
 
     return PanelInspection(
         detected=properties,
-        reasoning=reasoning,
         metrics=metrics,
         warnings=panel_warnings,
     )

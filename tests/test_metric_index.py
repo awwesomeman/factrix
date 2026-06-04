@@ -62,8 +62,11 @@ class TestSampleThresholdHelpers:
 
         props_clean = PanelProperties(
             scope=FactorScope.INDIVIDUAL,
+            scope_reason="",
             density=FactorDensity.DENSE,
+            density_reason="",
             structure=DataStructure.PANEL,
+            structure_reason="",
             n_periods=30,
             n_assets=15,
             n_pairs=50,
@@ -78,8 +81,11 @@ class TestSampleThresholdHelpers:
 
         props_degraded = PanelProperties(
             scope=FactorScope.INDIVIDUAL,
+            scope_reason="",
             density=FactorDensity.DENSE,
+            density_reason="",
             structure=DataStructure.PANEL,
+            structure_reason="",
             n_periods=20,
             n_assets=15,
             n_pairs=50,
@@ -94,8 +100,11 @@ class TestSampleThresholdHelpers:
 
         props_unusable = PanelProperties(
             scope=FactorScope.INDIVIDUAL,
+            scope_reason="",
             density=FactorDensity.DENSE,
+            density_reason="",
             structure=DataStructure.PANEL,
+            structure_reason="",
             n_periods=20,
             n_assets=4,
             n_pairs=50,
