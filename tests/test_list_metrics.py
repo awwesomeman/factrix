@@ -11,13 +11,11 @@ from __future__ import annotations
 import json
 import pathlib
 import re
-from unittest.mock import patch
 
 import factrix as fx
 import polars as pl
 import pytest
 from factrix._axis import FactorDensity, FactorScope, SpecRole
-from factrix._errors import IncompatibleAxisError
 from factrix._metric_index import (
     MetricSpec,
     _all_specs,
@@ -26,6 +24,19 @@ from factrix._metric_index import (
 )
 
 _APPLICABILITY_DOC = pathlib.Path("docs/reference/metric-applicability.md")
+
+
+def _names_for_cell(scope: FactorScope, density: FactorDensity) -> set[str]:
+    """Public metric names applicable to a ``(scope, density)`` cell.
+
+    The cell filter ``list_metrics(scope, density)`` exposed was retired
+    (#498); the underlying mechanism — ``spec.cell.matches`` over
+    ``public_specs()`` — is what drives both this drift guard and
+    ``inspect_panel``'s per-metric verdict.
+    """
+    return {
+        spec.name for _, spec in public_specs() if spec.cell.matches(scope, density)
+    }
 
 
 # Cell-canonical primaries: SSOT moved to the auto-generated dispatch
@@ -134,7 +145,7 @@ def test_list_metrics_matches_applicability_doc(
 ) -> None:
     expected = _parse_applicability_doc()[(scope, density)]
     assert expected, "applicability doc parser found no rows for this cell"
-    actual = set(fx.list_metrics(scope, density))
+    actual = _names_for_cell(scope, density)
     assert actual == expected, (
         f"({scope.value}, {density.value}) drift\n"
         f"  only in list_metrics: {sorted(actual - expected)}\n"
@@ -163,117 +174,18 @@ def test_compute_rolling_mean_beta_remains_user_facing() -> None:
 
 
 # ---------------------------------------------------------------------------
-# sort stability + format
+# import-path resolution
 # ---------------------------------------------------------------------------
 
 
-def test_text_output_is_sorted_by_module_then_name() -> None:
-    out = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-    json_rows = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json"
-    )
-    expected_order = [r["name"] for r in json_rows]
-    assert out == expected_order
-    keys = [(r["module"], r["name"]) for r in json_rows]
-    assert keys == sorted(keys)
-
-
-def test_json_format_round_trips() -> None:
-    rows = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
-    text = json.dumps(rows)
-    decoded = json.loads(text)
-    assert decoded == rows
-    sample = rows[0]
-    assert set(sample) == {
-        "name",
-        "module",
-        "family",
-        "cell",
-        "aggregation",
-        "test_method",
-        "se_method",
-        "import_path",
-        "input_shape",
-        "docs_anchor",
-    }
-
-
-def test_json_carries_import_path_and_input_kind() -> None:
-    rows = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
-    by_name = {r["name"]: r for r in rows}
-
-    # ``ic`` is the canonical panel-input metric.
-    assert by_name["ic"]["import_path"] == "factrix.metrics.ic"
-    assert by_name["ic"]["input_shape"] == "panel"
-    assert by_name["ic"]["docs_anchor"] == "api/metrics/ic.md#factrix.metrics.ic.ic"
-
-    # ``breakeven_cost`` / ``net_spread`` are the scalar-input utilities.
-    assert by_name["breakeven_cost"]["import_path"] == "factrix.metrics.tradability"
-    assert by_name["breakeven_cost"]["input_shape"] == "scalar"
-    assert by_name["net_spread"]["input_shape"] == "scalar"
-
-    # Every other row is panel-input.
-    panels = {r["name"] for r in rows if r["input_shape"] == "panel"}
-    scalars = {r["name"] for r in rows if r["input_shape"] == "scalar"}
-    assert scalars == {"breakeven_cost", "net_spread"}
-    assert panels.isdisjoint(scalars)
-
-
-def test_import_path_resolves_for_every_row() -> None:
-    # Walk every cell so the assertion covers cross-cell rows too.
+def test_import_path_resolves_for_every_public_spec() -> None:
     import importlib
 
-    seen: set[str] = set()
-    for scope in FactorScope:
-        for density in FactorDensity:
-            for r in fx.list_metrics(scope, density, format="json"):
-                if r["name"] in seen:
-                    continue
-                seen.add(r["name"])
-                module = importlib.import_module(r["import_path"])
-                assert hasattr(module, r["name"]), (
-                    f"{r['import_path']} is missing {r['name']}"
-                )
-
-
-def test_with_import_renders_two_column_text() -> None:
-    rendered = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, with_import=True
-    )
-    assert all(" → factrix.metrics." in line for line in rendered)
-    # Same row order as the plain text output — only the rendering changes.
-    plain = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-    assert [line.split(" → ", 1)[0].rstrip() for line in rendered] == plain
-
-
-def test_with_import_is_ignored_under_json_format() -> None:
-    # ``with_import`` is a text-only knob; JSON always carries the field.
-    a = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
-    b = fx.list_metrics(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json", with_import=True
-    )
-    assert a == b
-
-
-def test_json_output_is_stable_across_calls() -> None:
-    a = fx.list_metrics(FactorScope.COMMON, FactorDensity.DENSE, format="json")
-    b = fx.list_metrics(FactorScope.COMMON, FactorDensity.DENSE, format="json")
-    assert a == b
-
-
-# ---------------------------------------------------------------------------
-# unrepresented (scope, density) pair
-# ---------------------------------------------------------------------------
-
-
-def test_incompatible_axis_pair_raises() -> None:
-    # All four real (scope, density) combos are populated; simulate a
-    # genuinely unrepresented pair by monkeypatching the index empty.
-    with (
-        patch("factrix._metric_index.public_specs", return_value=()),
-        pytest.raises(IncompatibleAxisError),
-    ):
-        fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
+    for stem, spec in public_specs():
+        module = importlib.import_module(import_path_for(stem))
+        assert hasattr(module, spec.name), (
+            f"{import_path_for(stem)} missing {spec.name}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -282,8 +194,8 @@ def test_incompatible_axis_pair_raises() -> None:
 
 
 def test_spanning_metrics_appear_for_individual_continuous_only() -> None:
-    ind = set(fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE))
-    com = set(fx.list_metrics(FactorScope.COMMON, FactorDensity.DENSE))
+    ind = _names_for_cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
+    com = _names_for_cell(FactorScope.COMMON, FactorDensity.DENSE)
     assert {"spanning_alpha", "greedy_forward_selection"}.issubset(ind)
     assert {"spanning_alpha", "greedy_forward_selection"}.isdisjoint(com)
 
@@ -345,11 +257,11 @@ class TestNoArgOverview:
         overview = fx.list_metrics()
         assert list(overview) == sorted(overview)
 
-    def test_single_axis_raises_value_error(self) -> None:
-        with pytest.raises(ValueError, match="exactly one axis"):
-            fx.list_metrics(FactorScope.INDIVIDUAL)  # type: ignore[call-overload]
-        with pytest.raises(ValueError, match="exactly one axis"):
-            fx.list_metrics(density=FactorDensity.DENSE)  # type: ignore[call-overload]
+    def test_positional_args_are_rejected(self) -> None:
+        # The retired cell filter took (scope, density); the no-arg form
+        # takes none, so any positional argument is now a TypeError.
+        with pytest.raises(TypeError):
+            fx.list_metrics(FactorScope.INDIVIDUAL)  # type: ignore[call-arg]
 
 
 class TestOverviewNotRunnable:
@@ -378,11 +290,3 @@ class TestOverviewNotRunnable:
                 factor_cols=["alpha"],
                 forward_periods=5,
             )
-
-
-def test_json_agg_order_and_family_are_distinct_fields() -> None:
-    rows = fx.list_metrics(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
-    by_name = {r["name"]: r for r in rows}
-    # aggregation is the reduction order; family is the concept group.
-    assert by_name["ic"]["aggregation"] == "cs_then_ts"
-    assert by_name["ic"]["family"] == "ic"

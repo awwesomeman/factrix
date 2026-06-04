@@ -417,19 +417,15 @@ schema).
 ### `list_metrics` / `list_estimators`
 
 ```
-factrix.list_metrics(scope: FactorScope, density: FactorDensity,
-                     *, format: Literal["text", "json"] = "text"
-                     ) -> list[str] | list[dict[str, Any]]
-    # Standalone metrics applicable to a (scope, density) cell.
-    # text → list[str] sorted by (module, name); json → rows with
-    # {name, module, cell, agg_order, inference_se, import_path,
-    #  input_kind, docs_anchor, emitted_name}. docs_anchor is a
-    # docs-root-relative path + mkdocstrings symbol fragment;
-    # emitted_name is the literal MetricResult.name (usually equals
-    # name, but a few metrics emit a different label — fama_macbeth
-    # → fm_beta, etc.). DataStructure is not an input — applicability does
-    # not change across PANEL / TIMESERIES.
-    # Raises IncompatibleAxisError if the pair has no registered metrics.
+factrix.list_metrics() -> dict[str, list[MetricSpec]]
+    # No-arg family-grouped catalog: keyed by concept family (module
+    # stem), values are that family's public specs in registry order.
+    # A reference catalog, not runnable — pass concrete factrix.metrics
+    # callables to evaluate(). For per-panel applicability (which metrics
+    # run / are degraded / are blocked on an actual panel) use
+    # inspect_panel(panel).usable / .degraded / .unusable. The former
+    # list_metrics(scope, density) cell filter + format/with_import knobs
+    # are retired (#498).
 
 factrix.list_estimators(scope: FactorScope, density: FactorDensity,
                         *, format: Literal["text", "json"] = "text",

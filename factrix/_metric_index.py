@@ -38,7 +38,7 @@ import inspect
 import pathlib
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, overload
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from factrix._axis import (
     Aggregation,
@@ -52,7 +52,6 @@ from factrix._axis import (
     TestMethod,
     Tier,
 )
-from factrix._errors import IncompatibleAxisError
 
 if TYPE_CHECKING:
     from factrix._inspect import PanelProperties
@@ -623,133 +622,29 @@ def _metrics_overview() -> dict[str, list[MetricSpec]]:
     return out
 
 
-@overload
-def list_metrics() -> dict[str, list[MetricSpec]]: ...
-@overload
-def list_metrics(
-    scope: FactorScope,
-    density: FactorDensity,
-    *,
-    format: Literal["text", "json"] = ...,
-    with_import: bool = ...,
-) -> list[str] | list[dict[str, Any]]: ...
-def list_metrics(
-    scope: FactorScope | None = None,
-    density: FactorDensity | None = None,
-    *,
-    format: Literal["text", "json"] = "text",
-    with_import: bool = False,
-) -> dict[str, list[MetricSpec]] | list[str] | list[dict[str, Any]]:
-    """Discover standalone metrics — family-grouped overview or cell filter.
+def list_metrics() -> dict[str, list[MetricSpec]]:
+    """Family-grouped catalog of every public standalone metric.
 
-    Two call shapes:
+    Returns a ``dict[str, list[MetricSpec]]`` keyed by concept family
+    (the declaring module stem, per the ``file = family`` invariant);
+    values are that module's public specs in registry order. This is a
+    catalog, *not* runnable — pass concrete metric callables to
+    :func:`factrix.evaluate`.
 
-    - **No arguments** → a family-grouped overview
-      ``dict[str, list[MetricSpec]]`` keyed by concept family (the
-      module stem). This is a catalog, *not* runnable — see
-      :func:`_metrics_overview`.
-    - **Both ``scope`` and ``density``** → the metrics applicable to that
-      ``(scope, density)`` cell, as names (``format="text"``) or
-      JSON-serialisable rows (``format="json"``).
+    For per-cell applicability — which metrics actually run on a given
+    panel, and which are degraded or blocked — inspect a real panel with
+    :func:`factrix.inspect_panel` and read its ``usable`` / ``degraded``
+    / ``unusable`` partitions. (The former ``list_metrics(scope, density)``
+    cell filter is retired; ``inspect_panel`` subsumes it with a
+    structure-aware, sample-floor-aware verdict.)
 
-    Passing exactly one axis is a usage error.
-
-    DataStructure is intentionally not an input — applicability does not change
-    across PANEL / TIMESERIES (per ``docs/reference/metric-applicability.md``).
-    Source of truth is the module-level ``__metric_specs__`` tuple in
-    each metric module, loaded by :mod:`factrix._metric_index`.
-
-    Args:
-        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
-            ``FactorScope.COMMON``). Omit together with ``density`` for
-            the overview.
-        density: Cell axis to filter on (``FactorDensity.DENSE`` or
-            ``FactorDensity.SPARSE``). Omit together with ``scope`` for
-            the overview.
-        format: ``"text"`` (default) returns metric names sorted by
-            ``(module, name)``. ``"json"`` returns ``list[dict]`` rows
-            with keys ``name``, ``module``, ``family``, ``cell``,
-            ``aggregation``, ``test_method``, ``se_method``,
-            ``import_path``, ``input_shape``, ``docs_anchor`` —
-            JSON-serialisable, suitable for tooling. ``family`` is the
-            concept family (module stem); ``aggregation`` is the
-            cross-section/time reduction order.
-            ``docs_anchor`` follows
-            :data:`factrix._metric_index.DOCS_ANCHOR_FMT` (a
-            docs-root-relative path + mkdocstrings symbol fragment).
-            ``name`` == ``MetricResult.name`` for all current specs
-            (function name = registry key = emitted label).
-        with_import: ``"text"`` only. When ``True``, returns a
-            two-column ``"name → factrix.metrics.<module>"`` list so
-            each row is copy-paste-ready into
-            ``from factrix.metrics import <name>``. Ignored under
-            ``format="json"`` (the ``import_path`` field is always
-            present there).
-
-    Raises:
-        ValueError: exactly one of ``scope`` / ``density`` is given
-            (pass both for a filtered list, or neither for the overview).
-        IncompatibleAxisError: ``(scope, density)`` matches no
-            registered metric. In practice all four combos are
-            populated, so this is defensive.
+    Source of truth is the registered ``@metric`` classes in each
+    ``factrix/metrics/*.py`` module, loaded by :mod:`factrix._metric_index`.
 
     Examples:
-        Family-grouped overview (no arguments):
-
         >>> import factrix as fx
         >>> overview = fx.list_metrics()
         >>> "ic" in overview
         True
-
-        Discover standalone metrics for an INDIVIDUAL × DENSE cell:
-
-        >>> names = fx.list_metrics(
-        ...     fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE,
-        ... )
-
-        JSON form (for tooling — adds module / family / import_path keys):
-
-        >>> rows = fx.list_metrics(
-        ...     fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE, format="json",
-        ... )
     """
-    if scope is None and density is None:
-        return _metrics_overview()
-    if scope is None or density is None:
-        raise ValueError(
-            "list_metrics() takes either no arguments (family-grouped "
-            "overview) or both scope and density (cell-filtered list); "
-            "got exactly one axis."
-        )
-    matches = [
-        (stem, spec)
-        for stem, spec in public_specs()
-        if spec.cell.matches(scope, density)
-    ]
-    if not matches:
-        raise IncompatibleAxisError(
-            f"no standalone metrics registered for "
-            f"(scope={scope.value}, density={density.value})"
-        )
-    if format == "json":
-        return [
-            {
-                "name": spec.name,
-                "module": stem,
-                "family": stem,
-                "cell": spec.cell.raw,
-                "aggregation": spec.aggregation.value,
-                "test_method": spec.test_method.value,
-                "se_method": spec.se_method.value,
-                "import_path": import_path_for(stem),
-                "input_shape": spec.input_shape.value,
-                "docs_anchor": docs_anchor_for(stem, spec.name),
-            }
-            for stem, spec in matches
-        ]
-    if with_import:
-        width = max(len(spec.name) for _, spec in matches)
-        return [
-            f"{spec.name:<{width}} → {import_path_for(stem)}" for stem, spec in matches
-        ]
-    return [spec.name for _, spec in matches]
+    return _metrics_overview()
