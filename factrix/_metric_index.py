@@ -298,6 +298,8 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
             f"but no callable of that name is exported from the module."
         )
     consumer_params = set(inspect.signature(consumer).parameters)
+    from factrix.metrics._registry import REGISTRY
+
     for key, producer in spec.requires.items():
         if key not in consumer_params:
             raise ValueError(
@@ -311,14 +313,22 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
                 f"factrix.metrics.{stem}.{spec.name}: `requires[{key!r}]` "
                 f"is not callable (got {type(producer).__name__})."
             )
-        producer_module = importlib.import_module(producer.__module__)
+
+        producer_module_name = producer.__module__
+        producer_name = producer.__name__
+        producer_module = importlib.import_module(producer_module_name)
         module_specs = getattr(producer_module, "__metric_specs__", ())
-        if not any(s.name == producer.__name__ for s in module_specs):
+
+        is_registered = (
+            any(s.name == producer_name for s in module_specs)
+            or producer_name in REGISTRY
+        )
+        if not is_registered:
             raise ValueError(
                 f"factrix.metrics.{stem}.{spec.name}: producer "
-                f"{producer.__module__}.{producer.__name__} is required by "
+                f"{producer_module_name}.{producer_name} is required by "
                 f"key {key!r} but has no MetricSpec in its module's "
-                f"`__metric_specs__` tuple."
+                f"`__metric_specs__` tuple or registry."
             )
 
 
@@ -331,9 +341,50 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     avoid re-importing every public module.
     """
     out: list[tuple[str, MetricSpec]] = []
+
+    # 1. Load legacy module specs
     for stem in _public_metric_stems():
-        for spec in _load_module_specs(stem):
+        try:
+            mod = importlib.import_module(f"factrix.metrics.{stem}")
+            specs = getattr(mod, "__metric_specs__", None)
+            if specs:
+                for spec in specs:
+                    if isinstance(spec, MetricSpec):
+                        out.append((stem, spec))
+        except (ImportError, ValueError, AttributeError):
+            pass
+
+    # 2. Load from the new class-based registry
+    from factrix.metrics._registry import REGISTRY
+
+    for _, cls in REGISTRY.items():
+        stem = cls.__module__.split(".")[-1]
+        spec = cls.spec()
+        if not any(s.name == spec.name for _, s in out):
             out.append((stem, spec))
+
+    # Validate registry metrics' requires
+    for name, cls in REGISTRY.items():
+        spec = cls.spec()
+        if spec.requires:
+            consumer_params = set(inspect.signature(cls._impl).parameters)
+            for key, producer in spec.requires.items():
+                if key not in consumer_params:
+                    raise ValueError(
+                        f"Metric {name!r}: `requires` key {key!r} is not a parameter of {name}."
+                    )
+                if not callable(producer):
+                    raise ValueError(
+                        f"Metric {name!r}: `requires[{key!r}]` is not callable."
+                    )
+                producer_name = producer.__name__
+                if producer_name not in REGISTRY and not any(
+                    s.name == producer_name for _, s in out
+                ):
+                    raise ValueError(
+                        f"Metric {name!r}: required producer {producer_name!r} is not registered."
+                    )
+
     return tuple(out)
 
 
@@ -426,26 +477,16 @@ def metric_spec(spec: MetricSpec) -> Callable[[Callable[..., Any]], Callable[...
 
 
 def register(fn: Callable[..., Any]) -> None:
-    """Register a third-party metric callable carrying ``__metric_spec__``.
+    """Register a third-party metric class or callable."""
+    from factrix.metrics._base import MetricBase
 
-    The callable must have been decorated with :func:`metric_spec` (or
-    have ``__metric_spec__`` attached by other means). Registration
-    side-effects:
+    # If it is a MetricBase subclass, use the new registry
+    if isinstance(fn, type) and issubclass(fn, MetricBase):
+        from factrix.metrics._registry import register as reg
 
-    1. Adds the spec to ``_METRIC_REGISTRY`` so :func:`spec_by_name`
-       and the DAG executor can resolve it by name.
-    2. Sets ``factrix.metrics.<spec.name>`` to the callable so IDE /
-       mypy / interactive use see a real attribute (parallel to
-       first-party metrics imported into the namespace).
-    3. Clears any caches that would otherwise mask the new spec.
+        reg(fn)
+        return
 
-    Raises:
-        TypeError: ``fn`` is not callable or has no ``__metric_spec__``.
-        ValueError: a spec with the same name is already registered
-            (third-party) or exists as a first-party spec; explicit
-            re-registration is disallowed to keep the registry
-            authoritative.
-    """
     if not callable(fn):
         raise TypeError(f"register(): expected a callable; got {type(fn).__name__}.")
     spec = getattr(fn, "__metric_spec__", None)
@@ -469,6 +510,10 @@ def register(fn: Callable[..., Any]) -> None:
 
     _METRIC_REGISTRY[name] = spec
     setattr(_metrics_pkg, name, fn)
+
+    _first_party_spec_by_name.cache_clear()
+    public_specs.cache_clear()
+    _all_specs.cache_clear()
 
     from factrix._dag import _registry_callable_table
 
