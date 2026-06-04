@@ -40,7 +40,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _sample_non_overlapping,

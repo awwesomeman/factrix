@@ -48,13 +48,13 @@ from factrix._types import (
     MIN_EVENTS_WARN,
     KPSource,
 )
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
 )
-from factrix.metrics._primitives.compute_caar import compute_caar
+from factrix.metrics._primitives import compute_caar
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "caar",

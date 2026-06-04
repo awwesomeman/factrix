@@ -39,7 +39,7 @@ from factrix._stats import (
     _binomial_two_sided_p,
 )
 from factrix._types import EPSILON, MIN_EVENTS_HARD
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)

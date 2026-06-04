@@ -30,9 +30,9 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_EVENTS_HARD
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
-from factrix.metrics._primitives.compute_mfe_mae import compute_mfe_mae
+from factrix.metrics._primitives import compute_mfe_mae
 
 __all__ = [
     "mfe_mae_summary",

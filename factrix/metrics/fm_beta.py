@@ -45,10 +45,10 @@ from factrix._stats import (
     _p_value_from_t,
 )
 from factrix._types import DDOF, EPSILON, ShankenVarSource
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics._metric_capabilities import per_date_series_rename
-from factrix.metrics._primitives.compute_fm_betas import compute_fm_betas
+from factrix.metrics._primitives import compute_fm_betas
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "fm_beta",

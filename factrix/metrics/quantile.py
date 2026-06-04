@@ -34,7 +34,7 @@ from factrix._types import (
     DDOF,
     MIN_PORTFOLIO_PERIODS_HARD,
 )
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _compute_tie_ratio,
@@ -43,8 +43,10 @@ from factrix.metrics._helpers import (
     _short_circuit_output,
     _warn_high_tie_ratio,
 )
-from factrix.metrics._primitives.compute_group_returns import compute_group_returns
-from factrix.metrics._primitives.compute_spread_series import compute_spread_series
+from factrix.metrics._primitives import (
+    compute_group_returns,
+    compute_spread_series,
+)
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "compute_spread_series",

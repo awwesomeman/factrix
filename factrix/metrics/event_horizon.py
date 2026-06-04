@@ -29,9 +29,9 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
-from factrix.metrics._primitives.compute_event_returns import compute_event_returns
+from factrix.metrics._primitives import compute_event_returns
 
 __all__ = [
     "event_around_return",

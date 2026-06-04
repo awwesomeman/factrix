@@ -31,7 +31,7 @@ from factrix._stats import (
     _binomial_two_sided_p,
 )
 from factrix._types import MIN_ASSETS_PER_DATE_IC
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 
 __all__ = [

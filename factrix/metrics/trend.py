@@ -29,7 +29,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _p_value_from_t
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 
 __all__ = [

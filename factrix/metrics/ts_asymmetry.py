@@ -55,7 +55,7 @@ from factrix._stats import (
     _wald_p_linear,
 )
 from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
     _short_circuit_output,

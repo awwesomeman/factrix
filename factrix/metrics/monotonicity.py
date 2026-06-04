@@ -35,7 +35,7 @@ from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS,
 )
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _sample_non_overlapping,

@@ -31,7 +31,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS
-from factrix.metrics import metric
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 
 __all__ = [
