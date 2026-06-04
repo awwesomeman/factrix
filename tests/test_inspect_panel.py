@@ -235,6 +235,29 @@ class TestPanelLevelWarnings:
         assert any("cross_section" in c for c in codes)
 
 
+class TestWarningSourceConvention:
+    """Guard the `Warning.source` convention across every emission point:
+    per-metric warnings carry `source == <metric name>`; panel-level
+    warnings carry `source is None`. See #499.
+    """
+
+    def test_per_metric_warnings_carry_their_metric_name(self):
+        # n_periods=25 puts NW-SE metrics in the degraded tier, n_assets=5
+        # trips the cross-section tier — both per-metric warning paths fire.
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
+        emitted = 0
+        for m in info.metrics:
+            for w in m.warnings:
+                assert w.source == m.name
+                emitted += 1
+        assert emitted > 0  # the fixture actually exercises the per-metric path
+
+    def test_panel_level_warnings_carry_no_source(self):
+        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
+        assert info.warnings  # fixture produces panel-level diagnostics
+        assert all(w.source is None for w in info.warnings)
+
+
 class TestToDict:
     def test_round_trips_through_json(self):
         import json
