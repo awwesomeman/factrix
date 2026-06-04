@@ -36,9 +36,9 @@ import functools
 import importlib
 import inspect
 import pathlib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, overload
 
 from factrix._axis import (
     Aggregation,
@@ -50,10 +50,12 @@ from factrix._axis import (
     SEMethod,
     SpecRole,
     TestMethod,
+    Tier,
 )
 from factrix._errors import IncompatibleAxisError
 
 if TYPE_CHECKING:
+    from factrix._inspect import PanelProperties
     from factrix.metrics._base import MetricBase
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -139,6 +141,20 @@ def cell(
     return Cell(scope=scope, density=density, structure=structure, raw=raw)
 
 
+class AxisVerdict(NamedTuple):
+    """One shape axis's tier together with the data the decision used.
+
+    ``floor`` / ``warn`` are the spec's ``min_<axis>`` / ``warn_<axis>``
+    bounds (``None`` when ungated); ``n`` is the panel's actual count.
+    """
+
+    axis: str
+    n: int
+    floor: int | None
+    warn: int | None
+    tier: Tier
+
+
 @dataclass(frozen=True, slots=True)
 class SampleThreshold:
     """Per-metric statistical pre-flight gates against panel shape.
@@ -181,6 +197,41 @@ class SampleThreshold:
     def _bounds(self, axis: str) -> tuple[int | None, int | None]:
         """Return ``(min_<axis>, warn_<axis>)`` for one shape axis."""
         return getattr(self, f"min_{axis}"), getattr(self, f"warn_{axis}")
+
+    def iter_verdicts(self, properties: PanelProperties) -> Iterator[AxisVerdict]:
+        """Yield the per-axis verdict for each shape axis, in ``_AXES`` order.
+
+        Single source of truth for the tier decision: ``per_axis_verdict``,
+        ``verdict`` and ``factrix.inspect_panel``'s blocker/warning assembly
+        all consume this so the floor → tier mapping lives in exactly one
+        place. Each yielded record also carries the actual ``n`` and the
+        ``floor``/``warn`` bounds the decision was made against, so callers
+        can build messages without re-reading the spec.
+        """
+        for axis in self._AXES:
+            floor, warn = self._bounds(axis)
+            n = getattr(properties, f"n_{axis}")
+            if floor is not None and n < floor:
+                tier = Tier.UNUSABLE
+            elif warn is not None and n < warn:
+                tier = Tier.DEGRADED
+            else:
+                tier = Tier.CLEAN
+            yield AxisVerdict(axis=axis, n=n, floor=floor, warn=warn, tier=tier)
+
+    def per_axis_verdict(self, properties: PanelProperties) -> dict[str, Tier]:
+        """Return the usability tier for each shape axis (periods, assets, pairs)."""
+        return {v.axis: v.tier for v in self.iter_verdicts(properties)}
+
+    def verdict(self, properties: PanelProperties) -> Tier:
+        """Return the worst usability tier across all shape axes."""
+        worst = Tier.CLEAN
+        for v in self.iter_verdicts(properties):
+            if v.tier is Tier.UNUSABLE:
+                return Tier.UNUSABLE
+            if v.tier is Tier.DEGRADED:
+                worst = Tier.DEGRADED
+        return worst
 
 
 @dataclass(frozen=True, slots=True)

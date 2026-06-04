@@ -42,6 +42,7 @@ from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespa
     DataStructure,
     FactorDensity,
     FactorScope,
+    Tier,
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
@@ -458,6 +459,7 @@ __all__ = [
     # factrix._axis for internal callers.)
     "FactorScope",
     "FactorDensity",
+    "Tier",
     # Code enums
     "InfoCode",
     "StatCode",

@@ -30,7 +30,7 @@ from typing import Any
 
 import polars as pl
 
-from factrix._axis import DataStructure, FactorDensity, FactorScope
+from factrix._axis import DataStructure, FactorDensity, FactorScope, Tier
 from factrix._codes import WarningCode, cross_section_tier
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
@@ -454,32 +454,28 @@ def _evaluate_applicability(
         )
 
     floor = spec.sample_threshold
-    for axis, n_actual in (
-        ("periods", properties.n_periods),
-        ("pairs", properties.n_pairs),
-    ):
-        min_v = getattr(floor, f"min_{axis}")
-        warn_v = getattr(floor, f"warn_{axis}")
-        if min_v is not None and n_actual < min_v:
-            blockers.append(f"n_{axis}={n_actual} < min_{axis}={min_v}")
-        elif warn_v is not None and n_actual < warn_v:
-            warnings.append(
-                Warning(
-                    code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
-                    source=spec.name,
-                    message=f"n_{axis}={n_actual} < warn_{axis}={warn_v}: inference degraded",
+    for av in floor.iter_verdicts(properties):
+        if av.tier is Tier.UNUSABLE:
+            blockers.append(f"n_{av.axis}={av.n} < min_{av.axis}={av.floor}")
+        elif av.tier is Tier.DEGRADED:
+            # The assets axis gates DEGRADED on the spec's warn_assets, but the
+            # emitted warning is the inference-stage cross-section tier, keyed on
+            # the global MIN_ASSETS / MIN_ASSETS_WARN constants — so it can be
+            # None here even though the axis verdict is DEGRADED.
+            if av.axis == "assets":
+                code = cross_section_tier(properties.n_assets)
+                if code is not None:
+                    warnings.append(
+                        Warning(code=code, source=spec.name, message=code.description)
+                    )
+            else:
+                warnings.append(
+                    Warning(
+                        code=WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+                        source=spec.name,
+                        message=f"n_{av.axis}={av.n} < warn_{av.axis}={av.warn}: inference degraded",
+                    )
                 )
-            )
-    if floor.min_assets is not None and properties.n_assets < floor.min_assets:
-        blockers.append(
-            f"n_assets={properties.n_assets} < min_assets={floor.min_assets}"
-        )
-    elif floor.warn_assets is not None and properties.n_assets < floor.warn_assets:
-        tier = cross_section_tier(properties.n_assets)
-        if tier is not None:
-            warnings.append(
-                Warning(code=tier, source=spec.name, message=tier.description)
-            )
 
     return MetricApplicability(
         spec=spec,
