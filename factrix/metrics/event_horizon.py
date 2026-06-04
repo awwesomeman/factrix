@@ -25,171 +25,27 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     SEMethod,
-    SpecRole,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix._types import EPSILON
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
-
-_EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_event_returns",
-        cell=_EH_CELL,
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.BINOMIAL,
-        se_method=SEMethod.BUILT_IN,
-        role=SpecRole.PIPELINE,
-    ),
-    MetricSpec(
-        name="event_around_return",
-        cell=_EH_CELL,
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.BINOMIAL,
-        se_method=SEMethod.BUILT_IN,
-    ),
-)
+from factrix.metrics._primitives import compute_event_returns
 
 __all__ = [
-    "compute_event_returns",
     "event_around_return",
 ]
 
-
-def compute_event_returns(
-    df: pl.DataFrame,
-    *,
-    offsets: list[int] | None = None,
-    factor_col: str = "factor",
-    price_col: str = "price",
-) -> pl.DataFrame:
-    """Per-event return at multiple time offsets relative to event date.
-
-    For each event (factor != 0) and each offset k:
-        - Post-event (k > 0): cumulative return from t+1 entry.
-          ``signed_return = sign(factor) × (price[t+1+k] / price[t+1] - 1)``
-        - Pre-event (k < 0): single-bar return at that offset.
-          ``return = price[t+k] / price[t+k-1] - 1`` (unsigned, for leakage check)
-
-    Args:
-        df: Panel with ``date, asset_id, factor, price``.
-        offsets: Time offsets relative to event date.
-            Defaults to ``[-6, -3, -1, 1, 6, 12, 24]``.
-
-    Returns:
-        DataFrame with ``offset, date, asset_id, signed_return, abs_return``.
-        Empty if ``price`` column not present.
-
-    Notes:
-        For each event ``(t_event, asset)`` and offset ``k``::
-
-            k > 0:  signed_return = sign(factor) *
-                                    (price[t+1+k] / price[t+1] - 1)
-            k < 0:  signed_return = price[t+k] / price[t+k-1] - 1
-
-        factrix asymmetrically signs only post-event returns. Pre-event
-        single-bar returns are unsigned because they are read for
-        leakage detection, where the absolute response (independent of
-        the eventual density direction) is what matters.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.event_horizon import compute_event_returns
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> per_event = compute_event_returns(panel)
-        >>> set(per_event.columns) >= {"offset", "date", "asset_id", "signed_return"}
-        True
-    """
-    if offsets is None:
-        offsets = [-6, -3, -1, 1, 6, 12, 24]
-
-    # Mirror input's date dtype in the output so TZ / precision are
-    # preserved — users with Datetime('us') or TZ-aware panels can join
-    # this result back without another cast.
-    date_dtype = df.schema["date"]
-    empty_schema = {
-        "offset": pl.Int32,
-        "date": date_dtype,
-        "asset_id": pl.String,
-        "signed_return": pl.Float64,
-    }
-
-    if price_col not in df.columns:
-        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
-
-    sorted_df = df.sort(["asset_id", "date"])
-    events = sorted_df.filter(pl.col(factor_col) != 0)
-
-    if len(events) == 0:
-        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
-
-    # Build per-asset price lookup
-    event_assets = set(events["asset_id"].unique().to_list())
-    asset_data: dict[str, tuple[dict, np.ndarray]] = {}
-    for aid in event_assets:
-        adf = sorted_df.filter(pl.col("asset_id") == aid)
-        date_idx = {d: i for i, d in enumerate(adf["date"].to_list())}
-        prices = adf[price_col].to_numpy()
-        asset_data[aid] = (date_idx, prices)
-
-    rows: list[dict] = []
-    for row in events.iter_rows(named=True):
-        aid = row["asset_id"]
-        edate = row["date"]
-        direction = np.sign(row[factor_col])
-
-        date_idx, prices = asset_data[aid]
-        idx = date_idx.get(edate)
-        if idx is None:
-            continue
-
-        for k in offsets:
-            if k > 0:
-                # Post-event: cumulative from t+1 entry
-                entry_idx = idx + 1
-                exit_idx = idx + 1 + k
-                if entry_idx >= len(prices) or exit_idx >= len(prices):
-                    continue
-                entry_p = prices[entry_idx]
-                if entry_p < EPSILON:
-                    continue
-                raw_ret = prices[exit_idx] / entry_p - 1
-                signed_ret = float(direction * raw_ret)
-            else:
-                # Pre-event: single-bar return (unsigned for leakage detection)
-                bar_idx = idx + k
-                prev_idx = bar_idx - 1
-                if bar_idx < 0 or prev_idx < 0 or bar_idx >= len(prices):
-                    continue
-                if prices[prev_idx] < EPSILON:
-                    continue
-                signed_ret = float(prices[bar_idx] / prices[prev_idx] - 1)
-
-            rows.append(
-                {
-                    "offset": k,
-                    "date": edate,
-                    "asset_id": aid,
-                    "signed_return": signed_ret,
-                }
-            )
-
-    if not rows:
-        return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
-
-    return pl.DataFrame(rows).with_columns(
-        pl.col("offset").cast(pl.Int32),
-        pl.col("date").cast(date_dtype),
-    )
+_EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 
 
+@metric(
+    cell=_EH_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.BINOMIAL,
+    se_method=SEMethod.BUILT_IN,
+)
 def event_around_return(
     df: pl.DataFrame,
     *,

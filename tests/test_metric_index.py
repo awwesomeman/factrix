@@ -117,11 +117,11 @@ class TestBatchable:
 
 class TestRequires:
     def test_ic_consumers_require_compute_ic(self) -> None:
-        import factrix.metrics as metrics_pkg
+        from factrix.metrics._primitives import compute_ic
 
         specs = spec_by_name()
         for name in ("ic", "ic_newey_west", "ic_ir"):
-            assert specs[name].requires == {"ic_df": metrics_pkg.compute_ic}, name
+            assert specs[name].requires == {"ic_df": compute_ic}, name
 
     def test_caar_consumer_requires_compute_caar(self) -> None:
         specs = spec_by_name()

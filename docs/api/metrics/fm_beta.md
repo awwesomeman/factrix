@@ -6,7 +6,6 @@ title: factrix.metrics.fm_beta
     options:
       show_root_members_full_path: true
       members:
-        - compute_fm_betas
         - fm_beta
         - pooled_beta
         - beta_sign_consistency

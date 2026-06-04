@@ -38,7 +38,7 @@ import inspect
 import pathlib
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Literal, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
 from factrix._axis import (
     Aggregation,
@@ -52,6 +52,9 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._errors import IncompatibleAxisError
+
+if TYPE_CHECKING:
+    from factrix.metrics._base import MetricBase
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
@@ -256,24 +259,33 @@ def _public_metric_stems() -> list[str]:
 
 
 def _load_module_specs(stem: str) -> tuple[MetricSpec, ...]:
-    """Import ``factrix.metrics.<stem>`` and return its ``__metric_specs__``.
+    """Import ``factrix.metrics.<stem>`` and return its specs.
 
     Raises ``ValueError`` when the module does not declare a non-empty
-    ``__metric_specs__`` tuple — coverage enforced by
-    ``tests/test_docs_matrix.py``.
+    ``__metric_specs__`` tuple or register `@metric` classes — coverage
+    enforced by ``tests/test_docs_matrix.py``.
     """
     mod = importlib.import_module(f"factrix.metrics.{stem}")
     specs = getattr(mod, "__metric_specs__", None)
     if not specs:
+        from factrix.metrics._registry import REGISTRY
+
+        reg_specs = []
+        for _, cls in REGISTRY.items():
+            if cls.__module__ == f"factrix.metrics.{stem}":
+                reg_specs.append(cls.spec())
+        if reg_specs:
+            specs = tuple(reg_specs)
+
+    if not specs:
         raise ValueError(
             f"factrix.metrics.{stem}: module-level `__metric_specs__` tuple "
-            f"is required (one MetricSpec per public callable). See "
+            f"or registered @metric classes are required. See "
             f"factrix._metric_index.MetricSpec docstring."
         )
     if not all(isinstance(s, MetricSpec) for s in specs):
         raise TypeError(
-            f"factrix.metrics.{stem}: every `__metric_specs__` entry must be "
-            f"a MetricSpec instance."
+            f"factrix.metrics.{stem}: every spec entry must be a MetricSpec instance."
         )
     for spec in specs:
         if spec.requires:
@@ -297,7 +309,8 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
             f"factrix.metrics.{stem}.{spec.name}: declares `requires=` "
             f"but no callable of that name is exported from the module."
         )
-    consumer_params = set(inspect.signature(consumer).parameters)
+    consumer_to_inspect = consumer._impl if hasattr(consumer, "_impl") else consumer
+    consumer_params = set(inspect.signature(consumer_to_inspect).parameters)
     from factrix.metrics._registry import REGISTRY
 
     for key, producer in spec.requires.items():
@@ -341,51 +354,70 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     avoid re-importing every public module.
     """
     out: list[tuple[str, MetricSpec]] = []
+    seen: set[str] = set()
 
-    # 1. Load legacy module specs
+    # 1. Public modules: legacy ``__metric_specs__`` or in-place ``@metric``
+    #    classes — both surfaced by ``_load_module_specs``, which also
+    #    validates each spec's ``requires`` against its consumer signature.
     for stem in _public_metric_stems():
         try:
-            mod = importlib.import_module(f"factrix.metrics.{stem}")
-            specs = getattr(mod, "__metric_specs__", None)
-            if specs:
-                for spec in specs:
-                    if isinstance(spec, MetricSpec):
-                        out.append((stem, spec))
-        except (ImportError, ValueError, AttributeError):
-            pass
+            specs = _load_module_specs(stem)
+        except ImportError:
+            continue
+        for spec in specs:
+            if spec.name not in seen:
+                out.append((stem, spec))
+                seen.add(spec.name)
 
-    # 2. Load from the new class-based registry
+    # 2. Registry classes not owned by a public module (``_primitives/*``
+    #    pipeline producers, third-party or test registrations). These never
+    #    pass through ``_load_module_specs``, so validate their ``requires``
+    #    here — public-module classes are already validated in step 1.
     from factrix.metrics._registry import REGISTRY
 
-    for _, cls in REGISTRY.items():
-        stem = cls.__module__.split(".")[-1]
+    for cls in REGISTRY.values():
         spec = cls.spec()
-        if not any(s.name == spec.name for _, s in out):
-            out.append((stem, spec))
-
-    # Validate registry metrics' requires
-    for name, cls in REGISTRY.items():
-        spec = cls.spec()
+        if spec.name in seen:
+            continue
         if spec.requires:
-            consumer_params = set(inspect.signature(cls._impl).parameters)
-            for key, producer in spec.requires.items():
-                if key not in consumer_params:
-                    raise ValueError(
-                        f"Metric {name!r}: `requires` key {key!r} is not a parameter of {name}."
-                    )
-                if not callable(producer):
-                    raise ValueError(
-                        f"Metric {name!r}: `requires[{key!r}]` is not callable."
-                    )
-                producer_name = producer.__name__
-                if producer_name not in REGISTRY and not any(
-                    s.name == producer_name for _, s in out
-                ):
-                    raise ValueError(
-                        f"Metric {name!r}: required producer {producer_name!r} is not registered."
-                    )
+            _validate_registry_requires(cls, spec)
+        module = cls.__module__
+        stem = (
+            module.removeprefix("factrix.metrics.")
+            if module.startswith("factrix.metrics.")
+            else module.split(".")[-1]
+        )
+        out.append((stem, spec))
+        seen.add(spec.name)
 
     return tuple(out)
+
+
+def _validate_registry_requires(cls: type[MetricBase], spec: MetricSpec) -> None:
+    """Validate ``requires`` for a ``@metric`` class outside a public module.
+
+    Mirrors :func:`_validate_requires` for registry-only classes (pipeline
+    primitives, third-party / test registrations) whose consumer is the
+    class's own ``_impl``.
+    """
+    from factrix.metrics._registry import REGISTRY
+
+    consumer_params = set(inspect.signature(cls._impl).parameters)
+    for key, producer in spec.requires.items():
+        if key not in consumer_params:
+            raise ValueError(
+                f"Metric {spec.name!r}: `requires` key {key!r} is not a "
+                f"parameter of {spec.name}."
+            )
+        if not callable(producer):
+            raise ValueError(
+                f"Metric {spec.name!r}: `requires[{key!r}]` is not callable."
+            )
+        if producer.__name__ not in REGISTRY:
+            raise ValueError(
+                f"Metric {spec.name!r}: required producer "
+                f"{producer.__name__!r} is not registered."
+            )
 
 
 @functools.cache

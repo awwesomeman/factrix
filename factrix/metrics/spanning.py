@@ -29,11 +29,19 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
-from factrix._axis import Aggregation, FactorDensity, FactorScope, SEMethod, TestMethod
-from factrix._metric_index import MetricSpec, cell
+from factrix._axis import (
+    Aggregation,
+    FactorDensity,
+    FactorScope,
+    InputShape,
+    SEMethod,
+    TestMethod,
+)
+from factrix._metric_index import cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
@@ -47,23 +55,6 @@ _SPANNING_CELL = cell(
     FactorScope.INDIVIDUAL,
     FactorDensity.DENSE,
     raw="factor-return-series consumer (post-PANEL pipeline)",
-)
-
-__metric_specs__ = (
-    MetricSpec(
-        name="spanning_alpha",
-        cell=_SPANNING_CELL,
-        aggregation=Aggregation.TS_ONLY,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-    ),
-    MetricSpec(
-        name="greedy_forward_selection",
-        cell=_SPANNING_CELL,
-        aggregation=Aggregation.TS_ONLY,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-    ),
 )
 
 logger = logging.getLogger(__name__)
@@ -142,6 +133,13 @@ def _align_spread_series(
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_SPANNING_CELL,
+    aggregation=Aggregation.TS_ONLY,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
+)
 def spanning_alpha(
     factor_spread: pl.DataFrame,
     base_spreads: dict[str, pl.DataFrame] | None = None,
@@ -251,6 +249,13 @@ def spanning_alpha(
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_SPANNING_CELL,
+    aggregation=Aggregation.TS_ONLY,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
+)
 def greedy_forward_selection(
     factor_spreads: dict[str, pl.DataFrame],
     base_spreads: dict[str, pl.DataFrame] | None = None,

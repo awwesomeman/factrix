@@ -6,7 +6,6 @@ title: factrix.metrics.ic
     options:
       show_root_members_full_path: true
       members:
-        - compute_ic
         - ic
         - ic_newey_west
         - ic_ir

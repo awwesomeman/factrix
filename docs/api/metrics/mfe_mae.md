@@ -6,7 +6,6 @@ title: factrix.metrics.mfe_mae
     options:
       show_root_members_full_path: true
       members:
-        - compute_mfe_mae
         - mfe_mae_summary
 
 <hr>

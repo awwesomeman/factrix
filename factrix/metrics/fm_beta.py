@@ -35,22 +35,22 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     SEMethod,
-    SpecRole,
     TestMethod,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _newey_west_t_test,
     _p_value_from_t,
 )
 from factrix._types import DDOF, EPSILON, ShankenVarSource
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics._metric_capabilities import per_date_series_rename
+from factrix.metrics._primitives import compute_fm_betas
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
-    "compute_fm_betas",
     "fm_beta",
     "pooled_beta",
     "beta_sign_consistency",
@@ -80,93 +80,17 @@ MIN_FM_PERIODS_HARD: int = 4
 MIN_FM_PERIODS_WARN: int = 30
 
 # ---------------------------------------------------------------------------
-# Raw computation (parallel to compute_ic)
-# ---------------------------------------------------------------------------
-
-
-def compute_fm_betas(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> pl.DataFrame:
-    r"""Per-date cross-sectional ordinary least squares (OLS): $R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon$.
-
-    Args:
-        df: Long panel with ``date, asset_id, factor, forward_return``.
-        factor_col: Column carrying the factor exposure.
-        return_col: Column carrying the forward return.
-
-    Returns:
-        DataFrame with ``date, beta`` (one row per date that admits a
-        finite OLS solution; dates with fewer than 3 observations or
-        a singular design are dropped).
-
-    Notes:
-        Per date $t$, solve the cross-sectional OLS
-        $R_{i,t} = \alpha_t + \beta_t \cdot \text{Signal}_{i,t} + \varepsilon_{i,t}$
-        and emit the slope $\beta_t$. The output series feeds the
-        stage-2 Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test in
-        ``fm_beta``.
-
-        factrix drops dates with fewer than 3 cross-sectional
-        observations or a singular design rather than coercing to NaN —
-        this keeps stage-2 a clean t-test on a finite, well-defined
-        series with no NaN propagation in the NW kernel.
-
-    References:
-        - [Fama & MacBeth (1973)][fama-macbeth-1973]. "Risk, Return, and
-          Equilibrium: Empirical Tests." Journal of Political Economy,
-          81(3), 607–636. The per-date cross-sectional regression at
-          stage 1 of the FM procedure.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.fm_beta import compute_fm_betas
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> beta_df = compute_fm_betas(panel)
-        >>> set(beta_df.columns) >= {"date", "beta"}
-        True
-    """
-    dates = df["date"].unique().sort()
-    rows: list[dict] = []
-
-    for dt in dates:
-        chunk = df.filter(pl.col("date") == dt)
-        y = chunk[return_col].to_numpy().astype(np.float64)
-        x = chunk[factor_col].to_numpy().astype(np.float64)
-
-        if len(y) < 3:
-            continue
-
-        x_with_const = np.column_stack([np.ones(len(x)), x])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(x_with_const, y, rcond=None)
-        except np.linalg.LinAlgError:
-            continue
-
-        rows.append({"date": dt, "beta": float(beta[1])})
-
-    if not rows:
-        return pl.DataFrame(
-            {
-                "date": pl.Series([], dtype=pl.Datetime("ms")),
-                "beta": pl.Series([], dtype=pl.Float64),
-            }
-        )
-
-    return pl.DataFrame(rows)
-
-
-# ---------------------------------------------------------------------------
 # Fama-MacBeth significance (parallel to ic())
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_FM_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    requires={"beta_df": compute_fm_betas},
+)
 def fm_beta(
     beta_df: pl.DataFrame,
     *,
@@ -397,6 +321,12 @@ def _cluster_meat(
     return meat, len(unique)
 
 
+@metric(
+    cell=_FM_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+)
 def pooled_beta(
     df: pl.DataFrame,
     *,
@@ -639,6 +569,13 @@ def pooled_beta(
 # ---------------------------------------------------------------------------
 
 
+@metric(
+    cell=_FM_CELL,
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    requires={"beta_df": compute_fm_betas},
+)
 def beta_sign_consistency(
     beta_df: pl.DataFrame,
     *,
@@ -706,38 +643,3 @@ def beta_sign_consistency(
             "n_periods": n,
         },
     )
-
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_fm_betas",
-        cell=_FM_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        role=SpecRole.PIPELINE,
-    ),
-    MetricSpec(
-        name="fm_beta",
-        cell=_FM_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        requires={"beta_df": compute_fm_betas},
-    ),
-    MetricSpec(
-        name="pooled_beta",
-        cell=_FM_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-    ),
-    MetricSpec(
-        name="beta_sign_consistency",
-        cell=_FM_CELL,
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        requires={"beta_df": compute_fm_betas},
-    ),
-)

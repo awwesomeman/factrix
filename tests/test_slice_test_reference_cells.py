@@ -12,7 +12,8 @@ import datetime as dt
 import numpy as np
 import polars as pl
 from factrix import slice_joint_test, slice_pairwise_test
-from factrix.metrics import compute_ic, ic
+from factrix.metrics import ic
+from factrix.metrics._primitives import compute_ic
 from factrix.stats import BlockBootstrap
 
 

@@ -28,7 +28,7 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
@@ -38,6 +38,7 @@ from factrix._types import (
     MIN_PORTFOLIO_PERIODS_WARN,
     ConcentrationWeight,
 )
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
     _sample_non_overlapping,
@@ -48,19 +49,15 @@ __all__ = [
     "top_concentration",
 ]
 
-__metric_specs__ = (
-    MetricSpec(
-        name="top_concentration",
-        cell=cell(
-            FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
-        ),
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
+
+@metric(
+    cell=cell(
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
 )
-
-
 def top_concentration(
     df: pl.DataFrame,
     forward_periods: int = 5,

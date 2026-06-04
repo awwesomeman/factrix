@@ -28,13 +28,14 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
     DDOF,
     MIN_MONOTONICITY_PERIODS,
 )
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
     _sample_non_overlapping,
@@ -46,18 +47,6 @@ __all__ = [
     "monotonicity",
 ]
 
-__metric_specs__ = (
-    MetricSpec(
-        name="monotonicity",
-        cell=cell(
-            FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
-        ),
-        aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.OLS,
-        batchable=True,
-    ),
-)
 
 # Slice-test contract (#153 §5): monotonicity buckets the
 # cross-section into `n_groups` (default 10) and computes Spearman ρ
@@ -70,6 +59,15 @@ __metric_specs__ = (
 min_assets_per_group: int | None = 50
 
 
+@metric(
+    cell=cell(
+        FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
+    ),
+    aggregation=Aggregation.CS_THEN_TS,
+    test_method=TestMethod.T,
+    se_method=SEMethod.OLS,
+    batchable=True,
+)
 def monotonicity(
     df: pl.DataFrame,
     forward_periods: int = 5,

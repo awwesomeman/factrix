@@ -31,11 +31,10 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     SEMethod,
-    SpecRole,
     TestMethod,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import MetricSpec, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
@@ -49,15 +48,15 @@ from factrix._types import (
     MIN_EVENTS_WARN,
     KPSource,
 )
+from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
-    _is_sparse_magnitude_weighted,
     _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
 )
+from factrix.metrics._primitives import compute_caar
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
-    "compute_caar",
     "caar",
     "bmp_test",
 ]
@@ -73,123 +72,13 @@ _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 min_assets_per_group: int | None = None
 
 
-def compute_caar(
-    df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
-    return_col: str = "forward_return",
-) -> pl.DataFrame:
-    r"""Per-event-date weighted abnormal return series.
-
-    Magnitude is preserved — no ``.sign()`` coercion. factrix accepts
-    two input contracts; everything else (including signed
-    $\{-1, 0, +1\}$) is just a special case of the second:
-
-    | Input ``factor`` | ``signed_car`` reduces to | Statistic tested |
-    |---|---|---|
-    | $\{0, 1\}$ | $\text{return}$ on event rows | Average event-day return |
-    | $\{0, R\}$, $R \in \mathbb{R}$ | $\text{return} \times R$ | Magnitude-weighted CAAR |
-
-    Caveat on $\{-1, 0, +1\}$: it lands in the second row as a
-    weight-$\pm 1$ case, which gives a magnitude-weighted CAAR, **not**
-    the textbook [MacKinlay (1997)][mackinlay-1997] signed CAAR (the latter averages
-    direction-flipped abnormal returns and is a different estimator at
-    finite samples when the negative-leg vol differs from the positive-
-    leg vol). If literature-standard signed CAAR is what you want,
-    pre-compute it externally; factrix's primitive treats $\pm 1$ as
-    weights, not as direction labels.
-
-    Aggregation:
-        cs-first. For each event date, take the cross-sectional mean of
-        ``signed_car`` $= r \times f$ across event rows where $f \neq 0$;
-        the resulting ``n_event_dates``-length CAAR series feeds a
-        downstream Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test on the mean.
-
-    Scale:
-        CAAR magnitude tracks the units of ``factor`` (bps, z-score,
-        unit-less ±1). Hypothesis tests via the downstream ``caar``
-        t-statistic are scale-invariant (numerator and denominator both
-        scale linearly), but cross-factor *effect-size* comparisons
-        require commensurate units.
-
-    Args:
-        df: Panel with ``date``, ``asset_id``, ``factor_col``, ``return_col``.
-        factor_col: Numeric column. Magnitude is preserved as a weight
-            in the per-row product; only zero rows are filtered.
-        return_col: Column with forward/abnormal return.
-
-    Returns:
-        DataFrame with columns ``date, caar`` sorted by date.
-
-    Notes:
-        Per event date $d$,
-        $\mathrm{CAAR}_d = \mathrm{mean}_{i \in \mathrm{events}(d)} (\mathrm{return}_i \times \mathrm{factor}_i)$.
-        Magnitude of ``factor`` is preserved as a weight; only rows with
-        ``factor == 0`` are dropped.
-
-        factrix follows the [MacKinlay (1997)][mackinlay-1997] event-window vocabulary
-        (factor as the event indicator / sign on the announcement date)
-        but generalises ``signed_car`` to numeric factor magnitude. With
-        a continuous ``factor`` column, the resulting CAAR is the
-        per-event regression-slope statistic in the
-        [Sefcik-Thompson (1986)][sefcik-thompson-1986] lineage rather than the equal-weighted
-        MacKinlay CAAR.
-
-        When ``factor_col`` triggers ``_is_sparse_magnitude_weighted``
-        the primitive emits a Python ``UserWarning`` directly. The
-        sparse PANEL procedures additionally attach
-        ``WarningCode.SPARSE_MAGNITUDE_WEIGHTED`` to
-        ``FactorProfile.warnings`` independently — the dual emission is
-        deliberate so batch runs that silence Python warnings still
-        surface the regime-switch through the structured channel.
-
-    References:
-        - [MacKinlay (1997)][mackinlay-1997]. "Event Studies in Economics
-          and Finance." Journal of Economic Literature, 35(1), 13–39.
-          Standardised event-window / estimation-window vocabulary
-          inherited by ``EventConfig``.
-        - [Sefcik & Thompson (1986)][sefcik-thompson-1986]. "An Approach
-          to Statistical Inference in Cross-Sectional Models with
-          Security Abnormal Returns as Dependent Variable." Journal of
-          Accounting Research, 24(2), 316–334. Per-event regression-
-          slope ancestor of the magnitude-weighted CAAR produced when
-          ``factor`` is continuous.
-        - [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
-          Returns: The Case of Event Studies." Journal of Financial
-          Economics, 14(1), 3–31. Daily event-study methodology backing
-          the parametric-test path.
-
-    Examples:
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.caar import compute_caar
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> caar_df = compute_caar(panel)
-        >>> set(caar_df.columns) >= {"date", "caar"}
-        True
-    """
-    if _is_sparse_magnitude_weighted(df, factor_col):
-        warnings.warn(
-            "compute_caar: factor column is mixed-sign and not a clean ±1 "
-            "ternary. The result is the Sefcik-Thompson (1986) "
-            "magnitude-weighted CAAR, not the textbook MacKinlay (1997) "
-            "signed CAAR; apply .sign() to the column before calling for "
-            "sign-flip semantics.",
-            UserWarning,
-            stacklevel=2,
-        )
-    return (
-        df.filter(pl.col(factor_col) != 0)
-        .with_columns((pl.col(return_col) * pl.col(factor_col)).alias("_signed_car"))
-        .group_by("date")
-        .agg(pl.col("_signed_car").mean().alias("caar"))
-        .sort("date")
-    )
-
-
+@metric(
+    cell=_CAAR_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+    requires={"caar_df": compute_caar},
+)
 def caar(
     caar_df: pl.DataFrame,
     *,
@@ -297,6 +186,12 @@ def caar(
     )
 
 
+@metric(
+    cell=_CAAR_CELL,
+    aggregation=Aggregation.EVENT_TIME,
+    test_method=TestMethod.T,
+    se_method=SEMethod.HAC,
+)
 def bmp_test(
     df: pl.DataFrame,
     *,
@@ -577,30 +472,3 @@ def _estimate_sar_icc(
     total = sigma2_between + sigma2_within
     r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
     return r_hat, n_eff, "icc"
-
-
-__metric_specs__ = (
-    MetricSpec(
-        name="compute_caar",
-        cell=_CAAR_CELL,
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        role=SpecRole.PIPELINE,
-    ),
-    MetricSpec(
-        name="caar",
-        cell=_CAAR_CELL,
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-        requires={"caar_df": compute_caar},
-    ),
-    MetricSpec(
-        name="bmp_test",
-        cell=_CAAR_CELL,
-        aggregation=Aggregation.EVENT_TIME,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
-    ),
-)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
 from factrix._axis import (
     Aggregation,
@@ -16,6 +16,8 @@ from factrix._axis import (
 from factrix._metric_index import Cell, SampleThreshold
 from factrix.metrics._base import MetricBase
 from factrix.metrics._registry import register
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 
 def metric(
@@ -30,13 +32,19 @@ def metric(
     requires: dict[str, Any] | None = None,
     batchable: bool = False,
     sample_threshold: SampleThreshold | None = None,
-) -> Callable[[Callable[..., Any]], type[MetricBase]]:
+) -> Callable[[_F], _F]:
     """Decorator to define a Metric class from a function definition.
 
     Constructs a frozen dataclass inheriting from MetricBase and registers it.
+
+    The returned object is a ``MetricBase`` subclass whose metaclass makes
+    calling it run the underlying implementation, so to callers it behaves
+    like the original function. It is typed as the wrapped callable (``_F``)
+    so direct calls and ``requires=`` references type-check against the real
+    signature; the class identity is an internal registry concern.
     """
 
-    def decorator(fn: Callable[..., Any]) -> type[MetricBase]:
+    def decorator(fn: _F) -> _F:
         # 1. Inspect the function signature to determine fields (skipping the first argument)
         sig = inspect.signature(fn)
         params = list(sig.parameters.values())
@@ -94,10 +102,13 @@ def metric(
             frozen=True,
             slots=True,
         )
+        cls.__module__ = fn.__module__
 
         # 4. Register the class
         register(cls)
 
-        return cls
+        # Runtime object is the MetricBase subclass; typed as the wrapped
+        # callable so callers see the real signature (see docstring).
+        return cls  # type: ignore[return-value]
 
     return decorator
