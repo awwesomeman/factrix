@@ -618,12 +618,14 @@ types-only; runner wiring lands with the DAG executor.
   pre-flight introspection that combines axis detection with a
   per-metric usability verdict.
   - `PanelInspection.detected: PanelProperties` carries the typed
-    enums (`scope` / `density` / `structure`) plus shape numerics
+    enums (`scope` / `density` / `structure`), the per-axis rationale
+    strings folded in alongside each enum (`scope_reason` /
+    `density_reason` / `structure_reason`), plus shape numerics
     (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
     `n_pairs` counts non-null `(date, asset_id)` factor observations
     — the upper bound on sample size for pair-counting metrics.
-  - `PanelInspection.reasoning: PanelReasoning` carries per-axis
-    rationale strings.
+    (The standalone `PanelReasoning` type is retired; `to_dict()`
+    still emits a top-level `reasoning` block for serialization.)
   - `PanelInspection.metrics: list[MetricApplicability]` — one
     verdict per `visibility=PUBLIC` spec. Each carries `metric:
     type[MetricBase]` (the callable class) and `name: str`

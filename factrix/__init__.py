@@ -59,7 +59,6 @@ from factrix._inspect import (
     MetricApplicability,
     PanelInspection,
     PanelProperties,
-    PanelReasoning,
     _detect_structure,
     inspect_panel,
 )
@@ -485,7 +484,6 @@ __all__ = [
     "MetricApplicability",
     "PanelInspection",
     "PanelProperties",
-    "PanelReasoning",
     "SampleThreshold",
     "inspect_panel",
     "list_estimators",
