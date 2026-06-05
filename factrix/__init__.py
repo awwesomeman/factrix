@@ -66,6 +66,7 @@ from factrix._errors import (
 )
 from factrix._inspect import (
     MetricApplicability,
+    MetricApplicabilityGroup,
     PanelInspection,
     PanelProperties,
     _detect_structure,
@@ -662,6 +663,7 @@ __all__ = [
     "evaluate",
     # Introspection
     "MetricApplicability",
+    "MetricApplicabilityGroup",
     "PanelInspection",
     "PanelProperties",
     "SampleThreshold",

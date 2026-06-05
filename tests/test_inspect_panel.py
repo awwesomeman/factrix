@@ -343,3 +343,44 @@ class TestCellMatchesSignature:
             )
             is True
         )
+
+
+class TestMetricApplicabilityGroup:
+    def _info(self):
+        return inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+
+    def test_partitions_are_groups_and_lists(self):
+        info = self._info()
+        for tier in (info.usable, info.degraded, info.unusable):
+            assert isinstance(tier, fx.MetricApplicabilityGroup)
+            assert isinstance(tier, list)  # every list operation still works
+
+    def test_names_property(self):
+        info = self._info()
+        assert info.usable.names == [m.name for m in info.usable]
+
+    def test_to_metrics_dict_shape_and_excludes_scalar_utilities(self):
+        from factrix.metrics._base import MetricBase
+
+        info = self._info()
+        md = info.usable.to_metrics_dict()
+        assert md, "fixture should have usable metrics"
+        assert all(isinstance(v, MetricBase) for v in md.values())
+        assert set(md) <= set(info.usable.names)
+        # breakeven_cost / net_spread need required scalar args -> omitted.
+        assert "breakeven_cost" not in md
+        assert "net_spread" not in md
+
+    def test_to_metrics_dict_feeds_evaluate(self):
+        # The discovery bridge: a usable metric round-trips into evaluate().
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
+        panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        md = inspect_panel(panel).usable.to_metrics_dict()
+        results = fx.evaluate(
+            panel,
+            metrics={"ic": md["ic"]},
+            factor_cols=["factor"],
+            forward_periods=5,
+            strict=False,
+        )
+        assert results[0].metrics["ic"].name == "ic"

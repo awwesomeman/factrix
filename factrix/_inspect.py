@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import html
 import math
-from dataclasses import dataclass, field
+from dataclasses import MISSING, dataclass, field, fields
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -177,6 +177,50 @@ class MetricApplicability:
     blockers: list[str] = field(default_factory=list)
 
 
+def _default_constructible(metric: Any) -> bool:
+    """True when the metric class can be instantiated with no arguments.
+
+    Scalar-input utilities (e.g. ``breakeven_cost`` / ``net_spread``) declare
+    required parameters (``turnover`` / ``forward_periods`` …) and consume
+    pre-aggregated scalars rather than a panel, so they are not part of the
+    zero-config discovery -> :func:`factrix.evaluate` flow.
+    """
+    return all(
+        f.default is not MISSING or f.default_factory is not MISSING
+        for f in fields(metric)
+    )
+
+
+class MetricApplicabilityGroup(list["MetricApplicability"]):
+    """A tier partition of :class:`MetricApplicability` verdicts.
+
+    A ``list`` subclass — every list operation works — with discovery
+    helpers layered on. Returned by :attr:`PanelInspection.usable` /
+    ``degraded`` / ``unusable``.
+    """
+
+    @property
+    def names(self) -> list[str]:
+        """The metric name of each verdict, in order."""
+        return [m.name for m in self]
+
+    def to_metrics_dict(self) -> dict[str, MetricBase]:
+        """Normalise the group into ``{name: metric_instance}`` for ``evaluate``.
+
+        The canonical discovery bridge: pick a tier (usually ``usable``) and
+        feed its default-constructed instances straight to
+        :func:`factrix.evaluate`::
+
+            info = fx.inspect_panel(panel)
+            results = fx.evaluate(panel, metrics=info.usable.to_metrics_dict(),
+                                  factor_cols=[...], forward_periods=5)
+
+        Metrics whose class needs explicit construction arguments (the
+        scalar-input utilities) are omitted — construct and add those by hand.
+        """
+        return {m.name: m.metric() for m in self if _default_constructible(m.metric)}
+
+
 @dataclass(frozen=True, slots=True)
 class PanelInspection:
     """Result of :func:`inspect_panel`.
@@ -203,7 +247,7 @@ class PanelInspection:
     warnings: list[Warning] = field(default_factory=list)
 
     @property
-    def usable(self) -> list[MetricApplicability]:
+    def usable(self) -> MetricApplicabilityGroup:
         """Metrics that are applicable AND carry no degraded warning.
 
         The production-safe set: every verdict here passed cell match
@@ -215,11 +259,17 @@ class PanelInspection:
         *excludes* degraded verdicts so it can be the single safe set
         a bulk discovery flow runs without re-filtering. The
         "usable but warned" verdicts live in :attr:`degraded`.
+
+        Returns a :class:`MetricApplicabilityGroup` (a ``list`` subclass);
+        ``.to_metrics_dict()`` normalises it straight into the
+        ``metrics=`` argument of :func:`factrix.evaluate`.
         """
-        return [m for m in self.metrics if m.usable and not m.warnings]
+        return MetricApplicabilityGroup(
+            m for m in self.metrics if m.usable and not m.warnings
+        )
 
     @property
-    def degraded(self) -> list[MetricApplicability]:
+    def degraded(self) -> MetricApplicabilityGroup:
         """Applicable metrics that run but with degraded inference.
 
         ``usable=True`` yet at least one ``warn_*``-tier
@@ -228,10 +278,12 @@ class PanelInspection:
         read the warnings before trusting the inference. Disjoint from
         :attr:`usable` and :attr:`unusable`.
         """
-        return [m for m in self.metrics if m.usable and m.warnings]
+        return MetricApplicabilityGroup(
+            m for m in self.metrics if m.usable and m.warnings
+        )
 
     @property
-    def unusable(self) -> list[MetricApplicability]:
+    def unusable(self) -> MetricApplicabilityGroup:
         """Metrics that cannot run on this panel.
 
         ``usable=False`` — blocked by cell mismatch or a ``min_*``
@@ -239,7 +291,7 @@ class PanelInspection:
         the concrete reasons. Disjoint from :attr:`usable` and
         :attr:`degraded`.
         """
-        return [m for m in self.metrics if not m.usable]
+        return MetricApplicabilityGroup(m for m in self.metrics if not m.usable)
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly nested dict view.

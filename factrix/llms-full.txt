@@ -635,8 +635,13 @@ types-only; runner wiring lands with the DAG executor.
     `usable: bool`, a `warnings: list[Warning]` for degraded
     inference (above HARD floor but below WARN floor), and
     `blockers: list[str]` for unusable reasons (cell mismatch or HARD
-    floor violation). Caller partitions via list comprehension —
-    `[m for m in info.metrics if m.usable]`.
+    floor violation). The `usable` / `degraded` / `unusable`
+    properties expose this as a mutually exclusive partition, each a
+    `MetricApplicabilityGroup` (a `list` subclass with `.names` and
+    `.to_metrics_dict()`). `info.usable.to_metrics_dict()` normalises a
+    tier into the `{label: instance}` dict `evaluate(metrics=...)`
+    expects — the canonical discovery → evaluate bridge (scalar-input
+    utilities that need required args are omitted).
   - `PanelInspection.warnings: list[Warning]` carries panel-level
     sample-shape diagnostics (`source=None`); per-metric degraded
     warnings live on each `MetricApplicability`.
