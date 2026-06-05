@@ -24,6 +24,7 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
+    InputShape,
     SEMethod,
     TestMethod,
 )
@@ -48,6 +49,7 @@ DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
+    input_shape=InputShape.SERIES,
     requires={"mfe_mae_df": compute_mfe_mae},
 )
 def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:

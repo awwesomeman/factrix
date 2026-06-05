@@ -321,6 +321,21 @@ def _validate_metrics_arg(metrics: object) -> None:
                 docs_path=_DOCS_METRICS,
             )
 
+        from factrix._axis import SpecRole
+
+        if val.__class__.spec().role is SpecRole.PIPELINE:
+            raise UserInputError(
+                func_name="evaluate",
+                field="metrics",
+                value=f"{key!r} -> {val.__class__.__name__}() (role=PIPELINE)",
+                expected=(
+                    "a standalone metric. Pipeline producers (like compute_ic) "
+                    "cannot be evaluated directly; they are pulled automatically "
+                    "when you evaluate a downstream metric via its `requires=` dependency."
+                ),
+                docs_path=_DOCS_METRICS,
+            )
+
 
 def _resolve_primary(metrics: "dict[str, MetricBase]", primary: str | None) -> str:
     """Resolve the primary label — explicit ``primary`` or the first dict key."""

@@ -33,6 +33,7 @@ from factrix._stats import (
 from factrix._types import MIN_ASSETS_PER_DATE_IC
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
+from factrix.metrics.ic import compute_ic
 
 __all__ = [
     "hit_rate",
@@ -69,6 +70,7 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     test_method=TestMethod.BINOMIAL,
     se_method=SEMethod.BUILT_IN,
     input_shape=InputShape.SERIES,
+    requires={"series": compute_ic},
 )
 def hit_rate(
     series: pl.DataFrame,

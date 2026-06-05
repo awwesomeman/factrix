@@ -43,6 +43,7 @@ from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics.quantile import compute_spread_series
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "spanning_alpha",
@@ -139,6 +140,7 @@ def _align_spread_series(
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
+    requires={"factor_spread": compute_spread_series},
 )
 def spanning_alpha(
     factor_spread: pl.DataFrame,
@@ -255,6 +257,8 @@ def spanning_alpha(
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
+    batchable=True,
+    requires={"factor_spreads": compute_spread_series},
 )
 def greedy_forward_selection(
     factor_spreads: dict[str, pl.DataFrame],

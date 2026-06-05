@@ -46,6 +46,7 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _short_circuit_output,
 )
+from factrix.metrics.quantile import quantile_spread
 
 _TR_CELL = cell(
     FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
@@ -419,6 +420,7 @@ def notional_turnover(
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
+    requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
 )
 def breakeven_cost(
     gross_spread: float,
@@ -508,6 +510,7 @@ def breakeven_cost(
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
+    requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
 )
 def net_spread(
     gross_spread: float,

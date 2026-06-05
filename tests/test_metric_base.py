@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from factrix._axis import Aggregation, SEMethod, TestMethod
+from factrix._axis import Aggregation, OutputShape, SEMethod, SpecRole, TestMethod
 from factrix._metric_index import Cell, spec_by_name
 from factrix.metrics import MetricBase, metric
 
@@ -17,6 +17,8 @@ def test_metric_base_dataclass_properties():
             aggregation=Aggregation.TS_ONLY,
             test_method=TestMethod.T,
             se_method=SEMethod.BUILT_IN,
+            output_shape=OutputShape.PANEL,
+            role=SpecRole.PIPELINE,
         )
         def dummy_pipeline(df: pl.DataFrame, shift: int = 1) -> pl.DataFrame:
             return df.with_columns(pl.col("value") + shift)
@@ -162,6 +164,8 @@ def test_registry_integration():
             aggregation=Aggregation.TS_ONLY,
             test_method=TestMethod.T,
             se_method=SEMethod.BUILT_IN,
+            output_shape=OutputShape.PANEL,
+            role=SpecRole.PIPELINE,
         )
         def dummy_pipeline(df: pl.DataFrame, shift: int = 1) -> pl.DataFrame:
             return df.with_columns(pl.col("value") + shift)
