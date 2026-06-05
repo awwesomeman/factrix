@@ -217,11 +217,10 @@ def top_concentration(
         "tie_ratio": tie_ratio,
         "weight_by": weight_by,
     }
-    if warning_codes:
-        metadata["warning_codes"] = warning_codes
     return MetricResult(
         p=p,
         value=mean_eff_n,
         stat=t,
         metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
