@@ -40,12 +40,12 @@ def make_result(
     *,
     factor: str,
     p: float | None,
-    primary: MetricSpec,
+    primary: str,
     value: float = 0.05,
     forward_periods: int = 5,
     context: dict[str, Any] | None = None,
     extra_outputs: dict[str, MetricResult] | None = None,
-    extra_primaries: tuple[MetricSpec, ...] = (),
+    extra_primaries: tuple[str, ...] = (),
 ) -> EvaluationResult:
     """Build an :class:`EvaluationResult` carrying the named primary metric.
 
@@ -54,13 +54,13 @@ def make_result(
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     primary_out = MetricResult(
-        value=value, p=p, n_obs=100, name=primary.name, metadata=metadata
+        value=value, p=p, n_obs=100, name=primary, metadata=metadata
     )
-    outputs = {primary.name: primary_out}
+    outputs = {primary: primary_out}
     if extra_outputs:
         outputs.update(extra_outputs)
     primaries = [primary, *extra_primaries]
-    primary_names = [s.name for s in primaries]
+    primary_names = primaries
     return EvaluationResult(
         factor=factor,
         cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),

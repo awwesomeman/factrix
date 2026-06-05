@@ -17,12 +17,12 @@ def _replicate(factor: str, ps: list[float], primary, regions=("US", "EU", "JP")
 
 
 def test_returns_dict_per_primary():
-    ic = make_spec("ic")
-    results = _replicate("alpha_1", [0.001, 0.001, 0.001], ic) + _replicate(
-        "alpha_2", [0.5, 0.5, 0.5], ic
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.001, 0.001, 0.001], "ic") + _replicate(
+        "alpha_2", [0.5, 0.5, 0.5], "ic"
     )
     out = partial_conjunction(
-        results, primary=[ic], min_pass=2, expand_over=("region",), q=0.05
+        results, primary=["ic"], min_pass=2, expand_over=("region",), q=0.05
     )
     assert isinstance(out, dict)
     assert set(out) == {"ic"}
@@ -30,39 +30,43 @@ def test_returns_dict_per_primary():
 
 
 def test_pc_min_pass_one_raises():
-    ic = make_spec("ic")
-    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], "ic", regions=("US", "EU"))
     with pytest.raises(UserInputError, match="union semantics"):
-        partial_conjunction(results, primary=[ic], min_pass=1, expand_over=("region",))
+        partial_conjunction(
+            results, primary=["ic"], min_pass=1, expand_over=("region",)
+        )
 
 
 def test_pc_min_pass_below_two_raises():
-    ic = make_spec("ic")
-    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], "ic", regions=("US", "EU"))
     with pytest.raises(UserInputError, match=">= 2"):
-        partial_conjunction(results, primary=[ic], min_pass=0, expand_over=("region",))
+        partial_conjunction(
+            results, primary=["ic"], min_pass=0, expand_over=("region",)
+        )
 
 
 def test_pc_empty_expand_over_raises():
-    ic = make_spec("ic")
-    results = _replicate("alpha_1", [0.01], ic, regions=("US",))
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.01], "ic", regions=("US",))
     with pytest.raises(UserInputError, match="non-empty"):
-        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=())
+        partial_conjunction(results, primary=["ic"], min_pass=2, expand_over=())
 
 
 def test_pc_empty_results_raises():
-    ic = make_spec("ic")
+    make_spec("ic")
     with pytest.raises(UserInputError, match="non-empty list\\[EvaluationResult\\]"):
-        partial_conjunction([], primary=[ic], min_pass=2, expand_over=("region",))
+        partial_conjunction([], primary=["ic"], min_pass=2, expand_over=("region",))
 
 
 def test_pc_n_conditions_strict_mismatch_raises():
-    ic = make_spec("ic")
-    results = _replicate("alpha_1", [0.01, 0.01], ic, regions=("US", "EU"))
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.01, 0.01], "ic", regions=("US", "EU"))
     with pytest.raises(UserInputError, match="condition"):
         partial_conjunction(
             results,
-            primary=[ic],
+            primary=["ic"],
             min_pass=2,
             expand_over=("region",),
             n_conditions=3,
@@ -70,29 +74,33 @@ def test_pc_n_conditions_strict_mismatch_raises():
 
 
 def test_pc_insufficient_conditions_raises():
-    ic = make_spec("ic")
-    results = _replicate("alpha_1", [0.01], ic, regions=("US",))
+    make_spec("ic")
+    results = _replicate("alpha_1", [0.01], "ic", regions=("US",))
     with pytest.raises(UserInputError, match="condition"):
-        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=("region",))
+        partial_conjunction(
+            results, primary=["ic"], min_pass=2, expand_over=("region",)
+        )
 
 
 def test_pc_duplicate_condition_raises():
-    ic = make_spec("ic")
+    make_spec("ic")
     results = [
-        make_result(factor="alpha_1", p=0.01, primary=ic, context={"region": "US"}),
-        make_result(factor="alpha_1", p=0.02, primary=ic, context={"region": "US"}),
+        make_result(factor="alpha_1", p=0.01, primary="ic", context={"region": "US"}),
+        make_result(factor="alpha_1", p=0.02, primary="ic", context={"region": "US"}),
     ]
     with pytest.raises(UserInputError, match="unique"):
-        partial_conjunction(results, primary=[ic], min_pass=2, expand_over=("region",))
+        partial_conjunction(
+            results, primary=["ic"], min_pass=2, expand_over=("region",)
+        )
 
 
 def test_pc_strong_signal_survives():
-    ic = make_spec("ic")
-    results = _replicate("strong", [0.0001, 0.0001, 0.0001], ic) + _replicate(
-        "weak", [0.4, 0.4, 0.4], ic
+    make_spec("ic")
+    results = _replicate("strong", [0.0001, 0.0001, 0.0001], "ic") + _replicate(
+        "weak", [0.4, 0.4, 0.4], "ic"
     )
     out = partial_conjunction(
-        results, primary=[ic], min_pass=2, expand_over=("region",), q=0.05
+        results, primary=["ic"], min_pass=2, expand_over=("region",), q=0.05
     )
     factors = {r.factor for r in out["ic"].survivors}
     assert "strong" in factors
@@ -100,11 +108,11 @@ def test_pc_strong_signal_survives():
 
 
 def test_pc_heterogeneous_m_warns_in_lenient_mode():
-    ic = make_spec("ic")
-    results = _replicate("a", [0.01, 0.01], ic, regions=("US", "EU")) + _replicate(
-        "b", [0.01, 0.01, 0.01], ic, regions=("US", "EU", "JP")
+    make_spec("ic")
+    results = _replicate("a", [0.01, 0.01], "ic", regions=("US", "EU")) + _replicate(
+        "b", [0.01, 0.01, 0.01], "ic", regions=("US", "EU", "JP")
     )
     with pytest.warns(RuntimeWarning, match="heterogeneous condition"):
         partial_conjunction(
-            results, primary=[ic], min_pass=2, expand_over=("region",), q=0.5
+            results, primary=["ic"], min_pass=2, expand_over=("region",), q=0.5
         )

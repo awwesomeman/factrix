@@ -11,8 +11,8 @@ anti-shopping defense: the hypothesis identity is
 from ``forward_periods`` (the lone non-context built-in slicing axis)
 or from ``EvaluationResult.context``. The estimator-override hook is
 gone — the new ``fx.estimators`` namespace bakes the inference choice
-into each MetricSpec name (e.g. ``ic_newey_west``), so callers pick
-the estimator by passing the corresponding ``primary`` MetricSpec.
+into each str name (e.g. ``ic_newey_west``), so callers pick
+the estimator by passing the corresponding ``primary`` label.
 """
 
 from __future__ import annotations
@@ -23,7 +23,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from factrix._errors import UserInputError
-from factrix._metric_index import MetricSpec
 
 if TYPE_CHECKING:
     from factrix._results import EvaluationResult
@@ -116,7 +115,7 @@ def _attach_p_values(
     partition: Sequence[_FamilyEntry],
     *,
     func_name: str,
-    primary: MetricSpec,
+    primary: str,
 ) -> list[_FamilyEntry]:
     """Resolve per-primary p-value for each partition entry."""
     return [
@@ -134,7 +133,7 @@ def _resolve_family(
     results: Sequence[EvaluationResult],
     *,
     func_name: str,
-    primary: MetricSpec,
+    primary: str,
     expand_over: Sequence[str] = (),
 ) -> list[_FamilyEntry]:
     """Single-primary convenience wrapper around ``_partition`` +
@@ -182,19 +181,19 @@ def _expand_over_values(
 def _resolve_p_value(
     result: EvaluationResult,
     *,
-    primary: MetricSpec,
+    primary: str,
     func_name: str,
 ) -> float:
     try:
-        out = result.metrics.outputs[primary.name]
+        out = result.metrics.outputs[primary]
     except KeyError:
         raise UserInputError(
             func_name=func_name,
             field="primary",
-            value=primary.name,
+            value=primary,
             expected=(
                 f"every result to carry the primary metric "
-                f"{primary.name!r}; missing on factor={result.factor!r}"
+                f"{primary!r}; missing on factor={result.factor!r}"
             ),
             candidates=sorted(result.metrics.outputs),
             docs_path=f"api/{func_name}#primary",
@@ -205,11 +204,11 @@ def _resolve_p_value(
         raise UserInputError(
             func_name=func_name,
             field="primary",
-            value=primary.name,
+            value=primary,
             expected=(
                 f"a p-value (`.p`) populated on every result; "
                 f"factor={result.factor!r} has no p-value for "
-                f"metric {primary.name!r}"
+                f"metric {primary!r}"
             ),
             docs_path=f"api/{func_name}#primary",
         )
@@ -219,10 +218,10 @@ def _resolve_p_value(
         raise UserInputError(
             func_name=func_name,
             field="primary",
-            value=primary.name,
+            value=primary,
             expected=(
                 f"finite p-value on every result; factor={result.factor!r} "
-                f"has NaN p for metric {primary.name!r} — drop the result "
+                f"has NaN p for metric {primary!r} — drop the result "
                 "or pick a different primary"
             ),
             docs_path=f"api/{func_name}#primary",
