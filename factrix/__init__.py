@@ -55,7 +55,7 @@ from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespa
 )
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
-from factrix._dag import CycleError, DagExecutor
+from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._errors import (
     ConfigError,
     FactrixError,
@@ -128,18 +128,20 @@ def evaluate(
             ``{"ic_5d": ic(), "spread": quantile_spread(n_quantiles=5)}``).
             Results key by these labels. Passing the bare class (``ic``
             rather than ``ic()``), a ``str``, or a :class:`MetricSpec` is
-            rejected with a targeted error. Two labels may reuse one
-            metric class only with identical config (per-instance config
-            divergence — e.g. differing ``forward_periods`` — needs the
-            by-value DAG dedup in #494 and is rejected for now).
+            rejected with a targeted error. One metric class may run under
+            several labels with **different** config — e.g.
+            ``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}`` — via
+            by-value DAG dedup (#494); shared upstream producers are computed
+            once per distinct config.
         factor_cols: Names of density columns on ``panel``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``panel``.
-        forward_periods: Forward-return horizon in rows of the panel's
-            time axis. ``None`` raises when any metric consumes the
-            forward return; pass an explicit value otherwise. (Per-instance
-            ``forward_periods`` override lands in #494; for now this is the
-            single horizon applied to every fwd-return metric.)
+        forward_periods: Default forward-return horizon (rows of the panel's
+            time axis) for metrics left at their signature default. A
+            per-instance value — ``ic(forward_periods=20)`` — always overrides
+            it (#494). ``None`` (default) leaves every metric at its own
+            default. ``EvaluationResult.forward_periods`` reports the primary
+            metric's resolved horizon.
         primary: Label of the primary metric — drives
             ``EvaluationResult.n_obs`` and the primary / diagnostic
             partition. ``None`` (default) uses the first ``metrics`` key
@@ -161,7 +163,7 @@ def evaluate(
             instances; ``primary`` not a metrics label; ``factor_cols``
             empty / single ``str`` / contains duplicates / references a
             column not on ``panel``; ``panel`` missing a baseline column;
-            ``forward_periods=None`` but a metric consumes it; under
+            a metric ``requires`` a producer absent from the registry; under
             ``strict=True``, a metric inapplicable to the panel.
 
     Examples:
@@ -189,22 +191,21 @@ def evaluate(
     _validate_baseline_columns(panel)
     _validate_factor_cols_on_panel(panel, cols)
 
-    # label -> (spec, configured params), derived from the metric instances.
+    # label -> spec, plus per-instance params with forward_periods resolved
+    # against the top-level default (an instance still at its signature default
+    # inherits ``forward_periods=``; an explicit per-instance value overrides).
     label_spec = {label: type(inst).spec() for label, inst in metrics.items()}
-    label_params = {label: inst._params() for label, inst in metrics.items()}
-    _guard_duplicate_classes(label_spec, label_params)
+    label_params = {
+        label: _resolve_instance_params(inst, forward_periods)
+        for label, inst in metrics.items()
+    }
 
-    # Distinct specs (by name) for the executor; first occurrence wins.
-    distinct: dict[str, MetricSpec] = {}
-    name_to_label: dict[str, str] = {}
-    for label, spec in label_spec.items():
-        distinct.setdefault(spec.name, spec)
-        name_to_label.setdefault(spec.name, label)
+    nodes, label_to_node, node_kwargs = _build_nodes(label_spec, label_params)
+    primary_node = label_to_node[primary_label]
+    node_to_label = {nid: label for label, nid in label_to_node.items()}
 
-    closure_specs = _close_requires(list(distinct.values()))
-    _validate_forward_periods_when_required(closure_specs, forward_periods)
     primary_spec = label_spec[primary_label]
-    _validate_primary_metric_applicable(primary_spec, panel)
+    _validate_primary_metric_applicable(primary_spec, panel, strict)
 
     primary_cell = primary_spec.cell
     scope = (
@@ -215,31 +216,23 @@ def evaluate(
         if primary_cell.density is not None
         else FactorDensity.DENSE
     )
-    fp = forward_periods if forward_periods is not None else 5
+    # Bundle-level forward_periods is the primary metric's resolved horizon.
+    fp = node_kwargs[primary_node].get(
+        "forward_periods", forward_periods if forward_periods is not None else 5
+    )
 
-    # Per-instance params drive the executor; forward_periods stays top-level
-    # (per-instance forward_periods override lands in #494).
-    kwargs_by_metric: dict[str, dict[str, Any]] = {
-        spec.name: {
-            k: v for k, v in label_params[label].items() if k != "forward_periods"
-        }
-        for label, spec in label_spec.items()
-    }
-    for name, kw in _build_kwargs_by_metric(closure_specs, forward_periods).items():
-        kwargs_by_metric.setdefault(name, {}).update(kw)
-
-    executor = DagExecutor(closure_specs, primary_names=(primary_spec.name,))
+    executor = DagExecutor(nodes, primary_names=(primary_node,))
     result_dict = executor.execute(
         panel,
         cols,
         scope=scope,
         density=density,
         forward_periods=fp,
-        kwargs_by_metric=kwargs_by_metric,
+        kwargs_by_metric=node_kwargs,
     )
     return [
         _relabel_result(
-            result_dict[c], label_spec, name_to_label, primary_label, strict
+            result_dict[c], label_to_node, node_to_label, primary_label, strict
         )
         for c in cols
     ]
@@ -248,7 +241,6 @@ def evaluate(
 _DOCS_METRICS = "api/evaluate#metrics"
 _DOCS_FACTOR_COLS = "api/evaluate#factor_cols"
 _DOCS_PANEL = "api/evaluate#panel"
-_DOCS_FORWARD_PERIODS = "api/evaluate#forward_periods"
 
 
 def _is_metrics_overview(metrics: object) -> bool:
@@ -346,38 +338,126 @@ def _resolve_primary(metrics: "dict[str, MetricBase]", primary: str | None) -> s
     return primary
 
 
-def _guard_duplicate_classes(
+_NO_DEFAULT = object()
+
+
+def _forward_periods_default(cls: "type[MetricBase]") -> object:
+    """The ``forward_periods`` signature default declared by a metric class.
+
+    Read from the wrapped ``_impl`` so the evaluate-level ``forward_periods``
+    fallback can tell an instance still at its default apart from an explicit
+    per-instance override. Returns a unique sentinel when the metric has no
+    ``forward_periods`` parameter.
+    """
+    try:
+        param = inspect.signature(cls._impl).parameters.get("forward_periods")
+    except (TypeError, ValueError):
+        return _NO_DEFAULT
+    if param is None or param.default is inspect.Parameter.empty:
+        return _NO_DEFAULT
+    return param.default
+
+
+def _resolve_instance_params(
+    inst: "MetricBase", top_forward_periods: int | None
+) -> dict[str, Any]:
+    """Per-instance params with ``forward_periods`` resolved against the fallback.
+
+    Per-instance override is the rule: an instance's configured
+    ``forward_periods`` always wins. The top-level ``evaluate(forward_periods=)``
+    is a *default fallback* — it fills only instances still sitting at the
+    metric's signature default (and only when the caller passed one). Passing
+    the default value explicitly is indistinguishable from not passing it and
+    is therefore also treated as "use the fallback".
+    """
+    params = dict(inst._params())
+    if top_forward_periods is None or "forward_periods" not in params:
+        return params
+    default = _forward_periods_default(type(inst))
+    if params["forward_periods"] == default:
+        params["forward_periods"] = top_forward_periods
+    return params
+
+
+def _build_nodes(
     label_spec: "dict[str, MetricSpec]",
     label_params: dict[str, dict[str, Any]],
-) -> None:
-    """Reject one metric class under several labels with differing config.
+) -> tuple[list[_Node], dict[str, str], dict[str, dict[str, Any]]]:
+    """Build the by-value execution node graph for the DAG executor.
 
-    The same class under two labels with identical config is a harmless alias;
-    with *different* config (e.g. ``ic()`` vs ``ic(forward_periods=20)``) the
-    name-keyed executor cannot tell them apart — by-value DAG dedup lands in
-    #494. Surface it as a precise config-time error rather than silently
-    dropping one config.
+    Dedups user metrics into **consumer nodes** keyed by ``(name, config)`` —
+    so one class under two labels with *identical* config is a single node
+    (harmless alias) while *different* config is two nodes (#494's headline
+    capability). Then closes ``requires``: each consumer pulls a **producer
+    node** whose config inherits only the consumer's ``forward_periods`` (the
+    sole consumer param any ``requires``-pulled producer accepts), reusing one
+    producer node across consumers that share that inherited config.
+
+    Returns ``(nodes, label -> node_id, node_id -> kwargs)``.
     """
-    by_name: dict[str, list[str]] = {}
-    for label, spec in label_spec.items():
-        by_name.setdefault(spec.name, []).append(label)
-    for name, labels in by_name.items():
-        if len(labels) < 2:
+    by_name = spec_by_name()
+    node_by_key: dict[tuple[str, frozenset], str] = {}
+    node_kwargs: dict[str, dict[str, Any]] = {}
+    node_spec: dict[str, MetricSpec] = {}
+    name_counts: dict[str, int] = {}
+    creation_order: list[str] = []
+
+    def intern(spec: MetricSpec, params: dict[str, Any]) -> str:
+        key = (spec.name, frozenset(params.items()))
+        nid = node_by_key.get(key)
+        if nid is None:
+            i = name_counts.get(spec.name, 0)
+            nid = spec.name if i == 0 else f"{spec.name}#{i}"
+            name_counts[spec.name] = i + 1
+            node_by_key[key] = nid
+            node_kwargs[nid] = dict(params)
+            node_spec[nid] = spec
+            creation_order.append(nid)
+        return nid
+
+    label_to_node = {
+        label: intern(spec, label_params[label]) for label, spec in label_spec.items()
+    }
+
+    requires_nodes: dict[str, tuple[tuple[str, str], ...]] = {}
+    queue = list(creation_order)
+    while queue:
+        nid = queue.pop(0)
+        if nid in requires_nodes:
             continue
-        first = label_params[labels[0]]
-        if any(label_params[other] != first for other in labels[1:]):
-            raise UserInputError(
-                func_name="evaluate",
-                field="metrics",
-                value=f"{name!r} under labels {labels!r}",
-                expected=(
-                    f"distinct metric classes — labels {labels!r} all use "
-                    f"{name!r} with different config. Running one metric under "
-                    f"multiple configs needs by-value DAG dedup (lands in #494); "
-                    f"for now give them a single config or a single label."
-                ),
-                docs_path=_DOCS_METRICS,
-            )
+        spec = node_spec[nid]
+        consumer_params = node_kwargs[nid]
+        edges: list[tuple[str, str]] = []
+        for param_key, producer in spec.requires.items():
+            pname = producer.__name__
+            if pname not in by_name:
+                raise UserInputError(
+                    func_name="evaluate",
+                    field="metrics",
+                    value=pname,
+                    expected=(
+                        f"{spec.name!r} requires producer {pname!r} but no "
+                        f"MetricSpec for it exists in the registry"
+                    ),
+                    docs_path=_DOCS_METRICS,
+                )
+            accepted = set(getattr(producer, "_param_names", ()))
+            inherited = {
+                k: consumer_params[k]
+                for k in ("forward_periods",)
+                if k in consumer_params and k in accepted
+            }
+            pid = intern(by_name[pname], inherited)
+            edges.append((param_key, pid))
+            if pid not in requires_nodes:
+                queue.append(pid)
+        requires_nodes[nid] = tuple(edges)
+
+    nodes = [
+        _Node(spec=node_spec[nid], node_id=nid, requires_nodes=requires_nodes[nid])
+        for nid in creation_order
+    ]
+    return nodes, label_to_node, node_kwargs
 
 
 def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
@@ -411,30 +491,30 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
 
 def _relabel_result(
     result: EvaluationResult,
-    label_spec: "dict[str, MetricSpec]",
-    name_to_label: dict[str, str],
+    label_to_node: dict[str, str],
+    node_to_label: dict[str, str],
     primary_label: str,
     strict: bool,
 ) -> EvaluationResult:
-    """Re-key a name-keyed executor result onto the user's labels."""
-    name_outputs = result.metrics.outputs
+    """Re-key a node-keyed executor result onto the user's labels."""
+    node_outputs = result.metrics.outputs
     label_outputs: dict[str, MetricResult] = {}
-    for label, spec in label_spec.items():
-        out = name_outputs.get(spec.name)
+    for label, nid in label_to_node.items():
+        out = node_outputs.get(nid)
         if out is not None:
             label_outputs[label] = dataclasses.replace(out, name=label)
     if strict:
         _enforce_strict(label_outputs)
     warnings = [
-        dataclasses.replace(w, source=name_to_label[w.source])
-        if w.source is not None and w.source in name_to_label
+        dataclasses.replace(w, source=node_to_label[w.source])
+        if w.source is not None and w.source in node_to_label
         else w
         for w in result.warnings
     ]
     group = MetricResultGroup(
-        applicable=list(label_spec),
+        applicable=list(label_to_node),
         primary=[primary_label],
-        diagnostic=[label for label in label_spec if label != primary_label],
+        diagnostic=[label for label in label_to_node if label != primary_label],
         outputs=label_outputs,
     )
     return dataclasses.replace(result, metrics=group, warnings=warnings)
@@ -521,83 +601,8 @@ def _validate_baseline_columns(panel: pl.DataFrame) -> None:
     )
 
 
-def _close_requires(metrics: list[MetricSpec]) -> list[MetricSpec]:
-    by_name = spec_by_name()
-    closed: dict[str, MetricSpec] = {m.name: m for m in metrics}
-    stack: list[MetricSpec] = list(metrics)
-    while stack:
-        s = stack.pop()
-        for producer in s.requires.values():
-            pname = producer.__name__
-            if pname in closed:
-                continue
-            if pname not in by_name:
-                raise UserInputError(
-                    func_name="evaluate",
-                    field="metrics",
-                    value=pname,
-                    expected=(
-                        f"{s.name!r} requires producer {pname!r} but no "
-                        f"MetricSpec for it exists in the registry"
-                    ),
-                    docs_path=_DOCS_METRICS,
-                )
-            producer_spec = by_name[pname]
-            closed[pname] = producer_spec
-            stack.append(producer_spec)
-    return list(closed.values())
-
-
-def _resolve_callable(name: str):
-    from factrix._dag import _registry_callable_table
-
-    return _registry_callable_table().get(name)
-
-
-def _signature_has_forward_periods(name: str) -> bool:
-    fn = _resolve_callable(name)
-    if fn is None or not callable(fn):
-        return False
-    try:
-        sig = inspect.signature(fn)
-    except (TypeError, ValueError):
-        return False
-    return "forward_periods" in sig.parameters
-
-
-def _validate_forward_periods_when_required(
-    closure_specs: list[MetricSpec], forward_periods: int | None
-) -> None:
-    if forward_periods is not None:
-        return
-    needing = [s.name for s in closure_specs if _signature_has_forward_periods(s.name)]
-    if needing:
-        raise UserInputError(
-            func_name="evaluate",
-            field="forward_periods",
-            value=None,
-            expected=(
-                f"int — required by metric(s) {needing!r} that consume the "
-                f"forward-return horizon"
-            ),
-            docs_path=_DOCS_FORWARD_PERIODS,
-        )
-
-
-def _build_kwargs_by_metric(
-    closure_specs: list[MetricSpec], forward_periods: int | None
-) -> dict[str, dict[str, Any]]:
-    if forward_periods is None:
-        return {}
-    return {
-        s.name: {"forward_periods": forward_periods}
-        for s in closure_specs
-        if _signature_has_forward_periods(s.name)
-    }
-
-
 def _validate_primary_metric_applicable(
-    primary: MetricSpec, panel: pl.DataFrame
+    primary: MetricSpec, panel: pl.DataFrame, strict: bool
 ) -> None:
     """Reject a primary metric whose ``cell.structure`` disagrees with the panel.
 
@@ -608,7 +613,14 @@ def _validate_primary_metric_applicable(
     bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
     Cell-axis (scope / density) applicability requires panel detection
     and is left to ``fx.inspect_panel`` for the explicit pre-flight path.
+
+    Under ``strict=False`` this guard is skipped (#494 / #497 carry-over): per
+    #476 §4 a structure mismatch is an apply-time failure, so the metric is
+    allowed to flow through to a NaN output + warning rather than raise. The
+    ``strict=True`` default keeps the eager raise.
     """
+    if not strict:
+        return
     cell_structure = primary.cell.structure
     if cell_structure is None:
         return

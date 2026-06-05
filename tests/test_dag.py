@@ -15,7 +15,7 @@ from factrix._axis import (
     SpecRole,
     TestMethod,
 )
-from factrix._dag import CycleError, DagExecutor, _topo_sort
+from factrix._dag import CycleError, DagExecutor, _Node, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._results import MetricResult
 
@@ -203,6 +203,39 @@ class TestStage1Share:
         assert producer_calls["n"] == 1
         assert out["x"].metrics["consumer_a"].value == 43.0
         assert out["x"].metrics["consumer_b"].value == 44.0
+
+
+class TestByValueNodes:
+    def test_two_configs_one_spec_run_as_distinct_nodes(self):
+        # #494: the same callable under two node_ids (different config) runs
+        # twice and each result keys by its node_id.
+        calls = []
+
+        def per_factor(panel, n=0):
+            calls.append(n)
+            return MetricResult(value=float(n))
+
+        spec = _make_spec("per_factor")
+        nodes = [
+            _Node(spec=spec, node_id="per_factor", requires_nodes=()),
+            _Node(spec=spec, node_id="per_factor#1", requires_nodes=()),
+        ]
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "density": FactorDensity.DENSE,
+            "forward_periods": 1,
+        }
+        panel = _build_panel(factor_cols=("x",))
+        ex = DagExecutor(nodes, fn_resolver={"per_factor": per_factor}.__getitem__)
+        out = ex.execute(
+            panel,
+            ["x"],
+            kwargs_by_metric={"per_factor": {"n": 5}, "per_factor#1": {"n": 9}},
+            **axes,
+        )
+        assert out["x"].metrics["per_factor"].value == 5.0
+        assert out["x"].metrics["per_factor#1"].value == 9.0
+        assert sorted(calls) == [5, 9]
 
 
 class TestShortCircuitPropagation:
