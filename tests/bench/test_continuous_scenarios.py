@@ -29,6 +29,7 @@ def test_every_scenario_runs_and_validates(tmp_path: Path):
         assert records, sid
         assert all(r.scenario_id == sid for r in records)
         assert all(r.axis_cell == "continuous_individual_panel" for r in records)
+        assert all(r.status == "ok" for r in records)
 
 
 def test_setup_compute_split(tmp_path: Path):

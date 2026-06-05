@@ -45,7 +45,7 @@ class UxTarget:
 UX_TARGETS: dict[str, UxTarget] = {
     "S1": UxTarget(
         wall_s_max=5.0,
-        description="Single factor evaluate + run_metrics — interactive notebook",
+        description="Single factor evaluate — interactive notebook",
     ),
     "S2": UxTarget(
         wall_s_max=30.0,

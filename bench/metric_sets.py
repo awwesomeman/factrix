@@ -1,9 +1,9 @@
-"""Pinned metric sets — independent of ``factrix.run_metrics`` defaults
+"""Pinned metric sets — independent of ``factrix.evaluate`` defaults
 so a default-set tweak in factrix cannot silently shift the baseline.
 
-Each ``MetricSet`` declares the names ``run_metrics`` should dispatch
-(``run_metrics_names``) and an optional ``custom`` callable for paths
-that don't live behind ``run_metrics`` (e.g. ``greedy_forward_selection``,
+Each ``MetricSet`` declares the names ``evaluate`` should dispatch
+(``metric_specs``) and an optional ``custom`` callable for paths
+that don't live behind ``evaluate`` (e.g. ``greedy_forward_selection``,
 direct ``bootstrap_mean_ci``). Scenarios pick a set + cell and the
 helper in ``bench.scenarios._helpers`` does the dispatch.
 """
@@ -14,6 +14,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from factrix import MetricSpec, spec_by_name
+
 # Bumped when a metric set's membership / parameterization changes in
 # a way that should refuse silent comparison against earlier baselines.
 METRIC_SET_VERSION = "1"
@@ -23,21 +25,23 @@ METRIC_SET_VERSION = "1"
 class MetricSet:
     """A pinned bundle of metric calls.
 
-    ``run_metrics_names`` is passed straight to
-    ``factrix.run_metrics(metrics=...)``. ``custom`` is run on the same
-    panel afterwards; its return value is discarded — the harness times
-    the call, not the result. Scenarios that want to time a non-
-    ``run_metrics`` path (algo / bootstrap primitives) declare it here.
+    ``metric_specs`` dictates the bundle dispatched through ``factrix.evaluate``.
+    ``custom`` is run on the same panel afterwards; its return value is
+    discarded — the harness times the call, not the result. Scenarios
+    that want to time a path without metrics (algo / bootstrap primitives)
+    declare it here.
     """
 
     name: str
-    run_metrics_names: tuple[str, ...]
+    metric_specs: tuple[MetricSpec, ...]
     custom: Callable[..., Any] | None = field(default=None, repr=False)
 
 
 CORE = MetricSet(
     name="core",
-    run_metrics_names=("ic", "quantile_spread", "monotonicity"),
+    metric_specs=tuple(
+        spec_by_name()[n] for n in ("ic", "quantile_spread", "monotonicity")
+    ),
 )
 
 HEAVY = MetricSet(
@@ -46,25 +50,25 @@ HEAVY = MetricSet(
     # automatically extends `heavy` — `heavy = core + bootstrap` is
     # the conceptual relationship, not two parallel literals.
     # Bootstrap supplement is layered at the scenario level (S1 /
-    # M-ic-boot) rather than via run_metrics, so it lives outside
+    # M-ic-boot) rather than via evaluate, so it lives outside
     # this tuple.
-    run_metrics_names=CORE.run_metrics_names,
+    metric_specs=CORE.metric_specs,
 )
 
 ALGO = MetricSet(
     name="algo",
-    run_metrics_names=(),
+    metric_specs=(),
 )
 
 EVENT = MetricSet(
     name="event",
-    # Only `corrado_rank_test` dispatches through ``run_metrics``;
+    # Only `corrado_rank` dispatches through ``evaluate``;
     # ``caar`` and ``mfe_mae_summary`` require pre-computed event-row
     # inputs and are called directly by the sparse scenario. The set
     # name is the JSONL label for the conceptual bundle; the
-    # ``run_metrics_names`` tuple reflects what ``run_metrics`` can
+    # ``metric_specs`` tuple reflects what ``evaluate`` can
     # actually take.
-    run_metrics_names=("corrado_rank_test",),
+    metric_specs=(spec_by_name()["corrado_rank"],),
 )
 
 

@@ -3,7 +3,7 @@
 The sparse cell exercises a different factrix code path from the
 continuous one: ``corrado_rank_test`` is loop-heavy with a
 permutation-style bootstrap, ``compute_caar`` and ``compute_mfe_mae``
-are direct (not behind ``run_metrics``) and run on the same panel.
+are direct (not behind ``evaluate``) and run on the same panel.
 
 `compute_caar` / `compute_mfe_mae` consume the canonical event panel
 (``date, asset_id, factor, forward_return`` with sparse ``factor``)
@@ -23,6 +23,7 @@ from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae_summary
 
 from bench.metric_sets import EVENT, MetricSet
 from bench.scenarios._helpers import (
+    DEFAULT_FORWARD_PERIODS,
     resolve_sparse_scale,
     run_sparse_scenario,
 )
@@ -35,9 +36,15 @@ _MFE_WINDOW = 10
 _MFE_ESTIMATION_WINDOW = 30
 
 
-def _run_event_bundle(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
+def _run_event_bundle(panel: pl.DataFrame, specs: tuple[fx.MetricSpec, ...]) -> int:
     """Run the three event-cell metrics on the panel."""
-    fx.run_metrics(panel, cfg, metrics=["corrado_rank_test"])
+    metric_instances = {s.name: getattr(fx.metrics, s.name)() for s in specs}
+    fx.evaluate(
+        panel,
+        metrics=metric_instances,
+        factor_cols=["factor"],
+        forward_periods=DEFAULT_FORWARD_PERIODS,
+    )
     caar(compute_caar(panel))
     mfe_mae_summary(
         compute_mfe_mae(
@@ -83,11 +90,17 @@ def m_corrado(
     continuous cell.
     """
     label = MetricSet(
-        name="corrado_rank_test", run_metrics_names=("corrado_rank_test",)
+        name="corrado_rank", metric_specs=(fx.spec_by_name()["corrado_rank"],)
     )
 
-    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
-        fx.run_metrics(panel, cfg, metrics=["corrado_rank_test"])
+    def compute(panel: pl.DataFrame, specs: tuple[fx.MetricSpec, ...]) -> int:
+        metric_instances = {s.name: getattr(fx.metrics, s.name)() for s in specs}
+        fx.evaluate(
+            panel,
+            metrics=metric_instances,
+            factor_cols=["factor"],
+            forward_periods=DEFAULT_FORWARD_PERIODS,
+        )
         return 1
 
     return run_sparse_scenario(

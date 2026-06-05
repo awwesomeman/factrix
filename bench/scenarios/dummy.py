@@ -17,7 +17,7 @@ from bench.preflight import preflight
 from bench.scenarios._helpers import AXIS_CELL_CONT_IND, run_scenario
 from bench.schema import BenchRecord
 
-_DUMMY_SET = MetricSet(name="dummy", run_metrics_names=())
+_DUMMY_SET = MetricSet(name="dummy", metric_specs=())
 
 
 def run(

@@ -1,6 +1,6 @@
 """Algo scenarios — ``greedy_forward_selection``.
 
-`greedy_forward_selection` does not live behind ``factrix.run_metrics``;
+`greedy_forward_selection` does not live behind ``factrix.evaluate``;
 it consumes a ``dict[str, pl.DataFrame]`` of per-factor spread series.
 The scenario therefore splits the work explicitly:
 

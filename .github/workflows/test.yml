@@ -64,10 +64,7 @@ jobs:
         run: uv sync --frozen --python ${{ matrix.python }} --all-extras
 
       - name: Run pytest
-        # tests/bench/ ignored — scenarios still call the retired
-        # AnalysisConfig API and assert setup_s populated. Re-enable
-        # after #465 migrates bench to the new evaluate signature.
-        run: uv run --python ${{ matrix.python }} pytest --ignore=tests/bench
+        run: uv run --python ${{ matrix.python }} pytest
 
   doctest:
     name: pytest --doctest-modules
@@ -124,35 +121,30 @@ jobs:
   #           echo "::endgroup::"
   #         done
 
-  # bench-tiny smoke disabled — bench/ scenarios still call the retired
-  # evaluate(panel, cfg, ...) / run_metrics signatures and emit JSONL
-  # status:"error" records that the harness swallows into exit 0,
-  # making the smoke step falsely green. Re-enable after #465 migrates
-  # scenarios + adds fail-on-error gating.
-  # bench-tiny:
-  #   name: bench-tiny smoke
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 5
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #
-  #     - name: Install uv
-  #       uses: astral-sh/setup-uv@v7
-  #       with:
-  #         version: "0.8.x"
-  #         enable-cache: true
-  #
-  #     - name: Install dependencies
-  #       run: uv sync --frozen --python 3.12 --all-extras
-  #
-  #     - name: Run bench-tiny (harness smoke; perf not asserted)
-  #       env:
-  #         OMP_NUM_THREADS: "1"
-  #         OPENBLAS_NUM_THREADS: "1"
-  #         MKL_NUM_THREADS: "1"
-  #         VECLIB_MAXIMUM_THREADS: "1"
-  #         NUMEXPR_NUM_THREADS: "1"
-  #       run: uv run python -m bench --target tiny --output "$RUNNER_TEMP/bench-tiny"
+  bench-tiny:
+    name: bench-tiny smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.8.x"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --python 3.12 --all-extras
+
+      - name: Run bench-tiny (harness smoke; perf not asserted)
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+          VECLIB_MAXIMUM_THREADS: "1"
+          NUMEXPR_NUM_THREADS: "1"
+        run: uv run python -m bench --target tiny --output "$RUNNER_TEMP/bench-tiny"
 
   build:
     name: wheel build + import smoke
