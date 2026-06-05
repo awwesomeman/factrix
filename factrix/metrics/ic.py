@@ -19,6 +19,7 @@ import warnings as _warnings
 import polars as pl
 
 from factrix._axis import (
+    InputShape,
     Aggregation,
     DataStructure,
     FactorDensity,
@@ -108,6 +109,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
 )
 def ic(
@@ -203,6 +205,7 @@ def ic(
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
     sample_threshold=SampleThreshold(
         min_periods=MIN_PERIODS_HARD,
@@ -293,6 +296,7 @@ def ic_newey_west(
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
     sample_threshold=SampleThreshold(
         min_periods=MIN_PERIODS_HARD,

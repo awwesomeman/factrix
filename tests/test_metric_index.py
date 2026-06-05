@@ -230,3 +230,16 @@ class TestRequires:
         for _, spec in _all_specs():
             for key, value in spec.requires.items():
                 assert callable(value), f"{spec.name}.requires[{key!r}] is not callable"
+
+
+def test_pipeline_naming_lint():
+    """Lint: `compute_*` prefix <-> role=PIPELINE."""
+    from factrix._axis import SpecRole
+    from factrix.metrics._registry import REGISTRY
+
+    for name, cls in REGISTRY.items():
+        spec = cls.spec()
+        if name.startswith("compute_"):
+            assert spec.role is SpecRole.PIPELINE, f"FX001: {name} starts with 'compute_' but is not PIPELINE"
+        else:
+            assert spec.role is not SpecRole.PIPELINE, f"FX002: {name} is PIPELINE but does not start with 'compute_'"

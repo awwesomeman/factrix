@@ -27,6 +27,7 @@ import numpy as np
 import polars as pl
 
 from factrix._axis import (
+    InputShape,
     Aggregation,
     DataStructure,
     FactorDensity,
@@ -77,6 +78,7 @@ min_assets_per_group: int | None = None
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
     requires={"caar_df": compute_caar},
 )
 def caar(

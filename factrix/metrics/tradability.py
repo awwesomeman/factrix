@@ -40,6 +40,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
+from factrix.metrics.quantile import quantile_spread
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
@@ -419,6 +420,7 @@ def notional_turnover(
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
+    requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
 )
 def breakeven_cost(
     gross_spread: float,
@@ -508,6 +510,7 @@ def breakeven_cost(
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
+    requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
 )
 def net_spread(
     gross_spread: float,

@@ -25,6 +25,8 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
+    InputShape,
+    OutputShape,
     SEMethod,
     SpecRole,
     TestMethod,
@@ -59,7 +61,7 @@ MIN_TS_OBS: int = 20
     se_method=SEMethod.OLS,
     role=SpecRole.PIPELINE,
 )
-def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
+def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
 
     The cross-sectional $t$-test in ``ts_beta`` needs $N \geq 2$ assets.
@@ -107,6 +109,7 @@ def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
     aggregation=Aggregation.TS_THEN_CS,
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
+    input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
 )
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
@@ -191,6 +194,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     aggregation=Aggregation.TS_THEN_CS,
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
+    input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
 )
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
@@ -264,6 +268,9 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     aggregation=Aggregation.TS_THEN_CS,
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
+    input_shape=InputShape.PANEL,
+    output_shape=OutputShape.SERIES,
+    role=SpecRole.PIPELINE,
 )
 def compute_rolling_mean_beta(
     df: pl.DataFrame,
@@ -372,6 +379,7 @@ def compute_rolling_mean_beta(
     aggregation=Aggregation.TS_THEN_CS,
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
+    input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
 )
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:

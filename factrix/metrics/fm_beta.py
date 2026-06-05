@@ -30,6 +30,7 @@ import numpy as np
 import polars as pl
 
 from factrix._axis import (
+    InputShape,
     Aggregation,
     DataStructure,
     FactorDensity,
@@ -89,6 +90,7 @@ MIN_FM_PERIODS_WARN: int = 30
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
     requires={"beta_df": compute_fm_betas},
 )
 def fm_beta(
@@ -573,6 +575,7 @@ def pooled_beta(
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    input_shape=InputShape.SERIES,
     requires={"beta_df": compute_fm_betas},
 )
 def beta_sign_consistency(
