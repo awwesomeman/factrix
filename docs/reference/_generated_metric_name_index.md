@@ -5,7 +5,6 @@
 | `breakeven_cost` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`breakeven_cost`](../api/metrics/tradability.md#factrix.metrics.tradability.breakeven_cost) |
 | `caar` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`caar`](../api/metrics/caar.md#factrix.metrics.caar.caar) |
 | `clustering_hhi` | [`factrix.metrics.clustering_hhi`][factrix.metrics.clustering_hhi] | [`clustering_hhi`](../api/metrics/clustering_hhi.md#factrix.metrics.clustering_hhi.clustering_hhi) |
-| `compute_rolling_mean_beta` | [`factrix.metrics.ts_beta`][factrix.metrics.ts_beta] | [`compute_rolling_mean_beta`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.compute_rolling_mean_beta) |
 | `corrado_rank` | [`factrix.metrics.corrado_rank`][factrix.metrics.corrado_rank] | [`corrado_rank`](../api/metrics/corrado_rank.md#factrix.metrics.corrado_rank.corrado_rank) |
 | `event_around_return` | [`factrix.metrics.event_horizon`][factrix.metrics.event_horizon] | [`event_around_return`](../api/metrics/event_horizon.md#factrix.metrics.event_horizon.event_around_return) |
 | `event_hit_rate` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_hit_rate`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_hit_rate) |

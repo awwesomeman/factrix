@@ -320,8 +320,9 @@ def _validate_metrics_arg(metrics: object) -> None:
                 ),
                 docs_path=_DOCS_METRICS,
             )
-            
+
         from factrix._axis import SpecRole
+
         if val.__class__.spec().role is SpecRole.PIPELINE:
             raise UserInputError(
                 func_name="evaluate",

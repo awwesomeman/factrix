@@ -31,9 +31,9 @@ from factrix._stats import (
     _binomial_two_sided_p,
 )
 from factrix._types import MIN_ASSETS_PER_DATE_IC
-from factrix.metrics.ic import compute_ic
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
+from factrix.metrics.ic import compute_ic
 
 __all__ = [
     "hit_rate",

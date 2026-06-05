@@ -175,7 +175,6 @@ class TestVisibility:
             "compute_mfe_mae",
             "compute_event_returns",
             "compute_ts_betas",
-            "ts_beta_single_asset_fallback",
             "compute_spread_series",
             "compute_group_returns",
         )
@@ -240,6 +239,10 @@ def test_pipeline_naming_lint():
     for name, cls in REGISTRY.items():
         spec = cls.spec()
         if name.startswith("compute_"):
-            assert spec.role is SpecRole.PIPELINE, f"FX001: {name} starts with 'compute_' but is not PIPELINE"
+            assert spec.role is SpecRole.PIPELINE, (
+                f"FX001: {name} starts with 'compute_' but is not PIPELINE"
+            )
         else:
-            assert spec.role is not SpecRole.PIPELINE, f"FX002: {name} is PIPELINE but does not start with 'compute_'"
+            assert spec.role is not SpecRole.PIPELINE, (
+                f"FX002: {name} is PIPELINE but does not start with 'compute_'"
+            )

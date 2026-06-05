@@ -41,9 +41,9 @@ from factrix._metric_index import cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
-from factrix.metrics.quantile import compute_spread_series
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics.quantile import compute_spread_series
 
 __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "spanning_alpha",

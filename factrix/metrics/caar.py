@@ -27,10 +27,10 @@ import numpy as np
 import polars as pl
 
 from factrix._axis import (
-    InputShape,
     Aggregation,
     DataStructure,
     FactorDensity,
+    InputShape,
     SEMethod,
     TestMethod,
 )

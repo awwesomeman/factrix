@@ -394,7 +394,11 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
                 f"`__metric_specs__` tuple or registry."
             )
 
-        producer_spec = REGISTRY[producer_name].spec() if producer_name in REGISTRY else next(s for s in module_specs if s.name == producer_name)
+        producer_spec = (
+            REGISTRY[producer_name].spec()
+            if producer_name in REGISTRY
+            else next(s for s in module_specs if s.name == producer_name)
+        )
         if producer_spec.output_shape.value != spec.input_shape.value:
             raise ValueError(
                 f"factrix.metrics.{stem}.{spec.name}: `requires` shape mismatch. "
@@ -476,7 +480,7 @@ def _validate_registry_requires(cls: type[MetricBase], spec: MetricSpec) -> None
                 f"Metric {spec.name!r}: required producer "
                 f"{producer.__name__!r} is not registered."
             )
-            
+
         producer_spec = REGISTRY[producer.__name__].spec()
         if producer_spec.output_shape.value != spec.input_shape.value:
             raise ValueError(

@@ -19,11 +19,11 @@ import warnings as _warnings
 import polars as pl
 
 from factrix._axis import (
-    InputShape,
     Aggregation,
     DataStructure,
     FactorDensity,
     FactorScope,
+    InputShape,
     SEMethod,
     TestMethod,
 )
