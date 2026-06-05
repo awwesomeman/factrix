@@ -84,8 +84,8 @@ from factrix.metrics.tradability import (
 from factrix.metrics.trend import ic_trend
 from factrix.metrics.ts_asymmetry import ts_asymmetry
 from factrix.metrics.ts_beta import (
-    rolling_mean_beta,
     mean_r_squared,
+    rolling_mean_beta,
     ts_beta,
     ts_beta_sign_consistency,
 )
