@@ -335,6 +335,12 @@ class DagExecutor:
                             message=reason,
                         )
                     )
+                # Lift the metric's typed advisory codes into per-source
+                # Warning records so to_frame() / to_dict() surface them (#516).
+                for code in out.warning_codes:
+                    warnings.append(
+                        Warning(code=WarningCode(code), source=label, message="")
+                    )
             n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,

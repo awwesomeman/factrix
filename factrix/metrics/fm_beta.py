@@ -251,8 +251,6 @@ def fm_beta(
         "forward_periods": forward_periods,
         "is_estimated_factor": is_estimated_factor,
     }
-    if warning_codes:
-        metadata["warning_codes"] = warning_codes
 
     if is_estimated_factor:
         sigma2_f = (
@@ -294,6 +292,7 @@ def fm_beta(
         value=mean_beta,
         stat=t,
         metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 

@@ -5,8 +5,9 @@ must implement three tiers:
 
 1. ``n < HARD`` → short-circuit (NaN ``MetricResult``).
 2. ``HARD ≤ n < WARN`` → return stat AND emit ``UserWarning`` AND
-   surface the relevant ``WarningCode.value`` in ``metadata["warning_codes"]``.
-3. ``n ≥ WARN`` → silent: stat returned, no warning, no warning_codes.
+   surface the relevant ``WarningCode.value`` in the typed
+   ``MetricResult.warning_codes`` field (#516).
+3. ``n ≥ WARN`` → silent: stat returned, no warning, empty ``warning_codes``.
 """
 
 from __future__ import annotations
@@ -94,10 +95,7 @@ class TestFamaMacbethTwoTier:
         with pytest.warns(UserWarning, match="MIN_FM_PERIODS_WARN"):
             out = fm_beta(df)
         assert out.stat is not None
-        assert (
-            WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value
-            in out.metadata["warning_codes"]
-        )
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in out.warning_codes
 
     def test_at_or_above_warn_is_silent(self) -> None:
         df = _beta_df(MIN_FM_PERIODS_WARN + 5)
@@ -105,7 +103,7 @@ class TestFamaMacbethTwoTier:
             warnings.simplefilter("error", UserWarning)
             out = fm_beta(df)
         assert out.stat is not None
-        assert "warning_codes" not in out.metadata
+        assert out.warning_codes == ()
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +129,7 @@ class TestCaarTwoTier:
         with pytest.warns(UserWarning, match="MIN_EVENTS_WARN"):
             out = caar(df, forward_periods=1)
         assert out.stat is not None
-        assert WarningCode.FEW_EVENTS.value in out.metadata["warning_codes"]
+        assert WarningCode.FEW_EVENTS.value in out.warning_codes
 
     def test_at_or_above_warn_is_silent(self) -> None:
         df = _caar_df(MIN_EVENTS_WARN + 5)
@@ -139,7 +137,7 @@ class TestCaarTwoTier:
             warnings.simplefilter("error", UserWarning)
             out = caar(df, forward_periods=1)
         assert out.stat is not None
-        assert "warning_codes" not in out.metadata
+        assert out.warning_codes == ()
 
 
 # ---------------------------------------------------------------------------
@@ -163,10 +161,7 @@ class TestTopConcentrationTwoTier:
         with pytest.warns(UserWarning, match="MIN_PORTFOLIO_PERIODS_WARN"):
             out = top_concentration(df, forward_periods=1, q_top=0.2)
         assert out.stat is not None
-        assert (
-            WarningCode.BORDERLINE_PORTFOLIO_PERIODS.value
-            in out.metadata["warning_codes"]
-        )
+        assert WarningCode.BORDERLINE_PORTFOLIO_PERIODS.value in out.warning_codes
 
     def test_at_or_above_warn_is_silent(self) -> None:
         df = _concentration_panel(MIN_PORTFOLIO_PERIODS_WARN + 5)
@@ -174,4 +169,4 @@ class TestTopConcentrationTwoTier:
             warnings.simplefilter("error", UserWarning)
             out = top_concentration(df, forward_periods=1, q_top=0.2)
         assert out.stat is not None
-        assert "warning_codes" not in out.metadata
+        assert out.warning_codes == ()

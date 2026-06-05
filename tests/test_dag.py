@@ -15,6 +15,7 @@ from factrix._axis import (
     SpecRole,
     TestMethod,
 )
+from factrix._codes import WarningCode
 from factrix._dag import CycleError, DagExecutor, _Node, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._results import MetricResult
@@ -236,6 +237,34 @@ class TestByValueNodes:
         assert out["x"].metrics["per_factor"].value == 5.0
         assert out["x"].metrics["per_factor#1"].value == 9.0
         assert sorted(calls) == [5, 9]
+
+
+class TestWarningCodeLift:
+    def test_typed_warning_codes_lift_to_warning_records(self):
+        # #516: a metric's typed MetricResult.warning_codes is lifted into
+        # per-source Warning records and surfaces on to_frame().
+        def flagged(panel):
+            return MetricResult(
+                value=1.0, warning_codes=(WarningCode.FEW_EVENTS.value,)
+            )
+
+        spec = _make_spec("flagged")
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "density": FactorDensity.DENSE,
+            "forward_periods": 1,
+        }
+        panel = _build_panel(factor_cols=("x",))
+        ex = DagExecutor([spec], fn_resolver={"flagged": flagged}.__getitem__)
+        er = ex.execute(panel, ["x"], **axes)["x"]
+
+        assert (WarningCode.FEW_EVENTS, "flagged") in [
+            (w.code, w.source) for w in er.warnings
+        ]
+        row = (
+            er.to_frame().filter(pl.col("metric_name") == "flagged").row(0, named=True)
+        )
+        assert row["warning_codes"] == [WarningCode.FEW_EVENTS.value]
 
 
 class TestShortCircuitPropagation:

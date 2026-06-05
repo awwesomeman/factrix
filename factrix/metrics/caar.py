@@ -175,14 +175,13 @@ def caar(
         "h0": "mu=0",
         "method": "non-overlapping t-test",
     }
-    if warning_codes:
-        metadata["warning_codes"] = warning_codes
 
     return MetricResult(
         p=p,
         value=mean_caar,
         stat=t,
         metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 

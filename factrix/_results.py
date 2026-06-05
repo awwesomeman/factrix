@@ -49,6 +49,16 @@ class MetricResult:
         metadata: Tool-specific context (``p_value``, ``stat_type``,
             ``h0``, ``method`` are the standard keys). Read :attr:`p`
             for the typed promoted view of ``p_value``.
+        warning_codes: Per-metric advisory :class:`WarningCode` values
+            (as strings) the producer attached to *this* output — e.g.
+            ``FEW_EVENTS`` / ``BORDERLINE_PORTFOLIO_PERIODS`` /
+            ``UNRELIABLE_SE_SHORT_PERIODS`` from the two-tier sample
+            guards. A typed first-class field (promoted from the legacy
+            ``metadata["warning_codes"]`` stash) so the DAG executor can
+            lift each into a :class:`Warning` record (``source ==`` the
+            metric's label) that surfaces on
+            :meth:`EvaluationResult.to_frame` / ``to_dict``. Empty tuple
+            when the metric raised no advisory.
         name: Metric name stamped by the DAG executor at dispatch time.
             Empty string for outputs constructed outside the registry
             (free-standing primitive calls, tests).
@@ -59,6 +69,7 @@ class MetricResult:
     n_obs: int | None = None
     stat: float | None = None
     metadata: dict[str, object] = field(default_factory=dict)
+    warning_codes: tuple[str, ...] = ()
     name: str = ""
 
     def __repr__(self) -> str:
