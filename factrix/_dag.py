@@ -62,10 +62,37 @@ class CycleError(ValueError):
     """Raised when ``MetricSpec.requires`` declares a dependency cycle."""
 
 
+@dataclasses.dataclass(frozen=True)
+class _Node:
+    """A configured execution node — a ``MetricSpec`` at one ``forward_periods`` /
+    param configuration.
+
+    By-value dedup (#494) keys the executor on ``node_id`` rather than
+    ``spec.name`` so the same metric class can run at several configs in one
+    call (``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}``). ``node_id``
+    is ``spec.name`` for the sole config of a name and ``f"{spec.name}#{i}"``
+    for additional configs; the per-node kwargs live in ``execute``'s
+    ``kwargs_by_metric`` keyed by ``node_id``.
+
+    Attributes:
+        spec: The underlying :class:`MetricSpec` (drives callable resolution
+            by ``spec.name`` and the batchable / role / requires shape).
+        node_id: Stable identity within one executor run.
+        requires_nodes: ``(consumer_param, producer_node_id)`` pairs — the
+            resolved upstream producer **node** for each ``requires`` key,
+            so a consumer at one config reads exactly the producer node
+            built for that config.
+    """
+
+    spec: MetricSpec
+    node_id: str
+    requires_nodes: tuple[tuple[str, str], ...]
+
+
 class _PlanStep(NamedTuple):
     """One topologically-ordered step in an execution plan."""
 
-    spec: MetricSpec
+    node: _Node
     role: str
     requires: tuple[str, ...]
 
@@ -99,15 +126,32 @@ class DagExecutor:
 
     def __init__(
         self,
-        specs: Sequence[MetricSpec],
+        specs: Sequence[MetricSpec | _Node],
         *,
         fn_resolver: Callable[[str], Callable[..., Any]] | None = None,
         primary_names: Sequence[str] = (),
     ) -> None:
-        self._specs: tuple[MetricSpec, ...] = tuple(specs)
+        # Back-compat: a plain spec is wrapped one node per spec with
+        # ``node_id == spec.name`` and requires resolved by producer name;
+        # pre-built ``_Node`` items (the by-value path) pass straight through.
+        nodes: list[_Node] = []
+        for item in specs:
+            if isinstance(item, _Node):
+                nodes.append(item)
+            else:
+                nodes.append(
+                    _Node(
+                        spec=item,
+                        node_id=item.name,
+                        requires_nodes=tuple(
+                            (k, p.__name__) for k, p in item.requires.items()
+                        ),
+                    )
+                )
+        self._nodes: tuple[_Node, ...] = tuple(nodes)
         self._fn_resolver = fn_resolver or _default_fn_resolver
         self._fn_cache: dict[str, Callable[..., Any]] = {}
-        self._primary_names = frozenset(primary_names)
+        self._primary_ids = frozenset(primary_names)
         self._plan_steps: list[_PlanStep] = self._build_plan()
 
     def _fn(self, spec: MetricSpec) -> Callable[..., Any]:
@@ -118,11 +162,11 @@ class DagExecutor:
     def _build_plan(self) -> list[_PlanStep]:
         return [
             _PlanStep(
-                spec=spec,
-                role="batchable" if spec.batchable else "per-factor",
-                requires=tuple(p.__name__ for p in spec.requires.values()),
+                node=node,
+                role="batchable" if node.spec.batchable else "per-factor",
+                requires=tuple(pid for _, pid in node.requires_nodes),
             )
-            for spec in _topo_sort(self._specs)
+            for node in _topo_sort_nodes(self._nodes)
         ]
 
     @property
@@ -130,7 +174,7 @@ class DagExecutor:
         """Multi-line numbered execution plan."""
         lines: list[str] = []
         for idx, step in enumerate(self._plan_steps, start=1):
-            parts = [f"{idx}. {step.spec.name} [{step.role}]"]
+            parts = [f"{idx}. {step.node.node_id} [{step.role}]"]
             if step.requires:
                 parts.append(f"requires={','.join(step.requires)}")
             lines.append(" ".join(parts))
@@ -172,34 +216,31 @@ class DagExecutor:
         producer_outputs: dict[tuple[str, str], Any] = {}
         metric_outputs: dict[tuple[str, str], MetricResult] = {}
 
-        for spec in (step.spec for step in self._plan_steps):
-            handle = self._batch_handle(spec, kwargs_by_metric.get(spec.name, {}))
+        for node in (step.node for step in self._plan_steps):
+            nid = node.node_id
+            handle = self._batch_handle(node.spec, kwargs_by_metric.get(nid, {}))
 
             # Split factors by upstream short-circuit: dead factors get the
             # propagated skip output and never reach the metric.
             live: list[str] = []
             for c in cols:
-                skip = _check_upstream_short_circuit(spec, c, producer_outputs)
+                skip = _check_upstream_short_circuit(node, c, producer_outputs)
                 if skip is not None:
-                    producer_outputs[(spec.name, c)] = skip
-                    metric_outputs[(spec.name, c)] = dataclasses.replace(
-                        skip, name=spec.name
-                    )
+                    producer_outputs[(nid, c)] = skip
+                    metric_outputs[(nid, c)] = dataclasses.replace(skip, name=nid)
                 else:
                     live.append(c)
             if not live:
                 continue
 
-            upstream = self._gather_upstream_batch(spec, live, producer_outputs)
+            upstream = self._gather_upstream_batch(node, live, producer_outputs)
             result = handle(panel, live, project=project, upstream=upstream)
-            _validate_batch_result(spec, live, result)
+            _validate_batch_result(node, live, result)
             for c in live:
                 out = result[c]
-                producer_outputs[(spec.name, c)] = out
+                producer_outputs[(nid, c)] = out
                 if isinstance(out, MetricResult):
-                    metric_outputs[(spec.name, c)] = dataclasses.replace(
-                        out, name=spec.name
-                    )
+                    metric_outputs[(nid, c)] = dataclasses.replace(out, name=nid)
 
         return self._assemble(
             cols, scope, density, forward_periods, structure, n_assets, metric_outputs
@@ -247,14 +288,13 @@ class DagExecutor:
 
     def _gather_upstream_batch(
         self,
-        spec: MetricSpec,
+        node: _Node,
         cols: Sequence[str],
         producer_outputs: Mapping[tuple[str, str], Any],
     ) -> dict[str, Any]:
         out: dict[str, Any] = {}
-        for key, producer in spec.requires.items():
-            pname = producer.__name__
-            out[key] = {c: producer_outputs[(pname, c)] for c in cols}
+        for key, producer_id in node.requires_nodes:
+            out[key] = {c: producer_outputs[(producer_id, c)] for c in cols}
         return out
 
     def _assemble(
@@ -267,22 +307,24 @@ class DagExecutor:
         n_assets: int,
         metric_outputs: Mapping[tuple[str, str], MetricResult],
     ) -> dict[str, EvaluationResult]:
-        public_specs = [s for s in self._specs if s.role is SpecRole.METRIC]
-        applicable = [s.name for s in public_specs]
-        primary = [s.name for s in public_specs if s.name in self._primary_names]
-        diagnostic = [s.name for s in public_specs if s.name not in self._primary_names]
+        public_nodes = [n for n in self._nodes if n.spec.role is SpecRole.METRIC]
+        applicable = [n.node_id for n in public_nodes]
+        primary = [n.node_id for n in public_nodes if n.node_id in self._primary_ids]
+        diagnostic = [
+            n.node_id for n in public_nodes if n.node_id not in self._primary_ids
+        ]
         plan = self.plan
 
         results: dict[str, EvaluationResult] = {}
         for c in cols:
             outputs: dict[str, MetricResult] = {}
             warnings: list[Warning] = []
-            for spec in public_specs:
-                key = (spec.name, c)
+            for node in public_nodes:
+                label = node.node_id
+                key = (label, c)
                 if key not in metric_outputs:
                     continue
                 out = metric_outputs[key]
-                label = spec.name
                 outputs[label] = out
                 reason = out.metadata.get("reason")
                 if isinstance(reason, str) and math.isnan(out.value):
@@ -349,7 +391,7 @@ def _registry_callable_table() -> dict[str, Callable[..., Any]]:
 
 
 def _validate_batch_result(
-    spec: MetricSpec, factor_cols: Sequence[str], result: Any
+    node: _Node, factor_cols: Sequence[str], result: Any
 ) -> None:
     """Check a batch dispatch returned a ``{factor: output}`` mapping.
 
@@ -358,27 +400,27 @@ def _validate_batch_result(
     """
     if not isinstance(result, Mapping):
         raise TypeError(
-            f"{spec.name}: batchable=True spec must return a "
+            f"{node.node_id}: batchable=True spec must return a "
             f"Mapping[factor, output]; got {type(result).__name__}."
         )
     for c in factor_cols:
         if c not in result:
-            raise KeyError(f"{spec.name}: batchable result missing factor {c!r}")
+            raise KeyError(f"{node.node_id}: batchable result missing factor {c!r}")
 
 
 def _check_upstream_short_circuit(
-    spec: MetricSpec,
+    node: _Node,
     factor: str,
     producer_outputs: Mapping[tuple[str, str], Any],
 ) -> MetricResult | None:
-    for key, producer in spec.requires.items():
-        upstream = producer_outputs.get((producer.__name__, factor))
+    for key, producer_id in node.requires_nodes:
+        upstream = producer_outputs.get((producer_id, factor))
         if isinstance(upstream, MetricResult) and math.isnan(upstream.value):
             return MetricResult(
                 value=float("nan"),
                 metadata={
                     "reason": "upstream_unavailable",
-                    "upstream": producer.__name__,
+                    "upstream": producer_id,
                     "upstream_reason": upstream.metadata.get("reason", "unknown"),
                     "consumer_param": key,
                 },
@@ -396,6 +438,46 @@ def _resolve_n_obs(
         if out is not None and out.n_obs is not None:
             return out.n_obs
     return 0
+
+
+def _topo_sort_nodes(nodes: Sequence[_Node]) -> list[_Node]:
+    """Kahn topo-order configured nodes by ``node_id`` / ``requires_nodes``.
+
+    The by-value sibling of :func:`_topo_sort` (which orders bare specs by
+    name). Raises :class:`CycleError` on a cycle and ``ValueError`` when a
+    referenced producer node is absent — the caller must close the node graph
+    before constructing the executor.
+    """
+    by_id = {n.node_id: n for n in nodes}
+    indegree: dict[str, int] = {n.node_id: 0 for n in nodes}
+    deps: dict[str, list[str]] = {n.node_id: [] for n in nodes}
+    for n in nodes:
+        for _, producer_id in n.requires_nodes:
+            if producer_id not in by_id:
+                raise ValueError(
+                    f"DagExecutor: {n.node_id!r} requires node {producer_id!r} "
+                    f"but that producer node is absent. The caller must close "
+                    f"the requires-graph before constructing the executor."
+                )
+            deps[producer_id].append(n.node_id)
+            indegree[n.node_id] += 1
+
+    ready = [n for n in nodes if indegree[n.node_id] == 0]
+    ordered: list[_Node] = []
+    cursor = 0
+    while cursor < len(ready):
+        node = ready[cursor]
+        cursor += 1
+        ordered.append(node)
+        for downstream_id in deps[node.node_id]:
+            indegree[downstream_id] -= 1
+            if indegree[downstream_id] == 0:
+                ready.append(by_id[downstream_id])
+
+    if len(ordered) != len(nodes):
+        remaining = [n.node_id for n in nodes if n not in ordered]
+        raise CycleError(f"DagExecutor: cycle detected among nodes {sorted(remaining)}")
+    return ordered
 
 
 def _topo_sort(specs: Sequence[MetricSpec]) -> list[MetricSpec]:
