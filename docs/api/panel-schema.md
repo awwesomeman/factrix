@@ -49,11 +49,10 @@ Panels often arrive with the signal column named something other than
 caller's frame:
 
 ```python
-from factrix._metric_index import spec_by_name
-specs = spec_by_name()
+from factrix.metrics import ic
 results = fx.evaluate(
     panel,
-    metrics=[specs["ic"]],
+    metrics={"ic": ic()},
     factor_cols=["momentum_12_1"],
     forward_periods=5,
 )

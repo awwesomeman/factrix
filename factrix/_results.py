@@ -110,20 +110,23 @@ class MetricResultGroup:
     """Group of metric outputs for one factor at one cell.
 
     Mirrors the ``MetricGroups`` shape that #443 ``inspect_panel``
-    exposes: three ``list[str]`` (metric name) partitions plus dict-like
-    access to the produced :class:`MetricResult` instances.
+    exposes: three ``list[str]`` key partitions plus dict-like access to
+    the produced :class:`MetricResult` instances.
 
-    Iteration / membership / ``keys`` / ``values`` / ``items`` all key
-    by metric name; the partition lists hold those same names directly.
+    The key is the caller's label when produced by
+    :func:`factrix.evaluate` (the ``dict[str, Metric]`` key, #497) — so
+    two labels may reuse one metric class — and the metric name when
+    produced elsewhere. Iteration / membership / ``keys`` / ``values`` /
+    ``items`` and the partition lists all use that same key.
 
     Attributes:
-        applicable: Names of every metric applicable to the dispatched
-            cell (superset of ``primary + diagnostic``).
-        primary: Names of metrics whose ``MetricResult`` carries the
-            bundle's primary p-value (driver of downstream multi-factor FDR).
-        diagnostic: Names of metrics whose output is descriptive / supplementary.
-        outputs: ``metric_name -> MetricResult`` for every spec that
-            produced a value (including short-circuit outputs).
+        applicable: Every key applicable to the dispatched cell
+            (superset of ``primary + diagnostic``).
+        primary: Keys whose ``MetricResult`` carries the bundle's primary
+            p-value (driver of downstream multi-factor FDR).
+        diagnostic: Keys whose output is descriptive / supplementary.
+        outputs: ``key -> MetricResult`` for every metric that produced a
+            value (including short-circuit outputs).
     """
 
     applicable: list[str]

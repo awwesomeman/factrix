@@ -104,10 +104,9 @@ def compute_forward_return(
 
         The output panel is the canonical input to ``fx.evaluate``:
 
-        >>> from factrix._metric_index import spec_by_name
-        >>> ic = spec_by_name()["ic"]
+        >>> from factrix.metrics import ic
         >>> results = fx.evaluate(
-        ...     panel, metrics=[ic], factor_cols=["factor"], forward_periods=5
+        ...     panel, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
         ... )
         >>> isinstance(results, list) and len(results) == 1
         True

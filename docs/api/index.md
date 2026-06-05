@@ -70,7 +70,7 @@ Click any node to jump to its API page. Nodes are grouped into category subgraph
     - `bhy` / `partial_conjunction` / `bhy_hierarchical` consume `evaluate` outputs.
 - **Dashed `-.->` — suggested workflow.** The source is panel-derived, but the target's signature differs in shape.
     - `by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame the caller builds from the panel (e.g. `compute_ic(panel)`).
-    - `list_metrics` returns candidate names the caller forwards to `evaluate(metrics=[…])`.
+    - `list_metrics` returns the catalog; the caller constructs instances under labels for `evaluate(metrics={…})`.
 
 ---
 

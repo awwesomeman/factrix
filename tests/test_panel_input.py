@@ -12,7 +12,6 @@ from __future__ import annotations
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._metric_index import spec_by_name
 from factrix._panel_input import _coerce_panel
 from factrix.preprocess import compute_forward_return
 
@@ -47,12 +46,13 @@ def test_coerce_unsupported_type_raises() -> None:
 
 
 def test_evaluate_accepts_lazyframe_end_to_end(panel_pl: pl.DataFrame) -> None:
-    ic = spec_by_name()["ic"]
+    from factrix.metrics import ic
+
     eager = fx.evaluate(
-        panel_pl, metrics=[ic], factor_cols=["factor"], forward_periods=5
+        panel_pl, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
     )
     lazy = fx.evaluate(
-        panel_pl.lazy(), metrics=[ic], factor_cols=["factor"], forward_periods=5
+        panel_pl.lazy(), metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
     )
     assert eager[0].metrics["ic"].value == lazy[0].metrics["ic"].value
 
@@ -60,12 +60,18 @@ def test_evaluate_accepts_lazyframe_end_to_end(panel_pl: pl.DataFrame) -> None:
 def test_evaluate_rejects_pandas_with_guidance(panel_pl: pl.DataFrame) -> None:
     pytest.importorskip("pandas")
     pdf = panel_pl.to_pandas()
-    ic = spec_by_name()["ic"]
+    from factrix.metrics import ic
+
     with pytest.raises(TypeError, match=r"factrix\.adapt|pl\.from_pandas"):
-        fx.evaluate(pdf, metrics=[ic], factor_cols=["factor"], forward_periods=5)
+        fx.evaluate(
+            pdf, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
+        )
 
 
 def test_evaluate_rejects_unsupported_type() -> None:
-    ic = spec_by_name()["ic"]
+    from factrix.metrics import ic
+
     with pytest.raises(TypeError, match=r"pl\.DataFrame or pl\.LazyFrame"):
-        fx.evaluate(object(), metrics=[ic], factor_cols=["factor"], forward_periods=5)
+        fx.evaluate(
+            object(), metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
+        )
