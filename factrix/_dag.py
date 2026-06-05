@@ -273,12 +273,13 @@ class DagExecutor:
             upstream: dict[str, dict[str, Any]],
         ) -> dict[str, Any]:
             return _dispatch_batch(
-                call_one=lambda df: bare(df, **kw),
+                call_one=lambda *a, **k: bare(*a, **{**kw, **k}),
                 run_batch=lambda: bare(
                     panel, factor_cols=list(factor_cols), **upstream, **kw
                 ),
                 batchable=spec.batchable,
                 requires=tuple(spec.requires),
+                input_shape=spec.input_shape,
                 factor_cols=factor_cols,
                 project=project,
                 upstream=upstream,

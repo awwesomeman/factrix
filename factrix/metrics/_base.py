@@ -100,10 +100,10 @@ class MetricBase(metaclass=MetricMeta):
         """Configured parameter values, pulled from the instance's slots."""
         return {name: getattr(self, name) for name in self._param_names}
 
-    def __call__(self, df: Any) -> Any:
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
         # Accessed via __class__ to avoid binding ``_impl`` as a method.
-        return self.__class__._impl(df, **self._params())
+        return self.__class__._impl(*args, **{**self._params(), **kwargs})
 
     def __call_batch__(
         self,
@@ -130,6 +130,7 @@ class MetricBase(metaclass=MetricMeta):
             ),
             batchable=self.batchable,
             requires=tuple(self.requires),
+            input_shape=self.input_shape,
             factor_cols=factor_cols,
             project=project,
             upstream=upstream,
@@ -138,32 +139,29 @@ class MetricBase(metaclass=MetricMeta):
 
 def _dispatch_batch(
     *,
-    call_one: Callable[[Any], Any],
+    call_one: Callable[..., Any],
     run_batch: Callable[[], dict[str, Any]],
     batchable: bool,
     requires: tuple[str, ...],
+    input_shape: InputShape,
     factor_cols: Sequence[str],
     project: Callable[[str], Any],
     upstream: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Single source of truth for the three metric dispatch shapes.
+    """Single source of truth for metric batch dispatch.
 
     Shared by :meth:`MetricBase.__call_batch__` and the DAG executor's
-    bare-callable (``fn_resolver``) path so the batchable / requires / thin-view
-    distinction lives in exactly one place.
-
-    - ``batchable`` → one whole-panel call returning ``{factor: output}``.
-    - ``requires``  → per factor, feed the upstream producer's output.
-    - otherwise     → per factor, feed the thin per-factor view.
+    bare-callable (``fn_resolver``) path.
     """
     if batchable:
         return run_batch()
     out: dict[str, Any] = {}
     for c in factor_cols:
         if requires:
-            # Every current consumer declares exactly one upstream; the impl's
-            # first parameter is that requires key (validated at load time).
-            out[c] = call_one(upstream[requires[0]][c])
+            # Metric consumes upstream data via kwargs, replacing the raw panel
+            c_kwargs = {k: upstream[k][c] for k in requires}
+            out[c] = call_one(**c_kwargs)
         else:
+            # Metric consumes the raw thin view
             out[c] = call_one(project(c))
     return out
