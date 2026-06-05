@@ -43,14 +43,13 @@ No FDR claim is made.
 ```python
 import factrix as fx
 import polars as pl
-from factrix._metric_index import spec_by_name
+from factrix.metrics import ic
 
-specs = spec_by_name()
 horizons = [1, 5, 10, 20]
 results = [
     fx.evaluate(
         panel,
-        metrics=[specs["ic"]],
+        metrics={"ic": ic()},
         factor_cols=["mom_12_1"],
         forward_periods=h,
     )[0]
@@ -68,13 +67,12 @@ other declared `expand_over` key) so the step-up threshold is correct.
 
 ```python
 import factrix as fx
-from factrix._metric_index import spec_by_name
+from factrix.metrics import ic
 
-specs = spec_by_name()
 results = [
     fx.evaluate(
         panel,
-        metrics=[specs["ic"]],
+        metrics={"ic": ic()},
         factor_cols=["mom_12_1"],
         forward_periods=h,
     )[0]

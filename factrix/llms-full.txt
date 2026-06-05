@@ -469,8 +469,8 @@ def custom_ic(panel):
     ...
 
 fx.metrics.register(custom_ic)
-# Now resolvable: getattr(fx.metrics, "custom_ic"), and pass
-# custom_ic.__metric_spec__ in fx.evaluate(metrics=[...]).
+# Now resolvable: getattr(fx.metrics, "custom_ic"), and pass an instance
+# under a label: fx.evaluate(metrics={"custom_ic": custom_ic()}, ...).
 ```
 
 `register(fn)` rejects duplicate names and clashes with first-party specs;

@@ -11,14 +11,18 @@ for FDR-corrected screening.
 Single-factor::
 
     import factrix as fx
+    from factrix.metrics import ic_newey_west
 
-    ic = fx.spec_by_name("ic_newey_west")
-    [result] = fx.evaluate(panel, metrics=[ic], factor_cols=["factor"])
-    print(result.metrics["ic_newey_west"])
+    [result] = fx.evaluate(
+        panel, metrics={"ic": ic_newey_west()}, factor_cols=["factor"]
+    )
+    print(result.metrics["ic"])
 
 Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
-    results = fx.evaluate(panel, metrics=[ic], factor_cols=candidate_cols)
+    results = fx.evaluate(
+        panel, metrics={"ic": ic_newey_west()}, factor_cols=candidate_cols
+    )
     survivors = fx.multi_factor.bhy(results, primary=[ic], q=0.05)
 
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
@@ -32,10 +36,15 @@ typical usage patterns in a single fetch. Two access paths::
     text = importlib.resources.files("factrix").joinpath("llms-full.txt").read_text()
 """
 
+import dataclasses
 import inspect
-from typing import Any
+import math
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
+
+if TYPE_CHECKING:
+    from factrix.metrics._base import MetricBase
 
 from factrix import datasets, estimators, multi_factor, preprocess
 from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespace access; intentionally not in __all__
@@ -88,9 +97,11 @@ from factrix.stats import list_estimators
 def evaluate(
     panel: PanelInput,
     *,
-    metrics: list[MetricSpec],
+    metrics: "dict[str, MetricBase]",
     factor_cols: list[str],
     forward_periods: int | None = None,
+    primary: str | None = None,
+    strict: bool = True,
 ) -> list[EvaluationResult]:
     """Evaluate one or more factors against forward returns through the DAG executor.
 
@@ -111,48 +122,57 @@ def evaluate(
             column consumed by event-study metrics (caar /
             event_around_return / mfe_mae_summary), which short-circuit
             to NaN with a ``reason`` when ``price`` is absent.
-        metrics: User-facing :class:`MetricSpec` instances. Element type
-            is checked at runtime; ``str`` / ``Callable`` /
-            :class:`MetricResult` are rejected. The first entry is
-            tagged as the primary metric (drives ``EvaluationResult.n_obs``
-            and the primary / diagnostic partition on
-            :class:`MetricResultGroup`); the rest become diagnostics.
+        metrics: ``dict[str, Metric]`` mapping a caller-chosen label to a
+            metric **instance** from :mod:`factrix.metrics` (e.g.
+            ``{"ic_5d": ic(), "spread": quantile_spread(n_quantiles=5)}``).
+            Results key by these labels. Passing the bare class (``ic``
+            rather than ``ic()``), a ``str``, or a :class:`MetricSpec` is
+            rejected with a targeted error. Two labels may reuse one
+            metric class only with identical config (per-instance config
+            divergence — e.g. differing ``forward_periods`` — needs the
+            by-value DAG dedup in #494 and is rejected for now).
         factor_cols: Names of density columns on ``panel``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``panel``.
         forward_periods: Forward-return horizon in rows of the panel's
-            time axis. ``None`` (default) lets every metric's own
-            ``forward_periods=`` default fire; pass an explicit value
-            whenever the panel's forward-return horizon is not 5.
-            Injected into ``kwargs_by_metric`` only for specs whose
-            callable signature accepts the parameter.
+            time axis. ``None`` raises when any metric consumes the
+            forward return; pass an explicit value otherwise. (Per-instance
+            ``forward_periods`` override lands in #494; for now this is the
+            single horizon applied to every fwd-return metric.)
+        primary: Label of the primary metric — drives
+            ``EvaluationResult.n_obs`` and the primary / diagnostic
+            partition. ``None`` (default) uses the first ``metrics`` key
+            (insertion order). Must be a key of ``metrics``.
+        strict: When ``True`` (default), raise if any metric is
+            inapplicable to the panel (apply-time short-circuit to NaN).
+            When ``False``, keep those as NaN outputs with attached
+            warnings. Config-time / construct-time failures always raise.
 
     Returns:
         ``list[EvaluationResult]`` in ``factor_cols`` order. Always a
         list — single factor calls return a one-element list. The
-        ``cell`` tuple stamped on each result derives from the first
+        ``cell`` tuple stamped on each result derives from the primary
         metric's cell and is informational only; ``DagExecutor`` does
         not consult it for dispatch.
 
     Raises:
-        UserInputError: ``metrics`` not a ``list[MetricSpec]``;
-            ``factor_cols`` empty / single ``str`` / contains duplicates
-            / references a column not on ``panel``; ``panel`` missing
-            any of the baseline columns ``(date, asset_id, forward_return)``;
-            ``forward_periods=None`` but a closure metric's callable
-            declares a ``forward_periods`` parameter.
+        UserInputError: ``metrics`` not a ``dict[str, Metric]`` of
+            instances; ``primary`` not a metrics label; ``factor_cols``
+            empty / single ``str`` / contains duplicates / references a
+            column not on ``panel``; ``panel`` missing a baseline column;
+            ``forward_periods=None`` but a metric consumes it; under
+            ``strict=True``, a metric inapplicable to the panel.
 
     Examples:
         Single-factor IC + IC information ratio (IR):
 
         >>> import factrix as fx
-        >>> from factrix._metric_index import spec_by_name
+        >>> from factrix.metrics import ic, ic_ir
         >>> raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
         >>> panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        >>> specs = spec_by_name()
         >>> results = fx.evaluate(
         ...     panel,
-        ...     metrics=[specs["ic"], specs["ic_ir"]],
+        ...     metrics={"ic": ic(), "ic_ir": ic_ir()},
         ...     factor_cols=["factor"],
         ...     forward_periods=5,
         ... )
@@ -162,16 +182,30 @@ def evaluate(
         True
     """
     _validate_metrics_arg(metrics)
+    primary_label = _resolve_primary(metrics, primary)
     cols = _validate_factor_cols_arg(factor_cols)
     panel = _coerce_panel(panel)
     _validate_baseline_columns(panel)
     _validate_factor_cols_on_panel(panel, cols)
 
-    closure_specs = _close_requires(metrics)
-    _validate_forward_periods_when_required(closure_specs, forward_periods)
-    _validate_primary_metric_applicable(metrics[0], panel)
+    # label -> (spec, configured params), derived from the metric instances.
+    label_spec = {label: type(inst).spec() for label, inst in metrics.items()}
+    label_params = {label: inst._params() for label, inst in metrics.items()}
+    _guard_duplicate_classes(label_spec, label_params)
 
-    primary_cell = metrics[0].cell
+    # Distinct specs (by name) for the executor; first occurrence wins.
+    distinct: dict[str, MetricSpec] = {}
+    name_to_label: dict[str, str] = {}
+    for label, spec in label_spec.items():
+        distinct.setdefault(spec.name, spec)
+        name_to_label.setdefault(spec.name, label)
+
+    closure_specs = _close_requires(list(distinct.values()))
+    _validate_forward_periods_when_required(closure_specs, forward_periods)
+    primary_spec = label_spec[primary_label]
+    _validate_primary_metric_applicable(primary_spec, panel)
+
+    primary_cell = primary_spec.cell
     scope = (
         primary_cell.scope if primary_cell.scope is not None else FactorScope.INDIVIDUAL
     )
@@ -181,9 +215,19 @@ def evaluate(
         else FactorDensity.DENSE
     )
     fp = forward_periods if forward_periods is not None else 5
-    kwargs_by_metric = _build_kwargs_by_metric(closure_specs, forward_periods)
-    primary_names = (metrics[0].name,)
-    executor = DagExecutor(closure_specs, primary_names=primary_names)
+
+    # Per-instance params drive the executor; forward_periods stays top-level
+    # (per-instance forward_periods override lands in #494).
+    kwargs_by_metric: dict[str, dict[str, Any]] = {
+        spec.name: {
+            k: v for k, v in label_params[label].items() if k != "forward_periods"
+        }
+        for label, spec in label_spec.items()
+    }
+    for name, kw in _build_kwargs_by_metric(closure_specs, forward_periods).items():
+        kwargs_by_metric.setdefault(name, {}).update(kw)
+
+    executor = DagExecutor(closure_specs, primary_names=(primary_spec.name,))
     result_dict = executor.execute(
         panel,
         cols,
@@ -192,7 +236,12 @@ def evaluate(
         forward_periods=fp,
         kwargs_by_metric=kwargs_by_metric,
     )
-    return [result_dict[c] for c in cols]
+    return [
+        _relabel_result(
+            result_dict[c], label_spec, name_to_label, primary_label, strict
+        )
+        for c in cols
+    ]
 
 
 _DOCS_METRICS = "api/evaluate#metrics"
@@ -219,25 +268,27 @@ def _is_metrics_overview(metrics: object) -> bool:
 
 
 def _validate_metrics_arg(metrics: object) -> None:
+    from factrix.metrics._base import MetricBase
+
     if _is_metrics_overview(metrics):
         raise UserInputError(
             func_name="evaluate",
             field="metrics",
             value=f"<list_metrics() overview: {len(metrics)} families>",  # type: ignore[arg-type]
             expected=(
-                "an explicit list[MetricSpec]. fx.list_metrics() returns an "
-                "overview catalog (family -> specs), not a runnable list; "
-                "pick the specs you want, or pre-filter the panel with "
-                "[m.spec for m in factrix.inspect_panel(panel).usable]"
+                "a dict[str, Metric] of metric instances. fx.list_metrics() "
+                "returns an overview catalog (family -> specs), not runnable "
+                "metrics; construct the ones you want, e.g. {'ic': ic()}, or "
+                "pre-filter with factrix.inspect_panel(panel).usable"
             ),
             docs_path=_DOCS_METRICS,
         )
-    if not isinstance(metrics, list):
+    if not isinstance(metrics, dict):
         raise UserInputError(
             func_name="evaluate",
             field="metrics",
             value=type(metrics).__name__,
-            expected="list[MetricSpec] (non-empty)",
+            expected="dict[str, Metric] (label -> metric instance), e.g. {'ic_5d': ic()}",
             docs_path=_DOCS_METRICS,
         )
     if not metrics:
@@ -245,18 +296,147 @@ def _validate_metrics_arg(metrics: object) -> None:
             func_name="evaluate",
             field="metrics",
             value=metrics,
-            expected="a non-empty list of MetricSpec",
+            expected="a non-empty dict[str, Metric]",
             docs_path=_DOCS_METRICS,
         )
-    for m in metrics:
-        if not isinstance(m, MetricSpec):
+    for key, val in metrics.items():
+        if not isinstance(key, str):
             raise UserInputError(
                 func_name="evaluate",
                 field="metrics",
-                value=type(m).__name__,
-                expected="every element to be a MetricSpec",
+                value=type(key).__name__,
+                expected="every key to be a str label",
                 docs_path=_DOCS_METRICS,
             )
+        if isinstance(val, type) and issubclass(val, MetricBase):
+            raise UserInputError(
+                func_name="evaluate",
+                field="metrics",
+                value=f"{key!r} -> {val.__name__} (the class)",
+                expected=f"a metric instance, not the class — call it: {val.__name__}()",
+                docs_path=_DOCS_METRICS,
+            )
+        if not isinstance(val, MetricBase):
+            raise UserInputError(
+                func_name="evaluate",
+                field="metrics",
+                value=f"{key!r} -> {type(val).__name__}",
+                expected=(
+                    "every value to be a metric instance imported from "
+                    "factrix.metrics, e.g. ic() / quantile_spread(n_quantiles=5)"
+                ),
+                docs_path=_DOCS_METRICS,
+            )
+
+
+def _resolve_primary(metrics: "dict[str, MetricBase]", primary: str | None) -> str:
+    """Resolve the primary label — explicit ``primary`` or the first dict key."""
+    keys = list(metrics)
+    if primary is None:
+        return keys[0]
+    if primary not in metrics:
+        raise UserInputError(
+            func_name="evaluate",
+            field="primary",
+            value=primary,
+            expected=f"one of the metrics labels {keys!r}",
+            docs_path=_DOCS_METRICS,
+        )
+    return primary
+
+
+def _guard_duplicate_classes(
+    label_spec: "dict[str, MetricSpec]",
+    label_params: dict[str, dict[str, Any]],
+) -> None:
+    """Reject one metric class under several labels with differing config.
+
+    The same class under two labels with identical config is a harmless alias;
+    with *different* config (e.g. ``ic()`` vs ``ic(forward_periods=20)``) the
+    name-keyed executor cannot tell them apart — by-value DAG dedup lands in
+    #494. Surface it as a precise config-time error rather than silently
+    dropping one config.
+    """
+    by_name: dict[str, list[str]] = {}
+    for label, spec in label_spec.items():
+        by_name.setdefault(spec.name, []).append(label)
+    for name, labels in by_name.items():
+        if len(labels) < 2:
+            continue
+        first = label_params[labels[0]]
+        if any(label_params[other] != first for other in labels[1:]):
+            raise UserInputError(
+                func_name="evaluate",
+                field="metrics",
+                value=f"{name!r} under labels {labels!r}",
+                expected=(
+                    f"distinct metric classes — labels {labels!r} all use "
+                    f"{name!r} with different config. Running one metric under "
+                    f"multiple configs needs by-value DAG dedup (lands in #494); "
+                    f"for now give them a single config or a single label."
+                ),
+                docs_path=_DOCS_METRICS,
+            )
+
+
+def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
+    """Raise when any requested metric could not produce a value (``strict=True``).
+
+    Apply-time short-circuits surface as a ``MetricResult`` with NaN ``value``
+    and a ``metadata['reason']`` (panel missing data / sample / upstream skip).
+    Config-time / construct-time failures already raise upstream of ``strict``.
+    """
+    failed = [
+        (label, str(out.metadata.get("reason")))
+        for label, out in label_outputs.items()
+        if isinstance(out.value, float)
+        and math.isnan(out.value)
+        and out.metadata.get("reason")
+    ]
+    if failed:
+        detail = "; ".join(f"{label}: {reason}" for label, reason in failed)
+        raise UserInputError(
+            func_name="evaluate",
+            field="metrics",
+            value=f"{len(failed)} metric(s) inapplicable to this panel",
+            expected=(
+                f"all metrics applicable to the panel. Inapplicable — {detail}. "
+                f"Pass strict=False to keep them as NaN with warnings, or "
+                f"pre-filter with [m.name for m in factrix.inspect_panel(panel).usable]."
+            ),
+            docs_path=_DOCS_METRICS,
+        )
+
+
+def _relabel_result(
+    result: EvaluationResult,
+    label_spec: "dict[str, MetricSpec]",
+    name_to_label: dict[str, str],
+    primary_label: str,
+    strict: bool,
+) -> EvaluationResult:
+    """Re-key a name-keyed executor result onto the user's labels."""
+    name_outputs = result.metrics.outputs
+    label_outputs: dict[str, MetricResult] = {}
+    for label, spec in label_spec.items():
+        out = name_outputs.get(spec.name)
+        if out is not None:
+            label_outputs[label] = dataclasses.replace(out, name=label)
+    if strict:
+        _enforce_strict(label_outputs)
+    warnings = [
+        dataclasses.replace(w, source=name_to_label[w.source])
+        if w.source is not None and w.source in name_to_label
+        else w
+        for w in result.warnings
+    ]
+    group = MetricResultGroup(
+        applicable=list(label_spec),
+        primary=[primary_label],
+        diagnostic=[label for label in label_spec if label != primary_label],
+        outputs=label_outputs,
+    )
+    return dataclasses.replace(result, metrics=group, warnings=warnings)
 
 
 def _validate_factor_cols_arg(factor_cols: object) -> list[str]:
