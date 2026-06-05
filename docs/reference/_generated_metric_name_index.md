@@ -5,7 +5,6 @@
 | `breakeven_cost` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`breakeven_cost`](../api/metrics/tradability.md#factrix.metrics.tradability.breakeven_cost) |
 | `caar` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`caar`](../api/metrics/caar.md#factrix.metrics.caar.caar) |
 | `clustering_hhi` | [`factrix.metrics.clustering_hhi`][factrix.metrics.clustering_hhi] | [`clustering_hhi`](../api/metrics/clustering_hhi.md#factrix.metrics.clustering_hhi.clustering_hhi) |
-| `rolling_mean_beta` | [`factrix.metrics.ts_beta`][factrix.metrics.ts_beta] | [`rolling_mean_beta`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.rolling_mean_beta) |
 | `corrado_rank` | [`factrix.metrics.corrado_rank`][factrix.metrics.corrado_rank] | [`corrado_rank`](../api/metrics/corrado_rank.md#factrix.metrics.corrado_rank.corrado_rank) |
 | `event_around_return` | [`factrix.metrics.event_horizon`][factrix.metrics.event_horizon] | [`event_around_return`](../api/metrics/event_horizon.md#factrix.metrics.event_horizon.event_around_return) |
 | `event_hit_rate` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_hit_rate`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_hit_rate) |
@@ -28,6 +27,7 @@
 | `profit_factor` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`profit_factor`](../api/metrics/event_quality.md#factrix.metrics.event_quality.profit_factor) |
 | `quantile_spread` | [`factrix.metrics.quantile`][factrix.metrics.quantile] | [`quantile_spread`](../api/metrics/quantile.md#factrix.metrics.quantile.quantile_spread) |
 | `quantile_spread_vw` | [`factrix.metrics.quantile`][factrix.metrics.quantile] | [`quantile_spread_vw`](../api/metrics/quantile.md#factrix.metrics.quantile.quantile_spread_vw) |
+| `rolling_mean_beta` | [`factrix.metrics.ts_beta`][factrix.metrics.ts_beta] | [`rolling_mean_beta`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.rolling_mean_beta) |
 | `signal_density` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`signal_density`](../api/metrics/event_quality.md#factrix.metrics.event_quality.signal_density) |
 | `spanning_alpha` | [`factrix.metrics.spanning`][factrix.metrics.spanning] | [`spanning_alpha`](../api/metrics/spanning.md#factrix.metrics.spanning.spanning_alpha) |
 | `top_concentration` | [`factrix.metrics.concentration`][factrix.metrics.concentration] | [`top_concentration`](../api/metrics/concentration.md#factrix.metrics.concentration.top_concentration) |
