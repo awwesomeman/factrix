@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
 
 from factrix._axis import (
@@ -96,9 +96,74 @@ class MetricBase(metaclass=MetricMeta):
             sample_threshold=cls.sample_threshold,
         )
 
+    def _params(self) -> dict[str, Any]:
+        """Configured parameter values, pulled from the instance's slots."""
+        return {name: getattr(self, name) for name in self._param_names}
+
     def __call__(self, df: Any) -> Any:
-        """Evaluate the metric on the given input DataFrame or series."""
-        # Fast extraction of parameters using pre-cached slot field names
-        kwargs = {name: getattr(self, name) for name in self._param_names}
-        # Call the underlying implementation function (accessed via __class__ to avoid binding)
-        return self.__class__._impl(df, **kwargs)
+        """Evaluate the metric on a single input (one factor's view / upstream)."""
+        # Accessed via __class__ to avoid binding ``_impl`` as a method.
+        return self.__class__._impl(df, **self._params())
+
+    def __call_batch__(
+        self,
+        panel: Any,
+        factor_cols: Sequence[str],
+        *,
+        project: Callable[[str], Any],
+        upstream: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Run this metric across a factor batch; return ``{factor: output}``.
+
+        The single dispatch entry the DAG executor calls for every metric.
+        ``project(col)`` returns the thin per-factor view (executor-memoised,
+        auto-projected); ``upstream[requires_key][factor]`` is an upstream
+        producer's per-factor output. The three historical call shapes —
+        ``batchable`` (whole panel), ``requires`` (consume upstream), plain
+        (thin view) — are unified in :func:`_dispatch_batch`.
+        """
+        return _dispatch_batch(
+            call_one=self,
+            run_batch=lambda: self.__class__._impl(
+                panel,
+                **{**self._params(), "factor_cols": list(factor_cols), **upstream},
+            ),
+            batchable=self.batchable,
+            requires=tuple(self.requires),
+            factor_cols=factor_cols,
+            project=project,
+            upstream=upstream,
+        )
+
+
+def _dispatch_batch(
+    *,
+    call_one: Callable[[Any], Any],
+    run_batch: Callable[[], dict[str, Any]],
+    batchable: bool,
+    requires: tuple[str, ...],
+    factor_cols: Sequence[str],
+    project: Callable[[str], Any],
+    upstream: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Single source of truth for the three metric dispatch shapes.
+
+    Shared by :meth:`MetricBase.__call_batch__` and the DAG executor's
+    bare-callable (``fn_resolver``) path so the batchable / requires / thin-view
+    distinction lives in exactly one place.
+
+    - ``batchable`` → one whole-panel call returning ``{factor: output}``.
+    - ``requires``  → per factor, feed the upstream producer's output.
+    - otherwise     → per factor, feed the thin per-factor view.
+    """
+    if batchable:
+        return run_batch()
+    out: dict[str, Any] = {}
+    for c in factor_cols:
+        if requires:
+            # Every current consumer declares exactly one upstream; the impl's
+            # first parameter is that requires key (validated at load time).
+            out[c] = call_one(upstream[requires[0]][c])
+        else:
+            out[c] = call_one(project(c))
+    return out

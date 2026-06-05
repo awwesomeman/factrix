@@ -162,51 +162,39 @@ class DagExecutor:
         structure = DataStructure.PANEL if n_assets > 1 else DataStructure.TIMESERIES
         projections: dict[str, pl.DataFrame] = {}
 
+        def project(c: str) -> pl.DataFrame:
+            view = projections.get(c)
+            if view is None:
+                view = _project_factor(panel, c)
+                projections[c] = view
+            return view
+
         producer_outputs: dict[tuple[str, str], Any] = {}
         metric_outputs: dict[tuple[str, str], MetricResult] = {}
 
         for spec in (step.spec for step in self._plan_steps):
-            fn = self._fn(spec)
-            kwargs = dict(kwargs_by_metric.get(spec.name, {}))
-            if spec.batchable:
-                upstream_batch = self._gather_upstream_batch(
-                    spec, cols, producer_outputs
-                )
-                result = fn(panel, factor_cols=cols, **upstream_batch, **kwargs)
-                if not isinstance(result, Mapping):
-                    raise TypeError(
-                        f"{spec.name}: batchable=True spec must return a "
-                        f"Mapping[factor, output]; got {type(result).__name__}."
+            handle = self._batch_handle(spec, kwargs_by_metric.get(spec.name, {}))
+
+            # Split factors by upstream short-circuit: dead factors get the
+            # propagated skip output and never reach the metric.
+            live: list[str] = []
+            for c in cols:
+                skip = _check_upstream_short_circuit(spec, c, producer_outputs)
+                if skip is not None:
+                    producer_outputs[(spec.name, c)] = skip
+                    metric_outputs[(spec.name, c)] = dataclasses.replace(
+                        skip, name=spec.name
                     )
-                for c in cols:
-                    if c not in result:
-                        raise KeyError(
-                            f"{spec.name}: batchable result missing factor {c!r}"
-                        )
-                    producer_outputs[(spec.name, c)] = result[c]
-                    if isinstance(result[c], MetricResult):
-                        metric_outputs[(spec.name, c)] = dataclasses.replace(
-                            result[c], name=spec.name
-                        )
+                else:
+                    live.append(c)
+            if not live:
                 continue
 
-            for c in cols:
-                short_circuit = _check_upstream_short_circuit(spec, c, producer_outputs)
-                if short_circuit is not None:
-                    out = short_circuit
-                else:
-                    upstream_kwargs = {
-                        key: producer_outputs[(producer.__name__, c)]
-                        for key, producer in spec.requires.items()
-                    }
-                    if spec.requires:
-                        out = fn(**upstream_kwargs, **kwargs)
-                    else:
-                        view = projections.get(c)
-                        if view is None:
-                            view = _project_factor(panel, c)
-                            projections[c] = view
-                        out = fn(view, **kwargs)
+            upstream = self._gather_upstream_batch(spec, live, producer_outputs)
+            result = handle(panel, live, project=project, upstream=upstream)
+            _validate_batch_result(spec, live, result)
+            for c in live:
+                out = result[c]
                 producer_outputs[(spec.name, c)] = out
                 if isinstance(out, MetricResult):
                     metric_outputs[(spec.name, c)] = dataclasses.replace(
@@ -216,6 +204,46 @@ class DagExecutor:
         return self._assemble(
             cols, scope, density, forward_periods, structure, n_assets, metric_outputs
         )
+
+    def _batch_handle(
+        self, spec: MetricSpec, kwargs: Mapping[str, Any]
+    ) -> Callable[..., dict[str, Any]]:
+        """Return the spec's unified batch dispatcher.
+
+        Registry ``MetricBase`` classes expose ``__call_batch__`` directly
+        (bound to a configured instance); bare ``fn_resolver`` callables are
+        wrapped through the same :func:`_dispatch_batch` so both paths share
+        one dispatch body.
+        """
+        from factrix.metrics._base import MetricBase, _dispatch_batch
+
+        fn = self._fn(spec)
+        kw = dict(kwargs)
+        if isinstance(fn, type) and issubclass(fn, MetricBase):
+            return fn(**kw).__call_batch__
+
+        bare: Callable[..., Any] = fn
+
+        def handle(
+            panel: pl.DataFrame,
+            factor_cols: Sequence[str],
+            *,
+            project: Callable[[str], pl.DataFrame],
+            upstream: dict[str, dict[str, Any]],
+        ) -> dict[str, Any]:
+            return _dispatch_batch(
+                call_one=lambda df: bare(df, **kw),
+                run_batch=lambda: bare(
+                    panel, factor_cols=list(factor_cols), **upstream, **kw
+                ),
+                batchable=spec.batchable,
+                requires=tuple(spec.requires),
+                factor_cols=factor_cols,
+                project=project,
+                upstream=upstream,
+            )
+
+        return handle
 
     def _gather_upstream_batch(
         self,
@@ -318,6 +346,24 @@ def _registry_callable_table() -> dict[str, Callable[..., Any]]:
         if callable(fn):
             table[name] = fn
     return table
+
+
+def _validate_batch_result(
+    spec: MetricSpec, factor_cols: Sequence[str], result: Any
+) -> None:
+    """Check a batch dispatch returned a ``{factor: output}`` mapping.
+
+    Surfaces meaningfully for ``batchable`` specs whose ``_impl`` builds the
+    mapping itself; per-factor results are always well-formed dicts.
+    """
+    if not isinstance(result, Mapping):
+        raise TypeError(
+            f"{spec.name}: batchable=True spec must return a "
+            f"Mapping[factor, output]; got {type(result).__name__}."
+        )
+    for c in factor_cols:
+        if c not in result:
+            raise KeyError(f"{spec.name}: batchable result missing factor {c!r}")
 
 
 def _check_upstream_short_circuit(

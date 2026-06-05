@@ -587,7 +587,12 @@ types-only; runner wiring lands with the DAG executor.
   `fx.Warning` after `import factrix as fx`.
 - **`DagExecutor`** — programmatic executor for a closed set of
   `MetricSpec`. Topologically orders the graph
-  (`MetricSpec.requires` -> upstream callable), dispatches
+  (`MetricSpec.requires` -> upstream callable), then invokes every
+  metric through one unified `MetricBase.__call_batch__(panel,
+  factor_cols, *, project, upstream) -> {factor: output}` protocol
+  (the batchable / requires / thin-view shapes are unified in
+  `factrix.metrics._base._dispatch_batch`; the executor memoises the
+  thin-view `project` and keeps short-circuit handling). It dispatches
   `batchable=True` producers once per batch and `batchable=False`
   callables once per factor on a thin projection, caches every
   producer output per `(spec, factor)` so any number of downstream
