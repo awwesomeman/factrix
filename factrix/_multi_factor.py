@@ -2,9 +2,9 @@
 / ``bhy_hierarchical``).
 
 All three accept ``list[EvaluationResult]`` and a list of primary
-:class:`~factrix._metric_index.MetricSpec` records; each function runs
+:class:`~factrix._metric_index.metric label` records; each function runs
 one independent screen per primary and returns a
-``dict[primary_name, *Result]`` keyed by ``MetricSpec.name`` (single
+``dict[primary_name, *Result]`` keyed by ``label`` (single
 primary still returns a dict — no isinstance dispatch on the caller
 side).
 
@@ -27,7 +27,6 @@ import numpy as np
 
 from factrix._errors import UserInputError
 from factrix._family import _attach_p_values, _partition, _resolve_family
-from factrix._metric_index import MetricSpec
 from factrix.stats.multiple_testing import (
     bhy_adjusted_p,
     partial_conjunction_p,
@@ -39,13 +38,13 @@ if TYPE_CHECKING:
 
 
 _NOT_METRICSPEC_EXPECTED = (
-    "MetricSpec instance (str / Callable not accepted — pick the spec from "
+    "metric label instance (str / Callable not accepted — pick the spec from "
     "fx.metrics.spec_by_name() or the metric module's __metric_specs__ tuple)"
 )
 
 
-def _validate_spec_list(value: Any, *, func_name: str, field: str) -> list[MetricSpec]:
-    """Shared validator: ``list[MetricSpec]`` canonical form.
+def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str]:
+    """Shared validator: ``list[str]`` canonical form.
 
     Used by ``bhy.primary`` / ``compare.metrics`` so both surfaces give
     identical error messages for the same misuse.
@@ -56,7 +55,7 @@ def _validate_spec_list(value: Any, *, func_name: str, field: str) -> list[Metri
             func_name=func_name,
             field=field,
             value=type(value).__name__,
-            expected=(f"list[MetricSpec] (always a list, even for a single {field})"),
+            expected=(f"list[str] (always a list, even for a single {field})"),
             docs_path=anchor,
         )
     if not value:
@@ -64,16 +63,16 @@ def _validate_spec_list(value: Any, *, func_name: str, field: str) -> list[Metri
             func_name=func_name,
             field=field,
             value=value,
-            expected="non-empty list[MetricSpec]",
+            expected="non-empty list[str]",
             docs_path=anchor,
         )
     for i, spec in enumerate(value):
-        if not isinstance(spec, MetricSpec):
+        if not isinstance(spec, str):
             raise UserInputError(
                 func_name=func_name,
                 field=f"{field}[{i}]",
                 value=type(spec).__name__,
-                expected=_NOT_METRICSPEC_EXPECTED,
+                expected="str metric label (e.g. 'ic_newey_west')",
                 docs_path=anchor,
             )
     return list(value)
@@ -139,7 +138,7 @@ class _FdrResultBase:
     Subclasses append their own fields and supply ``_header`` / ``_rows``.
 
     Common attributes:
-        primary_name: ``MetricSpec.name`` of the primary driving the screen;
+        primary_name: ``label`` of the primary driving the screen;
             also the key under which the record is returned.
         survivors: Surviving :class:`EvaluationResult` records.
         adj_p: BHY-adjusted p-value aligned with ``survivors``.
@@ -323,7 +322,7 @@ def _lookup_expand(result: EvaluationResult, key: str) -> Any:
 def bhy(
     results: list[EvaluationResult],
     *,
-    primary: list[MetricSpec],
+    primary: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
 ) -> dict[str, BhyResult]:
@@ -339,9 +338,9 @@ def bhy(
     Args:
         results: :class:`EvaluationResult` records. The full input is
             one family unless ``expand_over`` further partitions it.
-        primary: ``list[MetricSpec]`` — element type strictly
-            :class:`MetricSpec`. One independent BHY screen runs per
-            primary; the return dict is keyed by ``MetricSpec.name``.
+        primary: ``list[str]`` — element type strictly
+            :class:`metric label`. One independent BHY screen runs per
+            primary; the return dict is keyed by ``label``.
             Single-primary callers still receive a one-key dict (no
             isinstance branching downstream).
         expand_over: Tuple of keys whose distinct value tuples split
@@ -351,10 +350,10 @@ def bhy(
         q: Nominal FDR target. Default ``0.05``.
 
     Returns:
-        ``dict[str, BhyResult]`` keyed by ``MetricSpec.name``.
+        ``dict[str, BhyResult]`` keyed by ``label``.
 
     Raises:
-        UserInputError: ``primary`` not a non-empty ``list[MetricSpec]``;
+        UserInputError: ``primary`` not a non-empty ``list[str]``;
             duplicate ``(factor, *expand_over_values)`` identifier;
             ``expand_over`` key missing from a result's context or
             naming ``'factor'``; primary metric absent from a result's
@@ -366,7 +365,7 @@ def bhy(
             per-rank threshold). Or most ``expand_over`` buckets are
             singletons (BHY on n=1 provides no FDR correction).
     """
-    primary_list = _validate_spec_list(primary, func_name="bhy", field="primary")
+    primary_list = _validate_metric_list(primary, func_name="bhy", field="primary")
     _require_non_empty_results(results, func_name="bhy")
     expand_over_tuple = tuple(expand_over)
 
@@ -400,8 +399,8 @@ def bhy(
             adj_p_all[ix] = bhy_adjusted_p(p_array)
 
         survivor_idxs = np.flatnonzero(adj_p_all <= q)
-        out[spec.name] = BhyResult(
-            primary_name=spec.name,
+        out[spec] = BhyResult(
+            primary_name=spec,
             survivors=[entries[i].result for i in survivor_idxs],
             adj_p=adj_p_all[survivor_idxs],
             q=q,
@@ -414,7 +413,7 @@ def bhy(
 def partial_conjunction(
     results: list[EvaluationResult],
     *,
-    primary: list[MetricSpec],
+    primary: list[str],
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,
@@ -439,8 +438,8 @@ def partial_conjunction(
             identity come from ``expand_over``; multiple results
             sharing the hypothesis identifier (``factor``) must differ
             on at least one ``expand_over`` key.
-        primary: ``list[MetricSpec]`` — one PC screen runs per primary;
-            return dict keyed by ``MetricSpec.name``.
+        primary: ``list[str]`` — one PC screen runs per primary;
+            return dict keyed by ``label``.
         min_pass: ``k`` in "k of m". Must be ``>= 2``.
         expand_over: Non-empty tuple of context keys (or
             ``"forward_periods"``) defining the condition axis.
@@ -451,7 +450,7 @@ def partial_conjunction(
 
     Returns:
         ``dict[str, PartialConjunctionResult]`` keyed by
-        ``MetricSpec.name``.
+        ``label``.
 
     Raises:
         UserInputError: ``min_pass < 2``; ``expand_over`` empty;
@@ -459,7 +458,7 @@ def partial_conjunction(
             identity with fewer than ``min_pass`` conditions; any
             ``_resolve_family`` invariant failure.
     """
-    primary_list = _validate_spec_list(
+    primary_list = _validate_metric_list(
         primary, func_name="partial_conjunction", field="primary"
     )
     _require_non_empty_results(results, func_name="partial_conjunction")
@@ -515,7 +514,7 @@ def partial_conjunction(
 
     out: dict[str, PartialConjunctionResult] = {}
     for spec in primary_list:
-        out[spec.name] = _partial_conjunction_one(
+        out[spec] = _partial_conjunction_one(
             results,
             primary=spec,
             min_pass=min_pass,
@@ -529,7 +528,7 @@ def partial_conjunction(
 def _partial_conjunction_one(
     results: Sequence[EvaluationResult],
     *,
-    primary: MetricSpec,
+    primary: str,
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None,
@@ -613,7 +612,7 @@ def _partial_conjunction_one(
     survivor_idx = np.flatnonzero(adj_p_all <= q)
     surviving_factors = [identifiers_ordered[i] for i in survivor_idx]
     return PartialConjunctionResult(
-        primary_name=primary.name,
+        primary_name=primary,
         survivors=[rep_results[i] for i in survivor_idx],
         adj_p=adj_p_all[survivor_idx],
         pc_p=pc_p_arr[survivor_idx],
@@ -628,7 +627,7 @@ def _partial_conjunction_one(
 def bhy_hierarchical(
     results: list[EvaluationResult],
     *,
-    primary: list[MetricSpec],
+    primary: list[str],
     group: str,
     q: float = 0.05,
 ) -> dict[str, HierarchicalBhyResult]:
@@ -645,13 +644,13 @@ def bhy_hierarchical(
             to one group via ``result.context[group]`` (or via
             ``result.forward_periods`` if ``group == "forward_periods"``).
             Within a group, ``factor`` must be unique.
-        primary: ``list[MetricSpec]`` — one hierarchical screen per
-            primary; return dict keyed by ``MetricSpec.name``.
+        primary: ``list[str]`` — one hierarchical screen per
+            primary; return dict keyed by ``label``.
         group: Single key naming the group axis.
         q: Nominal FDR target shared by both layers.
 
     Returns:
-        ``dict[str, HierarchicalBhyResult]`` keyed by ``MetricSpec.name``.
+        ``dict[str, HierarchicalBhyResult]`` keyed by ``label``.
 
     Raises:
         UserInputError: ``group == 'factor'`` (it is the identifier);
@@ -665,21 +664,21 @@ def bhy_hierarchical(
             result — inner BHY on n=1 is a raw cutoff and the outer
             Simes representative equals that single p-value.
     """
-    primary_list = _validate_spec_list(
+    primary_list = _validate_metric_list(
         primary, func_name="bhy_hierarchical", field="primary"
     )
     _require_non_empty_results(results, func_name="bhy_hierarchical")
 
     out: dict[str, HierarchicalBhyResult] = {}
     for spec in primary_list:
-        out[spec.name] = _bhy_hierarchical_one(results, primary=spec, group=group, q=q)
+        out[spec] = _bhy_hierarchical_one(results, primary=spec, group=group, q=q)
     return out
 
 
 def _bhy_hierarchical_one(
     results: Sequence[EvaluationResult],
     *,
-    primary: MetricSpec,
+    primary: str,
     group: str,
     q: float,
 ) -> HierarchicalBhyResult:
@@ -757,7 +756,7 @@ def _bhy_hierarchical_one(
 
     survivor_idxs = np.flatnonzero(adj_p_all <= q)
     return HierarchicalBhyResult(
-        primary_name=primary.name,
+        primary_name=primary,
         survivors=[entries[i].result for i in survivor_idxs],
         adj_p=adj_p_all[survivor_idxs],
         q=q,
