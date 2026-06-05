@@ -108,7 +108,7 @@ title: factrix.metrics.trend
 
     [api/metrics/hit_rate →](hit_rate.md)
 
--   __`compute_rolling_mean_beta`__
+-   __`rolling_mean_beta`__
 
     ---
 

@@ -95,7 +95,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | Metric | Sample axis | Min sample |
 |---|---|---|
 | [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `N` | as `ts_beta` |
-| [`compute_rolling_mean_beta`][factrix.metrics.ts_beta.compute_rolling_mean_beta] | `T` per window | window ≥ `MIN_TS_OBS` |
+| [`rolling_mean_beta`][factrix.metrics.ts_beta.rolling_mean_beta] | `T` per window | window ≥ `MIN_TS_OBS` |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `N` | `N ≥ 2` |
 | [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
 | [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs (Gate B); each side `n_unique ≥ 2` for method B (Gate C) |
@@ -142,7 +142,7 @@ below.
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fama_macbeth.py` | `fm_beta`, `beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `compute_rolling_mean_beta`, `ts_beta_sign_consistency` |
+| `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `rolling_mean_beta`, `ts_beta_sign_consistency` |
 
 Naming caveats:
 

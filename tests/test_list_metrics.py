@@ -166,11 +166,11 @@ def test_internal_specs_excluded_from_public_specs() -> None:
     assert internal_names.isdisjoint(public_names)
 
 
-def test_compute_rolling_mean_beta_remains_user_facing() -> None:
+def test_rolling_mean_beta_remains_user_facing() -> None:
     # Sanity: it starts with ``compute_`` but is a real metric per the doc;
     # exclusion is by visibility, not prefix.
     names = {spec.name for _, spec in public_specs()}
-    assert "compute_rolling_mean_beta" in names
+    assert "rolling_mean_beta" in names
 
 
 # ---------------------------------------------------------------------------

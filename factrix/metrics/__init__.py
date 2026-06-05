@@ -27,7 +27,7 @@ no separate Common-sparse module set):
 
 Common × Continuous:
     compute_ts_betas, ts_beta, mean_r_squared,
-    compute_rolling_mean_beta, ts_beta_sign_consistency,
+    rolling_mean_beta, ts_beta_sign_consistency,
     ts_quantile_spread, ts_asymmetry
 
 Series diagnostics — axis-agnostic on ``(date, value)``:
@@ -84,7 +84,7 @@ from factrix.metrics.tradability import (
 from factrix.metrics.trend import ic_trend
 from factrix.metrics.ts_asymmetry import ts_asymmetry
 from factrix.metrics.ts_beta import (
-    compute_rolling_mean_beta,
+    rolling_mean_beta,
     mean_r_squared,
     ts_beta,
     ts_beta_sign_consistency,
@@ -97,7 +97,7 @@ __all__ = [
     "breakeven_cost",
     "caar",
     "clustering_hhi",
-    "compute_rolling_mean_beta",
+    "rolling_mean_beta",
     "corrado_rank",
     "event_around_return",
     "event_hit_rate",

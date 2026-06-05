@@ -9,7 +9,7 @@ title: factrix.metrics.ts_beta
         - ts_beta
         - mean_r_squared
         - ts_beta_sign_consistency
-        - compute_rolling_mean_beta
+        - rolling_mean_beta
 
 <hr>
 
@@ -60,7 +60,7 @@ title: factrix.metrics.ts_beta
 
     ---
 
-    `compute_rolling_mean_beta` emits a `(date, value)` series of
+    `rolling_mean_beta` emits a `(date, value)` series of
     rolling cross-asset mean $\beta$ at stride `window`. Output schema
     matches the time-series tools so callers can pipe rolling betas
     into `trend` / `oos`.
@@ -75,8 +75,8 @@ title: factrix.metrics.ts_beta
 | Mean-$\beta$ significance across assets (Stage 2 of BJS)                | `ts_beta`                         |
 | Average explanatory power $\overline{R^2}$ across assets                | `mean_r_squared`                  |
 | Direction-agnostic sign agreement on per-asset $\beta$                  | `ts_beta_sign_consistency`        |
-| Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `compute_rolling_mean_beta`       |
-| $N=1$ degenerate-case fallback used by Profile / Factor entry points    | `ts_beta_single_asset_fallback`   |
+| Rolling cross-asset mean $\beta$ series for trend / out-of-sample (OOS) pipes | `rolling_mean_beta`       |
+| $N=1$ degenerate-case fallback used by Profile / Factor entry points    | `compute_ts_beta_single_asset_fallback`   |
 
 ## Worked example — per-asset TS betas then cross-asset $t$
 
@@ -124,7 +124,7 @@ title: factrix.metrics.ts_beta
 
     ---
 
-    Pipe `compute_rolling_mean_beta` into the series diagnostics for
+    Pipe `rolling_mean_beta` into the series diagnostics for
     $\beta$-stability and OOS-survival reads.
 
     [api/metrics/trend →](trend.md)

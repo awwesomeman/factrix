@@ -175,7 +175,7 @@ class TestVisibility:
             "compute_mfe_mae",
             "compute_event_returns",
             "compute_ts_betas",
-            "ts_beta_single_asset_fallback",
+            "compute_ts_beta_single_asset_fallback",
             "compute_spread_series",
             "compute_group_returns",
         )

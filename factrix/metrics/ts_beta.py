@@ -7,7 +7,7 @@ each asset's sensitivity (β) to the common factor.
 ``compute_ts_betas``: per-asset full-sample TS regression.
 ``ts_beta``: cross-sectional test on the β distribution.
 ``mean_r_squared``: average explanatory power across assets.
-``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
+``rolling_mean_beta``: rolling window mean β for stability analysis.
 
 Notes:
     **Pipeline.** Per-asset full-sample ordinary least squares (OLS) β (time-series step), then
@@ -44,7 +44,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     "ts_beta",
     "mean_r_squared",
     "ts_beta_sign_consistency",
-    "compute_rolling_mean_beta",
+    "rolling_mean_beta",
 ]
 
 _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL)
@@ -59,7 +59,7 @@ MIN_TS_OBS: int = 20
     se_method=SEMethod.OLS,
     role=SpecRole.PIPELINE,
 )
-def ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
+def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
 
     The cross-sectional $t$-test in ``ts_beta`` needs $N \geq 2$ assets.
@@ -265,7 +265,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
 )
-def compute_rolling_mean_beta(
+def rolling_mean_beta(
     df: pl.DataFrame,
     *,
     window: int = 60,
@@ -304,12 +304,12 @@ def compute_rolling_mean_beta(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ts_beta import compute_rolling_mean_beta
+        >>> from factrix.metrics.ts_beta import rolling_mean_beta
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> rolling = compute_rolling_mean_beta(panel, window=60)
+        >>> rolling = rolling_mean_beta(panel, window=60)
         >>> set(rolling.columns) >= {"date", "value"}
         True
     """
