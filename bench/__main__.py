@@ -20,6 +20,7 @@ subprocess overhead.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from collections.abc import Callable
@@ -66,6 +67,19 @@ def _run_one(
     output = output_dir / f"{scenario_id}.jsonl"
     output.parent.mkdir(parents=True, exist_ok=True)
     fn(output, preset=preset, cache_state=cache_state, threads=threads)
+
+    # Fail-fast on scenario errors so CI smoke runs turn red
+    with open(output, encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                record = json.loads(line)
+                if record.get("status") == "error":
+                    print(
+                        f"Scenario {scenario_id} failed: {record.get('error_message')}",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+
     return output
 
 

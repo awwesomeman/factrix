@@ -26,7 +26,7 @@ sub-issues. This README describes the current surface only.
   scale ↔ axis_cell mismatch.
 - `bench.metric_sets` — pinned `core` / `heavy` / `algo` / `event`
   bundles + `METRIC_SET_VERSION`, independent of
-  `factrix.run_metrics` defaults so a default-set tweak in factrix
+  `factrix.evaluate` defaults so a default-set tweak in factrix
   cannot silently shift baselines.
 - `bench.scenarios.*` — scenario implementations grouped by
   analysis-axis cell (see scenario reference below).
@@ -85,7 +85,7 @@ ad-hoc warm runs skip the subprocess overhead.
 
 | `scenario_id` | Cell | Compute |
 |---|---|---|
-| `S1` | Continuous × Individual | Single factor through `evaluate` + `run_metrics` + bootstrap CI on the IC series |
+| `S1` | Continuous × Individual | Single factor through `evaluate` + bootstrap CI on the IC series |
 | `S2` | Continuous × Individual | 50-factor screen with the `core` metric set per factor |
 | `S3` | Continuous × Individual | 200-factor screen with the `core` metric set per factor |
 | `S4` | Continuous × Individual | Greedy forward selection over a candidate factor pool |
@@ -262,7 +262,7 @@ and event-clustering structure of real markets are not reproduced.
   warm, before vs. after an optimisation, machine A vs. machine B).
 - Do **not** use them to predict production runtime on real
   factors, or to validate that a metric's statistical behaviour is
-  correct — that is what `tests/` and `factrix.run_metrics`
+  correct — that is what `tests/` and `factrix.evaluate`
   invariants are for.
 - `dataset_spec_version` is bumped any time the generator default
   parameters move (IC strength, correlation level, etc.); baselines

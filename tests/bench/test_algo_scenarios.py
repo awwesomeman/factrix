@@ -18,6 +18,7 @@ def test_s4_runs_and_validates(tmp_path: Path):
     assert records[1].is_warmup is False
     assert all(r.scenario_id == "S4" for r in records)
     assert all(r.metric_set == "algo" for r in records)
+    assert all(r.status == "ok" for r in records)
 
 
 def test_s4_setup_compute_split(tmp_path: Path):

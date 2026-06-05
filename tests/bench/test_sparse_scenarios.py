@@ -17,6 +17,7 @@ def test_every_sparse_scenario_runs_and_validates(tmp_path: Path):
         assert records, sid
         assert all(r.scenario_id == sid for r in records)
         assert all(r.axis_cell == "sparse_individual_panel" for r in records)
+        assert all(r.status == "ok" for r in records)
 
 
 def test_s5_uses_event_bundle_label(tmp_path: Path):
@@ -31,7 +32,7 @@ def test_m_corrado_labels_by_single_metric(tmp_path: Path):
     distinguish single-metric attribution from whole-bundle runs."""
     out = tmp_path / "M.jsonl"
     records = m_corrado(out, preset="tiny")
-    assert all(r.metric_set == "corrado_rank_test" for r in records)
+    assert all(r.metric_set == "corrado_rank" for r in records)
 
 
 def test_scale_records_realised_event_count(tmp_path: Path):

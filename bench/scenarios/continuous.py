@@ -25,6 +25,7 @@ from factrix.stats import bootstrap_mean_ci, bootstrap_mean_ci_batch
 from bench import metric_sets
 from bench.metric_sets import MetricSet
 from bench.scenarios._helpers import (
+    DEFAULT_FORWARD_PERIODS,
     factor_columns,
     resolve_scale,
     run_continuous_scenario,
@@ -56,7 +57,7 @@ def _bootstrap_ic_per_factor(
 ) -> int:
     # Batch the IC compute across factors (one polars query) and the
     # bootstrap (one shared block-index matrix). compute_ic is called
-    # directly (not via fx.run_metrics) because run_metrics' IC stage-1
+    # directly (not via fx.evaluate) because evaluate's IC stage-1
     # is shaped for the t-test consumers (ic / ic_newey_west / ic_ir),
     # not for downstream non-metric numpy work like bootstrap.
     ic_results = compute_ic(panel, factor_cols=factors)
@@ -66,7 +67,7 @@ def _bootstrap_ic_per_factor(
 
 
 # ---------------------------------------------------------------------------
-# S1 — single factor: evaluate + run_metrics(heavy)
+# S1 — single factor: evaluate(heavy)
 # ---------------------------------------------------------------------------
 
 
@@ -78,18 +79,21 @@ def s1_evaluate(
     cache_state: CacheState = "warm",
     threads: int = 1,
 ) -> list[BenchRecord]:
-    """S1: single factor through ``evaluate`` + ``run_metrics(heavy)``.
+    """S1: single factor through ``evaluate(heavy)``.
 
     Fixed scale: 1 factor; dates / assets follow the preset.
     """
     scale = resolve_scale(preset, n_factors=1)
     heavy = metric_sets.HEAVY
 
-    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
+    def compute(panel: pl.DataFrame, specs: tuple[fx.MetricSpec, ...]) -> int:
         col = factor_columns(panel)[0]
-        fx.evaluate(panel, cfg, factor_cols=[col])
-        fx.run_metrics(
-            panel, cfg, factor_cols=[col], metrics=list(heavy.run_metrics_names)
+        metric_instances = {s.name: getattr(fx.metrics, s.name)() for s in specs}
+        fx.evaluate(
+            panel,
+            metrics=metric_instances,
+            factor_cols=[col],
+            forward_periods=DEFAULT_FORWARD_PERIODS,
         )
         ic_df = compute_ic(panel, factor_cols=[col])[col]
         bootstrap_mean_ci(ic_df["ic"].to_numpy(), n_bootstrap=BOOTSTRAP_N, seed=seed)
@@ -125,14 +129,15 @@ def _screen(
     scale = resolve_scale(preset, n_factors=n_factors)
     core = metric_sets.CORE
 
-    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
-        bundles = fx.run_metrics(
+    def compute(panel: pl.DataFrame, specs: tuple[fx.MetricSpec, ...]) -> int:
+        metric_instances = {s.name: getattr(fx.metrics, s.name)() for s in specs}
+        results = fx.evaluate(
             panel,
-            cfg,
+            metrics=metric_instances,
             factor_cols=factor_columns(panel),
-            metrics=list(core.run_metrics_names),
+            forward_periods=DEFAULT_FORWARD_PERIODS,
         )
-        return sum(len(b.metrics) for b in bundles.values())
+        return len(results)
 
     return run_continuous_scenario(
         scenario_id=scenario_id,
@@ -252,9 +257,15 @@ def _evaluate_batch(
 ) -> list[BenchRecord]:
     scale = resolve_scale(preset, n_factors=n_factors)
 
-    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
-        profiles = fx.evaluate(panel, cfg, factor_cols=factor_columns(panel))
-        return len(profiles)
+    def compute(panel: pl.DataFrame, specs: tuple[fx.MetricSpec, ...]) -> int:
+        metric_instances = {s.name: getattr(fx.metrics, s.name)() for s in specs}
+        results = fx.evaluate(
+            panel,
+            metrics=metric_instances,
+            factor_cols=factor_columns(panel),
+            forward_periods=DEFAULT_FORWARD_PERIODS,
+        )
+        return len(results)
 
     return run_continuous_scenario(
         scenario_id=scenario_id,
@@ -332,13 +343,17 @@ def _micro(
     # from "ran a single metric to attribute its cost". Stuffing both
     # under `core` would let an aggregator double-count M-ic + S2 as
     # combined core cost when M-ic is a strict subset of S2's work.
-    label = MetricSet(name=metric_name, run_metrics_names=(metric_name,))
+    label = MetricSet(name=metric_name, metric_specs=(fx.spec_by_name()[metric_name],))
 
-    def compute(panel: pl.DataFrame, cfg: fx.AnalysisConfig) -> int:
-        bundles = fx.run_metrics(
-            panel, cfg, factor_cols=factor_columns(panel), metrics=[metric_name]
+    def compute(panel: pl.DataFrame, specs: tuple[fx.MetricSpec, ...]) -> int:
+        metric_instances = {s.name: getattr(fx.metrics, s.name)() for s in specs}
+        results = fx.evaluate(
+            panel,
+            metrics=metric_instances,
+            factor_cols=factor_columns(panel),
+            forward_periods=DEFAULT_FORWARD_PERIODS,
         )
-        return sum(len(b.metrics) for b in bundles.values())
+        return len(results)
 
     return run_continuous_scenario(
         scenario_id=scenario_id,
@@ -423,7 +438,7 @@ def m_ic_bootstrap(
     """Cost of the bootstrap path on a per-factor IC series.
 
     Unlike the other single-metric scenarios this one does **not** go
-    through ``run_metrics``; it times ``compute_ic`` +
+    through ``evaluate``; it times ``compute_ic`` +
     ``bootstrap_mean_ci`` directly so the bootstrap cost is
     attributable separately from the IC computation.
     """
@@ -433,10 +448,10 @@ def m_ic_bootstrap(
     # Single-metric attribution: label by what is actually being
     # timed (compute_ic + bootstrap_mean_ci), parallel to the other
     # micros. The `heavy` bundle is reserved for S1 which times the
-    # full evaluate + run_metrics + bootstrap path together.
-    label = MetricSet(name="ic_bootstrap", run_metrics_names=())
+    # full evaluate + bootstrap path together.
+    label = MetricSet(name="ic_bootstrap", metric_specs=())
 
-    def compute(panel: pl.DataFrame, _cfg: fx.AnalysisConfig) -> int:
+    def compute(panel: pl.DataFrame, _specs: tuple[fx.MetricSpec, ...]) -> int:
         return _bootstrap_ic_per_factor(panel, factor_columns(panel), seed=seed)
 
     return run_continuous_scenario(

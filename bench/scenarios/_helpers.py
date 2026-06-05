@@ -210,13 +210,6 @@ def factor_columns(panel: pl.DataFrame) -> list[str]:
     return sorted(c for c in panel.columns if c.startswith("factor_"))
 
 
-def make_cfg() -> fx.AnalysisConfig:
-    """Canonical continuous × individual config used across scenarios."""
-    return fx.AnalysisConfig.individual_continuous(
-        forward_periods=DEFAULT_FORWARD_PERIODS
-    )
-
-
 def write_and_validate(output: Path, records: list[BenchRecord]) -> None:
     """Write records as JSONL and read them back through ``validate_file``.
 
@@ -294,7 +287,7 @@ def run_continuous_scenario(
     scenario_id: str,
     metric_set: MetricSet,
     scale: ContinuousScale,
-    compute: Callable[[pl.DataFrame, fx.AnalysisConfig], Any],
+    compute: Callable[[pl.DataFrame, tuple[fx.MetricSpec, ...]], Any],
     output: Path | None,
     warmup: bool = True,
     cache_state: CacheState = "warm",
@@ -303,8 +296,8 @@ def run_continuous_scenario(
 ) -> list[BenchRecord]:
     """Run a Continuous × Individual scenario.
 
-    ``compute`` receives the prepared panel and a default config; what
-    it does inside (``run_metrics(metrics=...)``, direct algo call,
+    ``compute`` receives the prepared panel and the resolved metric specs;
+    what it does inside (``evaluate(metrics=...)``, direct algo call,
     bootstrap primitives) is up to the scenario — the helper only
     knows about timing + JSONL + validation.
 
@@ -312,12 +305,12 @@ def run_continuous_scenario(
     """
     pre = preflight(threads=threads, seed=seed)
 
-    def setup() -> tuple[pl.DataFrame, fx.AnalysisConfig]:
-        return build_panel(scale, seed=seed), make_cfg()
+    def setup() -> tuple[pl.DataFrame, tuple[fx.MetricSpec, ...]]:
+        return build_panel(scale, seed=seed), metric_set.metric_specs
 
-    def compute_step(artifact: tuple[pl.DataFrame, fx.AnalysisConfig]) -> Any:
-        panel, cfg = artifact
-        return compute(panel, cfg)
+    def compute_step(artifact: tuple[pl.DataFrame, tuple[fx.MetricSpec, ...]]) -> Any:
+        panel, specs = artifact
+        return compute(panel, specs)
 
     return run_scenario(
         scenario_id=scenario_id,
@@ -338,7 +331,7 @@ def run_sparse_scenario(
     scenario_id: str,
     metric_set: MetricSet,
     scale: SparseScale,
-    compute: Callable[[pl.DataFrame, fx.AnalysisConfig], Any],
+    compute: Callable[[pl.DataFrame, tuple[fx.MetricSpec, ...]], Any],
     output: Path | None,
     warmup: bool = True,
     cache_state: CacheState = "warm",
@@ -358,15 +351,13 @@ def run_sparse_scenario(
     n_events = count_events(build_event_panel(scale, seed=seed))
     scale_dict = scale.as_scale_field(n_events=n_events)
 
-    def setup() -> tuple[pl.DataFrame, fx.AnalysisConfig]:
+    def setup() -> tuple[pl.DataFrame, tuple[fx.MetricSpec, ...]]:
         panel = build_event_panel(scale, seed=seed)
-        return panel, fx.AnalysisConfig.individual_sparse(
-            forward_periods=DEFAULT_FORWARD_PERIODS
-        )
+        return panel, metric_set.metric_specs
 
-    def compute_step(artifact: tuple[pl.DataFrame, fx.AnalysisConfig]) -> Any:
-        panel, cfg = artifact
-        return compute(panel, cfg)
+    def compute_step(artifact: tuple[pl.DataFrame, tuple[fx.MetricSpec, ...]]) -> Any:
+        panel, specs = artifact
+        return compute(panel, specs)
 
     return run_scenario(
         scenario_id=scenario_id,
