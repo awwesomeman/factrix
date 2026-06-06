@@ -27,7 +27,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -66,6 +66,7 @@ _Q_CELL = cell(
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
     batchable=True,
+    sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
 def quantile_spread(
     df: pl.DataFrame,
@@ -167,12 +168,13 @@ def _quantile_spread_from_series(
     _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
-    if n < MIN_PORTFOLIO_PERIODS_HARD:
+    min_periods = quantile_spread.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "quantile_spread",
             "insufficient_portfolio_periods",
             n_obs=n,
-            min_required=MIN_PORTFOLIO_PERIODS_HARD,
+            min_required=min_periods,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
         )
@@ -229,6 +231,7 @@ def _quantile_spread_from_series(
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
+    sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
 def quantile_spread_vw(
     df: pl.DataFrame,
@@ -359,12 +362,13 @@ def quantile_spread_vw(
 
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
-    if n < MIN_PORTFOLIO_PERIODS_HARD:
+    min_periods = quantile_spread_vw.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "quantile_spread_vw",
             "insufficient_portfolio_periods",
             n_obs=n,
-            min_required=MIN_PORTFOLIO_PERIODS_HARD,
+            min_required=min_periods,
             tie_ratio=tie_ratio,
             tie_policy=tie_policy,
         )

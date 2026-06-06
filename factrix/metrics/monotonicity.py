@@ -28,7 +28,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
@@ -67,6 +67,7 @@ min_assets_per_group: int | None = 50
     test_method=TestMethod.T,
     se_method=SEMethod.OLS,
     batchable=True,
+    sample_threshold=SampleThreshold(min_periods=MIN_MONOTONICITY_PERIODS),
 )
 def monotonicity(
     df: pl.DataFrame,
@@ -163,6 +164,7 @@ def monotonicity(
     group_idx = np.arange(n_groups, dtype=np.float64)
     group_idx_centered = group_idx - group_idx.mean()
     group_idx_norm = float(np.sqrt(np.sum(group_idx_centered**2)))
+    min_periods = monotonicity.sample_threshold.min_periods  # type: ignore[attr-defined]
     results: dict[str, MetricResult] = {}
     for i, f in enumerate(cols):
         mat = all_means[:, i * n_groups : (i + 1) * n_groups]
@@ -182,12 +184,12 @@ def monotonicity(
                 )
             mono_arr = mono_arr[np.isfinite(mono_arr)]
 
-        if len(mono_arr) < MIN_MONOTONICITY_PERIODS:
+        if min_periods is not None and len(mono_arr) < min_periods:
             results[f] = _short_circuit_output(
                 "monotonicity",
                 "insufficient_monotonicity_periods",
                 n_obs=len(mono_arr),
-                min_required=MIN_MONOTONICITY_PERIODS,
+                min_required=min_periods,
                 n_groups=n_groups,
                 tie_ratio=tie_ratios[f],
                 tie_policy=tie_policy,

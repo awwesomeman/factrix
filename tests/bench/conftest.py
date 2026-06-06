@@ -13,7 +13,7 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _silence_sample_floor_warnings():
+def _silence_sample_threshold_warnings():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         yield

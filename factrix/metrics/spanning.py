@@ -37,7 +37,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
@@ -141,6 +141,7 @@ def _align_spread_series(
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"factor_spread": compute_spread_series},
+    sample_threshold=SampleThreshold(min_periods=10),
 )
 def spanning_alpha(
     factor_spread: pl.DataFrame,
@@ -209,17 +210,18 @@ def spanning_alpha(
         base_arrays = arrays
         base_matrix = np.column_stack(list(base_arrays.values()))
     else:
-        vals = factor_spread["spread"].drop_nulls()
-        if len(vals) < 10:
-            return _short_circuit_output(
-                "spanning_alpha",
-                "insufficient_spread_observations",
-                n_obs=len(vals),
-                min_required=10,
-            )
-        candidate_arr = vals.to_numpy()
+        candidate_arr = factor_spread["spread"].drop_nulls().to_numpy()
         base_arrays = {}
         base_matrix = np.empty((len(candidate_arr), 0))
+
+    min_periods = spanning_alpha.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and len(candidate_arr) < min_periods:
+        return _short_circuit_output(
+            "spanning_alpha",
+            "insufficient_spread_observations",
+            n_obs=len(candidate_arr),
+            min_required=min_periods,
+        )
 
     ols = _ols_alpha(candidate_arr, base_matrix)
 
@@ -259,6 +261,7 @@ def spanning_alpha(
     input_shape=InputShape.SERIES,
     batchable=True,
     requires={"factor_spreads": compute_spread_series},
+    sample_threshold=SampleThreshold(),
 )
 def greedy_forward_selection(
     factor_spreads: dict[str, pl.DataFrame],
@@ -268,6 +271,8 @@ def greedy_forward_selection(
     suppress_snooping_warning: bool = False,
 ) -> ForwardSelectionResult:
     """Greedy forward selection with backward elimination.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because it returns a ForwardSelectionResult structure and does not short-circuit like standard MetricResult metrics.
 
     WARNING — data snooping / selection bias:
         Stepwise selection over a candidate pool of K factors inflates

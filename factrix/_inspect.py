@@ -8,7 +8,7 @@ Two-stage applicability model:
    whose cell declares ``structure=DataStructure.PANEL`` (e.g. IC, which has no
    cross-section in TIMESERIES) is unusable when the data is
    single-asset, not just "degraded".
-2. **Sample floor** — :class:`MetricSpec.sample_floor` declares the
+2. **Sample threshold** — :class:`MetricSpec.sample_threshold` declares the
    data-shape thresholds below which the metric short-circuits
    (``min_*``) or runs with a documented bias warning (``warn_*``).
    :func:`inspect_data` evaluates these against

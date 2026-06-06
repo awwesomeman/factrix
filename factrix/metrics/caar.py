@@ -35,7 +35,7 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
@@ -80,6 +80,7 @@ min_assets_per_group: int | None = None
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"caar_df": compute_caar},
+    sample_threshold=SampleThreshold(),
 )
 def caar(
     caar_df: pl.DataFrame,
@@ -87,6 +88,8 @@ def caar(
     forward_periods: int = 5,
 ) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the forward_periods parameter and are factor-context-dependent.
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar``.
@@ -192,6 +195,7 @@ def caar(
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    sample_threshold=SampleThreshold(),
 )
 def bmp_test(
     df: pl.DataFrame,
@@ -204,6 +208,8 @@ def bmp_test(
     include_prediction_error_variance: bool = False,
 ) -> MetricResult:
     r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the estimation_window parameter and are factor-context-dependent.
 
     Standardizes each event's abnormal return by the asset's pre-event
     residual volatility, making the test robust to event-induced variance

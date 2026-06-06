@@ -17,7 +17,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_z
 from factrix._types import EPSILON, MIN_EVENTS_HARD
@@ -34,6 +34,7 @@ __all__ = [
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.RANK,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def corrado_rank(
     df: pl.DataFrame,
@@ -42,6 +43,8 @@ def corrado_rank(
     return_col: str = "forward_return",
 ) -> MetricResult:
     r"""Corrado nonparametric rank test for event abnormal returns.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     A non-parametric alternative to the CAAR t-test. Robust to extreme
     returns, non-normal distributions, and cross-asset

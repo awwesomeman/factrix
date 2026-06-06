@@ -111,12 +111,15 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
+    sample_threshold=SampleThreshold(),
 )
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the forward_periods parameter.
 
     Args:
         ic_df: Output of ``compute_ic()``.
@@ -262,12 +265,13 @@ def ic_newey_west(
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_newey_west")
     ic_vals = ic_df["ic"].drop_nulls().to_numpy()
     n = len(ic_vals)
-    if n < MIN_ASSETS_PER_DATE_IC:
+    min_periods = ic_newey_west.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "ic_newey_west",
             "insufficient_ic_periods",
             n_obs=n,
-            min_required=MIN_ASSETS_PER_DATE_IC,
+            min_required=min_periods,
         )
 
     from factrix._stats import _resolve_nw_lags
@@ -351,12 +355,13 @@ def ic_ir(
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    if n < MIN_ASSETS_PER_DATE_IC:
+    min_periods = ic_ir.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "ic_ir",
             "insufficient_ic_periods",
             n_obs=n,
-            min_required=MIN_ASSETS_PER_DATE_IC,
+            min_required=min_periods,
         )
 
     mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]

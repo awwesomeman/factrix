@@ -33,7 +33,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _ols_nw_multivariate,
@@ -57,6 +57,7 @@ __all__ = [
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.CHI2,
     se_method=SEMethod.HAC,
+    sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
 def ts_quantile_spread(
     df: pl.DataFrame,
@@ -153,12 +154,13 @@ def ts_quantile_spread(
     )
     n_periods = len(per_date)
 
-    if n_periods < MIN_PORTFOLIO_PERIODS_HARD:
+    min_periods = ts_quantile_spread.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n_periods < min_periods:
         return _short_circuit_output(
             "ts_quantile_spread",
             "insufficient_portfolio_periods",
             n_obs=n_periods,
-            min_required=MIN_PORTFOLIO_PERIODS_HARD,
+            min_required=min_periods,
             n_groups=n_groups,
         )
 
