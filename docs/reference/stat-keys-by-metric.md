@@ -51,6 +51,7 @@ contrasts, not a sidecar to a primary value.
 | [`bmp_test`][factrix.metrics.caar.bmp_test] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
 | [`event_hit_rate`][factrix.metrics.event_quality.event_hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`event_ic`][factrix.metrics.event_quality.event_ic] | Fisher-transformed Spearman `z` | `p_value` | Spearman ρ |
 | [`event_skewness`][factrix.metrics.event_quality.event_skewness] | D'Agostino skew `z` (N ≥ 20) | `p_value` (conditional) | Fisher skewness |
@@ -177,6 +178,20 @@ runs, the normal `z` when the approximation branch runs;
 - *primary*: `p_value` — binomial / normal-approximation test on
   non-overlapping wins (stride `forward_periods`).
 - *descriptive*: `n_hits`, `n_total`.
+
+### `directional_hit_rate` (`factrix.metrics.directional_hit_rate`)
+
+#### `directional_hit_rate`
+
+Small-N robust sibling of `hit_rate`. `MetricResult.value` is the
+directional hit rate (sign-agreement fraction); `stat` is the
+Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
+
+- *primary*: `p_value` — one-sided Pesaran-Timmermann test conditioning
+  on the marginal up/down frequencies of prediction and realisation.
+- *descriptive*: `p_correct` (realised hit rate), `p_expected`
+  (hit rate under directional independence), `p_up_pred` (fraction of
+  positive predictions), `p_up_real` (fraction of positive realisations).
 
 ### `event_quality` (`factrix.metrics.event_quality`)
 

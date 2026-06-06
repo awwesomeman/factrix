@@ -44,6 +44,7 @@ from factrix.metrics.caar import (
 from factrix.metrics.clustering_hhi import clustering_hhi
 from factrix.metrics.concentration import top_concentration
 from factrix.metrics.corrado_rank import corrado_rank
+from factrix.metrics.directional_hit_rate import directional_hit_rate
 from factrix.metrics.event_horizon import (
     event_around_return,
 )
@@ -99,6 +100,7 @@ __all__ = [
     "clustering_hhi",
     "compute_rolling_mean_beta",
     "corrado_rank",
+    "directional_hit_rate",
     "event_around_return",
     "event_hit_rate",
     "event_ic",

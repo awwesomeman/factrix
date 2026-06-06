@@ -111,6 +111,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | Metric | Sample axis | Min sample |
 |---|---|---|
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_ASSETS_PER_DATE_IC` |
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
 
