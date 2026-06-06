@@ -115,6 +115,7 @@ class TestDriscollKraayPath:
 
     def test_driscoll_kraay_p_value_degrees_of_freedom(self):
         import scipy.stats as sp_stats
+
         df = _common_factor_panel(n_dates=60, n_assets=12, rho=0.3)
         res = pooled_beta(df, driscoll_kraay=True)
         # Manually compute the p-value with dof = n_periods - 1
