@@ -35,6 +35,7 @@ from factrix.metrics._helpers import (
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
+    batchable=True,
 )
 def compute_spread_series(
     df: pl.DataFrame,
