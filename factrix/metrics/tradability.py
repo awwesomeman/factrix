@@ -37,7 +37,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
@@ -70,6 +70,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
     aggregation=Aggregation.TS_ONLY,
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
+    sample_threshold=SampleThreshold(),
 )
 def turnover(
     df: pl.DataFrame,
@@ -78,6 +79,8 @@ def turnover(
     quantile: float | None = None,
 ) -> MetricResult:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the forward_periods parameter.
 
     $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 
@@ -243,6 +246,7 @@ def turnover(
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
+    sample_threshold=SampleThreshold(min_periods=2),
 )
 def notional_turnover(
     df: pl.DataFrame,
@@ -327,12 +331,13 @@ def notional_turnover(
         df = _sample_non_overlapping(df, forward_periods)
 
     dates = df["date"].unique().sort()
-    if len(dates) < 2:
+    min_periods = notional_turnover.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and len(dates) < min_periods:
         return _short_circuit_output(
             "notional_turnover",
             "insufficient_dates",
             n_obs=len(dates),
-            min_required=2,
+            min_required=min_periods,
             forward_periods=forward_periods,
         )
 
@@ -421,6 +426,7 @@ def notional_turnover(
     se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
     requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
+    sample_threshold=SampleThreshold(),
 )
 def breakeven_cost(
     gross_spread: float,
@@ -429,6 +435,8 @@ def breakeven_cost(
     forward_periods: int,
 ) -> MetricResult:
     """Breakeven single-leg trading cost in bps.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a scalar diagnostic function rather than a panel-based metric.
 
     ``Breakeven = Gross_Spread × forward_periods / (2 × Turnover)``
 
@@ -511,6 +519,7 @@ def breakeven_cost(
     se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
     requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
+    sample_threshold=SampleThreshold(),
 )
 def net_spread(
     gross_spread: float,
@@ -520,6 +529,8 @@ def net_spread(
     forward_periods: int,
 ) -> MetricResult:
     """Net spread after estimated trading costs (per-period).
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a scalar diagnostic function rather than a panel-based metric.
 
     ``Net = Gross_Spread - 2 × cost_bps × Turnover / forward_periods``
 

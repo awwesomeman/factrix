@@ -649,10 +649,10 @@ types-only; runner wiring lands with the DAG executor.
   - Two-stage applicability: (1) `Cell.matches(scope, density, structure)`
     — structure is integral so e.g. `IC` (cell declares `structure=PANEL`) is
     unusable on a single-asset panel, not just degraded. (2)
-    `MetricSpec.sample_floor: SampleThreshold | None` — declarative
+    `MetricSpec.sample_threshold: SampleThreshold` — declarative
     `min_periods` / `warn_periods` / `min_assets` / `warn_assets` /
     `min_pairs` / `warn_pairs` gates evaluated against
-    `DataProperties`. Specs without `sample_floor` only get the
+    `DataProperties`. Specs with empty `sample_threshold` only get the
     cell-match check.
 - **`Tier`** — StrEnum representing usability tiers returned by `SampleThreshold.verdict` / `per_axis_verdict`:
   - `CLEAN` — metric is fully usable with zero warnings.
@@ -663,11 +663,10 @@ types-only; runner wiring lands with the DAG executor.
   `structure` argument. Existing `list_metrics` callers stay backward
   compatible (default `None` skips the structure axis); `inspect_data`
   passes the detected structure.
-- **`MetricSpec.sample_floor: SampleThreshold | None`** — new optional
+- **`MetricSpec.sample_threshold: SampleThreshold`** — new optional
   field carrying per-metric pre-flight thresholds. Currently
-  populated on `ic_newey_west` / `ic_ir` (representative
-  demonstration); other metrics get the cell-match-only check.
-  Broader population is tracked as a follow-up audit.
+  populated across all 35 public metrics; event-level/parameter-dependent
+  metrics default to empty `SampleThreshold()`.
 
 ---
 

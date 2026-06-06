@@ -31,7 +31,7 @@ from factrix._axis import (
     SpecRole,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _calc_t_stat,
@@ -111,6 +111,7 @@ def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricRe
     se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
+    sample_threshold=SampleThreshold(min_assets=3),
 )
 def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""Test $H_0: \mathrm{mean}(\beta) = 0$ across assets.
@@ -155,12 +156,13 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
-    if n < 3:
+    min_assets = ts_beta.sample_threshold.min_assets  # type: ignore[attr-defined]
+    if min_assets is not None and n < min_assets:
         return _short_circuit_output(
             "ts_beta",
             "insufficient_assets",
             n_obs=n,
-            min_required=3,
+            min_required=min_assets,
         )
 
     mean_b = float(np.mean(betas))
@@ -196,6 +198,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
+    sample_threshold=SampleThreshold(min_assets=1),
 )
 def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     r"""Average $R^2$ across per-asset TS regressions — ``value`` $= \mathrm{mean}_i R^2_i$.
@@ -239,12 +242,13 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
 
-    if n == 0:
+    min_assets = mean_r_squared.sample_threshold.min_assets  # type: ignore[attr-defined]
+    if min_assets is not None and n < min_assets:
         return _short_circuit_output(
             "mean_r_squared",
             "no_asset_r_squared_observations",
-            n_obs=0,
-            min_required=1,
+            n_obs=n,
+            min_required=min_assets,
         )
 
     return MetricResult(
@@ -381,6 +385,7 @@ def compute_rolling_mean_beta(
     se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
+    sample_threshold=SampleThreshold(min_assets=2),
 )
 def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     """Symmetric sign-agreement across per-asset βs — `value = max(pos, 1−pos)` where `pos = mean_i 1{β_i > 0}`.
@@ -427,12 +432,13 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
-    if n < 2:
+    min_assets = ts_beta_sign_consistency.sample_threshold.min_assets  # type: ignore[attr-defined]
+    if min_assets is not None and n < min_assets:
         return _short_circuit_output(
             "ts_beta_sign_consistency",
             "insufficient_assets_for_sign_consistency",
             n_obs=n,
-            min_required=2,
+            min_required=min_assets,
         )
 
     positive = float(np.mean(betas > 0))

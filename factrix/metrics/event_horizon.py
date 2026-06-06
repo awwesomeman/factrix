@@ -27,7 +27,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
@@ -45,6 +45,7 @@ _EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.BINOMIAL,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def event_around_return(
     df: pl.DataFrame,
@@ -54,6 +55,8 @@ def event_around_return(
     price_col: str = "price",
 ) -> MetricResult:
     """Return profile at multiple offsets around event date.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because this is a multi-horizon summary metric whose available offsets and event counts are factor-context-dependent.
 
     Summarizes per-offset: mean, median, p25, p75, hit_rate, n.
 

@@ -26,7 +26,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
@@ -42,6 +42,7 @@ __all__ = [
     aggregation=Aggregation.CS_SNAPSHOT,
     test_method=TestMethod.DESCRIPTIVE,
     se_method=SEMethod.NONE,
+    sample_threshold=SampleThreshold(),
 )
 def clustering_hhi(
     df: pl.DataFrame,
@@ -50,6 +51,8 @@ def clustering_hhi(
     cluster_window: int = 3,
 ) -> MetricResult:
     r"""Event clustering Herfindahl index on event dates.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because it is a descriptive diagnostic on event occurrence count (which is factor-context-dependent).
 
     Computes $\mathrm{HHI} = \sum_d s_d^2$ where
     $s_d = (\text{events on date } d) / (\text{total events})$. Herfindahl-Hirschman index (HHI)

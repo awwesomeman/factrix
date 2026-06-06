@@ -175,10 +175,10 @@ class TestSampleThresholdGate:
         assert verdict.usable is True
         assert any("n_pairs" in w.message for w in verdict.warnings)
 
-    def test_metric_without_sample_floor_only_cell_checked(self):
+    def test_metric_without_sample_threshold_only_cell_checked(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
         ic = _by_name(info, "ic")
-        # ic has no sample_floor declared (only cell match); cell matches, so usable
+        # ic has empty sample_threshold declared (only cell match); cell matches, so usable
         assert ic.usable is True
         assert ic.warnings == []
 

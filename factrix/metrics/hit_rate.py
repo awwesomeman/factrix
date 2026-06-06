@@ -23,7 +23,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -71,6 +71,7 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     se_method=SEMethod.BUILT_IN,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
+    sample_threshold=SampleThreshold(min_periods=MIN_ASSETS_PER_DATE_IC),
 )
 def hit_rate(
     series: pl.DataFrame,
@@ -122,12 +123,13 @@ def hit_rate(
     vals = sampled[value_col].drop_nulls()
 
     n = len(vals)
-    if n < MIN_ASSETS_PER_DATE_IC:
+    min_periods = hit_rate.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "hit_rate",
             "insufficient_hit_rate_samples",
             n_obs=n,
-            min_required=MIN_ASSETS_PER_DATE_IC,
+            min_required=min_periods,
         )
 
     hits = int((vals > 0).sum())

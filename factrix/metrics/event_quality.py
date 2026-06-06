@@ -31,7 +31,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -58,6 +58,7 @@ _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.RANK,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def event_hit_rate(
     df: pl.DataFrame,
@@ -65,7 +66,9 @@ def event_hit_rate(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
-    """Fraction of events where signed abnormal return > 0.
+    r"""Fraction of events with return in expected direction.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     Args:
         df: Panel with event density and forward return.
@@ -139,6 +142,7 @@ def event_hit_rate(
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.RANK,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def event_ic(
     df: pl.DataFrame,
@@ -146,7 +150,9 @@ def event_ic(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
-    """Signal strength → directional return correlation among events.
+    r"""Spearman correlation between factor value and realised forward return.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     Spearman correlation between ``|factor|`` and ``signed_car``
     (``return × sign(factor)``), computed only on event rows.
@@ -239,6 +245,7 @@ def event_ic(
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.RANK,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def profit_factor(
     df: pl.DataFrame,
@@ -246,7 +253,9 @@ def profit_factor(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
-    """sum(positive signed_car) / sum(negative signed_car).
+    r"""Profit factor = sum(gains) / sum(|losses|) across events.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     Per-event aggregate — no strategy assumptions. A profit factor > 1
     means gross gains exceed gross losses across all events.
@@ -315,6 +324,7 @@ def profit_factor(
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.RANK,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def event_skewness(
     df: pl.DataFrame,
@@ -322,7 +332,9 @@ def event_skewness(
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> MetricResult:
-    """Skewness of signed_car distribution.
+    r"""Skewness of signed event return distribution.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     Positive skew = occasional large gains, frequent small losses
     (desirable for event strategies). Uses scipy's Fisher skewness
@@ -410,6 +422,7 @@ def event_skewness(
     aggregation=Aggregation.EVENT_TIME,
     test_method=TestMethod.RANK,
     se_method=SEMethod.BUILT_IN,
+    sample_threshold=SampleThreshold(),
 )
 def signal_density(
     df: pl.DataFrame,
@@ -417,6 +430,8 @@ def signal_density(
     factor_col: str = "factor",
 ) -> MetricResult:
     """Average bars per event (inverse frequency).
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     Answers: "how frequently does this density fire?"
 

@@ -26,7 +26,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _p_value_from_t
 from factrix.metrics._decorators import metric
@@ -45,6 +45,7 @@ __all__ = [
     se_method=SEMethod.BUILT_IN,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
+    sample_threshold=SampleThreshold(min_periods=10),
 )
 def ic_trend(
     series: pl.DataFrame,
@@ -145,12 +146,13 @@ def ic_trend(
     vals = vals[np.isfinite(vals)]
     n = len(vals)
 
-    if n < 10:
+    min_periods = ic_trend.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             name,
             "insufficient_trend_periods",
             n_obs=n,
-            min_required=10,
+            min_required=min_periods,
         )
 
     # WHY: index by sequence rather than date difference — non-overlapping

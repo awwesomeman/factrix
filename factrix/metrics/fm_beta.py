@@ -39,7 +39,7 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _newey_west_t_test,
@@ -92,6 +92,10 @@ MIN_FM_PERIODS_WARN: int = 30
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"beta_df": compute_fm_betas},
+    sample_threshold=SampleThreshold(
+        min_periods=MIN_FM_PERIODS_HARD,
+        warn_periods=MIN_FM_PERIODS_WARN,
+    ),
 )
 def fm_beta(
     beta_df: pl.DataFrame,
@@ -213,20 +217,22 @@ def fm_beta(
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
-    if n < MIN_FM_PERIODS_HARD:
+    min_periods = fm_beta.sample_threshold.min_periods  # type: ignore[attr-defined]
+    warn_periods = fm_beta.sample_threshold.warn_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "fm_beta",
             "insufficient_fm_periods",
             n_obs=n,
-            min_required=MIN_FM_PERIODS_HARD,
+            min_required=min_periods,
         )
 
     warning_codes: list[str] = []
-    if n < MIN_FM_PERIODS_WARN:
+    if warn_periods is not None and n < warn_periods:
         warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
         warnings.warn(
             f"fm_beta: n_periods={n} below MIN_FM_PERIODS_WARN="
-            f"{MIN_FM_PERIODS_WARN}; NW HAC SE on a short β series is "
+            f"{warn_periods}; NW HAC SE on a short β series is "
             f"borderline (Fama-MacBeth convention is T≥30). t-stat is "
             f"returned but read p-values cautiously.",
             UserWarning,
@@ -327,6 +333,7 @@ def _cluster_meat(
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
     se_method=SEMethod.HAC,
+    sample_threshold=SampleThreshold(min_pairs=10),
 )
 def pooled_beta(
     df: pl.DataFrame,
@@ -431,12 +438,13 @@ def pooled_beta(
     x = df[factor_col].to_numpy().astype(np.float64)
     n_obs = len(y)
 
-    if n_obs < 10:
+    min_pairs = pooled_beta.sample_threshold.min_pairs  # type: ignore[attr-defined]
+    if min_pairs is not None and n_obs < min_pairs:
         return _short_circuit_output(
             "pooled_beta",
             "insufficient_pooled_observations",
             n_obs=n_obs,
-            min_required=10,
+            min_required=min_pairs,
         )
 
     X = np.column_stack([np.ones(n_obs), x])
@@ -577,6 +585,7 @@ def pooled_beta(
     se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"beta_df": compute_fm_betas},
+    sample_threshold=SampleThreshold(min_periods=1),
 )
 def beta_sign_consistency(
     beta_df: pl.DataFrame,
@@ -625,12 +634,13 @@ def beta_sign_consistency(
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
-    if n == 0:
+    min_periods = beta_sign_consistency.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "beta_sign_consistency",
             "no_beta_observations",
-            n_obs=0,
-            min_required=1,
+            n_obs=n,
+            min_required=min_periods,
         )
 
     if expected_sign >= 0:

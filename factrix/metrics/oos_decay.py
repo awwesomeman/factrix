@@ -28,7 +28,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS
 from factrix.metrics._decorators import metric
@@ -49,6 +49,7 @@ GateStatus = Literal["PASS", "VETOED"]
     se_method=SEMethod.NONE,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
+    sample_threshold=SampleThreshold(min_periods=MIN_OOS_PERIODS * 2),
 )
 def oos_decay(
     series: pl.DataFrame,
@@ -126,14 +127,14 @@ def oos_decay(
     vals = sorted_series[value_col].drop_nulls()
     n = len(vals)
 
-    # Need MIN_OOS_PERIODS in both IS and OOS halves for a meaningful ratio.
-    if n < MIN_OOS_PERIODS * 2:
+    min_periods = oos_decay.sample_threshold.min_periods  # type: ignore[attr-defined]
+    if min_periods is not None and n < min_periods:
         return _short_circuit_output(
             "oos_decay",
             "insufficient_oos_periods",
             n_obs=n,
             descriptive=True,
-            min_required=MIN_OOS_PERIODS * 2,
+            min_required=min_periods,
             sign_flipped=False,
             status="VETOED",
             is_ratio=is_ratio,

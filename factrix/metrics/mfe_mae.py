@@ -28,7 +28,7 @@ from factrix._axis import (
     SEMethod,
     TestMethod,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
@@ -51,9 +51,12 @@ DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
     se_method=SEMethod.NONE,
     input_shape=InputShape.SERIES,
     requires={"mfe_mae_df": compute_mfe_mae},
+    sample_threshold=SampleThreshold(),
 )
 def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
     """Aggregate MFE/MAE statistics.
+
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
 
     Reports MFE/MAE ratio as the primary value — higher is better
     (favorable excursion exceeds adverse excursion).
