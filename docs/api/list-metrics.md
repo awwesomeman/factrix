@@ -26,22 +26,22 @@ callables up from `factrix.metrics` and pass them to
 from factrix.metrics import ic, fm_beta, breakeven_cost
 ```
 
-## Per-cell applicability → `inspect_panel`
+## Per-cell applicability → `inspect_data`
 
 The former `list_metrics(scope, density)` cell filter — together with
 its `format="json"` and `with_import` knobs — is **retired** (#498). To
 learn which metrics actually run on a given panel, and which are
 degraded or blocked by sample floors, inspect a real panel with
-`inspect_panel`:
+`inspect_data`:
 
 ```python
-info = fx.inspect_panel(panel)
+info = fx.inspect_data(panel)
 [m.name for m in info.usable]     # production-safe metrics for this panel
 [m.name for m in info.degraded]   # run, but inference degraded
 [m.name for m in info.unusable]   # blocked (cell mismatch / sample floor)
 ```
 
-`inspect_panel` subsumes the old cell filter with a structure-aware,
+`inspect_data` subsumes the old cell filter with a structure-aware,
 sample-floor-aware verdict: each `MetricApplicability` carries the
 metric `name`, its callable class, and any `blockers` / `warnings`.
 Unlike the static cell filter, it accounts for the actual panel shape

@@ -1,22 +1,22 @@
-"""``fx.inspect_panel`` — typed panel introspection with per-metric verdict (#443).
+"""``fx.inspect_data`` — typed data introspection with per-metric verdict (#443).
 
 Two-stage applicability model:
 
 1. **Cell match** — ``(scope, density, structure)`` axes on
-   :class:`MetricSpec.cell` must agree with the inspected panel's
-   :class:`PanelProperties`. DataStructure is integral to the match — a metric
+   :class:`MetricSpec.cell` must agree with the inspected data's
+   :class:`DataProperties`. DataStructure is integral to the match — a metric
    whose cell declares ``structure=DataStructure.PANEL`` (e.g. IC, which has no
-   cross-section in TIMESERIES) is unusable when the panel is
+   cross-section in TIMESERIES) is unusable when the data is
    single-asset, not just "degraded".
 2. **Sample floor** — :class:`MetricSpec.sample_floor` declares the
-   panel-shape thresholds below which the metric short-circuits
+   data-shape thresholds below which the metric short-circuits
    (``min_*``) or runs with a documented bias warning (``warn_*``).
-   :func:`inspect_panel` evaluates these against
-   :class:`PanelProperties`.
+   :func:`inspect_data` evaluates these against
+   :class:`DataProperties`.
 
 Each public spec receives one :class:`MetricApplicability` verdict
 exposing ``usable`` / ``warnings`` / ``blockers``. The flat
-``list[MetricApplicability]`` on :class:`PanelInspection.metrics` is
+``list[MetricApplicability]`` on :class:`DataInspection.metrics` is
 the single source of truth; the ``usable`` / ``degraded`` /
 ``unusable`` properties expose it as a mutually exclusive partition.
 """
@@ -41,11 +41,11 @@ if TYPE_CHECKING:
 _SPARSITY_THRESHOLD: float = 0.5
 
 
-def _detect_structure(panel: Any) -> DataStructure:
-    """Return ``TIMESERIES`` if the panel has a single asset, else ``PANEL``."""
+def _detect_structure(data: Any) -> DataStructure:
+    """Return ``TIMESERIES`` if the data has a single asset, else ``PANEL``."""
     return (
         DataStructure.TIMESERIES
-        if panel["asset_id"].n_unique() <= 1
+        if data["asset_id"].n_unique() <= 1
         else DataStructure.PANEL
     )
 
@@ -98,13 +98,13 @@ def _detect_scope(raw: Any) -> tuple[FactorScope, str]:
 
 
 @dataclass(frozen=True, slots=True)
-class PanelProperties:
-    """Inspected panel properties driving cell dispatch.
+class DataProperties:
+    """Inspected data properties driving cell dispatch.
 
     Carries the dispatch axes (``scope`` / ``density`` / ``structure``
     as typed enums), the human-readable rationale for each axis decision
     (``scope_reason`` / ``density_reason`` / ``structure_reason``), and
-    the panel-shape numerics the user typically wants next to them
+    the data-shape numerics the user typically wants next to them
     (``n_assets`` / ``n_periods`` / ``n_pairs`` / ``sparse_ratio``).
     Named ``Properties`` rather than ``Axes`` because the numeric fields
     are not axes — they are observations supporting the axis decisions.
@@ -118,17 +118,17 @@ class PanelProperties:
         density: Detected :class:`FactorDensity`.
         density_reason: Human-readable rationale for ``density``.
         structure: Detected :class:`DataStructure` — ``TIMESERIES`` iff
-            ``n_assets == 1`` (single-asset panel), ``PANEL`` otherwise.
+            ``n_assets == 1`` (single-asset data), ``PANEL`` otherwise.
         structure_reason: Human-readable rationale for ``structure``.
         n_assets: Unique ``asset_id`` count under any-non-null union.
         n_periods: Unique ``date`` count under any-non-null union.
         n_pairs: Non-null ``(date, asset_id)`` factor observation
             count — the upper bound on usable sample size for any
             pair-counting metric (IC, rank-IC, FM cross-section).
-            Equals ``panel.height`` for a dense panel; smaller when
+            Equals ``data.height`` for a dense panel; smaller when
             the factor column has nulls.
         sparse_ratio: Zero-ratio in the ``factor`` column (denominator
-            is non-null cell count). ``math.nan`` for an empty panel.
+            is non-null cell count). ``math.nan`` for an empty data.
     """
 
     scope: FactorScope
@@ -145,7 +145,7 @@ class PanelProperties:
 
 @dataclass(frozen=True, slots=True)
 class MetricApplicability:
-    """Per-metric pre-flight verdict against one panel's properties.
+    """Per-metric pre-flight verdict against one data's properties.
 
     Attributes:
         metric: The :class:`~factrix.metrics._base.MetricBase` subclass
@@ -182,7 +182,7 @@ def _default_constructible(metric: Any) -> bool:
 
     Scalar-input utilities (e.g. ``breakeven_cost`` / ``net_spread``) declare
     required parameters (``turnover`` / ``forward_periods`` …) and consume
-    pre-aggregated scalars rather than a panel, so they are not part of the
+    pre-aggregated scalars rather than a data, so they are not part of the
     zero-config discovery -> :func:`factrix.evaluate` flow.
     """
     return all(
@@ -195,7 +195,7 @@ class MetricApplicabilityGroup(list["MetricApplicability"]):
     """A tier partition of :class:`MetricApplicability` verdicts.
 
     A ``list`` subclass — every list operation works — with discovery
-    helpers layered on. Returned by :attr:`PanelInspection.usable` /
+    helpers layered on. Returned by :attr:`DataInspection.usable` /
     ``degraded`` / ``unusable``.
     """
 
@@ -220,8 +220,8 @@ class MetricApplicabilityGroup(list["MetricApplicability"]):
         feed its default-constructed instances straight to
         :func:`factrix.evaluate`::
 
-            info = fx.inspect_panel(panel)
-            results = fx.evaluate(panel, metrics=info.usable.to_metrics_dict(),
+            info = fx.inspect_data(data)
+            results = fx.evaluate(data, metrics=info.usable.to_metrics_dict(),
                                   factor_cols=[...], forward_periods=5)
 
         Metrics whose class needs explicit construction arguments (the
@@ -231,27 +231,27 @@ class MetricApplicabilityGroup(list["MetricApplicability"]):
 
 
 @dataclass(frozen=True, slots=True)
-class PanelInspection:
-    """Result of :func:`inspect_panel`.
+class DataInspection:
+    """Result of :func:`inspect_data`.
 
     Pure data — no execution methods.
 
     Attributes:
-        detected: :class:`PanelProperties` with typed enum axes, the
+        detected: :class:`DataProperties` with typed enum axes, the
             per-axis rationale strings, and shape numerics.
         metrics: Flat ``list[MetricApplicability]`` — one verdict
             per ``visibility=PUBLIC`` spec the inspector considered.
             Single source of truth; the :attr:`usable` /
             :attr:`degraded` / :attr:`unusable` properties expose it
             as a mutually exclusive partition.
-        warnings: Panel-level sample-shape diagnostics (NW HAC SE
+        warnings: Data-level sample-shape diagnostics (NW HAC SE
             unreliable, cross-asset df low). ``source=None`` on
-            every entry because these are panel-level, not
+            every entry because these are data-level, not
             per-metric. Per-metric degraded warnings live inside
             each :class:`MetricApplicability`.
     """
 
-    detected: PanelProperties
+    detected: DataProperties
     metrics: list[MetricApplicability]
     warnings: list[Warning] = field(default_factory=list)
 
@@ -293,7 +293,7 @@ class PanelInspection:
 
     @property
     def unusable(self) -> MetricApplicabilityGroup:
-        """Metrics that cannot run on this panel.
+        """Metrics that cannot run on this data.
 
         ``usable=False`` — blocked by cell mismatch or a ``min_*``
         floor violation; :attr:`MetricApplicability.blockers` carries
@@ -314,8 +314,8 @@ class PanelInspection:
         - ``reasoning``: ``{scope, density, structure}``.
         - ``metrics``: list of per-spec dicts
           ``{name, cell, usable, warnings, blockers}`` — same row
-          shape suits ``pl.from_dicts`` for cross-panel audit.
-        - ``warnings``: panel-level ``[{code, source, message}, ...]``.
+          shape suits ``pl.from_dicts`` for cross-data audit.
+        - ``warnings``: data-level ``[{code, source, message}, ...]``.
 
         Mirrors :meth:`factrix.EvaluationResult.to_dict` shape — single
         ``to_dict`` convention across the public result-type group so
@@ -421,7 +421,7 @@ class PanelInspection:
                 for w in self.warnings
             )
             warnings_block = (
-                "<details open><summary>panel-level warnings "
+                "<details open><summary>data-level warnings "
                 f"({len(self.warnings)})</summary>"
                 "<table><thead><tr><th>code</th><th>message</th>"
                 "</tr></thead>"
@@ -429,8 +429,8 @@ class PanelInspection:
             )
 
         return (
-            "<div class='factrix-panel-inspection'>"
-            "<table><caption>PanelInspection — detected</caption>"
+            "<div class='factrix-data-inspection'>"
+            "<table><caption>DataInspection — detected</caption>"
             f"<tbody>{header_html}</tbody></table>"
             "<table><caption>reasoning</caption>"
             f"<tbody>{reasoning_rows}</tbody></table>"
@@ -439,14 +439,14 @@ class PanelInspection:
         )
 
 
-def inspect_panel(panel: Any) -> PanelInspection:
-    """Inspect a panel and return typed dispatch-axis + per-metric verdict.
+def inspect_data(data: Any) -> DataInspection:
+    """Inspect data and return typed dispatch-axis + per-metric verdict.
 
     Pre-flight introspection: typed detection plus, for every
-    ``visibility=PUBLIC`` :class:`MetricSpec` in the registry, a
+    ``role=SpecRole.METRIC`` :class:`MetricSpec` in the registry, a
     :class:`MetricApplicability` verdict combining (a) cell-match
     against the detected ``(scope, density, structure)`` and (b) the
-    spec's optional :class:`SampleThreshold` against the panel's
+    spec's optional :class:`SampleThreshold` against the data's
     ``n_periods`` / ``n_assets``.
 
     Sample-floor checks against ``n_events`` (factor-column-dependent)
@@ -454,32 +454,32 @@ def inspect_panel(panel: Any) -> PanelInspection:
     own short-circuit path.
 
     Args:
-        panel: Long-format panel with the canonical columns
+        data: Long-format factor data with the canonical columns
             ``date`` / ``asset_id`` / ``factor``.
 
     Returns:
-        :class:`PanelInspection`.
+        :class:`DataInspection`.
 
     Examples:
         >>> import factrix as fx
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
-        >>> info = fx.inspect_panel(raw)
+        >>> info = fx.inspect_data(raw)
         >>> all(m.spec.cell.matches(info.detected.scope, info.detected.density, info.detected.structure) for m in info.usable)
         True
     """
-    density, density_reason, sparse_ratio = _detect_density(panel)
-    scope, scope_reason = _detect_scope(panel)
-    structure = _detect_structure(panel)
-    n_assets = int(panel["asset_id"].n_unique())
-    n_periods = int(panel["date"].n_unique())
-    n_pairs = int(panel.drop_nulls("factor").height)
+    density, density_reason, sparse_ratio = _detect_density(data)
+    scope, scope_reason = _detect_scope(data)
+    structure = _detect_structure(data)
+    n_assets = int(data["asset_id"].n_unique())
+    n_periods = int(data["date"].n_unique())
+    n_pairs = int(data.drop_nulls("factor").height)
 
     structure_reason = (
         f"n_assets={n_assets} → "
-        f"{'TIMESERIES (single-asset panel)' if structure is DataStructure.TIMESERIES else 'PANEL'}"
+        f"{'TIMESERIES (single-asset data)' if structure is DataStructure.TIMESERIES else 'PANEL'}"
     )
 
-    properties = PanelProperties(
+    properties = DataProperties(
         scope=scope,
         scope_reason=scope_reason,
         density=density,
@@ -492,18 +492,18 @@ def inspect_panel(panel: Any) -> PanelInspection:
         sparse_ratio=sparse_ratio,
     )
 
-    panel_warnings = _panel_level_warnings(properties)
+    data_warnings = _data_level_warnings(properties)
     metrics = [_evaluate_applicability(spec, properties) for _, spec in public_specs()]
 
-    return PanelInspection(
+    return DataInspection(
         detected=properties,
         metrics=metrics,
-        warnings=panel_warnings,
+        warnings=data_warnings,
     )
 
 
 def _evaluate_applicability(
-    spec: MetricSpec, properties: PanelProperties
+    spec: MetricSpec, properties: DataProperties
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
 
@@ -554,10 +554,10 @@ def _evaluate_applicability(
     )
 
 
-def _panel_level_warnings(properties: PanelProperties) -> list[Warning]:
+def _data_level_warnings(properties: DataProperties) -> list[Warning]:
     """Sample-shape warnings the user can act on before running anything.
 
-    Panel-level (``source=None``) — not attributable to any single
+    Data-level (``source=None``) — not attributable to any single
     metric. Per-metric degraded warnings live on each
     :class:`MetricApplicability`.
     """

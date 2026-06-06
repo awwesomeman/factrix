@@ -5,7 +5,7 @@ plus an evaluate-time-derived ``DataStructure`` define the analysis
 cell. Resolve metric specs via ``spec_by_name()`` (or register custom ones
 with ``metric_spec`` + ``factrix.metrics.register``), dispatch through the
 DAG executor via ``evaluate()``, inspect a panel's applicable metrics via
-``inspect_panel()``, and aggregate across factors with ``multi_factor.bhy``
+``inspect_data()``, and aggregate across factors with ``multi_factor.bhy``
 for FDR-corrected screening.
 
 Single-factor::
@@ -56,6 +56,7 @@ from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespa
 from factrix._codes import InfoCode, StatCode, WarningCode
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
+from factrix._data_input import DataInput, _coerce_data
 from factrix._errors import (
     ConfigError,
     FactrixError,
@@ -65,12 +66,12 @@ from factrix._errors import (
     UserInputError,
 )
 from factrix._inspect import (
+    DataInspection,
+    DataProperties,
     MetricApplicability,
     MetricApplicabilityGroup,
-    PanelInspection,
-    PanelProperties,
     _detect_structure,
-    inspect_panel,
+    inspect_data,
 )
 from factrix._metric_index import (
     MetricSpec,
@@ -79,7 +80,6 @@ from factrix._metric_index import (
     metric_spec,
     spec_by_name,
 )
-from factrix._panel_input import PanelInput, _coerce_panel
 from factrix._results import (
     EvaluationResult,
     MetricResult,
@@ -96,7 +96,7 @@ from factrix.stats import list_estimators
 
 
 def evaluate(
-    panel: PanelInput,
+    data: DataInput,
     *,
     metrics: "dict[str, MetricBase]",
     factor_cols: list[str],
@@ -112,7 +112,7 @@ def evaluate(
     ``compute_ic`` etc.), and per-factor consumers run once per factor.
 
     Args:
-        panel: Long-format panel satisfying the four-column floor
+        data: Long-format data satisfying the four-column floor
             ``(date, asset_id, <factor_col>, forward_return)``. The
             three fixed-name columns ``(date, asset_id, forward_return)``
             are validated eagerly; the factor-column name is dynamic
@@ -127,16 +127,16 @@ def evaluate(
             metric **instance** from :mod:`factrix.metrics` (e.g.
             ``{"ic_5d": ic(), "spread": quantile_spread(n_quantiles=5)}``).
             Results key by these labels. Passing the bare class (``ic``
-            rather than ``ic()``), a ``str``, or a :class:`MetricSpec` is
+            rather than ``ic()``), a ``str`` or a :class:`MetricSpec` is
             rejected with a targeted error. One metric class may run under
             several labels with **different** config — e.g.
             ``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}`` — via
             by-value DAG dedup (#494); shared upstream producers are computed
             once per distinct config.
-        factor_cols: Names of density columns on ``panel``. List-only —
+        factor_cols: Names of density columns on ``data``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
-            name must exist on ``panel``.
-        forward_periods: Default forward-return horizon (rows of the panel's
+            name must exist on ``data``.
+        forward_periods: Default forward-return horizon (rows of the data's
             time axis) for metrics left at their signature default. A
             per-instance value — ``ic(forward_periods=20)`` — always overrides
             it (#494). ``None`` (default) leaves every metric at its own
@@ -147,7 +147,7 @@ def evaluate(
             partition. ``None`` (default) uses the first ``metrics`` key
             (insertion order). Must be a key of ``metrics``.
         strict: When ``True`` (default), raise if any metric is
-            inapplicable to the panel (apply-time short-circuit to NaN).
+            inapplicable to the data (apply-time short-circuit to NaN).
             When ``False``, keep those as NaN outputs with attached
             warnings. Config-time / construct-time failures always raise.
 
@@ -162,9 +162,9 @@ def evaluate(
         UserInputError: ``metrics`` not a ``dict[str, Metric]`` of
             instances; ``primary`` not a metrics label; ``factor_cols``
             empty / single ``str`` / contains duplicates / references a
-            column not on ``panel``; ``panel`` missing a baseline column;
+            column not on ``data``; ``data`` missing a baseline column;
             a metric ``requires`` a producer absent from the registry; under
-            ``strict=True``, a metric inapplicable to the panel.
+            ``strict=True``, a metric inapplicable to the data.
 
     Examples:
         Single-factor IC + IC information ratio (IR):
@@ -172,9 +172,9 @@ def evaluate(
         >>> import factrix as fx
         >>> from factrix.metrics import ic, ic_ir
         >>> raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
-        >>> panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        >>> data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
         >>> results = fx.evaluate(
-        ...     panel,
+        ...     data,
         ...     metrics={"ic": ic(), "ic_ir": ic_ir()},
         ...     factor_cols=["factor"],
         ...     forward_periods=5,
@@ -187,9 +187,9 @@ def evaluate(
     _validate_metrics_arg(metrics)
     primary_label = _resolve_primary(metrics, primary)
     cols = _validate_factor_cols_arg(factor_cols)
-    panel = _coerce_panel(panel)
-    _validate_baseline_columns(panel)
-    _validate_factor_cols_on_panel(panel, cols)
+    data = _coerce_data(data)
+    _validate_baseline_columns(data)
+    _validate_factor_cols_on_data(data, cols)
 
     # label -> spec, plus per-instance params with forward_periods resolved
     # against the top-level default (an instance still at its signature default
@@ -205,7 +205,7 @@ def evaluate(
     node_to_label = {nid: label for label, nid in label_to_node.items()}
 
     primary_spec = label_spec[primary_label]
-    _validate_primary_metric_applicable(primary_spec, panel, strict)
+    _validate_primary_metric_applicable(primary_spec, data, strict)
 
     primary_cell = primary_spec.cell
     scope = (
@@ -223,7 +223,7 @@ def evaluate(
 
     executor = DagExecutor(nodes, primary_names=(primary_node,))
     result_dict = executor.execute(
-        panel,
+        data,
         cols,
         scope=scope,
         density=density,
@@ -240,7 +240,7 @@ def evaluate(
 
 _DOCS_METRICS = "api/evaluate#metrics"
 _DOCS_FACTOR_COLS = "api/evaluate#factor_cols"
-_DOCS_PANEL = "api/evaluate#panel"
+_DOCS_DATA = "api/evaluate#data"
 
 
 def _is_metrics_overview(metrics: object) -> bool:
@@ -272,7 +272,7 @@ def _validate_metrics_arg(metrics: object) -> None:
                 "a dict[str, Metric] of metric instances. fx.list_metrics() "
                 "returns an overview catalog (family -> specs), not runnable "
                 "metrics; construct the ones you want, e.g. {'ic': ic()}, or "
-                "pre-filter with factrix.inspect_panel(panel).usable"
+                "pre-filter with factrix.inspect_data(data).usable"
             ),
             docs_path=_DOCS_METRICS,
         )
@@ -498,7 +498,7 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
             expected=(
                 f"all metrics applicable to the panel. Inapplicable — {detail}. "
                 f"Pass strict=False to keep them as NaN with warnings, or "
-                f"pre-filter with [m.name for m in factrix.inspect_panel(panel).usable]."
+                f"pre-filter with [m.name for m in factrix.inspect_data(data).usable]."
             ),
             docs_path=_DOCS_METRICS,
         )
@@ -574,16 +574,16 @@ def _validate_factor_cols_arg(factor_cols: object) -> list[str]:
     return list(factor_cols)
 
 
-def _validate_factor_cols_on_panel(panel: pl.DataFrame, cols: list[str]) -> None:
-    missing = [c for c in cols if c not in panel.columns]
+def _validate_factor_cols_on_data(data: pl.DataFrame, cols: list[str]) -> None:
+    missing = [c for c in cols if c not in data.columns]
     if missing:
         raise UserInputError(
             func_name="evaluate",
             field="factor_cols",
             value=missing,
             expected=(
-                f"every name in factor_cols to exist on panel; "
-                f"got columns {list(panel.columns)!r}"
+                f"every name in factor_cols to exist on data; "
+                f"got columns {list(data.columns)!r}"
             ),
             docs_path=_DOCS_FACTOR_COLS,
         )
@@ -592,42 +592,42 @@ def _validate_factor_cols_on_panel(panel: pl.DataFrame, cols: list[str]) -> None
 _BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 
 
-def _validate_baseline_columns(panel: pl.DataFrame) -> None:
-    missing = [c for c in _BASELINE_COLUMNS if c not in panel.columns]
+def _validate_baseline_columns(data: pl.DataFrame) -> None:
+    missing = [c for c in _BASELINE_COLUMNS if c not in data.columns]
     if not missing:
         return
     if "forward_return" in missing:
         hint = (
             ". Attach forward_return:\n"
-            "    panel = factrix.preprocess.compute_forward_return("
-            "panel, forward_periods=<N>)"
+            "    data = factrix.preprocess.compute_forward_return("
+            "data, forward_periods=<N>)"
         )
     else:
         hint = ""
     raise UserInputError(
         func_name="evaluate",
-        field="panel",
-        value=list(panel.columns),
+        field="data",
+        value=list(data.columns),
         expected=(
-            f"panel must include baseline columns {list(_BASELINE_COLUMNS)!r}; "
+            f"data must include baseline columns {list(_BASELINE_COLUMNS)!r}; "
             f"missing {missing!r}{hint}"
         ),
-        docs_path=_DOCS_PANEL,
+        docs_path=_DOCS_DATA,
     )
 
 
 def _validate_primary_metric_applicable(
-    primary: MetricSpec, panel: pl.DataFrame, strict: bool
+    primary: MetricSpec, data: pl.DataFrame, strict: bool
 ) -> None:
-    """Reject a primary metric whose ``cell.structure`` disagrees with the panel.
+    """Reject a primary metric whose ``cell.structure`` disagrees with the data.
 
     DataStructure is the cheap pre-flight gate: IC / FM / quantile_spread declare
     ``cell.structure = DataStructure.PANEL`` and produce only NaN short-circuits on a
-    single-asset panel; surfacing that as a UserInputError keeps the
+    single-asset data; surfacing that as a UserInputError keeps the
     diagnostic specific instead of letting the executor return a result
     bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
-    Cell-axis (scope / density) applicability requires panel detection
-    and is left to ``fx.inspect_panel`` for the explicit pre-flight path.
+    Cell-axis (scope / density) applicability requires data detection
+    and is left to ``fx.inspect_data`` for the explicit pre-flight path.
 
     Under ``strict=False`` this guard is skipped (#494 / #497 carry-over): per
     #476 §4 a structure mismatch is an apply-time failure, so the metric is
@@ -639,20 +639,20 @@ def _validate_primary_metric_applicable(
     cell_structure = primary.cell.structure
     if cell_structure is None:
         return
-    panel_structure = _detect_structure(panel)
-    if cell_structure is panel_structure:
+    data_structure = _detect_structure(data)
+    if cell_structure is data_structure:
         return
-    n_assets = int(panel["asset_id"].n_unique())
+    n_assets = int(data["asset_id"].n_unique())
     raise UserInputError(
         func_name="evaluate",
         field="metrics",
         value=primary.name,
         expected=(
             f"primary metric {primary.name!r} declares "
-            f"cell.structure={cell_structure.value!r} but panel has "
-            f"structure={panel_structure.value!r} (n_assets={n_assets}); "
-            f"call fx.inspect_panel(panel) to see metrics applicable "
-            f"to this panel shape"
+            f"cell.structure={cell_structure.value!r} but data has "
+            f"structure={data_structure.value!r} (n_assets={n_assets}); "
+            f"call fx.inspect_data(data) to see metrics applicable "
+            f"to this data shape"
         ),
         docs_path=_DOCS_METRICS,
     )
@@ -684,17 +684,17 @@ __all__ = [
     "EvaluationResult",
     "MetricResult",
     "MetricResultGroup",
-    "PanelInput",
+    "DataInput",
     "Warning",
     "compare",
     "evaluate",
     # Introspection
     "MetricApplicability",
     "MetricApplicabilityGroup",
-    "PanelInspection",
-    "PanelProperties",
+    "DataInspection",
+    "DataProperties",
     "SampleThreshold",
-    "inspect_panel",
+    "inspect_data",
     "list_estimators",
     "list_metrics",
     # Slicing dispatcher + cross-slice inference functions

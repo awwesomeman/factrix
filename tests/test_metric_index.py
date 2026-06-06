@@ -20,7 +20,7 @@ from factrix._axis import (
     TestMethod,
     Tier,
 )
-from factrix._inspect import PanelProperties
+from factrix._inspect import DataProperties
 from factrix._metric_index import (
     MetricSpec,
     SampleThreshold,
@@ -60,7 +60,7 @@ class TestSampleThresholdHelpers:
             warn_pairs=50,
         )
 
-        props_clean = PanelProperties(
+        props_clean = DataProperties(
             scope=FactorScope.INDIVIDUAL,
             scope_reason="",
             density=FactorDensity.DENSE,
@@ -79,7 +79,7 @@ class TestSampleThresholdHelpers:
         }
         assert st.verdict(props_clean) is Tier.CLEAN
 
-        props_degraded = PanelProperties(
+        props_degraded = DataProperties(
             scope=FactorScope.INDIVIDUAL,
             scope_reason="",
             density=FactorDensity.DENSE,
@@ -98,7 +98,7 @@ class TestSampleThresholdHelpers:
         }
         assert st.verdict(props_degraded) is Tier.DEGRADED
 
-        props_unusable = PanelProperties(
+        props_unusable = DataProperties(
             scope=FactorScope.INDIVIDUAL,
             scope_reason="",
             density=FactorDensity.DENSE,

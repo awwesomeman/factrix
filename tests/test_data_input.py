@@ -1,4 +1,4 @@
-"""Tests for `_coerce_panel`, the strict polars-native API gateway.
+"""Tests for `_coerce_data`, the strict polars-native API gateway.
 
 `fx.evaluate` and `fx.run_metrics` accept `pl.DataFrame` (passes
 through) and `pl.LazyFrame` (collected at the boundary). `pd.DataFrame`
@@ -12,54 +12,54 @@ from __future__ import annotations
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._panel_input import _coerce_panel
+from factrix._data_input import _coerce_data
 from factrix.preprocess import compute_forward_return
 
 
 @pytest.fixture(scope="module")
-def panel_pl() -> pl.DataFrame:
+def data_pl() -> pl.DataFrame:
     raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=120, seed=7)
     return compute_forward_return(raw, forward_periods=5)
 
 
-def test_coerce_polars_dataframe_passthrough(panel_pl: pl.DataFrame) -> None:
-    out = _coerce_panel(panel_pl)
-    assert out is panel_pl
+def test_coerce_polars_dataframe_passthrough(data_pl: pl.DataFrame) -> None:
+    out = _coerce_data(data_pl)
+    assert out is data_pl
 
 
-def test_coerce_lazyframe_collects(panel_pl: pl.DataFrame) -> None:
-    out = _coerce_panel(panel_pl.lazy())
+def test_coerce_lazyframe_collects(data_pl: pl.DataFrame) -> None:
+    out = _coerce_data(data_pl.lazy())
     assert isinstance(out, pl.DataFrame)
-    assert out.equals(panel_pl)
+    assert out.equals(data_pl)
 
 
 def test_coerce_pandas_dataframe_is_rejected_with_guidance() -> None:
     pd = pytest.importorskip("pandas")
     pdf = pd.DataFrame({"a": [1, 2]})
     with pytest.raises(TypeError, match=r"factrix\.adapt|pl\.from_pandas"):
-        _coerce_panel(pdf)
+        _coerce_data(pdf)
 
 
 def test_coerce_unsupported_type_raises() -> None:
     with pytest.raises(TypeError, match=r"pl\.DataFrame or pl\.LazyFrame"):
-        _coerce_panel([{"date": 1}])
+        _coerce_data([{"date": 1}])
 
 
-def test_evaluate_accepts_lazyframe_end_to_end(panel_pl: pl.DataFrame) -> None:
+def test_evaluate_accepts_lazyframe_end_to_end(data_pl: pl.DataFrame) -> None:
     from factrix.metrics import ic
 
     eager = fx.evaluate(
-        panel_pl, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
+        data_pl, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
     )
     lazy = fx.evaluate(
-        panel_pl.lazy(), metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
+        data_pl.lazy(), metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
     )
     assert eager[0].metrics["ic"].value == lazy[0].metrics["ic"].value
 
 
-def test_evaluate_rejects_pandas_with_guidance(panel_pl: pl.DataFrame) -> None:
+def test_evaluate_rejects_pandas_with_guidance(data_pl: pl.DataFrame) -> None:
     pytest.importorskip("pandas")
-    pdf = panel_pl.to_pandas()
+    pdf = data_pl.to_pandas()
     from factrix.metrics import ic
 
     with pytest.raises(TypeError, match=r"factrix\.adapt|pl\.from_pandas"):

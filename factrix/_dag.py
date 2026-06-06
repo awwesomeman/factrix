@@ -42,15 +42,15 @@ from factrix._results import (
 )
 
 
-def _project_factor(panel: pl.DataFrame, col: str) -> pl.DataFrame:
-    """Project ``panel`` to the canonical 4-column per-factor view.
+def _project_factor(data: pl.DataFrame, col: str) -> pl.DataFrame:
+    """Project ``data`` to the canonical 4-column per-factor view.
 
-    Non-batch primitives expect a panel whose factor column is literally
+    Non-batch primitives expect data whose factor column is literally
     named ``"factor"``; this projection renames ``col`` and drops any
     sibling columns so primitives see an identical schema regardless of
     the caller's ``factor_cols`` choice.
     """
-    return panel.select(
+    return data.select(
         pl.col("date"),
         pl.col("asset_id"),
         pl.col("forward_return"),
@@ -182,7 +182,7 @@ class DagExecutor:
 
     def execute(
         self,
-        panel: pl.DataFrame,
+        data: pl.DataFrame,
         factor_cols: Sequence[str],
         *,
         scope: FactorScope,
@@ -197,19 +197,19 @@ class DagExecutor:
         ``factor_cols=`` and the per-factor entries of its returned
         dict are unpacked into the cache. When false, the producer is
         called once per factor on a thin projection (only when at
-        least one downstream consumer needs it; raw-panel consumers
+        least one downstream consumer needs it; raw-data consumers
         skip projection).
         """
         kwargs_by_metric = kwargs_by_metric or {}
         cols = list(factor_cols)
-        n_assets = panel.select(pl.col("asset_id").n_unique()).item()
+        n_assets = data.select(pl.col("asset_id").n_unique()).item()
         structure = DataStructure.PANEL if n_assets > 1 else DataStructure.TIMESERIES
         projections: dict[str, pl.DataFrame] = {}
 
         def project(c: str) -> pl.DataFrame:
             view = projections.get(c)
             if view is None:
-                view = _project_factor(panel, c)
+                view = _project_factor(data, c)
                 projections[c] = view
             return view
 
@@ -234,7 +234,7 @@ class DagExecutor:
                 continue
 
             upstream = self._gather_upstream_batch(node, live, producer_outputs)
-            result = handle(panel, live, project=project, upstream=upstream)
+            result = handle(data, live, project=project, upstream=upstream)
             _validate_batch_result(node, live, result)
             for c in live:
                 out = result[c]
@@ -266,7 +266,7 @@ class DagExecutor:
         bare: Callable[..., Any] = fn
 
         def handle(
-            panel: pl.DataFrame,
+            data: pl.DataFrame,
             factor_cols: Sequence[str],
             *,
             project: Callable[[str], pl.DataFrame],
@@ -275,7 +275,7 @@ class DagExecutor:
             return _dispatch_batch(
                 call_one=lambda *a, **k: bare(*a, **{**kw, **k}),
                 run_batch=lambda: bare(
-                    panel, factor_cols=list(factor_cols), **upstream, **kw
+                    data, factor_cols=list(factor_cols), **upstream, **kw
                 ),
                 batchable=spec.batchable,
                 requires=tuple(spec.requires),

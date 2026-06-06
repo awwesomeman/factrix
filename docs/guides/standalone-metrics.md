@@ -146,6 +146,6 @@ For the subset applicable to a *specific panel* — accounting for its
 actual shape — inspect the panel and read the verdict partitions:
 
 ```python
-info = fx.inspect_panel(panel)
+info = fx.inspect_data(panel)
 [m.name for m in info.usable]   # production-safe metrics for this panel
 ```

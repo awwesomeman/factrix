@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import polars as pl
 
-type PanelInput = pl.DataFrame | pl.LazyFrame
+type DataInput = pl.DataFrame | pl.LazyFrame
 
 
 def _is_pandas_dataframe(obj: object) -> bool:
@@ -32,23 +32,23 @@ def _is_pandas_dataframe(obj: object) -> bool:
     return type(obj).__module__.split(".", 1)[0] == "pandas"
 
 
-def _coerce_panel(panel: PanelInput) -> pl.DataFrame:
-    """Coerce ``PanelInput`` to eager ``pl.DataFrame``.
+def _coerce_data(data: DataInput) -> pl.DataFrame:
+    """Coerce ``DataInput`` to eager ``pl.DataFrame``.
 
     ``pl.LazyFrame`` is collected immediately. ``pd.DataFrame`` is
     rejected with a ``TypeError`` that points to the documented
     conversion paths.
     """
-    if isinstance(panel, pl.DataFrame):
-        return panel
-    if isinstance(panel, pl.LazyFrame):
-        return panel.collect()
-    if _is_pandas_dataframe(panel):
+    if isinstance(data, pl.DataFrame):
+        return data
+    if isinstance(data, pl.LazyFrame):
+        return data.collect()
+    if _is_pandas_dataframe(data):
         raise TypeError(
-            "panel must be pl.DataFrame or pl.LazyFrame; got pandas DataFrame. "
+            "data must be pl.DataFrame or pl.LazyFrame; got pandas DataFrame. "
             "factrix is polars-native — convert with `pl.from_pandas(df)`, "
             "or use `factrix.adapt(df, ...)` if column renaming is needed."
         )
     raise TypeError(
-        f"panel must be pl.DataFrame or pl.LazyFrame; got {type(panel).__name__}."
+        f"data must be pl.DataFrame or pl.LazyFrame; got {type(data).__name__}."
     )
