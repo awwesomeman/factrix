@@ -438,9 +438,11 @@ factrix.list_estimators(scope: FactorScope, density: FactorDensity,
     # returns "name → factrix.stats.<Class>" two-column lines.
     # Ships NeweyWest, HansenHodrick (HAC, scalar-mean axis) and
     # GMM (J-test, moment-condition axis); slice-test estimators
-    # (WaldNWCluster / WaldTwoWayCluster / BlockBootstrap) stay on
-    # the selection-only base protocol. Raises IncompatibleAxisError
-    # if the pair has no applicable estimator.
+    # (WaldNWCluster / WaldTwoWayCluster / BlockBootstrap) plus
+    # DriscollKraay (cross-section-robust HAC SE for pooled_beta,
+    # (INDIVIDUAL, DENSE)) stay on the selection-only base protocol.
+    # Raises IncompatibleAxisError if the pair has no applicable
+    # estimator.
 ```
 
 ---

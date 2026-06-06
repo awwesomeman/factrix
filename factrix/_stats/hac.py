@@ -167,6 +167,115 @@ def _hansen_hodrick_se(
     return float(np.sqrt(max(variance_of_mean, 0.0))), clamped
 
 
+def _bartlett_lrcov(scores_per_period: np.ndarray, lags: int) -> np.ndarray:
+    r"""Newey-West (Bartlett-kernel) long-run covariance of a ``(T, K)`` vector sequence.
+
+    For a chronologically ordered sequence $h_1, \dots, h_T$ of
+    $K$-vectors:
+
+        $$
+        S = \Omega_0 + \sum_{j=1}^{L}\Bigl(1 - \tfrac{j}{L+1}\Bigr)
+            (\Omega_j + \Omega_j'),\qquad
+        \Omega_j = \sum_{t=j+1}^{T} h_t\,h_{t-j}'.
+        $$
+
+    Returns the $K\times K$ matrix $S$ as a *sum* (not time-averaged), so
+    a sandwich $(X'X)^{-1} S (X'X)^{-1}$ stays correctly scaled when
+    $X'X$ is itself a sum over the same observations — the
+    Driscoll-Kraay use below. The Bartlett weight keeps $S$ positive
+    semi-definite ([Newey-West (1987)][newey-west-1987]).
+
+    Args:
+        scores_per_period: ``(T, K)`` array; row ``t`` is the period-``t``
+            vector $h_t$. Rows must already be in time order.
+        lags: Bartlett bandwidth $L$. ``0`` collapses to $\Omega_0$
+            (the no-autocorrelation White form). Lags beyond ``T - 1``
+            contribute nothing and are skipped.
+    """
+    H = np.atleast_2d(scores_per_period)
+    T = H.shape[0]
+    cov = H.T @ H  # Ω_0
+    max_lag = min(lags, T - 1)
+    for j in range(1, max_lag + 1):
+        omega_j = H[j:].T @ H[:-j]
+        weight = 1.0 - j / (lags + 1)
+        cov = cov + weight * (omega_j + omega_j.T)
+    return cov
+
+
+def _driscoll_kraay_cov(
+    X: np.ndarray,
+    resid: np.ndarray,
+    time_ids: np.ndarray,
+    lags: int | None = None,
+) -> tuple[np.ndarray, int, int]:
+    r"""[Driscoll & Kraay (1998)][driscoll-kraay-1998] cross-section-robust HAC covariance for a pooled OLS fit.
+
+    Aggregates the per-observation OLS scores
+    $u_{it} = x_{it}\,\hat e_{it}$ cross-sectionally within each period to
+    $h_t = \sum_{i} u_{it}$, runs a Bartlett-kernel HAC
+    (:func:`_bartlett_lrcov`) on the $T$-length sequence of $K$-vectors
+    $h_t$, and sandwiches with $(X'X)^{-1}$:
+
+        $$
+        V = (X'X)^{-1}\,\hat S_T\,(X'X)^{-1},\qquad
+        \hat S_T = \hat\Omega_0 + \sum_{j=1}^{m}\Bigl(1-\tfrac{j}{m+1}\Bigr)
+                   (\hat\Omega_j + \hat\Omega_j').
+        $$
+
+    Robust to **arbitrary contemporaneous cross-sectional correlation**
+    (and serial correlation up to lag $m$): collapsing each period's
+    cross-section into the single sum $h_t$ folds the within-period
+    dependence into one $K$-vector per period, so the SE only needs the
+    time-series HAC of that sequence. This is the gap a one-way
+    cluster-on-date SE leaves open — clustering on date treats periods as
+    independent and so understates SE when shocks persist across periods,
+    while DK is robust to both axes at once.
+
+    Args:
+        X: ``(N, K)`` pooled design matrix.
+        resid: ``(N,)`` OLS residuals $\hat e_{it}$.
+        time_ids: ``(N,)`` period label per row. Cross-sectional sums are
+            taken within each distinct label; ``np.unique`` ordering
+            (sorted) sets the chronological order of the HAC sequence, so
+            sortable date labels keep the lag structure honest.
+        lags: Bartlett bandwidth $m$. ``None`` → [Newey-West
+            (1994)][newey-west-1994] auto-bandwidth ``auto_bartlett(T)``
+            on the *period* count $T$ (not the row count $N$). Clipped to
+            ``[0, T - 1]``.
+
+    Returns:
+        ``(cov, n_periods, lags_used)`` — ``cov`` is the $K\times K$
+        covariance $V$; ``n_periods`` is the number of distinct
+        ``time_ids``; ``lags_used`` is the resolved bandwidth $m$.
+
+    Raises:
+        numpy.linalg.LinAlgError: ``X'X`` is singular.
+
+    References:
+        - [Driscoll & Kraay (1998)][driscoll-kraay-1998]. "Consistent
+          Covariance Matrix Estimation with Spatially Dependent Panel
+          Data." Review of Economics and Statistics, 80(4), 549–560.
+    """
+    from factrix._stats.constants import auto_bartlett
+
+    scores = X * resid[:, None]  # (N, K) per-obs score u_it
+    # Sum scores within each period → H (T, K). Sorted unique labels give
+    # the chronological order the Bartlett lags assume.
+    uniq, inverse = np.unique(time_ids, return_inverse=True)
+    n_periods = len(uniq)
+    cross_section_sums = np.zeros((n_periods, X.shape[1]))
+    np.add.at(cross_section_sums, inverse.ravel(), scores)
+
+    lags_used = auto_bartlett(n_periods) if lags is None else lags
+    lags_used = max(0, min(lags_used, n_periods - 1))
+
+    long_run_cov = _bartlett_lrcov(cross_section_sums, lags_used)
+    xtx_inv = np.linalg.inv(X.T @ X)
+    cov = xtx_inv @ long_run_cov @ xtx_inv
+    return cov, n_periods, lags_used
+
+
 def _hansen_hodrick_t_test(
     values: np.ndarray,
     forward_periods: int,

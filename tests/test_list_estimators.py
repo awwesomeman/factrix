@@ -22,6 +22,7 @@ from factrix._errors import IncompatibleAxisError
             FactorDensity.DENSE,
             [
                 "BlockBootstrap",
+                "DriscollKraay",
                 "GMM",
                 "HansenHodrick",
                 "NeweyWest",
@@ -55,6 +56,7 @@ def test_with_import_returns_two_column_lines() -> None:
     )
     assert rows == [
         "BlockBootstrap    → factrix.stats.BlockBootstrap",
+        "DriscollKraay     → factrix.stats.DriscollKraay",
         "GMM               → factrix.stats.GMM",
         "HansenHodrick     → factrix.stats.HansenHodrick",
         "NeweyWest         → factrix.stats.NeweyWest",

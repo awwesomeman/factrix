@@ -53,6 +53,8 @@ from factrix._stats.core import (
 from factrix._stats.diagnostics import _ljung_box
 from factrix._stats.gmm import _long_run_covariance, _two_step_gmm_j_stat
 from factrix._stats.hac import (
+    _bartlett_lrcov,
+    _driscoll_kraay_cov,
     _hansen_hodrick_se,
     _hansen_hodrick_t_test,
     _newey_west_se,
@@ -68,9 +70,11 @@ __all__ = [
     "_BINOMIAL_EXACT_CUTOFF",
     "_adf",
     "_adf_pvalue_interp",
+    "_bartlett_lrcov",
     "_binomial_test_method_name",
     "_binomial_two_sided_p",
     "_calc_t_stat",
+    "_driscoll_kraay_cov",
     "_hansen_hodrick_se",
     "_hansen_hodrick_t_test",
     "_ljung_box",

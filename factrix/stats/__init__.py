@@ -19,6 +19,9 @@ opt-in via ``AnalysisConfig.moment_estimator``.
 on overlapping forward returns.
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
 Estimators for slice contrasts (#153); remain on base ``Estimator``.
+``DriscollKraay`` — [Driscoll-Kraay (1998)][driscoll-kraay-1998]
+cross-section-robust HAC SE for pooled-panel slopes (#537); selection-
+only base ``Estimator``, numerics consumed by ``pooled_beta``.
 ``BlockBootstrap`` — block-bootstrap empirical-p Estimator for
 paired-diff slice tests (#153); remains on base ``Estimator``.
 ``multiple_testing`` — Benjamini-Hochberg-Yekutieli (BHY) procedure for false discovery rate (FDR) control across many factors.
@@ -43,6 +46,7 @@ from factrix.stats.bootstrap import (
     bootstrap_mean_ci_batch,
     stationary_bootstrap_resamples,
 )
+from factrix.stats.driscoll_kraay import DriscollKraay
 from factrix.stats.gmm import GMM
 from factrix.stats.hansen_hodrick import HansenHodrick
 from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
@@ -63,6 +67,7 @@ _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
     WaldNWCluster(),
     WaldTwoWayCluster(),
     BlockBootstrap(),
+    DriscollKraay(),
 )
 
 
@@ -168,6 +173,7 @@ def list_estimators(
 __all__ = [
     "GMM",
     "BlockBootstrap",
+    "DriscollKraay",
     "Estimator",
     "GMMResult",
     "HACEstimator",

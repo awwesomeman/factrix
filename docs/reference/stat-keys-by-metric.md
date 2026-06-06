@@ -133,6 +133,12 @@ is emitted.
   `n_obs` carries the row count), `min_required` (always 3).
 - *descriptive* (conditional): `variance_non_psd_fallback` — names
   the fallback path when the meat matrix is non-PSD.
+- *descriptive* (Driscoll-Kraay path, `driscoll_kraay=True`):
+  `se_method` (`"driscoll_kraay"`), `n_periods` (length of the
+  cross-sectional score-sum series), and `driscoll_kraay_lags` (the
+  Bartlett bandwidth used). The DK path uses `df = n_periods − 1`,
+  emits `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` below 30 periods, and
+  short-circuits with `reason = "insufficient_periods"` below 3.
 
 #### `beta_sign_consistency`
 
