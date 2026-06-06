@@ -199,6 +199,15 @@ class MetricApplicabilityGroup(list["MetricApplicability"]):
     ``degraded`` / ``unusable``.
     """
 
+    def __getitem__(self, item):  # type: ignore[override]
+        result = super().__getitem__(item)
+        if isinstance(item, slice):
+            return MetricApplicabilityGroup(result)
+        return result
+
+    def __add__(self, other):  # type: ignore[override]
+        return MetricApplicabilityGroup(super().__add__(list(other)))
+
     @property
     def names(self) -> list[str]:
         """The metric name of each verdict, in order."""
