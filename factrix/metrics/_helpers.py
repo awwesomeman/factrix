@@ -37,14 +37,74 @@ import warnings
 import numpy as np
 import polars as pl
 
+from factrix._codes import WarningCode, cross_section_tier
 from factrix._results import MetricResult
-from factrix._types import EPSILON
+from factrix._stats import _calc_t_stat, _p_value_from_t
+from factrix._stats.constants import MIN_ASSETS_WARN
+from factrix._types import DDOF, EPSILON
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
 # (bucketed signals, industry/size dummies routinely sit at ~0.5 — below
 # 0.3 the sorting-artifact noise from ordinal tie-breaking is negligible).
 TIE_RATIO_WARN_THRESHOLD = 0.3
+
+# Fixed bootstrap seed for the small-cross-section significance path.
+# A spread metric's headline p must be reproducible run-to-run, so the
+# block-bootstrap branch draws from a fixed seed rather than system
+# entropy; the resolved seed is echoed into metadata for the record.
+_SPREAD_BOOTSTRAP_SEED = 0
+
+
+def _spread_significance(
+    spread: np.ndarray,
+    n_assets: int,
+    *,
+    rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
+) -> tuple[float, float, str, dict[str, object], tuple[str, ...]]:
+    """Headline significance for a per-date long-short spread series.
+
+    Returns ``(stat, p_value, method, extra_metadata, warning_codes)``.
+
+    Small cross-sections (``n_assets < MIN_ASSETS_WARN``) switch the
+    headline test from the non-overlapping ``t`` to a block-bootstrap
+    CI: with few names per leg the per-date spread is heavy-tailed, so
+    the ``t``-test's normality assumption is unreliable while the
+    block bootstrap (Politis-Romano stationary scheme) is
+    distribution-free and preserves any residual serial dependence.
+    Larger cross-sections keep the cheaper ``t``-test. ``stat`` is the
+    ``t`` statistic in both branches as a descriptive standardised
+    effect size; in the bootstrap branch ``p_value`` comes from the
+    resampling (``extra_metadata["p_value_t"]`` keeps the parametric ``p``
+    for reference). The chosen path is named in the returned ``method``.
+
+    The switch fires exactly when :func:`cross_section_tier` flags the
+    cross-section (``n_assets < MIN_ASSETS_WARN``), so the returned
+    ``warning_codes`` carry that tier code (``SMALL_`` /
+    ``BORDERLINE_CROSS_SECTION_N``). This surfaces the method change as a
+    :class:`Warning` on the result rather than leaving it buried in
+    metadata — the same two-tier convention the sample guards use.
+    """
+    n = len(spread)
+    mean = float(np.mean(spread))
+    std = float(np.std(spread, ddof=DDOF))
+    t = _calc_t_stat(mean, std, n)
+
+    if n_assets >= MIN_ASSETS_WARN:
+        return t, _p_value_from_t(t, n), "non-overlapping t-test", {}, ()
+
+    from factrix.estimators import block_bootstrap
+
+    p_boot, boot_meta = block_bootstrap(spread, rng_seed=rng_seed)
+    extra: dict[str, object] = {
+        "p_value_t": _p_value_from_t(t, n),
+        "bootstrap_block_length": boot_meta["block_length"],
+        "bootstrap_n_resamples": boot_meta["n_resamples"],
+        "bootstrap_seed": boot_meta["rng_seed"],
+    }
+    tier: WarningCode | None = cross_section_tier(n_assets)
+    codes = (tier.value,) if tier is not None else ()
+    return t, float(p_boot), "block-bootstrap CI", extra, codes
 
 
 def _aggregate_to_per_date(

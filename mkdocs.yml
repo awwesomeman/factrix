@@ -200,6 +200,7 @@ nav:
               - ic: api/metrics/ic.md
               - fama_macbeth: api/metrics/fama_macbeth.md
               - quantile: api/metrics/quantile.md
+              - k_spread: api/metrics/k_spread.md
               - monotonicity: api/metrics/monotonicity.md
               - concentration: api/metrics/concentration.md
               - tradability: api/metrics/tradability.md

@@ -66,6 +66,7 @@ from factrix.metrics.ic import (
     ic_ir,
     ic_newey_west,
 )
+from factrix.metrics.k_spread import k_spread
 from factrix.metrics.mfe_mae import (
     mfe_mae_summary,
 )
@@ -112,6 +113,7 @@ __all__ = [
     "ic_ir",
     "ic_newey_west",
     "ic_trend",
+    "k_spread",
     "mean_r_squared",
     "mfe_mae_summary",
     "monotonicity",

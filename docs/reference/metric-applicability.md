@@ -63,6 +63,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 |---|---|---|
 | [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ n_groups` |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | `T/h` | as `quantile_spread` |
+| [`k_spread`][factrix.metrics.k_spread.k_spread] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; per-date `N ≥ 2·k` |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | `T/h` | per-date `N ≥ n_groups`; series `≥ MIN_MONOTONICITY_PERIODS` |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | `T/h` | `T/h ≥ MIN_PORTFOLIO_PERIODS_HARD`; warn if `T/h < MIN_PORTFOLIO_PERIODS_WARN` |
 
