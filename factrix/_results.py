@@ -332,8 +332,12 @@ class EvaluationResult:
         metric_rows = []
         for name, out in sorted(self.metrics.outputs.items()):
             tag = "primary" if name in primary_names else "diagnostic"
-            val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
-            p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
+            if isinstance(out, MetricResult):
+                val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
+                p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
+            else:
+                val_repr = "object"
+                p_repr = ""
             metric_rows.append(
                 f"<tr><td>{html.escape(name)}</td>"
                 f"<td>{tag}</td>"
@@ -391,9 +395,18 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
 
 def _output_row(
     key: str,
-    out: MetricResult,
+    out: Any,
     warnings_by_metric: Mapping[str, list[str]],
 ) -> dict[str, Any]:
+    if not isinstance(out, MetricResult):
+        return {
+            "metric_name": key,
+            "value": None,
+            "p_value": None,
+            "stat": None,
+            "n_obs": None,
+            "warning_codes": list(warnings_by_metric.get(key, [])),
+        }
     label = out.name or key
     return {
         "metric_name": label,
@@ -415,7 +428,23 @@ def _float_or_none(x: object) -> float | None:
     return None
 
 
-def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
+def _metric_output_to_record(out: Any) -> dict[str, Any]:
+    if not isinstance(out, MetricResult):
+        if hasattr(out, "__dict__"):
+            return {
+                "value": None,
+                "p_value": None,
+                "stat": None,
+                "n_obs": None,
+                "metadata": {"result": repr(out)},
+            }
+        return {
+            "value": None,
+            "p_value": None,
+            "stat": None,
+            "n_obs": None,
+            "metadata": {},
+        }
     return {
         "value": _float_or_none(out.value),
         "p_value": _float_or_none(out.p_value),

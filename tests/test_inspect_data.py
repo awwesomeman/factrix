@@ -390,12 +390,13 @@ class TestMetricApplicabilityGroup:
         md = inspect_data(panel).usable.to_metrics_dict()
         results = fx.evaluate(
             panel,
-            metrics={"ic": md["ic"]},
+            metrics=md,
             factor_cols=["factor"],
             forward_periods=5,
             strict=False,
         )
-        assert results[0].metrics["ic"].name == "ic"
+        for name in md:
+            assert name in results[0].metrics.outputs
 
 
 class TestCrossFactorConsistency:

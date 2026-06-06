@@ -483,7 +483,8 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
     failed = [
         (label, str(out.metadata.get("reason")))
         for label, out in label_outputs.items()
-        if isinstance(out.value, float)
+        if isinstance(out, MetricResult)
+        and isinstance(out.value, float)
         and math.isnan(out.value)
         and out.metadata.get("reason")
     ]
@@ -515,7 +516,10 @@ def _relabel_result(
     for label, nid in label_to_node.items():
         out = node_outputs.get(nid)
         if out is not None:
-            label_outputs[label] = dataclasses.replace(out, name=label)
+            if isinstance(out, MetricResult):
+                label_outputs[label] = dataclasses.replace(out, name=label)
+            else:
+                label_outputs[label] = out
     if strict:
         _enforce_strict(label_outputs)
     warnings = [
