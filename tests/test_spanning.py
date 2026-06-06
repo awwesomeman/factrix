@@ -270,13 +270,12 @@ class TestGreedyForwardSelection:
 class TestSpanningEvaluate:
     def test_evaluate_greedy_forward_selection(self):
         import factrix as fx
+
         # Create a small panel with date, asset_id, factor, and forward_return
         panel = fx.datasets.make_cs_panel(n_assets=5, n_dates=20)
         panel = fx.preprocess.compute_forward_return(panel, forward_periods=2)
         # Create a second factor column so we have multiple candidate factors
-        panel = panel.with_columns(
-            (pl.col("factor") + pl.lit(0.01)).alias("factor2")
-        )
+        panel = panel.with_columns((pl.col("factor") + pl.lit(0.01)).alias("factor2"))
 
         [er1, er2] = fx.evaluate(
             panel,
@@ -293,4 +292,3 @@ class TestSpanningEvaluate:
         assert isinstance(result2, ForwardSelectionResult)
         # Verify both factors return the same selection result structure
         assert result1 is result2
-

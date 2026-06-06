@@ -299,9 +299,11 @@ class DagExecutor:
             upstream: dict[str, dict[str, Any]],
         ) -> dict[str, Any]:
             if spec.requires:
+
                 def run_batch() -> dict[str, Any]:
                     return bare(**{**upstream, **kw})
             else:
+
                 def run_batch() -> dict[str, Any]:
                     return bare(data, factor_cols=list(factor_cols), **kw)
 

@@ -150,14 +150,17 @@ class MetricBase(metaclass=MetricMeta):
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
         if self.requires:
+
             def run_batch() -> dict[str, Any]:
                 return self.__class__._impl(**{**self._params(), **upstream})
         else:
+
             def run_batch() -> dict[str, Any]:
                 return self.__class__._impl(
                     panel,
                     **{**self._params(), "factor_cols": list(factor_cols)},
                 )
+
         return _dispatch_batch(
             name=self.__class__.__name__,
             call_one=self,
