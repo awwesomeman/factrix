@@ -396,3 +396,112 @@ class TestMetricApplicabilityGroup:
             strict=False,
         )
         assert results[0].metrics["ic"].name == "ic"
+
+
+class TestCrossFactorConsistency:
+    def test_single_factor_no_warning(self):
+        # Only 1 factor column, should have no cross-factor mismatch warnings
+        data = fx.datasets.make_cs_panel(n_assets=10, n_dates=30)
+        info = inspect_data(data)
+        mismatch_codes = {
+            w.code.value for w in info.warnings if "cross_factor" in str(w.code.value)
+        }
+        assert mismatch_codes == set()
+
+    def test_multi_factor_consistent_no_warning(self):
+        # Two factor columns, both individual dense
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+        raw2 = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=2)
+        # Merge them
+        data = raw.join(
+            raw2.select("date", "asset_id", pl.col("factor").alias("factor2")),
+            on=["date", "asset_id"],
+        )
+        info = inspect_data(data, factor_cols=["factor", "factor2"])
+        mismatch_codes = {
+            w.code.value for w in info.warnings if "cross_factor" in str(w.code.value)
+        }
+        assert mismatch_codes == set()
+
+    def test_multi_factor_inconsistent_warnings(self):
+        # factor: individual dense
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+
+        # factor2: common dense (scope mismatch)
+        one_per_date = raw.group_by("date").agg(pl.col("factor").first())
+        common = (
+            raw.drop("factor")
+            .join(one_per_date, on="date")
+            .select("date", "asset_id", pl.col("factor").alias("factor2"))
+        )
+
+        # factor3: individual sparse (density mismatch)
+        sparse_factor = raw.with_columns(
+            pl.when(pl.int_range(0, raw.height) % 3 == 0)
+            .then(pl.col("factor"))
+            .otherwise(0.0)
+            .alias("factor3")
+        )
+
+        # Merge them
+        data = raw.join(common, on=["date", "asset_id"]).join(
+            sparse_factor.select("date", "asset_id", "factor3"), on=["date", "asset_id"]
+        )
+
+        # Test full mismatch
+        info = inspect_data(data, factor_cols=["factor", "factor2", "factor3"])
+        mismatch_codes = {
+            w.code.value for w in info.warnings if "cross_factor" in str(w.code.value)
+        }
+        assert "cross_factor_density_mismatch" in mismatch_codes
+        assert "cross_factor_scope_mismatch" in mismatch_codes
+
+        # Verify message contents carry inconsistent details
+        density_warning = next(
+            w for w in info.warnings if w.code.value == "cross_factor_density_mismatch"
+        )
+        assert "'factor': dense" in density_warning.message
+        assert "'factor3': sparse" in density_warning.message
+
+        scope_warning = next(
+            w for w in info.warnings if w.code.value == "cross_factor_scope_mismatch"
+        )
+        assert "'factor': individual" in scope_warning.message
+        assert "'factor2': common" in scope_warning.message
+
+    def test_factor_cols_restricts_scope(self):
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+        # factor2: common dense
+        one_per_date = raw.group_by("date").agg(pl.col("factor").first())
+        common = (
+            raw.drop("factor")
+            .join(one_per_date, on="date")
+            .select("date", "asset_id", pl.col("factor").alias("factor2"))
+        )
+        # factor3: individual dense (consistent with factor)
+        raw3 = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=3)
+
+        data = raw.join(common, on=["date", "asset_id"]).join(
+            raw3.select("date", "asset_id", pl.col("factor").alias("factor3")),
+            on=["date", "asset_id"],
+        )
+
+        # If we only inspect ["factor", "factor3"], there should be no mismatch warning
+        info = inspect_data(data, factor_cols=["factor", "factor3"])
+        mismatch_codes = {
+            w.code.value for w in info.warnings if "cross_factor" in str(w.code.value)
+        }
+        assert mismatch_codes == set()
+
+    def test_auto_detect_excludes_reserved_columns(self):
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=30, seed=1)
+        data = raw.with_columns(pl.lit(1.0).alias("forward_return")).with_columns(
+            pl.col("factor").alias("factor2")
+        )
+
+        # If factor_cols is None, it should auto-detect: ['factor', 'factor2'] (no mismatch)
+        info = inspect_data(data)
+        mismatch_codes = {
+            w.code.value for w in info.warnings if "cross_factor" in str(w.code.value)
+        }
+        assert mismatch_codes == set()

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import html
 import math
+from collections.abc import Sequence
 from dataclasses import MISSING, dataclass, field, fields
 from typing import TYPE_CHECKING, Any
 
@@ -39,6 +40,9 @@ if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
 _SPARSITY_THRESHOLD: float = 0.5
+_INSPECT_RESERVED: frozenset[str] = frozenset(
+    {"date", "asset_id", "forward_return", "price"}
+)
 
 
 def _detect_structure(data: Any) -> DataStructure:
@@ -439,7 +443,7 @@ class DataInspection:
         )
 
 
-def inspect_data(data: Any) -> DataInspection:
+def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataInspection:
     """Inspect data and return typed dispatch-axis + per-metric verdict.
 
     Pre-flight introspection: typed detection plus, for every
@@ -454,8 +458,12 @@ def inspect_data(data: Any) -> DataInspection:
     own short-circuit path.
 
     Args:
-        data: Long-format factor data with the canonical columns
-            ``date`` / ``asset_id`` / ``factor``.
+        data: Long-format factor data with the canonical columns.
+            The baseline columns ``date`` / ``asset_id`` /
+            ``forward_return`` / ``price`` are reserved and not treated as factors.
+        factor_cols: Optional list of factor columns to check. When
+            ``None`` (default), auto-detects all columns except the
+            reserved columns as factor candidates.
 
     Returns:
         :class:`DataInspection`.
@@ -467,12 +475,40 @@ def inspect_data(data: Any) -> DataInspection:
         >>> all(m.spec.cell.matches(info.detected.scope, info.detected.density, info.detected.structure) for m in info.usable)
         True
     """
-    density, density_reason, sparse_ratio = _detect_density(data)
-    scope, scope_reason = _detect_scope(data)
+    if isinstance(factor_cols, str):
+        raise TypeError(
+            f"factor_cols must be a list of column names, not a str; "
+            f"did you mean factor_cols=[{factor_cols!r}]?"
+        )
+    if factor_cols is None:
+        cols = [c for c in data.columns if c not in _INSPECT_RESERVED]
+    else:
+        cols = list(factor_cols)
+    if not cols:
+        raise ValueError(
+            "No factor columns found. Pass factor_cols= explicitly or ensure "
+            "data has columns beyond the reserved set "
+            f"({sorted(_INSPECT_RESERVED)})."
+        )
+
+    first_col = cols[0]
+
+    # Project raw data to "factor" column name to reuse standard detectors
+    def _detect_col_density(col: str) -> tuple[FactorDensity, str, float]:
+        temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
+        return _detect_density(temp)
+
+    def _detect_col_scope(col: str) -> tuple[FactorScope, str]:
+        temp = data.select("date", "asset_id", pl.col(col).alias("factor"))
+        return _detect_scope(temp)
+
+    # First factor column drives the returned properties (deterministic first-detected)
+    density, density_reason, sparse_ratio = _detect_col_density(first_col)
+    scope, scope_reason = _detect_col_scope(first_col)
     structure = _detect_structure(data)
     n_assets = int(data["asset_id"].n_unique())
     n_periods = int(data["date"].n_unique())
-    n_pairs = int(data.drop_nulls("factor").height)
+    n_pairs = int(data.drop_nulls(first_col).height)
 
     structure_reason = (
         f"n_assets={n_assets} → "
@@ -493,6 +529,46 @@ def inspect_data(data: Any) -> DataInspection:
     )
 
     data_warnings = _data_level_warnings(properties)
+
+    # Cross-factor consistency checks
+    if len(cols) > 1:
+        densities = [density] + [_detect_col_density(c)[0] for c in cols[1:]]
+        scopes = [scope] + [_detect_col_scope(c)[0] for c in cols[1:]]
+
+        if len(set(densities)) > 1:
+            detail = ", ".join(
+                f"'{c}': {d.value}" for c, d in zip(cols, densities, strict=True)
+            )
+            data_warnings.append(
+                Warning(
+                    code=WarningCode.CROSS_FACTOR_DENSITY_MISMATCH,
+                    source=None,
+                    message=(
+                        f"Factor columns carry inconsistent FactorDensity: {{{detail}}}. "
+                        f"Metric applicability is based on '{first_col}'; call "
+                        f"inspect_data(data, factor_cols=[<col>]) for a verdict "
+                        f"specific to that column."
+                    ),
+                )
+            )
+
+        if len(set(scopes)) > 1:
+            detail = ", ".join(
+                f"'{c}': {s.value}" for c, s in zip(cols, scopes, strict=True)
+            )
+            data_warnings.append(
+                Warning(
+                    code=WarningCode.CROSS_FACTOR_SCOPE_MISMATCH,
+                    source=None,
+                    message=(
+                        f"Factor columns carry inconsistent FactorScope: {{{detail}}}. "
+                        f"Metric applicability is based on '{first_col}'; call "
+                        f"inspect_data(data, factor_cols=[<col>]) for a verdict "
+                        f"specific to that column."
+                    ),
+                )
+            )
+
     metrics = [_evaluate_applicability(spec, properties) for _, spec in public_specs()]
 
     return DataInspection(

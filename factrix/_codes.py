@@ -78,6 +78,10 @@ class WarningCode(StrEnum):
     # is recoverable without re-walking the dependency graph.
     UPSTREAM_UNAVAILABLE = "upstream_unavailable"
 
+    # Fired by inspect_data when factor columns carry inconsistent axes.
+    CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
+    CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
@@ -125,6 +129,8 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
         "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
+        WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
+        WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
     }
 )
 
