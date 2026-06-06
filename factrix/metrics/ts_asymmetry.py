@@ -1,4 +1,4 @@
-"""Long-side / short-side asymmetry test (issue #5).
+"""Long-side / short-side asymmetry test.
 
 Diagnostic for `(COMMON, DENSE, *)` and single-asset TIMESERIES
 cells. Ordinary least squares (OLS) β reports a single slope and assumes the response is
@@ -18,7 +18,7 @@ assumption breaks under `forward_periods > 1`.
   H0: `β_pos = β_neg` — slope on the positive side equals slope on
   the negative side.
 
-Gates (issue #5):
+Gates for conditional means/piecewise slopes:
 - Gate B (mandatory for either method): factor must have both
   positive and negative observations.
 - Gate C (method B only): each side needs ≥ 2 distinct factor

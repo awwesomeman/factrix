@@ -1,4 +1,4 @@
-"""DAG executor — topo / cycle / dispatch / short-circuit / plan (#442)."""
+"""DAG executor — topo / cycle / dispatch / short-circuit / plan."""
 
 from __future__ import annotations
 

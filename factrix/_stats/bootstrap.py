@@ -1,4 +1,4 @@
-"""Block-bootstrap primitives backing the ``BlockBootstrap`` Estimator (#153).
+"""Block-bootstrap primitives backing the ``BlockBootstrap`` Estimator.
 
 Two resampling schemes for dependent time series, plus the
 [Politis-White (2004)][politis-white-2004] automatic block-length
@@ -16,7 +16,7 @@ The public ``factrix.stats.bootstrap`` module ships standalone
 ``stationary_bootstrap_resamples`` / ``bootstrap_mean_ci`` for callers
 that want a CI utility outside the Estimator dispatch chain. This
 private module is consumed by the procedure that backs the
-``BlockBootstrap`` Estimator under #176.
+``BlockBootstrap`` Estimator.
 
 References:
     - Künsch, H. R. (1989). "The jackknife and the bootstrap for
@@ -288,7 +288,7 @@ def _joint_block_bootstrap_pairwise_distribution(
 
     Shares one set of block indices across all pair diffs per draw so
     the bootstrap distribution preserves cross-pair dependence — the
-    joint structure Romano-Wolf step-down (#176) relies on.
+    joint structure Romano-Wolf step-down relies on.
 
     Args:
         panel: ``(T, K)`` per-date metric matrix, rows = aligned dates,

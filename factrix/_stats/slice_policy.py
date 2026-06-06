@@ -1,6 +1,6 @@
 """Slice-test policy helpers — pre-flight subset detection + ``n_groups`` downscale.
 
-Two private helpers consumed by the slice-test functions (#176)
+Two private helpers consumed by the slice-test functions
 (``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``_detect_strict_subsets`` — pre-flight check for paired tests.
@@ -15,10 +15,10 @@ Two private helpers consumed by the slice-test functions (#176)
   cross-section assets (quantile spread, monotonicity), shrinks
   ``n_groups`` so each bucket retains at least ``min_per_group``
   assets. The per-metric ``min_per_group`` floor lives on the metric
-  module itself (#153 §5); the slice-test function resolves it per
+  module itself; the slice-test function resolves it per
   slice and feeds it here.
 
-Issue spec deviation: ``_downscale_n_groups`` takes ``int`` rather than
+Implementation deviation: ``_downscale_n_groups`` takes ``int`` rather than
 ``AnalysisConfig`` because ``AnalysisConfig`` carries no ``n_groups``
 field — that field is a quantile-family kwarg. Caller composes the
 returned int into the per-slice metric kwarg dict.

@@ -1,4 +1,4 @@
-"""Tests for the Driscoll-Kraay estimator surface (#537).
+"""Tests for the Driscoll-Kraay estimator surface.
 
 Covers the selection-only ``DriscollKraay`` Estimator (protocol /
 registry / ``list_estimators`` / ``emits_for``), the numeric primitives

@@ -1,4 +1,4 @@
-"""Tests for ``pooled_beta(driscoll_kraay=True)`` (#537).
+"""Tests for ``pooled_beta(driscoll_kraay=True)``.
 
 The DK SE path: metadata marks the SE method, the point estimate is
 unchanged vs the clustered path, DK inflates SE relative to a one-way

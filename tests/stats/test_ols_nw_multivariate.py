@@ -1,4 +1,4 @@
-"""Unit tests for ``_ols_nw_multivariate`` + ``_wald_p_linear`` (issue #5)."""
+"""Unit tests for ``_ols_nw_multivariate`` + ``_wald_p_linear``."""
 
 from __future__ import annotations
 

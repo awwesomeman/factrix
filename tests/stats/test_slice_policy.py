@@ -1,4 +1,4 @@
-"""Tests for ``_detect_strict_subsets`` / ``_downscale_n_groups`` (#153 §4 §6)."""
+"""Tests for ``_detect_strict_subsets`` / ``_downscale_n_groups``."""
 
 from __future__ import annotations
 

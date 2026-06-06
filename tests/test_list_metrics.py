@@ -30,7 +30,7 @@ def _names_for_cell(scope: FactorScope, density: FactorDensity) -> set[str]:
     """Public metric names applicable to a ``(scope, density)`` cell.
 
     The cell filter ``list_metrics(scope, density)`` exposed was retired
-    (#498); the underlying mechanism — ``spec.cell.matches`` over
+    the underlying mechanism — ``spec.cell.matches`` over
     ``public_specs()`` — is what drives both this drift guard and
     ``inspect_data``'s per-metric verdict.
     """
@@ -40,7 +40,7 @@ def _names_for_cell(scope: FactorScope, density: FactorDensity) -> set[str]:
 
 
 # Cell-canonical primaries: SSOT moved to the auto-generated dispatch
-# table at the top of metric-applicability.md (#142), whose tuple keys
+# table at the top of metric-applicability.md, whose tuple keys
 # are dispatch-keyed and broader than authoring scope (e.g. ts_beta
 # dispatches on (COMMON, SPARSE, *, PANEL) but its Matrix-row authoring
 # cell is (COMMON, DENSE, *, PANEL); list_metrics returns the

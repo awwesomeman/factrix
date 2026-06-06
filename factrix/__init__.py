@@ -130,7 +130,7 @@ def evaluate(
             rejected with a targeted error. One metric class may run under
             several labels with **different** config — e.g.
             ``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}`` — via
-            by-value DAG dedup (#494); shared upstream producers are computed
+            by-value DAG dedup; shared upstream producers are computed
             once per distinct config.
         factor_cols: Names of density columns on ``data``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
@@ -138,7 +138,7 @@ def evaluate(
         forward_periods: Default forward-return horizon (rows of the data's
             time axis) for metrics left at their signature default. A
             per-instance value — ``ic(forward_periods=20)`` — always overrides
-            it (#494). ``None`` (default) leaves every metric at its own
+            it. ``None`` (default) leaves every metric at its own
             default. ``EvaluationResult.forward_periods`` reports the primary
             metric's resolved horizon.
         primary: Label of the primary metric — drives
@@ -401,8 +401,7 @@ def _build_nodes(
 
     Dedups user metrics into **consumer nodes** keyed by ``(name, config)`` —
     so one class under two labels with *identical* config is a single node
-    (harmless alias) while *different* config is two nodes (#494's headline
-    capability). Then closes ``requires``: each consumer pulls a **producer
+    (harmless alias) while *different* config is two nodes. Then closes ``requires``: each consumer pulls a **producer
     node** whose config inherits only the consumer's ``forward_periods`` (the
     sole consumer param any ``requires``-pulled producer accepts), reusing one
     producer node across consumers that share that inherited config.
@@ -628,8 +627,7 @@ def _validate_primary_metric_applicable(
     Cell-axis (scope / density) applicability requires data detection
     and is left to ``fx.inspect_data`` for the explicit pre-flight path.
 
-    Under ``strict=False`` this guard is skipped (#494 / #497 carry-over): per
-    #476 §4 a structure mismatch is an apply-time failure, so the metric is
+    Under ``strict=False`` this guard is skipped: a structure mismatch is an apply-time failure, so the metric is
     allowed to flow through to a NaN output + warning rather than raise. The
     ``strict=True`` default keeps the eager raise.
     """

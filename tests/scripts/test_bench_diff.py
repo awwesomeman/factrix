@@ -1,4 +1,4 @@
-"""Tests for ``scripts/bench_diff.py`` (#389)."""
+"""Tests for ``scripts/bench_diff.py``."""
 
 from __future__ import annotations
 

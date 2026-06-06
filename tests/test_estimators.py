@@ -1,4 +1,4 @@
-"""``factrix.estimators`` lowercase callable namespace (#444)."""
+"""``factrix.estimators`` lowercase callable namespace."""
 
 from __future__ import annotations
 
@@ -74,8 +74,7 @@ class TestNamespaceExports:
             assert callable(getattr(fx.estimators, name))
 
     def test_exposes_driscoll_kraay(self) -> None:
-        # Driscoll-Kraay was deferred at #444 (future SEMethod.HAC
-        # variant) and lands at #537 as the cross-section-robust HAC SE
+        # Driscoll-Kraay is the cross-section-robust HAC SE
         # option behind pooled_beta(driscoll_kraay=True).
         assert callable(fx.estimators.driscoll_kraay)
 

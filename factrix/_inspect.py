@@ -1,4 +1,4 @@
-"""``fx.inspect_data`` — typed data introspection with per-metric verdict (#443).
+"""``fx.inspect_data`` — typed data introspection with per-metric verdict.
 
 Two-stage applicability model:
 

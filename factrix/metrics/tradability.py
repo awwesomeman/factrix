@@ -57,7 +57,7 @@ _TR_CS_PRIMITIVES = (
     "_assign_quantile_groups",
 )
 
-__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "notional_turnover",
     "turnover",
     "breakeven_cost",

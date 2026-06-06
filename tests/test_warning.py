@@ -1,4 +1,4 @@
-"""Flat ``Warning`` dataclass + source filter pattern (#441)."""
+"""Flat ``Warning`` dataclass + source filter pattern."""
 
 from __future__ import annotations
 

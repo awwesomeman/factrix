@@ -1,4 +1,4 @@
-"""Estimator protocol surface tests (#170).
+"""Estimator protocol surface tests.
 
 Verify the runtime-checkable protocol shape so that downstream `_resolve_family`
 dispatch can rely on `isinstance(obj, Estimator)` and the four required members

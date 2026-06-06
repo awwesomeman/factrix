@@ -1,4 +1,4 @@
-"""``DriscollKraay`` Estimator — cross-section-robust HAC SE for pooled-panel slopes (#537).
+"""``DriscollKraay`` Estimator — cross-section-robust HAC SE for pooled-panel slopes.
 
 Names the [Driscoll & Kraay (1998)][driscoll-kraay-1998] cross-sectional
 dependence-robust standard-error path. Selection-only base

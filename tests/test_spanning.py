@@ -204,7 +204,7 @@ class TestGreedyForwardSelection:
             assert sr.selected is True
 
     def test_candidate_dict_pruned_when_factor_selected(self, monkeypatch):
-        # #436: selected factors must be popped from ``candidate_arrays``
+        # Selected factors must be popped from ``candidate_arrays``
         # so backward-eliminated buffers release immediately rather than
         # linger to function return. Spy on ``_ols_alpha`` from the
         # forward-selection frame and pin ``candidate_arrays.keys() ==

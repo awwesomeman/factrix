@@ -1,4 +1,4 @@
-"""``HansenHodrick`` Estimator instance tests (#184).
+"""``HansenHodrick`` Estimator instance tests.
 
 Cell-agnostic dispatch (`emits_for` → `StatCode.P_HH`) plus restricted
 applicability ((INDIVIDUAL, DENSE) only). Math correctness is owned

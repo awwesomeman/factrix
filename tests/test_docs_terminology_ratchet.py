@@ -1,6 +1,6 @@
 """Ratchet on legacy "the metric `evaluate()` runs" tier-name synonyms.
 
-Issue #144 settled the term to a behavioral phrase and listed the older
+The project terminology settled the term to a behavioral phrase and listed the older
 synonyms as legacy in ``docs/reference/glossary.md``. The synonyms are
 not big-bang renamed; instead this ratchet asserts that the count can
 only decrease over time, so any PR that touches a file containing one
@@ -23,7 +23,7 @@ _LEGACY_PATTERN = re.compile(r"procedure-canonical|cell-canonical|canonical metr
 # Files / trees the ratchet ignores.
 #
 # - ``docs/plans/archive/`` is frozen historical drafts.
-# - ``docs/reference/glossary.md`` defines the legacy synonyms for #144;
+# - ``docs/reference/glossary.md`` defines the legacy synonyms;
 #   it must mention them.
 # - This test file itself names the pattern.
 _EXCLUDE_PATHS = (
@@ -39,7 +39,7 @@ _SCAN_DIRS = (
 
 _SCAN_SUFFIXES = {".md", ".py", ".txt"}
 
-# Frozen baseline at #144 batch 4 merge. PRs may only decrease.
+# Frozen baseline for terminology. PRs may only decrease.
 _BASELINE = 17
 
 

@@ -1,9 +1,8 @@
 """v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResultGroup`` / ``Warning``.
 
-Lands the result-type group that #438 unification will surface from the
-DAG executor (#442). This module ships the dataclasses + serialisation
-methods only; the runner wiring (replacing ``FactorProfile`` /
-``MetricsBundle`` returns) is a follow-up.
+Lands the result-type group that unification surfaces from the
+DAG executor. This module ships the dataclasses + serialisation
+methods.
 """
 
 from __future__ import annotations
@@ -120,12 +119,12 @@ class Warning:
 class MetricResultGroup:
     """Group of metric outputs for one factor at one cell.
 
-    Mirrors the ``MetricGroups`` shape that #443 ``inspect_data``
+    Mirrors the ``MetricGroups`` shape that ``inspect_data``
     exposes: three ``list[str]`` key partitions plus dict-like access to
     the produced :class:`MetricResult` instances.
 
     The key is the caller's label when produced by
-    :func:`factrix.evaluate` (the ``dict[str, Metric]`` key, #497) — so
+    :func:`factrix.evaluate` (the ``dict[str, Metric]`` key) — so
     two labels may reuse one metric class — and the metric name when
     produced elsewhere. Iteration / membership / ``keys`` / ``values`` /
     ``items`` and the partition lists all use that same key.
@@ -171,9 +170,9 @@ class MetricResultGroup:
 class EvaluationResult:
     """Bundle-level result for one factor under one ``AnalysisConfig``.
 
-    Single return type for the unified DAG executor (#438 / #442);
+    Single return type for the unified DAG executor;
     replaces :class:`factrix.FactorProfile` (inferential) and
-    :class:`factrix.MetricsBundle` (descriptive) once #442 lands.
+    :class:`factrix.MetricsBundle` (descriptive).
 
     Attributes:
         factor: Factor column name from the source panel.

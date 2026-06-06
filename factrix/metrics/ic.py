@@ -49,7 +49,7 @@ from factrix.metrics._helpers import (
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_ic
 
-__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "ic",
     "ic_newey_west",
     "ic_ir",

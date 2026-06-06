@@ -1,4 +1,4 @@
-"""``fx.inspect_data`` — typed DataInspection + per-metric verdict (#443)."""
+"""``fx.inspect_data`` — typed DataInspection + per-metric verdict."""
 
 from __future__ import annotations
 
@@ -238,7 +238,7 @@ class TestDataLevelWarnings:
 class TestWarningSourceConvention:
     """Guard the `Warning.source` convention across every emission point:
     per-metric warnings carry `source == <metric name>`; data-level
-    warnings carry `source is None`. See #499.
+    warnings carry `source is None`.
     """
 
     def test_per_metric_warnings_carry_their_metric_name(self):
