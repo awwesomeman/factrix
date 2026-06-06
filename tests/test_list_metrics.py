@@ -32,7 +32,7 @@ def _names_for_cell(scope: FactorScope, density: FactorDensity) -> set[str]:
     The cell filter ``list_metrics(scope, density)`` exposed was retired
     (#498); the underlying mechanism — ``spec.cell.matches`` over
     ``public_specs()`` — is what drives both this drift guard and
-    ``inspect_panel``'s per-metric verdict.
+    ``inspect_data``'s per-metric verdict.
     """
     return {
         spec.name for _, spec in public_specs() if spec.cell.matches(scope, density)

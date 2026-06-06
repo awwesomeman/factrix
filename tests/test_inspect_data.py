@@ -1,4 +1,4 @@
-"""``fx.inspect_panel`` — typed PanelInspection + per-metric verdict (#443)."""
+"""``fx.inspect_data`` — typed DataInspection + per-metric verdict (#443)."""
 
 from __future__ import annotations
 
@@ -7,35 +7,35 @@ import math
 import factrix as fx
 import polars as pl
 from factrix._inspect import (
+    DataInspection,
+    DataProperties,
     MetricApplicability,
-    PanelInspection,
-    PanelProperties,
-    inspect_panel,
+    inspect_data,
 )
 
 
-def _single_asset_panel(n_dates: int = 80) -> pl.DataFrame:
+def _single_asset_data(n_dates: int = 80) -> pl.DataFrame:
     raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=n_dates)
     first = raw["asset_id"].unique()[0]
     return raw.filter(pl.col("asset_id") == first)
 
 
-def _common_continuous_panel(n_assets: int = 20, n_dates: int = 80) -> pl.DataFrame:
+def _common_continuous_data(n_assets: int = 20, n_dates: int = 80) -> pl.DataFrame:
     raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates)
     one_per_date = raw.group_by("date").agg(pl.col("factor").first())
     return raw.drop("factor").join(one_per_date, on="date")
 
 
-def _by_name(info: PanelInspection, name: str) -> MetricApplicability:
+def _by_name(info: DataInspection, name: str) -> MetricApplicability:
     for m in info.metrics:
         if m.spec.name == name:
             return m
     raise KeyError(name)
 
 
-class TestPanelPropertiesDetection:
+class TestDataPropertiesDetection:
     def test_individual_continuous_cs_panel(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         assert info.detected.scope is fx.FactorScope.INDIVIDUAL
         assert info.detected.density is fx.FactorDensity.DENSE
         assert info.detected.structure is fx.DataStructure.PANEL
@@ -45,19 +45,19 @@ class TestPanelPropertiesDetection:
         assert 0.0 <= info.detected.sparse_ratio < 0.5
 
     def test_n1_routes_to_timeseries(self):
-        info = inspect_panel(_single_asset_panel(n_dates=80))
+        info = inspect_data(_single_asset_data(n_dates=80))
         assert info.detected.structure is fx.DataStructure.TIMESERIES
         assert info.detected.n_assets == 1
         assert "TIMESERIES" in info.detected.structure_reason
 
     def test_common_continuous_detection(self):
-        info = inspect_panel(_common_continuous_panel())
+        info = inspect_data(_common_continuous_data())
         assert info.detected.scope is fx.FactorScope.COMMON
         assert info.detected.density is fx.FactorDensity.DENSE
 
     def test_empty_panel_sparse_ratio_is_nan(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
-        info = inspect_panel(empty)
+        info = inspect_data(empty)
         assert math.isnan(info.detected.sparse_ratio)
         assert info.detected.n_pairs == 0
 
@@ -69,14 +69,14 @@ class TestPanelPropertiesDetection:
             .otherwise(pl.col("factor"))
             .alias("factor")
         )
-        info = inspect_panel(with_nulls)
+        info = inspect_data(with_nulls)
         assert info.detected.n_pairs == with_nulls.drop_nulls("factor").height
         assert info.detected.n_pairs < raw.height
 
 
-class TestPanelReasoning:
+class TestDataReasoning:
     def test_three_axis_fields_populated(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         assert "INDIVIDUAL" in info.detected.scope_reason
         assert "DENSE" in info.detected.density_reason
         assert "PANEL" in info.detected.structure_reason
@@ -84,20 +84,20 @@ class TestPanelReasoning:
 
 class TestCellMatchGate:
     def test_panel_mode_metric_unusable_under_timeseries(self):
-        # IC's cell declares structure=PANEL; single-asset panel must reject it.
-        info = inspect_panel(_single_asset_panel(n_dates=80))
+        # IC's cell declares structure=PANEL; single-asset data must reject it.
+        info = inspect_data(_single_asset_data(n_dates=80))
         ic = _by_name(info, "ic")
         assert ic.usable is False
         assert any("cell mismatch" in b for b in ic.blockers)
 
     def test_sparse_metric_unusable_under_continuous(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         caar = _by_name(info, "caar")
         assert caar.usable is False
         assert any("cell mismatch" in b for b in caar.blockers)
 
     def test_only_public_specs_appear(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         names = {m.spec.name for m in info.metrics}
         assert "compute_ic" not in names  # visibility=INTERNAL
         assert "ic" in names
@@ -108,7 +108,7 @@ class TestMetricApplicabilityIdentity:
         from factrix.metrics._base import MetricBase
         from factrix.metrics._registry import REGISTRY
 
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         for m in info.metrics:
             assert issubclass(m.metric, MetricBase)
             # name is the registry key and agrees with both the class and spec
@@ -117,7 +117,7 @@ class TestMetricApplicabilityIdentity:
             assert REGISTRY[m.name] is m.metric
 
     def test_name_lets_caller_key_without_spec(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         ic = _by_name(info, "ic")
         assert ic.name == "ic"
         assert ic.metric is _by_name(info, "ic").metric
@@ -125,20 +125,20 @@ class TestMetricApplicabilityIdentity:
 
 class TestSampleThresholdGate:
     def test_below_min_periods_is_unusable(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
         nw = _by_name(info, "ic_newey_west")
         assert nw.usable is False
         assert any("min_periods" in b for b in nw.blockers)
 
     def test_between_min_and_warn_is_usable_with_warning(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         nw = _by_name(info, "ic_newey_west")
         assert nw.usable is True
         codes = [w.code.value for w in nw.warnings]
         assert "unreliable_se_short_periods" in codes
 
     def test_above_warn_floor_is_clean(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         nw = _by_name(info, "ic_newey_west")
         assert nw.usable is True
         assert nw.warnings == []
@@ -146,7 +146,7 @@ class TestSampleThresholdGate:
     def test_below_min_pairs_is_unusable(self):
         from factrix._metric_index import SampleThreshold
 
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         floor = SampleThreshold(min_pairs=info.detected.n_pairs + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
         from dataclasses import replace
@@ -165,7 +165,7 @@ class TestSampleThresholdGate:
         from factrix._inspect import _evaluate_applicability
         from factrix._metric_index import SampleThreshold
 
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         n = info.detected.n_pairs
         floor = SampleThreshold(min_pairs=n - 1, warn_pairs=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
@@ -176,7 +176,7 @@ class TestSampleThresholdGate:
         assert any("n_pairs" in w.message for w in verdict.warnings)
 
     def test_metric_without_sample_floor_only_cell_checked(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
         ic = _by_name(info, "ic")
         # ic has no sample_floor declared (only cell match); cell matches, so usable
         assert ic.usable is True
@@ -186,7 +186,7 @@ class TestSampleThresholdGate:
 class TestTierPartition:
     def test_three_tiers_partition_metrics_disjointly(self):
         # n_dates=25 puts ic_newey_west between min and warn -> degraded.
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         usable = {m.spec.name for m in info.usable}
         degraded = {m.spec.name for m in info.degraded}
         unusable = {m.spec.name for m in info.unusable}
@@ -201,50 +201,50 @@ class TestTierPartition:
         assert usable | degraded | unusable == {m.spec.name for m in info.metrics}
 
     def test_usable_excludes_degraded(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         nw = _by_name(info, "ic_newey_west")
         assert nw.usable is True and nw.warnings  # the degraded case
         assert nw not in info.usable
         assert nw in info.degraded
 
     def test_usable_is_clean_only(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         assert all(m.usable and not m.warnings for m in info.usable)
 
     def test_degraded_is_usable_with_warnings(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         assert all(m.usable and m.warnings for m in info.degraded)
 
     def test_unusable_is_not_usable(self):
-        info = inspect_panel(_single_asset_panel(n_dates=80))
+        info = inspect_data(_single_asset_data(n_dates=80))
         assert all(not m.usable for m in info.unusable)
-        # ic (cell=PANEL) is unusable on a single-asset panel.
+        # ic (cell=PANEL) is unusable on a single-asset data.
         assert "ic" in {m.spec.name for m in info.unusable}
 
 
-class TestPanelLevelWarnings:
-    def test_thin_panel_short_n_periods_emits_panel_warning(self):
-        info = inspect_panel(_single_asset_panel(n_dates=25))
+class TestDataLevelWarnings:
+    def test_thin_data_short_n_periods_emits_data_warning(self):
+        info = inspect_data(_single_asset_data(n_dates=25))
         codes = [w.code.value for w in info.warnings]
         assert "unreliable_se_short_periods" in codes
         assert all(w.source is None for w in info.warnings)
 
     def test_thin_cross_section_emits_tier(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))
         codes = [w.code.value for w in info.warnings]
         assert any("cross_section" in c for c in codes)
 
 
 class TestWarningSourceConvention:
     """Guard the `Warning.source` convention across every emission point:
-    per-metric warnings carry `source == <metric name>`; panel-level
+    per-metric warnings carry `source == <metric name>`; data-level
     warnings carry `source is None`. See #499.
     """
 
     def test_per_metric_warnings_carry_their_metric_name(self):
         # n_periods=25 puts NW-SE metrics in the degraded tier, n_assets=5
         # trips the cross-section tier — both per-metric warning paths fire.
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
         emitted = 0
         for m in info.metrics:
             for w in m.warnings:
@@ -252,9 +252,9 @@ class TestWarningSourceConvention:
                 emitted += 1
         assert emitted > 0  # the fixture actually exercises the per-metric path
 
-    def test_panel_level_warnings_carry_no_source(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
-        assert info.warnings  # fixture produces panel-level diagnostics
+    def test_data_level_warnings_carry_no_source(self):
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=25))
+        assert info.warnings  # fixture produces data-level diagnostics
         assert all(w.source is None for w in info.warnings)
 
 
@@ -262,7 +262,7 @@ class TestToDict:
     def test_round_trips_through_json(self):
         import json
 
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         d = info.to_dict()
         back = json.loads(json.dumps(d))
         assert back["detected"]["scope"] == "individual"
@@ -276,30 +276,30 @@ class TestToDict:
 
     def test_nan_sparse_ratio_becomes_null(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
-        d = inspect_panel(empty).to_dict()
+        d = inspect_data(empty).to_dict()
         assert d["detected"]["sparse_ratio"] is None
         assert d["detected"]["n_pairs"] == 0
 
-    def test_panel_level_warnings_serialised(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))
+    def test_data_level_warnings_serialised(self):
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))
         d = info.to_dict()
         assert any(w["source"] is None for w in d["warnings"])
 
 
 class TestReprHtml:
     def test_smoke(self):
-        info = inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
         out = info._repr_html_()
-        assert "PanelInspection" in out
+        assert "DataInspection" in out
         assert "usable" in out
 
 
 class TestPublicSurface:
     def test_dataclass_types_exported(self):
-        assert fx.PanelInspection is PanelInspection
-        assert fx.PanelProperties is PanelProperties
+        assert fx.DataInspection is DataInspection
+        assert fx.DataProperties is DataProperties
         assert fx.MetricApplicability is MetricApplicability
-        assert fx.inspect_panel is inspect_panel
+        assert fx.inspect_data is inspect_data
         assert fx.SampleThreshold is not None
 
 
@@ -347,7 +347,7 @@ class TestCellMatchesSignature:
 
 class TestMetricApplicabilityGroup:
     def _info(self):
-        return inspect_panel(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
+        return inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
 
     def test_partitions_are_groups_and_lists(self):
         info = self._info()
@@ -387,7 +387,7 @@ class TestMetricApplicabilityGroup:
         # The discovery bridge: a usable metric round-trips into evaluate().
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        md = inspect_panel(panel).usable.to_metrics_dict()
+        md = inspect_data(panel).usable.to_metrics_dict()
         results = fx.evaluate(
             panel,
             metrics={"ic": md["ic"]},

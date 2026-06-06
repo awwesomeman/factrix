@@ -54,7 +54,7 @@ from factrix._axis import (
 )
 
 if TYPE_CHECKING:
-    from factrix._inspect import PanelProperties
+    from factrix._inspect import DataProperties
     from factrix.metrics._base import MetricBase
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent
@@ -160,9 +160,9 @@ class SampleThreshold:
 
     Declares the sample-size floors below which a metric is
     statistically unusable (``min_*``) or runs with a documented
-    bias warning (``warn_*``). :func:`factrix.inspect_panel`
+    bias warning (``warn_*``). :func:`factrix.inspect_data`
     evaluates these against the inspected panel's
-    :class:`PanelProperties` and partitions specs into
+    :class:`DataProperties` and partitions specs into
     ``usable`` / ``unusable``.
 
     The same constants are read by the metric's own short-circuit
@@ -197,11 +197,11 @@ class SampleThreshold:
         """Return ``(min_<axis>, warn_<axis>)`` for one shape axis."""
         return getattr(self, f"min_{axis}"), getattr(self, f"warn_{axis}")
 
-    def iter_verdicts(self, properties: PanelProperties) -> Iterator[AxisVerdict]:
+    def iter_verdicts(self, properties: DataProperties) -> Iterator[AxisVerdict]:
         """Yield the per-axis verdict for each shape axis, in ``_AXES`` order.
 
         Single source of truth for the tier decision: ``per_axis_verdict``,
-        ``verdict`` and ``factrix.inspect_panel``'s blocker/warning assembly
+        ``verdict`` and ``factrix.inspect_data``'s blocker/warning assembly
         all consume this so the floor → tier mapping lives in exactly one
         place. Each yielded record also carries the actual ``n`` and the
         ``floor``/``warn`` bounds the decision was made against, so callers
@@ -218,11 +218,11 @@ class SampleThreshold:
                 tier = Tier.CLEAN
             yield AxisVerdict(axis=axis, n=n, floor=floor, warn=warn, tier=tier)
 
-    def per_axis_verdict(self, properties: PanelProperties) -> dict[str, Tier]:
+    def per_axis_verdict(self, properties: DataProperties) -> dict[str, Tier]:
         """Return the usability tier for each shape axis (periods, assets, pairs)."""
         return {v.axis: v.tier for v in self.iter_verdicts(properties)}
 
-    def verdict(self, properties: PanelProperties) -> Tier:
+    def verdict(self, properties: DataProperties) -> Tier:
         """Return the worst usability tier across all shape axes."""
         worst = Tier.CLEAN
         for v in self.iter_verdicts(properties):
@@ -272,7 +272,7 @@ class MetricSpec:
     - ``sample_threshold``: :class:`SampleThreshold` declaring the
       panel-shape thresholds below which the metric is statistically
       unusable / degraded. Defaults to ``SampleThreshold()`` (all
-      ``None`` — no pre-flight gate); :func:`inspect_panel` applies
+      ``None`` — no pre-flight gate); :func:`inspect_data` applies
       the cell-match check and any declared thresholds.
     """
 
@@ -653,9 +653,9 @@ def list_metrics() -> dict[str, list[MetricSpec]]:
 
     For per-cell applicability — which metrics actually run on a given
     panel, and which are degraded or blocked — inspect a real panel with
-    :func:`factrix.inspect_panel` and read its ``usable`` / ``degraded``
+    :func:`factrix.inspect_data` and read its ``usable`` / ``degraded``
     / ``unusable`` partitions. (The former ``list_metrics(scope, density)``
-    cell filter is retired; ``inspect_panel`` subsumes it with a
+    cell filter is retired; ``inspect_data`` subsumes it with a
     structure-aware, sample-floor-aware verdict.)
 
     Source of truth is the registered ``@metric`` classes in each

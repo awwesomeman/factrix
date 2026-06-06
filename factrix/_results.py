@@ -120,7 +120,7 @@ class Warning:
 class MetricResultGroup:
     """Group of metric outputs for one factor at one cell.
 
-    Mirrors the ``MetricGroups`` shape that #443 ``inspect_panel``
+    Mirrors the ``MetricGroups`` shape that #443 ``inspect_data``
     exposes: three ``list[str]`` key partitions plus dict-like access to
     the produced :class:`MetricResult` instances.
 

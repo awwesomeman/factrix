@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 import polars.selectors as cs
 
-from factrix._panel_input import _is_pandas_dataframe
+from factrix._data_input import _is_pandas_dataframe
 
 if TYPE_CHECKING:
     import pandas as pd

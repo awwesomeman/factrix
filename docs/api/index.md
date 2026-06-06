@@ -82,7 +82,7 @@ Click any node to jump to its API page. Nodes are grouped into category subgraph
 | Slice exploration (single axis) | `by_slice(metric, df, label="...")` → `SliceResult` |
 | Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
-| Per-panel applicability | `inspect_panel(panel)` → `.usable` / `.degraded` / `.unusable` |
+| Per-panel applicability | `inspect_data(panel)` → `.usable` / `.degraded` / `.unusable` |
 | Multi-factor screening with false discovery rate (FDR) | `[evaluate(panel, cfg_i) for cfg_i in cfgs]` → `multi_factor.bhy(profiles)` |
 | Cross-factor leaderboard | `compare(profiles)` / `compare(survivors)` → `pl.DataFrame` |
 
@@ -101,7 +101,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction p-values (Benjamini-Heller 2008) → BHY. | "Factor X passes in ≥ k of m contexts." |
 | [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Hierarchical FDR (Yekutieli 2008) — outer BHY on group representatives, inner BHY within passing groups. | Factor families / nested-context structure. |
 | [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks evaluation / `Survivors` artifacts into a `pl.DataFrame` (no recompute). | Ranking N candidate factors. |
-| [`list_metrics`](list-metrics.md) | Introspection | Family-grouped catalog of standalone `factrix.metrics.*` callables (no-arg). | Browsing the metric catalog; pair with `inspect_panel` for per-panel applicability. |
+| [`list_metrics`](list-metrics.md) | Introspection | Family-grouped catalog of standalone `factrix.metrics.*` callables (no-arg). | Browsing the metric catalog; pair with `inspect_data` for per-panel applicability. |
 | [`list_estimators`](list-estimators.md) | Introspection | Estimators applicable to a cell — inference-side twin of `list_metrics`. | Picking `estimator=` for screening functions. |
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |
 | [`stats`](stats.md) | Catalogue | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking an inference method to pass through `estimator=`. |

@@ -179,7 +179,7 @@ class Tier(StrEnum):
     """Usability tier for a metric on a given panel shape axis.
 
     Reflects the sample-floor verdict only (cell-match is evaluated
-    separately by ``inspect_panel``):
+    separately by ``inspect_data``):
 
     CLEAN: at or above the ``warn`` floor — fully usable, no warning.
     DEGRADED: between the ``min`` and ``warn`` floors — usable but inference
