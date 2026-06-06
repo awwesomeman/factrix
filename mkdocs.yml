@@ -220,6 +220,7 @@ nav:
           - Series diagnostics:
               - Overview: api/metrics/series-tools.md
               - hit_rate: api/metrics/hit_rate.md
+              - directional_hit_rate: api/metrics/directional_hit_rate.md
               - trend: api/metrics/trend.md
               - oos: api/metrics/oos.md
       - Supporting modules:

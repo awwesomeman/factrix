@@ -6,6 +6,7 @@
 | `caar` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`caar`](../api/metrics/caar.md#factrix.metrics.caar.caar) |
 | `clustering_hhi` | [`factrix.metrics.clustering_hhi`][factrix.metrics.clustering_hhi] | [`clustering_hhi`](../api/metrics/clustering_hhi.md#factrix.metrics.clustering_hhi.clustering_hhi) |
 | `corrado_rank` | [`factrix.metrics.corrado_rank`][factrix.metrics.corrado_rank] | [`corrado_rank`](../api/metrics/corrado_rank.md#factrix.metrics.corrado_rank.corrado_rank) |
+| `directional_hit_rate` | [`factrix.metrics.directional_hit_rate`][factrix.metrics.directional_hit_rate] | [`directional_hit_rate`](../api/metrics/directional_hit_rate.md#factrix.metrics.directional_hit_rate.directional_hit_rate) |
 | `event_around_return` | [`factrix.metrics.event_horizon`][factrix.metrics.event_horizon] | [`event_around_return`](../api/metrics/event_horizon.md#factrix.metrics.event_horizon.event_around_return) |
 | `event_hit_rate` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_hit_rate`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_hit_rate) |
 | `event_ic` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_ic`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_ic) |
