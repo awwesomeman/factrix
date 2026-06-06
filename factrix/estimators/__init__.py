@@ -55,6 +55,55 @@ def hansen_hodrick(series: np.ndarray, *, forward_periods: int) -> InferenceResu
     return HansenHodrick().compute(series, forward_periods=forward_periods)
 
 
+def driscoll_kraay(
+    X: np.ndarray,
+    resid: np.ndarray,
+    time_ids: np.ndarray,
+    *,
+    lags: int | None = None,
+) -> tuple[np.ndarray, dict[str, int | str]]:
+    """Driscoll-Kraay (1998) cross-section-robust HAC covariance for a pooled OLS fit.
+
+    Lowercase callable alias over
+    :class:`factrix.stats.DriscollKraay`. Aggregates per-observation OLS
+    scores ``x_it · e_it`` cross-sectionally within each period, runs a
+    Bartlett-kernel HAC on the sequence of cross-sectional sums, and
+    sandwiches with ``(X'X)⁻¹`` — robust to arbitrary contemporaneous
+    cross-sectional correlation (and serial correlation up to the
+    bandwidth). Numerics live in
+    ``factrix._stats.hac._driscoll_kraay_cov``.
+
+    Args:
+        X: ``(N, K)`` pooled design matrix (typically ``[1, factor]``).
+        resid: ``(N,)`` OLS residuals.
+        time_ids: ``(N,)`` period label per row; cross-sectional sums are
+            taken within each distinct label and the sorted label order
+            sets the HAC chronology.
+        lags: Bartlett bandwidth. ``None`` → Newey-West (1994) auto rule
+            on the period count. Must be ``>= 0`` when given.
+
+    Returns:
+        ``(cov, metadata)`` — ``cov`` is the ``K×K`` covariance matrix
+        (caller reads ``cov[j, j]`` for the SE of coefficient ``j``);
+        ``metadata`` records ``n_periods``, the resolved
+        ``driscoll_kraay_lags``, and the ``kernel`` name.
+
+    Raises:
+        ValueError: ``lags`` is negative.
+        numpy.linalg.LinAlgError: ``X'X`` is singular.
+    """
+    if lags is not None and lags < 0:
+        raise ValueError(f"lags must be None or int >= 0; got {lags!r}.")
+    from factrix._stats.hac import _driscoll_kraay_cov
+
+    cov, n_periods, lags_used = _driscoll_kraay_cov(X, resid, time_ids, lags=lags)
+    return cov, {
+        "n_periods": n_periods,
+        "driscoll_kraay_lags": lags_used,
+        "kernel": "bartlett",
+    }
+
+
 def block_bootstrap(
     diff: np.ndarray,
     *,
@@ -97,6 +146,7 @@ def block_bootstrap(
 
 __all__ = [
     "block_bootstrap",
+    "driscoll_kraay",
     "hansen_hodrick",
     "newey_west",
 ]

@@ -28,6 +28,7 @@ class TestEstimatorProtocol:
             "WaldNWCluster",
             "WaldTwoWayCluster",
             "BlockBootstrap",
+            "DriscollKraay",
         }
 
 

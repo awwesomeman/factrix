@@ -79,12 +79,36 @@ To inspect what's available for a given cell:
 
 ```python
 fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE)
-# ['BlockBootstrap', 'HansenHodrick', 'NeweyWest', 'WaldNWCluster', 'WaldTwoWayCluster']
+# ['BlockBootstrap', 'DriscollKraay', 'GMM', 'HansenHodrick', 'NeweyWest',
+#  'WaldNWCluster', 'WaldTwoWayCluster']
 ```
 
 `list_estimators` returns every registered `Estimator` (selection-axis
 and HAC-axis); the construction gate further narrows to `HACEstimator`
 instances applicable to the cell.
+
+## Cross-sectional dependence — `pooled_beta` Driscoll-Kraay SE
+
+`DriscollKraay` is not a `primary_p` HAC-on-mean swap; it is a
+robustness option on the FM pooled-OLS path. Pass
+`driscoll_kraay=True` to `pooled_beta` to replace the one-way
+date-clustered sandwich with the [Driscoll & Kraay
+(1998)](../reference/bibliography.md#driscoll-kraay-1998)
+cross-section-robust HAC SE — robust to arbitrary contemporaneous
+cross-sectional correlation, the dependence axis a date cluster
+misses. On small, cross-sectionally correlated panels a date cluster
+understates SE and inflates significance; DK closes that gap by HAC-ing
+the cross-sectional score sums over time.
+
+```python
+from factrix.metrics.fm_beta import pooled_beta
+
+pooled_beta(panel)                        # one-way date cluster (default)
+pooled_beta(panel, driscoll_kraay=True)   # cross-section-robust HAC SE
+```
+
+The chosen SE method is recorded in `metadata["se_method"]`;
+`driscoll_kraay=True` is mutually exclusive with `two_way_cluster_col`.
 
 ## When not in scope
 

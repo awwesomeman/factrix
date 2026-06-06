@@ -234,12 +234,15 @@ class StatCode(StrEnum):
     a (kind × algo) cardinality product and a structured shape
     (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
     its breaking-change cost. Below those thresholds the flat
-    enum stays cheaper. **As of #191 the algorithm count is 6
-    (NW / HH / GMM / NWCL / DC / BlockBootstrap) and 3 KINDs
-    (T / J / WALD). The flat enum is over-budget on both axes; any
-    further inference algorithm must trigger the structured-shape
-    redesign discussion
-    before extending the enum.**
+    enum stays cheaper. **As of #537 the algorithm count is 7
+    (NW / HH / GMM / NWCL / DC / BlockBootstrap / DK) and 3 KINDs
+    (T / J / WALD). The flat enum is over-budget on both axes. DK
+    (Driscoll-Kraay) was admitted as a single ``P_DK`` p-code with no
+    test-statistic KIND — a selection-only reserved Estimator like the
+    bootstrap — precisely to hold the growth to one key; it does not add
+    a KIND. The next inference algorithm must land the structured-shape
+    (``profile.inference[Algo] = {test_stat, kind, p, df}``) redesign
+    first rather than extend this enum further.**
 
     **Convention: ``df`` always means statistical degrees of freedom.**
     Wherever ``df`` appears in factrix StatCode descriptions, metadata
@@ -297,6 +300,15 @@ class StatCode(StrEnum):
     # serves both. Parallel to how `NeweyWest`'s lag rule lives in
     # `metadata` rather than splitting `P_NW` by lag.
     P_BOOT = "p_boot"
+    # Driscoll-Kraay (1998) cross-section-robust HAC p-value for a
+    # pooled-panel slope (emitted by `DriscollKraay`, consumed by
+    # `pooled_beta`). Singleton — no `T_DK` — because `DriscollKraay` is
+    # a selection-only reserved Estimator: `pooled_beta` reports the
+    # t-stat inside its own `MetricResult.metadata`, not in
+    # `profile.stats`, so only the p-value source needs a code. Adding a
+    # single key (the `P_BOOT` shape) is the deliberate minimal-growth
+    # choice for the over-budget enum — see the redesign-trigger note.
+    P_DK = "p_dk"
 
     # Diagnostic — factor input series.
     FACTOR_ADF_TAU = "factor_adf_tau"
@@ -371,6 +383,11 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "in `factrix.stats.BlockBootstrap` (Politis-Romano stationary or "
     "Künsch fixed scheme; Politis-White auto block length). Single key "
     "for both schemes — scheme choice is metadata, not StatCode.",
+    StatCode.P_DK: "Two-sided p-value from a Driscoll-Kraay (1998) "
+    "cross-section-robust HAC t-test on a pooled-panel slope. Robust to "
+    "contemporaneous cross-sectional correlation (and serial correlation "
+    "up to the Bartlett bandwidth). Implementation convention lives in "
+    "`factrix.stats.DriscollKraay`.",
     StatCode.FACTOR_ADF_TAU: "ADF τ statistic on the factor input series "
     "(constant-only specification); fed to the MacKinnon 1996 "
     "response-surface for `FACTOR_ADF_P`.",

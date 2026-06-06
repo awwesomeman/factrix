@@ -195,6 +195,22 @@ correlation; supports FM + Newey-West as the default for time-effect
 panels and motivates the two-way (date+asset) clustered SE option in
 factrix's FM pooled-OLS path.
 
+### Driscoll & Kraay (1998)
+[](){ #driscoll-kraay-1998 }
+
+Driscoll, J. C. & Kraay, A. C. (1998). "Consistent Covariance Matrix
+Estimation with Spatially Dependent Panel Data." *Review of Economics
+and Statistics* 80(4), 549–560.
+
+Cross-section-robust HAC SE for pooled-panel slopes: the
+per-observation scores are summed cross-sectionally within each period
+and run through a Bartlett kernel over time, so the estimator stays
+consistent under arbitrary contemporaneous cross-sectional correlation
+(and serial correlation up to the bandwidth) — the dependence axis a
+one-way date cluster leaves open. Backs the optional
+`pooled_beta(driscoll_kraay=True)` SE path and the `DriscollKraay`
+estimator.
+
 ### Cameron, Gelbach & Miller (2011)
 [](){ #cameron-gelbach-miller-2011 }
 

@@ -328,6 +328,104 @@ def _cluster_meat(
     return meat, len(unique)
 
 
+# Period floor for the Driscoll-Kraay path: the cross-sectional score
+# sums form a length-T_periods series, and a Bartlett HAC on fewer than 3
+# periods cannot estimate even a single autocovariance — the same `< 3`
+# floor the clustered path applies to its cluster count.
+_MIN_DK_PERIODS: int = 3
+
+
+def _pooled_beta_driscoll_kraay(
+    df: pl.DataFrame,
+    X: np.ndarray,
+    resid: np.ndarray,
+    slope: float,
+    *,
+    n_obs: int,
+    cluster_col: str,
+    two_way_cluster_col: str | None,
+    lags: int | None,
+) -> MetricResult:
+    r"""Driscoll-Kraay (1998) cross-section-robust SE path for ``pooled_beta``.
+
+    Replaces the clustered-sandwich meat with the DK covariance
+    (``factrix.estimators.driscoll_kraay``): per-observation scores summed
+    cross-sectionally per period, Bartlett-HAC'd over the period series,
+    sandwiched with ``(X'X)⁻¹``. ``df = T_periods - 1``. Short-circuits
+    with ``stat=None`` / ``p=1.0`` below ``_MIN_DK_PERIODS`` periods (HAC
+    undefined), mirroring the clustered ``G < 3`` guard.
+    """
+    if two_way_cluster_col is not None:
+        raise ValueError(
+            "pooled_beta: driscoll_kraay=True is mutually exclusive with "
+            "two_way_cluster_col. Driscoll-Kraay already handles "
+            "cross-sectional dependence across the panel; pick one SE method."
+        )
+
+    from factrix._stats.constants import MIN_PERIODS_WARN
+    from factrix.estimators import driscoll_kraay as _dk_cov
+
+    period_ids = df[cluster_col].to_numpy()
+    try:
+        cov, dk_meta = _dk_cov(X, resid, period_ids, lags=lags)
+    except np.linalg.LinAlgError:
+        return _short_circuit_output(
+            "pooled_beta",
+            "singular_pooled_design_matrix",
+            n_obs=n_obs,
+        )
+
+    n_periods = int(dk_meta["n_periods"])
+    if n_periods < _MIN_DK_PERIODS:
+        return MetricResult(
+            p_value=1.0,
+            value=slope,
+            n_obs=n_obs,
+            stat=None,
+            metadata={
+                "reason": "insufficient_periods",
+                "n_periods": n_periods,
+                "min_required": _MIN_DK_PERIODS,
+                "p_value": 1.0,
+            },
+        )
+
+    se_slope = float(np.sqrt(max(float(cov[1, 1]), 0.0)))
+    t_stat = 0.0 if se_slope < EPSILON else slope / se_slope
+    df_t = n_periods
+    p = _p_value_from_t(t_stat, df_t)
+
+    warning_codes: list[str] = []
+    if n_periods < MIN_PERIODS_WARN:
+        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
+        warnings.warn(
+            f"pooled_beta: Driscoll-Kraay SE on n_periods={n_periods} "
+            f"(< {MIN_PERIODS_WARN}); the cross-sectional HAC needs a long "
+            f"period series to be reliable. t-stat is returned but read "
+            f"p-values cautiously.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    metadata = {
+        "p_value": p,
+        "stat_type": "t",
+        "h0": "β=0",
+        "method": f"Pooled OLS + Driscoll-Kraay (1998) SE ({cluster_col})",
+        "se_method": "driscoll_kraay",
+        "n_periods": n_periods,
+        "driscoll_kraay_lags": dk_meta["driscoll_kraay_lags"],
+    }
+    return MetricResult(
+        p_value=p,
+        value=slope,
+        n_obs=n_obs,
+        stat=t_stat,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
+    )
+
+
 @metric(
     cell=_FM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
@@ -342,6 +440,8 @@ def pooled_beta(
     return_col: str = "forward_return",
     cluster_col: str = "date",
     two_way_cluster_col: str | None = None,
+    driscoll_kraay: bool = False,
+    driscoll_kraay_lags: int | None = None,
 ) -> MetricResult:
     r"""Pooled ordinary least squares (OLS) with clustered SE — robustness check against FM.
 
@@ -355,9 +455,23 @@ def pooled_beta(
     $\hat\lambda$ have **opposite signs**, ``profile.diagnose()``
     flags an FM/pooled sign-mismatch — a red flag for misspecification.
 
+    Set ``driscoll_kraay=True`` to swap the clustered sandwich for the
+    [Driscoll & Kraay (1998)][driscoll-kraay-1998] cross-section-robust
+    HAC SE — robust to **arbitrary contemporaneous cross-sectional
+    correlation** rather than only the within-cluster dependence a
+    one-way cluster captures. On small, cross-sectionally correlated
+    panels a date-clustered SE treats periods as independent and so
+    understates SE / inflates significance; DK closes that gap by HAC-ing
+    the cross-sectional score sums over time. The clustered path stays
+    the default; the chosen SE method is recorded in
+    ``metadata["se_method"]`` (``"driscoll_kraay"`` vs the cluster
+    ``method`` string). ``driscoll_kraay=True`` is mutually exclusive
+    with ``two_way_cluster_col`` (raises ``ValueError``).
+
     Short-circuits when $N < 10$ (no regression), returns ``stat=None``
     with $p=1.0$ when the effective $G < 3$ (SE undefined with < 3
-    clusters).
+    clusters) — or, on the DK path, when fewer than 3 distinct periods
+    leave the cross-sectional HAC undefined.
 
     Formula:
         Point estimate:
@@ -395,6 +509,22 @@ def pooled_beta(
         $(A, B)$. Each component uses its own finite-sample correction.
         $\mathrm{df} = \min(G_A, G_B) - 1$ ([Thompson (2011)][thompson-2011]).
 
+        Driscoll-Kraay cross-section-robust HAC SE (when
+        ``driscoll_kraay=True`` — [Driscoll & Kraay (1998)][driscoll-kraay-1998]):
+        sum the per-observation scores $u_{it} = x_{it}\hat e_{it}$
+        cross-sectionally within each period, $h_t = \sum_i u_{it}$, run a
+        Bartlett-kernel HAC on the $T$-period sequence, and sandwich:
+
+        $$
+        V = (X'X)^{-1}\,\hat S_T\,(X'X)^{-1}, \quad
+        \hat S_T = \hat\Omega_0 + \sum_{j=1}^{m}\Bigl(1-\tfrac{j}{m+1}\Bigr)
+                   (\hat\Omega_j + \hat\Omega_j'),
+        $$
+
+        $\hat\Omega_j = \sum_t h_t h_{t-j}'$, bandwidth $m$ from the
+        [Newey-West (1994)][newey-west-1994] auto rule on the period count
+        ($\mathrm{df} = T - 1$).
+
     Notes:
         Pool ``(date, asset)`` rows and run a single OLS ``R = alpha +
         beta * Signal + eps`` with the appropriate cluster-robust
@@ -421,6 +551,11 @@ def pooled_beta(
           Errors that Cluster by Both Firm and Time." Journal of
           Financial Economics, 99(1), 1–10. Finite-sample df correction
           `min(G_A, G_B) − 1`.
+        - [Driscoll & Kraay (1998)][driscoll-kraay-1998]. "Consistent
+          Covariance Matrix Estimation with Spatially Dependent Panel
+          Data." Review of Economics and Statistics, 80(4), 549–560.
+          Cross-section-robust HAC SE used by the ``driscoll_kraay=True``
+          path.
 
     Examples:
         >>> import factrix as fx
@@ -460,6 +595,18 @@ def pooled_beta(
     slope = float(beta[1])
     resid = y - X @ beta
     k = X.shape[1]
+
+    if driscoll_kraay:
+        return _pooled_beta_driscoll_kraay(
+            df,
+            X,
+            resid,
+            slope,
+            n_obs=n_obs,
+            cluster_col=cluster_col,
+            two_way_cluster_col=two_way_cluster_col,
+            lags=driscoll_kraay_lags,
+        )
 
     clusters_a = df[cluster_col].to_numpy()
     meat_a, g_a = _cluster_meat(X, resid, clusters_a)

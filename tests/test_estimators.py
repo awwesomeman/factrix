@@ -64,14 +64,20 @@ class TestNamespaceExports:
     def test_top_level_namespace_attached(self) -> None:
         assert hasattr(fx, "estimators")
 
-    def test_namespace_exports_three_callables(self) -> None:
-        for name in ("newey_west", "hansen_hodrick", "block_bootstrap"):
+    def test_namespace_exports_callables(self) -> None:
+        for name in (
+            "newey_west",
+            "hansen_hodrick",
+            "block_bootstrap",
+            "driscoll_kraay",
+        ):
             assert callable(getattr(fx.estimators, name))
 
-    def test_does_not_expose_driscoll_kraay(self) -> None:
-        # Driscoll-Kraay is documented as a future variant under
-        # SEMethod.HAC; #444 explicitly defers implementation.
-        assert not hasattr(fx.estimators, "driscoll_kraay")
+    def test_exposes_driscoll_kraay(self) -> None:
+        # Driscoll-Kraay was deferred at #444 (future SEMethod.HAC
+        # variant) and lands at #537 as the cross-section-robust HAC SE
+        # option behind pooled_beta(driscoll_kraay=True).
+        assert callable(fx.estimators.driscoll_kraay)
 
 
 @pytest.mark.parametrize("forward_periods", [1, 5, 21])
