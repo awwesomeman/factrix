@@ -6,7 +6,7 @@ title: Panel vs timeseries
     What `PanelMode.PANEL` vs `PanelMode.TIMESERIES` mean, when each is dispatched, and the sample-guard contract for each.
     For the conventions table (column names, alignment), see [Timeseries-mode conventions](../reference/ts-mode-conventions.md).
     For the `mode=` parameter on `evaluate()`, see [`evaluate`](../api/evaluate.md).
-    For sample-guard error surfacing (`InsufficientSampleError`, `ModeAxisError`), see [Errors](../api/errors.md).
+    For sample-guard error surfacing (`InsufficientSampleError`, `IncompatibleAxisError`), see [Errors](../api/errors.md).
 
 ## Sample guards
 
@@ -25,8 +25,8 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 
 | Factory | N=1 | N=2..9 | N=10..29 | N≥30 |
 |---|---|---|---|---|
-| `individual_continuous(IC)` | raises `ModeAxisError` | all dates dropped (MIN_ASSETS_PER_DATE_IC=10) → NaN | normal PANEL | normal PANEL |
-| `individual_continuous(FM)` | raises `ModeAxisError` | per-date guard; low df | normal PANEL | normal PANEL |
+| `individual_continuous(IC)` | raises `IncompatibleAxisError` | all dates dropped (MIN_ASSETS_PER_DATE_IC=10) → NaN | normal PANEL | normal PANEL |
+| `individual_continuous(FM)` | raises `IncompatibleAxisError` | per-date guard; low df | normal PANEL | normal PANEL |
 | `common_continuous` | TIMESERIES single-series β | emits `SMALL_CROSS_SECTION_N` | emits `BORDERLINE_CROSS_SECTION_N` | normal PANEL |
 | `individual_sparse` / `common_sparse` | `_SCOPE_COLLAPSED` → TS dummy; `SCOPE_AXIS_COLLAPSED` info | normal PANEL CAAR | normal PANEL CAAR | normal PANEL CAAR |
 

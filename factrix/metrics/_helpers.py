@@ -105,6 +105,17 @@ def _short_circuit_output(
     Use this instead of hand-rolling ``MetricResult(value=float("nan"),
     p_value=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
+    import logging
+
+    logger = logging.getLogger(f"factrix.metric.{name}")
+    logger.info(
+        "Metric %s short-circuited: %s (n_obs=%s, extra=%s)",
+        name,
+        reason,
+        n_obs,
+        extra_metadata,
+    )
+
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
     p: float | None = None if descriptive else 1.0
     if p is not None:

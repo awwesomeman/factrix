@@ -10,14 +10,17 @@ How to read factrix errors and which exception class to catch.
 import factrix as fx
 
 try:
-    profile = fx.evaluate(panel, cfg)
+    results = fx.evaluate(data, metrics={"ic": ic()}, factor_cols=["factor"])
 except fx.UserInputError as exc:
     # User typed the wrong thing — typo, unknown name, wrong column.
     # The message carries a fuzzy suggestion + a docs link.
     print(exc)
-except fx.ConfigError as exc:
-    # AnalysisConfig validation / dispatch failure.
-    # exc.suggested_fix may carry a nearest-legal AnalysisConfig.
+except fx.IncompatibleAxisError as exc:
+    # Axis miswire.
+    ...
+except fx.InsufficientSampleError as exc:
+    # n_periods or other axis is below the required hard floor.
+    # exc.actual_periods and exc.required_periods carry details.
     ...
 except fx.FactrixError as exc:
     # Catch-all for anything else factrix raises.
@@ -31,21 +34,18 @@ All factrix-raised exceptions inherit from `FactrixError`, so a single
 
 ```
 FactrixError                       # base
-├── ConfigError                    # AnalysisConfig validation / dispatch
-│   ├── MissingConfigError         # evaluate(panel) called without a config
-│   ├── IncompatibleAxisError      # (scope, signal, metric) is not a legal cell
-│   ├── ModeAxisError              # legal cell, no procedure at runtime mode
-│   └── InsufficientSampleError    # T below MIN_PERIODS_HARD on a TIMESERIES procedure
-└── UserInputError                 # named-set typo / type mismatch
+├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
+├── InsufficientSampleError        # T below MIN_PERIODS_HARD on a TIMESERIES procedure
+├── UnknownEstimatorError          # lookup miss in get_estimator
+└── UserInputError                 # named-set typo / type mismatch / dataset schema error
 ```
 
 | Exception | When you see it | What it carries |
 |---|---|---|
-| `MissingConfigError` | `evaluate(panel)` called without an `AnalysisConfig` | — |
-| `IncompatibleAxisError` | `(scope, signal, metric)` is not a legal cell | optional `.suggested_fix` |
-| `ModeAxisError` | Legal cell has no procedure at the runtime `PanelMode` | typically `.suggested_fix: AnalysisConfig` |
+| `IncompatibleAxisError` | `(scope, density, metric)` is not a legal cell | — |
 | `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
-| `UserInputError` | Unknown metric / `p_stat` / context key, column not in panel, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
+| `UnknownEstimatorError` | `get_estimator(name)` lookup miss | — |
+| `UserInputError` | Unknown metric / estimator / `primary` label, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
 
 ---
 
@@ -62,14 +62,12 @@ Use the table to skim; jump to the linked page for the why.
 | `Both 'factor' and 'X' present` | Wide panel still has stale `"factor"` column alongside the renamed one | `panel.drop("factor")` before calling. |
 | `forward_return column missing` | Forgot the preprocess step | `compute_forward_return(raw, forward_periods=h)` before `evaluate`. See [Panel schema § Preprocess pipeline](panel-schema.md#preprocess-pipeline). |
 
-### Config failures (`ConfigError` family)
+### Structural and sample failures
 
 | Exception / message | Trigger | Fix |
 |---|---|---|
-| `MissingConfigError: evaluate(panel) needs AnalysisConfig` | `evaluate(panel)` called with no `cfg` | Pass an explicit `AnalysisConfig` (one of the four factory methods on `AnalysisConfig`). |
-| `IncompatibleAxisError: (scope, signal, metric) is not a legal cell` | Combination like `(INDIVIDUAL, SPARSE, IC)` that the dispatch table never registers | Use one of the four factories (`individual_continuous`, `individual_sparse`, `common_continuous`, `common_sparse`) — illegal combos are unreachable via factories. See [Concepts](../getting-started/concepts.md). |
-| `ModeAxisError: no procedure at runtime PanelMode=TIMESERIES` | Legal cell, but `N = panel["asset_id"].n_unique()` triggers a PanelMode the cell does not implement (typical case: `individual_continuous` at `N=1`) | Read `.suggested_fix` — it carries the nearest-legal `AnalysisConfig` for the actual `PanelMode`. See [Quickstart § N = 1](../getting-started/quickstart.md). |
-| `InsufficientSampleError: T below required` | `n_periods` below the procedure's `MIN_PERIODS_HARD` floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or — if the procedure is not the right one for short series — switching to a TIMESERIES-friendly cell. `evaluate()` raises; standalone metric callables (e.g. [`quantile_spread`](metrics/quantile.md#factrix.metrics.quantile.quantile_spread)) and `run_metrics()` surface the same condition differently — see [Panel vs timeseries § Sample-deficiency surfacing by entry point](../guides/panel-timeseries.md#sample-deficiency-surfacing-by-entry-point). |
+| `IncompatibleAxisError: (scope, density, metric) is not a legal cell` | Combination like `(INDIVIDUAL, SPARSE, IC)` that the dispatch table never registers | Use compatible axes. Check [`list_metrics`](list-metrics.md) or [`inspect_data`](../guides/reading-results.md) to find applicable metrics. |
+| `InsufficientSampleError: T below required` | `n_periods` below the procedure's hard floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or switching to a TIMESERIES-friendly metric. See [Panel vs timeseries](../guides/panel-timeseries.md). |
 
 ### User-input failures (`UserInputError`)
 
@@ -182,12 +180,7 @@ Autodoc anchors for cross-references of the form
       show_root_toc_entry: false
       heading_level: 4
 
-### Config failures
-
-::: factrix.ConfigError
-    options:
-      show_root_toc_entry: false
-      heading_level: 4
+### Structural and sample failures
 
 ::: factrix.IncompatibleAxisError
     options:

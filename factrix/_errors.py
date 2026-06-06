@@ -1,16 +1,15 @@
-"""v0.5 exception hierarchy (§4.5).
+"""Flat exception hierarchy rooted at :class:`FactrixError`.
 
-Three concrete ``ConfigError`` subclasses cover every config-validation
-or evaluate-time failure structure; ``suggested_fix`` carries the nearest
-legal :class:`factrix._analysis_config.AnalysisConfig` (when one exists)
-so the user — or a calling AI agent — can recover programmatically.
+:class:`IncompatibleAxisError`, :class:`InsufficientSampleError`,
+:class:`UnknownEstimatorError`, and :class:`UserInputError` each inherit
+directly from :class:`FactrixError`; callers can branch on subclass without
+parsing message strings.
 """
 
 from __future__ import annotations
 
 import difflib
 from collections.abc import Iterable
-from typing import Any
 
 _DOCS_BASE = "https://awwesomeman.github.io/factrix/"
 _VALUE_REPR_CAP = 120
@@ -102,25 +101,7 @@ class UserInputError(FactrixError, ValueError):
         return "\n".join(lines)
 
 
-class ConfigError(FactrixError):
-    """Base for cell / dispatch validation errors.
-
-    ``suggested_fix`` carries any caller-actionable recovery payload
-    (e.g. nearest-legal cell); stays ``None`` when the failure is a
-    data limitation rather than a cell miswire.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        suggested_fix: Any | None = None,
-    ) -> None:
-        super().__init__(message)
-        self.suggested_fix = suggested_fix
-
-
-class UnknownEstimatorError(ConfigError, ValueError):
+class UnknownEstimatorError(FactrixError, ValueError):
     """``get_estimator(name)`` lookup miss (#163).
 
     Inherits ``ValueError`` so ``pytest.raises(ValueError)`` and the
@@ -130,7 +111,7 @@ class UnknownEstimatorError(ConfigError, ValueError):
     """
 
 
-class IncompatibleAxisError(ConfigError):
+class IncompatibleAxisError(FactrixError):
     """``(scope, density, metric)`` tuple is not a legal analysis cell.
 
     Covers e.g. ``density=SPARSE`` paired with ``metric=IC``, or
@@ -138,12 +119,11 @@ class IncompatibleAxisError(ConfigError):
     """
 
 
-class InsufficientSampleError(ConfigError):
+class InsufficientSampleError(FactrixError):
     """``T < MIN_PERIODS_HARD`` for a TIMESERIES procedure.
 
     Below the floor, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE is too biased for ``primary_p`` to be
-    trustworthy. Raised at evaluate-time. ``suggested_fix`` is ``None``
-    — this is a data limitation, not a cell miswire. ``actual_periods``
+    trustworthy. Raised at evaluate-time. ``actual_periods``
     and ``required_periods`` carry the numbers so callers can recover or
     aggregate programmatically (review fix UX-3).
     """
@@ -154,8 +134,7 @@ class InsufficientSampleError(ConfigError):
         *,
         actual_periods: int,
         required_periods: int,
-        suggested_fix: Any | None = None,
     ) -> None:
-        super().__init__(message, suggested_fix=suggested_fix)
+        super().__init__(message)
         self.actual_periods = actual_periods
         self.required_periods = required_periods

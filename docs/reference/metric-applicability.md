@@ -230,7 +230,7 @@ returns a meaningful-looking result. Three deterministic outcomes:
   `diagnose()` records the degradation.
 
 Structural errors (wrong cell, missing column, `N == 1` on a cell that
-requires `PANEL` PanelMode) raise `ValueError` / [`ConfigError`][factrix.ConfigError] rather than
+requires `PANEL` DataStructure) raise `ValueError` / [`FactrixError`][factrix.FactrixError] rather than
 falling back.
 
 ## Event-study contracts

@@ -61,7 +61,7 @@ Plus introspection / error / enum re-exports:
 
 - `fx.FactorScope`, `fx.FactorDensity` — user-facing axes
 - `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured result codes
-- `fx.FactrixError`, `fx.ConfigError`, `fx.IncompatibleAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
+- `fx.FactrixError`, `fx.IncompatibleAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
 
@@ -164,10 +164,8 @@ in `stats: Mapping[StatCode, float]` keyed by enum, not by string.
 Both modes produce real `primary_p` values — neither is degraded.
 
 `(INDIVIDUAL, DENSE, *) × N=1` is mathematically undefined (no
-cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). `_evaluate`
-raises `ModeAxisError` with `suggested_fix=AnalysisConfig.common_continuous(...)`
-drawn from `_FALLBACK_MAP` in `factrix/_analysis_config.py`. Explicit
-user-correctable, never silent rewrite.
+cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). Evaluate
+raises `IncompatibleAxisError`. Explicit user-correctable, never silent rewrite.
 
 `(*, SPARSE, *) × N=1` is well-defined but the `INDIVIDUAL` / `COMMON`
 distinction collapses (one asset → no scope axis). Both user-facing factory
@@ -224,17 +222,15 @@ all functions.
 
 ```
 FactrixError                       # base — all factrix-raised errors
-├── ConfigError                    # AnalysisConfig validation / dispatch
-│   ├── MissingConfigError
-│   ├── IncompatibleAxisError
-│   ├── ModeAxisError              # carries .suggested_fix
-│   └── InsufficientSampleError    # carries .actual_periods / .required_periods
+├── IncompatibleAxisError
+├── InsufficientSampleError    # carries .actual_periods / .required_periods
+├── UnknownEstimatorError
 └── UserInputError                 # named-set typo / type mismatch
 ```
 
 `UserInputError` is the marker for "user typed the wrong thing"
 (unknown metric / `p_stat` / `expand_over` key, column not in panel,
-wrong type). Catch it separately from `ConfigError` (axis miswire) and
+wrong type). Catch it separately from `IncompatibleAxisError` (axis miswire) and
 `InsufficientSampleError` (data limitation) when those branches need
 different recovery.
 
@@ -597,7 +593,7 @@ factrix/
 ├── __init__.py              # public surface
 ├── _axis.py                 # FactorScope / FactorDensity / Metric / DataStructure StrEnums
 ├── _codes.py                # WarningCode / InfoCode / StatCode StrEnums
-├── _errors.py               # FactrixError → ConfigError → {IncompatibleAxisError, ModeAxisError, InsufficientSampleError}
+├── _errors.py               # FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
 ├── _analysis_config.py      # AnalysisConfig + 4 factories + _FALLBACK_MAP
 ├── _registry.py             # _DispatchKey, _RegistryEntry, _SCOPE_COLLAPSED, register()
 ├── _procedures.py           # 7 FactorProcedure classes; bootstrap-registered at import

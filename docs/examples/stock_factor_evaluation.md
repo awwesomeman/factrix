@@ -14,7 +14,7 @@ This recipe uses `AnalysisConfig.individual_continuous(metric=Metric.IC)`
 
 Procedure: per-date Spearman ρ between factor and forward return,
 aggregated to a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-statistic on `E[IC]`. PANEL mode
-(`N ≥ 2`); `N = 1` raises `ModeAxisError`
+(`N ≥ 2`); `N = 1` raises `IncompatibleAxisError`
 since there is no cross-section to rank within.
 
 Literature: [Grinold (1989)](../reference/bibliography.md);
@@ -152,6 +152,5 @@ specifically:
 
 - `N < 30` emits `BORDERLINE_CROSS_SECTION_N` /
   `SMALL_CROSS_SECTION_N`.
-- `N = 1` raises `ModeAxisError` with
-  `suggested_fix=common_continuous(...)` — the factor would no
+- `N = 1` raises `IncompatibleAxisError` — the factor would no
   longer be cross-sectional.

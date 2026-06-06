@@ -13,6 +13,29 @@ def test_subclasses_factrix_error_and_value_error() -> None:
     assert issubclass(UserInputError, ValueError)
 
 
+def test_other_error_subclasses_inheritance() -> None:
+    import factrix
+    import factrix._errors
+    from factrix._errors import (
+        IncompatibleAxisError,
+        InsufficientSampleError,
+        UnknownEstimatorError,
+    )
+
+    assert issubclass(UnknownEstimatorError, FactrixError)
+    assert issubclass(UnknownEstimatorError, ValueError)
+
+    assert issubclass(IncompatibleAxisError, FactrixError)
+    assert not issubclass(IncompatibleAxisError, ValueError)
+
+    assert issubclass(InsufficientSampleError, FactrixError)
+    assert not issubclass(InsufficientSampleError, ValueError)
+
+    # Verify ConfigError is completely removed
+    assert not hasattr(factrix, "ConfigError")
+    assert not hasattr(factrix._errors, "ConfigError")
+
+
 def test_caught_by_generic_value_error() -> None:
     with pytest.raises(ValueError):
         raise UserInputError(

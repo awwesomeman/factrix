@@ -58,7 +58,6 @@ from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._data_input import DataInput, _coerce_data
 from factrix._errors import (
-    ConfigError,
     FactrixError,
     IncompatibleAxisError,
     InsufficientSampleError,
@@ -672,7 +671,6 @@ __all__ = [
     "StatCode",
     "WarningCode",
     # Errors
-    "ConfigError",
     "FactrixError",
     "IncompatibleAxisError",
     "InsufficientSampleError",
