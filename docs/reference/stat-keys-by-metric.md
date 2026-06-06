@@ -59,7 +59,8 @@ contrasts, not a sidecar to a primary value.
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | none — descriptive | — | mean bars per event |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | none — descriptive | — | mean leakage score |
 | [`monotonicity`][factrix.metrics.monotonicity.monotonicity] | cross-asset `t` on signed Spearman | `p_value` | mean \|Spearman\| |
-| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread | `p_value` | mean(spread) |
+| [`quantile_spread`][factrix.metrics.quantile.quantile_spread] | NW HAC `t` on top-bottom spread (block-bootstrap CI when small cross-section) | `p_value` | mean(spread) |
+| [`k_spread`][factrix.metrics.k_spread.k_spread] | non-overlapping `t` on top-K−bottom-K spread (block-bootstrap CI when small cross-section) | `p_value` | mean(spread) |
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n / n_top) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
@@ -265,18 +266,43 @@ consistency are read separately.
 #### `quantile_spread`
 
 - *primary*: `p_value` — non-overlapping `t`-test on the
-  (top − bottom) spread series.
+  (top − bottom) spread series. Small cross-sections
+  (`n_assets < MIN_ASSETS_WARN`) switch to a block-bootstrap CI; see
+  the shared small-N keys below.
 - *secondary-test*: `long_alpha`, `long_stat`, `long_p_value` —
   long-leg attribution (mean excess and `t` / p-value).
 - *secondary-test*: `short_alpha`, `short_stat`, `short_p_value`,
   `short_significance` — short-leg attribution.
-- *descriptive*: `n_periods`, `tie_ratio`, `tie_policy`.
+- *descriptive*: `n_periods`, `tie_ratio`, `tie_policy`, `method`.
 
 #### `quantile_spread_vw`
 
 Value-weighted variant. Same metadata shape as `quantile_spread`
 plus a `weights_lagged` flag indicating whether the weighting input
 was lagged before the join (descriptive).
+
+### `k_spread` (`factrix.metrics.k_spread`)
+
+#### `k_spread`
+
+Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
+`quantile_spread`.
+
+- *primary*: `p_value` — non-overlapping `t`-test on the spread
+  series, or a block-bootstrap CI in the small-cross-section regime
+  (`method` records which).
+- *descriptive*: `k` (names per leg), `cross_sectional_dispersion`
+  (mean per-date cross-sectional return std), `top_return`,
+  `bottom_return`, `n_periods`, `method`. The `k`-too-large
+  short-circuit reports `max_assets_per_date`.
+
+#### Shared small-N significance keys
+
+Both `quantile_spread` and `k_spread` switch the headline test to a
+block-bootstrap CI when `n_assets < MIN_ASSETS_WARN`. In that branch
+they additionally emit `p_value_t` (the parametric `t` p-value kept
+for reference), `bootstrap_block_length`, `bootstrap_n_resamples`,
+and `bootstrap_seed`.
 
 ### `concentration` (`factrix.metrics.concentration`)
 

@@ -41,6 +41,7 @@ from factrix.metrics._helpers import (
     _lag_within_asset,
     _sample_non_overlapping,
     _short_circuit_output,
+    _spread_significance,
     _warn_high_tie_ratio,
 )
 from factrix.metrics._primitives import (
@@ -181,10 +182,11 @@ def _quantile_spread_from_series(
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
-    std_spread = float(np.std(arr, ddof=DDOF))
-    t = _calc_t_stat(mean_spread, std_spread, n)
-
-    p = _p_value_from_t(t, n)
+    # Headline test: small cross-sections (n_assets < MIN_ASSETS_WARN) switch
+    # from the non-overlapping t to a block-bootstrap CI (shared policy with
+    # k_spread); larger cross-sections keep the t-test.
+    n_assets = sampled["asset_id"].n_unique()
+    t, p, sig_method, sig_extra = _spread_significance(arr, n_assets)
 
     # Long/short decomposition (spread = long_alpha + short_alpha)
     long_excess = (series["top_return"] - series["universe_return"]).drop_nulls()
@@ -212,7 +214,7 @@ def _quantile_spread_from_series(
             "p_value": p,
             "stat_type": "t",
             "h0": "mu=0",
-            "method": "non-overlapping t-test",
+            "method": sig_method,
             "long_alpha": mean_long,
             "short_alpha": mean_short,
             "long_stat": t_long,
@@ -222,6 +224,7 @@ def _quantile_spread_from_series(
             "short_significance": _significance_marker(p_short),
             "tie_ratio": tie_ratio,
             "tie_policy": tie_policy,
+            **sig_extra,
         },
     )
 

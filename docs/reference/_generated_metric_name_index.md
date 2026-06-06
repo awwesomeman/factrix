@@ -18,6 +18,7 @@
 | `ic_ir` | [`factrix.metrics.ic`][factrix.metrics.ic] | [`ic_ir`](../api/metrics/ic.md#factrix.metrics.ic.ic_ir) |
 | `ic_newey_west` | [`factrix.metrics.ic`][factrix.metrics.ic] | [`ic_newey_west`](../api/metrics/ic.md#factrix.metrics.ic.ic_newey_west) |
 | `ic_trend` | [`factrix.metrics.trend`][factrix.metrics.trend] | [`ic_trend`](../api/metrics/trend.md#factrix.metrics.trend.ic_trend) |
+| `k_spread` | [`factrix.metrics.k_spread`][factrix.metrics.k_spread] | [`k_spread`](../api/metrics/k_spread.md#factrix.metrics.k_spread.k_spread) |
 | `mean_r_squared` | [`factrix.metrics.ts_beta`][factrix.metrics.ts_beta] | [`mean_r_squared`](../api/metrics/ts_beta.md#factrix.metrics.ts_beta.mean_r_squared) |
 | `mfe_mae_summary` | [`factrix.metrics.mfe_mae`][factrix.metrics.mfe_mae] | [`mfe_mae_summary`](../api/metrics/mfe_mae.md#factrix.metrics.mfe_mae.mfe_mae_summary) |
 | `monotonicity` | [`factrix.metrics.monotonicity`][factrix.metrics.monotonicity] | [`monotonicity`](../api/metrics/monotonicity.md#factrix.metrics.monotonicity.monotonicity) |
