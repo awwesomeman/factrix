@@ -137,7 +137,15 @@ def k_spread(
         )
 
     sampled = _sample_non_overlapping(df, forward_periods)
-    ranked = sampled.with_columns(
+    # Drop rows with no factor or no realised return BEFORE ranking: ``rank``
+    # skips nulls but ``pl.len`` would still count them, so ``_n_date`` would
+    # overcount and the bottom-leg cutoff (``_rank > _n_date - k``) would point
+    # past the last real rank — silently shrinking or emptying the short leg.
+    # forward_return is null on the last ``forward_periods`` rows per asset.
+    clean = sampled.filter(
+        pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
+    )
+    ranked = clean.with_columns(
         pl.col(factor_col)
         .rank(method="ordinal", descending=True)
         .over("date")
@@ -146,7 +154,7 @@ def k_spread(
     ).filter(pl.col("_n_date") >= 2 * k)
 
     if ranked.height == 0:
-        per_date_counts = sampled.group_by("date").len()["len"].to_numpy()
+        per_date_counts = clean.group_by("date").len()["len"].to_numpy()
         max_per_date = int(np.max(per_date_counts)) if per_date_counts.size else 0
         return _short_circuit_output(
             "k_spread",
@@ -185,7 +193,7 @@ def k_spread(
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
-    n_assets = sampled["asset_id"].n_unique()
+    n_assets = clean["asset_id"].n_unique()
     t, p, sig_method, sig_extra = _spread_significance(arr, n_assets, rng_seed=rng_seed)
 
     mean_dispersion = float(np.mean(series["xs_dispersion"].drop_nulls().to_numpy()))

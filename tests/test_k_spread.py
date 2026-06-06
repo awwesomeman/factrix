@@ -163,6 +163,27 @@ class TestUnderfilledDatesDropped:
         result = k_spread(df, forward_periods=1, k=2)
         assert result.n_obs == 3  # only the three 6-asset dates
 
+    def test_null_factor_rows_excluded_from_leg_count(self):
+        # Null factor/return rows must not inflate the per-date count: a date
+        # with 5 valid names (≥ 2k=4) still qualifies, and ranks stay
+        # contiguous so the bottom leg is not silently emptied.
+        rows = []
+        for d in range(4):
+            day = date(2021, 1, 1) + timedelta(days=d)
+            for a in range(8):
+                f = None if (d == 1 and a in (0, 1, 2)) else float(a)
+                rows.append(
+                    {
+                        "date": day,
+                        "asset_id": f"A{a}",
+                        "factor": f,
+                        "forward_return": 0.01 * a + 0.001 * d,
+                    }
+                )
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = k_spread(df, forward_periods=1, k=2)
+        assert result.n_obs == 4  # all four dates qualify (date 1 has 5 valid)
+
 
 class TestQuantileSpreadSharesPolicy:
     """The small-N bootstrap switch is shared with quantile_spread."""
