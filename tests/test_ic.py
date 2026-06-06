@@ -183,7 +183,7 @@ class TestIC:
         result = ic(ic_df, forward_periods=1)
         assert result.value > 0  # noisy_panel has positive IC
         assert result.stat > 0
-        assert result.p < 0.10
+        assert result.p_value < 0.10
 
     def test_insufficient_periods(self):
         df = pl.DataFrame(

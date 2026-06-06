@@ -80,5 +80,5 @@ class TestEstimatorForwardPeriodsParametrize:
         rng = np.random.default_rng(2024)
         series = rng.standard_normal(120)
         out = fx.estimators.newey_west(series, forward_periods=forward_periods)
-        assert np.isfinite(out.p)
-        assert 0.0 <= out.p <= 1.0
+        assert np.isfinite(out.p_value)
+        assert 0.0 <= out.p_value <= 1.0

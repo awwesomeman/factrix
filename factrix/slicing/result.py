@@ -26,12 +26,12 @@ class SliceResult(Mapping[str, MetricResult]):
     the rendered frame if a stable order is needed downstream.
 
     The container deliberately exposes only the universal projection
-    (``value``, ``stat``, ``p_value``). For metric-specific
+    (``value``, ``stat``, ``p``). For metric-specific
     metadata (``tie_ratio``, ``shanken_correction``, ...), build the
     DataFrame directly from ``[(k, m.metadata) for k, m in result.items()]``.
 
     Warning:
-        ``p_value`` in the rendered frame is the **per-slice** marginal
+        ``p`` in the rendered frame is the **per-slice** marginal
         p-value computed by the metric on that slice alone — *not*
         adjusted for the K parallel tests across slices. Filtering
         ``df.filter(pl.col("p_value") < 0.05)`` across K=10 sectors
@@ -120,7 +120,7 @@ class SliceResult(Mapping[str, MetricResult]):
             rows[slice_col].append(key)
             rows["value"].append(m.value)
             rows["stat"].append(m.stat)
-            rows["p_value"].append(float(m.p) if isinstance(m.p, int | float) else None)
+            rows["p_value"].append(float(m.p_value) if isinstance(m.p_value, int | float) else None)
         schema: dict[str, type[pl.DataType]] = {
             slice_col: pl.Utf8,
             "value": pl.Float64,

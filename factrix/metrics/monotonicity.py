@@ -199,7 +199,7 @@ def monotonicity(
         t = _calc_t_stat(mean_mono, std_mono, len(mono_arr))
         p = _p_value_from_t(t, len(mono_arr))
         results[f] = MetricResult(
-            p=p,
+            p_value=p,
             value=avg_mono,
             stat=t,
             metadata={

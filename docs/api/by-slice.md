@@ -171,20 +171,20 @@ leaderboards, and Notebook rendering.
 result = by_slice(ic, ic_df, label="regime")
 result.to_frame().sort("slice")           # plot-ready, lexicographic order
 # shape: (2, 4)
-# ┌────────┬───────┬───────┬──────────┐
-# │ slice  │ value │ stat  │ p_value  │
-# │ ---    │ ---   │ ---   │ ---      │
-# │ str    │ f64   │ f64   │ f64      │
-# ╞════════╪═══════╪═══════╪══════════╡
-# │ bear   │ -0.02 │ -0.41 │ 0.683    │
-# │ bull   │ 0.07  │ 2.31  │ 0.024    │
-# └────────┴───────┴───────┴──────────┘
+# ┌────────┬───────┬───────┬───────┐
+# │ slice  │ value │ stat  │ p     │
+# │ ---    │ ---   │ ---   │ ---   │
+# │ str    │ f64   │ f64   │ f64   │
+# ╞════════╪═══════╪═══════╪═══════╡
+# │ bear   │ -0.02 │ -0.41 │ 0.683 │
+# │ bull   │ 0.07  │ 2.31  │ 0.024 │
+# └────────┴───────┴───────┴───────┘
 
 # leaderboard: rank slices by t-stat magnitude
 result.to_frame().sort(pl.col("stat").abs(), descending=True)
 ```
 
-!!! warning "p_value is **per-slice**, not cross-slice-adjusted"
+!!! warning "`p_value` is **per-slice**, not cross-slice-adjusted"
 
     Each row's `p_value` tests that slice alone against its own null
     (e.g. `ic` mean = 0). Filtering `df.filter(pl.col("p_value") < 0.05)`
@@ -206,7 +206,7 @@ result.to_frame().sort(pl.col("stat").abs(), descending=True)
 | `slice`     | mapping key (rename via `slice_col=`) | never                              |
 | `value`     | `MetricResult.value`       | never                                        |
 | `stat`      | `MetricResult.stat`        | descriptive metric / short-circuit failure   |
-| `p_value`   | `MetricResult.p`           | descriptive metric / short-circuit failure   |
+| `p_value`   | `MetricResult.p_value`     | descriptive metric / short-circuit failure   |
 
 `stat` and `p_value` semantics follow the underlying metric (`stat` may
 be a *t*, *z*, *F*, or *χ²* — see `metadata["stat_type"]`; `p_value`

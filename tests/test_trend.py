@@ -31,7 +31,7 @@ class TestTheilSenSlope:
         values = [0.01] * 5  # < 10
         result = ic_trend(_make_series(values))
         assert math.isnan(result.value)
-        assert result.p is None or result.p >= 0.10
+        assert result.p_value is None or result.p_value >= 0.10
 
     def test_negative_slope(self):
         values = [0.10 - 0.005 * i for i in range(20)]

@@ -20,7 +20,7 @@ def test_two_slice_returns_single_row() -> None:
     )
     out = slice_joint_test(ic, df, label="regime")
     assert out.height == 1
-    assert out.columns == ["n_obs", "k_slices", "df", "stat", "p"]
+    assert out.columns == ["n_obs", "k_slices", "df", "stat", "p_value"]
     assert out["n_obs"][0] == 120
     assert out["k_slices"][0] == 2
     assert out["df"][0] == 1
@@ -43,7 +43,7 @@ def test_detects_omnibus_signal() -> None:
         label_col="regime",
     )
     out = slice_joint_test(ic, df, label="regime")
-    assert out["p"][0] < 0.01
+    assert out["p_value"][0] < 0.01
 
 
 def test_null_means_no_omnibus_rejection() -> None:
@@ -51,7 +51,7 @@ def test_null_means_no_omnibus_rejection() -> None:
         n_dates=240, seed=4, means={"a": 0.0, "b": 0.0, "c": 0.0}, label_col="regime"
     )
     out = slice_joint_test(ic, df, label="regime")
-    assert out["p"][0] > 0.10
+    assert out["p_value"][0] > 0.10
 
 
 def test_rejects_non_eligible_metric() -> None:

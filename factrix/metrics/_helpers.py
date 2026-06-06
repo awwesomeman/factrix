@@ -103,7 +103,7 @@ def _short_circuit_output(
     short-circuit into BHY / gate logic expecting a probability.
 
     Use this instead of hand-rolling ``MetricResult(value=float("nan"),
-    p=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
+    p_value=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
     p: float | None = None if descriptive else 1.0
@@ -111,7 +111,7 @@ def _short_circuit_output(
         metadata["p_value"] = p
     return MetricResult(
         value=float("nan"),
-        p=p,
+        p_value=p,
         n_obs=n_obs,
         stat=None,
         metadata=metadata,

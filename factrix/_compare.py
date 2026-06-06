@@ -31,7 +31,7 @@ def compare(
 
     One row per :class:`EvaluationResult`; two columns per metric —
     ``<metric_name>`` (``MetricResult.value``) and ``<metric_name>_p``
-    (``MetricResult.p`` when present, else ``null``).
+    (``MetricResult.p_value`` when present, else ``null``).
 
     Args:
         results: Non-empty list of :class:`EvaluationResult`. Each must
@@ -117,7 +117,7 @@ def compare(
                 )
             out = r.metrics.outputs[spec]
             row[spec] = _float_or_none(out.value)
-            row[f"{spec}_p"] = _float_or_none(out.p)
+            row[f"{spec}_p_value"] = _float_or_none(out.p_value)
         rows.append(row)
 
     df = pl.DataFrame(rows)

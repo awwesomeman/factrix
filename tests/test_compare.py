@@ -19,7 +19,7 @@ def _with_extra(factor: str, ic, sharpe, ic_value: float, sharpe_value: float):
         extra_outputs={
             "sharpe": MetricResult(
                 value=sharpe_value,
-                p=0.2,
+                p_value=0.2,
                 n_obs=100,
                 name="sharpe",
                 metadata={"p_value": 0.2},
@@ -41,9 +41,9 @@ def test_multi_metric_wide_layout():
         "factor",
         "forward_periods",
         "ic",
-        "ic_p",
+        "ic_p_value",
         "sharpe",
-        "sharpe_p",
+        "sharpe_p_value",
     ]
     assert df["factor"].to_list() == ["a", "b"]
     assert df["ic"].to_list() == [pytest.approx(0.05), pytest.approx(0.02)]
@@ -104,7 +104,7 @@ def test_p_column_populated_when_metadata_present():
     make_spec("ic")
     results = [make_result(factor="f1", p=0.042, primary="ic", value=0.05)]
     df = compare(results, metrics=["ic"])
-    assert df["ic_p"].to_list() == [pytest.approx(0.042)]
+    assert df["ic_p_value"].to_list() == [pytest.approx(0.042)]
 
 
 def test_empty_results_raises():

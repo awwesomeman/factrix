@@ -70,7 +70,7 @@ class TestNeweyWestCompute:
         t_direct, p_direct, _ = _newey_west_t_test(series, lags=nw_lags)
 
         assert result.stat == t_direct
-        assert result.p == p_direct
+        assert result.p_value == p_direct
         assert result.metadata == {"nw_lags": nw_lags}
 
     def test_inference_result_keys(self) -> None:
@@ -96,7 +96,7 @@ class TestNeweyWestCompute:
         # raise, and the primitive returns the conservative (0, 1).
         result = NeweyWest().compute(np.array([0.0]), forward_periods=5)
         assert result.stat == 0.0
-        assert result.p == 1.0
+        assert result.p_value == 1.0
         assert result.metadata["nw_lags"] == 0
 
 
@@ -114,7 +114,7 @@ class TestHansenHodrickCompute:
         )
 
         assert result.stat == t_direct
-        assert result.p == p_direct
+        assert result.p_value == p_direct
         assert result.metadata == {
             "kernel": "rectangular",
             "variance_clamped": clamped,

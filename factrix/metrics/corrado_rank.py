@@ -138,7 +138,7 @@ def corrado_rank(
     p = _p_value_from_z(z)
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_u,
         stat=z,
         metadata={

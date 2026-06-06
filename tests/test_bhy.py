@@ -33,7 +33,7 @@ def test_multi_primary_runs_independent_screens():
             extra_outputs={
                 "ic_ir": MetricResult(
                     value=0.4,
-                    p=0.5,
+                    p_value=0.5,
                     n_obs=100,
                     name="ic_ir",
                     metadata={"p_value": 0.5},

@@ -14,13 +14,13 @@ def _make_outputs() -> dict[str, MetricResult]:
     return {
         "bull": MetricResult(
             value=0.07,
-            p=0.024,
+            p_value=0.024,
             stat=2.31,
             metadata={"p_value": 0.024, "method": "non-overlapping t-test"},
         ),
         "bear": MetricResult(
             value=-0.02,
-            p=0.683,
+            p_value=0.683,
             stat=-0.41,
             metadata={"p_value": 0.683, "method": "non-overlapping t-test"},
         ),

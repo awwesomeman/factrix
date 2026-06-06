@@ -101,7 +101,7 @@ class InferenceResult:
     """
 
     stat: float
-    p: float
+    p_value: float
     stat_name: StatCode
     p_name: StatCode
     metadata: Mapping[str, Any]
@@ -180,7 +180,7 @@ class HACEstimator(Estimator, Protocol):
                 Hansen-Hodrick (HH) requires it for the rectangular-kernel lag count.
 
         Returns:
-            ``InferenceResult`` with ``stat`` / ``p`` and the
+            ``InferenceResult`` with ``stat`` / ``p_value`` and the
             ``StatCode`` keys the procedure should stitch into
             ``FactorProfile.stats`` / ``metadata``.
         """

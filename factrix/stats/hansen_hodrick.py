@@ -102,7 +102,7 @@ class HansenHodrick:
 
         return InferenceResult(
             stat=t_hh,
-            p=p_hh,
+            p_value=p_hh,
             stat_name=StatCode.T_HH,
             p_name=StatCode.P_HH,
             metadata={"kernel": "rectangular", "variance_clamped": clamped},

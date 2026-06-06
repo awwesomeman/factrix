@@ -230,7 +230,7 @@ class TestCaar:
         result = caar(caar_df)
         assert result.value > 0
         assert abs(result.stat) > 2.0
-        assert result.p < 0.05
+        assert result.p_value < 0.05
 
     def test_noise_not_significant(self, noise_signal):
         caar_df = compute_caar(noise_signal)

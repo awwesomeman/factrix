@@ -32,7 +32,7 @@ class MetricResult:
 
     Attributes:
         value: Raw metric value.
-        p: Two-sided p-value for the metric's hypothesis test, promoted
+        p_value: Two-sided p-value for the metric's hypothesis test, promoted
             from ``metadata["p_value"]`` to a typed first-class field.
             Serialisers (:meth:`EvaluationResult.to_frame` / ``to_dict``)
             read this field; the raw ``metadata["p_value"]`` key is still
@@ -47,7 +47,7 @@ class MetricResult:
             CAAR series).
         stat: Test statistic (t, z, W, chi2, ...), when applicable.
         metadata: Tool-specific context (``p_value``, ``stat_type``,
-            ``h0``, ``method`` are the standard keys). Read :attr:`p`
+            ``h0``, ``method`` are the standard keys). Read :attr:`p_value`
             for the typed promoted view of ``p_value``.
         warning_codes: Per-metric advisory :class:`WarningCode` values
             (as strings) the producer attached to *this* output — e.g.
@@ -65,7 +65,7 @@ class MetricResult:
     """
 
     value: float
-    p: float | None = None
+    p_value: float | None = None
     n_obs: int | None = None
     stat: float | None = None
     metadata: dict[str, object] = field(default_factory=dict)
@@ -75,8 +75,8 @@ class MetricResult:
     def __repr__(self) -> str:
         name = self.name or "?"
         parts = [f"{name}={self.value:.4f}"]
-        if self.p is not None:
-            parts.append(f"p={self.p:.4g}")
+        if self.p_value is not None:
+            parts.append(f"p_value={self.p_value:.4g}")
         if self.n_obs is not None:
             parts.append(f"n_obs={self.n_obs}")
         if self.stat is not None:
@@ -233,12 +233,12 @@ class EvaluationResult:
         | ``n_assets`` | i64 | :attr:`n_assets` |
         | ``metric_name`` | str | ``MetricResult.name`` (stamped at dispatch), falls back to mapping key |
         | ``value`` | f64 \\| null | ``MetricResult.value`` (``NaN`` / ``Inf`` -> null) |
-        | ``p`` | f64 \\| null | ``MetricResult.p`` |
+        | ``p_value`` | f64 \\| null | ``MetricResult.p_value`` |
         | ``stat`` | f64 \\| null | ``MetricResult.stat`` |
         | ``n_obs`` | i64 \\| null | ``MetricResult.n_obs`` |
         | ``warning_codes`` | list[str] | per-metric :class:`Warning` codes (``source == metric_name``); empty list when none |
 
-        Short-circuit rows surface as ``value=null`` / ``p=null``; the
+        Short-circuit rows surface as ``value=null`` / ``p_value=null``; the
         explanatory message lives on the matching :class:`Warning`
         record. Bundle-level warnings (``source is None``) do not
         produce rows; read them from :attr:`warnings` directly.
@@ -334,7 +334,7 @@ class EvaluationResult:
         for name, out in sorted(self.metrics.outputs.items()):
             tag = "primary" if name in primary_names else "diagnostic"
             val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
-            p_repr = f"{out.p:.4g}" if isinstance(out.p, float) else ""
+            p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
             metric_rows.append(
                 f"<tr><td>{html.escape(name)}</td>"
                 f"<td>{tag}</td>"
@@ -383,7 +383,7 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "n_assets": pl.Int64,
     "metric_name": pl.Utf8,
     "value": pl.Float64,
-    "p": pl.Float64,
+    "p_value": pl.Float64,
     "stat": pl.Float64,
     "n_obs": pl.Int64,
     "warning_codes": pl.List(pl.Utf8),
@@ -399,7 +399,7 @@ def _output_row(
     return {
         "metric_name": label,
         "value": _float_or_none(out.value),
-        "p": _float_or_none(out.p),
+        "p_value": _float_or_none(out.p_value),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
         "warning_codes": list(warnings_by_metric.get(label, [])),
@@ -419,7 +419,7 @@ def _float_or_none(x: object) -> float | None:
 def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
     return {
         "value": _float_or_none(out.value),
-        "p": _float_or_none(out.p),
+        "p_value": _float_or_none(out.p_value),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
         "metadata": {k: _scrub_nonfinite(v) for k, v in out.metadata.items()},

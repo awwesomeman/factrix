@@ -146,7 +146,7 @@ def hit_rate(
         stat_type = "z"
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=rate,
         stat=stat,
         metadata={
