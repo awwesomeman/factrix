@@ -81,9 +81,18 @@ class TestSmallNSignificanceSwitch:
         assert result.metadata["method"] == "block-bootstrap CI"
         assert "p_value_t" in result.metadata  # parametric p retained for reference
         assert result.metadata["bootstrap_seed"] == 0
+        # the method switch surfaces as a cross-section warning, not silently
+        assert "borderline_cross_section_n" in result.warning_codes
         # reproducible run-to-run under the fixed seed
         again = k_spread(panel, forward_periods=1, k=5)
         assert result.p_value == again.p_value
+
+    def test_large_cross_section_emits_no_switch_warning(self):
+        rng = np.random.default_rng(8)
+        factor = np.arange(40, dtype=float)
+        returns = rng.normal(0.001, 0.02, size=(30, 40))
+        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=5)
+        assert result.warning_codes == ()
 
 
 class TestShortCircuits:

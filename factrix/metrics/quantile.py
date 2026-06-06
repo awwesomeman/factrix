@@ -186,7 +186,7 @@ def _quantile_spread_from_series(
     # from the non-overlapping t to a block-bootstrap CI (shared policy with
     # k_spread); larger cross-sections keep the t-test.
     n_assets = sampled["asset_id"].n_unique()
-    t, p, sig_method, sig_extra = _spread_significance(arr, n_assets)
+    t, p, sig_method, sig_extra, sig_codes = _spread_significance(arr, n_assets)
 
     # Long/short decomposition (spread = long_alpha + short_alpha)
     long_excess = (series["top_return"] - series["universe_return"]).drop_nulls()
@@ -226,6 +226,7 @@ def _quantile_spread_from_series(
             "tie_policy": tie_policy,
             **sig_extra,
         },
+        warning_codes=sig_codes,
     )
 
 

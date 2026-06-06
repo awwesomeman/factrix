@@ -37,6 +37,7 @@ import warnings
 import numpy as np
 import polars as pl
 
+from factrix._codes import WarningCode, cross_section_tier
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.constants import MIN_ASSETS_WARN
@@ -60,10 +61,10 @@ def _spread_significance(
     n_assets: int,
     *,
     rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
-) -> tuple[float, float, str, dict[str, object]]:
+) -> tuple[float, float, str, dict[str, object], tuple[str, ...]]:
     """Headline significance for a per-date long-short spread series.
 
-    Returns ``(stat, p_value, method, extra_metadata)``.
+    Returns ``(stat, p_value, method, extra_metadata, warning_codes)``.
 
     Small cross-sections (``n_assets < MIN_ASSETS_WARN``) switch the
     headline test from the non-overlapping ``t`` to a block-bootstrap
@@ -76,6 +77,13 @@ def _spread_significance(
     effect size; in the bootstrap branch ``p_value`` comes from the
     resampling (``extra_metadata["p_value_t"]`` keeps the parametric ``p``
     for reference). The chosen path is named in the returned ``method``.
+
+    The switch fires exactly when :func:`cross_section_tier` flags the
+    cross-section (``n_assets < MIN_ASSETS_WARN``), so the returned
+    ``warning_codes`` carry that tier code (``SMALL_`` /
+    ``BORDERLINE_CROSS_SECTION_N``). This surfaces the method change as a
+    :class:`Warning` on the result rather than leaving it buried in
+    metadata — the same two-tier convention the sample guards use.
     """
     n = len(spread)
     mean = float(np.mean(spread))
@@ -83,7 +91,7 @@ def _spread_significance(
     t = _calc_t_stat(mean, std, n)
 
     if n_assets >= MIN_ASSETS_WARN:
-        return t, _p_value_from_t(t, n), "non-overlapping t-test", {}
+        return t, _p_value_from_t(t, n), "non-overlapping t-test", {}, ()
 
     from factrix.estimators import block_bootstrap
 
@@ -94,7 +102,9 @@ def _spread_significance(
         "bootstrap_n_resamples": boot_meta["n_resamples"],
         "bootstrap_seed": boot_meta["rng_seed"],
     }
-    return t, float(p_boot), "block-bootstrap CI", extra
+    tier: WarningCode | None = cross_section_tier(n_assets)
+    codes = (tier.value,) if tier is not None else ()
+    return t, float(p_boot), "block-bootstrap CI", extra, codes
 
 
 def _aggregate_to_per_date(

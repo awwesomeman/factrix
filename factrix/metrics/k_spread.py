@@ -194,7 +194,9 @@ def k_spread(
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
     n_assets = clean["asset_id"].n_unique()
-    t, p, sig_method, sig_extra = _spread_significance(arr, n_assets, rng_seed=rng_seed)
+    t, p, sig_method, sig_extra, sig_codes = _spread_significance(
+        arr, n_assets, rng_seed=rng_seed
+    )
 
     mean_dispersion = float(np.mean(series["xs_dispersion"].drop_nulls().to_numpy()))
     mean_top = float(np.mean(series["top_return"].drop_nulls().to_numpy()))
@@ -217,4 +219,5 @@ def k_spread(
             "bottom_return": mean_bottom,
             **sig_extra,
         },
+        warning_codes=sig_codes,
     )
