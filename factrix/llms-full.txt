@@ -615,14 +615,18 @@ types-only; runner wiring lands with the DAG executor.
   producer returned a short-circuit `MetricResult`. The downstream
   `MetricResult` carries `metadata["upstream"]` and
   `metadata["upstream_reason"]` for root-cause recovery.
-- **`fx.inspect_data(panel) -> DataInspection`** — typed
+- **`fx.inspect_data(data, factor_cols=None) -> DataInspection`** — typed
   pre-flight introspection that combines axis detection with a
   per-metric usability verdict.
+  - Accepts `data` (e.g. DataFrame) and optional `factor_cols` (defaults to
+    `None` which auto-detects all columns except reserved `date`, `asset_id`,
+    `forward_return`, and `price` columns).
   - `DataInspection.detected: DataProperties` carries the typed
     enums (`scope` / `density` / `structure`), the per-axis rationale
     strings folded in alongside each enum (`scope_reason` /
     `density_reason` / `structure_reason`), plus shape numerics
-    (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
+    (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`) resolved against
+    the first factor column.
     `n_pairs` counts non-null `(date, asset_id)` factor observations
     — the upper bound on sample size for pair-counting metrics.
     (The standalone `PanelReasoning` type is retired; `to_dict()`
@@ -643,8 +647,12 @@ types-only; runner wiring lands with the DAG executor.
     expects — the canonical discovery → evaluate bridge (scalar-input
     utilities that need required args are omitted).
   - `DataInspection.warnings: list[Warning]` carries data-level
-    sample-shape diagnostics (`source=None`); per-metric degraded
-    warnings live on each `MetricApplicability`.
+    sample-shape diagnostics (`source=None`) and cross-factor consistency checks
+    (`CROSS_FACTOR_DENSITY_MISMATCH` / `CROSS_FACTOR_SCOPE_MISMATCH`); when
+    either fires, the warning message notes that metric applicability is based
+    on the first factor column and suggests calling `inspect_data(data,
+    factor_cols=[<col>])` for a per-column verdict.
+    Per-metric degraded warnings live on each `MetricApplicability`.
   - Two-stage applicability: (1) `Cell.matches(scope, density, structure)`
     — structure is integral so e.g. `IC` (cell declares `structure=PANEL`) is
     unusable on a single-asset panel, not just degraded. (2)
