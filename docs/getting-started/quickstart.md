@@ -51,9 +51,9 @@ factory. For task-oriented help on **picking** the right factory (information co
 when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
 
 !!! note "N = 1 (single asset / series)"
-    `PanelMode` auto-switches to `TIMESERIES`. The `common_continuous` and
-    `*_sparse` factories work as-is. `individual_continuous` at N=1 raises
-    `ModeAxisError` with `suggested_fix=common_continuous(...)`.
+    `DataStructure` auto-switches to `TIMESERIES`. The `common_continuous` and
+    `*_sparse` metric families work as-is. `individual_continuous` at N=1 raises
+    `IncompatibleAxisError` — use a `common_*` or `*_sparse` metric instead.
 
 ---
 
@@ -89,9 +89,8 @@ The most common warnings:
 For the full enum and the trigger conditions for each `WarningCode`,
 `InfoCode`, and `StatCode`, see
 [Reference § Warning / info / stat codes](../reference/warning-codes.md).
-For exception classes (`InsufficientSampleError`, `ModeAxisError`,
-`UserInputError`, `ConfigError`, `MissingConfigError`, ...), their TL;DR
-catch pattern, and recovery via `suggested_fix`, see
+For exception classes (`InsufficientSampleError`, `IncompatibleAxisError`,
+`UserInputError`, ...) and their catch patterns, see
 [Errors](../api/errors.md).
 
 `warnings` does **not** affect `primary_p` —

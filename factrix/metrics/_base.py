@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import logging
 from collections.abc import Callable, Sequence
 from typing import Any, ClassVar
 
@@ -12,6 +14,16 @@ from factrix._axis import (
     TestMethod,
 )
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
+
+
+def _log_exception_once(
+    logger: logging.Logger, msg: str, *args: Any, exc: BaseException
+) -> None:
+    """Log *exc* at INFO level the first time it surfaces; no-op if already logged."""
+    if not getattr(exc, "_logged", False):
+        logger.info(msg, *args, exc_info=True)
+        with contextlib.suppress(AttributeError):
+            exc._logged = True  # type: ignore[attr-defined]
 
 
 class MetricMeta(type):
@@ -78,6 +90,11 @@ class MetricBase(metaclass=MetricMeta):
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
     _param_names: ClassVar[tuple[str, ...]]
+    _logger: ClassVar[logging.Logger]
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        cls._logger = logging.getLogger(f"factrix.metric.{cls.__name__}")
 
     @classmethod
     def spec(cls) -> MetricSpec:
@@ -102,8 +119,18 @@ class MetricBase(metaclass=MetricMeta):
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
-        # Accessed via __class__ to avoid binding ``_impl`` as a method.
-        return self.__class__._impl(*args, **{**self._params(), **kwargs})
+        try:
+            # Accessed via __class__ to avoid binding ``_impl`` as a method.
+            return self.__class__._impl(*args, **{**self._params(), **kwargs})
+        except Exception as e:
+            _log_exception_once(
+                self._logger,
+                "Metric %s failed with exception: %s",
+                self.__class__.__name__,
+                str(e),
+                exc=e,
+            )
+            raise
 
     def __call_batch__(
         self,
@@ -123,6 +150,7 @@ class MetricBase(metaclass=MetricMeta):
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
         return _dispatch_batch(
+            name=self.__class__.__name__,
             call_one=self,
             run_batch=lambda: self.__class__._impl(
                 panel,
@@ -139,6 +167,7 @@ class MetricBase(metaclass=MetricMeta):
 
 def _dispatch_batch(
     *,
+    name: str | None = None,
     call_one: Callable[..., Any],
     run_batch: Callable[[], dict[str, Any]],
     batchable: bool,
@@ -153,15 +182,37 @@ def _dispatch_batch(
     Shared by :meth:`MetricBase.__call_batch__` and the DAG executor's
     bare-callable (``fn_resolver``) path.
     """
+    logger = logging.getLogger(f"factrix.metric.{name}") if name else None
+
     if batchable:
-        return run_batch()
+        try:
+            return run_batch()
+        except Exception as e:
+            if logger:
+                _log_exception_once(
+                    logger, "Metric %s failed with exception: %s", name, str(e), exc=e
+                )
+            raise
+
     out: dict[str, Any] = {}
     for c in factor_cols:
-        if requires:
-            # Metric consumes upstream data via kwargs, replacing the raw panel
-            c_kwargs = {k: upstream[k][c] for k in requires}
-            out[c] = call_one(**c_kwargs)
-        else:
-            # Metric consumes the raw thin view
-            out[c] = call_one(project(c))
+        try:
+            if requires:
+                # Metric consumes upstream data via kwargs, replacing the raw panel
+                c_kwargs = {k: upstream[k][c] for k in requires}
+                out[c] = call_one(**c_kwargs)
+            else:
+                # Metric consumes the raw thin view
+                out[c] = call_one(project(c))
+        except Exception as e:
+            if logger:
+                _log_exception_once(
+                    logger,
+                    "Metric %s failed for factor %s with exception: %s",
+                    name,
+                    c,
+                    str(e),
+                    exc=e,
+                )
+            raise
     return out

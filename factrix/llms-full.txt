@@ -501,16 +501,13 @@ All factrix exceptions inherit from `FactrixError`, so agents can write
 
 ```
 FactrixError                       # base — all factrix-raised errors
-├── ConfigError                    # AnalysisConfig validation / dispatch
-│   ├── MissingConfigError         # evaluate(panel) called without a config
-│   ├── IncompatibleAxisError      # (scope, density, metric) is not a legal cell
-│   ├── ModeAxisError              # legal cell, no procedure at runtime structure;
-│   │                              # carries .suggested_fix: AnalysisConfig | None
-│   └── InsufficientSampleError    # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
+├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
+├── InsufficientSampleError        # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
 │                                  # carries .actual_periods / .required_periods
+├── UnknownEstimatorError          # lookup miss in get_estimator
 └── UserInputError                 # user-supplied input does not match expected
                                    # names or types (typo in named-set kwarg,
-                                   # column not in panel, wrong type)
+                                   # column not in data, wrong type)
 ```
 
 `UserInputError` is keyword-constructed and renders its own canonical
@@ -522,19 +519,15 @@ compatibility.
 
 Recovery payloads — what each subclass carries beyond `.args[0]`:
 
-| Exception                | `.suggested_fix` | Extra fields                              |
-|--------------------------|:----------------:|-------------------------------------------|
-| `ConfigError` (base)     | optional         | —                                         |
-| `MissingConfigError`     | always `None`    | (pass an explicit `AnalysisConfig` factory call)  |
-| `IncompatibleAxisError`  | optional         | —                                         |
-| `ModeAxisError`          | typically set    | —                                         |
-| `InsufficientSampleError`| optional         | `.actual_periods: int`, `.required_periods: int` |
+| Exception                | Extra fields                              |
+|--------------------------|-------------------------------------------|
+| `IncompatibleAxisError`  | —                                         |
+| `InsufficientSampleError`| `.actual_periods: int`, `.required_periods: int` |
+| `UnknownEstimatorError`  | —                                         |
 
 Agents can branch on these payloads without parsing message strings; the
 canonical pattern is `except fx.FactrixError as exc:` followed by
-`isinstance(exc, …)` dispatch on the subclass. `MissingConfigError` is the
-only subclass with `.suggested_fix` always `None` — the recovery path is
-to pass an explicit `AnalysisConfig` to `evaluate`.
+`isinstance(exc, …)` dispatch on the subclass.
 
 ---
 

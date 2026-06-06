@@ -152,7 +152,7 @@ Three responsibilities sit upstream of `compute_forward_return`:
 |---|---|---|
 | NaN in `factor` | Not auto-imputed; flows through to the procedure, where it depresses `n_obs` and may trip sample-size guards. | Drop or impute before `compute_forward_return`. |
 | NaN in `price` | `compute_forward_return` produces NaN `forward_return` for the row and then drops it from the output. Tail rows where `t + 1 + N` runs off the end of the series are dropped by the same filter. | If a daily NaN reflects a true gap (suspended trading, holiday), the drop is correct. If imputable (forward-fill from previous close), impute before calling. |
-| Single-asset panel (N = 1) | `PanelMode` auto-switches to `TIMESERIES`. `individual_continuous` at N = 1 raises [`ModeAxisError`](../api/errors.md) with `suggested_fix=common_continuous(...)`. | Either pass N ≥ 1 explicitly or use the `*_sparse` / `common_*` factories. |
+| Single-asset panel (N = 1) | `DataStructure` auto-switches to `TIMESERIES`. `individual_continuous` at N = 1 raises [`IncompatibleAxisError`](../api/errors.md). | Use a `*_sparse` or `common_*` metric instead. |
 | T < `MIN_PERIODS_HARD` (= 20) periods | Raises [`InsufficientSampleError`](../api/errors.md); procedures never silently produce a result on under-sample data. | Extend the window or accept the procedure's refusal. |
 
 ## 6. Sparse and event signals

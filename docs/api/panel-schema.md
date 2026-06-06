@@ -98,7 +98,6 @@ Schema-related failures and their fix paths:
 |---|---|---|
 | `factor_col 'X' not in panel columns` | Typo / wrong column name | Check `panel.columns`; pass the actual name to `factor_col=`. |
 | `Both 'factor' and 'X' present` | Wide panel still has stale `"factor"` column | `panel.drop("factor")` before calling. |
-| `MissingConfigError: evaluate(panel) needs AnalysisConfig` | Called `evaluate(panel)` with no `cfg` | — |
 | `forward_return column missing` | Forgot the preprocess step | `panel = compute_forward_return(raw, forward_periods=h)` before `evaluate`. |
 
 Full error taxonomy and recovery patterns: [Errors](errors.md).

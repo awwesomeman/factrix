@@ -131,6 +131,9 @@ class DagExecutor:
         fn_resolver: Callable[[str], Callable[..., Any]] | None = None,
         primary_names: Sequence[str] = (),
     ) -> None:
+        import logging
+
+        self._logger = logging.getLogger("factrix.dag")
         # Back-compat: a plain spec is wrapped one node per spec with
         # ``node_id == spec.name`` and requires resolved by producer name;
         # pre-built ``_Node`` items (the by-value path) pass straight through.
@@ -200,6 +203,8 @@ class DagExecutor:
         least one downstream consumer needs it; raw-data consumers
         skip projection).
         """
+        self._logger.debug("Executing DAG with topological plan:\n%s", self.plan)
+
         kwargs_by_metric = kwargs_by_metric or {}
         cols = list(factor_cols)
         n_assets = data.select(pl.col("asset_id").n_unique()).item()
@@ -226,12 +231,31 @@ class DagExecutor:
             for c in cols:
                 skip = _check_upstream_short_circuit(node, c, producer_outputs)
                 if skip is not None:
+                    self._logger.debug(
+                        "Short-circuit propagation: skipping node %s for factor %s because upstream %s failed (%s)",
+                        nid,
+                        c,
+                        skip.metadata.get("upstream"),
+                        skip.metadata.get("upstream_reason"),
+                    )
                     producer_outputs[(nid, c)] = skip
                     metric_outputs[(nid, c)] = dataclasses.replace(skip, name=nid)
                 else:
                     live.append(c)
             if not live:
+                self._logger.debug("Node %s skipped entirely (no live factors)", nid)
                 continue
+
+            if node.spec.batchable:
+                self._logger.debug(
+                    "Batched hit: executing batchable node %s across factors %r",
+                    nid,
+                    live,
+                )
+            else:
+                self._logger.debug(
+                    "Executing node %s individually for factors %r", nid, live
+                )
 
             upstream = self._gather_upstream_batch(node, live, producer_outputs)
             result = handle(data, live, project=project, upstream=upstream)
@@ -273,6 +297,7 @@ class DagExecutor:
             upstream: dict[str, dict[str, Any]],
         ) -> dict[str, Any]:
             return _dispatch_batch(
+                name=spec.name,
                 call_one=lambda *a, **k: bare(*a, **{**kw, **k}),
                 run_batch=lambda: bare(
                     data, factor_cols=list(factor_cols), **upstream, **kw
