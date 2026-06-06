@@ -1,4 +1,4 @@
-"""Tests for ``factrix.metrics.ts_quantile_spread`` (issue #5)."""
+"""Tests for ``factrix.metrics.ts_quantile_spread``."""
 
 from __future__ import annotations
 

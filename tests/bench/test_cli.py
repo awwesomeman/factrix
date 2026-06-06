@@ -21,7 +21,7 @@ def test_tiny_target_runs_full_scenario_set(tmp_path: Path):
     assert rc == 0
     files = sorted(tmp_path.glob("*.jsonl"))
     file_names = {f.name for f in files}
-    # Mandatory #380 §4 coverage.
+    # Mandatory harness scenario coverage.
     expected = {
         "S1.jsonl",
         "S2.jsonl",

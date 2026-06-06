@@ -1,4 +1,4 @@
-"""Tests for ``factrix.list_estimators`` (#170, #184).
+"""Tests for ``factrix.list_estimators``.
 
 Mirrors the `list_metrics` listing pattern: text-format names, JSON
 dict rows, `with_import` two-column form, and `IncompatibleAxisError`
@@ -15,7 +15,7 @@ from factrix._errors import IncompatibleAxisError
 @pytest.mark.parametrize(
     ("scope", "density", "expected"),
     [
-        # HansenHodrick + slice-test Estimators (#153) restrict to
+        # HansenHodrick + slice-test Estimators restrict to
         # (INDIVIDUAL, DENSE); NW applies universally.
         (
             FactorScope.INDIVIDUAL,

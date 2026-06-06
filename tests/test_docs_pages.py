@@ -1,9 +1,8 @@
 """Validates every ``docs/**/*.md`` page against the live public surface.
 
-Catches the drift class flagged by PR #97: a stale ``factrix.X.Y``
-reference or a ``from factrix.subpkg import X`` that survived a rename.
-The validator from #90 only inspected ``factrix/llms-full.txt``; this
-sibling extends the same snapshot approach to every authored docs page.
+Catches drift in documentation: stale ``factrix.X.Y``
+references or ``from factrix.subpkg import X`` that survived a rename.
+This check validates every authored docs page.
 
 ``docs/plans/**`` is excluded — those pages are intentionally fossilised
 historical planning artifacts (also excluded from the published site

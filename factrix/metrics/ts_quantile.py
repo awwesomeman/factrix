@@ -1,4 +1,4 @@
-"""Time-series quantile bucketing + monotonicity test (issue #5).
+"""Time-series quantile bucketing + monotonicity test.
 
 Diagnostic for `(COMMON, DENSE, *)` and single-asset TIMESERIES
 cells: bucket factor history into quantiles and check the conditional
@@ -78,7 +78,7 @@ def ts_quantile_spread(
       monotonicity diagnostic across the K bucket means
     - ``metadata["buckets"]`` = per-bucket ``{idx, mean_return, n}``
 
-    Gate (issue #5): ``n_unique(factor) >= n_groups * 2``. Below the
+    Gate for conditional means/piecewise slopes: ``n_unique(factor) >= n_groups * 2``. Below the
     gate the factor cannot sustain quantile cuts — short-circuits with
     a redirect to ``event_quality.*`` for binary / sparse signals.
 

@@ -1,4 +1,4 @@
-"""Cross-type invariant property tests — spec ↔ result ↔ applicability (#500).
+"""Cross-type invariant property tests — spec ↔ result ↔ applicability.
 
 The three public type families that describe a metric must stay
 mutually consistent, no matter which metric is added:

@@ -1,8 +1,8 @@
 """Contract: each slice-test-eligible metric module declares ``min_assets_per_group``.
 
-Drift guard for #153 §5 — if a metric module is touched and the
+Drift guard — if a metric module is touched and the
 attribute is dropped (or its type changes from ``int | None``), the
-slice-test verbs in #176 silently treat the metric as non-bucketing
+slice-test verbs silently treat the metric as non-bucketing
 and skip the downscale step. This test fails loudly instead.
 """
 
@@ -29,7 +29,7 @@ def test_metric_declares_min_assets_per_group(
     mod = importlib.import_module(module_path)
     assert hasattr(mod, "min_assets_per_group"), (
         f"{module_path}.min_assets_per_group is missing — slice-test "
-        f"verbs (#176) cannot resolve the downscale floor."
+        f"verbs cannot resolve the downscale floor."
     )
     actual = mod.min_assets_per_group
     assert actual == expected, (

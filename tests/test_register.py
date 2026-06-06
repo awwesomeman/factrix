@@ -1,4 +1,4 @@
-"""Third-party metric registration — ``@metric_spec`` decorator + ``register()`` (#444)."""
+"""Third-party metric registration — ``@metric_spec`` decorator + ``register()``."""
 
 from __future__ import annotations
 

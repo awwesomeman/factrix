@@ -1,4 +1,4 @@
-"""Coverage for the user-facing error contract (#165)."""
+"""Coverage for the user-facing error contract."""
 
 from __future__ import annotations
 

@@ -42,7 +42,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics._primitives import compute_ts_betas
 
-__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "ts_beta",
     "mean_r_squared",
     "ts_beta_sign_consistency",

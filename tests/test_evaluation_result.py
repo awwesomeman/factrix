@@ -1,4 +1,4 @@
-"""``EvaluationResult`` / ``MetricResultGroup`` dataclasses + serialisation (#441)."""
+"""``EvaluationResult`` / ``MetricResultGroup`` dataclasses + serialisation."""
 
 from __future__ import annotations
 

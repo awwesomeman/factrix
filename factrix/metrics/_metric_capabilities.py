@@ -5,9 +5,9 @@ top-level (parallel to the metric callable itself):
 
 - ``per_date_series(input_df) -> pl.DataFrame``: returns ``(date,
   value)`` long-form per-date series. Required for slice-test
-  consumers (#176).
+  consumers.
 - ``min_assets_per_group: int | None``: minimum cross-section bucket
-  size for slice-test ``n_groups`` downscale (#153 §5).
+  size for slice-test ``n_groups`` downscale.
 
 This module centralizes the lookup from a metric callable to its
 declaring module's capabilities so consumers do not grovel

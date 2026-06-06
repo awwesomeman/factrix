@@ -1,4 +1,4 @@
-"""Tests for slice-test Estimators (#153): WaldNWCluster / WaldTwoWayCluster / BlockBootstrap."""
+"""Tests for slice-test Estimators: WaldNWCluster / WaldTwoWayCluster / BlockBootstrap."""
 
 from __future__ import annotations
 

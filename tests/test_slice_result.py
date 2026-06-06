@@ -1,4 +1,4 @@
-"""Tests for the SliceResult container returned by by_slice (#212)."""
+"""Tests for the SliceResult container returned by by_slice."""
 
 from __future__ import annotations
 

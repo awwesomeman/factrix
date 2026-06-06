@@ -165,7 +165,7 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
 class InfoCode(StrEnum):
     """Neutral facts surfaced to the caller — not warnings, not errors.
 
-    Empty after the procedure-based dispatcher retired in #448 — the
+    Empty after the procedure-based dispatcher retired — the
     only member, ``SCOPE_AXIS_COLLAPSED``, tracked a legacy routing
     collapse that no longer happens under the DAG executor. The enum
     stays exported as the home for future neutral notes.
@@ -182,7 +182,7 @@ _INFO_DESCRIPTIONS: dict[InfoCode, str] = {}
 class StatCode(StrEnum):
     """Cell-specific scalar stats keyed in ``FactorProfile.stats``.
 
-    Naming grammar (#187): each code is ``<TARGET>_<KIND>``.
+    Naming grammar: each code is ``<TARGET>_<KIND>``.
 
     - ``TARGET`` — what is being measured. **Primary** (cell main
       effect) carries no prefix because ``FactorProfile.config``
@@ -211,7 +211,7 @@ class StatCode(StrEnum):
     heteroskedasticity-and-autocorrelation-consistent (HAC) + one-way
     cluster on the slice grouping, and ``(WALD_TWOWAY,
     P_WALD_TWOWAY)`` for two-way cluster on (date, asset) (slice-test
-    functions, #153 / #176). The Wald pairs follow the same
+    functions). The Wald pairs follow the same
     ``<KIND>_<ALGO>`` shape — KIND = ``WALD`` (χ² statistic name,
     parallel to ``T``), ALGO names the cluster-SE family
     (parallel to ``NW`` / ``HH`` naming the kernel family). ``P_BOOT``
@@ -234,7 +234,7 @@ class StatCode(StrEnum):
     a (kind × algo) cardinality product and a structured shape
     (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
     its breaking-change cost. Below those thresholds the flat
-    enum stays cheaper. **As of #537 the algorithm count is 7
+    enum stays cheaper. **The algorithm count is 7
     (NW / HH / GMM / NWCL / DC / BlockBootstrap / DK) and 3 KINDs
     (T / J / WALD). The flat enum is over-budget on both axes. DK
     (Driscoll-Kraay) was admitted as a single ``P_DK`` p-code with no
@@ -256,7 +256,7 @@ class StatCode(StrEnum):
 
     ``is_p_value`` returns ``True`` for any code whose
     underscore-separated tokens contain ``"p"``; the
-    family-function ``estimator=`` kwarg (#170) dispatches via
+    family-function ``estimator=`` kwarg dispatches via
     :class:`Estimator.emits_for`
     and is implicitly a p-value source by construction.
     """
@@ -281,7 +281,7 @@ class StatCode(StrEnum):
     J_GMM = "j_gmm"
     P_GMM = "p_gmm"
     # Cluster-robust Wald χ² for linear restrictions on a slice contrast
-    # / joint coefficient (slice-test functions, #153 / #176). KIND = WALD (χ²
+    # / joint coefficient (slice-test functions). KIND = WALD (χ²
     # test statistic, parallel to T); ALGO names the cluster-SE family
     # (parallel to NW / HH naming the kernel family).
     # NWCL = NW Bartlett HAC + one-way cluster on the slice grouping
@@ -293,7 +293,7 @@ class StatCode(StrEnum):
     WALD_TWOWAY = "wald_twoway"
     P_WALD_TWOWAY = "p_wald_twoway"
     # Empirical p-value from a block-bootstrap resample of a paired-diff
-    # statistic (paired-diff slice tests, #153 / #176). Singleton — the
+    # statistic (paired-diff slice tests). Singleton — the
     # bootstrap distribution itself is not published as a StatCode.
     # `BlockBootstrap` is one Estimator class; fixed vs stationary
     # scheme is a ctor arg living in metadata, so a single P_BOOT key

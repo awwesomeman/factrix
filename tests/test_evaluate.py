@@ -1,5 +1,5 @@
 """``fx.evaluate`` dict[str, Metric] API — labels, primary, strict, per-instance
-forward_periods + by-value DAG dedup (#497 / #494)."""
+forward_periods + by-value DAG dedup."""
 
 from __future__ import annotations
 

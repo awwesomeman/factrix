@@ -1,5 +1,5 @@
 """End-to-end reference cells doubling as docs examples for the
-``slice_pairwise_test`` / ``slice_joint_test`` verb pair (#176).
+``slice_pairwise_test`` / ``slice_joint_test`` verb pair.
 
 Each cell runs a realistic pipeline (``compute_ic`` → join labels →
 verb) and asserts the headline result so the file serves both as a

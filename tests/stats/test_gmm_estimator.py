@@ -1,4 +1,4 @@
-"""Tests for ``GMM`` MomentEstimator instance (#191).
+"""Tests for ``GMM`` MomentEstimator instance.
 
 Verifies:
 - Protocol identity (`Estimator` + `MomentEstimator`).

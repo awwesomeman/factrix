@@ -1,4 +1,4 @@
-"""DAG executor for ``MetricSpec.requires`` / ``MetricSpec.batchable`` dispatch (#442).
+"""DAG executor for ``MetricSpec.requires`` / ``MetricSpec.batchable`` dispatch.
 
 Single execution path that:
 
@@ -67,7 +67,7 @@ class _Node:
     """A configured execution node — a ``MetricSpec`` at one ``forward_periods`` /
     param configuration.
 
-    By-value dedup (#494) keys the executor on ``node_id`` rather than
+    By-value dedup keys the executor on ``node_id`` rather than
     ``spec.name`` so the same metric class can run at several configs in one
     call (``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}``). ``node_id``
     is ``spec.name`` for the sole config of a name and ``f"{spec.name}#{i}"``
@@ -114,7 +114,7 @@ class DagExecutor:
         primary_names: Names of specs whose :class:`MetricResult` is
             the bundle's primary p-value driver. Empty by default —
             the primary-vs-diagnostic classification is a cell-level
-            policy decision and lives outside this executor (#438).
+            policy decision and lives outside this executor.
 
     Raises:
         CycleError: if ``requires`` introduces a cycle.
@@ -362,7 +362,7 @@ class DagExecutor:
                         )
                     )
                 # Lift the metric's typed advisory codes into per-source
-                # Warning records so to_frame() / to_dict() surface them (#516).
+                # Warning records so to_frame() / to_dict() surface them.
                 for code in out.warning_codes:
                     warnings.append(
                         Warning(code=WarningCode(code), source=label, message="")

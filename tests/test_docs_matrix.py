@@ -10,9 +10,9 @@ Validates that:
 3. Each registered spec's name matches the literal in
    ``MetricResult(name=...)`` inside the declaring module.
 4. The generated docs-name-index file matches the live renderer
-   output (drift guard for #125).
+   output (drift guard).
 5. The generated evaluate-metric table file matches the live renderer
-   output (drift guard for #144).
+   output (drift guard).
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ def test_metric_output_name_matches_spec_name() -> None:
 def test_generated_name_index_matches_renderer() -> None:
     """Generated name-index file must match what the renderer produces.
 
-    Drift guard for #125: catches a stale checked-in file that no longer
+    Drift guard: catches a stale checked-in file that no longer
     reflects the spec SSOT (e.g. a metric was added but mkdocs wasn't
     rerun before commit).
     """
@@ -152,7 +152,7 @@ def test_generated_name_index_matches_renderer() -> None:
 def test_generated_evaluate_metric_table_matches_renderer() -> None:
     """Generated evaluate-metric table must match what the renderer produces.
 
-    Drift guard for #144: catches a stale checked-in file that no longer
+    Drift guard: catches a stale checked-in file that no longer
     reflects ``_DISPATCH_REGISTRY`` (e.g. a cell was added but mkdocs
     wasn't rerun before commit).
     """

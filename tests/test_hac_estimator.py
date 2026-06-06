@@ -1,4 +1,4 @@
-"""Tests for ``HACEstimator`` sub-protocol + ``InferenceResult`` (#163).
+"""Tests for ``HACEstimator`` sub-protocol + ``InferenceResult``.
 
 Verifies:
 - ``HACEstimator`` runtime_checkable identity (NW / HH satisfy;

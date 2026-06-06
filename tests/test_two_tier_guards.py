@@ -1,4 +1,4 @@
-"""Two-tier sample-size guards for inference primitives (issue #48 D).
+"""Two-tier sample-size guards for inference primitives.
 
 Each primitive (``fm_beta``, ``caar``, ``top_concentration``)
 must implement three tiers:
@@ -6,7 +6,7 @@ must implement three tiers:
 1. ``n < HARD`` → short-circuit (NaN ``MetricResult``).
 2. ``HARD ≤ n < WARN`` → return stat AND emit ``UserWarning`` AND
    surface the relevant ``WarningCode.value`` in the typed
-   ``MetricResult.warning_codes`` field (#516).
+   ``MetricResult.warning_codes`` field.
 3. ``n ≥ WARN`` → silent: stat returned, no warning, empty ``warning_codes``.
 """
 

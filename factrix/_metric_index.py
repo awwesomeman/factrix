@@ -61,7 +61,7 @@ _REPO_ROOT = pathlib.Path(__file__).parent.parent
 _METRICS_DIR = _REPO_ROOT / "factrix" / "metrics"
 
 # Canonical reverse-index URL convention for
-# :func:`docs_anchor_for` (#125): docs-root-relative path +
+# :func:`docs_anchor_for`: docs-root-relative path +
 # mkdocstrings symbol fragment. Centralised here so a future docs URL
 # change touches one literal — external prose in
 # ``factrix._describe.list_metrics`` and ``docs/api/metric-output.md``
@@ -350,8 +350,7 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
     :func:`_load_module_specs` so a typo'd parameter name or a
     producer callable without its own ``MetricSpec`` raises at load
     time rather than at first DAG dispatch. Replaces the runtime
-    ``@batch_primitive`` / ``@ic_consumer`` validation that #440
-    retired.
+    ``@batch_primitive`` / ``@ic_consumer`` validation.
     """
     consumer = getattr(mod, spec.name, None)
     if not callable(consumer):

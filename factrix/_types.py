@@ -34,7 +34,7 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # ---------------------------------------------------------------------------
 
 # Per-date minimum asset count below which ``compute_ic`` drops the date.
-# Renamed from MIN_IC_PERIODS in #18 — the "PERIODS" suffix was misleading;
+# Renamed from MIN_IC_PERIODS — the "PERIODS" suffix was misleading;
 # the value has always been checked against per-date asset counts.
 MIN_ASSETS_PER_DATE_IC: int = 10
 

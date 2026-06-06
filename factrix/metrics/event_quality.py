@@ -42,7 +42,7 @@ from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output, _signed_car
 
-__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "event_hit_rate",
     "event_ic",
     "profit_factor",

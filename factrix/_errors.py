@@ -102,7 +102,7 @@ class UserInputError(FactrixError, ValueError):
 
 
 class UnknownEstimatorError(FactrixError, ValueError):
-    """``get_estimator(name)`` lookup miss (#163).
+    """``get_estimator(name)`` lookup miss.
 
     Inherits ``ValueError`` so ``pytest.raises(ValueError)`` and the
     ecosystem ``UserInputError`` convention both catch it. Raised by

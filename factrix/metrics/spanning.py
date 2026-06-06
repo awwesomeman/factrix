@@ -45,7 +45,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _short_circuit_output
 from factrix.metrics.quantile import compute_spread_series
 
-__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "spanning_alpha",
     "greedy_forward_selection",
     "SpanningResult",

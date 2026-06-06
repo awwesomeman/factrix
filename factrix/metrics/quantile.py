@@ -49,7 +49,7 @@ from factrix.metrics._primitives import (
     compute_spread_series,
 )
 
-__all__ = [  # noqa: RUF022 (teaching order, see #322 SSOT note)
+__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "compute_spread_series",
     "compute_group_returns",
     "quantile_spread",

@@ -25,7 +25,7 @@ def _ljung_box(
     itself is undefined. NaN on Q lets downstream readers distinguish
     "not computable" from "computed and equal to zero". The resolved
     ``h`` lag count is returned so callers can record it as a
-    hyperparameter (#188).
+    hyperparameter.
     """
     n = len(resid)
     if n < 4:

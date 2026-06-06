@@ -22,7 +22,7 @@ The choice between Holm and Romano-Wolf is the caller's: time-disjoint
 slices (e.g. regimes) work fine under Holm; date-shared slices
 (universe pairwise) leave significant power on the table without
 Romano-Wolf. The function-side fallback that picks between the two
-lives in #176 — this module does not encode a default.
+lives in the slice-test functions — this module does not encode a default.
 
 References:
     - Holm, S. (1979). "A simple sequentially rejective multiple test

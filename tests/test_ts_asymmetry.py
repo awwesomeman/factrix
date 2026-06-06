@@ -1,4 +1,4 @@
-"""Tests for ``factrix.metrics.ts_asymmetry`` (issue #5)."""
+"""Tests for ``factrix.metrics.ts_asymmetry``."""
 
 from __future__ import annotations
 

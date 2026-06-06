@@ -10,12 +10,12 @@ Three layers of heteroskedasticity-and-autocorrelation-consistent (HAC) / cluste
   for the stacked per-date metric panel: rows are joint per-date
   observations of K slice means; cross-slice covariance is the
   joint Bartlett-kernel HAC of the K-vector series. Backs the
-  ``WaldNWCluster`` Estimator (#153).
+  ``WaldNWCluster`` Estimator.
 - **Two-way cluster on (date, asset)** —
   ``_wald_two_way_cluster(y, X, *, R, q, date_ids, asset_ids)`` for
   the raw asset-date panel. [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011]
   ``V_DC = V_date + V_asset - V_intersection`` shape. Backs the
-  ``WaldTwoWayCluster`` Estimator — interface preserved this issue;
+  ``WaldTwoWayCluster`` Estimator — interface preserved;
   no public function consumes it until ``factor_decomposition`` lands
   later.
 

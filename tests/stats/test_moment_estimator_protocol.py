@@ -1,4 +1,4 @@
-"""``MomentEstimator`` sub-protocol + ``GMMResult`` surface tests (#191).
+"""``MomentEstimator`` sub-protocol + ``GMMResult`` surface tests.
 
 Verifies the runtime-checkable protocol shape and dataclass contract
 so cell procedures can dispatch via ``isinstance(obj, MomentEstimator)``

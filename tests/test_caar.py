@@ -118,7 +118,7 @@ class TestComputeCaar:
 
 
 # ---------------------------------------------------------------------------
-# compute_caar — input-form behaviour matrix (issue #12)
+# compute_caar — input-form behaviour matrix
 # ---------------------------------------------------------------------------
 
 
