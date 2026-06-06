@@ -218,7 +218,7 @@ def top_concentration(
         "weight_by": weight_by,
     }
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_eff_n,
         stat=t,
         metadata=metadata,

@@ -96,14 +96,14 @@ def _short_circuit_output(
     and plots, making data shortages impossible to misread as valid zeros.
 
     ``p_value=1.0`` is the conservative default so BHY treats short-circuited
-    metrics as rejected rather than crashing; the promoted ``p`` field
+    metrics as rejected rather than crashing; the promoted ``p_value`` field
     mirrors it.
     Pass ``descriptive=True`` for metrics that emit no hypothesis test
     (`oos_decay`, `clustering_hhi`, ...) so callers cannot mis-route the
     short-circuit into BHY / gate logic expecting a probability.
 
     Use this instead of hand-rolling ``MetricResult(value=float("nan"),
-    p=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
+    p_value=1.0, stat=None, metadata={"reason": ..., "p_value": 1.0, ...})``.
     """
     metadata: dict[str, object] = {"reason": reason, **extra_metadata}
     p: float | None = None if descriptive else 1.0
@@ -111,7 +111,7 @@ def _short_circuit_output(
         metadata["p_value"] = p
     return MetricResult(
         value=float("nan"),
-        p=p,
+        p_value=p,
         n_obs=n_obs,
         stat=None,
         metadata=metadata,

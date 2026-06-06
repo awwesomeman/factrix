@@ -120,7 +120,9 @@ class SliceResult(Mapping[str, MetricResult]):
             rows[slice_col].append(key)
             rows["value"].append(m.value)
             rows["stat"].append(m.stat)
-            rows["p_value"].append(float(m.p) if isinstance(m.p, int | float) else None)
+            rows["p_value"].append(
+                float(m.p_value) if isinstance(m.p_value, int | float) else None
+            )
         schema: dict[str, type[pl.DataType]] = {
             slice_col: pl.Utf8,
             "value": pl.Float64,

@@ -139,7 +139,7 @@ def event_around_return(
     leakage = float(np.mean(pre_leakage_vals)) if pre_leakage_vals else 0.0
 
     return MetricResult(
-        p=1.0,
+        p_value=1.0,
         value=leakage,
         metadata={
             "per_offset": per_offset,

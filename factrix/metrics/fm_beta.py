@@ -290,7 +290,7 @@ def fm_beta(
             t = t_shanken
 
     return MetricResult(
-        p=metadata.get("p_value"),
+        p_value=metadata.get("p_value"),
         value=mean_beta,
         stat=t,
         metadata=metadata,
@@ -464,7 +464,7 @@ def pooled_beta(
     if two_way_cluster_col is None:
         if g_a < 3:
             return MetricResult(
-                p=1.0,
+                p_value=1.0,
                 value=slope,
                 n_obs=n_obs,
                 stat=None,
@@ -491,7 +491,7 @@ def pooled_beta(
         meat_i, g_i = _cluster_meat(X, resid, inter_ids)
         if min(g_a, g_b) < 3:
             return MetricResult(
-                p=1.0,
+                p_value=1.0,
                 value=slope,
                 n_obs=n_obs,
                 stat=None,
@@ -557,7 +557,7 @@ def pooled_beta(
         metadata["variance_non_psd_fallback"] = f"one_way_{cluster_col}"
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=slope,
         n_obs=n_obs,
         stat=t_stat,

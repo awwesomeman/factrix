@@ -179,7 +179,7 @@ def caar(
     }
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_caar,
         stat=t,
         metadata=metadata,
@@ -266,7 +266,7 @@ def bmp_test(
             matters.
 
     Returns:
-        MetricResult(value=mean_SAR, p=p_bmp, stat=z_bmp, ...).
+        MetricResult(value=mean_SAR, p_value=p_bmp, stat=z_bmp, ...).
 
     Notes:
         For each event $i$: estimate pre-event vol $\sigma_i$ over the
@@ -413,7 +413,7 @@ def bmp_test(
     metadata["p_value"] = p
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_sar,
         stat=z,
         metadata=metadata,

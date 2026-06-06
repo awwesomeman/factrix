@@ -191,7 +191,7 @@ def ic_trend(
         metadata["adf_p"] = adf_p
         metadata["unit_root_suspected"] = adf_p > adf_threshold
     return MetricResult(
-        p=p,
+        p_value=p,
         value=slope,
         stat=approx_t,
         metadata=metadata,

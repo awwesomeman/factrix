@@ -39,7 +39,7 @@ class TestComputeHitRate:
         series = _make_series([0.01] * 5)  # < MIN_ASSETS_PER_DATE_IC=10
         result = hit_rate(series, forward_periods=1)
         assert math.isnan(result.value)
-        assert result.p is None or result.p >= 0.10
+        assert result.p_value is None or result.p_value >= 0.10
 
     def test_small_n_uses_exact_binomial(self):
         # n=15 → below _BINOMIAL_EXACT_CUTOFF=20. All hits → exact p is

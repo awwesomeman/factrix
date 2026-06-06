@@ -202,7 +202,7 @@ def _quantile_spread_from_series(
     p_short = _p_value_from_t(t_short, len(short_arr))
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_spread,
         stat=t,
         metadata={
@@ -376,7 +376,7 @@ def quantile_spread_vw(
 
     p = _p_value_from_t(t, n)
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_spread,
         stat=t,
         metadata={

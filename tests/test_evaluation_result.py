@@ -18,7 +18,7 @@ from factrix._axis import DataStructure, FactorDensity, FactorScope
 def _sample_group() -> MetricResultGroup:
     ic_out = MetricResult(
         value=0.05,
-        p=0.012,
+        p_value=0.012,
         n_obs=100,
         stat=2.5,
         metadata={"p_value": 0.012},
@@ -80,13 +80,13 @@ class TestEvaluationResultToFrame:
             "n_assets",
             "metric_name",
             "value",
-            "p",
+            "p_value",
             "stat",
             "n_obs",
             "warning_codes",
         ]
         assert df.schema["value"] == pl.Float64
-        assert df.schema["p"] == pl.Float64
+        assert df.schema["p_value"] == pl.Float64
         assert df.schema["n_obs"] == pl.Int64
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)
         assert df.height == 2
@@ -99,7 +99,7 @@ class TestEvaluationResultToFrame:
         df = _sample_result(g).to_frame()
         row = df.row(0, named=True)
         assert row["value"] is None
-        assert row["p"] is None
+        assert row["p_value"] is None
 
     def test_warning_codes_filter_by_source(self):
         warnings = [
@@ -147,7 +147,7 @@ class TestEvaluationResultToDict:
         assert back["cell"]["density"] == "dense"
         assert back["cell"]["structure"] == "panel"
         assert back["n_obs"] == 100
-        assert back["metrics"]["ic"]["p"] == 0.012
+        assert back["metrics"]["ic"]["p_value"] == 0.012
         assert back["metrics_partition"]["primary"] == ["ic"]
         assert back["metrics_partition"]["diagnostic"] == ["ic_ir"]
         assert back["warnings"][0]["code"] == WarningCode.SMALL_CROSS_SECTION_N.value
@@ -156,7 +156,7 @@ class TestEvaluationResultToDict:
     def test_nonfinite_floats_become_null(self):
         bad = MetricResult(
             value=float("nan"),
-            p=float("nan"),
+            p_value=float("nan"),
             stat=float("inf"),
             metadata={"p_value": float("nan")},
             name="ic",
@@ -167,7 +167,7 @@ class TestEvaluationResultToDict:
         d = _sample_result(g).to_dict()
         assert d["metrics"]["ic"]["value"] is None
         assert d["metrics"]["ic"]["stat"] is None
-        assert d["metrics"]["ic"]["p"] is None
+        assert d["metrics"]["ic"]["p_value"] is None
         json.dumps(d)
 
 

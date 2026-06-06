@@ -371,6 +371,18 @@ class TestMetricApplicabilityGroup:
         assert "breakeven_cost" not in md
         assert "net_spread" not in md
 
+    def test_slice_preserves_type(self):
+        info = self._info()
+        sliced = info.usable[:2]
+        assert isinstance(sliced, fx.MetricApplicabilityGroup)
+        assert sliced.names == info.usable.names[:2]
+
+    def test_add_preserves_type(self):
+        info = self._info()
+        combined = info.usable + info.degraded
+        assert isinstance(combined, fx.MetricApplicabilityGroup)
+        assert combined.names == info.usable.names + info.degraded.names
+
     def test_to_metrics_dict_feeds_evaluate(self):
         # The discovery bridge: a usable metric round-trips into evaluate().
         raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=80)

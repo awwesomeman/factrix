@@ -109,7 +109,7 @@ class NeweyWest:
 
         return InferenceResult(
             stat=t_stat,
-            p=p_value,
+            p_value=p_value,
             stat_name=StatCode.T_NW,
             p_name=StatCode.P_NW,
             metadata={"nw_lags": nw_lags},

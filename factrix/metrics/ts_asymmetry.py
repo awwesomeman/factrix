@@ -253,7 +253,7 @@ def ts_asymmetry(
         )
 
     return MetricResult(
-        p=p_a,
+        p_value=p_a,
         value=asym_value,
         stat=asym_t,
         metadata={

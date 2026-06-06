@@ -101,4 +101,4 @@ def test_joint_sector_wald_nw_cluster() -> None:
     out = slice_joint_test(ic, per_sector_ic, label="sector")
     assert out.height == 1
     assert out["df"][0] == 2
-    assert out["p"][0] < 0.05
+    assert out["p_value"][0] < 0.05

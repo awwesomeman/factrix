@@ -283,8 +283,8 @@ def slice_joint_test(
 
     Returns:
         Single-row ``pl.DataFrame`` with columns
-        ``(n_obs, k_slices, df, stat, p)``. ``df`` is the restriction
-        rank (``K-1``); ``stat`` is the joint Wald χ²; ``p`` is the
+        ``(n_obs, k_slices, df, stat, p_value)``. ``df`` is the restriction
+        rank (``K-1``); ``stat`` is the joint Wald χ²; ``p_value`` is the
         chi-squared survival function. No ``multiple_testing`` kwarg —
         a single omnibus has no family-internal correction to apply.
 
@@ -349,6 +349,6 @@ def slice_joint_test(
             "k_slices": [k],
             "df": [k - 1],
             "stat": [stat],
-            "p": [p],
+            "p_value": [p],
         }
     )

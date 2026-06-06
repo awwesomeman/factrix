@@ -54,7 +54,7 @@ def make_result(
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     primary_out = MetricResult(
-        value=value, p=p, n_obs=100, name=primary, metadata=metadata
+        value=value, p_value=p, n_obs=100, name=primary, metadata=metadata
     )
     outputs = {primary: primary_out}
     if extra_outputs:

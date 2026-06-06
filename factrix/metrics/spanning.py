@@ -229,7 +229,7 @@ def spanning_alpha(
     p = _p_value_from_t(ols.alpha_t, n_obs)
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=ols.alpha,
         n_obs=n_obs,
         stat=ols.alpha_t,

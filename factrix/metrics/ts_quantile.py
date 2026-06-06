@@ -225,7 +225,7 @@ def ts_quantile_spread(
         rho, rho_p = float("nan"), 1.0
 
     return MetricResult(
-        p=p_spread,
+        p_value=p_spread,
         value=spread_value,
         stat=spread_t,
         metadata={

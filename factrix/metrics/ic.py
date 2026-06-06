@@ -186,7 +186,7 @@ def ic(
     p = _p_value_from_t(t, n_sampled)
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_ic,
         stat=t,
         metadata={
@@ -275,7 +275,7 @@ def ic_newey_west(
     lags = _resolve_nw_lags(n, lags=None, forward_periods=forward_periods)
     t, p, _ = _newey_west_t_test(ic_vals, forward_periods=forward_periods)
     return MetricResult(
-        p=p,
+        p_value=p,
         value=float(ic_vals.mean()),
         stat=t,
         metadata={

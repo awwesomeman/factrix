@@ -93,7 +93,7 @@ def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricRe
     """
     row = ts_betas_df.row(0, named=True)
     return MetricResult(
-        p=1.0,
+        p_value=1.0,
         value=float(row["beta"]),
         stat=float(row["t_stat"]),
         metadata={
@@ -169,7 +169,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     p = _p_value_from_t(t, n)
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=mean_b,
         stat=t,
         metadata={

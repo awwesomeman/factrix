@@ -120,7 +120,7 @@ def event_hit_rate(
         stat_type = "z"
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=rate,
         stat=stat,
         metadata={
@@ -221,7 +221,7 @@ def event_ic(
     z = np.arctanh(rho) * np.sqrt(n - 3) if abs(rho) < 1.0 - 1e-10 and n > 3 else 0.0
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=rho,
         stat=z,
         metadata={
@@ -386,7 +386,7 @@ def event_skewness(
         p = None
 
     return MetricResult(
-        p=p,
+        p_value=p,
         value=skew,
         stat=z,
         metadata={

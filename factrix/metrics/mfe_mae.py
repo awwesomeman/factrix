@@ -142,7 +142,7 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
             metadata["n_events_z"] = int(min(len(mfe_z), len(mae_z)))
 
     return MetricResult(
-        p=None,  # descriptive metric — no hypothesis test
+        p_value=None,  # descriptive metric — no hypothesis test
         value=ratio,
         metadata=metadata,
     )
