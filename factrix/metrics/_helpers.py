@@ -96,7 +96,7 @@ def _short_circuit_output(
     and plots, making data shortages impossible to misread as valid zeros.
 
     ``p_value=1.0`` is the conservative default so BHY treats short-circuited
-    metrics as rejected rather than crashing; the promoted ``p`` field
+    metrics as rejected rather than crashing; the promoted ``p_value`` field
     mirrors it.
     Pass ``descriptive=True`` for metrics that emit no hypothesis test
     (`oos_decay`, `clustering_hhi`, ...) so callers cannot mis-route the

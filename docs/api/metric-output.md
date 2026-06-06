@@ -6,12 +6,11 @@ title: factrix.MetricResult
 
 The unified return type produced by every metric in
 [`factrix.metrics`](metrics/index.md). A single dataclass carrying
-the canonical scalar (`value`), the two-sided p-value (`p`, promoted
+the canonical scalar (`value`), the two-sided p-value (`p_value`, promoted
 from `metadata["p_value"]` to a typed field; `None` for descriptive
 metrics), the sample size the estimator saw (`n_obs`), the test
-statistic (`stat`), a back-pointer to the declaring spec (`spec`), and
-a `metadata` dict for everything else (method label, short-circuit
-reason, secondary diagnostics). All metrics — primary or auxiliary —
+statistic (`stat`), and a `metadata` dict for everything else (method
+label, short-circuit reason, secondary diagnostics). All metrics — primary or auxiliary —
 return this shape so downstream code can treat every metric uniformly.
 `n_obs` shares its name with `FactorProfile.n_obs` but a different
 scope: per-metric single-stage count vs. the final-stage test
