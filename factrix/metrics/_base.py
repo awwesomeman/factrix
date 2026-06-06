@@ -149,13 +149,22 @@ class MetricBase(metaclass=MetricMeta):
         ``batchable`` (whole panel), ``requires`` (consume upstream), plain
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
+        if self.requires:
+
+            def run_batch() -> dict[str, Any]:
+                return self.__class__._impl(**{**self._params(), **upstream})
+        else:
+
+            def run_batch() -> dict[str, Any]:
+                return self.__class__._impl(
+                    panel,
+                    **{**self._params(), "factor_cols": list(factor_cols)},
+                )
+
         return _dispatch_batch(
             name=self.__class__.__name__,
             call_one=self,
-            run_batch=lambda: self.__class__._impl(
-                panel,
-                **{**self._params(), "factor_cols": list(factor_cols), **upstream},
-            ),
+            run_batch=run_batch,
             batchable=self.batchable,
             requires=tuple(self.requires),
             input_shape=self.input_shape,
@@ -186,7 +195,10 @@ def _dispatch_batch(
 
     if batchable:
         try:
-            return run_batch()
+            res = run_batch()
+            if isinstance(res, dict):
+                return res
+            return {c: res for c in factor_cols}
         except Exception as e:
             if logger:
                 _log_exception_once(

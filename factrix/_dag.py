@@ -265,6 +265,8 @@ class DagExecutor:
                 producer_outputs[(nid, c)] = out
                 if isinstance(out, MetricResult):
                     metric_outputs[(nid, c)] = dataclasses.replace(out, name=nid)
+                elif node.spec.role is SpecRole.METRIC:
+                    metric_outputs[(nid, c)] = out
 
         return self._assemble(
             cols, scope, density, forward_periods, structure, n_assets, metric_outputs
@@ -296,12 +298,19 @@ class DagExecutor:
             project: Callable[[str], pl.DataFrame],
             upstream: dict[str, dict[str, Any]],
         ) -> dict[str, Any]:
+            if spec.requires:
+
+                def run_batch() -> dict[str, Any]:
+                    return bare(**{**upstream, **kw})
+            else:
+
+                def run_batch() -> dict[str, Any]:
+                    return bare(data, factor_cols=list(factor_cols), **kw)
+
             return _dispatch_batch(
                 name=spec.name,
                 call_one=lambda *a, **k: bare(*a, **{**kw, **k}),
-                run_batch=lambda: bare(
-                    data, factor_cols=list(factor_cols), **upstream, **kw
-                ),
+                run_batch=run_batch,
                 batchable=spec.batchable,
                 requires=tuple(spec.requires),
                 input_shape=spec.input_shape,
@@ -352,21 +361,22 @@ class DagExecutor:
                     continue
                 out = metric_outputs[key]
                 outputs[label] = out
-                reason = out.metadata.get("reason")
-                if isinstance(reason, str) and math.isnan(out.value):
-                    warnings.append(
-                        Warning(
-                            code=WarningCode.UPSTREAM_UNAVAILABLE,
-                            source=label,
-                            message=reason,
+                if isinstance(out, MetricResult):
+                    reason = out.metadata.get("reason")
+                    if isinstance(reason, str) and math.isnan(out.value):
+                        warnings.append(
+                            Warning(
+                                code=WarningCode.UPSTREAM_UNAVAILABLE,
+                                source=label,
+                                message=reason,
+                            )
                         )
-                    )
-                # Lift the metric's typed advisory codes into per-source
-                # Warning records so to_frame() / to_dict() surface them.
-                for code in out.warning_codes:
-                    warnings.append(
-                        Warning(code=WarningCode(code), source=label, message="")
-                    )
+                    # Lift the metric's typed advisory codes into per-source
+                    # Warning records so to_frame() / to_dict() surface them.
+                    for code in out.warning_codes:
+                        warnings.append(
+                            Warning(code=WarningCode(code), source=label, message="")
+                        )
             n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,
@@ -463,11 +473,11 @@ def _check_upstream_short_circuit(
 def _resolve_n_obs(
     primary: Sequence[str],
     factor: str,
-    metric_outputs: Mapping[tuple[str, str], MetricResult],
+    metric_outputs: Mapping[tuple[str, str], Any],
 ) -> int:
     for name in primary:
         out = metric_outputs.get((name, factor))
-        if out is not None and out.n_obs is not None:
+        if out is not None and isinstance(out, MetricResult) and out.n_obs is not None:
             return out.n_obs
     return 0
 

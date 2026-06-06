@@ -265,3 +265,30 @@ class TestGreedyForwardSelection:
             "the invariant check would have vacuously passed"
         )
         assert len(result.selected_factors) >= 1
+
+
+class TestSpanningEvaluate:
+    def test_evaluate_greedy_forward_selection(self):
+        import factrix as fx
+
+        # Create a small panel with date, asset_id, factor, and forward_return
+        panel = fx.datasets.make_cs_panel(n_assets=5, n_dates=20)
+        panel = fx.preprocess.compute_forward_return(panel, forward_periods=2)
+        # Create a second factor column so we have multiple candidate factors
+        panel = panel.with_columns((pl.col("factor") + pl.lit(0.01)).alias("factor2"))
+
+        [er1, er2] = fx.evaluate(
+            panel,
+            metrics={"gfs": greedy_forward_selection(suppress_snooping_warning=True)},
+            factor_cols=["factor", "factor2"],
+            forward_periods=2,
+        )
+
+        assert "gfs" in er1.metrics.outputs
+        assert "gfs" in er2.metrics.outputs
+        result1 = er1.metrics["gfs"]
+        result2 = er2.metrics["gfs"]
+        assert isinstance(result1, ForwardSelectionResult)
+        assert isinstance(result2, ForwardSelectionResult)
+        # Verify both factors return the same selection result structure
+        assert result1 is result2
