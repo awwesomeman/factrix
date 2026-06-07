@@ -114,8 +114,8 @@ specific contracts that apply when factrix routes here.
 
 ### the metric `evaluate()` runs
 
-Every `(scope, signal, metric, mode)` dispatch cell maps to exactly one
-metric callable that [`evaluate()`](../api/evaluate.md) runs internally
+Every `(scope, density, structure)` dispatch cell maps to exactly one
+primary metric callable that [`evaluate()`](../api/evaluate.md) runs internally
 — `ic`, `fm_beta`, `caar`, or `ts_beta` — and that metric's
 p-value is the primary metric's `MetricResult.p_value`. Other metrics applicable to
 the same cell are called separately via
@@ -123,9 +123,10 @@ the same cell are called separately via
 they do not enter the headline result.
 
 **Legacy synonyms** (in older docs and source comments): `procedure-canonical`,
-`cell-canonical`, `primary metric`, `canonical metric`. New content uses the
-behavioral phrasing above; legacy occurrences are phased out via the ratchet
-test in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.
+`cell-canonical`, `canonical metric`. New content uses the behavioral phrasing
+above (or `primary metric`, the live API term — `EvaluationResult.metrics.primary`,
+`evaluate(primary=...)`); legacy occurrences are phased out via the ratchet test
+in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.
 
 ### `factor`
 
