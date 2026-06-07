@@ -108,7 +108,7 @@ results = fx.evaluate(
     factor_cols=["factor"],
     forward_periods=5,
 )
-[res] = results
+res = results["factor"]
 ic_res = res.metrics["ic"]
 
 print('ic_mean =', round(ic_res.value, 4))
@@ -135,7 +135,7 @@ results = fx.evaluate(
     factor_cols=["macro_factor"],
     forward_periods=5,
 )
-print(results[0].metrics["ts_beta"].value)
+print(results["macro_factor"].metrics["ts_beta"].value)
 ```
 
 ## Documentation

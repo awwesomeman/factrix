@@ -27,7 +27,7 @@ results = fx.evaluate(
     forward_periods=5,
 )
 
-[res] = results
+res = results["factor"]
 ic_res = res.metrics["ic"]
 
 print('ic_mean =', round(ic_res.value, 4))
@@ -61,7 +61,8 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
     "structure": "panel"
   },
   "forward_periods": 5,
-  "n_obs": 494,
+  "n_periods": 494,
+  "n_pairs": 49400,
   "n_assets": 100,
   "context": {},
   "metrics": {
@@ -81,10 +82,6 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
         "tie_ratio": 0.0
       }
     }
-  },
-  "metrics_partition": {
-    "primary": ["ic"],
-    "diagnostic": []
   },
   "warnings": [],
   "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=ic_df"

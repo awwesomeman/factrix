@@ -82,8 +82,7 @@ results = fx.evaluate(
     forward_periods=5,
 )
 
-# results is a list[EvaluationResult]
-res = results[0]
+res = results["factor"]
 print(res.metrics["ic"].value)
 print(res.metrics["spread"].value)
 ```

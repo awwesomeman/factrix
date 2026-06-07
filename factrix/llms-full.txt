@@ -67,12 +67,13 @@ info = fx.inspect_data(data, factor_cols=["factor"])
 print("Detected structure:", info.detected.structure)
 
 # 3. Evaluate using the ic_newey_west metric
-[res] = fx.evaluate(
+results = fx.evaluate(
     data,
     metrics={"ic": ic_newey_west()},
     factor_cols=["factor"],
     forward_periods=5,
 )
+res = results["factor"]
 
 print("IC Value:", res.metrics["ic"].value)
 print("p-value:", res.metrics["ic"].p_value)
@@ -126,12 +127,13 @@ raw = fx.datasets.make_cs_panel(n_assets=1, n_dates=200, seed=2024)
 data = compute_forward_return(raw, forward_periods=5)
 
 # 2. Evaluate using timeseries beta metric
-[res] = fx.evaluate(
+results = fx.evaluate(
     data,
     metrics={"ts_beta": ts_beta()},
     factor_cols=["factor"],
     forward_periods=5,
 )
+res = results["factor"]
 
 print("Timeseries Beta:", res.metrics["ts_beta"].value)
 ```
@@ -149,9 +151,8 @@ def evaluate(
     metrics: dict[str, MetricBase],
     factor_cols: list[str],
     forward_periods: int | None = None,
-    primary: str | None = None,
     strict: bool = True,
-) -> list[EvaluationResult]:
+) -> dict[str, EvaluationResult]:
 ```
 
 `DataInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native on its primary entry points. `LazyFrame` is collected at the API boundary.
@@ -159,12 +160,11 @@ def evaluate(
 - `metrics` accepts a dictionary mapping labels to metric **instances** from `factrix.metrics` (e.g., `{"ic_5d": ic_newey_west(forward_periods=5)}`).
 - `factor_cols` accepts a list of column names on `data`.
 - `forward_periods` sets a default horizon (rows) for metrics that leave it at signature default.
-- `primary` names the primary metric label to drive `EvaluationResult` partitions.
 - `strict` (default `True`) raises an exception on inapplicable metrics; when `False`, inapplicable metrics return `NaN` with warnings.
 
 Under the hood, evaluation is scheduled and executed via `DagExecutor`, which topologically sorts specs and dependencies, raising a `CycleError` if circular dependencies are detected.
 
-Returns `list[EvaluationResult]` aligned to the order of `factor_cols`.
+Returns `dict[str, EvaluationResult]` keyed by factor column name, insertion order matches `factor_cols`.
 
 ---
 
@@ -343,8 +343,10 @@ Dataclass containing the evaluation outputs:
 - `factor`: Column name.
 - `cell`: `(scope, density, structure)` tuple.
 - `forward_periods`: Horizon used.
+- `n_periods`: Unique non-null dates in the factor column (panel time-series depth).
+- `n_pairs`: Non-null `(date, asset_id)` pairs (effective cross-sectional coverage).
 - `n_assets`: Unique asset count.
-- `metrics`: `MetricResultGroup` holding metric results.
+- `metrics`: `MetricResultGroup` holding metric results (dict-like, keyed by user label).
 - `plan`: Execution plan string.
 - `context`: Free-form context dictionary.
 - `warnings`: Attached `Warning` records.

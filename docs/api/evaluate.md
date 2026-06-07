@@ -72,7 +72,7 @@ title: factrix.evaluate
     )
 
     # 3. Retrieve and inspect results
-    [res] = results
+    res = results["factor"]
     print(f"Factor: {res.factor}")
     print(f"Cell: {res.cell}")
     print(f"Plan: \n{res.plan}")

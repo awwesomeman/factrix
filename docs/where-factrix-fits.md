@@ -384,8 +384,8 @@ panel = pl.from_pandas(zipline_out.reset_index())
 panel = compute_forward_return(panel, forward_periods=5)
 
 from factrix.metrics import ic
-results = fx.evaluate(panel, factor_cols=["factor"], metrics=[ic])
-primary_p = results[0].metrics["ic"].p_value
+results = fx.evaluate(panel, factor_cols=["factor"], metrics={"ic": ic()})
+primary_p = results["factor"].metrics["ic"].p_value
 ```
 
 factrix → Stage 2: surviving profiles after BHY feed a portfolio
@@ -400,10 +400,10 @@ from factrix.metrics import ic
 # from factor_cols so identities stay unique without manual surgery.
 results = []
 for name, p in panels.items():
-    res = fx.evaluate(p, factor_cols=[name], metrics=[ic])
-    results.extend(res)
+    res = fx.evaluate(p, factor_cols=[name], metrics={"ic": ic()})
+    results.extend(res.values())
 
-survivors = fx.multi_factor.bhy(results, q=0.05)
+survivors = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
 
 # survivors is a list[EvaluationResult]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input

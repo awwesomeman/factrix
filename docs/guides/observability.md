@@ -53,7 +53,7 @@ results = fx.evaluate(
     metrics={"ic": ic(), "ic_ir": ic_ir()},
     factor_cols=["factor"],
 )
-print(results[0].plan)
+print(results["factor"].plan)
 ```
 
 **Output:**
