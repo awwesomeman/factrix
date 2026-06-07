@@ -54,7 +54,13 @@ def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]
     """
     seen: dict[tuple[str, str, str, str, str], _GroupedRow] = {}
     for stem, spec in specs:
-        key = (stem, spec.cell.raw, spec.aggregation.name, spec.test_method.name, spec.se_method.name)
+        key = (
+            stem,
+            spec.cell.raw,
+            spec.aggregation.name,
+            spec.test_method.name,
+            spec.se_method.name,
+        )
         if key not in seen:
             seen[key] = _GroupedRow(
                 module=stem,
@@ -68,8 +74,14 @@ def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]
 
 def _render_row(row: _GroupedRow) -> str:
     module_cell = f"[`metrics.{row.module}`][factrix.metrics.{row.module}]"
-    inference_str = f"{row.test_method} ({row.se_method})" if row.se_method != "NONE" else row.test_method
-    return f"| {module_cell} | `{row.cell_raw}` | {row.aggregation} | {inference_str} |\n"
+    inference_str = (
+        f"{row.test_method} ({row.se_method})"
+        if row.se_method != "NONE"
+        else row.test_method
+    )
+    return (
+        f"| {module_cell} | `{row.cell_raw}` | {row.aggregation} | {inference_str} |\n"
+    )
 
 
 def generate() -> None:
