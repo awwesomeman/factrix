@@ -107,14 +107,14 @@ title: factrix.metrics.caar
 
 <div class="grid cards" markdown>
 
--   __`clustering_diagnostic`__
+-   __`clustering_hhi`__
 
     ---
 
     Event-date HHI — when to switch on the Kolari-Pynnönen adjustment
     or read `caar`'s $t$ with caution.
 
-    [api/metrics/clustering →](clustering.md)
+    [api/metrics/clustering →](clustering_hhi.md)
 
 -   __`by_slice`__
 

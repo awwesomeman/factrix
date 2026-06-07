@@ -62,36 +62,41 @@ flowchart LR
 
 ### 2.2 factrix internals
 
-Inside factrix the call graph is small. A factor panel plus an
-`AnalysisConfig` enters `evaluate()`, which routes to the registered
-procedure for the (scope, signal, metric, mode) cell, runs the
-primary test plus diagnostics, and returns a `FactorProfile`.
-Multiple profiles flow into `multi_factor.bhy()` for cross-test false discovery rate (FDR)
-control on the surviving subset.
+Inside factrix the call graph is small. Long-format `data` (the
+`(date, asset_id, factor, forward_return)` floor) plus a
+`metrics={label: metric()}` dict and `factor_cols` enter `evaluate()`.
+Each metric instance carries a `MetricSpec` whose `cell`
+(`FactorScope` × `FactorDensity` × `DataStructure`) decides whether it
+applies to the detected data shape; the DAG executor runs batchable
+stage-1 producers once across the factor batch and per-factor consumers
+once per factor, and returns a `list[EvaluationResult]` — one per
+factor, each holding a `MetricResultGroup` (`applicable` / `primary` /
+`diagnostic`) plus a flat `list[Warning]`. The list flows into
+`multi_factor.bhy(results, primary=[...])` for cross-test false
+discovery rate (FDR) control, which returns the surviving factors.
 
 ```mermaid
 flowchart LR
-    PANEL[Factor panel<br/>+ forward return] --> EVAL[evaluate panel cfg]
-    CFG[AnalysisConfig<br/>scope · signal · metric] --> EVAL
-    EVAL --> DISP{Type-routed<br/>dispatch}
-    DISP -->|individual_continuous| CS[IC + FM<br/>+ diagnostics]
-    DISP -->|individual_sparse| EV[CAAR<br/>+ diagnostics]
-    DISP -->|common_continuous| CO[ts_beta<br/>+ diagnostics]
-    DISP -->|common_sparse| DUM[ts_beta on dummies<br/>+ diagnostics]
-    CS --> PROF[FactorProfile<br/>stats · primary_p · diagnose]
-    EV --> PROF
-    CO --> PROF
-    DUM --> PROF
-    PROF --> BHY[multi_factor.bhy<br/>FDR within family]
-    BHY --> SURV[Surviving profiles]
+    DATA[Long data<br/>date · asset_id · factor · forward_return] --> EVAL[evaluate<br/>metrics · factor_cols]
+    METRICS[metrics dict<br/>label → metric instance] --> EVAL
+    EVAL --> DISP{Cell-routed<br/>applicability}
+    DISP -->|individual · dense| CS[IC · FM beta<br/>+ diagnostics]
+    DISP -->|individual · sparse| EV[CAAR<br/>+ diagnostics]
+    DISP -->|common · dense| CO[ts_beta<br/>+ diagnostics]
+    DISP -->|common · sparse| DUM[ts_beta on dummies<br/>+ diagnostics]
+    CS --> RES[EvaluationResult<br/>metrics · warnings · cell]
+    EV --> RES
+    CO --> RES
+    DUM --> RES
+    RES --> BHY[multi_factor.bhy<br/>FDR within family]
+    BHY --> SURV[Surviving factors]
 ```
 
 The dispatch arrow is the single line that distinguishes factrix
 from peers that apply one uniform formula across factor types
 (see [§4](#4-same-purpose-peers)). For the field-order walk of the
-`FactorProfile` shown in the graph — `primary_p`, `primary_stat`,
-`warnings`, and the rest — see
-[Reading results](guides/reading-results.md).
+`EvaluationResult` shown in the graph — `metrics`, `warnings`, `cell`,
+and the rest — see [Reading results](guides/reading-results.md).
 
 ## 3. Out of scope (use these libraries instead)
 
@@ -310,7 +315,7 @@ alpha-quality with a frequently-changing API.
 - factrix integrates event CAAR with NW HAC and an overlap
   diagnostic on the dense event-time period grid; eventstudy treats
   events in isolation.
-- Event inference lives in the same `FactorProfile` shape as CS and
+- Event inference lives in the same `EvaluationResult` shape as CS and
   common-factor inferences; one pipeline screens all three with
   shared FDR control.
 
@@ -378,9 +383,9 @@ from factrix.preprocess import compute_forward_return
 panel = pl.from_pandas(zipline_out.reset_index())
 panel = compute_forward_return(panel, forward_periods=5)
 
-cfg = ...  # config construction pending v0.14.0 docs rewrite
-profile = fx.evaluate(panel, cfg)
-primary_p = profile.primary_p
+from factrix.metrics import ic
+results = fx.evaluate(panel, factor_cols=["factor"], metrics=[ic])
+primary_p = results[0].metrics["ic"].p_value
 ```
 
 factrix → Stage 2: surviving profiles after BHY feed a portfolio
@@ -388,16 +393,19 @@ optimiser.
 
 ```python
 import factrix as fx
+from factrix.metrics import ic
 
 # Each panel carries its factor under a distinct column name
 # ("momentum_12" / "value" / ...); evaluate auto-stamps factor_id
-# from factor_col so identities stay unique without manual surgery.
-profiles  = [
-    fx.evaluate(p, cfg, factor_col=name) for name, p in panels.items()
-]
-survivors = fx.multi_factor.bhy(profiles, q=0.05)
+# from factor_cols so identities stay unique without manual surgery.
+results = []
+for name, p in panels.items():
+    res = fx.evaluate(p, factor_cols=[name], metrics=[ic])
+    results.extend(res)
 
-# survivors is a list[FactorProfile]; pass the underlying factor
+survivors = fx.multi_factor.bhy(results, q=0.05)
+
+# survivors is a list[EvaluationResult]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input
 ```
 

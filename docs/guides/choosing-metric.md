@@ -2,40 +2,46 @@
 title: Information coefficient vs Fama-MacBeth
 ---
 
-This page is task-oriented: assume you already know factrix exists and you
-need to pick a factory. For the canonical 5-scenario table (research
-question → factory → procedure → literature) see
-[Concepts § Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios).
+This guide helps you choose the correct metric and execution parameters for your factor research.
 
-Factory methods are type-safe constructors. Unsupported combinations (e.g.
-`metric=IC` on a sparse signal) are caught by the IDE before runtime — no
-need to memorise the legal axis triples.
+## Information coefficient (IC) vs Fama-MacBeth (FM)
 
-## Information coefficient (IC) vs FM
+Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` and `FactorDensity.DENSE` cells), but they answer different research questions:
 
-Both apply to `(INDIVIDUAL, CONTINUOUS)`. Choose by research question:
+| Feature | Information Coefficient (IC) | Fama-MacBeth (FM) |
+|---|---|---|
+| **Research Question** | Does the factor consistently rank-order future returns? | What is the return premium per unit of factor exposure? |
+| **Statistical Method** | Per-date Spearman rank correlation $\rho_t$ → Newey-West HAC $t$-test on $\mathbb{E}[\rho_t]$. | Per-date cross-sectional OLS regression slope $\lambda_t$ → Newey-West HAC $t$-test on $\mathbb{E}[\lambda_t]$. |
+| **Robustness** | Extremely robust to outliers (rank-based). | Sensitive to outliers and extreme values (OLS-based). |
+| **Economic Interpretation** | Rank-ordering capability (signal quality). | Return premium per unit of factor exposure. |
+| **Sample Sensitivity** | Drops dates with fewer than 10 assets. | Requires at least 3 assets per date but can be unstable at low $N$. |
 
-| | IC | FM |
-|--|----|----|
-| Question | Predictive rank ordering? | Unit-exposure return premium? |
-| Method | Spearman ρ per date → Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t on E[information coefficient (IC)] | ordinary least squares (OLS) slope λ per date → NW HAC t on E[λ] |
-| Robust to | Outliers (rank-based) | Proportional exposure differences |
-| Economic interpretation | Directional signal quality | Premium per unit of factor exposure |
-| `n_assets` sensitivity | Drops dates with < 10 assets | Runs at N ≥ 3 but unstable at low N |
+- **Use IC** (`ic_newey_west` / `ic`) when you are building a ranking-based stock selection strategy.
+- **Use FM** (`fm_beta`) when you need to estimate risk premia or require an economically interpretable slope premium.
 
-Use IC when you care about rank ordering (stock selection). Use FM when you need an economically interpretable premium estimate (risk premia, factor pricing).
+---
 
-For the lookup table — which metrics are supported under which `(scope, signal)` cell, with sample-size floors and warning codes — see
-[Reference § Metric applicability](../reference/metric-applicability.md).
+## Evaluating and comparing metrics
 
-## Standalone metrics vs `evaluate()`
+To evaluate both IC and Fama-MacBeth on a candidate factor panel, pass both metric instances to `fx.evaluate()`:
 
-[`evaluate()`][factrix.evaluate] runs the canonical inference procedure for a cell. Standalone metrics in `factrix.metrics` provide supplementary diagnostics without a formal PASS/FAIL outcome:
+```python
+import factrix as fx
+from factrix.metrics import ic_newey_west, fm_beta
 
-| When to use `evaluate()` | When to use standalone metrics |
-|---|---|
-| Canonical signal validity inference | Diagnose shape, asymmetry, regime splits |
-| Benjamini-Hochberg-Yekutieli (BHY) family input (needs `FactorProfile`) | Multi-statistic decomposition |
-| Primary screening gate | out-of-sample (OOS) decay, tradability, concentration |
+results = fx.evaluate(
+    data,
+    metrics={
+        "ic": ic_newey_west(),
+        "fm": fm_beta(),
+    },
+    factor_cols=["factor"],
+    forward_periods=5,
+)
 
-See [Metric pipelines](../reference/metric-pipelines.md) for the full module list.
+# Compare metric values and p-values side by side
+board = fx.compare(results, metrics=["ic", "fm"], sort_by="ic")
+print(board)
+```
+
+For a full list of available metrics and their mathematical descriptions, see the [Metrics applicability table](../reference/metric-applicability.md) and the [API Reference](../api/index.md).

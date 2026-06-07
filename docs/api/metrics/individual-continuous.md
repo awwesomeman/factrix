@@ -9,14 +9,14 @@ aggregated over time.
 | Metric | Role | Page |
 |---|---|---|
 | Spearman rank correlation, the canonical signal-quality summary | Primary | [`ic`](ic.md) |
-| Per-date ordinary least squares (OLS) slope $\lambda$, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$ on its mean | Primary | [`fama_macbeth`](fama_macbeth.md) |
+| Per-date ordinary least squares (OLS) slope $\lambda$, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) $t$ on its mean | Primary | [`fm_beta`](fm_beta.md) |
 | Long-short quintile spread (equal- and value-weighted) | Profile | [`quantile`](quantile.md) |
 | Quintile-return monotonicity rank test | Profile | [`monotonicity`](monotonicity.md) |
 | HHI-style top-bucket concentration | Profile | [`concentration`](concentration.md) |
 | Turnover, breakeven cost, net spread | Profile | [`tradability`](tradability.md) |
 | Spanning $\alpha$ vs an existing factor pool | Profile | [`spanning`](spanning.md) |
 
-`ic` and `fama_macbeth` are the two **inferential** entry points; the
+`ic` and `fm_beta` are the two **inferential** entry points; the
 rest are **profile / risk** diagnostics that describe the same factor
 without contributing to the primary inference.
 

@@ -49,7 +49,7 @@ as the default for cell-canonical metrics, NW HAC as an explicit
 sibling.
 When NW HAC is selected, factrix uses the
 [Newey-West 1987][newey-west-1987] Bartlett kernel with a
-deterministic bandwidth, applied by `ic_newey_west`, `fama_macbeth`,
+deterministic bandwidth, applied by `ic_newey_west`, `fm_beta`,
 `pooled_ols`, `ts_quantile_spread`, and `ts_asymmetry`.
 
 The bandwidth rule is
@@ -83,7 +83,7 @@ docstrings as background, not implemented separately.
 For the FM-cell, the NW HAC sits at stage 2
 ([Fama-MacBeth 1973][fama-macbeth-1973]). When the Stage-1 regressor
 is itself an estimated quantity (rolling β, PCA score, ML predictor),
-[`fama_macbeth(is_estimated_factor=True)`](../api/metrics/fama_macbeth.md)
+[`fm_beta(is_estimated_factor=True)`](../api/metrics/fm_beta.md)
 applies the [Shanken (1992)][shanken-1992] single-factor case of the
 errors-in-variables correction, scaling SE by
 $\sqrt{1 + \hat\lambda^2 / \sigma^2_f}$ (Shanken's general multi-factor
@@ -120,7 +120,7 @@ different points in the bias-variance trade-off:
 
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
-| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(⌊T^{1/3}⌋, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic_newey_west`, `fama_macbeth` stage 2, `pooled_ols`, `ts_quantile_spread`, `ts_asymmetry`. |
+| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(⌊T^{1/3}⌋, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic_newey_west`, `fm_beta` stage 2, `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`. |
 | **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.stats.HansenHodrick` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 
@@ -141,7 +141,7 @@ Practical rule of thumb:
 [](){ #bhy }
 
 !!! tip "Canonical reference"
-    For when to use Benjamini-Hochberg-Yekutieli (BHY), family partitioning, and worked screening recipes, see [Batch screening (BHY)](../guides/batch-screening.md). This section is the underlying theorem and assumptions.
+    For when to use Benjamini-Hochberg-Yekutieli (BHY), family partitioning, and worked screening recipes, see [BHY screening](../api/bhy.md). This section is the underlying theorem and assumptions.
 
 !!! note "BH / BY / BHY — three names, two procedures"
     The literature uses three labels that map to two distinct procedures:
@@ -313,7 +313,7 @@ when the textbook form is required.
 ### Corrado nonparametric rank
 [](){ #corrado-rank }
 
-`corrado_rank_test`. Replaces returns with their uniform rank within
+`corrado_rank`. Replaces returns with their uniform rank within
 the (estimation ∪ event) window, then runs the cross-event $t$ on the
 ranks ([Corrado 1989][corrado-1989]). Robust to extreme returns,
 non-normality, and cross-asset heteroscedasticity. factrix adds the

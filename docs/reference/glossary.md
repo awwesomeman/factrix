@@ -3,7 +3,7 @@ title: Glossary
 ---
 
 factrix names its dispatch axes after the structure of the data
-(`Scope × FactorSignal`) and the regression layout (`PanelMode`). The literature
+(`Scope × FactorDensity`) and the regression layout (`DataStructure`). The literature
 this borrows from uses overlapping but **not identical** vocabulary —
 this glossary maps the factrix terms to their nearest industry
 equivalents and flags collisions where the same word means different
@@ -56,7 +56,7 @@ problem (the loadings *are* the per-asset characteristic). A Barra
 "common factor" treated as a single series shared across assets is a
 factrix `COMMON × CONTINUOUS` problem.
 
-## FactorSignal axis — `CONTINUOUS` vs `SPARSE`
+## FactorDensity axis — `CONTINUOUS` vs `SPARSE`
 
 ### `CONTINUOUS`
 
@@ -81,9 +81,9 @@ distinction.
 - **Alphalens**: no direct equivalent — Alphalens assumes continuous
   characteristics. Event-study workflows live outside Alphalens.
 
-## PanelMode axis — `PANEL` vs `TIMESERIES`
+## DataStructure axis — `PANEL` vs `TIMESERIES`
 
-PanelMode is **derived from data** at evaluate-time, not configured:
+DataStructure is **derived from data** at evaluate-time, not configured:
 
 - `N ≥ 2` → `PANEL`.
 - `N == 1` → `TIMESERIES`.
@@ -116,13 +116,13 @@ specific contracts that apply when factrix routes here.
 
 Every `(scope, signal, metric, mode)` dispatch cell maps to exactly one
 metric callable that [`evaluate()`](../api/evaluate.md) runs internally
-— `ic`, `fama_macbeth`, `caar`, or `ts_beta` — and that metric's
-p-value becomes the headline `primary_p`. Other metrics applicable to
+— `ic`, `fm_beta`, `caar`, or `ts_beta` — and that metric's
+p-value is the primary metric's `MetricResult.p_value`. Other metrics applicable to
 the same cell are called separately via
-[`list_metrics`](../api/list-metrics.md) and the per-metric callable;
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics) and the per-metric callable;
 they do not enter the headline result.
 
-**Legacy synonyms** (pre-#144 docs and source comments): `procedure-canonical`,
+**Legacy synonyms** (in older docs and source comments): `procedure-canonical`,
 `cell-canonical`, `primary metric`, `canonical metric`. New content uses the
 behavioral phrasing above; legacy occurrences are phased out via the ratchet
 test in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.
@@ -132,9 +132,9 @@ test in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.
 The signal column. Same role as Alphalens "factor", Barra "exposure",
 or generic "alpha score" / "predictor". The procedure-level
 `INPUT_SCHEMA` consumes a column literally named `factor`; pass
-`evaluate(..., factor_col="alpha")` to use a differently-named
+`evaluate(..., factor_cols=["alpha"])` to use a differently-named
 column without renaming the panel first
-([Panel schema § `factor_col=`](../api/panel-schema.md#factor_col--non-default-signal-column-name)).
+([Panel schema](../api/panel-schema.md)).
 
 ### `forward_return`
 
@@ -161,8 +161,8 @@ Only simple returns are implemented; no log-return option. factrix
 takes `forward_return` as input rather than computing it inside
 `evaluate()` — attach it with
 [`compute_forward_return`](../api/preprocess.md) before dispatch so
-the horizon `N` is explicit and aligned with
-`AnalysisConfig.forward_periods`.
+the horizon `N` is explicit and aligned with the
+`forward_periods` passed to `evaluate()`.
 
 Distinct from "spot return" (contemporaneous one-period return) and
 "realised return" (ex-post return for risk attribution).
@@ -171,7 +171,7 @@ Distinct from "spot return" (contemporaneous one-period return) and
 
 A property of the *synthetic* signal embedded in `make_cs_panel` /
 `make_event_panel` — the horizon at which the generator's nominal IC
-is realised. Aligning `AnalysisConfig.forward_periods` with
+is realised. Aligning `evaluate()`'s `forward_periods` with
 `signal_horizon` is the regime where the synthetic IC / drift is
 calibrated; mismatched horizons induce IC decay (synthetic) and bias
 (in TIMESERIES mode — see
@@ -188,7 +188,7 @@ Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) is the a
 ### `estimation_window`
 
 Per-asset pre-event sample used to fit the abnormal-return baseline
-for `bmp_test` and `corrado_rank_test`. See
+for `bmp_test` and `corrado_rank`. See
 [Metric applicability § estimation_window](metric-applicability.md#estimation_window).
 
 ## Multiple testing
@@ -222,7 +222,7 @@ controlling procedure. Once a hypothesis joins a family, the
 procedure's FDR claim only holds *within* that family. Family choice
 is a contract decision: re-running BHY on a filtered subset of
 survivors does not preserve FDR ≤ q. See
-[Cross-function reference § `expand_over`](../api/decision-tree.md#expand_over-is-not-one-concept)
+[Cross-function reference § `expand_over`](../api/bhy.md)
 for the sample-restriction vs hypothesis-dimension split.
 
 ### `Survivors`

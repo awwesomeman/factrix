@@ -62,7 +62,7 @@ title: factrix.metrics.event_quality
     ---
 
     `signal_density` reports mean bars-per-event per asset (inverse
-    frequency). Pair with `clustering_diagnostic` when independence
+    frequency). Pair with `clustering_hhi` when independence
     assumptions matter — bars-per-event ignores temporal clustering.
 
 </div>
@@ -120,14 +120,14 @@ title: factrix.metrics.event_quality
 
     [api/metrics/caar →](caar.md)
 
--   __`clustering_diagnostic`__
+-   __`clustering_hhi`__
 
     ---
 
     Event-date concentration index — read alongside `signal_density`
     when independence matters.
 
-    [api/metrics/clustering →](clustering.md)
+    [api/metrics/clustering →](clustering_hhi.md)
 
 -   __`by_slice`__
 

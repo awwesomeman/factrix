@@ -21,30 +21,21 @@ screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
 ```mermaid
 flowchart TD
-    User["User<br/>(scope / signal / metric)"]
-    AC["AnalysisConfig<br/>4 factory methods"]
-    REG["Registry<br/>_registry.py SSOT (7 cells)"]
-    MODE{"DataStructure<br/>N = panel.asset_id.n_unique()"}
-    PROC["FactorProcedure<br/>cell-dispatched"]
-    FP["FactorProfile<br/>primary_p · diagnose()"]
+    User["User<br/>(data, metrics=[...])"]
+    EVAL["evaluate()<br/>Dispatch API"]
+    REG["Registry<br/>list[MetricSpec]"]
+    DAG["DagExecutor<br/>computes dependency graph"]
+    ER["EvaluationResult<br/>groups / metrics / warnings"]
     BHY["multi_factor.bhy()<br/>BHY FDR correction"]
 
-    User -->|"AnalysisConfig.factory(...)"| AC
-    AC -->|"evaluate(panel, config)"| REG
-    REG --> MODE
-    MODE -->|"N ≥ 2 → PANEL"| PROC
-    MODE -->|"N = 1 → TIMESERIES"| PROC
-    PROC --> FP
-    FP -->|"batch"| BHY
+    User -->|"evaluate(panel, metrics=[...])"| EVAL
+    EVAL --> REG
+    REG --> DAG
+    DAG -->|"results"| ER
+    ER -->|"batch"| BHY
 ```
 
-The single `FactorProcedure` node above stands in for the seven concrete
-procedures (`_ICContPanelProcedure`, `_FMContPanelProcedure`,
-`_CAARSparsePanelProcedure`, `_CommonContPanelProcedure`,
-`_CommonSparsePanelProcedure`, `_TSBetaContTimeseriesProcedure`,
-`_TSDummySparseTimeseriesProcedure`).
-The in-graph collapse here keeps the high-level dispatch path legible
-on mobile widths.
+The dispatch runs through a Directed Acyclic Graph (DAG) executor on a closed `list[MetricSpec]` rather than a registry-keyed procedure table.
 
 ---
 
@@ -54,8 +45,8 @@ Entry points, all in `factrix.__init__`:
 
 | Symbol | Purpose |
 |--------|---------|
-| `fx.evaluate(panel, config)` | Dispatch to the registered procedure |
-| `fx.multi_factor.bhy(profiles, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
+| `fx.evaluate(panel, metrics=...)` | Dispatch to the registered procedure |
+| `fx.multi_factor.bhy(results, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 
@@ -70,7 +61,7 @@ Plus introspection / error / enum re-exports:
 ## DataStructure — the derived fourth axis
 
 The three user-facing axes (`FactorScope`, `FactorDensity`, `Metric`) are the SSOT;
-see [Concepts § Three orthogonal axes](../getting-started/concepts.md#three-orthogonal-axes)
+see [Concepts § Three orthogonal design axes](../getting-started/concepts.md#three-orthogonal-design-axes)
 for their values and orthogonality.
 
 `DataStructure` is the fourth axis but is **not user-facing** — it is derived at
@@ -90,7 +81,7 @@ the `_SCOPE_COLLAPSED` sentinel defined in `factrix/_axis.py`).
 - `_RegistryEntry(key, procedure, canonical_use_case, references)` — procedure + docs metadata
 - `_DISPATCH_REGISTRY: dict[_DispatchKey, _RegistryEntry]`
 - `register(key, procedure, *, use_case, refs)` — append-only; duplicate keys raise
-- `matches_user_axis(scope, signal, metric)` — reverse query for `AnalysisConfig` validation
+- `matches_user_axis(scope, signal, metric)` — reverse query for `MetricSpec` validation
 - `_SCOPE_COLLAPSED: _ScopeCollapsedSentinel` — internal routing token for `(*, SPARSE, N=1)`; not exposed as a `FactorScope` enum value to keep the user-facing axis narrow
 
 Bootstrap order: `_registry` defines `register` / `_DispatchKey`, then imports
@@ -102,60 +93,27 @@ Adding a cell touches one `register(...)` call.
 
 ---
 
-## FactorProcedure protocol
+## EvaluationResult dataclass contract
 
-`factrix/_procedures.py` defines the seven procedure classes. Each implements:
-
-```python
-class FactorProcedure(Protocol):
-    INPUT_SCHEMA: ClassVar[InputSchema]
-    def compute(self, raw: pl.DataFrame, config: AnalysisConfig) -> FactorProfile: ...
-```
-
-`InputSchema` lists `required_columns` — currently `("date", "asset_id", "factor", "forward_return")` for all 7 cells.
-
-After #448, dispatch runs through the DAG executor on a closed
-`list[MetricSpec]` rather than a registry-keyed procedure table; see
-[Concepts §Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios)
-for the per-cell canonical statistic / references and
-`factrix._dag.DagExecutor` for the executor contract.
-
----
-
-## FactorProfile dataclass contract
-
-`factrix/_profile.py`:
+`factrix/_results.py`:
 
 ```python
 @dataclass(frozen=True, slots=True)
-class FactorProfile:
-    config: AnalysisConfig
-    mode: DataStructure
-    primary_p: float
-    primary_stat: float | None     # test stat paired with primary_p
-    primary_stat_name: StatCode    # stats-key pointer (serialised to .value in diagnose())
-    n_obs: int                     # cell-canonical final-stage test denominator
-    n_pairs: int                   # non-null (period, asset) pair count
-    n_periods: int                 # unique periods in raw panel
-    n_assets: int                  # unique assets in raw panel
-    warnings: frozenset[WarningCode] = frozenset()
-    info_notes: frozenset[InfoCode] = frozenset()
-    stats: Mapping[StatCode, float] = field(default_factory=dict)
+class EvaluationResult:
+    identity: dict[str, Any]
+    context: dict[str, Any]
+    primary: MetricResult
+    groups: Mapping[str, MetricResultGroup]
+    warnings: tuple[Warning, ...]
+    info_notes: tuple[InfoCode, ...]
 ```
 
-`n_obs` semantics vary by cell — n_periods for IC / FM / TS-β,
-densified panel-period count for CAAR, filtered cross-section size
-for COMMON × * PANEL. The four sample axes never overlap: `n_obs`
-answers "what did the test see", `n_pairs` answers "how dense is the
-panel", `n_periods` / `n_assets` give the envelope. Each axis is
-fixed in semantics across cells (#246).
+`EvaluationResult` replaces the old `EvaluationResult` and `DagExecutor` architecture. Dispatch now runs through the DAG executor (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
-- `diagnose() -> dict[str, Any]` — JSON-shape exit point with key
-  order in reader-flow seven questions: identity / context / cell /
-  sample axes / primary family / flag sets / raw stats + metadata.
+- `diagnose() -> dict[str, Any]` — JSON-shape exit point.
+- Single dataclass returned by `evaluate`.
 
-Single dataclass, no per-cell subclass proliferation. Cell-specific scalars live
-in `stats: Mapping[StatCode, float]` keyed by enum, not by string.
+Metrics results are encapsulated in `MetricResult` and `MetricResultGroup`, with advisory diagnostics stored as a tuple of `Warning` objects.
 
 ---
 
@@ -356,7 +314,7 @@ Failure modes:
   (math floor — NW HAC `t` undefined below).
 - `MIN_FM_PERIODS_HARD ≤ n_periods < MIN_FM_PERIODS_WARN = 30` → returns
   the FM `t`/`p` but emits `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` and
-  the borderline propagates into `FactorProfile.warnings`.
+  the borderline propagates into `EvaluationResult.warnings`.
 
 ### `individual_sparse` (CAAR PANEL) — cross-section first (events)
 
@@ -389,7 +347,7 @@ Failure modes:
   primary_p reverts to insufficient.
 - `MIN_EVENTS_HARD ≤ n_events < MIN_EVENTS_WARN = 30` → CAAR `t` is
   returned but `WarningCode.FEW_EVENTS` fires and the
-  `_CAARSparsePanelProcedure` propagates it into `FactorProfile.warnings`.
+  `_CAARSparsePanelProcedure` propagates it into `EvaluationResult.warnings`.
 
 ### `common_continuous` — time-series first
 
@@ -407,7 +365,7 @@ Failure modes:
 - `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
   `StatCode.MEAN` identifier is shared across the two modes, so the
-  same field on `FactorProfile` carries different statistical meaning
+  same field on `EvaluationResult` carries different statistical meaning
   depending on `profile.mode`; see §PANEL/TIMESERIES equivalence.
 
 ### `common_sparse` (PANEL) — time-series first
@@ -499,7 +457,7 @@ ones:
 
 ### `_resolve_family` four invariants
 
-For input `profiles: Sequence[FactorProfile]`, `expand_over: Sequence[str] | None`,
+For input `profiles: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
 and `p_stat: StatCode | None`:
 
 1. `expand_over` names must be present in every profile's `context` and must
@@ -507,7 +465,7 @@ and `p_stat: StatCode | None`:
    identity names *the hypothesis*, context names *the slicing condition*;
    confusing the two is the v0.5 anti-shopping defense at the family layer.
 2. partition key per profile = `identity + tuple(context[k] for k in expand_over)`
-   must be unique across the input. `FactorProfile.__hash__ = None`, so dedup
+   must be unique across the input. `EvaluationResult.__hash__ = None`, so dedup
    walks the tuple, not a hash.
 3. `p_stat` (when supplied) must satisfy `is_p_value` and must be populated
    on every profile.
@@ -536,8 +494,7 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
   different horizons carry different null distributions, and pooling them
   dilutes the per-rank threshold `q × k / N`.
 - Cross-family aggregation (horizon-shopping correction) remains the
-  user's responsibility — see [Guides § Batch screening (BHY)](../guides/batch-screening.md)
-  for the family-wise error rate (FWER)-then-BHY recipe.
+  user's responsibility — see the [BHY screening](../api/bhy.md) reference page.
 
 ---
 
@@ -580,7 +537,7 @@ Everything else. Specifically:
   statistical treatment matches the registered procedures — most notably **NW HAC SE
   for any inference on overlapping forward returns**, never iid Welch / OLS SE
 
-A standalone metric never enters BHY automatically (no `FactorProfile`, no canonical
+A standalone metric never enters BHY automatically (no `EvaluationResult`, no canonical
 `primary_p`); the user is responsible for collecting comparable p-values into a family
 themselves if FDR control is needed across a batch of standalone runs.
 
@@ -590,28 +547,33 @@ themselves if FDR control is needed across a batch of standalone runs.
 
 ```
 factrix/
-├── __init__.py              # public surface
-├── _axis.py                 # FactorScope / FactorDensity / Metric / DataStructure StrEnums
-├── _codes.py                # WarningCode / InfoCode / StatCode StrEnums
-├── _errors.py               # FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
-├── _analysis_config.py      # AnalysisConfig + 4 factories + _FALLBACK_MAP
-├── _registry.py             # _DispatchKey, _RegistryEntry, _SCOPE_COLLAPSED, register()
-├── _procedures.py           # 7 FactorProcedure classes; bootstrap-registered at import
-├── _profile.py              # FactorProfile dataclass + diagnose
-├── _evaluate.py             # _detect_mode + _evaluate dispatch wrapper
-├── _describe.py             # describe_analysis_modes + suggest_config + SuggestConfigResult
-├── _family.py               # _resolve_family + _FamilyEntry (shared invariants)
-├── _multi_factor.py         # bhy on the resolution layer
-├── multi_factor.py          # public namespace (re-exports bhy)
-├── _stats/
-│   ├── __init__.py          # _ols_nw_slope_t, _ljung_box, _adf, _newey_west_t_test, _resolve_nw_lags
-│   └── constants.py         # MIN_PERIODS_HARD / MIN_PERIODS_WARN / auto_bartlett
-├── _types.py                # MetricResult, EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
-│                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS,
-│                            #   MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
-├── metrics/                 # primitives: ic, fama_macbeth, ts_beta, caar, ...
+├── __init__.py              # public surface + evaluate()
+├── _axis.py                 # FactorScope / FactorDensity / DataStructure / Tier + spec-metadata
+│                            #   enums (Aggregation / TestMethod / SEMethod / SpecRole / InputShape / OutputShape)
+├── _codes.py                # WarningCode / InfoCode (reserved, no codes) / StatCode StrEnums
+├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
+├── _metric_index.py         # MetricSpec + __metric_specs__ SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
+├── _dag.py                  # DagExecutor — MetricSpec.requires / batchable dispatch (+ CycleError)
+├── _results.py              # EvaluationResult / MetricResultGroup / MetricResult / Warning dataclasses
+├── _inspect.py              # inspect_data — typed data introspection with per-metric verdict
+├── _compare.py              # compare — multi-metric leaderboard over EvaluationResult lists
+├── _family.py               # _resolve_family — shared family resolution for the FDR verbs
+├── _multi_factor.py         # bhy / partial_conjunction / bhy_hierarchical impls
+├── multi_factor.py          # public namespace (re-exports the FDR verbs)
+├── _data_input.py           # input-type gateway for public entry points
+├── adapt.py                 # column-name adapter → factrix canonical names
+├── _logging.py              # shared loggers
+├── _ols.py                  # shared OLS helpers (spanning metrics + orthogonalize preprocess)
+├── _types.py                # shared constants: EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
+│                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
+├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
+├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
+├── estimators/              # lowercase estimator callables
+├── metrics/                 # metric callables + __metric_specs__ (ic, fm_beta, ts_beta, caar, ...) + _registry
 │                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_OBS) live
-│                            # alongside the procedures that enforce them
+│                            # alongside the metrics that enforce them
+├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
+├── preprocess/              # compute_forward_return / normalize / orthogonalize
 └── datasets.py              # synthetic CS / event panels
 ```
 
@@ -621,21 +583,18 @@ factrix/
 
 Hard constraints — violating these breaks the API contract:
 
-1. `AnalysisConfig` is `frozen=True, slots=True`; every construction path goes through `__post_init__ → _validate_axis_compat` (factory, direct, `from_dict` all hit the same gate).
-2. `FactorProfile` is `frozen=True, slots=True`. One unified type — no per-cell subclass.
-3. The registry is the SSOT for "which cells exist". `_validate_axis_compat`, `describe_analysis_modes`, and `suggest_config` all reverse-query it; no parallel rule table.
-4. `_SCOPE_COLLAPSED` is an internal sentinel. It never appears in a user-facing `AnalysisConfig` — `evaluate()` rewrites the routed scope at dispatch time and reports the collapse via `InfoCode.SCOPE_AXIS_COLLAPSED`.
-5. `FactorProfile.primary_p` is a real probability for every legal cell × mode. TIMESERIES never returns a degenerate `primary_p = 1.0`.
-6. `primary_p` is the procedure-canonical p-value; `warnings` and `info_notes` flag interpretation risks but never auto-rebind it.
-7. Family declaration is explicit: the `bhy` (and other screening-function) input list is one family, optionally split per-bucket via `expand_over`. `_resolve_family` enforces (a) identity uniqueness across input, (b) `expand_over` ⊂ `context` (never identity), (c) `p_stat` is a probability and populated everywhere. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
-8. `register(...)` is append-only at import time. Duplicate keys raise `ValueError`.
-9. NW HAC lag selection in panel-aggregation cells uses `max(auto_bartlett(T), forward_periods - 1)` — the Hansen-Hodrick floor must not be skipped under overlapping forward returns.
-10. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; procedures never silently produce a result on under-sample data.
+1. `MetricSpec` is `frozen=True, slots=True`; every construction path runs `__post_init__`, which enforces the field invariants (e.g. `role=METRIC → output_shape=SCALAR`).
+2. All result dataclasses — `EvaluationResult`, `MetricResultGroup`, `MetricResult`, `Warning` — are `frozen=True, slots=True`. One unified `EvaluationResult` — no per-cell subclass.
+3. The metric-spec SSOT is the module-level `__metric_specs__` tuple in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the same index via `factrix.metrics._registry.register`.
+4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
+5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; `metadata["p_value"]` stays populated for tool context. `warnings` flag interpretation risk but never rebind it.
+6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, *expand_over_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
+7. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
 
-For the user-facing field walk of `FactorProfile` (and the `Survivors` /
-`MetricsBundle` it composes with), see
-[Reading results](../guides/reading-results.md). Items 5 and 6 above are
-the contract the page links back to.
+For the user-facing field walk of `EvaluationResult` (and the
+`MetricResultGroup` it composes with), see
+[Reading results](../guides/reading-results.md). The `MetricResult.p_value`
+contract above is what that page links back to.
 
 ---
 

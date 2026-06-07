@@ -15,7 +15,7 @@ formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
 cross-metric overview. For the runtime API that returns the per-cell
 metric list programmatically, see
-[`list_metrics`](../api/list-metrics.md).
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
 
 ## Sample dimensions
 
@@ -29,9 +29,9 @@ factrix expresses sample size on three axes (see
 - `T/h` — non-overlapping date count given
   `forward_periods = h`.
 
-`PanelMode` is derived from `N` at evaluate-time: `PANEL` for `N ≥ 2`,
+`DataStructure` is derived from `N` at evaluate-time: `PANEL` for `N ≥ 2`,
 `TIMESERIES` for `N == 1`. The dispatch registry routes to the cell's
-procedure in either PanelMode; the metric's applicability does not change
+procedure in either DataStructure; the metric's applicability does not change
 across Modes, only the sample axis that constrains it.
 
 ## Other metrics by family
@@ -137,12 +137,12 @@ below.
 | `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` (TIMESERIES) | hard | `factrix/_stats/constants.py` | TIMESERIES procedures (`individual_continuous` / `common_continuous` at `N == 1`); raises `InsufficientSampleError` |
 | `MIN_PERIODS_WARN` | 30 | `T` (TIMESERIES) | warn | `factrix/_stats/constants.py` | same procedures; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_ASSETS` | 10 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous` and `suggest_config`; tags `WarningCode.SMALL_CROSS_SECTION_N` |
+| `MIN_ASSETS` | 10 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.SMALL_CROSS_SECTION_N` |
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.BORDERLINE_CROSS_SECTION_N` |
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
-| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fama_macbeth.py` | `fm_beta`, `beta_sign_consistency` |
-| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fama_macbeth.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
+| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `beta_sign_consistency` |
+| `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
 
 Naming caveats:
@@ -177,7 +177,7 @@ Inferential metrics enforce two separate floors:
 - **`_WARN`** — the **literature / power floor**. The statistic *is*
   computable, but the SE is biased small or power is poor; the metric
   returns the stat, emits a `UserWarning`, and adds a `WarningCode` to
-  `MetricResult.metadata["warning_codes"]` so `FactorProfile.warnings`
+  `MetricResult.metadata["warning_codes"]` so `EvaluationResult.warnings`
   can propagate it. `n ≥ WARN` is silent.
 
 **Descriptive metrics** (`clustering_hhi`, `corrado_rank`,
@@ -221,7 +221,7 @@ returns a meaningful-looking result. Three deterministic outcomes:
 
 - **Short-circuit** — the metric returns
   `MetricResult(value=NaN, metadata={"reason": "..."})` and
-  `FactorProfile.primary_p` is conservatively pinned to `1.0` so
+  `EvaluationResult.primary_p` is conservatively pinned to `1.0` so
   `primary_p` is at or above the user's chosen threshold.
 - **Fallback** — the dispatch registry routes to a degraded but
   semantically distinct procedure (e.g. `Common × Continuous` at

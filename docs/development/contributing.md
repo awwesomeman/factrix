@@ -11,7 +11,7 @@ conventions (licensing / DCO / CLA).
 
 ## 1. Two development modes
 
-### PanelMode A — Standalone development (recommended for most cases)
+### Mode A — Standalone development (recommended for most cases)
 
 Clone the factrix repo directly, isolated venv, fastest cycle:
 
@@ -26,7 +26,7 @@ uv run pytest        # confirm baseline is green
 Isolated environment, no risk of accidentally touching downstream
 research, shortest test cycle.
 
-### PanelMode B — In-workspace development (via submodule)
+### Mode B — In-workspace development (via submodule)
 
 Edit from the downstream workspace (`factor-analysis`) under
 `external/factorlib/`—you can change factrix and observe the effect in
@@ -53,9 +53,9 @@ uv run jupyter notebook
 - Debugging a "bug that only appears in the research environment"—real
   data context required to reproduce
 - Changing an API for a known downstream need, with immediate verification
-- Small tweaks (< 10 lines) that don't justify PanelMode A's setup overhead
+- Small tweaks (< 10 lines) that don't justify Mode A's setup overhead
 
-**Caution**: PanelMode B has three critical pitfalls; see §4 below.
+**Caution**: Mode B has three critical pitfalls; see §4 below.
 
 ---
 
@@ -211,7 +211,7 @@ git config --global user.email "your-new-email@example.com"
 
 ---
 
-## 4. Three critical pitfalls of PanelMode B
+## 4. Three critical pitfalls of Mode B
 
 ### G1. Submodule = detached HEAD (the biggest trap)
 
@@ -268,7 +268,7 @@ git commit -m "chore: bump factrix to <short-sha>: <why>"
 
 ## 5. Submodule sync reference
 
-Command index for PanelMode B and consumer-workspace daily ops. The cheat
+Command index for Mode B and consumer-workspace daily ops. The cheat
 sheet covers 90% of cases; read the mental model and scenarios below
 only when the cheat sheet is unclear.
 
@@ -328,9 +328,9 @@ files auto-update and which need manual maintenance.
 #### Docstring `Examples:` — runnable, copy-paste ready
 
 Every user-facing function reachable from the API Reference nav
-(`evaluate`, `run_metrics`, `by_slice`, `slice_pairwise_test`,
+(`evaluate`, `inspect_data`, `by_slice`, `slice_pairwise_test`,
 `slice_joint_test`, `multi_factor.{bhy, partial_conjunction,
-bhy_hierarchical}`, `compare`, `suggest_config`, `list_metrics`,
+bhy_hierarchical}`, `compare`, `list_metrics`,
 `list_estimators`) carries an `Examples:` block in its docstring.
 The docstring is the single source of truth — `.md` pages do not
 duplicate runnable examples, only document things the example
@@ -400,7 +400,7 @@ which folder they happen to live in. Four shapes carry the whole site:
 
 - **symbol-centric** — one mkdocstrings page per public callable / class.
   Lives under `API reference`. Reader knows the name, wants signature +
-  semantics. (`evaluate`, `bhy`, `FactorProfile`, every `metrics/<x>.md`.)
+  semantics. (`evaluate`, `bhy`, `EvaluationResult`, every `metrics/<x>.md`.)
 - **question-centric** — answers a "how do I do X?" task with a short
   walk-through. Lives under `User guide` > `How-to`. Title is the
   question, body is the recipe. (`Information coefficient vs
@@ -440,11 +440,11 @@ reference`, `Release notes`) follow the same rule.
   the page's first paragraph or the `Glossary` entry, not the sidebar.
 - **Universal technical acronyms are an exception** — `API` is not
   expanded.
-- **Code identifiers do not appear in CAPS in nav labels.** PanelMode enum
-  values (`PanelMode.PANEL` / `PanelMode.TIMESERIES`) become `Panel` / `Timeseries`
+- **Code identifiers do not appear in CAPS in nav labels.** DataStructure enum
+  values (`DataStructure.PANEL` / `DataStructure.TIMESERIES`) become `Panel` / `Timeseries`
   in nav; reach for backticks inside body prose when the literal
   identifier matters. Dataclass / class names inside `Results` (e.g.
-  `MetricResult`, `FactorProfile`) keep PascalCase because that node *is*
+  `MetricResult`, `EvaluationResult`) keep PascalCase because that node *is*
   the mkdocstrings spec page for the symbol — the title is the symbol.
 
 ### Nav structure conventions
@@ -735,7 +735,7 @@ source, not restated here. Format:
    methods need it, simple diagnostics don't)
 
 Examples (inline formula): `ts_beta.ts_beta_sign_consistency`
-Examples (Formula block): `fama_macbeth.pooled_ols`,
+Examples (Formula block): `fm_beta.pooled_beta`,
 `_helpers._sample_non_overlapping`
 
 ### LLM agent reference sync
@@ -752,10 +752,10 @@ PR (no CI gate):
 
 - Additions / removals to `factrix/__init__.py` `__all__`
 - Public API signature changes (factory, `evaluate`, `bhy`,
-  `FactorProfile`)
+  `EvaluationResult`)
 - `WarningCode` / `InfoCode` / `StatCode` additions, renames, or
   description rewrites
-- PanelMode dispatch rules or canonical panel schema changes
+- DataStructure dispatch rules or canonical data schema changes
 
 PR self-check: run all three code blocks, `uv run mkdocs build
 --strict` clean, `tiktoken` cl100k count < 8000.
@@ -772,7 +772,7 @@ plain prose; reach for a callout only when the elevation earns it.
 - `!!! info` — contract / convention block (e.g. event-study contracts, TS-mode conventions).
 - `!!! example` — minimal worked code that surrounding prose references.
 - `??? note "..."` (collapsible) — long content for a subset of readers (derivations, full enum tables).
-- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-panel `(panel, cfg)` entry points (`docs/api/evaluate.md`, `docs/api/run-metrics.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`FactorProfile` / `Survivors` / `MetricsBundle`) and do not carry the callout.
+- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-data `(data, ...)` entry points (`docs/api/evaluate.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`EvaluationResult` / `Survivors` / `MetricResultGroup`) and do not carry the callout.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
@@ -801,10 +801,10 @@ Bare `::: factrix.<X>` is the canonical form for page-primary function / datacla
 
 These two sections appear on pages whose primary purpose is to show the reader *how to call the API*. They are content shapes for workflow-oriented pages — not a universal requirement.
 
-- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `run_metrics`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `list_estimators`, `suggest_config`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
+- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `inspect_data`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `list_estimators`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
 - **Not expected** on:
-    - Dataclass / container pages (`factor-profile.md`, `metric-output.md`, `metrics-bundle.md`) — these describe a return type, not a workflow.
-    - Reference / taxonomy / hub pages (`errors.md`, `decision-tree.md`, `panel-schema.md`, `api/index.md`, `multi-horizon.md`, `identity.md`, `estimator-alternatives.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.
+    - Dataclass / container pages (`evaluation-results.md`, which documents `EvaluationResult` / `MetricResultGroup` / `MetricResult` / `Warning`) — these describe a return type, not a workflow.
+    - Reference / taxonomy / hub pages (`errors.md`, `panel-schema.md`, `api/index.md`, `multi-horizon.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.
     - Namespace / module pages (`stats.md`, `datasets.md`) — content shape is a catalogue of members.
 
 A page that legitimately does not need these sections carries no marker — silence is the policy default. Pages in the "expected" category that currently lack the sections are accepted as a backfill debt rather than a defect.
@@ -925,7 +925,7 @@ Downstream research workspaces should generally **pin to a tag** (not
 main HEAD), so each workspace commit corresponds to a clear factrix
 version and remains reproducible.
 
-Main HEAD is used only temporarily during PanelMode B development (debug
+Main HEAD is used only temporarily during Mode B development (debug
 flow); once finished, merge back into factrix main, tag, and let the
 workspace bump to the tag.
 

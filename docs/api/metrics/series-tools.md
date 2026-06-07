@@ -2,23 +2,15 @@
 title: Series diagnostics
 ---
 
-Axis-agnostic metrics that operate on any `(date, value)` series
-produced by an upstream cell metric — information coefficient (IC) time series, $\beta$ time
-series, CAAR time series, an external factor return, etc. They do not
-care which cell produced the series.
+Axis-agnostic metrics that operate on any `(date, value)` series produced by an upstream cell metric — information coefficient (IC) time series, $\beta$ time series, CAAR time series, an external factor return, etc. They do not care which cell produced the series.
 
-!!! warning "Not the same as `PanelMode.TIMESERIES`"
-    `PanelMode.TIMESERIES` is the dispatch regime for `n_assets == 1` (set on
-    `FactorProfile.mode`); the metrics on this page run on a
-    `(date, value)` series regardless of which mode produced it.
+!!! warning "Not the same as `DataStructure.TIMESERIES`"
+    `DataStructure.TIMESERIES` is the dispatch structure for `n_assets == 1` (set on `EvaluationResult.cell`); the metrics on this page run on a `(date, value)` series regardless of which structure produced it.
 
 | Metric | Role | Page |
 |---|---|---|
-| Out-of-sample decay across multiple splits | Robustness | [`oos`](oos.md) |
+| Out-of-sample decay across multiple splits | Robustness | [`oos`](oos_decay.md) |
 | Theil-Sen monotonic trend with augmented Dickey-Fuller (ADF) persistence flag | Diagnostic | [`trend`](trend.md) |
 | Sign-consistency / hit rate of the series | Diagnostic | [`hit_rate`](hit_rate.md) |
 
-Use these against the IC series from [`ic.compute_ic`](ic.md), the
-CAAR series from [`caar.compute_caar`](caar.md), or any externally
-constructed `(date, value)` DataFrame to layer decay, drift, and
-sign-stability checks on top of the cell's primary inferential test.
+Use these against the IC series from [`ic.compute_ic`](ic.md), the CAAR series from [`caar.compute_caar`](caar.md), or any externally constructed `(date, value)` DataFrame to layer decay, drift, and sign-stability checks on top of the cell's primary inferential test.

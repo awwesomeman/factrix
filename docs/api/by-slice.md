@@ -17,7 +17,7 @@ market-cap tier, ADV bucket all share the same dispatcher.
 ## Argument contract
 
 The first argument is the **metric callable** (e.g. `ic`, `caar`,
-`fama_macbeth`); the second is the metric's primary date-keyed
+`fm_beta`); the second is the metric's primary date-keyed
 DataFrame **with the slicing column already present**; `label` names
 that column; remaining keyword args (`forward_periods=...`, etc.)
 forward unchanged on every per-slice call. See the docstring
@@ -51,7 +51,7 @@ not a defensible cross-regime selection rule. A generic cross-slice test
 (Benjamini-Hochberg-Yekutieli (BHY) adjustment, Sharpe-diff Wald, paired-difference Newey-West (NW), etc.) cannot
 be applied honestly across the metric matrix — the appropriate test
 depends on the metric family. For metrics that expose a
-`per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`),
+`per_date_series` capability (`ic`, `fm_beta`, `hit_rate`),
 [`slice_pairwise_test`](slice-test.md#factrix.slice_pairwise_test)
 / [`slice_joint_test`](slice-test.md#factrix.slice_joint_test)
 provide cross-slice contrasts with joint-heteroskedasticity-and-autocorrelation-consistent (HAC) or block-bootstrap

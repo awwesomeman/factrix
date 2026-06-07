@@ -21,7 +21,7 @@ title: factrix.metrics.fm_beta
     ---
 
     Stage 1 of Fama-MacBeth: per-date cross-sectional ordinary least squares (OLS) slope
-    $\beta_t$ in $R_{i,t} = \alpha_t + \beta_t \cdot \text{FactorSignal}_{i,t} + \varepsilon_{i,t}$.
+    $\beta_t$ in $R_{i,t} = \alpha_t + \beta_t \cdot \text{FactorDensity}_{i,t} + \varepsilon_{i,t}$.
     Pre-step for `fm_beta` and the descriptive
     `beta_sign_consistency` check.
 
@@ -42,7 +42,7 @@ title: factrix.metrics.fm_beta
     factor-mimicking-portfolio return series is available) to apply the
     Shanken (1992) single-factor EIV correction (the multi-factor
     multiplicative term collapses to $1 + \hat\lambda^2/\sigma^2_f$).
-    Required when the FactorSignal column is itself estimated — rolling beta,
+    Required when the FactorDensity column is itself estimated — rolling beta,
     PCA score, ML prediction.
 
 -   __Pooled OLS robustness check__

@@ -13,54 +13,97 @@ Reverse index — match your situation to the likely landing page:
 | You have | Start at |
 |---|---|
 | Continuous factor, ~30+ dates × ~10+ assets, canonical information coefficient (IC) test | [`ic`](ic.md) (and `ic_newey_west` for heteroskedasticity-and-autocorrelation-consistent (HAC)) |
-| Continuous factor, per-date ordinary least squares (OLS) slope test | [`fama_macbeth`](fama_macbeth.md) |
+| Continuous factor, per-date ordinary least squares (OLS) slope test | [`fm_beta`](fm_beta.md) |
 | Long-short spread sized by factor quintiles | [`quantile`](quantile.md), [`monotonicity`](monotonicity.md) |
 | Sparse `{0, R}` event signal (canonical `±1`), CAAR / abnormal-return test | [`caar`](caar.md), [`event_quality`](event_quality.md) |
-| Sparse signal, suspect event-induced variance | `caar.bmp_test` (check [`clustering`](clustering.md) first) |
-| Sparse signal, non-parametric robustness check | [`corrado`](corrado.md) |
+| Sparse signal, suspect event-induced variance | `caar.bmp_test` (check [`clustering`](clustering_hhi.md) first) |
+| Sparse signal, non-parametric robustness check | [`corrado`](corrado_rank.md) |
 | Common time-series factor (one signal × N assets, e.g. VIX) | [`ts_beta`](ts_beta.md), [`ts_quantile`](ts_quantile.md) |
-| `(date, value)` series → decay / drift / hit-rate | [`oos`](oos.md), [`trend`](trend.md), [`hit_rate`](hit_rate.md) |
+| `(date, value)` series → decay / drift / hit-rate | [`oos`](oos_decay.md), [`trend`](trend.md), [`hit_rate`](hit_rate.md) |
 | Candidate factor — is it spanned by an existing pool? | [`spanning`](spanning.md) |
 | Tradability / turnover diagnostic | [`tradability`](tradability.md), [`concentration`](concentration.md) |
 
 For sample-size guards (when a metric short-circuits to NaN) see
 [Reference § Metric applicability](../../reference/metric-applicability.md).
 
-## Cell vs. PanelMode
+## Programmatic catalog: `list_metrics()`
 
-factrix has **two orthogonal classifications** that are easy to confuse:
+::: factrix.list_metrics
+
+`list_metrics()` is the programmatic form of the index above. It takes
+**no arguments** and returns a family-grouped catalog — a
+`dict[str, list[MetricSpec]]` keyed by concept family (the declaring
+module stem):
+
+```python
+import factrix as fx
+
+overview = fx.list_metrics()
+overview["ic"]       # [MetricSpec(name="ic", ...), MetricSpec(name="ic_ir", ...), ...]
+sorted(overview)     # ['caar', 'fm_beta', 'ic', ...] — the concept families
+```
+
+The catalog is a *reference*, not a runnable input — wire concrete
+callables up from `factrix.metrics` and pass them to
+[`evaluate`](../evaluate.md):
+
+```python
+from factrix.metrics import ic, fm_beta, breakeven_cost
+```
+
+### Per-cell applicability → `inspect_data`
+
+`list_metrics()` takes no cell filter. To learn which metrics actually
+run on a given panel — and which are degraded or blocked by sample
+floors — inspect a real panel with `inspect_data`:
+
+```python
+info = fx.inspect_data(panel)
+[m.name for m in info.usable]     # production-safe metrics for this panel
+[m.name for m in info.degraded]   # run, but inference degraded
+[m.name for m in info.unusable]   # blocked (cell mismatch / sample floor)
+```
+
+`inspect_data` gives a structure-aware, sample-floor-aware verdict: each
+`MetricApplicability` carries the metric `name`, its callable class, and
+any `blockers` / `warnings`, accounting for the actual panel shape
+(`n_periods` / `n_assets` / `n_pairs`).
+
+## Cell vs. DataStructure
+
+factrix has **two orthogonal classifications**:
 
 | | Describes | Set by | Values |
 |---|---|---|---|
-| **Cell** (`Scope × FactorSignal × Metric`) | What kind of factor it is | The user, via `AnalysisConfig` | `Individual` / `Common`; `Continuous` / `Sparse`; `IC` / `FM` / `None` |
-| **PanelMode** | Sample regime | Derived from `N` at evaluate-time | `PANEL` (`N ≥ 2`) / `TIMESERIES` (`N == 1`) |
+| **Cell** (`Scope × FactorDensity`) | What kind of factor it is | The user, via metrics selection | `Individual` / `Common`; `Dense` / `Sparse` |
+| **DataStructure** | Sample regime | Derived from `N` at evaluate-time | `PANEL` (`N ≥ 2`) / `TIMESERIES` (`N == 1`) |
 
-**This page groups metrics by *cell*, not by PanelMode.** Any cell can run
-in either PanelMode — the dispatch registry picks the matching procedure
-variant when a `Common × Continuous` factor is evaluated against
-single-asset data, the cell is still `Common × Continuous`, the
+**This page groups metrics by *cell*, not by DataStructure.** Any cell can run
+in either DataStructure — the dispatcher automatically routes to the correct procedure
+variant when a `Common × Dense` factor is evaluated against
+single-asset data, the cell is still `Common × Dense`, the
 metrics still live under **Common continuous** below, and the only
-thing that changes is `PanelMode = TIMESERIES`.
+thing that changes is `DataStructure = TIMESERIES`.
 
 See [Concepts](../../getting-started/concepts.md) for the full
-three-axis design and how factories map to cells.
+three-axis design and how metrics map to cells.
 
 ## Layout
 
-The four `Scope × FactorSignal` cells map to **three groups of metric
+The four `Scope × FactorDensity` cells map to **three groups of metric
 modules plus a fourth axis-agnostic group**:
 
 | Cell | Group on this nav | Notes |
 |---|---|---|
-| `Individual × Continuous` | **Individual continuous** | Both `IC` and `FM` primary metrics live in this cell; ancillary metrics (`quantile`, `monotonicity`, `concentration`, `tradability`, `spanning`) are shared across both. |
+| `Individual × Dense` | **Individual continuous** | Both `IC` and `FM` primary metrics live in this cell; ancillary metrics (`quantile`, `monotonicity`, `concentration`, `tradability`, `spanning`) are shared across both. |
 | `Individual × Sparse` | **Individual sparse** | Per-event tests on `(date, asset_id, factor)` with sparse `{0, R}` schema (zero on non-event entries; `R` is any real magnitude, `{0, 1}` is the simplest form). Domain shorthand: *event signal*. |
-| `Common × Sparse` | **Individual sparse** (shared metric modules) | Has its own dispatch procedure (`_CommonSparsePanelProcedure`: per-asset OLS β on the broadcast dummy → cross-asset *t*) — not the CAAR per-event flow used by `Individual × Sparse`. The two cells share the SPARSE column contract and the event-quality / clustering / corrado helper metrics, so factrix groups them on this nav. |
-| `Common × Continuous` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
+| `Common × Sparse` | **Individual sparse** (shared metric modules) | Has its own dispatch procedure: per-asset OLS β on the broadcast dummy → cross-asset *t* — not the CAAR per-event flow used by `Individual × Sparse`. The two cells share the SPARSE column contract and the event-quality / clustering / corrado helper metrics, so factrix groups them on this nav. |
+| `Common × Dense` | **Common continuous** | Single time series broadcast across assets (VIX, USD index, …). |
 
-**Series diagnostics** (`hit_rate`, `trend`, `oos`) are axis-agnostic —
+**Series diagnostics** (`hit_rate`, `trend`, `oos_decay`) are axis-agnostic —
 they operate on any `(date, value)` series produced by the upstream
 cell metrics and are not bound to a specific cell. Distinct from
-`PanelMode.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
+`DataStructure.TIMESERIES`, which is the dispatch regime for `n_assets == 1`.
 
 ## How to read a metric page
 

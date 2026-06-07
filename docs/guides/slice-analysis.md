@@ -15,7 +15,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 | Role | Function | What it does | What it does not do |
 |---|---|---|---|
 | Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns [`SliceResult`](../api/by-slice.md) — a `Mapping[str, MetricResult]` subclass with `.to_frame()` for long-form rendering | **No cross-slice statistical test** |
-| Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fama_macbeth`, `hit_rate`) |
+| Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `hit_rate`) |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
 
@@ -65,7 +65,7 @@ ic_df = compute_ic(panel)["factor"].join(vol_labels, on="date", how="inner")
 
 ## Discovering eligible metrics
 
-`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Enumerate the candidate set from the [`list_metrics()`](../api/list-metrics.md) catalog by filtering each spec's `input_shape`:
+`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Enumerate the candidate set from the [`list_metrics()`](../api/metrics/index.md#factrix.list_metrics) catalog by filtering each spec's `input_shape`:
 
 ```python
 import factrix as fx
@@ -108,4 +108,4 @@ print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
 
 - [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
 - [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference function pair.
-- [Batch screening with Benjamini-Hochberg-Yekutieli (BHY)](batch-screening.md) — false discovery rate (FDR) control across factor candidates rather than slices.
+- [Benjamini-Hochberg-Yekutieli (BHY) screening](../api/bhy.md) — false discovery rate (FDR) control across factor candidates rather than slices.

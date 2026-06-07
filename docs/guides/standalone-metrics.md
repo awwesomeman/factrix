@@ -2,150 +2,105 @@
 title: Standalone metrics
 ---
 
-[`evaluate()`][factrix.evaluate] runs one canonical procedure per cell
-and returns a `FactorProfile` with a single
-`primary_p`. Every other module under `factrix.metrics` is a
-**standalone metric** — a `MetricResult`-returning helper the user
-invokes directly to add diagnostics around the canonical inference.
+Every metric under `factrix.metrics` can be run either as part of a multi-metric execution plan using [`evaluate()`][factrix.evaluate] or invoked directly as a **standalone metric** helper on a Polars DataFrame.
 
-This guide covers the three things a user needs to wire them in:
-which metrics apply to a given cell, what input shape each one
-expects, and where they sit in a screening pipeline.
+This guide covers how to call standalone metrics, their input shapes, and how to integrate them into your evaluation workflow.
 
-## What factrix evaluates
+## When to use which metric
 
-factrix evaluates **factor signal validity** — predictive power
-(information coefficient (IC), FM λ), robustness (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC), Benjamini-Hochberg-Yekutieli (BHY), regime stability), and event
-shape (CAAR, BMP, Corrado). It does **not** compute portfolio-level
-performance: no Sharpe / drawdown / Sortino / Calmar / return
-attribution. Those metrics belong downstream of factor selection
-and live in dedicated backtest libraries (e.g.
-[`vectorbt`](https://vectorbt.dev/) or an internal framework).
-For the canonical out-of-scope list with peer-library pointers, see
-[Where factrix fits § 3](../where-factrix-fits.md#3-out-of-scope-use-these-libraries-instead).
+| Analysis Target | Metric | Return Type |
+|---|---|---|
+| Quantile spread & monotonicity | `quantile_spread`, `quantile_spread_vw`, `monotonicity` | `dict[str, MetricResult]` (batchable) |
+| Tradability & cost break-even | `turnover`, `notional_turnover`, `breakeven_cost`, `net_spread` | `MetricResult` |
+| Spanning regression vs existing pool | `spanning_alpha`, `greedy_forward_selection` | `MetricResult` |
+| Event study analysis | `caar`, `bmp_test`, `corrado_rank`, `event_hit_rate`, `clustering_hhi` | `MetricResult` |
+| Event return shape | `mfe_mae_summary`, `event_around_return` | `MetricResult` |
+| Series diagnostics | `oos_decay`, `ic_trend`, `hit_rate` | `MetricResult` |
 
-The closest crossover inside factrix is `ic_ir` — the information
-ratio of the per-date IC series. It is explicitly a *signal-quality*
-IR (mean / std of IC), **not** a portfolio Sharpe (mean / std of
-realised returns).
+---
 
-For the cross-module matrix (every module, aggregation pattern,
-inference SE), see
-[Reference § Metric pipelines](../reference/metric-pipelines.md).
-For the `(scope, signal)` filter at runtime, see
-[`list_metrics`](../api/list-metrics.md).
+## 1. Direct standalone calls
 
-## When to use which
+You can call any metric callable directly. If the first argument is a Polars DataFrame or Series, the metric runs immediately and returns its results.
 
-| Want | Reach for |
-|---|---|
-| `primary_p` + diagnose | [`evaluate()`][factrix.evaluate] |
-| Quintile spread, monotonicity, top concentration | `quantile_spread`, `monotonicity`, `top_concentration` |
-| Tradability / cost break-even | `notional_turnover`, `breakeven_cost`, `net_spread`, `turnover` |
-| Spanning regression vs an existing pool | `spanning_alpha`, `greedy_forward_selection` |
-| Event-side robustness on top of CAAR | `bmp_test`, `corrado_rank`, `event_hit_rate`, `clustering_hhi` |
-| Per-event return shape | `mfe_mae_summary`, `event_around_return` |
-| Asymmetry / quantile-spread on a broadcast factor | `ts_asymmetry`, `ts_quantile_spread` |
-| Out-of-sample (OOS) decay / trend / hit rate on any `(date, value)` series | `oos_decay`, `ic_trend`, `hit_rate` |
+### Panel-input metrics
 
-`evaluate()` only writes the `StatCode` keys listed for its cell on
-`FactorProfile`;
-standalone metrics return their own
-[`MetricResult`](../api/metric-output.md) and never mutate
-`profile.stats`. The two surfaces compose without coordination.
-
-## Input shapes
-
-Standalone metrics group into three input families:
-
-### 1. Panel `(date, asset_id, factor, forward_return)` — same shape as `evaluate()`
-
-The IC / FM / quantile / Fama-MacBeth / spanning / tradability
-families read the same wide panel `evaluate()` consumes. Pass the
-exact dataframe you handed to `evaluate()`:
+Metrics such as `quantile_spread` or `monotonicity` operate on a long-format panel containing `(date, asset_id, <factor_col>, forward_return)`.
 
 ```python
 import factrix as fx
+from factrix.metrics import quantile_spread, monotonicity
 
-raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+# Generate synthetic data
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=200, seed=42)
 panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-# example pending v0.14.0 docs rewrite
-spread = fx.metrics.quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
-mono = fx.metrics.monotonicity(panel, forward_periods=5, n_groups=5)["factor"]
+
+# Call metrics directly
+spread_res = quantile_spread(panel, forward_periods=5, n_groups=5)
+# Returns a dictionary: {factor_name: MetricResult}
+factor_spread = spread_res["factor"]
+print(factor_spread.value)  # Mean spread
+print(factor_spread.p_value)  # Non-overlapping t-test p-value
 ```
 
-### 2. Event panel `{factor ∈ {0, R}}` — sparse signal cells
+### Series diagnostics
 
-`caar`, `event_quality`, `event_horizon`, `mfe_mae`, `clustering`, and
-`corrado` read a panel where `factor` is zero on non-event entries
-and any real value on event entries (`R` is unrestricted). Common
-forms: `{0, 1}` for a pure event flag, or `{0, R}` for any
-real-valued magnitude. Build via `fx.datasets.make_event_panel` or
-filter your own panel.
-
-```python
-events = fx.datasets.make_event_panel(n_assets=80, n_dates=500, event_rate=0.05, seed=7)
-events = fx.preprocess.compute_forward_return(events, forward_periods=5)
-
-# example pending v0.14.0 docs rewrite
-
-# Robustness on top of the canonical CAAR:
-hit = fx.metrics.event_hit_rate(events)
-rank_p = fx.metrics.corrado_rank(events, forward_periods=5)
-```
-
-### 3. Derived `(date, value)` series — series diagnostics
-
-`hit_rate`, `ic_trend`, and `oos_decay` are axis-agnostic:
-they take whatever per-date series an upstream cell metric produced.
-This decouples the diagnostic from the cell contract — a per-date IC
-series, a per-date quantile spread, and a per-date FM λ all share the
-same shape and feed the same diagnostics.
+Diagnostics like `hit_rate`, `ic_trend`, and `oos_decay` take a two-column time-series DataFrame of `(date, value)` (such as a series of per-date ICs generated upstream).
 
 ```python
 import polars as pl
+from factrix.metrics import oos_decay
 
-ic_series: pl.DataFrame = ...  # columns: date, value (per-date IC)
+# Given a time series of values (e.g. daily IC values)
+ic_series = pl.DataFrame({
+    "date": ["2026-01-01", "2026-01-02", "2026-01-03"],
+    "value": [0.05, -0.02, 0.08]
+})
 
-decay = fx.metrics.oos_decay(ic_series)
-trend = fx.metrics.ic_trend(ic_series)
-hits = fx.metrics.hit_rate(ic_series, value_col="value")
+decay_res = oos_decay(ic_series)
+print(decay_res.value)
 ```
 
-`DataStructure.TIMESERIES` (the dispatch regime for `n_assets == 1`) is a
-distinct concept — these diagnostics are series-shaped regardless of
-which DataStructure the upstream procedure ran in.
+---
 
-## Post-`evaluate()` integration
+## 2. Integrated evaluation with `evaluate()`
 
-A typical screening recipe chains `evaluate()` for the canonical inference, then
-appends standalone metrics for shape and tradability diagnostics. The
-profile and the metric outputs travel together; nothing on either
-side needs to know about the other:
+Instead of calling multiple metrics manually and managing intermediate outputs, you can pass them together in the `metrics` dictionary of `fx.evaluate()`. The DAG executor automatically schedules and resolves any shared dependencies (like `compute_ic` or bucketing) to ensure optimal performance.
 
 ```python
-# example pending v0.14.0 docs rewrite
+import factrix as fx
+from factrix.metrics import ic_newey_west, quantile_spread, monotonicity
+
+results = fx.evaluate(
+    panel,
+    metrics={
+        "ic": ic_newey_west(),
+        "spread": quantile_spread(n_groups=5),
+        "mono": monotonicity(n_groups=5),
+    },
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+
+# results is a list[EvaluationResult]
+res = results[0]
+print(res.metrics["ic"].value)
+print(res.metrics["spread"].value)
 ```
 
-For the BHY family across many factors, `multi_factor.bhy` consumes
-`FactorProfile` objects only — standalone
-metrics are not in the multiple-testing partition. Run them in a
-separate pass after BHY narrows the candidate set.
+## Metric Discovery
 
-## Discovery
-
-[`list_metrics()`](../api/list-metrics.md) returns the family-grouped
-catalog of every standalone metric (a `dict` keyed by concept family):
+To programmatic inspect the public metrics catalog, use `list_metrics()`:
 
 ```python
 overview = fx.list_metrics()
-overview["ic"]    # [MetricSpec(name="ic", ...), MetricSpec(name="ic_ir", ...), ...]
+# Returns dict[family_name, list[MetricSpec]]
+print(overview.keys())
 ```
 
-For the subset applicable to a *specific panel* — accounting for its
-actual shape — inspect the panel and read the verdict partitions:
+To find only the metrics that are statistically applicable to a specific panel's dimensions, use `inspect_data()`:
 
 ```python
-info = fx.inspect_data(panel)
-[m.name for m in info.usable]   # production-safe metrics for this panel
+inspection = fx.inspect_data(panel)
+usable_metrics = [m.name for m in inspection.usable]
 ```

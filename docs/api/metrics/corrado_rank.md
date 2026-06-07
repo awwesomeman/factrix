@@ -92,7 +92,7 @@ title: factrix.metrics.corrado_rank
     (1989) eq. (5) form when event-date clustering is present —
     inspect Herfindahl-Hirschman index (HHI) before reading $p$ at the size boundary.
 
-    [api/metrics/clustering →](clustering.md)
+    [api/metrics/clustering →](clustering_hhi.md)
 
 -   __Statistical methods__
 

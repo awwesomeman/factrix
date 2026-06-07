@@ -1,10 +1,9 @@
 # factrix — LLM reference
 
 > factrix is a polars-native Python library that answers one question for a given
-> factor density: **Does this factor carry statistical edge?** It runs the
-> appropriate statistical procedure (IC regression, Fama-MacBeth, CAAR event
-> study, or timeseries beta) based on a three-axis config, returns a structured
-> result with a p-value and warning flags, and screens large candidate sets with
+> dataset and factor columns: **Does this factor carry statistical edge?** It runs the
+> appropriate statistical procedure based on three design axes, returns a structured
+> result with p-values and warning flags, and screens large candidate sets with
 > per-family BHY FDR correction. Install:
 > `uv pip install git+https://github.com/awwesomeman/factrix.git`
 
@@ -14,77 +13,127 @@ Full index: https://awwesomeman.github.io/factrix/llms.txt
 
 ---
 
-## Core concept: three axes
+## Core concept: three design axes
 
-Every analysis is specified by three orthogonal axes that together select the
-statistical procedure.
+An evaluation cell is defined by three orthogonal axes that specify the dataset properties:
 
 **FactorScope** — who carries the factor value:
-- `INDIVIDUAL` — each asset has its own factor value per date (cross-sectional
-  density, e.g. P/B ratio)
-- `COMMON` — a single factor value is broadcast to all assets per date (macro
-  density, e.g. VIX)
+- `INDIVIDUAL` — each asset has its own factor value per date (e.g., P/B ratio).
+- `COMMON` — a single factor value is broadcast to all assets per date (e.g., VIX).
 
 **FactorDensity** — the value type:
-- `DENSE` — real-valued (returns, z-scores, raw fundamentals)
-- `SPARSE` — `{0, R}` event trigger: zero on non-event entries, arbitrary real
-  magnitude otherwise (event flags, regime dummies; canonical `{-1, 0, +1}`)
+- `DENSE` — continuous numeric exposure (e.g., returns, z-scores, raw fundamentals).
+- `SPARSE` — event trigger: zero on non-event entries, real-valued magnitude otherwise (e.g., event flags, regime dummies).
 
-**Metric** — the statistical procedure. Only meaningful for the
-`(INDIVIDUAL, DENSE)` cell:
-- `Metric.IC` — Information Coefficient (Spearman rank correlation, Newey-West)
-- `Metric.FM` — Fama-MacBeth cross-sectional regression lambda
-
-For all other cells (`INDIVIDUAL × SPARSE`, `COMMON × DENSE`,
-`COMMON × SPARSE`) the procedure is uniquely determined by `scope × density`,
-so `metric=None`.
-
-**DataStructure** — derived at evaluate time, never set by the user:
-- `PANEL` — `n_assets > 1`
+**DataStructure** — derived at evaluate-time from the asset count:
+- `PANEL` — `n_assets >= 2`
 - `TIMESERIES` — `n_assets == 1`
 
-`(INDIVIDUAL, DENSE) × TIMESERIES` is **not** registered.
+Each metric spec is registered to run on a specific `(FactorScope, FactorDensity, DataStructure)` cell (or wildcard subset thereof).
 
 ---
 
 ## Canonical panel schema
 
-Every `evaluate()` call expects a polars DataFrame with these columns:
+Every `evaluate()` call expects a polars DataFrame with at least these columns:
 
-| Column          | Required at | Built by                        |
-|-----------------|-------------|---------------------------------|
-| `date`          | input       | caller                          |
-| `asset_id`      | input       | caller                          |
-| `factor`        | input       | caller (the density under test)  |
-| `price`         | input       | caller                          |
-| `forward_return`| evaluate    | `compute_forward_return`        |
+| Column          | Required at | Description |
+|-----------------|-------------|-------------|
+| `date`          | input       | Date/time key (sorted, regular spacing per asset) |
+| `asset_id`      | input       | Unique asset identifier |
+| `<factor_col>`  | input       | The factor column name under test |
+| `forward_return`| evaluate    | Forward-return horizon (attached via `compute_forward_return`) |
+| `price`         | optional    | Optional column consumed by event-study metrics |
 
-Synthetic panels: `fx.datasets.make_cs_panel(...)` for DENSE,
-`fx.datasets.make_event_panel(...)` for SPARSE. Both require `n_assets >= 2`.
+Synthetic panels can be generated with `fx.datasets.make_cs_panel(...)` (for DENSE) or `fx.datasets.make_event_panel(...)` (for SPARSE).
 
 ---
 
 ## Typical usage
 
-### 1. Single-factor IC evaluation
+### 1. Single-factor evaluation
 
 ```python
-# example pending v0.14.0 docs rewrite
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic_newey_west
+
+# 1. Generate synthetic panel data and compute forward returns
+raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
+data = compute_forward_return(raw, forward_periods=5)
+
+# 2. Run pre-flight check
+info = fx.inspect_data(data, factor_cols=["factor"])
+print("Detected structure:", info.detected.structure)
+
+# 3. Evaluate using the ic_newey_west metric
+[res] = fx.evaluate(
+    data,
+    metrics={"ic": ic_newey_west()},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+
+print("IC Value:", res.metrics["ic"].value)
+print("p-value:", res.metrics["ic"].p_value)
 ```
 
 ### 2. Multi-factor BHY screening
 
 ```python
-# example pending v0.14.0 docs rewrite
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic_newey_west
+import polars as pl
+
+# 1. Prepare multi-factor dataset
+raw = fx.datasets.make_cs_panel(n_assets=50, n_dates=200, seed=2024)
+data = compute_forward_return(raw, forward_periods=5)
+
+# Add multiple candidate columns
+for i in range(5):
+    data = data.with_columns(
+        (pl.col("factor") + pl.lit(i * 0.2)).alias(f"factor_{i}")
+    )
+factor_cols = [f"factor_{i}" for i in range(5)]
+
+# 2. Evaluate all candidates simultaneously
+results = fx.evaluate(
+    data,
+    metrics={"ic": ic_newey_west()},
+    factor_cols=factor_cols,
+    forward_periods=5,
+)
+
+# 3. Screen with Benjamini-Hochberg-Yekutieli step-up FDR
+screens = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
+ic_screen = screens["ic"]
+
+print("Survivors:", [p.factor for p in ic_screen.survivors])
 ```
 
-### 3. Single-asset panel
+### 3. Single-asset timeseries evaluation
 
-`(INDIVIDUAL, DENSE)` has no procedure when `n_assets == 1` (no
-cross-section to compute IC across).
+Continuous common factors fall back to timeseries when `n_assets == 1`.
 
 ```python
-# example pending v0.14.0 docs rewrite
+import factrix as fx
+from factrix.preprocess import compute_forward_return
+from factrix.metrics import ts_beta
+
+# 1. Generate single-asset timeseries data
+raw = fx.datasets.make_cs_panel(n_assets=1, n_dates=200, seed=2024)
+data = compute_forward_return(raw, forward_periods=5)
+
+# 2. Evaluate using timeseries beta metric
+[res] = fx.evaluate(
+    data,
+    metrics={"ts_beta": ts_beta()},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+
+print("Timeseries Beta:", res.metrics["ts_beta"].value)
 ```
 
 ---
@@ -93,367 +142,164 @@ cross-section to compute IC across).
 
 ### `evaluate`
 
+```python
+def evaluate(
+    data: DataInput,
+    *,
+    metrics: dict[str, MetricBase],
+    factor_cols: list[str],
+    forward_periods: int | None = None,
+    primary: str | None = None,
+    strict: bool = True,
+) -> list[EvaluationResult]:
 ```
-# signature pending v0.14.0 docs rewrite
-```
 
-`DataInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native
-on its primary entry points; pandas users go through `factrix.adapt`
-(which also renames columns) or `pl.from_pandas` first. `LazyFrame`
-is collected at the API boundary (no projection / predicate pushdown
-applied by factrix — call `.select(...)` / `.filter(...)` upstream
-for memory efficiency on large sources).
+`DataInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native on its primary entry points. `LazyFrame` is collected at the API boundary.
 
-`factor_cols` accepts a list of column names on
-`panel`; the returned list of `FactorProfile` is aligned to that order —
-even when the list has one element (`fx.evaluate(panel, cfg)[0]`).
-All factors in one call share the same dispatch cell (locked by
-`config`) and the same `DataStructure` (derived once from
-`panel["asset_id"].n_unique()`) — comparability of the returned
-profiles is therefore guaranteed by construction. **DataStructure is
-batch-global by design**; per-factor structure derivation (e.g. routing
-each column independently based on its own NaN-pattern's
-`n_unique`) would let one call return profiles from different
-procedures and break the `bhy()` family contract, so it is not
-supported and should not be added. Downstream
-aggregation goes through `factrix.multi_factor.bhy(profiles.values())`,
-which auto-partitions families by `(dispatch cell, forward_periods)`;
-do **not** reach into `factrix.stats.bhy_adjusted_p` directly — that
-is a low-level primitive that requires re-implementing the family
-split by hand. Per-profile `factor_id` is stamped to match the
-column name automatically; `dataclasses.replace(profile,
-factor_id=...)` is the escape hatch when the column cannot be
-renamed.
+- `metrics` accepts a dictionary mapping labels to metric **instances** from `factrix.metrics` (e.g., `{"ic_5d": ic_newey_west(forward_periods=5)}`).
+- `factor_cols` accepts a list of column names on `data`.
+- `forward_periods` sets a default horizon (rows) for metrics that leave it at signature default.
+- `primary` names the primary metric label to drive `EvaluationResult` partitions.
+- `strict` (default `True`) raises an exception on inapplicable metrics; when `False`, inapplicable metrics return `NaN` with warnings.
 
-Raises (subclasses of `FactrixError`; see `## Errors`
-below for the full hierarchy + recovery payloads):
-- `IncompatibleAxisError` — config axes form an illegal cell (also raised when
-  `cfg.estimator` is not applicable to the cell)
-- `UnknownEstimatorError` — saw an estimator name not in the registry
-- `InsufficientSampleError` — `T` below the procedure's `MIN_PERIODS_HARD`
-  floor; carries `.actual_periods` / `.required_periods`
-- `UserInputError` — `factor_cols` empty, contains duplicates, or
-  references a column not present on `panel`
+Under the hood, evaluation is scheduled and executed via `DagExecutor`, which topologically sorts specs and dependencies, raising a `CycleError` if circular dependencies are detected.
+
+Returns `list[EvaluationResult]` aligned to the order of `factor_cols`.
 
 ---
 
-### Result type (v0.13 legacy; replaced by `EvaluationResult` in v0.14)
+### `inspect_data`
 
-Frozen dataclass. All fields are read-only.
-
-```
-profile.config            : AnalysisConfig
-profile.structure              : DataStructure                        # PANEL or TIMESERIES (derived)
-profile.primary_p         : float                       # procedure-canonical p-value
-profile.primary_stat      : float | None                # test stat paired with primary_p (None for empirical-p)
-profile.primary_stat_name : StatCode                    # stats-key pointer for primary_stat (e.g. StatCode.T_NW); serialised to .value in diagnose()
-profile.n_obs             : int                         # final-stage test denominator (per-cell semantics; see api/factor-profile.md)
-profile.n_pairs           : int                         # non-null (period, asset) pair count (first-stage)
-profile.n_periods         : int                         # unique periods (any-non-null union)
-profile.n_assets          : int                         # unique assets (any-non-null union)
-profile.factor_id         : str                         # user-supplied factor name (default "factor")
-profile.forward_periods   : int                         # derived from config.forward_periods
-profile.identity          : tuple[str, int]             # (factor_id, forward_periods); read-only view
-profile.context           : Mapping[str, Any]           # universe_id / regime_id / ...
-profile.warnings          : frozenset[WarningCode]
-profile.info_notes        : frozenset[InfoCode]
-profile.stats             : Mapping[StatCode, float]                 # cell-specific scalars
-profile.metadata          : Mapping[StatCode, Mapping[str, Any]]     # hyperparams that produced each stat (#188)
-
-profile.diagnose() -> dict[str, Any]
-    # Key order follows the reader-flow seven questions (#246):
-    # {"identity":  {"factor_id", "forward_periods"},
-    #  "context":   {...},              # sample / conditioning dimensions
-    #  "cell":      {"scope", "density", "metric", "structure"},  # dispatch coordinate
-    #  "n_obs", "n_pairs", "n_periods", "n_assets",         # four sample axes
-    #  "primary_p", "primary_stat", "primary_stat_name",    # primary family
-    #  "warnings":  [str, ...],         # sorted WarningCode .value strings
-    #  "info_notes":[str, ...],         # sorted InfoCode .value strings
-    #  "stats":     {str: float, ...},  # StatCode .value → float
-    #  "metadata":  {str: {str: Any}}}  # StatCode .value → hyperparams dict
-    # Invariant: stats[primary_stat_name] == primary_stat when primary_stat is not None.
+```python
+def inspect_data(
+    data: DataInput,
+    factor_cols: list[str] | None = None,
+) -> DataInspection:
 ```
 
-`identity` and `context` split hypothesis dimensions (factor_id × horizon)
-from sample-restriction dimensions (universe / regime / future axes).
-The split is the v1 anti-shopping defense: multi-horizon factor research's
-MTC family forms naturally over `identity` (running every horizon → BHY
-is the path of least resistance), while sample restrictions stay queryable
-via `profile.context[key]`. `_evaluate` stamps `identity` from each
-name in `factor_cols` and `config.forward_periods`; `context` is
-empty by default and populated by higher-level verbs (slice / regime
-consumers).
+Typed pre-flight introspection that combines axis detection with a per-metric usability verdict.
 
-`WarningCode`, `InfoCode`, and `StatCode` each expose a `.description`
-property — agents reading `diagnose()["stats"]` / `["warnings"]` /
-`["info_notes"]` can resolve a key like `"factor_adf_p"` or
-`"persistent_regressor"` to its statistical meaning without grepping
-`_codes.py` or `_procedures.py`.
+- `DataInspection.detected: DataProperties` carries the detected enums (`scope` / `density` / `structure`), per-axis rationale strings (`scope_reason` / `density_reason` / `structure_reason`), plus shape numerics (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
+- `DataInspection.metrics: list[MetricApplicability]` provides verdicts grouped into three usability `Tier` categories:
+  - `usable` (`MetricApplicabilityGroup` / `Tier.CLEAN`): Clean metrics ready to run.
+  - `degraded` (`MetricApplicabilityGroup` / `Tier.DEGRADED`): Metrics runnable with warnings.
+  - `unusable` (`MetricApplicabilityGroup` / `Tier.UNUSABLE`): Metrics that will short-circuit to NaN.
+- The usability tier classification is determined using the metric's `SampleThreshold`.
+- `.to_metrics_dict()` on a group returns the `{label: instance}` dictionary that `evaluate(metrics=...)` expects.
 
 ---
 
 ### `by_slice` / `slice_pairwise_test` / `slice_joint_test`
 
-Cross-slice analysis lives in `factrix.slicing` and is re-exported at
-top-level. `by_slice(metric, df, *, label)` partitions a metric's
-date-keyed input by an existing column and applies the metric per
-slice — pure dispatcher, no cross-slice inference. Returns a
-`SliceResult`, a `Mapping[str, MetricResult]` with a `.to_frame()`
-long-form renderer (fixed schema:
-`slice / name / value / stat / p_value`) for plotting, leaderboards,
-and Notebook display. For inferential
-contrasts, `slice_pairwise_test(metric, df, *, label, estimator,
-multiple_testing)` reports K(K-1)/2 pairwise Wald contrasts with
-Holm / Romano-Wolf / Bonferroni adjusted p; `slice_joint_test(metric,
-df, *, label, estimator)` reports the single omnibus Wald χ² that
-all K slice means are equal. Both verbs require the metric's module
-to declare a `per_date_series` capability (`ic` / `fama_macbeth` /
-`hit_rate` ship with it). Default estimator `WaldNWCluster` (joint
-NW HAC); `BlockBootstrap` flips the pairwise default to Romano-Wolf.
-See [`docs/api/slice-test.md`](https://awwesomeman.github.io/factrix/api/slice-test/).
+- `by_slice` partitions a metric's input by a grouping column, evaluates the metric per slice, and returns a `SliceResult` (which can be cast to a DataFrame via `.to_frame()`).
+- `slice_pairwise_test` / `slice_joint_test` perform cross-slice Wald tests (Holm/Romano-Wolf adjusted) on the means.
 
 ---
 
 ### `multi_factor.bhy`
 
-```
-factrix.multi_factor.bhy(
-    profiles: Iterable[FactorProfile],
+```python
+def bhy(
+    results: list[EvaluationResult],
     *,
-    expand_over: Sequence[str] | None = None,
-    estimator: Estimator | None = None,
+    primary: list[str],
+    expand_over: tuple[str, ...] = (),
     q: float = 0.05,
-) -> Survivors
+) -> dict[str, BhyResult]:
 ```
 
-BHY step-up FDR within one declared family. The input list **is** the
-family — `bhy` does not auto-partition. When `expand_over` is set, one
-independent step-up runs per unique tuple of `profile.context[k] for k
-in expand_over` (Benjamini & Bogomolov 2014 selective inference). Cell
-/ horizon partitioning is the caller's responsibility (#161 retired
-the implicit `(dispatch cell, forward_periods)` auto-split).
+Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dictionary of `BhyResult` objects keyed by the primary metric labels.
 
-Returns a `Survivors` container with `.profiles` (input order), `.adj_p`
-(bucket-local BHY-adjusted p-values, same length as `.profiles`), `.q`,
-`.expand_over` (tuple), and `.n_tests` (Mapping keyed by each bucket's
-expand_over_values tuple — `()` in the single-family case). `Survivors`
-carries only the kept rows; `bhy` constructs the survivor index set as
-`{i : bhy_adjusted_p(p_array)[i] <= q}` per bucket, then slices both
-`.profiles` and `.adj_p` to that set. Survivor membership and the
-adjusted p-values downstream code reads come from the same
-`bhy_adjusted_p` call, so they cannot disagree on ties or boundary
-cases. `Survivors` ships `__repr__` / `_repr_html_` for Jupyter —
-three-column `identity | primary_p | adj_p` text and HTML table, plus
-an `expand_over_values` column when buckets are declared.
-
-`estimator=` overrides which inference method's p-value drives BHY.
-Pass an `Estimator` instance (e.g. `factrix.stats.NeweyWest()`); the
-instance's `applicable_to(scope, density)` is checked per profile, and
-its `emits_for(scope, density, metric)` dispatches to a `StatCode` key
-in `profile.stats`. `UserInputError` raises on cell-not-applicable or
-missing dispatched key per profile. The v0.4 kwarg `threshold=` is
-still accepted with `DeprecationWarning` and routes to `q=`; the
-former `gate=` / `p_stat=` paths were removed in v0.11 alongside this
-breaking change (#170).
-
-Family-resolution invariants raise `UserInputError`:
-- `expand_over` names must exist in every `profile.context` and may not
-  collide with identity dimensions (`factor_id`, `forward_periods`).
-- The partition key `identity + tuple(profile.context[k] for k in
-  expand_over)` must be unique across the input — duplicates surface
-  with an actionable hint (`evaluate(..., factor_cols=[...])` canonical,
-  `dataclasses.replace(profile, factor_id=...)` escape hatch, or
-  `expand_over=[<context key>]`).
-
-`RuntimeWarning` fires when the input mixes `forward_periods` without
-`expand_over` (pooling horizons in one step-up dilutes the per-rank
-threshold), or when most `expand_over` buckets contain a single profile
-(BHY on n=1 is a raw cutoff, no FDR correction).
-
-Survivor → factor mapping: `[p.factor_id for p in survivors.profiles]`.
-`FactorProfile` is intentionally not hashable (`__hash__ = None`)
-because `context` defaults to a dict; equality remains field-by-field
-via the auto-generated `__eq__`.
+`BhyResult` contains:
+- `primary_name`: Metric label under test.
+- `survivors`: Surviving `EvaluationResult` records.
+- `adj_p`: Adjusted p-values aligned with `survivors`.
+- `q`: Target FDR.
+- `n_tests`: Partition sizes.
 
 ---
 
 ### `multi_factor.bhy_hierarchical`
 
-```
-factrix.multi_factor.bhy_hierarchical(
-    profiles: Iterable[FactorProfile],
+```python
+def bhy_hierarchical(
+    results: list[EvaluationResult],
     *,
+    primary: list[str],
     group: str,
-    estimator: Estimator | None = None,
     q: float = 0.05,
-) -> Survivors
+) -> dict[str, HierarchicalBhyResult]:
 ```
 
-Yekutieli (2008) two-stage FDR for factor sets with natural group
-structure (momentum / value / quality families, cross-region universes).
-Outer Benjamini-Yekutieli step-up on Simes group representatives
-controls *group-level* FDR ≤ `q`; inner BHY within each passing group
-controls *within-group* FDR ≤ `q`. The cell-level `.adj_p` is the
-max-of-layers fold `max(outer_adj_p[g], inner_adj_p[i])` so the universal
-`Survivors` duality `survivor[i] iff adj_p[i] <= q` still holds.
-
-`group` names a key that must exist in every `profile.context` (validated
-through `_resolve_family`; identity-shadowing rejected, missing-key
-fail-loud). The per-survivor group label is `profile.context[group]`.
-
-Failure modes blocked at the call site:
-- single-group input raises and points at `bhy()`;
-- every-profile-is-its-own-group at `n >= 3` raises (group axis is
-  near-unique, probably a continuous variable mistakenly passed);
-- majority-singleton-group inputs emit `RuntimeWarning` (inner BHY on
-  n=1 is a raw cutoff, outer Simes on n=1 equals that p — no FDR
-  correction at either layer for those groups).
-
-Closes the third leg of v0.13's multi-factor verb surface (alongside
-`bhy(expand_over=)` and `partial_conjunction`); the three are
-distinguished by *survivor unit* — pair / identity-joint /
-identity-group-then-within.
+Yekutieli (2008) two-stage hierarchical FDR for factor sets with group structures. Outer BHY step-up on Simes group representatives controls group-level FDR, and inner BHY controls within-group FDR.
 
 ---
 
 ### `multi_factor.partial_conjunction`
 
-```
-factrix.multi_factor.partial_conjunction(
-    profiles: Iterable[FactorProfile],
+```python
+def partial_conjunction(
+    results: list[EvaluationResult],
     *,
+    primary: list[str],
     min_pass: int,
-    expand_over: Sequence[str],
+    expand_over: tuple[str, ...],
     n_conditions: int | None = None,
-    estimator: Estimator | None = None,
     q: float = 0.05,
-) -> Survivors
+) -> dict[str, PartialConjunctionResult]:
 ```
 
-Partial-conjunction test (Benjamini-Heller-Yekutieli 2009 family):
-declares an identity passes if **at least `min_pass` of its
-`expand_over` conditions** pass independently. Survivor unit is the
-identity (joint across conditions), not the per-condition pair. Use when
-the research claim is "factor works across ≥ k of N regimes / horizons /
-universes", not "factor works in any one condition".
-
----
-
-### `stats.simes_p`
-
-```
-factrix.stats.multiple_testing.simes_p(p_values: Sequence[float]) -> float
-```
-
-Simes (1986) global-null combiner: returns
-`min_k (k * p_(k:n) / n)` where `p_(k:n)` is the k-th order statistic.
-Dominates Bonferroni `n * min(p)` and is valid under PRDS dependence.
-Used internally by `bhy_hierarchical` as each group's outer
-representative; exposed standalone for callers building custom
-global-null tests.
-
----
-
-### `stats.GMM` / `MomentEstimator`
-
-```
-factrix.stats.GMM().compute(
-    moments: np.ndarray,            # shape (T, K)
-    *, forward_periods: int,
-) -> GMMResult                       # j_stat / df / overid_p / n_moments / n_params / metadata / warnings
-```
-
-Hand-rolled Hansen (1982) two-step efficient GMM on a multivariate
-moment-condition system. Pure over-identification path
-(`n_params = 0`); parametric GMM is a forward hook. The
-`MomentEstimator(Estimator)` sub-protocol parallels `HACEstimator`
-(scalar-mean axis) on the moment-matrix axis: `MomentEstimator` adds
-`min_periods: int` and `compute(moments, *, forward_periods) -> GMMResult`,
-and `AnalysisConfig.moment_estimator: MomentEstimator | None = None` is
-wired through the four factory methods + `to_dict` / `from_dict`. Ships
-as a standalone primitive — the integrated multi-horizon panel cell
-(auto-construction of `(T, K)` IC matrix from a raw forward-return
-panel) lands as a focused follow-up.
-
-`StatCode.J_GMM` / `StatCode.P_GMM` are the canonical stat-key pair;
-`WarningCode.SINGULAR_WEIGHT_MATRIX` distinguishes a rank-deficient
-long-run covariance from a generic short-sample warning.
+Partial-conjunction screening: keeps factors significant in at least `min_pass` of `expand_over` conditions.
 
 ---
 
 ### `compare`
 
-```
-factrix.compare(
-    artifacts: list[FactorProfile] | Survivors,
+```python
+def compare(
+    results: list[EvaluationResult],
     *,
+    metrics: list[str],
     sort_by: str | None = None,
-) -> pl.DataFrame
+    descending: bool = True,
+) -> pl.DataFrame:
 ```
 
-Leaderboard renderer — stacks N artifacts side by side as a polars
-DataFrame. Pure projection (no metric is recomputed; `Survivors.adj_p`
-is read straight through). Single entrypoint with input-type dispatch:
-
-- `list[FactorProfile]` → `factor_id`, `forward_periods` + context
-  + `primary_stat`, `primary_stat_name`, `primary_p`.
-  `primary_stat_name` carries the `StatCode.value` slug (`"t_nw"` /
-  `"wald_nwcl"` / `"p_boot"` …) so mixed-procedure lists disambiguate.
-- `Survivors` → as the profile branch plus a final `adj_p` column.
-  `expand_over` dimensions surface as ordinary context columns via
-  `profile.context[k]` — there is no sidecar field on `Survivors`.
-
-Context keys union across entries (matches `pl.concat(how="diagonal")`)
-and fill `null` where missing; ordering follows first appearance.
-`sort_by=None` keeps input order; a non-None value sorts with
-polars `nulls_last=True`.
-
-`UserInputError` raises on empty input (list or `Survivors`),
-unknown `sort_by` (with `difflib` fuzzy suggestion against the output
-schema).
+Renders a wide leaderboard `pl.DataFrame` stacking metric values and p-values side-by-side.
 
 ---
 
 ### `list_metrics` / `list_estimators`
 
+```python
+def list_metrics() -> dict[str, list[MetricSpec]]:
 ```
-factrix.list_metrics() -> dict[str, list[MetricSpec]]
-    # No-arg family-grouped catalog: keyed by concept family (module
-    # stem), values are that family's public specs in registry order.
-    # A reference catalog, not runnable — pass concrete factrix.metrics
-    # callables to evaluate(). For per-panel applicability (which metrics
-    # run / are degraded / are blocked on an actual panel) use
-    # inspect_data(panel).usable / .degraded / .unusable. The former
-    # list_metrics(scope, density) cell filter + format/with_import knobs
-    # are retired (#498).
+Returns a catalog of public specs grouped by module family.
 
-factrix.list_estimators(*, format: Literal["text", "json"] = "text",
-                        with_import: bool = False
-                        ) -> list[str] | list[dict[str, Any]]
-    # No-arg overview of every registered Estimator (#255, mirroring
-    # the list_metrics overview design in #498). text → list[str]
-    # sorted by name; json → rows with {name, description,
-    # import_path}. with_import (text-only) returns
-    # "name → factrix.stats.<Class>" two-column lines.
-    # Ships NeweyWest, HansenHodrick (HAC, scalar-mean axis) and
-    # GMM (J-test, moment-condition axis); slice-test estimators
-    # (WaldNWCluster / WaldTwoWayCluster / BlockBootstrap) plus
-    # DriscollKraay (cross-section-robust HAC SE for pooled_beta,
-    # (INDIVIDUAL, DENSE)) stay on the selection-only base protocol.
-    # Per-cell applicability is each Estimator.applicable_to(scope,
-    # density) contract, not a filter on this call. The former
-    # list_estimators(scope, density) cell filter is retired (#255).
+```python
+def list_estimators(
+    *,
+    format: Literal["text", "json"] = "text",
+    with_import: bool = False,
+) -> list[str] | list[dict[str, Any]]:
 ```
+Returns registered estimator instances.
+
+---
+
+### `factrix.estimators` namespace
+
+Exposes stateless, lowercase functional estimators that run directly on raw NumPy arrays:
+- `newey_west(x, lags)`
+- `hansen_hodrick(x, lags)`
+- `driscoll_kraay(x, lags)`
+- `block_bootstrap(x, block_length)`
 
 ---
 
 ### Third-party metric registration
 
-Custom metrics plug into the registry via the `@metric_spec(...)` decorator
-(metadata stamp only — does **not** auto-register) plus an explicit
-`factrix.metrics.register(fn)` call. The pair lets IDE / mypy see a real
-attribute on `factrix.metrics` while keeping registration side-effects
-explicit.
+Custom metrics plug into the registry via the `@metric_spec(...)` decorator and `factrix.metrics.register(fn)`:
 
 ```python
 import factrix as fx
@@ -471,13 +317,9 @@ def custom_ic(panel):
     ...
 
 fx.metrics.register(custom_ic)
-# Now resolvable: getattr(fx.metrics, "custom_ic"), and pass an instance
-# under a label: fx.evaluate(metrics={"custom_ic": custom_ic()}, ...).
 ```
 
-`register(fn)` rejects duplicate names and clashes with first-party specs;
-the decorator accepts the full `MetricSpec` object (not kwargs) so the
-decorator surface stays stable across MetricSpec field changes.
+---
 
 ### Preprocessing
 
@@ -485,246 +327,97 @@ decorator surface stays stable across MetricSpec field changes.
 from factrix.preprocess import compute_forward_return
 
 panel = compute_forward_return(
-    df,                                # cols: date, asset_id, price (sorted, regular spacing)
-    forward_periods: int = 5,          # row-count horizon, not calendar days
-) -> polars.DataFrame                  # appends `forward_return`; drops null rows;
-                                       # entry at t+1, exit at t+1+N; per-period normalised
+    df,
+    forward_periods: int = 5,
+) -> pl.DataFrame
 ```
+Appends `forward_return` to the DataFrame and drops boundary nulls.
 
-Frequency / regular spacing is the caller's responsibility — factrix never
-inspects the `date` dtype.
+---
+
+## Result Types
+
+### `EvaluationResult`
+
+Dataclass containing the evaluation outputs:
+- `factor`: Column name.
+- `cell`: `(scope, density, structure)` tuple.
+- `forward_periods`: Horizon used.
+- `n_assets`: Unique asset count.
+- `metrics`: `MetricResultGroup` holding metric results.
+- `plan`: Execution plan string.
+- `context`: Free-form context dictionary.
+- `warnings`: Attached `Warning` records.
+
+Methods:
+- `to_frame()`: Stacks outputs to a long-form DataFrame.
+- `to_dict()`: Exports to a nested JSON-friendly dictionary.
+
+### `Warning`
+
+Flat warning representation containing:
+- `code`: The associated `WarningCode`.
+- `source`: String representing the metric name (or `None` for bundle-level).
+- `message`: Warning description.
+
+`InfoCode` represents informational-only note enums re-exported at package root.
+
+### `MetricResult`
+
+Dataclass for a single metric's output:
+- `value`: Raw scalar result.
+- `p_value`: Probability value.
+- `n_obs`: Number of observations seen by this metric (single source of truth for sample size).
+- `stat`: Test statistic value.
+- `metadata`: Evaluation metadata dictionary.
+- `name`: Metric identifier name.
 
 ---
 
 ## Errors
 
-All factrix exceptions inherit from `FactrixError`, so agents can write
-`except fx.FactrixError:` to catch every library-raised failure.
-
-```
-FactrixError                       # base — all factrix-raised errors
-├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
-├── InsufficientSampleError        # T < MIN_PERIODS_HARD on a TIMESERIES procedure;
-│                                  # carries .actual_periods / .required_periods
-├── UnknownEstimatorError          # lookup miss in get_estimator
-└── UserInputError                 # user-supplied input does not match expected
-                                   # names or types (typo in named-set kwarg,
-                                   # column not in data, wrong type)
-```
-
-`UserInputError` is keyword-constructed and renders its own canonical
-message; structured attributes (`.func_name`, `.field`, `.value`,
-`.candidates`, `.suggestions`, `.expected`, `.docs_url`) carry the
-diagnostic so callers (LLM agents, screening loops) recover without
-parsing `.args[0]`. Multi-inherits from `ValueError` for ecosystem
-compatibility.
-
-Recovery payloads — what each subclass carries beyond `.args[0]`:
-
-| Exception                | Extra fields                              |
-|--------------------------|-------------------------------------------|
-| `IncompatibleAxisError`  | —                                         |
-| `InsufficientSampleError`| `.actual_periods: int`, `.required_periods: int` |
-| `UnknownEstimatorError`  | —                                         |
-
-Agents can branch on these payloads without parsing message strings; the
-canonical pattern is `except fx.FactrixError as exc:` followed by
-`isinstance(exc, …)` dispatch on the subclass.
+All exceptions inherit from `FactrixError`:
+- `IncompatibleAxisError`: Invalid combination of axes.
+- `InsufficientSampleError`: Sample size too small for statistical validity.
+- `UnknownEstimatorError`: Lookup miss for estimators.
+- `UserInputError`: Wrong schema, bad names, or mismatched shapes.
 
 ---
 
-## MetricResult
+## WarningCode reference
 
-Return type for the standalone `factrix.metrics.*` primitives invoked
-directly (outside of `evaluate`). Frozen dataclass: `value` (raw
-scalar), `p` (`float | None` — two-sided p-value, promoted from
-`metadata["p_value"]` to a typed field; `None` for descriptive metrics),
-`n_obs` (`int | None` — per-metric single-stage estimator sample size;
-same family name as `FactorProfile.n_obs` but different scope, the
-latter being the final-stage test denominator at the dispatched-cell
-level), `stat` (test statistic when applicable), `metadata`
-(tool-specific context; `p_value` / `stat_type` / `h0` / `method` are
-the standard keys), `name` (metric name stamped by the DAG executor at
-dispatch time; empty string `""` for free-standing primitive calls). The
-structured-procedure path returns `FactorProfile`; only callers reaching
-into `factrix.metrics.<module>` directly see `MetricResult`.
-
----
-
-## v0.14 result types (preview — not yet wired into `evaluate`)
-
-The unified DAG executor (#438 / #442) replaces `FactorProfile` with a
-single result-type group. The dataclasses ship in v0.14.0 as
-types-only; runner wiring lands with the DAG executor.
-
-- **`EvaluationResult`** — bundle-level result for one factor at one
-  cell. Fields: `factor` / `axes` (`(scope, density, metric)` tuple) /
-  `structure` / `n_obs` / `n_assets` / `metrics` (a `MetricResultGroup`) /
-  `warnings` (`list[Warning]`). Serialisers:
-  - `to_frame()` → `pl.DataFrame` long form (one row per metric;
-    `factor` / `n_assets` / `metric_name` / `value` / `p` / `stat` /
-    `n_obs` / `warning_codes: list[str]`). Stable
-    schema for parquet stacking across factors:
-    `pl.concat([r.to_frame() for r in results])`.
-  - `to_dict()` → JSON-friendly nested dict (NaN / Inf scrubbed to
-    `None`).
-  - `_repr_html_()` → Jupyter rich render with primary / diagnostic
-    role column and a collapsible warnings block.
-- **`MetricResultGroup`** — mirrors the `MetricGroups` shape from
-  `inspect_data` (#443). Three `list[str]` (metric name) partitions
-  (`applicable` / `primary` / `diagnostic`) plus dict-like access to
-  the produced `MetricResult` instances (`__getitem__` / `keys` /
-  `values` / `items` / `__iter__` all key by metric name).
-- **`Warning`** — flat dataclass `(code: WarningCode, source: str | None, message: str)`.
-  `source=metric_name` for per-metric warnings; `source=None` for
-  bundle-level diagnostics. Note: shadows the Python builtin
-  `Warning` when imported with `from factrix import Warning`; prefer
-  `fx.Warning` after `import factrix as fx`.
-- **`DagExecutor`** — programmatic executor for a closed set of
-  `MetricSpec`. Topologically orders the graph
-  (`MetricSpec.requires` -> upstream callable), then invokes every
-  metric through one unified `MetricBase.__call_batch__(panel,
-  factor_cols, *, project, upstream) -> {factor: output}` protocol
-  (the batchable / requires / thin-view shapes are unified in
-  `factrix.metrics._base._dispatch_batch`; the executor memoises the
-  thin-view `project` and keeps short-circuit handling). It dispatches
-  `batchable=True` producers once per batch and `batchable=False`
-  callables once per factor on a thin projection, caches every
-  producer output per `(spec, factor)` so any number of downstream
-  consumers see one computation, propagates short-circuit
-  `MetricResult` (`value=NaN` + `metadata["reason"]`) downstream
-  without invoking consumers, and emits a stable plan string per
-  `execute` call. Raises `CycleError` on dependency cycles and
-  `ValueError` when a referenced producer is missing from the
-  executor's spec set (no silent auto-close — the caller declares
-  the graph). Wired as the default for `fx.evaluate`.
-- **`EvaluationResult.plan: str`** — required string emitted by the
-  DAG executor (numbered topological order with `[batchable]` /
-  `[per-factor]` role and a `requires=` upstream list when present).
-  No default; tests / manual constructions must pass an explicit
-  string. Upstream sharing is automatic — every producer runs once
-  and downstream consumers read from cache, so there is no separate
-  "share-hit" annotation.
-- **`WarningCode.UPSTREAM_UNAVAILABLE`** — fires when the DAG
-  executor short-circuits a downstream consumer because an upstream
-  producer returned a short-circuit `MetricResult`. The downstream
-  `MetricResult` carries `metadata["upstream"]` and
-  `metadata["upstream_reason"]` for root-cause recovery.
-- **`fx.inspect_data(data, factor_cols=None) -> DataInspection`** — typed
-  pre-flight introspection that combines axis detection with a
-  per-metric usability verdict.
-  - Accepts `data` (e.g. DataFrame) and optional `factor_cols` (defaults to
-    `None` which auto-detects all columns except reserved `date`, `asset_id`,
-    `forward_return`, and `price` columns).
-  - `DataInspection.detected: DataProperties` carries the typed
-    enums (`scope` / `density` / `structure`), the per-axis rationale
-    strings folded in alongside each enum (`scope_reason` /
-    `density_reason` / `structure_reason`), plus shape numerics
-    (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`) resolved against
-    the first factor column.
-    `n_pairs` counts non-null `(date, asset_id)` factor observations
-    — the upper bound on sample size for pair-counting metrics.
-    (The standalone `PanelReasoning` type is retired; `to_dict()`
-    still emits a top-level `reasoning` block for serialization.)
-  - `DataInspection.metrics: list[MetricApplicability]` — one
-    verdict per `visibility=PUBLIC` spec. Each carries `metric:
-    type[MetricBase]` (the callable class) and `name: str`
-    (`metric.__name__` == `spec.name`, the registry key) so callers
-    can identify the metric without reaching through `spec`, plus
-    `usable: bool`, a `warnings: list[Warning]` for degraded
-    inference (above HARD floor but below WARN floor), and
-    `blockers: list[str]` for unusable reasons (cell mismatch or HARD
-    floor violation). The `usable` / `degraded` / `unusable`
-    properties expose this as a mutually exclusive partition, each a
-    `MetricApplicabilityGroup` (a `list` subclass with `.names` and
-    `.to_metrics_dict()`). `info.usable.to_metrics_dict()` normalises a
-    tier into the `{label: instance}` dict `evaluate(metrics=...)`
-    expects — the canonical discovery → evaluate bridge (scalar-input
-    utilities that need required args are omitted).
-  - `DataInspection.warnings: list[Warning]` carries data-level
-    sample-shape diagnostics (`source=None`) and cross-factor consistency checks
-    (`CROSS_FACTOR_DENSITY_MISMATCH` / `CROSS_FACTOR_SCOPE_MISMATCH`); when
-    either fires, the warning message notes that metric applicability is based
-    on the first factor column and suggests calling `inspect_data(data,
-    factor_cols=[<col>])` for a per-column verdict.
-    Per-metric degraded warnings live on each `MetricApplicability`.
-  - Two-stage applicability: (1) `Cell.matches(scope, density, structure)`
-    — structure is integral so e.g. `IC` (cell declares `structure=PANEL`) is
-    unusable on a single-asset panel, not just degraded. (2)
-    `MetricSpec.sample_threshold: SampleThreshold` — declarative
-    `min_periods` / `warn_periods` / `min_assets` / `warn_assets` /
-    `min_pairs` / `warn_pairs` gates evaluated against
-    `DataProperties`. Specs with empty `sample_threshold` only get the
-    cell-match check.
-- **`Tier`** — StrEnum representing usability tiers returned by `SampleThreshold.verdict` / `per_axis_verdict`:
-  - `CLEAN` — metric is fully usable with zero warnings.
-  - `DEGRADED` — metric is usable but with degraded inference warnings (between HARD and WARN floors).
-  - `UNUSABLE` — metric is unusable (below HARD floor). Cell mismatch is a
-    separate `inspect_data` blocker and does not flow through `Tier`.
-- **`Cell.matches(scope, density, structure=None)`** — gains optional
-  `structure` argument. Existing `list_metrics` callers stay backward
-  compatible (default `None` skips the structure axis); `inspect_data`
-  passes the detected structure.
-- **`MetricSpec.sample_threshold: SampleThreshold`** — new optional
-  field carrying per-metric pre-flight thresholds. Currently
-  populated across all 35 public metrics; event-level/parameter-dependent
-  metrics default to empty `SampleThreshold()`.
-
----
-
-## WarningCode reference (verbatim from `factrix._codes`)
-
-| WarningCode | Description (canonical) |
+| WarningCode | Description |
 |---|---|
 | `unreliable_se_short_periods` | `n_periods` is below `MIN_PERIODS_WARN=30`; NW HAC SE may be biased. |
 | `event_window_overlap` | Adjacent events sit within `forward_periods`; AR windows overlap. |
 | `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
 | `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
 | `small_cross_section_n` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS (10)`; df too low. |
-| `borderline_cross_section_n` | PANEL cross-asset t-test with `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN` (10..29); residual t_crit inflation 5–15%. |
-| `sparse_common_few_events` | `(COMMON, SPARSE, PANEL)` broadcast dummy has 5..19 events; per-asset β estimable but cross-event averaging too thin for asymptotic t. |
-| `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) rather than textbook MacKinlay signed CAAR — apply `.sign()` before calling for sign-flip semantics. |
-| `few_events` | CAAR significance test with `MIN_EVENTS_HARD ≤ n_event_dates < MIN_EVENTS_WARN` (4..29); t-stat returned but Brown-Warner (1985) convention treats sub-30 events as power-thin for the asymptotic t. |
-| `borderline_portfolio_periods` | `top_concentration` with `MIN_PORTFOLIO_PERIODS_HARD ≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN` (3..19); one-sided t-test on the per-date diversification ratio is returned but `df=n-1` inflates t_crit. |
-| `upstream_unavailable` | DAG-executor consumer skipped because an upstream producer short-circuited; downstream `MetricResult.metadata` carries `upstream` / `upstream_reason` for root-cause recovery. |
-
-Read live descriptions programmatically:
-`fx.WarningCode.PERSISTENT_REGRESSOR.description`.
+| `borderline_cross_section_n` | PANEL cross-asset t-test with `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN` (10..29); residual t_crit inflation. |
+| `sparse_common_few_events` | broadcast dummy has 5..19 events; too thin for asymptotic t. |
+| `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; magnitude-weighted. |
+| `few_events` | event dates < 29; t-stat power is thin. |
+| `borderline_portfolio_periods` | portfolio periods < 19; t_crit is inflated. |
+| `upstream_unavailable` | Downstream consumer skipped due to upstream short-circuit. |
 
 ---
 
 ## StatCode reference
 
-`StatCode.is_p_value` is `True` iff the value tokens (split on `_`)
-contain the token `p` (so `P_NW` → `["p", "nw"]` qualifies, as do
-`P_HH` / `P_GMM` / `FACTOR_ADF_P` / `RESID_LJUNG_BOX_P`). Used by
-downstream tooling to distinguish probability codes from test
-statistics. The family-verb `estimator=` override (#170) dispatches
-via `Estimator.emits_for` and does not gate on `is_p_value` directly.
-
-Naming grammar (#187): primary cell stats carry no TARGET prefix
-(cell identity lives on `profile.config`); diagnostics carry an
-explicit `FACTOR_` / `RESID_` / `EVENT_` prefix because the target
-sits outside `config`.
-
-| StatCode | Set by | Meaning |
-|---|---|---|
-| `MEAN`              | every cell      | Cell primary point estimate (IC mean / FM λ / E[β] / β / CAAR event-only mean) |
-| `T_NW`              | every cell      | NW HAC t-stat on the primary estimate |
-| `P_NW`              | every cell      | NW HAC p-value (= `primary_p`) |
-| `T_HH` / `P_HH`     | IC / FM / CAAR PANEL when `cfg.estimator=HansenHodrick()` | Hansen-Hodrick rectangular-kernel HAC pair (cfg-driven; default `NeweyWest()` cfg writes `T_NW` / `P_NW` only) |
-| `J_GMM` / `P_GMM`   | `fx.stats.GMM().compute(moments, ...)` | Hansen J statistic and over-identifying-restrictions p-value on a multivariate moment-condition system; ships as a standalone primitive — integrated multi-horizon panel cell auto-routing via `cfg.moment_estimator` is a follow-up |
-| `FACTOR_ADF_TAU`    | COMMON / TS β   | Diagnostic: ADF τ statistic on factor input |
-| `FACTOR_ADF_P`      | COMMON / TS β   | Diagnostic: ADF p-value on factor input |
-| `RESID_LJUNG_BOX_Q` | TS-dummy        | Diagnostic: Ljung-Box Q on residuals |
-| `RESID_LJUNG_BOX_P` | TS-dummy        | Diagnostic: Ljung-Box p-value on residuals |
-| `EVENT_HHI_VALUE`   | TS-dummy        | Diagnostic: temporal concentration HHI (0-1) |
+| StatCode | Meaning |
+|---|---|
+| `MEAN` | Primary point estimate (IC mean, FM lambda, CAAR mean, etc.). |
+| `T_NW` | Newey-West HAC t-statistic. |
+| `P_NW` | Newey-West HAC p-value. |
+| `T_HH` / `P_HH` | Hansen-Hodrick HAC t-statistic and p-value. |
+| `J_GMM` / `P_GMM` | Hansen J statistic and over-identification p-value. |
+| `FACTOR_ADF_TAU` | ADF test statistic on factor input. |
+| `FACTOR_ADF_P` | ADF p-value on factor input. |
+| `RESID_LJUNG_BOX_Q` | Ljung-Box Q statistic on residuals. |
+| `RESID_LJUNG_BOX_P` | Ljung-Box p-value on residuals. |
+| `EVENT_HHI_VALUE` | Concentration HHI for events. |
 
 ---
-
-## Removed
-
-- **`multi_horizon_ic` / `multi_horizon_hit_rate`** (deprecated v0.11.0, removed v0.12.0; #186). Horizon sweeping is a dispatcher concern, not a per-cell metric: the in-metric horizon loop conflicted with the family-keyed FDR layer (`bhy(expand_over=["forward_periods"])`) and with the identity-as-family contract (`FactorProfile.identity` carries `forward_periods`). Migration: call `evaluate(...)` per horizon and concat each `EvaluationResult.to_frame()`, or feed the per-horizon results into `multi_factor.bhy(profiles, expand_over=["forward_periods"])` for FDR-controlled inference. Recipes in [docs/api/multi-horizon.md](https://awwesomeman.github.io/factrix/api/multi-horizon/).
 
 ## Links
 

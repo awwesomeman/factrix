@@ -51,7 +51,7 @@ hypothesis per factor.
 |---|---|---|
 | "At least *any* condition is significant" | `bhy(profiles, expand_over=[...])` | `min_pass=1` is union semantics — FDR inflates to ~2q. `partial_conjunction` raises rather than implement this. |
 | Rank candidates (no FDR control) | [`compare`](compare.md) | `compare` is a view, not a filter. |
-| Sensitivity to estimator / sample choice | `robustness` (#178) | Conditions there are *methods*, not data slices. |
+| Sensitivity to estimator / sample choice | a dedicated robustness sweep | Conditions there are *methods*, not data slices. |
 | Cross-slice metric difference (descriptive) | [`by_slice`](by-slice.md) | Returns per-slice metric values; no inference. |
 | Cross-slice metric difference (inferential, slice-pairs) | [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Tests whether the slices' metric series differ, not whether the factor is jointly significant. |
 
@@ -59,7 +59,7 @@ hypothesis per factor.
 
 `n_conditions` is the contract knob.
 
-| PanelMode | When | Behavior |
+| DataStructure | When | Behavior |
 |---|---|---|
 | **Strict** (`n_conditions=int`) | Paper-grade; you know the design (e.g. exactly 2 universes, exactly 4 horizons) | Identity with any condition count other than `n_conditions` raises. Data gaps surface fail-loud. |
 | **Lenient** (`n_conditions=None`) | EDA / prototyping; condition count varies by identity | `m` inferred per identity from the data; only requires `m >= min_pass`. |
@@ -126,7 +126,7 @@ container as `bhy`, populated with PC-specific metadata:
 |---|---|
 | `min_pass < 2` | [`UserInputError`][factrix.UserInputError]. `min_pass == 1` additionally points at `bhy(expand_over=...)`. |
 | `expand_over` empty / `None` | [`UserInputError`][factrix.UserInputError] — the function is undefined without a condition axis. |
-| `expand_over` names an identity field (`factor_id` / `forward_periods`) | [`UserInputError`][factrix.UserInputError] (#160 anti-shopping defense — same as `bhy`). |
+| `expand_over` names an identity field (`factor_id` / `forward_periods`) | [`UserInputError`][factrix.UserInputError] (anti-shopping defense — same as `bhy`). |
 | `n_conditions < min_pass` | [`UserInputError`][factrix.UserInputError] (unsatisfiable). |
 | Strict mode: identity's condition count $\neq$ `n_conditions` | [`UserInputError`][factrix.UserInputError] — surfaces missing-universe / missing-horizon data gaps. |
 | Identity with condition count $<$ `min_pass` (lenient) | [`UserInputError`][factrix.UserInputError]. |

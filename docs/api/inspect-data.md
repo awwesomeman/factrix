@@ -1,0 +1,39 @@
+---
+title: factrix.inspect_data
+---
+
+::: factrix.inspect_data
+
+<hr>
+
+## Usability Tiers
+
+`inspect_data` partitions public metrics into three distinct groups based on the inspected data shape and the metric's declarative `sample_threshold`:
+
+- **Usable**: The metric is fully applicable and the data shape satisfies all warning thresholds (`warn_*`). This is the safest set to run out-of-the-box.
+- **Degraded**: The metric is applicable but runs with a warning because the sample size is borderline (falls between the hard `min_*` floor and the soft `warn_*` threshold).
+- **Unusable**: The metric cannot be run on this data, either because of an axis/cell mismatch or because a hard sample floor (`min_*`) is violated.
+
+<hr>
+
+## Result structure
+
+`inspect_data` returns a `DataInspection` carrying the detected data
+properties (`detected`), the per-metric applicability verdicts
+(`metrics`, plus the `usable` / `degraded` / `unusable` partitions), and
+any data-level `warnings`. Each entry in the metrics group is a
+`MetricApplicability`.
+
+::: factrix.DataInspection
+
+---
+
+::: factrix.DataProperties
+
+---
+
+::: factrix.MetricApplicabilityGroup
+
+---
+
+::: factrix.MetricApplicability

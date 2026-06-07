@@ -2,16 +2,15 @@
 title: Guides
 ---
 
-Step-by-step guides for common factrix workflows. Left column is the
-research-task framing; right column is the page title as it appears in
-the sidebar.
+Step-by-step guides for common factrix workflows:
 
-- **Comparison-axes matrix and shared-keyword semantics (`expand_over`, regime dispatch)** — [Cross-function reference](../api/decision-tree.md)
 - **Raw data to a four-column factrix panel (sort order, frequency alignment, missing data)** — [Preparing data](preparing-data.md)
-- **Picking information coefficient (IC) vs FM (the `individual_continuous` cell only)** — [Information coefficient vs Fama-MacBeth](choosing-metric.md)  
-  *Other cells dispatch to a single procedure; see [Concepts § Five analysis scenarios](../getting-started/concepts.md#five-analysis-scenarios) for the per-cell map.*
-- **Sample-mode dispatch (PANEL ↔ TIMESERIES) and the N=1 special path** — [Panel vs timeseries](panel-timeseries.md)
-- **Reading `FactorProfile.primary_p` and `Survivors.adj_p`** — [Reading results](reading-results.md)
-- **False Discovery Rate (FDR) control across a factor batch (BHY / partial conjunction / hierarchical)** — [Batch screening with Benjamini-Hochberg-Yekutieli](batch-screening.md)
+- **Picking information coefficient (IC) vs FM (the individual dense cell)** — [Information coefficient vs Fama-MacBeth](choosing-metric.md)  
+- **Data structure dispatch (PANEL ↔ TIMESERIES) and the N=1 special path** — [Panel vs timeseries](panel-timeseries.md)
+- **Reading EvaluationResult, MetricResult, and FDR results** — [Reading results](reading-results.md)
+- **False Discovery Rate (FDR) control across a factor batch (BHY / partial conjunction / hierarchical)** — [BHY FDR screening](../api/bhy.md)
+- **Bounding peak memory when screening 100–1000+ factors (caller-side batched loop)** — [Large-scale evaluation and memory protection](large-scale-evaluation.md)
 - **Slicing one metric by an attached label column (sector / regime / universe / ADV bucket)** — [Slice analysis](slice-analysis.md)
 - **Running every descriptive metric applicable to a cell** — [Standalone metrics](standalone-metrics.md)
+- **Observability and DAG tracing (logger configuration and HTML rendering)** — [Observability](observability.md)
+- **Writing and registering custom metrics** — [Custom metrics](custom-metrics.md)

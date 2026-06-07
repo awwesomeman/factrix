@@ -37,40 +37,22 @@
 
 **Does this factor possess predictive edge?**
 
-factrix is the first Polars-native Python toolkit that picks the
-right statistical test for each factor type. Cross-sectional, event,
-common factor — each gets the tests that fit its data-generating
-process.
+factrix is the first Polars-native Python toolkit that picks the right statistical test for each factor type. Cross-sectional, event, common factor — each gets the tests that fit its data-generating process.
 
 ```
 factor construction  →  factrix (inference)  →  strategy construction  →  backtest  →  live trading
                             ▲ you are here
 ```
 
-For each candidate factor factrix answers — *is the predictive
-power real?* — and corrects for multiple testing when you screen
-at scale. Kill fakes before they cost you a backtest.
+For each candidate factor factrix answers — *is the predictive power real?* — and corrects for multiple testing when you screen at scale. Kill fakes before they cost you a backtest.
 
 ### Why factrix?
 
-- **Type-routed evaluation** — Information Coefficient + Fama-MacBeth
-  for cross-sectional factors; Cumulative Average Abnormal Return for
-  events. Each type ships its own multi-metric diagnostic battery.
-- **Batch factor screening** — screen hundreds of candidate factors
-  with cross-test multiple-testing correction in a single API call.
-- **Financial statistics built in** — autocorrelation-robust standard
-  errors (Newey-West), overlapping-forward-return correction,
-  persistent-predictor flagging (Stambaugh bias), false-discovery-rate
-  control across batches (Benjamini-Hochberg-Yekutieli). Hand-rolled
-  Information Coefficient loops typically run `scipy.stats.ttest_1samp`
-  on the IC series and ignore the autocorrelation induced by
-  overlapping forward returns.
-- **Polars-native** — modern Polars alternative to the pandas-based
-  alphalens.
+- **Type-routed evaluation** — Information Coefficient + Fama-MacBeth for cross-sectional factors; Cumulative Average Abnormal Return for events.
+- **Financial statistics built in** — autocorrelation-robust standard errors (Newey-West), overlapping-forward-return correction, persistent-predictor flagging (Stambaugh bias), and false-discovery-rate control across batches (Benjamini-Hochberg-Yekutieli).
+- **Polars-native** — modern Polars alternative to the pandas-based alphalens.
 
-factrix stops at the inference — primary test plus diagnostic battery.
-It does not size positions, model slippage, optimise weights, or
-compose alphas; those belong to the later stages of the pipeline above.
+factrix stops at the inference — primary test plus diagnostic battery. It does not size positions, model slippage, optimise weights, or compose alphas; those belong to the later stages of the pipeline.
 
 ### Is factrix the right tool?
 
@@ -84,8 +66,6 @@ compose alphas; those belong to the later stages of the pipeline above.
 | Familiar cross-sectional tear-sheet | [alphalens-reloaded][alphalens] |
 | End-to-end machine-learning pipeline | [qlib][qlib] |
 | Deflated / probabilistic Sharpe today (commercial) | [mlfinlab][mlfinlab] |
-
-[Where factrix fits — full comparison →][full-comparison]
 
 [alphalens]: https://github.com/stefan-jansen/alphalens-reloaded
 [vectorbt]: https://github.com/polakowo/vectorbt
@@ -117,31 +97,45 @@ See the [installation guide](https://awwesomeman.github.io/factrix/latest/gettin
 
 ```python
 import factrix as fx
-from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic_newey_west
 
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
-panel = compute_forward_return(raw, forward_periods=5)
+data  = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
-cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-profile = fx.evaluate(panel, cfg)
+results = fx.evaluate(
+    data,
+    metrics={"ic": ic_newey_west()},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+[res] = results
+ic_res = res.metrics["ic"]
 
-print('primary_p =', round(profile.primary_p, 4))
-print(profile.diagnose())   # WarningCode / InfoCode list
+print('ic_mean =', round(ic_res.value, 4))
+print('p_value =', round(ic_res.p_value, 4))
 ```
 
 **Multi-factor BHY screening**
 
 ```python
-profiles  = [fx.evaluate(p, cfg) for p in [panel_a, panel_b, panel_c, panel_d, panel_e]]
-survivors = fx.multi_factor.bhy(profiles, threshold=0.05)
+fdr_results = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
+bhy_ic = fdr_results["ic"]
+print("survivors =", [r.factor for r in bhy_ic.survivors])
 ```
 
 **Single-asset (timeseries) fallback**
 
 ```python
-cfg     = fx.AnalysisConfig.individual_continuous(metric=fx.Metric.IC, forward_periods=5)
-profile = fx.evaluate(single_asset_panel, cfg)  # mode auto-switches to TIMESERIES
-print(profile.stats.get(fx.StatCode.TS_BETA))
+from factrix.metrics import ts_beta
+
+# Automatically resolves structure axis to DataStructure.TIMESERIES when N == 1
+results = fx.evaluate(
+    single_asset_data,
+    metrics={"ts_beta": ts_beta()},
+    factor_cols=["macro_factor"],
+    forward_periods=5,
+)
+print(results[0].metrics["ts_beta"].value)
 ```
 
 ## Documentation

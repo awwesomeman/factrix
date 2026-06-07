@@ -3,7 +3,7 @@ title: Timeseries-mode conventions
 ---
 
 !!! tip "Canonical reference"
-    For the `PanelMode.PANEL` vs `PanelMode.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, augmented Dickey-Fuller (ADF) / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page is the `PanelMode.TIMESERIES`-specific operational conventions table.
+    For the `DataStructure.PANEL` vs `DataStructure.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, augmented Dickey-Fuller (ADF) / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page is the `DataStructure.TIMESERIES`-specific operational conventions table.
 
 `Common × Continuous` evaluations on a single time series (`ts_beta`,
 `ts_quantile`, `ts_asymmetry` and their variants) inherit four shared
@@ -42,7 +42,7 @@ slope significance should be read with that caveat.
 Full derivation, threshold rationale, and interpolation accuracy live
 in
 [Statistical methods § Persistence diagnostics](statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors).
-The `FactorProfile` StatCode → method mapping
+The `EvaluationResult` StatCode → method mapping
 maps `FACTOR_ADF_P` to that section directly. The
 `unit_root_suspected=True` flag is `ic_trend` metadata only — the
 TIMESERIES-mode cells expose the raw `FACTOR_ADF_P` *p*-value and
@@ -62,8 +62,8 @@ cross-section axis to "burn" `h` periods of samples, so
 non-overlapping resampling at stage 1 would leave inadequate `T` for
 the per-asset OLS at typical horizons.
 
-When the dataset's `signal_horizon` differs from
-`AnalysisConfig.forward_periods`
+When the dataset's `signal_horizon` differs from the
+`forward_periods` passed to `evaluate()`
 ([`datasets.md`](../api/datasets.md) frames the *decay* side of this),
 the realised TIMESERIES-mode signal is also **biased**, not only
 decayed. Two distinct sources compound:

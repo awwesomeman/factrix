@@ -150,15 +150,15 @@ nav:
           - Timeseries-mode conventions: reference/ts-mode-conventions.md
       - How-to:
           - Overview: guides/index.md
-          - Cross-function reference: api/decision-tree.md
           - Preparing data: guides/preparing-data.md
           - Information coefficient vs Fama-MacBeth: guides/choosing-metric.md
           - Panel vs timeseries: guides/panel-timeseries.md
           - Reading results: guides/reading-results.md
           - Observability: guides/observability.md
-          - Batch screening with Benjamini-Hochberg-Yekutieli: guides/batch-screening.md
+          - Large-scale evaluation: guides/large-scale-evaluation.md
           - Slice analysis: guides/slice-analysis.md
           - Standalone metrics: guides/standalone-metrics.md
+          - Custom metrics: guides/custom-metrics.md
       - Examples:
           - Overview: examples/index.md
           - Multi-factor screening: examples/multi_factor_screening.md
@@ -176,6 +176,7 @@ nav:
       - Entry points:
           - Core:
               - evaluate: api/evaluate.md
+              - inspect_data: api/inspect-data.md
           - Slicing:
               - by_slice: api/by-slice.md
               - slice_pairwise_test / slice_joint_test: api/slice-test.md
@@ -185,20 +186,19 @@ nav:
               - partial_conjunction: api/partial-conjunction.md
               - bhy_hierarchical: api/bhy-hierarchical.md
           - Discovery:
-              - list_metrics: api/list-metrics.md
-              - list_estimators: api/list-estimators.md
+              - estimators: api/estimators.md
+              - metric_spec: api/metric-spec.md
           - Diagnostics:
               - compare: api/compare.md
       - Results:
-          - MetricOutput: api/metric-output.md
-          - Identity / context: api/identity.md
+          - EvaluationResult: api/evaluation-results.md
           - Errors: api/errors.md
       - Metrics:
           - Overview: api/metrics/index.md
           - Individual continuous:
               - Overview: api/metrics/individual-continuous.md
               - ic: api/metrics/ic.md
-              - fama_macbeth: api/metrics/fama_macbeth.md
+              - fama_macbeth: api/metrics/fm_beta.md
               - quantile: api/metrics/quantile.md
               - k_spread: api/metrics/k_spread.md
               - monotonicity: api/metrics/monotonicity.md
@@ -211,8 +211,8 @@ nav:
               - event_quality: api/metrics/event_quality.md
               - event_horizon: api/metrics/event_horizon.md
               - mfe_mae: api/metrics/mfe_mae.md
-              - clustering: api/metrics/clustering.md
-              - corrado: api/metrics/corrado.md
+              - clustering: api/metrics/clustering_hhi.md
+              - corrado: api/metrics/corrado_rank.md
           - Common continuous:
               - Overview: api/metrics/common-continuous.md
               - ts_beta: api/metrics/ts_beta.md
@@ -223,14 +223,14 @@ nav:
               - hit_rate: api/metrics/hit_rate.md
               - directional_hit_rate: api/metrics/directional_hit_rate.md
               - trend: api/metrics/trend.md
-              - oos: api/metrics/oos.md
+              - oos: api/metrics/oos_decay.md
       - Supporting modules:
           - stats: api/stats.md
-          - Estimator alternatives: api/estimator-alternatives.md
           - datasets: api/datasets.md
           - preprocess: api/preprocess.md
   - Development:
       - Architecture: development/architecture.md
       - Design notes: development/design-notes.md
       - Contributing: development/contributing.md
-  - Release notes: development/changelog.md
+  - Release notes:
+      - Changelog: development/changelog.md

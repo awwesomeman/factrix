@@ -13,109 +13,106 @@ title: Quickstart
 ```python
 import factrix as fx
 from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic_newey_west
 
+# 1. Generate synthetic panel data and compute forward returns
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
-panel = compute_forward_return(raw, forward_periods=5)
+data  = compute_forward_return(raw, forward_periods=5)
 
-# example pending v0.14.0 docs rewrite
-cfg     = ...  # config construction pending v0.14.0 docs rewrite
-profile = fx.evaluate(panel, cfg)
+# 2. Run single-factor evaluation using the ic_newey_west metric
+results = fx.evaluate(
+    data,
+    metrics={"ic": ic_newey_west()},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
 
-print('primary_p =', round(profile.primary_p, 4))
-# → pass | primary_p = 0.0
+[res] = results
+ic_res = res.metrics["ic"]
 
-print(profile.diagnose())
-# {'identity': {'factor_id': 'factor', 'forward_periods': 5},
-#  'context': {},
-#  'cell': {'scope': 'individual', 'signal': 'continuous',
-#           'metric': 'ic', 'mode': 'panel'},
-#  'n_obs': 494, 'n_pairs': 49400, 'n_periods': 494, 'n_assets': 100,
-#  'primary_p': 2.13e-40, 'primary_stat': 14.60, 'primary_stat_name': 't_nw',
-#  'warnings': [], 'info_notes': [],
-#  'stats': {'mean': 0.0722, 't_nw': 14.60, 'p_nw': 2.13e-40},
-#  'metadata': {'t_nw': {'nw_lags': 5}, 'p_nw': {'nw_lags': 5}}}
+print('ic_mean =', round(ic_res.value, 4))
+# → ic_mean = 0.0722
+print('p_value =', round(ic_res.p_value, 4))
+# → p_value = 0.0
 ```
 
 See [Concepts](concepts.md) for what each axis means.
 
 ---
 
-## Research question → factory
+## Research question → metric mapping
 
-The five supported research questions and their factory calls — the
-`AnalysisConfig.*()` classmethod constructors such as
-`individual_continuous()` used above — live in
-[Concepts § Five analysis scenarios](concepts.md#five-analysis-scenarios).
-That page is also the SSOT for the procedure and literature behind each
-factory. For task-oriented help on **picking** the right factory (information coefficient (IC) vs FM,
-when to add standalone metrics), see [Choosing a metric](../guides/choosing-metric.md).
+In `factrix` v0.14.0, rather than constructing a central config object, you pass metric instances imported from `factrix.metrics` directly to the `metrics` parameter of `fx.evaluate()`.
 
-!!! note "N = 1 (single asset / series)"
-    `DataStructure` auto-switches to `TIMESERIES`. The `common_continuous` and
-    `*_sparse` metric families work as-is. `individual_continuous` at N=1 raises
-    `IncompatibleAxisError` — use a `common_*` or `*_sparse` metric instead.
+To learn how to choose the right metrics and configure them, see [Choosing a metric](../guides/choosing-metric.md) and [Concepts](concepts.md).
 
 ---
 
-## `profile.diagnose()` and warnings
+## `EvaluationResult.to_dict()` and warnings
 
-`diagnose()` returns a flat dict for human inspection or AI agent triage:
+Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-friendly representation of the results, including evaluation metadata, statistics, and any active warnings:
 
-```python
+```json
 {
-    "identity": {"factor_id": "momentum", "forward_periods": 5},
-    "context": {},
-    "cell": {"scope": "individual", "signal": "continuous",
-             "metric": "ic", "mode": "panel"},
-    "n_obs": 500, "n_pairs": 50000, "n_periods": 500, "n_assets": 100,
-    "primary_p": 0.0001,
-    "primary_stat": 4.21,
-    "primary_stat_name": "t_nw",
-    "warnings": ["unreliable_se_short_periods"],
-    "info_notes": [],
-    "stats": {"mean": 0.082, "t_nw": 4.21, "p_nw": 0.0001},
-    "metadata": {"t_nw": {"nw_lags": 5}, "p_nw": {"nw_lags": 5}},
+  "factor": "factor",
+  "cell": {
+    "scope": "individual",
+    "density": "dense",
+    "structure": "panel"
+  },
+  "forward_periods": 5,
+  "n_obs": 494,
+  "n_assets": 100,
+  "context": {},
+  "metrics": {
+    "ic": {
+      "value": 0.0722,
+      "p_value": 2.129e-40,
+      "stat": 14.60,
+      "n_obs": 494,
+      "metadata": {
+        "n_periods": 494,
+        "p_value": 2.129e-40,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "method": "Newey-West HAC t-test on overlapping IC series",
+        "newey_west_lags": 5,
+        "forward_periods": 5,
+        "tie_ratio": 0.0
+      }
+    }
+  },
+  "metrics_partition": {
+    "primary": ["ic"],
+    "diagnostic": []
+  },
+  "warnings": [],
+  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=ic_df"
 }
 ```
 
-The most common warnings:
+The most common warnings include:
 
-- `UNRELIABLE_SE_SHORT_PERIODS` — `20 ≤ T < 30`; Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE unstable.
-  `T < 20` raises `InsufficientSampleError`.
-- `PERSISTENT_REGRESSOR` — factor augmented Dickey-Fuller (ADF) *p* > 0.10.
+- `UNRELIABLE_SE_SHORT_PERIODS` — $20 \le T < 30$; Newey-West (NW) HAC SE is unstable. (Note that $T < 20$ raises `InsufficientSampleError`).
+- `PERSISTENT_REGRESSOR` — factor augmented Dickey-Fuller (ADF) $p$-value > 0.10.
 - `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
-- `SERIAL_CORRELATION_DETECTED` — Ljung-Box *p* < 0.05 on residuals.
+- `SERIAL_CORRELATION_DETECTED` — Ljung-Box $p$-value < 0.05 on residuals.
 
-For the full enum and the trigger conditions for each `WarningCode`,
-`InfoCode`, and `StatCode`, see
-[Reference § Warning / info / stat codes](../reference/warning-codes.md).
-For exception classes (`InsufficientSampleError`, `IncompatibleAxisError`,
-`UserInputError`, ...) and their catch patterns, see
-[Errors](../api/errors.md).
+For the full enum and the trigger conditions for each `WarningCode` and `StatCode`, see [Reference § Warning / info / stat codes](../reference/warning-codes.md).
 
-`warnings` does **not** affect `primary_p` —
-it is a risk flag. The user decides whether to filter on warnings before
-Benjamini-Hochberg-Yekutieli (BHY). For single-factor pre-registered analysis compare `primary_p` against your nominal threshold directly.
-
-For the full field-order walk of `FactorProfile` and `Survivors`
-(after `bhy`), see [Reading results](../guides/reading-results.md).
+For exception classes (`InsufficientSampleError`, `IncompatibleAxisError`, `UserInputError`, ...) and their catch patterns, see [Errors](../api/errors.md).
 
 ---
 
 ## Next steps
 
-You have one `FactorProfile` for one factor. The common follow-ups:
+You have the evaluation results for one or more factors. The common follow-ups:
 
-| You want to… | Reach for | Guide |
+| You want to… | Reach for | Guide / Reference |
 |---|---|---|
-| Screen N candidate factors with false discovery rate (FDR) control | [`multi_factor.bhy(profiles)`](../api/multi-factor.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [Batch screening with BHY](../guides/batch-screening.md) |
-| Rank factors after screening | [`compare(survivors)`](../api/compare.md) — leaderboard with `adj_q` | — |
+| Screen candidate factors with false discovery rate (FDR) control | [`multi_factor.bhy(results)`](../api/bhy.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [multi_factor overview](../api/multi-factor.md) |
+| Rank factors after screening | [`compare(results)`](../api/compare.md) — leaderboard with rank | — |
 | Explore one metric across slices (sector / regime / universe / ADV bucket) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |
 | Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
 
-For function semantics, the input contract, and cross-function topics
-(`expand_over` semantics, regime-analysis dispatch), see the
-[API reference landing](../api/index.md) and
-[Cross-function reference](../api/decision-tree.md). For the field-order
-walk of `FactorProfile` / `Survivors`, see
-[Reading results](../guides/reading-results.md).
+For function semantics and the input contract, see the [API reference landing](../api/index.md) and [Reading results](../guides/reading-results.md).

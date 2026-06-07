@@ -17,6 +17,12 @@ task-oriented walk-through.
 | 3 | Attach forward return | [`compute_forward_return`](../api/preprocess.md) | adds `forward_return` |
 | 4 | (Optional) drop / impute NaN, align frequencies | manual | clean panel |
 
+!!! tip "Screening many factors at once?"
+    A panel wide enough to hold 100–1000+ candidate columns can exhaust
+    RAM in a single `evaluate` call. See
+    [Large-scale evaluation](large-scale-evaluation.md) for the caller-side
+    batched-loop pattern that bounds peak memory to a fixed working set.
+
 ## 1. Long-format shape with `price` and the factor column
 
 factrix expects **long-format** panel data — one row per
@@ -29,8 +35,8 @@ parallel signal you construct yourself (factor construction is outside
 factrix's scope — see
 [Where factrix fits § 1](../where-factrix-fits.md#1-what-factrix-is)).
 
-The factor column name is **user-defined** — `evaluate()` / `run_metrics()`
-accept a `factor_col=` kwarg that binds an arbitrary column to the
+The factor column name is **user-defined** — `evaluate()` accepts a
+`factor_cols` list that binds one or more columns to the
 canonical role at dispatch time. The examples below use
 `momentum` to make this binding visible; you can equally pick
 `alpha`, `value_score`, or whatever is meaningful for the strategy.
@@ -53,8 +59,7 @@ raw = pl.DataFrame({
 
 For market-wide factors (`COMMON` scope, e.g. VIX, DXY), the factor
 value is identical across `asset_id` on a given `date`. Verify with
-the one-liner from
-[Concepts § scope](../getting-started/concepts.md#scope--a-factor-attribute-not-a-data-shape)
+the one-liner from [Concepts](../getting-started/concepts.md)
 (swap the column name for whichever the panel carries):
 
 ```python
@@ -116,18 +121,22 @@ five-trading-day lookahead; on a monthly panel it is five months.
 Frequency is the user's responsibility — see step 4.
 
 The `forward_periods` you pass here must match the
-`forward_periods` you later pass to `evaluate`. Bind
-the custom factor column via `factor_col=`:
+`forward_periods` you later pass to `evaluate`. Bind the custom factor
+column(s) via the `factor_cols` parameter:
 
 ```python
-# example pending v0.14.0 docs rewrite
+import factrix as fx
+from factrix.metrics import ic_newey_west
+
+results = fx.evaluate(
+    panel,
+    metrics={"ic": ic_newey_west()},
+    factor_cols=["momentum"],
+    forward_periods=5,
+)
 ```
 
-If the column is already named `factor` (the default), `factor_col=`
-can be omitted. See
-[Panel schema § factor_col=](../api/panel-schema.md#factor_col--non-default-signal-column-name)
-for the in-place rename contract and the conflict rule (a panel
-cannot carry both `factor` and a non-default `factor_col` at once).
+See [Panel schema](../api/panel-schema.md) for details on column names.
 
 ## 4. Frequency alignment is the caller's job
 
@@ -170,9 +179,8 @@ flags, FOMC dummies, event magnitudes — the `factor` column is the
 
 Sort and forward-return attachment are identical to step 2-3; the
 dispatch routes sparse signals to event-study procedures (`caar`,
-`ts_beta` on dummies). See
-[Concepts § signal](../getting-started/concepts.md#signal) for the
-contract.
+`ts_beta` on dummies). See [Concepts](../getting-started/concepts.md)
+for the contract.
 
 ## Helpers not yet public
 
