@@ -1,7 +1,7 @@
 r"""Fama-MacBeth regression — FM-canonical metric for the
 ``Individual × Continuous`` cell.
 
-``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → (date, beta) DataFrame.
+``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta) DataFrame}``.
 ``fm_beta``: Newey-West t-test on the beta series.
 ``pooled_beta``: pooled OLS with clustered SE by date.
 ``beta_sign_consistency``: fraction of periods with correct beta sign.
@@ -209,7 +209,7 @@ def fm_beta(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> beta_df = compute_fm_betas(panel)
+        >>> beta_df = compute_fm_betas(panel)["factor"]
         >>> result = fm_beta(beta_df, forward_periods=5)
         >>> result.name == ""
         True
@@ -769,7 +769,7 @@ def beta_sign_consistency(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> beta_df = compute_fm_betas(panel)
+        >>> beta_df = compute_fm_betas(panel)["factor"]
         >>> result = beta_sign_consistency(beta_df, expected_sign=1)
         >>> result.name == ""
         True
