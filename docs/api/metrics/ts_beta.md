@@ -101,7 +101,7 @@ title: factrix.metrics.ts_beta
     )
     panel = compute_forward_return(panel, forward_periods=5)
 
-    betas_df = compute_ts_betas(panel)
+    betas_df = compute_ts_betas(panel)["factor"]
     print(betas_df.head())
     # ┌──────────┬─────────┬─────────┬────────┬───────────┬───────┐
     # │ asset_id ┆ beta    ┆ alpha   ┆ t_stat ┆ r_squared ┆ n_obs │

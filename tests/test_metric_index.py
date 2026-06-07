@@ -188,6 +188,7 @@ class TestBatchable:
         for name in (
             "compute_ic",
             "compute_fm_betas",
+            "compute_ts_betas",
             "quantile_spread",
             "monotonicity",
         ):
