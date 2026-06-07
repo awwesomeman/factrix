@@ -185,12 +185,17 @@ class TestVisibility:
 class TestBatchable:
     def test_known_batchable_specs(self) -> None:
         specs = spec_by_name()
-        for name in ("compute_ic", "quantile_spread", "monotonicity"):
+        for name in (
+            "compute_ic",
+            "compute_fm_betas",
+            "quantile_spread",
+            "monotonicity",
+        ):
             assert specs[name].batchable is True, name
 
     def test_non_batchable_specs(self) -> None:
         specs = spec_by_name()
-        for name in ("top_concentration", "turnover", "compute_fm_betas"):
+        for name in ("top_concentration", "turnover"):
             assert specs[name].batchable is False, name
 
 

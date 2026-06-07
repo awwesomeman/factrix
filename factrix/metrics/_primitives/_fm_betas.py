@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import numpy as np
+from collections.abc import Sequence
+
 import polars as pl
 
 from factrix._axis import (
@@ -17,6 +18,11 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
 
+# Minimum complete (factor, return) pairs per date to estimate a slope.
+# Two parameters (intercept + slope) leave one residual degree of freedom
+# at three observations.
+MIN_FM_CS_OBS: int = 3
+
 
 @metric(
     cell=cell(
@@ -28,39 +34,78 @@ from factrix.metrics._decorators import metric
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
+    batchable=True,
 )
 def compute_fm_betas(
     df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
+    factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-) -> pl.DataFrame:
-    r"""Per-date cross-sectional ordinary least squares (OLS): $R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon$."""
-    dates = df["date"].unique().sort()
-    rows: list[dict] = []
+) -> dict[str, pl.DataFrame]:
+    r"""Per-date cross-sectional ordinary least squares (OLS) slope.
 
-    for dt in dates:
-        chunk = df.filter(pl.col("date") == dt)
-        y = chunk[return_col].to_numpy().astype(np.float64)
-        x = chunk[factor_col].to_numpy().astype(np.float64)
+    Fits $R_i = \alpha + \beta \cdot \text{Signal}_i + \varepsilon$ per date
+    and returns the time series of slopes $\beta_t$. The single-regressor
+    OLS slope has the closed form
 
-        if len(y) < 3:
-            continue
+    $$\beta_t = \frac{\operatorname{Cov}_t(x, y)}{\operatorname{Var}_t(x)},$$
 
-        x_with_const = np.column_stack([np.ones(len(x)), x])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(x_with_const, y, rcond=None)
-        except np.linalg.LinAlgError:
-            continue
+    so the whole panel is scored in one polars query (one
+    ``group_by("date").agg(...)`` + one ``collect``) across all factors,
+    with no per-date Python loop — the N=1 case is just the general path
+    specialised.
 
-        rows.append({"date": dt, "beta": float(beta[1])})
+    Args:
+        df: Panel with ``date``, ``asset_id``, every name in
+            ``factor_cols``, and ``return_col``.
+        factor_cols: Factor column names to score. All factors run in a
+            single query regardless of N.
+        return_col: Forward-return column shared across factors.
 
-    if not rows:
-        return pl.DataFrame(
-            {
-                "date": pl.Series([], dtype=pl.Datetime("ms")),
-                "beta": pl.Series([], dtype=pl.Float64),
-            }
+    Returns:
+        Dict mapping each factor name to a DataFrame with columns
+        ``date, beta`` sorted by date. A date is emitted only when it has
+        at least ``MIN_FM_CS_OBS`` complete ``(factor, return)`` pairs and
+        a non-degenerate cross-sectional spread; dates with zero factor
+        variance (no identifiable slope) are dropped.
+    """
+    cols = list(factor_cols)
+    if not cols:
+        raise ValueError("factor_cols must be non-empty")
+
+    agg_exprs: list[pl.Expr] = []
+    for f in cols:
+        # Restrict every moment to the pairwise-complete (factor, return) set
+        # so the slope numerator and denominator share one sample — polars'
+        # ``cov`` already pairwise-drops, but ``var`` would otherwise keep
+        # factor-present / return-null rows and bias the ratio.
+        both = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
+        xf = pl.col(f).filter(both)
+        yf = pl.col(return_col).filter(both)
+        var_f = xf.var()
+        agg_exprs.append(both.sum().alias(f"_cnt__{f}"))
+        # ``var_f > 0`` (not an absolute epsilon) is the scale-free degeneracy
+        # test: variance is exactly 0 only when the date has no cross-sectional
+        # spread, which is the single case with no identifiable slope. A small
+        # but real spread is a legitimate (if noisy) estimate and is kept.
+        agg_exprs.append(
+            pl.when(var_f > 0)
+            .then(pl.cov(xf, yf) / var_f)
+            .otherwise(None)
+            .alias(f"_beta__{f}")
         )
 
-    return pl.DataFrame(rows)
+    wide = df.lazy().group_by("date").agg(agg_exprs).sort("date").collect()
+
+    return {
+        f: (
+            wide.select(
+                pl.col("date"),
+                pl.col(f"_cnt__{f}").alias("_cnt"),
+                pl.col(f"_beta__{f}").alias("beta"),
+            )
+            .filter(pl.col("_cnt") >= MIN_FM_CS_OBS)
+            .drop_nulls("beta")
+            .select("date", "beta")
+        )
+        for f in cols
+    }
