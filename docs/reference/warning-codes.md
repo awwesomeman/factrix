@@ -9,8 +9,8 @@ factrix output without parsing free-text strings.
 
 The three enums:
 
-- **`WarningCode`** — risk flags surfaced by `profile.diagnose()`.
-  Does **not** affect `primary_p`;
+- **`WarningCode`** — risk flags surfaced on `EvaluationResult.warnings`.
+  Does **not** affect `MetricResult.p_value`;
   the user decides whether to pre-filter on warnings before
   multi-factor Benjamini-Hochberg-Yekutieli (BHY).
 - **`InfoCode`** — information-severity diagnose annotations. Reserved

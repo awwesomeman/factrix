@@ -117,7 +117,7 @@ specific contracts that apply when factrix routes here.
 Every `(scope, signal, metric, mode)` dispatch cell maps to exactly one
 metric callable that [`evaluate()`](../api/evaluate.md) runs internally
 — `ic`, `fm_beta`, `caar`, or `ts_beta` — and that metric's
-p-value becomes the headline `primary_p`. Other metrics applicable to
+p-value is the primary metric's `MetricResult.p_value`. Other metrics applicable to
 the same cell are called separately via
 [`list_metrics`](../api/list-metrics.md) and the per-metric callable;
 they do not enter the headline result.

@@ -17,8 +17,8 @@ title: factrix.evaluate
 
     ---
 
-    One panel + one config → one result carrying `primary_p` and the
-    cell-specific statistics.
+    One panel of factor data → one result carrying the primary metric's
+    `p_value` and the cell-specific statistics.
 
 -   __Batch screening with false discovery rate (FDR)__
 
