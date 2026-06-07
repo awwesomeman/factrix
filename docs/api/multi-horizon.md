@@ -16,21 +16,19 @@ created three structural problems:
 
 1. **Cross-cuts the metric registry.** The horizon loop produced one
    `MetricResult` aggregating `k` horizons, but the registry is keyed
-   per `(scope, signal, metric)` — so a horizon-loop result had to
-   pretend to be a single metric, hiding the loop in `metadata`.
+   per `(scope, density, metric)`.
 2. **Conflicted with the identity-as-family contract** ([#160][i160]).
-   `FactorProfile.identity` carries `forward_periods` precisely to make
+   `EvaluationResult` carries `forward_periods` precisely to make
    horizon shopping explicit at the false discovery rate (FDR) layer; the in-metric horizon
    loop collapsed `k` horizons into one identity entry, defeating that
    defense.
-3. **Two Benjamini-Hochberg-Yekutieli (BHY) paths.** The information coefficient (IC) variant ran its own internal BHY
-   adjustment and wrote `metadata["p_adjusted_bhy"]`. The family-function
-   layer ([`multi_factor.bhy`][bhy] with `expand_over=["forward_periods"]`)
+3. **Two Benjamini-Hochberg-Yekutieli (BHY) paths.** The family-function
+   layer ([`multi_factor.bhy`][bhy] with `expand_over=("forward_periods",)`)
    is the single source of truth for FDR control across horizons.
 
 The dispatcher framing also lets descriptive metrics (`mfe_mae`,
 `caar`, `oos`, `monotonicity`, ...) inherit horizon-sweep support
-automatically; the previous shape special-cased IC and hit-rate.
+automatically.
 
 ## Migration recipes
 
@@ -43,49 +41,53 @@ No FDR claim is made.
 ```python
 import factrix as fx
 import polars as pl
-from factrix.metrics import ic
+from factrix.metrics import ic_newey_west
 
 horizons = [1, 5, 10, 20]
-results = [
-    fx.evaluate(
+results = []
+for h in horizons:
+    res = fx.evaluate(
         panel,
-        metrics={"ic": ic()},
+        metrics={"ic": ic_newey_west()},
         factor_cols=["mom_12_1"],
         forward_periods=h,
-    )[0]
-    for h in horizons
-]
+    )
+    results.extend(res)
+
 table = pl.concat([r.to_frame() for r in results])  # long-form: horizon x metric
 ```
 
 ### Inferential sweep — FDR-controlled across horizons
 
 Use [`evaluate`](evaluate.md) per horizon and
-[`multi_factor.bhy`][bhy] with `expand_over=["forward_periods"]`. The
-family-function layer partitions the BHY null per horizon (and per any
-other declared `expand_over` key) so the step-up threshold is correct.
+[`multi_factor.bhy`][bhy] with `expand_over=("forward_periods",)`. The
+family-function layer partitions the BHY null per horizon so the step-up threshold is correct.
 
 ```python
 import factrix as fx
-from factrix.metrics import ic
+from factrix.metrics import ic_newey_west
 
-results = [
-    fx.evaluate(
+horizons = [1, 5, 10, 20]
+results = []
+for h in horizons:
+    res = fx.evaluate(
         panel,
-        metrics={"ic": ic()},
+        metrics={"ic": ic_newey_west()},
         factor_cols=["mom_12_1"],
         forward_periods=h,
-    )[0]
-    for h in horizons
-]
-survivors = fx.multi_factor.bhy(
-    results,
-    expand_over=["forward_periods"],
-)
-```
+    )
+    results.extend(res)
 
-`survivors.profiles` carries the kept rows; `survivors.adj_p` carries
-the bucket-local BHY-adjusted p-values.
+fdr_res = fx.multi_factor.bhy(
+    results,
+    primary=["ic"],
+    expand_over=("forward_periods",),
+)
+
+bhy_ic = fdr_res["ic"]
+survivors = bhy_ic.survivors
+adj_p = bhy_ic.adj_p
+```
 
 [i160]: https://github.com/awwesomeman/factrix/issues/160
 [i186]: https://github.com/awwesomeman/factrix/issues/186

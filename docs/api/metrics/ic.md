@@ -58,7 +58,7 @@ title: factrix.metrics.ic
 | Mean-IC significance, keep every overlap and use HAC SE             | `ic_newey_west`                                     |
 | Time-stability ratio (no inference)                                 | `ic_ir`                                             |
 
-All four are invoked indirectly via `evaluate(panel, AnalysisConfig.individual_continuous(metric=Metric.IC))`
+All four are invoked indirectly via `evaluate(panel, EvaluationResult(metric=Metric.IC))`
 — they're documented here for callers who want the standalone numerical
 output without the inference framing.
 

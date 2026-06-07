@@ -59,7 +59,7 @@ hypothesis per factor.
 
 `n_conditions` is the contract knob.
 
-| PanelMode | When | Behavior |
+| DataStructure | When | Behavior |
 |---|---|---|
 | **Strict** (`n_conditions=int`) | Paper-grade; you know the design (e.g. exactly 2 universes, exactly 4 horizons) | Identity with any condition count other than `n_conditions` raises. Data gaps surface fail-loud. |
 | **Lenient** (`n_conditions=None`) | EDA / prototyping; condition count varies by identity | `m` inferred per identity from the data; only requires `m >= min_pass`. |

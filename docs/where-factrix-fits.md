@@ -378,9 +378,9 @@ from factrix.preprocess import compute_forward_return
 panel = pl.from_pandas(zipline_out.reset_index())
 panel = compute_forward_return(panel, forward_periods=5)
 
-cfg = ...  # config construction pending v0.14.0 docs rewrite
-profile = fx.evaluate(panel, cfg)
-primary_p = profile.primary_p
+from factrix.metrics import ic
+results = fx.evaluate(panel, factor_cols=["factor"], metrics=[ic])
+primary_p = results[0].metrics["ic"].p_value
 ```
 
 factrix → Stage 2: surviving profiles after BHY feed a portfolio
@@ -388,16 +388,19 @@ optimiser.
 
 ```python
 import factrix as fx
+from factrix.metrics import ic
 
 # Each panel carries its factor under a distinct column name
 # ("momentum_12" / "value" / ...); evaluate auto-stamps factor_id
-# from factor_col so identities stay unique without manual surgery.
-profiles  = [
-    fx.evaluate(p, cfg, factor_col=name) for name, p in panels.items()
-]
-survivors = fx.multi_factor.bhy(profiles, q=0.05)
+# from factor_cols so identities stay unique without manual surgery.
+results = []
+for name, p in panels.items():
+    res = fx.evaluate(p, factor_cols=[name], metrics=[ic])
+    results.extend(res)
 
-# survivors is a list[FactorProfile]; pass the underlying factor
+survivors = fx.multi_factor.bhy(results, q=0.05)
+
+# survivors is a list[EvaluationResult]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input
 ```
 

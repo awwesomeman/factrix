@@ -2,65 +2,35 @@
 title: Stock factor evaluation
 ---
 
-Evaluate whether a per-stock factor (one value per `(date, asset_id)`)
-carries cross-sectional return predictability.
+Evaluate whether a per-stock factor (one value per `(date, asset_id)`) carries cross-sectional return predictability.
 
 Runnable notebook: [`examples/stock_factor_evaluation.ipynb`](https://github.com/awwesomeman/factrix/blob/main/examples/stock_factor_evaluation.ipynb).
 
 ## Factor type
 
-This recipe uses `AnalysisConfig.individual_continuous(metric=Metric.IC)`
-— axes `(FactorScope.INDIVIDUAL, FactorSignal.CONTINUOUS, Metric.IC)`.
+This recipe uses the `ic_newey_west` metric, which operates under `FactorScope.INDIVIDUAL`, `FactorDensity.DENSE`, and `DataStructure.PANEL`.
 
-Procedure: per-date Spearman ρ between factor and forward return,
-aggregated to a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-statistic on `E[IC]`. PANEL mode
-(`N ≥ 2`); `N = 1` raises `IncompatibleAxisError`
-since there is no cross-section to rank within.
+Procedure: per-date Spearman correlation between factor and forward return, aggregated to a Newey-West (NW) HAC t-statistic on the mean.
 
-Literature: [Grinold (1989)](../reference/bibliography.md);
-[Newey & West (1987)](../reference/bibliography.md).
+Null hypothesis $\mathbb{E}[\text{IC}] = 0$ — the factor has no rank-based predictive ordering of forward returns across assets, on average across dates.
 
 ## Use this when
 
-- Factor varies across assets at each date (per-stock signal, e.g.
-  momentum, value, quality).
-- Cross-section is wide (`N ≥ 30` for clean inference; `10 ≤ N < 30`
-  emits `BORDERLINE_CROSS_SECTION_N`).
-- Time series is at least 30 periods (`T < 20` is hard-blocked).
-
-## What it tests
-
-Null hypothesis `E[IC] = 0` — the factor has no rank-based predictive
-ordering of forward returns across assets, on average across dates.
-Standard error is NW HAC over the per-date information coefficient (IC) series.
-
-## Output to read
-
-1. `profile.primary_p` — IC NW HAC p-value. For single-factor
-   pre-registered analysis, compare against your nominal `α` directly;
-   for N candidate factors, route through `multi_factor.bhy` to
-   control false discovery rate (FDR).
-2. `profile.stats[StatCode.MEAN]` — sign + magnitude of average IC
-   (cell identity is on `profile.config.metric`; the StatCode is
-   intentionally cell-agnostic — see #187).
-3. `profile.stats[StatCode.T_NW]` — the t-statistic that produced
-   the p-value. Compare to ±2 as a rough sanity check.
-4. `profile.warnings` — `UNRELIABLE_SE_SHORT_PERIODS` etc. flag
-   data-quality risks that should change interpretation regardless of
-   `primary_p`.
+- Factor varies across assets at each date (per-stock signal, e.g. momentum, value, quality).
+- Cross-section is wide ($N \ge 30$ for clean inference).
+- Time series is at least 30 periods ($T < 20$ is hard-blocked).
 
 ## 1. Setup
 
 ```python
 import factrix as fx
 from factrix.preprocess import compute_forward_return
+from factrix.metrics import ic_newey_west
 ```
 
 ## 2. Synthesise a cross-sectional panel
 
 `make_cs_panel` produces a canonical panel with a target IC built in.
-`ic_target=0.08` is a realistic effect size for a working
-single-factor strategy.
 
 ```python
 raw = fx.datasets.make_cs_panel(
@@ -73,84 +43,83 @@ panel = compute_forward_return(raw, forward_periods=5)
 print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")
 ```
 
-Illustrative output:
-
-```text
-panel shape=(49400, 5)  N=100
-```
-
 ## 3. Evaluate
 
-One factory call, one `evaluate()`. The factory commits to the three
-axes; `evaluate()` derives `PanelMode` from the panel shape and dispatches
-to the registered procedure.
-
 ```python
-# example pending v0.14.0 docs rewrite
+results = fx.evaluate(
+    panel,
+    metrics={"ic": ic_newey_west()},
+    factor_cols=["factor"],
+    forward_periods=5,
+)
+
+[res] = results
+ic_res = res.metrics["ic"]
+
+print(f"factor       = {res.factor}")
+print(f"cell         = {res.cell}")
+print(f"ic_mean      = {ic_res.value:+.4f}")
+print(f"ic_p_value   = {ic_res.p_value:.4g}")
 ```
 
 Illustrative output:
 
 ```text
-primary_p    = 2.129e-40
-mode         = panel
+factor       = factor
+cell         = (individual, dense, panel)
 ic_mean      = +0.0722
-ic_t_nw      = +14.60
+ic_p_value   = 2.129e-40
 ```
 
-## 4. Inspect the full diagnose dict
+## 4. Inspect the result dictionary
 
-`diagnose()` is the structured triage interface — same content the
-individual-stat reads above derive from, in one dict for human
-inspection or AI agent consumption.
+Call `.to_dict()` on the `EvaluationResult` to obtain a JSON-friendly nested representation of the results.
 
 ```python
 import json
 
-print(json.dumps(profile.diagnose(), indent=2, default=str))
+print(json.dumps(res.to_dict(), indent=2))
 ```
 
 Illustrative output:
 
 ```json
 {
-  "identity": {"factor_id": "factor", "forward_periods": 5},
-  "context": {},
-  "cell": {"scope": "individual", "signal": "continuous", "metric": "ic", "mode": "panel"},
-  "n_obs": 494,
-  "n_pairs": 49400,
-  "n_periods": 494,
-  "n_assets": 100,
-  "primary_p": 2.13e-40,
-  "primary_stat": 14.60,
-  "primary_stat_name": "t_nw",
-  "warnings": [],
-  "info_notes": [],
-  "stats": {
-    "mean": 0.0722,
-    "t_nw": 14.60,
-    "p_nw": 2.13e-40,
-    "t_hh": 14.38,
-    "p_hh": 2.13e-39
+  "factor": "factor",
+  "cell": {
+    "scope": "individual",
+    "density": "dense",
+    "structure": "panel"
   },
-  "metadata": {
-    "t_nw": {"nw_lags": 5},
-    "p_nw": {"nw_lags": 5},
-    "t_hh": {"kernel": "rectangular", "variance_clamped": false},
-    "p_hh": {"kernel": "rectangular", "variance_clamped": false}
-  }
+  "forward_periods": 5,
+  "n_obs": 494,
+  "n_assets": 100,
+  "context": {},
+  "metrics": {
+    "ic": {
+      "value": 0.0722,
+      "p_value": 2.129e-40,
+      "stat": 14.60,
+      "n_obs": 494,
+      "metadata": {
+        "n_periods": 494,
+        "p_value": 2.129e-40,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "method": "Newey-West HAC t-test on overlapping IC series",
+        "newey_west_lags": 5,
+        "forward_periods": 5,
+        "tie_ratio": 0.0
+      }
+    }
+  },
+  "metrics_partition": {
+    "primary": [
+      "ic"
+    ],
+    "diagnostic": []
+  },
+  "warnings": [],
+  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=ic_df"
 }
 ```
-
-## 5. Sample-guard edge cases
-
-This recipe runs the happy path. For the full `n_assets` × factory
-behaviour matrix (small-N warnings, `N=1` fallbacks, `T<20` hard
-block) see [Guides § PANEL vs
-TIMESERIES](../guides/panel-timeseries.md). Two notes for this cell
-specifically:
-
-- `N < 30` emits `BORDERLINE_CROSS_SECTION_N` /
-  `SMALL_CROSS_SECTION_N`.
-- `N = 1` raises `IncompatibleAxisError` — the factor would no
-  longer be cross-sectional.

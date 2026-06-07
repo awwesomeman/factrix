@@ -12,6 +12,7 @@
 | `wald_twoway` | Wald χ² statistic for a linear restriction on a panel coefficient vector, computed under two-way cluster on (date, asset) (Cameron-Gelbach-Miller 2011). Implementation convention lives in `factrix.stats.WaldTwoWayCluster`. |
 | `p_wald_twoway` | P-value from `WALD_TWOWAY`. Sibling under the (WALD_TWOWAY, P_WALD_TWOWAY) algorithm-pair convention. |
 | `p_boot` | Empirical two-sided p-value from a block-bootstrap resample of a paired-diff statistic. Implementation convention lives in `factrix.stats.BlockBootstrap` (Politis-Romano stationary or Künsch fixed scheme; Politis-White auto block length). Single key for both schemes — scheme choice is metadata, not StatCode. |
+| `p_dk` | Two-sided p-value from a Driscoll-Kraay (1998) cross-section-robust HAC t-test on a pooled-panel slope. Robust to contemporaneous cross-sectional correlation (and serial correlation up to the Bartlett bandwidth). Implementation convention lives in `factrix.stats.DriscollKraay`. |
 | `factor_adf_tau` | ADF τ statistic on the factor input series (constant-only specification); fed to the MacKinnon 1996 response-surface for `FACTOR_ADF_P`. |
 | `factor_adf_p` | ADF unit-root test p-value on the factor input series (MacKinnon 1996 response-surface; constant-only specification). p > 0.05 flags persistent regressor regime. |
 | `resid_ljung_box_q` | Ljung-Box Q statistic on regression residuals (TS-dummy single-asset path); compared against χ²(h) for `RESID_LJUNG_BOX_P`. |

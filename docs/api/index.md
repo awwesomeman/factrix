@@ -8,7 +8,7 @@ Reference for every public symbol exported from `factrix`.
 
 ```mermaid
 flowchart LR
-    P[panel + cfg]
+    P[data]
 
     subgraph Compute
         EV[evaluate]
@@ -31,23 +31,21 @@ flowchart LR
 
     subgraph Introspection
         LM[list_metrics]
-        LE[list_estimators]
-        SC[suggest_config]
+        ID[inspect_data]
     end
 
     P ==> EV
     P -.-> BS
     P -.-> ST
-    EV ==>|profiles| BHY
-    EV ==>|profiles| PC
-    EV ==>|profiles| BHYH
-    EV ==>|profiles| CMP
+    P -.-> ID
+    EV ==>|results| BHY
+    EV ==>|results| PC
+    EV ==>|results| BHYH
+    EV ==>|results| CMP
     BHY ==>|survivors| CMP
     PC ==>|survivors| CMP
     BHYH ==>|survivors| CMP
     LM -.->|metric names| EV
-    LE -.->|estimator names| BHY
-    SC -.->|inferred cfg| EV
 
     click EV "evaluate/" "evaluate API"
     click BS "by-slice/" "by_slice API"
@@ -56,21 +54,18 @@ flowchart LR
     click PC "partial-conjunction/" "partial_conjunction API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
     click LM "list-metrics/" "list_metrics API"
-    click LE "list-estimators/" "list_estimators API"
-    click SC "suggest-config/" "suggest_config API"
     click CMP "compare/" "compare API"
+    click ID "inspect-data/" "inspect_data API"
 ```
 
-Click any node to jump to its API page. Nodes are grouped into category subgraphs; the sixth category, **Compare-sensitivity** (`by_estimator`, #178), is not drawn — it lands in v0.14 once #263 unblocks HACEstimator parameter config + catalog expansion.
+Click any node to jump to its API page.
 
 **Edge convention:**
 
-- **Solid `==>` — hard signature dependency.** The target's call signature literally accepts the source object.
-    - `evaluate(panel, cfg)` consumes `P` (the panel).
-    - `bhy` / `partial_conjunction` / `bhy_hierarchical` consume `evaluate` outputs.
-- **Dashed `-.->` — suggested workflow.** The source is panel-derived, but the target's signature differs in shape.
-    - `by_slice` / `slice_pairwise_test` / `slice_joint_test` accept `(metric, metric_df, label=…)`, where `metric_df` is a per-date frame the caller builds from the panel (e.g. `compute_ic(panel)`).
-    - `list_metrics` returns the catalog; the caller constructs instances under labels for `evaluate(metrics={…})`.
+- **Solid `==>` — hard signature dependency.** The target's call signature accepts the source object.
+    - `evaluate(data, metrics=...)` consumes `P` (data).
+    - `bhy` / `partial_conjunction` / `bhy_hierarchical` consume `evaluate` outputs (`list[EvaluationResult]`).
+- **Dashed `-.->` — suggested workflow.** The source is data-derived, but the target's signature differs in shape.
 
 ---
 
@@ -78,15 +73,15 @@ Click any node to jump to its API page. Nodes are grouped into category subgraph
 
 | Goal | Pipeline |
 |---|---|
-| Single-factor inference | `evaluate(panel, cfg)` → read `primary_p` |
+| Single-factor/multi-factor inference | `evaluate(data, metrics=...)` → `list[EvaluationResult]` |
 | Slice exploration (single axis) | `by_slice(metric, df, label="...")` → `SliceResult` |
 | Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
-| Per-panel applicability | `inspect_data(panel)` → `.usable` / `.degraded` / `.unusable` |
-| Multi-factor screening with false discovery rate (FDR) | `[evaluate(panel, cfg_i) for cfg_i in cfgs]` → `multi_factor.bhy(profiles)` |
-| Cross-factor leaderboard | `compare(profiles)` / `compare(survivors)` → `pl.DataFrame` |
+| Per-panel applicability | `inspect_data(data)` → `.usable` / `.degraded` / `.unusable` |
+| Multi-factor screening with FDR | `evaluate(...)` → `multi_factor.bhy(results, primary=[...])` |
+| Cross-factor leaderboard | `compare(results, metrics=[...])` → `pl.DataFrame` |
 
-See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end, and the [Batch screening with Benjamini-Hochberg-Yekutieli (BHY)](../guides/batch-screening.md) guide for the multi-factor screening workflow.
+See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end.
 
 ---
 
@@ -94,17 +89,18 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 
 | Page | Category | What it is | When to read |
 |---|---|---|---|
-| [`evaluate`](evaluate.md) | Compute | Single dispatch entry — runs the registered procedure for a `(config, panel)` pair and returns the evaluation result. | Running an analysis. |
-| [`by_slice`](by-slice.md) | Descriptive view | Slice a metric over a label column; returns a `SliceResult` with `.to_frame()` rendering. | Per-slice metric exploration. |
-| [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Inference (no FDR) | Statistical tests over slice families (pairwise / omnibus) with family-internal MTC. No cell-level FDR claim. | Testing whether slice means differ. |
-| [`multi_factor`](multi-factor.md) | Screening (FDR) | `bhy(...)` for BHY FDR screening across a `Profile[]`; `expand_over=` opens hypothesis-dimension expansion. | Multi-factor FDR screening. |
-| [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction p-values (Benjamini-Heller 2008) → BHY. | "Factor X passes in ≥ k of m contexts." |
-| [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Hierarchical FDR (Yekutieli 2008) — outer BHY on group representatives, inner BHY within passing groups. | Factor families / nested-context structure. |
-| [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks evaluation / `Survivors` artifacts into a `pl.DataFrame` (no recompute). | Ranking N candidate factors. |
-| [`list_metrics`](list-metrics.md) | Introspection | Family-grouped catalog of standalone `factrix.metrics.*` callables (no-arg). | Browsing the metric catalog; pair with `inspect_data` for per-panel applicability. |
-| [`list_estimators`](list-estimators.md) | Introspection | Every registered estimator (no-arg overview) — inference-side twin of `list_metrics`. | Picking `estimator=` for screening functions. |
+| [`evaluate`](evaluate.md) | Compute | Single dispatch entry — runs the registered metrics on a panel and returns the evaluation results. | Running an analysis. |
+| [`by_slice`](by-slice.md) | Descriptive view | Slice a metric over a label column; returns a `SliceResult`. | Per-slice metric exploration. |
+| [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Inference (no FDR) | Statistical tests over slice families (pairwise / omnibus). | Testing whether slice means differ. |
+| [`multi_factor`](multi-factor.md) | Screening (FDR) | Module-level overview of collection-level FDR functions. | Multi-factor FDR screening overview. |
+| [`bhy`](bhy.md) | Screening (FDR) | Benjamini-Hochberg-Yekutieli step-up FDR. | Screening candidate factors. |
+| [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction screening. | "Factor passes in ≥ k of m contexts." |
+| [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Two-stage hierarchical BHY FDR. | Grouped / nested-context screening. |
+| [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks evaluation results into a `pl.DataFrame`. | Ranking candidate factors. |
+| [`list_metrics`](list-metrics.md) | Introspection | Family-grouped catalog of standalone public metrics. | Browsing the metric catalog. |
+| [`inspect_data`](inspect-data.md) | Introspection | Inspects a panel's applicability metrics. | Pre-flight check on data dimensions. |
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |
-| [`stats`](stats.md) | Catalogue | Estimator catalogue (`NeweyWest` / `HansenHodrick` / `WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`), StatCode pairs, FDR / bootstrap utilities. | Picking an inference method to pass through `estimator=`. |
+| [`stats`](stats.md) | Catalogue | Statistical estimators and HAC/bootstrap utilities. | Under-the-hood statistical details. |
 
 ---
 
@@ -113,16 +109,16 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | Page | What it is |
 |---|---|
 | [Panel schema](panel-schema.md) | The four-column input contract every panel-consuming function depends on. |
-| [`MetricResult`](metric-output.md) | Common wrapper returned by every standalone metric — `value`, `p`, `stat`, `metadata`. |
-| [`datasets`](datasets.md) | Synthetic panels (`make_cs_panel`, `make_event_panel`) for smoke tests and docs examples. |
+| [`EvaluationResult`](evaluation-results.md) | The bundle result returned by `evaluate`. Includes groups, metric results, and warnings. |
+| [`datasets`](datasets.md) | Synthetic panels for testing and examples. |
+| [`preprocess`](preprocess.md) | Helper functions for preprocessing (e.g. computing forward returns). |
 
 ## Naming convention
 
-Sidebar entries mirror the actual Python identifier — the case
-distinction is intentional, not inconsistent:
+Sidebar entries mirror the actual Python identifier:
 
 | Sidebar entry | Identifier kind | Example call |
 |---|---|---|
-| `MetricResult` | Class | `fx.MetricResult` |
-| `evaluate`, `list_metrics` | Function | `fx.evaluate(panel, cfg)` |
-| `multi_factor`, `datasets`, `Metrics` (and submodules) | Module | `fx.multi_factor.bhy(profiles)` |
+| `EvaluationResult` | Class | `fx.EvaluationResult` |
+| `evaluate`, `inspect_data` | Function | `fx.evaluate(data, metrics=...)` |
+| `multi_factor`, `datasets`, `Metrics` | Module | `fx.multi_factor.bhy(results, primary=[...])` |

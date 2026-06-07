@@ -27,7 +27,7 @@ title: factrix.evaluate
     Loop `evaluate` over candidate signal columns and feed the
     resulting list of profiles to [`bhy`][factrix.multi_factor.bhy]
     for false-discovery-rate control. See
-    [Batch screening](../guides/batch-screening.md).
+    [Multi-factor FDR](multi-factor.md).
 
 -   __Cross-cell apples-to-apples__
 
@@ -50,40 +50,91 @@ title: factrix.evaluate
 
 ## Worked example — single-factor smoke test
 
-!!! example "Synthetic panel → `evaluate` → read `primary_p` + `diagnose()`"
+!!! example "Synthetic panel → `evaluate` → read `value` + `p_value`"
 
     Full runnable example complementing the doctest snippets in **Examples**
-    above with realistic console output and a `diagnose()` dump.
+    above with realistic console output.
 
     ```python
-    # example pending v0.14.0 docs rewrite
+    import factrix as fx
+    from factrix.metrics import ic, quantile_spread
+
+    # 1. Create dummy panel data
+    raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
+    data = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    # 2. Run evaluation
+    results = fx.evaluate(
+        data,
+        metrics={"ic": ic(), "spread": quantile_spread(n_quantiles=5)},
+        factor_cols=["factor"],
+        forward_periods=5,
+    )
+
+    # 3. Retrieve and inspect results
+    [res] = results
+    print(f"Factor: {res.factor}")
+    print(f"Cell: {res.cell}")
+    print(f"Plan: \n{res.plan}")
+
+    # Access metrics result group
+    ic_res = res.metrics["ic"]
+    print(f"IC Value: {ic_res.value:.4f}")
+    print(f"IC p-value: {ic_res.p_value:.4f}")
     ```
 
-## Config recipes — one per dispatch cell
+## Evaluating under different cell contexts
+
+Instead of configuring a central `AnalysisConfig` object, metric behaviors are defined by instantiating metric classes directly. The DAG executor handles dispatch automatically depending on the cell registered by the metric.
 
 ```python
-# example pending v0.14.0 docs rewrite
+import factrix as fx
+from factrix.metrics import ic, caar, ts_beta
+
+# 1. Individual × Continuous (e.g. Information Coefficient)
+results_ic = fx.evaluate(
+    data,
+    metrics={"ic": ic()},
+    factor_cols=["factor"],
+    forward_periods=5
+)
+
+# 2. Individual × Sparse (e.g. Event Study CAAR, requires a 'price' column)
+results_caar = fx.evaluate(
+    data_with_price,
+    metrics={"caar": caar()},
+    factor_cols=["event_factor"],
+    forward_periods=5
+)
+
+# 3. Common × Continuous (e.g. Time-Series Beta)
+results_beta = fx.evaluate(
+    data,
+    metrics={"ts_beta": ts_beta()},
+    factor_cols=["macro_factor"],
+    forward_periods=5
+)
 ```
 
-Per-cell required / optional columns and the PANEL ↔ TIMESERIES PanelMode
-derivation are documented in the **Dispatch lore** admonition above.
+Per-cell required / optional columns and the DataStructure (PANEL vs TIMESERIES)
+derivation are automatically resolved at dispatch time.
 
 ## Next steps
 
 <div class="grid cards" markdown>
 
--   __Batch screening guide__
+-   **Multi-factor FDR**
 
     ---
 
-    Wires `evaluate` into the multi-factor FDR pipeline: loop over
-    candidates while preserving `identity` / `context`; choose between
+    Wires `evaluate` into the multi-factor FDR pipeline: pass candidate
+    results to BHY; choose between
     [`bhy`][factrix.multi_factor.bhy] /
     [`partial_conjunction`][factrix.multi_factor.partial_conjunction] /
     [`bhy_hierarchical`][factrix.multi_factor.bhy_hierarchical];
-    mixed-cell batches; `primary_p` vs `stats` at the FDR stage.
+    mixed-cell batches.
 
-    [Read the guide →](../guides/batch-screening.md)
+    [Read the guide →](multi-factor.md)
 
 -   __Panel schema__
 

@@ -16,8 +16,8 @@ or any magnitude). Common forms: `{0, 1}` for a pure event flag, or
 | Skewness / hit-rate / win-loss diagnostics on per-event returns | Profile | [`event_quality`](event_quality.md) |
 | MFE / MAE order-statistic excursion within an event window | Profile | [`mfe_mae`](mfe_mae.md) |
 | Event-window horizon decay | Profile | [`event_horizon`](event_horizon.md) |
-| Herfindahl-Hirschman index (HHI) on event dates — flags clustering that violates BMP/CAAR independence | Profile | [`clustering`](clustering.md) |
-| Non-parametric Corrado rank test — robust to non-Gaussian returns | Profile | [`corrado`](corrado.md) |
+| Herfindahl-Hirschman index (HHI) on event dates — flags clustering that violates BMP/CAAR independence | Profile | [`clustering`](clustering_hhi.md) |
+| Non-parametric Corrado rank test — robust to non-Gaussian returns | Profile | [`corrado`](corrado_rank.md) |
 
 The `Common × Sparse` cell shares this column contract but routes
 through a distinct procedure (`_CommonSparsePanelProcedure` — per-asset
@@ -26,5 +26,5 @@ under [Common continuous](common-continuous.md).
 
 When events cluster on the same date (earnings season, macro release),
 prefer `caar.bmp_test(kolari_pynnonen_adjust=True)` over the vanilla
-$t$-test — the [`clustering`](clustering.md) HHI tells you when this
+$t$-test — the [`clustering`](clustering_hhi.md) HHI tells you when this
 matters.

@@ -121,14 +121,14 @@ title: factrix.metrics.event_horizon
 
     [api/metrics/caar →](caar.md)
 
--   __`clustering_diagnostic`__
+-   __`clustering_hhi`__
 
     ---
 
     Event-date Herfindahl-Hirschman index (HHI) — the serial-correlation caveat above compounds
     with same-date clustering.
 
-    [api/metrics/clustering →](clustering.md)
+    [api/metrics/clustering →](clustering_hhi.md)
 
 -   __Metric applicability reference__
 

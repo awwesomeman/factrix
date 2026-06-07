@@ -102,7 +102,7 @@ inspects, not gates that affect the inference.
 factrix evaluates a factor on the panel the user supplies. It does
 not provide a primitive for "is this factor globally pervasive across
 N markets" beyond what the user can run by calling `evaluate()` per
-market and comparing the returned `FactorProfile`s.
+market and comparing the returned `EvaluationResult`s.
 
 - The global-vs-local pricing debate is unsettled empirically
   ([Asness-Moskowitz-Pedersen 2013][asness-moskowitz-pedersen-2013]
@@ -114,7 +114,7 @@ market and comparing the returned `FactorProfile`s.
   canonical academic answer. Picking one inside the library would
   impose a prior the user did not opt into.
 - A separate cross-market layer can be built on factrix outputs
-  without library support: each `FactorProfile.metrics` is
+  without library support: each `EvaluationResult` payload is
   serialisable and easy to combine externally.
 
 ---
@@ -176,9 +176,9 @@ SE.
   panel exhibits stronger date-correlation than asset-correlation,
   and the two-way correction adds complexity without changing the
   point estimate.
-- `pooled_ols` is exposed as an explicit comparison metric so a user
+- `pooled_beta` is exposed as an explicit comparison metric so a user
   can see whether FM and pooled disagree on sign or magnitude. The
-  comparison stays in the `FactorProfile.metrics` payload — divergence
+  comparison stays in the result payload — divergence
   is information for the user to interpret, not a `diagnose()`-level
   signal that triggers automatic action.
 

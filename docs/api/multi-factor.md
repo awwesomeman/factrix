@@ -5,14 +5,14 @@ title: factrix.multi_factor
 # factrix.multi_factor
 
 Collection-level false-discovery-rate (FDR) control across a list of
-`FactorProfile` objects. Use after `evaluate`
-has produced one profile per candidate factor (or per factor × context
-combination): the functions in this module adjust per-factor p-values
+`EvaluationResult` objects. Use after `evaluate`
+has produced results for candidate factors (or per factor × context
+combinations): the functions in this module adjust per-factor p-values
 for multiple testing under the dependence structure that factor pools
 exhibit by construction.
 
 This page is a module-level index. Each function has its own page
-covering call shape, parameters, the `Survivors` return container,
+covering call shape, parameters, the result containers,
 and design rationale.
 
 ## Choosing a function
@@ -31,17 +31,15 @@ structure.
 
 <div class="grid cards" markdown>
 
--   __Batch screening guide__
+-   **Large-scale evaluation**
 
     ---
 
-    End-to-end recipe wiring `evaluate` into the multi-factor FDR
-    pipeline, including how to preserve `identity` / `context` across
-    a candidate pool and how to choose between the three functions.
+    How to structure factor screens using a user-side batched loop with Polars LazyFrames.
 
-    [guides/batch-screening →](../guides/batch-screening.md)
+    [guides/large-scale-evaluation →](../guides/large-scale-evaluation.md)
 
--   __Statistical methods — multiple testing__
+-   **Statistical methods — multiple testing**
 
     ---
 

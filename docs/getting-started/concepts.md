@@ -2,104 +2,62 @@
 title: Concepts
 ---
 
-## What factrix is for
+This page introduces the core mental model and architecture of `factrix` v0.14.0.
 
-factrix evaluates factor **signal validity**, not portfolio
-performance — see
-[Guides § Standalone metrics — What factrix evaluates](../guides/standalone-metrics.md#what-factrix-evaluates)
-for the full boundary (what is in, what is downstream).
+## Core workflow
 
-Once the axes below are familiar, the
-[API reference landing](../api/index.md) maps a research question to the
-function that answers it.
-
-## Three orthogonal axes
-
-`AnalysisConfig` is defined by three user-facing
-axes. They are **orthogonal**: each supported combination maps to one
-specific statistical test.
-
-| Axis | Values | What it asks |
-|------|--------|--------------|
-| `scope` | `INDIVIDUAL` / `COMMON` | Does each asset have its own factor value, or do all assets share one? |
-| `signal` | `CONTINUOUS` / `SPARSE` | Real-valued signal, or `{0, R}` event trigger (zero on non-events; `R` is any real magnitude — positive, negative, or unsigned)? |
-| `metric` | `IC` / `FM` / *(N/A)* | Only for `(INDIVIDUAL, CONTINUOUS)` — refines the research question |
-
-### scope — a factor attribute, not a data shape
-
-factrix input is **panel data** — both a time axis (dates) and a cross-section
-axis (assets). `scope` describes how the factor varies along the cross-section
-axis, not the panel layout itself:
-
-- **`INDIVIDUAL`** — each `(date, asset_id)` has its own factor value (P/E,
-  momentum, quality).
-- **`COMMON`** — every `asset_id` on a given date shares one factor value
-  (VIX, DXY, FOMC dummy). Quick check in Polars:
-  `df.group_by("date").agg(pl.col("factor").n_unique() == 1).all()`.
-
-### signal
-
-- **`CONTINUOUS`** — real-valued (z-score, percentile, momentum, …).
-- **`SPARSE`** — `{0, R}` event trigger: zero on non-event entries,
-  any real value otherwise (`R` is unrestricted — positive, negative,
-  or any magnitude); expect ≥ 50% zeros. Common forms: `{0, 1}` for a
-  pure event flag and `{0, R}` for an event carrying signed or
-  unsigned magnitude.
-
-### metric (only for `INDIVIDUAL × CONTINUOUS`)
-
-- **`IC`** (default) — rank-based predictive ordering: Spearman ρ → Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) t-test.
-- **`FM`** — unit-of-exposure premium: Fama-MacBeth λ → NW HAC t-test.
-
-Choose by research question, not data shape:
-
-| | `IC` | `FM` |
-|--|------|------|
-| Question | Does the factor predict rank ordering of returns? | What premium does each unit of factor exposure earn? |
-| Method | Rank-based, outlier-robust | Slope-based, economic interpretation |
-
-## Axis dispatch
-
-How the three axes above pick a factory:
+The standard research workflow in `factrix` is divided into three distinct phases:
 
 ```
-                          your panel
-                              │
-            ┌─────────────────┴─────────────────┐
-   factor varies per asset?          shared by all assets?
-            │                                   │
-       INDIVIDUAL                            COMMON
-            │                                   │
-    ┌───────┴───────┐                   ┌───────┴───────┐
- continuous     sparse                continuous     sparse
-    │              │                       │              │
-  IC / FM   individual_sparse     common_continuous   common_sparse
+1. inspect_data (Pre-flight) ──▶ 2. evaluate (DAG Evaluation) ──▶ 3. bhy (FDR Screening)
 ```
 
-The table below pairs each factory with the procedure it runs and the
-literature behind it.
+### 1. `inspect_data` (Pre-flight)
+Before executing computationally intensive metrics, you scan your input data. 
+Calling `inspect_data(data)` returns a `DataInspection` object. It detects data properties (number of assets, periods, and sparsity) and evaluates them against the statistical requirements of every registered metric. This partitions the metrics into three tiers:
+- **`usable`**: The data satisfies all sample size and structural requirements.
+- **`degraded`**: The metric can run, but results may carry a warning due to a smaller sample size.
+- **`unusable`**: The sample is too thin to compute the metric (running it will short-circuit to `NaN`).
 
-## Five analysis scenarios
+### 2. `evaluate` (DAG Evaluation)
+Once you select your metrics, you run the evaluation. 
+`evaluate()` takes your data, a dictionary of metric instances, and a list of factor columns. Under the hood, a **Directed Acyclic Graph (DAG) executor** resolves all metric dependencies, optimizes the execution sequence, and returns a list of `EvaluationResult` objects (one per factor).
 
-| Factory | Run by `evaluate()` | Procedure | Literature |
-|---------|---------------------|-----------|------------|
-| `individual_continuous(metric=IC)` | [`ic`][factrix.metrics.ic.ic] | per-date Spearman ρ → NW HAC t on E[information coefficient (IC)] | [Grinold 1989][grinold-1989]; [Newey-West 1987][newey-west-1987] |
-| `individual_continuous(metric=FM)` | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | per-date ordinary least squares (OLS) λₜ → NW HAC t on E[λ] | [Fama-MacBeth 1973][fama-macbeth-1973] |
-| `individual_sparse()` | [`caar`][factrix.metrics.caar.caar] | per-event AR → CAAR → cross-event t | [Brown-Warner 1985][brown-warner-1985] |
-| `common_continuous()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β → cross-asset t on E[β] | [Black-Jensen-Scholes 1972][black-jensen-scholes-1972] |
-| `common_sparse()` | [`ts_beta`][factrix.metrics.ts_beta.ts_beta] | per-asset TS β on dummy → cross-asset t | TS-β + event-study hybrid |
+### 3. `bhy` (FDR Screening)
+If you are screening multiple candidate factors, you must correct for multiple testing to control false discoveries.
+Passing the list of `EvaluationResult` objects to `fx.multi_factor.bhy` applies the Benjamini-Hochberg-Yekutieli (BHY) step-up procedure. This controls the False Discovery Rate (FDR) under arbitrary dependency, returning the subset of factors that truly possess predictive edge.
 
-## PanelMode: PANEL vs TIMESERIES
+---
 
-`PanelMode` is **not user-facing** — it is derived at evaluate-time from
-`N = panel["asset_id"].n_unique()`. Both modes return a real `primary_p`;
-neither is degraded.
+## The execution DAG: specs, dependencies, and batching
 
-For the field-order walk of `FactorProfile.primary_p` and its companion
-fields, see [Reading results](../guides/reading-results.md).
+The DAG executor relies on specific metadata attached to each metric class:
 
-For the full sample-guard contract (PANEL/TIMESERIES tiers, behaviour
-per factory at each `n_assets` regime, special N = 1 paths) see
-[Guides § Panel vs timeseries](../guides/panel-timeseries.md).
-For the consolidated `MIN_*` threshold values, see
-[Reference § Sample-size constants](../reference/metric-applicability.md#sample-size-constants).
+### `MetricSpec`
+Every metric declares a `MetricSpec` as its single source of truth (SSOT). The spec defines:
+- **`cell`**: The target data scope and density the metric applies to.
+- **`aggregation`**: How cross-sectional and time-series reductions compose.
+- **`requires`**: The upstream intermediate data dependencies.
+- **`batchable`**: Whether the metric can process multiple factors in a single operation.
+
+### `requires` (Dependency Injection)
+Metrics do not always compute directly from raw panels. For example, the Information Coefficient (`ic`) statistic does not consume the raw asset returns directly; it requires the daily time-series of ICs. 
+The `ic` spec declares `requires={"ic_df": compute_ic}`. The DAG executor detects this, schedules `compute_ic` to run first, and injects its output into the `ic` metric.
+
+### `batchable` (Shared Computations)
+Many upstream calculations (like sorting, grouping, or ranking assets to compute ICs or quantiles) are identical across all factor candidates. 
+If a spec is marked `batchable=True`, the executor runs it once across all factors in the batch, significantly reducing overhead compared to looping through each factor individually.
+
+---
+
+## Three orthogonal design axes
+
+An evaluation cell is defined by three orthogonal axes:
+
+| Axis | Values | Description |
+|------|--------|-------------|
+| **FactorScope** | `INDIVIDUAL` / `COMMON` | Does each asset have its own factor value (e.g. P/E ratio), or do all assets share one value (e.g. VIX index)? |
+| **FactorDensity** | `DENSE` / `SPARSE` | Is the signal a continuous numeric exposure, or a sparse event trigger (non-events are zero; event magnitude is a real number)? |
+| **DataStructure** | `PANEL` / `TIMESERIES` | Derived from the asset count at evaluate-time: `PANEL` for $N \ge 2$, and `TIMESERIES` for $N == 1$. |
+
+Any metric cell can run under either `DataStructure` — the dispatcher automatically routes to the correct statistical procedure. For example, evaluating a continuous macro factor on $N=1$ asset automatically falls back to a single-series time-series regression.

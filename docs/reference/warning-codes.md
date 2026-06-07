@@ -3,7 +3,7 @@ title: Warning, info, and stat codes
 ---
 
 Structured enum payloads attached to every
-`FactorProfile`. Use these as the SSOT
+`EvaluationResult`. Use these as the SSOT
 when you need to filter, route, or trigger downstream behaviour from
 factrix output without parsing free-text strings.
 
@@ -14,9 +14,9 @@ The three enums:
   the user decides whether to pre-filter on warnings before
   multi-factor Benjamini-Hochberg-Yekutieli (BHY).
 - **`InfoCode`** — information-severity diagnose annotations (e.g.
-  scope-axis collapsed under `PanelMode = TIMESERIES`).
+  scope-axis collapsed under `DataStructure = TIMESERIES`).
 - **`StatCode`** — canonical names for the scalar statistics that
-  populate `FactorProfile.metrics`.
+  populate `EvaluationResult.metrics`.
 
 Each member's trigger / meaning is sourced from
 `factrix._codes.<Code>.description` (single source of truth, also

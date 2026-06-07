@@ -8,9 +8,14 @@ How to read factrix errors and which exception class to catch.
 
 ```python
 import factrix as fx
+from factrix.metrics import ic_newey_west
 
 try:
-    results = fx.evaluate(data, metrics={"ic": ic()}, factor_cols=["factor"])
+    results = fx.evaluate(
+        data, 
+        metrics={"ic": ic_newey_west()}, 
+        factor_cols=["factor"]
+    )
 except fx.UserInputError as exc:
     # User typed the wrong thing — typo, unknown name, wrong column.
     # The message carries a fuzzy suggestion + a docs link.
@@ -19,7 +24,7 @@ except fx.IncompatibleAxisError as exc:
     # Axis miswire.
     ...
 except fx.InsufficientSampleError as exc:
-    # n_periods or other axis is below the required hard floor.
+    # Sample threshold is below the required hard floor.
     # exc.actual_periods and exc.required_periods carry details.
     ...
 except fx.FactrixError as exc:
@@ -35,8 +40,8 @@ All factrix-raised exceptions inherit from `FactrixError`, so a single
 ```
 FactrixError                       # base
 ├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
-├── InsufficientSampleError        # T below MIN_PERIODS_HARD on a TIMESERIES procedure
-├── UnknownEstimatorError          # lookup miss in get_estimator
+├── InsufficientSampleError        # T below SampleThreshold on a TIMESERIES/PANEL procedure
+├── UnknownEstimatorError          # lookup miss in functional estimator namespace
 └── UserInputError                 # named-set typo / type mismatch / dataset schema error
 ```
 
@@ -44,51 +49,44 @@ FactrixError                       # base
 |---|---|---|
 | `IncompatibleAxisError` | `(scope, density, metric)` is not a legal cell | — |
 | `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
-| `UnknownEstimatorError` | `get_estimator(name)` lookup miss | — |
-| `UserInputError` | Unknown metric / estimator / `primary` label, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
+| `UnknownEstimatorError` | `get_estimator` lookup miss | — |
+| `UserInputError` | Unknown metric / estimator, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
 
 ---
 
 ## Error → fix mapping
 
 Concrete messages, what triggers them, and where to look for the fix.
-Use the table to skim; jump to the linked page for the why.
 
-### Panel-schema failures
+### Data-schema failures
 
 | Message hint | Trigger | Fix |
 |---|---|---|
-| `factor_col 'X' not in panel columns` | Typo or wrong column name | Check `panel.columns`; pass the actual name to `factor_col=`. See [Panel schema § `factor_col=`](panel-schema.md#factor_col--non-default-signal-column-name). |
-| `Both 'factor' and 'X' present` | Wide panel still has stale `"factor"` column alongside the renamed one | `panel.drop("factor")` before calling. |
-| `forward_return column missing` | Forgot the preprocess step | `compute_forward_return(raw, forward_periods=h)` before `evaluate`. See [Panel schema § Preprocess pipeline](panel-schema.md#preprocess-pipeline). |
+| `factor_cols 'X' not in data columns` | Typo or wrong column name | Check `data.columns`; pass the actual name to `factor_cols=`. See [Panel schema](panel-schema.md). |
+| `forward_return column missing` | Forgot the preprocess step | `compute_forward_return(raw, forward_periods=h)` before `evaluate`. See [Preparing data](../guides/preparing-data.md). |
 
 ### Structural and sample failures
 
 | Exception / message | Trigger | Fix |
 |---|---|---|
-| `IncompatibleAxisError: (scope, density, metric) is not a legal cell` | Combination like `(INDIVIDUAL, SPARSE, IC)` that the dispatch table never registers | Use compatible axes. Check [`list_metrics`](list-metrics.md) or [`inspect_data`](../guides/reading-results.md) to find applicable metrics. |
-| `InsufficientSampleError: T below required` | `n_periods` below the procedure's hard floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or switching to a TIMESERIES-friendly metric. See [Panel vs timeseries](../guides/panel-timeseries.md). |
+| `IncompatibleAxisError: (scope, density, metric) is not a legal cell` | Combination that the dispatch table never registers | Use compatible axes. Check [`list_metrics`](list-metrics.md) or [`inspect_data`](inspect-data.md) to find applicable metrics. |
+| `InsufficientSampleError: T below required` | Sample size below the procedure's hard floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or switching to a less restrictive metric. |
 
 ### User-input failures (`UserInputError`)
 
-Every `UserInputError` carries structured attributes (see
-[Reading a `UserInputError`](#reading-a-userinputerror)). Common
-triggers and fix paths:
+Every `UserInputError` carries structured attributes (see [Reading a `UserInputError`](#reading-a-userinputerror)). Common triggers and fix paths:
 
 | Message hint | Trigger | Fix |
 |---|---|---|
-| `unknown metric='...'` | Typo or metric not applicable to the cell | `inspect_data(panel).usable` enumerates the metrics applicable to a panel; `exc.suggestions` carries the top-3 fuzzy candidates. See [`list_metrics`](list-metrics.md) for the full catalog. |
-| `unknown estimator='...'` | Typo or estimator not applicable to the cell | `list_estimators()` enumerates every registered estimator. See [`list_estimators`](list-estimators.md). |
-| `unknown expand_over='...'` | Context key not present on every profile in the family | All profiles in the family must carry the key in `.context`; check that the caller is populating it consistently at `evaluate` time. See [Cross-function reference § `expand_over`](decision-tree.md#expand_over-is-not-one-concept) for the three different `expand_over` semantics across functions. |
-| `expand_over=[...] requires every profile to carry key 'X'` | One or more profiles missing the key | Confirm the upstream `evaluate` call records the key in `context=...`. |
-| `Expected: list[FactorProfile], got list[MetricsBundle]` | Passing the wrong artefact family to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[FactorProfile]` (primary-p carriers). For descriptive cross-factor views use `compare(bundles)`. See [API reference § Typical patterns](index.md#typical-patterns). |
+| `unknown metrics='...'` | Typo or metric not applicable to the data | `inspect_data(data).usable` enumerates the metrics applicable to the data shape. See [`list_metrics`](list-metrics.md) for the full catalog. |
+| `unknown expand_over='...'` | Context key not present on every result in the family | All results in the family must carry the key in `.context`; check that the caller is populating it consistently. |
+| `Expected: list[EvaluationResult], got ...` | Passing the wrong artifact type to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[EvaluationResult]`. |
 
 ---
 
 ## Reading a `UserInputError`
 
-Every user-facing raise that takes a named input renders the same
-three-part message:
+Every user-facing raise that takes a named input renders the same three-part message:
 
 ```
 bhy(): unknown expand_over='univere_id'
@@ -101,25 +99,22 @@ bhy(): unknown expand_over='univere_id'
 |---|---|
 | `<func_name>(): unknown <field>=<value>` | Which kwarg / column triggered the raise, and what value was received. |
 | `Did you mean: "..."` | Top-3 fuzzy candidates (omitted when nothing matches above the cutoff). |
-| `Available: [...]` | The full legal set — sorted, so the same set always renders identically. |
+| `Available: [...]` | The full legal set. |
 | `Docs: https://...` | The function's deployed-docs anchor. |
 
-For type / shape mismatches the second line reads `Expected: <shape>`
-instead of `Did you mean: ...` — same three-part structure, different
-diagnostic.
+For type / shape mismatches, the second line reads `Expected: <shape>` instead of `Did you mean: ...`.
 
 ## Programmatic recovery
 
-The structured attributes are the contract — read them, do not parse
-the rendered message:
+The structured attributes are the contract — read them, do not parse the rendered message:
 
 ```python
 import factrix as fx
 
 bad: dict[str, object] = {}
-for cfg in candidates:
+for factor_col in candidates:
     try:
-        profiles.append(fx.evaluate(panel, cfg))
+        results = fx.evaluate(data, metrics=metrics, factor_cols=[factor_col])
     except fx.UserInputError as exc:
         bad[exc.field] = exc.value
         # exc.suggestions carries top-3 fuzzy matches when applicable
@@ -135,36 +130,11 @@ for cfg in candidates:
 | `expected` | Human-readable shape (mismatch branch); `None` otherwise. |
 | `docs_url` | Resolved deployed-docs URL for the function. |
 
-## Raising your own `UserInputError`
-
-If you build functions on top of factrix and want the same canonical
-format, construct a `UserInputError` directly — it is keyword-only and
-renders its own message:
-
-```python
-import factrix as fx
-
-known = {spec.name for specs in fx.list_metrics().values() for spec in specs}
-if metric_name not in known:
-    raise fx.UserInputError(
-        func_name="run_metrics",
-        field="metrics",
-        value=metric_name,
-        candidates=sorted(known),
-        docs_path="api/run_metrics#metrics",
-    )
-```
-
-Pass exactly one of `candidates` / `expected`. The rendered message is
-human-readable output; downstream code should rely on the attributes
-above, not on substring matches against `str(exc)`.
-
 ---
 
 ## Class reference
 
-Autodoc anchors for cross-references of the form
-`` [`<Error>`][factrix.<Error>] `` from any docs page.
+Autodoc anchors for cross-references of the form `[`FactrixError`][factrix.FactrixError]` from any docs page.
 
 ### Base
 

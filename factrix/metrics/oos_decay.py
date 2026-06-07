@@ -75,9 +75,9 @@ def oos_decay(
 
         - ``value``: survival ratio (NaN on short-circuit)
         - ``stat``: ``None`` — descriptive only (no hypothesis test
-          attached; a t-stat at ``MIN_OOS_PERIODS = 5`` would have power
-          ~ 0 and would invite mis-reading the diagnostic as a
-          significance test)
+        attached; a t-stat at ``MIN_OOS_PERIODS = 5`` would have power
+        ~ 0 and would invite mis-reading the diagnostic as a
+        significance test)
         - ``metadata``:
 
             - ``sign_flipped`` (bool)
