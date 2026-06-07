@@ -1,48 +1,30 @@
-"""Tests for ``factrix.list_estimators``.
+"""Tests for ``factrix.list_estimators`` (#255).
 
-Mirrors the `list_metrics` listing pattern: text-format names, JSON
-dict rows, `with_import` two-column form, and `IncompatibleAxisError`
-on the empty cell.
+No-arg overview API — returns every registered estimator regardless of
+cell context, matching the ``list_metrics`` pattern established in #498.
 """
 
 from __future__ import annotations
 
-import pytest
-from factrix import FactorDensity, FactorScope, list_estimators
-from factrix._errors import IncompatibleAxisError
+from factrix import list_estimators
+
+ALL_NAMES = [
+    "BlockBootstrap",
+    "DriscollKraay",
+    "GMM",
+    "HansenHodrick",
+    "NeweyWest",
+    "WaldNWCluster",
+    "WaldTwoWayCluster",
+]
 
 
-@pytest.mark.parametrize(
-    ("scope", "density", "expected"),
-    [
-        # HansenHodrick + slice-test Estimators restrict to
-        # (INDIVIDUAL, DENSE); NW applies universally.
-        (
-            FactorScope.INDIVIDUAL,
-            FactorDensity.DENSE,
-            [
-                "BlockBootstrap",
-                "DriscollKraay",
-                "GMM",
-                "HansenHodrick",
-                "NeweyWest",
-                "WaldNWCluster",
-                "WaldTwoWayCluster",
-            ],
-        ),
-        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE, ["NeweyWest"]),
-        (FactorScope.COMMON, FactorDensity.DENSE, ["NeweyWest"]),
-        (FactorScope.COMMON, FactorDensity.SPARSE, ["NeweyWest"]),
-    ],
-)
-def test_text_format_returns_name_list(
-    scope: FactorScope, density: FactorDensity, expected: list[str]
-) -> None:
-    assert list_estimators(scope, density) == expected
+def test_text_format_returns_all_names() -> None:
+    assert list_estimators() == ALL_NAMES
 
 
 def test_json_format_includes_metadata_keys() -> None:
-    rows = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE, format="json")
+    rows = list_estimators(format="json")
     by_name = {row["name"]: row for row in rows}
     assert "Bartlett" in by_name["NeweyWest"]["description"]
     assert by_name["NeweyWest"]["import_path"] == "factrix.stats.NeweyWest"
@@ -51,9 +33,7 @@ def test_json_format_includes_metadata_keys() -> None:
 
 
 def test_with_import_returns_two_column_lines() -> None:
-    rows = list_estimators(
-        FactorScope.INDIVIDUAL, FactorDensity.DENSE, with_import=True
-    )
+    rows = list_estimators(with_import=True)
     assert rows == [
         "BlockBootstrap    → factrix.stats.BlockBootstrap",
         "DriscollKraay     → factrix.stats.DriscollKraay",
@@ -66,24 +46,7 @@ def test_with_import_returns_two_column_lines() -> None:
 
 
 def test_with_import_ignored_under_json() -> None:
-    json_rows = list_estimators(
-        FactorScope.INDIVIDUAL,
-        FactorDensity.DENSE,
-        format="json",
-        with_import=True,
-    )
+    json_rows = list_estimators(format="json", with_import=True)
     paths = {row["name"]: row["import_path"] for row in json_rows}
     assert paths["NeweyWest"] == "factrix.stats.NeweyWest"
     assert paths["HansenHodrick"] == "factrix.stats.HansenHodrick"
-
-
-def test_empty_match_raises_incompatible_axis_error(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Force an empty registry so we exercise the defensive raise path
-    # even with NeweyWest's universal applicability.
-    import factrix.stats as stats_pkg
-
-    monkeypatch.setattr(stats_pkg, "_ESTIMATOR_REGISTRY", ())
-    with pytest.raises(IncompatibleAxisError):
-        list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
