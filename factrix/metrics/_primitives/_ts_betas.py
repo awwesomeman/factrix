@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import numpy as np
+from collections.abc import Sequence
+
 import polars as pl
 
 from factrix._axis import (
@@ -18,6 +19,8 @@ from factrix._metric_index import cell
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
 
+# Minimum complete (factor, return) observations per asset to fit a
+# time-series slope. Mirrors the historical per-asset floor.
 MIN_TS_OBS: int = 20
 
 
@@ -29,75 +32,114 @@ MIN_TS_OBS: int = 20
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
+    batchable=True,
 )
 def compute_ts_betas(
     df: pl.DataFrame,
-    *,
-    factor_col: str = "factor",
+    factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
-) -> pl.DataFrame:
-    r"""Per-asset time-series ordinary least squares (OLS): R_{i,t} = α_i + β_i · F_t + ε."""
-    assets = df["asset_id"].unique().sort()
-    rows: list[dict] = []
+) -> dict[str, pl.DataFrame]:
+    r"""Per-asset time-series ordinary least squares (OLS).
 
-    for asset in assets:
-        chunk = df.filter(pl.col("asset_id") == asset).sort("date")
-        y = chunk[return_col].drop_nulls().to_numpy().astype(np.float64)
-        x = chunk[factor_col].drop_nulls().to_numpy().astype(np.float64)
+    Fits $R_{i,t} = \alpha_i + \beta_i \cdot F_t + \varepsilon$ per asset and
+    returns one row per asset. The single-regressor OLS estimates have
+    closed forms (all moments over the asset's pairwise-complete
+    ``(factor, return)`` sample, with $S_{xx} = (n-1)\operatorname{Var}(x)$,
+    etc.):
 
-        n = min(len(y), len(x))
-        if n < MIN_TS_OBS:
-            continue
-        y, x = y[:n], x[:n]
+    $$\beta_i = \frac{\operatorname{Cov}(F, R_i)}{\operatorname{Var}(F)},
+    \quad \alpha_i = \bar{R}_i - \beta_i \bar{F},
+    \quad \text{SSR} = S_{yy} - \beta_i S_{xy},$$
 
-        X = np.column_stack([np.ones(n), x])
-        try:
-            beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-        except np.linalg.LinAlgError:
-            continue
+    $$R^2 = 1 - \frac{\text{SSR}}{S_{yy}}, \quad
+    \operatorname{SE}(\beta_i) = \sqrt{\frac{\text{SSR} / (n - 2)}{S_{xx}}},
+    \quad t_i = \frac{\beta_i}{\operatorname{SE}(\beta_i)}.$$
 
-        alpha_val = float(beta[0])
-        beta_val = float(beta[1])
+    The whole panel is scored in one ``group_by("asset_id").agg(...)`` +
+    one ``collect`` across all factors — no per-asset Python loop.
 
-        resid = y - X @ beta
-        ss_res = float(np.dot(resid, resid))
-        centered = y - np.mean(y)
-        ss_tot = float(np.dot(centered, centered))
-        r_sq = 1.0 - ss_res / ss_tot if ss_tot > EPSILON else 0.0
+    Args:
+        df: Panel with ``date``, ``asset_id``, every name in
+            ``factor_cols``, and ``return_col``.
+        factor_cols: Factor column names to score. All factors run in a
+            single query regardless of N.
+        return_col: Forward-return column shared across factors.
 
-        dof = n - 2
-        if dof > 0 and ss_res / dof > EPSILON:
-            sigma2 = ss_res / dof
-            try:
-                xtx_inv = np.linalg.inv(X.T @ X)
-                se_beta = float(np.sqrt(sigma2 * xtx_inv[1, 1]))
-                t_stat = beta_val / se_beta if se_beta > EPSILON else 0.0
-            except np.linalg.LinAlgError:
-                t_stat = 0.0
-        else:
-            t_stat = 0.0
+    Returns:
+        Dict mapping each factor name to a DataFrame with columns
+        ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
+        ``asset_id``. An asset is emitted only with at least
+        ``MIN_TS_OBS`` complete pairs and non-zero factor time-variation
+        (zero-variance assets have no identifiable slope and are dropped).
+    """
+    cols = list(factor_cols)
+    if not cols:
+        raise ValueError("factor_cols must be non-empty")
 
-        rows.append(
-            {
-                "asset_id": asset,
-                "beta": beta_val,
-                "alpha": alpha_val,
-                "t_stat": t_stat,
-                "r_squared": r_sq,
-                "n_obs": n,
-            }
+    return {f: _ts_betas_one(df, f, return_col) for f in cols}
+
+
+def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.DataFrame:
+    # Restrict every moment to the pairwise-complete (factor, return) set so
+    # cov and var share one sample (polars cov pairwise-drops; bare var would
+    # not), matching a per-asset OLS on the complete observations.
+    valid_mask = pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
+
+    moments = (
+        df.lazy()
+        .filter(valid_mask)
+        .group_by("asset_id")
+        .agg(
+            pl.len().alias("n_obs"),
+            pl.col(factor_col).mean().alias("_xbar"),
+            pl.col(return_col).mean().alias("_ybar"),
+            pl.col(factor_col).var().alias("_var_x"),
+            pl.col(return_col).var().alias("_var_y"),
+            pl.cov(factor_col, return_col).alias("_cov"),
         )
+        .filter(pl.col("n_obs") >= MIN_TS_OBS)
+    )
 
-    if not rows:
-        return pl.DataFrame(
-            {
-                "asset_id": pl.Series([], dtype=pl.String),
-                "beta": pl.Series([], dtype=pl.Float64),
-                "alpha": pl.Series([], dtype=pl.Float64),
-                "t_stat": pl.Series([], dtype=pl.Float64),
-                "r_squared": pl.Series([], dtype=pl.Float64),
-                "n_obs": pl.Series([], dtype=pl.Int64),
-            }
+    n = pl.col("n_obs")
+    s_xx = (n - 1) * pl.col("_var_x")
+    s_yy = (n - 1) * pl.col("_var_y")
+    s_xy = (n - 1) * pl.col("_cov")
+    # ``_var_x > 0`` (scale-free) is the degeneracy test: a factor with no
+    # time-variation for an asset has no identifiable slope. Producing a null
+    # (not 0/0 = NaN) lets the null be dropped instead of poisoning downstream
+    # cross-asset aggregates.
+    beta = (
+        pl.when(pl.col("_var_x") > EPSILON)
+        .then(pl.col("_cov") / pl.col("_var_x"))
+        .otherwise(None)
+    )
+    # ss_res theoretically >= 0, but max_horizontal prevents float errors from producing negative values (e.g. when R^2 ≈ 1)
+    ss_res = pl.max_horizontal(s_yy - beta * s_xy, 0.0)
+    dof = n - 2
+    se_beta = (ss_res / dof / s_xx).sqrt()
+
+    return (
+        moments.with_columns(beta.alias("beta"))
+        .with_columns(
+            (pl.col("_ybar") - pl.col("beta") * pl.col("_xbar")).alias("alpha"),
+            pl.when(s_yy > EPSILON)
+            .then(1.0 - ss_res / s_yy)
+            .otherwise(0.0)
+            .alias("r_squared"),
+            pl.when((dof > 0) & (ss_res / dof > EPSILON) & (se_beta > EPSILON))
+            .then(pl.col("beta") / se_beta)
+            .otherwise(0.0)
+            .alias("t_stat"),
         )
-
-    return pl.DataFrame(rows)
+        .drop_nulls("beta")
+        .select(
+            "asset_id",
+            "beta",
+            "alpha",
+            "t_stat",
+            "r_squared",
+            pl.col("n_obs").cast(pl.Int64),
+        )
+        .sort("asset_id")
+        .collect()
+    )

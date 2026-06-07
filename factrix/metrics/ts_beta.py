@@ -4,7 +4,7 @@ macro_common factors (VIX, gold, USD index) are a single time series
 shared across all assets. Per-asset time-series regression measures
 each asset's sensitivity (β) to the common factor.
 
-``compute_ts_betas``: per-asset full-sample TS regression.
+``compute_ts_betas``: per-asset full-sample TS regression → ``{factor: per-asset DataFrame}``.
 ``ts_beta``: cross-sectional test on the β distribution.
 ``mean_r_squared``: average explanatory power across assets.
 ``compute_rolling_mean_beta``: rolling window mean β for stability analysis.
@@ -147,7 +147,7 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> ts_betas_df = compute_ts_betas(panel)["factor"]
         >>> result = ts_beta(ts_betas_df)
         >>> result.name == ""
         True
@@ -232,7 +232,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> ts_betas_df = compute_ts_betas(panel)["factor"]
         >>> result = mean_r_squared(ts_betas_df)
         >>> result.name == ""
         True
@@ -423,7 +423,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> ts_betas_df = compute_ts_betas(panel)
+        >>> ts_betas_df = compute_ts_betas(panel)["factor"]
         >>> result = ts_beta_sign_consistency(ts_betas_df)
         >>> result.name == ""
         True
