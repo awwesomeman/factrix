@@ -36,8 +36,8 @@ class MetricResult:
             single integer count is not meaningful (e.g. multi-window
             CAAR series).
         stat: Test statistic (t, z, W, chi2, ...), when applicable.
-        metadata: Tool-specific context (``p_value``, ``stat_type``,
-            ``h0``, ``method`` are the standard keys).
+        metadata: Estimator-specific context beyond the top-level fields
+            (``stat_type``, ``h0``, ``method`` are the standard keys).
         warning_codes: Per-metric advisory :class:`WarningCode` values
             (as strings) the producer attached to *this* output.
             Empty tuple when the metric raised no advisory.

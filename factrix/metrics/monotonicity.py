@@ -205,7 +205,6 @@ def monotonicity(
             value=avg_mono,
             stat=t,
             metadata={
-                "p_value": p,
                 "stat_type": "t",
                 "h0": "mu=0",
                 "mean_signed": mean_mono,

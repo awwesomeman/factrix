@@ -94,7 +94,7 @@ class TestDriscollKraayPath:
         res = pooled_beta(df, driscoll_kraay=True)
         assert res.stat is None
         assert res.metadata["reason"] == "insufficient_periods"
-        assert res.metadata["p_value"] == 1.0
+        assert res.p_value == 1.0
 
     def test_mutually_exclusive_with_two_way_cluster(self):
         df = _common_factor_panel(n_dates=40, n_assets=10, rho=0.2)

@@ -249,8 +249,8 @@ def fm_beta(
     )
     actual_lags = _resolve_nw_lags(n, newey_west_lags, forward_periods)
 
+    p_final = p
     metadata: dict = {
-        "p_value": p,
         "stat_type": "t",
         "h0": "mean(β)=0",
         "method": "Fama-MacBeth + Newey-West",
@@ -289,14 +289,14 @@ def fm_beta(
                     "shanken_c": c,
                     "shanken_factor_return_var": sigma2_f,
                     "shanken_factor_return_var_source": source,
-                    "p_value": p_shanken,
                     "method": ("Fama-MacBeth + Newey-West + Shanken (1992) EIV"),
                 }
             )
+            p_final = p_shanken
             t = t_shanken
 
     return MetricResult(
-        p_value=metadata.get("p_value"),
+        p_value=p_final,
         value=mean_beta,
         stat=t,
         metadata=metadata,
@@ -386,7 +386,6 @@ def _pooled_beta_driscoll_kraay(
                 "reason": "insufficient_periods",
                 "n_periods": n_periods,
                 "min_required": _MIN_DK_PERIODS,
-                "p_value": 1.0,
             },
         )
 
@@ -408,7 +407,6 @@ def _pooled_beta_driscoll_kraay(
         )
 
     metadata = {
-        "p_value": p,
         "stat_type": "t",
         "h0": "β=0",
         "method": f"Pooled OLS + Driscoll-Kraay (1998) SE ({cluster_col})",
@@ -627,7 +625,6 @@ def pooled_beta(
                     "reason": "insufficient_clusters",
                     "n_clusters": g_a,
                     "min_required": 3,
-                    "p_value": 1.0,
                 },
             )
         effective_meat = (g_a / (g_a - 1)) * meat_a
@@ -656,7 +653,6 @@ def pooled_beta(
                     "min_required": 3,
                     "n_clusters_a": g_a,
                     "n_clusters_b": g_b,
-                    "p_value": 1.0,
                 },
             )
         effective_meat = (
@@ -702,7 +698,6 @@ def pooled_beta(
     p = _p_value_from_t(t_stat, df_t)
 
     metadata = {
-        "p_value": p,
         "stat_type": "t",
         "h0": "β=0",
         "method": method_desc,

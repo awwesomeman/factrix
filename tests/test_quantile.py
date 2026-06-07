@@ -109,7 +109,7 @@ class TestQuantileSpread:
             assert "short_alpha" in result.metadata
             assert "long_stat" in result.metadata
             assert "short_stat" in result.metadata
-            assert "p_value" in result.metadata
+            assert result.p_value is not None
 
 
 class TestQuantileSpreadVW:

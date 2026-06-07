@@ -210,7 +210,6 @@ def k_spread(
         metadata={
             "n_periods": n,
             "k": k,
-            "p_value": p,
             "stat_type": "t",
             "h0": "mu=0",
             "method": sig_method,

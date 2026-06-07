@@ -196,7 +196,6 @@ def directional_hit_rate(
         n_obs=n,
         stat=float(s_n),
         metadata={
-            "p_value": p,
             "stat_type": "z",
             "h0": "independent_direction",
             "method": "Pesaran-Timmermann (1992)",

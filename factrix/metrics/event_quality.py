@@ -129,7 +129,6 @@ def event_hit_rate(
         metadata={
             "n_events": n,
             "n_hits": hits,
-            "p_value": p,
             "stat_type": stat_type,
             "h0": "p=0.5",
             "method": _binomial_test_method_name(n),
@@ -232,7 +231,6 @@ def event_ic(
         stat=z,
         metadata={
             "n_events": n,
-            "p_value": p,
             "stat_type": "z",
             "h0": "rho=0",
             "method": "Spearman rank correlation (|density| vs signed_car)",
@@ -405,7 +403,6 @@ def event_skewness(
             "n_events": n,
             **(
                 {
-                    "p_value": p,
                     "stat_type": "z",
                     "h0": "skew=0",
                     "method": "D'Agostino skew test",

@@ -147,6 +147,5 @@ def event_around_return(
         metadata={
             "per_offset": per_offset,
             "interpretation": "value = mean |pre-event return|; high = potential leakage",
-            "p_value": 1.0,
         },
     )

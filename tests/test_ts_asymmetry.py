@@ -31,7 +31,7 @@ class TestSymmetricDgp:
         r = 0.05 * f + rng.standard_normal(T) * 0.5
         out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
         # H0: β_long + β_short = 0; under symmetric DGP we should not reject.
-        assert out.metadata["p_value"] > 0.05
+        assert out.p_value > 0.05
         # Method B should run (continuous f → both sides have variation).
         assert "p_wald_slopes" in out.metadata
         assert out.metadata["p_wald_slopes"] > 0.05
@@ -47,7 +47,7 @@ class TestAsymmetricDgp:
         r = 0.20 * np.maximum(f, 0) + rng.standard_normal(T) * 0.4
         out = ts_asymmetry(_series_panel(f, r), forward_periods=1)
         assert out.value > 0
-        assert out.metadata["p_value"] < 0.05
+        assert out.p_value < 0.05
         assert out.metadata["beta_long"] > out.metadata["beta_short"]
         # Slope test should also reject β_pos = β_neg.
         assert out.metadata["p_wald_slopes"] < 0.05

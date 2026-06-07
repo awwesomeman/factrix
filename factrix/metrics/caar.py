@@ -175,7 +175,6 @@ def caar(
     metadata: dict = {
         "n_event_dates": n,
         "n_sampled": n_sampled,
-        "p_value": p,
         "stat_type": "t",
         "h0": "mu=0",
         "method": "non-overlapping t-test",
@@ -416,7 +415,6 @@ def bmp_test(
         z = z_bmp
 
     p = _p_value_from_z(z)
-    metadata["p_value"] = p
 
     return MetricResult(
         p_value=p,

@@ -211,7 +211,6 @@ def _quantile_spread_from_series(
         stat=t,
         metadata={
             "n_periods": n,
-            "p_value": p,
             "stat_type": "t",
             "h0": "mu=0",
             "method": sig_method,
@@ -389,7 +388,6 @@ def quantile_spread_vw(
         stat=t,
         metadata={
             "n_periods": n,
-            "p_value": p,
             "stat_type": "t",
             "h0": "mu=0",
             "tie_ratio": tie_ratio,
