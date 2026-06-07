@@ -4,7 +4,7 @@ title: Multi-horizon analysis
 
 The `multi_horizon_ic` and `multi_horizon_hit_rate` functions were
 deprecated in v0.11.0 and removed in v0.12.0. This page documents the
-two supported migration paths. See [#186][i186] for the design history.
+two supported migration paths.
 
 ## Why they were removed
 
@@ -17,7 +17,7 @@ created three structural problems:
 1. **Cross-cuts the metric registry.** The horizon loop produced one
    `MetricResult` aggregating `k` horizons, but the registry is keyed
    per `(scope, density, metric)`.
-2. **Conflicted with the identity-as-family contract** ([#160][i160]).
+2. **Conflicted with the identity-as-family contract.**
    `EvaluationResult` carries `forward_periods` precisely to make
    horizon shopping explicit at the false discovery rate (FDR) layer; the in-metric horizon
    loop collapsed `k` horizons into one identity entry, defeating that
@@ -89,6 +89,4 @@ survivors = bhy_ic.survivors
 adj_p = bhy_ic.adj_p
 ```
 
-[i160]: https://github.com/awwesomeman/factrix/issues/160
-[i186]: https://github.com/awwesomeman/factrix/issues/186
 [bhy]: multi-factor.md

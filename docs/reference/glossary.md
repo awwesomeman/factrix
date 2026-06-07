@@ -122,7 +122,7 @@ the same cell are called separately via
 [`list_metrics`](../api/list-metrics.md) and the per-metric callable;
 they do not enter the headline result.
 
-**Legacy synonyms** (pre-#144 docs and source comments): `procedure-canonical`,
+**Legacy synonyms** (in older docs and source comments): `procedure-canonical`,
 `cell-canonical`, `primary metric`, `canonical metric`. New content uses the
 behavioral phrasing above; legacy occurrences are phased out via the ratchet
 test in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.

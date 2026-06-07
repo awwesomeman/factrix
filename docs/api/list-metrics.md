@@ -29,7 +29,7 @@ from factrix.metrics import ic, fm_beta, breakeven_cost
 ## Per-cell applicability → `inspect_data`
 
 The former `list_metrics(scope, density)` cell filter — together with
-its `format="json"` and `with_import` knobs — is **retired** (#498). To
+its `format="json"` and `with_import` knobs — is **retired**. To
 learn which metrics actually run on a given panel, and which are
 degraded or blocked by sample floors, inspect a real panel with
 `inspect_data`:
