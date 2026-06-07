@@ -236,7 +236,6 @@ def spanning_alpha(
         n_obs=n_obs,
         stat=ols.alpha_t,
         metadata={
-            "p_value": p,
             "stat_type": "t",
             "h0": "alpha=0",
             "method": "OLS spanning regression",

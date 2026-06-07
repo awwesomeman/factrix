@@ -88,7 +88,7 @@ def ts_asymmetry(
     - ``value`` = method-A magnitude ``β_long + β_short`` (0 under
       perfect symmetry; positive = long side stronger)
     - ``stat``  = ``value`` / Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) SE
-    - ``metadata["p_value"]`` = method-A Wald p (two-sided)
+    - ``p_value`` = method-A Wald p (two-sided)
 
     Method B (Gate C passing) populates ``beta_pos`` / ``beta_neg`` /
     ``p_wald_slopes``; otherwise ``method_b_skipped`` carries the
@@ -259,7 +259,6 @@ def ts_asymmetry(
         value=asym_value,
         stat=asym_t,
         metadata={
-            "p_value": p_a,
             "stat_type": "wald (NW HAC)",
             "h0": "beta_long + beta_short = 0",
             "method": "method A: dummy regression on sign(factor)",

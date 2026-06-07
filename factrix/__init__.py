@@ -13,17 +13,18 @@ Single-factor::
     import factrix as fx
     from factrix.metrics import ic_newey_west
 
-    [result] = fx.evaluate(
+    results = fx.evaluate(
         panel, metrics={"ic": ic_newey_west()}, factor_cols=["factor"]
     )
-    print(result.metrics["ic"])
+    print(results["factor"].metrics["ic"])
 
 Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
     results = fx.evaluate(
         panel, metrics={"ic": ic_newey_west()}, factor_cols=candidate_cols
     )
-    survivors = fx.multi_factor.bhy(results, primary=[ic], q=0.05)
+    ic_results = {col: er.metrics["ic"] for col, er in results.items()}
+    survivors = fx.multi_factor.bhy(ic_results, primary=["ic"], q=0.05)
 
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
 typical usage patterns in a single fetch. Two access paths::
@@ -100,9 +101,8 @@ def evaluate(
     metrics: "dict[str, MetricBase]",
     factor_cols: list[str],
     forward_periods: int | None = None,
-    primary: str | None = None,
     strict: bool = True,
-) -> list[EvaluationResult]:
+) -> "dict[str, EvaluationResult]":
     """Evaluate one or more factors against forward returns through the DAG executor.
 
     Closed-set DAG dispatch — every spec referenced by another spec's
@@ -114,17 +114,13 @@ def evaluate(
         data: Long-format data satisfying the four-column floor
             ``(date, asset_id, <factor_col>, forward_return)``. The
             three fixed-name columns ``(date, asset_id, forward_return)``
-            are validated eagerly; the factor-column name is dynamic
-            and supplied via ``factor_cols=``. ``forward_return`` must
-            already be attached via
-            :func:`factrix.preprocess.compute_forward_return`. ``price``
-            is **not** required at the baseline — it is an optional
-            column consumed by event-study metrics (caar /
-            event_around_return / mfe_mae_summary), which short-circuit
-            to NaN with a ``reason`` when ``price`` is absent.
+            are validated eagerly; ``forward_return`` must already be
+            attached via :func:`factrix.preprocess.compute_forward_return`.
+            ``price`` is optional — consumed by event-study metrics which
+            short-circuit to NaN when it is absent.
         metrics: ``dict[str, Metric]`` mapping a caller-chosen label to a
             metric **instance** from :mod:`factrix.metrics` (e.g.
-            ``{"ic_5d": ic(), "spread": quantile_spread(n_quantiles=5)}``).
+            ``{"ic_5d": ic(), "spread": quantile_spread(n_groups=5)}``).
             Results key by these labels. Passing the bare class (``ic``
             rather than ``ic()``), a ``str`` or a :class:`MetricSpec` is
             rejected with a targeted error. One metric class may run under
@@ -132,38 +128,34 @@ def evaluate(
             ``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}`` — via
             by-value DAG dedup; shared upstream producers are computed
             once per distinct config.
-        factor_cols: Names of density columns on ``data``. List-only —
+        factor_cols: Names of factor columns on ``data``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``data``.
         forward_periods: Default forward-return horizon (rows of the data's
             time axis) for metrics left at their signature default. A
             per-instance value — ``ic(forward_periods=20)`` — always overrides
-            it. ``None`` (default) leaves every metric at its own
-            default. ``EvaluationResult.forward_periods`` reports the primary
-            metric's resolved horizon.
-        primary: Label of the primary metric — drives
-            ``EvaluationResult.n_obs`` and the primary / diagnostic
-            partition. ``None`` (default) uses the first ``metrics`` key
-            (insertion order). Must be a key of ``metrics``.
+            it. ``None`` (default) leaves every metric at its own default.
+            Stamped on every :class:`EvaluationResult` as
+            ``forward_periods``; per-metric resolved horizons are in
+            ``result.metrics[label].metadata["forward_periods"]``.
         strict: When ``True`` (default), raise if any metric is
             inapplicable to the data (apply-time short-circuit to NaN).
             When ``False``, keep those as NaN outputs with attached
             warnings. Config-time / construct-time failures always raise.
 
     Returns:
-        ``list[EvaluationResult]`` in ``factor_cols`` order. Always a
-        list — single factor calls return a one-element list. The
-        ``cell`` tuple stamped on each result derives from the primary
-        metric's cell and is informational only; ``DagExecutor`` does
-        not consult it for dispatch.
+        ``dict[str, EvaluationResult]`` keyed by factor column name, in
+        ``factor_cols`` insertion order. Each value carries the full
+        per-metric outputs, panel structural stats (``n_periods``,
+        ``n_pairs``), and warnings for that factor.
 
     Raises:
         UserInputError: ``metrics`` not a ``dict[str, Metric]`` of
-            instances; ``primary`` not a metrics label; ``factor_cols``
-            empty / single ``str`` / contains duplicates / references a
-            column not on ``data``; ``data`` missing a baseline column;
-            a metric ``requires`` a producer absent from the registry; under
-            ``strict=True``, a metric inapplicable to the data.
+            instances; ``factor_cols`` empty / single ``str`` / contains
+            duplicates / references a column not on ``data``; ``data``
+            missing a baseline column; a metric ``requires`` a producer
+            absent from the registry; under ``strict=True``, a metric
+            inapplicable to the data.
 
     Examples:
         Single-factor IC + IC information ratio (IR):
@@ -178,21 +170,17 @@ def evaluate(
         ...     factor_cols=["factor"],
         ...     forward_periods=5,
         ... )
-        >>> len(results)
-        1
-        >>> "ic" in results[0].metrics and "ic_ir" in results[0].metrics
+        >>> "ic" in results["factor"].metrics
+        True
+        >>> "ic_ir" in results["factor"].metrics
         True
     """
     _validate_metrics_arg(metrics)
-    primary_label = _resolve_primary(metrics, primary)
     cols = _validate_factor_cols_arg(factor_cols)
     data = _coerce_data(data)
     _validate_baseline_columns(data)
     _validate_factor_cols_on_data(data, cols)
 
-    # label -> spec, plus per-instance params with forward_periods resolved
-    # against the top-level default (an instance still at its signature default
-    # inherits ``forward_periods=``; an explicit per-instance value overrides).
     label_spec = {label: type(inst).spec() for label, inst in metrics.items()}
     label_params = {
         label: _resolve_instance_params(inst, forward_periods)
@@ -200,41 +188,25 @@ def evaluate(
     }
 
     nodes, label_to_node, node_kwargs = _build_nodes(label_spec, label_params)
-    primary_node = label_to_node[primary_label]
     node_to_label = {nid: label for label, nid in label_to_node.items()}
 
-    primary_spec = label_spec[primary_label]
-    _validate_primary_metric_applicable(primary_spec, data, strict)
+    _validate_all_metrics_applicable(label_spec, data, strict)
 
-    primary_cell = primary_spec.cell
-    scope = (
-        primary_cell.scope if primary_cell.scope is not None else FactorScope.INDIVIDUAL
-    )
-    density = (
-        primary_cell.density
-        if primary_cell.density is not None
-        else FactorDensity.DENSE
-    )
-    # Bundle-level forward_periods is the primary metric's resolved horizon.
-    fp = node_kwargs[primary_node].get(
-        "forward_periods", forward_periods if forward_periods is not None else 5
-    )
+    fp = forward_periods if forward_periods is not None else 5
 
-    executor = DagExecutor(nodes, primary_names=(primary_node,))
+    executor = DagExecutor(nodes)
     result_dict = executor.execute(
         data,
         cols,
-        scope=scope,
-        density=density,
+        scope=FactorScope.INDIVIDUAL,
+        density=FactorDensity.DENSE,
         forward_periods=fp,
         kwargs_by_metric=node_kwargs,
     )
-    return [
-        _relabel_result(
-            result_dict[c], label_to_node, node_to_label, primary_label, strict
-        )
+    return {
+        c: _relabel_result(result_dict[c], label_to_node, node_to_label, strict)
         for c in cols
-    ]
+    }
 
 
 _DOCS_METRICS = "api/evaluate#metrics"
@@ -334,22 +306,6 @@ def _validate_metrics_arg(metrics: object) -> None:
                 ),
                 docs_path=_DOCS_METRICS,
             )
-
-
-def _resolve_primary(metrics: "dict[str, MetricBase]", primary: str | None) -> str:
-    """Resolve the primary label — explicit ``primary`` or the first dict key."""
-    keys = list(metrics)
-    if primary is None:
-        return keys[0]
-    if primary not in metrics:
-        raise UserInputError(
-            func_name="evaluate",
-            field="primary",
-            value=primary,
-            expected=f"one of the metrics labels {keys!r}",
-            docs_path=_DOCS_METRICS,
-        )
-    return primary
 
 
 _NO_DEFAULT = object()
@@ -507,7 +463,6 @@ def _relabel_result(
     result: EvaluationResult,
     label_to_node: dict[str, str],
     node_to_label: dict[str, str],
-    primary_label: str,
     strict: bool,
 ) -> EvaluationResult:
     """Re-key a node-keyed executor result onto the user's labels."""
@@ -528,13 +483,11 @@ def _relabel_result(
         else w
         for w in result.warnings
     ]
-    group = MetricResultGroup(
-        applicable=list(label_to_node),
-        primary=[primary_label],
-        diagnostic=[label for label in label_to_node if label != primary_label],
-        outputs=label_outputs,
+    return dataclasses.replace(
+        result,
+        metrics=MetricResultGroup(outputs=label_outputs),
+        warnings=warnings,
     )
-    return dataclasses.replace(result, metrics=group, warnings=warnings)
 
 
 def _validate_factor_cols_arg(factor_cols: object) -> list[str]:
@@ -618,45 +571,39 @@ def _validate_baseline_columns(data: pl.DataFrame) -> None:
     )
 
 
-def _validate_primary_metric_applicable(
-    primary: MetricSpec, data: pl.DataFrame, strict: bool
+def _validate_all_metrics_applicable(
+    label_spec: "dict[str, MetricSpec]", data: pl.DataFrame, strict: bool
 ) -> None:
-    """Reject a primary metric whose ``cell.structure`` disagrees with the data.
+    """Reject any metric whose declared ``cell.structure`` disagrees with the data.
 
-    DataStructure is the cheap pre-flight gate: IC / FM / quantile_spread declare
-    ``cell.structure = DataStructure.PANEL`` and produce only NaN short-circuits on a
-    single-asset data; surfacing that as a UserInputError keeps the
-    diagnostic specific instead of letting the executor return a result
-    bundle whose every metric carries an ``UPSTREAM_UNAVAILABLE`` warning.
-    Cell-axis (scope / density) applicability requires data detection
-    and is left to ``fx.inspect_data`` for the explicit pre-flight path.
+    DataStructure is the cheap pre-flight gate: panel metrics (IC / FM /
+    quantile_spread) produce only NaN short-circuits on single-asset data;
+    surfacing that eagerly keeps the diagnostic specific.
 
-    Under ``strict=False`` this guard is skipped: a structure mismatch is an apply-time failure, so the metric is
-    allowed to flow through to a NaN output + warning rather than raise. The
-    ``strict=True`` default keeps the eager raise.
+    Under ``strict=False`` this guard is skipped and structure mismatches
+    flow through to NaN outputs + warnings.
     """
     if not strict:
         return
-    cell_structure = primary.cell.structure
-    if cell_structure is None:
-        return
     data_structure = _detect_structure(data)
-    if cell_structure is data_structure:
-        return
     n_assets = int(data["asset_id"].n_unique())
-    raise UserInputError(
-        func_name="evaluate",
-        field="metrics",
-        value=primary.name,
-        expected=(
-            f"primary metric {primary.name!r} declares "
-            f"cell.structure={cell_structure.value!r} but data has "
-            f"structure={data_structure.value!r} (n_assets={n_assets}); "
-            f"call fx.inspect_data(data) to see metrics applicable "
-            f"to this data shape"
-        ),
-        docs_path=_DOCS_METRICS,
-    )
+    for label, spec in label_spec.items():
+        cell_structure = spec.cell.structure
+        if cell_structure is None or cell_structure is data_structure:
+            continue
+        raise UserInputError(
+            func_name="evaluate",
+            field="metrics",
+            value=label,
+            expected=(
+                f"metric {label!r} declares "
+                f"cell.structure={cell_structure.value!r} but data has "
+                f"structure={data_structure.value!r} (n_assets={n_assets}); "
+                f"call fx.inspect_data(data) to see metrics applicable "
+                f"to this data shape"
+            ),
+            docs_path=_DOCS_METRICS,
+        )
 
 
 __version__ = "0.13.0"

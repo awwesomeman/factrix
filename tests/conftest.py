@@ -47,10 +47,10 @@ def make_result(
     extra_outputs: dict[str, MetricResult] | None = None,
     extra_primaries: tuple[str, ...] = (),
 ) -> EvaluationResult:
-    """Build an :class:`EvaluationResult` carrying the named primary metric.
+    """Build an :class:`EvaluationResult` for testing.
 
-    ``p=None`` simulates a metric output that emitted no p-value
-    (exercising the family resolver's missing-p path).
+    ``primary`` and ``extra_primaries`` name the metric labels included in
+    outputs. ``p=None`` simulates a metric with no p-value.
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     primary_out = MetricResult(
@@ -59,20 +59,16 @@ def make_result(
     outputs = {primary: primary_out}
     if extra_outputs:
         outputs.update(extra_outputs)
-    primaries = [primary, *extra_primaries]
-    primary_names = primaries
+    # extra_primaries is retained for call-site compatibility but is a no-op:
+    # MetricResultGroup no longer carries a primary/diagnostic partition.
     return EvaluationResult(
         factor=factor,
         cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),
         forward_periods=forward_periods,
-        n_obs=100,
+        n_periods=100,
+        n_pairs=2500,
         n_assets=25,
-        metrics=MetricResultGroup(
-            applicable=primary_names,
-            primary=primary_names,
-            diagnostic=[],
-            outputs=outputs,
-        ),
+        metrics=MetricResultGroup(outputs=outputs),
         plan="1. test [per-factor]",
         context=context or {},
     )

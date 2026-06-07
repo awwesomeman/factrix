@@ -147,7 +147,6 @@ def corrado_rank(
         metadata={
             "n_events": n_events,
             "n_total_obs": len(ranked),
-            "p_value": p,
             "stat_type": "z",
             "h0": "mu_rank=0",
             "method": "Corrado (1989) rank test",

@@ -67,11 +67,11 @@ for name, p in candidates.items():
         factor_cols=[name],
         forward_periods=5,
     )
-    results.extend(res)
+    results.extend(res.values())
 
-for res in results:
-    ic_res = res.metrics["ic"]
-    print(f"  {res.factor:12s} p_value={ic_res.p_value:.4g}")
+for er in results:
+    ic_res = er.metrics["ic"]
+    print(f"  {er.factor:12s} p_value={ic_res.p_value:.4g}")
 ```
 
 ## 3. Apply BHY

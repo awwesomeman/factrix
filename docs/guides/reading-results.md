@@ -12,11 +12,12 @@ Each entry point in `factrix` returns a frozen result dataclass. This page walks
 ## `EvaluationResult` — single-factor `evaluate()` result
 
 ```python
-[result] = fx.evaluate(
+results = fx.evaluate(
     data,
     metrics={"ic": ic_newey_west()},
     factor_cols=["factor"],
 )
+result = results["factor"]
 ```
 
 An `EvaluationResult` represents the outcome of evaluating a single factor column over all specified metrics. Read the fields in the order below:
@@ -34,7 +35,8 @@ An `EvaluationResult` represents the outcome of evaluating a single factor colum
 
 | Field | Type | Notes |
 |---|---|---|
-| `n_obs` | `int` | Final-stage sample size for the primary metric after trimming. |
+| `n_periods` | `int` | Unique non-null dates in the factor column — the time-series depth. |
+| `n_pairs` | `int` | Non-null `(date, asset_id)` pairs — the effective cross-sectional coverage. |
 | `n_assets` | `int` | Unique assets in the panel (union across dates). |
 
 ### 3. Evaluated metrics (`result.metrics`)

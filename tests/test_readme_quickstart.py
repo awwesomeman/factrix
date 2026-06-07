@@ -24,7 +24,7 @@ def test_readme_quickstart_runs_end_to_end() -> None:
     )
 
     assert len(results) == 1
-    p = results[0].metrics["ic"].metadata.get("p_value")
+    p = results["factor"].metrics["ic"].p_value
     assert isinstance(p, float)
     assert 0.0 <= p <= 1.0
 

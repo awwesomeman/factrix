@@ -231,7 +231,6 @@ def ts_quantile_spread(
         value=spread_value,
         stat=spread_t,
         metadata={
-            "p_value": p_spread,
             "stat_type": "wald (NW HAC)",
             "h0": "beta_top = beta_bottom",
             "method": "OLS on bucket dummies + Newey-West HAC",

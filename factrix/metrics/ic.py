@@ -194,7 +194,6 @@ def ic(
         stat=t,
         metadata={
             "n_periods": n,
-            "p_value": p,
             "stat_type": "t",
             "h0": "mu=0",
             "method": "non-overlapping t-test",
@@ -284,7 +283,6 @@ def ic_newey_west(
         stat=t,
         metadata={
             "n_periods": n,
-            "p_value": p,
             "stat_type": "t",
             "h0": "mu=0",
             "method": "Newey-West HAC t-test on overlapping IC series",

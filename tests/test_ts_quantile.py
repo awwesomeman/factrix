@@ -33,7 +33,7 @@ class TestLinearDgp:
         r = 0.10 * f + rng.standard_normal(T) * 0.5
         out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
         assert out.value > 0
-        assert out.metadata["p_value"] < 0.05
+        assert out.p_value < 0.05
         assert out.metadata["spearman_rho"] > 0.5
 
     def test_top_bucket_mean_exceeds_bottom(self):
@@ -61,7 +61,7 @@ class TestNullDgp:
             f = rng.standard_normal(T)
             r = rng.standard_normal(T) * 0.5
             out = ts_quantile_spread(_series_panel(f, r), n_groups=5)
-            if out.metadata["p_value"] < 0.05:
+            if out.p_value < 0.05:
                 rejects += 1
         rate = rejects / n_trials
         # Wide-but-meaningful band: 0–13% covers binomial noise at n=100

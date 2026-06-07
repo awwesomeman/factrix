@@ -108,7 +108,7 @@ def compute_forward_return(
         >>> results = fx.evaluate(
         ...     panel, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
         ... )
-        >>> isinstance(results, list) and len(results) == 1
+        >>> isinstance(results, dict) and "factor" in results
         True
     """
     return (

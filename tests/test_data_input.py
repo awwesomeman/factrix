@@ -54,7 +54,7 @@ def test_evaluate_accepts_lazyframe_end_to_end(data_pl: pl.DataFrame) -> None:
     lazy = fx.evaluate(
         data_pl.lazy(), metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
     )
-    assert eager[0].metrics["ic"].value == lazy[0].metrics["ic"].value
+    assert eager["factor"].metrics["ic"].value == lazy["factor"].metrics["ic"].value
 
 
 def test_evaluate_rejects_pandas_with_guidance(data_pl: pl.DataFrame) -> None:

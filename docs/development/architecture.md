@@ -110,7 +110,8 @@ class EvaluationResult:
     factor: str
     cell: tuple[FactorScope, FactorDensity, DataStructure]
     forward_periods: int
-    n_obs: int
+    n_periods: int
+    n_pairs: int
     n_assets: int
     metrics: MetricResultGroup
     plan: str

@@ -63,7 +63,7 @@ for i in range(0, len(factor_cols), chunk_size):
         strict=False,  # Keep inapplicable metrics as NaN with warnings instead of raising
     )
 
-    all_results.extend(chunk_results)
+    all_results.extend(chunk_results.values())
 
     # chunk_data is now free to be garbage collected
 ```

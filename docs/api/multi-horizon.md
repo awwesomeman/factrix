@@ -52,7 +52,7 @@ for h in horizons:
         factor_cols=["mom_12_1"],
         forward_periods=h,
     )
-    results.extend(res)
+    results.extend(res.values())
 
 table = pl.concat([r.to_frame() for r in results])  # long-form: horizon x metric
 ```
@@ -76,7 +76,7 @@ for h in horizons:
         factor_cols=["mom_12_1"],
         forward_periods=h,
     )
-    results.extend(res)
+    results.extend(res.values())
 
 fdr_res = fx.multi_factor.bhy(
     results,

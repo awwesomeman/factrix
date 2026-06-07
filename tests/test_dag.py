@@ -413,7 +413,7 @@ class TestEndToEndIcCell:
         }
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        ex = DagExecutor(specs, primary_names=["ic"])
+        ex = DagExecutor(specs)
         out = ex.execute(panel, ["factor"], **axes)
         r = out["factor"]
         assert isinstance(r, fx.EvaluationResult)

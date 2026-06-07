@@ -208,7 +208,6 @@ def top_concentration(
     # WHY: one-sided test → p = P(T < t), not two-sided
     p = _p_value_from_t(t, n, alternative="less")
     metadata: dict = {
-        "p_value": p,
         "stat_type": "t",
         "h0": "ratio>=0.5",
         "method": "one-sided t-test on ratio",

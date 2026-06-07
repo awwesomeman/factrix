@@ -177,7 +177,6 @@ def ic_trend(
 
     p = _p_value_from_t(approx_t, n)
     metadata: dict = {
-        "p_value": p,
         "stat_type": "t",
         "h0": "slope=0",
         "method": "theil-sen CI approximation",

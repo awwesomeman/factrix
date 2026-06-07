@@ -277,12 +277,13 @@ class TestSpanningEvaluate:
         # Create a second factor column so we have multiple candidate factors
         panel = panel.with_columns((pl.col("factor") + pl.lit(0.01)).alias("factor2"))
 
-        [er1, er2] = fx.evaluate(
+        results = fx.evaluate(
             panel,
             metrics={"gfs": greedy_forward_selection(suppress_snooping_warning=True)},
             factor_cols=["factor", "factor2"],
             forward_periods=2,
         )
+        er1, er2 = results["factor"], results["factor2"]
 
         assert "gfs" in er1.metrics.outputs
         assert "gfs" in er2.metrics.outputs

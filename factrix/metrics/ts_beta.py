@@ -98,7 +98,6 @@ def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricRe
         stat=float(row["t_stat"]),
         metadata={
             "n_assets": 1,
-            "p_value": 1.0,
             "method": "single-asset TS regression (no cross-asset test)",
         },
     )
@@ -175,7 +174,6 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
         value=mean_b,
         stat=t,
         metadata={
-            "p_value": p,
             "stat_type": "t",
             "h0": "mean(β)=0",
             "method": "cross-sectional t-test on per-asset TS betas",
