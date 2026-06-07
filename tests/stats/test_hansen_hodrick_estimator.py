@@ -8,7 +8,6 @@ by ``tests/stats/test_hansen_hodrick.py``.
 from __future__ import annotations
 
 import pytest
-from factrix import list_estimators
 from factrix._axis import FactorDensity, FactorScope
 from factrix._codes import StatCode
 from factrix.stats import Estimator, HansenHodrick
@@ -47,18 +46,3 @@ def test_applicable_to(
 def test_emits_for_returns_p_hh() -> None:
     code = HansenHodrick().emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
     assert code is StatCode.P_HH
-
-
-def test_listed_for_individual_continuous() -> None:
-    names = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-    assert "HansenHodrick" in names
-    assert "NeweyWest" in names
-
-
-def test_not_listed_for_sparse_or_common() -> None:
-    for scope, density in [
-        (FactorScope.INDIVIDUAL, FactorDensity.SPARSE),
-        (FactorScope.COMMON, FactorDensity.DENSE),
-        (FactorScope.COMMON, FactorDensity.SPARSE),
-    ]:
-        assert "HansenHodrick" not in list_estimators(scope, density)

@@ -1,7 +1,7 @@
 """Tests for the Driscoll-Kraay estimator surface.
 
 Covers the selection-only ``DriscollKraay`` Estimator (protocol /
-registry / ``list_estimators`` / ``emits_for``), the numeric primitives
+registry / ``emits_for``), the numeric primitives
 ``_bartlett_lrcov`` / ``_driscoll_kraay_cov``, and the lowercase
 ``factrix.estimators.driscoll_kraay`` callable.
 """
@@ -14,7 +14,7 @@ from factrix._axis import FactorDensity, FactorScope
 from factrix._codes import StatCode
 from factrix._stats import _bartlett_lrcov, _driscoll_kraay_cov
 from factrix.estimators import driscoll_kraay
-from factrix.stats import _ESTIMATOR_REGISTRY, DriscollKraay, Estimator, list_estimators
+from factrix.stats import _ESTIMATOR_REGISTRY, DriscollKraay, Estimator
 
 
 def _dk_cov_reference(
@@ -61,13 +61,11 @@ class TestDriscollKraayEstimator:
     def test_in_registry(self):
         assert "DriscollKraay" in {type(e).__name__ for e in _ESTIMATOR_REGISTRY}
 
-    def test_surfaced_by_list_estimators_for_individual_dense(self):
-        names = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-        assert "DriscollKraay" in names
+    def test_surfaced_by_list_estimators(self):
+        from factrix import list_estimators
 
-    def test_excluded_from_common_cell(self):
-        names = list_estimators(FactorScope.COMMON, FactorDensity.DENSE)
-        assert "DriscollKraay" not in names
+        names = list_estimators()
+        assert "DriscollKraay" in names
 
 
 class TestBartlettLrcov:

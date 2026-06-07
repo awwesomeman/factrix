@@ -22,7 +22,7 @@ InferenceResult` for heteroskedasticity-and-autocorrelation-consistent (HAC)-on-
 `AnalysisConfig.estimator=` for evaluate-time inference dispatch.
 Default-constructed instances live in
 `factrix.stats._ESTIMATOR_REGISTRY` and surface through
-`list_estimators(scope, signal)` (top-level factrix export).
+`list_estimators()` (no-arg overview, top-level factrix export).
 
 | Class | Protocol | Algorithm family | Emits | Applicable to | Use when |
 |---|---|---|---|---|---|

@@ -32,7 +32,6 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from factrix._axis import FactorDensity, FactorScope
 from factrix.stats._estimator import (
     Estimator,
     GMMResult,
@@ -54,10 +53,9 @@ from factrix.stats.newey_west import NeweyWest
 from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 
 # Internal registry consumed by `factrix.list_estimators`. Append new
-# Estimator instances here as they land — `list_estimators` filters by
-# `applicable_to(scope, density)` so the registry is the single source
-# of truth for "which estimators exist". Slice-test Estimators (#153)
-# enter the registry with default-constructed instances; callers
+# Estimator instances here as they land — the registry is the single
+# source of truth for "which estimators exist". Slice-test Estimators
+# (#153) enter the registry with default-constructed instances; callers
 # override the defaults by passing an explicitly-constructed instance
 # to the slice-test function (#176).
 _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
@@ -95,26 +93,20 @@ def get_estimator(name: str) -> Estimator:
 
 
 def list_estimators(
-    scope: FactorScope,
-    density: FactorDensity,
     *,
     format: Literal["text", "json"] = "text",
     with_import: bool = False,
 ) -> list[str] | list[dict[str, Any]]:
-    """Return Estimator instances applicable to ``(scope, density)``.
+    """Return all registered Estimator instances.
 
-    Mirrors :func:`factrix.list_metrics` shape so callers can build a
-    single pre-flight pattern: ``list_metrics`` says which scalars a
-    cell can emit, ``list_estimators`` says which inference methods
-    can drive the family function's ``estimator=`` kwarg for that
-    cell. DataStructure is intentionally not an input — Estimator applicability
-    is not structure-dependent.
+    Pure discovery API — returns every estimator in the registry
+    regardless of cell context; this function intentionally does not
+    filter. Each ``Estimator`` still declares the
+    ``(scope, density)`` cell it applies to via
+    ``Estimator.applicable_to`` (the reserved per-cell contract), but
+    that predicate is not consulted here.
 
     Args:
-        scope: Cell axis to filter on (``FactorScope.INDIVIDUAL`` or
-            ``FactorScope.COMMON``).
-        density: Cell axis to filter on (``FactorDensity.DENSE`` or
-            ``FactorDensity.SPARSE``).
         format: ``"text"`` (default) returns Estimator names sorted
             alphabetically. ``"json"`` returns ``list[dict]`` rows with
             keys ``name``, ``description``, ``import_path``.
@@ -124,35 +116,17 @@ def list_estimators(
             Ignored under JSON (``import_path`` is always present
             there).
 
-    Raises:
-        IncompatibleAxisError: ``(scope, density)`` matches no
-            registered Estimator. ``NeweyWest`` applies to every
-            user-facing cell, so as long as it stays in the registry
-            this branch is defensive.
-
     Examples:
-        Discover applicable estimators for an INDIVIDUAL × DENSE cell:
+        Discover all registered estimators:
 
         >>> import factrix as fx
-        >>> names = fx.list_estimators(
-        ...     fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE,
-        ... )
+        >>> names = fx.list_estimators()
 
         JSON form for tooling:
 
-        >>> rows = fx.list_estimators(
-        ...     fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE, format="json",
-        ... )
+        >>> rows = fx.list_estimators(format="json")
     """
-    from factrix._errors import IncompatibleAxisError
-
-    matches = [e for e in _ESTIMATOR_REGISTRY if e.applicable_to(scope, density)]
-    if not matches:
-        raise IncompatibleAxisError(
-            f"no estimators applicable to (scope={scope.value}, density={density.value})"
-        )
-
-    matches.sort(key=lambda e: e.name)
+    matches = sorted(_ESTIMATOR_REGISTRY, key=lambda e: e.name)
 
     rows = [
         {

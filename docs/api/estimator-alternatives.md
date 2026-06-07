@@ -75,16 +75,18 @@ The applicability gate runs at config construction, not at
 # example pending v0.14.0 docs rewrite
 ```
 
-To inspect what's available for a given cell:
+To inspect what's registered (no-arg overview, #255):
 
 ```python
-fx.list_estimators(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE)
+fx.list_estimators()
 # ['BlockBootstrap', 'DriscollKraay', 'GMM', 'HansenHodrick', 'NeweyWest',
 #  'WaldNWCluster', 'WaldTwoWayCluster']
 ```
 
 `list_estimators` returns every registered `Estimator` (selection-axis
-and HAC-axis); the construction gate further narrows to `HACEstimator`
+and HAC-axis) regardless of cell. Per-cell applicability is each
+estimator's own `applicable_to(scope, density)` contract, and the
+construction gate at `evaluate` time further narrows to `HACEstimator`
 instances applicable to the cell.
 
 ## Cross-sectional dependence — `pooled_beta` Driscoll-Kraay SE

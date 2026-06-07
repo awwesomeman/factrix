@@ -78,7 +78,7 @@ triggers and fix paths:
 | Message hint | Trigger | Fix |
 |---|---|---|
 | `unknown metric='...'` | Typo or metric not applicable to the cell | `inspect_data(panel).usable` enumerates the metrics applicable to a panel; `exc.suggestions` carries the top-3 fuzzy candidates. See [`list_metrics`](list-metrics.md) for the full catalog. |
-| `unknown estimator='...'` | Typo or estimator not applicable to the cell | `list_estimators(scope, signal)` enumerates the applicable set. See [`list_estimators`](list-estimators.md). |
+| `unknown estimator='...'` | Typo or estimator not applicable to the cell | `list_estimators()` enumerates every registered estimator. See [`list_estimators`](list-estimators.md). |
 | `unknown expand_over='...'` | Context key not present on every profile in the family | All profiles in the family must carry the key in `.context`; check that the caller is populating it consistently at `evaluate` time. See [Cross-function reference § `expand_over`](decision-tree.md#expand_over-is-not-one-concept) for the three different `expand_over` semantics across functions. |
 | `expand_over=[...] requires every profile to carry key 'X'` | One or more profiles missing the key | Confirm the upstream `evaluate` call records the key in `context=...`. |
 | `Expected: list[FactorProfile], got list[MetricsBundle]` | Passing the wrong artefact family to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[FactorProfile]` (primary-p carriers). For descriptive cross-factor views use `compare(bundles)`. See [API reference § Typical patterns](index.md#typical-patterns). |

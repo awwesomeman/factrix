@@ -144,22 +144,3 @@ class TestRegistryIntegration:
         types_in_registry = {type(e).__name__ for e in _ESTIMATOR_REGISTRY}
         assert "NeweyWest" in types_in_registry
         assert "HansenHodrick" in types_in_registry
-
-    def test_list_estimators_surfaces_slice_test_estimators(self):
-        from factrix import list_estimators
-
-        names = list_estimators(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-        assert "WaldNWCluster" in names
-        assert "WaldTwoWayCluster" in names
-        assert "BlockBootstrap" in names
-
-    def test_list_estimators_excludes_slice_test_estimators_for_common(self):
-        from factrix import list_estimators
-
-        names = list_estimators(FactorScope.COMMON, FactorDensity.DENSE)
-        # NW applies universally; slice-test Estimators + HH restricted to (INDIVIDUAL, DENSE).
-        assert "NeweyWest" in names
-        assert "WaldNWCluster" not in names
-        assert "WaldTwoWayCluster" not in names
-        assert "BlockBootstrap" not in names
-        assert "HansenHodrick" not in names
