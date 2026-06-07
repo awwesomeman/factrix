@@ -69,7 +69,7 @@ Concrete messages, what triggers them, and where to look for the fix.
 
 | Exception / message | Trigger | Fix |
 |---|---|---|
-| `IncompatibleAxisError: (scope, density, metric) is not a legal cell` | Combination that the dispatch table never registers | Use compatible axes. Check [`list_metrics`](list-metrics.md) or [`inspect_data`](inspect-data.md) to find applicable metrics. |
+| `IncompatibleAxisError: (scope, density, metric) is not a legal cell` | Combination that the dispatch table never registers | Use compatible axes. Check [`list_metrics`](metrics/index.md#factrix.list_metrics) or [`inspect_data`](inspect-data.md) to find applicable metrics. |
 | `InsufficientSampleError: T below required` | Sample size below the procedure's hard floor | Read `.actual_periods` and `.required_periods`. The fix is either more data, or switching to a less restrictive metric. |
 
 ### User-input failures (`UserInputError`)
@@ -78,7 +78,7 @@ Every `UserInputError` carries structured attributes (see [Reading a `UserInputE
 
 | Message hint | Trigger | Fix |
 |---|---|---|
-| `unknown metrics='...'` | Typo or metric not applicable to the data | `inspect_data(data).usable` enumerates the metrics applicable to the data shape. See [`list_metrics`](list-metrics.md) for the full catalog. |
+| `unknown metrics='...'` | Typo or metric not applicable to the data | `inspect_data(data).usable` enumerates the metrics applicable to the data shape. See [`list_metrics`](metrics/index.md#factrix.list_metrics) for the full catalog. |
 | `unknown expand_over='...'` | Context key not present on every result in the family | All results in the family must carry the key in `.context`; check that the caller is populating it consistently. |
 | `Expected: list[EvaluationResult], got ...` | Passing the wrong artifact type to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[EvaluationResult]`. |
 

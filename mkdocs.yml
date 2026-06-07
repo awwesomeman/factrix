@@ -186,7 +186,6 @@ nav:
               - partial_conjunction: api/partial-conjunction.md
               - bhy_hierarchical: api/bhy-hierarchical.md
           - Discovery:
-              - list_metrics: api/list-metrics.md
               - estimators: api/estimators.md
               - metric_spec: api/metric-spec.md
           - Diagnostics:

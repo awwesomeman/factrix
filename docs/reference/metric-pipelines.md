@@ -19,7 +19,7 @@ The matrix lists **all** metric modules — both the metrics
 (`ic`, `fm_beta`, `caar`, `ts_beta`)
 and the standalone helpers the user calls directly on a `EvaluationResult`
 (`quantile`, `monotonicity`, `tradability`, `clustering`, `corrado`, …).
-The [`list_metrics`](../api/list-metrics.md) runtime API filters this same
+The [`list_metrics`](../api/metrics/index.md#factrix.list_metrics) runtime API filters this same
 data to the standalone subset by `(scope, signal)`.
 
 The table below is auto-generated from `Matrix-row:` tags in each module's
@@ -55,4 +55,4 @@ inference-SE rationale, see [Statistical methods](statistical-methods.md);
 for `n_obs` / `n_assets` thresholds per metric, see
 [Metric applicability](metric-applicability.md). For the runtime API
 that returns the same data filtered by `(scope, signal)`, see
-[`list_metrics`](../api/list-metrics.md).
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics).

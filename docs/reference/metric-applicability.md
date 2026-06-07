@@ -15,7 +15,7 @@ formulae, parameters, and Notes / References live in the
 [Metrics API pages](../api/metrics/index.md); this page is the
 cross-metric overview. For the runtime API that returns the per-cell
 metric list programmatically, see
-[`list_metrics`](../api/list-metrics.md).
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
 
 ## Sample dimensions
 

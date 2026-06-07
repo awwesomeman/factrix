@@ -53,7 +53,7 @@ flowchart LR
     click BHY "multi-factor/" "bhy API"
     click PC "partial-conjunction/" "partial_conjunction API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
-    click LM "list-metrics/" "list_metrics API"
+    click LM "metrics/#factrix.list_metrics" "list_metrics API"
     click CMP "compare/" "compare API"
     click ID "inspect-data/" "inspect_data API"
 ```
@@ -97,7 +97,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction screening. | "Factor passes in ≥ k of m contexts." |
 | [`bhy_hierarchical`](bhy-hierarchical.md) | Screening (FDR) | Two-stage hierarchical BHY FDR. | Grouped / nested-context screening. |
 | [`compare`](compare.md) | Descriptive view | Cross-factor leaderboard — stacks evaluation results into a `pl.DataFrame`. | Ranking candidate factors. |
-| [`list_metrics`](list-metrics.md) | Introspection | Family-grouped catalog of standalone public metrics. | Browsing the metric catalog. |
+| [`list_metrics`](metrics/index.md#factrix.list_metrics) | Introspection | Family-grouped catalog of standalone public metrics. | Browsing the metric catalog. |
 | [`inspect_data`](inspect-data.md) | Introspection | Inspects a panel's applicability metrics. | Pre-flight check on data dimensions. |
 | [`Metrics`](metrics/index.md) | Catalogue | Per-module reference for every public function under `factrix.metrics`. | Calling a standalone metric directly. |
 | [`stats`](stats.md) | Catalogue | Statistical estimators and HAC/bootstrap utilities. | Under-the-hood statistical details. |

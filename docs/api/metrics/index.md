@@ -26,6 +26,49 @@ Reverse index — match your situation to the likely landing page:
 For sample-size guards (when a metric short-circuits to NaN) see
 [Reference § Metric applicability](../../reference/metric-applicability.md).
 
+## Programmatic catalog: `list_metrics()`
+
+::: factrix.list_metrics
+
+`list_metrics()` is the programmatic form of the index above. It takes
+**no arguments** and returns a family-grouped catalog — a
+`dict[str, list[MetricSpec]]` keyed by concept family (the declaring
+module stem):
+
+```python
+import factrix as fx
+
+overview = fx.list_metrics()
+overview["ic"]       # [MetricSpec(name="ic", ...), MetricSpec(name="ic_ir", ...), ...]
+sorted(overview)     # ['caar', 'fm_beta', 'ic', ...] — the concept families
+```
+
+The catalog is a *reference*, not a runnable input — wire concrete
+callables up from `factrix.metrics` and pass them to
+[`evaluate`](../evaluate.md):
+
+```python
+from factrix.metrics import ic, fm_beta, breakeven_cost
+```
+
+### Per-cell applicability → `inspect_data`
+
+`list_metrics()` takes no cell filter. To learn which metrics actually
+run on a given panel — and which are degraded or blocked by sample
+floors — inspect a real panel with `inspect_data`:
+
+```python
+info = fx.inspect_data(panel)
+[m.name for m in info.usable]     # production-safe metrics for this panel
+[m.name for m in info.degraded]   # run, but inference degraded
+[m.name for m in info.unusable]   # blocked (cell mismatch / sample floor)
+```
+
+`inspect_data` gives a structure-aware, sample-floor-aware verdict: each
+`MetricApplicability` carries the metric `name`, its callable class, and
+any `blockers` / `warnings`, accounting for the actual panel shape
+(`n_periods` / `n_assets` / `n_pairs`).
+
 ## Cell vs. DataStructure
 
 factrix has **two orthogonal classifications**:

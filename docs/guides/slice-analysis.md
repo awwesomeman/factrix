@@ -65,7 +65,7 @@ ic_df = compute_ic(panel)["factor"].join(vol_labels, on="date", how="inner")
 
 ## Discovering eligible metrics
 
-`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Enumerate the candidate set from the [`list_metrics()`](../api/list-metrics.md) catalog by filtering each spec's `input_shape`:
+`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Enumerate the candidate set from the [`list_metrics()`](../api/metrics/index.md#factrix.list_metrics) catalog by filtering each spec's `input_shape`:
 
 ```python
 import factrix as fx

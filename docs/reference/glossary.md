@@ -119,7 +119,7 @@ metric callable that [`evaluate()`](../api/evaluate.md) runs internally
 — `ic`, `fm_beta`, `caar`, or `ts_beta` — and that metric's
 p-value is the primary metric's `MetricResult.p_value`. Other metrics applicable to
 the same cell are called separately via
-[`list_metrics`](../api/list-metrics.md) and the per-metric callable;
+[`list_metrics`](../api/metrics/index.md#factrix.list_metrics) and the per-metric callable;
 they do not enter the headline result.
 
 **Legacy synonyms** (in older docs and source comments): `procedure-canonical`,
