@@ -182,7 +182,11 @@ primitives that procedures wrap:
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
   primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.
-- `compute_fm_betas` carries an inline `if len(y) < 3: continue` guard, no per-date min above 3.
+- `MIN_FM_CS_OBS = 3` — `compute_fm_betas` emits a date only with ≥ 3 complete
+  `(factor, return)` pairs and non-zero cross-sectional variance; the closed-form
+  slope `Cov_t(x, y) / Var_t(x)` is computed batched across factors (one
+  `group_by("date").agg`), so degenerate (zero-variance) dates are dropped rather
+  than assigned an arbitrary least-norm slope.
 
 ### Inflation cost at low `n_assets`
 
