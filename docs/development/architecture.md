@@ -10,8 +10,9 @@ Current-state snapshot of the public API surface and internal layout.
 
 **factrix is a Factor FactorDensity Validator, not a backtest engine.**
 
-The library produces a single `primary_p` per factor cell from a Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
-canonical procedure (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
+The library produces a single canonical p-value (`MetricResult.p_value`) per
+factor per `(scope, density, structure)` cell from the cell's Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
+primary metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -45,7 +46,7 @@ Entry points, all in `factrix.__init__`:
 
 | Symbol | Purpose |
 |--------|---------|
-| `fx.evaluate(panel, metrics=...)` | Dispatch to the registered procedure |
+| `fx.evaluate(panel, metrics=...)` | Dispatch to the metrics applicable to the factor's cell |
 | `fx.multi_factor.bhy(results, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
@@ -65,31 +66,37 @@ see [Concepts § Three orthogonal design axes](../getting-started/concepts.md#th
 for their values and orthogonality.
 
 `DataStructure` is the fourth axis but is **not user-facing** — it is derived at
-evaluate-time from `panel["asset_id"].n_unique()`: `PANEL` for `N ≥ 2`,
-`TIMESERIES` for `N = 1`. Five legal `(scope, signal, metric)` triples ×
-two modes give seven legal `(scope, signal, metric, mode)` cells
-(TIMESERIES narrows to three triples; the remaining tuples are routed via
-the `_SCOPE_COLLAPSED` sentinel defined in `factrix/_axis.py`).
+evaluate-time from `panel["asset_id"].n_unique()` (`factrix._detect_structure`):
+`PANEL` for `N ≥ 2`, `TIMESERIES` for `N = 1`. Each `MetricSpec` declares the
+`(scope, density, structure)` cell it applies to (`None` on an axis = `*`
+wildcard); the DAG executor derives the runtime structure and dispatches each
+requested metric against its cell. A metric inapplicable to the data's cell
+raises under `strict=True` or short-circuits to a NaN `MetricResult` under
+`strict=False`. There is no separate routing token and no scope-collapse step
+(see § PANEL / TIMESERIES equivalence).
 
 ---
 
-## Registry SSOT dispatch
+## MetricSpec SSOT dispatch
 
-`factrix/_registry.py` holds **the** source of truth:
+Each `factrix/metrics/*.py` module declares a module-level `__metric_specs__`
+tuple — **the** source of truth, resolved through `factrix._metric_index`:
 
-- `_DispatchKey(scope, signal, metric, mode)` — the cell coordinate
-- `_RegistryEntry(key, procedure, canonical_use_case, references)` — procedure + docs metadata
-- `_DISPATCH_REGISTRY: dict[_DispatchKey, _RegistryEntry]`
-- `register(key, procedure, *, use_case, refs)` — append-only; duplicate keys raise
-- `matches_user_axis(scope, signal, metric)` — reverse query for `MetricSpec` validation
-- `_SCOPE_COLLAPSED: _ScopeCollapsedSentinel` — internal routing token for `(*, SPARSE, N=1)`; not exposed as a `FactorScope` enum value to keep the user-facing axis narrow
+- `MetricSpec(name, cell, aggregation, test_method, se_method, ...)` — the typed
+  per-callable spec; `cell` is a `(scope, density, structure)` `Cell` with `None`
+  = `*` wildcard on any axis.
+- `spec_by_name() -> dict[str, MetricSpec]` — name → spec lookup across every
+  declared metric.
+- `public_specs()` — visibility-filtered specs (drops `PIPELINE`-role stage-1
+  helpers pulled only via `requires`).
+- `list_metrics()` — the public runtime discovery API, grouped by cell.
 
-Bootstrap order: `_registry` defines `register` / `_DispatchKey`, then imports
-`_procedures` at the bottom of the module so all 7 cells `register(...)` at
-import time. Every introspection/validation path reverse-queries this dict —
-no parallel rule table.
+`@metric`-class registration feeds the same index via
+`factrix.metrics._registry.register`. Every introspection / validation path
+reads this index — no parallel rule table.
 
-Adding a cell touches one `register(...)` call.
+Adding a metric adds one `MetricSpec` to its module's `__metric_specs__` (or
+registers one `@metric` class); the DAG executor picks it up by cell match.
 
 ---
 
@@ -100,36 +107,52 @@ Adding a cell touches one `register(...)` call.
 ```python
 @dataclass(frozen=True, slots=True)
 class EvaluationResult:
-    identity: dict[str, Any]
-    context: dict[str, Any]
-    primary: MetricResult
-    groups: Mapping[str, MetricResultGroup]
-    warnings: tuple[Warning, ...]
-    info_notes: tuple[InfoCode, ...]
+    factor: str
+    cell: tuple[FactorScope, FactorDensity, DataStructure]
+    forward_periods: int
+    n_obs: int
+    n_assets: int
+    metrics: MetricResultGroup
+    plan: str
+    context: Mapping[str, Any] = field(default_factory=dict)
+    warnings: list[Warning] = field(default_factory=list)
 ```
 
-`EvaluationResult` replaces the old `EvaluationResult` and `DagExecutor` architecture. Dispatch now runs through the DAG executor (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
+One unified `EvaluationResult` is returned by `evaluate` — no per-cell subclass.
+It replaces the pre-v0.14 `FactorProfile` (inferential) / `MetricsBundle`
+(descriptive) split. Dispatch runs through the DAG executor
+(`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
-- `diagnose() -> dict[str, Any]` — JSON-shape exit point.
-- Single dataclass returned by `evaluate`.
-
-Metrics results are encapsulated in `MetricResult` and `MetricResultGroup`, with advisory diagnostics stored as a tuple of `Warning` objects.
+- `cell` is the `(scope, density, structure)` tuple of the dispatched cell.
+- Per-metric outputs live in `metrics`, a `MetricResultGroup` of `MetricResult`
+  objects partitioned into applicable / primary / diagnostic names. The
+  canonical p-value is the primary `MetricResult.p_value`.
+- Advisory diagnostics are a flat `list[Warning]` on `warnings` — per-metric
+  records carry `source=<metric name>`, bundle / pre-dispatch records carry
+  `source=None`.
+- `plan` is the DAG executor's numbered topological execution plan.
+- `to_frame()` / `to_dict()` are the serialisation exit points.
 
 ---
 
 ## PANEL / TIMESERIES equivalence
 
-Both modes produce real `primary_p` values — neither is degraded.
+Both structures produce real `MetricResult.p_value` values — neither is degraded.
 
 `(INDIVIDUAL, DENSE, *) × N=1` is mathematically undefined (no
-cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). Evaluate
-raises `IncompatibleAxisError`. Explicit user-correctable, never silent rewrite.
+cross-sectional dispersion → IC and per-date ordinary least squares (OLS) undefined). The IC / FM
+specs declare `cell.structure = PANEL`, so under `strict=True` evaluate raises
+`IncompatibleAxisError`; under `strict=False` the metric short-circuits to a NaN
+`MetricResult` with a `reason`. Explicit and user-correctable, never a silent rewrite.
 
-`(*, SPARSE, *) × N=1` is well-defined but the `INDIVIDUAL` / `COMMON`
-distinction collapses (one asset → no scope axis). Both user-facing factory
-calls route to the same `_TSDummySparseTimeseriesProcedure` via the
-`_SCOPE_COLLAPSED` sentinel, with `InfoCode.SCOPE_AXIS_COLLAPSED` attached
-to the resulting profile so the routing is auditable.
+`(*, SPARSE, *) × N=1` is well-defined and runs with **no scope-collapse step**.
+The sparse metrics' cells apply at `N=1`, so the DAG executor runs them directly
+on the single-asset series — scope-collapse no longer happens, and there is no
+sentinel routing both sparse scopes to a shared TIMESERIES procedure. At `N=1`
+the `INDIVIDUAL` / `COMMON` distinction is moot (one asset → no
+scope axis), but that falls out of the derived structure rather than an explicit
+routing token, and no `InfoCode` is attached (`InfoCode` is a reserved,
+currently-empty enum).
 
 ---
 
@@ -256,9 +279,9 @@ sweep.
 
 ## Procedure pipelines
 
-The 7 registered procedures differ in **aggregation order** — which axis is
-collapsed first determines small-sample failure modes and the N=1 collapse
-behavior. The user-facing factory chosen determines which pipeline runs.
+The primary-metric pipelines differ in **aggregation order** — which axis is
+collapsed first determines small-sample failure modes and the N=1 behaviour. The
+cell a factor dispatches to determines which pipeline runs.
 
 The two universal `n_periods` floors apply to every panel/timeseries pipeline
 listed below — `n_periods < MIN_PERIODS_HARD` raises `InsufficientSampleError`,
@@ -344,10 +367,11 @@ series the t-stat is computed on.
 Failure modes:
 
 - `n_events < MIN_EVENTS_HARD = 4` → event series too short →
-  primary_p reverts to insufficient.
+  short-circuits to a NaN `MetricResult` (`p_value` conservatively `1.0`).
 - `MIN_EVENTS_HARD ≤ n_events < MIN_EVENTS_WARN = 30` → CAAR `t` is
-  returned but `WarningCode.FEW_EVENTS` fires and the
-  `_CAARSparsePanelProcedure` propagates it into `EvaluationResult.warnings`.
+  returned but `WarningCode.FEW_EVENTS` fires; the `caar` metric attaches it
+  to `MetricResult.warning_codes` and the DAG executor lifts it into
+  `EvaluationResult.warnings`.
 
 ### `common_continuous` — time-series first
 
@@ -423,9 +447,10 @@ single-asset OLS y_t = α + β·D_t + ε on period-dense series   (time-series s
                                                               +  event-window-overlap check
 ```
 
-Reached from both `individual_sparse` and `common_sparse` at N=1 via the
-`_SCOPE_COLLAPSED` sentinel — at N=1 the two scopes are statistically
-equivalent (plan §5.4.1). The series is the **full period grid** with
+Reached whenever a sparse factor evaluates at N=1 — the sparse metrics' cells
+apply at TIMESERIES, so the DAG executor runs them directly on the single-asset
+series (no scope-collapse step; at N=1 the two scopes are statistically
+equivalent). The series is the **full period grid** with
 zero-padding on non-event periods (distinct from the PANEL CAAR pipeline,
 which works on the event-date-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
@@ -469,8 +494,8 @@ and `p_stat: StatCode | None`:
    walks the tuple, not a hash.
 3. `p_stat` (when supplied) must satisfy `is_p_value` and must be populated
    on every profile.
-4. Resolved `p_value` per entry: `primary_p` when `p_stat is None`, else
-   `profile.stats[p_stat]`.
+4. Resolved `p_value` per entry: the primary `MetricResult.p_value` when
+   `p_stat is None`, else the stat keyed by `p_stat`.
 
 All three user-facing raises route through `factrix._errors.UserInputError`
 (#165) so fuzzy suggestions and docs links render uniformly.
@@ -484,7 +509,7 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
 ### Caller responsibilities (#161 contract change)
 
-`bhy` previously auto-partitioned by `_FamilyKey(_DispatchKey, forward_periods)`.
+`bhy` previously auto-partitioned by `(cell, forward_periods)`.
 #161 retired the auto-split in favour of explicit family declaration:
 
 - Mixing cells without distinct `factor_id` now raises `UserInputError`
@@ -498,48 +523,50 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
 ---
 
-## Registry procedure vs standalone metric
+## Primary metric vs supplementary metric
 
-Two-tier metric organisation. Choosing the right tier when adding a new metric:
+Two-tier metric organisation. Both tiers live in `factrix/metrics/*.py` and
+declare a `MetricSpec` in `__metric_specs__`; the tier is a role, not a separate
+module. Choosing the right tier when adding a new metric:
 
-| Tier | Lives in | Count today | Definition | Surfaces |
-|------|----------|-------------|------------|----------|
-| **Registry procedure** | `factrix/_procedures.py` (`register(...)` at module bottom) | exactly 7 (one per legal cell) | The **canonical PASS/FAIL test** for one `(scope, signal, metric, mode)` cell | `evaluate()` dispatch, `primary_p` for screening functions |
-| **Standalone metric** | `factrix/metrics/*.py` | ~19 modules | **Diagnostic / second-look / multi-statistic** decomposition. User imports and calls directly. | `from factrix.metrics import X` returning `MetricResult` |
+| Tier | Role | Definition | Surfaces |
+|------|------|------------|----------|
+| **Primary metric** | the canonical p-value producer for a cell | The **canonical PASS/FAIL test** for one `(scope, density, structure)` cell (IC / FM / CAAR / TS-β) | `evaluate()` dispatch — its `MetricResult.p_value` is the cell's canonical p-value for screening functions |
+| **Supplementary metric** | second-look / diagnostic | **Diagnostic / second-look / multi-statistic** decomposition. Surfaced alongside the primary and importable directly. | the metric's `MetricResult` in `EvaluationResult.metrics`, and `from factrix.metrics import X` |
 
-### When to register
+### When to add a primary metric
 
-Add a registry procedure **only** when introducing a new legal cell on the axis
-(`FactorScope × FactorDensity × Metric × DataStructure`). The 7-cell invariant (`_registry.py::_EXPECTED_REGISTRY_SIZE`)
-is a load-bearing assert — adding to the registry without adding a new cell would
-mean two canonical procedures compete for the same dispatch, breaking the SSOT
-contract.
+Add a primary metric **only** when introducing a new legal cell on the axis
+(`FactorScope × FactorDensity × Metric × DataStructure`) that has no canonical
+p-value producer yet. Two primary metrics competing for the same cell would break
+the SSOT contract — one cell maps to one canonical p-value.
 
-### When to add a standalone metric
+### When to add a supplementary metric
 
 Everything else. Specifically:
 
-- **Same cell already has a canonical procedure** but you want to surface a different angle
+- **Same cell already has a primary metric** but you want to surface a different angle
   (non-linearity, asymmetry, decomposition, regime split). Example precedent:
   `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
-  supplement the registered CAAR procedure for `(INDIVIDUAL, SPARSE, None, PANEL)`.
+  supplement the primary CAAR metric for `(*, SPARSE, PANEL)`.
 - **Descriptive diagnostic without a formal H₀** (concentration Herfindahl-Hirschman index (HHI), tradability, out-of-sample (OOS) decay).
 - **Multi-factor relationship** outside the single-factor inference frame (`spanning.py`).
 
-### Standalone metric contract
+### Supplementary metric contract
 
 - Take `pl.DataFrame` with the cell's standard schema (`date, asset_id, factor, forward_return`)
   plus any optional columns
-- Return `MetricResult` (`factrix/_types.py`) — `name`, `value`, optional `stat`, `significance`,
-  and a `metadata` dict for cell-specific scalars
+- Return `MetricResult` (`factrix/_results.py`) — `name`, `value`, optional `p_value`,
+  `n_obs`, `stat`, `warning_codes`, and a `metadata` dict for cell-specific scalars
 - Use `_short_circuit_output(...)` for sample-floor failures rather than raising
 - Reuse `_stats/` primitives (`_p_value_from_t`, `_calc_t_stat`, NW HAC helpers) so the
-  statistical treatment matches the registered procedures — most notably **NW HAC SE
+  statistical treatment matches the primary metrics — most notably **NW HAC SE
   for any inference on overlapping forward returns**, never iid Welch / OLS SE
 
-A standalone metric never enters BHY automatically (no `EvaluationResult`, no canonical
-`primary_p`); the user is responsible for collecting comparable p-values into a family
-themselves if FDR control is needed across a batch of standalone runs.
+A supplementary metric's p-value is not the cell's canonical p-value; when run
+standalone (`from factrix.metrics import X`) outside `evaluate`, the user is
+responsible for collecting comparable p-values into a family themselves if FDR
+control is needed across a batch.
 
 ---
 

@@ -30,9 +30,9 @@ factrix expresses sample size on three axes (see
   `forward_periods = h`.
 
 `DataStructure` is derived from `N` at evaluate-time: `PANEL` for `N ≥ 2`,
-`TIMESERIES` for `N == 1`. The dispatch registry routes to the cell's
-procedure in either DataStructure; the metric's applicability does not change
-across Modes, only the sample axis that constrains it.
+`TIMESERIES` for `N == 1`. Each metric's `MetricSpec` declares the cell it
+applies to; the metric's applicability does not change across structures, only
+the sample axis that constrains it.
 
 ## Other metrics by family
 
@@ -217,23 +217,28 @@ A few specific caveats worth flagging:
 ## Below-threshold behaviour
 
 When the input fails a sample threshold, factrix never silently
-returns a meaningful-looking result. Three deterministic outcomes:
+returns a meaningful-looking result. The outcome is deterministic and
+keyed to the tier the input falls below:
 
-- **Short-circuit** — the metric returns
-  `MetricResult(value=NaN, metadata={"reason": "..."})` and
-  `EvaluationResult.primary_p` is conservatively pinned to `1.0` so
-  `primary_p` is at or above the user's chosen threshold.
-- **Fallback** — the dispatch registry routes to a degraded but
-  semantically distinct procedure (e.g. `Common × Continuous` at
-  `N == 1` falls back to single-asset ordinary least squares (OLS) without HAC). `diagnose()`
-  fires an `info`-severity rule recording the fallback.
-- **Degraded** — the metric runs but a Profile field is set to
-  `None` (e.g. `clustering_hhi=None` for single-asset event signals).
-  `diagnose()` records the degradation.
+- **Hard floor** — the metric short-circuits to
+  `MetricResult(value=NaN, metadata={"reason": "..."})`. Its `p_value`
+  is conservatively set to `1.0` so a downstream screening pass treats
+  the short-circuit as non-significant rather than a false discovery,
+  and the `NaN` value makes the data shortage impossible to misread as
+  a valid zero.
+- **Warn floor** — the metric is computable but under-powered: it
+  returns the statistic, emits a `UserWarning`, and attaches a
+  `WarningCode` that the DAG executor lifts into
+  `EvaluationResult.warnings`, so the interpretation risk is auditable.
+- **Upstream unavailable** — a metric whose required upstream producer
+  short-circuited is itself skipped with a `NaN` `MetricResult` +
+  `WarningCode.UPSTREAM_UNAVAILABLE`, rather than being run on missing
+  data.
 
-Structural errors (wrong cell, missing column, `N == 1` on a cell that
-requires `PANEL` DataStructure) raise `ValueError` / [`FactrixError`][factrix.FactrixError] rather than
-falling back.
+Structural errors (wrong cell, missing column, `N == 1` on a metric
+whose `MetricSpec` cell requires `PANEL`) raise
+[`FactrixError`][factrix.FactrixError] (e.g. `IncompatibleAxisError`)
+under `strict=True` rather than short-circuiting.
 
 ## Event-study contracts
 
