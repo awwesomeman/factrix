@@ -62,8 +62,8 @@ cross-section axis to "burn" `h` periods of samples, so
 non-overlapping resampling at stage 1 would leave inadequate `T` for
 the per-asset OLS at typical horizons.
 
-When the dataset's `signal_horizon` differs from
-`AnalysisConfig.forward_periods`
+When the dataset's `signal_horizon` differs from the
+`forward_periods` passed to `evaluate()`
 ([`datasets.md`](../api/datasets.md) frames the *decay* side of this),
 the realised TIMESERIES-mode signal is also **biased**, not only
 decayed. Two distinct sources compound:

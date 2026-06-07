@@ -161,8 +161,8 @@ Only simple returns are implemented; no log-return option. factrix
 takes `forward_return` as input rather than computing it inside
 `evaluate()` — attach it with
 [`compute_forward_return`](../api/preprocess.md) before dispatch so
-the horizon `N` is explicit and aligned with
-`AnalysisConfig.forward_periods`.
+the horizon `N` is explicit and aligned with the
+`forward_periods` passed to `evaluate()`.
 
 Distinct from "spot return" (contemporaneous one-period return) and
 "realised return" (ex-post return for risk attribution).
@@ -171,7 +171,7 @@ Distinct from "spot return" (contemporaneous one-period return) and
 
 A property of the *synthetic* signal embedded in `make_cs_panel` /
 `make_event_panel` — the horizon at which the generator's nominal IC
-is realised. Aligning `AnalysisConfig.forward_periods` with
+is realised. Aligning `evaluate()`'s `forward_periods` with
 `signal_horizon` is the regime where the synthetic IC / drift is
 calibrated; mismatched horizons induce IC decay (synthetic) and bias
 (in TIMESERIES mode — see

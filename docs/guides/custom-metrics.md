@@ -99,9 +99,13 @@ If you prefer a manual, lower-level approach where you retain full control over 
 ```python
 import polars as pl
 import factrix as fx
+from factrix import MetricSpec, MetricResult, metric_spec
+from factrix.metrics import register
+
+# `cell` and the spec enums are not yet on the public surface; import
+# from the internal modules until they are re-exported.
 from factrix._axis import Aggregation, TestMethod, SEMethod
-from factrix._metric_index import MetricSpec, cell, metric_spec, register
-from factrix import MetricResult
+from factrix._metric_index import cell
 
 # 1. Stamp the spec onto the callable
 @metric_spec(

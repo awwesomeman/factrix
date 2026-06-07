@@ -28,8 +28,6 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
 
 
 ---
-title: factrix.MetricResultGroup
----
 
 ::: factrix.MetricResultGroup
 
@@ -47,8 +45,6 @@ title: factrix.MetricResultGroup
 It supports dict-like lookup (`group["ic"]` to get the `MetricResult` for `"ic"`) as well as dictionary iteration methods (`keys()`, `values()`, `items()`, `__iter__`, and `__len__`).
 
 
----
-title: factrix.MetricResult
 ---
 
 ::: factrix.MetricResult
@@ -70,8 +66,6 @@ title: factrix.MetricResult
 - **`name`** (`str`): The name of the metric, automatically populated during dispatch.
 
 
----
-title: factrix.Warning
 ---
 
 ::: factrix.Warning

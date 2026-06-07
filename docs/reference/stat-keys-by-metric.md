@@ -7,13 +7,13 @@ title: Stat keys by metric
     For applicability gates, see [Metric applicability](metric-applicability.md).
     For computation pipeline, see [Metric pipelines](metric-pipelines.md).
 
-Per-metric schema of the [`MetricResult`](../api/metric-result.md)
+Per-metric schema of the [`MetricResult`](../api/evaluation-results.md#factrix.MetricResult)
 returned by every public callable in `factrix.metrics`.
 
 For the SE / test machinery itself see
 [Statistical methods](statistical-methods.md). For the
 `MetricResult.name` → docs-page reverse index see
-[`MetricResult`](../api/metric-result.md). The
+[`MetricResult`](../api/evaluation-results.md#factrix.MetricResult). The
 `evaluate()`-side equivalent is `EvaluationResult.metrics`.
 
 `metadata` keys are tagged by role in the per-metric subsections

@@ -137,7 +137,7 @@ below.
 | `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` (TIMESERIES) | hard | `factrix/_stats/constants.py` | TIMESERIES procedures (`individual_continuous` / `common_continuous` at `N == 1`); raises `InsufficientSampleError` |
 | `MIN_PERIODS_WARN` | 30 | `T` (TIMESERIES) | warn | `factrix/_stats/constants.py` | same procedures; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_ASSETS` | 10 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous` and `suggest_config`; tags `WarningCode.SMALL_CROSS_SECTION_N` |
+| `MIN_ASSETS` | 10 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.SMALL_CROSS_SECTION_N` |
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.BORDERLINE_CROSS_SECTION_N` |
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
