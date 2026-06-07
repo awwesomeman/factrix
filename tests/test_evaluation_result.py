@@ -29,12 +29,7 @@ def _sample_group() -> MetricResultGroup:
         n_obs=100,
         name="ic_ir",
     )
-    return MetricResultGroup(
-        applicable=["ic", "ic_ir"],
-        primary=["ic"],
-        diagnostic=["ic_ir"],
-        outputs={"ic": ic_out, "ic_ir": ic_ir_out},
-    )
+    return MetricResultGroup(outputs={"ic": ic_out, "ic_ir": ic_ir_out})
 
 
 def _sample_result(
@@ -44,7 +39,8 @@ def _sample_result(
         factor="mom_12_1",
         cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),
         forward_periods=5,
-        n_obs=100,
+        n_periods=100,
+        n_pairs=2500,
         n_assets=25,
         metrics=group,
         plan=plan,
@@ -52,7 +48,7 @@ def _sample_result(
     )
 
 
-class TestMetricResult:
+class TestMetricResultGroup:
     def test_dict_like_access(self):
         g = _sample_group()
         assert "ic" in g
@@ -64,11 +60,11 @@ class TestMetricResult:
         assert {k for k, _ in g.items()} == {"ic", "ic_ir"}
         assert list(iter(g)) == ["ic", "ic_ir"]
 
-    def test_partition_lists_are_names(self):
+    def test_no_partition_fields(self):
         g = _sample_group()
-        assert g.primary == ["ic"]
-        assert g.diagnostic == ["ic_ir"]
-        assert g.applicable == ["ic", "ic_ir"]
+        assert not hasattr(g, "primary")
+        assert not hasattr(g, "diagnostic")
+        assert not hasattr(g, "applicable")
 
 
 class TestEvaluationResultToFrame:
@@ -91,11 +87,17 @@ class TestEvaluationResultToFrame:
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)
         assert df.height == 2
 
+    def test_n_obs_carries_per_metric_sample_size(self):
+        ic_out = MetricResult(value=0.05, n_obs=114, name="ic")
+        spread_out = MetricResult(value=0.01, n_obs=23, name="spread")
+        g = MetricResultGroup(outputs={"ic": ic_out, "spread": spread_out})
+        df = _sample_result(g).to_frame()
+        assert df.filter(pl.col("metric_name") == "ic")["n_obs"][0] == 114
+        assert df.filter(pl.col("metric_name") == "spread")["n_obs"][0] == 23
+
     def test_short_circuit_row_is_null(self):
         bad = MetricResult(value=float("nan"), name="ic")
-        g = MetricResultGroup(
-            applicable=["ic"], primary=["ic"], diagnostic=[], outputs={"ic": bad}
-        )
+        g = MetricResultGroup(outputs={"ic": bad})
         df = _sample_result(g).to_frame()
         row = df.row(0, named=True)
         assert row["value"] is None
@@ -121,12 +123,7 @@ class TestEvaluationResultToFrame:
 
     def test_metric_name_from_name_field(self):
         out = MetricResult(value=0.01, name="fm_beta")
-        g = MetricResultGroup(
-            applicable=["fm_beta"],
-            primary=["fm_beta"],
-            diagnostic=[],
-            outputs={"fm_beta": out},
-        )
+        g = MetricResultGroup(outputs={"fm_beta": out})
         df = _sample_result(g).to_frame()
         assert df.row(0, named=True)["metric_name"] == "fm_beta"
 
@@ -146,10 +143,11 @@ class TestEvaluationResultToDict:
         assert back["cell"]["scope"] == "individual"
         assert back["cell"]["density"] == "dense"
         assert back["cell"]["structure"] == "panel"
-        assert back["n_obs"] == 100
+        assert back["n_periods"] == 100
+        assert back["n_pairs"] == 2500
+        assert "n_obs" not in back
+        assert "metrics_partition" not in back
         assert back["metrics"]["ic"]["p_value"] == 0.012
-        assert back["metrics_partition"]["primary"] == ["ic"]
-        assert back["metrics_partition"]["diagnostic"] == ["ic_ir"]
         assert back["warnings"][0]["code"] == WarningCode.SMALL_CROSS_SECTION_N.value
         assert back["plan"] == "1. ic [per-factor]"
 
@@ -161,9 +159,7 @@ class TestEvaluationResultToDict:
             metadata={"p_value": float("nan")},
             name="ic",
         )
-        g = MetricResultGroup(
-            applicable=["ic"], primary=["ic"], diagnostic=[], outputs={"ic": bad}
-        )
+        g = MetricResultGroup(outputs={"ic": bad})
         d = _sample_result(g).to_dict()
         assert d["metrics"]["ic"]["value"] is None
         assert d["metrics"]["ic"]["stat"] is None
@@ -173,13 +169,16 @@ class TestEvaluationResultToDict:
 
 class TestReprHtml:
     def test_group_renders(self):
-        # MetricResultGroup itself ships only dict-like access; HTML
-        # lives on the bundle. Smoke-test the bundle render.
         r = _sample_result(_sample_group())
         html_out = r._repr_html_()
         assert "EvaluationResult" in html_out
         assert "mom_12_1" in html_out
         assert "ic" in html_out
+
+    def test_no_role_column_in_html(self):
+        r = _sample_result(_sample_group())
+        assert "primary" not in r._repr_html_()
+        assert "diagnostic" not in r._repr_html_()
 
     def test_renders_warnings_when_present(self):
         warnings = [

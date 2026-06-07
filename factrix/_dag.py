@@ -111,10 +111,6 @@ class DagExecutor:
             spec.name)`` via the spec's declaring module. Tests pass an
             explicit resolver to use locally-defined callables without
             building a fake module tree.
-        primary_names: Names of specs whose :class:`MetricResult` is
-            the bundle's primary p-value driver. Empty by default —
-            the primary-vs-diagnostic classification is a cell-level
-            policy decision and lives outside this executor.
 
     Raises:
         CycleError: if ``requires`` introduces a cycle.
@@ -129,7 +125,6 @@ class DagExecutor:
         specs: Sequence[MetricSpec | _Node],
         *,
         fn_resolver: Callable[[str], Callable[..., Any]] | None = None,
-        primary_names: Sequence[str] = (),
     ) -> None:
         import logging
 
@@ -154,7 +149,6 @@ class DagExecutor:
         self._nodes: tuple[_Node, ...] = tuple(nodes)
         self._fn_resolver = fn_resolver or _default_fn_resolver
         self._fn_cache: dict[str, Callable[..., Any]] = {}
-        self._primary_ids = frozenset(primary_names)
         self._plan_steps: list[_PlanStep] = self._build_plan()
 
     def _fn(self, spec: MetricSpec) -> Callable[..., Any]:
@@ -209,6 +203,15 @@ class DagExecutor:
         cols = list(factor_cols)
         n_assets = data.select(pl.col("asset_id").n_unique()).item()
         structure = DataStructure.PANEL if n_assets > 1 else DataStructure.TIMESERIES
+
+        # per-factor panel structure stats (computed before dispatch)
+        factor_n_periods: dict[str, int] = {}
+        factor_n_pairs: dict[str, int] = {}
+        for c in cols:
+            mask = data[c].is_not_null()
+            factor_n_pairs[c] = int(mask.sum())
+            factor_n_periods[c] = int(data.filter(mask)["date"].n_unique())
+
         projections: dict[str, pl.DataFrame] = {}
 
         def project(c: str) -> pl.DataFrame:
@@ -269,7 +272,15 @@ class DagExecutor:
                     metric_outputs[(nid, c)] = out
 
         return self._assemble(
-            cols, scope, density, forward_periods, structure, n_assets, metric_outputs
+            cols,
+            scope,
+            density,
+            forward_periods,
+            structure,
+            n_assets,
+            factor_n_periods,
+            factor_n_pairs,
+            metric_outputs,
         )
 
     def _batch_handle(
@@ -340,14 +351,11 @@ class DagExecutor:
         forward_periods: int,
         structure: DataStructure,
         n_assets: int,
+        factor_n_periods: Mapping[str, int],
+        factor_n_pairs: Mapping[str, int],
         metric_outputs: Mapping[tuple[str, str], MetricResult],
     ) -> dict[str, EvaluationResult]:
         public_nodes = [n for n in self._nodes if n.spec.role is SpecRole.METRIC]
-        applicable = [n.node_id for n in public_nodes]
-        primary = [n.node_id for n in public_nodes if n.node_id in self._primary_ids]
-        diagnostic = [
-            n.node_id for n in public_nodes if n.node_id not in self._primary_ids
-        ]
         plan = self.plan
 
         results: dict[str, EvaluationResult] = {}
@@ -371,25 +379,18 @@ class DagExecutor:
                                 message=reason,
                             )
                         )
-                    # Lift the metric's typed advisory codes into per-source
-                    # Warning records so to_frame() / to_dict() surface them.
                     for code in out.warning_codes:
                         warnings.append(
                             Warning(code=WarningCode(code), source=label, message="")
                         )
-            n_obs = _resolve_n_obs(primary, c, metric_outputs)
             results[c] = EvaluationResult(
                 factor=c,
                 cell=(scope, density, structure),
                 forward_periods=forward_periods,
-                n_obs=n_obs,
+                n_periods=factor_n_periods[c],
+                n_pairs=factor_n_pairs[c],
                 n_assets=n_assets,
-                metrics=MetricResultGroup(
-                    applicable=applicable,
-                    primary=primary,
-                    diagnostic=diagnostic,
-                    outputs=outputs,
-                ),
+                metrics=MetricResultGroup(outputs=outputs),
                 plan=plan,
                 warnings=warnings,
             )
@@ -468,18 +469,6 @@ def _check_upstream_short_circuit(
                 },
             )
     return None
-
-
-def _resolve_n_obs(
-    primary: Sequence[str],
-    factor: str,
-    metric_outputs: Mapping[tuple[str, str], Any],
-) -> int:
-    for name in primary:
-        out = metric_outputs.get((name, factor))
-        if out is not None and isinstance(out, MetricResult) and out.n_obs is not None:
-            return out.n_obs
-    return 0
 
 
 def _topo_sort_nodes(nodes: Sequence[_Node]) -> list[_Node]:

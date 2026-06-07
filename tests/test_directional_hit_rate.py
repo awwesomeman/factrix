@@ -150,13 +150,13 @@ class TestDispatch:
 
         raw = fx.datasets.make_cs_panel(n_assets=25, n_dates=120)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        [er] = fx.evaluate(
+        results = fx.evaluate(
             panel,
             metrics={"da": directional_hit_rate()},
             factor_cols=["factor"],
             forward_periods=5,
         )
-        out = er.metrics["da"]
+        out = results["factor"].metrics["da"]
         assert out.name == "da"
         assert 0.0 <= out.value <= 1.0
 

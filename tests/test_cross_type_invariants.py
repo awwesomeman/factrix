@@ -234,25 +234,17 @@ class TestResultMirrorsSpecAndApplicability:
     @pytest.fixture(scope="class")
     def evaluated(self, request: pytest.FixtureRequest):
         panel = request.getfixturevalue("panel")
-        [result] = fx.evaluate(
+        results = fx.evaluate(
             panel,
             metrics=_CORE_METRICS,
             factor_cols=["factor"],
             forward_periods=5,
-            primary="ic",
         )
-        return result
+        return results["factor"]
 
-    def test_group_partition_invariants(self, evaluated) -> None:
-        group = evaluated.metrics
-        applicable = set(group.applicable)
-        primary = set(group.primary)
-        diagnostic = set(group.diagnostic)
-        # primary + diagnostic exactly tile applicable, disjointly, and every
-        # applicable key produced exactly one output.
-        assert primary | diagnostic == applicable
-        assert primary.isdisjoint(diagnostic)
-        assert set(group.outputs) == applicable
+    def test_outputs_are_all_metric_labels(self, evaluated) -> None:
+        # All requested metric labels appear in outputs.
+        assert set(evaluated.metrics.outputs) == set(_CORE_METRICS)
 
     def test_result_keys_resolve_to_metric_specs(self, evaluated) -> None:
         # Result dict keys are a join key back into the spec table; each must
@@ -280,4 +272,4 @@ class TestResultMirrorsSpecAndApplicability:
         # flagged unusable by inspect_data for the same data.
         info = inspect_data(panel)
         runnable = set(info.usable.names) | set(info.degraded.names)
-        assert set(evaluated.metrics.applicable) <= runnable
+        assert set(evaluated.metrics.outputs) <= runnable

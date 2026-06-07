@@ -223,11 +223,12 @@ class TestDispatch:
 
         raw = fx.datasets.make_cs_panel(n_assets=40, n_dates=120)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        [er] = fx.evaluate(
+        results = fx.evaluate(
             panel,
             metrics={"tks": k_spread(k=5)},
             factor_cols=["factor"],
             forward_periods=5,
         )
+        er = results["factor"]
         assert er.metrics["tks"].name == "tks"
         assert not math.isnan(er.metrics["tks"].value)

@@ -26,41 +26,23 @@ if TYPE_CHECKING:
 class MetricResult:
     """Single-metric result produced by a ``factrix.metrics.*`` primitive.
 
-    Moved here from :mod:`factrix._types` (renamed from ``MetricOutput``)
-    so every result dataclass lives in one module.
-
     Attributes:
         value: Raw metric value.
-        p_value: Two-sided p-value for the metric's hypothesis test, promoted
-            from ``metadata["p_value"]`` to a typed first-class field.
-            Serialisers (:meth:`EvaluationResult.to_frame` / ``to_dict``)
-            read this field; the raw ``metadata["p_value"]`` key is still
-            populated by producers for tool-specific context. ``None`` for
-            descriptive / diagnostic metrics that carry no formal test
-            (primary metrics are never ``None``).
-        n_obs: Sample size the primitive's estimator actually saw. Same
-            family name as ``FactorProfile.n_obs`` but a different scope:
-            per-metric single-stage count, vs. the final-stage test
-            denominator at the dispatched-cell level. ``None`` where a
+        p_value: Two-sided p-value for the metric's hypothesis test.
+            ``None`` for descriptive metrics that carry no formal test.
+        n_obs: Effective sample size the estimator actually used
+            (e.g. number of non-overlapping IC periods, number of
+            events, number of bootstrap windows). ``None`` where a
             single integer count is not meaningful (e.g. multi-window
             CAAR series).
         stat: Test statistic (t, z, W, chi2, ...), when applicable.
         metadata: Tool-specific context (``p_value``, ``stat_type``,
-            ``h0``, ``method`` are the standard keys). Read :attr:`p_value`
-            for the typed promoted view of ``p_value``.
+            ``h0``, ``method`` are the standard keys).
         warning_codes: Per-metric advisory :class:`WarningCode` values
-            (as strings) the producer attached to *this* output — e.g.
-            ``FEW_EVENTS`` / ``BORDERLINE_PORTFOLIO_PERIODS`` /
-            ``UNRELIABLE_SE_SHORT_PERIODS`` from the two-tier sample
-            guards. A typed first-class field (promoted from the legacy
-            ``metadata["warning_codes"]`` stash) so the DAG executor can
-            lift each into a :class:`Warning` record (``source ==`` the
-            metric's label) that surfaces on
-            :meth:`EvaluationResult.to_frame` / ``to_dict``. Empty tuple
-            when the metric raised no advisory.
+            (as strings) the producer attached to *this* output.
+            Empty tuple when the metric raised no advisory.
         name: Metric name stamped by the DAG executor at dispatch time.
-            Empty string for outputs constructed outside the registry
-            (free-standing primitive calls, tests).
+            Empty string for outputs constructed outside the registry.
     """
 
     value: float
@@ -87,27 +69,15 @@ class MetricResult:
 class Warning:
     """Flat per-evaluation diagnostic record.
 
-    Replaces the per-procedure ``frozenset[WarningCode]`` aggregation
-    on :class:`factrix.FactorProfile` with an explicit tuple of
-    ``(code, source, message)`` so callers can filter on the metric
-    that emitted the warning.
-
-    Source convention (uniform across every emission point):
-    a per-metric warning carries ``source == <metric name>`` (the
-    emitting :class:`MetricSpec`'s ``name``); a panel-level /
-    cross-metric warning carries ``source is None``. Callers filter on
-    this — ``w.source == name`` for one metric, ``w.source is None`` for
-    bundle diagnostics — so the two-state ``str | None`` is load-bearing,
-    not incidental.
+    Source convention: a per-metric warning carries
+    ``source == <metric label>``; a panel-level / cross-metric warning
+    carries ``source is None``.
 
     Attributes:
         code: The :class:`WarningCode` enum member.
-        source: Metric name that emitted the warning, or ``None`` for
-            bundle-level / cross-metric diagnostics (e.g. sample-guard
-            failures detected before dispatch).
-        message: Human-readable detail. Empty string when the code's
-            registered description in
-            :data:`factrix._codes._WARNING_DESCRIPTIONS` is sufficient.
+        source: Metric label that emitted the warning, or ``None`` for
+            bundle-level diagnostics.
+        message: Human-readable detail.
     """
 
     code: WarningCode
@@ -117,31 +87,17 @@ class Warning:
 
 @dataclass(frozen=True, slots=True)
 class MetricResultGroup:
-    """Group of metric outputs for one factor at one cell.
+    """Dict-like container of per-metric outputs for one factor.
 
-    Mirrors the ``MetricGroups`` shape that ``inspect_data``
-    exposes: three ``list[str]`` key partitions plus dict-like access to
-    the produced :class:`MetricResult` instances.
-
-    The key is the caller's label when produced by
-    :func:`factrix.evaluate` (the ``dict[str, Metric]`` key) — so
-    two labels may reuse one metric class — and the metric name when
-    produced elsewhere. Iteration / membership / ``keys`` / ``values`` /
-    ``items`` and the partition lists all use that same key.
+    The key is the caller-supplied label (from ``evaluate(metrics=...)``).
+    Supports ``[]``, ``in``, iteration, ``keys`` / ``values`` / ``items``,
+    and ``len``.
 
     Attributes:
-        applicable: Every key applicable to the dispatched cell
-            (superset of ``primary + diagnostic``).
-        primary: Keys whose ``MetricResult`` carries the bundle's primary
-            p-value (driver of downstream multi-factor FDR).
-        diagnostic: Keys whose output is descriptive / supplementary.
-        outputs: ``key -> MetricResult`` for every metric that produced a
-            value (including short-circuit outputs).
+        outputs: ``label -> MetricResult`` for every metric that produced
+            a value (including short-circuit NaN outputs).
     """
 
-    applicable: list[str]
-    primary: list[str]
-    diagnostic: list[str]
     outputs: Mapping[str, MetricResult] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> MetricResult:
@@ -168,53 +124,42 @@ class MetricResultGroup:
 
 @dataclass(frozen=True, slots=True)
 class EvaluationResult:
-    """Bundle-level result for one factor under one ``AnalysisConfig``.
-
-    Single return type for the unified DAG executor;
-    replaces :class:`factrix.FactorProfile` (inferential) and
-    :class:`factrix.MetricsBundle` (descriptive).
+    """Bundle-level result for one factor.
 
     Attributes:
         factor: Factor column name from the source panel.
-        cell: ``(scope, density, structure)`` tuple of the dispatched cell.
-            ``structure`` is ``DataStructure.PANEL`` or ``DataStructure.TIMESERIES``
-            resolved from the panel's asset count at dispatch.
-        forward_periods: Forward-return horizon (rows) the evaluation
-            ran under. Carried through from the source ``AnalysisConfig``
-            so multi-horizon callers can partition / mix-warn without
-            re-threading the config.
-        n_obs: Final-stage estimator sample size — the n the primary
-            metric saw after trimming. Matches the cell's primary
-            ``MetricResult.n_obs`` when one exists; bundle-level field
-            so consumers don't have to reach inside ``metrics``.
-        n_assets: Unique assets in the panel under the any-non-null
-            union (cell-invariant; ``1`` is legal for TIMESERIES).
-        metrics: :class:`MetricResultGroup` carrying the per-metric
-            outputs and the applicable / primary / diagnostic name
-            partitions.
+        cell: ``(scope, density, structure)`` tuple derived from the
+            panel structure at dispatch time. ``structure`` is
+            ``DataStructure.PANEL`` or ``DataStructure.TIMESERIES``
+            resolved from the panel's asset count; ``scope`` and
+            ``density`` default to INDIVIDUAL / DENSE.
+        forward_periods: Forward-return horizon passed to
+            :func:`factrix.evaluate`.
+        n_periods: Number of unique dates in the factor panel where
+            the factor column is non-null. A panel structural property —
+            independent of any individual metric's estimator.
+        n_pairs: Number of non-null ``(date, asset_id)`` pairs in the
+            factor panel. A panel structural property.
+        n_assets: Unique assets in the panel (cell-invariant;
+            ``1`` is legal for TIMESERIES).
+        metrics: :class:`MetricResultGroup` carrying per-metric outputs,
+            keyed by the caller-supplied label.
         context: Caller-supplied free-form labels (e.g.
-            ``{"region": "US"}``, ``{"family": "momentum"}``). Read by
+            ``{"region": "US"}``). Read by
             ``bhy(expand_over=...)`` / ``partial_conjunction`` /
-            ``bhy_hierarchical`` to partition or aggregate inputs;
-            empty dict means no labels attached.
+            ``bhy_hierarchical`` to partition or aggregate inputs.
         warnings: Flat list of :class:`Warning` records. Per-metric
-            entries carry ``source=metric_name``; cross-metric or
-            pre-dispatch entries carry ``source=None``.
-        plan: Multi-line execution plan emitted by the DAG executor —
-            numbered topological order of every spec the executor ran,
-            each line annotated with ``[batchable]`` / ``[per-factor]``,
-            the ``requires=`` upstream list, and any stage-1
-            share-hit marker. Required: callers constructing
-            :class:`EvaluationResult` outside the DAG (tests, manual
-            assembly) must supply an explicit string. There is no
-            default to avoid silent ``""`` placeholders that obscure
-            whether the DAG actually ran.
+            entries carry ``source=label``; cross-metric or pre-dispatch
+            entries carry ``source=None``.
+        plan: Multi-line DAG execution plan (topological order,
+            ``[batchable]`` / ``[per-factor]`` annotations).
     """
 
     factor: str
     cell: tuple[FactorScope, FactorDensity, DataStructure]
     forward_periods: int
-    n_obs: int
+    n_periods: int
+    n_pairs: int
     n_assets: int
     metrics: MetricResultGroup
     plan: str
@@ -230,21 +175,15 @@ class EvaluationResult:
         |---|---|---|
         | ``factor`` | str | :attr:`factor` |
         | ``n_assets`` | i64 | :attr:`n_assets` |
-        | ``metric_name`` | str | ``MetricResult.name`` (stamped at dispatch), falls back to mapping key |
-        | ``value`` | f64 \\| null | ``MetricResult.value`` (``NaN`` / ``Inf`` -> null) |
-        | ``p_value`` | f64 \\| null | ``MetricResult.p_value`` |
-        | ``stat`` | f64 \\| null | ``MetricResult.stat`` |
-        | ``n_obs`` | i64 \\| null | ``MetricResult.n_obs`` |
-        | ``warning_codes`` | list[str] | per-metric :class:`Warning` codes (``source == metric_name``); empty list when none |
-
-        Short-circuit rows surface as ``value=null`` / ``p_value=null``; the
-        explanatory message lives on the matching :class:`Warning`
-        record. Bundle-level warnings (``source is None``) do not
-        produce rows; read them from :attr:`warnings` directly.
+        | ``metric_name`` | str | ``MetricResult.name`` |
+        | ``value`` | f64 \| null | ``MetricResult.value`` |
+        | ``p_value`` | f64 \| null | ``MetricResult.p_value`` |
+        | ``stat`` | f64 \| null | ``MetricResult.stat`` |
+        | ``n_obs`` | i64 \| null | ``MetricResult.n_obs`` — estimator effective sample size |
+        | ``warning_codes`` | list[str] | per-metric warning codes |
 
         Designed for stacking across factors:
-        ``pl.concat([r.to_frame() for r in results])`` is the parquet
-        write path.
+        ``pl.concat([r.to_frame() for r in results.values()])``
         """
         by_metric: dict[str, list[str]] = {}
         for w in self.warnings:
@@ -266,16 +205,13 @@ class EvaluationResult:
 
         Layout (top-level keys, stable order):
 
-        - ``factor`` / ``cell`` / ``n_obs`` / ``n_assets``
-        - ``metrics``: dict ``metric_name -> MetricResult-as-dict``
-          (``value`` / ``p`` / ``stat`` / ``n_obs`` / ``metadata``)
-        - ``metrics_partition``: ``{"primary": [...], "diagnostic": [...]}``
-          listing metric names in each partition
-        - ``warnings``: list of ``{code, source, message}`` dicts
-        - ``plan``: the DAG execution plan string
+        - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
+          ``n_pairs`` / ``n_assets`` / ``context``
+        - ``metrics``: ``label -> {value, p_value, stat, n_obs, metadata}``
+        - ``warnings``: list of ``{code, source, message}``
+        - ``plan``
 
-        Float ``NaN`` / ``Inf`` are emitted as ``None`` so the dict
-        survives ``json.dumps`` without ``allow_nan``.
+        Float ``NaN`` / ``Inf`` are emitted as ``None``.
         """
         scope, density, structure = self.cell
         return {
@@ -286,16 +222,13 @@ class EvaluationResult:
                 "structure": structure.value,
             },
             "forward_periods": self.forward_periods,
-            "n_obs": self.n_obs,
+            "n_periods": self.n_periods,
+            "n_pairs": self.n_pairs,
             "n_assets": self.n_assets,
             "context": dict(self.context),
             "metrics": {
                 name: _metric_output_to_record(out)
                 for name, out in self.metrics.outputs.items()
-            },
-            "metrics_partition": {
-                "primary": list(self.metrics.primary),
-                "diagnostic": list(self.metrics.diagnostic),
             },
             "warnings": [
                 {
@@ -314,7 +247,8 @@ class EvaluationResult:
             ("factor", self.factor),
             ("cell", f"({scope.value}, {density.value}, {structure.value})"),
             ("forward_periods", self.forward_periods),
-            ("n_obs", self.n_obs),
+            ("n_periods", self.n_periods),
+            ("n_pairs", self.n_pairs),
             ("n_assets", self.n_assets),
             ("n_metrics", len(self.metrics)),
         ]
@@ -328,10 +262,8 @@ class EvaluationResult:
             for k, v in header_rows
         )
 
-        primary_names = set(self.metrics.primary)
         metric_rows = []
         for name, out in sorted(self.metrics.outputs.items()):
-            tag = "primary" if name in primary_names else "diagnostic"
             if isinstance(out, MetricResult):
                 val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
                 p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
@@ -340,12 +272,11 @@ class EvaluationResult:
                 p_repr = ""
             metric_rows.append(
                 f"<tr><td>{html.escape(name)}</td>"
-                f"<td>{tag}</td>"
                 f"<td style='text-align:right'>{val_repr}</td>"
                 f"<td style='text-align:right'>{p_repr}</td></tr>"
             )
         metric_table = (
-            "<table><thead><tr><th>metric</th><th>role</th><th>value</th>"
+            "<table><thead><tr><th>metric</th><th>value</th>"
             "<th>p</th></tr></thead>"
             f"<tbody>{''.join(metric_rows)}</tbody></table>"
         )

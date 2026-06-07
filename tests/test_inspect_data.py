@@ -396,7 +396,7 @@ class TestMetricApplicabilityGroup:
             strict=False,
         )
         for name in md:
-            assert name in results[0].metrics.outputs
+            assert name in results["factor"].metrics.outputs
 
 
 class TestCrossFactorConsistency:
