@@ -17,10 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import factrix as fx
-import numpy as np
 import polars as pl
 from factrix.metrics.ic import compute_ic
-from factrix.stats import bootstrap_mean_ci, bootstrap_mean_ci_batch
+from factrix.stats import bootstrap_mean_ci
 
 from bench import metric_sets
 from bench.metric_sets import MetricSet
@@ -61,8 +60,10 @@ def _bootstrap_ic_per_factor(
     # is shaped for the t-test consumers (ic / ic_newey_west / ic_ir),
     # not for downstream non-metric numpy work like bootstrap.
     ic_results = compute_ic(panel, factor_cols=factors)
-    ic_matrix = np.stack([ic_results[col]["ic"].to_numpy() for col in factors])
-    bootstrap_mean_ci_batch(ic_matrix, n_bootstrap=BOOTSTRAP_N, seed=seed)
+    for col in factors:
+        bootstrap_mean_ci(
+            ic_results[col]["ic"].to_numpy(), n_bootstrap=BOOTSTRAP_N, seed=seed
+        )
     return len(factors)
 
 

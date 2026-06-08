@@ -11,7 +11,7 @@ Multi-factor function-name suffix taxonomy (project-wide convention):
 - **``_batch``** — batch variant that coexists with a single-factor
   sibling. Use when keeping the single-factor signature stable matters
   (callable API, third-party callers). Examples:
-  ``bootstrap_mean_ci`` (1-D) + ``bootstrap_mean_ci_batch`` (2-D);
+  ``bootstrap_mean_ci`` (1-D);
   ``_assign_quantile_groups`` (single) + ``_assign_quantile_groups_batch``
   (batch).
 - **``_chunked``** — split-and-yield variant of an already-batch
