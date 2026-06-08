@@ -85,7 +85,7 @@ title: factrix.evaluate
 
 ## Evaluating under different cell contexts
 
-Instead of configuring a central `AnalysisConfig` object, metric behaviors are defined by instantiating metric classes directly. The DAG executor handles dispatch automatically depending on the cell registered by the metric.
+Metric behaviors are defined by instantiating metric classes directly. The DAG executor handles dispatch automatically depending on the cell registered by the metric.
 
 ```python
 import factrix as fx
