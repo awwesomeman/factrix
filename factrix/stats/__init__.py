@@ -42,7 +42,6 @@ from factrix.stats._estimator import (
 from factrix.stats.block_bootstrap import BlockBootstrap
 from factrix.stats.bootstrap import (
     bootstrap_mean_ci,
-    bootstrap_mean_ci_batch,
     stationary_bootstrap_resamples,
 )
 from factrix.stats.driscoll_kraay import DriscollKraay
@@ -160,7 +159,6 @@ __all__ = [
     "bhy_adjust",
     "bhy_adjusted_p",
     "bootstrap_mean_ci",
-    "bootstrap_mean_ci_batch",
     "get_estimator",
     "list_estimators",
     "stationary_bootstrap_resamples",
