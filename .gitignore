@@ -34,8 +34,7 @@ package-lock.json
 # Data
 *.parquet
 
-# bench ad-hoc runs (Makefile writes warm-cache iteration output
-# here). Reference baselines under bench/baselines/ are committed.
+# Temporary output directory
 out/
 
 # Project
