@@ -121,31 +121,6 @@ jobs:
   #           echo "::endgroup::"
   #         done
 
-  bench-tiny:
-    name: bench-tiny smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.8.x"
-          enable-cache: true
-
-      - name: Install dependencies
-        run: uv sync --frozen --python 3.12 --all-extras
-
-      - name: Run bench-tiny (harness smoke; perf not asserted)
-        env:
-          OMP_NUM_THREADS: "1"
-          OPENBLAS_NUM_THREADS: "1"
-          MKL_NUM_THREADS: "1"
-          VECLIB_MAXIMUM_THREADS: "1"
-          NUMEXPR_NUM_THREADS: "1"
-        run: uv run python -m bench --target tiny --output "$RUNNER_TEMP/bench-tiny"
-
   build:
     name: wheel build + import smoke
     runs-on: ubuntu-latest

@@ -11,12 +11,9 @@
 - [ ] `cz bump --changelog` ran on `main` (not on a feature branch)
 - [ ] CHANGELOG entries polished (Keep-a-Changelog headings, WHY added, breaking-change migration notes)
 - [ ] `pyproject.toml:version` + `factrix/__init__.py:__version__` updated by `cz` (verify the diff)
-- [ ] **Reference baseline rerun**: `make bench-bump` executed and `bench/baselines/v<version>-<machine-id>/` committed (see `bench/README.md` "Release flow")
-- [ ] `bench/baselines/README.md` index row appended for the new baseline (commit SHA, machine slug, `dataset_spec_version`, `metric_set_version`)
 - [ ] Annotated tag created and pushed via `git push origin main --follow-tags`
 - [ ] GitHub Release drafted from the tag
 
 ## Notes
 
-<!-- Any non-obvious context: dropped scenarios, cross-machine anchor reruns,
-     deferred work, etc. -->
+<!-- Any non-obvious context: deferred work, etc. -->

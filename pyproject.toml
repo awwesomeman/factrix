@@ -50,11 +50,6 @@ dev = [
     "mypy>=1.20",
     "build",
     "twine",
-    "factrix[bench]",
-]
-bench = [
-    "pydantic>=2.6",
-    "psutil>=5.9",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -136,10 +131,10 @@ convention = "google"
 
 [tool.setuptools.packages.find]
 # `include` already restricts to factrix*; `exclude` is belt-and-suspenders
-# so bench/ (internal harness, sub-issue #381) and tests/ can never leak
+# so tests/ can never leak
 # into the published wheel.
 include = ["factrix*"]
-exclude = ["bench*", "tests*"]
+exclude = ["tests*"]
 namespaces = false
 
 [tool.setuptools.package-data]
