@@ -48,10 +48,10 @@ class HansenHodrick:
     Dummy run Newey-West (NW) HAC on an ordinary least squares (OLS) slope (different math shape) and await
     a slope-axis sub-protocol.
 
-    Pass an instance to ``AnalysisConfig`` to drive evaluate-time
-    inference::
+    Pass an instance to family functions to select the HH p-value, or run stand-alone::
 
-        cfg = AnalysisConfig.individual_continuous(estimator=HansenHodrick())
+        result = HansenHodrick().compute(series, forward_periods=5)
+        fx.bhy(profiles, estimator=HansenHodrick())
 
     Constructor takes no arguments; the kernel and lag-rule are fixed by
     the HH-pure convention.

@@ -17,11 +17,6 @@ Two private helpers consumed by the slice-test functions
   assets. The per-metric ``min_per_group`` floor lives on the metric
   module itself; the slice-test function resolves it per
   slice and feeds it here.
-
-Implementation deviation: ``_downscale_n_groups`` takes ``int`` rather than
-``AnalysisConfig`` because ``AnalysisConfig`` carries no ``n_groups``
-field — that field is a quantile-family kwarg. Caller composes the
-returned int into the per-slice metric kwarg dict.
 """
 
 from __future__ import annotations

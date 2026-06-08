@@ -4,15 +4,13 @@ Boundary with :mod:`factrix.stats`:
 
 - :mod:`factrix.stats` exposes the PascalCase :class:`Estimator` protocol
   family (``NeweyWest`` / ``HansenHodrick`` / ``BlockBootstrap``) used
-  by the ``AnalysisConfig.estimator`` field and the slice-test
-  estimator-dispatch path.
+  by the metric parameters and the slice-test estimator-dispatch path.
 - :mod:`factrix.estimators` exposes lowercase function aliases over the
   same underlying computations, callable directly from inside a metric
   implementation without instantiating an ``Estimator`` first.
 
-The two namespaces are not in tension — :mod:`factrix.stats` retires the
-class-based ``Estimator`` selection surface as part of the
-``AnalysisConfig`` retirement, and the lowercase callables here are the
+The two namespaces are not in tension — :mod:`factrix.stats` exposes the
+class-based ``Estimator`` surface, and the lowercase callables here are the
 forward-compatible internal-consumption surface for metric callables
 and, in the future, runtime per-metric estimator override.
 """
