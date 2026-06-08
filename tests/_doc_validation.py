@@ -85,7 +85,7 @@ def resolves(chain: tuple[str, ...]) -> bool:
         if ok:
             return True
     # Fallback: chain may live entirely on the top-level ``factrix``
-    # namespace (e.g. ``factrix.AnalysisConfig.individual_continuous``).
+    # namespace (e.g. ``factrix.metrics.ic``).
     obj = factrix
     for part in chain:
         try:

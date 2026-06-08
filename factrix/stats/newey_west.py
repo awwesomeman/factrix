@@ -7,8 +7,7 @@ so cell procedures share one path with the standalone primitive.
 
 The Bartlett kernel + NW1994 auto-bandwidth + Hansen-Hodrick overlap
 floor convention is the default HAC path across every PANEL /
-TIMESERIES cell; users swap to a different ``HACEstimator`` via
-``AnalysisConfig.estimator=``. ``compute`` pre-resolves the bandwidth
+TIMESERIES cell. ``compute`` pre-resolves the bandwidth
 via ``_resolve_nw_lags`` to keep the (lags-honest) metadata observable.
 
 ``emits_for`` is cell-agnostic — every applicable cell looks up the
@@ -49,10 +48,9 @@ class NeweyWest:
     deliberately cell-agnostic to keep ``Estimator.emits_for`` from
     re-encoding cell identity.
 
-    Pass an instance to ``AnalysisConfig`` to run NW at evaluate time
-    (default), or to family functions to select the NW p-value::
+    Pass an instance to family functions to select the NW p-value, or run stand-alone::
 
-        cfg = AnalysisConfig.individual_continuous(estimator=NeweyWest())
+        result = NeweyWest().compute(series, forward_periods=5)
         fx.bhy(profiles, estimator=NeweyWest())
 
     Constructor takes no arguments in this release; lag / kernel /
