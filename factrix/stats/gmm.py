@@ -48,13 +48,6 @@ class GMM:
 
         result = GMM().compute(my_moments, forward_periods=max_horizon)
 
-    Setting ``cfg.moment_estimator=GMM()`` round-trips through
-    ``to_dict`` / ``from_dict`` and validates applicability at
-    construction time, but is a no-op at ``evaluate()`` until cell
-    auto-dispatch lands::
-
-        cfg = AnalysisConfig.individual_continuous(moment_estimator=GMM())
-
     Solver tuning lives on the dataclass: ``max_iter`` caps iterations
     beyond step 2 (no effect for pure overid since there is no
     parameter to update — exposed as a forward hook for the parametric

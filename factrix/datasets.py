@@ -10,14 +10,20 @@ Usage:
     import factrix as fx
     from factrix.preprocess import compute_forward_return
 
+    from factrix.metrics import ic
+
     raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
     panel = compute_forward_return(raw, forward_periods=5)
-    cfg = fx.AnalysisConfig.individual_continuous(forward_periods=5)
-    profile = fx.evaluate(panel, cfg)
+    results = fx.evaluate(
+        panel,
+        metrics={"ic": ic()},
+        factor_cols=["factor"],
+        forward_periods=5,
+    )
 
 The dataset's ``signal_horizon`` (default 5) is a property of the
 synthetic density, not a pipeline parameter. When
-``cfg.forward_periods == signal_horizon`` the pipeline realizes the
+``forward_periods == signal_horizon`` the pipeline realizes the
 nominal information coefficient (IC); other horizons realize a decayed density. No disk I/O, no
 external data — everything is seeded RNG.
 """
@@ -111,7 +117,7 @@ def make_cs_panel(
         signal_horizon: Horizon (in bars) at which the synthetic density
             lives — a property of the generated data, not a pipeline
             parameter. Pipelines measuring at
-            ``AnalysisConfig.forward_periods == signal_horizon``
+            ``forward_periods == signal_horizon``
             realize the nominal IC; different horizons realize a
             decayed IC (correct physics for a density with a natural
             time-scale, not a bug).
@@ -200,8 +206,7 @@ def make_event_panel(
            so the event density is discoverable but not trivial.
         4. Prices are cumulated after drift injection.
 
-    Suitable for ``AnalysisConfig.individual_sparse()`` /
-    ``AnalysisConfig.common_sparse()``.
+    Suitable for evaluating sparse metrics (e.g. event study ``caar``).
 
     Args:
         n_assets: Cross-sectional width.
@@ -214,7 +219,7 @@ def make_event_panel(
         signal_horizon: Horizon (in bars) over which post-event drift
             is distributed — a property of the generated data, not a
             pipeline parameter. Pipelines measuring at
-            ``AnalysisConfig.forward_periods == signal_horizon`` realize
+            ``forward_periods == signal_horizon`` realize
             the nominal drift; different horizons realize a weakened or
             diluted density (correct physics for a density with a natural
             time-scale, not a bug).

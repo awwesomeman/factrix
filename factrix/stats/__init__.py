@@ -11,10 +11,8 @@ mean inference (#163). ``NeweyWest`` / ``HansenHodrick`` implement it.
 *, forward_periods) -> GMMResult`` for over-identifying-restriction
 tests on a moment-condition system (#191). ``GMM`` implements it.
 ``GMMResult`` — harmonized return shape for ``MomentEstimator.compute``.
-``GMM`` — [Hansen (1982)][hansen-1982] two-step efficient J-test ``MomentEstimator``;
-opt-in via ``AnalysisConfig.moment_estimator``.
-``NeweyWest`` — Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) ``HACEstimator``; default for
-``AnalysisConfig.estimator``.
+``GMM`` — [Hansen (1982)][hansen-1982] two-step efficient J-test ``MomentEstimator``.
+``NeweyWest`` — Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) ``HACEstimator``.
 ``HansenHodrick`` — rectangular-kernel HAC variant for information coefficient (IC) / FM PANEL
 on overlapping forward returns.
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
@@ -71,12 +69,9 @@ _ESTIMATOR_REGISTRY: tuple[Estimator, ...] = (
 def get_estimator(name: str) -> Estimator:
     """Look up a registered ``Estimator`` instance by ``name`` (#163).
 
-    Used by ``AnalysisConfig.from_dict`` to rehydrate the ``estimator``
-    field from the serialized name string. Returns the registry's
-    canonical zero-arg instance; mutate-at-your-own-risk callers should
-    construct a fresh instance via the class directly. Returns the
-    base ``Estimator`` type — callers needing ``HACEstimator`` semantics
-    (e.g. ``AnalysisConfig``) ``isinstance``-narrow at the boundary.
+    Returns the registry's canonical zero-arg instance; mutate-at-your-own-risk
+    callers should construct a fresh instance via the class directly. Returns
+    the base ``Estimator`` type.
 
     Raises:
         UnknownEstimatorError: ``name`` is not in the registry; the
