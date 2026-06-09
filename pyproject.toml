@@ -45,7 +45,7 @@ dev = [
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "pre-commit>=4.5.1",
-    "ruff==0.15.12",
+    "ruff==0.15.16",
     "commitizen>=4.10.1",
     "mypy>=1.20",
     "build",
