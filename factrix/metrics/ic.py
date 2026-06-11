@@ -30,9 +30,7 @@ from factrix._axis import (
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import (
-    _calc_t_stat,
     _newey_west_t_test,
-    _p_value_from_t,
 )
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
@@ -42,7 +40,6 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
-    _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
 )
@@ -108,7 +105,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     cell=_IC_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
+    se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
     sample_threshold=SampleThreshold(),
@@ -162,7 +159,10 @@ def ic(
         True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
-    ic_vals = ic_df["ic"].drop_nulls()
+    # Date-order the series before striding so the non-overlapping
+    # subsample is time-coherent regardless of caller row order; mean /
+    # count below are order-invariant over the same non-null set.
+    ic_vals = ic_df.sort("date")["ic"].drop_nulls()
     n = len(ic_vals)
     raw_min = _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, forward_periods)
     if n < raw_min:
@@ -174,9 +174,13 @@ def ic(
             forward_periods=forward_periods,
         )
 
+    from factrix.stats.non_overlapping import NonOverlappingSample
+
     mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
-    sampled = _sample_non_overlapping(ic_df, forward_periods)["ic"].drop_nulls()
-    n_sampled = len(sampled)
+    result = NonOverlappingSample().compute(
+        ic_vals.to_numpy(), forward_periods=forward_periods
+    )
+    n_sampled = int(result.metadata["n_obs_sampled"])
     if n_sampled < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "ic",
@@ -185,13 +189,11 @@ def ic(
             min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
-    t = _calc_t_stat(float(sampled.mean()), float(sampled.std()), n_sampled)  # type: ignore[arg-type]
-    p = _p_value_from_t(t, n_sampled)
 
     return MetricResult(
-        p_value=p,
+        p_value=result.p_value,
         value=mean_ic,
-        stat=t,
+        stat=result.stat,
         metadata={
             "n_periods": n,
             "stat_type": "t",

@@ -213,3 +213,45 @@ class TestICIR:
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic_ir(df)
         assert math.isnan(result.value)
+
+
+class TestICDispatch:
+    """``ic()`` delegates its significance test to ``NonOverlappingSample``.
+
+    These pin the result so the dispatch refactor stays numerically
+    equivalent to the previously-inlined non-overlapping OLS t-test
+    (to floating-point ULP — polars vs numpy variance reduction order).
+    """
+
+    def test_se_method_declares_ols(self):
+        from factrix._axis import SEMethod
+
+        # The default path runs a non-overlapping OLS t-test, not HAC;
+        # the spec declaration must match the actual standard error.
+        assert ic.se_method is SEMethod.OLS
+
+    def _ic_df(self):
+        import factrix as fx
+        from factrix.preprocess import compute_forward_return
+
+        panel = compute_forward_return(
+            fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
+            forward_periods=5,
+        )
+        return compute_ic(panel)["factor"]
+
+    @pytest.mark.parametrize(
+        ("forward_periods", "value", "stat", "p_value"),
+        [
+            (1, 0.049163258267725024, 5.404723194889399, 2.1264376169332541e-07),
+            (5, 0.049163258267725024, 4.136962357146272, 0.00021830177834358518),
+        ],
+    )
+    def test_regression_pins_dispatch_output(
+        self, forward_periods, value, stat, p_value
+    ):
+        result = ic(self._ic_df(), forward_periods=forward_periods)
+        assert result.value == pytest.approx(value, rel=1e-12)
+        assert result.stat == pytest.approx(stat, rel=1e-12)
+        assert result.p_value == pytest.approx(p_value, rel=1e-12)
+        assert result.metadata["method"] == "non-overlapping t-test"
