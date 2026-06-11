@@ -94,6 +94,14 @@ class InferenceResult:
     ``{"nw_lags": k}``; Hansen-Hodrick (HH) emits ``{"kernel": "rectangular",
     "variance_clamped": bool}``).
 
+    ``stat_name`` / ``p_name`` are ``None`` for a metric-internal
+    inference unit that is not (yet) a discoverable ``Estimator`` and
+    therefore claims no ``profile.stats`` key — its ``stat`` / ``p_value``
+    feed a ``MetricResult`` directly rather than being keyed into
+    ``FactorProfile.stats``. The ``StatCode``-emitting promotion is gated
+    behind the structured-shape redesign the ``StatCode`` enum note
+    requires before the codebook grows further.
+
     Moment-condition estimators have a parallel return shape
     (``GMMResult`` carrying ``j_stat`` / ``df`` / ``overid_p``); they
     live on the separate ``MomentEstimator`` sub-protocol below rather
@@ -102,8 +110,8 @@ class InferenceResult:
 
     stat: float
     p_value: float
-    stat_name: StatCode
-    p_name: StatCode
+    stat_name: StatCode | None
+    p_name: StatCode | None
     metadata: Mapping[str, Any]
     warnings: frozenset[WarningCode]
 
