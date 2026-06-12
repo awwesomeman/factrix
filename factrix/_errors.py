@@ -1,8 +1,8 @@
 """Flat exception hierarchy rooted at :class:`FactrixError`.
 
 :class:`IncompatibleAxisError`, :class:`InsufficientSampleError`,
-:class:`UnknownEstimatorError`, and :class:`UserInputError` each inherit
-directly from :class:`FactrixError`; callers can branch on subclass without
+and :class:`UserInputError` each inherit directly from
+:class:`FactrixError`; callers can branch on subclass without
 parsing message strings.
 """
 
@@ -99,16 +99,6 @@ class UserInputError(FactrixError, ValueError):
             lines.append(f"  Expected: {self.expected}")
         lines.append(f"  Docs: {self.docs_url}")
         return "\n".join(lines)
-
-
-class UnknownEstimatorError(FactrixError, ValueError):
-    """``get_estimator(name)`` lookup miss.
-
-    Inherits ``ValueError`` so ``pytest.raises(ValueError)`` and the
-    ecosystem ``UserInputError`` convention both catch it. Raised by
-    ``factrix.stats.get_estimator`` when ``estimator`` name is not in
-    the registry.
-    """
 
 
 class IncompatibleAxisError(FactrixError):

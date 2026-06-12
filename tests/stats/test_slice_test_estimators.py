@@ -6,11 +6,22 @@ import pytest
 from factrix._axis import FactorDensity, FactorScope
 from factrix._codes import StatCode
 from factrix.stats import (
-    _ESTIMATOR_REGISTRY,
     BlockBootstrap,
+    DriscollKraay,
     Estimator,
+    HansenHodrick,
+    NeweyWest,
     WaldNWCluster,
     WaldTwoWayCluster,
+)
+
+_ALL_ESTIMATORS = (
+    NeweyWest(),
+    HansenHodrick(),
+    WaldNWCluster(),
+    WaldTwoWayCluster(),
+    BlockBootstrap(),
+    DriscollKraay(),
 )
 
 
@@ -20,11 +31,10 @@ class TestEstimatorProtocol:
             assert isinstance(est, Estimator)
 
     def test_names_distinct(self):
-        names = {e.name for e in _ESTIMATOR_REGISTRY}
+        names = {e.name for e in _ALL_ESTIMATORS}
         assert names == {
             "NeweyWest",
             "HansenHodrick",
-            "GMM",
             "WaldNWCluster",
             "WaldTwoWayCluster",
             "BlockBootstrap",
@@ -118,8 +128,8 @@ class TestBlockBootstrap:
             BlockBootstrap(scheme="rolling")  # type: ignore[arg-type]
 
     def test_two_instances_distinct(self):
-        # Same class, different config — caller can pass an explicitly-
-        # constructed instance to override the default in the registry.
+        # Same class, different config — caller passes an explicitly-
+        # constructed instance to make the inference choice explicit.
         a = BlockBootstrap(scheme="stationary")
         b = BlockBootstrap(scheme="fixed")
         assert a.scheme != b.scheme
@@ -128,19 +138,3 @@ class TestBlockBootstrap:
         assert a.emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE) == b.emits_for(
             FactorScope.INDIVIDUAL, FactorDensity.DENSE
         )
-
-
-class TestRegistryIntegration:
-    def test_layer_b_estimators_in_registry(self):
-        types_in_registry = {type(e).__name__ for e in _ESTIMATOR_REGISTRY}
-        assert {
-            "WaldNWCluster",
-            "WaldTwoWayCluster",
-            "BlockBootstrap",
-        } <= types_in_registry
-
-    def test_existing_estimators_still_in_registry(self):
-        # Regression guard: NW/HH must remain after the slice-test Estimator append.
-        types_in_registry = {type(e).__name__ for e in _ESTIMATOR_REGISTRY}
-        assert "NeweyWest" in types_in_registry
-        assert "HansenHodrick" in types_in_registry

@@ -1,7 +1,7 @@
-"""Cluster-robust Wald χ² Estimator instances (#153).
+"""Cluster-robust Wald χ² Estimator instances.
 
 Two ``Estimator`` implementations targeting the slice-test setting
-(#176 functions ``slice_pairwise_test`` / ``slice_joint_test``):
+(``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``WaldNWCluster`` — Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on the slice grouping;
   consumes the stacked per-date metric panel. Emits
@@ -9,8 +9,8 @@ Two ``Estimator`` implementations targeting the slice-test setting
   statistic side).
 - ``WaldTwoWayCluster`` — [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] two-way
   cluster on (date, asset); consumes the raw asset-date panel.
-  Emits ``StatCode.P_WALD_TWOWAY``. Interface ships this issue but
-  no function consumes it until ``factor_decomposition`` lands
+  Emits ``StatCode.P_WALD_TWOWAY``. Reserved interface; no function
+  consumes it until ``factor_decomposition`` lands
   later; calling ``bhy(estimator=WaldTwoWayCluster())`` against a
   profile produced by ``evaluate()`` lands on a missing-stat error
   until the function populates
@@ -83,9 +83,8 @@ class WaldTwoWayCluster:
     interaction with full panel SE). Numerics live in
     ``factrix._stats.wald._wald_two_way_cluster``.
 
-    Interface ships this PR; no function consumes it until
-    ``factor_decomposition`` lands later. ``list_estimators`` surfaces
-    it for ``(INDIVIDUAL, DENSE)`` cells — calling
+    Reserved interface; no function consumes it until
+    ``factor_decomposition`` lands later. Calling
     ``bhy(estimator=WaldTwoWayCluster())`` against a profile produced
     by ``evaluate()`` lands on a missing-stat error pointing at the
     precondition (same pattern as ``HansenHodrick`` on a non-overlapping

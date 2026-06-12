@@ -161,8 +161,3 @@ Autodoc anchors for cross-references of the form `[`FactrixError`][factrix.Factr
     options:
       show_root_toc_entry: false
       heading_level: 4
-
-::: factrix.UnknownEstimatorError
-    options:
-      show_root_toc_entry: false
-      heading_level: 4

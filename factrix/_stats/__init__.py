@@ -1,7 +1,7 @@
 """Internal statistical toolkit — index of per-topic submodules.
 
 Public surface lives in ``factrix.stats`` (``Estimator`` / ``NeweyWest``
-/ ``HansenHodrick`` / ``StatCode`` / ``list_estimators`` /
+/ ``HansenHodrick`` / ``StatCode`` /
 Benjamini-Hochberg-Yekutieli (BHY) multiple-testing / ``WarningCode``); this package holds the private
 primitives those façades and the procedure layer call into.
 
@@ -15,8 +15,6 @@ primitives those façades and the procedure layer call into.
 - ``hac``         — Newey-West (Bartlett) and Hansen-Hodrick
   (rectangular) HAC SE / t-test for a sample mean; shared
   ``_resolve_nw_lags`` bandwidth picker honouring the overlap horizon.
-- ``gmm``         — [Hansen (1982)][hansen-1982] two-step efficient generalized method of moments (GMM) J-statistic
-  + Bartlett-kernel long-run covariance for multivariate moments.
 - ``ols``         — ordinary least squares (OLS) slope-only (``_ols_nw_slope_t``) and full
   multivariate (``_ols_nw_multivariate``) with Newey-West HAC
   covariance.
@@ -50,7 +48,6 @@ from factrix._stats.core import (
     _t_test_summary,
 )
 from factrix._stats.diagnostics import _ljung_box
-from factrix._stats.gmm import _long_run_covariance, _two_step_gmm_j_stat
 from factrix._stats.hac import (
     _bartlett_lrcov,
     _driscoll_kraay_cov,
@@ -77,7 +74,6 @@ __all__ = [
     "_hansen_hodrick_se",
     "_hansen_hodrick_t_test",
     "_ljung_box",
-    "_long_run_covariance",
     "_newey_west_se",
     "_newey_west_t_test",
     "_ols_nw_multivariate",
@@ -88,6 +84,5 @@ __all__ = [
     "_significance_marker",
     "_t_stat_from_array",
     "_t_test_summary",
-    "_two_step_gmm_j_stat",
     "_wald_p_linear",
 ]
