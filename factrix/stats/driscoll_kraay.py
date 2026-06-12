@@ -16,7 +16,7 @@ date and have no within-period cross-section for DK to aggregate over.
 ``emits_for`` returns the singleton ``StatCode.P_DK``: ``pooled_beta``
 reports its t-stat inside its own ``MetricResult.metadata`` rather than
 in ``profile.stats``, so — like ``WaldTwoWayCluster`` — this is a
-reserved interface surfaced by ``list_estimators`` for discovery; a
+reserved interface; a
 ``bhy(estimator=DriscollKraay())`` call against an ``evaluate()`` profile
 lands on the missing-stat path until a function populates
 ``profile.stats[StatCode.P_DK]``.
@@ -41,8 +41,7 @@ class DriscollKraay:
     ``factrix._stats.hac._driscoll_kraay_cov``; ``pooled_beta`` drives
     them via the lowercase ``factrix.estimators.driscoll_kraay`` callable.
 
-    Pass an instance to a function to make the inference choice explicit;
-    surfaced by ``list_estimators`` on the ``(INDIVIDUAL, DENSE)`` cell.
+    Pass an instance to a function to make the inference choice explicit.
     Constructor takes no arguments in this release; the Bartlett bandwidth
     is resolved automatically ([Newey-West (1994)][newey-west-1994]
     ``auto_bartlett`` on the period count) and an explicit-lag override

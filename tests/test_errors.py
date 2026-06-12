@@ -19,11 +19,7 @@ def test_other_error_subclasses_inheritance() -> None:
     from factrix._errors import (
         IncompatibleAxisError,
         InsufficientSampleError,
-        UnknownEstimatorError,
     )
-
-    assert issubclass(UnknownEstimatorError, FactrixError)
-    assert issubclass(UnknownEstimatorError, ValueError)
 
     assert issubclass(IncompatibleAxisError, FactrixError)
     assert not issubclass(IncompatibleAxisError, ValueError)

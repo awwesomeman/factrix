@@ -1,8 +1,8 @@
 """``NonOverlappingSample`` — OLS t-test on a non-overlapping stride subsample of a series.
 
-A metric-internal inference unit, not a registered ``Estimator``: it
-emits no ``StatCode`` and does not enter ``_ESTIMATOR_REGISTRY`` /
-``list_estimators`` / the ``profile.stats`` dispatch path. ``ic()``
+A metric-internal inference unit, not a discoverable ``Estimator``: it
+emits no ``StatCode`` and does not enter the ``profile.stats`` dispatch
+path. ``ic()``
 delegates its default-path significance test here so the math lives in
 one named, independently-testable place instead of being inlined in the
 metric body.

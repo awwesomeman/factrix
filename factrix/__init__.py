@@ -62,7 +62,6 @@ from factrix._errors import (
     FactrixError,
     IncompatibleAxisError,
     InsufficientSampleError,
-    UnknownEstimatorError,
     UserInputError,
 )
 from factrix._inspect import (
@@ -92,7 +91,6 @@ from factrix.slicing import (
     slice_joint_test,
     slice_pairwise_test,
 )
-from factrix.stats import list_estimators
 
 
 def evaluate(
@@ -623,7 +621,6 @@ __all__ = [
     "FactrixError",
     "IncompatibleAxisError",
     "InsufficientSampleError",
-    "UnknownEstimatorError",
     "UserInputError",
     # Result + dispatch
     "CycleError",
@@ -642,7 +639,6 @@ __all__ = [
     "DataProperties",
     "SampleThreshold",
     "inspect_data",
-    "list_estimators",
     "list_metrics",
     # Slicing dispatcher + cross-slice inference functions
     "SliceResult",

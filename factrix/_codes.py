@@ -65,12 +65,6 @@ class WarningCode(StrEnum):
     # reject), the conservative direction.
     RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
 
-    # Long-run covariance Ŝ of a moment-condition system was numerically
-    # singular, so the J-statistic was computed using a Moore-Penrose
-    # pseudo-inverse rather than a true inverse. Fires on rank-deficient
-    # or strongly collinear moment matrices.
-    SINGULAR_WEIGHT_MATRIX = "singular_weight_matrix"
-
     # Fired by the DAG executor when an upstream producer short-circuited
     # (returned a NaN MetricResult with metadata["reason"]) and the
     # consumer is skipped. The downstream MetricResult carries
@@ -123,9 +117,6 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
         "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
         "Fires only on short / mildly anti-correlated samples.",
-        WarningCode.SINGULAR_WEIGHT_MATRIX: "GMM long-run covariance Ŝ was numerically "
-        "singular; J-statistic was computed via Moore-Penrose pseudo-inverse rather than a "
-        "true inverse. Fires on rank-deficient or strongly collinear moment matrices.",
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
         "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
@@ -193,7 +184,7 @@ class StatCode(StrEnum):
     - ``KIND`` — what kind of number. ``_MEAN`` / ``_VALUE`` for point
       estimates, statistic-named suffixes (``_T_NW`` / ``_TAU`` /
       ``_Q``) for test statistics, ``_P_<algo>`` for p-values
-      (``_P_NW`` / ``_P_HH`` / ``_P_GMM``). Diagnostic p-values keep
+      (``_P_NW`` / ``_P_HH``). Diagnostic p-values keep
       their ``<TARGET>_<TEST>_P`` shape (``FACTOR_ADF_P`` /
       ``RESID_LJUNG_BOX_P``) — the asymmetry is structural, see below.
 
@@ -201,12 +192,10 @@ class StatCode(StrEnum):
 
     Each inference algorithm emits a (test statistic, p-value) pair with
     KINDs that abbreviate the test statistic's reference distribution:
-    ``T`` (Student-t / asymptotic normal), ``J`` (Hansen J / χ²),
-    ``WALD`` (Wald χ²), ``F`` (Snedecor F), ``LR`` (likelihood ratio).
+    ``T`` (Student-t / asymptotic normal), ``WALD`` (Wald χ²),
+    ``F`` (Snedecor F), ``LR`` (likelihood ratio).
     Currently shipping: ``(T_NW, P_NW)`` for Newey-West,
-    ``(T_HH, P_HH)`` for Hansen-Hodrick, ``(J_GMM, P_GMM)`` for
-    [Hansen (1982)][hansen-1982] generalized method of moments (GMM) J-test
-    (over-identification is χ², not t, so GMM emits J rather than T),
+    ``(T_HH, P_HH)`` for Hansen-Hodrick,
     ``(WALD_NWCL, P_WALD_NWCL)`` for Newey-West (NW)
     heteroskedasticity-and-autocorrelation-consistent (HAC) + one-way
     cluster on the slice grouping, and ``(WALD_TWOWAY,
@@ -234,9 +223,9 @@ class StatCode(StrEnum):
     a (kind × algo) cardinality product and a structured shape
     (``profile.inference[Algo.X] = {test_stat, kind, p, df}``) earns
     its breaking-change cost. Below those thresholds the flat
-    enum stays cheaper. **The algorithm count is 7
-    (NW / HH / GMM / NWCL / DC / BlockBootstrap / DK) and 3 KINDs
-    (T / J / WALD). The flat enum is over-budget on both axes. DK
+    enum stays cheaper. **The algorithm count is 6
+    (NW / HH / NWCL / DC / BlockBootstrap / DK) and 2 KINDs
+    (T / WALD). The flat enum is over-budget on both axes. DK
     (Driscoll-Kraay) was admitted as a single ``P_DK`` p-code with no
     test-statistic KIND — a selection-only reserved Estimator like the
     bootstrap — precisely to hold the growth to one key; it does not add
@@ -274,12 +263,6 @@ class StatCode(StrEnum):
     # forward_periods > 1 (overlap exists).
     T_HH = "t_hh"
     P_HH = "p_hh"
-    # GMM J-test (Hansen 1982): J statistic is chi-square distributed
-    # under H₀ — not a t-stat — so the (J_GMM, P_GMM) pair replaces the
-    # (T_*, P_*) shape. Procedure metadata under either key carries
-    # `{"n_moments", "n_params", "df", "weight_matrix_iter", "weight_singular"}`.
-    J_GMM = "j_gmm"
-    P_GMM = "p_gmm"
     # Cluster-robust Wald χ² for linear restrictions on a slice contrast
     # / joint coefficient (slice-test functions). KIND = WALD (χ²
     # test statistic, parallel to T); ALGO names the cluster-SE family
@@ -328,7 +311,7 @@ class StatCode(StrEnum):
         Downstream tooling uses this to distinguish probability codes
         from test statistics / point estimates. Tokenises the value on
         ``_`` and checks for a ``p`` token, so primary-inference
-        variants ``P_NW`` / ``P_HH`` / ``P_GMM`` all qualify alongside
+        variants ``P_NW`` / ``P_HH`` all qualify alongside
         diagnostic ``FACTOR_ADF_P`` / ``RESID_LJUNG_BOX_P``.
         """
         return "p" in self.value.split("_")
@@ -359,13 +342,6 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     StatCode.P_HH: "Two-sided p-value from the Hansen-Hodrick (1980) "
     "rectangular-kernel HAC t-test on the cell primary estimate. "
     "Implementation convention lives in `factrix.stats.HansenHodrick`.",
-    StatCode.J_GMM: "Hansen (1982) GMM J-statistic for over-identifying "
-    "moment restrictions; chi-square distributed under H₀ with `df = "
-    "n_moments - n_params`. Implementation convention lives in "
-    "`factrix.stats.GMM`.",
-    StatCode.P_GMM: "Right-tail p-value from the Hansen (1982) GMM J-test "
-    "(`1 - χ²_df.cdf(J_GMM)`). Sibling under the (J_GMM, P_GMM) "
-    "algorithm-pair convention; computed by `factrix.stats.GMM`.",
     StatCode.WALD_NWCL: "Wald χ² statistic for a linear restriction on "
     "slice contrasts / joint coefficients, computed under NW Bartlett HAC "
     "plus one-way cluster on the slice grouping. Implementation convention "
