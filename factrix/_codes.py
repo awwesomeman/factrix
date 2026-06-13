@@ -1,7 +1,6 @@
-"""v0.5 enum codes for warnings and info notes.
+"""v0.5 enum codes for warnings.
 
-``WarningCode`` / ``InfoCode`` follow the ``*Code`` suffix
-invariant (§7.5).
+``WarningCode`` follows the ``*Code`` suffix invariant (§7.5).
 """
 
 from __future__ import annotations
@@ -151,20 +150,3 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     if MIN_ASSETS <= n_assets < MIN_ASSETS_WARN:
         return WarningCode.BORDERLINE_CROSS_SECTION_N
     return None
-
-
-class InfoCode(StrEnum):
-    """Neutral facts surfaced to the caller — not warnings, not errors.
-
-    Empty after the procedure-based dispatcher retired — the
-    only member, ``SCOPE_AXIS_COLLAPSED``, tracked a legacy routing
-    collapse that no longer happens under the DAG executor. The enum
-    stays exported as the home for future neutral notes.
-    """
-
-    @property
-    def description(self) -> str:
-        return _INFO_DESCRIPTIONS[self]
-
-
-_INFO_DESCRIPTIONS: dict[InfoCode, str] = {}
