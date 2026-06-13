@@ -126,20 +126,20 @@ class TestMetricApplicabilityIdentity:
 class TestSampleThresholdGate:
     def test_below_min_periods_is_unusable(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
-        nw = _by_name(info, "ic_newey_west")
+        nw = _by_name(info, "ic_ir")
         assert nw.usable is False
         assert any("min_periods" in b for b in nw.blockers)
 
     def test_between_min_and_warn_is_usable_with_warning(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
-        nw = _by_name(info, "ic_newey_west")
+        nw = _by_name(info, "ic_ir")
         assert nw.usable is True
         codes = [w.code.value for w in nw.warnings]
         assert "unreliable_se_short_periods" in codes
 
     def test_above_warn_floor_is_clean(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
-        nw = _by_name(info, "ic_newey_west")
+        nw = _by_name(info, "ic_ir")
         assert nw.usable is True
         assert nw.warnings == []
 
@@ -148,7 +148,7 @@ class TestSampleThresholdGate:
 
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         floor = SampleThreshold(min_pairs=info.detected.n_pairs + 1)
-        spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
+        spec = next(m.spec for m in info.metrics if m.spec.name == "ic_ir")
         from dataclasses import replace
 
         from factrix._inspect import _evaluate_applicability
@@ -168,7 +168,7 @@ class TestSampleThresholdGate:
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
         n = info.detected.n_pairs
         floor = SampleThreshold(min_pairs=n - 1, warn_pairs=n + 1)
-        spec = next(m.spec for m in info.metrics if m.spec.name == "ic_newey_west")
+        spec = next(m.spec for m in info.metrics if m.spec.name == "ic_ir")
         verdict = _evaluate_applicability(
             replace(spec, sample_threshold=floor), info.detected
         )
@@ -185,7 +185,7 @@ class TestSampleThresholdGate:
 
 class TestTierPartition:
     def test_three_tiers_partition_metrics_disjointly(self):
-        # n_dates=25 puts ic_newey_west between min and warn -> degraded.
+        # n_dates=25 puts ic_ir between min and warn -> degraded.
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         usable = {m.spec.name for m in info.usable}
         degraded = {m.spec.name for m in info.degraded}
@@ -202,7 +202,7 @@ class TestTierPartition:
 
     def test_usable_excludes_degraded(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
-        nw = _by_name(info, "ic_newey_west")
+        nw = _by_name(info, "ic_ir")
         assert nw.usable is True and nw.warnings  # the degraded case
         assert nw not in info.usable
         assert nw in info.degraded
@@ -269,8 +269,8 @@ class TestToDict:
         assert back["detected"]["structure"] == "panel"
         assert back["detected"]["n_assets"] == 20
         assert back["reasoning"]["scope"]
-        assert any(m["name"] == "ic_newey_west" for m in back["metrics"])
-        nw = next(m for m in back["metrics"] if m["name"] == "ic_newey_west")
+        assert any(m["name"] == "ic_ir" for m in back["metrics"])
+        nw = next(m for m in back["metrics"] if m["name"] == "ic_ir")
         assert nw["usable"] is True
         assert any(w["code"] == "unreliable_se_short_periods" for w in nw["warnings"])
 

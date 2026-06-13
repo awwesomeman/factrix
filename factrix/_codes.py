@@ -333,7 +333,7 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "`profile.config.metric`: IC mean, FM λ mean, CAAR event-only mean, "
     "or TS β / E[β]).",
     StatCode.T_NW: "Newey-West HAC t-stat on the cell primary estimate. "
-    "Implementation convention lives in `factrix.stats.NeweyWest`.",
+    "Implementation convention lives in `factrix.inference.NeweyWest`.",
     StatCode.P_NW: "Two-sided p-value from the Newey-West HAC t-test on "
     "the cell primary estimate. Sibling of `T_NW`.",
     StatCode.T_HH: "Hansen-Hodrick (1980) rectangular-kernel HAC t-stat "
@@ -341,7 +341,7 @@ _STAT_DESCRIPTIONS: dict[StatCode, str] = {
     "(γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n` instead of NW's Bartlett kernel.",
     StatCode.P_HH: "Two-sided p-value from the Hansen-Hodrick (1980) "
     "rectangular-kernel HAC t-test on the cell primary estimate. "
-    "Implementation convention lives in `factrix.stats.HansenHodrick`.",
+    "Implementation convention lives in `factrix.inference.HansenHodrick`.",
     StatCode.WALD_NWCL: "Wald χ² statistic for a linear restriction on "
     "slice contrasts / joint coefficients, computed under NW Bartlett HAC "
     "plus one-way cluster on the slice grouping. Implementation convention "

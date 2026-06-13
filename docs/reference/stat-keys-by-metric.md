@@ -41,7 +41,6 @@ contrasts, not a sidecar to a primary value.
 | Metric | Primary stat (`MetricResult.stat`) | Primary `metadata` key | `value` |
 |---|---|---|---|
 | [`ic`][factrix.metrics.ic.ic] | Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) `t` on per-date information coefficient (IC) series | `p_value` | mean(IC) |
-| [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | NW HAC `t` (overlapping) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
 | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |

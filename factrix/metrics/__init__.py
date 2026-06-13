@@ -64,7 +64,6 @@ from factrix.metrics.hit_rate import hit_rate
 from factrix.metrics.ic import (
     ic,
     ic_ir,
-    ic_newey_west,
 )
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.mfe_mae import (
@@ -111,7 +110,6 @@ __all__ = [
     "hit_rate",
     "ic",
     "ic_ir",
-    "ic_newey_west",
     "ic_trend",
     "k_spread",
     "mean_r_squared",

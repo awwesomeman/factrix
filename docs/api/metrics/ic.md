@@ -7,7 +7,6 @@ title: factrix.metrics.ic
       show_root_members_full_path: true
       members:
         - ic
-        - ic_newey_west
         - ic_ir
 
 <hr>
@@ -68,7 +67,7 @@ output without the inference framing.
 
     ```python
     import factrix as fx
-    from factrix.metrics.ic import compute_ic, ic_newey_west
+    from factrix.metrics.ic import compute_ic, ic
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_cs_panel(
@@ -86,7 +85,7 @@ output without the inference framing.
     # │ ...        ┆ ...       ┆ ...       │
     # └────────────┴───────────┴───────────┘
 
-    out = ic_newey_west(ic_df, forward_periods=5)
+    out = ic(ic_df, forward_periods=5, inference=fx.inference.NEWEY_WEST)
     print(out.value, out.stat, out.metadata["p_value"])
     # 0.0722  14.60  2.13e-40
     ```

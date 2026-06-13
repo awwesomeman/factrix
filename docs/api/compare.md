@@ -10,11 +10,11 @@ Pure projection — no metric is recomputed.
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west, quantile_spread
+from factrix.metrics import ic, quantile_spread
 
 results = fx.evaluate(
     data,
-    metrics={"ic": ic_newey_west(), "spread": quantile_spread()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST), "spread": quantile_spread()},
     factor_cols=candidates,
 )
 df = fx.compare(results, metrics=["ic", "spread"], sort_by="ic")

@@ -72,7 +72,7 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
                 func_name=func_name,
                 field=f"{field}[{i}]",
                 value=type(spec).__name__,
-                expected="str metric label (e.g. 'ic_newey_west')",
+                expected="str metric label (e.g. 'ic')",
                 docs_path=anchor,
             )
     return list(value)

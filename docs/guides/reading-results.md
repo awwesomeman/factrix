@@ -14,7 +14,7 @@ Each entry point in `factrix` returns a frozen result dataclass. This page walks
 ```python
 results = fx.evaluate(
     data,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["factor"],
 )
 result = results["factor"]
