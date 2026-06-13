@@ -1,7 +1,7 @@
 """Tests for the Driscoll-Kraay estimator surface.
 
-Covers the selection-only ``DriscollKraay`` Estimator (protocol /
-``emits_for``), the numeric primitives
+Covers the selection-only ``DriscollKraay`` Estimator (identity
+protocol), the numeric primitives
 ``_bartlett_lrcov`` / ``_driscoll_kraay_cov``, and the lowercase
 ``factrix.estimators.driscoll_kraay`` callable.
 """
@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from factrix._axis import FactorDensity, FactorScope
-from factrix._codes import StatCode
 from factrix._stats import _bartlett_lrcov, _driscoll_kraay_cov
 from factrix.estimators import driscoll_kraay
 from factrix.stats import DriscollKraay, Estimator
@@ -47,16 +45,6 @@ class TestDriscollKraayEstimator:
         d = DriscollKraay().description.lower()
         assert "driscoll-kraay" in d
         assert "cross-section" in d
-
-    def test_emits_p_dk(self):
-        code = DriscollKraay().emits_for(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-        assert code is StatCode.P_DK
-
-    def test_applicable_only_to_individual_dense(self):
-        est = DriscollKraay()
-        assert est.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.DENSE)
-        assert not est.applicable_to(FactorScope.COMMON, FactorDensity.DENSE)
-        assert not est.applicable_to(FactorScope.INDIVIDUAL, FactorDensity.SPARSE)
 
 
 class TestBartlettLrcov:

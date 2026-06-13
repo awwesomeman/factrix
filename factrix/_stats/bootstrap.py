@@ -219,8 +219,7 @@ def _block_bootstrap_diff_p(
             5% tests; default matches.
         scheme: ``"fixed"`` (Künsch) or ``"stationary"`` (Politis-Romano).
         rng_seed: ``None`` draws from system entropy; the resolved seed
-            is returned in the metadata dict so the caller can record
-            it on ``FactorProfile.metadata[StatCode.P_BOOT]``.
+            is returned in the metadata dict so the caller can record it.
 
     Returns:
         ``(p_value, metadata)`` — p in ``[1/(B+1), 1]``; metadata

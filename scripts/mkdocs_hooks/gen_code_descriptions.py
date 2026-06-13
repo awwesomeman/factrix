@@ -1,6 +1,6 @@
-"""Build-time generator for `WarningCode` / `InfoCode` / `StatCode` tables.
+"""Build-time generator for `WarningCode` / `InfoCode` tables.
 
-Renders three Markdown tables to `docs/reference/_generated_*_codes.md`
+Renders two Markdown tables to `docs/reference/_generated_*_codes.md`
 from the description dictionaries in `factrix._codes`. The descriptions
 are the SSOT for trigger / meaning text; this hook surfaces them on the
 user-facing `reference/warning-codes.md` page without manual sync.
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pathlib
 
-from factrix._codes import InfoCode, StatCode, WarningCode
+from factrix._codes import InfoCode, WarningCode
 
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_DIR = _REPO_ROOT / "docs" / "reference"
@@ -32,7 +32,6 @@ def _render_table(header: str, rows: list[tuple[str, str]]) -> str:
 def generate() -> None:
     warning_rows = [(m.value, m.description) for m in WarningCode]
     info_rows = [(m.value, m.description) for m in InfoCode]
-    stat_rows = [(m.value, m.description) for m in StatCode]
 
     (_OUT_DIR / "_generated_warning_codes.md").write_text(
         _render_table("WarningCode", warning_rows), encoding="utf-8"
@@ -40,12 +39,9 @@ def generate() -> None:
     (_OUT_DIR / "_generated_info_codes.md").write_text(
         _render_table("InfoCode", info_rows), encoding="utf-8"
     )
-    (_OUT_DIR / "_generated_stat_codes.md").write_text(
-        _render_table("StatCode", stat_rows), encoding="utf-8"
-    )
     print(
         f"gen_code_descriptions: wrote {len(warning_rows)} WarningCode / "
-        f"{len(info_rows)} InfoCode / {len(stat_rows)} StatCode row(s)"
+        f"{len(info_rows)} InfoCode row(s)"
     )
 
 

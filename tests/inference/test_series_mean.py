@@ -3,8 +3,6 @@
 Verifies:
 - The df-based ``compute(df, *, value_col, forward_periods)`` contract
   matches the underlying ``factrix._stats`` kernels bit-for-bit.
-- Members claim no ``profile.stats`` StatCode (``stat_name`` /
-  ``p_name`` are ``None``) — they are metric-internal inference units.
 - ``min_periods`` soft floor surfaces ``UNRELIABLE_SE_SHORT_PERIODS``;
   Hansen-Hodrick clamp surfaces ``RECT_KERNEL_NEGATIVE_VARIANCE``.
 - Identity ClassVars (``test`` / ``se`` / ``summary``) and the
@@ -78,13 +76,6 @@ class TestNonOverlapping:
         assert result.metadata["stride"] == forward_periods
         assert result.metadata["n_obs_sampled"] == len(sampled)
 
-    def test_claims_no_statcode(self) -> None:
-        result = NON_OVERLAPPING.compute(
-            _series_df(np.arange(60.0)), value_col="ic", forward_periods=1
-        )
-        assert result.stat_name is None
-        assert result.p_name is None
-
     def test_sorts_by_date_before_striding(self) -> None:
         # Shuffled rows must produce the same result as sorted input —
         # compute owns the date-ordering.
@@ -128,15 +119,6 @@ class TestNeweyWest:
         assert result.stat == t_direct
         assert result.p_value == p_direct
         assert result.metadata == {"nw_lags": nw_lags}
-
-    def test_claims_no_statcode(self) -> None:
-        result = NEWEY_WEST.compute(
-            _series_df(np.random.default_rng(0).standard_normal(40)),
-            value_col="ic",
-            forward_periods=5,
-        )
-        assert result.stat_name is None
-        assert result.p_name is None
 
     def test_short_series_warns(self) -> None:
         series = np.random.default_rng(0).standard_normal(MIN_PERIODS_WARN - 5)

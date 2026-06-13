@@ -4,17 +4,11 @@ Two ``Estimator`` implementations targeting the slice-test setting
 (``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``WaldNWCluster`` — Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on the slice grouping;
-  consumes the stacked per-date metric panel. Emits
-  ``StatCode.P_WALD_NWCL`` (paired with ``WALD_NWCL`` on the test
-  statistic side).
+  consumes the stacked per-date metric panel.
 - ``WaldTwoWayCluster`` — [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011] two-way
   cluster on (date, asset); consumes the raw asset-date panel.
-  Emits ``StatCode.P_WALD_TWOWAY``. Reserved interface; no function
-  consumes it until ``factor_decomposition`` lands
-  later; calling ``bhy(estimator=WaldTwoWayCluster())`` against a
-  profile produced by ``evaluate()`` lands on a missing-stat error
-  until the function populates
-  ``profile.stats[StatCode.P_WALD_TWOWAY]``.
+  Reserved interface; no function consumes it until
+  ``factor_decomposition`` lands later.
 
 Numerical implementations live in ``factrix._stats.wald``; this
 module names the inference path the family functions / slice-test
@@ -22,9 +16,6 @@ functions dispatch to.
 """
 
 from __future__ import annotations
-
-from factrix._axis import FactorDensity, FactorScope
-from factrix._codes import StatCode
 
 
 class WaldNWCluster:
@@ -65,16 +56,6 @@ class WaldNWCluster:
             "slice grouping) on a stacked per-date metric panel."
         )
 
-    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
-        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
-
-    def emits_for(
-        self,
-        _scope: FactorScope,
-        _signal: FactorDensity,
-    ) -> StatCode:
-        return StatCode.P_WALD_NWCL
-
 
 class WaldTwoWayCluster:
     """Two-way cluster Wald χ² on (date, asset) — [Cameron-Gelbach-Miller (2011)][cameron-gelbach-miller-2011].
@@ -84,11 +65,7 @@ class WaldTwoWayCluster:
     ``factrix._stats.wald._wald_two_way_cluster``.
 
     Reserved interface; no function consumes it until
-    ``factor_decomposition`` lands later. Calling
-    ``bhy(estimator=WaldTwoWayCluster())`` against a profile produced
-    by ``evaluate()`` lands on a missing-stat error pointing at the
-    precondition (same pattern as ``HansenHodrick`` on a non-overlapping
-    profile).
+    ``factor_decomposition`` lands later.
     """
 
     @property
@@ -101,13 +78,3 @@ class WaldTwoWayCluster:
             "Two-way cluster Wald χ² on (date, asset), Cameron-Gelbach-Miller "
             "(2011). Reserved interface for the raw asset-date panel path."
         )
-
-    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
-        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
-
-    def emits_for(
-        self,
-        _scope: FactorScope,
-        _signal: FactorDensity,
-    ) -> StatCode:
-        return StatCode.P_WALD_TWOWAY

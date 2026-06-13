@@ -1,12 +1,9 @@
 """Statistical tooling shared across the library.
 
-``Estimator`` — base inference-method protocol selected via the
-family-function ``estimator=`` kwarg; pure selection
-semantics (no ``compute``).
-``HACEstimator(Estimator)`` — sub-protocol adding cell-internal
-``compute(series, *, forward_periods) -> InferenceResult`` for HAC-on-
-mean inference (no concrete implementers in this release; series-mean
-HAC now lives in ``factrix.inference``).
+``Estimator`` — base inference-method identity protocol selected via
+the slice-test ``estimator=`` kwarg; pure identity semantics
+(``name`` / ``description``, no ``compute``). Series-mean HAC inference
+lives in ``factrix.inference``.
 ``InferenceResult`` — harmonized return shape (canonical home is
 ``factrix.inference``; re-exported here).
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
@@ -24,7 +21,6 @@ from __future__ import annotations
 
 from factrix.stats._estimator import (
     Estimator,
-    HACEstimator,
     InferenceResult,
 )
 from factrix.stats.block_bootstrap import BlockBootstrap
@@ -40,7 +36,6 @@ __all__ = [
     "BlockBootstrap",
     "DriscollKraay",
     "Estimator",
-    "HACEstimator",
     "InferenceResult",
     "WaldNWCluster",
     "WaldTwoWayCluster",

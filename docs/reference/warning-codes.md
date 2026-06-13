@@ -39,13 +39,3 @@ breakdown of which codes a given pipeline can emit, see
 `InfoCode` is a reserved enum and currently defines no codes. It is kept
 on the public surface so info-severity annotations can be added without a
 breaking import change.
-
-## StatCode
-
---8<-- "docs/reference/_generated_stat_codes.md"
-
-::: factrix.StatCode
-    options:
-      show_root_heading: false
-      show_source: false
-      members: false

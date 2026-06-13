@@ -1,8 +1,7 @@
 """Shared types and constants for the v0.4 metric primitives.
 
 The v0.5 axis enums (``FactorScope`` / ``FactorDensity`` / ``DataStructure``)
-live in :mod:`factrix._axis`; the v0.5 result type
-(``FactorProfile``) lives in :mod:`factrix._profile`. The unified
+live in :mod:`factrix._axis`. The unified
 single-metric result type (``MetricResult``) lives alongside the other
 result dataclasses in :mod:`factrix._results`. This module keeps only
 the numerical constants and metric-option ``Literal`` aliases shared by
