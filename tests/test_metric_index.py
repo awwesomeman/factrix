@@ -15,9 +15,7 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
-    SEMethod,
     SpecRole,
-    TestMethod,
     Tier,
 )
 from factrix._inspect import DataProperties
@@ -132,8 +130,6 @@ class TestDefaults:
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
         assert spec.requires == {}
 
@@ -142,8 +138,6 @@ class TestDefaults:
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
         assert spec.batchable is False
 
@@ -152,8 +146,6 @@ class TestDefaults:
             name="probe",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
         assert spec.role is SpecRole.METRIC
 

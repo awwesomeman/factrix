@@ -34,8 +34,6 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._ols import ols_alpha as _ols_alpha
@@ -137,8 +135,6 @@ def _align_spread_series(
 @metric(
     cell=_SPANNING_CELL,
     aggregation=Aggregation.TS_ONLY,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"factor_spread": compute_spread_series},
     sample_threshold=SampleThreshold(min_periods=10),
@@ -255,8 +251,6 @@ def spanning_alpha(
 @metric(
     cell=_SPANNING_CELL,
     aggregation=Aggregation.TS_ONLY,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     batchable=True,
     requires={"factor_spreads": compute_spread_series},

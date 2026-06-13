@@ -44,8 +44,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -69,8 +67,6 @@ __all__ = [
 @metric(
     cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.CHI2,
-    se_method=SEMethod.HAC,
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
 def ts_asymmetry(

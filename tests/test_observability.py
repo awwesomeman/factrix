@@ -62,17 +62,13 @@ def test_metric_logger_exception(caplog):
         Aggregation,
         InputShape,
         OutputShape,
-        SEMethod,
         SpecRole,
-        TestMethod,
     )
     from factrix.metrics._base import MetricBase
 
     class dummy_metric(MetricBase):
         cell = fx.metrics.ic.cell
         aggregation = Aggregation.CS_THEN_TS
-        test_method = TestMethod.T
-        se_method = SEMethod.HAC
         input_shape = InputShape.SERIES
         output_shape = OutputShape.SCALAR
         role = SpecRole.METRIC

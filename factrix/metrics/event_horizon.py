@@ -24,8 +24,6 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -43,8 +41,6 @@ _EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 @metric(
     cell=_EH_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.BINOMIAL,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def event_around_return(

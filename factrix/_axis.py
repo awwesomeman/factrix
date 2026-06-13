@@ -12,8 +12,8 @@ Two orthogonal user-facing axes describe an analysis cell:
 user-set: it is derived from ``N`` at evaluate-time and surfaced as the
 third position of ``EvaluationResult.cell`` for downstream pattern-match.
 
-Metric-spec structural enums (``Aggregation``, ``TestMethod``, ``SEMethod``,
-``SpecRole``, ``InputShape``, ``OutputShape``) live here alongside the axis
+Metric-spec structural enums (``Aggregation``, ``SpecRole``,
+``InputShape``, ``OutputShape``) live here alongside the axis
 enums so all enum definitions share one import path.
 """
 
@@ -80,59 +80,6 @@ class Aggregation(Enum):
 
     RETURN_SPANNING = "return_spanning"
     """Spanning regression on factor-return time series."""
-
-
-class TestMethod(Enum):
-    """Primary statistical test family.
-
-    Drives ``primary_eligible`` (``DESCRIPTIVE`` specs are excluded from
-    being the primary metric in ``evaluate()``).
-    """
-
-    __test__ = False
-
-    T = "t"
-    """t-test, including NW HAC-corrected variants."""
-
-    BINOMIAL = "binomial"
-    """Binomial proportion test."""
-
-    RANK = "rank"
-    """Nonparametric rank-based test (Corrado, Theil-Sen, etc.)."""
-
-    CHI2 = "chi2"
-    """Chi-square / Wald asymptotic test."""
-
-    DESCRIPTIVE = "descriptive"
-    """No formal H₀ — measurement / descriptive statistic only."""
-
-
-class SEMethod(Enum):
-    """Standard-error / variance-estimation family.
-
-    Intentionally coarse-grained — NW / HH / Driscoll-Kraay are all
-    ``HAC``; method details live in the spec's docstring. Coarseness
-    gives callers programmable filtering without coupling to literature
-    names that may expand.
-    """
-
-    HAC = "hac"
-    """Autocorrelation-robust (Newey-West / Hansen-Hodrick family)."""
-
-    CLUSTER = "cluster"
-    """Cluster-robust (reserved; no current spec uses this)."""
-
-    HETEROSKEDASTIC = "heteroskedastic"
-    """White-style HC / BMP standardization."""
-
-    OLS = "ols"
-    """Vanilla OLS standard error."""
-
-    BUILT_IN = "built_in"
-    """Test carries its own null distribution (rank / binomial); no external SE."""
-
-    NONE = "none"
-    """Descriptive — no inference, no SE."""
 
 
 class SpecRole(Enum):

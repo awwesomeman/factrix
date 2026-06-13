@@ -10,9 +10,7 @@ from factrix._axis import (
     FactorDensity,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
@@ -24,8 +22,6 @@ from factrix.metrics._helpers import _is_sparse_magnitude_weighted
         None, FactorDensity.SPARSE, DataStructure.PANEL, raw="(*, SPARSE, PANEL)"
     ),
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,

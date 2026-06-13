@@ -30,7 +30,7 @@ Here is how to implement a custom Information Coefficient (IC) metric that accep
 ```python
 import polars as pl
 import factrix as fx
-from factrix._axis import Aggregation, TestMethod, SEMethod
+from factrix._axis import Aggregation
 from factrix._metric_index import cell, SampleThreshold
 from factrix import MetricResult
 from factrix.metrics import metric
@@ -46,8 +46,6 @@ _CUSTOM_CELL = cell(
 @metric(
     cell=_CUSTOM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     sample_threshold=SampleThreshold(min_periods=10),
 )
 def custom_trimmed_ic(
@@ -104,7 +102,7 @@ from factrix.metrics import register
 
 # `cell` and the spec enums are not yet on the public surface; import
 # from the internal modules until they are re-exported.
-from factrix._axis import Aggregation, TestMethod, SEMethod
+from factrix._axis import Aggregation
 from factrix._metric_index import cell
 
 # 1. Stamp the spec onto the callable
@@ -113,8 +111,6 @@ from factrix._metric_index import cell
         name="my_custom_stat",
         cell=cell(fx.FactorScope.INDIVIDUAL, fx.FactorDensity.DENSE),
         aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
     )
 )
 def my_custom_stat(data: pl.DataFrame) -> MetricResult:

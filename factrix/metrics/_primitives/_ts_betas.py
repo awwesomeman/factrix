@@ -11,9 +11,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._metric_index import cell
 from factrix._types import EPSILON
@@ -27,8 +25,6 @@ MIN_TS_OBS: int = 20
 @metric(
     cell=cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.TS_THEN_CS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,

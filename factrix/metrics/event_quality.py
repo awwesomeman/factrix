@@ -28,8 +28,6 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -56,8 +54,6 @@ _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def event_hit_rate(
@@ -139,8 +135,6 @@ def event_hit_rate(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def event_ic(
@@ -241,8 +235,6 @@ def event_ic(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def profit_factor(
@@ -320,8 +312,6 @@ def profit_factor(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def event_skewness(
@@ -417,8 +407,6 @@ def event_skewness(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def signal_density(

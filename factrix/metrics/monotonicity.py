@@ -25,8 +25,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -64,8 +62,6 @@ min_assets_per_group: int | None = 50
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     batchable=True,
     sample_threshold=SampleThreshold(min_periods=MIN_MONOTONICITY_PERIODS),
 )

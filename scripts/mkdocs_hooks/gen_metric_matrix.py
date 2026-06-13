@@ -1,14 +1,14 @@
 """Build-time generator for the standalone-metrics matrix table.
 
 Renders a Markdown table to ``docs/reference/_generated_metric_matrix.md``
-from the typed ``__metric_specs__`` declarations exposed by
-:mod:`factrix._metric_index` (single source of truth, also consumed at
-runtime by ``factrix.list_metrics``).
+from the typed metric specs exposed by :mod:`factrix._metric_index`
+(single source of truth, also consumed at runtime by
+``factrix.list_metrics``).
 
-One table row per distinct ``(module, cell.raw, family, inference)``
-group — modules whose specs cover multiple cells (e.g. ``tradability``
-splitting its panel-aggregated and rank-autocorrelation metrics across
-two rows) surface as multiple rows.
+One table row per distinct ``(module, cell.raw, aggregation)`` group —
+modules whose specs cover multiple cells (e.g. ``tradability`` splitting
+its panel-aggregated and rank-autocorrelation metrics across two rows)
+surface as multiple rows.
 
 Usage (manual)::
 
@@ -30,62 +30,43 @@ from factrix._metric_index import MetricSpec, public_specs
 _REPO_ROOT = pathlib.Path(__file__).parent.parent.parent
 _OUT_FILE = _REPO_ROOT / "docs" / "reference" / "_generated_metric_matrix.md"
 
-_TABLE_HEADER = (
-    "| Module | Cell scope | Aggregation order | Inference SE |\n|---|---|---|---|\n"
-)
+_TABLE_HEADER = "| Module | Cell scope | Aggregation order |\n|---|---|---|\n"
 
 
 @dataclass(frozen=True, slots=True)
 class _GroupedRow:
-    """One docs-matrix row: a ``(module, cell, aggregation, test_method, se_method)`` group."""
+    """One docs-matrix row: a ``(module, cell, aggregation)`` group."""
 
     module: str
     cell_raw: str
     aggregation: str
-    test_method: str
-    se_method: str
 
 
 def _group_specs(specs: tuple[tuple[str, MetricSpec], ...]) -> list[_GroupedRow]:
-    """Collapse per-callable specs into per-(module, cell, aggregation, test_method, se_method) rows.
+    """Collapse per-callable specs into per-(module, cell, aggregation) rows.
 
     Stable on insertion order so the rendered table follows the
     spec-declaration order in each module.
     """
-    seen: dict[tuple[str, str, str, str, str], _GroupedRow] = {}
+    seen: dict[tuple[str, str, str], _GroupedRow] = {}
     for stem, spec in specs:
-        key = (
-            stem,
-            spec.cell.raw,
-            spec.aggregation.name,
-            spec.test_method.name,
-            spec.se_method.name,
-        )
+        key = (stem, spec.cell.raw, spec.aggregation.name)
         if key not in seen:
             seen[key] = _GroupedRow(
                 module=stem,
                 cell_raw=spec.cell.raw,
                 aggregation=spec.aggregation.value,
-                test_method=spec.test_method.value,
-                se_method=spec.se_method.value,
             )
     return list(seen.values())
 
 
 def _render_row(row: _GroupedRow) -> str:
     module_cell = f"[`metrics.{row.module}`][factrix.metrics.{row.module}]"
-    inference_str = (
-        f"{row.test_method} ({row.se_method})"
-        if row.se_method != "NONE"
-        else row.test_method
-    )
-    return (
-        f"| {module_cell} | `{row.cell_raw}` | {row.aggregation} | {inference_str} |\n"
-    )
+    return f"| {module_cell} | `{row.cell_raw}` | {row.aggregation} |\n"
 
 
 def generate() -> None:
-    """Generate ``_generated_metric_matrix.md`` from ``__metric_specs__``."""
+    """Generate ``_generated_metric_matrix.md`` from the metric specs."""
     rows = _group_specs(public_specs())
     lines = [_TABLE_HEADER, *(_render_row(r) for r in rows)]
     _OUT_FILE.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 import polars as pl
 import pytest
-from factrix._axis import Aggregation, OutputShape, SEMethod, SpecRole, TestMethod
+from factrix._axis import Aggregation, OutputShape, SpecRole
 from factrix._metric_index import Cell, spec_by_name
 from factrix.metrics import MetricBase, metric
 
@@ -15,8 +15,6 @@ def test_metric_base_dataclass_properties():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             output_shape=OutputShape.PANEL,
             role=SpecRole.PIPELINE,
         )
@@ -26,8 +24,6 @@ def test_metric_base_dataclass_properties():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
         def dummy_metric(
@@ -67,8 +63,6 @@ def test_metric_spec_generation():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
         )
         def dummy_pipeline(df: pl.DataFrame, shift: int = 1) -> pl.DataFrame:
             return df.with_columns(pl.col("value") + shift)
@@ -76,8 +70,6 @@ def test_metric_spec_generation():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
         def dummy_metric(
@@ -109,8 +101,6 @@ def test_metric_dual_interface():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
         )
         def dummy_pipeline(df: pl.DataFrame, shift: int = 1) -> pl.DataFrame:
             return df.with_columns(pl.col("value") + shift)
@@ -118,8 +108,6 @@ def test_metric_dual_interface():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
         def dummy_metric(
@@ -162,8 +150,6 @@ def test_registry_integration():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             output_shape=OutputShape.PANEL,
             role=SpecRole.PIPELINE,
         )
@@ -173,8 +159,6 @@ def test_registry_integration():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             requires={"df_input": dummy_pipeline},
         )
         def dummy_metric(
@@ -208,8 +192,6 @@ def test_registry_validation_raises():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
         )
         def dummy_pipeline(df: pl.DataFrame, shift: int = 1) -> pl.DataFrame:
             return df.with_columns(pl.col("value") + shift)
@@ -217,8 +199,6 @@ def test_registry_validation_raises():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
             requires={"non_existent_param": dummy_pipeline},
         )
         def invalid_metric(df: pl.DataFrame):
@@ -249,8 +229,6 @@ def test_metric_parameter_ordering_and_reflection():
         @metric(
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
-            test_method=TestMethod.T,
-            se_method=SEMethod.BUILT_IN,
         )
         def ordered_metric(df: pl.DataFrame, a: int = 10, *, b: int) -> str:
             return f"a={a}, b={b}"
