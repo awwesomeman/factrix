@@ -17,15 +17,18 @@ path is multivariate and lives outside the family-function axis.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
+
+# ``InferenceResult`` now lives in ``factrix.inference._base``; re-exported
+# here so the (transitional) ``HACEstimator`` sub-protocol and existing
+# ``factrix.stats.InferenceResult`` importers keep resolving.
+from factrix.inference._base import InferenceResult
 
 if TYPE_CHECKING:
     import numpy as np
 
     from factrix._axis import FactorDensity, FactorScope
-    from factrix._codes import StatCode, WarningCode
+    from factrix._codes import StatCode
 
 
 @runtime_checkable
@@ -71,36 +74,6 @@ class Estimator(Protocol):
         implementations may assume the cell is in their applicability set.
         """
         ...
-
-
-@dataclass(frozen=True, slots=True)
-class InferenceResult:
-    """HAC-on-mean return shape for ``HACEstimator.compute``.
-
-    Carries everything a cell procedure needs to stitch the inference
-    output into ``FactorProfile`` without an ``isinstance`` ladder.
-    ``stat_name`` / ``p_name`` let the procedure key ``stats`` /
-    ``metadata`` with the estimator-emitted ``StatCode`` (matching
-    ``Estimator.emits_for``); ``metadata`` is a flat ``str -> Any``
-    mapping that the procedure mirrors under both keys (Newey-West (NW) emits
-    ``{"nw_lags": k}``; Hansen-Hodrick (HH) emits ``{"kernel": "rectangular",
-    "variance_clamped": bool}``).
-
-    ``stat_name`` / ``p_name`` are ``None`` for a metric-internal
-    inference unit that is not (yet) a discoverable ``Estimator`` and
-    therefore claims no ``profile.stats`` key — its ``stat`` / ``p_value``
-    feed a ``MetricResult`` directly rather than being keyed into
-    ``FactorProfile.stats``. The ``StatCode``-emitting promotion is gated
-    behind the structured-shape redesign the ``StatCode`` enum note
-    requires before the codebook grows further.
-    """
-
-    stat: float
-    p_value: float
-    stat_name: StatCode | None
-    p_name: StatCode | None
-    metadata: Mapping[str, Any]
-    warnings: frozenset[WarningCode]
 
 
 @runtime_checkable

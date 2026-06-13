@@ -26,7 +26,7 @@ import factrix as fx
 import numpy as np
 import polars as pl
 from factrix.preprocess import compute_forward_return
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 ```
 
 ## 2. Build a single-family batch
@@ -63,7 +63,7 @@ results = []
 for name, p in candidates.items():
     res = fx.evaluate(
         p,
-        metrics={"ic": ic_newey_west()},
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
         factor_cols=[name],
         forward_periods=5,
     )
@@ -108,7 +108,7 @@ from factrix.metrics import fm_beta
 
 # Collides because both evaluate on the same "factor" name
 unstamped = []
-unstamped.extend(fx.evaluate(panel, metrics={"ic": ic_newey_west()}, factor_cols=["factor"], forward_periods=5))
+unstamped.extend(fx.evaluate(panel, metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)}, factor_cols=["factor"], forward_periods=5))
 unstamped.extend(fx.evaluate(panel, metrics={"fm": fm_beta()}, factor_cols=["factor"], forward_periods=5))
 
 try:

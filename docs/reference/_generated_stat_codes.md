@@ -1,10 +1,10 @@
 | StatCode | Trigger / meaning |
 |---|---|
 | `mean` | Cell primary point estimate (interpretation per `profile.config.metric`: IC mean, FM λ mean, CAAR event-only mean, or TS β / E[β]). |
-| `t_nw` | Newey-West HAC t-stat on the cell primary estimate. Implementation convention lives in `factrix.stats.NeweyWest`. |
+| `t_nw` | Newey-West HAC t-stat on the cell primary estimate. Implementation convention lives in `factrix.inference.NeweyWest`. |
 | `p_nw` | Two-sided p-value from the Newey-West HAC t-test on the cell primary estimate. Sibling of `T_NW`. |
 | `t_hh` | Hansen-Hodrick (1980) rectangular-kernel HAC t-stat on the cell primary estimate. Sibling of `T_NW`; uses `Var(mean) = (γ₀ + 2 Σ_{j=1..h-1} γⱼ) / n` instead of NW's Bartlett kernel. |
-| `p_hh` | Two-sided p-value from the Hansen-Hodrick (1980) rectangular-kernel HAC t-test on the cell primary estimate. Implementation convention lives in `factrix.stats.HansenHodrick`. |
+| `p_hh` | Two-sided p-value from the Hansen-Hodrick (1980) rectangular-kernel HAC t-test on the cell primary estimate. Implementation convention lives in `factrix.inference.HansenHodrick`. |
 | `wald_nwcl` | Wald χ² statistic for a linear restriction on slice contrasts / joint coefficients, computed under NW Bartlett HAC plus one-way cluster on the slice grouping. Implementation convention lives in `factrix.stats.WaldNWCluster`. |
 | `p_wald_nwcl` | P-value from `WALD_NWCL`. Sibling under the (WALD_NWCL, P_WALD_NWCL) algorithm-pair convention. |
 | `wald_twoway` | Wald χ² statistic for a linear restriction on a panel coefficient vector, computed under two-way cluster on (date, asset) (Cameron-Gelbach-Miller 2011). Implementation convention lives in `factrix.stats.WaldTwoWayCluster`. |

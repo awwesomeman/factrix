@@ -65,7 +65,7 @@ def compute_forward_return(
         3. **Scale, not inference.** ``÷N`` aligns the *scale* across
            horizons — it does *not* address the inference problem.
            Overlap is handled by heteroskedasticity-and-autocorrelation-consistent (HAC) (see
-           :class:`factrix.stats.NeweyWest`); across-horizon
+           :class:`factrix.inference.NeweyWest`); across-horizon
            selection is handled by the family-wise error rate (FWER) correction in
            :func:`factrix.multi_factor.bhy`. The three concerns
            (scale, overlap, cross-horizon selection) are addressed

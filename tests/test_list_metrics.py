@@ -227,7 +227,7 @@ class TestNoArgOverview:
         assert isinstance(overview, dict)
         # Keys are concept families (module stems); ic family present.
         assert "ic" in overview
-        assert {s.name for s in overview["ic"]} >= {"ic", "ic_newey_west", "ic_ir"}
+        assert {s.name for s in overview["ic"]} >= {"ic", "ic_ir"}
 
     def test_overview_keys_match_public_spec_stems(self) -> None:
         overview = fx.list_metrics()

@@ -47,7 +47,6 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`ic_newey_west`][factrix.metrics.ic.ic_newey_west] | `T` (full series) | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_ASSETS_PER_DATE_IC` |
 
 ### FM family — Cell: Individual × Continuous

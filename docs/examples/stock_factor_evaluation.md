@@ -25,7 +25,7 @@ Null hypothesis $\mathbb{E}[\text{IC}] = 0$ — the factor has no rank-based pre
 ```python
 import factrix as fx
 from factrix.preprocess import compute_forward_return
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 ```
 
 ## 2. Synthesise a cross-sectional panel
@@ -48,7 +48,7 @@ print(f"panel shape={panel.shape}  N={panel['asset_id'].n_unique()}")
 ```python
 results = fx.evaluate(
     panel,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["factor"],
     forward_periods=5,
 )

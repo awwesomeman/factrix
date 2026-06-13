@@ -29,26 +29,22 @@ from factrix._axis import (
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._stats import (
-    _newey_west_t_test,
-)
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
     EPSILON,
     MIN_ASSETS_PER_DATE_IC,
 )
+from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
-    _scaled_min_periods,
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_ic
 
-__all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
+__all__ = [
     "ic",
-    "ic_newey_west",
     "ic_ir",
 ]
 
@@ -113,6 +109,7 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
 def ic(
     ic_df: pl.DataFrame,
     forward_periods: int = 5,
+    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
@@ -120,21 +117,27 @@ def ic(
 
     Args:
         ic_df: Output of ``compute_ic()``.
-        forward_periods: Sampling interval for non-overlapping dates.
+        forward_periods: Overlap horizon of the forward returns; the
+            non-overlapping stride and the HAC bandwidth floor both key
+            off it.
+        inference: Significance-test method. ``fx.inference.NON_OVERLAPPING``
+            (default) runs an OLS t-test on a non-overlapping stride
+            subsample; ``fx.inference.NEWEY_WEST`` keeps every observation
+            and uses a Newey-West HAC standard error. Both test the same
+            $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
 
     Returns:
-        MetricResult with value=mean IC, t_stat from non-overlapping sampling.
+        MetricResult with value=mean IC and the inference method's t/p.
 
     Notes:
-        Given the per-date IC series $\mathrm{IC}_t$, significance is
-        $t = \mathrm{mean}(\mathrm{IC}) / (\mathrm{std}(\mathrm{IC}) / \sqrt{n})$
-        computed on a non-overlapping subsample (every
-        ``forward_periods``-th date). $H_0: \mathbb{E}[\mathrm{IC}] = 0$.
-
-        factrix uses non-overlapping resampling rather than Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC)
-        for the default ``ic`` test to avoid the lag floor implied by
-        overlapping forward returns; the HAC route is offered separately
-        as ``ic_newey_west`` for callers who prefer to keep every sample.
+        Given the per-date IC series $\mathrm{IC}_t$, $H_0:
+        \mathbb{E}[\mathrm{IC}] = 0$. The non-overlapping path strides the
+        series at ``forward_periods`` (discarding $h-1$ of every $h$
+        observations) to avoid the lag floor implied by overlapping
+        forward returns; the Newey-West path keeps every observation and
+        absorbs the induced MA($h-1$) autocorrelation through HAC standard
+        errors (Bartlett kernel, NW1994 auto-bandwidth floored at
+        $h - 1$).
 
     References:
         [Grinold 1989][grinold-1989]: IC as the canonical density-quality
@@ -159,12 +162,11 @@ def ic(
         True
     """
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
-    # Date-order the series before striding so the non-overlapping
-    # subsample is time-coherent regardless of caller row order; mean /
-    # count below are order-invariant over the same non-null set.
-    ic_vals = ic_df.sort("date")["ic"].drop_nulls()
+    # Mean is order-invariant; the inference method owns date-ordering for
+    # its stride / lag math.
+    ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    raw_min = _scaled_min_periods(MIN_ASSETS_PER_DATE_IC, forward_periods)
+    raw_min = inference.hard_floor(forward_periods)
     if n < raw_min:
         return _short_circuit_output(
             "ic",
@@ -174,122 +176,31 @@ def ic(
             forward_periods=forward_periods,
         )
 
-    from factrix.stats.non_overlapping import NonOverlappingSample
+    result = inference.compute(ic_df, value_col="ic", forward_periods=forward_periods)
 
-    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
-    result = NonOverlappingSample().compute(
-        ic_vals.to_numpy(), forward_periods=forward_periods
-    )
-    n_sampled = int(result.metadata["n_obs_sampled"])
-    if n_sampled < MIN_ASSETS_PER_DATE_IC:
+    # Stride-based methods report a post-sampling count; guard on the
+    # effective sample so a coarse stride cannot silently test ~nothing.
+    n_sampled = result.metadata.get("n_obs_sampled")
+    if n_sampled is not None and n_sampled < MIN_ASSETS_PER_DATE_IC:
         return _short_circuit_output(
             "ic",
             "insufficient_sampled_ic_periods",
-            n_obs=n_sampled,
+            n_obs=int(n_sampled),
             min_required=MIN_ASSETS_PER_DATE_IC,
             forward_periods=forward_periods,
         )
 
+    mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
     return MetricResult(
         p_value=result.p_value,
         value=mean_ic,
         stat=result.stat,
         metadata={
             "n_periods": n,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "method": "non-overlapping t-test",
-            "tie_ratio": median_tie,
-        },
-    )
-
-
-@metric(
-    cell=_IC_CELL,
-    aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
-    input_shape=InputShape.SERIES,
-    requires={"ic_df": compute_ic},
-    sample_threshold=SampleThreshold(
-        min_periods=MIN_PERIODS_HARD,
-        warn_periods=MIN_PERIODS_WARN,
-    ),
-)
-def ic_newey_west(
-    ic_df: pl.DataFrame,
-    forward_periods: int = 5,
-) -> MetricResult:
-    r"""Information coefficient (IC) mean significance via Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) $t$-test on the overlapping series.
-
-    Sibling of ``ic()``: same null hypothesis ($H_0$: mean IC = 0), but
-    keeps every observation and absorbs the autocorrelation induced by
-    overlapping ``forward_periods``-day returns through HAC standard
-    errors rather than dropping samples.
-
-    Notes:
-        $t = \mathrm{mean}(\mathrm{IC}) / \mathrm{SE}_{\mathrm{NW}}(\mathrm{IC})$
-        on the full overlapping IC series. Lag selection:
-        $L = \max(\lfloor T^{1/3} \rfloor, h - 1)$ (with $h$ = ``forward_periods``)
-        — the [Andrews (1991)][andrews-1991] Bartlett growth rate, floored against the
-        Hansen-Hodrick MA($h-1$) overlap horizon so the kernel covers
-        the induced dependence.
-
-        factrix uses the Andrews fixed-rate rule rather than the
-        [Newey-West (1994)][newey-west-1994] data-adaptive bandwidth — simpler, deterministic
-        across reruns, and adequate at the typical $T$ of factor research.
-
-    References:
-        [Newey-West 1987][newey-west-1987]: HAC variance estimator.
-        [Andrews 1991][andrews-1991]: optimal Bartlett growth rate
-        $T^{1/3}$ underlying the default lag rule.
-        [Hansen-Hodrick 1980][hansen-hodrick-1980]: ``forward_periods - 1``
-        floor for overlapping returns.
-        [Newey-West 1994][newey-west-1994]: data-adaptive lag-selection
-        alternative; cited as background.
-
-    Examples:
-        Chain from :func:`compute_ic` output:
-
-        >>> import factrix as fx
-        >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.ic import compute_ic, ic_newey_west
-        >>> panel = compute_forward_return(
-        ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
-        ...     forward_periods=5,
-        ... )
-        >>> ic_df = compute_ic(panel)["factor"]
-        >>> result = ic_newey_west(ic_df, forward_periods=5)
-        >>> result.name == ""
-        True
-    """
-    median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_newey_west")
-    ic_vals = ic_df["ic"].drop_nulls().to_numpy()
-    n = len(ic_vals)
-    min_periods = ic_newey_west.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "ic_newey_west",
-            "insufficient_ic_periods",
-            n_obs=n,
-            min_required=min_periods,
-        )
-
-    from factrix._stats import _resolve_nw_lags
-
-    lags = _resolve_nw_lags(n, lags=None, forward_periods=forward_periods)
-    t, p, _ = _newey_west_t_test(ic_vals, forward_periods=forward_periods)
-    return MetricResult(
-        p_value=p,
-        value=float(ic_vals.mean()),
-        stat=t,
-        metadata={
-            "n_periods": n,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "method": "Newey-West HAC t-test on overlapping IC series",
-            "newey_west_lags": lags,
             "forward_periods": forward_periods,
+            "stat_type": "t",
+            "h0": "mu=0",
+            "method": inference.summary,
             "tie_ratio": median_tie,
         },
     )
@@ -329,9 +240,9 @@ def ic_ir(
         $\mathrm{ICIR} = \mathrm{mean}(\mathrm{IC}) / \mathrm{std}(\mathrm{IC})$
         over the per-date IC series — a Sharpe-style ratio describing
         time-series stability of the density. Reported as a descriptive
-        statistic; no inference is attached because the heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
-        significance test on $\mathrm{mean}(\mathrm{IC})$ lives in ``ic``
-        / ``ic_newey_west``.
+        statistic; no inference is attached because the significance test
+        on $\mathrm{mean}(\mathrm{IC})$ lives in ``ic`` (optionally with
+        ``inference=fx.inference.NEWEY_WEST`` for the HAC-corrected SE).
 
     References:
         [Grinold 1989][grinold-1989]: ICIR is the time-stability

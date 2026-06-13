@@ -9,6 +9,7 @@
 | [`metrics.event_quality`][factrix.metrics.event_quality] | `(*, SPARSE, PANEL)` | event_time | rank (built_in) |
 | [`metrics.fm_beta`][factrix.metrics.fm_beta] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts | t (hac) |
 | [`metrics.hit_rate`][factrix.metrics.hit_rate] | `(*, DENSE, TIMESERIES)` | ts_only | binomial (built_in) |
+| [`metrics.ic`][factrix.metrics.ic] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts | t (ols) |
 | [`metrics.ic`][factrix.metrics.ic] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts | t (hac) |
 | [`metrics.k_spread`][factrix.metrics.k_spread] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts | t (ols) |
 | [`metrics.mfe_mae`][factrix.metrics.mfe_mae] | `(*, SPARSE, PANEL)` | event_time | descriptive (none) |

@@ -27,12 +27,12 @@ To evaluate both IC and Fama-MacBeth on a candidate factor panel, pass both metr
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west, fm_beta
+from factrix.metrics import ic, fm_beta
 
 results = fx.evaluate(
     data,
     metrics={
-        "ic": ic_newey_west(),
+        "ic": ic(inference=fx.inference.NEWEY_WEST),
         "fm": fm_beta(),
     },
     factor_cols=["factor"],

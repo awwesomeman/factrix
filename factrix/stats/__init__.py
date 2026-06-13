@@ -5,11 +5,10 @@ family-function ``estimator=`` kwarg; pure selection
 semantics (no ``compute``).
 ``HACEstimator(Estimator)`` — sub-protocol adding cell-internal
 ``compute(series, *, forward_periods) -> InferenceResult`` for HAC-on-
-mean inference. ``NeweyWest`` / ``HansenHodrick`` implement it.
-``InferenceResult`` — harmonized return shape for ``HACEstimator.compute``.
-``NeweyWest`` — Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) ``HACEstimator``.
-``HansenHodrick`` — rectangular-kernel HAC variant for information coefficient (IC) / FM PANEL
-on overlapping forward returns.
+mean inference (no concrete implementers in this release; series-mean
+HAC now lives in ``factrix.inference``).
+``InferenceResult`` — harmonized return shape (canonical home is
+``factrix.inference``; re-exported here).
 ``WaldNWCluster`` / ``WaldTwoWayCluster`` — cluster-robust Wald χ²
 Estimators for slice contrasts; remain on base ``Estimator``.
 ``DriscollKraay`` — [Driscoll-Kraay (1998)][driscoll-kraay-1998]
@@ -34,9 +33,7 @@ from factrix.stats.bootstrap import (
     stationary_bootstrap_resamples,
 )
 from factrix.stats.driscoll_kraay import DriscollKraay
-from factrix.stats.hansen_hodrick import HansenHodrick
 from factrix.stats.multiple_testing import bhy_adjust, bhy_adjusted_p
-from factrix.stats.newey_west import NeweyWest
 from factrix.stats.wald_cluster import WaldNWCluster, WaldTwoWayCluster
 
 __all__ = [
@@ -44,9 +41,7 @@ __all__ = [
     "DriscollKraay",
     "Estimator",
     "HACEstimator",
-    "HansenHodrick",
     "InferenceResult",
-    "NeweyWest",
     "WaldNWCluster",
     "WaldTwoWayCluster",
     "bhy_adjust",

@@ -29,7 +29,7 @@ Here is the complete executable pattern:
 ```python
 import polars as pl
 import factrix as fx
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 # 1. Scan metadata only — nothing is read from disk yet
 lazy_panel = pl.scan_parquet("large_panel.parquet")
@@ -57,7 +57,7 @@ for i in range(0, len(factor_cols), chunk_size):
     # Evaluate the active chunk
     chunk_results = fx.evaluate(
         chunk_data,
-        metrics={"ic": ic_newey_west()},
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
         factor_cols=chunk_cols,
         forward_periods=5,
         strict=False,  # Keep inapplicable metrics as NaN with warnings instead of raising

@@ -98,7 +98,7 @@ def quantile_spread(
 
         factrix performs the t-test on the non-overlap series rather than
         applying Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) on an overlapping series; the two approaches are
-        sibling routes — overlap variants live alongside ``ic_newey_west``.
+        sibling routes — the HAC variant is ``ic(inference=fx.inference.NEWEY_WEST)``.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return

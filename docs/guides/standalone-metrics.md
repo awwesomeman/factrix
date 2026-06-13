@@ -69,12 +69,12 @@ Instead of calling multiple metrics manually and managing intermediate outputs, 
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west, quantile_spread, monotonicity
+from factrix.metrics import ic, quantile_spread, monotonicity
 
 results = fx.evaluate(
     panel,
     metrics={
-        "ic": ic_newey_west(),
+        "ic": ic(inference=fx.inference.NEWEY_WEST),
         "spread": quantile_spread(n_groups=5),
         "mono": monotonicity(n_groups=5),
     },
