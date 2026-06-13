@@ -41,14 +41,14 @@ No FDR claim is made.
 ```python
 import factrix as fx
 import polars as pl
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 horizons = [1, 5, 10, 20]
 results = []
 for h in horizons:
     res = fx.evaluate(
         panel,
-        metrics={"ic": ic_newey_west()},
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
         factor_cols=["mom_12_1"],
         forward_periods=h,
     )
@@ -65,14 +65,14 @@ family-function layer partitions the BHY null per horizon so the step-up thresho
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 horizons = [1, 5, 10, 20]
 results = []
 for h in horizons:
     res = fx.evaluate(
         panel,
-        metrics={"ic": ic_newey_west()},
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
         factor_cols=["mom_12_1"],
         forward_periods=h,
     )

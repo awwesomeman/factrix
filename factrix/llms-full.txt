@@ -56,7 +56,7 @@ Synthetic panels can be generated with `fx.datasets.make_cs_panel(...)` (for DEN
 ```python
 import factrix as fx
 from factrix.preprocess import compute_forward_return
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 # 1. Generate synthetic panel data and compute forward returns
 raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
@@ -66,10 +66,10 @@ data = compute_forward_return(raw, forward_periods=5)
 info = fx.inspect_data(data, factor_cols=["factor"])
 print("Detected structure:", info.detected.structure)
 
-# 3. Evaluate using the ic_newey_west metric
+# 3. Evaluate using ic with Newey-West HAC inference
 results = fx.evaluate(
     data,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["factor"],
     forward_periods=5,
 )
@@ -84,7 +84,7 @@ print("p-value:", res.metrics["ic"].p_value)
 ```python
 import factrix as fx
 from factrix.preprocess import compute_forward_return
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 import polars as pl
 
 # 1. Prepare multi-factor dataset
@@ -101,7 +101,7 @@ factor_cols = [f"factor_{i}" for i in range(5)]
 # 2. Evaluate all candidates simultaneously
 results = fx.evaluate(
     data,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=factor_cols,
     forward_periods=5,
 )
@@ -157,7 +157,7 @@ def evaluate(
 
 `DataInput = pl.DataFrame | pl.LazyFrame`. factrix is polars-native on its primary entry points. `LazyFrame` is collected at the API boundary.
 
-- `metrics` accepts a dictionary mapping labels to metric **instances** from `factrix.metrics` (e.g., `{"ic_5d": ic_newey_west(forward_periods=5)}`).
+- `metrics` accepts a dictionary mapping labels to metric **instances** from `factrix.metrics` (e.g., `{"ic_5d": ic(forward_periods=5, inference=fx.inference.NEWEY_WEST)}`).
 - `factor_cols` accepts a list of column names on `data`.
 - `forward_periods` sets a default horizon (rows) for metrics that leave it at signature default.
 - `strict` (default `True`) raises an exception on inapplicable metrics; when `False`, inapplicable metrics return `NaN` with warnings.

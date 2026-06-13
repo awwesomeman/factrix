@@ -8,12 +8,12 @@ How to read factrix errors and which exception class to catch.
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 try:
     results = fx.evaluate(
         data, 
-        metrics={"ic": ic_newey_west()}, 
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)}, 
         factor_cols=["factor"]
     )
 except fx.UserInputError as exc:

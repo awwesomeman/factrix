@@ -9,7 +9,7 @@ import factrix as fx
 import polars as pl
 import pytest
 from factrix._errors import UserInputError
-from factrix.metrics import ic, ic_ir, ic_newey_west
+from factrix.metrics import ic, ic_ir
 
 
 def _panel(n_assets: int = 20, n_dates: int = 80, *, with_price: bool = True):
@@ -110,7 +110,10 @@ class TestByValueDedup:
     def test_per_instance_forward_periods_override(self):
         er = fx.evaluate(
             _panel(),
-            metrics={"fp5": ic_newey_west(), "fp20": ic_newey_west(forward_periods=20)},
+            metrics={
+                "fp5": ic(inference=fx.inference.NEWEY_WEST),
+                "fp20": ic(forward_periods=20, inference=fx.inference.NEWEY_WEST),
+            },
             factor_cols=["factor"],
         )["factor"]
         assert er.metrics["fp5"].metadata["forward_periods"] == 5
@@ -119,7 +122,10 @@ class TestByValueDedup:
     def test_shared_producer_runs_once_across_configs(self):
         er = fx.evaluate(
             _panel(),
-            metrics={"fp5": ic_newey_west(), "fp20": ic_newey_west(forward_periods=20)},
+            metrics={
+                "fp5": ic(inference=fx.inference.NEWEY_WEST),
+                "fp20": ic(forward_periods=20, inference=fx.inference.NEWEY_WEST),
+            },
             factor_cols=["factor"],
         )["factor"]
         assert er.plan.count("compute_ic [batchable]") == 1
@@ -128,8 +134,8 @@ class TestByValueDedup:
         er = fx.evaluate(
             _panel(),
             metrics={
-                "dflt": ic_newey_west(),
-                "expl": ic_newey_west(forward_periods=10),
+                "dflt": ic(inference=fx.inference.NEWEY_WEST),
+                "expl": ic(forward_periods=10, inference=fx.inference.NEWEY_WEST),
             },
             factor_cols=["factor"],
             forward_periods=20,

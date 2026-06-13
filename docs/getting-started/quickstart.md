@@ -13,7 +13,7 @@ title: Quickstart
 ```python
 import factrix as fx
 from factrix.preprocess import compute_forward_return
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 # 1. Generate synthetic panel data and compute forward returns
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
@@ -22,7 +22,7 @@ data  = compute_forward_return(raw, forward_periods=5)
 # 2. Run single-factor evaluation using the ic_newey_west metric
 results = fx.evaluate(
     data,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["factor"],
     forward_periods=5,
 )

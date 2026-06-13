@@ -126,11 +126,11 @@ column(s) via the `factor_cols` parameter:
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 results = fx.evaluate(
     panel,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["momentum"],
     forward_periods=5,
 )

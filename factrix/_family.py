@@ -10,9 +10,9 @@ anti-shopping defense: the hypothesis identity is
 ``(factor, *expand_over_values)``; ``expand_over`` names are read
 from ``forward_periods`` (the lone non-context built-in slicing axis)
 or from ``EvaluationResult.context``. The estimator-override hook is
-gone — the new ``fx.estimators`` namespace bakes the inference choice
-into each str name (e.g. ``ic_newey_west``), so callers pick
-the estimator by passing the corresponding ``primary`` label.
+gone — callers select inference at metric-construction time (e.g.
+``ic(inference=fx.inference.NEWEY_WEST)``) and pick the result by
+passing the corresponding ``primary`` label.
 """
 
 from __future__ import annotations

@@ -73,22 +73,24 @@ class TestComputeIC:
         assert result["tie_ratio"].min() == pytest.approx(0.75)
 
     def test_tie_ratio_propagated_to_metadata(self, noisy_panel):
-        from factrix.metrics.ic import ic, ic_ir, ic_newey_west
+        from factrix.inference import NEWEY_WEST
+        from factrix.metrics.ic import ic, ic_ir
 
         ic_df = compute_ic(noisy_panel)["factor"]
         for out in (
             ic(ic_df, forward_periods=1),
-            ic_newey_west(ic_df, forward_periods=1),
+            ic(ic_df, forward_periods=1, inference=NEWEY_WEST),
             ic_ir(ic_df),
         ):
             assert "tie_ratio" in out.metadata
             assert 0.0 <= out.metadata["tie_ratio"] <= 1.0
 
     def test_high_tie_ratio_emits_warning(self):
-        """ic / ic_newey_west / ic_ir warn when median tie_ratio > threshold."""
+        """ic / ic(NEWEY_WEST) / ic_ir warn when median tie_ratio > threshold."""
         import warnings
 
-        from factrix.metrics.ic import ic, ic_ir, ic_newey_west
+        from factrix.inference import NEWEY_WEST
+        from factrix.metrics.ic import ic, ic_ir
 
         # 12 assets bucketed into 2 buckets per date → tie_ratio = 1 - 2/12
         # ≈ 0.83 (well above the 0.3 threshold).
@@ -108,7 +110,7 @@ class TestComputeIC:
         ic_df = compute_ic(df)["factor"]
         for fn in (
             lambda d: ic(d, forward_periods=1),
-            lambda d: ic_newey_west(d, forward_periods=1),
+            lambda d: ic(d, forward_periods=1, inference=NEWEY_WEST),
             ic_ir,
         ):
             with pytest.warns(UserWarning, match="tie_ratio"):
@@ -133,7 +135,7 @@ class TestComputeIC:
         with warnings.catch_warnings():
             warnings.simplefilter("error", UserWarning)
             ic(clean_ic, forward_periods=1)
-            ic_newey_west(clean_ic, forward_periods=1)
+            ic(clean_ic, forward_periods=1, inference=NEWEY_WEST)
             ic_ir(clean_ic)
 
 

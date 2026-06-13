@@ -9,15 +9,11 @@ from factrix.stats import (
     BlockBootstrap,
     DriscollKraay,
     Estimator,
-    HansenHodrick,
-    NeweyWest,
     WaldNWCluster,
     WaldTwoWayCluster,
 )
 
 _ALL_ESTIMATORS = (
-    NeweyWest(),
-    HansenHodrick(),
     WaldNWCluster(),
     WaldTwoWayCluster(),
     BlockBootstrap(),
@@ -33,8 +29,6 @@ class TestEstimatorProtocol:
     def test_names_distinct(self):
         names = {e.name for e in _ALL_ESTIMATORS}
         assert names == {
-            "NeweyWest",
-            "HansenHodrick",
             "WaldNWCluster",
             "WaldTwoWayCluster",
             "BlockBootstrap",

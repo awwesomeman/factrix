@@ -11,17 +11,21 @@ for FDR-corrected screening.
 Single-factor::
 
     import factrix as fx
-    from factrix.metrics import ic_newey_west
+    from factrix.metrics import ic
 
     results = fx.evaluate(
-        panel, metrics={"ic": ic_newey_west()}, factor_cols=["factor"]
+        panel,
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+        factor_cols=["factor"],
     )
     print(results["factor"].metrics["ic"])
 
 Batch + Benjamini-Hochberg-Yekutieli (BHY)::
 
     results = fx.evaluate(
-        panel, metrics={"ic": ic_newey_west()}, factor_cols=candidate_cols
+        panel,
+        metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+        factor_cols=candidate_cols,
     )
     ic_results = {col: er.metrics["ic"] for col, er in results.items()}
     survivors = fx.multi_factor.bhy(ic_results, primary=["ic"], q=0.05)
@@ -47,7 +51,7 @@ import polars as pl
 if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
-from factrix import datasets, estimators, multi_factor, preprocess
+from factrix import datasets, estimators, inference, multi_factor, preprocess
 from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespace access; intentionally not in __all__
     DataStructure,
     FactorDensity,
@@ -653,6 +657,8 @@ __all__ = [
     "preprocess",
     # Estimator entry points (lowercase callables consumed by metric impls)
     "estimators",
+    # Curated statistical inference methods (e.g. ic(inference=...))
+    "inference",
     # Metric registration surface
     "MetricSpec",
     "metric_spec",
