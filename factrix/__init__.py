@@ -58,7 +58,7 @@ from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespa
     FactorScope,
     Tier,
 )
-from factrix._codes import InfoCode, StatCode, WarningCode
+from factrix._codes import WarningCode
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
 from factrix._data_input import DataInput, _coerce_data
@@ -618,8 +618,6 @@ __all__ = [
     "FactorDensity",
     "Tier",
     # Code enums
-    "InfoCode",
-    "StatCode",
     "WarningCode",
     # Errors
     "FactrixError",

@@ -18,9 +18,9 @@ Three checks:
    ``llms-full.txt`` — keeps the LLM reference in lockstep when the
    public surface widens.
 
-Bare references like ``StatCode.MEAN`` (no ``fx.`` / ``factrix.``
-prefix) are intentionally not validated — too many false positives
-against ``profile.X`` style attribute talk in prose.
+Bare references like ``WarningCode.FEW_EVENTS`` (no ``fx.`` /
+``factrix.`` prefix) are intentionally not validated — too many false
+positives against ``profile.X`` style attribute talk in prose.
 
 Sibling test ``test_docs_pages.py`` runs the resolution checks
 against every ``docs/**/*.md`` page; this file remains specific to

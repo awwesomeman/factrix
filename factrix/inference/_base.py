@@ -9,10 +9,8 @@ slice / panel) and a single Protocol cannot honestly cover all of them.
 Derived ClassVars (e.g. ``se``) are declared by downstream dataclasses as
 needed, not hoisted into the base Protocol.
 
-``InferenceResult`` is the harmonized return shape compute methods emit.
-``stat_name`` / ``p_name`` are ``None`` for a metric-internal inference
-unit that claims no ``profile.stats`` ``StatCode`` key — its
-``stat`` / ``p_value`` feed a ``MetricResult`` directly.
+``InferenceResult`` is the harmonized return shape compute methods emit:
+its ``stat`` / ``p_value`` feed a ``MetricResult`` directly.
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from factrix._codes import StatCode, WarningCode
+    from factrix._codes import WarningCode
 
 
 @runtime_checkable
@@ -46,18 +44,14 @@ class Inference(Protocol):
 class InferenceResult:
     """Harmonized return shape for an ``Inference.compute`` call.
 
-    ``stat`` / ``p_value`` are the test statistic and two-sided p-value.
-    ``stat_name`` / ``p_name`` key the values into ``FactorProfile.stats``
-    when the method is a discoverable profile estimator; they are ``None``
-    for metric-internal units (the ``stat`` / ``p_value`` then feed a
-    ``MetricResult`` directly). ``metadata`` is a flat ``str -> Any`` map
-    (non-overlapping emits ``stride`` / sample counts; Newey-West emits
-    ``nw_lags``). ``warnings`` carries soft-floor / kernel-clamp signals.
+    ``stat`` / ``p_value`` are the test statistic and two-sided p-value;
+    they feed a ``MetricResult`` directly. ``metadata`` is a flat
+    ``str -> Any`` map (non-overlapping emits ``stride`` / sample counts;
+    Newey-West emits ``nw_lags``). ``warnings`` carries soft-floor /
+    kernel-clamp signals.
     """
 
     stat: float
     p_value: float
-    stat_name: StatCode | None
-    p_name: StatCode | None
     metadata: Mapping[str, Any]
     warnings: frozenset[WarningCode]

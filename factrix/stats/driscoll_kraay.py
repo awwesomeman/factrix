@@ -5,27 +5,15 @@ dependence-robust standard-error path. Selection-only base
 ``Estimator`` (like ``WaldNWCluster`` / ``WaldTwoWayCluster``): the
 numerics live in ``factrix._stats.hac._driscoll_kraay_cov`` and are
 driven from inside ``factrix.metrics.fm_beta.pooled_beta`` via the
-lowercase ``factrix.estimators.driscoll_kraay`` callable, not through a
-``HACEstimator.compute`` on a 1-D series — DK consumes the full
-``(date, asset)`` panel, not a mean.
+lowercase ``factrix.estimators.driscoll_kraay`` callable — DK consumes
+the full ``(date, asset)`` panel, not a mean.
 
-Applicability is restricted to ``(INDIVIDUAL, DENSE)`` — the pooled-OLS
-cell ``pooled_beta`` runs on. ``COMMON`` cells collapse to one value per
-date and have no within-period cross-section for DK to aggregate over.
-
-``emits_for`` returns the singleton ``StatCode.P_DK``: ``pooled_beta``
-reports its t-stat inside its own ``MetricResult.metadata`` rather than
-in ``profile.stats``, so — like ``WaldTwoWayCluster`` — this is a
-reserved interface; a
-``bhy(estimator=DriscollKraay())`` call against an ``evaluate()`` profile
-lands on the missing-stat path until a function populates
-``profile.stats[StatCode.P_DK]``.
+``pooled_beta`` reports its t-stat / p-value inside its own
+``MetricResult.metadata``, so — like ``WaldTwoWayCluster`` — this is a
+reserved identity handle for the slice-test dispatch path.
 """
 
 from __future__ import annotations
-
-from factrix._axis import FactorDensity, FactorScope
-from factrix._codes import StatCode
 
 
 class DriscollKraay:
@@ -59,13 +47,3 @@ class DriscollKraay:
             "kernel on cross-sectional score sums) → t → two-sided p-value "
             "for a pooled-panel slope."
         )
-
-    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
-        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
-
-    def emits_for(
-        self,
-        _scope: FactorScope,
-        _density: FactorDensity,
-    ) -> StatCode:
-        return StatCode.P_DK

@@ -13,10 +13,9 @@ DataFrame). ``NonOverlapping`` strides the cleaned series at
 SE via a HAC kernel. The lag / bandwidth is derived from the
 compute-time sample, so the dataclasses take no constructor knobs.
 
-These are metric-internal inference units: ``compute`` returns
-``InferenceResult`` with ``stat_name`` / ``p_name`` ``None`` (no
-``profile.stats`` StatCode claimed). Promotion to a StatCode-emitting
-profile estimator is the structured-shape redesign tracked separately.
+These are metric-internal inference units: ``compute`` returns an
+``InferenceResult`` whose ``stat`` / ``p_value`` feed a ``MetricResult``
+directly.
 """
 
 from __future__ import annotations
@@ -84,8 +83,6 @@ class NonOverlapping:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
-            stat_name=None,
-            p_name=None,
             metadata={
                 "stride": forward_periods,
                 "n_obs_original": len(vals),
@@ -137,8 +134,6 @@ class NeweyWest:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
-            stat_name=None,
-            p_name=None,
             metadata={"nw_lags": nw_lags},
             warnings=warnings,
         )
@@ -183,8 +178,6 @@ class HansenHodrick:
         return InferenceResult(
             stat=t_stat,
             p_value=p_value,
-            stat_name=None,
-            p_name=None,
             metadata={"kernel": "rectangular", "variance_clamped": clamped},
             warnings=warnings,
         )

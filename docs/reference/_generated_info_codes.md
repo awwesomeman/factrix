@@ -1,2 +1,0 @@
-| InfoCode | Trigger / meaning |
-|---|---|

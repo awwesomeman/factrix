@@ -16,9 +16,6 @@ from __future__ import annotations
 
 from typing import Literal
 
-from factrix._axis import FactorDensity, FactorScope
-from factrix._codes import StatCode
-
 
 class BlockBootstrap:
     """Block-bootstrap empirical p-value Estimator for paired-diff slice tests.
@@ -47,10 +44,8 @@ class BlockBootstrap:
     slice-test function procedure when it calls
     ``factrix._stats.bootstrap._block_bootstrap_diff_p``. Two
     ``BlockBootstrap`` instances with different ``scheme`` / block
-    length are distinct Estimators from the function's perspective; the
-    StatCode emitted (``P_BOOT``) does not split on scheme — scheme is
-    metadata, not a separate code (parallel to how ``NeweyWest``'s lag
-    rule lives in ``metadata`` rather than splitting ``P_NW``).
+    length are distinct Estimators from the function's perspective;
+    scheme and block length live in the result ``metadata``.
     """
 
     def __init__(
@@ -84,13 +79,3 @@ class BlockBootstrap:
             f"Block-bootstrap empirical p-value on a paired-diff series "
             f"({self.scheme} scheme, {bl}, B={self.n_resamples})."
         )
-
-    def applicable_to(self, scope: FactorScope, density: FactorDensity) -> bool:
-        return scope is FactorScope.INDIVIDUAL and density is FactorDensity.DENSE
-
-    def emits_for(
-        self,
-        _scope: FactorScope,
-        _signal: FactorDensity,
-    ) -> StatCode:
-        return StatCode.P_BOOT

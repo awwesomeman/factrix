@@ -52,7 +52,7 @@ Entry points, all in `factrix.__init__`:
 Plus introspection / error / enum re-exports:
 
 - `fx.FactorScope`, `fx.FactorDensity` — user-facing axes
-- `fx.WarningCode`, `fx.InfoCode`, `fx.StatCode` — structured result codes
+- `fx.WarningCode` — structured result codes
 - `fx.FactrixError`, `fx.IncompatibleAxisError`, `fx.InsufficientSampleError`, `fx.UserInputError` — exception hierarchy (see § Error UX contract)
 
 `__version__` is sourced from `pyproject.toml` (Commitizen-managed).
