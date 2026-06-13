@@ -8,18 +8,6 @@ title: factrix.estimators
 
 ---
 
-## `newey_west`
-
-::: factrix.estimators.newey_west
-
----
-
-## `hansen_hodrick`
-
-::: factrix.estimators.hansen_hodrick
-
----
-
 ## `driscoll_kraay`
 
 ::: factrix.estimators.driscoll_kraay

@@ -5,23 +5,7 @@ from __future__ import annotations
 import factrix as fx
 import numpy as np
 import pytest
-from factrix.stats import BlockBootstrap, HansenHodrick, NeweyWest
-
-
-class TestNeweyWestCallable:
-    def test_matches_class_compute(self) -> None:
-        series = np.random.default_rng(0).standard_normal(60)
-        out_class = NeweyWest().compute(series, forward_periods=5)
-        out_func = fx.estimators.newey_west(series, forward_periods=5)
-        assert out_class == out_func
-
-
-class TestHansenHodrickCallable:
-    def test_matches_class_compute(self) -> None:
-        series = np.random.default_rng(1).standard_normal(60)
-        out_class = HansenHodrick().compute(series, forward_periods=5)
-        out_func = fx.estimators.hansen_hodrick(series, forward_periods=5)
-        assert out_class == out_func
+from factrix.stats import BlockBootstrap
 
 
 class TestBlockBootstrapCallable:
@@ -66,8 +50,6 @@ class TestNamespaceExports:
 
     def test_namespace_exports_callables(self) -> None:
         for name in (
-            "newey_west",
-            "hansen_hodrick",
             "block_bootstrap",
             "driscoll_kraay",
         ):
@@ -77,13 +59,3 @@ class TestNamespaceExports:
         # Driscoll-Kraay is the cross-section-robust HAC SE
         # option behind pooled_beta(driscoll_kraay=True).
         assert callable(fx.estimators.driscoll_kraay)
-
-
-@pytest.mark.parametrize("forward_periods", [1, 5, 21])
-class TestEstimatorForwardPeriodsParametrize:
-    def test_newey_west_returns_finite_for_iid_normal(self, forward_periods):
-        rng = np.random.default_rng(2024)
-        series = rng.standard_normal(120)
-        out = fx.estimators.newey_west(series, forward_periods=forward_periods)
-        assert np.isfinite(out.p_value)
-        assert 0.0 <= out.p_value <= 1.0

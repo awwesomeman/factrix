@@ -3,16 +3,16 @@
 Boundary with :mod:`factrix.stats`:
 
 - :mod:`factrix.stats` exposes the PascalCase :class:`Estimator` protocol
-  family (``NeweyWest`` / ``HansenHodrick`` / ``BlockBootstrap``) used
-  by the metric parameters and the slice-test estimator-dispatch path.
+  family (``DriscollKraay`` / ``BlockBootstrap``) used by the slice-test
+  estimator-dispatch path.
 - :mod:`factrix.estimators` exposes lowercase function aliases over the
   same underlying computations, callable directly from inside a metric
-  implementation without instantiating an ``Estimator`` first.
+  implementation without instantiating an ``Estimator`` first
+  (``driscoll_kraay`` → ``fm_beta``; ``block_bootstrap`` → ``_helpers``).
 
 The two namespaces are not in tension — :mod:`factrix.stats` exposes the
 class-based ``Estimator`` surface, and the lowercase callables here are the
-forward-compatible internal-consumption surface for metric callables
-and, in the future, runtime per-metric estimator override.
+forward-compatible internal-consumption surface for metric callables.
 """
 
 from __future__ import annotations
@@ -21,36 +21,6 @@ from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     import numpy as np
-
-    from factrix.stats._estimator import InferenceResult
-
-
-def newey_west(series: np.ndarray, *, forward_periods: int) -> InferenceResult:
-    """Newey-West HAC SE on a series mean → t-statistic → two-sided p-value.
-
-    Lowercase callable alias over :class:`factrix.stats.NeweyWest`.
-    Bartlett kernel, NW1994 auto-bandwidth, Hansen-Hodrick overlap
-    floor. ``forward_periods`` sets the overlap horizon used by the
-    floor.
-    """
-    from factrix.stats.newey_west import NeweyWest
-
-    return NeweyWest().compute(series, forward_periods=forward_periods)
-
-
-def hansen_hodrick(series: np.ndarray, *, forward_periods: int) -> InferenceResult:
-    """Hansen-Hodrick (1980) rectangular-kernel HAC SE on a series mean.
-
-    Lowercase callable alias over :class:`factrix.stats.HansenHodrick`.
-    Rectangular kernel matched to MA(h-1) overlap structure from
-    h-period forward returns; no PSD guarantee — variance is clamped
-    at zero and the result carries
-    ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE`` when the raw estimate
-    is negative.
-    """
-    from factrix.stats.hansen_hodrick import HansenHodrick
-
-    return HansenHodrick().compute(series, forward_periods=forward_periods)
 
 
 def driscoll_kraay(
@@ -145,6 +115,4 @@ def block_bootstrap(
 __all__ = [
     "block_bootstrap",
     "driscoll_kraay",
-    "hansen_hodrick",
-    "newey_west",
 ]
