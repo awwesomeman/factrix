@@ -33,8 +33,6 @@ from factrix._axis import (
     Aggregation,
     FactorDensity,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import cell
 from factrix._results import MetricResult
@@ -55,8 +53,6 @@ MIN_DIRECTIONAL_OBS: int = MIN_ASSETS_PER_DATE_IC
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=None),
     aggregation=Aggregation.TS_ONLY,
-    test_method=TestMethod.T,
-    se_method=SEMethod.BUILT_IN,
     input_shape=InputShape.PANEL,
 )
 def directional_hit_rate(

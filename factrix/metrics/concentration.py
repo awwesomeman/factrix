@@ -24,8 +24,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
-    SEMethod,
-    TestMethod,
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import cell
@@ -55,8 +53,6 @@ __all__ = [
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
 )
 def top_concentration(
     df: pl.DataFrame,

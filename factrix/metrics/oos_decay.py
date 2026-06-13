@@ -25,8 +25,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -45,8 +43,6 @@ GateStatus = Literal["PASS", "VETOED"]
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
     aggregation=Aggregation.TS_ONLY,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
     sample_threshold=SampleThreshold(min_periods=MIN_OOS_PERIODS * 2),

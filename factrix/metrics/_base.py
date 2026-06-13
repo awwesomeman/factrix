@@ -9,9 +9,7 @@ from factrix._axis import (
     Aggregation,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._metric_index import Cell, MetricSpec, SampleThreshold
 
@@ -78,8 +76,6 @@ class MetricBase(metaclass=MetricMeta):
 
     cell: ClassVar[Cell]
     aggregation: ClassVar[Aggregation]
-    test_method: ClassVar[TestMethod]
-    se_method: ClassVar[SEMethod]
     input_shape: ClassVar[InputShape]
     output_shape: ClassVar[OutputShape]
     role: ClassVar[SpecRole]
@@ -103,8 +99,6 @@ class MetricBase(metaclass=MetricMeta):
             name=cls.__name__,
             cell=cls.cell,
             aggregation=cls.aggregation,
-            test_method=cls.test_method,
-            se_method=cls.se_method,
             input_shape=cls.input_shape,
             output_shape=cls.output_shape,
             role=cls.role,

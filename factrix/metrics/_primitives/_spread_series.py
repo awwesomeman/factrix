@@ -12,9 +12,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._metric_index import cell
 from factrix.metrics._decorators import metric
@@ -30,8 +28,6 @@ from factrix.metrics._helpers import (
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,

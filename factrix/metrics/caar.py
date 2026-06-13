@@ -31,8 +31,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
@@ -76,8 +74,6 @@ min_assets_per_group: int | None = None
 @metric(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"caar_df": compute_caar},
     sample_threshold=SampleThreshold(),
@@ -192,8 +188,6 @@ def caar(
 @metric(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     sample_threshold=SampleThreshold(),
 )
 def bmp_test(

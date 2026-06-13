@@ -27,9 +27,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -57,8 +55,6 @@ MIN_TS_OBS: int = 20
 @metric(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     role=SpecRole.PIPELINE,
 )
 def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
@@ -106,8 +102,6 @@ def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricRe
 @metric(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
     sample_threshold=SampleThreshold(min_assets=3),
@@ -192,8 +186,6 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
 @metric(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
     sample_threshold=SampleThreshold(min_assets=1),
@@ -268,8 +260,6 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
 @metric(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.PANEL,
     output_shape=OutputShape.SERIES,
     role=SpecRole.PIPELINE,
@@ -379,8 +369,6 @@ def compute_rolling_mean_beta(
 @metric(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
     sample_threshold=SampleThreshold(min_assets=2),

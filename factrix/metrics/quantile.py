@@ -24,8 +24,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -64,8 +62,6 @@ _Q_CELL = cell(
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     batchable=True,
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
@@ -232,8 +228,6 @@ def _quantile_spread_from_series(
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
 def quantile_spread_vw(

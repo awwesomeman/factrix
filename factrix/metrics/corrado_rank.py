@@ -14,8 +14,6 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -32,8 +30,6 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     sample_threshold=SampleThreshold(),
 )
 def corrado_rank(

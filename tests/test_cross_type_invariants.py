@@ -112,8 +112,6 @@ class TestSpecMirrorsClass:
         spec = cls.spec()
         assert spec.cell == cls.cell
         assert spec.aggregation == cls.aggregation
-        assert spec.test_method == cls.test_method
-        assert spec.se_method == cls.se_method
         assert spec.input_shape == cls.input_shape
         assert spec.output_shape == cls.output_shape
         assert spec.role == cls.role

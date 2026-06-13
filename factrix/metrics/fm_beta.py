@@ -35,8 +35,6 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
@@ -88,8 +86,6 @@ MIN_FM_PERIODS_WARN: int = 30
 @metric(
     cell=_FM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"beta_df": compute_fm_betas},
     sample_threshold=SampleThreshold(
@@ -427,8 +423,6 @@ def _pooled_beta_driscoll_kraay(
 @metric(
     cell=_FM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     sample_threshold=SampleThreshold(min_pairs=10),
 )
 def pooled_beta(
@@ -723,8 +717,6 @@ def pooled_beta(
 @metric(
     cell=_FM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"beta_df": compute_fm_betas},
     sample_threshold=SampleThreshold(min_periods=1),

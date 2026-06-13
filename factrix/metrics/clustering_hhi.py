@@ -23,8 +23,6 @@ from factrix._axis import (
     Aggregation,
     DataStructure,
     FactorDensity,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -40,8 +38,6 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.CS_SNAPSHOT,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     sample_threshold=SampleThreshold(),
 )
 def clustering_hhi(

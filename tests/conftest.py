@@ -18,8 +18,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     FactorScope,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import Cell, MetricSpec
 from factrix._results import EvaluationResult, MetricResult, MetricResultGroup
@@ -31,8 +29,6 @@ def make_spec(name: str) -> MetricSpec:
         name=name,
         cell=Cell(scope=None, density=None, structure=None, raw="*"),
         aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
     )
 
 

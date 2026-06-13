@@ -25,8 +25,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -47,8 +45,6 @@ DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
 @metric(
     cell=_MFE_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     input_shape=InputShape.SERIES,
     requires={"mfe_mae_df": compute_mfe_mae},
     sample_threshold=SampleThreshold(),

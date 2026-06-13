@@ -212,8 +212,6 @@ def test_public_spec_fields_are_serialisable() -> None:
             "family": stem,
             "cell": spec.cell.raw,
             "aggregation": spec.aggregation.value,
-            "test_method": spec.test_method.value,
-            "se_method": spec.se_method.value,
             "import_path": import_path_for(stem),
             "input_shape": spec.input_shape.value,
         }

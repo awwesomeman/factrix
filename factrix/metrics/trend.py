@@ -23,8 +23,6 @@ from factrix._axis import (
     DataStructure,
     FactorDensity,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -41,8 +39,6 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=DataStructure.TIMESERIES),
     aggregation=Aggregation.TS_ONLY,
-    test_method=TestMethod.RANK,
-    se_method=SEMethod.BUILT_IN,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
     sample_threshold=SampleThreshold(min_periods=10),

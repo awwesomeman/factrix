@@ -225,13 +225,6 @@ class TestICDispatch:
     (to floating-point ULP — polars vs numpy variance reduction order).
     """
 
-    def test_se_method_declares_ols(self):
-        from factrix._axis import SEMethod
-
-        # The default path runs a non-overlapping OLS t-test, not HAC;
-        # the spec declaration must match the actual standard error.
-        assert ic.se_method is SEMethod.OLS
-
     def _ic_df(self):
         import factrix as fx
         from factrix.preprocess import compute_forward_return

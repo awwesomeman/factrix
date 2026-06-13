@@ -5,7 +5,7 @@ from __future__ import annotations
 import factrix as fx
 import polars as pl
 import pytest
-from factrix._axis import Aggregation, SEMethod, TestMethod
+from factrix._axis import Aggregation
 from factrix._metric_index import (
     _METRIC_REGISTRY,
     MetricSpec,
@@ -35,8 +35,6 @@ class TestMetricSpecDecorator:
             name="stamp_only",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -50,8 +48,6 @@ class TestMetricSpecDecorator:
             name="no_auto_register",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -68,8 +64,6 @@ class TestRegister:
             name="custom_ic_smoke",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -89,8 +83,6 @@ class TestRegister:
             name="dag_resolves_me",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -116,8 +108,6 @@ class TestRegister:
             name="dup_metric",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(spec)
@@ -133,8 +123,6 @@ class TestRegister:
             name="ic",
             cell=cell(None, None),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         )
 
         @fx.metric_spec(clash_spec)

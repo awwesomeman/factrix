@@ -24,8 +24,6 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -100,8 +98,6 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
 @metric(
     cell=_IC_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.OLS,
     input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
     sample_threshold=SampleThreshold(),
@@ -209,8 +205,6 @@ def ic(
 @metric(
     cell=_IC_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.T,
-    se_method=SEMethod.HAC,
     input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
     sample_threshold=SampleThreshold(

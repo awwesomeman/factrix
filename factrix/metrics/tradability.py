@@ -34,8 +34,6 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
     InputShape,
-    SEMethod,
-    TestMethod,
 )
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
@@ -68,8 +66,6 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.TS_ONLY,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     sample_threshold=SampleThreshold(),
 )
 def turnover(
@@ -244,8 +240,6 @@ def turnover(
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     sample_threshold=SampleThreshold(min_periods=2),
 )
 def notional_turnover(
@@ -422,8 +416,6 @@ def notional_turnover(
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
     requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
     sample_threshold=SampleThreshold(),
@@ -515,8 +507,6 @@ def breakeven_cost(
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    test_method=TestMethod.DESCRIPTIVE,
-    se_method=SEMethod.NONE,
     input_shape=InputShape.SCALAR,
     requires={"gross_spread": quantile_spread, "turnover": notional_turnover},
     sample_threshold=SampleThreshold(),

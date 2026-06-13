@@ -82,7 +82,7 @@ raises under `strict=True` or short-circuits to a NaN `MetricResult` under
 Each `factrix/metrics/*.py` module declares a module-level `__metric_specs__`
 tuple — **the** source of truth, resolved through `factrix._metric_index`:
 
-- `MetricSpec(name, cell, aggregation, test_method, se_method, ...)` — the typed
+- `MetricSpec(name, cell, aggregation, ...)` — the typed
   per-callable spec; `cell` is a `(scope, density, structure)` `Cell` with `None`
   = `*` wildcard on any axis.
 - `spec_by_name() -> dict[str, MetricSpec]` — name → spec lookup across every
@@ -581,8 +581,8 @@ control is needed across a batch.
 factrix/
 ├── __init__.py              # public surface + evaluate()
 ├── _axis.py                 # FactorScope / FactorDensity / DataStructure / Tier + spec-metadata
-│                            #   enums (Aggregation / TestMethod / SEMethod / SpecRole / InputShape / OutputShape)
-├── _codes.py                # WarningCode / InfoCode (reserved, no codes) / StatCode StrEnums
+│                            #   enums (Aggregation / SpecRole / InputShape / OutputShape)
+├── _codes.py                # WarningCode StrEnum
 ├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
 ├── _metric_index.py         # MetricSpec + __metric_specs__ SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
 ├── _dag.py                  # DagExecutor — MetricSpec.requires / batchable dispatch (+ CycleError)

@@ -24,8 +24,6 @@ access. Adding a new metric module just imports :class:`MetricSpec` and
             name="my_metric",
             cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL),
             aggregation=Aggregation.CS_THEN_TS,
-            test_method=TestMethod.T,
-            se_method=SEMethod.HAC,
         ),
     )
 """
@@ -47,9 +45,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
     Tier,
 )
 
@@ -250,8 +246,6 @@ class MetricSpec:
       the *concept family* (``ic`` / ``decay`` / ``quantile``), which is
       the declaring module's stem and is derived from file location
       (the ``file = family`` invariant), never stored on the spec.
-    - ``test_method``: primary statistical test family.
-    - ``se_method``: standard-error / variance-estimation family.
     - ``input_shape``: shape of data the callable directly receives
       (``PANEL`` / ``SERIES`` / ``SCALAR``).
     - ``output_shape``: shape of the returned value. ``METRIC`` specs
@@ -279,8 +273,6 @@ class MetricSpec:
     name: str
     cell: Cell
     aggregation: Aggregation
-    test_method: TestMethod
-    se_method: SEMethod
     input_shape: InputShape = InputShape.PANEL
     output_shape: OutputShape = OutputShape.SCALAR
     role: SpecRole = SpecRole.METRIC

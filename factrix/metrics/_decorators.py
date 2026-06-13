@@ -9,9 +9,7 @@ from factrix._axis import (
     Aggregation,
     InputShape,
     OutputShape,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._metric_index import Cell, SampleThreshold
 from factrix.metrics._base import MetricBase
@@ -23,8 +21,6 @@ _F = TypeVar("_F", bound=Callable[..., Any])
 def metric(
     cell: Cell,
     aggregation: Aggregation,
-    test_method: TestMethod,
-    se_method: SEMethod,
     *,
     input_shape: InputShape = InputShape.PANEL,
     output_shape: OutputShape = OutputShape.SCALAR,
@@ -78,8 +74,6 @@ def metric(
         cls_attrs = {
             "cell": cell,
             "aggregation": aggregation,
-            "test_method": test_method,
-            "se_method": se_method,
             "input_shape": input_shape,
             "output_shape": output_shape,
             "role": role,

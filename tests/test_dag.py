@@ -11,9 +11,7 @@ from factrix._axis import (
     Aggregation,
     FactorDensity,
     FactorScope,
-    SEMethod,
     SpecRole,
-    TestMethod,
 )
 from factrix._codes import WarningCode
 from factrix._dag import CycleError, DagExecutor, _Node, _topo_sort
@@ -36,8 +34,6 @@ def _make_spec(
         name=name,
         cell=cell(None, None),
         aggregation=Aggregation.CS_THEN_TS,
-        test_method=TestMethod.T,
-        se_method=SEMethod.HAC,
         requires=requires or {},
         batchable=batchable,
         role=role,
