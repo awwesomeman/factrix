@@ -10,7 +10,7 @@ from factrix._results import MetricResult
 from .conftest import make_result, make_spec
 
 
-def _with_extra(factor: str, ic, sharpe, ic_value: float, sharpe_value: float):
+def _with_extra(factor: str, ic_value: float, sharpe_value: float):
     return make_result(
         factor=factor,
         p=0.1,
@@ -25,16 +25,15 @@ def _with_extra(factor: str, ic, sharpe, ic_value: float, sharpe_value: float):
                 metadata={"p_value": 0.2},
             )
         },
-        extra_primaries=(sharpe,),
     )
 
 
 def test_multi_metric_wide_layout():
-    ic = make_spec("ic")
-    sharpe = make_spec("sharpe")
+    make_spec("ic")
+    make_spec("sharpe")
     results = [
-        _with_extra("a", ic, sharpe, ic_value=0.05, sharpe_value=1.2),
-        _with_extra("b", ic, sharpe, ic_value=0.02, sharpe_value=0.8),
+        _with_extra("a", ic_value=0.05, sharpe_value=1.2),
+        _with_extra("b", ic_value=0.02, sharpe_value=0.8),
     ]
     df = compare(results, metrics=["ic", "sharpe"])
     assert df.columns == [
