@@ -1,4 +1,4 @@
-r"""Fama-MacBeth regression — FM-canonical metric for the
+r"""Fama-MacBeth regression — the mainstream metric for the
 ``Individual × Continuous`` cell.
 
 ``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta) DataFrame}``.

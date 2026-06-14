@@ -53,7 +53,7 @@ The diagnostic is on the *input* factor, not the regression residual.
 ## `forward_periods` vs `signal_horizon`: bias under mismatch
 [](){ #non-overlap-convention }
 
-The cell-canonical `Individual × Continuous` metrics (`ic`, `caar`)
+The mainstream `Individual × Continuous` metrics (`ic`, `caar`)
 use non-overlapping resampling as the inferential default
 ([Statistical methods § non-overlap default](statistical-methods.md#non-overlap-default)).
 TIMESERIES mode inverts this: the per-asset stage-1 regression runs

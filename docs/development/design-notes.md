@@ -189,7 +189,7 @@ SE.
 factrix dispatches each `Scope × FactorSignal × Metric` cell to a
 **registered procedure** that runs a fixed pipeline (sample guards →
 cross-section step → significance test → diagnostics). It does not
-combine cell-canonical scalars into a single procedure-level F-test
+combine the per-cell mainstream-metric scalars into a single procedure-level F-test
 or χ² of the form "is anything in this profile significant?".
 
 - A unified composite test forces a hypothesis structure that the
