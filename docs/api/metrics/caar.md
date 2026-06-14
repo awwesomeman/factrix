@@ -26,10 +26,10 @@ title: factrix.metrics.caar
 
     ---
 
-    Build the per-event-date weighted abnormal return series from a
-    long-format panel before any inferential test. Pre-step for `caar`
-    and (where the magnitude-weighted form is wanted) for downstream
-    slicing.
+    The per-event-date weighted abnormal return series from a
+    long-format panel. Consumed by `caar` for the significance test, and
+    (where the magnitude-weighted form is wanted) available for
+    per-slice summaries.
 
 -   __Mean-CAAR significance, non-overlapping__
 

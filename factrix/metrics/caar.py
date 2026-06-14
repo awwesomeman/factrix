@@ -6,10 +6,10 @@ Tests $H_0$: event abnormal return = 0, using two complementary methods:
     bmp_test     — BMP standardized AR test (robust to event-induced variance)
 
 Notes:
-    **Pipeline.** Per-event-date weighted abnormal return
-    (per-event-date step) then non-overlapping cross-event sample;
-    $t$-test on CAAR, or BMP standardized AR $z$-test for event-induced
-    variance.
+    `caar` and `bmp_test` are complementary inferential tests on the
+    per-event-date abnormal-return series. `caar` is the parametric
+    cross-event $t$-test; `bmp_test` is the standardized-AR $z$-test that
+    is robust to event-induced variance.
 
 References:
     - [MacKinlay (1997)][mackinlay-1997], "Event Studies in Economics
