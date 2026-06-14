@@ -79,24 +79,24 @@ raises under `strict=True` or short-circuits to a NaN `MetricResult` under
 
 ## MetricSpec SSOT dispatch
 
-Each `factrix/metrics/*.py` module declares a module-level `__metric_specs__`
-tuple — **the** source of truth, resolved through `factrix._metric_index`:
+Each `factrix/metrics/*.py` module decorates its public callables with
+`@metric` — **the** source of truth, resolved through `factrix._metric_index`:
 
 - `MetricSpec(name, cell, aggregation, ...)` — the typed
   per-callable spec; `cell` is a `(scope, density, structure)` `Cell` with `None`
   = `*` wildcard on any axis.
 - `spec_by_name() -> dict[str, MetricSpec]` — name → spec lookup across every
-  declared metric.
+  registered metric.
 - `public_specs()` — visibility-filtered specs (drops `PIPELINE`-role stage-1
   helpers pulled only via `requires`).
 - `list_metrics()` — the public runtime discovery API, grouped by cell.
 
-`@metric`-class registration feeds the same index via
+`@metric`-class registration feeds the index via
 `factrix.metrics._registry.register`. Every introspection / validation path
 reads this index — no parallel rule table.
 
-Adding a metric adds one `MetricSpec` to its module's `__metric_specs__` (or
-registers one `@metric` class); the DAG executor picks it up by cell match.
+Adding a metric decorates one callable with `@metric`; the DAG executor picks
+it up by cell match.
 
 ---
 
@@ -530,7 +530,7 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 ## Primary metric vs supplementary metric
 
 Two-tier metric organisation. Both tiers live in `factrix/metrics/*.py` and
-declare a `MetricSpec` in `__metric_specs__`; the tier is a role, not a separate
+register a `MetricSpec` via `@metric`; the tier is a role, not a separate
 module. Choosing the right tier when adding a new metric:
 
 | Tier | Role | Definition | Surfaces |
@@ -583,7 +583,7 @@ factrix/
 │                            #   enums (Aggregation / SpecRole / InputShape / OutputShape)
 ├── _codes.py                # WarningCode StrEnum
 ├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
-├── _metric_index.py         # MetricSpec + __metric_specs__ SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
+├── _metric_index.py         # MetricSpec + @metric-registry SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
 ├── _dag.py                  # DagExecutor — MetricSpec.requires / batchable dispatch (+ CycleError)
 ├── _results.py              # EvaluationResult / MetricResultGroup / MetricResult / Warning dataclasses
 ├── _inspect.py              # inspect_data — typed data introspection with per-metric verdict
@@ -600,7 +600,7 @@ factrix/
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
 ├── estimators/              # lowercase estimator callables
-├── metrics/                 # metric callables + __metric_specs__ (ic, fm_beta, ts_beta, caar, ...) + _registry
+├── metrics/                 # @metric callables (ic, fm_beta, ts_beta, caar, ...) + _registry
 │                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_OBS) live
 │                            # alongside the metrics that enforce them
 ├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
@@ -616,7 +616,7 @@ Hard constraints — violating these breaks the API contract:
 
 1. `MetricSpec` is `frozen=True, slots=True`; every construction path runs `__post_init__`, which enforces the field invariants (e.g. `role=METRIC → output_shape=SCALAR`).
 2. All result dataclasses — `EvaluationResult`, `MetricResultGroup`, `MetricResult`, `Warning` — are `frozen=True, slots=True`. One unified `EvaluationResult` — no per-cell subclass.
-3. The metric-spec SSOT is the module-level `__metric_specs__` tuple in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the same index via `factrix.metrics._registry.register`.
+3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`.
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; `metadata["p_value"]` stays populated for tool context. `warnings` flag interpretation risk but never rebind it.
 6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, *expand_over_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.

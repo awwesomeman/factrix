@@ -405,7 +405,7 @@ class TestRequiresValidation:
         orphan_producer.__module__ = "factrix._codes"
         consumer.__module__ = "factrix.metrics.ic"
         spec = _make_spec("consumer", requires={"x": orphan_producer})
-        with pytest.raises(ValueError, match="no MetricSpec in its module"):
+        with pytest.raises(ValueError, match="not a registered @metric class"):
             _validate_requires("fake", spec, SimpleNamespace(consumer=consumer))
 
 
