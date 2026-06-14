@@ -12,7 +12,7 @@ Current-state snapshot of the public API surface and internal layout.
 
 The library produces a single canonical p-value (`MetricResult.p_value`) per
 factor per `(scope, density, structure)` cell from the cell's Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
-primary metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
+mainstream metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -125,9 +125,9 @@ It replaces the pre-v0.14 `FactorProfile` (inferential) / `MetricsBundle`
 (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
 - `cell` is the `(scope, density, structure)` tuple of the dispatched cell.
-- Per-metric outputs live in `metrics`, a `MetricResultGroup` of `MetricResult`
-  objects partitioned into applicable / primary / diagnostic names. The
-  canonical p-value is the primary `MetricResult.p_value`.
+- Per-metric outputs live in `metrics`, a `MetricResultGroup` mapping each
+  label to its `MetricResult`. Screening verbs read each result's
+  `MetricResult.p_value` — by convention the mainstream metric's.
 - Advisory diagnostics are a flat `list[Warning]` on `warnings` — per-metric
   records carry `source=<metric name>`, bundle / pre-dispatch records carry
   `source=None`.
@@ -283,7 +283,7 @@ sweep.
 
 ## Procedure pipelines
 
-The primary-metric pipelines differ in **aggregation order** — which axis is
+The mainstream-metric pipelines differ in **aggregation order** — which axis is
 collapsed first determines small-sample failure modes and the N=1 behaviour. The
 cell a factor dispatches to determines which pipeline runs.
 
@@ -527,32 +527,35 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
 ---
 
-## Primary metric vs supplementary metric
+## Mainstream metric vs supplementary metric
 
-Two-tier metric organisation. Both tiers live in `factrix/metrics/*.py` and
-register a `MetricSpec` via `@metric`; the tier is a role, not a separate
-module. Choosing the right tier when adding a new metric:
+A documentation convention — **not** a code-enforced tier — for organising the
+metrics in `factrix/metrics/*.py`. Both kinds register a `MetricSpec` via
+`@metric` with the same `role=METRIC`; the distinction is editorial intent, and
+`evaluate()` runs exactly the metrics the caller passes either way. Choosing
+which kind to add:
 
-| Tier | Role | Definition | Surfaces |
-|------|------|------------|----------|
-| **Primary metric** | the canonical p-value producer for a cell | The **canonical PASS/FAIL test** for one `(scope, density, structure)` cell (IC / FM / CAAR / TS-β) | `evaluate()` dispatch — its `MetricResult.p_value` is the cell's canonical p-value for screening functions |
-| **Supplementary metric** | second-look / diagnostic | **Diagnostic / second-look / multi-statistic** decomposition. Surfaced alongside the primary and importable directly. | the metric's `MetricResult` in `EvaluationResult.metrics`, and `from factrix.metrics import X` |
+| Kind | Intent | Definition | How callers reach it |
+|------|--------|------------|----------------------|
+| **Mainstream metric** | the headline mean-significance test for a cell | The conventional PASS/FAIL test for a `(scope, density, structure)` cell (IC / FM / CAAR / TS-β) | passed into `evaluate(metrics=...)`; its `MetricResult.p_value` is what the screening verbs read |
+| **Supplementary metric** | second-look / diagnostic | **Diagnostic / second-look / multi-statistic** decomposition, surfaced alongside the mainstream metric and importable directly | the metric's `MetricResult` in `EvaluationResult.metrics`, and `from factrix.metrics import X` |
 
-### When to add a primary metric
+### When to add a mainstream metric
 
-Add a primary metric **only** when introducing a new legal cell on the axis
-(`FactorScope × FactorDensity × Metric × DataStructure`) that has no canonical
-p-value producer yet. Two primary metrics competing for the same cell would break
-the SSOT contract — one cell maps to one canonical p-value.
+Add a mainstream metric when introducing the headline mean-significance test for
+a legal cell on the axis (`FactorScope × FactorDensity × Metric × DataStructure`)
+that does not have one yet. Nothing enforces one-per-cell; keeping each cell to a
+single agreed default test is a convention that gives callers an obvious first
+choice, not an invariant the code checks.
 
 ### When to add a supplementary metric
 
 Everything else. Specifically:
 
-- **Same cell already has a primary metric** but you want to surface a different angle
+- **Same cell already has a mainstream metric** but you want to surface a different angle
   (non-linearity, asymmetry, decomposition, regime split). Example precedent:
   `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
-  supplement the primary CAAR metric for `(*, SPARSE, PANEL)`.
+  supplement the mainstream CAAR metric for `(*, SPARSE, PANEL)`.
 - **Descriptive diagnostic without a formal H₀** (concentration Herfindahl-Hirschman index (HHI), tradability, out-of-sample (OOS) decay).
 - **Multi-factor relationship** outside the single-factor inference frame (`spanning.py`).
 
@@ -564,13 +567,13 @@ Everything else. Specifically:
   `n_obs`, `stat`, `warning_codes`, and a `metadata` dict for cell-specific scalars
 - Use `_short_circuit_output(...)` for sample-floor failures rather than raising
 - Reuse `_stats/` primitives (`_p_value_from_t`, `_calc_t_stat`, NW HAC helpers) so the
-  statistical treatment matches the primary metrics — most notably **NW HAC SE
+  statistical treatment matches the mainstream metrics — most notably **NW HAC SE
   for any inference on overlapping forward returns**, never iid Welch / OLS SE
 
-A supplementary metric's p-value is not the cell's canonical p-value; when run
-standalone (`from factrix.metrics import X`) outside `evaluate`, the user is
-responsible for collecting comparable p-values into a family themselves if FDR
-control is needed across a batch.
+A supplementary metric's p-value carries no special status over the mainstream
+metric's; when run standalone (`from factrix.metrics import X`) outside
+`evaluate`, the user is responsible for collecting comparable p-values into a
+family themselves if FDR control is needed across a batch.
 
 ---
 

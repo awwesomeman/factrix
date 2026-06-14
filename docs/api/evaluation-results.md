@@ -35,12 +35,9 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
 
 ## Key Concepts
 
-`MetricResultGroup` organizes metric outputs for a single factor evaluation into distinct categories:
+`MetricResultGroup` is a dict-like container of the metric outputs for a single factor evaluation:
 
-- **`applicable`**: A list of names for all metrics that are valid for the dispatched cell.
-- **`primary`**: A list of names for metrics whose output drives the primary decision axis (e.g., driving false discovery rate adjustments).
-- **`diagnostic`**: A list of names for metrics that provide supplementary or descriptive context.
-- **`outputs`**: A dictionary mapping the metric labels to their respective `MetricResult` objects.
+- **`outputs`**: A mapping from each metric label to its `MetricResult` object (including short-circuit NaN outputs). This is the group's only field.
 
 It supports dict-like lookup (`group["ic"]` to get the `MetricResult` for `"ic"`) as well as dictionary iteration methods (`keys()`, `values()`, `items()`, `__iter__`, and `__len__`).
 

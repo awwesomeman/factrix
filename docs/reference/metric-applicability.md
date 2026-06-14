@@ -211,7 +211,7 @@ A few specific caveats worth flagging:
   single-tier — the metric is now descriptive-only (no `p_value` in
   metadata), so a literature power floor is moot. Treat its output as
   descriptive; the formal inference reading should rely on the
-  primary metric until the underlying series is materially longer.
+  mainstream metric until the underlying series is materially longer.
 
 ## Below-threshold behaviour
 

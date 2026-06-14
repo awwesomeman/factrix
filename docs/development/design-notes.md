@@ -23,7 +23,7 @@ The seven sections below correspond to the seven structural
 
 factrix evaluates each factor through a list of separately reported
 metrics — information coefficient (IC), FM-λ, quantile spread, monotonicity, out-of-sample (OOS) decay,
-turnover, etc. — and renders the cell primary p-value. It deliberately
+turnover, etc. — and renders the cell's mainstream-metric p-value. It deliberately
 does **not** collapse these into a single weighted score.
 
 - A composite score becomes a target to be optimised against. Once

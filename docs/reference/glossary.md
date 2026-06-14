@@ -112,6 +112,18 @@ specific contracts that apply when factrix routes here.
 
 ## Other terms
 
+### mainstream metric
+
+The headline mean-significance test conventionally used for a
+`(scope, density, structure)` cell — `ic`, `fm_beta`, `caar`, or
+`ts_beta`. It is an authoring convention, not a code-enforced tier:
+`evaluate()` runs exactly the metrics the caller passes, and every
+metric (mainstream or supplementary) carries its own
+`MetricResult.p_value`. By convention the mainstream metric's
+`p_value` is the one the FDR screening verbs read for a cell. Other
+metrics applicable to the same cell are supplementary / diagnostic and
+are run alongside it via [`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
+
 ### `factor`
 
 The signal column. Same role as Alphalens "factor", Barra "exposure",
