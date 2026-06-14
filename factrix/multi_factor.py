@@ -2,7 +2,7 @@
 
 Three procedure-paired result dataclasses (one per function) replace
 the v0.13 unified ``Survivors``; each function returns
-``dict[primary_name, *Result]`` keyed by ``MetricSpec.name``.
+``dict[metric_name, *Result]`` keyed by ``MetricSpec.name``.
 """
 
 from factrix._multi_factor import (

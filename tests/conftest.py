@@ -36,7 +36,7 @@ def make_result(
     *,
     factor: str,
     p: float | None,
-    primary: str,
+    metric: str,
     value: float = 0.05,
     forward_periods: int = 5,
     context: dict[str, Any] | None = None,
@@ -45,14 +45,14 @@ def make_result(
 ) -> EvaluationResult:
     """Build an :class:`EvaluationResult` for testing.
 
-    ``primary`` and ``extra_primaries`` name the metric labels included in
+    ``metric`` and ``extra_primaries`` name the metric labels included in
     outputs. ``p=None`` simulates a metric with no p-value.
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     primary_out = MetricResult(
-        value=value, p_value=p, n_obs=100, name=primary, metadata=metadata
+        value=value, p_value=p, n_obs=100, name=metric, metadata=metadata
     )
-    outputs = {primary: primary_out}
+    outputs = {metric: primary_out}
     if extra_outputs:
         outputs.update(extra_outputs)
     # extra_primaries is retained for call-site compatibility but is a no-op:

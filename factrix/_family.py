@@ -12,7 +12,7 @@ from ``forward_periods`` (the lone non-context built-in slicing axis)
 or from ``EvaluationResult.context``. The estimator-override hook is
 gone — callers select inference at metric-construction time (e.g.
 ``ic(inference=fx.inference.NEWEY_WEST)``) and pick the result by
-passing the corresponding ``primary`` label.
+passing the corresponding ``metric`` label.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ class _FamilyEntry:
 
     Spans both stages: ``_partition`` emits entries with ``p_value=None``
     (identity resolved, p-value not yet attached); ``_attach_p_values``
-    re-emits them per primary with ``p_value`` populated. Procedures read
+    re-emits them per metric with ``p_value`` populated. Procedures read
     ``p_value`` only after the attach stage, where it is always non-None.
 
     Attributes:
@@ -47,7 +47,7 @@ class _FamilyEntry:
             empty when ``expand_over`` is empty.
         result: Back-reference for survivor rendering; not read by the
             resolution layer itself.
-        p_value: ``MetricResult.p_value`` for the resolved ``primary`` spec.
+        p_value: ``MetricResult.p_value`` for the resolved ``metric`` spec.
             ``None`` until ``_attach_p_values`` runs.
     """
 
@@ -65,8 +65,8 @@ def _partition(
 ) -> list[_FamilyEntry]:
     """Validate ``expand_over`` keys and partition-key uniqueness.
 
-    Pulled out of ``_resolve_family`` so multi-primary callers run
-    the per-result walk once, then attach per-primary p-values via
+    Pulled out of ``_resolve_family`` so multi-metric callers run
+    the per-result walk once, then attach per-metric p-values via
     ``_attach_p_values``. Returns entries with ``p_value=None``.
     """
     keys = list(expand_over)
@@ -115,15 +115,15 @@ def _attach_p_values(
     partition: Sequence[_FamilyEntry],
     *,
     func_name: str,
-    primary: str,
+    metric: str,
 ) -> list[_FamilyEntry]:
-    """Resolve per-primary p-value for each partition entry."""
+    """Resolve per-metric p-value for each partition entry."""
     return [
         _FamilyEntry(
             identifier=p.identifier,
             expand_over_values=p.expand_over_values,
             result=p.result,
-            p_value=_resolve_p_value(p.result, primary=primary, func_name=func_name),
+            p_value=_resolve_p_value(p.result, metric=metric, func_name=func_name),
         )
         for p in partition
     ]
@@ -133,10 +133,10 @@ def _resolve_family(
     results: Sequence[EvaluationResult],
     *,
     func_name: str,
-    primary: str,
+    metric: str,
     expand_over: Sequence[str] = (),
 ) -> list[_FamilyEntry]:
-    """Single-primary convenience wrapper around ``_partition`` +
+    """Single-metric convenience wrapper around ``_partition`` +
     ``_attach_p_values``.
 
     Steps (raise on failure, in order):
@@ -147,11 +147,11 @@ def _resolve_family(
        identifier, not a slicing axis).
     2. The partition key ``(factor, *expand_over_values)`` must be
        unique across the input.
-    3. Each result must produce the ``primary`` metric's p-value;
+    3. Each result must produce the ``metric``'s p-value;
        the p must be present and non-NaN.
     """
     partition = _partition(results, func_name=func_name, expand_over=expand_over)
-    return _attach_p_values(partition, func_name=func_name, primary=primary)
+    return _attach_p_values(partition, func_name=func_name, metric=metric)
 
 
 def _expand_over_values(
@@ -181,49 +181,49 @@ def _expand_over_values(
 def _resolve_p_value(
     result: EvaluationResult,
     *,
-    primary: str,
+    metric: str,
     func_name: str,
 ) -> float:
     try:
-        out = result.metrics.outputs[primary]
+        out = result.metrics.outputs[metric]
     except KeyError:
         raise UserInputError(
             func_name=func_name,
-            field="primary",
-            value=primary,
+            field="metrics",
+            value=metric,
             expected=(
-                f"every result to carry the primary metric "
-                f"{primary!r}; missing on factor={result.factor!r}"
+                f"every result to carry the metric "
+                f"{metric!r}; missing on factor={result.factor!r}"
             ),
             candidates=sorted(result.metrics.outputs),
-            docs_path=f"api/{func_name}#primary",
+            docs_path=f"api/{func_name}#metrics",
         ) from None
 
     p = out.p_value
     if p is None:
         raise UserInputError(
             func_name=func_name,
-            field="primary",
-            value=primary,
+            field="metrics",
+            value=metric,
             expected=(
                 f"a p-value (`.p_value`) populated on every result; "
                 f"factor={result.factor!r} has no p-value for "
-                f"metric {primary!r}"
+                f"metric {metric!r}"
             ),
-            docs_path=f"api/{func_name}#primary",
+            docs_path=f"api/{func_name}#metrics",
         )
 
     p_float = float(p)
     if math.isnan(p_float):
         raise UserInputError(
             func_name=func_name,
-            field="primary",
-            value=primary,
+            field="metrics",
+            value=metric,
             expected=(
                 f"finite p-value on every result; factor={result.factor!r} "
-                f"has NaN p for metric {primary!r} — drop the result "
-                "or pick a different primary"
+                f"has NaN p for metric {metric!r} — drop the result "
+                "or pick a different metric"
             ),
-            docs_path=f"api/{func_name}#primary",
+            docs_path=f"api/{func_name}#metrics",
         )
     return p_float
