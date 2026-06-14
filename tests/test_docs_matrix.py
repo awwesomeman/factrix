@@ -1,8 +1,8 @@
-"""Coverage tests: ``__metric_specs__`` tuples in ``factrix/metrics/`` modules.
+"""Coverage tests: ``@metric`` registrations in ``factrix/metrics/`` modules.
 
 Validates that:
-1. Every public metric module (non-underscore ``*.py``) declares a
-   non-empty module-level ``__metric_specs__`` tuple of
+1. Every public metric module (non-underscore ``*.py``) registers at
+   least one ``@metric`` class, yielding a non-empty spec tuple of
    :class:`~factrix._metric_index.MetricSpec` instances.
 2. ``docs/reference/_generated_metric_matrix.md`` exists and is
    non-empty (only meaningful after a build; skipped if the file is
@@ -41,18 +41,18 @@ def _public_metric_modules() -> set[str]:
 
 
 @pytest.mark.parametrize("stem", sorted(_public_metric_modules()))
-def test_module_declares_metric_specs(stem: str) -> None:
-    """Every public metric module must declare a non-empty ``__metric_specs__``."""
+def test_module_registers_metric_specs(stem: str) -> None:
+    """Every public metric module must register at least one ``@metric`` class."""
     from factrix._metric_index import MetricSpec, module_specs
 
     specs = module_specs(stem)
     assert specs, (
-        f"metrics/{stem}.py has no '__metric_specs__' tuple at module "
-        f"scope. Declare one MetricSpec per public callable."
+        f"metrics/{stem}.py registers no @metric classes. Decorate each "
+        f"public callable with @metric."
     )
     for spec in specs:
         assert isinstance(spec, MetricSpec), (
-            f"metrics/{stem}.py: every __metric_specs__ entry must be a "
+            f"metrics/{stem}.py: every registered spec must be a "
             f"MetricSpec instance; got {type(spec).__name__}"
         )
 

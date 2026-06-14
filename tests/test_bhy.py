@@ -24,7 +24,7 @@ def test_returns_dict_keyed_by_metric_name_even_for_single_metric():
 
 def test_multi_primary_runs_independent_screens():
     make_spec("ic")
-    ir = make_spec("ic_ir")
+    make_spec("ic_ir")
     results = [
         make_result(
             factor=f"f{i}",
@@ -39,7 +39,6 @@ def test_multi_primary_runs_independent_screens():
                     metadata={"p_value": 0.5},
                 )
             },
-            extra_primaries=(ir,),
         )
         for i in range(4)
     ]

@@ -12,7 +12,7 @@ Current-state snapshot of the public API surface and internal layout.
 
 The library produces a single canonical p-value (`MetricResult.p_value`) per
 factor per `(scope, density, structure)` cell from the cell's Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)-corrected
-primary metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
+mainstream metric (information coefficient (IC) / FM-λ / CAAR / TS-β). Realistic execution simulation,
 tradability proxies, and portfolio construction are out of scope — feed
 screened factors into Zipline / Backtrader / `vectorbt` downstream.
 
@@ -79,24 +79,24 @@ raises under `strict=True` or short-circuits to a NaN `MetricResult` under
 
 ## MetricSpec SSOT dispatch
 
-Each `factrix/metrics/*.py` module declares a module-level `__metric_specs__`
-tuple — **the** source of truth, resolved through `factrix._metric_index`:
+Each `factrix/metrics/*.py` module decorates its public callables with
+`@metric` — **the** source of truth, resolved through `factrix._metric_index`:
 
 - `MetricSpec(name, cell, aggregation, ...)` — the typed
   per-callable spec; `cell` is a `(scope, density, structure)` `Cell` with `None`
   = `*` wildcard on any axis.
 - `spec_by_name() -> dict[str, MetricSpec]` — name → spec lookup across every
-  declared metric.
+  registered metric.
 - `public_specs()` — visibility-filtered specs (drops `PIPELINE`-role stage-1
   helpers pulled only via `requires`).
 - `list_metrics()` — the public runtime discovery API, grouped by cell.
 
-`@metric`-class registration feeds the same index via
+`@metric`-class registration feeds the index via
 `factrix.metrics._registry.register`. Every introspection / validation path
 reads this index — no parallel rule table.
 
-Adding a metric adds one `MetricSpec` to its module's `__metric_specs__` (or
-registers one `@metric` class); the DAG executor picks it up by cell match.
+Adding a metric decorates one callable with `@metric`; the DAG executor picks
+it up by cell match.
 
 ---
 
@@ -125,9 +125,9 @@ It replaces the pre-v0.14 `FactorProfile` (inferential) / `MetricsBundle`
 (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
 - `cell` is the `(scope, density, structure)` tuple of the dispatched cell.
-- Per-metric outputs live in `metrics`, a `MetricResultGroup` of `MetricResult`
-  objects partitioned into applicable / primary / diagnostic names. The
-  canonical p-value is the primary `MetricResult.p_value`.
+- Per-metric outputs live in `metrics`, a `MetricResultGroup` mapping each
+  label to its `MetricResult`. Screening verbs read each result's
+  `MetricResult.p_value` — by convention the mainstream metric's.
 - Advisory diagnostics are a flat `list[Warning]` on `warnings` — per-metric
   records carry `source=<metric name>`, bundle / pre-dispatch records carry
   `source=None`.
@@ -283,7 +283,7 @@ sweep.
 
 ## Procedure pipelines
 
-The primary-metric pipelines differ in **aggregation order** — which axis is
+The mainstream-metric pipelines differ in **aggregation order** — which axis is
 collapsed first determines small-sample failure modes and the N=1 behaviour. The
 cell a factor dispatches to determines which pipeline runs.
 
@@ -527,32 +527,35 @@ e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
 ---
 
-## Primary metric vs supplementary metric
+## Mainstream metric vs supplementary metric
 
-Two-tier metric organisation. Both tiers live in `factrix/metrics/*.py` and
-declare a `MetricSpec` in `__metric_specs__`; the tier is a role, not a separate
-module. Choosing the right tier when adding a new metric:
+A documentation convention — **not** a code-enforced tier — for organising the
+metrics in `factrix/metrics/*.py`. Both kinds register a `MetricSpec` via
+`@metric` with the same `role=METRIC`; the distinction is editorial intent, and
+`evaluate()` runs exactly the metrics the caller passes either way. Choosing
+which kind to add:
 
-| Tier | Role | Definition | Surfaces |
-|------|------|------------|----------|
-| **Primary metric** | the canonical p-value producer for a cell | The **canonical PASS/FAIL test** for one `(scope, density, structure)` cell (IC / FM / CAAR / TS-β) | `evaluate()` dispatch — its `MetricResult.p_value` is the cell's canonical p-value for screening functions |
-| **Supplementary metric** | second-look / diagnostic | **Diagnostic / second-look / multi-statistic** decomposition. Surfaced alongside the primary and importable directly. | the metric's `MetricResult` in `EvaluationResult.metrics`, and `from factrix.metrics import X` |
+| Kind | Intent | Definition | How callers reach it |
+|------|--------|------------|----------------------|
+| **Mainstream metric** | the headline mean-significance test for a cell | The conventional PASS/FAIL test for a `(scope, density, structure)` cell (IC / FM / CAAR / TS-β) | passed into `evaluate(metrics=...)`; its `MetricResult.p_value` is what the screening verbs read |
+| **Supplementary metric** | second-look / diagnostic | **Diagnostic / second-look / multi-statistic** decomposition, surfaced alongside the mainstream metric and importable directly | the metric's `MetricResult` in `EvaluationResult.metrics`, and `from factrix.metrics import X` |
 
-### When to add a primary metric
+### When to add a mainstream metric
 
-Add a primary metric **only** when introducing a new legal cell on the axis
-(`FactorScope × FactorDensity × Metric × DataStructure`) that has no canonical
-p-value producer yet. Two primary metrics competing for the same cell would break
-the SSOT contract — one cell maps to one canonical p-value.
+Add a mainstream metric when introducing the headline mean-significance test for
+a legal cell on the axis (`FactorScope × FactorDensity × Metric × DataStructure`)
+that does not have one yet. Nothing enforces one-per-cell; keeping each cell to a
+single agreed default test is a convention that gives callers an obvious first
+choice, not an invariant the code checks.
 
 ### When to add a supplementary metric
 
 Everything else. Specifically:
 
-- **Same cell already has a primary metric** but you want to surface a different angle
+- **Same cell already has a mainstream metric** but you want to surface a different angle
   (non-linearity, asymmetry, decomposition, regime split). Example precedent:
   `event_quality.py` (hit_rate / profit_factor / event_skewness / signal_density) all
-  supplement the primary CAAR metric for `(*, SPARSE, PANEL)`.
+  supplement the mainstream CAAR metric for `(*, SPARSE, PANEL)`.
 - **Descriptive diagnostic without a formal H₀** (concentration Herfindahl-Hirschman index (HHI), tradability, out-of-sample (OOS) decay).
 - **Multi-factor relationship** outside the single-factor inference frame (`spanning.py`).
 
@@ -564,13 +567,13 @@ Everything else. Specifically:
   `n_obs`, `stat`, `warning_codes`, and a `metadata` dict for cell-specific scalars
 - Use `_short_circuit_output(...)` for sample-floor failures rather than raising
 - Reuse `_stats/` primitives (`_p_value_from_t`, `_calc_t_stat`, NW HAC helpers) so the
-  statistical treatment matches the primary metrics — most notably **NW HAC SE
+  statistical treatment matches the mainstream metrics — most notably **NW HAC SE
   for any inference on overlapping forward returns**, never iid Welch / OLS SE
 
-A supplementary metric's p-value is not the cell's canonical p-value; when run
-standalone (`from factrix.metrics import X`) outside `evaluate`, the user is
-responsible for collecting comparable p-values into a family themselves if FDR
-control is needed across a batch.
+A supplementary metric's p-value carries no special status over the mainstream
+metric's; when run standalone (`from factrix.metrics import X`) outside
+`evaluate`, the user is responsible for collecting comparable p-values into a
+family themselves if FDR control is needed across a batch.
 
 ---
 
@@ -583,7 +586,7 @@ factrix/
 │                            #   enums (Aggregation / SpecRole / InputShape / OutputShape)
 ├── _codes.py                # WarningCode StrEnum
 ├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
-├── _metric_index.py         # MetricSpec + __metric_specs__ SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
+├── _metric_index.py         # MetricSpec + @metric-registry SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
 ├── _dag.py                  # DagExecutor — MetricSpec.requires / batchable dispatch (+ CycleError)
 ├── _results.py              # EvaluationResult / MetricResultGroup / MetricResult / Warning dataclasses
 ├── _inspect.py              # inspect_data — typed data introspection with per-metric verdict
@@ -600,7 +603,7 @@ factrix/
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
 ├── estimators/              # lowercase estimator callables
-├── metrics/                 # metric callables + __metric_specs__ (ic, fm_beta, ts_beta, caar, ...) + _registry
+├── metrics/                 # @metric callables (ic, fm_beta, ts_beta, caar, ...) + _registry
 │                            # per-cell thresholds (MIN_FM_PERIODS_HARD/WARN, MIN_TS_OBS) live
 │                            # alongside the metrics that enforce them
 ├── slicing/                 # by_slice + slice_pairwise_test / slice_joint_test
@@ -616,7 +619,7 @@ Hard constraints — violating these breaks the API contract:
 
 1. `MetricSpec` is `frozen=True, slots=True`; every construction path runs `__post_init__`, which enforces the field invariants (e.g. `role=METRIC → output_shape=SCALAR`).
 2. All result dataclasses — `EvaluationResult`, `MetricResultGroup`, `MetricResult`, `Warning` — are `frozen=True, slots=True`. One unified `EvaluationResult` — no per-cell subclass.
-3. The metric-spec SSOT is the module-level `__metric_specs__` tuple in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the same index via `factrix.metrics._registry.register`.
+3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`.
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; `metadata["p_value"]` stays populated for tool context. `warnings` flag interpretation risk but never rebind it.
 6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, *expand_over_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.

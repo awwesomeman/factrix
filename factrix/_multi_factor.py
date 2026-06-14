@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 _NOT_METRICSPEC_EXPECTED = (
     "metric label instance (str / Callable not accepted — pick the spec from "
-    "fx.metrics.spec_by_name() or the metric module's __metric_specs__ tuple)"
+    "fx.metrics.spec_by_name())"
 )
 
 

@@ -1,9 +1,9 @@
 """Typed metric-spec SSOT for ``factrix/metrics/*.py`` modules.
 
-Each public metric module declares a module-level ``__metric_specs__``
-tuple of :class:`MetricSpec` dataclasses, one entry per public callable.
-This is the single source of truth for "which standalone metrics live
-in which cell" and drives:
+Each public metric module decorates its public callables with
+``@metric``, registering one :class:`MetricSpec` per callable in the
+shared registry. This is the single source of truth for "which
+standalone metrics live in which cell" and drives:
 
 - :func:`factrix.list_metrics` — runtime metric discovery API
 - ``scripts/mkdocs_hooks/gen_metric_matrix.py`` — docs matrix table
@@ -16,16 +16,15 @@ Consumers iterate via :func:`public_specs` (visibility-filtered) or
 small helpers :func:`import_path_for` / :func:`docs_anchor_for`.
 
 Why typed: IDE completion, mypy-checkable axes, refactor-safe field
-access. Adding a new metric module just imports :class:`MetricSpec` and
-:func:`cell` and declares::
+access. Adding a new metric just decorates the callable with
+``@metric``, which builds and registers its :class:`MetricSpec`::
 
-    __metric_specs__ = (
-        MetricSpec(
-            name="my_metric",
-            cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL),
-            aggregation=Aggregation.CS_THEN_TS,
-        ),
+    @metric(
+        cell=cell(FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL),
+        aggregation=Aggregation.CS_THEN_TS,
     )
+    def my_metric(panel: pl.DataFrame) -> MetricResult:
+        ...
 """
 
 from __future__ import annotations
@@ -231,7 +230,7 @@ class SampleThreshold:
 
 @dataclass(frozen=True, slots=True)
 class MetricSpec:
-    """Per-callable typed spec declared via module-level ``__metric_specs__``.
+    """Per-callable typed spec built and registered by the ``@metric`` decorator.
 
     One :class:`MetricSpec` per public callable in the declaring
     ``factrix/metrics/*.py`` module.
@@ -256,8 +255,7 @@ class MetricSpec:
       but pulled by the DAG via ``requires``.
     - ``requires``: ``{consumer_param_name: producer_callable}``. Key
       is a parameter on the declaring callable; value is another
-      callable that has a :class:`MetricSpec` in its module's
-      ``__metric_specs__`` whose per-factor output the DAG executor
+      ``@metric`` callable whose per-factor output the DAG executor
       injects at that parameter. Empty dict means no upstream
       dependency.
     - ``batchable``: ``True`` when the callable accepts
@@ -301,38 +299,29 @@ def _public_metric_stems() -> list[str]:
 
 
 def _load_module_specs(stem: str) -> tuple[MetricSpec, ...]:
-    """Import ``factrix.metrics.<stem>`` and return its specs.
+    """Import ``factrix.metrics.<stem>`` and return its registered specs.
 
-    Raises ``ValueError`` when the module does not declare a non-empty
-    ``__metric_specs__`` tuple or register `@metric` classes — coverage
-    enforced by ``tests/test_docs_matrix.py``.
+    Raises ``ValueError`` when the module registers no ``@metric``
+    classes — coverage enforced by ``tests/test_docs_matrix.py``.
     """
     mod = importlib.import_module(f"factrix.metrics.{stem}")
-    specs = getattr(mod, "__metric_specs__", None)
-    if not specs:
-        from factrix.metrics._registry import REGISTRY
+    from factrix.metrics._registry import REGISTRY
 
-        reg_specs = []
-        for _, cls in REGISTRY.items():
-            if cls.__module__ == f"factrix.metrics.{stem}":
-                reg_specs.append(cls.spec())
-        if reg_specs:
-            specs = tuple(reg_specs)
-
+    specs = tuple(
+        cls.spec()
+        for cls in REGISTRY.values()
+        if cls.__module__ == f"factrix.metrics.{stem}"
+    )
     if not specs:
         raise ValueError(
-            f"factrix.metrics.{stem}: module-level `__metric_specs__` tuple "
-            f"or registered @metric classes are required. See "
+            f"factrix.metrics.{stem}: no @metric classes registered. "
+            f"Decorate each public callable with @metric. See "
             f"factrix._metric_index.MetricSpec docstring."
-        )
-    if not all(isinstance(s, MetricSpec) for s in specs):
-        raise TypeError(
-            f"factrix.metrics.{stem}: every spec entry must be a MetricSpec instance."
         )
     for spec in specs:
         if spec.requires:
             _validate_requires(stem, spec, mod)
-    return tuple(specs)
+    return specs
 
 
 def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
@@ -370,26 +359,15 @@ def _validate_requires(stem: str, spec: MetricSpec, mod: object) -> None:
 
         producer_module_name = producer.__module__
         producer_name = producer.__name__
-        producer_module = importlib.import_module(producer_module_name)
-        module_specs = getattr(producer_module, "__metric_specs__", ())
 
-        is_registered = (
-            any(s.name == producer_name for s in module_specs)
-            or producer_name in REGISTRY
-        )
-        if not is_registered:
+        if producer_name not in REGISTRY:
             raise ValueError(
                 f"factrix.metrics.{stem}.{spec.name}: producer "
                 f"{producer_module_name}.{producer_name} is required by "
-                f"key {key!r} but has no MetricSpec in its module's "
-                f"`__metric_specs__` tuple or registry."
+                f"key {key!r} but is not a registered @metric class."
             )
 
-        producer_spec = (
-            REGISTRY[producer_name].spec()
-            if producer_name in REGISTRY
-            else next(s for s in module_specs if s.name == producer_name)
-        )
+        producer_spec = REGISTRY[producer_name].spec()
         if producer_spec.output_shape.value != spec.input_shape.value:
             raise ValueError(
                 f"factrix.metrics.{stem}.{spec.name}: `requires` shape mismatch. "
@@ -409,9 +387,9 @@ def _all_specs() -> tuple[tuple[str, MetricSpec], ...]:
     out: list[tuple[str, MetricSpec]] = []
     seen: set[str] = set()
 
-    # 1. Public modules: legacy ``__metric_specs__`` or in-place ``@metric``
-    #    classes — both surfaced by ``_load_module_specs``, which also
-    #    validates each spec's ``requires`` against its consumer signature.
+    # 1. Public modules: ``@metric`` classes surfaced by
+    #    ``_load_module_specs``, which also validates each spec's
+    #    ``requires`` against its consumer signature.
     for stem in _public_metric_stems():
         try:
             specs = _load_module_specs(stem)
@@ -520,10 +498,10 @@ def _first_party_spec_by_name() -> dict[str, MetricSpec]:
 def spec_by_name() -> dict[str, MetricSpec]:
     """Return ``{name: spec}`` unioning first-party + third-party registered specs.
 
-    First-party specs are auto-discovered from ``factrix.metrics.*``
-    modules' ``__metric_specs__`` tuples (cached). Third-party specs
-    are added via :func:`register`; the third-party slice is reflected
-    here without recomputing the first-party walk.
+    First-party specs are auto-discovered from the ``@metric`` classes
+    registered by ``factrix.metrics.*`` modules (cached). Third-party
+    specs are added via :func:`register`; the third-party slice is
+    reflected here without recomputing the first-party walk.
     """
     out = dict(_first_party_spec_by_name())
     out.update(_METRIC_REGISTRY)

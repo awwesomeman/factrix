@@ -45,7 +45,7 @@ trade-offs: Newey-West (NW) HAC corrects SE on the full series at the cost of a
 kernel choice and asymptotic-Gaussian inference, while non-overlapping
 sampling preserves an exact-distribution `t` at the cost of a factor
 of `h` in effective sample size. factrix exposes both — non-overlap
-as the default for cell-canonical metrics, NW HAC as an explicit
+as the default for the mainstream metrics, NW HAC as an explicit
 sibling.
 When NW HAC is selected, factrix uses the
 [Newey-West 1987][newey-west-1987] Bartlett kernel with a
@@ -109,7 +109,7 @@ deflates** the correction. Treat the
 `betas_timeseries_proxy` result as a lower bound on the true
 inflation — i.e. an upper bound on the reported `t`.
 
-Default versus paired t-test is a separate choice: the cell-canonical
+Default versus paired t-test is a separate choice: the mainstream
 metrics (`ic`, `caar`) use **non-overlapping resampling** as the
 default rather than NW HAC.
 [](){ #non-overlap-default }

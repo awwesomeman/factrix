@@ -41,12 +41,11 @@ def make_result(
     forward_periods: int = 5,
     context: dict[str, Any] | None = None,
     extra_outputs: dict[str, MetricResult] | None = None,
-    extra_primaries: tuple[str, ...] = (),
 ) -> EvaluationResult:
     """Build an :class:`EvaluationResult` for testing.
 
-    ``metric`` and ``extra_primaries`` name the metric labels included in
-    outputs. ``p=None`` simulates a metric with no p-value.
+    ``metric`` names the metric label included in outputs. ``p=None``
+    simulates a metric with no p-value.
     """
     metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
     primary_out = MetricResult(
@@ -55,8 +54,6 @@ def make_result(
     outputs = {metric: primary_out}
     if extra_outputs:
         outputs.update(extra_outputs)
-    # extra_primaries is retained for call-site compatibility but is a no-op:
-    # MetricResultGroup no longer carries a primary/diagnostic partition.
     return EvaluationResult(
         factor=factor,
         cell=(FactorScope.INDIVIDUAL, FactorDensity.DENSE, DataStructure.PANEL),

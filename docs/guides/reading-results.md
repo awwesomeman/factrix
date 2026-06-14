@@ -61,7 +61,7 @@ For a specific metric `key`, `result.metrics[key]` exposes:
 
 ## FDR Result Containers
 
-FDR screening functions under `fx.multi_factor` (like `bhy()`) return a dictionary mapping each primary metric to a result container (such as `BhyResult`).
+FDR screening functions under `fx.multi_factor` (like `bhy()`) return a dictionary mapping each mainstream metric to a result container (such as `BhyResult`).
 
 ### Reading order for BhyResult
 

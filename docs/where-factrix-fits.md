@@ -14,7 +14,7 @@ a forward return, it answers *is the predictive power real?* and
 returns a structured profile of evidence — rather than applying one
 uniform formula to every factor.
 
-Three factor types each get a primary test fitted to their
+Three factor types each get a mainstream test fitted to their
 data-generating process:
 
 - **Cross-sectional factors** — Information Coefficient (IC) and
@@ -70,8 +70,8 @@ Each metric instance carries a `MetricSpec` whose `cell`
 applies to the detected data shape; the DAG executor runs batchable
 stage-1 producers once across the factor batch and per-factor consumers
 once per factor, and returns a `list[EvaluationResult]` — one per
-factor, each holding a `MetricResultGroup` (`applicable` / `primary` /
-`diagnostic`) plus a flat `list[Warning]`. The list flows into
+factor, each holding a `MetricResultGroup` of per-metric `MetricResult`
+outputs plus a flat `list[Warning]`. The list flows into
 `multi_factor.bhy(results, metrics=[...])` for cross-test false
 discovery rate (FDR) control, which returns the surviving factors.
 
@@ -449,7 +449,7 @@ self-defeating once they read the source.
 | Macro panel | yes | linearmodels (manual) | packaged macro-factor evaluation surface |
 | Multi-test FDR (BHY) | yes | mlfinlab (commercial-gated) | only OSS implementation post-mlfinlab paywall |
 | NW HAC | yes | linearmodels / arch | depend on `arch`, do not reimplement |
-| Type-routed primary metric (CS / Event / Macro) | yes | none | factrix's core differentiation |
+| Type-routed mainstream metric (CS / Event / Macro) | yes | none | factrix's core differentiation |
 | **Deflated Sharpe / PSR / PBO** | **no** | mlfinlab (commercial-gated) | **roadmap priority** — most painful OSS gap |
 | ML pipeline integration | no (out of scope) | qlib | document interop; leave to qlib |
 | Live trading / execution | no (out of scope) | lumibot / nautilus_trader | document boundary; leave out |

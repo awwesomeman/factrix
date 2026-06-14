@@ -41,7 +41,7 @@ title: factrix.multi_factor.bhy
 
 ## BhyResult attributes
 
-The returned dictionary maps each primary metric label to a `BhyResult` container, which exposes:
+The returned dictionary maps each mainstream metric label to a `BhyResult` container, which exposes:
 
 | Attribute | Type | Meaning |
 |---|---|---|

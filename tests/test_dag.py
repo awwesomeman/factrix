@@ -40,6 +40,22 @@ def _make_spec(
     )
 
 
+def _nodes(*specs: MetricSpec) -> list[_Node]:
+    """Wrap plain specs as one node each (``node_id == spec.name``).
+
+    The executor takes pre-built ``_Node`` items; these graph tests
+    declare plain specs and resolve requires by producer name.
+    """
+    return [
+        _Node(
+            spec=spec,
+            node_id=spec.name,
+            requires_nodes=tuple((k, p.__name__) for k, p in spec.requires.items()),
+        )
+        for spec in specs
+    ]
+
+
 class TestTopoSort:
     def test_orders_producers_before_consumers(self):
         def producer():
@@ -124,7 +140,7 @@ class TestBatchablePath:
         panel = _build_panel(factor_cols=("a", "b", "c"))
 
         ex = DagExecutor(
-            [producer_spec, consumer_spec],
+            _nodes(producer_spec, consumer_spec),
             fn_resolver={
                 "batch_producer": batch_producer,
                 "per_factor_consumer": per_factor_consumer,
@@ -157,7 +173,7 @@ class TestPerFactorPath:
         }
         panel = _build_panel(factor_cols=("a", "b"))
         ex = DagExecutor(
-            [spec], fn_resolver={"panel_consumer": panel_consumer}.__getitem__
+            _nodes(spec), fn_resolver={"panel_consumer": panel_consumer}.__getitem__
         )
         out = ex.execute(panel, ["a", "b"], **axes)
         assert len(called) == 2
@@ -189,7 +205,7 @@ class TestStage1Share:
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
-            [producer_spec, a_spec, b_spec],
+            _nodes(producer_spec, a_spec, b_spec),
             fn_resolver={
                 "producer": producer,
                 "consumer_a": consumer_a,
@@ -251,7 +267,7 @@ class TestWarningCodeLift:
             "forward_periods": 1,
         }
         panel = _build_panel(factor_cols=("x",))
-        ex = DagExecutor([spec], fn_resolver={"flagged": flagged}.__getitem__)
+        ex = DagExecutor(_nodes(spec), fn_resolver={"flagged": flagged}.__getitem__)
         er = ex.execute(panel, ["x"], **axes)["x"]
 
         assert (WarningCode.FEW_EVENTS, "flagged") in [
@@ -289,7 +305,7 @@ class TestShortCircuitPropagation:
         }
         panel = _build_panel(factor_cols=("x",))
         ex = DagExecutor(
-            [producer_spec, consumer_spec],
+            _nodes(producer_spec, consumer_spec),
             fn_resolver={"producer": producer, "consumer": consumer}.__getitem__,
         )
         out = ex.execute(panel, ["x"], **axes)
@@ -319,7 +335,7 @@ class TestPlanString:
         a_spec = _make_spec("consumer_a", requires={"ic_df": producer})
         b_spec = _make_spec("consumer_b", requires={"ic_df": producer})
         ex = DagExecutor(
-            [producer_spec, a_spec, b_spec],
+            _nodes(producer_spec, a_spec, b_spec),
             fn_resolver={
                 "producer": producer,
                 "consumer_a": consumer_a,
@@ -389,7 +405,7 @@ class TestRequiresValidation:
         orphan_producer.__module__ = "factrix._codes"
         consumer.__module__ = "factrix.metrics.ic"
         spec = _make_spec("consumer", requires={"x": orphan_producer})
-        with pytest.raises(ValueError, match="no MetricSpec in its module"):
+        with pytest.raises(ValueError, match="not a registered @metric class"):
             _validate_requires("fake", spec, SimpleNamespace(consumer=consumer))
 
 
@@ -409,7 +425,7 @@ class TestEndToEndIcCell:
         }
         raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=80)
         panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
-        ex = DagExecutor(specs)
+        ex = DagExecutor(_nodes(*specs))
         out = ex.execute(panel, ["factor"], **axes)
         r = out["factor"]
         assert isinstance(r, fx.EvaluationResult)

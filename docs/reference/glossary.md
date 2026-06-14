@@ -112,21 +112,17 @@ specific contracts that apply when factrix routes here.
 
 ## Other terms
 
-### the metric `evaluate()` runs
+### mainstream metric
 
-Every `(scope, density, structure)` dispatch cell maps to exactly one
-primary metric callable that [`evaluate()`](../api/evaluate.md) runs internally
-— `ic`, `fm_beta`, `caar`, or `ts_beta` — and that metric's
-p-value is the primary metric's `MetricResult.p_value`. Other metrics applicable to
-the same cell are called separately via
-[`list_metrics`](../api/metrics/index.md#factrix.list_metrics) and the per-metric callable;
-they do not enter the headline result.
-
-**Legacy synonyms** (in older docs and source comments): `procedure-canonical`,
-`cell-canonical`, `canonical metric`. New content uses the behavioral phrasing
-above (or `primary metric`, the live API term — `EvaluationResult.metrics.primary`,
-`evaluate(primary=...)`); legacy occurrences are phased out via the ratchet test
-in `tests/test_docs_terminology_ratchet.py` so the count can only decrease.
+The headline mean-significance test conventionally used for a
+`(scope, density, structure)` cell — `ic`, `fm_beta`, `caar`, or
+`ts_beta`. It is an authoring convention, not a code-enforced tier:
+`evaluate()` runs exactly the metrics the caller passes, and every
+metric (mainstream or supplementary) carries its own
+`MetricResult.p_value`. By convention the mainstream metric's
+`p_value` is the one the FDR screening verbs read for a cell. Other
+metrics applicable to the same cell are supplementary / diagnostic and
+are run alongside it via [`list_metrics`](../api/metrics/index.md#factrix.list_metrics).
 
 ### `factor`
 
