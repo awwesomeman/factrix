@@ -152,8 +152,7 @@ on the single-asset series — scope-collapse no longer happens, and there is no
 sentinel routing both sparse scopes to a shared TIMESERIES procedure. At `N=1`
 the `INDIVIDUAL` / `COMMON` distinction is moot (one asset → no
 scope axis), but that falls out of the derived structure rather than an explicit
-routing token, and no `InfoCode` is attached (`InfoCode` is a reserved,
-currently-empty enum).
+routing token.
 
 ---
 
@@ -393,9 +392,10 @@ Failure modes:
 - `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N`.
 - `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
-  `StatCode.MEAN` identifier is shared across the two modes, so the
-  same field on `EvaluationResult` carries different statistical meaning
-  depending on `profile.mode`; see §PANEL/TIMESERIES equivalence.
+  statistic lands in the same `MetricResult.stat` field across both
+  modes, so it carries different statistical meaning depending on
+  `profile.mode` (read `metadata["method"]` to tell them apart); see
+  §PANEL/TIMESERIES equivalence.
 
 ### `common_sparse` (PANEL) — time-series first
 

@@ -343,8 +343,6 @@ Flat warning representation containing:
 - `source`: String representing the metric name (or `None` for bundle-level).
 - `message`: Warning description.
 
-`InfoCode` represents informational-only note enums re-exported at package root.
-
 ### `MetricResult`
 
 Dataclass for a single metric's output:
@@ -382,23 +380,6 @@ All exceptions inherit from `FactrixError`:
 | `few_events` | event dates < 29; t-stat power is thin. |
 | `borderline_portfolio_periods` | portfolio periods < 19; t_crit is inflated. |
 | `upstream_unavailable` | Downstream consumer skipped due to upstream short-circuit. |
-
----
-
-## StatCode reference
-
-| StatCode | Meaning |
-|---|---|
-| `MEAN` | Primary point estimate (IC mean, FM lambda, CAAR mean, etc.). |
-| `T_NW` | Newey-West HAC t-statistic. |
-| `P_NW` | Newey-West HAC p-value. |
-| `T_HH` / `P_HH` | Hansen-Hodrick HAC t-statistic and p-value. |
-| `J_GMM` / `P_GMM` | Hansen J statistic and over-identification p-value. |
-| `FACTOR_ADF_TAU` | ADF test statistic on factor input. |
-| `FACTOR_ADF_P` | ADF p-value on factor input. |
-| `RESID_LJUNG_BOX_Q` | Ljung-Box Q statistic on residuals. |
-| `RESID_LJUNG_BOX_P` | Ljung-Box p-value on residuals. |
-| `EVENT_HHI_VALUE` | Concentration HHI for events. |
 
 ---
 
