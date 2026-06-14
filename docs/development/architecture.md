@@ -456,7 +456,7 @@ Reached whenever a sparse factor evaluates at N=1 — the sparse metrics' cells
 apply at TIMESERIES, so the DAG executor runs them directly on the single-asset
 series (no scope-collapse step; at N=1 the two scopes are statistically
 equivalent). The series is the **full period grid** with
-zero-padding on non-event periods (distinct from the PANEL CAAR pipeline,
+zero-padding on non-event periods (distinct from the PANEL CAAR computation,
 which works on the event-date-only series). Factor magnitudes are
 preserved (no `.sign()` coercion at this layer).
 
