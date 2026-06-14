@@ -98,14 +98,15 @@ class _PlanStep(NamedTuple):
 
 
 class DagExecutor:
-    """Run a closed set of :class:`MetricSpec` against a panel batch.
+    """Run a closed set of :class:`_Node` against a panel batch.
 
     Args:
-        specs: Closed under ``requires`` — every callable referenced
-            by another spec's ``requires`` dict must have its own
-            :class:`MetricSpec` in this sequence. Callers needing the
-            transitive closure should build it from the registry
-            (e.g. ``spec_by_name``) before constructing the executor.
+        nodes: The dispatch graph as pre-built :class:`_Node` items
+            (the by-value path). Closed under ``requires_nodes`` —
+            every ``node_id`` referenced by another node's edges must
+            have its own :class:`_Node` in this sequence. Callers build
+            the transitive closure from the registry (e.g.
+            ``spec_by_name``) before constructing the executor.
         fn_resolver: Optional override mapping a spec to its callable.
             Defaults to ``getattr(import_module(producer.__module__),
             spec.name)`` via the spec's declaring module. Tests pass an
@@ -113,39 +114,22 @@ class DagExecutor:
             building a fake module tree.
 
     Raises:
-        CycleError: if ``requires`` introduces a cycle.
-        ValueError: if a referenced producer is missing from
-            ``specs`` (the executor will not silently auto-close the
-            set — the caller declared the dispatch graph and the
-            executor refuses to repair it).
+        CycleError: if ``requires_nodes`` introduces a cycle.
+        ValueError: if a referenced node is missing from ``nodes``
+            (the executor will not silently auto-close the set — the
+            caller declared the dispatch graph and the executor refuses
+            to repair it).
     """
 
     def __init__(
         self,
-        specs: Sequence[MetricSpec | _Node],
+        nodes: Sequence[_Node],
         *,
         fn_resolver: Callable[[str], Callable[..., Any]] | None = None,
     ) -> None:
         import logging
 
         self._logger = logging.getLogger("factrix.dag")
-        # Back-compat: a plain spec is wrapped one node per spec with
-        # ``node_id == spec.name`` and requires resolved by producer name;
-        # pre-built ``_Node`` items (the by-value path) pass straight through.
-        nodes: list[_Node] = []
-        for item in specs:
-            if isinstance(item, _Node):
-                nodes.append(item)
-            else:
-                nodes.append(
-                    _Node(
-                        spec=item,
-                        node_id=item.name,
-                        requires_nodes=tuple(
-                            (k, p.__name__) for k, p in item.requires.items()
-                        ),
-                    )
-                )
         self._nodes: tuple[_Node, ...] = tuple(nodes)
         self._fn_resolver = fn_resolver or _default_fn_resolver
         self._fn_cache: dict[str, Callable[..., Any]] = {}
