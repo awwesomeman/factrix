@@ -49,8 +49,6 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 
 _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructure.PANEL)
 
-MIN_TS_OBS: int = 20
-
 
 @metric(
     cell=_TSB_CELL,

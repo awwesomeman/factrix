@@ -30,7 +30,7 @@ from factrix._results import MetricResult
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
 from factrix._types import (
     EPSILON,
-    MIN_ASSETS_PER_DATE_IC,
+    MIN_IC_PERIODS,
 )
 from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
@@ -162,7 +162,7 @@ def ic(
     # its stride / lag math.
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    raw_min = inference.hard_floor(forward_periods)
+    raw_min = inference.min_input_periods(forward_periods)
     if n < raw_min:
         return _short_circuit_output(
             "ic",
@@ -177,12 +177,12 @@ def ic(
     # Stride-based methods report a post-sampling count; guard on the
     # effective sample so a coarse stride cannot silently test ~nothing.
     n_sampled = result.metadata.get("n_obs_sampled")
-    if n_sampled is not None and n_sampled < MIN_ASSETS_PER_DATE_IC:
+    if n_sampled is not None and n_sampled < MIN_IC_PERIODS:
         return _short_circuit_output(
             "ic",
             "insufficient_sampled_ic_periods",
             n_obs=int(n_sampled),
-            min_required=MIN_ASSETS_PER_DATE_IC,
+            min_required=MIN_IC_PERIODS,
             forward_periods=forward_periods,
         )
 
