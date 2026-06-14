@@ -28,7 +28,7 @@ from factrix._stats import (
     _binomial_test_method_name,
     _binomial_two_sided_p,
 )
-from factrix._types import MIN_ASSETS_PER_DATE_IC
+from factrix._types import MIN_IC_PERIODS
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 from factrix.metrics.ic import compute_ic
@@ -67,7 +67,7 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
-    sample_threshold=SampleThreshold(min_periods=MIN_ASSETS_PER_DATE_IC),
+    sample_threshold=SampleThreshold(min_periods=MIN_IC_PERIODS),
 )
 def hit_rate(
     series: pl.DataFrame,

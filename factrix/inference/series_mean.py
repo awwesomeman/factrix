@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from factrix._codes import WarningCode
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
-from factrix._types import MIN_ASSETS_PER_DATE_IC
+from factrix._types import MIN_IC_PERIODS
 from factrix.inference._base import InferenceResult
 
 if TYPE_CHECKING:
@@ -60,9 +60,9 @@ class NonOverlapping:
     summary: ClassVar[str] = "non-overlapping t-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
 
-    def hard_floor(self, forward_periods: int) -> int:
-        """Raw-period floor: need ``base · h`` rows to land ``base`` after striding."""
-        return MIN_ASSETS_PER_DATE_IC * max(forward_periods, 1)
+    def min_input_periods(self, forward_periods: int) -> int:
+        """Minimum input series length (periods): need ``base · h`` rows to land ``base`` after striding."""
+        return MIN_IC_PERIODS * max(forward_periods, 1)
 
     def compute(
         self, df: pl.DataFrame, *, value_col: str, forward_periods: int
@@ -110,8 +110,8 @@ class NeweyWest:
     summary: ClassVar[str] = "Newey-West HAC t-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
 
-    def hard_floor(self, forward_periods: int) -> int:
-        """Raw-period floor below which the HAC t-test cannot run."""
+    def min_input_periods(self, forward_periods: int) -> int:
+        """Minimum input series length (periods) below which the HAC t-test cannot run."""
         return MIN_PERIODS_HARD
 
     def compute(
@@ -155,8 +155,8 @@ class HansenHodrick:
     summary: ClassVar[str] = "Hansen-Hodrick HAC t-test"
     min_periods: ClassVar[int] = MIN_PERIODS_WARN
 
-    def hard_floor(self, forward_periods: int) -> int:
-        """Raw-period floor below which the HAC t-test cannot run."""
+    def min_input_periods(self, forward_periods: int) -> int:
+        """Minimum input series length (periods) below which the HAC t-test cannot run."""
         return MIN_PERIODS_HARD
 
     def compute(

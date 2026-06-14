@@ -36,7 +36,7 @@ from factrix._axis import (
 )
 from factrix._metric_index import cell
 from factrix._results import MetricResult
-from factrix._types import MIN_ASSETS_PER_DATE_IC
+from factrix._types import MIN_IC_PERIODS
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
 
@@ -45,9 +45,10 @@ __all__ = [
 ]
 
 # Minimum non-overlapping sign observations below which the PT normal
-# approximation is unreliable. Reuses the IC per-date floor — both gate a
-# pooled-sign statistic on the same "≥10 independent draws" rule of thumb.
-MIN_DIRECTIONAL_OBS: int = MIN_ASSETS_PER_DATE_IC
+# approximation is unreliable. Shares the IC series-length floor — both
+# gate a pooled-sign statistic on the same "≥10 independent draws" rule
+# of thumb (periods axis, not the per-date asset count).
+MIN_DIRECTIONAL_OBS: int = MIN_IC_PERIODS
 
 
 @metric(

@@ -101,8 +101,10 @@ class TestNonOverlapping:
         )
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS in result.warnings
 
-    def test_hard_floor_scales_with_stride(self) -> None:
-        assert NON_OVERLAPPING.hard_floor(5) == 5 * NON_OVERLAPPING.hard_floor(1)
+    def test_min_input_periods_scales_with_stride(self) -> None:
+        assert NON_OVERLAPPING.min_input_periods(
+            5
+        ) == 5 * NON_OVERLAPPING.min_input_periods(1)
 
 
 class TestNeweyWest:

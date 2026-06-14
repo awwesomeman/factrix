@@ -31,11 +31,28 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # ---------------------------------------------------------------------------
 # Minimum sample thresholds (used by metrics primitives)
 # ---------------------------------------------------------------------------
+#
+# Naming grammar: ``MIN_<DOMAIN>_<DIMENSION>[_<TIER>]``. The DIMENSION
+# token is mandatory and names the axis the threshold guards:
+#   ``ASSETS``  — cross-sectional asset count (N per date)
+#   ``PERIODS`` — time-series length (T, number of dates / draws)
+#   ``EVENTS``  — event-date count
+# A constant for one axis must never be reused as a threshold on another
+# (e.g. an ``_ASSETS`` floor must not gate a series length); introduce a
+# separate ``_PERIODS`` constant even when the calibrated value coincides.
 
-# Per-date minimum asset count below which ``compute_ic`` drops the date.
-# Renamed from MIN_IC_PERIODS — the "PERIODS" suffix was misleading;
-# the value has always been checked against per-date asset counts.
+# Per-date minimum asset count below which ``compute_ic`` drops the date
+# (cross-sectional axis). Spearman ρ needs ≥ this many names per date for
+# its asymptotic distribution to hold.
 MIN_ASSETS_PER_DATE_IC: int = 10
+
+# Minimum IC time-series length (periods axis) for a reliable mean / sign
+# test on the per-date IC series: the post-stride sample in ``ic()``, the
+# series-length floor in ``hit_rate`` / ``directional_hit_rate``, and the
+# raw-period base in the non-overlapping inference floor all key off this
+# "≥10 independent draws" rule. Distinct axis from
+# ``MIN_ASSETS_PER_DATE_IC`` despite the shared value — do not collapse.
+MIN_IC_PERIODS: int = 10
 
 # Two-tier event-count guard for CAAR / Brown-Warner-family tests.
 # ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricResult (math floor —
