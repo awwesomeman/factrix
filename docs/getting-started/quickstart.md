@@ -19,7 +19,7 @@ from factrix.metrics import ic
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 data  = compute_forward_return(raw, forward_periods=5)
 
-# 2. Run single-factor evaluation using the ic_newey_west metric
+# 2. Run single-factor evaluation using the ic metric with Newey-West
 results = fx.evaluate(
     data,
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},

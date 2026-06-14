@@ -12,7 +12,7 @@ Reverse index — match your situation to the likely landing page:
 
 | You have | Start at |
 |---|---|
-| Continuous factor, ~30+ dates × ~10+ assets, canonical information coefficient (IC) test | [`ic`](ic.md) (and `ic_newey_west` for heteroskedasticity-and-autocorrelation-consistent (HAC)) |
+| Continuous factor, ~30+ dates × ~10+ assets, canonical information coefficient (IC) test | [`ic`](ic.md) |
 | Continuous factor, per-date ordinary least squares (OLS) slope test | [`fm_beta`](fm_beta.md) |
 | Long-short spread sized by factor quintiles | [`quantile`](quantile.md), [`monotonicity`](monotonicity.md) |
 | Sparse `{0, R}` event signal (canonical `±1`), CAAR / abnormal-return test | [`caar`](caar.md), [`event_quality`](event_quality.md) |

@@ -97,14 +97,14 @@ See the [installation guide](https://awwesomeman.github.io/factrix/latest/gettin
 
 ```python
 import factrix as fx
-from factrix.metrics import ic_newey_west
+from factrix.metrics import ic
 
 raw   = fx.datasets.make_cs_panel(n_assets=100, n_dates=500, ic_target=0.08, seed=2024)
 data  = fx.preprocess.compute_forward_return(raw, forward_periods=5)
 
 results = fx.evaluate(
     data,
-    metrics={"ic": ic_newey_west()},
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["factor"],
     forward_periods=5,
 )

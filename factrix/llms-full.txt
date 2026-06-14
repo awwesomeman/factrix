@@ -269,31 +269,20 @@ Renders a wide leaderboard `pl.DataFrame` stacking metric values and p-values si
 
 ---
 
-### `list_metrics` / `list_estimators`
+### `list_metrics`
 
 ```python
 def list_metrics() -> dict[str, list[MetricSpec]]:
 ```
 Returns a catalog of public specs grouped by module family.
 
-```python
-def list_estimators(
-    *,
-    format: Literal["text", "json"] = "text",
-    with_import: bool = False,
-) -> list[str] | list[dict[str, Any]]:
-```
-Returns registered estimator instances.
-
 ---
 
 ### `factrix.estimators` namespace
 
 Exposes stateless, lowercase functional estimators that run directly on raw NumPy arrays:
-- `newey_west(x, lags)`
-- `hansen_hodrick(x, lags)`
-- `driscoll_kraay(x, lags)`
-- `block_bootstrap(x, block_length)`
+- `driscoll_kraay(X, resid, time_ids, *, lags)`
+- `block_bootstrap(diff, *, ...)`
 
 ---
 

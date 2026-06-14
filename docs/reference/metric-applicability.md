@@ -127,7 +127,7 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_newey_west`, `ic_ir`, `hit_rate` |
+| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_ir`, `hit_rate` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |

@@ -49,16 +49,22 @@ as the default for cell-canonical metrics, NW HAC as an explicit
 sibling.
 When NW HAC is selected, factrix uses the
 [Newey-West 1987][newey-west-1987] Bartlett kernel with a
-deterministic bandwidth, applied by `ic_newey_west`, `fm_beta`,
-`pooled_ols`, `ts_quantile_spread`, and `ts_asymmetry`.
+deterministic bandwidth, applied by `ic` (with `NeweyWest` inference), `fm_beta`,
+`pooled_beta`, `ts_quantile_spread`, and `ts_asymmetry`.
 
-The bandwidth rule is
+The bandwidth rule is:
 
-$$
-L = \max\!\left(\lfloor T^{1/3} \rfloor,\; h - 1\right)
-$$
+- For `ic` (with `NeweyWest` inference):
+  $$
+  L = \max\!\left(\text{auto\_bartlett}(T),\; h - 1\right)
+  $$
+  where $\text{auto\_bartlett}(T) = \max\!\left(1,\; \lfloor 4 \cdot (T/100)^{2/9} \rfloor\right)$ per Newey-West (1994).
+- For other metrics (`fm_beta`, `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`):
+  $$
+  L = \max\!\left(\lfloor T^{1/3} \rfloor,\; h - 1\right)
+  $$
 
-with $h$ = `forward_periods`. The first term is the [Andrews 1991][andrews-1991] optimal Bartlett
+with $h$ = `forward_periods`. The first term is either the [Newey-West 1994][newey-west-1994] automatic Bartlett bandwidth (for `ic`) or the [Andrews 1991][andrews-1991] optimal Bartlett
 growth rate; the second is the
 [Hansen-Hodrick 1980][hansen-hodrick-1980] overlap floor that ensures
 the kernel covers the MA(`h − 1`) structure of overlapping returns.
@@ -108,7 +114,7 @@ metrics (`ic`, `caar`) use **non-overlapping resampling** as the
 default rather than NW HAC.
 [](){ #non-overlap-default }
 NW is exposed as an explicit sibling
-(`ic_newey_west`) for callers who prefer the HAC route. Resampling has
+(`ic(inference=fx.inference.NEWEY_WEST)`) for callers who prefer the HAC route. Resampling has
 the advantage of exact rather than asymptotic-Gaussian inference at
 the cost of a factor of `h` in effective sample size; users with long
 panels often prefer NW.
@@ -120,8 +126,8 @@ different points in the bias-variance trade-off:
 
 | Procedure | Mechanism | Strengths | Weaknesses | Where factrix uses it |
 |---|---|---|---|---|
-| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(⌊T^{1/3}⌋, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic_newey_west`, `fm_beta` stage 2, `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`. |
-| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HansenHodrick` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
+| **Newey-West (1987)** | Bartlett-kernel HAC on the full overlapping series, bandwidth `L = max(bandwidth_base, h−1)`. | Simple, deterministic, asymptotically valid for arbitrary autocorrelation up to `L`. | Asymptotic Gaussian — finite-sample size distortion when `h/T` is non-trivial; bandwidth rule is conservative. | `ic` (with `NeweyWest` inference), `fm_beta` stage 2, `pooled_beta`, `ts_quantile_spread`, `ts_asymmetry`. |
+| **Hansen-Hodrick (HH) (1980)** | A generalized method of moments (GMM)-style HAC estimator with a rectangular kernel truncated at `h−1`; the canonical reference for overlap-aware long-horizon SEs. | Targets the MA(`h−1`) residual structure overlap induces. | Rectangular kernel can yield a non-PSD covariance matrix in finite samples; still asymptotic. | Exposed as `factrix.inference.HANSEN_HODRICK` (rectangular-kernel SE → t-statistic → two-sided p-value); also borrows the `h−1` lag idea as a floor on the NW bandwidth above. |
 | **Hodrick (1992) "1B"** | Reverse-regression: regress one-period return on the predictor sum `X_t = Σ x_{t-j}` over the last `h` periods. | Size-correct in finite samples even at large `h/T`; no bandwidth choice. | Coefficient interpretation differs — `β` is the response to a cumulative-predictor stimulus (MA on the RHS) rather than a long-horizon forecast slope (MA on the LHS in the standard form); not a drop-in replacement for the canonical `β`. | **Not implemented**. Cited as the right tool when overlap is severe; the `Individual × Continuous` cell side-steps the issue with non-overlapping resampling instead. |
 
 Practical rule of thumb:

@@ -330,8 +330,7 @@ files auto-update and which need manual maintenance.
 Every user-facing function reachable from the API Reference nav
 (`evaluate`, `inspect_data`, `by_slice`, `slice_pairwise_test`,
 `slice_joint_test`, `multi_factor.{bhy, partial_conjunction,
-bhy_hierarchical}`, `compare`, `list_metrics`,
-`list_estimators`) carries an `Examples:` block in its docstring.
+bhy_hierarchical}`, `compare`, `list_metrics`) carries an `Examples:` block in its docstring.
 The docstring is the single source of truth — `.md` pages do not
 duplicate runnable examples, only document things the example
 cannot show (output schemas, attribute tables, semantic intent).
@@ -781,7 +780,7 @@ Apply opportunistically: when you touch a page for any other reason and a paragr
 For each `::: <target>` directive in `docs/api/`, the target dotted path matches the symbol's canonical user-facing import:
 
 - Symbol in `factrix.__all__` → top-level path (`::: factrix.evaluate`, `::: factrix.by_slice`, `::: factrix.SliceResult`). Do not target the submodule that physically defines it (e.g. `factrix.slicing.dispatcher` with `members: [by_slice]`) — submodule-target with member filter renders the *submodule* as the page h1 and buries the documented symbol below.
-- Symbol reached only via a submodule path → submodule path (`::: factrix.preprocess.compute_forward_return`, `::: factrix.metrics.ic` with `members: [ic, compute_ic, ic_newey_west]`, `::: factrix.datasets.make_cs_panel`). The submodule path is the canonical import.
+- Symbol reached only via a submodule path → submodule path (`::: factrix.preprocess.compute_forward_return`, `::: factrix.metrics.ic` with `members: [ic, ic_ir]`, `::: factrix.datasets.make_cs_panel`). The submodule path is the canonical import.
 
 mkdocstrings cross-references (`[X][factrix.<...>.X]`) and intra-doc anchor links (`page.md#factrix.<...>.X`) follow the same rule — the path inside the brackets matches the autodoc target. Changing one without the other breaks the cross-ref.
 
@@ -801,7 +800,7 @@ Bare `::: factrix.<X>` is the canonical form for page-primary function / datacla
 
 These two sections appear on pages whose primary purpose is to show the reader *how to call the API*. They are content shapes for workflow-oriented pages — not a universal requirement.
 
-- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `inspect_data`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `list_estimators`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
+- **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `inspect_data`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
 - **Not expected** on:
     - Dataclass / container pages (`evaluation-results.md`, which documents `EvaluationResult` / `MetricResultGroup` / `MetricResult` / `Warning`) — these describe a return type, not a workflow.
     - Reference / taxonomy / hub pages (`errors.md`, `panel-schema.md`, `api/index.md`, `multi-horizon.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.

@@ -31,7 +31,7 @@ from factrix.metrics import ic
 
 ## 2. Build a single-family batch
 
-Five candidate factors, all evaluated under `ic_newey_west` with `forward_periods=5`.
+Five candidate factors, all evaluated under Newey-West IC with `forward_periods=5`.
 
 We start from one ground-truth factor and add increasing noise to produce variants with varying signal strengths. Each variant is materialized under its own column name (`variant_0` … `variant_4`).
 
