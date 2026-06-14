@@ -36,7 +36,7 @@ the sample axis that constrains it.
 
 ## Other metrics by family
 
-Primary metrics (`ic`, `fm_beta`, `caar`, `ts_beta`) are the SSOT.
+The inferential entry points (`ic`, `fm_beta`, `caar`, `ts_beta`) are the SSOT.
 The remaining
 metrics group by family below; the section heading carries the cell
 context, so each per-row schema reduces to *Metric / Sample axis /

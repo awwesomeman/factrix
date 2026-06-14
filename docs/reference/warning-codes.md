@@ -1,28 +1,27 @@
 ---
-title: Warning, info, and stat codes
+title: Warning codes
 ---
 
-Structured enum payloads attached to every
-`EvaluationResult`. Use these as the SSOT
+Structured `WarningCode` payloads attached to every
+`EvaluationResult.warnings`. Use these as the SSOT
 when you need to filter, route, or trigger downstream behaviour from
 factrix output without parsing free-text strings.
-
-The three enums:
 
 - **`WarningCode`** — risk flags surfaced on `EvaluationResult.warnings`.
   Does **not** affect `MetricResult.p_value`;
   the user decides whether to pre-filter on warnings before
   multi-factor Benjamini-Hochberg-Yekutieli (BHY).
-- **`InfoCode`** — information-severity diagnose annotations. Reserved
-  enum; it currently defines no codes.
-- **`StatCode`** — canonical names for the scalar statistics that
-  populate `EvaluationResult.metrics`.
 
 Each member's trigger / meaning is sourced from
-`factrix._codes.<Code>.description` (single source of truth, also
+`factrix._codes.WarningCode.description` (single source of truth, also
 returned at runtime by `profile.diagnose()`). For the per-procedure
 breakdown of which codes a given pipeline can emit, see
 [Architecture § Procedure pipelines](../development/architecture.md#procedure-pipelines).
+
+The scalar statistics that populate `EvaluationResult.metrics` are not
+enum-keyed — each `MetricResult` exposes its statistic on
+`MetricResult.stat` with `stat_type` / `h0` / `method` in
+`MetricResult.metadata`; see [Stat keys by metric](stat-keys-by-metric.md).
 
 ## WarningCode
 
@@ -33,9 +32,3 @@ breakdown of which codes a given pipeline can emit, see
       show_root_heading: false
       show_source: false
       members: false
-
-## InfoCode
-
-`InfoCode` is a reserved enum and currently defines no codes. It is kept
-on the public surface so info-severity annotations can be added without a
-breaking import change.

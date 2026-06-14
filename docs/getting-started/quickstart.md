@@ -95,7 +95,7 @@ The most common warnings include:
 - `EVENT_WINDOW_OVERLAP` — event windows overlap on the same asset.
 - `SERIAL_CORRELATION_DETECTED` — Ljung-Box $p$-value < 0.05 on residuals.
 
-For the full enum and the trigger conditions for each `WarningCode` and `StatCode`, see [Reference § Warning / info / stat codes](../reference/warning-codes.md).
+For the full enum and the trigger conditions for each `WarningCode`, see [Reference § Warning codes](../reference/warning-codes.md).
 
 For exception classes (`InsufficientSampleError`, `IncompatibleAxisError`, `UserInputError`, ...) and their catch patterns, see [Errors](../api/errors.md).
 

@@ -167,7 +167,7 @@ nav:
           - Glossary: reference/glossary.md
           - Metrics applicability: reference/metric-applicability.md
           - Stat keys: reference/stat-keys-by-metric.md
-          - Warning / info / stat codes: reference/warning-codes.md
+          - Warning codes: reference/warning-codes.md
           - Metrics pipelines: reference/metric-pipelines.md
           - Bibliography: reference/bibliography.md
   - API reference:
@@ -213,6 +213,8 @@ nav:
               - mfe_mae: api/metrics/mfe_mae.md
               - clustering: api/metrics/clustering_hhi.md
               - corrado: api/metrics/corrado_rank.md
+          - Common sparse:
+              - Overview: api/metrics/common-sparse.md
           - Common continuous:
               - Overview: api/metrics/common-continuous.md
               - ts_beta: api/metrics/ts_beta.md

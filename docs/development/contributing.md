@@ -407,7 +407,7 @@ which folder they happen to live in. Four shapes carry the whole site:
 - **lookup** — pure table or reverse-index, scanned not read. Lives
   under `User guide` > `Reference tables`. Ordered by quant scan
   frequency, not alphabetically. (`Metrics applicability`, `Stat keys`,
-  `Warning / info / stat codes`.)
+  `Warning codes`.)
 - **migration** — deprecation notes, rename recipes, BREAKING upgrade
   paths. Belongs to the `Release notes` register. Linked from the
   CHANGELOG entry that retired the surface; not given its own nav slot
@@ -687,7 +687,7 @@ Conventions split by layer:
 
 Conversion rules when migrating from a bare citation: `&` and `and` in the visible text become hyphens; commas in 3+ author lists also become hyphens (`Black, Jensen & Scholes (1972)` → `[Black-Jensen-Scholes (1972)][black-jensen-scholes-1972]`); single-author citations stay single (`MacKinlay (1997)` → `[MacKinlay (1997)][mackinlay-1997]`). Year stays parenthesised.
 
-The rule applies uniformly to module-level docstrings and to public symbol (function / class / method) docstrings. It does **not** apply to Python `# comments` or to runtime string values (`StatCode` descriptions, `"method": "..."` dict literals, `refs=(...)` tuples on registry calls) — those render outside the mkdocs autorefs pipeline and the link would not resolve.
+The rule applies uniformly to module-level docstrings and to public symbol (function / class / method) docstrings. It does **not** apply to Python `# comments` or to runtime string values (`WarningCode` descriptions, `"method": "..."` dict literals, `refs=(...)` tuples on registry calls) — those render outside the mkdocs autorefs pipeline and the link would not resolve.
 
 #### `bibliography.md` as catalog, not single SSOT
 
@@ -752,8 +752,7 @@ PR (no CI gate):
 - Additions / removals to `factrix/__init__.py` `__all__`
 - Public API signature changes (factory, `evaluate`, `bhy`,
   `EvaluationResult`)
-- `WarningCode` / `InfoCode` / `StatCode` additions, renames, or
-  description rewrites
+- `WarningCode` additions, renames, or description rewrites
 - DataStructure dispatch rules or canonical data schema changes
 
 PR self-check: run all three code blocks, `uv run mkdocs build
