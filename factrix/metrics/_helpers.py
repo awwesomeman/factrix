@@ -93,9 +93,9 @@ def _spread_significance(
     if n_assets >= MIN_ASSETS_WARN:
         return t, _p_value_from_t(t, n), "non-overlapping t-test", {}, ()
 
-    from factrix.estimators import block_bootstrap
+    from factrix._stats.bootstrap import _block_bootstrap_diff_p
 
-    p_boot, boot_meta = block_bootstrap(spread, rng_seed=rng_seed)
+    p_boot, boot_meta = _block_bootstrap_diff_p(spread, rng_seed=rng_seed)
     extra: dict[str, object] = {
         "p_value_t": _p_value_from_t(t, n),
         "bootstrap_block_length": boot_meta["block_length"],

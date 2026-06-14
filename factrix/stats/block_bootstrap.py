@@ -1,10 +1,10 @@
-"""``BlockBootstrap`` Estimator — empirical p via dependent-block resampling (#153).
+"""``BlockBootstrap`` — empirical p via dependent-block resampling.
 
 Names the block-bootstrap inference path for the paired-diff slice
 test. Numerics — Politis-Romano stationary scheme, Künsch fixed
 scheme, Politis-White automatic block length — live in
 ``factrix._stats.bootstrap``; this module is the dispatch handle
-exposed to family functions / slice-test functions (#176).
+exposed to family functions / slice-test functions.
 
 Public ``factrix.stats.bootstrap`` standalone helpers
 (``stationary_bootstrap_resamples`` / ``bootstrap_mean_ci``) remain

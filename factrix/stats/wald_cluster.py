@@ -1,6 +1,6 @@
 """Cluster-robust Wald χ² Estimator instances.
 
-Two ``Estimator`` implementations targeting the slice-test setting
+Two selection-only instances targeting the slice-test setting
 (``slice_pairwise_test`` / ``slice_joint_test``):
 
 - ``WaldNWCluster`` — Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on the slice grouping;
