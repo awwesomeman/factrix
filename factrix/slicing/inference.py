@@ -40,13 +40,13 @@ from factrix._stats.multiple_testing import bonferroni, holm_step_down, romano_w
 from factrix._stats.wald import _wald_nw_cluster_means
 from factrix.metrics._metric_capabilities import resolve_per_date_series
 from factrix.slicing._primitive import _slice_by_label
-from factrix.stats import BlockBootstrap, Estimator, WaldNWCluster
+from factrix.stats import BlockBootstrap, WaldNWCluster
 
 MultipleTestingMethod = Literal["holm", "bonferroni", "romano_wolf"]
 
 
 def _resolve_estimator(
-    estimator: Estimator | None, func_name: str
+    estimator: WaldNWCluster | BlockBootstrap | None, func_name: str
 ) -> WaldNWCluster | BlockBootstrap:
     if estimator is None:
         return WaldNWCluster()
@@ -102,7 +102,7 @@ def slice_pairwise_test(
     df: pl.DataFrame,
     *,
     label: str,
-    estimator: Estimator | None = None,
+    estimator: WaldNWCluster | BlockBootstrap | None = None,
     multiple_testing: MultipleTestingMethod | None = None,
 ) -> pl.DataFrame:
     """Cross-slice pairwise Wald contrasts on a per-date metric panel.
@@ -265,7 +265,7 @@ def slice_joint_test(
     df: pl.DataFrame,
     *,
     label: str,
-    estimator: Estimator | None = None,
+    estimator: WaldNWCluster | BlockBootstrap | None = None,
 ) -> pl.DataFrame:
     """Omnibus Wald χ² that all K slice means are equal.
 

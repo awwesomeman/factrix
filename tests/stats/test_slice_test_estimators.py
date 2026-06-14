@@ -6,7 +6,6 @@ import pytest
 from factrix.stats import (
     BlockBootstrap,
     DriscollKraay,
-    Estimator,
     WaldNWCluster,
     WaldTwoWayCluster,
 )
@@ -20,10 +19,6 @@ _ALL_ESTIMATORS = (
 
 
 class TestEstimatorProtocol:
-    def test_all_satisfy_protocol(self):
-        for est in _ALL_ESTIMATORS:
-            assert isinstance(est, Estimator)
-
     def test_names_distinct(self):
         names = {e.name for e in _ALL_ESTIMATORS}
         assert names == {

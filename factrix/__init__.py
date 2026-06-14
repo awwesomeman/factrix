@@ -51,7 +51,7 @@ import polars as pl
 if TYPE_CHECKING:
     from factrix.metrics._base import MetricBase
 
-from factrix import datasets, estimators, inference, multi_factor, preprocess
+from factrix import datasets, inference, multi_factor, preprocess
 from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespace access; intentionally not in __all__
     DataStructure,
     FactorDensity,
@@ -653,8 +653,6 @@ __all__ = [
     "datasets",
     # Forward-return preprocessing
     "preprocess",
-    # Estimator entry points (lowercase callables consumed by metric impls)
-    "estimators",
     # Curated statistical inference methods (e.g. ic(inference=...))
     "inference",
     # Metric registration surface

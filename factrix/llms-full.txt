@@ -278,14 +278,6 @@ Returns a catalog of public specs grouped by module family.
 
 ---
 
-### `factrix.estimators` namespace
-
-Exposes stateless, lowercase functional estimators that run directly on raw NumPy arrays:
-- `driscoll_kraay(X, resid, time_ids, *, lags)`
-- `block_bootstrap(diff, *, ...)`
-
----
-
 ### Third-party metric registration
 
 Custom metrics plug into the registry via the `@metric_spec(...)` decorator and `factrix.metrics.register(fn)`:

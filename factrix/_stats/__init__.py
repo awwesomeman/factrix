@@ -1,7 +1,7 @@
 """Internal statistical toolkit — index of per-topic submodules.
 
-Public surface lives in ``factrix.stats`` (``Estimator`` /
-Benjamini-Hochberg-Yekutieli (BHY) multiple-testing / ``WarningCode``) and
+Public surface lives in ``factrix.stats`` (selection-only inference
+instances / Benjamini-Hochberg-Yekutieli (BHY) multiple-testing) and
 ``factrix.inference`` (series-mean HAC methods); this package holds the
 private primitives those façades and the procedure layer call into.
 

@@ -345,7 +345,7 @@ def _pooled_beta_driscoll_kraay(
     r"""Driscoll-Kraay (1998) cross-section-robust SE path for ``pooled_beta``.
 
     Replaces the clustered-sandwich meat with the DK covariance
-    (``factrix.estimators.driscoll_kraay``): per-observation scores summed
+    (``factrix._stats.hac._driscoll_kraay_cov``): per-observation scores summed
     cross-sectionally per period, Bartlett-HAC'd over the period series,
     sandwiched with ``(X'X)⁻¹``. ``df = T_periods - 1``. Short-circuits
     with ``stat=None`` / ``p=1.0`` below ``_MIN_DK_PERIODS`` periods (HAC
@@ -359,11 +359,12 @@ def _pooled_beta_driscoll_kraay(
         )
 
     from factrix._stats.constants import MIN_PERIODS_WARN
-    from factrix.estimators import driscoll_kraay as _dk_cov
+    from factrix._stats.hac import _driscoll_kraay_cov as _dk_cov
 
     period_ids = df[cluster_col].to_numpy()
     try:
-        cov, dk_meta = _dk_cov(X, resid, period_ids, lags=lags)
+        cov, n_periods, lags_used = _dk_cov(X, resid, period_ids, lags=lags)
+        dk_meta = {"n_periods": n_periods, "driscoll_kraay_lags": lags_used}
     except np.linalg.LinAlgError:
         return _short_circuit_output(
             "pooled_beta",

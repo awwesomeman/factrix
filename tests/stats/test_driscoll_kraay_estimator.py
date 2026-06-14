@@ -1,9 +1,7 @@
 """Tests for the Driscoll-Kraay estimator surface.
 
-Covers the selection-only ``DriscollKraay`` Estimator (identity
-protocol), the numeric primitives
-``_bartlett_lrcov`` / ``_driscoll_kraay_cov``, and the lowercase
-``factrix.estimators.driscoll_kraay`` callable.
+Covers the selection-only ``DriscollKraay`` identity handle and the
+numeric primitives ``_bartlett_lrcov`` / ``_driscoll_kraay_cov``.
 """
 
 from __future__ import annotations
@@ -11,8 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from factrix._stats import _bartlett_lrcov, _driscoll_kraay_cov
-from factrix.estimators import driscoll_kraay
-from factrix.stats import DriscollKraay, Estimator
+from factrix.stats import DriscollKraay
 
 
 def _dk_cov_reference(
@@ -35,9 +32,6 @@ def _dk_cov_reference(
 
 
 class TestDriscollKraayEstimator:
-    def test_satisfies_estimator_protocol(self):
-        assert isinstance(DriscollKraay(), Estimator)
-
     def test_name(self):
         assert DriscollKraay().name == "DriscollKraay"
 
@@ -136,23 +130,3 @@ class TestDriscollKraayCov:
         resid = np.zeros(n)
         with pytest.raises(np.linalg.LinAlgError):
             _driscoll_kraay_cov(X, resid, np.arange(n))
-
-
-class TestLowercaseCallable:
-    def test_returns_cov_and_metadata(self):
-        rng = np.random.default_rng(3)
-        n = 60
-        x = rng.normal(size=n)
-        X = np.column_stack([np.ones(n), x])
-        resid = rng.normal(size=n)
-        t = np.repeat(np.arange(20), 3)
-        cov, meta = driscoll_kraay(X, resid, t)
-        assert cov.shape == (2, 2)
-        assert meta["n_periods"] == 20
-        assert meta["kernel"] == "bartlett"
-        assert isinstance(meta["driscoll_kraay_lags"], int)
-
-    def test_negative_lags_rejected(self):
-        X = np.ones((4, 2))
-        with pytest.raises(ValueError, match="lags must be"):
-            driscoll_kraay(X, np.zeros(4), np.arange(4), lags=-1)

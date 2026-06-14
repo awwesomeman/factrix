@@ -1,12 +1,11 @@
 """``DriscollKraay`` Estimator — cross-section-robust HAC SE for pooled-panel slopes.
 
 Names the [Driscoll & Kraay (1998)][driscoll-kraay-1998] cross-sectional
-dependence-robust standard-error path. Selection-only base
-``Estimator`` (like ``WaldNWCluster`` / ``WaldTwoWayCluster``): the
-numerics live in ``factrix._stats.hac._driscoll_kraay_cov`` and are
-driven from inside ``factrix.metrics.fm_beta.pooled_beta`` via the
-lowercase ``factrix.estimators.driscoll_kraay`` callable — DK consumes
-the full ``(date, asset)`` panel, not a mean.
+dependence-robust standard-error path. Selection-only identity handle
+(like ``WaldNWCluster`` / ``WaldTwoWayCluster``): the numerics live in
+``factrix._stats.hac._driscoll_kraay_cov`` and are driven from inside
+``factrix.metrics.fm_beta.pooled_beta`` — DK consumes the full
+``(date, asset)`` panel, not a mean.
 
 ``pooled_beta`` reports its t-stat / p-value inside its own
 ``MetricResult.metadata``, so — like ``WaldTwoWayCluster`` — this is a
@@ -27,7 +26,7 @@ class DriscollKraay:
     which understates SE for small, cross-sectionally correlated panels
     ([Petersen (2009)][petersen-2009]). Numerics live in
     ``factrix._stats.hac._driscoll_kraay_cov``; ``pooled_beta`` drives
-    them via the lowercase ``factrix.estimators.driscoll_kraay`` callable.
+    them directly.
 
     Pass an instance to a function to make the inference choice explicit.
     Constructor takes no arguments in this release; the Bartlett bandwidth
