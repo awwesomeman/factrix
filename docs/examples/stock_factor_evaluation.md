@@ -8,7 +8,7 @@ Runnable notebook: [`examples/stock_factor_evaluation.ipynb`](https://github.com
 
 ## Factor type
 
-This recipe uses the `ic_newey_west` metric, which operates under `FactorScope.INDIVIDUAL`, `FactorDensity.DENSE`, and `DataStructure.PANEL`.
+This recipe uses the `ic` metric (with Newey-West HAC inference), which operates under `FactorScope.INDIVIDUAL`, `FactorDensity.DENSE`, and `DataStructure.PANEL`.
 
 Procedure: per-date Spearman correlation between factor and forward return, aggregated to a Newey-West (NW) HAC t-statistic on the mean.
 

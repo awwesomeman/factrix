@@ -40,7 +40,7 @@ contrasts, not a sidecar to a primary value.
 
 | Metric | Primary stat (`MetricResult.stat`) | Primary `metadata` key | `value` |
 |---|---|---|---|
-| [`ic`][factrix.metrics.ic.ic] | Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) `t` on per-date information coefficient (IC) series | `p_value` | mean(IC) |
+| [`ic`][factrix.metrics.ic.ic] | `t` on per-date information coefficient (IC) series (non-overlapping default, Newey-West HAC if configured) | `p_value` | mean(IC) |
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
 | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
@@ -83,15 +83,8 @@ contrasts, not a sidecar to a primary value.
 
 #### `ic`
 
-- *primary*: `p_value` — non-overlapping `t`-test on the per-date IC
-  series with stride `forward_periods`.
-- *descriptive*: `n_periods`, `tie_ratio` (median across dates).
-
-#### `ic_newey_west`
-
-- *primary*: `p_value` — NW HAC `t` on the overlapping IC series.
-- *descriptive*: `n_periods`, `newey_west_lags`, `forward_periods`,
-  `tie_ratio` (median across dates).
+- *primary*: `p_value` — `t`-test on the per-date IC series (non-overlapping stride with stride `forward_periods` by default, or Newey-West HAC if configured).
+- *descriptive*: `n_periods`, `forward_periods`, `tie_ratio` (median across dates), `stat_type` (`"t"`), `h0` (`"mu=0"`), `method`.
 
 #### `ic_ir`
 

@@ -21,7 +21,7 @@ title: factrix.metrics.ic
 
     Build the per-date Spearman IC series (with `tie_ratio` diagnostics)
     from a long-format panel before any inferential test. Pre-step for
-    `ic` / `ic_newey_west` / `ic_ir`.
+    `ic` / `ic_ir`.
 
 -   __Mean-IC significance, non-overlapping__
 
@@ -37,7 +37,7 @@ title: factrix.metrics.ic
 
     Same null, but keep every overlapping observation and absorb the
     induced MA dependence through a Newey-West HAC standard error.
-    Trade larger effective sample for kernel choice.
+    Invoked via `ic(inference=fx.inference.NEWEY_WEST)`.
 
 -   __IC stability (signed IR)__
 
@@ -53,17 +53,16 @@ title: factrix.metrics.ic
 | Goal                                                                | Function                                            |
 |---------------------------------------------------------------------|-----------------------------------------------------|
 | Per-date IC table for downstream inspection / slicing               | `compute_ic`                                        |
-| Mean-IC significance, deterministic non-overlap subsample (default) | `ic`                                                |
-| Mean-IC significance, keep every overlap and use HAC SE             | `ic_newey_west`                                     |
+| Mean-IC significance (non-overlapping or Newey-West HAC)            | `ic`                                                |
 | Time-stability ratio (no inference)                                 | `ic_ir`                                             |
 
-All four are invoked indirectly via `evaluate(panel, EvaluationResult(metric=Metric.IC))`
+All three are invoked indirectly via `evaluate(data, metrics={"ic": ic()})`
 — they're documented here for callers who want the standalone numerical
-output without the inference framing.
+output without the evaluation framing.
 
 ## Worked example — per-date IC then mean significance
 
-!!! example "compute_ic → ic_newey_west on a synthetic cross-sectional panel"
+!!! example "compute_ic → ic on a synthetic cross-sectional panel"
 
     ```python
     import factrix as fx

@@ -16,7 +16,7 @@ Both metrics evaluate individual, continuous factors (`FactorScope.INDIVIDUAL` a
 | **Economic Interpretation** | Rank-ordering capability (signal quality). | Return premium per unit of factor exposure. |
 | **Sample Sensitivity** | Drops dates with fewer than 10 assets. | Requires at least 3 assets per date but can be unstable at low $N$. |
 
-- **Use IC** (`ic_newey_west` / `ic`) when you are building a ranking-based stock selection strategy.
+- **Use IC** (`ic`) when you are building a ranking-based stock selection strategy.
 - **Use FM** (`fm_beta`) when you need to estimate risk premia or require an economically interpretable slope premium.
 
 ---

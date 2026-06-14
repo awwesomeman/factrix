@@ -27,7 +27,7 @@ inference handles whatever residual time-axis structure leaks through
 the β distribution.
 
 Operational tip: if overlap-induced SE inflation is the binding
-concern, prefer `ic_newey_west` on the same series (Individual ×
+concern, prefer `ic(inference=fx.inference.NEWEY_WEST)` on the same series (Individual ×
 Continuous cell) where the HAC adjustment is the canonical
 inferential primitive.
 
