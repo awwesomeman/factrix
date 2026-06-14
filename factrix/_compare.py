@@ -39,7 +39,7 @@ def compare(
         metrics: ``list[str]`` — list-only canonical form
             (element type strictly :class:`str`). Single-metric
             callers still pass a one-element list; mirrors the
-            ``primary`` contract on ``fx.multi_factor.bhy`` so the
+            ``metrics`` contract on ``fx.multi_factor.bhy`` so the
             whole multi-factor API surface uses one shape.
         sort_by: Optional :class:`str` (must be in ``metrics``)
             naming the sort key. ``None`` keeps input order and omits

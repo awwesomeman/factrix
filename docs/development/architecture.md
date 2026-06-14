@@ -47,7 +47,7 @@ Entry points, all in `factrix.__init__`:
 | Symbol | Purpose |
 |--------|---------|
 | `fx.evaluate(panel, metrics=...)` | Dispatch to the metrics applicable to the factor's cell |
-| `fx.multi_factor.bhy(results, *, expand_over=None, p_stat=None, q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
+| `fx.multi_factor.bhy(results, *, metrics, expand_over=(), q=0.05)` | Benjamini-Hochberg-Yekutieli (BHY) false discovery rate (FDR) correction; one declared family per call (optionally split per-bucket via `expand_over`) |
 
 Plus introspection / error / enum re-exports:
 
@@ -214,7 +214,7 @@ FactrixError                       # base — all factrix-raised errors
 ```
 
 `UserInputError` is the marker for "user typed the wrong thing"
-(unknown metric / `p_stat` / `expand_over` key, column not in panel,
+(unknown metric / `expand_over` key, column not in panel,
 wrong type). Catch it separately from `IncompatibleAxisError` (axis miswire) and
 `InsufficientSampleError` (data limitation) when those branches need
 different recovery.
@@ -482,13 +482,13 @@ ones:
 
 | Class | Functions | Signature shape |
 |-------|-------|-----------------|
-| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(profiles, *, expand_over, p_stat, ...)` |
-| Resampling-based | `romano_wolf` (planned) | `(profiles, panel, *, expand_over, p_stat, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
+| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(profiles, *, metrics, expand_over, ...)` |
+| Resampling-based | `romano_wolf` (planned) | `(profiles, panel, *, metrics, expand_over, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
 
 ### `_resolve_family` four invariants
 
 For input `profiles: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
-and `p_stat: StatCode | None`:
+and `metric: str` (one resolved spec):
 
 1. `expand_over` names must be present in every profile's `context` and must
    not collide with identity dimensions (`factor_id` / `forward_periods`) —
@@ -497,10 +497,9 @@ and `p_stat: StatCode | None`:
 2. partition key per profile = `identity + tuple(context[k] for k in expand_over)`
    must be unique across the input. `EvaluationResult.__hash__ = None`, so dedup
    walks the tuple, not a hash.
-3. `p_stat` (when supplied) must satisfy `is_p_value` and must be populated
-   on every profile.
-4. Resolved `p_value` per entry: the primary `MetricResult.p_value` when
-   `p_stat is None`, else the stat keyed by `p_stat`.
+3. The specified `metric` must have a computed `p_value` that is non-NaN,
+   and must be populated on every profile.
+4. Resolved `p_value` per entry: the p-value read from the specified `metric`.
 
 All three user-facing raises route through `factrix._errors.UserInputError`
 (#165) so fuzzy suggestions and docs links render uniformly.

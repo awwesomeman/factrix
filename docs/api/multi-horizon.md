@@ -80,7 +80,7 @@ for h in horizons:
 
 fdr_res = fx.multi_factor.bhy(
     results,
-    primary=["ic"],
+    metrics=["ic"],
     expand_over=("forward_periods",),
 )
 

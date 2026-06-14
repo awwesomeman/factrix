@@ -72,7 +72,7 @@ stage-1 producers once across the factor batch and per-factor consumers
 once per factor, and returns a `list[EvaluationResult]` — one per
 factor, each holding a `MetricResultGroup` (`applicable` / `primary` /
 `diagnostic`) plus a flat `list[Warning]`. The list flows into
-`multi_factor.bhy(results, primary=[...])` for cross-test false
+`multi_factor.bhy(results, metrics=[...])` for cross-test false
 discovery rate (FDR) control, which returns the surviving factors.
 
 ```mermaid
@@ -403,7 +403,7 @@ for name, p in panels.items():
     res = fx.evaluate(p, factor_cols=[name], metrics={"ic": ic()})
     results.extend(res.values())
 
-survivors = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
+survivors = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)
 
 # survivors is a list[EvaluationResult]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input

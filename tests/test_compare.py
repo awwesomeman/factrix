@@ -14,7 +14,7 @@ def _with_extra(factor: str, ic, sharpe, ic_value: float, sharpe_value: float):
     return make_result(
         factor=factor,
         p=0.1,
-        primary="ic",
+        metric="ic",
         value=ic_value,
         extra_outputs={
             "sharpe": MetricResult(
@@ -53,9 +53,9 @@ def test_multi_metric_wide_layout():
 def test_sort_by_descending_true_adds_rank():
     make_spec("ic")
     results = [
-        make_result(factor="lo", p=0.5, primary="ic", value=0.01),
-        make_result(factor="hi", p=0.01, primary="ic", value=0.10),
-        make_result(factor="mid", p=0.1, primary="ic", value=0.05),
+        make_result(factor="lo", p=0.5, metric="ic", value=0.01),
+        make_result(factor="hi", p=0.01, metric="ic", value=0.10),
+        make_result(factor="mid", p=0.1, metric="ic", value=0.05),
     ]
     df = compare(results, metrics=["ic"], sort_by="ic", descending=True)
     assert df["factor"].to_list() == ["hi", "mid", "lo"]
@@ -65,9 +65,9 @@ def test_sort_by_descending_true_adds_rank():
 def test_sort_by_descending_false_ranks_low_first():
     make_spec("turnover")
     results = [
-        make_result(factor="high_to", p=0.5, primary="turnover", value=0.80),
-        make_result(factor="low_to", p=0.5, primary="turnover", value=0.10),
-        make_result(factor="mid_to", p=0.5, primary="turnover", value=0.45),
+        make_result(factor="high_to", p=0.5, metric="turnover", value=0.80),
+        make_result(factor="low_to", p=0.5, metric="turnover", value=0.10),
+        make_result(factor="mid_to", p=0.5, metric="turnover", value=0.45),
     ]
     df = compare(results, metrics=["turnover"], sort_by="turnover", descending=False)
     assert df["factor"].to_list() == ["low_to", "mid_to", "high_to"]
@@ -77,9 +77,9 @@ def test_sort_by_descending_false_ranks_low_first():
 def test_no_sort_keeps_input_order_omits_rank():
     make_spec("ic")
     results = [
-        make_result(factor="c", p=0.1, primary="ic", value=0.01),
-        make_result(factor="a", p=0.1, primary="ic", value=0.10),
-        make_result(factor="b", p=0.1, primary="ic", value=0.05),
+        make_result(factor="c", p=0.1, metric="ic", value=0.01),
+        make_result(factor="a", p=0.1, metric="ic", value=0.10),
+        make_result(factor="b", p=0.1, metric="ic", value=0.05),
     ]
     df = compare(results, metrics=["ic"])
     assert df["factor"].to_list() == ["c", "a", "b"]
@@ -89,8 +89,8 @@ def test_no_sort_keeps_input_order_omits_rank():
 def test_context_keys_propagate_with_null_fill():
     make_spec("ic")
     results = [
-        make_result(factor="a", p=0.1, primary="ic", context={"region": "US"}),
-        make_result(factor="b", p=0.1, primary="ic", context={"sector": "tech"}),
+        make_result(factor="a", p=0.1, metric="ic", context={"region": "US"}),
+        make_result(factor="b", p=0.1, metric="ic", context={"sector": "tech"}),
     ]
     df = compare(results, metrics=["ic"])
     assert set(df.columns) >= {"region", "sector"}
@@ -102,7 +102,7 @@ def test_context_keys_propagate_with_null_fill():
 
 def test_p_column_populated_when_metadata_present():
     make_spec("ic")
-    results = [make_result(factor="f1", p=0.042, primary="ic", value=0.05)]
+    results = [make_result(factor="f1", p=0.042, metric="ic", value=0.05)]
     df = compare(results, metrics=["ic"])
     assert df["ic_p_value"].to_list() == [pytest.approx(0.042)]
 
@@ -117,7 +117,7 @@ def test_metrics_must_be_list():
     ic = make_spec("ic")
     with pytest.raises(UserInputError, match="always a list"):
         compare(
-            [make_result(factor="f", p=0.01, primary="ic")],
+            [make_result(factor="f", p=0.01, metric="ic")],
             metrics=ic,  # type: ignore[arg-type]
         )
 
@@ -125,18 +125,18 @@ def test_metrics_must_be_list():
 def test_metrics_must_be_non_empty():
     make_spec("ic")
     with pytest.raises(UserInputError, match="non-empty list\\[str\\]"):
-        compare([make_result(factor="f", p=0.01, primary="ic")], metrics=[])
+        compare([make_result(factor="f", p=0.01, metric="ic")], metrics=[])
 
 
 def test_metrics_element_must_be_str():
     with pytest.raises(UserInputError, match="str metric label"):
-        compare([make_result(factor="f", p=0.01, primary="ic")], metrics=[123])  # type: ignore[list-item]
+        compare([make_result(factor="f", p=0.01, metric="ic")], metrics=[123])  # type: ignore[list-item]
 
 
 def test_missing_metric_raises():
     make_spec("ic")
     make_spec("alpha")
-    results = [make_result(factor="f", p=0.01, primary="ic")]
+    results = [make_result(factor="f", p=0.01, metric="ic")]
     with pytest.raises(UserInputError, match="other"):
         compare(results, metrics=["other"])
 
@@ -144,6 +144,6 @@ def test_missing_metric_raises():
 def test_sort_by_not_in_metrics_raises():
     make_spec("ic")
     make_spec("sharpe")
-    results = [make_result(factor="f", p=0.01, primary="ic")]
+    results = [make_result(factor="f", p=0.01, metric="ic")]
     with pytest.raises(UserInputError, match="unknown sort_by"):
         compare(results, metrics=["ic"], sort_by="sharpe")

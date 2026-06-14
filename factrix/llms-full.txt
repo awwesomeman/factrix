@@ -107,7 +107,7 @@ results = fx.evaluate(
 )
 
 # 3. Screen with Benjamini-Hochberg-Yekutieli step-up FDR
-screens = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
+screens = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)
 ic_screen = screens["ic"]
 
 print("Survivors:", [p.factor for p in ic_screen.survivors])
@@ -202,16 +202,16 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
 def bhy(
     results: list[EvaluationResult],
     *,
-    primary: list[str],
+    metrics: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
 ) -> dict[str, BhyResult]:
 ```
 
-Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dictionary of `BhyResult` objects keyed by the primary metric labels.
+Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dictionary of `BhyResult` objects keyed by the metric labels.
 
 `BhyResult` contains:
-- `primary_name`: Metric label under test.
+- `metric_name`: Metric label under test.
 - `survivors`: Surviving `EvaluationResult` records.
 - `adj_p`: Adjusted p-values aligned with `survivors`.
 - `q`: Target FDR.
@@ -225,7 +225,7 @@ Benjamini-Hochberg-Yekutieli step-up FDR within a declared family. Returns a dic
 def bhy_hierarchical(
     results: list[EvaluationResult],
     *,
-    primary: list[str],
+    metrics: list[str],
     group: str,
     q: float = 0.05,
 ) -> dict[str, HierarchicalBhyResult]:
@@ -241,7 +241,7 @@ Yekutieli (2008) two-stage hierarchical FDR for factor sets with group structure
 def partial_conjunction(
     results: list[EvaluationResult],
     *,
-    primary: list[str],
+    metrics: list[str],
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,

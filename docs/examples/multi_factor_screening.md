@@ -79,7 +79,7 @@ for er in results:
 The input list **is** the family. `bhy` runs one Benjamini-Yekutieli step-up over all results and returns a dict of `BhyResult` containers.
 
 ```python
-fdr_results = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
+fdr_results = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)
 bhy_ic = fdr_results["ic"]
 
 print(f"BHY survivors: {len(bhy_ic.survivors)} / {len(results)}")
@@ -112,7 +112,7 @@ unstamped.extend(fx.evaluate(panel, metrics={"ic": ic(inference=fx.inference.NEW
 unstamped.extend(fx.evaluate(panel, metrics={"fm": fm_beta()}, factor_cols=["factor"], forward_periods=5))
 
 try:
-    fx.multi_factor.bhy(unstamped, primary=["ic"], q=0.05)
+    fx.multi_factor.bhy(unstamped, metrics=["ic"], q=0.05)
 except fx.UserInputError as exc:
     print("UserInputError raised as expected:")
     print(str(exc))

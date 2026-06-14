@@ -1,11 +1,11 @@
 """Collection-level FDR-control functions (``bhy`` / ``partial_conjunction``
 / ``bhy_hierarchical``).
 
-All three accept ``list[EvaluationResult]`` and a list of primary
+All three accept ``list[EvaluationResult]`` and a list of
 :class:`~factrix._metric_index.metric label` records; each function runs
-one independent screen per primary and returns a
-``dict[primary_name, *Result]`` keyed by ``label`` (single
-primary still returns a dict — no isinstance dispatch on the caller
+one independent screen per metric and returns a
+``dict[metric_name, *Result]`` keyed by ``label`` (a single
+metric still returns a dict — no isinstance dispatch on the caller
 side).
 
 Family declaration is explicit: the input list *is* the family,
@@ -46,7 +46,7 @@ _NOT_METRICSPEC_EXPECTED = (
 def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str]:
     """Shared validator: ``list[str]`` canonical form.
 
-    Used by ``bhy.primary`` / ``compare.metrics`` so both surfaces give
+    Used by ``bhy.metrics`` / ``compare.metrics`` so both surfaces give
     identical error messages for the same misuse.
     """
     anchor = f"api/{func_name}#{field}"
@@ -138,7 +138,7 @@ class _FdrResultBase:
     Subclasses append their own fields and supply ``_header`` / ``_rows``.
 
     Common attributes:
-        primary_name: ``label`` of the primary driving the screen;
+        metric_name: ``label`` of the metric driving the screen;
             also the key under which the record is returned.
         survivors: Surviving :class:`EvaluationResult` records.
         adj_p: BHY-adjusted p-value aligned with ``survivors``.
@@ -146,7 +146,7 @@ class _FdrResultBase:
         n_tests: Per-bucket / per-identity family size keyed by tuple.
     """
 
-    primary_name: str
+    metric_name: str
     survivors: list[EvaluationResult]
     adj_p: np.ndarray
     q: float
@@ -175,9 +175,9 @@ class _FdrResultBase:
 
 @dataclass(frozen=True, slots=True, repr=False)
 class BhyResult(_FdrResultBase):
-    """Result of one BHY step-up for one primary metric.
+    """Result of one BHY step-up for one metric.
 
-    Shares ``primary_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
+    Shares ``metric_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
     with :class:`_FdrResultBase`. ``adj_p`` is bucket-local; ``n_tests`` is
     keyed by ``expand_over_values`` tuple (``()`` for single-bucket).
 
@@ -190,7 +190,7 @@ class BhyResult(_FdrResultBase):
 
     def _header(self) -> str:
         parts = [
-            f"primary={self.primary_name}",
+            f"metric={self.metric_name}",
             f"n={len(self.survivors)}",
             f"q={self.q:g}",
         ]
@@ -222,9 +222,9 @@ class BhyResult(_FdrResultBase):
 
 @dataclass(frozen=True, slots=True, repr=False)
 class PartialConjunctionResult(_FdrResultBase):
-    """Per-identity partial-conjunction survivors for one primary metric.
+    """Per-identity partial-conjunction survivors for one metric.
 
-    Shares ``primary_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
+    Shares ``metric_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
     with :class:`_FdrResultBase`. ``survivors`` is one representative
     :class:`EvaluationResult` per surviving identity; ``adj_p`` is the
     BHY-adjusted PC p-value; ``n_tests`` is the condition count per
@@ -245,7 +245,7 @@ class PartialConjunctionResult(_FdrResultBase):
 
     def _header(self) -> str:
         return (
-            f"primary={self.primary_name}, n={len(self.survivors)}, "
+            f"metric={self.metric_name}, n={len(self.survivors)}, "
             f"q={self.q:g}, min_pass={self.min_pass}, "
             f"expand_over={list(self.expand_over)!r}"
         )
@@ -279,9 +279,9 @@ class PartialConjunctionResult(_FdrResultBase):
 
 @dataclass(frozen=True, slots=True, repr=False)
 class HierarchicalBhyResult(_FdrResultBase):
-    """Two-stage hierarchical BHY survivors for one primary metric.
+    """Two-stage hierarchical BHY survivors for one metric.
 
-    Shares ``primary_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
+    Shares ``metric_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
     with :class:`_FdrResultBase`. ``adj_p`` is
     ``max(outer_adj_p[group], inner_adj_p[i])`` aligned with ``survivors``
     so ``survivor[i] iff adj_p[i] <= q`` holds; ``q`` is shared by both
@@ -296,7 +296,7 @@ class HierarchicalBhyResult(_FdrResultBase):
 
     def _header(self) -> str:
         return (
-            f"primary={self.primary_name}, n={len(self.survivors)}, "
+            f"metric={self.metric_name}, n={len(self.survivors)}, "
             f"q={self.q:g}, group={self.group!r}"
         )
 
@@ -322,11 +322,11 @@ def _lookup_expand(result: EvaluationResult, key: str) -> Any:
 def bhy(
     results: list[EvaluationResult],
     *,
-    primary: list[str],
+    metrics: list[str],
     expand_over: tuple[str, ...] = (),
     q: float = 0.05,
 ) -> dict[str, BhyResult]:
-    """Benjamini-Hochberg-Yekutieli step-up FDR, one screen per primary.
+    """Benjamini-Hochberg-Yekutieli step-up FDR, one screen per metric.
 
     The input list is treated as a single family. When ``expand_over``
     is non-empty, one independent step-up runs per unique tuple of
@@ -338,10 +338,10 @@ def bhy(
     Args:
         results: :class:`EvaluationResult` records. The full input is
             one family unless ``expand_over`` further partitions it.
-        primary: ``list[str]`` — element type strictly
+        metrics: ``list[str]`` — element type strictly
             :class:`metric label`. One independent BHY screen runs per
-            primary; the return dict is keyed by ``label``.
-            Single-primary callers still receive a one-key dict (no
+            metric; the return dict is keyed by ``label``.
+            Single-metric callers still receive a one-key dict (no
             isinstance branching downstream).
         expand_over: Tuple of keys whose distinct value tuples split
             the input into independent BHY step-up buckets. Built-in
@@ -353,10 +353,10 @@ def bhy(
         ``dict[str, BhyResult]`` keyed by ``label``.
 
     Raises:
-        UserInputError: ``primary`` not a non-empty ``list[str]``;
+        UserInputError: ``metrics`` not a non-empty ``list[str]``;
             duplicate ``(factor, *expand_over_values)`` identifier;
             ``expand_over`` key missing from a result's context or
-            naming ``'factor'``; primary metric absent from a result's
+            naming ``'factor'``; metric absent from a result's
             outputs or its ``p_value`` missing / NaN.
 
     Warns:
@@ -365,7 +365,7 @@ def bhy(
             per-rank threshold). Or most ``expand_over`` buckets are
             singletons (BHY on n=1 provides no FDR correction).
     """
-    primary_list = _validate_metric_list(primary, func_name="bhy", field="primary")
+    metric_list = _validate_metric_list(metrics, func_name="bhy", field="metrics")
     _require_non_empty_results(results, func_name="bhy")
     expand_over_tuple = tuple(expand_over)
 
@@ -391,8 +391,8 @@ def bhy(
     }
 
     out: dict[str, BhyResult] = {}
-    for spec in primary_list:
-        entries = _attach_p_values(partition, func_name="bhy", primary=spec)
+    for spec in metric_list:
+        entries = _attach_p_values(partition, func_name="bhy", metric=spec)
         adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
         for ix in buckets.values():
             p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
@@ -400,7 +400,7 @@ def bhy(
 
         survivor_idxs = np.flatnonzero(adj_p_all <= q)
         out[spec] = BhyResult(
-            primary_name=spec,
+            metric_name=spec,
             survivors=[entries[i].result for i in survivor_idxs],
             adj_p=adj_p_all[survivor_idxs],
             q=q,
@@ -413,14 +413,14 @@ def bhy(
 def partial_conjunction(
     results: list[EvaluationResult],
     *,
-    primary: list[str],
+    metrics: list[str],
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None = None,
     q: float = 0.05,
 ) -> dict[str, PartialConjunctionResult]:
     """Partial-conjunction screening: identities significant in
-    ``min_pass`` of ``m`` conditions, one screen per primary.
+    ``min_pass`` of ``m`` conditions, one screen per metric.
 
     For "factor X is significant in universes A and B" style claims,
     naive intersection-of-survivors does not preserve FDR
@@ -438,7 +438,7 @@ def partial_conjunction(
             identity come from ``expand_over``; multiple results
             sharing the hypothesis identifier (``factor``) must differ
             on at least one ``expand_over`` key.
-        primary: ``list[str]`` — one PC screen runs per primary;
+        metrics: ``list[str]`` — one PC screen runs per metric;
             return dict keyed by ``label``.
         min_pass: ``k`` in "k of m". Must be ``>= 2``.
         expand_over: Non-empty tuple of context keys (or
@@ -458,8 +458,8 @@ def partial_conjunction(
             identity with fewer than ``min_pass`` conditions; any
             ``_resolve_family`` invariant failure.
     """
-    primary_list = _validate_metric_list(
-        primary, func_name="partial_conjunction", field="primary"
+    metric_list = _validate_metric_list(
+        metrics, func_name="partial_conjunction", field="metrics"
     )
     _require_non_empty_results(results, func_name="partial_conjunction")
 
@@ -513,10 +513,10 @@ def partial_conjunction(
     expand_over_tuple = tuple(expand_over)
 
     out: dict[str, PartialConjunctionResult] = {}
-    for spec in primary_list:
+    for spec in metric_list:
         out[spec] = _partial_conjunction_one(
             results,
-            primary=spec,
+            metric=spec,
             min_pass=min_pass,
             expand_over=expand_over_tuple,
             n_conditions=n_conditions,
@@ -528,7 +528,7 @@ def partial_conjunction(
 def _partial_conjunction_one(
     results: Sequence[EvaluationResult],
     *,
-    primary: str,
+    metric: str,
     min_pass: int,
     expand_over: tuple[str, ...],
     n_conditions: int | None,
@@ -537,7 +537,7 @@ def _partial_conjunction_one(
     entries = _resolve_family(
         results,
         func_name="partial_conjunction",
-        primary=primary,
+        metric=metric,
         expand_over=expand_over,
     )
 
@@ -612,7 +612,7 @@ def _partial_conjunction_one(
     survivor_idx = np.flatnonzero(adj_p_all <= q)
     surviving_factors = [identifiers_ordered[i] for i in survivor_idx]
     return PartialConjunctionResult(
-        primary_name=primary,
+        metric_name=metric,
         survivors=[rep_results[i] for i in survivor_idx],
         adj_p=adj_p_all[survivor_idx],
         pc_p=pc_p_arr[survivor_idx],
@@ -627,11 +627,11 @@ def _partial_conjunction_one(
 def bhy_hierarchical(
     results: list[EvaluationResult],
     *,
-    primary: list[str],
+    metrics: list[str],
     group: str,
     q: float = 0.05,
 ) -> dict[str, HierarchicalBhyResult]:
-    """Yekutieli (2008) two-stage hierarchical BHY, one screen per primary.
+    """Yekutieli (2008) two-stage hierarchical BHY, one screen per metric.
 
     Controls group-level FDR ≤ ``q`` on the outer layer (Simes group
     representative + BHY) and within-group FDR ≤ ``q`` on the inner
@@ -644,8 +644,8 @@ def bhy_hierarchical(
             to one group via ``result.context[group]`` (or via
             ``result.forward_periods`` if ``group == "forward_periods"``).
             Within a group, ``factor`` must be unique.
-        primary: ``list[str]`` — one hierarchical screen per
-            primary; return dict keyed by ``label``.
+        metrics: ``list[str]`` — one hierarchical screen per
+            metric; return dict keyed by ``label``.
         group: Single key naming the group axis.
         q: Nominal FDR target shared by both layers.
 
@@ -664,28 +664,28 @@ def bhy_hierarchical(
             result — inner BHY on n=1 is a raw cutoff and the outer
             Simes representative equals that single p-value.
     """
-    primary_list = _validate_metric_list(
-        primary, func_name="bhy_hierarchical", field="primary"
+    metric_list = _validate_metric_list(
+        metrics, func_name="bhy_hierarchical", field="metrics"
     )
     _require_non_empty_results(results, func_name="bhy_hierarchical")
 
     out: dict[str, HierarchicalBhyResult] = {}
-    for spec in primary_list:
-        out[spec] = _bhy_hierarchical_one(results, primary=spec, group=group, q=q)
+    for spec in metric_list:
+        out[spec] = _bhy_hierarchical_one(results, metric=spec, group=group, q=q)
     return out
 
 
 def _bhy_hierarchical_one(
     results: Sequence[EvaluationResult],
     *,
-    primary: str,
+    metric: str,
     group: str,
     q: float,
 ) -> HierarchicalBhyResult:
     entries = _resolve_family(
         results,
         func_name="bhy_hierarchical",
-        primary=primary,
+        metric=metric,
         expand_over=(group,),
     )
 
@@ -706,7 +706,7 @@ def _bhy_hierarchical_one(
                 "a key with at least 2 distinct values across input "
                 f"results; got 1 group ({group_keys_ordered[0]!r}). A "
                 "single group reduces the procedure to plain BHY on the "
-                "members. Call bhy(results, primary=[...]) directly"
+                "members. Call bhy(results, metrics=[...]) directly"
             ),
             docs_path="api/bhy-hierarchical#validation-summary",
         )
@@ -756,7 +756,7 @@ def _bhy_hierarchical_one(
 
     survivor_idxs = np.flatnonzero(adj_p_all <= q)
     return HierarchicalBhyResult(
-        primary_name=primary,
+        metric_name=metric,
         survivors=[entries[i].result for i in survivor_idxs],
         adj_p=adj_p_all[survivor_idxs],
         q=q,

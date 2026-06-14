@@ -45,7 +45,7 @@ The returned dictionary maps each primary metric label to a `BhyResult` containe
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `primary_name` | `str` | Name of the primary metric driving the screen. |
+| `metric_name` | `str` | Name of the metric driving the screen. |
 | `survivors` | `list[EvaluationResult]` | Input order, surviving subset. |
 | `adj_p` | `np.ndarray` | Bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `survivors`. |
 | `q` | `float` | The nominal target FDR you passed. |
@@ -65,7 +65,7 @@ when buckets are declared.
 
 | Kwarg | Default | Meaning |
 |-------|---------|---------|
-| `primary` | (required) | `list[str]` of primary metric labels to run the FDR screen for. |
+| `metrics` | (required) | `list[str]` of metric labels to run the FDR screen for. |
 | `expand_over` | `()` | Context keys whose distinct value tuples split the input into independent step-ups. Names must live in `EvaluationResult.context` (except for the built-in `"forward_periods"`). |
 | `q` | `0.05` | Nominal false discovery rate target. The Benjamini–Yekutieli $c(m)$ correction is applied internally — pass the level you actually want; do not pre-divide. |
 
@@ -98,8 +98,8 @@ in a screening run:
 
 | User intent | API call | Family scope per step-up |
 |---|---|---|
-| "Run BHY on the `tw50` universe only" | `bhy([r for r in results if r.context.get("universe_id") == "tw50"], primary=["ic"])` | `factor × forward_periods` |
-| "Test the same factors on `tw50` *and* `tw100`, treating universe as a tested dimension" | `bhy(results, primary=["ic"], expand_over=("universe_id",))` | `factor × forward_periods × universe_id`, one step-up per universe |
+| "Run BHY on the `tw50` universe only" | `bhy([r for r in results if r.context.get("universe_id") == "tw50"], metrics=["ic"])` | `factor × forward_periods` |
+| "Test the same factors on `tw50` *and* `tw100`, treating universe as a tested dimension" | `bhy(results, metrics=["ic"], expand_over=("universe_id",))` | `factor × forward_periods × universe_id`, one step-up per universe |
 
 ## See also
 

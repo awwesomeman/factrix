@@ -78,7 +78,7 @@ Click any node to jump to its API page.
 | Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
 | Per-panel applicability | `inspect_data(data)` → `.usable` / `.degraded` / `.unusable` |
-| Multi-factor screening with FDR | `evaluate(...)` → `multi_factor.bhy(results, primary=[...])` |
+| Multi-factor screening with FDR | `evaluate(...)` → `multi_factor.bhy(results, metrics=[...])` |
 | Cross-factor leaderboard | `compare(results, metrics=[...])` → `pl.DataFrame` |
 
 See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surface end-to-end.
@@ -121,4 +121,4 @@ Sidebar entries mirror the actual Python identifier:
 |---|---|---|
 | `EvaluationResult` | Class | `fx.EvaluationResult` |
 | `evaluate`, `inspect_data` | Function | `fx.evaluate(data, metrics=...)` |
-| `multi_factor`, `datasets`, `Metrics` | Module | `fx.multi_factor.bhy(results, primary=[...])` |
+| `multi_factor`, `datasets`, `Metrics` | Module | `fx.multi_factor.bhy(results, metrics=[...])` |
