@@ -45,7 +45,11 @@ from factrix._stats import (
 )
 from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _short_circuit_output,
+    _warn_below_floor,
+)
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_fm_betas
 
@@ -217,18 +221,18 @@ def fm_beta(
     if sc is not None:
         return sc
 
-    warn_periods = fm_beta.sample_threshold.warn_periods  # type: ignore[attr-defined]
     warning_codes: list[str] = []
-    if warn_periods is not None and n < warn_periods:
-        warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
-        warnings.warn(
-            f"fm_beta: n_periods={n} below MIN_FM_PERIODS_WARN="
-            f"{warn_periods}; NW HAC SE on a short β series is "
-            f"borderline (Fama-MacBeth convention is T≥30). t-stat is "
-            f"returned but read p-values cautiously.",
-            UserWarning,
-            stacklevel=2,
-        )
+    warn_code = _warn_below_floor(
+        fm_beta,
+        n,
+        f"fm_beta: n_periods={n} below MIN_FM_PERIODS_WARN="
+        f"{MIN_FM_PERIODS_WARN}; NW HAC SE on a short β series is "
+        f"borderline (Fama-MacBeth convention is T≥30). t-stat is "
+        f"returned but read p-values cautiously.",
+        WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
 
     from factrix._stats import _resolve_nw_lags
 

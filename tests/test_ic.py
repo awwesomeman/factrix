@@ -216,6 +216,35 @@ class TestICIR:
         result = ic_ir(df)
         assert math.isnan(result.value)
 
+    @staticmethod
+    def _ic_series(n: int) -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)],
+                "ic": [0.05 + 0.01 * (i % 3) for i in range(n)],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_warn_below_warn_periods(self):
+        # 25 periods clears the HARD floor (MIN_PERIODS_HARD=20) but sits below
+        # the WARN floor (MIN_PERIODS_WARN=30): a value is returned with the
+        # degraded-tier warning attached.
+        from factrix._codes import WarningCode
+
+        with pytest.warns(UserWarning, match="below MIN_PERIODS_WARN"):
+            result = ic_ir(self._ic_series(25))
+        assert not math.isnan(result.value)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+
+    def test_no_warn_at_or_above_warn_periods(self):
+        from factrix._codes import WarningCode
+
+        result = ic_ir(self._ic_series(40))
+        assert not math.isnan(result.value)
+        assert (
+            WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
+        )
+
 
 class TestICDispatch:
     """``ic()`` delegates its significance test to ``NonOverlappingSample``.

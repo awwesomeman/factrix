@@ -229,6 +229,31 @@ def _enforce_min_floor(
     return None
 
 
+def _warn_below_floor(
+    metric: Any,
+    n: int,
+    message: str,
+    code: WarningCode,
+    *,
+    axis: str = "periods",
+) -> str | None:
+    """Flag the degraded tier when ``n`` falls below the declared ``warn_<axis>``.
+
+    Warn-tier companion to :func:`_enforce_min_floor`: the sample clears the
+    ``min`` floor (a result is still returned) but sits below ``warn``, so the
+    metric runs with a documented bias. Reads ``warn_<axis>`` via an
+    ``Any``-typed ``metric`` (no per-call ``# type: ignore[attr-defined]``);
+    when the floor is breached it emits ``message`` as a ``UserWarning`` and
+    returns ``code.value`` for the caller to fold into the result's
+    ``warning_codes``. Returns ``None`` when the warn floor is clear or ungated.
+    """
+    warn = getattr(metric.sample_threshold, f"warn_{axis}")
+    if warn is not None and n < warn:
+        warnings.warn(message, UserWarning, stacklevel=3)
+        return code.value
+    return None
+
+
 def _pick_event_return_col(df: pl.DataFrame) -> str:
     """Return the preferred return column for event analysis.
 
