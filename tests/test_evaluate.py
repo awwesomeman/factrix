@@ -189,3 +189,48 @@ class TestStrictStructureSoftening:
             strict=False,
         )["factor"]
         assert math.isnan(er.metrics["ic"].value)
+
+
+class TestEntryConsistency:
+    """A metric's sample gating must be identical whether it is called
+    directly or routed through ``evaluate()`` — the declare-once-enforce
+    contract. The shared helpers read the same declared floor on both paths.
+    ``ic_ir`` exercises all three tiers (short-circuit / warn / clean) off a
+    single periods floor, with ``evaluate`` computing the same upstream IC.
+    """
+
+    @staticmethod
+    def _ic_df(panel):
+        from factrix.metrics.ic import compute_ic
+
+        return compute_ic(panel)["factor"]
+
+    def _direct_and_via(self, panel):
+        direct = ic_ir(self._ic_df(panel))
+        via = _eval({"ir": ic_ir()}, panel, strict=False)["factor"].metrics["ir"]
+        return direct, via
+
+    def test_short_circuit_matches(self):
+        # ~15 IC rows < MIN_PERIODS_HARD=20: both entry points short-circuit
+        # to NaN on the same floor with the same reason.
+        direct, via = self._direct_and_via(_panel(n_assets=20, n_dates=20))
+        assert math.isnan(direct.value) and math.isnan(via.value)
+        assert direct.metadata["reason"] == via.metadata["reason"]
+        assert direct.metadata["reason"] == "insufficient_ic_periods"
+
+    def test_warn_code_matches(self):
+        # ~25 IC rows: clears the min floor (20) but below the warn floor
+        # (30) -> both paths attach the same degraded-tier code.
+        from factrix._codes import WarningCode
+
+        direct, via = self._direct_and_via(_panel(n_assets=20, n_dates=30))
+        assert not math.isnan(direct.value)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in direct.warning_codes
+        assert direct.warning_codes == via.warning_codes
+
+    def test_clean_tier_matches(self):
+        # ~75 IC rows >= warn floor: both paths return the same value, no code.
+        direct, via = self._direct_and_via(_panel(n_assets=20, n_dates=80))
+        assert not math.isnan(direct.value)
+        assert direct.value == via.value
+        assert direct.warning_codes == via.warning_codes == ()
