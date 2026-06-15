@@ -13,7 +13,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix._types import EPSILON
-from factrix.metrics._primitives._ts_betas import MIN_TS_OBS, compute_ts_betas
+from factrix.metrics._primitives._ts_betas import MIN_TS_PERIODS, compute_ts_betas
 
 _OUT_COLS = ["asset_id", "beta", "alpha", "t_stat", "r_squared", "n_obs"]
 
@@ -50,7 +50,7 @@ def _lstsq_reference(
         y = c[rc].drop_nulls().to_numpy().astype(np.float64)
         x = c[fc].drop_nulls().to_numpy().astype(np.float64)
         n = min(len(y), len(x))
-        if n < MIN_TS_OBS:
+        if n < MIN_TS_PERIODS:
             continue
         y, x = y[:n], x[:n]
         X = np.column_stack([np.ones(n), x])
@@ -102,11 +102,11 @@ class TestComputeTSBetas:
         assert (j["n_obs"] == j["n_obs_g"]).all()
 
     def test_drops_assets_below_min_obs(self):
-        # GOOD has MIN_TS_OBS rows; SHORT has fewer → dropped.
-        panel = _common_factor_panel(1, MIN_TS_OBS, seed=3).with_columns(
+        # GOOD has MIN_TS_PERIODS rows; SHORT has fewer → dropped.
+        panel = _common_factor_panel(1, MIN_TS_PERIODS, seed=3).with_columns(
             pl.lit("GOOD").alias("asset_id")
         )
-        short = panel.head(MIN_TS_OBS - 1).with_columns(
+        short = panel.head(MIN_TS_PERIODS - 1).with_columns(
             pl.lit("SHORT").alias("asset_id")
         )
         df = compute_ts_betas(pl.concat([panel, short]))["factor"]

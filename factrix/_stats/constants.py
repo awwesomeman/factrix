@@ -34,7 +34,7 @@ MIN_ASSETS_WARN: int = 30
 # Broadcast-dummy event count for the ``(COMMON, SPARSE, None, PANEL)``
 # procedure. Per-asset OLS β on a sparse {-1, 0, +1} dummy is driven
 # entirely by the event observations — total ``n_periods`` is already
-# checked (``MIN_TS_OBS = 20`` per asset in ``compute_ts_betas``), but
+# checked (``MIN_TS_PERIODS = 20`` per asset in ``compute_ts_betas``), but
 # with ``n_events = 1`` a β is still fit from a single point with no
 # diagnostic. These thresholds guard the event-count axis specifically.
 # Naming is procedure-domain-specific to avoid colliding with the
@@ -47,7 +47,7 @@ MIN_BROADCAST_EVENTS_HARD: int = 5
 
 # ``MIN_BROADCAST_EVENTS_HARD <= n_events < MIN_BROADCAST_EVENTS_WARN`` →
 # :attr:`factrix._codes.WarningCode.SPARSE_COMMON_FEW_EVENTS`. Aligns with
-# the ``MIN_TS_OBS = 20`` philosophy: slope is estimable but cross-event
+# the ``MIN_TS_PERIODS = 20`` philosophy: slope is estimable but cross-event
 # averaging is too thin for the asymptotic t-distribution to be trusted.
 MIN_BROADCAST_EVENTS_WARN: int = 20
 

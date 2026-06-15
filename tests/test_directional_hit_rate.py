@@ -9,7 +9,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix.metrics.directional_hit_rate import (
-    MIN_DIRECTIONAL_OBS,
+    MIN_DIRECTIONAL_PERIODS,
     directional_hit_rate,
 )
 from factrix.metrics.hit_rate import hit_rate
@@ -112,7 +112,7 @@ class TestDivergenceFromHitRate:
 class TestShortCircuits:
     def test_insufficient_samples(self):
         rng = np.random.default_rng(5)
-        n = MIN_DIRECTIONAL_OBS - 1
+        n = MIN_DIRECTIONAL_PERIODS - 1
         x = rng.normal(size=n)
         y = rng.normal(size=n)
         result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
