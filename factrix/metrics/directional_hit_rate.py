@@ -48,7 +48,7 @@ __all__ = [
 # approximation is unreliable. Shares the IC series-length floor — both
 # gate a pooled-sign statistic on the same "≥10 independent draws" rule
 # of thumb (periods axis, not the per-date asset count).
-MIN_DIRECTIONAL_OBS: int = MIN_IC_PERIODS
+MIN_DIRECTIONAL_PERIODS: int = MIN_IC_PERIODS
 
 
 @metric(
@@ -148,12 +148,12 @@ def directional_hit_rate(
     )
 
     n = paired.height
-    if n < MIN_DIRECTIONAL_OBS:
+    if n < MIN_DIRECTIONAL_PERIODS:
         return _short_circuit_output(
             "directional_hit_rate",
             "insufficient_directional_samples",
             n_obs=n,
-            min_required=MIN_DIRECTIONAL_OBS,
+            min_required=MIN_DIRECTIONAL_PERIODS,
         )
 
     x_up = paired["_x_sign"].to_numpy() > 0

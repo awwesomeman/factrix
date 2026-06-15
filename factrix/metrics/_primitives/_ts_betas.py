@@ -19,7 +19,7 @@ from factrix.metrics._decorators import metric
 
 # Minimum complete (factor, return) observations per asset to fit a
 # time-series slope. Mirrors the historical per-asset floor.
-MIN_TS_OBS: int = 20
+MIN_TS_PERIODS: int = 20
 
 
 @metric(
@@ -65,7 +65,7 @@ def compute_ts_betas(
         Dict mapping each factor name to a DataFrame with columns
         ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
         ``asset_id``. An asset is emitted only with at least
-        ``MIN_TS_OBS`` complete pairs and non-zero factor time-variation
+        ``MIN_TS_PERIODS`` complete pairs and non-zero factor time-variation
         (zero-variance assets have no identifiable slope and are dropped).
     """
     cols = list(factor_cols)
@@ -93,7 +93,7 @@ def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.Data
             pl.col(return_col).var().alias("_var_y"),
             pl.cov(factor_col, return_col).alias("_cov"),
         )
-        .filter(pl.col("n_obs") >= MIN_TS_OBS)
+        .filter(pl.col("n_obs") >= MIN_TS_PERIODS)
     )
 
     n = pl.col("n_obs")

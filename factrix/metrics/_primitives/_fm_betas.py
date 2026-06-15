@@ -19,7 +19,7 @@ from factrix.metrics._decorators import metric
 # Minimum complete (factor, return) pairs per date to estimate a slope.
 # Two parameters (intercept + slope) leave one residual degree of freedom
 # at three observations.
-MIN_FM_CS_OBS: int = 3
+MIN_FM_ASSETS: int = 3
 
 
 @metric(
@@ -60,7 +60,7 @@ def compute_fm_betas(
     Returns:
         Dict mapping each factor name to a DataFrame with columns
         ``date, beta`` sorted by date. A date is emitted only when it has
-        at least ``MIN_FM_CS_OBS`` complete ``(factor, return)`` pairs and
+        at least ``MIN_FM_ASSETS`` complete ``(factor, return)`` pairs and
         a non-degenerate cross-sectional spread; dates with zero factor
         variance (no identifiable slope) are dropped.
     """
@@ -99,7 +99,7 @@ def compute_fm_betas(
                 pl.col(f"_cnt__{f}").alias("_cnt"),
                 pl.col(f"_beta__{f}").alias("beta"),
             )
-            .filter(pl.col("_cnt") >= MIN_FM_CS_OBS)
+            .filter(pl.col("_cnt") >= MIN_FM_ASSETS)
             .drop_nulls("beta")
             .select("date", "beta")
         )

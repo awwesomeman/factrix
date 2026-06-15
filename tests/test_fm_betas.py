@@ -57,7 +57,7 @@ class TestComputeFMBetas:
             assert beta == pytest.approx(ref[dt], abs=1e-12)
 
     def test_drops_dates_below_min_obs(self):
-        # date d0 has 2 assets (below MIN_FM_CS_OBS=3), d1 has 4.
+        # date d0 has 2 assets (below MIN_FM_ASSETS=3), d1 has 4.
         rows = [
             {
                 "date": datetime(2024, 1, 1),

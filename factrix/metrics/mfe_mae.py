@@ -39,8 +39,6 @@ __all__ = [
 
 _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 
-DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
-
 
 @metric(
     cell=_MFE_CELL,
