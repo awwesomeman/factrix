@@ -45,7 +45,7 @@ from factrix._stats import (
 )
 from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_fm_betas
 
@@ -213,16 +213,11 @@ def fm_beta(
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
-    min_periods = fm_beta.sample_threshold.min_periods  # type: ignore[attr-defined]
-    warn_periods = fm_beta.sample_threshold.warn_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "fm_beta",
-            "insufficient_fm_periods",
-            n_obs=n,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(fm_beta, "fm_beta", n, "insufficient_fm_periods")
+    if sc is not None:
+        return sc
 
+    warn_periods = fm_beta.sample_threshold.warn_periods  # type: ignore[attr-defined]
     warning_codes: list[str] = []
     if warn_periods is not None and n < warn_periods:
         warning_codes.append(WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value)
@@ -566,14 +561,15 @@ def pooled_beta(
     x = df[factor_col].to_numpy().astype(np.float64)
     n_obs = len(y)
 
-    min_pairs = pooled_beta.sample_threshold.min_pairs  # type: ignore[attr-defined]
-    if min_pairs is not None and n_obs < min_pairs:
-        return _short_circuit_output(
-            "pooled_beta",
-            "insufficient_pooled_observations",
-            n_obs=n_obs,
-            min_required=min_pairs,
-        )
+    sc = _enforce_min_floor(
+        pooled_beta,
+        "pooled_beta",
+        n_obs,
+        "insufficient_pooled_observations",
+        axis="pairs",
+    )
+    if sc is not None:
+        return sc
 
     X = np.column_stack([np.ones(n_obs), x])
     try:
@@ -769,14 +765,11 @@ def beta_sign_consistency(
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
-    min_periods = beta_sign_consistency.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "beta_sign_consistency",
-            "no_beta_observations",
-            n_obs=n,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(
+        beta_sign_consistency, "beta_sign_consistency", n, "no_beta_observations"
+    )
+    if sc is not None:
+        return sc
 
     if expected_sign >= 0:
         consistent = float(np.mean(betas > 0))

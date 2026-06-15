@@ -30,7 +30,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
@@ -123,19 +123,19 @@ def oos_decay(
     vals = sorted_series[value_col].drop_nulls()
     n = len(vals)
 
-    min_periods = oos_decay.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "oos_decay",
-            "insufficient_oos_periods",
-            n_obs=n,
-            descriptive=True,
-            min_required=min_periods,
-            sign_flipped=False,
-            status="VETOED",
-            is_ratio=is_ratio,
-            survival_threshold=survival_threshold,
-        )
+    sc = _enforce_min_floor(
+        oos_decay,
+        "oos_decay",
+        n,
+        "insufficient_oos_periods",
+        descriptive=True,
+        sign_flipped=False,
+        status="VETOED",
+        is_ratio=is_ratio,
+        survival_threshold=survival_threshold,
+    )
+    if sc is not None:
+        return sc
 
     split_idx = int(n * is_ratio)
     is_vals = vals[:split_idx]

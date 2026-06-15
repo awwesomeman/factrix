@@ -56,6 +56,7 @@ from factrix._types import MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
+    _enforce_min_floor,
     _short_circuit_output,
 )
 
@@ -165,14 +166,11 @@ def ts_asymmetry(
     )
     n_periods = len(per_date)
 
-    min_periods = ts_asymmetry.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n_periods < min_periods:
-        return _short_circuit_output(
-            "ts_asymmetry",
-            "insufficient_portfolio_periods",
-            n_obs=n_periods,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(
+        ts_asymmetry, "ts_asymmetry", n_periods, "insufficient_portfolio_periods"
+    )
+    if sc is not None:
+        return sc
 
     f = per_date["_f"].to_numpy()
     r = per_date["_r"].to_numpy()

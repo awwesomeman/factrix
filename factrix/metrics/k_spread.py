@@ -39,6 +39,7 @@ from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _enforce_min_floor,
     _sample_non_overlapping,
     _short_circuit_output,
     _spread_significance,
@@ -177,15 +178,11 @@ def k_spread(
 
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
-    min_periods = k_spread.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "k_spread",
-            "insufficient_portfolio_periods",
-            n_obs=n,
-            min_required=min_periods,
-            k=k,
-        )
+    sc = _enforce_min_floor(
+        k_spread, "k_spread", n, "insufficient_portfolio_periods", k=k
+    )
+    if sc is not None:
+        return sc
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))

@@ -37,7 +37,7 @@ from factrix._stats import (
 )
 from factrix._types import DDOF
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor
 from factrix.metrics._primitives import compute_ts_betas
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -147,14 +147,9 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
 
-    min_assets = ts_beta.sample_threshold.min_assets  # type: ignore[attr-defined]
-    if min_assets is not None and n < min_assets:
-        return _short_circuit_output(
-            "ts_beta",
-            "insufficient_assets",
-            n_obs=n,
-            min_required=min_assets,
-        )
+    sc = _enforce_min_floor(ts_beta, "ts_beta", n, "insufficient_assets", axis="assets")
+    if sc is not None:
+        return sc
 
     mean_b = float(np.mean(betas))
     std_b = float(np.std(betas, ddof=DDOF))
@@ -230,14 +225,15 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     r2_vals = ts_betas_df["r_squared"].drop_nulls().to_numpy()
     n = len(r2_vals)
 
-    min_assets = mean_r_squared.sample_threshold.min_assets  # type: ignore[attr-defined]
-    if min_assets is not None and n < min_assets:
-        return _short_circuit_output(
-            "mean_r_squared",
-            "no_asset_r_squared_observations",
-            n_obs=n,
-            min_required=min_assets,
-        )
+    sc = _enforce_min_floor(
+        mean_r_squared,
+        "mean_r_squared",
+        n,
+        "no_asset_r_squared_observations",
+        axis="assets",
+    )
+    if sc is not None:
+        return sc
 
     return MetricResult(
         value=float(np.mean(r2_vals)),
@@ -416,14 +412,15 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     """
     betas = ts_betas_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
-    min_assets = ts_beta_sign_consistency.sample_threshold.min_assets  # type: ignore[attr-defined]
-    if min_assets is not None and n < min_assets:
-        return _short_circuit_output(
-            "ts_beta_sign_consistency",
-            "insufficient_assets_for_sign_consistency",
-            n_obs=n,
-            min_required=min_assets,
-        )
+    sc = _enforce_min_floor(
+        ts_beta_sign_consistency,
+        "ts_beta_sign_consistency",
+        n,
+        "insufficient_assets_for_sign_consistency",
+        axis="assets",
+    )
+    if sc is not None:
+        return sc
 
     positive = float(np.mean(betas > 0))
     consistency = max(positive, 1.0 - positive)

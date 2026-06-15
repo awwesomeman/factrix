@@ -42,6 +42,7 @@ from factrix._types import EPSILON, MIN_PORTFOLIO_PERIODS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _aggregate_to_per_date,
+    _enforce_min_floor,
     _short_circuit_output,
 )
 
@@ -150,15 +151,15 @@ def ts_quantile_spread(
     )
     n_periods = len(per_date)
 
-    min_periods = ts_quantile_spread.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n_periods < min_periods:
-        return _short_circuit_output(
-            "ts_quantile_spread",
-            "insufficient_portfolio_periods",
-            n_obs=n_periods,
-            min_required=min_periods,
-            n_groups=n_groups,
-        )
+    sc = _enforce_min_floor(
+        ts_quantile_spread,
+        "ts_quantile_spread",
+        n_periods,
+        "insufficient_portfolio_periods",
+        n_groups=n_groups,
+    )
+    if sc is not None:
+        return sc
 
     n_distinct = int(per_date["_f"].n_unique())
     if n_distinct < n_groups * 2:

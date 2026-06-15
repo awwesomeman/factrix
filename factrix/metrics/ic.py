@@ -36,6 +36,7 @@ from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
+    _enforce_min_floor,
     _short_circuit_output,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
@@ -260,14 +261,9 @@ def ic_ir(
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    min_periods = ic_ir.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "ic_ir",
-            "insufficient_ic_periods",
-            n_obs=n,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(ic_ir, "ic_ir", n, "insufficient_ic_periods")
+    if sc is not None:
+        return sc
 
     mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
     std_ic = float(ic_vals.std())  # type: ignore[arg-type]

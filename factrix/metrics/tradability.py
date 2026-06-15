@@ -41,6 +41,7 @@ from factrix._types import DDOF, EPSILON
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
+    _enforce_min_floor,
     _sample_non_overlapping,
     _short_circuit_output,
 )
@@ -325,15 +326,15 @@ def notional_turnover(
         df = _sample_non_overlapping(df, forward_periods)
 
     dates = df["date"].unique().sort()
-    min_periods = notional_turnover.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and len(dates) < min_periods:
-        return _short_circuit_output(
-            "notional_turnover",
-            "insufficient_dates",
-            n_obs=len(dates),
-            min_required=min_periods,
-            forward_periods=forward_periods,
-        )
+    sc = _enforce_min_floor(
+        notional_turnover,
+        "notional_turnover",
+        len(dates),
+        "insufficient_dates",
+        forward_periods=forward_periods,
+    )
+    if sc is not None:
+        return sc
 
     top_g = n_groups - 1
     bot_g = 0

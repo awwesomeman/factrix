@@ -36,6 +36,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _compute_tie_ratio,
+    _enforce_min_floor,
     _lag_within_asset,
     _sample_non_overlapping,
     _short_circuit_output,
@@ -165,16 +166,16 @@ def _quantile_spread_from_series(
     _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
-    min_periods = quantile_spread.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "quantile_spread",
-            "insufficient_portfolio_periods",
-            n_obs=n,
-            min_required=min_periods,
-            tie_ratio=tie_ratio,
-            tie_policy=tie_policy,
-        )
+    sc = _enforce_min_floor(
+        quantile_spread,
+        "quantile_spread",
+        n,
+        "insufficient_portfolio_periods",
+        tie_ratio=tie_ratio,
+        tie_policy=tie_policy,
+    )
+    if sc is not None:
+        return sc
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))
@@ -359,16 +360,16 @@ def quantile_spread_vw(
 
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
-    min_periods = quantile_spread_vw.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "quantile_spread_vw",
-            "insufficient_portfolio_periods",
-            n_obs=n,
-            min_required=min_periods,
-            tie_ratio=tie_ratio,
-            tie_policy=tie_policy,
-        )
+    sc = _enforce_min_floor(
+        quantile_spread_vw,
+        "quantile_spread_vw",
+        n,
+        "insufficient_portfolio_periods",
+        tie_ratio=tie_ratio,
+        tie_policy=tie_policy,
+    )
+    if sc is not None:
+        return sc
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))

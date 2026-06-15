@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -185,6 +186,47 @@ def _short_circuit_output(
         stat=None,
         metadata=metadata,
     )
+
+
+def _enforce_min_floor(
+    metric: Any,
+    name: str,
+    n: int,
+    reason: str,
+    *,
+    axis: str = "periods",
+    descriptive: bool = False,
+    **extra: object,
+) -> MetricResult | None:
+    """Short-circuit when ``n`` falls below the metric's declared ``min_<axis>``.
+
+    Single owner for the "read declared floor → compare → short-circuit"
+    step that was hand-copied across the metric bodies. Each metric still
+    computes its own ``n`` (post-sampling / post-drop-nulls / post-aggregation
+    counts are metric-specific) and passes it in; this helper holds only the
+    comparison and the canonical :func:`_short_circuit_output` call.
+
+    ``metric`` is typed ``Any`` so the ``@metric``-decorator-attached
+    ``sample_threshold`` is reachable without a per-call
+    ``# type: ignore[attr-defined]`` (the decorator types each metric as its
+    wrapped function, which has no such attribute).
+
+    Returns the short-circuit ``MetricResult`` to propagate, or ``None`` when
+    the sample clears the floor (axis ungated → always ``None``). ``descriptive``
+    and any extra keyword metadata are forwarded to
+    :func:`_short_circuit_output`.
+    """
+    floor = getattr(metric.sample_threshold, f"min_{axis}")
+    if floor is not None and n < floor:
+        return _short_circuit_output(
+            name,
+            reason,
+            n_obs=n,
+            min_required=floor,
+            descriptive=descriptive,
+            **extra,
+        )
+    return None
 
 
 def _pick_event_return_col(df: pl.DataFrame) -> str:

@@ -28,7 +28,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _p_value_from_t
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
@@ -142,14 +142,9 @@ def ic_trend(
     vals = vals[np.isfinite(vals)]
     n = len(vals)
 
-    min_periods = ic_trend.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            name,
-            "insufficient_trend_periods",
-            n_obs=n,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(ic_trend, name, n, "insufficient_trend_periods")
+    if sc is not None:
+        return sc
 
     # WHY: index by sequence rather than date difference — non-overlapping
     # sampling can leave irregular gaps between dates.
