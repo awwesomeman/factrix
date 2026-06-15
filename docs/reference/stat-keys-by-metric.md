@@ -299,10 +299,9 @@ Both `quantile_spread` and `k_spread` switch the headline test to a
 block-bootstrap CI when `n_assets < MIN_ASSETS_WARN`. In that branch
 they additionally emit `p_value_t` (the parametric `t` p-value kept
 for reference), `bootstrap_block_length`, `bootstrap_n_resamples`,
-and `bootstrap_seed`. The switch is **not** silent: the cross-section
-tier code (`small_cross_section_n` / `borderline_cross_section_n`) is
-attached to `warning_codes`, so the method change surfaces as a
-`Warning` on the result.
+and `bootstrap_seed`. The switch is **not** silent: the single
+cross-section code (`cross_section_n`) is attached to `warning_codes`,
+so the method change surfaces as a `Warning` on the result.
 
 ### `concentration` (`factrix.metrics.concentration`)
 

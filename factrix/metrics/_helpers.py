@@ -81,10 +81,9 @@ def _spread_significance(
 
     The switch fires exactly when :func:`cross_section_tier` flags the
     cross-section (``n_assets < MIN_ASSETS_WARN``), so the returned
-    ``warning_codes`` carry that tier code (``SMALL_`` /
-    ``BORDERLINE_CROSS_SECTION_N``). This surfaces the method change as a
-    :class:`Warning` on the result rather than leaving it buried in
-    metadata — the same two-tier convention the sample guards use.
+    ``warning_codes`` carry the single ``CROSS_SECTION_N`` code. This
+    surfaces the method change as a :class:`Warning` on the result rather
+    than leaving it buried in metadata; severity is read from ``n_assets``.
     """
     n = len(spread)
     mean = float(np.mean(spread))

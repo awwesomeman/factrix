@@ -388,8 +388,7 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 Failure modes:
 
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
-- `n_assets < MIN_ASSETS = 10` → `WarningCode.SMALL_CROSS_SECTION_N` (still runs).
-- `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.BORDERLINE_CROSS_SECTION_N`.
+- `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.CROSS_SECTION_N` (still runs; severity scales with `n_assets`).
 - `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
   statistic lands in the same `MetricResult.stat` field across both
@@ -416,8 +415,8 @@ per I6 (sparse regressors are not unit-root candidates).
 Failure modes:
 
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
-- `n_assets` two-tier guard same as `common_continuous` (`SMALL_CROSS_SECTION_N` /
-  `BORDERLINE_CROSS_SECTION_N`).
+- `n_assets` cross-section guard same as `common_continuous` (single
+  `CROSS_SECTION_N`; severity from `n_assets` metadata).
 - Two-tier event-count guard (`factrix/_stats/constants.py`):
   `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
   `5 ≤ n_events < MIN_BROADCAST_EVENTS_WARN = 20` emits

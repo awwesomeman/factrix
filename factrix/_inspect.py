@@ -602,9 +602,9 @@ def _evaluate_applicability(
             blockers.append(f"n_{av.axis}={av.n} < min_{av.axis}={av.floor}")
         elif av.tier is Tier.DEGRADED:
             # The assets axis gates DEGRADED on the spec's warn_assets, but the
-            # emitted warning is the inference-stage cross-section tier, keyed on
-            # the global MIN_ASSETS / MIN_ASSETS_WARN constants — so it can be
-            # None here even though the axis verdict is DEGRADED.
+            # emitted warning is the inference-stage CROSS_SECTION_N code, keyed
+            # on the global MIN_ASSETS_WARN constant — so it can be None here
+            # even though the axis verdict is DEGRADED.
             if av.axis == "assets":
                 code = cross_section_tier(properties.n_assets)
                 if code is not None:

@@ -136,8 +136,7 @@ below.
 | `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` (TIMESERIES) | hard | `factrix/_stats/constants.py` | TIMESERIES procedures (`individual_continuous` / `common_continuous` at `N == 1`); raises `InsufficientSampleError` |
 | `MIN_PERIODS_WARN` | 30 | `T` (TIMESERIES) | warn | `factrix/_stats/constants.py` | same procedures; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_ASSETS` | 10 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.SMALL_CROSS_SECTION_N` |
-| `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.BORDERLINE_CROSS_SECTION_N` |
+| `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.CROSS_SECTION_N` (severity from `n_assets`) |
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `beta_sign_consistency` |
@@ -146,16 +145,13 @@ below.
 
 Naming caveats:
 
-- `MIN_ASSETS_PER_DATE_IC` (10) and `MIN_ASSETS` (10) are different
-  constants with the same value: the first gates **per-date** asset
-  count for IC; the second gates **panel-wide** `N` for the
-  cross-asset *t* on E[β]. The IC variant was renamed from
-  `MIN_IC_PERIODS` because the historical "PERIODS" suffix did not
-  match the per-date axis it actually checks.
-- `MIN_ASSETS = 10` deliberately omits the `_HARD` suffix — the `N`
+- `MIN_ASSETS_PER_DATE_IC` (10) gates the **per-date** asset count for
+  IC (dates below it are dropped); it is distinct from the panel-wide
+  `N` cross-asset guard, which lives solely on `MIN_ASSETS_WARN`.
+- `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `N`
   axis only **warns** (small `N` is well-defined statistics, just
-  weak), so the `_HARD` convention (which means "raise") would
-  mislead.
+  weak), so the `_HARD` convention (which means "raise") would mislead;
+  severity scales with `n_assets` rather than splitting into tiers.
 - `MIN_BROADCAST_EVENTS_*` is named after its procedure domain to
   avoid colliding with `MIN_EVENTS_*` in `_types.py` (CAAR statistic
   vs broadcast-dummy regression — different gates).

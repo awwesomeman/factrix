@@ -170,3 +170,29 @@ class TestTopConcentrationTwoTier:
             out = top_concentration(df, forward_periods=1, q_top=0.2)
         assert out.stat is not None
         assert out.warning_codes == ()
+
+
+class TestCrossSectionTierSingleCode:
+    """The cross-asset N guard is a single ``CROSS_SECTION_N`` across the whole
+    thin band (no SMALL/BORDERLINE split); severity is carried by ``n_assets``.
+    """
+
+    def test_flags_whole_thin_band_with_one_code(self):
+        from factrix._codes import cross_section_tier
+        from factrix._stats.constants import MIN_ASSETS_WARN
+
+        for n in (2, 3, 9, 10, MIN_ASSETS_WARN - 1):
+            assert cross_section_tier(n) is WarningCode.CROSS_SECTION_N
+
+    def test_clean_at_or_above_warn_floor(self):
+        from factrix._codes import cross_section_tier
+        from factrix._stats.constants import MIN_ASSETS_WARN
+
+        assert cross_section_tier(MIN_ASSETS_WARN) is None
+        assert cross_section_tier(MIN_ASSETS_WARN + 50) is None
+
+    def test_none_below_panel_minimum(self):
+        from factrix._codes import cross_section_tier
+
+        assert cross_section_tier(1) is None
+        assert cross_section_tier(0) is None
