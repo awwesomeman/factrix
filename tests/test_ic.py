@@ -241,9 +241,7 @@ class TestICIR:
 
         result = ic_ir(self._ic_series(40))
         assert not math.isnan(result.value)
-        assert (
-            WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
-        )
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
 
 
 class TestICDispatch:

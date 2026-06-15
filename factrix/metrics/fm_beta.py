@@ -43,6 +43,7 @@ from factrix._stats import (
     _newey_west_t_test,
     _p_value_from_t,
 )
+from factrix._stats.constants import MIN_PERIODS_WARN
 from factrix._types import DDOF, EPSILON, ShankenVarSource
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
@@ -357,7 +358,6 @@ def _pooled_beta_driscoll_kraay(
             "cross-sectional dependence across the panel; pick one SE method."
         )
 
-    from factrix._stats.constants import MIN_PERIODS_WARN
     from factrix._stats.hac import _driscoll_kraay_cov as _dk_cov
 
     period_ids = df[cluster_col].to_numpy()
@@ -423,7 +423,11 @@ def _pooled_beta_driscoll_kraay(
 @metric(
     cell=_FM_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=SampleThreshold(min_pairs=10),
+    sample_threshold=SampleThreshold(
+        min_pairs=10,
+        min_periods=_MIN_DK_PERIODS,
+        warn_periods=MIN_PERIODS_WARN,
+    ),
 )
 def pooled_beta(
     df: pl.DataFrame,

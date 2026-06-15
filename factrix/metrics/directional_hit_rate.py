@@ -34,11 +34,15 @@ from factrix._axis import (
     FactorDensity,
     InputShape,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import MIN_IC_PERIODS
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _sample_non_overlapping,
+    _short_circuit_output,
+)
 
 __all__ = [
     "directional_hit_rate",
@@ -55,6 +59,7 @@ MIN_DIRECTIONAL_PERIODS: int = MIN_IC_PERIODS
     cell=cell(None, FactorDensity.DENSE, structure=None),
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.PANEL,
+    sample_threshold=SampleThreshold(min_periods=MIN_DIRECTIONAL_PERIODS),
 )
 def directional_hit_rate(
     df: pl.DataFrame,
@@ -148,13 +153,14 @@ def directional_hit_rate(
     )
 
     n = paired.height
-    if n < MIN_DIRECTIONAL_PERIODS:
-        return _short_circuit_output(
-            "directional_hit_rate",
-            "insufficient_directional_samples",
-            n_obs=n,
-            min_required=MIN_DIRECTIONAL_PERIODS,
-        )
+    sc = _enforce_min_floor(
+        directional_hit_rate,
+        "directional_hit_rate",
+        n,
+        "insufficient_directional_samples",
+    )
+    if sc is not None:
+        return sc
 
     x_up = paired["_x_sign"].to_numpy() > 0
     y_up = paired["_y_sign"].to_numpy() > 0

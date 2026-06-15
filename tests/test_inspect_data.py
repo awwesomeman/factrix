@@ -183,6 +183,43 @@ class TestSampleThresholdGate:
         assert ic.warnings == []
 
 
+class TestDeclaredPeriodsFloorsVisible:
+    """Metrics that gate on a periods floor must declare it on their spec so
+    ``inspect_data`` can pre-flight it — previously these enforced the floor in
+    the body while declaring an empty ``SampleThreshold()``, hiding it from the
+    pre-flight verdict.
+    """
+
+    def test_directional_hit_rate_declares_min_periods(self):
+        from factrix.metrics.directional_hit_rate import (
+            MIN_DIRECTIONAL_PERIODS,
+            directional_hit_rate,
+        )
+
+        st = directional_hit_rate.spec().sample_threshold
+        assert st.min_periods == MIN_DIRECTIONAL_PERIODS
+
+    def test_top_concentration_declares_periods_floors(self):
+        from factrix._types import (
+            MIN_PORTFOLIO_PERIODS_HARD,
+            MIN_PORTFOLIO_PERIODS_WARN,
+        )
+        from factrix.metrics.concentration import top_concentration
+
+        st = top_concentration.spec().sample_threshold
+        assert st.min_periods == MIN_PORTFOLIO_PERIODS_HARD
+        assert st.warn_periods == MIN_PORTFOLIO_PERIODS_WARN
+
+    def test_pooled_beta_declares_periods_floors_alongside_pairs(self):
+        from factrix._stats.constants import MIN_PERIODS_WARN
+        from factrix.metrics.fm_beta import _MIN_DK_PERIODS, pooled_beta
+
+        st = pooled_beta.spec().sample_threshold
+        assert st.min_pairs == 10
+        assert st.min_periods == _MIN_DK_PERIODS
+        assert st.warn_periods == MIN_PERIODS_WARN
+
+
 class TestTierPartition:
     def test_three_tiers_partition_metrics_disjointly(self):
         # n_dates=25 puts ic_ir between min and warn -> degraded.
