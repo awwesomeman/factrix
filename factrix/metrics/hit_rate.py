@@ -33,6 +33,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _sample_non_overlapping,
+    _surface_null_drop,
 )
 from factrix.metrics.ic import compute_ic
 
@@ -141,15 +142,26 @@ def hit_rate(
         stat = float((rate - 0.5) * np.sqrt(n) / 0.5)
         stat_type = "z"
 
+    metadata: dict[str, object] = {
+        "n_hits": hits,
+        "n_total": n,
+        "stat_type": stat_type,
+        "h0": "p=0.5",
+        "method": _binomial_test_method_name(n),
+    }
+    warning_codes: list[str] = []
+    _surface_null_drop(
+        n_periods_in=len(sampled),
+        n_periods_out=n,
+        drop_reason="null value observations in the series",
+        metric_name="hit_rate",
+        metadata=metadata,
+        warning_codes=warning_codes,
+    )
     return MetricResult(
         p_value=p,
         value=rate,
         stat=stat,
-        metadata={
-            "n_hits": hits,
-            "n_total": n,
-            "stat_type": stat_type,
-            "h0": "p=0.5",
-            "method": _binomial_test_method_name(n),
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )

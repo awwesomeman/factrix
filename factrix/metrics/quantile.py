@@ -41,6 +41,7 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _short_circuit_output,
     _spread_significance,
+    _surface_null_drop,
     _warn_high_tie_ratio,
 )
 from factrix.metrics._primitives import (
@@ -202,27 +203,37 @@ def _quantile_spread_from_series(
     t_short = _calc_t_stat(mean_short, std_short, len(short_arr))
     p_short = _p_value_from_t(t_short, len(short_arr))
 
+    metadata: dict[str, object] = {
+        "n_periods": n,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "method": sig_method,
+        "long_alpha": mean_long,
+        "short_alpha": mean_short,
+        "long_stat": t_long,
+        "long_p_value": p_long,
+        "short_stat": t_short,
+        "short_p_value": p_short,
+        "short_significance": _significance_marker(p_short),
+        "tie_ratio": tie_ratio,
+        "tie_policy": tie_policy,
+        **sig_extra,
+    }
+    warning_codes = list(sig_codes)
+    _surface_null_drop(
+        n_periods_in=series.height,
+        n_periods_out=n,
+        drop_reason="null spread observations in the series",
+        metric_name="quantile_spread",
+        metadata=metadata,
+        warning_codes=warning_codes,
+    )
     return MetricResult(
         p_value=p,
         value=mean_spread,
         stat=t,
-        metadata={
-            "n_periods": n,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "method": sig_method,
-            "long_alpha": mean_long,
-            "short_alpha": mean_short,
-            "long_stat": t_long,
-            "long_p_value": p_long,
-            "short_stat": t_short,
-            "short_p_value": p_short,
-            "short_significance": _significance_marker(p_short),
-            "tie_ratio": tie_ratio,
-            "tie_policy": tie_policy,
-            **sig_extra,
-        },
-        warning_codes=sig_codes,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -377,16 +388,27 @@ def quantile_spread_vw(
     t = _calc_t_stat(mean_spread, std_spread, n)
 
     p = _p_value_from_t(t, n)
+    metadata: dict[str, object] = {
+        "n_periods": n,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "tie_ratio": tie_ratio,
+        "tie_policy": tie_policy,
+        "weights_lagged": lag_weights,
+    }
+    warning_codes: list[str] = []
+    _surface_null_drop(
+        n_periods_in=vw_series.height,
+        n_periods_out=n,
+        drop_reason="null spread observations in the series",
+        metric_name="quantile_spread_vw",
+        metadata=metadata,
+        warning_codes=warning_codes,
+    )
     return MetricResult(
         p_value=p,
         value=mean_spread,
         stat=t,
-        metadata={
-            "n_periods": n,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "tie_ratio": tie_ratio,
-            "tie_policy": tie_policy,
-            "weights_lagged": lag_weights,
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )

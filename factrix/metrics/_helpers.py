@@ -518,6 +518,29 @@ DROP_STAT_KEYS: tuple[str, ...] = (
 )
 
 
+def _make_drop_stats(
+    *,
+    n_periods_in: int,
+    n_periods_out: int,
+    drop_reason: str,
+) -> dict[str, Any]:
+    """Build the canonical five-key drop-stat dict from in/out period counts.
+
+    Single source of truth for the schema, shared by the PANEL→SERIES carrier
+    (:func:`_attach_drop_stats`) and the SERIES→SCALAR consumer null-drop
+    (:func:`_surface_null_drop`). ``drop_rate`` is 0.0 when nothing entered.
+    """
+    dropped = n_periods_in - n_periods_out
+    drop_rate = dropped / n_periods_in if n_periods_in > 0 else 0.0
+    return {
+        "n_periods_in": n_periods_in,
+        "n_periods_out": n_periods_out,
+        "dropped_periods": dropped,
+        "drop_rate": drop_rate,
+        "drop_reason": drop_reason,
+    }
+
+
 def _attach_drop_stats(
     frame: pl.DataFrame,
     *,
@@ -535,17 +558,20 @@ def _attach_drop_stats(
     (0-row) frame carries an empty column and is never read because the
     consumer short-circuits first.
     """
-    n_periods_out = frame.height
-    dropped = n_periods_in - n_periods_out
-    drop_rate = dropped / n_periods_in if n_periods_in > 0 else 0.0
-    stats = pl.struct(
-        n_periods_in=pl.lit(n_periods_in, dtype=pl.Int64),
-        n_periods_out=pl.lit(n_periods_out, dtype=pl.Int64),
-        dropped_periods=pl.lit(dropped, dtype=pl.Int64),
-        drop_rate=pl.lit(drop_rate, dtype=pl.Float64),
-        drop_reason=pl.lit(drop_reason, dtype=pl.String),
-    ).alias(_DROP_STATS_COL)
-    return frame.with_columns(stats)
+    stats = _make_drop_stats(
+        n_periods_in=n_periods_in,
+        n_periods_out=frame.height,
+        drop_reason=drop_reason,
+    )
+    return frame.with_columns(
+        pl.struct(
+            n_periods_in=pl.lit(stats["n_periods_in"], dtype=pl.Int64),
+            n_periods_out=pl.lit(stats["n_periods_out"], dtype=pl.Int64),
+            dropped_periods=pl.lit(stats["dropped_periods"], dtype=pl.Int64),
+            drop_rate=pl.lit(stats["drop_rate"], dtype=pl.Float64),
+            drop_reason=pl.lit(stats["drop_reason"], dtype=pl.String),
+        ).alias(_DROP_STATS_COL)
+    )
 
 
 def _read_drop_stats(frame: pl.DataFrame) -> dict[str, Any] | None:
@@ -604,6 +630,37 @@ def _surface_drop_stats(
     stats = _read_drop_stats(frame)
     if stats is None:
         return
+    metadata.update(stats)
+    code = _warn_if_high_drop_rate(stats, metric_name)
+    if code is not None:
+        warning_codes.append(code)
+
+
+def _surface_null_drop(
+    *,
+    n_periods_in: int,
+    n_periods_out: int,
+    drop_reason: str,
+    metric_name: str,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+) -> None:
+    """Record a SERIES→SCALAR consumer's own null-drop with the shared schema.
+
+    The Phase-2 counterpart to :func:`_surface_drop_stats`: where a PANEL→SERIES
+    primitive records the drop on a carrier column, a time-indexed (period-axis)
+    consumer that collapses its value series to a scalar via ``drop_nulls`` knows
+    both counts locally — ``n_periods_in`` is the series length entering the
+    drop, ``n_periods_out`` the count of finite observations that survive. Merges
+    the five keys into *metadata* and, when ``drop_rate`` clears the threshold,
+    emits one aggregate ``UserWarning`` and appends the code to *warning_codes*.
+    Call only on the success path so a short-circuit defers to its own reason.
+    """
+    stats = _make_drop_stats(
+        n_periods_in=n_periods_in,
+        n_periods_out=n_periods_out,
+        drop_reason=drop_reason,
+    )
     metadata.update(stats)
     code = _warn_if_high_drop_rate(stats, metric_name)
     if code is not None:

@@ -28,7 +28,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _adf, _p_value_from_t
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor
+from factrix.metrics._helpers import _enforce_min_floor, _surface_null_drop
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
@@ -182,9 +182,19 @@ def ic_trend(
         metadata["adf_stat"] = adf_stat
         metadata["adf_p"] = adf_p
         metadata["unit_root_suspected"] = adf_p > adf_threshold
+    warning_codes: list[str] = []
+    _surface_null_drop(
+        n_periods_in=series.height,
+        n_periods_out=n,
+        drop_reason="null or non-finite value observations in the series",
+        metric_name=name,
+        metadata=metadata,
+        warning_codes=warning_codes,
+    )
     return MetricResult(
         p_value=p,
         value=slope,
         stat=approx_t,
         metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
