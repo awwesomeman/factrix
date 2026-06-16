@@ -111,6 +111,12 @@ class MetricBase(metaclass=MetricMeta):
         params take their declared defaults) so the spec carries a concrete
         :class:`SampleThreshold` for ``inspect_data`` rather than the empty
         static placeholder. Static metrics keep ``cls.sample_threshold``.
+
+        A metric declaring the hook must therefore be default-constructible —
+        every param other than the input frame needs a default. The resolved
+        floor reflects those defaults; ``inspect_data`` pre-flights the
+        default-config floor, while run-time enforcement uses the body's actual
+        params (the two share one computation, e.g. ``min_input_periods``).
         """
         threshold = cls.sample_threshold
         hook = cls.sample_threshold_for
