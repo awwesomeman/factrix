@@ -30,7 +30,10 @@ from factrix._stats import (
 )
 from factrix._types import MIN_IC_PERIODS
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _sample_non_overlapping, _short_circuit_output
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _sample_non_overlapping,
+)
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
@@ -119,14 +122,9 @@ def hit_rate(
     vals = sampled[value_col].drop_nulls()
 
     n = len(vals)
-    min_periods = hit_rate.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "hit_rate",
-            "insufficient_hit_rate_samples",
-            n_obs=n,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(hit_rate, "hit_rate", n, "insufficient_hit_rate_samples")
+    if sc is not None:
+        return sc
 
     hits = int((vals > 0).sum())
     rate = hits / n

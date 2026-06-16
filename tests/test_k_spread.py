@@ -82,7 +82,7 @@ class TestSmallNSignificanceSwitch:
         assert "p_value_t" in result.metadata  # parametric p retained for reference
         assert result.metadata["bootstrap_seed"] == 0
         # the method switch surfaces as a cross-section warning, not silently
-        assert "borderline_cross_section_n" in result.warning_codes
+        assert "cross_section_n" in result.warning_codes
         # reproducible run-to-run under the fixed seed
         again = k_spread(panel, forward_periods=1, k=5)
         assert result.p_value == again.p_value

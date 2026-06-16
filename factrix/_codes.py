@@ -22,11 +22,12 @@ class WarningCode(StrEnum):
     # persistent-regressor flag, §5.2 / §7.3). Not raised for SPARSE.
     PERSISTENT_REGRESSOR = "persistent_regressor"
     SERIAL_CORRELATION_DETECTED = "serial_correlation_detected"
-    # Two-tier cross-asset N guards for PANEL common_continuous. Mirrors
-    # the n_periods two-tier (UNRELIABLE_SE_SHORT_PERIODS) but the axis
-    # never raises — cross-asset t-test on E[β] is well-defined for N≥2.
-    SMALL_CROSS_SECTION_N = "small_cross_section_n"
-    BORDERLINE_CROSS_SECTION_N = "borderline_cross_section_n"
+    # Single cross-asset N guard for PANEL common_continuous: the cross-asset
+    # t-test on E[β] runs for any N≥2 (this axis never raises) but its t_crit
+    # inflates as N shrinks. One code flags the whole thin regime
+    # (n_assets < MIN_ASSETS_WARN); severity is read from the ``n_assets``
+    # metadata rather than split across separate tier members.
+    CROSS_SECTION_N = "cross_section_n"
     # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
     # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
     # MIN_BROADCAST_EVENTS_WARN. Per-asset β is identifiable but
@@ -91,12 +92,10 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
-        WarningCode.SMALL_CROSS_SECTION_N: "PANEL cross-asset t-test with n_assets < MIN_ASSETS (10); "
-        "df=n_assets-1 too low — t_crit at n_assets=3 ≈ 4.30 "
-        "(+119% vs asymptotic 1.96).",
-        WarningCode.BORDERLINE_CROSS_SECTION_N: "PANEL cross-asset t-test with MIN_ASSETS ≤ n_assets < "
-        "MIN_ASSETS_WARN (10..29); residual t_crit inflation "
-        "5–15% — read borderline p-values cautiously.",
+        WarningCode.CROSS_SECTION_N: "PANEL cross-asset t-test with n_assets < "
+        "MIN_ASSETS_WARN (30); df=n_assets-1 inflates t_crit relative to the "
+        "asymptotic 1.96 (≈4.30 at n_assets=3, +119%; 5–15% near 30). "
+        "Severity scales with n_assets — read the n_assets metadata.",
         WarningCode.SPARSE_COMMON_FEW_EVENTS: "(COMMON, SPARSE, PANEL) broadcast dummy has "
         "MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_WARN "
         "(5..19); per-asset β estimable but cross-event averaging too thin "
@@ -137,16 +136,15 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     ``primary_p``'s ``dof = N - 1``. Callers (``suggest_config``,
     ``_compute_common_panel``) therefore pre-filter before calling.
 
-    Tiers are mutually exclusive — SMALL is strictly more severe than
-    BORDERLINE — so callers can membership-check the more severe code
-    without an else branch. Returns ``None`` at ``n_assets ≥
-    MIN_ASSETS_WARN`` (clean) or ``n_assets < 2`` (PANEL impossible
-    by upstream structure routing; defensive).
+    A single :attr:`WarningCode.CROSS_SECTION_N` flags the whole thin regime
+    (``2 ≤ n_assets < MIN_ASSETS_WARN``); how severe it is scales with
+    ``n_assets``, which callers carry in metadata rather than encoding into
+    separate tier members. Returns ``None`` at ``n_assets ≥ MIN_ASSETS_WARN``
+    (clean) or ``n_assets < 2`` (PANEL impossible by upstream structure
+    routing; defensive).
     """
-    from factrix._stats.constants import MIN_ASSETS, MIN_ASSETS_WARN
+    from factrix._stats.constants import MIN_ASSETS_WARN
 
-    if 2 <= n_assets < MIN_ASSETS:
-        return WarningCode.SMALL_CROSS_SECTION_N
-    if MIN_ASSETS <= n_assets < MIN_ASSETS_WARN:
-        return WarningCode.BORDERLINE_CROSS_SECTION_N
+    if 2 <= n_assets < MIN_ASSETS_WARN:
+        return WarningCode.CROSS_SECTION_N
     return None

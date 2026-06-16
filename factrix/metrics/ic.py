@@ -25,6 +25,7 @@ from factrix._axis import (
     FactorScope,
     InputShape,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats.constants import MIN_PERIODS_HARD, MIN_PERIODS_WARN
@@ -36,7 +37,9 @@ from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
+    _enforce_min_floor,
     _short_circuit_output,
+    _warn_below_floor,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_ic
@@ -260,14 +263,9 @@ def ic_ir(
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic_ir")
     ic_vals = ic_df["ic"].drop_nulls()
     n = len(ic_vals)
-    min_periods = ic_ir.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and n < min_periods:
-        return _short_circuit_output(
-            "ic_ir",
-            "insufficient_ic_periods",
-            n_obs=n,
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(ic_ir, "ic_ir", n, "insufficient_ic_periods")
+    if sc is not None:
+        return sc
 
     mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
     std_ic = float(ic_vals.std())  # type: ignore[arg-type]
@@ -281,8 +279,21 @@ def ic_ir(
 
     ratio = mean_ic / std_ic
 
+    warning_codes: list[str] = []
+    warn_code = _warn_below_floor(
+        ic_ir,
+        n,
+        f"ic_ir: n_periods={n} below MIN_PERIODS_WARN={MIN_PERIODS_WARN}; "
+        f"the IC information ratio on a short series is unstable. value is "
+        f"returned but read it cautiously.",
+        WarningCode.UNRELIABLE_SE_SHORT_PERIODS,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
+
     return MetricResult(
         value=ratio,
+        warning_codes=tuple(warning_codes),
         metadata={
             "mean_ic": mean_ic,
             "std_ic": std_ic,

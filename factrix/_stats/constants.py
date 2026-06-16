@@ -15,19 +15,13 @@ MIN_PERIODS_HARD: int = 20
 # tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_PERIODS`.
 MIN_PERIODS_WARN: int = 30
 
-# ``n_assets < MIN_ASSETS`` → :attr:`factrix._codes.WarningCode.SMALL_CROSS_SECTION_N`
+# ``n_assets < MIN_ASSETS_WARN`` → :attr:`factrix._codes.WarningCode.CROSS_SECTION_N`
 # from PANEL ``common_continuous`` and from ``suggest_config``. The cross-asset
-# t-test on E[β] has df = n_assets - 1; below 10 the critical t inflates
-# severely (n_assets=3 → t_crit≈4.30 vs asymptotic 1.96). The axis intentionally
-# never raises — N=2..9 is well-defined statistics, only weak.
-# Naming deliberately omits ``_HARD``: the n_assets axis only warns, so reusing
-# the n_periods ``_HARD`` (which means "raise") would be misleading.
-MIN_ASSETS: int = 10
-
-# ``MIN_ASSETS <= n_assets < MIN_ASSETS_WARN`` →
-# :attr:`factrix._codes.WarningCode.BORDERLINE_CROSS_SECTION_N`. Mirrors
-# ``MIN_PERIODS_WARN`` semantically: residual t_crit inflation 5–15%
-# (n_assets=10 → +15%, n_assets=20 → +7%, n_assets=30 → +5%).
+# t-test on E[β] has df = n_assets - 1; as n_assets shrinks the critical t
+# inflates (n_assets=3 → t_crit≈4.30 vs asymptotic 1.96; ~+15% at 10, ~+5% at
+# 30). The axis intentionally never raises — N≥2 is well-defined statistics,
+# only weak — so a single warn floor (no ``_HARD``) flags the whole thin
+# regime; severity is read from the ``n_assets`` metadata, not encoded in tiers.
 MIN_ASSETS_WARN: int = 30
 
 

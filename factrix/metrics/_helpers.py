@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -80,10 +81,9 @@ def _spread_significance(
 
     The switch fires exactly when :func:`cross_section_tier` flags the
     cross-section (``n_assets < MIN_ASSETS_WARN``), so the returned
-    ``warning_codes`` carry that tier code (``SMALL_`` /
-    ``BORDERLINE_CROSS_SECTION_N``). This surfaces the method change as a
-    :class:`Warning` on the result rather than leaving it buried in
-    metadata — the same two-tier convention the sample guards use.
+    ``warning_codes`` carry the single ``CROSS_SECTION_N`` code. This
+    surfaces the method change as a :class:`Warning` on the result rather
+    than leaving it buried in metadata; severity is read from ``n_assets``.
     """
     n = len(spread)
     mean = float(np.mean(spread))
@@ -185,6 +185,72 @@ def _short_circuit_output(
         stat=None,
         metadata=metadata,
     )
+
+
+def _enforce_min_floor(
+    metric: Any,
+    name: str,
+    n: int,
+    reason: str,
+    *,
+    axis: str = "periods",
+    descriptive: bool = False,
+    **extra: object,
+) -> MetricResult | None:
+    """Short-circuit when ``n`` falls below the metric's declared ``min_<axis>``.
+
+    Single owner for the "read declared floor → compare → short-circuit"
+    step that was hand-copied across the metric bodies. Each metric still
+    computes its own ``n`` (post-sampling / post-drop-nulls / post-aggregation
+    counts are metric-specific) and passes it in; this helper holds only the
+    comparison and the canonical :func:`_short_circuit_output` call.
+
+    ``metric`` is typed ``Any`` so the ``@metric``-decorator-attached
+    ``sample_threshold`` is reachable without a per-call
+    ``# type: ignore[attr-defined]`` (the decorator types each metric as its
+    wrapped function, which has no such attribute).
+
+    Returns the short-circuit ``MetricResult`` to propagate, or ``None`` when
+    the sample clears the floor (axis ungated → always ``None``). ``descriptive``
+    and any extra keyword metadata are forwarded to
+    :func:`_short_circuit_output`.
+    """
+    floor = getattr(metric.sample_threshold, f"min_{axis}")
+    if floor is not None and n < floor:
+        return _short_circuit_output(
+            name,
+            reason,
+            n_obs=n,
+            min_required=floor,
+            descriptive=descriptive,
+            **extra,
+        )
+    return None
+
+
+def _warn_below_floor(
+    metric: Any,
+    n: int,
+    message: str,
+    code: WarningCode,
+    *,
+    axis: str = "periods",
+) -> str | None:
+    """Flag the degraded tier when ``n`` falls below the declared ``warn_<axis>``.
+
+    Warn-tier companion to :func:`_enforce_min_floor`: the sample clears the
+    ``min`` floor (a result is still returned) but sits below ``warn``, so the
+    metric runs with a documented bias. Reads ``warn_<axis>`` via an
+    ``Any``-typed ``metric`` (no per-call ``# type: ignore[attr-defined]``);
+    when the floor is breached it emits ``message`` as a ``UserWarning`` and
+    returns ``code.value`` for the caller to fold into the result's
+    ``warning_codes``. Returns ``None`` when the warn floor is clear or ungated.
+    """
+    warn = getattr(metric.sample_threshold, f"warn_{axis}")
+    if warn is not None and n < warn:
+        warnings.warn(message, UserWarning, stacklevel=3)
+        return code.value
+    return None
 
 
 def _pick_event_return_col(df: pl.DataFrame) -> str:

@@ -14,8 +14,6 @@ Notes:
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import polars as pl
 
@@ -26,7 +24,7 @@ from factrix._axis import (
     FactorScope,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
@@ -39,8 +37,10 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
+    _enforce_min_floor,
     _sample_non_overlapping,
     _short_circuit_output,
+    _warn_below_floor,
 )
 
 __all__ = [
@@ -53,6 +53,10 @@ __all__ = [
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
+    sample_threshold=SampleThreshold(
+        min_periods=MIN_PORTFOLIO_PERIODS_HARD,
+        warn_periods=MIN_PORTFOLIO_PERIODS_WARN,
+    ),
 )
 def top_concentration(
     df: pl.DataFrame,
@@ -163,27 +167,29 @@ def top_concentration(
     )
 
     n_periods_hhi = len(hhi_per_date)
-    if n_periods_hhi < MIN_PORTFOLIO_PERIODS_HARD:
-        return _short_circuit_output(
-            "top_concentration",
-            "insufficient_portfolio_periods",
-            n_obs=n_periods_hhi,
-            min_required=MIN_PORTFOLIO_PERIODS_HARD,
-            tie_ratio=tie_ratio,
-        )
+    sc = _enforce_min_floor(
+        top_concentration,
+        "top_concentration",
+        n_periods_hhi,
+        "insufficient_portfolio_periods",
+        tie_ratio=tie_ratio,
+    )
+    if sc is not None:
+        return sc
 
     warning_codes: list[str] = []
-    if n_periods_hhi < MIN_PORTFOLIO_PERIODS_WARN:
-        warning_codes.append(WarningCode.BORDERLINE_PORTFOLIO_PERIODS.value)
-        warnings.warn(
-            f"top_concentration: n_periods={n_periods_hhi} below "
-            f"MIN_PORTFOLIO_PERIODS_WARN={MIN_PORTFOLIO_PERIODS_WARN}; "
-            f"the one-sided t-test on the per-date diversification ratio is "
-            f"returned but df=n-1 inflates t_crit relative to the asymptotic "
-            f"cutoff. Read borderline p-values cautiously.",
-            UserWarning,
-            stacklevel=2,
-        )
+    warn_code = _warn_below_floor(
+        top_concentration,
+        n_periods_hhi,
+        f"top_concentration: n_periods={n_periods_hhi} below "
+        f"MIN_PORTFOLIO_PERIODS_WARN={MIN_PORTFOLIO_PERIODS_WARN}; "
+        f"the one-sided t-test on the per-date diversification ratio is "
+        f"returned but df=n-1 inflates t_crit relative to the asymptotic "
+        f"cutoff. Read borderline p-values cautiously.",
+        WarningCode.BORDERLINE_PORTFOLIO_PERIODS,
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
 
     eff_n_arr = hhi_per_date["eff_n"].to_numpy()
     n_top_arr = hhi_per_date["n_top"].to_numpy()

@@ -373,8 +373,7 @@ All exceptions inherit from `FactrixError`:
 | `event_window_overlap` | Adjacent events sit within `forward_periods`; AR windows overlap. |
 | `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
 | `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
-| `small_cross_section_n` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS (10)`; df too low. |
-| `borderline_cross_section_n` | PANEL cross-asset t-test with `MIN_ASSETS ≤ n_assets < MIN_ASSETS_WARN` (10..29); residual t_crit inflation. |
+| `cross_section_n` | PANEL cross-asset t-test with `n_assets < MIN_ASSETS_WARN` (30); df=n_assets-1 inflates t_crit; severity in the n_assets metadata. |
 | `sparse_common_few_events` | broadcast dummy has 5..19 events; too thin for asymptotic t. |
 | `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; magnitude-weighted. |
 | `few_events` | event dates < 29; t-stat power is thin. |

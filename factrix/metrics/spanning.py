@@ -40,7 +40,7 @@ from factrix._ols import ols_alpha as _ols_alpha
 from factrix._results import MetricResult
 from factrix._stats import _p_value_from_t
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
 from factrix.metrics.quantile import compute_spread_series
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -210,14 +210,14 @@ def spanning_alpha(
         base_arrays = {}
         base_matrix = np.empty((len(candidate_arr), 0))
 
-    min_periods = spanning_alpha.sample_threshold.min_periods  # type: ignore[attr-defined]
-    if min_periods is not None and len(candidate_arr) < min_periods:
-        return _short_circuit_output(
-            "spanning_alpha",
-            "insufficient_spread_observations",
-            n_obs=len(candidate_arr),
-            min_required=min_periods,
-        )
+    sc = _enforce_min_floor(
+        spanning_alpha,
+        "spanning_alpha",
+        len(candidate_arr),
+        "insufficient_spread_observations",
+    )
+    if sc is not None:
+        return sc
 
     ols = _ols_alpha(candidate_arr, base_matrix)
 
