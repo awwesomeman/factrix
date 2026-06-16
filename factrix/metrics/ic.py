@@ -39,6 +39,7 @@ from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _enforce_min_floor,
     _short_circuit_output,
+    _surface_drop_stats,
     _warn_below_floor,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
@@ -190,18 +191,22 @@ def ic(
         )
 
     mean_ic = float(ic_vals.mean())  # type: ignore[arg-type]
+    metadata: dict[str, object] = {
+        "n_periods": n,
+        "forward_periods": forward_periods,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "method": inference.summary,
+        "tie_ratio": median_tie,
+    }
+    warning_codes: list[str] = []
+    _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
     return MetricResult(
         p_value=result.p_value,
         value=mean_ic,
         stat=result.stat,
-        metadata={
-            "n_periods": n,
-            "forward_periods": forward_periods,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "method": inference.summary,
-            "tie_ratio": median_tie,
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -291,13 +296,15 @@ def ic_ir(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
+    metadata: dict[str, object] = {
+        "mean_ic": mean_ic,
+        "std_ic": std_ic,
+        "n_periods": n,
+        "tie_ratio": median_tie,
+    }
+    _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
     return MetricResult(
         value=ratio,
         warning_codes=tuple(warning_codes),
-        metadata={
-            "mean_ic": mean_ic,
-            "std_ic": std_ic,
-            "n_periods": n,
-            "tie_ratio": median_tie,
-        },
+        metadata=metadata,
     )

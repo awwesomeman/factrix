@@ -16,6 +16,7 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._types import MIN_ASSETS_PER_DATE_IC
 from factrix.metrics._decorators import metric
+from factrix.metrics._helpers import _attach_drop_stats
 
 
 @metric(
@@ -47,9 +48,11 @@ def compute_ic(
 
     Returns:
         Dict mapping each factor name to a DataFrame with columns
-        ``date, ic, tie_ratio`` sorted by date. Dates with fewer than
-        ``MIN_ASSETS_PER_DATE_IC`` assets are dropped. ``tie_ratio`` is
-        the per-date factor tie density
+        ``date, ic, tie_ratio`` sorted by date, plus an internal
+        ``_drop_stats`` diagnostic struct column. Dates with fewer than
+        ``MIN_ASSETS_PER_DATE_IC`` assets are dropped; ``_drop_stats``
+        records how many were dropped (the aggregate drop-rate schema).
+        ``tie_ratio`` is the per-date factor tie density
         $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
     """
     cols = list(factor_cols)
@@ -68,21 +71,26 @@ def compute_ic(
         agg_exprs.append(pl.corr(f"_rank__{f}", "_rank_return").alias(f"_ic__{f}"))
         agg_exprs.append((1.0 - pl.col(f).n_unique() / pl.len()).alias(f"_tie__{f}"))
 
-    wide = (
-        df.lazy()
-        .with_columns(rank_exprs)
-        .group_by("date")
-        .agg(agg_exprs)
-        .filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
-        .sort("date")
-        .collect()
-    )
+    # Collect the per-date frame *before* the cross-section filter so the
+    # pre-drop date count is observable; the filter is shared across factors
+    # (``n`` is per-date, not per-factor), so the drop stats are identical
+    # for every factor.
+    grouped = (
+        df.lazy().with_columns(rank_exprs).group_by("date").agg(agg_exprs).sort("date")
+    ).collect()
+    n_periods_in = grouped.height
+    wide = grouped.filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
+    drop_reason = f"n_assets below MIN_ASSETS_PER_DATE_IC ({MIN_ASSETS_PER_DATE_IC})"
 
     return {
-        f: wide.select(
-            pl.col("date"),
-            pl.col(f"_ic__{f}").alias("ic"),
-            pl.col(f"_tie__{f}").alias("tie_ratio"),
+        f: _attach_drop_stats(
+            wide.select(
+                pl.col("date"),
+                pl.col(f"_ic__{f}").alias("ic"),
+                pl.col(f"_tie__{f}").alias("tie_ratio"),
+            ),
+            n_periods_in=n_periods_in,
+            drop_reason=drop_reason,
         )
         for f in cols
     }

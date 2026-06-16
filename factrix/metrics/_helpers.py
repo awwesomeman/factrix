@@ -50,6 +50,17 @@ from factrix._types import DDOF, EPSILON
 # 0.3 the sorting-artifact noise from ordinal tie-breaking is negligible).
 TIE_RATIO_WARN_THRESHOLD = 0.3
 
+# Aggregate share of dates a PANEL→SERIES primitive may silently drop at its
+# cross-sectional filter before a metric flags it. Named after the existing
+# ``TIE_RATIO_WARN_THRESHOLD`` rate-threshold convention. 0.05 is a soft floor:
+# routine end-of-sample thinning sits well below it, while the 20-year-panel /
+# 90%-dropped pathology the warning targets is far above.
+DROP_RATE_WARN_THRESHOLD = 0.05
+
+# Internal diagnostic column a PANEL→SERIES primitive attaches to each per-factor
+# frame, carrying the canonical drop-stat struct from its ``.filter(...)`` step.
+_DROP_STATS_COL = "_drop_stats"
+
 # Fixed bootstrap seed for the small-cross-section significance path.
 # A spread metric's headline p must be reproducible run-to-run, so the
 # block-bootstrap branch draws from a fixed seed rather than system
@@ -492,6 +503,111 @@ def _warn_high_tie_ratio(
         UserWarning,
         stacklevel=3,
     )
+
+
+# Canonical drop-stat schema keys. Both PANEL→SERIES drop sites and the
+# consumers that surface them share these exact five names — no per-metric
+# ad-hoc keys. The ``_periods`` token aligns with the sample-dimension naming
+# grammar (n_periods / min_periods).
+DROP_STAT_KEYS: tuple[str, ...] = (
+    "n_periods_in",
+    "n_periods_out",
+    "dropped_periods",
+    "drop_rate",
+    "drop_reason",
+)
+
+
+def _attach_drop_stats(
+    frame: pl.DataFrame,
+    *,
+    n_periods_in: int,
+    drop_reason: str,
+) -> pl.DataFrame:
+    """Attach the canonical drop-stat struct to a post-filter per-factor frame.
+
+    The producing primitive holds the pre-filter date count (``n_periods_in``)
+    and the predicate (``drop_reason``); ``n_periods_out`` is the surviving row
+    count (``frame.height``). The five stats are broadcast as a single
+    ``_drop_stats`` struct column so the diagnostic rides the existing
+    ``dict[str, pl.DataFrame]`` contract (cf. the per-date ``tie_ratio`` column).
+    A consumer reads row 0 via :func:`_read_drop_stats`; a fully-dropped
+    (0-row) frame carries an empty column and is never read because the
+    consumer short-circuits first.
+    """
+    n_periods_out = frame.height
+    dropped = n_periods_in - n_periods_out
+    drop_rate = dropped / n_periods_in if n_periods_in > 0 else 0.0
+    stats = pl.struct(
+        n_periods_in=pl.lit(n_periods_in, dtype=pl.Int64),
+        n_periods_out=pl.lit(n_periods_out, dtype=pl.Int64),
+        dropped_periods=pl.lit(dropped, dtype=pl.Int64),
+        drop_rate=pl.lit(drop_rate, dtype=pl.Float64),
+        drop_reason=pl.lit(drop_reason, dtype=pl.String),
+    ).alias(_DROP_STATS_COL)
+    return frame.with_columns(stats)
+
+
+def _read_drop_stats(frame: pl.DataFrame) -> dict[str, Any] | None:
+    """Return the five drop-stat values from row 0, or ``None`` if unavailable.
+
+    ``None`` when the primitive attached no ``_drop_stats`` column (e.g. a
+    hand-built series) or the frame has no surviving rows. Consumers merge the
+    returned dict straight into ``MetricResult.metadata``.
+    """
+    if _DROP_STATS_COL not in frame.columns or frame.is_empty():
+        return None
+    return frame[_DROP_STATS_COL][0]
+
+
+def _warn_if_high_drop_rate(stats: dict[str, Any], metric_name: str) -> str | None:
+    """Emit one aggregate ``UserWarning`` when the drop rate clears the floor.
+
+    Returns :attr:`WarningCode.EXCESSIVE_PERIOD_DROPS` (as a string) for the
+    caller to append to ``warning_codes`` so the DAG's result-assembly boundary
+    also records a structured ``Warning`` — the dual-channel pattern shared with
+    ``_warn_below_floor``. Returns ``None`` (no warning) when ``drop_rate`` is at
+    or below :data:`DROP_RATE_WARN_THRESHOLD`. Uses ``warnings.warn`` so the
+    advisory surfaces in notebooks; the default filter dedupes sweep loops.
+    """
+    drop_rate = float(stats["drop_rate"])
+    if drop_rate <= DROP_RATE_WARN_THRESHOLD:
+        return None
+    warnings.warn(
+        f"{metric_name}: {drop_rate:.0%} of periods dropped "
+        f"({stats['dropped_periods']}/{stats['n_periods_in']}) — "
+        f"{stats['drop_reason']}. The metric was computed on the surviving "
+        f"{stats['n_periods_out']} periods; read it against that shortened sample.",
+        UserWarning,
+        stacklevel=3,
+    )
+    return WarningCode.EXCESSIVE_PERIOD_DROPS.value
+
+
+def _surface_drop_stats(
+    frame: pl.DataFrame,
+    metric_name: str,
+    metadata: dict[str, Any],
+    warning_codes: list[str],
+) -> None:
+    """Copy an upstream primitive's drop-stat schema into a consumer's result.
+
+    Single call-site shared by every PANEL→SERIES consumer: reads the five
+    drop-stat keys off *frame*, merges them into *metadata*, and (when the
+    drop rate clears :data:`DROP_RATE_WARN_THRESHOLD`) emits one aggregate
+    ``UserWarning`` and appends :attr:`WarningCode.EXCESSIVE_PERIOD_DROPS` to
+    *warning_codes*. No-op when *frame* carries no drop stats (hand-built
+    series) or has no surviving rows. Call only on the success path — a
+    consumer that short-circuits first defers to its own short-circuit reason,
+    so the drop warning never double-fires.
+    """
+    stats = _read_drop_stats(frame)
+    if stats is None:
+        return
+    metadata.update(stats)
+    code = _warn_if_high_drop_rate(stats, metric_name)
+    if code is not None:
+        warning_codes.append(code)
 
 
 def _is_sparse_magnitude_weighted(

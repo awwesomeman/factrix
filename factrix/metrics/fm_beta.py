@@ -49,6 +49,7 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _short_circuit_output,
+    _surface_drop_stats,
     _warn_below_floor,
 )
 from factrix.metrics._metric_capabilities import per_date_series_rename
@@ -291,6 +292,7 @@ def fm_beta(
             p_final = p_shanken
             t = t_shanken
 
+    _surface_drop_stats(beta_df, "fm_beta", metadata, warning_codes)
     return MetricResult(
         p_value=p_final,
         value=mean_beta,
@@ -784,10 +786,14 @@ def beta_sign_consistency(
     else:
         consistent = float(np.mean(betas < 0))
 
+    metadata: dict[str, object] = {
+        "expected_sign": expected_sign,
+        "n_periods": n,
+    }
+    warning_codes: list[str] = []
+    _surface_drop_stats(beta_df, "beta_sign_consistency", metadata, warning_codes)
     return MetricResult(
         value=consistent,
-        metadata={
-            "expected_sign": expected_sign,
-            "n_periods": n,
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
