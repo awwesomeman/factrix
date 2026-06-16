@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
+from typing import Any
 
 import polars as pl
 
@@ -99,12 +100,23 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
+def _ic_sample_threshold(self: Any) -> SampleThreshold:
+    """Dynamic periods floor for ``ic``: the inference method's minimum input
+    length, which scales with ``forward_periods`` (non-overlapping stride) or
+    is a fixed HAC bound. Delegates to the same ``min_input_periods`` the
+    in-body short-circuit reads, so the pre-flight and run-time floors agree.
+    """
+    return SampleThreshold(
+        min_periods=self.inference.min_input_periods(self.forward_periods)
+    )
+
+
 @metric(
     cell=_IC_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
-    sample_threshold=SampleThreshold(),
+    sample_threshold_for=_ic_sample_threshold,
 )
 def ic(
     ic_df: pl.DataFrame,
@@ -113,7 +125,9 @@ def ic(
 ) -> MetricResult:
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the forward_periods parameter.
+    The periods floor is dynamic — the minimum input length scales with the
+    forward_periods parameter and the inference method — so it is declared via
+    the sample_threshold_for hook rather than a static sample_threshold.
 
     Args:
         ic_df: Output of ``compute_ic()``.

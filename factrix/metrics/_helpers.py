@@ -225,6 +225,12 @@ def _enforce_min_floor(
     the sample clears the floor (axis ungated → always ``None``). ``descriptive``
     and any extra keyword metadata are forwarded to
     :func:`_short_circuit_output`.
+
+    Reads the metric's *static* ``sample_threshold`` only; it does not resolve a
+    dynamic ``sample_threshold_for`` hook (it holds the metric class, not a
+    configured instance, so it cannot know the run-time params the dynamic floor
+    depends on). A metric whose floor is dynamic enforces it in its own body —
+    delegating to the same source the hook reads — rather than through here.
     """
     floor = getattr(metric.sample_threshold, f"min_{axis}")
     if floor is not None and n < floor:
@@ -256,6 +262,10 @@ def _warn_below_floor(
     when the floor is breached it emits ``message`` as a ``UserWarning`` and
     returns ``code.value`` for the caller to fold into the result's
     ``warning_codes``. Returns ``None`` when the warn floor is clear or ungated.
+
+    Like :func:`_enforce_min_floor`, reads the static ``sample_threshold`` only;
+    a dynamic ``sample_threshold_for`` hook is not resolved here, so dynamic-floor
+    metrics warn in-body.
     """
     warn = getattr(metric.sample_threshold, f"warn_{axis}")
     if warn is not None and n < warn:

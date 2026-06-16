@@ -28,6 +28,7 @@ def metric(
     requires: dict[str, Any] | None = None,
     batchable: bool = False,
     sample_threshold: SampleThreshold | None = None,
+    sample_threshold_for: Callable[[Any], SampleThreshold] | None = None,
 ) -> Callable[[_F], _F]:
     """Decorator to define a Metric class from a function definition.
 
@@ -80,6 +81,10 @@ def metric(
             "requires": requires or {},
             "batchable": batchable,
             "sample_threshold": sample_threshold or SampleThreshold(),
+            # Plain function (not staticmethod) so it binds ``self`` — the hook
+            # reads the instance's configured param fields. ``None`` falls back
+            # to the inherited static ``sample_threshold``.
+            "sample_threshold_for": sample_threshold_for,
             "_impl": fn,
             "_first_param_name": first_param_name,
             "_param_names": tuple(f[0] for f in fields),
