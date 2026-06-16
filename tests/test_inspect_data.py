@@ -177,10 +177,10 @@ class TestSampleThresholdGate:
 
     def test_metric_without_sample_threshold_only_cell_checked(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=15))
-        ic = _by_name(info, "ic")
-        # ic has empty sample_threshold declared (only cell match); cell matches, so usable
-        assert ic.usable is True
-        assert ic.warnings == []
+        turnover = _by_name(info, "turnover")
+        # turnover declares no sample_threshold (cell match only); cell matches, so usable
+        assert turnover.usable is True
+        assert turnover.warnings == []
 
 
 class TestDeclaredPeriodsFloorsVisible:

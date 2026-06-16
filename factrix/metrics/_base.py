@@ -82,6 +82,16 @@ class MetricBase(metaclass=MetricMeta):
     requires: ClassVar[dict[str, Any]]
     batchable: ClassVar[bool]
     sample_threshold: ClassVar[SampleThreshold]
+    # Optional dynamic-threshold hook. When a metric's floor is a function of
+    # its own parameters (e.g. ``ic``'s floor scales with ``forward_periods``),
+    # the static ``sample_threshold`` cannot express it. Such a metric supplies
+    # ``sample_threshold_for`` instead — it reads the configured params off the
+    # instance and returns a concrete :class:`SampleThreshold`. ``spec()``
+    # resolves it against a default-constructed instance so ``inspect_data``
+    # sees a real floor; ``None`` means the static ``sample_threshold`` holds.
+    sample_threshold_for: ClassVar[Callable[[MetricBase], SampleThreshold] | None] = (
+        None
+    )
 
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
@@ -94,7 +104,20 @@ class MetricBase(metaclass=MetricMeta):
 
     @classmethod
     def spec(cls) -> MetricSpec:
-        """Dynamically build and return the MetricSpec for this metric."""
+        """Dynamically build and return the MetricSpec for this metric.
+
+        When the metric declares a dynamic ``sample_threshold_for`` hook, the
+        floor is resolved here against a default-constructed instance (its
+        params take their declared defaults) so the spec carries a concrete
+        :class:`SampleThreshold` for ``inspect_data`` rather than the empty
+        static placeholder. Static metrics keep ``cls.sample_threshold``.
+        """
+        threshold = cls.sample_threshold
+        hook = cls.sample_threshold_for
+        if hook is not None:
+            # Call the unbound hook with a default-built instance as ``self``;
+            # its configured param fields take their declared defaults.
+            threshold = hook(cls())
         return MetricSpec(
             name=cls.__name__,
             cell=cls.cell,
@@ -104,7 +127,7 @@ class MetricBase(metaclass=MetricMeta):
             role=cls.role,
             requires=cls.requires,
             batchable=cls.batchable,
-            sample_threshold=cls.sample_threshold,
+            sample_threshold=threshold,
         )
 
     def _params(self) -> dict[str, Any]:
