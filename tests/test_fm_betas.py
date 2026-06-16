@@ -39,7 +39,9 @@ class TestComputeFMBetas:
 
     def test_output_schema(self, noisy_panel):
         df = compute_fm_betas(noisy_panel)["factor"]
-        assert df.columns == ["date", "beta"]
+        # ``_drop_stats`` is an internal diagnostic struct column appended by
+        # the primitive; the public series columns are ``date, beta``.
+        assert df.columns == ["date", "beta", "_drop_stats"]
         assert df["date"].is_sorted()
 
     def test_closed_form_value(self, tiny_panel):

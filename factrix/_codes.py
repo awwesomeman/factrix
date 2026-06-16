@@ -76,6 +76,15 @@ class WarningCode(StrEnum):
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
 
+    # Fired by a metric whose upstream PANEL→SERIES primitive silently dropped
+    # a large share of dates at its cross-sectional filter (e.g. compute_ic
+    # dropping dates with n_assets below the per-date floor). A single
+    # aggregate flag per metric replaces per-date noise; the exact
+    # drop-stat schema (n_periods_in / n_periods_out / dropped_periods /
+    # drop_rate / drop_reason) rides in the MetricResult.metadata. Fires only
+    # when drop_rate exceeds DROP_RATE_WARN_THRESHOLD.
+    EXCESSIVE_PERIOD_DROPS = "excessive_period_drops"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]
@@ -120,6 +129,11 @@ _WARNING_DESCRIPTIONS.update(
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
+        WarningCode.EXCESSIVE_PERIOD_DROPS: "An upstream PANEL→SERIES primitive dropped more than "
+        "DROP_RATE_WARN_THRESHOLD of dates at its cross-sectional filter; the "
+        "metric was computed on a shortened sample. Exact counts are in "
+        "MetricResult.metadata (n_periods_in / n_periods_out / dropped_periods / "
+        "drop_rate / drop_reason).",
     }
 )
 

@@ -44,7 +44,9 @@ class TestComputeIC:
 
     def test_output_schema(self, noisy_panel):
         result = compute_ic(noisy_panel)["factor"]
-        assert result.columns == ["date", "ic", "tie_ratio"]
+        # ``_drop_stats`` is an internal diagnostic struct column appended by
+        # the primitive; the public series columns are ``date, ic, tie_ratio``.
+        assert result.columns == ["date", "ic", "tie_ratio", "_drop_stats"]
         assert result["date"].dtype == pl.Datetime("ms")
 
     def test_tie_ratio_zero_on_unique_factor(self, noisy_panel):
