@@ -43,6 +43,7 @@ from factrix.metrics._helpers import (
     _sample_non_overlapping,
     _short_circuit_output,
     _spread_significance,
+    _surface_null_drop,
 )
 
 __all__ = [
@@ -195,21 +196,31 @@ def k_spread(
     mean_top = float(np.mean(series["top_return"].drop_nulls().to_numpy()))
     mean_bottom = float(np.mean(series["bottom_return"].drop_nulls().to_numpy()))
 
+    metadata: dict[str, object] = {
+        "n_periods": n,
+        "k": k,
+        "stat_type": "t",
+        "h0": "mu=0",
+        "method": sig_method,
+        "cross_sectional_dispersion": mean_dispersion,
+        "top_return": mean_top,
+        "bottom_return": mean_bottom,
+        **sig_extra,
+    }
+    warning_codes = list(sig_codes)
+    _surface_null_drop(
+        n_periods_in=series.height,
+        n_periods_out=n,
+        drop_reason="null spread observations in the series",
+        metric_name="k_spread",
+        metadata=metadata,
+        warning_codes=warning_codes,
+    )
     return MetricResult(
         value=mean_spread,
         p_value=p,
         n_obs=n,
         stat=t,
-        metadata={
-            "n_periods": n,
-            "k": k,
-            "stat_type": "t",
-            "h0": "mu=0",
-            "method": sig_method,
-            "cross_sectional_dispersion": mean_dispersion,
-            "top_return": mean_top,
-            "bottom_return": mean_bottom,
-            **sig_extra,
-        },
-        warning_codes=sig_codes,
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )

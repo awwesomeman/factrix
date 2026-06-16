@@ -30,7 +30,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_OOS_PERIODS
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor
+from factrix.metrics._helpers import _enforce_min_floor, _surface_null_drop
 from factrix.metrics.ic import compute_ic
 
 __all__ = [
@@ -156,15 +156,26 @@ def oos_decay(
     else:
         status = "VETOED"
 
+    metadata: dict[str, object] = {
+        "sign_flipped": sign_flipped,
+        "status": status,
+        "is_ratio": is_ratio,
+        "mean_is": mean_is,
+        "mean_oos": mean_oos,
+        "survival_threshold": survival_threshold,
+    }
+    warning_codes: list[str] = []
+    _surface_null_drop(
+        n_periods_in=sorted_series.height,
+        n_periods_out=n,
+        drop_reason="null value observations in the series",
+        metric_name="oos_decay",
+        metadata=metadata,
+        warning_codes=warning_codes,
+    )
     return MetricResult(
         value=survival,
         stat=None,
-        metadata={
-            "sign_flipped": sign_flipped,
-            "status": status,
-            "is_ratio": is_ratio,
-            "mean_is": mean_is,
-            "mean_oos": mean_oos,
-            "survival_threshold": survival_threshold,
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
