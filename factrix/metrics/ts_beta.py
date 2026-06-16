@@ -37,7 +37,7 @@ from factrix._stats import (
 )
 from factrix._types import DDOF
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _enforce_min_floor
+from factrix.metrics._helpers import _enforce_min_floor, _surface_drop_stats
 from factrix.metrics._primitives import compute_ts_betas
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
@@ -156,18 +156,22 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     t = _calc_t_stat(mean_b, std_b, n)
     p = _p_value_from_t(t, n)
 
+    metadata: dict[str, object] = {
+        "stat_type": "t",
+        "h0": "mean(β)=0",
+        "method": "cross-sectional t-test on per-asset TS betas",
+        "n_assets": n,
+        "beta_std": std_b,
+        "median_beta": float(np.median(betas)),
+    }
+    warning_codes: list[str] = []
+    _surface_drop_stats(ts_betas_df, "ts_beta", metadata, warning_codes, axis="assets")
     return MetricResult(
         p_value=p,
         value=mean_b,
         stat=t,
-        metadata={
-            "stat_type": "t",
-            "h0": "mean(β)=0",
-            "method": "cross-sectional t-test on per-asset TS betas",
-            "n_assets": n,
-            "beta_std": std_b,
-            "median_beta": float(np.median(betas)),
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -235,14 +239,20 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     if sc is not None:
         return sc
 
+    metadata: dict[str, object] = {
+        "n_assets": n,
+        "median_r_squared": float(np.median(r2_vals)),
+        "min_r_squared": float(np.min(r2_vals)),
+        "max_r_squared": float(np.max(r2_vals)),
+    }
+    warning_codes: list[str] = []
+    _surface_drop_stats(
+        ts_betas_df, "mean_r_squared", metadata, warning_codes, axis="assets"
+    )
     return MetricResult(
         value=float(np.mean(r2_vals)),
-        metadata={
-            "n_assets": n,
-            "median_r_squared": float(np.median(r2_vals)),
-            "min_r_squared": float(np.min(r2_vals)),
-            "max_r_squared": float(np.max(r2_vals)),
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
 
 
@@ -425,10 +435,16 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     positive = float(np.mean(betas > 0))
     consistency = max(positive, 1.0 - positive)
 
+    metadata: dict[str, object] = {
+        "n_assets": n,
+        "fraction_positive": positive,
+    }
+    warning_codes: list[str] = []
+    _surface_drop_stats(
+        ts_betas_df, "ts_beta_sign_consistency", metadata, warning_codes, axis="assets"
+    )
     return MetricResult(
         value=consistency,
-        metadata={
-            "n_assets": n,
-            "fraction_positive": positive,
-        },
+        metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
