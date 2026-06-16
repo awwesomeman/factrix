@@ -76,14 +76,21 @@ class WarningCode(StrEnum):
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
 
-    # Fired by a metric whose upstream PANEL→SERIES primitive silently dropped
-    # a large share of dates at its cross-sectional filter (e.g. compute_ic
-    # dropping dates with n_assets below the per-date floor). A single
-    # aggregate flag per metric replaces per-date noise; the exact
-    # drop-stat schema (n_periods_in / n_periods_out / dropped_periods /
-    # drop_rate / drop_reason) rides in the MetricResult.metadata. Fires only
-    # when drop_rate exceeds DROP_RATE_WARN_THRESHOLD.
+    # Per-axis silent-drop flags. A metric whose upstream primitive silently
+    # dropped a large share of its sample at a filter raises the code for the
+    # dropped axis: PERIOD_DROPS for the time axis (e.g. compute_ic dropping
+    # dates with n_assets below the per-date floor), ASSET_DROPS for the
+    # cross-section (e.g. compute_ts_betas dropping assets with insufficient
+    # history or zero factor variance). The code is dimension-specific by
+    # design — a reader resolves the dropped axis from the code alone, not by
+    # digging into metadata (the dimension-naming grammar shared with
+    # SampleThreshold and the n_<axis> sample-size constants). A single
+    # aggregate flag per metric replaces per-row noise; the exact drop-stat
+    # schema (n_<axis>_in / n_<axis>_out / dropped_<axis> / drop_rate /
+    # drop_reason) rides in MetricResult.metadata. Fires only when drop_rate
+    # exceeds DROP_RATE_WARN_THRESHOLD.
     EXCESSIVE_PERIOD_DROPS = "excessive_period_drops"
+    EXCESSIVE_ASSET_DROPS = "excessive_asset_drops"
 
     @property
     def description(self) -> str:
@@ -134,6 +141,12 @@ _WARNING_DESCRIPTIONS.update(
         "metric was computed on a shortened sample. Exact counts are in "
         "MetricResult.metadata (n_periods_in / n_periods_out / dropped_periods / "
         "drop_rate / drop_reason).",
+        WarningCode.EXCESSIVE_ASSET_DROPS: "An upstream primitive dropped more than "
+        "DROP_RATE_WARN_THRESHOLD of assets at its per-asset filter (e.g. "
+        "compute_ts_betas dropping assets with insufficient history or zero "
+        "factor variance); the cross-asset aggregate was computed on a shortened "
+        "sample. Exact counts are in MetricResult.metadata (n_assets_in / "
+        "n_assets_out / dropped_assets / drop_rate / drop_reason).",
     }
 )
 

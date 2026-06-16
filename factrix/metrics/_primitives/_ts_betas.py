@@ -16,10 +16,22 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
+from factrix.metrics._helpers import _attach_drop_stats
 
 # Minimum complete (factor, return) observations per asset to fit a
 # time-series slope. Mirrors the historical per-asset floor.
 MIN_TS_PERIODS: int = 20
+
+# One carrier label covering the three silent asset-axis reductions in
+# ``_ts_betas_one``: assets with no complete (factor, return) pairs vanish at
+# the valid-mask group-by; assets with fewer than MIN_TS_PERIODS complete pairs
+# are filtered; assets with zero factor time-variation yield a null slope that
+# is dropped. The cross-asset consumers aggregate over the survivors, so the
+# drop rate is measured against the raw universe.
+_TS_BETA_DROP_REASON = (
+    f"per-asset history below MIN_TS_PERIODS ({MIN_TS_PERIODS}), zero factor "
+    f"variation, or no complete (factor, return) pairs"
+)
 
 
 @metric(
@@ -64,9 +76,12 @@ def compute_ts_betas(
     Returns:
         Dict mapping each factor name to a DataFrame with columns
         ``asset_id, beta, alpha, t_stat, r_squared, n_obs`` sorted by
-        ``asset_id``. An asset is emitted only with at least
-        ``MIN_TS_PERIODS`` complete pairs and non-zero factor time-variation
-        (zero-variance assets have no identifiable slope and are dropped).
+        ``asset_id``, plus a broadcast ``_drop_stats`` carrier column on the
+        assets axis (see :func:`_attach_drop_stats`) so cross-asset consumers
+        can surface how much of the universe was silently dropped. An asset is
+        emitted only with at least ``MIN_TS_PERIODS`` complete pairs and
+        non-zero factor time-variation (zero-variance assets have no
+        identifiable slope and are dropped).
     """
     cols = list(factor_cols)
     if not cols:
@@ -76,6 +91,12 @@ def compute_ts_betas(
 
 
 def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.DataFrame:
+    # In-line asset count vs the raw universe, captured before the valid-mask
+    # filter so the carried drop rate reflects the silent reduction the
+    # cross-asset consumers see — including assets dropped for having no
+    # complete (factor, return) pairs at all.
+    n_assets_in = df["asset_id"].n_unique()
+
     # Restrict every moment to the pairwise-complete (factor, return) set so
     # cov and var share one sample (polars cov pairwise-drops; bare var would
     # not), matching a per-asset OLS on the complete observations.
@@ -114,7 +135,7 @@ def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.Data
     dof = n - 2
     se_beta = (ss_res / dof / s_xx).sqrt()
 
-    return (
+    result = (
         moments.with_columns(beta.alias("beta"))
         .with_columns(
             (pl.col("_ybar") - pl.col("beta") * pl.col("_xbar")).alias("alpha"),
@@ -138,4 +159,10 @@ def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.Data
         )
         .sort("asset_id")
         .collect()
+    )
+    return _attach_drop_stats(
+        result,
+        axis="assets",
+        n_in=n_assets_in,
+        drop_reason=_TS_BETA_DROP_REASON,
     )

@@ -505,37 +505,59 @@ def _warn_high_tie_ratio(
     )
 
 
-# Canonical drop-stat schema keys. Both PANEL→SERIES drop sites and the
-# consumers that surface them share these exact five names — no per-metric
-# ad-hoc keys. The ``_periods`` token aligns with the sample-dimension naming
-# grammar (n_periods / min_periods).
-DROP_STAT_KEYS: tuple[str, ...] = (
-    "n_periods_in",
-    "n_periods_out",
-    "dropped_periods",
-    "drop_rate",
-    "drop_reason",
-)
+# Per-axis WarningCode for the silent-drop flag. A drop along the time axis
+# raises EXCESSIVE_PERIOD_DROPS, one along the cross-section EXCESSIVE_ASSET_DROPS;
+# the code is dimension-specific so a reader resolves the dropped axis from the
+# code alone (the naming grammar shared with SampleThreshold / n_<axis>).
+_DROP_CODE_BY_AXIS: dict[str, WarningCode] = {
+    "periods": WarningCode.EXCESSIVE_PERIOD_DROPS,
+    "assets": WarningCode.EXCESSIVE_ASSET_DROPS,
+}
+
+
+def _drop_stat_keys(axis: str = "periods") -> tuple[str, ...]:
+    """Canonical drop-stat schema keys for one sample ``axis``.
+
+    Both the drop site and the consumer that surfaces it share these exact five
+    names — no per-metric ad-hoc keys. The three count keys carry the ``axis``
+    token (``n_periods_*`` / ``n_assets_*`` / ``dropped_<axis>``) to align with
+    the sample-dimension naming grammar (``n_<axis>`` / ``min_<axis>``); the rate
+    and reason are dimension-neutral.
+    """
+    return (
+        f"n_{axis}_in",
+        f"n_{axis}_out",
+        f"dropped_{axis}",
+        "drop_rate",
+        "drop_reason",
+    )
+
+
+# Periods-axis schema keys — the common case, derived from the axis-generic
+# source of truth above so the two never drift.
+DROP_STAT_KEYS: tuple[str, ...] = _drop_stat_keys("periods")
 
 
 def _make_drop_stats(
     *,
-    n_periods_in: int,
-    n_periods_out: int,
+    axis: str = "periods",
+    n_in: int,
+    n_out: int,
     drop_reason: str,
 ) -> dict[str, Any]:
-    """Build the canonical five-key drop-stat dict from in/out period counts.
+    """Build the canonical five-key drop-stat dict from in/out counts on ``axis``.
 
-    Single source of truth for the schema, shared by the PANEL→SERIES carrier
+    Single source of truth for the schema, shared by the carrier
     (:func:`_attach_drop_stats`) and the SERIES→SCALAR consumer null-drop
-    (:func:`_surface_null_drop`). ``drop_rate`` is 0.0 when nothing entered.
+    (:func:`_surface_null_drop`). The three count keys carry the ``axis`` token
+    (see :func:`_drop_stat_keys`). ``drop_rate`` is 0.0 when nothing entered.
     """
-    dropped = n_periods_in - n_periods_out
-    drop_rate = dropped / n_periods_in if n_periods_in > 0 else 0.0
+    dropped = n_in - n_out
+    drop_rate = dropped / n_in if n_in > 0 else 0.0
     return {
-        "n_periods_in": n_periods_in,
-        "n_periods_out": n_periods_out,
-        "dropped_periods": dropped,
+        f"n_{axis}_in": n_in,
+        f"n_{axis}_out": n_out,
+        f"dropped_{axis}": dropped,
         "drop_rate": drop_rate,
         "drop_reason": drop_reason,
     }
@@ -544,13 +566,14 @@ def _make_drop_stats(
 def _attach_drop_stats(
     frame: pl.DataFrame,
     *,
-    n_periods_in: int,
+    axis: str = "periods",
+    n_in: int,
     drop_reason: str,
 ) -> pl.DataFrame:
     """Attach the canonical drop-stat struct to a post-filter per-factor frame.
 
-    The producing primitive holds the pre-filter date count (``n_periods_in``)
-    and the predicate (``drop_reason``); ``n_periods_out`` is the surviving row
+    The producing primitive holds the pre-filter count on ``axis`` (``n_in``)
+    and the predicate (``drop_reason``); ``n_<axis>_out`` is the surviving row
     count (``frame.height``). The five stats are broadcast as a single
     ``_drop_stats`` struct column so the diagnostic rides the existing
     ``dict[str, pl.DataFrame]`` contract (cf. the per-date ``tie_ratio`` column).
@@ -559,17 +582,18 @@ def _attach_drop_stats(
     consumer short-circuits first.
     """
     stats = _make_drop_stats(
-        n_periods_in=n_periods_in,
-        n_periods_out=frame.height,
+        axis=axis,
+        n_in=n_in,
+        n_out=frame.height,
         drop_reason=drop_reason,
     )
     return frame.with_columns(
         pl.struct(
-            n_periods_in=pl.lit(stats["n_periods_in"], dtype=pl.Int64),
-            n_periods_out=pl.lit(stats["n_periods_out"], dtype=pl.Int64),
-            dropped_periods=pl.lit(stats["dropped_periods"], dtype=pl.Int64),
-            drop_rate=pl.lit(stats["drop_rate"], dtype=pl.Float64),
-            drop_reason=pl.lit(stats["drop_reason"], dtype=pl.String),
+            pl.lit(stats[f"n_{axis}_in"], dtype=pl.Int64).alias(f"n_{axis}_in"),
+            pl.lit(stats[f"n_{axis}_out"], dtype=pl.Int64).alias(f"n_{axis}_out"),
+            pl.lit(stats[f"dropped_{axis}"], dtype=pl.Int64).alias(f"dropped_{axis}"),
+            pl.lit(stats["drop_rate"], dtype=pl.Float64).alias("drop_rate"),
+            pl.lit(stats["drop_reason"], dtype=pl.String).alias("drop_reason"),
         ).alias(_DROP_STATS_COL)
     )
 
@@ -586,28 +610,32 @@ def _read_drop_stats(frame: pl.DataFrame) -> dict[str, Any] | None:
     return frame[_DROP_STATS_COL][0]
 
 
-def _warn_if_high_drop_rate(stats: dict[str, Any], metric_name: str) -> str | None:
+def _warn_if_high_drop_rate(
+    stats: dict[str, Any], metric_name: str, *, axis: str = "periods"
+) -> str | None:
     """Emit one aggregate ``UserWarning`` when the drop rate clears the floor.
 
-    Returns :attr:`WarningCode.EXCESSIVE_PERIOD_DROPS` (as a string) for the
-    caller to append to ``warning_codes`` so the DAG's result-assembly boundary
-    also records a structured ``Warning`` — the dual-channel pattern shared with
-    ``_warn_below_floor``. Returns ``None`` (no warning) when ``drop_rate`` is at
-    or below :data:`DROP_RATE_WARN_THRESHOLD`. Uses ``warnings.warn`` so the
-    advisory surfaces in notebooks; the default filter dedupes sweep loops.
+    Returns the axis-specific drop ``WarningCode`` (as a string — see
+    :data:`_DROP_CODE_BY_AXIS`) for the caller to append to ``warning_codes`` so
+    the DAG's result-assembly boundary also records a structured ``Warning`` —
+    the dual-channel pattern shared with ``_warn_below_floor``. Reads the three
+    count keys via the ``axis`` token (``n_<axis>_in`` etc.); the message names
+    the axis. Returns ``None`` (no warning) when ``drop_rate`` is at or below
+    :data:`DROP_RATE_WARN_THRESHOLD`. Uses ``warnings.warn`` so the advisory
+    surfaces in notebooks; the default filter dedupes sweep loops.
     """
     drop_rate = float(stats["drop_rate"])
     if drop_rate <= DROP_RATE_WARN_THRESHOLD:
         return None
     warnings.warn(
-        f"{metric_name}: {drop_rate:.0%} of periods dropped "
-        f"({stats['dropped_periods']}/{stats['n_periods_in']}) — "
+        f"{metric_name}: {drop_rate:.0%} of {axis} dropped "
+        f"({stats[f'dropped_{axis}']}/{stats[f'n_{axis}_in']}) — "
         f"{stats['drop_reason']}. The metric was computed on the surviving "
-        f"{stats['n_periods_out']} periods; read it against that shortened sample.",
+        f"{stats[f'n_{axis}_out']} {axis}; read it against that shortened sample.",
         UserWarning,
         stacklevel=3,
     )
-    return WarningCode.EXCESSIVE_PERIOD_DROPS.value
+    return _DROP_CODE_BY_AXIS[axis].value
 
 
 def _surface_drop_stats(
@@ -615,23 +643,27 @@ def _surface_drop_stats(
     metric_name: str,
     metadata: dict[str, Any],
     warning_codes: list[str],
+    *,
+    axis: str = "periods",
 ) -> None:
     """Copy an upstream primitive's drop-stat schema into a consumer's result.
 
-    Single call-site shared by every PANEL→SERIES consumer: reads the five
-    drop-stat keys off *frame*, merges them into *metadata*, and (when the
-    drop rate clears :data:`DROP_RATE_WARN_THRESHOLD`) emits one aggregate
-    ``UserWarning`` and appends :attr:`WarningCode.EXCESSIVE_PERIOD_DROPS` to
-    *warning_codes*. No-op when *frame* carries no drop stats (hand-built
-    series) or has no surviving rows. Call only on the success path — a
-    consumer that short-circuits first defers to its own short-circuit reason,
-    so the drop warning never double-fires.
+    Single call-site shared by every carrier consumer: reads the five drop-stat
+    keys off *frame*, merges them into *metadata*, and (when the drop rate clears
+    :data:`DROP_RATE_WARN_THRESHOLD`) emits one aggregate ``UserWarning`` and
+    appends the axis-specific drop ``WarningCode`` to *warning_codes*. The
+    consumer passes the *axis* its upstream primitive dropped along (``"periods"``
+    for ``compute_ic`` / ``compute_fm_betas``, ``"assets"`` for
+    ``compute_ts_betas``). No-op when *frame* carries no drop stats (hand-built
+    series) or has no surviving rows. Call only on the success path — a consumer
+    that short-circuits first defers to its own short-circuit reason, so the drop
+    warning never double-fires.
     """
     stats = _read_drop_stats(frame)
     if stats is None:
         return
     metadata.update(stats)
-    code = _warn_if_high_drop_rate(stats, metric_name)
+    code = _warn_if_high_drop_rate(stats, metric_name, axis=axis)
     if code is not None:
         warning_codes.append(code)
 
@@ -655,14 +687,20 @@ def _surface_null_drop(
     the five keys into *metadata* and, when ``drop_rate`` clears the threshold,
     emits one aggregate ``UserWarning`` and appends the code to *warning_codes*.
     Call only on the success path so a short-circuit defers to its own reason.
+
+    Scoped to the period axis: every current SERIES→SCALAR null-drop site is
+    time-indexed. The carrier path (:func:`_surface_drop_stats`) already carries
+    an ``axis`` for the cross-section; a future EVENT-axis null-drop would
+    generalise this signature then.
     """
     stats = _make_drop_stats(
-        n_periods_in=n_periods_in,
-        n_periods_out=n_periods_out,
+        axis="periods",
+        n_in=n_periods_in,
+        n_out=n_periods_out,
         drop_reason=drop_reason,
     )
     metadata.update(stats)
-    code = _warn_if_high_drop_rate(stats, metric_name)
+    code = _warn_if_high_drop_rate(stats, metric_name, axis="periods")
     if code is not None:
         warning_codes.append(code)
 

@@ -89,7 +89,7 @@ def compute_ic(
                 pl.col(f"_ic__{f}").alias("ic"),
                 pl.col(f"_tie__{f}").alias("tie_ratio"),
             ),
-            n_periods_in=n_periods_in,
+            n_in=n_periods_in,
             drop_reason=drop_reason,
         )
         for f in cols

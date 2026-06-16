@@ -113,7 +113,7 @@ def compute_fm_betas(
             .filter(pl.col("_cnt") >= MIN_FM_ASSETS)
             .drop_nulls("beta")
             .select("date", "beta"),
-            n_periods_in=n_periods_in,
+            n_in=n_periods_in,
             drop_reason=drop_reason,
         )
         for f in cols

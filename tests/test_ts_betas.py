@@ -85,7 +85,8 @@ class TestComputeTSBetas:
 
     def test_output_schema(self):
         df = compute_ts_betas(_common_factor_panel(6, 50, seed=1))["factor"]
-        assert df.columns == _OUT_COLS
+        # Analysis columns, plus the broadcast assets-axis drop-stat carrier.
+        assert df.columns == [*_OUT_COLS, "_drop_stats"]
         assert df["asset_id"].is_sorted()
         assert df.schema["n_obs"] == pl.Int64
 
