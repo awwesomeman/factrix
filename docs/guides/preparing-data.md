@@ -182,17 +182,6 @@ dispatch routes sparse signals to event-study procedures (`caar`,
 `ts_beta` on dummies). See [Concepts](../getting-started/concepts.md)
 for the contract.
 
-## Helpers not yet public
-
-`factrix.preprocess` currently re-exports only `compute_forward_return`.
-Submodule code under `factrix/preprocess/` carries normalization
-(`mad_winsorize`, `cross_sectional_zscore`), forward-return cleaning
-(`winsorize_forward_return`, `compute_abnormal_return`), and
-orthogonalization (`orthogonalize_factor`); publicization is tracked
-under [#323](https://github.com/awwesomeman/factrix/issues/323). Until
-then, treat the submodule paths as internal — they may be renamed or
-re-shaped before they land in `__all__`.
-
 ## See also
 
 - [Panel schema](../api/panel-schema.md) — column-level four-column contract and dtype rules.

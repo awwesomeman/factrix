@@ -53,11 +53,30 @@ def orthogonalize_factor(
             If None, uses all columns except ``date`` and ``asset_id``.
 
     Returns:
-        OrthogonalizeResult with:
-        - ``df``: factor_df with ``factor_col`` replaced by residual,
-          ``factor_pre_ortho`` preserving original value.
-        - ``mean_betas``: average beta per base factor across dates.
-        - ``mean_r_squared``: average R² across dates.
+        OrthogonalizeResult with: ``df`` (factor_df with ``factor_col``
+        replaced by the residual and ``factor_pre_ortho`` preserving the
+        original value), ``mean_betas`` (average beta per base factor
+        across dates), and ``mean_r_squared`` (average R² across dates).
+
+    Examples:
+        >>> import factrix as fx
+        >>> import polars as pl
+        >>> from factrix.preprocess import (
+        ...     cross_sectional_zscore,
+        ...     orthogonalize_factor,
+        ... )
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> factor_df = cross_sectional_zscore(raw).select(
+        ...     "date", "asset_id", pl.col("factor_zscore").alias("factor")
+        ... )
+        >>> base = raw.with_columns(
+        ...     pl.col("price").rank().over("date").alias("size")
+        ... ).select("date", "asset_id", "size")
+        >>> result = orthogonalize_factor(factor_df, base, base_cols=["size"])
+        >>> "factor_pre_ortho" in result.df.columns
+        True
+        >>> isinstance(result.mean_r_squared, float)
+        True
     """
     if base_cols is None:
         base_cols = [c for c in base_factors.columns if c not in ("date", "asset_id")]

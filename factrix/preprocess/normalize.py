@@ -39,6 +39,16 @@ def mad_winsorize(
 
     Returns:
         DataFrame with ``factor_col`` clipped in-place.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import mad_winsorize
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> clipped = mad_winsorize(raw, n_mad=3.0)
+        >>> clipped.columns == raw.columns
+        True
+        >>> clipped.height == raw.height
+        True
     """
     if n_mad <= 0:
         return df
@@ -63,6 +73,14 @@ def cross_sectional_zscore(
 
     Returns:
         DataFrame with ``factor_zscore`` column appended.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import cross_sectional_zscore
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> standardized = cross_sectional_zscore(raw)
+        >>> "factor_zscore" in standardized.columns
+        True
     """
     median_expr, mad_expr = _mad_expressions(factor_col)
 
