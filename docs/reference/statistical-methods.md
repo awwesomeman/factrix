@@ -119,6 +119,15 @@ the advantage of exact rather than asymptotic-Gaussian inference at
 the cost of a factor of `h` in effective sample size; users with long
 panels often prefer NW.
 
+When the non-overlapping effective sample (`n / forward_periods`) is
+thin, `ic` surfaces `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` on the
+returned result — the post-stride series is too short for a reliable
+`t`. Switching to `ic(inference=fx.inference.NEWEY_WEST)` keeps every
+observation and recovers test power in that regime. The guidance is
+one-directional: a thin non-overlapping sample is a reason to move to
+NW, but an ample sample is **not** a reason to move back — both methods
+are valid there and `ic` never changes the method for you.
+
 ### NW vs HH-1980 vs Hodrick-1992 — when to use which
 
 The three procedures all target overlap-induced SE distortion but at

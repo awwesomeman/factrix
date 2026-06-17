@@ -246,6 +246,54 @@ class TestICIR:
         assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
 
 
+class TestICInferenceWarningPropagation:
+    """``ic()`` must surface the inference method's own thin-sample warning
+    (``UNRELIABLE_SE_SHORT_PERIODS``) on the returned result — previously the
+    ``InferenceResult.warnings`` were consumed for the stat but never folded
+    into ``MetricResult.warning_codes``.
+    """
+
+    @staticmethod
+    def _ic_series(n: int) -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)],
+                "ic": [0.05 + 0.01 * (i % 3) for i in range(n)],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_thin_non_overlap_surfaces_warning(self):
+        from factrix._codes import WarningCode
+
+        # forward_periods=1 => n_sampled == n == 25: clears MIN_IC_PERIODS (10)
+        # so no short-circuit, but below MIN_PERIODS_WARN (30) so the
+        # non-overlapping inference flags UNRELIABLE_SE_SHORT_PERIODS.
+        result = ic(self._ic_series(25), forward_periods=1)
+        assert not math.isnan(result.value)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in result.warning_codes
+
+    def test_ample_sample_no_warning(self):
+        from factrix._codes import WarningCode
+
+        result = ic(self._ic_series(40), forward_periods=1)
+        assert not math.isnan(result.value)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in result.warning_codes
+
+    def test_boundary_at_warn_floor(self):
+        from factrix._codes import WarningCode
+
+        # n_sampled == MIN_PERIODS_WARN (30) is the first clean count (strict <).
+        clean = ic(self._ic_series(30), forward_periods=1)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value not in clean.warning_codes
+        # One observation below the floor still warns.
+        warned = ic(self._ic_series(29), forward_periods=1)
+        assert WarningCode.UNRELIABLE_SE_SHORT_PERIODS.value in warned.warning_codes
+
+    def test_surfaced_codes_are_deduplicated(self):
+        result = ic(self._ic_series(25), forward_periods=1)
+        assert len(result.warning_codes) == len(set(result.warning_codes))
+
+
 class TestICDispatch:
     """``ic()`` delegates its significance test to ``NonOverlappingSample``.
 

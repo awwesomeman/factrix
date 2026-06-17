@@ -160,6 +160,20 @@ def ic(
         returns carry MA(K-1) autocorrelation — the motivation for the
         non-overlap stride used here.
 
+    Method selection:
+        The default ``NON_OVERLAPPING`` path tests on roughly
+        ``n / forward_periods`` effective observations; when that
+        post-stride sample is thin it emits
+        ``WarningCode.UNRELIABLE_SE_SHORT_PERIODS`` (now surfaced on the
+        returned result's ``warning_codes``). ``NEWEY_WEST`` keeps every
+        observation and absorbs the overlap-induced autocorrelation in the
+        HAC standard error, so on a thin series it retains more test power.
+        The guidance is one-directional: prefer ``NEWEY_WEST`` when the
+        non-overlapping effective sample is too thin; there is no symmetric
+        reason to switch back to non-overlapping once the sample is ample.
+        ``ic`` never changes ``inference`` for you — the choice stays
+        explicit.
+
     Examples:
         Chain from :func:`compute_ic` output:
 
@@ -215,6 +229,12 @@ def ic(
     }
     warning_codes: list[str] = []
     _surface_drop_stats(ic_df, "ic", metadata, warning_codes)
+    # Surface the inference method's own soft-floor signals (e.g. a thin
+    # post-stride sample tripping UNRELIABLE_SE_SHORT_PERIODS); de-dup so a
+    # code already raised by the drop-stats pass is not repeated.
+    for code in result.warnings:
+        if code.value not in warning_codes:
+            warning_codes.append(code.value)
     return MetricResult(
         p_value=result.p_value,
         value=mean_ic,
