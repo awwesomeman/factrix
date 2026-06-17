@@ -1,4 +1,4 @@
-"""v0.5 analysis-axis enums (§4.1 of refactor_api.md).
+"""Analysis-axis enums.
 
 Two orthogonal user-facing axes describe an analysis cell:
 
