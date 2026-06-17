@@ -412,7 +412,7 @@ def signal_density(
 ) -> MetricResult:
     """Average bars per event (inverse frequency).
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    No event-axis sample_threshold is declared (sample_threshold=SampleThreshold()) because the in-body floor is a degeneracy guard (>= 2 events overall, then >= 2 per asset) needed to define the per-asset bars-per-event ratio, not the statistical MIN_EVENTS_HARD floor the other event metrics gate on; like other math-degeneracy guards it stays in the body.
 
     Answers: "how frequently does this density fire?"
 
