@@ -219,6 +219,13 @@ class TestDeclaredPeriodsFloorsVisible:
         assert st.min_periods == _MIN_DK_PERIODS
         assert st.warn_periods == MIN_PERIODS_WARN
 
+    def test_turnover_declares_dynamic_periods_floor(self):
+        from factrix.metrics.tradability import _turnover_min_dates, turnover
+
+        # Hook resolves against the default config (forward_periods=1).
+        st = turnover.spec().sample_threshold
+        assert st.min_periods == _turnover_min_dates(1)
+
 
 class TestDeclaredEventFloorsVisible:
     """Event-driven metrics must declare their event floor on the spec so

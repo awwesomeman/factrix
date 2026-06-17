@@ -38,8 +38,8 @@ class TestHookResolution:
 
     def test_static_metric_keeps_empty_spec_threshold(self):
         # A hookless metric resolves to its static (here empty) threshold.
-        assert REGISTRY["turnover"].sample_threshold_for is None
-        st = REGISTRY["turnover"].spec().sample_threshold
+        assert REGISTRY["net_spread"].sample_threshold_for is None
+        st = REGISTRY["net_spread"].spec().sample_threshold
         assert st.min_periods is None
 
 

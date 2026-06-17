@@ -25,6 +25,8 @@ Notes:
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import polars as pl
 
@@ -64,10 +66,26 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 ]
 
 
+def _turnover_min_dates(forward_periods: int) -> int:
+    """Raw-date floor for ``turnover``: the non-overlap pair stride ``h`` needs
+    >= 3 sampled dates (>= 2 non-overlapping pairs so ``std(rho)`` is defined),
+    i.e. >= ``2*h + 1`` raw dates (Hansen & Hodrick 1980).
+    """
+    return 2 * forward_periods + 1
+
+
+def _turnover_sample_threshold(self: Any) -> SampleThreshold:
+    """Dynamic periods floor for ``turnover``, scaling with ``forward_periods``.
+    Delegates to the same ``_turnover_min_dates`` the in-body short-circuit
+    reads, so the pre-flight and run-time floors agree.
+    """
+    return SampleThreshold(min_periods=_turnover_min_dates(self.forward_periods))
+
+
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.TS_ONLY,
-    sample_threshold=SampleThreshold(),
+    sample_threshold_for=_turnover_sample_threshold,
 )
 def turnover(
     df: pl.DataFrame,
@@ -77,7 +95,7 @@ def turnover(
 ) -> MetricResult:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the forward_periods parameter.
+    The periods floor is dynamic — the minimum date count is ``2*forward_periods + 1`` — so it is declared via the sample_threshold_for hook rather than a static sample_threshold, letting inspect_data pre-flight it.
 
     $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 
@@ -164,7 +182,7 @@ def turnover(
     all_dates = df["date"].unique().sort()
     # Need ≥ 2 non-overlapping pairs so std(ρ) is defined; that requires
     # ≥ 3 sampled dates (Hansen & Hodrick 1980), i.e. ≥ 2·h + 1 raw dates.
-    min_required = 2 * forward_periods + 1
+    min_required = _turnover_min_dates(forward_periods)
     if len(all_dates) < min_required:
         return _short_circuit_output(
             "turnover",
