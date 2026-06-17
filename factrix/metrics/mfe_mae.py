@@ -30,7 +30,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
 from factrix.metrics._primitives import compute_mfe_mae
 
 __all__ = [
@@ -45,12 +45,12 @@ _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
     aggregation=Aggregation.EVENT_TIME,
     input_shape=InputShape.SERIES,
     requires={"mfe_mae_df": compute_mfe_mae},
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
     """Aggregate MFE/MAE statistics.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the summary on the per-event MFE/MAE count. Pre-flight reads the raw non-zero factor count as a loose upper bound.
 
     Reports MFE/MAE ratio as the primary value — higher is better
     (favorable excursion exceeds adverse excursion).
@@ -103,14 +103,17 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
     mae = mfe_mae_df["mae"].drop_nulls().drop_nans()
 
     n_events = min(len(mfe), len(mae))
-    if n_events < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "mfe_mae_summary",
-            "insufficient_events",
-            mfe_mae_ratio=float("nan"),
-            n_events=n_events,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        mfe_mae_summary,
+        "mfe_mae_summary",
+        n_events,
+        "insufficient_events",
+        axis="events",
+        mfe_mae_ratio=float("nan"),
+        n_events=n_events,
+    )
+    if sc is not None:
+        return sc
 
     mfe_p50 = float(mfe.quantile(0.50))  # type: ignore[arg-type]
     mae_p75 = float(mae.quantile(0.75))  # type: ignore[arg-type]

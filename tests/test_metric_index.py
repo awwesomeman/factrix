@@ -68,12 +68,14 @@ class TestSampleThresholdHelpers:
             n_periods=30,
             n_assets=15,
             n_pairs=50,
+            n_events=50,
             sparse_ratio=0.0,
         )
         assert st.per_axis_verdict(props_clean) == {
             "periods": Tier.CLEAN,
             "assets": Tier.CLEAN,
             "pairs": Tier.CLEAN,
+            "events": Tier.CLEAN,
         }
         assert st.verdict(props_clean) is Tier.CLEAN
 
@@ -87,12 +89,14 @@ class TestSampleThresholdHelpers:
             n_periods=20,
             n_assets=15,
             n_pairs=50,
+            n_events=50,
             sparse_ratio=0.0,
         )
         assert st.per_axis_verdict(props_degraded) == {
             "periods": Tier.DEGRADED,
             "assets": Tier.CLEAN,
             "pairs": Tier.CLEAN,
+            "events": Tier.CLEAN,
         }
         assert st.verdict(props_degraded) is Tier.DEGRADED
 
@@ -106,12 +110,14 @@ class TestSampleThresholdHelpers:
             n_periods=20,
             n_assets=4,
             n_pairs=50,
+            n_events=50,
             sparse_ratio=0.0,
         )
         assert st.per_axis_verdict(props_unusable) == {
             "periods": Tier.DEGRADED,
             "assets": Tier.UNUSABLE,
             "pairs": Tier.CLEAN,
+            "events": Tier.CLEAN,
         }
         assert st.verdict(props_unusable) is Tier.UNUSABLE
 
@@ -120,8 +126,31 @@ class TestSampleThresholdHelpers:
             "periods": Tier.CLEAN,
             "assets": Tier.CLEAN,
             "pairs": Tier.CLEAN,
+            "events": Tier.CLEAN,
         }
         assert st_empty.verdict(props_unusable) is Tier.CLEAN
+
+    def test_events_axis_tiers(self) -> None:
+        st = SampleThreshold(min_events=4, warn_events=30)
+
+        def _props(n_events: int) -> DataProperties:
+            return DataProperties(
+                scope=FactorScope.INDIVIDUAL,
+                scope_reason="",
+                density=FactorDensity.SPARSE,
+                density_reason="",
+                structure=DataStructure.PANEL,
+                structure_reason="",
+                n_periods=100,
+                n_assets=50,
+                n_pairs=100,
+                n_events=n_events,
+                sparse_ratio=0.9,
+            )
+
+        assert st.per_axis_verdict(_props(3))["events"] is Tier.UNUSABLE
+        assert st.per_axis_verdict(_props(10))["events"] is Tier.DEGRADED
+        assert st.per_axis_verdict(_props(50))["events"] is Tier.CLEAN
 
 
 class TestDefaults:

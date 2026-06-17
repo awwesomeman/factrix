@@ -220,6 +220,92 @@ class TestDeclaredPeriodsFloorsVisible:
         assert st.warn_periods == MIN_PERIODS_WARN
 
 
+class TestDeclaredEventFloorsVisible:
+    """Event-driven metrics must declare their event floor on the spec so
+    ``inspect_data`` can pre-flight it — previously these enforced the floor in
+    the body while declaring an empty ``SampleThreshold()``, hiding it from the
+    pre-flight verdict.
+    """
+
+    def test_static_event_metrics_declare_min_events(self):
+        from factrix._types import MIN_EVENTS_HARD
+        from factrix.metrics.caar import bmp_test
+        from factrix.metrics.clustering_hhi import clustering_hhi
+        from factrix.metrics.corrado_rank import corrado_rank
+        from factrix.metrics.event_quality import (
+            event_hit_rate,
+            event_ic,
+            event_skewness,
+            profit_factor,
+        )
+        from factrix.metrics.mfe_mae import mfe_mae_summary
+
+        for m in (
+            corrado_rank,
+            clustering_hhi,
+            mfe_mae_summary,
+            bmp_test,
+            event_hit_rate,
+            event_ic,
+            profit_factor,
+            event_skewness,
+        ):
+            assert m.spec().sample_threshold.min_events == MIN_EVENTS_HARD
+
+    def test_caar_declares_scaled_event_floor(self):
+        from factrix._types import MIN_EVENTS_HARD, MIN_EVENTS_WARN
+        from factrix.metrics._helpers import _scaled_min_periods
+        from factrix.metrics.caar import caar
+
+        # Hook resolves against the default config (forward_periods=5).
+        st = caar.spec().sample_threshold
+        assert st.min_events == _scaled_min_periods(MIN_EVENTS_HARD, 5)
+        assert st.warn_events == _scaled_min_periods(MIN_EVENTS_WARN, 5)
+
+
+class TestEventAxisPreflight:
+    def _event_panel(self):
+        return fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+
+    def test_n_events_counts_nonzero_factor_rows(self):
+        import polars as pl
+
+        panel = self._event_panel()
+        info = inspect_data(panel)
+        assert info.detected.n_events == panel.filter(pl.col("factor") != 0).height
+
+    def test_below_min_events_is_unusable(self):
+        from dataclasses import replace
+
+        from factrix._inspect import _evaluate_applicability
+        from factrix._metric_index import SampleThreshold
+
+        info = inspect_data(self._event_panel())
+        floor = SampleThreshold(min_events=info.detected.n_events + 1)
+        spec = next(m.spec for m in info.metrics if m.spec.name == "corrado_rank")
+        verdict = _evaluate_applicability(
+            replace(spec, sample_threshold=floor), info.detected
+        )
+        assert verdict.usable is False
+        assert any("min_events" in b for b in verdict.blockers)
+
+    def test_between_min_and_warn_events_emits_few_events(self):
+        from dataclasses import replace
+
+        from factrix._inspect import _evaluate_applicability
+        from factrix._metric_index import SampleThreshold
+
+        info = inspect_data(self._event_panel())
+        n = info.detected.n_events
+        floor = SampleThreshold(min_events=n - 1, warn_events=n + 1)
+        spec = next(m.spec for m in info.metrics if m.spec.name == "corrado_rank")
+        verdict = _evaluate_applicability(
+            replace(spec, sample_threshold=floor), info.detected
+        )
+        assert verdict.usable is True
+        assert "few_events" in [w.code.value for w in verdict.warnings]
+
+
 class TestTierPartition:
     def test_three_tiers_partition_metrics_disjointly(self):
         # n_dates=25 puts ic_ir between min and warn -> degraded.

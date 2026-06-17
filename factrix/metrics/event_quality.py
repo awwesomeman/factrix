@@ -38,7 +38,11 @@ from factrix._stats import (
 )
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output, _signed_car
+from factrix.metrics._helpers import (
+    _enforce_min_floor,
+    _short_circuit_output,
+    _signed_car,
+)
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "event_hit_rate",
@@ -54,7 +58,7 @@ _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def event_hit_rate(
     df: pl.DataFrame,
@@ -64,7 +68,7 @@ def event_hit_rate(
 ) -> MetricResult:
     r"""Fraction of events with return in expected direction.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the hit-rate binomial test on the count of non-zero (event) observations.
 
     Args:
         df: Panel with event density and forward return.
@@ -97,13 +101,11 @@ def event_hit_rate(
     events = df.filter(pl.col(factor_col) != 0)
 
     n = len(events)
-    if n < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "event_hit_rate",
-            "insufficient_events",
-            n_obs=n,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        event_hit_rate, "event_hit_rate", n, "insufficient_events", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     signed = _signed_car(events, factor_col, return_col)
     hits = int(np.sum(signed > 0))
@@ -135,7 +137,7 @@ def event_hit_rate(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def event_ic(
     df: pl.DataFrame,
@@ -145,7 +147,7 @@ def event_ic(
 ) -> MetricResult:
     r"""Spearman correlation between factor value and realised forward return.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the rank correlation on the count of non-zero (event) observations.
 
     Spearman correlation between ``|factor|`` and ``signed_car``
     (``return × sign(factor)``), computed only on event rows.
@@ -191,13 +193,11 @@ def event_ic(
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
 
-    if n < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "event_ic",
-            "insufficient_events",
-            n_obs=n,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        event_ic, "event_ic", n, "insufficient_events", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     abs_signal = np.abs(events[factor_col].to_numpy())
 
@@ -235,7 +235,7 @@ def event_ic(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def profit_factor(
     df: pl.DataFrame,
@@ -245,7 +245,7 @@ def profit_factor(
 ) -> MetricResult:
     r"""Profit factor = sum(gains) / sum(|losses|) across events.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the ratio on the count of non-zero (event) observations.
 
     Per-event aggregate — no strategy assumptions. A profit factor > 1
     means gross gains exceed gross losses across all events.
@@ -282,13 +282,11 @@ def profit_factor(
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
 
-    if n < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "profit_factor",
-            "insufficient_events",
-            n_obs=n,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        profit_factor, "profit_factor", n, "insufficient_events", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     signed = _signed_car(events, factor_col, return_col)
 
@@ -312,7 +310,7 @@ def profit_factor(
 @metric(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def event_skewness(
     df: pl.DataFrame,
@@ -322,7 +320,7 @@ def event_skewness(
 ) -> MetricResult:
     r"""Skewness of signed event return distribution.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the descriptive skewness on the count of non-zero (event) observations.
 
     Positive skew = occasional large gains, frequent small losses
     (desirable for event strategies). Uses scipy's Fisher skewness
@@ -365,13 +363,11 @@ def event_skewness(
     events = df.filter(pl.col(factor_col) != 0)
     n = len(events)
 
-    if n < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "event_skewness",
-            "insufficient_events",
-            n_obs=n,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        event_skewness, "event_skewness", n, "insufficient_events", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     signed = _signed_car(events, factor_col, return_col)
 

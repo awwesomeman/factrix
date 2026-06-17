@@ -177,8 +177,10 @@ class SampleThreshold:
     warn_assets: int | None = None
     min_pairs: int | None = None
     warn_pairs: int | None = None
+    min_events: int | None = None
+    warn_events: int | None = None
 
-    _AXES: ClassVar[tuple[str, ...]] = ("periods", "assets", "pairs")
+    _AXES: ClassVar[tuple[str, ...]] = ("periods", "assets", "pairs", "events")
 
     def __post_init__(self) -> None:
         for axis in self._AXES:
@@ -214,7 +216,7 @@ class SampleThreshold:
             yield AxisVerdict(axis=axis, n=n, floor=floor, warn=warn, tier=tier)
 
     def per_axis_verdict(self, properties: DataProperties) -> dict[str, Tier]:
-        """Return the usability tier for each shape axis (periods, assets, pairs)."""
+        """Return the usability tier for each shape axis (periods, assets, pairs, events)."""
         return {v.axis: v.tier for v in self.iter_verdicts(properties)}
 
     def verdict(self, properties: DataProperties) -> Tier:

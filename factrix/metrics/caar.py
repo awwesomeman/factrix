@@ -22,6 +22,7 @@ References:
 from __future__ import annotations
 
 import warnings
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -49,6 +50,7 @@ from factrix._types import (
 )
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _enforce_min_floor,
     _sample_non_overlapping,
     _scaled_min_periods,
     _short_circuit_output,
@@ -71,12 +73,24 @@ _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
 min_assets_per_group: int | None = None
 
 
+def _caar_sample_threshold(self: Any) -> SampleThreshold:
+    """Dynamic event floor for ``caar``: the raw event-date count scales with
+    ``forward_periods`` because the t-test runs on a non-overlap subsample
+    (stride ``forward_periods``). Delegates to the same ``_scaled_min_periods``
+    the in-body short-circuit reads, so pre-flight and run-time floors agree.
+    """
+    return SampleThreshold(
+        min_events=_scaled_min_periods(MIN_EVENTS_HARD, self.forward_periods),
+        warn_events=_scaled_min_periods(MIN_EVENTS_WARN, self.forward_periods),
+    )
+
+
 @metric(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
     input_shape=InputShape.SERIES,
     requires={"caar_df": compute_caar},
-    sample_threshold=SampleThreshold(),
+    sample_threshold_for=_caar_sample_threshold,
 )
 def caar(
     caar_df: pl.DataFrame,
@@ -85,7 +99,11 @@ def caar(
 ) -> MetricResult:
     r"""CAAR significance: is mean CAAR significantly different from zero?
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the forward_periods parameter and are factor-context-dependent.
+    The event floor is dynamic — the minimum event-date count scales with the
+    forward_periods parameter (non-overlapping stride) — so it is declared via
+    the sample_threshold_for hook rather than a static sample_threshold. Pre-flight
+    counts non-zero factor rows as a loose upper bound; this in-body short-circuit
+    on event dates stays authoritative.
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar``.
@@ -188,7 +206,7 @@ def caar(
 @metric(
     cell=_CAAR_CELL,
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def bmp_test(
     df: pl.DataFrame,
@@ -202,7 +220,7 @@ def bmp_test(
 ) -> MetricResult:
     r"""Boehmer-Musumeci-Poulsen Standardized Abnormal Return test.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on the estimation_window parameter and are factor-context-dependent.
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the standardized-AR z-test on the count of events with a usable estimation-window volatility.
 
     Standardizes each event's abnormal return by the asset's pre-event
     residual volatility, making the test robust to event-induced variance
@@ -360,13 +378,11 @@ def bmp_test(
     )
 
     n_valid = len(valid)
-    if n_valid < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "bmp_test",
-            "insufficient_estimation_window",
-            n_obs=n_valid,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        bmp_test, "bmp_test", n_valid, "insufficient_estimation_window", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     valid = valid.with_columns(
         (pl.col("_signed_ar") / pl.col("_est_vol")).alias("_sar")
