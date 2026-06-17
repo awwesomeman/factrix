@@ -141,6 +141,20 @@ def winsorize_forward_return(
 
     Returns:
         DataFrame with ``forward_return`` clipped in-place.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import (
+        ...     compute_forward_return,
+        ...     winsorize_forward_return,
+        ... )
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> clipped = winsorize_forward_return(panel, lower=0.01, upper=0.99)
+        >>> clipped.height == panel.height
+        True
+        >>> clipped["forward_return"].max() <= panel["forward_return"].max()
+        True
     """
     if lower <= 0.0 and upper >= 1.0:
         return df
@@ -160,6 +174,18 @@ def compute_abnormal_return(df: pl.DataFrame) -> pl.DataFrame:
 
     Returns:
         DataFrame with ``abnormal_return`` column appended.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.preprocess import (
+        ...     compute_abnormal_return,
+        ...     compute_forward_return,
+        ... )
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
+        >>> panel = compute_forward_return(raw, forward_periods=5)
+        >>> adjusted = compute_abnormal_return(panel)
+        >>> "abnormal_return" in adjusted.columns
+        True
     """
     return df.with_columns(
         (pl.col("forward_return") - pl.col("forward_return").mean().over("date")).alias(
