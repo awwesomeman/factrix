@@ -20,7 +20,7 @@ from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_z
 from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
 
 __all__ = [
     "corrado_rank",
@@ -30,7 +30,7 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.EVENT_TIME,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def corrado_rank(
     df: pl.DataFrame,
@@ -40,7 +40,7 @@ def corrado_rank(
 ) -> MetricResult:
     r"""Corrado nonparametric rank test for event abnormal returns.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the minimum required periods depend dynamically on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the rank test on the count of non-zero (event) observations.
 
     A non-parametric alternative to the CAAR t-test. Robust to extreme
     returns, non-normal distributions, and cross-asset
@@ -112,13 +112,11 @@ def corrado_rank(
     events = ranked.filter(pl.col(factor_col) != 0)
     n_events = len(events)
 
-    if n_events < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "corrado_rank",
-            "insufficient_events",
-            n_obs=n_events,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        corrado_rank, "corrado_rank", n_events, "insufficient_events", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     u_event = events["_rank_u"].to_numpy() * np.sign(events[factor_col].to_numpy())
 

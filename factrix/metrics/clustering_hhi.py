@@ -28,7 +28,7 @@ from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
-from factrix.metrics._helpers import _short_circuit_output
+from factrix.metrics._helpers import _enforce_min_floor
 
 __all__ = [
     "clustering_hhi",
@@ -38,7 +38,7 @@ __all__ = [
 @metric(
     cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.CS_SNAPSHOT,
-    sample_threshold=SampleThreshold(),
+    sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def clustering_hhi(
     df: pl.DataFrame,
@@ -48,7 +48,7 @@ def clustering_hhi(
 ) -> MetricResult:
     r"""Event clustering Herfindahl index on event dates.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because it is a descriptive diagnostic on event occurrence count (which is factor-context-dependent).
+    The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates this descriptive diagnostic on the count of non-zero (event) observations.
 
     Computes $\mathrm{HHI} = \sum_d s_d^2$ where
     $s_d = (\text{events on date } d) / (\text{total events})$. Herfindahl-Hirschman index (HHI)
@@ -91,13 +91,11 @@ def clustering_hhi(
     events = df.filter(pl.col(factor_col) != 0)
     n_events = len(events)
 
-    if n_events < MIN_EVENTS_HARD:
-        return _short_circuit_output(
-            "clustering_hhi",
-            "insufficient_events",
-            n_obs=n_events,
-            min_required=MIN_EVENTS_HARD,
-        )
+    sc = _enforce_min_floor(
+        clustering_hhi, "clustering_hhi", n_events, "insufficient_events", axis="events"
+    )
+    if sc is not None:
+        return sc
 
     # Count events per date
     per_date = events.group_by("date").agg(pl.len().alias("count"))

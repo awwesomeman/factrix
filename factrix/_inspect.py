@@ -131,6 +131,15 @@ class DataProperties:
             pair-counting metric (IC, rank-IC, FM cross-section).
             Equals ``data.height`` for a dense panel; smaller when
             the factor column has nulls.
+        n_events: Non-zero ``factor`` observation count — the event
+            sample size for event-driven metrics (CAAR, MFE/MAE,
+            corrado-rank, event-quality). Non-null AND non-zero cells,
+            matching those metrics' ``factor != 0`` event filter. For a
+            dense continuous factor this is ~``n_pairs`` (the event
+            axis only gates SPARSE-cell metrics). ``caar`` counts event
+            *dates* rather than rows, so its pre-flight reads this as a
+            loose upper bound; its in-body short-circuit on event dates
+            stays authoritative.
         sparse_ratio: Zero-ratio in the ``factor`` column (denominator
             is non-null cell count). ``math.nan`` for an empty data.
     """
@@ -144,6 +153,7 @@ class DataProperties:
     n_assets: int
     n_periods: int
     n_pairs: int
+    n_events: int
     sparse_ratio: float
 
 
@@ -451,11 +461,12 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     :class:`MetricApplicability` verdict combining (a) cell-match
     against the detected ``(scope, density, structure)`` and (b) the
     spec's optional :class:`SampleThreshold` against the data's
-    ``n_periods`` / ``n_assets``.
+    ``n_periods`` / ``n_assets`` / ``n_pairs`` / ``n_events``.
 
-    Sample-floor checks against ``n_events`` (factor-column-dependent)
-    are out of scope — those surface at evaluate time on the metric's
-    own short-circuit path.
+    The ``n_events`` floor is pre-flighted against the non-zero factor
+    count for event-driven metrics; a metric with a dynamic event floor
+    (``caar``) is pre-flighted at its default config, and its in-body
+    short-circuit on the actual run-time params stays authoritative.
 
     Args:
         data: Long-format factor data with the canonical columns.
@@ -509,6 +520,9 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     n_assets = int(data["asset_id"].n_unique())
     n_periods = int(data["date"].n_unique())
     n_pairs = int(data.drop_nulls(first_col).height)
+    # Event sample: non-zero factor cells (nulls compare false, so excluded),
+    # matching the ``factor != 0`` filter the event-driven metrics apply.
+    n_events = int(data.filter(pl.col(first_col) != 0).height)
 
     structure_reason = (
         f"n_assets={n_assets} → "
@@ -525,6 +539,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         n_assets=n_assets,
         n_periods=n_periods,
         n_pairs=n_pairs,
+        n_events=n_events,
         sparse_ratio=sparse_ratio,
     )
 
@@ -611,6 +626,16 @@ def _evaluate_applicability(
                     warnings.append(
                         Warning(code=code, source=spec.name, message=code.description)
                     )
+            elif av.axis == "events":
+                # Event-thin degraded tier maps to the event-specific code,
+                # not the periods-flavored UNRELIABLE_SE_SHORT_PERIODS.
+                warnings.append(
+                    Warning(
+                        code=WarningCode.FEW_EVENTS,
+                        source=spec.name,
+                        message=f"n_{av.axis}={av.n} < warn_{av.axis}={av.warn}: inference degraded",
+                    )
+                )
             else:
                 warnings.append(
                     Warning(
