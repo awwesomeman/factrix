@@ -51,7 +51,7 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
-    _sample_non_overlapping,
+    _sample_event_spaced,
     _scaled_min_periods,
     _short_circuit_output,
 )
@@ -106,7 +106,8 @@ def caar(
     on event dates stays authoritative.
 
     Args:
-        caar_df: Output of ``compute_caar()`` with columns ``date, caar``.
+        caar_df: Output of ``compute_caar()`` with columns ``date, caar,
+            date_ordinal``.
         forward_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.forward_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
@@ -117,9 +118,24 @@ def caar(
 
     Notes:
         $t = \mathrm{mean}(\mathrm{CAAR}) / (\mathrm{std}(\mathrm{CAAR}) / \sqrt{n})$
-        on a non-overlap subsample (stride ``forward_periods``) of the
-        per-event-date $\mathrm{CAAR}$ series;
-        $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
+        on a non-overlap subsample of the per-event-date $\mathrm{CAAR}$
+        series; $H_0: \mathbb{E}[\mathrm{CAAR}] = 0$.
+
+        The subsample is drawn **calendar-aware**: the CAAR series is
+        event-date-indexed (``compute_caar`` keeps only ``factor != 0``
+        rows), so its dates are calendar-irregular. Sampling every
+        ``forward_periods``-th *row* (index distance) would mis-handle both
+        regimes — sparse events get further thinned (power loss), clustered
+        events inside one forward-return window are admitted as independent
+        (iid violated, $t$ inflated). Instead a greedy pass over
+        ``date_ordinal`` (each event's position on the full calendar) keeps
+        an event only when its calendar gap to the previously kept event is
+        ``>= forward_periods``, so consecutive kept observations no longer
+        share overlapping forward-return windows. The alternative —
+        reindexing to a dense calendar with zero-fill before fixed-stride
+        sampling — was rejected: the zero padding would dominate the
+        subsample and distort the iid mean estimator this path is built
+        around; the greedy calendar walk keeps the event-only mean intact.
 
         factrix uses non-overlap resampling rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) for the
         default CAAR test — the same convention as ``ic`` — and exposes
@@ -176,7 +192,16 @@ def caar(
         )
 
     mean_caar = float(vals.mean())  # type: ignore[arg-type]
-    sampled = _sample_non_overlapping(caar_df, forward_periods)["caar"].drop_nulls()
+    # Normal input arrives from compute_caar carrying date_ordinal (the
+    # full-calendar position). A hand-built caar_df that bypasses
+    # compute_caar lacks it; fall back to the dense rank of the event dates
+    # themselves — degrades to event-index spacing, the legacy behaviour, but
+    # never raises.
+    if "date_ordinal" not in caar_df.columns:
+        caar_df = caar_df.with_columns(
+            (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
+        )
+    sampled = _sample_event_spaced(caar_df, forward_periods)["caar"].drop_nulls()
     n_sampled = len(sampled)
 
     t = (

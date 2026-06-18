@@ -35,6 +35,21 @@ def compute_caar(
     r"""Per-event-date weighted abnormal return series.
 
     Magnitude is preserved — no ``.sign()`` coercion.
+
+    Output columns:
+        date: event date (one row per date carrying at least one event).
+        caar: cross-asset mean of the (signed/magnitude-weighted)
+            abnormal return on that date.
+        date_ordinal: 0-based position of the date on the *full* input
+            calendar (dense rank over every date in ``df``, including
+            non-event dates). Consumers that sub-sample for non-overlap
+            independence measure the gap between kept event dates in
+            these calendar steps rather than in event-index steps —
+            the rank is computed before the ``factor != 0`` filter, so a
+            gap of ``k`` means ``k`` underlying periods elapsed, not
+            ``k`` events. On an event-only series the two diverge under
+            sparse or clustered events, so the ordinal is what makes the
+            forward-return overlap window measurable downstream.
     """
     if _is_sparse_magnitude_weighted(df, factor_col):
         warnings.warn(
@@ -47,9 +62,13 @@ def compute_caar(
             stacklevel=2,
         )
     return (
-        df.filter(pl.col(factor_col) != 0)
+        df.with_columns((pl.col("date").rank(method="dense") - 1).alias("date_ordinal"))
+        .filter(pl.col(factor_col) != 0)
         .with_columns((pl.col(return_col) * pl.col(factor_col)).alias("_signed_car"))
         .group_by("date")
-        .agg(pl.col("_signed_car").mean().alias("caar"))
+        .agg(
+            pl.col("_signed_car").mean().alias("caar"),
+            pl.col("date_ordinal").first().alias("date_ordinal"),
+        )
         .sort("date")
     )

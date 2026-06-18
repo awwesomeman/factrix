@@ -350,6 +350,57 @@ def _sample_non_overlapping(
     return result
 
 
+def _sample_event_spaced(
+    df: pl.DataFrame,
+    forward_periods: int,
+    *,
+    ordinal_col: str = "date_ordinal",
+) -> pl.DataFrame:
+    """Greedily keep event rows ``>= forward_periods`` calendar steps apart.
+
+    The event-date counterpart of :func:`_sample_non_overlapping`. That
+    helper keeps every N-th *unique date* (index distance), which is correct
+    on a calendar-dense series but mis-samples an event-only series whose
+    dates are irregular: sparse events get further thinned (power loss) and
+    clustered events inside one forward-return window are admitted as
+    independent (iid assumption violated, ``t`` inflated).
+
+    This pass instead walks the event dates in order and keeps an event only
+    when its calendar gap — the difference in ``ordinal_col``, the position
+    on the full underlying calendar — to the previously kept event is
+    ``>= forward_periods``. The first event is always kept. The result is a
+    maximal subset whose consecutive kept dates are at least one full
+    forward-return horizon apart, so the surviving observations no longer
+    share overlapping forward-return windows ([Brown-Warner (1985)][brown-warner-1985]
+    non-overlap sampling, made calendar-aware for the event-date axis).
+
+    ``forward_periods <= 1`` is a no-op (consecutive events already
+    independent); an empty frame returns unchanged. ``df`` must be sorted by
+    date and carry ``ordinal_col`` (``compute_caar`` emits ``date_ordinal``).
+
+    Args:
+        df: Event-date series, sorted by date, with an ``ordinal_col``
+            integer column giving each date's position on the full calendar.
+        forward_periods: Minimum calendar gap (in those ordinal steps)
+            required between consecutive kept events.
+        ordinal_col: Name of the full-calendar position column.
+
+    Returns:
+        Filtered DataFrame containing only the kept event rows; all
+        columns untouched.
+    """
+    if forward_periods <= 1 or df.height == 0:
+        return df
+    ordinals = df[ordinal_col].to_numpy()
+    keep = np.zeros(df.height, dtype=bool)
+    last_kept: int | None = None
+    for i, ordinal in enumerate(ordinals):
+        if last_kept is None or ordinal - last_kept >= forward_periods:
+            keep[i] = True
+            last_kept = int(ordinal)
+    return df.filter(pl.Series(keep))
+
+
 def _scaled_min_periods(base: int, forward_periods: int) -> int:
     """Raw-sample minimum for a metric that will sub-sample at stride h.
 
