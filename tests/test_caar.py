@@ -158,6 +158,29 @@ class TestComputeCaar:
         result = compute_caar(df)
         assert len(result) == 0
 
+    def test_n_events_column_counts_per_date_events(self, strong_signal):
+        result = compute_caar(strong_signal)
+        assert "n_events" in result.columns
+        events = strong_signal.filter(pl.col("factor") != 0)
+        expected = events.group_by("date").len().sort("date")
+        got = result.sort("date")
+        assert got["n_events"].to_list() == expected["len"].to_list()
+        assert result["n_events"].sum() == events.height
+
+    def test_n_events_reflects_clustering(self):
+        d1 = datetime(2020, 1, 1)
+        d2 = datetime(2020, 1, 2)
+        df = pl.DataFrame(
+            {
+                "date": [d1, d1, d1, d1, d1, d2],
+                "asset_id": ["a", "b", "c", "d", "e", "f"],
+                "factor": [1.0] * 6,
+                "forward_return": [0.01, 0.02, -0.01, 0.0, 0.03, -0.02],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = compute_caar(df).sort("date")
+        assert result["n_events"].to_list() == [5, 1]
+
 
 # ---------------------------------------------------------------------------
 # compute_caar — input-form behaviour matrix
@@ -289,6 +312,30 @@ class TestCaar:
         result = caar(df)
         assert math.isnan(result.value)
         assert result.stat is None
+
+    def test_total_events_in_metadata(self, strong_signal):
+        # caar reports the underlying event count (across-asset, pre-collapse)
+        # next to n_event_dates (the calendar-time-portfolio length).
+        caar_df = compute_caar(strong_signal)
+        result = caar(caar_df)
+        n_events_panel = strong_signal.filter(pl.col("factor") != 0).height
+        assert result.metadata["total_events"] == n_events_panel
+        # Multi-asset clustering: far more events than event dates.
+        assert result.metadata["total_events"] > result.metadata["n_event_dates"]
+
+    def test_total_events_falls_back_without_n_events_column(self):
+        # Hand-built caar_df bypassing compute_caar has no n_events column;
+        # total_events degrades to the event-date count rather than raising.
+        rng = np.random.default_rng(0)
+        n = 40
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)]
+        df = pl.DataFrame(
+            {"date": dates, "caar": rng.normal(0.01, 0.02, n)}
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(df, forward_periods=1)
+        assert result.metadata["total_events"] == result.metadata["n_event_dates"]
 
 
 class TestCaarEventSpacedSampling:
