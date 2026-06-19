@@ -135,8 +135,8 @@ class TestComputeCaar:
 
     def test_filters_non_events(self, strong_signal):
         result = compute_caar(strong_signal)
-        n_event_dates = strong_signal.filter(pl.col("factor") != 0)["date"].n_unique()
-        assert len(result) == n_event_dates
+        n_event_periods = strong_signal.filter(pl.col("factor") != 0)["date"].n_unique()
+        assert len(result) == n_event_periods
 
     def test_strong_signal_positive_mean(self, strong_signal):
         result = compute_caar(strong_signal)
@@ -157,6 +157,29 @@ class TestComputeCaar:
         )
         result = compute_caar(df)
         assert len(result) == 0
+
+    def test_n_events_column_counts_per_date_events(self, strong_signal):
+        result = compute_caar(strong_signal)
+        assert "n_events" in result.columns
+        events = strong_signal.filter(pl.col("factor") != 0)
+        expected = events.group_by("date").len().sort("date")
+        got = result.sort("date")
+        assert got["n_events"].to_list() == expected["len"].to_list()
+        assert result["n_events"].sum() == events.height
+
+    def test_n_events_reflects_clustering(self):
+        d1 = datetime(2020, 1, 1)
+        d2 = datetime(2020, 1, 2)
+        df = pl.DataFrame(
+            {
+                "date": [d1, d1, d1, d1, d1, d2],
+                "asset_id": ["a", "b", "c", "d", "e", "f"],
+                "factor": [1.0] * 6,
+                "forward_return": [0.01, 0.02, -0.01, 0.0, 0.03, -0.02],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = compute_caar(df).sort("date")
+        assert result["n_events"].to_list() == [5, 1]
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +313,30 @@ class TestCaar:
         assert math.isnan(result.value)
         assert result.stat is None
 
+    def test_total_events_in_metadata(self, strong_signal):
+        # caar reports the underlying event count (across-asset, pre-collapse)
+        # next to n_event_periods (the number of periods with an event).
+        caar_df = compute_caar(strong_signal)
+        result = caar(caar_df)
+        n_events_panel = strong_signal.filter(pl.col("factor") != 0).height
+        assert result.metadata["total_events"] == n_events_panel
+        # Multi-asset clustering: far more events than event dates.
+        assert result.metadata["total_events"] > result.metadata["n_event_periods"]
+
+    def test_total_events_falls_back_without_n_events_column(self):
+        # Hand-built caar_df bypassing compute_caar has no n_events column;
+        # total_events degrades to the event-date count rather than raising.
+        rng = np.random.default_rng(0)
+        n = 40
+        dates = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(n)]
+        df = pl.DataFrame(
+            {"date": dates, "caar": rng.normal(0.01, 0.02, n)}
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(df, forward_periods=1)
+        assert result.metadata["total_events"] == result.metadata["n_event_periods"]
+
 
 class TestCaarEventSpacedSampling:
     """caar() non-overlap subsampling on the calendar-irregular event series."""
@@ -320,7 +367,7 @@ class TestCaarEventSpacedSampling:
         )
         p_ref = _p_value_from_t(t_ref, len(kept_vals))
 
-        assert result.metadata["n_sampled"] == len(kept)
+        assert result.metadata["n_event_periods_sampled"] == len(kept)
         assert result.stat == pytest.approx(t_ref)
         assert result.p_value == pytest.approx(p_ref)
 
@@ -334,7 +381,7 @@ class TestCaarEventSpacedSampling:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=3)
-        assert result.metadata["n_sampled"] == len(ordinals)
+        assert result.metadata["n_event_periods_sampled"] == len(ordinals)
 
     def test_clustered_events_downsampled_to_calendar_gap(self):
         # 40 consecutive-day events (gap 1) thinned to >= fp apart.
@@ -346,8 +393,10 @@ class TestCaarEventSpacedSampling:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=fp)
-        assert result.metadata["n_sampled"] == len(_greedy_keep(ordinals, fp))
-        assert result.metadata["n_sampled"] == 8  # 0,5,10,...,35
+        assert result.metadata["n_event_periods_sampled"] == len(
+            _greedy_keep(ordinals, fp)
+        )
+        assert result.metadata["n_event_periods_sampled"] == 8  # 0,5,10,...,35
 
     def test_dense_regime_equals_index_stride(self):
         # Contiguous daily events: calendar gap == index gap, so n_sampled
@@ -362,7 +411,7 @@ class TestCaarEventSpacedSampling:
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=fp)
         # 60 dates, every 3rd → 20 kept
-        assert result.metadata["n_sampled"] == 20
+        assert result.metadata["n_event_periods_sampled"] == 20
 
 
 # ---------------------------------------------------------------------------

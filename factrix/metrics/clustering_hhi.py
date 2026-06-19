@@ -63,7 +63,7 @@ def clustering_hhi(
             future block-bootstrap clustering adjustment.
 
     Returns:
-        MetricResult with value=HHI, metadata includes effective_n_dates
+        MetricResult with value=HHI, metadata includes effective_n_periods
         and concentration ratio.
 
     Notes:
@@ -71,7 +71,7 @@ def clustering_hhi(
         $s_d = (\text{events on date } d) / \text{total}$; ranges from
         $1/D$ (uniform across $D$ event dates) to $1.0$ (all events on
         a single date).
-        ``effective_n_dates`` $= 1 / \mathrm{HHI}$;
+        ``effective_n_periods`` $= 1 / \mathrm{HHI}$;
         ``hhi_normalized`` $= (\mathrm{HHI} - 1/D) / (1 - 1/D)$ rescales
         to $[0, 1]$.
 
@@ -116,8 +116,8 @@ def clustering_hhi(
         value=hhi,
         metadata={
             "n_events": n_events,
-            "n_event_dates": n_dates,
-            "effective_n_dates": effective_n,
+            "n_event_periods": n_dates,
+            "effective_n_periods": effective_n,
             "hhi_normalized": hhi_normalized,
             "cluster_window": cluster_window,
         },

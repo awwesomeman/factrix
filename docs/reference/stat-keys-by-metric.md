@@ -142,7 +142,9 @@ Descriptive; no test.
 #### `caar`
 
 - *primary*: `p_value` — non-overlapping `t` on per-event-date CAAR.
-- *descriptive*: `n_event_dates`, `n_sampled`,
+- *descriptive*: `n_event_periods` (number of periods with an event),
+  `total_events` (underlying events behind the portfolio),
+  `n_event_periods_sampled`,
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_test`
@@ -321,7 +323,7 @@ diversity ratio (effective-n / n_top, derived from HHI) falls
 
 Descriptive; period-axis concentration of event dates.
 
-- *descriptive*: `n_events`, `n_event_dates`, `effective_n_dates`,
+- *descriptive*: `n_events`, `n_event_periods`, `effective_n_periods`,
   `hhi_normalized`, `cluster_window`.
 
 ### `mfe_mae` (`factrix.metrics.mfe_mae`)

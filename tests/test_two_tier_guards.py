@@ -121,7 +121,7 @@ class TestCaarTwoTier:
             out = caar(df, forward_periods=1)
         assert math.isnan(out.value)
         assert out.stat is None
-        assert out.metadata["reason"] == "insufficient_event_dates"
+        assert out.metadata["reason"] == "insufficient_event_periods"
 
     def test_borderline_warns_and_tags_metadata(self) -> None:
         n = (MIN_EVENTS_HARD + MIN_EVENTS_WARN) // 2

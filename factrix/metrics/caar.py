@@ -107,7 +107,7 @@ def caar(
 
     Args:
         caar_df: Output of ``compute_caar()`` with columns ``date, caar,
-            date_ordinal``.
+            n_events, date_ordinal``.
         forward_periods: Sampling interval for non-overlapping dates.
             Maps to ``config.forward_periods`` — the return horizon used
             in ``compute_forward_return``. Distinct from
@@ -137,10 +137,23 @@ def caar(
         subsample and distort the iid mean estimator this path is built
         around; the greedy calendar walk keeps the event-only mean intact.
 
-        factrix uses non-overlap resampling rather than Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) for the
-        default CAAR test — the same convention as ``ic`` — and exposes
-        ``bmp_test`` as the variance-robust sibling for event-induced
-        variance regimes.
+        ``caar`` is an **equal-weight calendar-time portfolio** test: the
+        inference unit is the event *date*. Same-date events are collapsed
+        to one cross-asset mean (which absorbs same-date cross-sectional
+        correlation by construction), and the t-test runs across those
+        dates — so ``n`` counts event *dates* (the number of periods with
+        an event), not events. It uses non-overlap resampling rather than
+        Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent
+        (HAC), the same convention as ``ic``.
+
+        The across-events siblings are complementary, not redundant:
+        ``bmp_test`` is the across-events standardized-AR z-test with an
+        optional Kolari-Pynnönen clustering correction — use it when events
+        are heavily clustered or across-events power is wanted; and
+        ``corrado_rank`` is the non-parametric rank test robust to
+        heavy-tailed event returns. The per-date portfolio breadth behind
+        this test is surfaced as ``n_events`` (the ``compute_caar`` series)
+        and ``total_events`` (this result's metadata).
 
     References:
         - [Brown & Warner (1985)][brown-warner-1985]. "Using Daily Stock
@@ -168,12 +181,18 @@ def caar(
     """
     vals = caar_df["caar"].drop_nulls()
     n = len(vals)
+    # Total underlying events behind the event-date portfolio. compute_caar
+    # supplies the per-date n_events; a hand-built caar_df without it falls
+    # back to one-event-per-date (n).
+    total_events = (
+        int(caar_df["n_events"].sum()) if "n_events" in caar_df.columns else n
+    )
     raw_min_hard = _scaled_min_periods(MIN_EVENTS_HARD, forward_periods)
     raw_min_warn = _scaled_min_periods(MIN_EVENTS_WARN, forward_periods)
     if n < raw_min_hard:
         return _short_circuit_output(
             "caar",
-            "insufficient_event_dates",
+            "insufficient_event_periods",
             n_obs=n,
             min_required=raw_min_hard,
             forward_periods=forward_periods,
@@ -183,10 +202,13 @@ def caar(
     if n < raw_min_warn:
         warning_codes.append(WarningCode.FEW_EVENTS.value)
         warnings.warn(
-            f"caar: n_event_dates={n} below MIN_EVENTS_WARN-scaled floor="
-            f"{raw_min_warn}; Brown-Warner (1985) convention treats sub-30 "
-            f"events as power-thin for the asymptotic t-distribution. "
-            f"t-stat returned but read p-values cautiously.",
+            f"caar: n_event_periods={n} below the MIN_EVENTS_WARN-scaled floor="
+            f"{raw_min_warn}. caar is an equal-weight calendar-time portfolio "
+            f"across event *dates*, so this counts the number of periods with "
+            f"an event, not events; a sub-30 series is "
+            f"power-thin for the asymptotic t-distribution. t-stat returned "
+            f"but read p-values cautiously. For an across-events test under "
+            f"heavy clustering, use bmp_test.",
             UserWarning,
             stacklevel=2,
         )
@@ -212,8 +234,9 @@ def caar(
     p = _p_value_from_t(t, n_sampled)
 
     metadata: dict = {
-        "n_event_dates": n,
-        "n_sampled": n_sampled,
+        "n_event_periods": n,
+        "total_events": total_events,
+        "n_event_periods_sampled": n_sampled,
         "stat_type": "t",
         "h0": "mu=0",
         "method": "non-overlapping t-test",

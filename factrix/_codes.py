@@ -121,9 +121,11 @@ _WARNING_DESCRIPTIONS.update(
         "rather than textbook MacKinlay signed CAAR — apply .sign() before "
         "calling for sign-flip semantics.",
         WarningCode.FEW_EVENTS: "CAAR significance test with MIN_EVENTS_HARD ≤ "
-        "n_event_dates < MIN_EVENTS_WARN (4..29); t-stat returned but "
-        "Brown-Warner (1985) convention treats sub-30 events as power-thin "
-        "for the asymptotic t-distribution — read borderline p-values cautiously.",
+        "n_event_periods < MIN_EVENTS_WARN (4..29). caar is an equal-weight "
+        "calendar-time portfolio across event periods, so this counts the "
+        "number of periods with an event, not events; a sub-30 series is "
+        "power-thin for the asymptotic t-distribution — read borderline "
+        "p-values cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS: "top_concentration with MIN_PORTFOLIO_PERIODS_HARD "
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "

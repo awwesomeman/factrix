@@ -40,6 +40,12 @@ def compute_caar(
         date: event date (one row per date carrying at least one event).
         caar: cross-asset mean of the (signed/magnitude-weighted)
             abnormal return on that date.
+        n_events: number of events (non-zero factor rows) collapsed into
+            this date's ``caar``. The downstream ``caar()`` test is an
+            equal-weight calendar-time portfolio across event *dates*, so
+            this count is the per-date portfolio breadth — surfaced for
+            transparency (a date built on 1 event vs 500 is otherwise
+            indistinguishable), not used to weight or drop dates.
         date_ordinal: 0-based position of the date on the *full* input
             calendar (dense rank over every date in ``df``, including
             non-event dates). Consumers that sub-sample for non-overlap
@@ -68,6 +74,7 @@ def compute_caar(
         .group_by("date")
         .agg(
             pl.col("_signed_car").mean().alias("caar"),
+            pl.len().alias("n_events"),
             pl.col("date_ordinal").first().alias("date_ordinal"),
         )
         .sort("date")
