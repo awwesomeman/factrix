@@ -192,7 +192,7 @@ def caar(
     if n < raw_min_hard:
         return _short_circuit_output(
             "caar",
-            "insufficient_event_dates",
+            "insufficient_event_periods",
             n_obs=n,
             min_required=raw_min_hard,
             forward_periods=forward_periods,
@@ -202,7 +202,7 @@ def caar(
     if n < raw_min_warn:
         warning_codes.append(WarningCode.FEW_EVENTS.value)
         warnings.warn(
-            f"caar: n_event_dates={n} below the MIN_EVENTS_WARN-scaled floor="
+            f"caar: n_event_periods={n} below the MIN_EVENTS_WARN-scaled floor="
             f"{raw_min_warn}. caar is an equal-weight calendar-time portfolio "
             f"across event *dates*, so this counts the number of periods with "
             f"an event, not events; a sub-30 series is "
@@ -234,9 +234,9 @@ def caar(
     p = _p_value_from_t(t, n_sampled)
 
     metadata: dict = {
-        "n_event_dates": n,
+        "n_event_periods": n,
         "total_events": total_events,
-        "n_sampled": n_sampled,
+        "n_obs_sampled": n_sampled,
         "stat_type": "t",
         "h0": "mu=0",
         "method": "non-overlapping t-test",

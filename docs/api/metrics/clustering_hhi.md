@@ -19,7 +19,7 @@ title: factrix.metrics.clustering_hhi
     ---
 
     Read `value` (Herfindahl-Hirschman index (HHI) on the event-date histogram) and
-    `metadata["effective_n_dates"]` $= 1 / \mathrm{HHI}$. High HHI →
+    `metadata["effective_n_periods"]` $= 1 / \mathrm{HHI}$. High HHI →
     events concentrate in few dates → cross-event independence under
     `caar`'s $t$-test is violated and the statistic may be inflated.
 
@@ -50,7 +50,7 @@ title: factrix.metrics.clustering_hhi
 
     diag = clustering_hhi(panel)
     print(diag.value,
-          diag.metadata["effective_n_dates"],
+          diag.metadata["effective_n_periods"],
           diag.metadata["hhi_normalized"])
     # 0.041  24.4  0.36   (approximate)
 
