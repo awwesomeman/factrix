@@ -393,7 +393,9 @@ class TestCaarEventSpacedSampling:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=fp)
-        assert result.metadata["n_event_periods_sampled"] == len(_greedy_keep(ordinals, fp))
+        assert result.metadata["n_event_periods_sampled"] == len(
+            _greedy_keep(ordinals, fp)
+        )
         assert result.metadata["n_event_periods_sampled"] == 8  # 0,5,10,...,35
 
     def test_dense_regime_equals_index_stride(self):
