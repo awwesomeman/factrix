@@ -9,9 +9,78 @@ from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _assign_quantile_groups,
     _compute_tie_ratio,
+    _sample_event_spaced,
     _sample_non_overlapping,
     _warn_high_tie_ratio,
 )
+
+
+def _ord_frame(ordinals: list[int]) -> pl.DataFrame:
+    """Event-date frame carrying date_ordinal, sorted by date."""
+    base = datetime(2024, 1, 1)
+    return pl.DataFrame(
+        {
+            "date": [base + timedelta(days=o) for o in ordinals],
+            "date_ordinal": ordinals,
+            "caar": [0.01 * i for i in range(len(ordinals))],
+        }
+    ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+def _greedy_keep(ordinals: list[int], forward_periods: int) -> list[int]:
+    """Reference: greedily keep ordinals >= forward_periods apart."""
+    kept: list[int] = []
+    last: int | None = None
+    for o in ordinals:
+        if last is None or o - last >= forward_periods:
+            kept.append(o)
+            last = o
+    return kept
+
+
+class TestSampleEventSpaced:
+    def test_fp1_is_noop(self):
+        df = _ord_frame([0, 1, 5, 6, 20])
+        result = _sample_event_spaced(df, forward_periods=1)
+        assert result["date_ordinal"].to_list() == [0, 1, 5, 6, 20]
+
+    def test_empty_unchanged(self):
+        df = _ord_frame([])
+        result = _sample_event_spaced(df, forward_periods=5)
+        assert result.height == 0
+
+    def test_sparse_events_all_kept(self):
+        # Every gap already exceeds forward_periods → greedy keeps all.
+        ordinals = [0, 10, 25, 40, 100]
+        df = _ord_frame(ordinals)
+        result = _sample_event_spaced(df, forward_periods=5)
+        assert result["date_ordinal"].to_list() == ordinals
+
+    def test_clustered_events_thinned_by_calendar_gap(self):
+        # Consecutive calendar days (gap=1) thinned to >= 5 apart.
+        ordinals = list(range(10))  # 0..9, all gap 1
+        df = _ord_frame(ordinals)
+        result = _sample_event_spaced(df, forward_periods=5)
+        # greedy from 0: keep 0, next >=5 is 5, next >=10 none → [0, 5]
+        assert result["date_ordinal"].to_list() == [0, 5]
+
+    def test_mixed_matches_greedy_reference(self):
+        ordinals = [0, 2, 4, 5, 11, 12, 20, 21, 22, 50]
+        df = _ord_frame(ordinals)
+        for fp in (2, 3, 5, 7):
+            result = _sample_event_spaced(df, forward_periods=fp)
+            assert result["date_ordinal"].to_list() == _greedy_keep(ordinals, fp)
+
+    def test_dense_calendar_equals_index_stride(self):
+        # On a contiguous calendar (ordinal == row index) the calendar-aware
+        # pass coincides with the legacy every-N-th-row sampling.
+        ordinals = list(range(12))
+        df = _ord_frame(ordinals)
+        spaced = _sample_event_spaced(df, forward_periods=3)["date_ordinal"].to_list()
+        index_stride = _sample_non_overlapping(df, forward_periods=3)[
+            "date_ordinal"
+        ].to_list()
+        assert spaced == index_stride == [0, 3, 6, 9]
 
 
 class TestSampleNonOverlapping:

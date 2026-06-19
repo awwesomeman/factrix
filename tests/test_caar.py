@@ -7,12 +7,54 @@ from datetime import datetime, timedelta
 import numpy as np
 import polars as pl
 import pytest
+from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix.metrics.caar import (
     bmp_test,
     caar,
     compute_caar,
 )
 from factrix.metrics.event_quality import event_hit_rate, event_ic
+
+
+def _event_calendar_panel(
+    event_ordinals: list[int],
+    returns: list[float],
+    n_calendar: int,
+) -> pl.DataFrame:
+    """Single-asset panel on a contiguous calendar of ``n_calendar`` days.
+
+    Events (factor=1, forward_return=given) sit at ``event_ordinals``; all
+    other days are non-events (factor=0). The non-event days populate the
+    full calendar so ``compute_caar``'s ``date_ordinal`` reflects true
+    calendar position, not event index.
+    """
+    base = datetime(2020, 1, 1)
+    ret_by_ord = dict(zip(event_ordinals, returns, strict=True))
+    rows = []
+    for i in range(n_calendar):
+        d = base + timedelta(days=i)
+        is_event = i in ret_by_ord
+        rows.append(
+            {
+                "date": d,
+                "asset_id": "A",
+                "factor": 1.0 if is_event else 0.0,
+                "forward_return": ret_by_ord.get(i, 0.0),
+            }
+        )
+    return pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+
+def _greedy_keep(ordinals: list[int], forward_periods: int) -> list[int]:
+    """Reference: greedily keep ordinals >= forward_periods calendar apart."""
+    kept: list[int] = []
+    last: int | None = None
+    for o in ordinals:
+        if last is None or o - last >= forward_periods:
+            kept.append(o)
+            last = o
+    return kept
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -247,6 +289,80 @@ class TestCaar:
         result = caar(df)
         assert math.isnan(result.value)
         assert result.stat is None
+
+
+class TestCaarEventSpacedSampling:
+    """caar() non-overlap subsampling on the calendar-irregular event series."""
+
+    def test_pvalue_matches_handrolled_calendar_reference(self):
+        # 90 events spanning a clustered block (gap 1, gets thinned) and a
+        # sparse tail (gap 5, all kept). n=90 == MIN_EVENTS_WARN*fp, so no
+        # FEW_EVENTS warning fires — assert the path is clean.
+        fp = 3
+        clustered = list(range(50))
+        sparse = [60 + 5 * k for k in range(40)]
+        ordinals = clustered + sparse
+        n_cal = ordinals[-1] + 1
+        rng = np.random.default_rng(7)
+        returns = list(rng.normal(0.01, 0.02, len(ordinals)))
+
+        panel = _event_calendar_panel(ordinals, returns, n_cal)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            caar_df = compute_caar(panel)
+            result = caar(caar_df, forward_periods=fp)
+
+        kept = _greedy_keep(ordinals, fp)
+        ret_by_ord = dict(zip(ordinals, returns, strict=True))
+        kept_vals = np.array([ret_by_ord[o] for o in kept])
+        t_ref = _calc_t_stat(
+            float(kept_vals.mean()), float(kept_vals.std(ddof=1)), len(kept_vals)
+        )
+        p_ref = _p_value_from_t(t_ref, len(kept_vals))
+
+        assert result.metadata["n_sampled"] == len(kept)
+        assert result.stat == pytest.approx(t_ref)
+        assert result.p_value == pytest.approx(p_ref)
+
+    def test_sparse_events_not_downsampled(self):
+        # Every event already separated by > forward_periods → all kept,
+        # unlike index-stride sampling which would thin independent events.
+        ordinals = [10 * k for k in range(25)]  # gap 10, fp 3
+        rng = np.random.default_rng(1)
+        returns = list(rng.normal(0.0, 0.02, len(ordinals)))
+        panel = _event_calendar_panel(ordinals, returns, ordinals[-1] + 1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(compute_caar(panel), forward_periods=3)
+        assert result.metadata["n_sampled"] == len(ordinals)
+
+    def test_clustered_events_downsampled_to_calendar_gap(self):
+        # 40 consecutive-day events (gap 1) thinned to >= fp apart.
+        fp = 5
+        ordinals = list(range(40))
+        rng = np.random.default_rng(2)
+        returns = list(rng.normal(0.0, 0.02, len(ordinals)))
+        panel = _event_calendar_panel(ordinals, returns, len(ordinals))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(compute_caar(panel), forward_periods=fp)
+        assert result.metadata["n_sampled"] == len(_greedy_keep(ordinals, fp))
+        assert result.metadata["n_sampled"] == 8  # 0,5,10,...,35
+
+    def test_dense_regime_equals_index_stride(self):
+        # Contiguous daily events: calendar gap == index gap, so n_sampled
+        # matches every-fp-th-row sampling (sanity that the fix is a no-op
+        # on the regime where the old behaviour was already correct).
+        fp = 3
+        ordinals = list(range(60))
+        rng = np.random.default_rng(4)
+        returns = list(rng.normal(0.01, 0.02, len(ordinals)))
+        panel = _event_calendar_panel(ordinals, returns, len(ordinals))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            result = caar(compute_caar(panel), forward_periods=fp)
+        # 60 dates, every 3rd → 20 kept
+        assert result.metadata["n_sampled"] == 20
 
 
 # ---------------------------------------------------------------------------
