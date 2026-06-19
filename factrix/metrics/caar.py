@@ -236,7 +236,7 @@ def caar(
     metadata: dict = {
         "n_event_periods": n,
         "total_events": total_events,
-        "n_obs_sampled": n_sampled,
+        "n_event_periods_sampled": n_sampled,
         "stat_type": "t",
         "h0": "mu=0",
         "method": "non-overlapping t-test",

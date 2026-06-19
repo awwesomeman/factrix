@@ -367,7 +367,7 @@ class TestCaarEventSpacedSampling:
         )
         p_ref = _p_value_from_t(t_ref, len(kept_vals))
 
-        assert result.metadata["n_obs_sampled"] == len(kept)
+        assert result.metadata["n_event_periods_sampled"] == len(kept)
         assert result.stat == pytest.approx(t_ref)
         assert result.p_value == pytest.approx(p_ref)
 
@@ -381,7 +381,7 @@ class TestCaarEventSpacedSampling:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=3)
-        assert result.metadata["n_obs_sampled"] == len(ordinals)
+        assert result.metadata["n_event_periods_sampled"] == len(ordinals)
 
     def test_clustered_events_downsampled_to_calendar_gap(self):
         # 40 consecutive-day events (gap 1) thinned to >= fp apart.
@@ -393,8 +393,8 @@ class TestCaarEventSpacedSampling:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=fp)
-        assert result.metadata["n_obs_sampled"] == len(_greedy_keep(ordinals, fp))
-        assert result.metadata["n_obs_sampled"] == 8  # 0,5,10,...,35
+        assert result.metadata["n_event_periods_sampled"] == len(_greedy_keep(ordinals, fp))
+        assert result.metadata["n_event_periods_sampled"] == 8  # 0,5,10,...,35
 
     def test_dense_regime_equals_index_stride(self):
         # Contiguous daily events: calendar gap == index gap, so n_sampled
@@ -409,7 +409,7 @@ class TestCaarEventSpacedSampling:
             warnings.simplefilter("ignore", UserWarning)
             result = caar(compute_caar(panel), forward_periods=fp)
         # 60 dates, every 3rd → 20 kept
-        assert result.metadata["n_obs_sampled"] == 20
+        assert result.metadata["n_event_periods_sampled"] == 20
 
 
 # ---------------------------------------------------------------------------

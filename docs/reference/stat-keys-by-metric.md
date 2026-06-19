@@ -143,7 +143,8 @@ Descriptive; no test.
 
 - *primary*: `p_value` — non-overlapping `t` on per-event-date CAAR.
 - *descriptive*: `n_event_periods` (number of periods with an event),
-  `total_events` (underlying events behind the portfolio), `n_obs_sampled`,
+  `total_events` (underlying events behind the portfolio),
+  `n_event_periods_sampled`,
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
 #### `bmp_test`
