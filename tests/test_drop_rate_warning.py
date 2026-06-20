@@ -29,7 +29,7 @@ def _thinned_panel(
 ) -> pl.DataFrame:
     """Panel where every other date is thinned to ``thin`` assets.
 
-    ``thin`` < ``MIN_ASSETS_PER_DATE_IC`` (10), so the thinned dates are dropped
+    ``thin`` < ``MIN_IC_ASSETS`` (10), so the thinned dates are dropped
     by ``compute_ic`` — yielding a ~50% period drop with enough survivors to
     clear the consumers' own sample floors.
     """
@@ -68,7 +68,7 @@ class TestSchema:
             stats["n_periods_out"] == stats["n_periods_in"] - stats["dropped_periods"]
         )
         assert stats["drop_rate"] == pytest.approx(0.5, abs=0.02)
-        assert "MIN_ASSETS_PER_DATE_IC" in stats["drop_reason"]
+        assert "MIN_IC_ASSETS" in stats["drop_reason"]
 
     def test_compute_fm_betas_attaches_drop_stats(self):
         # Thin below MIN_FM_ASSETS (3): thinned dates carry a single asset.

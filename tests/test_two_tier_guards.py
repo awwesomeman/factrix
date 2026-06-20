@@ -173,7 +173,7 @@ class TestTopConcentrationTwoTier:
 
 
 class TestCrossSectionTierSingleCode:
-    """The cross-asset N guard is a single ``CROSS_SECTION_N`` across the whole
+    """The cross-asset N guard is a single ``FEW_ASSETS`` across the whole
     thin band (no SMALL/BORDERLINE split); severity is carried by ``n_assets``.
     """
 
@@ -182,7 +182,7 @@ class TestCrossSectionTierSingleCode:
         from factrix._stats.constants import MIN_ASSETS_WARN
 
         for n in (2, 3, 9, 10, MIN_ASSETS_WARN - 1):
-            assert cross_section_tier(n) is WarningCode.CROSS_SECTION_N
+            assert cross_section_tier(n) is WarningCode.FEW_ASSETS
 
     def test_clean_at_or_above_warn_floor(self):
         from factrix._codes import cross_section_tier

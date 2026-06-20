@@ -105,7 +105,7 @@ class TestEvaluationResultToFrame:
 
     def test_warning_codes_filter_by_source(self):
         warnings = [
-            Warning(code=WarningCode.CROSS_SECTION_N, source="ic", message="thin"),
+            Warning(code=WarningCode.FEW_ASSETS, source="ic", message="thin"),
             Warning(
                 code=WarningCode.SERIAL_CORRELATION_DETECTED,
                 source=None,
@@ -116,7 +116,7 @@ class TestEvaluationResultToFrame:
         df = r.to_frame()
         ic_row = df.filter(pl.col("metric_name") == "ic").row(0, named=True)
         ic_ir_row = df.filter(pl.col("metric_name") == "ic_ir").row(0, named=True)
-        assert ic_row["warning_codes"] == [WarningCode.CROSS_SECTION_N.value]
+        assert ic_row["warning_codes"] == [WarningCode.FEW_ASSETS.value]
         assert ic_ir_row["warning_codes"] == []
 
     def test_metric_name_from_name_field(self):
@@ -129,7 +129,7 @@ class TestEvaluationResultToFrame:
 class TestEvaluationResultToDict:
     def test_round_trips_through_json(self):
         warnings = [
-            Warning(code=WarningCode.CROSS_SECTION_N, source="ic", message="thin"),
+            Warning(code=WarningCode.FEW_ASSETS, source="ic", message="thin"),
         ]
         r = _sample_result(_sample_group(), warnings=warnings)
         d = r.to_dict()
@@ -144,7 +144,7 @@ class TestEvaluationResultToDict:
         assert "n_obs" not in back
         assert "metrics_partition" not in back
         assert back["metrics"]["ic"]["p_value"] == 0.012
-        assert back["warnings"][0]["code"] == WarningCode.CROSS_SECTION_N.value
+        assert back["warnings"][0]["code"] == WarningCode.FEW_ASSETS.value
         assert back["plan"] == "1. ic [per-factor]"
 
     def test_nonfinite_floats_become_null(self):
@@ -177,13 +177,11 @@ class TestReprHtml:
         assert "diagnostic" not in r._repr_html_()
 
     def test_renders_warnings_when_present(self):
-        warnings = [
-            Warning(code=WarningCode.CROSS_SECTION_N, source="ic", message="thin")
-        ]
+        warnings = [Warning(code=WarningCode.FEW_ASSETS, source="ic", message="thin")]
         r = _sample_result(_sample_group(), warnings=warnings)
         html_out = r._repr_html_()
         assert "warnings" in html_out
-        assert WarningCode.CROSS_SECTION_N.value in html_out
+        assert WarningCode.FEW_ASSETS.value in html_out
 
     def test_no_warnings_block_when_empty(self):
         r = _sample_result(_sample_group())

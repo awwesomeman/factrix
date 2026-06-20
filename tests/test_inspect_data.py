@@ -362,7 +362,7 @@ class TestDataLevelWarnings:
     def test_thin_cross_section_emits_tier(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))
         codes = [w.code.value for w in info.warnings]
-        assert any("cross_section" in c for c in codes)
+        assert "few_assets" in codes
 
 
 class TestWarningSourceConvention:

@@ -47,7 +47,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_ASSETS_PER_DATE_IC` |
+| [`ic_ir`][factrix.metrics.ic.ic_ir] | `T` | `T ≥ MIN_IC_ASSETS` |
 
 ### FM family — Cell: Individual × Continuous
 
@@ -110,8 +110,8 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_ASSETS_PER_DATE_IC` |
-| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_ASSETS_PER_DATE_IC` |
+| [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | series length | `T ≥ MIN_IC_ASSETS` |
+| [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | pooled `(date, asset)` signs | non-overlapping obs `≥ MIN_IC_ASSETS` |
 | [`ic_trend`][factrix.metrics.trend.ic_trend] | `T` | `T ≥ 10` (literal floor) |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | `T` | `T ≥ 2 × MIN_OOS_PERIODS` |
 
@@ -127,7 +127,7 @@ below.
 
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
-| `MIN_ASSETS_PER_DATE_IC` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_ir`, `hit_rate` |
+| `MIN_IC_ASSETS` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_ir`, `hit_rate` |
 | `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_test`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
@@ -136,7 +136,7 @@ below.
 | `MIN_MONOTONICITY_PERIODS` | 5 | `T/h` | hard | `factrix/_types.py` | `monotonicity` |
 | `MIN_PERIODS_HARD` | 20 | `T` (TIMESERIES) | hard | `factrix/_stats/constants.py` | TIMESERIES procedures (`individual_continuous` / `common_continuous` at `N == 1`); raises `InsufficientSampleError` |
 | `MIN_PERIODS_WARN` | 30 | `T` (TIMESERIES) | warn | `factrix/_stats/constants.py` | same procedures; tags `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
-| `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.CROSS_SECTION_N` (severity from `n_assets`) |
+| `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
 | `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `beta_sign_consistency` |
@@ -145,7 +145,7 @@ below.
 
 Naming caveats:
 
-- `MIN_ASSETS_PER_DATE_IC` (10) gates the **per-date** asset count for
+- `MIN_IC_ASSETS` (10) gates the **per-date** asset count for
   IC (dates below it are dropped); it is distinct from the panel-wide
   `N` cross-asset guard, which lives solely on `MIN_ASSETS_WARN`.
 - `MIN_ASSETS_WARN = 30` is a single warn floor (no `_HARD`) — the `N`

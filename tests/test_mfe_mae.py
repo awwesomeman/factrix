@@ -150,7 +150,7 @@ class TestComputeMfeMae:
         assert result.is_empty()
         assert result.schema["date"] == pl.Datetime("us")
 
-    def test_min_estimation_samples_lower_admits_more_z_scores(
+    def test_min_estimation_periods_lower_admits_more_z_scores(
         self,
         event_data,
     ):
@@ -162,13 +162,13 @@ class TestComputeMfeMae:
             event_data,
             window=10,
             estimation_window=30,
-            min_estimation_samples=20,
+            min_estimation_periods=20,
         )
         loose = compute_mfe_mae(
             event_data,
             window=10,
             estimation_window=30,
-            min_estimation_samples=5,
+            min_estimation_periods=5,
         )
         strict_finite = strict["est_sigma"].is_finite().sum()
         loose_finite = loose["est_sigma"].is_finite().sum()
@@ -178,9 +178,9 @@ class TestComputeMfeMae:
             "fits the loose threshold but not the strict one."
         )
 
-    def test_min_estimation_samples_below_two_raises(self, event_data):
-        with pytest.raises(ValueError, match="min_estimation_samples"):
-            compute_mfe_mae(event_data, window=10, min_estimation_samples=1)
+    def test_min_estimation_periods_below_two_raises(self, event_data):
+        with pytest.raises(ValueError, match="min_estimation_periods"):
+            compute_mfe_mae(event_data, window=10, min_estimation_periods=1)
 
 
 # ---------------------------------------------------------------------------

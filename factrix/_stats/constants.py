@@ -15,7 +15,7 @@ MIN_PERIODS_HARD: int = 20
 # tagged with :attr:`factrix._codes.WarningCode.UNRELIABLE_SE_SHORT_PERIODS`.
 MIN_PERIODS_WARN: int = 30
 
-# ``n_assets < MIN_ASSETS_WARN`` → :attr:`factrix._codes.WarningCode.CROSS_SECTION_N`
+# ``n_assets < MIN_ASSETS_WARN`` → :attr:`factrix._codes.WarningCode.FEW_ASSETS`
 # from PANEL ``common_continuous`` and from ``suggest_config``. The cross-asset
 # t-test on E[β] has df = n_assets - 1; as n_assets shrinks the critical t
 # inflates (n_assets=3 → t_crit≈4.30 vs asymptotic 1.96; ~+15% at 10, ~+5% at

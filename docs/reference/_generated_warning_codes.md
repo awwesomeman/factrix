@@ -4,7 +4,7 @@
 | `event_window_overlap` | Adjacent events sit within forward_periods; AR windows overlap. |
 | `persistent_regressor` | ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias. |
 | `serial_correlation_detected` | Ljung-Box p < 0.05 on residuals; NW lag may be under-set. |
-| `cross_section_n` | PANEL cross-asset t-test with n_assets < MIN_ASSETS_WARN (30); df=n_assets-1 inflates t_crit relative to the asymptotic 1.96 (≈4.30 at n_assets=3, +119%; 5–15% near 30). Severity scales with n_assets — read the n_assets metadata. |
+| `few_assets` | PANEL cross-asset t-test with n_assets < MIN_ASSETS_WARN (30); df=n_assets-1 inflates t_crit relative to the asymptotic 1.96 (≈4.30 at n_assets=3, +119%; 5–15% near 30). Severity scales with n_assets — read the n_assets metadata. |
 | `sparse_common_few_events` | (COMMON, SPARSE, PANEL) broadcast dummy has MIN_BROADCAST_EVENTS_HARD ≤ n_events < MIN_BROADCAST_EVENTS_WARN (5..19); per-asset β estimable but cross-event averaging too thin for asymptotic t. |
 | `sparse_magnitude_weighted` | Sparse factor column is mixed-sign and not a clean ±1 ternary; statistic is magnitude-weighted (Sefcik-Thompson) rather than textbook MacKinlay signed CAAR — apply .sign() before calling for sign-flip semantics. |
 | `few_events` | CAAR significance test with MIN_EVENTS_HARD ≤ n_event_periods < MIN_EVENTS_WARN (4..29). caar is an equal-weight calendar-time portfolio across event periods, so this counts the number of periods with an event, not events; a sub-30 series is power-thin for the asymptotic t-distribution — read borderline p-values cautiously. |

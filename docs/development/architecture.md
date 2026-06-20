@@ -212,10 +212,9 @@ Four layers, one grammar:
   constant even when the calibrated value coincides with an `_ASSETS` one.
 - **Warning codes** (`factrix/_codes.py`) carry the same axis token so the
   degraded axis is legible from the code alone:
-  `UNRELIABLE_SE_SHORT_PERIODS`, `FEW_EVENTS`, `BORDERLINE_PORTFOLIO_PERIODS`,
-  `SPARSE_COMMON_FEW_EVENTS`, and the axis-specific drop pair
-  `EXCESSIVE_PERIOD_DROPS` / `EXCESSIVE_ASSET_DROPS`. (`CROSS_SECTION_N`
-  predates this rule and still uses the neutral `_N`.)
+  `UNRELIABLE_SE_SHORT_PERIODS`, `FEW_EVENTS`, `FEW_ASSETS`,
+  `BORDERLINE_PORTFOLIO_PERIODS`, `SPARSE_COMMON_FEW_EVENTS`, and the
+  axis-specific drop pair `EXCESSIVE_PERIOD_DROPS` / `EXCESSIVE_ASSET_DROPS`.
 
 Silent-drop diagnostics emit a fixed per-axis metadata schema
 (`factrix/metrics/_helpers.py`): `n_<axis>_in`, `n_<axis>_out`,
@@ -238,7 +237,7 @@ axis token, the rate keys are axis-neutral.
 `factrix/_types.py` and the metric primitives keep the older per-metric thresholds used
 internally by the primitives that procedures wrap:
 
-- `MIN_ASSETS_PER_DATE_IC = 10` — `compute_ic` drops dates with fewer than 10 assets;
+- `MIN_IC_ASSETS = 10` — `compute_ic` drops dates with fewer than 10 assets;
   at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
@@ -386,7 +385,7 @@ per-date Spearman across n_assets         (cross-section step)
 
 Failure modes:
 
-- `n_assets` < 10 → `MIN_ASSETS_PER_DATE_IC` drops every date → output is NaN.
+- `n_assets` < 10 → `MIN_IC_ASSETS` drops every date → output is NaN.
 
 ### `individual_continuous(FM)` — cross-section first
 
@@ -451,7 +450,7 @@ per-asset OLS R_i = α_i + β_i·F over all n_periods dates   (time-series step)
 Failure modes:
 
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
-- `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.CROSS_SECTION_N` (still runs; severity scales with `n_assets`).
+- `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
 - `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
   TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
   statistic lands in the same `MetricResult.stat` field across both
@@ -479,7 +478,7 @@ Failure modes:
 
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
 - `n_assets` cross-section guard same as `common_continuous` (single
-  `CROSS_SECTION_N`; severity from `n_assets` metadata).
+  `FEW_ASSETS`; severity from `n_assets` metadata).
 - Two-tier event-count guard (`factrix/_stats/constants.py`):
   `n_events < MIN_BROADCAST_EVENTS_HARD = 5` raises `InsufficientSampleError`;
   `5 ≤ n_events < MIN_BROADCAST_EVENTS_WARN = 20` emits
@@ -660,7 +659,7 @@ factrix/
 ├── adapt.py                 # column-name adapter → factrix canonical names
 ├── _logging.py              # shared loggers
 ├── _ols.py                  # shared OLS helpers (spanning metrics + orthogonalize preprocess)
-├── _types.py                # shared constants: EPSILON, DDOF, MIN_ASSETS_PER_DATE_IC,
+├── _types.py                # shared constants: EPSILON, DDOF, MIN_IC_ASSETS,
 │                            #   MIN_EVENTS_HARD/WARN, MIN_OOS_PERIODS, MIN_PORTFOLIO_PERIODS_HARD/WARN, ...
 ├── _stats/                  # numerics: hac, bootstrap, unit_root, wald, gmm, ols, diagnostics, constants
 ├── stats/                   # public estimator surface (newey_west, hansen_hodrick, driscoll_kraay, gmm, ...)
