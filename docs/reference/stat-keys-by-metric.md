@@ -44,7 +44,7 @@ contrasts, not a sidecar to a primary value.
 | [`ic_ir`][factrix.metrics.ic.ic_ir] | none — descriptive | — | mean(IC) / std(IC) |
 | [`fm_beta`][factrix.metrics.fm_beta.fm_beta] | NW HAC `t` on per-date λ | `p_value` | mean(β) |
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
-| [`beta_sign_consistency`][factrix.metrics.fm_beta.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
+| [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
 | [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
 | [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
@@ -131,7 +131,7 @@ is emitted.
   emits `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` below 30 periods, and
   short-circuits with `reason = "insufficient_periods"` below 3.
 
-#### `beta_sign_consistency`
+#### `fm_beta_sign_consistency`
 
 Descriptive; no test.
 

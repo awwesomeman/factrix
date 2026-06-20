@@ -235,7 +235,7 @@ class TestRequires:
 
     def test_fama_macbeth_consumers_require_compute_fm_betas(self) -> None:
         specs = spec_by_name()
-        for name in ("fm_beta", "beta_sign_consistency"):
+        for name in ("fm_beta", "fm_beta_sign_consistency"):
             assert specs[name].requires["beta_df"].__name__ == "compute_fm_betas", name
 
     def test_ts_beta_consumers_require_compute_ts_betas(self) -> None:

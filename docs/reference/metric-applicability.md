@@ -54,7 +54,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | Metric | Sample axis | Min sample |
 |---|---|---|
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | `N × T` | `N ≥ 10`, effective clusters `G ≥ 3` |
-| [`beta_sign_consistency`][factrix.metrics.fm_beta.beta_sign_consistency] | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
+| [`fm_beta_sign_consistency`][factrix.metrics.fm_beta.fm_beta_sign_consistency] | `T` (β series) | `T ≥ MIN_FM_PERIODS_HARD` |
 
 ### Quantile / Monotonicity / Concentration — Cell: Individual × Continuous
 
@@ -139,7 +139,7 @@ below.
 | `MIN_ASSETS_WARN` | 30 | `N` | warn | `factrix/_stats/constants.py` | PANEL `common_continuous`; tags `WarningCode.FEW_ASSETS` (severity from `n_assets`) |
 | `MIN_BROADCAST_EVENTS_HARD` | 5 | `K` (broadcast dummy) | hard | `factrix/_stats/constants.py` | `(COMMON, SPARSE, None, PANEL)` procedure |
 | `MIN_BROADCAST_EVENTS_WARN` | 20 | `K` (broadcast dummy) | warn | `factrix/_stats/constants.py` | same; tags `WarningCode.SPARSE_COMMON_FEW_EVENTS` |
-| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `beta_sign_consistency` |
+| `MIN_FM_PERIODS_HARD` | 4 | `T` (λ series) | hard | `factrix/metrics/fm_beta.py` | `fm_beta`, `fm_beta_sign_consistency` |
 | `MIN_FM_PERIODS_WARN` | 30 | `T` (λ series) | warn | `factrix/metrics/fm_beta.py` | `fm_beta` (Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over-rejects below); ties to `WarningCode.UNRELIABLE_SE_SHORT_PERIODS` |
 | `MIN_TS_OBS` | 20 | `T` per asset | hard | `factrix/metrics/ts_beta.py` | `compute_ts_betas` (drops assets with `T < 20`); upstream of `ts_beta`, `mean_r_squared`, `ts_beta_sign_consistency` |
 

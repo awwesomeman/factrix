@@ -382,7 +382,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
 
     Range [0.5, 1.0]: 0.5 = βs evenly split (no directional consensus);
     1.0 = all βs share one sign. Unlike
-    ``fm_beta.beta_sign_consistency`` this is **direction-agnostic**
+    ``fm_beta.fm_beta_sign_consistency`` this is **direction-agnostic**
     — it does not require a prior on the factor's expected sign.
 
     Requires N ≥ 2: a single β is trivially "100% consistent with
@@ -399,7 +399,7 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
         factrix gates this metric at ``N >= 2`` so a single-asset
         ``max(pos, 1-pos) = 1.0`` cannot leak into downstream
         inference as spurious "perfect agreement". Pair with
-        ``fm_beta.beta_sign_consistency`` when a directional prior
+        ``fm_beta.fm_beta_sign_consistency`` when a directional prior
         is available.
 
     Examples:

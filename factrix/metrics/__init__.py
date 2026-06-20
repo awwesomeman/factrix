@@ -14,7 +14,7 @@ Individual × Continuous:
     compute_spread_series, quantile_spread, quantile_spread_vw,
     compute_group_returns, monotonicity, top_concentration,
     turnover, notional_turnover, breakeven_cost, net_spread,
-    compute_fm_betas, fm_beta, pooled_beta, beta_sign_consistency,
+    compute_fm_betas, fm_beta, pooled_beta, fm_beta_sign_consistency,
     spanning_alpha, greedy_forward_selection
 
 Individual × Sparse (the ``Common × Sparse`` cell has its own
@@ -56,8 +56,8 @@ from factrix.metrics.event_quality import (
     signal_density,
 )
 from factrix.metrics.fm_beta import (
-    beta_sign_consistency,
     fm_beta,
+    fm_beta_sign_consistency,
     pooled_beta,
 )
 from factrix.metrics.hit_rate import hit_rate
@@ -93,7 +93,7 @@ from factrix.metrics.ts_beta import (
 from factrix.metrics.ts_quantile import ts_quantile_spread
 
 __all__ = [
-    "beta_sign_consistency",
+    "fm_beta_sign_consistency",
     "bmp_z",
     "breakeven_cost",
     "caar",
