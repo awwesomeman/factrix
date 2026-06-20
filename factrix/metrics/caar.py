@@ -3,12 +3,12 @@ r"""CAAR (Cumulative Average Abnormal Return) significance tests.
 Tests $H_0$: event abnormal return = 0, using two complementary methods:
     compute_caar — per-event-date weighted abnormal return series
     caar         — CAAR t-test (parametric, non-overlapping sampling)
-    bmp_test     — BMP standardized AR test (robust to event-induced variance)
+    bmp_z     — BMP standardized AR test (robust to event-induced variance)
 
 Notes:
-    `caar` and `bmp_test` are complementary inferential tests on the
+    `caar` and `bmp_z` are complementary inferential tests on the
     per-event-date abnormal-return series. `caar` is the parametric
-    cross-event $t$-test; `bmp_test` is the standardized-AR $z$-test that
+    cross-event $t$-test; `bmp_z` is the standardized-AR $z$-test that
     is robust to event-induced variance.
 
 References:
@@ -59,7 +59,7 @@ from factrix.metrics._primitives import compute_caar
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "caar",
-    "bmp_test",
+    "bmp_z",
 ]
 
 _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
@@ -147,7 +147,7 @@ def caar(
         (HAC), the same convention as ``ic``.
 
         The across-events siblings are complementary, not redundant:
-        ``bmp_test`` is the across-events standardized-AR z-test with an
+        ``bmp_z`` is the across-events standardized-AR z-test with an
         optional Kolari-Pynnönen clustering correction — use it when events
         are heavily clustered or across-events power is wanted; and
         ``corrado_rank`` is the non-parametric rank test robust to
@@ -208,7 +208,7 @@ def caar(
             f"an event, not events; a sub-30 series is "
             f"power-thin for the asymptotic t-distribution. t-stat returned "
             f"but read p-values cautiously. For an across-events test under "
-            f"heavy clustering, use bmp_test.",
+            f"heavy clustering, use bmp_z.",
             UserWarning,
             stacklevel=2,
         )
@@ -256,7 +256,7 @@ def caar(
     aggregation=Aggregation.EVENT_TIME,
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
-def bmp_test(
+def bmp_z(
     df: pl.DataFrame,
     *,
     factor_col: str = "factor",
@@ -365,12 +365,12 @@ def bmp_test(
     Examples:
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.caar import bmp_test
+        >>> from factrix.metrics.caar import bmp_z
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
         ...     forward_periods=5,
         ... )
-        >>> result = bmp_test(panel, forward_periods=5)
+        >>> result = bmp_z(panel, forward_periods=5)
         >>> result.name == ""
         True
     """
@@ -411,7 +411,7 @@ def bmp_test(
     events = sorted_df.filter(pl.col(factor_col) != 0)
     if len(events) == 0:
         return _short_circuit_output(
-            "bmp_test",
+            "bmp_z",
             "no_events",
             n_obs=0,
             min_required=1,
@@ -427,7 +427,7 @@ def bmp_test(
 
     n_valid = len(valid)
     sc = _enforce_min_floor(
-        bmp_test, "bmp_test", n_valid, "insufficient_estimation_window", axis="events"
+        bmp_z, "bmp_z", n_valid, "insufficient_estimation_window", axis="events"
     )
     if sc is not None:
         return sc

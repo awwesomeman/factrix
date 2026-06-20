@@ -111,7 +111,7 @@ title: factrix.metrics.event_quality
 
 <div class="grid cards" markdown>
 
--   __`caar` / `bmp_test`__
+-   __`caar` / `bmp_z`__
 
     ---
 

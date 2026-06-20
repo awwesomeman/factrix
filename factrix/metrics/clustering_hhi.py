@@ -78,7 +78,7 @@ def clustering_hhi(
         factrix reports HHI as a descriptive concentration index — no
         formal $H_0$ — because the natural follow-up correction
         (cross-sectional dependence in CAAR / BMP) is delegated to
-        ``bmp_test(kolari_pynnonen_adjust=True)``.
+        ``bmp_z(kolari_pynnonen_adjust=True)``.
 
     Examples:
         >>> import factrix as fx

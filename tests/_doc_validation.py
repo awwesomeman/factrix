@@ -66,8 +66,8 @@ def resolves(chain: tuple[str, ...]) -> bool:
     because ``factrix.metrics.__init__`` re-exports symbols like
     ``caar`` (the function) that shadow the same-named submodule —
     naive left-to-right ``getattr`` walks land on the function and then
-    fail to look up ``bmp_test`` on it. Mkdocstrings cross-refs like
-    ``factrix.metrics.caar.bmp_test`` mean the module path, not the
+    fail to look up ``bmp_z`` on it. Mkdocstrings cross-refs like
+    ``factrix.metrics.caar.bmp_z`` mean the module path, not the
     re-exported function.
     """
     for k in range(len(chain), 0, -1):

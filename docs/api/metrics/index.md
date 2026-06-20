@@ -16,7 +16,7 @@ Reverse index — match your situation to the likely landing page:
 | Continuous factor, per-date ordinary least squares (OLS) slope test | [`fm_beta`](fm_beta.md) |
 | Long-short spread sized by factor quintiles | [`quantile`](quantile.md), [`monotonicity`](monotonicity.md) |
 | Sparse `{0, R}` event signal (canonical `±1`), CAAR / abnormal-return test | [`caar`](caar.md), [`event_quality`](event_quality.md) |
-| Sparse signal, suspect event-induced variance | `caar.bmp_test` (check [`clustering`](clustering_hhi.md) first) |
+| Sparse signal, suspect event-induced variance | `caar.bmp_z` (check [`clustering`](clustering_hhi.md) first) |
 | Sparse signal, non-parametric robustness check | [`corrado`](corrado_rank.md) |
 | Common time-series factor (one signal × N assets, e.g. VIX) | [`ts_beta`](ts_beta.md), [`ts_quantile`](ts_quantile.md) |
 | `(date, value)` series → decay / drift / hit-rate | [`oos`](oos_decay.md), [`trend`](trend.md), [`hit_rate`](hit_rate.md) |

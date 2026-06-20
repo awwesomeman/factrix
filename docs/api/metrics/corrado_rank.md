@@ -75,7 +75,7 @@ title: factrix.metrics.corrado_rank
 
 <div class="grid cards" markdown>
 
--   __`caar` / `bmp_test`__
+-   __`caar` / `bmp_z`__
 
     ---
 

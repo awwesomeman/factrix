@@ -29,7 +29,7 @@ title: factrix.metrics.clustering_hhi
 
     When `hhi_normalized` is high ($\geq 0.3$ is the threshold the BMP
     docstring calls out), switch on
-    `bmp_test(kolari_pynnonen_adjust=True)` to absorb same-date shock
+    `bmp_z(kolari_pynnonen_adjust=True)` to absorb same-date shock
     sharing in the $z$ statistic.
 
 </div>
@@ -41,7 +41,7 @@ title: factrix.metrics.clustering_hhi
     ```python
     import factrix as fx
     from factrix.metrics.clustering_hhi import clustering_hhi
-    from factrix.metrics.caar import bmp_test
+    from factrix.metrics.caar import bmp_z
 
     panel = fx.datasets.make_event_panel(
         n_assets=200, n_dates=500, event_rate=0.02,
@@ -55,19 +55,19 @@ title: factrix.metrics.clustering_hhi
     # 0.041  24.4  0.36   (approximate)
 
     # hhi_normalized >= 0.3 -> reach for the K-P adjustment:
-    z = bmp_test(panel, kolari_pynnonen_adjust=True)
+    z = bmp_z(panel, kolari_pynnonen_adjust=True)
     ```
 
 ## See also
 
 <div class="grid cards" markdown>
 
--   __`caar` / `bmp_test`__
+-   __`caar` / `bmp_z`__
 
     ---
 
     The downstream tests whose independence assumption this metric
-    gates. `bmp_test(kolari_pynnonen_adjust=True)` is the formal
+    gates. `bmp_z(kolari_pynnonen_adjust=True)` is the formal
     correction.
 
     [api/metrics/caar →](caar.md)

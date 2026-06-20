@@ -92,7 +92,7 @@ title: factrix.metrics.mfe_mae
 
     [api/metrics/event_horizon →](event_horizon.md)
 
--   __`caar` / `bmp_test`__
+-   __`caar` / `bmp_z`__
 
     ---
 

@@ -1,7 +1,7 @@
 | Metric name | Source module | API page |
 |---|---|---|
 | `beta_sign_consistency` | [`factrix.metrics.fm_beta`][factrix.metrics.fm_beta] | [`beta_sign_consistency`](../api/metrics/fm_beta.md#factrix.metrics.fm_beta.beta_sign_consistency) |
-| `bmp_test` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`bmp_test`](../api/metrics/caar.md#factrix.metrics.caar.bmp_test) |
+| `bmp_z` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`bmp_z`](../api/metrics/caar.md#factrix.metrics.caar.bmp_z) |
 | `breakeven_cost` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`breakeven_cost`](../api/metrics/tradability.md#factrix.metrics.tradability.breakeven_cost) |
 | `caar` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`caar`](../api/metrics/caar.md#factrix.metrics.caar.caar) |
 | `clustering_hhi` | [`factrix.metrics.clustering_hhi`][factrix.metrics.clustering_hhi] | [`clustering_hhi`](../api/metrics/clustering_hhi.md#factrix.metrics.clustering_hhi.clustering_hhi) |
