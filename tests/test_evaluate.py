@@ -8,8 +8,9 @@ import math
 import factrix as fx
 import polars as pl
 import pytest
+from factrix._codes import WarningCode
 from factrix._errors import UserInputError
-from factrix.metrics import ic, ic_ir
+from factrix.metrics import clustering_hhi, ic, ic_ir
 
 
 def _panel(n_assets: int = 20, n_dates: int = 80, *, with_price: bool = True):
@@ -189,6 +190,55 @@ class TestStrictStructureSoftening:
             strict=False,
         )["factor"]
         assert math.isnan(er.metrics["ic"].value)
+
+    def test_strict_false_short_circuits_without_executing_metric(self):
+        # #631: clustering_hhi does not self-guard structure — on TIMESERIES
+        # data it would compute a numerically real (but invalid) value. The
+        # pre-flight gate must intercept it under strict=False: NaN value,
+        # structure_mismatch reason (proves the metric never ran), and a
+        # STRUCTURE_MISMATCH warning. p_value is None (no test was run).
+        er = fx.evaluate(
+            self._single_asset_panel(),
+            metrics={"hhi": clustering_hhi()},
+            factor_cols=["factor"],
+            forward_periods=5,
+            strict=False,
+        )["factor"]
+        m = er.metrics["hhi"]
+        assert math.isnan(m.value)
+        assert m.metadata["reason"] == "structure_mismatch"
+        assert m.metadata["cell_structure"] == "panel"
+        assert m.metadata["data_structure"] == "timeseries"
+        assert m.p_value is None
+        assert (WarningCode.STRUCTURE_MISMATCH, "hhi") in [
+            (w.code, w.source) for w in er.warnings
+        ]
+
+    def test_strict_false_mismatch_does_not_block_applicable_metric(self):
+        # A structure-mismatched label is dropped from the DAG; sibling
+        # applicable metrics in the same call still run, and the returned
+        # dict preserves the caller's request order across both.
+        panel = _panel(n_assets=20, n_dates=80)  # PANEL data
+        single = panel.filter(pl.col("asset_id") == panel["asset_id"][0])
+        er = fx.evaluate(
+            panel,
+            metrics={"hhi": clustering_hhi(), "ic": ic()},
+            factor_cols=["factor"],
+            forward_periods=5,
+            strict=False,
+        )["factor"]
+        assert list(er.metrics.outputs.keys()) == ["hhi", "ic"]
+        # On PANEL data neither is mismatched, so ic computes a real value.
+        assert not math.isnan(er.metrics["ic"].value)
+        # And on single-asset data only hhi is mismatched.
+        er2 = fx.evaluate(
+            single,
+            metrics={"hhi": clustering_hhi(), "ic": ic()},
+            factor_cols=["factor"],
+            forward_periods=5,
+            strict=False,
+        )["factor"]
+        assert er2.metrics["hhi"].metadata["reason"] == "structure_mismatch"
 
 
 class TestEntryConsistency:
