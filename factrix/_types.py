@@ -32,8 +32,8 @@ MAD_CONSISTENCY_CONSTANT: float = 1.4826
 # Minimum sample thresholds (used by metrics primitives)
 # ---------------------------------------------------------------------------
 #
-# Naming grammar: ``MIN_<DOMAIN>_<DIMENSION>[_<TIER>]``. The DIMENSION
-# token is mandatory and names the axis the threshold guards:
+# Naming grammar: ``MIN_[<DOMAIN>_]<AXIS>[_<TIER>]``. The AXIS token is
+# mandatory and names the axis the threshold guards:
 #   ``ASSETS``  — cross-sectional asset count (N per date)
 #   ``PERIODS`` — time-series length (T, number of dates / draws)
 #   ``EVENTS``  — event-date count
