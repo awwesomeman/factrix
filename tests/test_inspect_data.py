@@ -236,7 +236,7 @@ class TestDeclaredEventFloorsVisible:
 
     def test_static_event_metrics_declare_min_events(self):
         from factrix._types import MIN_EVENTS_HARD
-        from factrix.metrics.caar import bmp_test
+        from factrix.metrics.caar import bmp_z
         from factrix.metrics.clustering_hhi import clustering_hhi
         from factrix.metrics.corrado_rank import corrado_rank
         from factrix.metrics.event_quality import (
@@ -251,7 +251,7 @@ class TestDeclaredEventFloorsVisible:
             corrado_rank,
             clustering_hhi,
             mfe_mae_summary,
-            bmp_test,
+            bmp_z,
             event_hit_rate,
             event_ic,
             profit_factor,

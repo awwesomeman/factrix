@@ -46,7 +46,7 @@ contrasts, not a sidecar to a primary value.
 | [`pooled_beta`][factrix.metrics.fm_beta.pooled_beta] | clustered ordinary least squares (OLS) `t` (or `None` if G < 3) | `p_value` | pooled β |
 | [`beta_sign_consistency`][factrix.metrics.fm_beta.beta_sign_consistency] | none — descriptive | — | fraction with expected sign |
 | [`caar`][factrix.metrics.caar.caar] | non-overlapping `t` on event-date CAAR | `p_value` | mean(CAAR) |
-| [`bmp_test`][factrix.metrics.caar.bmp_test] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
+| [`bmp_z`][factrix.metrics.caar.bmp_z] | BMP cross-sectional `z` on SAR | `p_value` | mean(SAR) |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | nonparametric rank `z` | `p_value` | mean(U × sign(factor)) |
 | [`hit_rate`][factrix.metrics.hit_rate.hit_rate] | binomial test (or normal `z`) | `p_value` | hit rate ∈ [0, 1] |
 | [`directional_hit_rate`][factrix.metrics.directional_hit_rate.directional_hit_rate] | Pesaran-Timmermann `z` (one-sided) | `p_value` | directional hit rate ∈ [0, 1] |
@@ -147,7 +147,7 @@ Descriptive; no test.
   `n_event_periods_sampled`,
   `warning_codes` (conditional, e.g. `FEW_EVENTS`).
 
-#### `bmp_test`
+#### `bmp_z`
 
 Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 `z` test, with optional Kolari-Pynnönen clustering adjustment.

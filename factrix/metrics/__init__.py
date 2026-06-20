@@ -20,7 +20,7 @@ Individual × Continuous:
 Individual × Sparse (the ``Common × Sparse`` cell has its own
 broadcast-dummy procedure but reuses these helper metrics — there is
 no separate Common-sparse module set):
-    compute_caar, caar, bmp_test, event_hit_rate, event_ic,
+    compute_caar, caar, bmp_z, event_hit_rate, event_ic,
     compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
     compute_event_returns, event_around_return,
     signal_density, clustering_hhi, corrado_rank
@@ -38,7 +38,7 @@ from factrix._metric_index import metric_spec, register
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics.caar import (
-    bmp_test,
+    bmp_z,
     caar,
 )
 from factrix.metrics.clustering_hhi import clustering_hhi
@@ -94,7 +94,7 @@ from factrix.metrics.ts_quantile import ts_quantile_spread
 
 __all__ = [
     "beta_sign_consistency",
-    "bmp_test",
+    "bmp_z",
     "breakeven_cost",
     "caar",
     "clustering_hhi",

@@ -314,7 +314,7 @@ motivation for switching to the BMP-style estimator below.
 ### BMP standardised AR
 [](){ #bmp-standardised-ar }
 
-`bmp_test`. Standardises each event's abnormal return by its
+`bmp_z`. Standardises each event's abnormal return by its
 estimation-window standard deviation before taking the cross-event
 mean, restoring size under event-induced variance
 ([Boehmer-Musumeci-Poulsen 1991][boehmer-musumeci-poulsen-1991]).
@@ -322,7 +322,7 @@ factrix's implementation is a **BMP-style simplification**: by
 default it uses mean-adjusted abnormal returns and omits the original
 BMP prediction-error correction, so results do not match a textbook
 BMP implementation byte-for-byte. The strict denominator is
-available via `bmp_test(..., include_prediction_error_variance=True)`
+available via `bmp_z(..., include_prediction_error_variance=True)`
 when the textbook form is required.
 
 ### Corrado nonparametric rank

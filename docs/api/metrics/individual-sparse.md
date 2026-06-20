@@ -28,6 +28,6 @@ any `SPARSE × PANEL` factor, broadcast or per-asset. The cross-cell
 landing page is [Common sparse](common-sparse.md).
 
 When events cluster on the same date (earnings season, macro release),
-prefer `caar.bmp_test(kolari_pynnonen_adjust=True)` over the vanilla
+prefer `caar.bmp_z(kolari_pynnonen_adjust=True)` over the vanilla
 $t$-test — the [`clustering`](clustering_hhi.md) HHI tells you when this
 matters.

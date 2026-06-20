@@ -9,7 +9,7 @@ import polars as pl
 import pytest
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix.metrics.caar import (
-    bmp_test,
+    bmp_z,
     caar,
     compute_caar,
 )
@@ -415,18 +415,18 @@ class TestCaarEventSpacedSampling:
 
 
 # ---------------------------------------------------------------------------
-# bmp_test
+# bmp_z
 # ---------------------------------------------------------------------------
 
 
 class TestBmpTest:
     def test_strong_signal_significant(self, strong_signal):
-        result = bmp_test(strong_signal)
+        result = bmp_z(strong_signal)
         assert abs(result.stat) > 2.0
         assert result.metadata["stat_type"] == "z"
 
     def test_noise_not_significant(self, noise_signal):
-        result = bmp_test(noise_signal)
+        result = bmp_z(noise_signal)
         assert abs(result.stat) < 2.0
 
     def test_no_events(self):
@@ -439,17 +439,17 @@ class TestBmpTest:
                 "price": [100.0],
             }
         )
-        result = bmp_test(df)
+        result = bmp_z(df)
         assert math.isnan(result.value)
 
     def test_uses_price_for_vol(self, strong_signal):
-        result = bmp_test(strong_signal)
+        result = bmp_z(strong_signal)
         assert result.metadata.get("n_events", 0) > 0
 
     def test_kolari_pynnonen_shrinks_z_when_clustered(self, strong_signal):
         """K-P adjustment must not expand |z|; when ρ>0 it strictly shrinks."""
-        raw = bmp_test(strong_signal, kolari_pynnonen_adjust=False)
-        adj = bmp_test(strong_signal, kolari_pynnonen_adjust=True)
+        raw = bmp_z(strong_signal, kolari_pynnonen_adjust=False)
+        adj = bmp_z(strong_signal, kolari_pynnonen_adjust=True)
         assert adj.metadata.get("kolari_pynnonen_applied") is True
         r = adj.metadata["kolari_pynnonen_r"]
         n_eff = adj.metadata["kolari_pynnonen_n_eff"]
@@ -460,15 +460,15 @@ class TestBmpTest:
         assert adj.metadata["stat_uncorrected"] == pytest.approx(raw.stat)
 
     def test_prediction_error_variance_default_off(self, strong_signal):
-        result = bmp_test(strong_signal)
+        result = bmp_z(strong_signal)
         assert result.metadata["include_prediction_error_variance"] is False
 
     def test_prediction_error_variance_scales_value_and_std(self, strong_signal):
         """Strict denominator √(1+1/T) shrinks each SAR uniformly; z is invariant."""
         T = 60
         ratio = 1.0 / math.sqrt(1.0 + 1.0 / T)
-        raw = bmp_test(strong_signal, estimation_window=T)
-        strict = bmp_test(
+        raw = bmp_z(strong_signal, estimation_window=T)
+        strict = bmp_z(
             strong_signal,
             estimation_window=T,
             include_prediction_error_variance=True,
@@ -489,13 +489,13 @@ class TestBmpTest:
         """Both flags on: PE scales SAR uniformly; KP shrinks z. No interference."""
         T = 60
         ratio = 1.0 / math.sqrt(1.0 + 1.0 / T)
-        base = bmp_test(strong_signal, estimation_window=T)
-        pe = bmp_test(
+        base = bmp_z(strong_signal, estimation_window=T)
+        pe = bmp_z(
             strong_signal,
             estimation_window=T,
             include_prediction_error_variance=True,
         )
-        both = bmp_test(
+        both = bmp_z(
             strong_signal,
             estimation_window=T,
             include_prediction_error_variance=True,
@@ -536,7 +536,7 @@ class TestBmpTest:
                 }
             )
         df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
-        result = bmp_test(df, kolari_pynnonen_adjust=True)
+        result = bmp_z(df, kolari_pynnonen_adjust=True)
         assert result.metadata["kolari_pynnonen_applied"] is False
         assert result.metadata["kolari_pynnonen_r_source"] == ("no_multi_event_dates")
 

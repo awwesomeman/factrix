@@ -13,7 +13,7 @@ This guide covers how to call standalone metrics, their input shapes, and how to
 | Quantile spread & monotonicity | `quantile_spread`, `quantile_spread_vw`, `monotonicity` | `dict[str, MetricResult]` (batchable) |
 | Tradability & cost break-even | `turnover`, `notional_turnover`, `breakeven_cost`, `net_spread` | `MetricResult` |
 | Spanning regression vs existing pool | `spanning_alpha`, `greedy_forward_selection` | `MetricResult` |
-| Event study analysis | `caar`, `bmp_test`, `corrado_rank`, `event_hit_rate`, `clustering_hhi` | `MetricResult` |
+| Event study analysis | `caar`, `bmp_z`, `corrado_rank`, `event_hit_rate`, `clustering_hhi` | `MetricResult` |
 | Event return shape | `mfe_mae_summary`, `event_around_return` | `MetricResult` |
 | Series diagnostics | `oos_decay`, `ic_trend`, `hit_rate` | `MetricResult` |
 

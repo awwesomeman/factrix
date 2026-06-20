@@ -185,7 +185,7 @@ Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) is the a
 ### `estimation_window`
 
 Per-asset pre-event sample used to fit the abnormal-return baseline
-for `bmp_test` and `corrado_rank`. See
+for `bmp_z` and `corrado_rank`. See
 [Metric applicability § estimation_window](metric-applicability.md#estimation_window).
 
 ## Multiple testing

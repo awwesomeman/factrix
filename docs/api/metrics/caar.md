@@ -7,12 +7,12 @@ title: factrix.metrics.caar
       show_root_members_full_path: true
       members:
         - caar
-        - bmp_test
+        - bmp_z
 
 <hr>
 
 !!! info "Event-study contracts"
-    `signed_car`, the `estimation_window` consumed by `bmp_test`, and
+    `signed_car`, the `estimation_window` consumed by `bmp_z`, and
     factrix's confounded-event handling are documented in
     [Metric applicability § Event-study contracts](../../reference/metric-applicability.md#event-study-contracts).
     factrix computes **CAR** (sum of per-period abnormal returns), not
@@ -67,7 +67,7 @@ title: factrix.metrics.caar
 |--------------------------------------------------------------|----------------|
 | Per-event-date CAAR table for downstream inspection / slicing | `compute_caar` |
 | Mean-CAAR significance, deterministic non-overlap subsample   | `caar`         |
-| Variance-robust event-induced significance (BMP standardised $z$) | `bmp_test`     |
+| Variance-robust event-induced significance (BMP standardised $z$) | `bmp_z`     |
 
 ## Worked example — per-event-date CAAR then mean significance
 
@@ -75,7 +75,7 @@ title: factrix.metrics.caar
 
     ```python
     import factrix as fx
-    from factrix.metrics.caar import compute_caar, caar, bmp_test
+    from factrix.metrics.caar import compute_caar, caar, bmp_z
     from factrix.preprocess import compute_forward_return
 
     raw   = fx.datasets.make_event_panel(
@@ -99,7 +99,7 @@ title: factrix.metrics.caar
     # 0.0039  6.42  1.4e-09   (approximate)
 
     # Variance-robust alternative when same-date clustering is high:
-    z_bmp = bmp_test(panel, estimation_window=60, forward_periods=5,
+    z_bmp = bmp_z(panel, estimation_window=60, forward_periods=5,
                      kolari_pynnonen_adjust=True)
     ```
 

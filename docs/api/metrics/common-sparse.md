@@ -33,5 +33,5 @@ descriptive event-profile diagnostics.
 
 Because every event shares the same date across assets, this cell is
 especially exposed to event-date clustering — prefer
-`caar.bmp_test(kolari_pynnonen_adjust=True)` over the vanilla $t$-test
+`caar.bmp_z(kolari_pynnonen_adjust=True)` over the vanilla $t$-test
 and read [`clustering`](clustering_hhi.md) first.
