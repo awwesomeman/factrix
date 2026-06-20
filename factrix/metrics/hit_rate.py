@@ -144,7 +144,6 @@ def hit_rate(
 
     metadata: dict[str, object] = {
         "n_hits": hits,
-        "n_total": n,
         "stat_type": stat_type,
         "h0": "p=0.5",
         "method": _binomial_test_method_name(n),
