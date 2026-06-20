@@ -250,6 +250,28 @@ class TestByValueNodes:
         assert out["x"].metrics["per_factor#1"].value == 9.0
         assert sorted(calls) == [5, 9]
 
+    def test_list_params_dedup_without_unhashable_error(self):
+        # List-valued params (e.g. ``event_around_return(offsets=[...])`` must
+        # not crash node interning; equal lists dedup to one node and the
+        # stored kwargs keep the original list.
+        spec = spec_by_name()["event_around_return"]
+        nodes, label_to_node, node_kwargs = fx._build_nodes(
+            {"a": spec, "b": spec},
+            {"a": {"offsets": [-1, 0, 1]}, "b": {"offsets": [-1, 0, 1]}},
+        )
+        assert label_to_node["a"] == label_to_node["b"]
+        assert len(nodes) == 1
+        assert node_kwargs[label_to_node["a"]] == {"offsets": [-1, 0, 1]}
+
+    def test_differing_list_params_run_as_distinct_nodes(self):
+        spec = spec_by_name()["event_around_return"]
+        nodes, label_to_node, _ = fx._build_nodes(
+            {"a": spec, "b": spec},
+            {"a": {"offsets": [-1, 0, 1]}, "b": {"offsets": [0, 1, 2]}},
+        )
+        assert label_to_node["a"] != label_to_node["b"]
+        assert len(nodes) == 2
+
 
 class TestWarningCodeLift:
     def test_typed_warning_codes_lift_to_warning_records(self):
