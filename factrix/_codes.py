@@ -27,7 +27,7 @@ class WarningCode(StrEnum):
     # inflates as N shrinks. One code flags the whole thin regime
     # (n_assets < MIN_ASSETS_WARN); severity is read from the ``n_assets``
     # metadata rather than split across separate tier members.
-    CROSS_SECTION_N = "cross_section_n"
+    FEW_ASSETS = "few_assets"
     # Fired by the (COMMON, SPARSE, PANEL) procedure when the broadcast
     # dummy carries MIN_BROADCAST_EVENTS_HARD ≤ n_events <
     # MIN_BROADCAST_EVENTS_WARN. Per-asset β is identifiable but
@@ -108,7 +108,7 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.EVENT_WINDOW_OVERLAP: "Adjacent events sit within forward_periods; AR windows overlap.",
         WarningCode.PERSISTENT_REGRESSOR: "ADF p > 0.10 on the continuous factor; β may carry Stambaugh bias.",
         WarningCode.SERIAL_CORRELATION_DETECTED: "Ljung-Box p < 0.05 on residuals; NW lag may be under-set.",
-        WarningCode.CROSS_SECTION_N: "PANEL cross-asset t-test with n_assets < "
+        WarningCode.FEW_ASSETS: "PANEL cross-asset t-test with n_assets < "
         "MIN_ASSETS_WARN (30); df=n_assets-1 inflates t_crit relative to the "
         "asymptotic 1.96 (≈4.30 at n_assets=3, +119%; 5–15% near 30). "
         "Severity scales with n_assets — read the n_assets metadata.",
@@ -165,7 +165,7 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     ``primary_p``'s ``dof = N - 1``. Callers (``suggest_config``,
     ``_compute_common_panel``) therefore pre-filter before calling.
 
-    A single :attr:`WarningCode.CROSS_SECTION_N` flags the whole thin regime
+    A single :attr:`WarningCode.FEW_ASSETS` flags the whole thin regime
     (``2 ≤ n_assets < MIN_ASSETS_WARN``); how severe it is scales with
     ``n_assets``, which callers carry in metadata rather than encoding into
     separate tier members. Returns ``None`` at ``n_assets ≥ MIN_ASSETS_WARN``
@@ -175,5 +175,5 @@ def cross_section_tier(n_assets: int) -> WarningCode | None:
     from factrix._stats.constants import MIN_ASSETS_WARN
 
     if 2 <= n_assets < MIN_ASSETS_WARN:
-        return WarningCode.CROSS_SECTION_N
+        return WarningCode.FEW_ASSETS
     return None

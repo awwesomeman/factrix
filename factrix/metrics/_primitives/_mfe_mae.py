@@ -15,7 +15,7 @@ from factrix._metric_index import cell
 from factrix._types import EPSILON
 from factrix.metrics._decorators import metric
 
-DEFAULT_MIN_ESTIMATION_SAMPLES: int = 20
+DEFAULT_MIN_ESTIMATION_PERIODS: int = 20
 
 
 def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
@@ -50,7 +50,7 @@ def compute_mfe_mae(
     *,
     window: int = 20,
     estimation_window: int = 60,
-    min_estimation_samples: int = DEFAULT_MIN_ESTIMATION_SAMPLES,
+    min_estimation_periods: int = DEFAULT_MIN_ESTIMATION_PERIODS,
     factor_col: str = "factor",
     price_col: str = "price",
 ) -> pl.DataFrame:
@@ -60,10 +60,10 @@ def compute_mfe_mae(
     subsequent bars to find the peak gain (MFE) and peak loss (MAE)
     relative to event entry price, adjusted for density direction.
     """
-    if min_estimation_samples < 2:
+    if min_estimation_periods < 2:
         raise ValueError(
-            f"min_estimation_samples must be >= 2 (std needs ddof=1 "
-            f"and at least 2 observations), got {min_estimation_samples}"
+            f"min_estimation_periods must be >= 2 (std needs ddof=1 "
+            f"and at least 2 observations), got {min_estimation_periods}"
         )
 
     date_dtype = df.schema["date"]
@@ -116,10 +116,10 @@ def compute_mfe_mae(
         est_start = max(0, idx - estimation_window)
         est_prices = prices[est_start:idx]
         est_sigma = float("nan")
-        if len(est_prices) > min_estimation_samples:
+        if len(est_prices) > min_estimation_periods:
             prior = est_prices[:-1]
             safe = prior > EPSILON
-            if safe.sum() >= min_estimation_samples:
+            if safe.sum() >= min_estimation_periods:
                 daily_rets = (est_prices[1:][safe] / prior[safe]) - 1.0
                 if len(daily_rets) >= 2:
                     est_sigma = float(np.std(daily_rets, ddof=1))

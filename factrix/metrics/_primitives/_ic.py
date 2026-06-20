@@ -14,7 +14,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._metric_index import cell
-from factrix._types import MIN_ASSETS_PER_DATE_IC
+from factrix._types import MIN_IC_ASSETS
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import _attach_drop_stats
 
@@ -50,7 +50,7 @@ def compute_ic(
         Dict mapping each factor name to a DataFrame with columns
         ``date, ic, tie_ratio`` sorted by date, plus an internal
         ``_drop_stats`` diagnostic struct column. Dates with fewer than
-        ``MIN_ASSETS_PER_DATE_IC`` assets are dropped; ``_drop_stats``
+        ``MIN_IC_ASSETS`` assets are dropped; ``_drop_stats``
         records how many were dropped (the aggregate drop-rate schema).
         ``tie_ratio`` is the per-date factor tie density
         $1 - n_{\mathrm{unique}} / n$ in $[0, 1]$.
@@ -79,8 +79,8 @@ def compute_ic(
         df.lazy().with_columns(rank_exprs).group_by("date").agg(agg_exprs).sort("date")
     ).collect()
     n_periods_in = grouped.height
-    wide = grouped.filter(pl.col("n") >= MIN_ASSETS_PER_DATE_IC)
-    drop_reason = f"n_assets below MIN_ASSETS_PER_DATE_IC ({MIN_ASSETS_PER_DATE_IC})"
+    wide = grouped.filter(pl.col("n") >= MIN_IC_ASSETS)
+    drop_reason = f"n_assets below MIN_IC_ASSETS ({MIN_IC_ASSETS})"
 
     return {
         f: _attach_drop_stats(

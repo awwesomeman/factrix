@@ -62,7 +62,7 @@ _IC_CELL = cell(
 # downscale `n_groups`. The min-cross-section-per-date constraint
 # (Spearman ρ asymptotic distribution requires ≥ 30 obs per date,
 # Hollander-Wolfe-Chicken §8.6) lives in the procedure as
-# `MIN_ASSETS_PER_DATE_IC` short-circuit, parallel to (not exposed
+# `MIN_IC_ASSETS` short-circuit, parallel to (not exposed
 # via) this attribute.
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
