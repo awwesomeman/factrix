@@ -206,6 +206,5 @@ def directional_hit_rate(
             "p_expected": p_star,
             "p_up_pred": p_x,
             "p_up_real": p_y,
-            "n_obs": n,
         },
     )
