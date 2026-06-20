@@ -76,6 +76,14 @@ class WarningCode(StrEnum):
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
 
+    # Fired by evaluate(strict=False) when a metric's declared
+    # cell.structure disagrees with the data's structure (e.g. a PANEL
+    # metric requested on TIMESERIES data). The metric is not executed —
+    # it short-circuits to a NaN MetricResult with
+    # metadata["reason"]="structure_mismatch" rather than computing a
+    # numerically real but structurally invalid value.
+    STRUCTURE_MISMATCH = "structure_mismatch"
+
     # Per-axis silent-drop flags. A metric whose upstream primitive silently
     # dropped a large share of its sample at a filter raises the code for the
     # dropped axis: PERIOD_DROPS for the time axis (e.g. compute_ic dropping
@@ -138,6 +146,10 @@ _WARNING_DESCRIPTIONS.update(
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
+        WarningCode.STRUCTURE_MISMATCH: "Metric's declared cell.structure disagrees with the data "
+        "structure (e.g. a PANEL metric on TIMESERIES data); under "
+        "strict=False the metric short-circuits to NaN instead of executing. "
+        "metadata carries cell_structure / data_structure for diagnosis.",
         WarningCode.EXCESSIVE_PERIOD_DROPS: "An upstream PANEL→SERIES primitive dropped more than "
         "DROP_RATE_WARN_THRESHOLD of dates at its cross-sectional filter; the "
         "metric was computed on a shortened sample. Exact counts are in "
