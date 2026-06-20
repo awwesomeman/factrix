@@ -92,6 +92,12 @@ class MetricBase(metaclass=MetricMeta):
     sample_threshold_for: ClassVar[Callable[[MetricBase], SampleThreshold] | None] = (
         None
     )
+    # Declares that the metric needs a continuous-magnitude factor (``|factor|``
+    # must vary across events). A discrete ±k indicator makes it undefined; the
+    # metric short-circuits ``not_applicable_discrete_signal`` at run time and
+    # ``inspect_data`` blocks it pre-flight. Default ``False`` — most metrics
+    # accept any cardinality.
+    requires_continuous_magnitude: ClassVar[bool] = False
 
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
@@ -134,6 +140,7 @@ class MetricBase(metaclass=MetricMeta):
             requires=cls.requires,
             batchable=cls.batchable,
             sample_threshold=threshold,
+            requires_continuous_magnitude=cls.requires_continuous_magnitude,
         )
 
     def _params(self) -> dict[str, Any]:

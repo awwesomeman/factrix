@@ -468,6 +468,22 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     (``caar``) is pre-flighted at its default config, and its in-body
     short-circuit on the actual run-time params stays authoritative.
 
+    A third, content-based gate beyond cell and sample shape: a metric
+    declaring ``requires_continuous_magnitude`` (e.g. ``event_ic``) is
+    blocked on a discrete ±k signal (``|factor|`` constant across events,
+    such as a ternary ``{-1, 0, +1}`` indicator), matching its run-time
+    ``not_applicable_discrete_signal`` short-circuit.
+
+    Multi-factor input: the detected :class:`DataProperties` and every
+    per-metric verdict are computed from the **first** factor column only
+    (deterministic first-detected). When columns disagree on
+    ``FactorDensity`` or ``FactorScope`` a ``CROSS_FACTOR_*_MISMATCH``
+    data-level warning is emitted directing the caller to re-run
+    ``inspect_data(data, factor_cols=[col])`` for a column-specific verdict.
+    Other per-column properties (e.g. signal magnitude, ``n_events``) are
+    likewise first-column-based; for a heterogeneous panel prefer the
+    per-column call.
+
     Args:
         data: Long-format factor data with the canonical columns.
             The baseline columns ``date`` / ``asset_id`` /
@@ -584,7 +600,19 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
                 )
             )
 
-    metrics = [_evaluate_applicability(spec, properties) for _, spec in public_specs()]
+    # Signal magnitude is a content gate beyond cell/sample shape: a discrete
+    # ±k factor (e.g. ternary {-1, 0, +1}) makes magnitude-dependent metrics
+    # (event_ic) undefined. Computed on the first column — the verdict basis
+    # for multi-factor input (see docstring) — using the same predicate the
+    # metric short-circuits on at run time.
+    from factrix.metrics._helpers import _event_signal_is_discrete
+
+    signal_discrete = _event_signal_is_discrete(data, first_col)
+
+    metrics = [
+        _evaluate_applicability(spec, properties, signal_discrete)
+        for _, spec in public_specs()
+    ]
 
     return DataInspection(
         detected=properties,
@@ -594,7 +622,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
 
 
 def _evaluate_applicability(
-    spec: MetricSpec, properties: DataProperties
+    spec: MetricSpec, properties: DataProperties, signal_discrete: bool
 ) -> MetricApplicability:
     from factrix.metrics._registry import REGISTRY
 
@@ -609,6 +637,14 @@ def _evaluate_applicability(
             f"({properties.scope.value.upper()}, "
             f"{properties.density.value.upper()}, "
             f"*, {properties.structure.value.upper()})"
+        )
+
+    if spec.requires_continuous_magnitude and signal_discrete:
+        blockers.append(
+            "discrete signal: |factor| has no magnitude variance over events "
+            "(e.g. a ternary {-1, 0, +1} indicator); this metric needs a "
+            "continuous magnitude and short-circuits "
+            "not_applicable_discrete_signal at run time"
         )
 
     floor = spec.sample_threshold

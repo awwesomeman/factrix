@@ -29,6 +29,7 @@ def metric(
     batchable: bool = False,
     sample_threshold: SampleThreshold | None = None,
     sample_threshold_for: Callable[[Any], SampleThreshold] | None = None,
+    requires_continuous_magnitude: bool = False,
 ) -> Callable[[_F], _F]:
     """Decorator to define a Metric class from a function definition.
 
@@ -85,6 +86,7 @@ def metric(
             # reads the instance's configured param fields. ``None`` falls back
             # to the inherited static ``sample_threshold``.
             "sample_threshold_for": sample_threshold_for,
+            "requires_continuous_magnitude": requires_continuous_magnitude,
             "_impl": fn,
             "_first_param_name": first_param_name,
             "_param_names": tuple(f[0] for f in fields),
