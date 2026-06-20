@@ -177,7 +177,8 @@ runs, the normal `z` when the approximation branch runs;
 
 - *primary*: `p_value` — binomial / normal-approximation test on
   non-overlapping wins (stride `forward_periods`).
-- *descriptive*: `n_hits`, `n_total`.
+- *descriptive*: `n_hits`. The trial count is the period-axis drop-stat
+  `n_periods_out` (the surviving non-overlapping observations).
 
 ### `directional_hit_rate` (`factrix.metrics.directional_hit_rate`)
 
