@@ -374,7 +374,15 @@ def _build_nodes(
     creation_order: list[str] = []
 
     def intern(spec: MetricSpec, params: dict[str, Any]) -> str:
-        key = (spec.name, frozenset(params.items()))
+        # List params (e.g. ``offsets=[...]``) are unhashable; coerce to a
+        # tuple so the dedup key works. Only the key is affected — the stored
+        # kwargs below keep the original list the metric signature expects.
+        key = (
+            spec.name,
+            frozenset(
+                (k, tuple(v) if isinstance(v, list) else v) for k, v in params.items()
+            ),
+        )
         nid = node_by_key.get(key)
         if nid is None:
             i = name_counts.get(spec.name, 0)
