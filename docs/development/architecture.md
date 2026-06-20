@@ -162,10 +162,72 @@ User-facing tier semantics (hard block / soft warning / clean) live in
 [Guides § Panel vs timeseries — Sample guards](../guides/panel-timeseries.md#sample-guards).
 This section catalogues the **internal constants** that back those tiers.
 
+### Naming grammar
+
+Every sample-size identifier — runtime count, declarative floor, calibrated
+constant, warning code, drop-stat key — is named off a single **axis token**
+so a reader resolves *which axis* a name guards from the name alone. New
+identifiers must use an axis token, with two deliberate registers/exceptions:
+
+- **Two registers for the time axis.** The *data layer* speaks the panel
+  column token `date` (`n_dates` = distinct dates, grounded in
+  `adapt(date="date")`); the *stats layer* speaks the axis token `periods`
+  (`n_periods`, `MIN_PERIODS_*`, `min_periods`). Same dimension, two registers
+  — a count of the raw column vs the abstract series length.
+- **The cross-metric neutral `n_obs`.** `MetricResult.n_obs` (a first-class
+  serialized field) and the generic `fx.inference` estimators carry an
+  axis-agnostic `n_obs` on purpose: at those layers the caller's axis is
+  unknown and any single token would mislabel a pooled or estimator-specific
+  count. Per-metric metadata keys still use an axis token.
+
+| Axis token | Dimension |
+|------------|-----------|
+| `periods`  | time-series length (T; number of dates / draws) |
+| `assets`   | cross-sectional asset count (N per date) |
+| `pairs`    | complete `(factor, return)` pairs (FM cross-section) |
+| `events`   | event-date count |
+
+Four layers, one grammar:
+
+- **Runtime counts** — `n_<axis>`: `n_periods`, `n_assets`, `n_events`,
+  `n_pairs`. Drop accounting adds the directional/derived forms
+  `n_<axis>_in`, `n_<axis>_out`, `dropped_<axis>`.
+- **Per-metric declarative floors** (`SampleThreshold`, `factrix/_metric_index.py`) —
+  `min_<axis>` / `warn_<axis>` fields (`min_periods`/`warn_periods`, …). A metric
+  is *unusable* below `min`, *degraded* in `[min, warn)`, *clean* at `≥ warn`;
+  `__post_init__` enforces the `min <= warn` invariant. Axes a metric does not
+  use are left `None`.
+- **Calibrated module constants** (SSOT for the literals) —
+  `MIN_[<DOMAIN>_]<AXIS>[_<TIER>]`. The `AXIS` token is mandatory
+  (`PERIODS`/`ASSETS`/`EVENTS`/`PAIRS`); `DOMAIN` is an optional prefix qualifier
+  (`BROADCAST`, `PORTFOLIO`, `FM`, `IC`) that disambiguates when the *same*
+  axis is gated by a *different* statistic — e.g. CAAR's `MIN_EVENTS_HARD` vs
+  the broadcast-dummy `MIN_BROADCAST_EVENTS_HARD`. `TIER` is `_HARD`
+  (raise / short-circuit floor) or `_WARN` (degrade floor). **`_HARD` is
+  dropped on any axis that never raises** — `MIN_ASSETS_WARN` carries no
+  `_HARD` because the cross-asset t-test is defined for `n_assets ≥ 2`
+  (only weak, never undefined), so a single warn floor flags the whole thin
+  regime and severity is read from the `n_assets` metadata. **A constant for
+  one axis must never gate another** — introduce a separate `_PERIODS`
+  constant even when the calibrated value coincides with an `_ASSETS` one.
+- **Warning codes** (`factrix/_codes.py`) carry the same axis token so the
+  degraded axis is legible from the code alone:
+  `UNRELIABLE_SE_SHORT_PERIODS`, `FEW_EVENTS`, `BORDERLINE_PORTFOLIO_PERIODS`,
+  `SPARSE_COMMON_FEW_EVENTS`, and the axis-specific drop pair
+  `EXCESSIVE_PERIOD_DROPS` / `EXCESSIVE_ASSET_DROPS`. (`CROSS_SECTION_N`
+  predates this rule and still uses the neutral `_N`.)
+
+Silent-drop diagnostics emit a fixed per-axis metadata schema
+(`factrix/metrics/_helpers.py`): `n_<axis>_in`, `n_<axis>_out`,
+`dropped_<axis>`, `drop_rate`, `drop_rate_threshold` — the count keys carry the
+axis token, the rate keys are axis-neutral.
+
+### Backing constants
+
 `factrix/_stats/constants.py`:
 
 - `MIN_PERIODS_HARD = 20`, `MIN_PERIODS_WARN = 30` — the two-tier `n_periods` thresholds.
-- `MIN_ASSETS = 10`, `MIN_ASSETS_WARN = 30` — the two-tier `n_assets` thresholds. The
+- `MIN_ASSETS_WARN = 30` — the single `n_assets` warn floor (no `_HARD` tier). The
   `n_assets` axis never raises (cross-asset t-test on E[β] is mathematically defined for
   `n_assets ≥ 2`), so constant naming deliberately drops the `_HARD` suffix to avoid
   implying a raise.
@@ -173,15 +235,16 @@ This section catalogues the **internal constants** that back those tiers.
 - Hansen-Hodrick (1980) overlap floor: `max(auto_bartlett(T), forward_periods - 1)` —
   ensures NW lag covers MA(h-1) structure from overlapping forward returns.
 
-`factrix/_types.py` keeps the older per-metric thresholds used internally by the metric
-primitives that procedures wrap:
+`factrix/_types.py` and the metric primitives keep the older per-metric thresholds used
+internally by the primitives that procedures wrap:
 
 - `MIN_ASSETS_PER_DATE_IC = 10` — `compute_ic` drops dates with fewer than 10 assets;
   at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
   primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.
-- `MIN_FM_CS_OBS = 3` — `compute_fm_betas` emits a date only with ≥ 3 complete
+- `MIN_FM_ASSETS = 3` (`factrix/metrics/_primitives/_fm_betas.py`) — `compute_fm_betas`
+  emits a date only with ≥ 3 complete
   `(factor, return)` pairs and non-zero cross-sectional variance; the closed-form
   slope `Cov_t(x, y) / Var_t(x)` is computed batched across factors (one
   `group_by("date").agg`), so degenerate (zero-variance) dates are dropped rather
