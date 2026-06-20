@@ -798,6 +798,31 @@ def _is_sparse_magnitude_weighted(
     return not all(abs(abs(v) - 1.0) < EPSILON for v in nz)
 
 
+def _event_signal_is_discrete(
+    df: pl.DataFrame,
+    factor_col: str = "factor",
+) -> bool:
+    """``True`` iff ``|factor|`` over event rows has no magnitude variance.
+
+    Event rows are ``factor_col != 0``. A discrete ±k indicator (e.g. the
+    canonical ternary ``{-1, 0, +1}`` from ``make_event_panel``) has a single
+    ``|factor|`` value, so the magnitude→return rank correlation that
+    ``event_ic`` measures is undefined — there is no magnitude variation to
+    correlate. This is the single source of truth for that condition: both
+    ``event_ic``'s run-time short-circuit and ``inspect_data``'s pre-flight
+    verdict call it, so the two cannot diverge.
+
+    Returns ``False`` for an empty event set — that is a sample shortage
+    ("too few events"), handled by the event-count floor, not a discreteness
+    blocker.
+    """
+    events = df.filter(pl.col(factor_col) != 0)
+    if events.is_empty():
+        return False
+    abs_signal = np.abs(events[factor_col].to_numpy())
+    return bool(np.ptp(abs_signal) < EPSILON)
+
+
 def _median_universe_size(df: pl.DataFrame) -> int:
     """Median number of unique assets per date."""
     return int(

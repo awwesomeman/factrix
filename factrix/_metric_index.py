@@ -268,6 +268,11 @@ class MetricSpec:
       unusable / degraded. Defaults to ``SampleThreshold()`` (all
       ``None`` — no pre-flight gate); :func:`inspect_data` applies
       the cell-match check and any declared thresholds.
+    - ``requires_continuous_magnitude``: ``True`` when the metric needs a
+      continuous-magnitude factor (``|factor|`` must vary across events);
+      :func:`inspect_data` blocks it on a discrete ±k signal, matching the
+      metric's run-time ``not_applicable_discrete_signal`` short-circuit.
+      Defaults to ``False``.
     """
 
     name: str
@@ -279,6 +284,10 @@ class MetricSpec:
     requires: dict[str, Callable] = field(default_factory=dict)
     batchable: bool = False
     sample_threshold: SampleThreshold = field(default_factory=SampleThreshold)
+    # Pre-flight gate beyond cell/sample: the metric needs a continuous-magnitude
+    # factor (``|factor|`` varies across events). ``inspect_data`` blocks it on a
+    # discrete ±k signal, matching the metric's run-time short-circuit.
+    requires_continuous_magnitude: bool = False
 
     def __post_init__(self) -> None:
         if self.role is SpecRole.METRIC and self.output_shape is not OutputShape.SCALAR:

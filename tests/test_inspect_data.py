@@ -154,7 +154,9 @@ class TestSampleThresholdGate:
         from factrix._inspect import _evaluate_applicability
 
         verdict = _evaluate_applicability(
-            replace(spec, sample_threshold=floor), info.detected
+            replace(spec, sample_threshold=floor),
+            info.detected,
+            signal_discrete=False,
         )
         assert verdict.usable is False
         assert any("min_pairs" in b for b in verdict.blockers)
@@ -170,7 +172,9 @@ class TestSampleThresholdGate:
         floor = SampleThreshold(min_pairs=n - 1, warn_pairs=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_ir")
         verdict = _evaluate_applicability(
-            replace(spec, sample_threshold=floor), info.detected
+            replace(spec, sample_threshold=floor),
+            info.detected,
+            signal_discrete=False,
         )
         assert verdict.usable is True
         assert any("n_pairs" in w.message for w in verdict.warnings)
@@ -291,7 +295,9 @@ class TestEventAxisPreflight:
         floor = SampleThreshold(min_events=info.detected.n_events + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "corrado_rank")
         verdict = _evaluate_applicability(
-            replace(spec, sample_threshold=floor), info.detected
+            replace(spec, sample_threshold=floor),
+            info.detected,
+            signal_discrete=False,
         )
         assert verdict.usable is False
         assert any("min_events" in b for b in verdict.blockers)
@@ -307,10 +313,66 @@ class TestEventAxisPreflight:
         floor = SampleThreshold(min_events=n - 1, warn_events=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "corrado_rank")
         verdict = _evaluate_applicability(
-            replace(spec, sample_threshold=floor), info.detected
+            replace(spec, sample_threshold=floor),
+            info.detected,
+            signal_discrete=False,
         )
         assert verdict.usable is True
         assert "few_events" in [w.code.value for w in verdict.warnings]
+
+
+class TestContinuousMagnitudePreflight:
+    """event_ic declares requires_continuous_magnitude: the pre-flight must
+    block it on a discrete ±k signal, matching its run-time short-circuit."""
+
+    def _ternary_event_panel(self):
+        raw = fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    def _continuous_magnitude_panel(self):
+        # Scale the ±1 events by a random positive magnitude so |factor| varies.
+        import numpy as np
+
+        df = self._ternary_event_panel()
+        rng = np.random.default_rng(0)
+        scale = pl.Series(rng.uniform(0.5, 2.0, len(df)))
+        return df.with_columns(
+            pl.when(pl.col("factor") != 0)
+            .then(pl.col("factor") * scale)
+            .otherwise(0.0)
+            .alias("factor")
+        )
+
+    def test_event_ic_blocked_on_discrete_signal(self):
+        info = inspect_data(self._ternary_event_panel())
+        eic = _by_name(info, "event_ic")
+        assert eic.usable is False
+        assert any("discrete signal" in b for b in eic.blockers)
+
+    def test_event_ic_usable_on_continuous_magnitude(self):
+        info = inspect_data(self._continuous_magnitude_panel())
+        eic = _by_name(info, "event_ic")
+        assert eic.usable is True
+        assert not any("discrete" in b for b in eic.blockers)
+
+    def test_preflight_verdict_matches_evaluate(self):
+        # The pre-flight gate and the run-time short-circuit share one predicate
+        # (_event_signal_is_discrete), so a discrete signal must agree on both
+        # paths: inspect_data says unusable AND evaluate short-circuits to NaN.
+        panel = self._ternary_event_panel()
+        from factrix.metrics import event_ic
+
+        eic = _by_name(inspect_data(panel), "event_ic")
+        assert eic.usable is False
+
+        res = fx.evaluate(
+            panel,
+            metrics={"eic": event_ic()},
+            factor_cols=["factor"],
+            strict=False,
+        )["factor"].metrics["eic"]
+        assert math.isnan(res.value)
+        assert res.metadata["reason"] == "not_applicable_discrete_signal"
 
 
 class TestTierPartition:

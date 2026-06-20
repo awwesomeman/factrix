@@ -40,6 +40,7 @@ from factrix._types import EPSILON, MIN_EVENTS_HARD
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _event_signal_is_discrete,
     _short_circuit_output,
     _signed_car,
 )
@@ -138,6 +139,7 @@ def event_hit_rate(
     cell=_EQ_CELL,
     aggregation=Aggregation.EVENT_TIME,
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
+    requires_continuous_magnitude=True,
 )
 def event_ic(
     df: pl.DataFrame,
@@ -199,18 +201,19 @@ def event_ic(
     if sc is not None:
         return sc
 
-    abs_signal = np.abs(events[factor_col].to_numpy())
-
-    if np.ptp(abs_signal) < EPSILON:
+    if _event_signal_is_discrete(df, factor_col):
         # Signal is discrete {±1}: event_ic is not defined (no magnitude variance).
         # Flagged as "not_applicable" rather than "insufficient" — this is by
         # design, not a shortfall; profiles suppress the field (→ None).
+        # Same predicate drives inspect_data's pre-flight verdict (declared via
+        # MetricSpec.requires_continuous_magnitude) so the two cannot diverge.
         return _short_circuit_output(
             "event_ic",
             "not_applicable_discrete_signal",
             n_events=n,
         )
 
+    abs_signal = np.abs(events[factor_col].to_numpy())
     signed = _signed_car(events, factor_col, return_col)
 
     rho, p = sp_stats.spearmanr(abs_signal, signed)
