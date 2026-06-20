@@ -85,7 +85,6 @@ from factrix.metrics.tradability import (
 from factrix.metrics.trend import ic_trend
 from factrix.metrics.ts_asymmetry import ts_asymmetry
 from factrix.metrics.ts_beta import (
-    compute_rolling_mean_beta,
     mean_r_squared,
     ts_beta,
     ts_beta_sign_consistency,
@@ -98,7 +97,6 @@ __all__ = [
     "breakeven_cost",
     "caar",
     "clustering_hhi",
-    "compute_rolling_mean_beta",
     "corrado_rank",
     "directional_hit_rate",
     "event_around_return",
