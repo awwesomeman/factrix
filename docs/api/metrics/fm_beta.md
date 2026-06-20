@@ -8,7 +8,7 @@ title: factrix.metrics.fm_beta
       members:
         - fm_beta
         - pooled_beta
-        - beta_sign_consistency
+        - fm_beta_sign_consistency
 
 <hr>
 
@@ -23,7 +23,7 @@ title: factrix.metrics.fm_beta
     Stage 1 of Fama-MacBeth: per-date cross-sectional ordinary least squares (OLS) slope
     $\beta_t$ in $R_{i,t} = \alpha_t + \beta_t \cdot \text{FactorDensity}_{i,t} + \varepsilon_{i,t}$.
     Pre-step for `fm_beta` and the descriptive
-    `beta_sign_consistency` check.
+    `fm_beta_sign_consistency` check.
 
 -   __Mean-$\beta$ significance, Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC)__
 
@@ -64,7 +64,7 @@ title: factrix.metrics.fm_beta
 | Per-date FM beta table for downstream inspection / slicing                   | `compute_fm_betas`      |
 | Mean-$\beta$ significance with NW HAC SE (default Stage 2)                   | `fm_beta`          |
 | Pooled OLS with cluster-robust SE (one-way on date, or two-way)              | `pooled_beta`            |
-| Directional stability — fraction of periods with the expected $\beta$ sign   | `beta_sign_consistency` |
+| Directional stability — fraction of periods with the expected $\beta$ sign   | `fm_beta_sign_consistency` |
 
 ## Worked example — per-date FM beta then NW HAC significance
 

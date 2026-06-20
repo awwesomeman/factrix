@@ -4,7 +4,7 @@ r"""Fama-MacBeth regression — the mainstream metric for the
 ``compute_fm_betas``: per-date cross-sectional ordinary least squares (OLS) → ``{factor: (date, beta) DataFrame}``.
 ``fm_beta``: Newey-West t-test on the beta series.
 ``pooled_beta``: pooled OLS with clustered SE by date.
-``beta_sign_consistency``: fraction of periods with correct beta sign.
+``fm_beta_sign_consistency``: fraction of periods with correct beta sign.
 
 Notes:
     **Pipeline.** Per-date cross-sectional OLS slope $\lambda$
@@ -58,7 +58,7 @@ from factrix.metrics._primitives import compute_fm_betas
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "fm_beta",
     "pooled_beta",
-    "beta_sign_consistency",
+    "fm_beta_sign_consistency",
 ]
 
 _FM_CELL = cell(
@@ -728,7 +728,7 @@ def pooled_beta(
     requires={"beta_df": compute_fm_betas},
     sample_threshold=SampleThreshold(min_periods=1),
 )
-def beta_sign_consistency(
+def fm_beta_sign_consistency(
     beta_df: pl.DataFrame,
     *,
     expected_sign: int = 1,
@@ -762,21 +762,21 @@ def beta_sign_consistency(
         >>> from factrix.preprocess import compute_forward_return
         >>> from factrix.metrics.fm_beta import (
         ...     compute_fm_betas,
-        ...     beta_sign_consistency,
+        ...     fm_beta_sign_consistency,
         ... )
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_cs_panel(n_assets=80, n_dates=180, seed=0),
         ...     forward_periods=5,
         ... )
         >>> beta_df = compute_fm_betas(panel)["factor"]
-        >>> result = beta_sign_consistency(beta_df, expected_sign=1)
+        >>> result = fm_beta_sign_consistency(beta_df, expected_sign=1)
         >>> result.name == ""
         True
     """
     betas = beta_df["beta"].drop_nulls().to_numpy()
     n = len(betas)
     sc = _enforce_min_floor(
-        beta_sign_consistency, "beta_sign_consistency", n, "no_beta_observations"
+        fm_beta_sign_consistency, "fm_beta_sign_consistency", n, "no_beta_observations"
     )
     if sc is not None:
         return sc
@@ -791,7 +791,7 @@ def beta_sign_consistency(
         "n_periods": n,
     }
     warning_codes: list[str] = []
-    _surface_drop_stats(beta_df, "beta_sign_consistency", metadata, warning_codes)
+    _surface_drop_stats(beta_df, "fm_beta_sign_consistency", metadata, warning_codes)
     return MetricResult(
         value=consistent,
         metadata=metadata,

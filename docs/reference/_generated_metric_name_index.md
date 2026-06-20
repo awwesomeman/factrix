@@ -1,6 +1,5 @@
 | Metric name | Source module | API page |
 |---|---|---|
-| `beta_sign_consistency` | [`factrix.metrics.fm_beta`][factrix.metrics.fm_beta] | [`beta_sign_consistency`](../api/metrics/fm_beta.md#factrix.metrics.fm_beta.beta_sign_consistency) |
 | `bmp_z` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`bmp_z`](../api/metrics/caar.md#factrix.metrics.caar.bmp_z) |
 | `breakeven_cost` | [`factrix.metrics.tradability`][factrix.metrics.tradability] | [`breakeven_cost`](../api/metrics/tradability.md#factrix.metrics.tradability.breakeven_cost) |
 | `caar` | [`factrix.metrics.caar`][factrix.metrics.caar] | [`caar`](../api/metrics/caar.md#factrix.metrics.caar.caar) |
@@ -12,6 +11,7 @@
 | `event_ic` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_ic`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_ic) |
 | `event_skewness` | [`factrix.metrics.event_quality`][factrix.metrics.event_quality] | [`event_skewness`](../api/metrics/event_quality.md#factrix.metrics.event_quality.event_skewness) |
 | `fm_beta` | [`factrix.metrics.fm_beta`][factrix.metrics.fm_beta] | [`fm_beta`](../api/metrics/fm_beta.md#factrix.metrics.fm_beta.fm_beta) |
+| `fm_beta_sign_consistency` | [`factrix.metrics.fm_beta`][factrix.metrics.fm_beta] | [`fm_beta_sign_consistency`](../api/metrics/fm_beta.md#factrix.metrics.fm_beta.fm_beta_sign_consistency) |
 | `greedy_forward_selection` | [`factrix.metrics.spanning`][factrix.metrics.spanning] | [`greedy_forward_selection`](../api/metrics/spanning.md#factrix.metrics.spanning.greedy_forward_selection) |
 | `hit_rate` | [`factrix.metrics.hit_rate`][factrix.metrics.hit_rate] | [`hit_rate`](../api/metrics/hit_rate.md#factrix.metrics.hit_rate.hit_rate) |
 | `ic` | [`factrix.metrics.ic`][factrix.metrics.ic] | [`ic`](../api/metrics/ic.md#factrix.metrics.ic.ic) |

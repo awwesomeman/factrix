@@ -944,6 +944,25 @@ see the `awwesomeman/factor-analysis` workspace under
 `docs/spike_*.md` / `docs/refactor_*.md` (pre-extraction history is
 preserved there).
 
+### Metric naming conventions
+
+Two rules when adding or renaming a public metric. They exist to fix
+real confusion, not to enforce a uniform grammar — most existing names
+are fine as-is.
+
+1. **No `_test` suffix for statistical tests.** In Python `_test` reads
+   as a pytest utility, not a production metric. Name by the output
+   statistic instead (e.g. a z-test → `bmp_z`); the academic test name
+   lives in the docstring.
+2. **One concept, many estimators → every variant carries a method
+   token.** When the same quantity is computed by different methods,
+   each metric name must include its method (`fm_beta_sign_consistency`
+   vs `ts_beta_sign_consistency`, `fm_beta` vs `ts_beta` vs
+   `pooled_beta`). A bare name with no token is ambiguous about which
+   estimator it is. Conversely, a family prefix (`event_`, `ts_`) is
+   only warranted when a bare-name sibling exists or the prefix names
+   the defining methodology — not merely to restate the input domain.
+
 ---
 
 ## 11. Asking questions / decision communication
