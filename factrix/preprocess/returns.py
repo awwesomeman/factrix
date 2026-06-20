@@ -10,10 +10,16 @@ Use ``adapt()`` to rename before calling.
 
 import polars as pl
 
+from factrix._errors import UserInputError
+
+_DOCS_FORWARD_RETURN = "api/preprocess#compute_forward_return"
+
 
 def compute_forward_return(
     df: pl.DataFrame,
     forward_periods: int = 5,
+    *,
+    overwrite: bool = False,
 ) -> pl.DataFrame:
     """Step 1: Compute per-period forward return per asset.
 
@@ -43,6 +49,18 @@ def compute_forward_return(
             not calendar time (default 5). On a daily panel this is 5
             trading days; on a weekly panel, 5 weeks; on 1-min bars,
             5 minutes. Frequency is the caller's responsibility.
+        overwrite: Allow recomputation when ``df`` already carries a
+            ``forward_return`` column. ``False`` (default) raises rather
+            than silently overwrite — the function is **not idempotent**:
+            the previous call already dropped the last ``forward_periods + 1``
+            rows per asset, so recomputing on the result drops a *further*
+            tail. To change the horizon, recompute from the original
+            (pre-forward-return) panel; ``overwrite=True`` recomputes in
+            place anyway, accepting the additional truncation.
+
+    Raises:
+        UserInputError: ``df`` already has a ``forward_return`` column and
+            ``overwrite`` is ``False``.
 
     Returns:
         Input DataFrame with ``forward_return`` column appended.
@@ -111,6 +129,24 @@ def compute_forward_return(
         >>> isinstance(results, dict) and "factor" in results
         True
     """
+    if "forward_return" in df.columns:
+        if not overwrite:
+            raise UserInputError(
+                func_name="compute_forward_return",
+                field="df",
+                value="DataFrame already has a 'forward_return' column",
+                expected=(
+                    "a panel without 'forward_return'. This function is not "
+                    "idempotent — a prior call already dropped the last "
+                    "forward_periods+1 rows per asset, so recomputing drops a "
+                    "further tail and silently shrinks the data. To change the "
+                    "horizon, recompute from the original (pre-forward-return) "
+                    "panel; pass overwrite=True to recompute in place anyway."
+                ),
+                docs_path=_DOCS_FORWARD_RETURN,
+            )
+        df = df.drop("forward_return")
+
     return (
         df.sort(["asset_id", "date"])
         .with_columns(

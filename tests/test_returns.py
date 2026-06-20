@@ -57,6 +57,24 @@ class TestComputeForwardReturn:
         a_ret = result.filter(pl.col("asset_id") == "A")["forward_return"][0]
         assert a_ret == pytest.approx(0.21 / 2)
 
+    def test_raises_when_forward_return_already_present(self):
+        from factrix._errors import UserInputError
+
+        once = compute_forward_return(_make_price_data(), forward_periods=1)
+        with pytest.raises(UserInputError, match="not"):
+            compute_forward_return(once, forward_periods=1)
+
+    def test_overwrite_recomputes_in_place(self):
+        once = compute_forward_return(_make_price_data(), forward_periods=1)
+        # overwrite drops the old column and recomputes; not idempotent — the
+        # already-truncated tail is dropped again, so the row count shrinks.
+        twice = compute_forward_return(once, forward_periods=1, overwrite=True)
+        assert "forward_return" in twice.columns
+        assert twice["forward_return"].null_count() == 0
+        assert twice.height < once.height
+        # Exactly one forward_return column (old dropped, not duplicated).
+        assert twice.columns.count("forward_return") == 1
+
 
 class TestWinsorizeForwardReturn:
     def test_noop(self):
