@@ -26,6 +26,14 @@ import polars as pl
 
 type DataInput = pl.DataFrame | pl.LazyFrame
 
+# Canonical input-data schema — single source of truth shared by evaluate's
+# baseline validation and the DAG executor's per-factor projection.
+# Required columns every panel must carry; optional columns are passed
+# through to metrics when present (e.g. ``price`` for event-study metrics)
+# but never required.
+_BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
+_OPTIONAL_COLUMNS: tuple[str, ...] = ("price",)
+
 
 def _is_pandas_dataframe(obj: object) -> bool:
     """Detect ``pd.DataFrame`` without importing pandas (optional dep)."""

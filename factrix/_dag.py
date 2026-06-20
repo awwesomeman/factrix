@@ -33,6 +33,7 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope, SpecRole
 from factrix._codes import WarningCode
+from factrix._data_input import _BASELINE_COLUMNS, _OPTIONAL_COLUMNS
 from factrix._metric_index import MetricSpec
 from factrix._results import (
     EvaluationResult,
@@ -43,19 +44,21 @@ from factrix._results import (
 
 
 def _project_factor(data: pl.DataFrame, col: str) -> pl.DataFrame:
-    """Project ``data`` to the canonical 4-column per-factor view.
+    """Project ``data`` to the canonical per-factor view.
 
     Non-batch primitives expect data whose factor column is literally
     named ``"factor"``; this projection renames ``col`` and drops any
     sibling columns so primitives see an identical schema regardless of
-    the caller's ``factor_cols`` choice.
+    the caller's ``factor_cols`` choice. Beyond the required baseline
+    columns it carries the optional schema columns (``_OPTIONAL_COLUMNS``)
+    when present — event metrics (``event_around_return``, ``mfe_mae``)
+    need ``price`` to compute price paths, and dropping it would
+    short-circuit them with a false ``no_price_data`` verdict.
     """
-    return data.select(
-        pl.col("date"),
-        pl.col("asset_id"),
-        pl.col("forward_return"),
-        pl.col(col).alias("factor"),
-    )
+    cols = [pl.col(c) for c in _BASELINE_COLUMNS]
+    cols.append(pl.col(col).alias("factor"))
+    cols.extend(pl.col(c) for c in _OPTIONAL_COLUMNS if c in data.columns)
+    return data.select(cols)
 
 
 class CycleError(ValueError):

@@ -61,7 +61,7 @@ from factrix._axis import (  # noqa: F401  DataStructure re-exported for namespa
 from factrix._codes import WarningCode
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
-from factrix._data_input import DataInput, _coerce_data
+from factrix._data_input import _BASELINE_COLUMNS, DataInput, _coerce_data
 from factrix._errors import (
     FactrixError,
     IncompatibleAxisError,
@@ -552,9 +552,6 @@ def _validate_factor_cols_on_data(data: pl.DataFrame, cols: list[str]) -> None:
             ),
             docs_path=_DOCS_FACTOR_COLS,
         )
-
-
-_BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 
 
 def _validate_baseline_columns(data: pl.DataFrame) -> None:
