@@ -3,6 +3,7 @@
 import math
 from datetime import datetime, timedelta
 
+import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
@@ -129,6 +130,33 @@ class TestEventAroundReturn:
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["per_offset"] == {}
+
+
+class TestEventMetricThroughEvaluate:
+    def test_price_survives_dag_projection(self, event_data):
+        # The DAG executor projects a thin per-factor view; that projection
+        # must retain ``price`` so event metrics do not falsely short-circuit
+        # with ``no_price_data`` when the caller did supply prices.
+        res = fx.evaluate(
+            event_data,
+            metrics={"ear": event_around_return()},
+            factor_cols=["factor"],
+            strict=False,
+        )
+        m = res["factor"].metrics["ear"]
+        assert m.metadata.get("reason") != "no_price_data"
+        assert not math.isnan(m.value)
+
+    def test_short_circuits_when_price_absent(self, no_price_data):
+        res = fx.evaluate(
+            no_price_data,
+            metrics={"ear": event_around_return()},
+            factor_cols=["factor"],
+            strict=False,
+        )
+        m = res["factor"].metrics["ear"]
+        assert m.metadata["reason"] == "no_price_data"
+        assert math.isnan(m.value)
 
 
 # ---------------------------------------------------------------------------

@@ -14,7 +14,7 @@ from factrix._axis import (
     SpecRole,
 )
 from factrix._codes import WarningCode
-from factrix._dag import CycleError, DagExecutor, _Node, _topo_sort
+from factrix._dag import CycleError, DagExecutor, _Node, _project_factor, _topo_sort
 from factrix._metric_index import MetricSpec, cell, spec_by_name
 from factrix._results import MetricResult
 
@@ -54,6 +54,38 @@ def _nodes(*specs: MetricSpec) -> list[_Node]:
         )
         for spec in specs
     ]
+
+
+class TestProjectFactor:
+    def test_renames_factor_and_drops_other_factors(self):
+        df = pl.DataFrame(
+            {
+                "date": [1, 2],
+                "asset_id": ["a", "a"],
+                "forward_return": [0.1, 0.2],
+                "alpha": [1.0, 2.0],
+                "beta": [3.0, 4.0],
+            }
+        )
+        out = _project_factor(df, "alpha")
+        assert out.columns == ["date", "asset_id", "forward_return", "factor"]
+        assert out["factor"].to_list() == [1.0, 2.0]
+
+    def test_preserves_price_column_when_present(self):
+        # Event metrics need ``price`` to compute price paths; the thin
+        # projection must not drop it.
+        df = pl.DataFrame(
+            {
+                "date": [1, 2],
+                "asset_id": ["a", "a"],
+                "forward_return": [0.1, 0.2],
+                "alpha": [1.0, 2.0],
+                "price": [100.0, 101.0],
+            }
+        )
+        out = _project_factor(df, "alpha")
+        assert "price" in out.columns
+        assert out["price"].to_list() == [100.0, 101.0]
 
 
 class TestTopoSort:
