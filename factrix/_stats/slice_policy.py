@@ -13,8 +13,8 @@ Two private helpers consumed by the slice-test functions
   geometry properly.
 - ``_downscale_n_groups`` — for slice tests on metrics that bucket
   cross-section assets (quantile spread, monotonicity), shrinks
-  ``n_groups`` so each bucket retains at least ``min_per_group``
-  assets. The per-metric ``min_per_group`` floor lives on the metric
+  ``n_groups`` so each bucket retains at least ``min_assets_per_group``
+  assets. The per-metric ``min_assets_per_group`` floor lives on the metric
   module itself; the slice-test function resolves it per
   slice and feeds it here.
 """
@@ -79,32 +79,34 @@ def _downscale_n_groups(
     base_n_groups: int,
     n_assets: int,
     *,
-    min_per_group: int | None,
+    min_assets_per_group: int | None,
 ) -> int:
-    """Cap ``n_groups`` so each bucket retains ``≥ min_per_group`` assets.
+    """Cap ``n_groups`` so each bucket retains ``≥ min_assets_per_group`` assets.
 
     Args:
         base_n_groups: Caller's requested bucket count.
         n_assets: Number of distinct assets in the slice.
-        min_per_group: Minimum assets per bucket required for the metric
+        min_assets_per_group: Minimum assets per bucket required for the metric
             to be statistically meaningful (e.g. IC quintile spread:
             30; monotonicity rho: 50). ``None`` skips the downscale —
             for metrics that don't bucket cross-section (Fama-MacBeth,
             CAAR), pass ``None`` and ``base_n_groups`` returns unchanged.
 
     Returns:
-        ``min(base_n_groups, max(2, n_assets // min_per_group))`` when
-        ``min_per_group`` is set; ``base_n_groups`` otherwise. The lower
+        ``min(base_n_groups, max(2, n_assets // min_assets_per_group))`` when
+        ``min_assets_per_group`` is set; ``base_n_groups`` otherwise. The lower
         floor of 2 prevents a 1-bucket "spread" (degenerate) on very
         small slices — the slice test should ideally be skipped at
         that point but the helper does not raise.
 
     Raises:
-        ValueError: ``min_per_group < 1``.
+        ValueError: ``min_assets_per_group < 1``.
     """
-    if min_per_group is None:
+    if min_assets_per_group is None:
         return base_n_groups
-    if min_per_group < 1:
-        raise ValueError(f"min_per_group must be >= 1; got {min_per_group!r}.")
-    capacity = max(2, n_assets // min_per_group)
+    if min_assets_per_group < 1:
+        raise ValueError(
+            f"min_assets_per_group must be >= 1; got {min_assets_per_group!r}."
+        )
+    capacity = max(2, n_assets // min_assets_per_group)
     return min(base_n_groups, capacity)

@@ -179,6 +179,15 @@ identifiers must use an axis token, with two deliberate registers/exceptions:
   axis-agnostic `n_obs` on purpose: at those layers the caller's axis is
   unknown and any single token would mislabel a pooled or estimator-specific
   count. Per-metric metadata keys still use an axis token.
+- **`groups` is not a sample axis.** The quantile-bucket count `n_groups`
+  (quantile spread, monotonicity) is a *partition parameter the caller
+  chooses*, not an observed sample dimension: below its target it is
+  silently downscaled to fit the cross-section (`_downscale_n_groups` in
+  `factrix/_stats/slice_policy.py`), never blocked or warned like a thin
+  `n_periods`. So it carries no `SampleThreshold` tier and stays out of
+  `_AXES` (which is the four genuine sample axes above). Its per-bucket
+  floor is `min_assets_per_group` — an `assets`-axis quantity scoped per
+  bucket, already within the grammar, not a fifth axis.
 
 | Axis token | Dimension |
 |------------|-----------|
