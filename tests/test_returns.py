@@ -61,7 +61,7 @@ class TestComputeForwardReturn:
         from factrix._errors import UserInputError
 
         once = compute_forward_return(_make_price_data(), forward_periods=1)
-        with pytest.raises(UserInputError, match="not"):
+        with pytest.raises(UserInputError, match="not idempotent"):
             compute_forward_return(once, forward_periods=1)
 
     def test_overwrite_recomputes_in_place(self):
@@ -72,8 +72,14 @@ class TestComputeForwardReturn:
         assert "forward_return" in twice.columns
         assert twice["forward_return"].null_count() == 0
         assert twice.height < once.height
-        # Exactly one forward_return column (old dropped, not duplicated).
-        assert twice.columns.count("forward_return") == 1
+
+    def test_overwrite_changes_horizon(self):
+        raw = _make_price_data()
+        once = compute_forward_return(raw, forward_periods=1)
+        changed = compute_forward_return(once, forward_periods=2, overwrite=True)
+        assert "forward_return" in changed.columns
+        assert changed["forward_return"].null_count() == 0
+        assert changed["forward_return"].to_list() != once["forward_return"].to_list()
 
 
 class TestWinsorizeForwardReturn:

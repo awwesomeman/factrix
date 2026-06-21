@@ -134,7 +134,7 @@ def compute_forward_return(
             raise UserInputError(
                 func_name="compute_forward_return",
                 field="df",
-                value="DataFrame already has a 'forward_return' column",
+                value=list(df.columns),
                 expected=(
                     "a panel without 'forward_return'. This function is not "
                     "idempotent — a prior call already dropped the last "
