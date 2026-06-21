@@ -52,9 +52,9 @@ def test_pairwise_universe_block_bootstrap_romano_wolf() -> None:
     )
 
     out = slice_pairwise_test(
-        ic,
         per_universe_ic,
-        label="universe",
+        ic,
+        by="universe",
         estimator=BlockBootstrap(n_resamples=199, rng_seed=21),
     )
     assert out.height == 1
@@ -98,7 +98,7 @@ def test_joint_sector_wald_nw_cluster() -> None:
         ]
     )
 
-    out = slice_joint_test(ic, per_sector_ic, label="sector")
+    out = slice_joint_test(per_sector_ic, ic, by="sector")
     assert out.height == 1
     assert out["df"][0] == 2
     assert out["p_value"][0] < 0.05

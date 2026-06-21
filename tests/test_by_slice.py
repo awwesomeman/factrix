@@ -1,20 +1,24 @@
-"""Tests for factrix.by_slice — axis-agnostic dispatcher."""
+"""Tests for factrix.by_slice — partition a raw panel and evaluate per slice."""
 
-from collections.abc import Mapping
 from datetime import datetime, timedelta
 
+import factrix as fx
 import numpy as np
 import polars as pl
 import pytest
-from factrix import SliceResult, by_slice
-from factrix._results import MetricResult
-from factrix.metrics import ic
+from factrix import by_slice
+from factrix._codes import WarningCode
+from factrix._results import EvaluationResult
+from factrix.metrics import caar, ic
+from factrix.preprocess import compute_forward_return
 from factrix.slicing._primitive import _slice_by_label
+from factrix.slicing.dispatcher import _warn_date_axis_truncation
 
 
-def _ic_series_with_label(
+def _label_series(
     n: int = 40, label_col: str = "regime", seed: int = 42
 ) -> pl.DataFrame:
+    """Date-keyed frame with a label column — for _slice_by_label tests."""
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
     half = n // 2
@@ -27,32 +31,48 @@ def _ic_series_with_label(
     ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
 
+def _sector_panel(
+    n_assets: int = 60, n_dates: int = 200, seed: int = 0
+) -> pl.DataFrame:
+    """Raw cross-sectional panel with an asset-level ``sector`` column
+    (cross-sectional axis: constant within each asset) and a date-derived
+    ``year`` column (date axis: varies within an asset over time)."""
+    raw = fx.datasets.make_cs_panel(n_assets=n_assets, n_dates=n_dates, seed=seed)
+    panel = compute_forward_return(raw, forward_periods=5)
+    assets = panel["asset_id"].unique().sort().to_list()
+    sector = {a: ("tech" if i % 2 else "fin") for i, a in enumerate(assets)}
+    return panel.with_columns(
+        pl.col("asset_id").replace_strict(sector).alias("sector"),
+        pl.col("date").dt.year().alias("year"),
+    )
+
+
 class TestSliceByLabel:
     def test_partitions_on_existing_column(self):
-        df = _ic_series_with_label(20)
+        df = _label_series(20)
         out = _slice_by_label(df, "regime")
         assert set(out) == {"bull", "bear"}
         assert all(isinstance(v, pl.DataFrame) for v in out.values())
         assert sum(len(v) for v in out.values()) == 20
 
     def test_drops_label_column_from_partitions(self):
-        df = _ic_series_with_label(20)
+        df = _label_series(20)
         out = _slice_by_label(df, "regime")
         for sub in out.values():
             assert "regime" not in sub.columns
 
     def test_missing_label_raises(self):
-        df = _ic_series_with_label(10)
+        df = _label_series(10)
         with pytest.raises(ValueError, match="not found in df"):
             _slice_by_label(df, "sector")
 
     def test_empty_df_raises(self):
-        df = _ic_series_with_label(0)
+        df = _label_series(0)
         with pytest.raises(ValueError, match="empty"):
             _slice_by_label(df, "regime")
 
     def test_null_label_values_raise(self):
-        df = _ic_series_with_label(10).with_columns(
+        df = _label_series(10).with_columns(
             pl.when(pl.int_range(0, 10) < 3)
             .then(None)
             .otherwise(pl.col("regime"))
@@ -62,7 +82,7 @@ class TestSliceByLabel:
             _slice_by_label(df, "regime")
 
     def test_numeric_label_stringified(self):
-        df = _ic_series_with_label(20).with_columns(
+        df = _label_series(20).with_columns(
             pl.Series("decile", [1, 2] * 10, dtype=pl.Int64)
         )
         out = _slice_by_label(df, "decile")
@@ -74,48 +94,80 @@ class TestSliceByLabel:
 
 
 class TestBySlice:
-    def test_returns_slice_result_per_slice(self):
-        df = _ic_series_with_label(40)
-        out = by_slice(ic, df, label="regime")
-        assert isinstance(out, SliceResult)
-        assert isinstance(out, Mapping)
-        assert set(out) == {"bull", "bear"}
+    def test_returns_dict_of_evaluation_results(self):
+        panel = _sector_panel()
+        out = by_slice(panel, ic(), by="sector", factor_col="factor")
+        assert isinstance(out, dict)
+        assert set(out) == {"tech", "fin"}
         for v in out.values():
-            assert isinstance(v, MetricResult)
+            assert isinstance(v, EvaluationResult)
+            assert "metric" in v.metrics
 
-    def test_kwargs_forwarded(self):
-        df = _ic_series_with_label(60)
-        out = by_slice(ic, df, label="regime", forward_periods=3)
+    def test_per_slice_sample_sizes_differ_from_full(self):
+        panel = _sector_panel(n_assets=60)
+        out = by_slice(panel, ic(), by="sector", factor_col="factor")
+        # Each sector is an independent universe with ~half the assets.
         for v in out.values():
-            assert v.metadata.get("method", "").startswith("non-overlapping")
+            assert v.n_assets <= 30
 
-    def test_missing_label_raises(self):
-        df = _ic_series_with_label(10)
+    def test_forward_periods_forwarded(self):
+        panel = _sector_panel()
+        out = by_slice(panel, ic(), by="sector", factor_col="factor", forward_periods=5)
+        for v in out.values():
+            assert (
+                v.metrics["metric"]
+                .metadata.get("method", "")
+                .startswith("non-overlapping")
+            )
+
+    def test_comparison_frame_idiom(self):
+        """The documented cross-slice table: stack to_frame + tag slice key."""
+        panel = _sector_panel()
+        out = by_slice(panel, ic(), by="sector", factor_col="factor")
+        frame = pl.concat(
+            [
+                r.to_frame().with_columns(pl.lit(k).alias("slice"))
+                for k, r in out.items()
+            ]
+        )
+        assert set(frame["slice"].to_list()) == {"tech", "fin"}
+        assert "value" in frame.columns
+
+    def test_missing_by_raises(self):
+        panel = _sector_panel()
         with pytest.raises(ValueError, match="not found in df"):
-            by_slice(ic, df, label="sector")
+            by_slice(panel, ic(), by="industry", factor_col="factor")
 
-    def test_arbitrary_label_column(self):
-        """``label`` is just a column name — sector / market / anything works."""
-        df = _ic_series_with_label(30, label_col="sector")
-        out = by_slice(ic, df, label="sector")
-        assert set(out) == {"bull", "bear"}
+    def test_bare_class_rejected(self):
+        """metric must be an instance, consistent with evaluate."""
+        panel = _sector_panel()
+        with pytest.raises(Exception):  # noqa: B017 — evaluate's UserInputError
+            by_slice(panel, ic, by="sector", factor_col="factor")  # type: ignore[arg-type]
 
-    def test_accepts_arbitrary_callable(self):
-        def fake(df: pl.DataFrame, *, mult: float = 1.0) -> MetricResult:
-            return MetricResult(value=float(df["ic"].mean()) * mult)
 
-        df = _ic_series_with_label(20)
-        out = by_slice(fake, df, label="regime", mult=2.0)
-        assert set(out) == {"bull", "bear"}
-        assert all(isinstance(o, MetricResult) for o in out.values())
+class TestDateAxisTruncationWarning:
+    """A cross-date metric sliced on a date axis warns; cross-sectional and
+    per-date cases stay silent."""
 
-    def test_cross_product_via_composite_column(self):
-        """Cross-product slicing: caller composes the composite column."""
-        df = _ic_series_with_label(40).with_columns(
-            pl.Series("market", ["TWSE", "OTC"] * 20)
-        )
-        df = df.with_columns(
-            pl.concat_str(["market", "regime"], separator="-").alias("uni_reg")
-        )
-        out = by_slice(ic, df, label="uni_reg")
-        assert set(out) <= {"TWSE-bull", "TWSE-bear", "OTC-bull", "OTC-bear"}
+    def test_cross_date_metric_on_date_axis_warns(self):
+        panel = _sector_panel(n_dates=600)  # spans >1 year so `year` varies
+        with pytest.warns(
+            UserWarning, match=WarningCode.SLICE_BOUNDARY_TRUNCATION.value
+        ):
+            _warn_date_axis_truncation(panel, caar(), "year")
+
+    def test_cross_date_metric_on_cross_sectional_axis_silent(self):
+        panel = _sector_panel(n_dates=600)
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _warn_date_axis_truncation(panel, caar(), "sector")  # no raise == no warn
+
+    def test_per_date_metric_on_date_axis_silent(self):
+        panel = _sector_panel(n_dates=600)  # year genuinely varies
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _warn_date_axis_truncation(panel, ic(), "year")  # CS_THEN_TS: no warn

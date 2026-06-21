@@ -90,7 +90,6 @@ from factrix._results import (
     Warning,
 )
 from factrix.slicing import (
-    SliceResult,
     by_slice,
     slice_joint_test,
     slice_pairwise_test,
@@ -719,7 +718,6 @@ __all__ = [
     "inspect_data",
     "list_metrics",
     # Slicing dispatcher + cross-slice inference functions
-    "SliceResult",
     "by_slice",
     "slice_joint_test",
     "slice_pairwise_test",

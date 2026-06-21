@@ -14,7 +14,7 @@ factrix splits this work into two roles because **slicing the panel** and **test
 
 | Role | Function | What it does | What it does not do |
 |---|---|---|---|
-| Dispatcher | [`by_slice(metric, df, *, label)`](../api/by-slice.md) | Partitions `df` on an existing column, calls `metric` per slice, returns [`SliceResult`](../api/by-slice.md) — a `Mapping[str, MetricResult]` subclass with `.to_frame()` for long-form rendering | **No cross-slice statistical test** |
+| Dispatcher | [`by_slice(data, metric, *, by, factor_col)`](../api/by-slice.md) | Partitions a raw panel on an existing column and runs `evaluate` per slice; returns `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice) | **No cross-slice statistical test** |
 | Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `hit_rate`) |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
@@ -30,7 +30,7 @@ A single dispatcher carrying a single built-in cross-slice test would silently o
 - **CAAR** — per-slice event clustering interacts with pooled-vs-split SE choice; needs a bespoke reconciliation.
 - **Turnover, hit_rate, monotonicity ρ** — for `hit_rate` the `per_date_series` path applies; for the rest cross-slice differences remain descriptive.
 
-`by_slice` therefore returns raw per-slice values without an aggregate. For inferential contrasts on the supported metric families, reach for the slice-test function pair.
+`by_slice` therefore returns the raw per-slice `EvaluationResult`s without a cross-slice aggregate. For inferential contrasts on the supported metric families, reach for the slice-test function pair.
 
 ## Constructing slice labels
 
@@ -65,7 +65,7 @@ ic_df = compute_ic(panel)["factor"].join(vol_labels, on="date", how="inner")
 
 ## Discovering eligible metrics
 
-`by_slice` accepts any metric whose primary input is a date-keyed DataFrame. The inference functions additionally require the metric module to declare a `per_date_series` capability. Enumerate the candidate set from the [`list_metrics()`](../api/metrics/index.md#factrix.list_metrics) catalog by filtering each spec's `input_shape`:
+`by_slice` accepts any metric instance — it runs the full `evaluate` pipeline per slice, so the producer→consumer DAG resolves automatically. The inference functions are narrower: they require the metric module to declare a `per_date_series` capability and take the metric's per-date series (not a raw panel) as input. Enumerate the candidate set for the inference path from the [`list_metrics()`](../api/metrics/index.md#factrix.list_metrics) catalog by filtering each spec's `input_shape`:
 
 ```python
 import factrix as fx
@@ -82,25 +82,34 @@ Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded — they co
 
 ## Worked example: IC across volatility regimes
 
+The dispatcher and the inference pair take **different inputs**, because
+they answer different questions. `by_slice` partitions the **raw panel**
+and runs `evaluate` per slice (each slice an independent dataset); the
+inference functions consume the **per-date metric series** to line up
+aligned observations across slices for a cross-slice Wald test.
+
 ```python
+import polars as pl
 from factrix import by_slice, slice_pairwise_test
 from factrix.metrics import compute_ic, ic
 
-# compute_ic builds the per-date IC frame consumed by the ic metric;
-# see docs/api/metrics/ic.md for the schema.
+# --- Dispatcher: per-regime IC, raw panel in, dict[str, EvaluationResult] out
+panel_reg = panel.join(vol_labels, on="date", how="inner")  # attach regime to panel
+per_regime = by_slice(panel_reg, ic(), by="regime", factor_col="value")
+for label, result in per_regime.items():
+    m = result.metrics["metric"]
+    print(label, m.value, m.stat)
+
+# Cross-slice comparison table (stack EvaluationResult.to_frame, tag the slice)
+pl.concat([
+    r.to_frame().with_columns(pl.lit(k).alias("slice"))
+    for k, r in per_regime.items()
+])
+
+# --- Inference: per-date IC series in, pairwise Wald contrasts out
 ic_df = compute_ic(panel, factor_cols=["value"], return_col="forward_return")["value"]
 merged = ic_df.join(vol_labels, on="date", how="inner")
-
-# Dispatcher — raw per-regime IC summaries (SliceResult is dict-shaped)
-per_regime = by_slice(ic, merged, label="regime")
-for label, out in per_regime.items():
-    print(label, out.value, out.stat)
-
-# Long-form for plotting / leaderboards
-per_regime.to_frame()  # columns: slice, name, value, stat, p_value
-
-# Inference — pairwise Wald contrasts with Holm-adjusted p (analytic default)
-pairs = slice_pairwise_test(ic, merged, label="regime")
+pairs = slice_pairwise_test(merged, ic, by="regime")
 print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
 ```
 

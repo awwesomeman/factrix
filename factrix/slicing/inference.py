@@ -60,13 +60,13 @@ def _resolve_estimator(
 
 
 def _build_per_date_panel(
-    metric: Callable,
     df: pl.DataFrame,
-    label: str,
+    metric: Callable,
+    by: str,
     *,
     func_name: str,
 ) -> tuple[list[str], np.ndarray, int]:
-    """Partition ``df`` by ``label``, extract per-date series per slice,
+    """Partition ``df`` by ``by``, extract per-date series per slice,
     inner-join on date, return ``(labels, panel[T, K], n_obs)``.
 
     Raises ``ValueError`` on <2 slice values or <2 aligned dates;
@@ -74,10 +74,10 @@ def _build_per_date_panel(
     eligible.
     """
     per_date_fn = resolve_per_date_series(metric)
-    slices = _slice_by_label(df, label)
+    slices = _slice_by_label(df, by)
     if len(slices) < 2:
         raise ValueError(
-            f"{func_name}: need ≥2 slice values on {label!r}; got {len(slices)}."
+            f"{func_name}: need ≥2 slice values on {by!r}; got {len(slices)}."
         )
     labels = list(slices.keys())
     aligned = per_date_fn(slices[labels[0]]).rename({"value": "v_0"})
@@ -98,19 +98,20 @@ def _build_per_date_panel(
 
 
 def slice_pairwise_test(
-    metric: Callable,
     df: pl.DataFrame,
+    metric: Callable,
     *,
-    label: str,
+    by: str,
     estimator: WaldNWCluster | BlockBootstrap | None = None,
     multiple_testing: MultipleTestingMethod | None = None,
 ) -> pl.DataFrame:
     """Cross-slice pairwise Wald contrasts on a per-date metric panel.
 
     Args:
+        df: Input frame for the metric, containing ``by`` (data-first,
+            matching the polars / pandas convention).
         metric: Metric callable whose module declares ``per_date_series``.
-        df: Input frame for the metric, containing ``label``.
-        label: Column whose values define the slice partition.
+        by: Column whose values define the slice partition.
         estimator: Inference estimator. ``None`` resolves to
             :class:`WaldNWCluster` (analytic Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on
             slice). :class:`BlockBootstrap` triggers the joint
@@ -174,21 +175,21 @@ def slice_pairwise_test(
         ...        .with_columns(pl.lit(s).alias("sector"))
         ...     for s in ("tech", "fin")
         ... ])
-        >>> pairs = fx.slice_pairwise_test(ic, per_sector_ic, label="sector")
+        >>> pairs = fx.slice_pairwise_test(per_sector_ic, ic, by="sector")
 
         Block-bootstrap path (auto-switches to Romano-Wolf
         multiple-testing):
 
         >>> from factrix.stats import BlockBootstrap
         >>> pairs_bb = fx.slice_pairwise_test(
-        ...     ic, per_sector_ic, label="sector",
+        ...     per_sector_ic, ic, by="sector",
         ...     estimator=BlockBootstrap(rng_seed=0),
         ... )
     """
     est = _resolve_estimator(estimator, "slice_pairwise_test")
 
     labels, panel, n_obs = _build_per_date_panel(
-        metric, df, label, func_name="slice_pairwise_test"
+        df, metric, by, func_name="slice_pairwise_test"
     )
     k = panel.shape[1]
     pairs = list(combinations(range(k), 2))
@@ -261,10 +262,10 @@ def slice_pairwise_test(
 
 
 def slice_joint_test(
-    metric: Callable,
     df: pl.DataFrame,
+    metric: Callable,
     *,
-    label: str,
+    by: str,
     estimator: WaldNWCluster | BlockBootstrap | None = None,
 ) -> pl.DataFrame:
     """Omnibus Wald χ² that all K slice means are equal.
@@ -274,9 +275,10 @@ def slice_joint_test(
     follows χ²_{K-1} under H₀.
 
     Args:
+        df: Input frame for the metric, containing ``by`` (data-first,
+            matching the polars / pandas convention).
         metric: Metric callable whose module declares ``per_date_series``.
-        df: Input frame for the metric, containing ``label``.
-        label: Column whose values define the slice partition.
+        by: Column whose values define the slice partition.
         estimator: Inference estimator. ``None`` resolves to
             :class:`WaldNWCluster`. Other estimators raise
             ``NotImplementedError`` pending follow-up batches.
@@ -319,7 +321,7 @@ def slice_joint_test(
         ...        .with_columns(pl.lit(s).alias("sector"))
         ...     for s in ("tech", "fin")
         ... ])
-        >>> joint = fx.slice_joint_test(ic, per_sector_ic, label="sector")
+        >>> joint = fx.slice_joint_test(per_sector_ic, ic, by="sector")
     """
     est = _resolve_estimator(estimator, "slice_joint_test")
     if isinstance(est, BlockBootstrap):
@@ -331,7 +333,7 @@ def slice_joint_test(
         )
 
     _, panel, n_obs = _build_per_date_panel(
-        metric, df, label, func_name="slice_joint_test"
+        df, metric, by, func_name="slice_joint_test"
     )
     k = panel.shape[1]
 

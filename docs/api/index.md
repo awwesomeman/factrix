@@ -74,8 +74,8 @@ Click any node to jump to its API page.
 | Goal | Pipeline |
 |---|---|
 | Single-factor/multi-factor inference | `evaluate(data, metrics=...)` → `list[EvaluationResult]` |
-| Slice exploration (single axis) | `by_slice(metric, df, label="...")` → `SliceResult` |
-| Slice statistical test | `slice_pairwise_test(metric, df, label="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
+| Slice exploration (single axis) | `by_slice(data, metric, by="...", factor_col="...")` → `dict[str, EvaluationResult]` |
+| Slice statistical test | `slice_pairwise_test(df, metric, by="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
 | Per-panel applicability | `inspect_data(data)` → `.usable` / `.degraded` / `.unusable` |
 | Multi-factor screening with FDR | `evaluate(...)` → `multi_factor.bhy(results, metrics=[...])` |
@@ -90,7 +90,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | Page | Category | What it is | When to read |
 |---|---|---|---|
 | [`evaluate`](evaluate.md) | Compute | Single dispatch entry — runs the registered metrics on a panel and returns the evaluation results. | Running an analysis. |
-| [`by_slice`](by-slice.md) | Descriptive view | Slice a metric over a label column; returns a `SliceResult`. | Per-slice metric exploration. |
+| [`by_slice`](by-slice.md) | Descriptive view | Partition a panel on a column and run `evaluate` per slice; returns `dict[str, EvaluationResult]`. | Per-slice metric exploration. |
 | [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Inference (no FDR) | Statistical tests over slice families (pairwise / omnibus). | Testing whether slice means differ. |
 | [`multi_factor`](multi-factor.md) | Screening (FDR) | Module-level overview of collection-level FDR functions. | Multi-factor FDR screening overview. |
 | [`bhy`](bhy.md) | Screening (FDR) | Benjamini-Hochberg-Yekutieli step-up FDR. | Screening candidate factors. |

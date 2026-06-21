@@ -109,7 +109,7 @@ You have the evaluation results for one or more factors. The common follow-ups:
 |---|---|---|
 | Screen candidate factors with false discovery rate (FDR) control | [`multi_factor.bhy(results)`](../api/bhy.md) — or `partial_conjunction` / `bhy_hierarchical` for nested structure | [multi_factor overview](../api/multi-factor.md) |
 | Rank factors after screening | [`compare(results)`](../api/compare.md) — leaderboard with rank | — |
-| Explore one metric across slices (sector / regime / universe / ADV bucket) | [`by_slice`](../api/by-slice.md) → `SliceResult.to_frame()` | [Slice analysis](../guides/slice-analysis.md) |
+| Explore one metric across slices (sector / regime / universe / ADV bucket) | [`by_slice`](../api/by-slice.md) → `dict[str, EvaluationResult]` | [Slice analysis](../guides/slice-analysis.md) |
 | Test whether slices differ statistically | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | [Slice analysis](../guides/slice-analysis.md) |
 
 For function semantics and the input contract, see the [API reference landing](../api/index.md) and [Reading results](../guides/reading-results.md).
