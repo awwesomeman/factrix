@@ -57,6 +57,30 @@ class TestComputeForwardReturn:
         a_ret = result.filter(pl.col("asset_id") == "A")["forward_return"][0]
         assert a_ret == pytest.approx(0.21 / 2)
 
+    def test_raises_when_forward_return_already_present(self):
+        from factrix._errors import UserInputError
+
+        once = compute_forward_return(_make_price_data(), forward_periods=1)
+        with pytest.raises(UserInputError, match="not idempotent"):
+            compute_forward_return(once, forward_periods=1)
+
+    def test_overwrite_recomputes_in_place(self):
+        once = compute_forward_return(_make_price_data(), forward_periods=1)
+        # overwrite drops the old column and recomputes; not idempotent — the
+        # already-truncated tail is dropped again, so the row count shrinks.
+        twice = compute_forward_return(once, forward_periods=1, overwrite=True)
+        assert "forward_return" in twice.columns
+        assert twice["forward_return"].null_count() == 0
+        assert twice.height < once.height
+
+    def test_overwrite_changes_horizon(self):
+        raw = _make_price_data()
+        once = compute_forward_return(raw, forward_periods=1)
+        changed = compute_forward_return(once, forward_periods=2, overwrite=True)
+        assert "forward_return" in changed.columns
+        assert changed["forward_return"].null_count() == 0
+        assert changed["forward_return"].to_list() != once["forward_return"].to_list()
+
 
 class TestWinsorizeForwardReturn:
     def test_noop(self):
