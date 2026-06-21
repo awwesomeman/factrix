@@ -100,6 +100,19 @@ class WarningCode(StrEnum):
     EXCESSIVE_PERIOD_DROPS = "excessive_period_drops"
     EXCESSIVE_ASSET_DROPS = "excessive_asset_drops"
 
+    # Fired by by_slice when a panel is partitioned on a date-axis column
+    # (one whose value varies within an asset over time, e.g. calendar year
+    # or regime label) and the metric's aggregation looks across dates
+    # (TS_ONLY / TS_THEN_CS / EVENT_TIME / RETURN_SPANNING). by_slice
+    # evaluates each slice as an independent dataset, so a rolling window,
+    # per-asset time-series regression, or event window sees truncated
+    # history at the slice boundary — the per-slice value differs from the
+    # full-sample value decomposed by period. Per-date metrics (CS_THEN_TS /
+    # CS_SNAPSHOT) are unaffected and do not trigger. Cross-sectional
+    # partitions (sector, size bucket — constant within an asset) keep each
+    # asset's history intact and do not trigger.
+    SLICE_BOUNDARY_TRUNCATION = "slice_boundary_truncation"
+
     @property
     def description(self) -> str:
         return _WARNING_DESCRIPTIONS[self]

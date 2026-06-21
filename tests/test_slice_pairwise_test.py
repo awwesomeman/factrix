@@ -18,7 +18,7 @@ def test_two_slice_returns_one_row() -> None:
     df = build_labelled_ic_panel(
         n_dates=120, seed=1, means={"a": 0.02, "b": 0.02}, label_col="universe"
     )
-    out = slice_pairwise_test(ic, df, label="universe")
+    out = slice_pairwise_test(df, ic, by="universe")
     assert out.height == 1
     assert out.columns == ["slice_a", "slice_b", "n_obs", "stat", "p_raw", "p_adj"]
     assert out["n_obs"][0] == 120
@@ -31,7 +31,7 @@ def test_three_slice_returns_three_rows() -> None:
         means={"a": 0.02, "b": 0.02, "c": 0.02},
         label_col="universe",
     )
-    out = slice_pairwise_test(ic, df, label="universe")
+    out = slice_pairwise_test(df, ic, by="universe")
     assert out.height == 3
     pairs = set(zip(out["slice_a"].to_list(), out["slice_b"].to_list(), strict=False))
     assert pairs == {("a", "b"), ("a", "c"), ("b", "c")}
@@ -44,7 +44,7 @@ def test_holm_adjustment_dominates_raw() -> None:
         means={"a": 0.02, "b": 0.02, "c": 0.02},
         label_col="universe",
     )
-    out = slice_pairwise_test(ic, df, label="universe", multiple_testing="holm")
+    out = slice_pairwise_test(df, ic, by="universe", multiple_testing="holm")
     p_raw = out["p_raw"].to_list()
     p_adj = out["p_adj"].to_list()
     for raw, adj in zip(p_raw, p_adj, strict=False):
@@ -58,7 +58,7 @@ def test_bonferroni_factor_matches_k() -> None:
         means={"a": 0.02, "b": 0.02, "c": 0.02},
         label_col="universe",
     )
-    out = slice_pairwise_test(ic, df, label="universe", multiple_testing="bonferroni")
+    out = slice_pairwise_test(df, ic, by="universe", multiple_testing="bonferroni")
     p_raw = np.array(out["p_raw"].to_list())
     p_adj = np.array(out["p_adj"].to_list())
     expected = np.minimum(p_raw * len(p_raw), 1.0)
@@ -69,7 +69,7 @@ def test_detects_signal_difference() -> None:
     df = build_labelled_ic_panel(
         n_dates=240, seed=5, means={"hot": 0.10, "cold": -0.01}, label_col="universe"
     )
-    out = slice_pairwise_test(ic, df, label="universe")
+    out = slice_pairwise_test(df, ic, by="universe")
     assert out["p_raw"][0] < 0.01
 
 
@@ -88,7 +88,7 @@ def test_fama_macbeth_metric_accepted() -> None:
             )
         )
     df = pl.concat(frames)
-    out = slice_pairwise_test(fm_beta, df, label="regime")
+    out = slice_pairwise_test(df, fm_beta, by="regime")
     assert out.height == 1
     assert out.columns == ["slice_a", "slice_b", "n_obs", "stat", "p_raw", "p_adj"]
 
@@ -101,7 +101,7 @@ def test_rejects_non_eligible_metric() -> None:
         n_dates=10, seed=7, means={"a": 0.0, "b": 0.0}, label_col="universe"
     )
     with pytest.raises(TypeError, match="slice-test-eligible"):
-        slice_pairwise_test(fake_metric, df, label="universe")
+        slice_pairwise_test(df, fake_metric, by="universe")
 
 
 def test_block_bootstrap_path_returns_signed_mean_diff_stat() -> None:
@@ -109,9 +109,9 @@ def test_block_bootstrap_path_returns_signed_mean_diff_stat() -> None:
         n_dates=120, seed=8, means={"a": 0.10, "b": -0.05}, label_col="universe"
     )
     out = slice_pairwise_test(
-        ic,
         df,
-        label="universe",
+        ic,
+        by="universe",
         estimator=BlockBootstrap(n_resamples=199, rng_seed=42),
     )
     assert out.height == 1
@@ -127,15 +127,15 @@ def test_block_bootstrap_defaults_to_romano_wolf() -> None:
         label_col="universe",
     )
     rw_out = slice_pairwise_test(
-        ic,
         df,
-        label="universe",
+        ic,
+        by="universe",
         estimator=BlockBootstrap(n_resamples=199, rng_seed=7),
     )
     holm_out = slice_pairwise_test(
-        ic,
         df,
-        label="universe",
+        ic,
+        by="universe",
         estimator=BlockBootstrap(n_resamples=199, rng_seed=7),
         multiple_testing="holm",
     )
@@ -150,7 +150,7 @@ def test_romano_wolf_requires_block_bootstrap() -> None:
         n_dates=60, seed=81, means={"a": 0.0, "b": 0.0}, label_col="universe"
     )
     with pytest.raises(ValueError, match="romano_wolf"):
-        slice_pairwise_test(ic, df, label="universe", multiple_testing="romano_wolf")
+        slice_pairwise_test(df, ic, by="universe", multiple_testing="romano_wolf")
 
 
 def test_rejects_unknown_estimator_type() -> None:
@@ -162,9 +162,9 @@ def test_rejects_unknown_estimator_type() -> None:
     )
     with pytest.raises(NotImplementedError, match="FakeEstimator"):
         slice_pairwise_test(
-            ic,
             df,
-            label="universe",
+            ic,
+            by="universe",
             estimator=FakeEstimator(),  # type: ignore[arg-type]
         )
 
@@ -173,7 +173,7 @@ def test_accepts_default_waldnwcluster_explicit() -> None:
     df = build_labelled_ic_panel(
         n_dates=60, seed=9, means={"a": 0.0, "b": 0.0}, label_col="universe"
     )
-    out = slice_pairwise_test(ic, df, label="universe", estimator=WaldNWCluster())
+    out = slice_pairwise_test(df, ic, by="universe", estimator=WaldNWCluster())
     assert out.height == 1
 
 
@@ -182,7 +182,7 @@ def test_raises_when_single_slice() -> None:
         n_dates=60, seed=10, means={"only": 0.0}, label_col="universe"
     )
     with pytest.raises(ValueError, match="≥2 slice values"):
-        slice_pairwise_test(ic, df, label="universe")
+        slice_pairwise_test(df, ic, by="universe")
 
 
 def test_raises_when_dates_dont_align() -> None:
@@ -203,7 +203,7 @@ def test_raises_when_dates_dont_align() -> None:
         }
     )
     with pytest.raises(ValueError, match="aligned dates"):
-        slice_pairwise_test(ic, pl.concat([df_a, df_b]), label="regime")
+        slice_pairwise_test(pl.concat([df_a, df_b]), ic, by="regime")
 
 
 def test_rejects_unknown_multiple_testing() -> None:
@@ -212,8 +212,8 @@ def test_rejects_unknown_multiple_testing() -> None:
     )
     with pytest.raises(ValueError, match="not recognized"):
         slice_pairwise_test(
-            ic,
             df,
-            label="universe",
+            ic,
+            by="universe",
             multiple_testing="fdr",  # type: ignore[arg-type]
         )

@@ -191,7 +191,7 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
 
 ### `by_slice` / `slice_pairwise_test` / `slice_joint_test`
 
-- `by_slice` partitions a metric's input by a grouping column, evaluates the metric per slice, and returns a `SliceResult` (which can be cast to a DataFrame via `.to_frame()`).
+- `by_slice(data, metric, *, by, factor_col)` partitions a raw panel by a grouping column and runs `evaluate` per slice, returning `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice). `metric` is an instance (e.g. `ic()`); DAG-consumer metrics work with no pre-computation.
 - `slice_pairwise_test` / `slice_joint_test` perform cross-slice Wald tests (Holm/Romano-Wolf adjusted) on the means.
 
 ---

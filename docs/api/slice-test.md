@@ -6,9 +6,9 @@ title: factrix.slice_pairwise_test / factrix.slice_joint_test
 
 ::: factrix.slice_joint_test
 
-Cross-slice statistical-test function pair. Both consume a metric callable
-and a date-keyed DataFrame whose `label` column carries the slice
-identifier; the functions partition by `label`, line up per-date metric
+Cross-slice statistical-test function pair. Both take a date-keyed
+DataFrame (data-first) and a metric callable; the `by` column carries the
+slice identifier; the functions partition by `by`, line up per-date metric
 series across slices, and report inference on whether the slices'
 means differ.
 
@@ -79,7 +79,7 @@ estimators do not produce.
 
 ## Cross-axis composition
 
-The functions accept a **single** `label` column. For cross-axis slice
+The functions accept a **single** `by` column. For cross-axis slice
 analysis (regime × universe), compose a composite label upstream
 with `pl.concat_str(...)`:
 
@@ -87,7 +87,7 @@ with `pl.concat_str(...)`:
 ic_df = ic_df.with_columns(
     pl.concat_str(["regime", "universe"], separator="_").alias("regime_x_universe")
 )
-slice_pairwise_test(ic, ic_df, label="regime_x_universe")
+slice_pairwise_test(ic_df, ic, by="regime_x_universe")
 ```
 
 Two-way *interaction decomposition* (main effect + interaction with

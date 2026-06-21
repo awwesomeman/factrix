@@ -778,7 +778,7 @@ Apply opportunistically: when you touch a page for any other reason and a paragr
 
 For each `::: <target>` directive in `docs/api/`, the target dotted path matches the symbol's canonical user-facing import:
 
-- Symbol in `factrix.__all__` → top-level path (`::: factrix.evaluate`, `::: factrix.by_slice`, `::: factrix.SliceResult`). Do not target the submodule that physically defines it (e.g. `factrix.slicing.dispatcher` with `members: [by_slice]`) — submodule-target with member filter renders the *submodule* as the page h1 and buries the documented symbol below.
+- Symbol in `factrix.__all__` → top-level path (`::: factrix.evaluate`, `::: factrix.by_slice`). Do not target the submodule that physically defines it (e.g. `factrix.slicing.dispatcher` with `members: [by_slice]`) — submodule-target with member filter renders the *submodule* as the page h1 and buries the documented symbol below.
 - Symbol reached only via a submodule path → submodule path (`::: factrix.preprocess.compute_forward_return`, `::: factrix.metrics.ic` with `members: [ic, ic_ir]`, `::: factrix.datasets.make_cs_panel`). The submodule path is the canonical import.
 
 mkdocstrings cross-references (`[X][factrix.<...>.X]`) and intra-doc anchor links (`page.md#factrix.<...>.X`) follow the same rule — the path inside the brackets matches the autodoc target. Changing one without the other breaks the cross-ref.
@@ -821,7 +821,7 @@ The slicing subsystem is the worked example of the rule:
 | `Layer-B` / second-layer / curated wrapper (inference path) | **slice-test function** / **inference function** — describes the cross-slice estimator + multiple-testing pipeline (`slice_pairwise_test` / `slice_joint_test`) |
 | `Layer-B` Estimator | **slice-test Estimator** — Estimators consumed by the slice-test functions (`WaldNWCluster` / `WaldTwoWayCluster` / `BlockBootstrap`) |
 | metric-specific `regime_<metric>` curated wrapper | **legacy metric-specific wrapper** (when describing removed surface area); for the current path, name `by_slice` + the inference function directly |
-| `SliceResult.to_frame()` renderer layer | **renderer** — container-side method; no separate tier implied |
+| `EvaluationResult.to_frame()` renderer layer | **renderer** — result-side method; no separate tier implied |
 
 The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Mention an issue number (`#176`) when the docstring needs to point at a specification, instead of `Layer-B (#176)` which encodes a label that will not survive.
 

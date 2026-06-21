@@ -35,7 +35,7 @@ class WaldNWCluster:
     Pass an instance to a slice-test function to make the inference
     choice explicit::
 
-        fx.slice_pairwise_test(metric=ic, df=panel, label="sector",
+        fx.slice_pairwise_test(panel, ic, by="sector",
                                 estimator=WaldNWCluster())
 
     Constructor takes no arguments in this release; the Bartlett-kernel
