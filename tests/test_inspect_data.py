@@ -36,30 +36,30 @@ def _by_name(info: DataInspection, name: str) -> MetricApplicability:
 class TestDataPropertiesDetection:
     def test_individual_continuous_cs_panel(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
-        assert info.detected.scope is fx.FactorScope.INDIVIDUAL
-        assert info.detected.density is fx.FactorDensity.DENSE
-        assert info.detected.structure is fx.DataStructure.PANEL
-        assert info.detected.n_assets == 20
-        assert info.detected.n_periods == 80
-        assert info.detected.n_pairs == 20 * 80
-        assert 0.0 <= info.detected.sparse_ratio < 0.5
+        assert info.properties.scope is fx.FactorScope.INDIVIDUAL
+        assert info.properties.density is fx.FactorDensity.DENSE
+        assert info.properties.structure is fx.DataStructure.PANEL
+        assert info.properties.n_assets == 20
+        assert info.properties.n_periods == 80
+        assert info.properties.n_pairs == 20 * 80
+        assert 0.0 <= info.properties.sparse_ratio < 0.5
 
     def test_n1_routes_to_timeseries(self):
         info = inspect_data(_single_asset_data(n_dates=80))
-        assert info.detected.structure is fx.DataStructure.TIMESERIES
-        assert info.detected.n_assets == 1
-        assert "TIMESERIES" in info.detected.structure_reason
+        assert info.properties.structure is fx.DataStructure.TIMESERIES
+        assert info.properties.n_assets == 1
+        assert "TIMESERIES" in info.properties.structure_reason
 
     def test_common_continuous_detection(self):
         info = inspect_data(_common_continuous_data())
-        assert info.detected.scope is fx.FactorScope.COMMON
-        assert info.detected.density is fx.FactorDensity.DENSE
+        assert info.properties.scope is fx.FactorScope.COMMON
+        assert info.properties.density is fx.FactorDensity.DENSE
 
     def test_empty_panel_sparse_ratio_is_nan(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
         info = inspect_data(empty)
-        assert math.isnan(info.detected.sparse_ratio)
-        assert info.detected.n_pairs == 0
+        assert math.isnan(info.properties.sparse_ratio)
+        assert info.properties.n_pairs == 0
 
     def test_n_pairs_counts_non_null_factor_only(self):
         raw = fx.datasets.make_cs_panel(n_assets=4, n_dates=10)
@@ -70,16 +70,16 @@ class TestDataPropertiesDetection:
             .alias("factor")
         )
         info = inspect_data(with_nulls)
-        assert info.detected.n_pairs == with_nulls.drop_nulls("factor").height
-        assert info.detected.n_pairs < raw.height
+        assert info.properties.n_pairs == with_nulls.drop_nulls("factor").height
+        assert info.properties.n_pairs < raw.height
 
 
 class TestDataReasoning:
     def test_three_axis_fields_populated(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=80))
-        assert "INDIVIDUAL" in info.detected.scope_reason
-        assert "DENSE" in info.detected.density_reason
-        assert "PANEL" in info.detected.structure_reason
+        assert "INDIVIDUAL" in info.properties.scope_reason
+        assert "DENSE" in info.properties.density_reason
+        assert "PANEL" in info.properties.structure_reason
 
 
 class TestCellMatchGate:
@@ -147,7 +147,7 @@ class TestSampleThresholdGate:
         from factrix._metric_index import SampleThreshold
 
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
-        floor = SampleThreshold(min_pairs=info.detected.n_pairs + 1)
+        floor = SampleThreshold(min_pairs=info.properties.n_pairs + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_ir")
         from dataclasses import replace
 
@@ -155,7 +155,7 @@ class TestSampleThresholdGate:
 
         verdict = _evaluate_applicability(
             replace(spec, sample_threshold=floor),
-            info.detected,
+            info.properties,
             signal_discrete=False,
         )
         assert verdict.usable is False
@@ -168,12 +168,12 @@ class TestSampleThresholdGate:
         from factrix._metric_index import SampleThreshold
 
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=120))
-        n = info.detected.n_pairs
+        n = info.properties.n_pairs
         floor = SampleThreshold(min_pairs=n - 1, warn_pairs=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "ic_ir")
         verdict = _evaluate_applicability(
             replace(spec, sample_threshold=floor),
-            info.detected,
+            info.properties,
             signal_discrete=False,
         )
         assert verdict.usable is True
@@ -283,7 +283,7 @@ class TestEventAxisPreflight:
 
         panel = self._event_panel()
         info = inspect_data(panel)
-        assert info.detected.n_events == panel.filter(pl.col("factor") != 0).height
+        assert info.properties.n_events == panel.filter(pl.col("factor") != 0).height
 
     def test_below_min_events_is_unusable(self):
         from dataclasses import replace
@@ -292,11 +292,11 @@ class TestEventAxisPreflight:
         from factrix._metric_index import SampleThreshold
 
         info = inspect_data(self._event_panel())
-        floor = SampleThreshold(min_events=info.detected.n_events + 1)
+        floor = SampleThreshold(min_events=info.properties.n_events + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "corrado_rank")
         verdict = _evaluate_applicability(
             replace(spec, sample_threshold=floor),
-            info.detected,
+            info.properties,
             signal_discrete=False,
         )
         assert verdict.usable is False
@@ -309,12 +309,12 @@ class TestEventAxisPreflight:
         from factrix._metric_index import SampleThreshold
 
         info = inspect_data(self._event_panel())
-        n = info.detected.n_events
+        n = info.properties.n_events
         floor = SampleThreshold(min_events=n - 1, warn_events=n + 1)
         spec = next(m.spec for m in info.metrics if m.spec.name == "corrado_rank")
         verdict = _evaluate_applicability(
             replace(spec, sample_threshold=floor),
-            info.detected,
+            info.properties,
             signal_discrete=False,
         )
         assert verdict.usable is True
@@ -457,9 +457,9 @@ class TestToDict:
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=20, n_dates=25))
         d = info.to_dict()
         back = json.loads(json.dumps(d))
-        assert back["detected"]["scope"] == "individual"
-        assert back["detected"]["structure"] == "panel"
-        assert back["detected"]["n_assets"] == 20
+        assert back["properties"]["scope"] == "individual"
+        assert back["properties"]["structure"] == "panel"
+        assert back["properties"]["n_assets"] == 20
         assert back["reasoning"]["scope"]
         assert any(m["name"] == "ic_ir" for m in back["metrics"])
         nw = next(m for m in back["metrics"] if m["name"] == "ic_ir")
@@ -469,8 +469,8 @@ class TestToDict:
     def test_nan_sparse_ratio_becomes_null(self):
         empty = fx.datasets.make_cs_panel(n_assets=4, n_dates=10).head(0)
         d = inspect_data(empty).to_dict()
-        assert d["detected"]["sparse_ratio"] is None
-        assert d["detected"]["n_pairs"] == 0
+        assert d["properties"]["sparse_ratio"] is None
+        assert d["properties"]["n_pairs"] == 0
 
     def test_data_level_warnings_serialised(self):
         info = inspect_data(fx.datasets.make_cs_panel(n_assets=5, n_dates=120))

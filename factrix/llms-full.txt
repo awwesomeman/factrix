@@ -64,7 +64,7 @@ data = compute_forward_return(raw, forward_periods=5)
 
 # 2. Run pre-flight check
 info = fx.inspect_data(data, factor_cols=["factor"])
-print("Detected structure:", info.detected.structure)
+print("Detected structure:", info.properties.structure)
 
 # 3. Evaluate using ic with Newey-West HAC inference
 results = fx.evaluate(
@@ -179,7 +179,7 @@ def inspect_data(
 
 Typed pre-flight introspection that combines axis detection with a per-metric usability verdict.
 
-- `DataInspection.detected: DataProperties` carries the detected enums (`scope` / `density` / `structure`), per-axis rationale strings (`scope_reason` / `density_reason` / `structure_reason`), plus shape numerics (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
+- `DataInspection.properties: DataProperties` carries the detected enums (`scope` / `density` / `structure`), per-axis rationale strings (`scope_reason` / `density_reason` / `structure_reason`), plus shape numerics (`n_assets` / `n_periods` / `n_pairs` / `sparse_ratio`).
 - `DataInspection.metrics: list[MetricApplicability]` provides verdicts grouped into three usability `Tier` categories:
   - `usable` (`MetricApplicabilityGroup` / `Tier.CLEAN`): Clean metrics ready to run.
   - `degraded` (`MetricApplicabilityGroup` / `Tier.DEGRADED`): Metrics runnable with warnings.

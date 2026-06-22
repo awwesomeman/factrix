@@ -252,7 +252,7 @@ class DataInspection:
     Pure data — no execution methods.
 
     Attributes:
-        detected: :class:`DataProperties` with typed enum axes, the
+        properties: :class:`DataProperties` with typed enum axes, the
             per-axis rationale strings, and shape numerics.
         metrics: Flat ``list[MetricApplicability]`` — one verdict
             per ``visibility=PUBLIC`` spec the inspector considered.
@@ -266,7 +266,7 @@ class DataInspection:
             each :class:`MetricApplicability`.
     """
 
-    detected: DataProperties
+    properties: DataProperties
     metrics: list[MetricApplicability]
     warnings: list[Warning] = field(default_factory=list)
 
@@ -322,7 +322,7 @@ class DataInspection:
 
         Layout (top-level keys, stable order):
 
-        - ``detected``: ``{scope, density, structure, n_assets, n_periods,
+        - ``properties``: ``{scope, density, structure, n_assets, n_periods,
           n_pairs, sparse_ratio}`` — enum fields rendered as their
           ``.value`` string; ``sparse_ratio`` ``NaN`` emitted as
           ``None``.
@@ -336,9 +336,9 @@ class DataInspection:
         ``to_dict`` convention across the public result-type group so
         log / parquet sinks treat them uniformly.
         """
-        d = self.detected
+        d = self.properties
         return {
-            "detected": {
+            "properties": {
                 "scope": d.scope.value,
                 "density": d.density.value,
                 "structure": d.structure.value,
@@ -382,7 +382,7 @@ class DataInspection:
         }
 
     def _repr_html_(self) -> str:
-        d = self.detected
+        d = self.properties
         header_rows = [
             ("scope", d.scope.value),
             ("density", d.density.value),
@@ -445,7 +445,7 @@ class DataInspection:
 
         return (
             "<div class='factrix-data-inspection'>"
-            "<table><caption>DataInspection — detected</caption>"
+            "<table><caption>DataInspection — properties</caption>"
             f"<tbody>{header_html}</tbody></table>"
             "<table><caption>reasoning</caption>"
             f"<tbody>{reasoning_rows}</tbody></table>"
@@ -475,7 +475,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     such as a ternary ``{-1, 0, +1}`` indicator), matching its run-time
     ``not_applicable_discrete_signal`` short-circuit.
 
-    Multi-factor input: the detected :class:`DataProperties` and every
+    Multi-factor input: the inspected :class:`DataProperties` and every
     per-metric verdict are computed from the **first** factor column only
     (deterministic first-detected). When columns disagree on
     ``FactorDensity`` or ``FactorScope`` a ``CROSS_FACTOR_*_MISMATCH``
@@ -500,7 +500,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         >>> import factrix as fx
         >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=120)
         >>> info = fx.inspect_data(raw)
-        >>> all(m.spec.cell.matches(info.detected.scope, info.detected.density, info.detected.structure) for m in info.usable)
+        >>> all(m.spec.cell.matches(info.properties.scope, info.properties.density, info.properties.structure) for m in info.usable)
         True
     """
     if isinstance(factor_cols, str):
@@ -616,7 +616,7 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
     ]
 
     return DataInspection(
-        detected=properties,
+        properties=properties,
         metrics=metrics,
         warnings=data_warnings,
     )

@@ -221,7 +221,7 @@ class TestApplicabilityMirrorsSpec:
         # A metric is only usable when its cell admits the detected axes —
         # the spec.cell ↔ detected-properties seam inspect_data enforces.
         info: DataInspection = inspect_data(request.getfixturevalue(panel_name))
-        d = info.detected
+        d = info.properties
         for m in info.usable:
             assert m.spec.cell.matches(d.scope, d.density, d.structure)
 
