@@ -1,4 +1,4 @@
-"""v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResultGroup`` / ``Warning``.
+"""v0.14 result dataclasses — ``EvaluationResult`` / ``MetricResult`` / ``Warning``.
 
 Lands the result-type group that unification surfaces from the
 DAG executor. This module ships the dataclasses + serialisation
@@ -9,17 +9,14 @@ from __future__ import annotations
 
 import html
 import math
-from collections.abc import Iterator, KeysView, Mapping, ValuesView
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
-
-if TYPE_CHECKING:
-    from collections.abc import ItemsView
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,43 +83,6 @@ class Warning:
 
 
 @dataclass(frozen=True, slots=True)
-class MetricResultGroup:
-    """Dict-like container of per-metric outputs for one factor.
-
-    The key is the caller-supplied label (from ``evaluate(metrics=...)``).
-    Supports ``[]``, ``in``, iteration, ``keys`` / ``values`` / ``items``,
-    and ``len``.
-
-    Attributes:
-        outputs: ``label -> MetricResult`` for every metric that produced
-            a value (including short-circuit NaN outputs).
-    """
-
-    outputs: Mapping[str, MetricResult] = field(default_factory=dict)
-
-    def __getitem__(self, key: str) -> MetricResult:
-        return self.outputs[key]
-
-    def __contains__(self, key: object) -> bool:
-        return key in self.outputs
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.outputs)
-
-    def __len__(self) -> int:
-        return len(self.outputs)
-
-    def keys(self) -> KeysView[str]:
-        return self.outputs.keys()
-
-    def values(self) -> ValuesView[MetricResult]:
-        return self.outputs.values()
-
-    def items(self) -> ItemsView[str, MetricResult]:
-        return self.outputs.items()
-
-
-@dataclass(frozen=True, slots=True)
 class EvaluationResult:
     """Bundle-level result for one factor.
 
@@ -142,8 +102,8 @@ class EvaluationResult:
             factor panel. A panel structural property.
         n_assets: Unique assets in the panel (cell-invariant;
             ``1`` is legal for TIMESERIES).
-        metrics: :class:`MetricResultGroup` carrying per-metric outputs,
-            keyed by the caller-supplied label.
+        metrics: Read-only ``label -> MetricResult`` mapping carrying
+            per-metric outputs, keyed by the caller-supplied label.
         context: Caller-supplied free-form labels (e.g.
             ``{"region": "US"}``). Read by
             ``bhy(expand_over=...)`` / ``partial_conjunction`` /
@@ -161,7 +121,7 @@ class EvaluationResult:
     n_periods: int
     n_pairs: int
     n_assets: int
-    metrics: MetricResultGroup
+    metrics: Mapping[str, MetricResult]
     plan: str
     context: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
@@ -196,7 +156,7 @@ class EvaluationResult:
                 "n_assets": self.n_assets,
                 **_output_row(key, out, by_metric),
             }
-            for key, out in self.metrics.outputs.items()
+            for key, out in self.metrics.items()
         ]
         return pl.DataFrame(rows, schema=_TO_FRAME_SCHEMA)
 
@@ -228,7 +188,7 @@ class EvaluationResult:
             "context": dict(self.context),
             "metrics": {
                 name: _metric_output_to_record(out)
-                for name, out in self.metrics.outputs.items()
+                for name, out in self.metrics.items()
             },
             "warnings": [
                 {
@@ -263,7 +223,7 @@ class EvaluationResult:
         )
 
         metric_rows = []
-        for name, out in sorted(self.metrics.outputs.items()):
+        for name, out in sorted(self.metrics.items()):
             if isinstance(out, MetricResult):
                 val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
                 p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""

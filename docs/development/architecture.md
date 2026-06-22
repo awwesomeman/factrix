@@ -113,7 +113,7 @@ class EvaluationResult:
     n_periods: int
     n_pairs: int
     n_assets: int
-    metrics: MetricResultGroup
+    metrics: Mapping[str, MetricResult]
     plan: str
     context: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
@@ -125,8 +125,8 @@ It replaces the pre-v0.14 `FactorProfile` (inferential) / `MetricsBundle`
 (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
 - `cell` is the `(scope, density, structure)` tuple of the dispatched cell.
-- Per-metric outputs live in `metrics`, a `MetricResultGroup` mapping each
-  label to its `MetricResult`. Screening verbs read each result's
+- Per-metric outputs live in `metrics`, a read-only `Mapping[str, MetricResult]`
+  (`MappingProxyType`) mapping each label to its `MetricResult`. Screening verbs read each result's
   `MetricResult.p_value` — by convention the mainstream metric's.
 - Advisory diagnostics are a flat `list[Warning]` on `warnings` — per-metric
   records carry `source=<metric name>`, bundle / pre-dispatch records carry
@@ -658,7 +658,7 @@ factrix/
 ├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
 ├── _metric_index.py         # MetricSpec + @metric-registry SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
 ├── _dag.py                  # DagExecutor — MetricSpec.requires / batchable dispatch (+ CycleError)
-├── _results.py              # EvaluationResult / MetricResultGroup / MetricResult / Warning dataclasses
+├── _results.py              # EvaluationResult / MetricResult / Warning dataclasses
 ├── _inspect.py              # inspect_data — typed data introspection with per-metric verdict
 ├── _compare.py              # compare — multi-metric leaderboard over EvaluationResult lists
 ├── _family.py               # _resolve_family — shared family resolution for the FDR verbs
@@ -688,15 +688,15 @@ factrix/
 Hard constraints — violating these breaks the API contract:
 
 1. `MetricSpec` is `frozen=True, slots=True`; every construction path runs `__post_init__`, which enforces the field invariants (e.g. `role=METRIC → output_shape=SCALAR`).
-2. All result dataclasses — `EvaluationResult`, `MetricResultGroup`, `MetricResult`, `Warning` — are `frozen=True, slots=True`. One unified `EvaluationResult` — no per-cell subclass.
+2. All result dataclasses — `EvaluationResult`, `MetricResult`, `Warning` — are `frozen=True, slots=True`; `EvaluationResult.metrics` is a `MappingProxyType` for read-only per-metric outputs. One unified `EvaluationResult` — no per-cell subclass.
 3. The metric-spec SSOT is the `@metric` registration in each `factrix/metrics/*.py`, resolved through `factrix._metric_index` (`spec_by_name` / `public_specs` / `list_metrics`); no parallel rule table. `@metric`-class registration feeds the index via `factrix.metrics._registry.register`.
 4. The DAG executor is the single dispatch path. `DagExecutor` topologically orders specs by `MetricSpec.requires` (raising `CycleError` on cycles), runs `batchable=True` producers once per factor batch and `batchable=False` consumers once per factor, and short-circuits a downstream consumer with a NaN `MetricResult` + `WarningCode.UPSTREAM_UNAVAILABLE` rather than invoking it on missing upstream data.
 5. `MetricResult.p_value` is the single canonical p-value read path — `EvaluationResult.to_frame()` / `to_dict()`, `compare`, and the BHY family resolver all read it; `metadata["p_value"]` stays populated for tool context. `warnings` flag interpretation risk but never rebind it.
 6. Family declaration is explicit: a screening verb's input list is one family, optionally split per bucket via `expand_over`. `_resolve_family` enforces (a) the hypothesis identity `(factor, *expand_over_values)` is unique across the input, (b) `expand_over` names come only from `EvaluationResult.context` (or the built-in `forward_periods`), never the factor, (c) `p_value` is populated everywhere before procedures read it. Cell / horizon partitioning is the caller's responsibility; mixed `forward_periods` without `expand_over` warns.
 7. `T < MIN_PERIODS_HARD` raises `InsufficientSampleError`; metrics never silently produce a result on under-sampled data. NW HAC lag selection on overlapping forward returns floors at `forward_periods - 1` (the Hansen-Hodrick floor) so serial correlation from overlap is not under-counted.
 
-For the user-facing field walk of `EvaluationResult` (and the
-`MetricResultGroup` it composes with), see
+For the user-facing field walk of `EvaluationResult` (and its
+`metrics` mapping), see
 [Reading results](../guides/reading-results.md). The `MetricResult.p_value`
 contract above is what that page links back to.
 

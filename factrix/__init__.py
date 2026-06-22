@@ -44,6 +44,7 @@ typical usage patterns in a single fetch. Two access paths::
 import dataclasses
 import inspect
 import math
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 import polars as pl
@@ -86,7 +87,6 @@ from factrix._metric_index import (
 from factrix._results import (
     EvaluationResult,
     MetricResult,
-    MetricResultGroup,
     Warning,
 )
 from factrix.slicing import (
@@ -510,7 +510,7 @@ def _relabel_result(
     short-circuit ``MetricResult`` is synthesized here so the returned dict
     still carries every requested label, in the caller's request order.
     """
-    node_outputs = result.metrics.outputs
+    node_outputs = result.metrics
     label_outputs: dict[str, MetricResult] = {}
     mismatch_warnings: list[Warning] = []
     for label in ordered_labels:
@@ -540,7 +540,7 @@ def _relabel_result(
     warnings.extend(mismatch_warnings)
     return dataclasses.replace(
         result,
-        metrics=MetricResultGroup(outputs=label_outputs),
+        metrics=MappingProxyType(label_outputs),
         warnings=warnings,
     )
 
@@ -706,7 +706,6 @@ __all__ = [
     "DagExecutor",
     "EvaluationResult",
     "MetricResult",
-    "MetricResultGroup",
     "DataInput",
     "Warning",
     "compare",

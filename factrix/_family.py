@@ -185,7 +185,7 @@ def _resolve_p_value(
     func_name: str,
 ) -> float:
     try:
-        out = result.metrics.outputs[metric]
+        out = result.metrics[metric]
     except KeyError:
         raise UserInputError(
             func_name=func_name,
@@ -195,7 +195,7 @@ def _resolve_p_value(
                 f"every result to carry the metric "
                 f"{metric!r}; missing on factor={result.factor!r}"
             ),
-            candidates=sorted(result.metrics.outputs),
+            candidates=sorted(result.metrics),
             docs_path=f"api/{func_name}#metrics",
         ) from None
 

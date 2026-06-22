@@ -29,17 +29,9 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
 
 ---
 
-::: factrix.MetricResultGroup
+## The `metrics` mapping
 
-<hr>
-
-## Key Concepts
-
-`MetricResultGroup` is a dict-like container of the metric outputs for a single factor evaluation:
-
-- **`outputs`**: A mapping from each metric label to its `MetricResult` object (including short-circuit NaN outputs). This is the group's only field.
-
-It supports dict-like lookup (`group["ic"]` to get the `MetricResult` for `"ic"`) as well as dictionary iteration methods (`keys()`, `values()`, `items()`, `__iter__`, and `__len__`).
+`EvaluationResult.metrics` is a read-only `Mapping[str, MetricResult]` (a `MappingProxyType`) keyed by the caller-supplied metric label, including short-circuit NaN outputs. Access it like any dict — `result.metrics["ic"]` returns the `MetricResult` for `"ic"`, and `keys()` / `values()` / `items()` / `get()` / `in` / `len()` / iteration all work as usual. The mapping is immutable; attempting to assign into it raises `TypeError`.
 
 
 ---

@@ -27,6 +27,7 @@ import functools
 import importlib
 import math
 from collections.abc import Callable, Mapping, Sequence
+from types import MappingProxyType
 from typing import Any, NamedTuple
 
 import polars as pl
@@ -38,7 +39,6 @@ from factrix._metric_index import MetricSpec
 from factrix._results import (
     EvaluationResult,
     MetricResult,
-    MetricResultGroup,
     Warning,
 )
 
@@ -377,7 +377,7 @@ class DagExecutor:
                 n_periods=factor_n_periods[c],
                 n_pairs=factor_n_pairs[c],
                 n_assets=n_assets,
-                metrics=MetricResultGroup(outputs=outputs),
+                metrics=MappingProxyType(outputs),
                 plan=plan,
                 warnings=warnings,
             )

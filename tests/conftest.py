@@ -8,6 +8,7 @@ synthetic panels locally.
 """
 
 from datetime import datetime, timedelta
+from types import MappingProxyType
 from typing import Any
 
 import numpy as np
@@ -20,7 +21,7 @@ from factrix._axis import (
     FactorScope,
 )
 from factrix._metric_index import Cell, MetricSpec
-from factrix._results import EvaluationResult, MetricResult, MetricResultGroup
+from factrix._results import EvaluationResult, MetricResult
 
 
 def make_spec(name: str) -> MetricSpec:
@@ -61,7 +62,7 @@ def make_result(
         n_periods=100,
         n_pairs=2500,
         n_assets=25,
-        metrics=MetricResultGroup(outputs=outputs),
+        metrics=MappingProxyType(outputs),
         plan="1. test [per-factor]",
         context=context or {},
     )

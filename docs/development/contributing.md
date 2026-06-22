@@ -770,7 +770,7 @@ plain prose; reach for a callout only when the elevation earns it.
 - `!!! info` — contract / convention block (e.g. event-study contracts, TS-mode conventions).
 - `!!! example` — minimal worked code that surrounding prose references.
 - `??? note "..."` (collapsible) — long content for a subset of readers (derivations, full enum tables).
-- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-data `(data, ...)` entry points (`docs/api/evaluate.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`EvaluationResult` / `Survivors` / `MetricResultGroup`) and do not carry the callout.
+- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-data `(data, ...)` entry points (`docs/api/evaluate.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`EvaluationResult` / `Survivors` / `MetricResult`) and do not carry the callout.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
@@ -801,7 +801,7 @@ These two sections appear on pages whose primary purpose is to show the reader *
 
 - **Expected on callable entry points.** Function pages under `docs/api/` whose page subject is a callable the user invokes directly. Includes the entry-point callables (`evaluate`, `inspect_data`, `bhy`, `partial_conjunction`, `bhy_hierarchical`, `by_slice`, `slice_pairwise_test` / `slice_joint_test`, `compare`, `list_metrics`, `preprocess.compute_forward_return`), and every metric page under `docs/api/metrics/` (each documents one or more callables).
 - **Not expected** on:
-    - Dataclass / container pages (`evaluation-results.md`, which documents `EvaluationResult` / `MetricResultGroup` / `MetricResult` / `Warning`) — these describe a return type, not a workflow.
+    - Dataclass / container pages (`evaluation-results.md`, which documents `EvaluationResult` / `MetricResult` / `Warning`) — these describe a return type, not a workflow.
     - Reference / taxonomy / hub pages (`errors.md`, `panel-schema.md`, `api/index.md`, `multi-horizon.md`, `metrics/index.md`, the cell-grouped metrics index pages) — content shape is a table or a concept, not a call.
     - Namespace / module pages (`stats.md`, `datasets.md`) — content shape is a catalogue of members.
 

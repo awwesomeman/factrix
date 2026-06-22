@@ -103,7 +103,7 @@ def compare(
         for k in context_keys:
             row[k] = r.context.get(k)
         for spec in metric_list:
-            if spec not in r.metrics.outputs:
+            if spec not in r.metrics:
                 raise UserInputError(
                     func_name="compare",
                     field="metrics",
@@ -112,10 +112,10 @@ def compare(
                         f"every result to carry metric {spec!r}; "
                         f"missing on factor={r.factor!r}"
                     ),
-                    candidates=sorted(r.metrics.outputs),
+                    candidates=sorted(r.metrics),
                     docs_path="api/compare#metrics",
                 )
-            out = r.metrics.outputs[spec]
+            out = r.metrics[spec]
             row[spec] = _float_or_none(out.value)
             row[f"{spec}_p_value"] = _float_or_none(out.p_value)
         rows.append(row)

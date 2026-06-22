@@ -328,7 +328,7 @@ Dataclass containing the evaluation outputs:
 - `n_periods`: Unique non-null dates in the factor column (panel time-series depth).
 - `n_pairs`: Non-null `(date, asset_id)` pairs (effective cross-sectional coverage).
 - `n_assets`: Unique asset count.
-- `metrics`: `MetricResultGroup` holding metric results (dict-like, keyed by user label).
+- `metrics`: read-only `Mapping[str, MetricResult]` holding metric results, keyed by user label.
 - `plan`: Execution plan string.
 - `context`: Free-form context dictionary.
 - `warnings`: Attached `Warning` records.

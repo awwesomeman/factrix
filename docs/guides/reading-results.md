@@ -41,7 +41,7 @@ An `EvaluationResult` represents the outcome of evaluating a single factor colum
 
 ### 3. Evaluated metrics (`result.metrics`)
 
-The `metrics` attribute is a `MetricResultGroup` containing a dictionary mapping the user-supplied label to a `MetricResult`.
+The `metrics` attribute is a read-only `Mapping[str, MetricResult]` mapping the user-supplied label to a `MetricResult`.
 
 For a specific metric `key`, `result.metrics[key]` exposes:
 

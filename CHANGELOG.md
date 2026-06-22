@@ -264,6 +264,8 @@ Entries link to **PR number** (e.g. `(#123)` — the PR that landed the change) 
 
 ### Removed
 
+- **`MetricResultGroup` wrapper class removed** (#PR). The hollow frozen-dataclass wrapper around `outputs: Mapping[str, MetricResult]` is gone — it carried zero domain logic once the v0.14 `applicable` / `primary` / `diagnostic` partition fields were removed, and 9 of 10 production access sites already reached through `.outputs` directly. `EvaluationResult.metrics` is now a read-only `Mapping[str, MetricResult]` (a `MappingProxyType`) keyed by the caller-supplied label. The symbol is dropped from the top-level namespace and `__all__`.
+  - *Migration Note*: `result.metrics["ic"]` and all dict-like access (`in`, `len`, `keys` / `values` / `items`, iteration, and now `.get`) are unchanged. Code that reached through `result.metrics.outputs` must switch to `result.metrics` directly.
 - **`ic_newey_west` removed** (#572). The function is fully retired in favor of `ic(inference=fx.inference.NeweyWest())`.
   - *Migration Note*: Replace `ic_newey_west(...)` with `ic(..., inference=fx.inference.NeweyWest())`.
 - **GMM path and estimator discovery removed** (#569). The unused public functions `list_estimators`, `get_estimator`, `UnknownEstimatorError`, and the entire GMM path (`GMM`, `MomentEstimator`, `GMMResult`) are removed.
