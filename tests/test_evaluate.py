@@ -1,4 +1,4 @@
-"""``fx.evaluate`` dict[str, Metric] API — labels, strict, per-instance
+"""``fx.evaluate`` dict[str, Metric] API — labels, strict, data-stamped
 forward_periods + by-value DAG dedup."""
 
 from __future__ import annotations
@@ -108,42 +108,83 @@ class TestByValueDedup:
         )["factor"]
         assert set(er.metrics) == {"a", "b"}
 
-    def test_per_instance_forward_periods_override(self):
+    def test_horizon_injected_from_data_into_every_metric(self):
+        # forward_periods is the data's stamped overlap horizon (5 here),
+        # injected into every metric — there is no per-metric override.
         er = fx.evaluate(
             _panel(),
             metrics={
-                "fp5": ic(inference=fx.inference.NEWEY_WEST),
-                "fp20": ic(forward_periods=20, inference=fx.inference.NEWEY_WEST),
+                "t": ic(),
+                "nw": ic(inference=fx.inference.NEWEY_WEST),
             },
             factor_cols=["factor"],
         )["factor"]
-        assert er.metrics["fp5"].metadata["forward_periods"] == 5
-        assert er.metrics["fp20"].metadata["forward_periods"] == 20
+        assert er.metrics["t"].metadata["forward_periods"] == 5
+        assert er.metrics["nw"].metadata["forward_periods"] == 5
+        assert er.forward_periods == 5
 
     def test_shared_producer_runs_once_across_configs(self):
+        # Two ic configs (different inference) share one compute_ic producer.
         er = fx.evaluate(
             _panel(),
             metrics={
-                "fp5": ic(inference=fx.inference.NEWEY_WEST),
-                "fp20": ic(forward_periods=20, inference=fx.inference.NEWEY_WEST),
+                "t": ic(),
+                "nw": ic(inference=fx.inference.NEWEY_WEST),
             },
             factor_cols=["factor"],
         )["factor"]
         assert er.plan.count("compute_ic [batchable]") == 1
 
-    def test_top_level_forward_periods_is_default_fallback(self):
+    def test_metric_level_forward_periods_is_rejected(self):
+        # The mixed-horizon usage {"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}
+        # is gone: forward_periods is not a metric parameter.
+        with pytest.raises(fx.UserInputError):
+            ic(forward_periods=20)
+
+
+class TestForwardPeriodsContract:
+    """The overlap horizon is a property of the data (stamp), declared once for
+    a self-attached panel (path B), never a per-metric knob."""
+
+    def test_horizon_read_from_stamp_when_omitted(self):
+        er = fx.evaluate(_panel(), metrics={"ic": ic()}, factor_cols=["factor"])[
+            "factor"
+        ]
+        assert er.forward_periods == 5  # read from the compute_forward_return stamp
+
+    def test_self_attached_panel_without_declaration_raises(self):
+        from factrix._data_input import _FORWARD_PERIODS_COL
+
+        unstamped = _panel().drop(_FORWARD_PERIODS_COL)
+        with pytest.raises(UserInputError, match="overlap horizon"):
+            fx.evaluate(unstamped, metrics={"ic": ic()}, factor_cols=["factor"])
+
+    def test_self_attached_panel_with_declaration_runs(self):
+        from factrix._data_input import _FORWARD_PERIODS_COL
+
+        unstamped = _panel().drop(_FORWARD_PERIODS_COL)
         er = fx.evaluate(
-            _panel(),
-            metrics={
-                "dflt": ic(inference=fx.inference.NEWEY_WEST),
-                "expl": ic(forward_periods=10, inference=fx.inference.NEWEY_WEST),
-            },
-            factor_cols=["factor"],
-            forward_periods=20,
+            unstamped, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
         )["factor"]
-        assert er.metrics["dflt"].metadata["forward_periods"] == 20
-        assert er.metrics["expl"].metadata["forward_periods"] == 10
-        assert er.forward_periods == 20  # top-level fp stamped on bundle
+        assert er.forward_periods == 5
+
+    def test_declaration_conflicting_with_stamp_raises(self):
+        with pytest.raises(UserInputError, match="stamp"):
+            fx.evaluate(
+                _panel(),
+                metrics={"ic": ic()},
+                factor_cols=["factor"],
+                forward_periods=20,
+            )
+
+    def test_stamp_column_never_leaks_into_outputs(self):
+        from factrix._data_input import _FORWARD_PERIODS_COL
+
+        er = fx.evaluate(_panel(), metrics={"ic": ic()}, factor_cols=["factor"])[
+            "factor"
+        ]
+        assert _FORWARD_PERIODS_COL not in er.to_frame().columns
+        assert _FORWARD_PERIODS_COL not in er.metrics["ic"].metadata
 
 
 class TestStrict:

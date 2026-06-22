@@ -141,6 +141,7 @@ class TestEventMetricThroughEvaluate:
             event_data,
             metrics={"ear": event_around_return()},
             factor_cols=["factor"],
+            forward_periods=1,
             strict=False,
         )
         m = res["factor"].metrics["ear"]
@@ -152,6 +153,7 @@ class TestEventMetricThroughEvaluate:
             no_price_data,
             metrics={"ear": event_around_return()},
             factor_cols=["factor"],
+            forward_periods=1,
             strict=False,
         )
         m = res["factor"].metrics["ear"]

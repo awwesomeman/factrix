@@ -443,7 +443,7 @@ def breakeven_cost(
     gross_spread: float,
     turnover: float,
     *,
-    forward_periods: int,
+    forward_periods: int = 1,
 ) -> MetricResult:
     """Breakeven single-leg trading cost in bps.
 
@@ -535,7 +535,7 @@ def net_spread(
     turnover: float,
     estimated_cost_bps: float = 30.0,
     *,
-    forward_periods: int,
+    forward_periods: int = 1,
 ) -> MetricResult:
     """Net spread after estimated trading costs (per-period).
 

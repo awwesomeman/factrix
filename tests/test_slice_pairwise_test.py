@@ -6,6 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 from factrix import slice_pairwise_test
+from factrix._data_input import _stamp_forward_periods
 from factrix._errors import UserInputError
 from factrix.metrics import fm_beta, ic, monotonicity
 
@@ -138,7 +139,11 @@ def test_raises_when_dates_dont_align() -> None:
 def test_overlap_bandwidth_inflates_variance() -> None:
     """A longer HAC bandwidth (forward_periods overlap) widens the SE on an
     autocorrelated IC series → smaller Wald χ², larger p than the naive
-    ``floor(T^(1/3))`` bandwidth. T=120 → floor=4; forward_periods=12 → 11."""
+    ``floor(T^(1/3))`` bandwidth. T=120 → floor=4; forward_periods=12 → 11.
+
+    The overlap horizon is a property of the data (the stamp), not a metric
+    knob, so the two regimes are two differently-stamped panels.
+    """
     df = build_autocorrelated_ic_panel(
         n_dates=120,
         seed=42,
@@ -149,10 +154,10 @@ def test_overlap_bandwidth_inflates_variance() -> None:
         noise=0.1,
     )
     short = slice_pairwise_test(
-        df, ic(forward_periods=1), by="universe", factor_col="factor"
+        _stamp_forward_periods(df, 1), ic(), by="universe", factor_col="factor"
     )
     long = slice_pairwise_test(
-        df, ic(forward_periods=12), by="universe", factor_col="factor"
+        _stamp_forward_periods(df, 12), ic(), by="universe", factor_col="factor"
     )
     assert long["stat"][0] < short["stat"][0]
     assert long["p_adj"][0] > short["p_adj"][0]

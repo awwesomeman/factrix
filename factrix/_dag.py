@@ -213,7 +213,9 @@ class DagExecutor:
 
         for node in (step.node for step in self._plan_steps):
             nid = node.node_id
-            handle = self._batch_handle(node.spec, kwargs_by_metric.get(nid, {}))
+            handle = self._batch_handle(
+                node.spec, kwargs_by_metric.get(nid, {}), forward_periods
+            )
 
             # Split factors by upstream short-circuit: dead factors get the
             # propagated skip output and never reach the metric.
@@ -271,23 +273,30 @@ class DagExecutor:
         )
 
     def _batch_handle(
-        self, spec: MetricSpec, kwargs: Mapping[str, Any]
+        self, spec: MetricSpec, kwargs: Mapping[str, Any], forward_periods: int
     ) -> Callable[..., dict[str, Any]]:
         """Return the spec's unified batch dispatcher.
 
         Registry ``MetricBase`` classes expose ``__call_batch__`` directly
         (bound to a configured instance); bare ``fn_resolver`` callables are
         wrapped through the same :func:`_dispatch_batch` so both paths share
-        one dispatch body.
+        one dispatch body. ``forward_periods`` is the data's stamped overlap
+        horizon, injected into whichever callables declare it.
         """
+        import functools
+
         from factrix.metrics._base import MetricBase, _dispatch_batch
 
         fn = self._fn(spec)
         kw = dict(kwargs)
         if isinstance(fn, type) and issubclass(fn, MetricBase):
-            return fn(**kw).__call_batch__
+            return functools.partial(
+                fn(**kw).__call_batch__, forward_periods=forward_periods
+            )
 
         bare: Callable[..., Any] = fn
+        accepts_fp = "forward_periods" in _callable_params(bare)
+        inj = {"forward_periods": forward_periods} if accepts_fp else {}
 
         def handle(
             data: pl.DataFrame,
@@ -299,11 +308,11 @@ class DagExecutor:
             if spec.requires:
 
                 def run_batch() -> dict[str, Any]:
-                    return bare(**{**upstream, **kw})
+                    return bare(**{**upstream, **kw, **inj})
             else:
 
                 def run_batch() -> dict[str, Any]:
-                    return bare(data, factor_cols=list(factor_cols), **kw)
+                    return bare(data, factor_cols=list(factor_cols), **kw, **inj)
 
             return _dispatch_batch(
                 name=spec.name,
@@ -315,6 +324,7 @@ class DagExecutor:
                 factor_cols=factor_cols,
                 project=project,
                 upstream=upstream,
+                inject=inj,
             )
 
         return handle
@@ -382,6 +392,16 @@ class DagExecutor:
                 warnings=warnings,
             )
         return results
+
+
+def _callable_params(fn: Callable[..., Any]) -> frozenset[str]:
+    """Parameter names a bare callable accepts, or empty on an opaque signature."""
+    import inspect
+
+    try:
+        return frozenset(inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        return frozenset()
 
 
 def _default_fn_resolver(name: str) -> Callable[..., Any]:

@@ -81,6 +81,28 @@ class TestComputeForwardReturn:
         assert changed["forward_return"].null_count() == 0
         assert changed["forward_return"].to_list() != once["forward_return"].to_list()
 
+    def test_stamps_overlap_horizon(self):
+        from factrix._data_input import (
+            _FORWARD_PERIODS_COL,
+            _read_forward_periods_stamp,
+        )
+
+        result = compute_forward_return(_make_price_data(), forward_periods=3)
+        assert _FORWARD_PERIODS_COL in result.columns
+        assert _read_forward_periods_stamp(result) == 3
+        # one constant value across all rows
+        assert result[_FORWARD_PERIODS_COL].n_unique() == 1
+
+    def test_overwrite_restamps_new_horizon(self):
+        import factrix as fx
+        from factrix._data_input import _read_forward_periods_stamp
+
+        raw = fx.datasets.make_cs_panel(n_assets=10, n_dates=60, seed=0)
+        once = compute_forward_return(raw, forward_periods=1)
+        changed = compute_forward_return(once, forward_periods=2, overwrite=True)
+        assert changed.height > 0
+        assert _read_forward_periods_stamp(changed) == 2
+
 
 class TestWinsorizeForwardReturn:
     def test_noop(self):

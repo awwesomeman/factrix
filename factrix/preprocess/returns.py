@@ -63,7 +63,10 @@ def compute_forward_return(
             ``overwrite`` is ``False``.
 
     Returns:
-        Input DataFrame with ``forward_return`` column appended.
+        Input DataFrame with ``forward_return`` column appended and the
+        overlap horizon ``forward_periods`` stamped on as a reserved column —
+        the single source of truth ``factrix.evaluate`` reads (it strips the
+        column before dispatch, so it never reaches a metric or ``to_frame``).
         Rows where forward return is null (end of series) are dropped.
 
     Notes:
@@ -147,7 +150,9 @@ def compute_forward_return(
             )
         df = df.drop("forward_return")
 
-    return (
+    from factrix._data_input import _stamp_forward_periods
+
+    out = (
         df.sort(["asset_id", "date"])
         .with_columns(
             (
@@ -161,6 +166,10 @@ def compute_forward_return(
         )
         .filter(pl.col("forward_return").is_not_null())
     )
+    # Stamp the overlap horizon as the single source of truth for the data;
+    # evaluate reads it instead of taking forward_periods at the metric / call
+    # layer (the three could silently diverge — see compute_forward_return docs).
+    return _stamp_forward_periods(out, forward_periods)
 
 
 def winsorize_forward_return(

@@ -132,10 +132,10 @@ def quantile_spread(
         if _precomputed_series is not None
         else compute_spread_series(
             df,
-            forward_periods,
-            n_groups,
+            n_groups=n_groups,
             factor_cols=cols,
             tie_policy=tie_policy,
+            forward_periods=forward_periods,
         )
     )
     return {

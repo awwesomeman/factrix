@@ -11,6 +11,7 @@ declared an empty ``SampleThreshold()`` and hid the floor in the body.
 from __future__ import annotations
 
 import factrix as fx
+import pytest
 from factrix._inspect import DataInspection, inspect_data
 from factrix._types import MIN_IC_PERIODS
 from factrix.metrics._registry import REGISTRY
@@ -30,11 +31,12 @@ class TestHookResolution:
         st = ic.spec().sample_threshold
         assert st.min_periods == MIN_IC_PERIODS * 5
 
-    def test_hook_reflects_configured_params(self):
-        # The hook reads params off the instance, so a non-default
-        # forward_periods scales the floor.
-        inst = REGISTRY["ic"](forward_periods=10)
-        assert inst.sample_threshold_for().min_periods == MIN_IC_PERIODS * 10
+    def test_forward_periods_is_not_a_metric_param(self):
+        # forward_periods is the data's overlap horizon, not a per-metric knob:
+        # constructing a metric with it is rejected (the floor scales off the
+        # signature default, resolved at spec() time — see the test above).
+        with pytest.raises(fx.UserInputError):
+            REGISTRY["ic"](forward_periods=10)
 
     def test_static_metric_keeps_empty_spec_threshold(self):
         # A hookless metric resolves to its static (here empty) threshold.

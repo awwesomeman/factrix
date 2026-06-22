@@ -60,11 +60,48 @@ class MetricMeta(type):
             resolved_kwargs = kwargs.copy()
             for name, val in zip(param_names, remaining_args, strict=False):
                 resolved_kwargs[name] = val
+            # A direct call may carry the injected horizon (``forward_periods``) —
+            # it is not a constructor field, so route it to the call as the
+            # per-invocation horizon rather than into ``cls(**...)``.
+            injected = getattr(cls, "_injected_param_names", ())
+            call_kwargs = {
+                k: resolved_kwargs.pop(k)
+                for k in list(resolved_kwargs)
+                if k in injected
+            }
             instance = cls(**resolved_kwargs)
-            return instance(first_arg)
+            return instance(first_arg, **call_kwargs)
         else:
             # Standard instantiation
+            cls._reject_injected_params(kwargs)
             return super().__call__(*args, **kwargs)
+
+    def _reject_injected_params(cls, supplied: dict[str, Any]) -> None:
+        """Reject user-supplied injected params (e.g. ``forward_periods``).
+
+        These are data-derived: ``evaluate`` injects the panel's stamped overlap
+        horizon at dispatch. A metric never carries its own ``forward_periods``,
+        so there is no per-metric knob left to diverge from the data — the
+        guarantee is structural, enforced here at the constructor boundary.
+        """
+        injected = getattr(cls, "_injected_param_names", ())
+        offending = [name for name in supplied if name in injected]
+        if offending:
+            from factrix._errors import UserInputError
+
+            name = offending[0]
+            raise UserInputError(
+                func_name=cls.__name__,
+                field=name,
+                value=supplied[name],
+                expected=(
+                    f"{name!r} is no longer a metric parameter — it is the "
+                    f"panel's overlap horizon, read from the data. Set it once "
+                    f"via factrix.preprocess.compute_forward_return(df, "
+                    f"forward_periods=N); evaluate reads it from there."
+                ),
+                docs_path="api/evaluate#forward_periods",
+            )
 
 
 class MetricBase(metaclass=MetricMeta):
@@ -102,6 +139,11 @@ class MetricBase(metaclass=MetricMeta):
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
     _param_names: ClassVar[tuple[str, ...]]
+    # Params injected from the data rather than configured per metric
+    # (``forward_periods``): kept out of ``_param_names``, rejected at the
+    # constructor, and injected at dispatch into the metrics whose ``_impl``
+    # declares them. Empty for a metric that takes no injected param.
+    _injected_param_names: ClassVar[tuple[str, ...]] = ()
     _logger: ClassVar[logging.Logger]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -147,11 +189,28 @@ class MetricBase(metaclass=MetricMeta):
         """Configured parameter values, pulled from the instance's slots."""
         return {name: getattr(self, name) for name in self._param_names}
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+    def _inject(self, forward_periods: int | None) -> dict[str, Any]:
+        """Dispatch-time injected kwargs for ``_impl`` (the data's horizon).
+
+        Only the horizon, and only when the body declares it; a standalone call
+        (``forward_periods=None``) leaves the metric at its signature default.
+        """
+        if (
+            forward_periods is not None
+            and "forward_periods" in self._injected_param_names
+        ):
+            return {"forward_periods": forward_periods}
+        return {}
+
+    def __call__(
+        self, *args: Any, forward_periods: int | None = None, **kwargs: Any
+    ) -> Any:
         """Evaluate the metric on a single input (one factor's view / upstream)."""
         try:
             # Accessed via __class__ to avoid binding ``_impl`` as a method.
-            return self.__class__._impl(*args, **{**self._params(), **kwargs})
+            return self.__class__._impl(
+                *args, **{**self._params(), **self._inject(forward_periods), **kwargs}
+            )
         except Exception as e:
             _log_exception_once(
                 self._logger,
@@ -169,6 +228,7 @@ class MetricBase(metaclass=MetricMeta):
         *,
         project: Callable[[str], Any],
         upstream: dict[str, dict[str, Any]],
+        forward_periods: int | None = None,
     ) -> dict[str, Any]:
         """Run this metric across a factor batch; return ``{factor: output}``.
 
@@ -179,16 +239,17 @@ class MetricBase(metaclass=MetricMeta):
         ``batchable`` (whole panel), ``requires`` (consume upstream), plain
         (thin view) — are unified in :func:`_dispatch_batch`.
         """
+        inj = self._inject(forward_periods)
         if self.requires:
 
             def run_batch() -> dict[str, Any]:
-                return self.__class__._impl(**{**self._params(), **upstream})
+                return self.__class__._impl(**{**self._params(), **inj, **upstream})
         else:
 
             def run_batch() -> dict[str, Any]:
                 return self.__class__._impl(
                     panel,
-                    **{**self._params(), "factor_cols": list(factor_cols)},
+                    **{**self._params(), **inj, "factor_cols": list(factor_cols)},
                 )
 
         return _dispatch_batch(
@@ -201,6 +262,7 @@ class MetricBase(metaclass=MetricMeta):
             factor_cols=factor_cols,
             project=project,
             upstream=upstream,
+            inject=inj,
         )
 
 
@@ -215,13 +277,17 @@ def _dispatch_batch(
     factor_cols: Sequence[str],
     project: Callable[[str], Any],
     upstream: dict[str, dict[str, Any]],
+    inject: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Single source of truth for metric batch dispatch.
 
     Shared by :meth:`MetricBase.__call_batch__` and the DAG executor's
-    bare-callable (``fn_resolver``) path.
+    bare-callable (``fn_resolver``) path. ``inject`` is the dispatch-time
+    injected kwargs (the data's overlap horizon), already resolved by the
+    caller against the callable's signature.
     """
     logger = logging.getLogger(f"factrix.metric.{name}") if name else None
+    inj = inject or {}
 
     if batchable:
         try:
@@ -242,10 +308,10 @@ def _dispatch_batch(
             if requires:
                 # Metric consumes upstream data via kwargs, replacing the raw panel
                 c_kwargs = {k: upstream[k][c] for k in requires}
-                out[c] = call_one(**c_kwargs)
+                out[c] = call_one(**c_kwargs, **inj)
             else:
                 # Metric consumes the raw thin view
-                out[c] = call_one(project(c))
+                out[c] = call_one(project(c), **inj)
         except Exception as e:
             if logger:
                 _log_exception_once(

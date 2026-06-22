@@ -42,7 +42,6 @@ typical usage patterns in a single fetch. Two access paths::
 """
 
 import dataclasses
-import inspect
 import math
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -62,7 +61,13 @@ from factrix._axis import (  # DataStructure used by the structure pre-flight; r
 from factrix._codes import WarningCode
 from factrix._compare import compare
 from factrix._dag import CycleError, DagExecutor, _Node
-from factrix._data_input import _BASELINE_COLUMNS, DataInput, _coerce_data
+from factrix._data_input import (
+    _BASELINE_COLUMNS,
+    _FORWARD_PERIODS_COL,
+    DataInput,
+    _coerce_data,
+    _read_forward_periods_stamp,
+)
 from factrix._errors import (
     FactrixError,
     IncompatibleAxisError,
@@ -128,19 +133,23 @@ def evaluate(
             rather than ``ic()``), a ``str`` or a :class:`MetricSpec` is
             rejected with a targeted error. One metric class may run under
             several labels with **different** config — e.g.
-            ``{"ic_5d": ic(), "ic_20d": ic(forward_periods=20)}`` — via
-            by-value DAG dedup; shared upstream producers are computed
-            once per distinct config.
+            ``{"spread5": quantile_spread(n_groups=5), "spread10":
+            quantile_spread(n_groups=10)}`` — via by-value DAG dedup; shared
+            upstream producers are computed once per distinct config.
+            ``forward_periods`` is **not** a metric knob: every metric runs at
+            the data's single overlap horizon. To compare horizons, build two
+            panels and evaluate each.
         factor_cols: Names of factor columns on ``data``. List-only —
             single ``str`` is rejected. Non-empty, no duplicates, every
             name must exist on ``data``.
-        forward_periods: Default forward-return horizon (rows of the data's
-            time axis) for metrics left at their signature default. A
-            per-instance value — ``ic(forward_periods=20)`` — always overrides
-            it. ``None`` (default) leaves every metric at its own default.
-            Stamped on every :class:`EvaluationResult` as
-            ``forward_periods``; per-metric resolved horizons are in
-            ``result.metrics[label].metadata["forward_periods"]``.
+        forward_periods: The data's overlap horizon (rows of the time axis).
+            Normally omitted — :func:`factrix.preprocess.compute_forward_return`
+            stamps it on the panel and it is read from there. Pass it only to
+            **declare** the horizon for a self-attached ``forward_return``
+            column that carries no stamp; a value disagreeing with the stamp is
+            rejected. Stamped on every :class:`EvaluationResult` as
+            ``forward_periods`` and injected into each metric (surfaced in
+            ``result.metrics[label].metadata["forward_periods"]``).
         strict: When ``True`` (default), raise if any metric is
             inapplicable to the data — both apply-time short-circuits and
             structure mismatches (a metric whose ``cell.structure``
@@ -165,7 +174,9 @@ def evaluate(
             duplicates / references a column not on ``data``; ``data``
             missing a baseline column; a metric ``requires`` a producer
             absent from the registry; under ``strict=True``, a metric
-            inapplicable to the data.
+            inapplicable to the data; ``data`` carries no horizon stamp and
+            none is declared via ``forward_periods``, or the declared
+            ``forward_periods`` disagrees with the stamp.
 
     Examples:
         Single-factor IC + IC information ratio (IR):
@@ -191,11 +202,16 @@ def evaluate(
     _validate_baseline_columns(data)
     _validate_factor_cols_on_data(data, cols)
 
+    # The overlap horizon is a property of the data: read the stamp left by
+    # compute_forward_return, then strip it so it never reaches a metric,
+    # projection, or to_frame. A self-attached forward_return panel (no stamp)
+    # must declare its horizon once via forward_periods= (path B).
+    fp = _resolve_forward_periods(data, forward_periods)
+    if _FORWARD_PERIODS_COL in data.columns:
+        data = data.drop(_FORWARD_PERIODS_COL)
+
     label_spec = {label: type(inst).spec() for label, inst in metrics.items()}
-    label_params = {
-        label: _resolve_instance_params(inst, forward_periods)
-        for label, inst in metrics.items()
-    }
+    label_params = {label: dict(inst._params()) for label, inst in metrics.items()}
 
     # Structure pre-flight: a metric whose declared cell.structure disagrees
     # with the data structure (e.g. a PANEL metric on TIMESERIES data) can
@@ -212,8 +228,6 @@ def evaluate(
 
     nodes, label_to_node, node_kwargs = _build_nodes(runnable_spec, runnable_params)
     node_to_label = {nid: label for label, nid in label_to_node.items()}
-
-    fp = forward_periods if forward_periods is not None else 5
 
     executor = DagExecutor(nodes)
     result_dict = executor.execute(
@@ -336,45 +350,46 @@ def _validate_metrics_arg(metrics: object) -> None:
             )
 
 
-_NO_DEFAULT = object()
+def _resolve_forward_periods(data: pl.DataFrame, declared: int | None) -> int:
+    """Resolve the panel's single overlap horizon for this evaluation.
 
-
-def _forward_periods_default(cls: "type[MetricBase]") -> object:
-    """The ``forward_periods`` signature default declared by a metric class.
-
-    Read from the wrapped ``_impl`` so the evaluate-level ``forward_periods``
-    fallback can tell an instance still at its default apart from an explicit
-    per-instance override. Returns a unique sentinel when the metric has no
-    ``forward_periods`` parameter.
+    Path A (primary): a panel built by ``compute_forward_return`` carries a
+    horizon stamp — the single source of truth. Path B (escape hatch): a
+    self-attached ``forward_return`` panel carries no stamp, so the caller must
+    declare the horizon once via ``forward_periods=`` (a statement about the
+    data's overlap, not a per-metric knob). A declaration that disagrees with
+    the stamp is rejected rather than silently resolved.
     """
-    try:
-        param = inspect.signature(cls._impl).parameters.get("forward_periods")
-    except (TypeError, ValueError):
-        return _NO_DEFAULT
-    if param is None or param.default is inspect.Parameter.empty:
-        return _NO_DEFAULT
-    return param.default
-
-
-def _resolve_instance_params(
-    inst: "MetricBase", top_forward_periods: int | None
-) -> dict[str, Any]:
-    """Per-instance params with ``forward_periods`` resolved against the fallback.
-
-    Per-instance override is the rule: an instance's configured
-    ``forward_periods`` always wins. The top-level ``evaluate(forward_periods=)``
-    is a *default fallback* — it fills only instances still sitting at the
-    metric's signature default (and only when the caller passed one). Passing
-    the default value explicitly is indistinguishable from not passing it and
-    is therefore also treated as "use the fallback".
-    """
-    params = dict(inst._params())
-    if top_forward_periods is None or "forward_periods" not in params:
-        return params
-    default = _forward_periods_default(type(inst))
-    if params["forward_periods"] == default:
-        params["forward_periods"] = top_forward_periods
-    return params
+    stamp = _read_forward_periods_stamp(data)
+    if stamp is not None:
+        if declared is not None and declared != stamp:
+            raise UserInputError(
+                func_name="evaluate",
+                field="forward_periods",
+                value=declared,
+                expected=(
+                    f"forward_periods to match the data's stamped overlap "
+                    f"horizon ({stamp}, set by compute_forward_return). The "
+                    f"horizon is a property of the data — omit forward_periods, "
+                    f"or rebuild forward_return at horizon {declared}."
+                ),
+                docs_path="api/evaluate#forward_periods",
+            )
+        return stamp
+    if declared is not None:
+        return declared
+    raise UserInputError(
+        func_name="evaluate",
+        field="forward_periods",
+        value=None,
+        expected=(
+            "the data's overlap horizon. Either build forward_return via "
+            "factrix.preprocess.compute_forward_return(df, forward_periods=N) "
+            "(which stamps the horizon), or, for a self-attached forward_return "
+            "column, declare it once with evaluate(..., forward_periods=N)."
+        ),
+        docs_path="api/evaluate#forward_periods",
+    )
 
 
 def _build_nodes(
@@ -385,10 +400,11 @@ def _build_nodes(
 
     Dedups user metrics into **consumer nodes** keyed by ``(name, config)`` —
     so one class under two labels with *identical* config is a single node
-    (harmless alias) while *different* config is two nodes. Then closes ``requires``: each consumer pulls a **producer
-    node** whose config inherits only the consumer's ``forward_periods`` (the
-    sole consumer param any ``requires``-pulled producer accepts), reusing one
-    producer node across consumers that share that inherited config.
+    (harmless alias) while *different* config is two nodes. Then closes
+    ``requires``: each consumer pulls a **producer node** carrying no inherited
+    config (the overlap horizon, once the sole inherited param, is now injected
+    globally from the data stamp at dispatch), so one producer node is reused
+    across every consumer that names it.
 
     Returns ``(nodes, label -> node_id, node_id -> kwargs)``.
     """
@@ -431,7 +447,6 @@ def _build_nodes(
         if nid in requires_nodes:
             continue
         spec = node_spec[nid]
-        consumer_params = node_kwargs[nid]
         edges: list[tuple[str, str]] = []
         for param_key, producer in spec.requires.items():
             pname = producer.__name__
@@ -446,13 +461,11 @@ def _build_nodes(
                     ),
                     docs_path=_DOCS_METRICS,
                 )
-            accepted = set(getattr(producer, "_param_names", ()))
-            inherited = {
-                k: consumer_params[k]
-                for k in ("forward_periods",)
-                if k in consumer_params and k in accepted
-            }
-            pid = intern(by_name[pname], inherited)
+            # Producers carry no inherited consumer config: the sole parameter a
+            # requires-pulled producer ever shared was ``forward_periods``, now
+            # injected globally from the data stamp at dispatch. One producer
+            # node is reused across all consumers naming it.
+            pid = intern(by_name[pname], {})
             edges.append((param_key, pid))
             if pid not in requires_nodes:
                 queue.append(pid)

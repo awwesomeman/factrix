@@ -66,6 +66,7 @@ import numpy as np
 import polars as pl
 from scipy import stats as sp_stats
 
+from factrix._data_input import _read_forward_periods_stamp
 from factrix._errors import UserInputError
 from factrix._stats.bootstrap import (
     Scheme,
@@ -270,7 +271,9 @@ def slice_period_pairwise_test(
         p_adj = romano_wolf(t_obs, boot_matrix, one_sided=False)
         stats = [float(t * t) for t in t_obs]
     else:
-        means, variances = _analytic_slice_moments(series_list, metric)
+        means, variances = _analytic_slice_moments(
+            series_list, _read_forward_periods_stamp(data)
+        )
         mean_diffs = []
         stats = []
         p_raw = []
@@ -304,12 +307,12 @@ def slice_period_pairwise_test(
 
 def _analytic_slice_moments(
     series_list: list[np.ndarray],
-    metric: MetricBase,
+    forward_periods: int | None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Per-slice mean and Newey-West HAC variance of that mean.
 
     Each slice is treated independently: the HAC bandwidth follows the
-    slice's own length (and the metric's forward-overlap floor), so a
+    slice's own length (and the data's forward-overlap floor), so a
     short regime and a decade sub-sample get appropriately different
     kernels. Returns ``(means[K], variances[K])`` where ``variances`` is
     the HAC variance *of the mean* (the diagonal of the block-diagonal
@@ -318,7 +321,7 @@ def _analytic_slice_moments(
     means = np.empty(len(series_list))
     variances = np.empty(len(series_list))
     for i, s in enumerate(series_list):
-        lags = _hac_lags(metric, len(s))
+        lags = _hac_lags(forward_periods, len(s))
         mean, var = _nw_hac_vector_mean(s.reshape(-1, 1), lags=lags)
         means[i] = float(mean[0])
         variances[i] = float(var[0, 0])
@@ -437,7 +440,9 @@ def slice_period_joint_test(
         variances = boot.var(axis=1, ddof=1)
         stat, p = _wald_bootstrap_omnibus(obs_means, boot, variances, restriction)
     else:
-        means, variances = _analytic_slice_moments(series_list, metric)
+        means, variances = _analytic_slice_moments(
+            series_list, _read_forward_periods_stamp(data)
+        )
         stat, p = _wald_p_linear(means, np.diag(variances), restriction)
 
     return pl.DataFrame(
