@@ -6,7 +6,14 @@ title: Slice Analysis
     What slice analysis is, the two-role split (`by_slice` dispatcher vs `slice_pairwise_test` / `slice_joint_test` inference), and when to reach for each.
     For the API surface, see [`by_slice`](../api/by-slice.md) and [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md).
 
-Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, or any other column you can attach to the panel. The statistical question is the same regardless of axis, so factrix exposes one axis-agnostic surface rather than one function per slice dimension. Concretely: `by_slice` is the dispatcher, `slice_pairwise_test` / `slice_joint_test` are the inference function pair.
+Slice analysis asks "is this factor stable across a partition of the panel?" The partition can be a market regime (bull / bear, high-vol / low-vol), a universe (large-cap / small-cap, listed-board / OTC), a sector, an ADV bucket, a calendar period, or any other column you can attach to the panel. `by_slice` — the descriptive dispatcher — *is* axis-agnostic: it partitions on any column and runs `evaluate` per slice.
+
+The **inference** functions are not. Cross-slice testing splits on a statistical fault line the dispatcher does not see — **do the slices share dates?**
+
+- **Cross-sectional / date-aligned** slices (sector, size bucket, liquidity tier) co-exist in time; cross-slice covariance is real and enters through a joint Newey-West HAC. → [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md).
+- **Date-disjoint** slices (market regime, calendar period, in/out-of-sample) share no dates; they are (approximately) independent samples with block-diagonal covariance. The cross-sectional pair inner-joins on `date` and raises `<2 aligned dates` here. → [`slice_period_pairwise_test` / `slice_period_joint_test`](../api/slice-test.md), which treat each slice as an independent sample (bootstrap by default, analytic HAC opt-in).
+
+Picking the wrong pair is not a tuning choice — it is the wrong statistical assumption, so the two are **separate, explicitly-named** functions rather than one auto-routing surface.
 
 factrix splits this work into two roles because **slicing the panel** and **testing significance across slices** are different jobs that need different APIs. The legacy regime-specific surface (`by_regime`, `regime_ic`) was removed in v0.12.0 — see the CHANGELOG migration recipe.
 
@@ -15,7 +22,8 @@ factrix splits this work into two roles because **slicing the panel** and **test
 | Role | Function | What it does | What it does not do |
 |---|---|---|---|
 | Dispatcher | [`by_slice(data, metric, *, by, factor_col)`](../api/by-slice.md) | Partitions a raw panel on an existing column and runs `evaluate` per slice; returns `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice) | **No cross-slice statistical test** |
-| Inference | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Pairwise contrasts (Wald χ² + Holm / Romano-Wolf / Bonferroni) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `hit_rate`) |
+| Inference (date-aligned) | [`slice_pairwise_test`](../api/slice-test.md) / [`slice_joint_test`](../api/slice-test.md) | Cross-sectional pairwise contrasts (joint NW-HAC Wald χ² + Holm) or omnibus χ² that all slice means are equal | Only accepts metrics with a `per_date_series` capability (`ic`, `fm_beta`, `hit_rate`); requires slices to share dates |
+| Inference (date-disjoint) | [`slice_period_pairwise_test`](../api/slice-test.md) / [`slice_period_joint_test`](../api/slice-test.md) | Independent-sample pairwise contrasts (bootstrap + Romano-Wolf, or analytic HAC + Holm) / block-diagonal omnibus χ² for regime / calendar-period splits | Same `per_date_series` requirement; treats each slice as an independent sample |
 
 **Use the dispatcher when:** you want raw per-slice numbers, or you want to compose your own cross-slice test.
 
@@ -82,19 +90,23 @@ Scalar-input utilities (`breakeven_cost`, `net_spread`) are excluded — they co
 
 ## Worked example: IC across volatility regimes
 
-The dispatcher and the inference pair take **different inputs**, because
-they answer different questions. `by_slice` partitions the **raw panel**
-and runs `evaluate` per slice (each slice an independent dataset); the
-inference functions consume the **per-date metric series** to line up
-aligned observations across slices for a cross-slice Wald test.
+The dispatcher and the inference pair are both **data-first** — raw panel
++ metric instance + `by` + `factor_col` — but answer different questions.
+`by_slice` runs `evaluate` per slice (each slice an independent dataset);
+the inference functions add the calibrated cross-slice test. Volatility
+regimes are **date-disjoint** (a given date is either high- or low-vol,
+never both), so the inference path here is the `slice_period_*` pair, not
+the cross-sectional one.
 
 ```python
 import polars as pl
-from factrix import by_slice, slice_pairwise_test
-from factrix.metrics import compute_ic, ic
+from factrix import by_slice, slice_period_pairwise_test
+from factrix.metrics import ic
+
+# Attach the regime label to the raw panel (one label per date).
+panel_reg = panel.join(vol_labels, on="date", how="inner")
 
 # --- Dispatcher: per-regime IC, raw panel in, dict[str, EvaluationResult] out
-panel_reg = panel.join(vol_labels, on="date", how="inner")  # attach regime to panel
 per_regime = by_slice(panel_reg, ic(), by="regime", factor_col="value")
 for label, result in per_regime.items():
     m = result.metrics["metric"]
@@ -106,15 +118,15 @@ pl.concat([
     for k, r in per_regime.items()
 ])
 
-# --- Inference: per-date IC series in, pairwise Wald contrasts out
-ic_df = compute_ic(panel, factor_cols=["value"], return_col="forward_return")["value"]
-merged = ic_df.join(vol_labels, on="date", how="inner")
-pairs = slice_pairwise_test(merged, ic, by="regime")
-print(pairs)  # columns: slice_a, slice_b, n_obs, stat, p_raw, p_adj
+# --- Inference: same raw panel in, pairwise regime contrasts out.
+# Bootstrap (default) is the right call for short regimes; pass
+# method="analytic" for long calendar spans (T ≳ 100).
+pairs = slice_period_pairwise_test(panel_reg, ic(), by="regime", factor_col="value")
+print(pairs)  # slice_a, slice_b, n_periods_a, n_periods_b, mean_diff, stat, p_raw, p_adj
 ```
 
 ## Related
 
 - [`by_slice`](../api/by-slice.md) — dispatcher surface and universe-overlap recipes.
-- [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-slice inference function pair.
+- [`slice_pairwise_test` / `slice_joint_test`](../api/slice-test.md) — cross-sectional (date-aligned) inference pair; `slice_period_*` are the date-disjoint counterparts.
 - [Benjamini-Hochberg-Yekutieli (BHY) screening](../api/bhy.md) — false discovery rate (FDR) control across factor candidates rather than slices.

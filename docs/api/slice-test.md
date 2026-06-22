@@ -2,9 +2,22 @@
 title: factrix.slice_pairwise_test / factrix.slice_joint_test
 ---
 
+The cross-slice inference surface is **two function pairs**, split on
+whether the slices share dates:
+
+- **Cross-sectional / date-aligned** — `slice_pairwise_test` /
+  `slice_joint_test` (sector, size bucket, liquidity tier).
+- **Date-disjoint** — `slice_period_pairwise_test` /
+  `slice_period_joint_test` (market regime, calendar period,
+  in/out-of-sample). See [Date supports: aligned vs disjoint](#date-supports-aligned-vs-disjoint).
+
 ::: factrix.slice_pairwise_test
 
 ::: factrix.slice_joint_test
+
+::: factrix.slice_period_pairwise_test
+
+::: factrix.slice_period_joint_test
 
 Cross-slice statistical-test function pair. Both take a date-keyed
 DataFrame (data-first) and a metric callable; the `by` column carries the
@@ -36,19 +49,31 @@ See the docstring Examples blocks above for the canonical
 per-sub-universe construction (`compute_ic` per sector, concatenated
 with a `sector` label column).
 
-## Date alignment is required
+## Date supports: aligned vs disjoint
 
-Both functions join all slices on `date` and run inference on the
-intersected rows. Joint Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over the (T, K) per-date metric panel
+`slice_pairwise_test` / `slice_joint_test` join all slices on `date` and
+run inference on the intersected rows. Joint Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) over the (T, K) per-date metric panel
 needs aligned rows so cross-slice covariance enters through the joint
 kernel. Slices with **disjoint date supports** (e.g. regimes split by
-time period) yield zero aligned rows and the functions raise `ValueError`.
+time period) yield zero aligned rows and these functions raise
+`ValueError` (`<2 aligned dates`). Date-shared slices — universe,
+sector, market-cap tier — are their intended use case.
 
-For genuinely time-disjoint slices, run inference per slice and
-compare summaries upstream (or wait for the future
-`factor_decomposition` function, which adopts a different SE geometry).
-Date-shared slices — universe, sector, market-cap tier — are the
-intended use case.
+For genuinely time-disjoint slices, reach for
+`slice_period_pairwise_test` / `slice_period_joint_test`. They build the
+same per-slice per-date series but **do not** inner-join — each slice is
+treated as an independent sample with block-diagonal cross-slice
+covariance. A two-valued `method` flag selects the estimator:
+
+| `method` | Per-slice SE | Pairwise `p_adj` | Best for |
+|---|---|---|---|
+| `"bootstrap"` (default) | Independent stationary block bootstrap (Politis-White automatic block length) | Romano-Wolf step-down | Short regimes (T ≈ 30-80); never invalid |
+| `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
+
+Pairwise output is `(slice_a, slice_b, n_periods_a, n_periods_b,
+mean_diff, stat, p_raw, p_adj)` — per-slice `n_periods_*` because
+disjoint spans differ in length. The omnibus is a block-diagonal Wald χ²
+returning `(k_slices, df, stat, p_value)`.
 
 ## Estimator dispatch
 
