@@ -88,9 +88,7 @@ def test_bootstrap_joint_is_bootstrap_native_for_two_slices() -> None:
     pw = slice_period_pairwise_test(
         df, ic(), by="regime", factor_col="factor", rng_seed=5
     )
-    jt = slice_period_joint_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=5
-    )
+    jt = slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng_seed=5)
     # Both empirical with the same B → identical 1/(B+1) granularity.
     assert jt["p_value"][0] == pytest.approx(pw["p_raw"][0])
 
