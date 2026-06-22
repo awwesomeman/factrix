@@ -17,6 +17,12 @@ from factrix.metrics._registry import register
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
+# Parameters that ``evaluate`` injects from the data rather than the user
+# configuring per metric. They remain dataclass fields (so threshold hooks can
+# read them and standalone calls keep the signature default) but are kept out of
+# the user-facing ``_param_names`` — the public constructor rejects them.
+_INJECTED_PARAMS: frozenset[str] = frozenset({"forward_periods"})
+
 
 def metric(
     cell: Cell,
@@ -72,6 +78,19 @@ def metric(
 
         fields = non_default_fields + default_fields
 
+        # ``forward_periods`` is the panel's overlap horizon — a property of the
+        # data, not a per-metric knob. It stays a dataclass field (so threshold
+        # hooks can read ``self.forward_periods`` and the body keeps its
+        # signature default for standalone calls), but it is removed from the
+        # user-configurable ``_param_names``: ``evaluate`` injects the data's
+        # stamped horizon at dispatch time and the public constructor rejects it.
+        injected_param_names = tuple(
+            name for name, *_ in fields if name in _INJECTED_PARAMS
+        )
+        user_param_names = tuple(
+            name for name, *_ in fields if name not in _INJECTED_PARAMS
+        )
+
         # 2. Build the class namespace with metadata ClassVars
         cls_attrs = {
             "cell": cell,
@@ -89,7 +108,8 @@ def metric(
             "requires_continuous_magnitude": requires_continuous_magnitude,
             "_impl": fn,
             "_first_param_name": first_param_name,
-            "_param_names": tuple(f[0] for f in fields),
+            "_param_names": user_param_names,
+            "_injected_param_names": injected_param_names,
             "__module__": fn.__module__,
             "__doc__": fn.__doc__,
         }

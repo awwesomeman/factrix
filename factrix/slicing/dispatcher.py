@@ -94,9 +94,11 @@ def by_slice(
         factor_col: The factor column to evaluate. Single-factor by
             design — multi-factor / multi-metric batching is the job of
             :func:`factrix.evaluate`.
-        forward_periods: Default forward-return horizon, forwarded to
-            ``evaluate`` on every per-slice call. ``None`` leaves the
-            metric at its own default.
+        forward_periods: The data's overlap horizon, forwarded to
+            ``evaluate`` on every per-slice call. Normally omitted — it is
+            read from the panel's ``compute_forward_return`` stamp (which
+            survives partitioning). Pass it only to declare the horizon for a
+            self-attached ``forward_return`` panel that carries no stamp.
         strict: Forwarded to ``evaluate``. ``True`` (default) raises if
             the metric is inapplicable to a slice; ``False`` surfaces a
             NaN result with a warning.

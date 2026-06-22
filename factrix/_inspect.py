@@ -33,6 +33,7 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope, Tier
 from factrix._codes import WarningCode, cross_section_tier
+from factrix._data_input import _FORWARD_PERIODS_COL
 from factrix._metric_index import MetricSpec, public_specs
 from factrix._results import Warning
 
@@ -41,7 +42,7 @@ if TYPE_CHECKING:
 
 _SPARSITY_THRESHOLD: float = 0.5
 _INSPECT_RESERVED: frozenset[str] = frozenset(
-    {"date", "asset_id", "forward_return", "price"}
+    {"date", "asset_id", "forward_return", "price", _FORWARD_PERIODS_COL}
 )
 
 

@@ -34,6 +34,30 @@ type DataInput = pl.DataFrame | pl.LazyFrame
 _BASELINE_COLUMNS: tuple[str, ...] = ("date", "asset_id", "forward_return")
 _OPTIONAL_COLUMNS: tuple[str, ...] = ("price",)
 
+# Reserved column carrying the panel's single overlap horizon (the
+# ``forward_periods`` used to build ``forward_return``). ``compute_forward_return``
+# stamps it once; ``evaluate`` reads it and strips it before dispatch, so it
+# never reaches a metric, a projection, or ``EvaluationResult.to_frame``. A
+# constant int column is the one carrier that survives the ordinary polars
+# transforms a panel goes through between construction and evaluation
+# (``with_columns`` winsorize / abnormal-return, ``partition_by`` in ``by_slice``,
+# user ``.with_columns(sector)`` / joins) — DataFrame-level metadata does not.
+_FORWARD_PERIODS_COL: str = "_forward_periods"
+
+
+def _stamp_forward_periods(df: pl.DataFrame, forward_periods: int) -> pl.DataFrame:
+    """Stamp the panel's single overlap horizon as a reserved constant column."""
+    return df.with_columns(
+        pl.lit(forward_periods, dtype=pl.Int32).alias(_FORWARD_PERIODS_COL)
+    )
+
+
+def _read_forward_periods_stamp(df: pl.DataFrame) -> int | None:
+    """Read the stamped overlap horizon, or ``None`` when the panel carries none."""
+    if _FORWARD_PERIODS_COL not in df.columns or df.height == 0:
+        return None
+    return int(df[_FORWARD_PERIODS_COL][0])
+
 
 def _is_pandas_dataframe(obj: object) -> bool:
     """Detect ``pd.DataFrame`` without importing pandas (optional dep)."""

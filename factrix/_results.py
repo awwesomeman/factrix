@@ -93,8 +93,9 @@ class EvaluationResult:
             ``DataStructure.PANEL`` or ``DataStructure.TIMESERIES``
             resolved from the panel's asset count; ``scope`` and
             ``density`` default to INDIVIDUAL / DENSE.
-        forward_periods: Forward-return horizon passed to
-            :func:`factrix.evaluate`.
+        forward_periods: The data's overlap horizon — read from the panel's
+            ``compute_forward_return`` stamp (or the declared fallback for a
+            self-attached panel). A property of the data, not a per-metric knob.
         n_periods: Number of unique dates in the factor panel where
             the factor column is non-null. A panel structural property —
             independent of any individual metric's estimator.

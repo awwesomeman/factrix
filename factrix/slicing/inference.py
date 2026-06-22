@@ -39,6 +39,7 @@ from itertools import combinations
 import numpy as np
 import polars as pl
 
+from factrix._data_input import _read_forward_periods_stamp
 from factrix._errors import UserInputError
 from factrix._stats.multiple_testing import holm_step_down
 from factrix._stats.wald import _wald_nw_cluster_means
@@ -143,17 +144,18 @@ def _build_per_date_panel(
     return labels, panel, aligned.height
 
 
-def _hac_lags(metric: MetricBase, n_obs: int) -> int:
+def _hac_lags(forward_periods: int | None, n_obs: int) -> int:
     """Newey-West Bartlett bandwidth for the slice HAC.
 
     Defaults to ``floor(T^(1/3))`` but floors at ``forward_periods - 1``:
     overlapping ``h``-period forward returns make the per-date series
     autocorrelated up to lag ``h - 1`` (MA(h-1) overlap structure), so
     the kernel must cover it or the variance is under-estimated and the
-    test over-rejects. Mirrors ``fm_beta``'s own NW-lag floor.
+    test over-rejects. ``forward_periods`` is the panel's stamped overlap
+    horizon — a property of the data, not the metric. Mirrors ``fm_beta``'s
+    own NW-lag floor.
     """
     default = int(np.floor(n_obs ** (1.0 / 3.0)))
-    forward_periods = getattr(metric, "forward_periods", None)
     overlap_floor = forward_periods - 1 if forward_periods else 0
     return max(default, overlap_floor)
 
@@ -231,7 +233,7 @@ def slice_pairwise_test(
         data, metric, by, factor_col=factor_col, func_name="slice_pairwise_test"
     )
     k = panel.shape[1]
-    lags = _hac_lags(metric, n_obs)
+    lags = _hac_lags(_read_forward_periods_stamp(data), n_obs)
     pairs = list(combinations(range(k), 2))
     col_means = panel.mean(axis=0)
 
@@ -328,7 +330,7 @@ def slice_joint_test(
         data, metric, by, factor_col=factor_col, func_name="slice_joint_test"
     )
     k = panel.shape[1]
-    lags = _hac_lags(metric, n_obs)
+    lags = _hac_lags(_read_forward_periods_stamp(data), n_obs)
 
     # K-1 contrasts against slice 0: rows are [1, -1, 0, …], [1, 0, -1, …], …
     restriction = np.zeros((k - 1, k))
