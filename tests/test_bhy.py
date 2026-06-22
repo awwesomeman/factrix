@@ -54,6 +54,15 @@ def test_empty_input_raises():
         bhy([], metrics=["ic"], q=0.05)
 
 
+def test_dict_input_suggests_values():
+    make_spec("ic")
+    results = {
+        f"f{i}": make_result(factor=f"f{i}", p=0.01, metric="ic") for i in range(3)
+    }
+    with pytest.raises(UserInputError, match=r"list\(results\.values\(\)\)"):
+        bhy(results, metrics=["ic"], q=0.05)  # type: ignore[arg-type]
+
+
 def test_no_surviving_results_returns_empty_record():
     make_spec("ic")
     results = [make_result(factor=f"f{i}", p=0.9, metric="ic") for i in range(5)]
