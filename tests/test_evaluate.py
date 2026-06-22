@@ -33,7 +33,7 @@ class TestLabelKeying:
         results = _eval({"my_ic": ic(), "my_ir": ic_ir()})
         assert "factor" in results
         er = results["factor"]
-        assert list(er.metrics.outputs) == ["my_ic", "my_ir"]
+        assert list(er.metrics) == ["my_ic", "my_ir"]
         assert er.metrics["my_ic"].name == "my_ic"
 
     def test_to_frame_uses_labels(self):
@@ -98,7 +98,7 @@ class TestMetricsValidation:
 class TestByValueDedup:
     def test_same_config_alias_is_one_node_two_labels(self):
         er = _eval({"a": ic_ir(), "b": ic_ir()})["factor"]
-        assert set(er.metrics.outputs) == {"a", "b"}
+        assert set(er.metrics) == {"a", "b"}
 
     def test_different_config_coexists(self):
         from factrix.metrics import quantile_spread
@@ -106,7 +106,7 @@ class TestByValueDedup:
         er = _eval(
             {"a": quantile_spread(n_groups=5), "b": quantile_spread(n_groups=10)}
         )["factor"]
-        assert set(er.metrics.outputs) == {"a", "b"}
+        assert set(er.metrics) == {"a", "b"}
 
     def test_per_instance_forward_periods_override(self):
         er = fx.evaluate(
@@ -227,7 +227,7 @@ class TestStrictStructureSoftening:
             forward_periods=5,
             strict=False,
         )["factor"]
-        assert list(er.metrics.outputs.keys()) == ["hhi", "ic"]
+        assert list(er.metrics.keys()) == ["hhi", "ic"]
         # On PANEL data neither is mismatched, so ic computes a real value.
         assert not math.isnan(er.metrics["ic"].value)
         # And on single-asset data only hhi is mismatched.

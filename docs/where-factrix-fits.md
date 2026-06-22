@@ -70,8 +70,8 @@ Each metric instance carries a `MetricSpec` whose `cell`
 applies to the detected data shape; the DAG executor runs batchable
 stage-1 producers once across the factor batch and per-factor consumers
 once per factor, and returns a `list[EvaluationResult]` — one per
-factor, each holding a `MetricResultGroup` of per-metric `MetricResult`
-outputs plus a flat `list[Warning]`. The list flows into
+factor, each holding a read-only `Mapping[str, MetricResult]` of
+per-metric outputs plus a flat `list[Warning]`. The list flows into
 `multi_factor.bhy(results, metrics=[...])` for cross-test false
 discovery rate (FDR) control, which returns the surviving factors.
 

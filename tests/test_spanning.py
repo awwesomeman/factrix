@@ -285,8 +285,8 @@ class TestSpanningEvaluate:
         )
         er1, er2 = results["factor"], results["factor2"]
 
-        assert "gfs" in er1.metrics.outputs
-        assert "gfs" in er2.metrics.outputs
+        assert "gfs" in er1.metrics
+        assert "gfs" in er2.metrics
         result1 = er1.metrics["gfs"]
         result2 = er2.metrics["gfs"]
         assert isinstance(result1, ForwardSelectionResult)

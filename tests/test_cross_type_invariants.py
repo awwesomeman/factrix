@@ -9,8 +9,7 @@ mutually consistent, no matter which metric is added:
 - **applicability** — :class:`~factrix._inspect.MetricApplicability`,
   the per-data pre-flight verdict :func:`factrix.inspect_data`
   attaches to every public spec.
-- **result** — :class:`~factrix._results.MetricResult` /
-  :class:`~factrix._results.MetricResultGroup`, what
+- **result** — :class:`~factrix._results.MetricResult`, what
   :func:`factrix.evaluate` produces for an applicable metric.
 
 Each test asserts a *property* that must hold for **every** registered
@@ -248,24 +247,24 @@ class TestResultMirrorsSpecAndApplicability:
 
     def test_outputs_are_all_metric_labels(self, evaluated) -> None:
         # All requested metric labels appear in outputs.
-        assert set(evaluated.metrics.outputs) == set(_CORE_METRICS)
+        assert set(evaluated.metrics) == set(_CORE_METRICS)
 
     def test_result_keys_resolve_to_metric_specs(self, evaluated) -> None:
         # Result dict keys are a join key back into the spec table; each must
         # resolve to a real, user-facing METRIC spec (never a PIPELINE node).
         sbn = spec_by_name()
-        for key in evaluated.metrics.outputs:
+        for key in evaluated.metrics:
             assert key in sbn
             assert sbn[key].role is SpecRole.METRIC
 
     def test_result_name_matches_its_key(self, evaluated) -> None:
-        for key, out in evaluated.metrics.outputs.items():
+        for key, out in evaluated.metrics.items():
             assert out.name == key
 
     def test_metric_outputs_are_scalar(self, evaluated) -> None:
         # role=METRIC ⟹ output_shape=SCALAR (TestSpecMirrorsClass), so every
         # produced value is a plain float and any p-value is a probability.
-        for out in evaluated.metrics.outputs.values():
+        for out in evaluated.metrics.values():
             assert isinstance(out.value, float)
             assert out.p_value is None or 0.0 <= out.p_value <= 1.0
 
@@ -276,4 +275,4 @@ class TestResultMirrorsSpecAndApplicability:
         # flagged unusable by inspect_data for the same data.
         info = inspect_data(panel)
         runnable = set(info.usable.names) | set(info.degraded.names)
-        assert set(evaluated.metrics.outputs) <= runnable
+        assert set(evaluated.metrics) <= runnable
