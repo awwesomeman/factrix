@@ -118,6 +118,24 @@ def _attach_p_values(
     metric: str,
 ) -> list[_FamilyEntry]:
     """Resolve per-metric p-value for each partition entry."""
+    if partition:
+        try:
+            all_none = all(p.result.metrics[metric].p_value is None for p in partition)
+        except KeyError:
+            all_none = False
+
+        if all_none:
+            raise UserInputError(
+                func_name=func_name,
+                field="metrics",
+                value=metric,
+                expected=(
+                    f"target metric {metric!r} has no p-values (all results returned None). "
+                    "Descriptive metrics without formal hypothesis tests cannot be used for FDR control"
+                ),
+                docs_path=f"api/{func_name}#metrics",
+            )
+
     return [
         _FamilyEntry(
             identifier=p.identifier,

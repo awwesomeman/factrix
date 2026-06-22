@@ -153,6 +153,27 @@ def test_nan_p_raises():
         bhy(results, metrics=["ic"])
 
 
+def test_descriptive_metric_all_none_p_raises():
+    """A descriptive metric (every result's p-value is ``None``) cannot be
+    used for FDR control — ``bhy`` rejects it upfront with a clear message."""
+    make_spec("mfe_mae")
+    results = [make_result(factor=f"f{i}", p=None, metric="mfe_mae") for i in range(4)]
+    with pytest.raises(UserInputError, match="FDR control"):
+        bhy(results, metrics=["mfe_mae"])
+
+
+def test_partial_none_p_raises_per_factor():
+    """When only some results lack a p-value the pre-flight does not fire;
+    resolution still raises on the offending factor."""
+    make_spec("ic")
+    results = [
+        make_result(factor="f0", p=0.01, metric="ic"),
+        make_result(factor="f1", p=None, metric="ic"),
+    ]
+    with pytest.raises(UserInputError, match="f1"):
+        bhy(results, metrics=["ic"])
+
+
 def test_factor_as_expand_over_key_raises():
     make_spec("ic")
     results = [make_result(factor="f1", p=0.01, metric="ic")]

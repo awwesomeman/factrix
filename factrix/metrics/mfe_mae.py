@@ -4,11 +4,11 @@ Answers: "what does the price path look like after events?"
 
 Requires bar-by-bar ``price`` data within the event window.
 If ``price`` is not available, ``compute_mfe_mae`` returns an empty
-DataFrame and ``mfe_mae_summary`` returns a short-circuit ``MetricResult``
+DataFrame and ``mfe_mae`` returns a short-circuit ``MetricResult``
 (``value=NaN``, ``metadata["reason"]``) — never ``None``.
 
 Metrics:
-    mfe_mae_summary   — aggregate summary (p50, p75, ratio)
+    mfe_mae           — aggregate summary (p50, p75, ratio)
 
 Notes:
     **Pipeline.** Per-event MFE / MAE excursion over a fixed window
@@ -34,7 +34,7 @@ from factrix.metrics._helpers import _enforce_min_floor, _short_circuit_output
 from factrix.metrics._primitives import compute_mfe_mae
 
 __all__ = [
-    "mfe_mae_summary",
+    "mfe_mae",
 ]
 
 _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
@@ -47,7 +47,7 @@ _MFE_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
     requires={"mfe_mae_df": compute_mfe_mae},
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
-def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
+def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
     """Aggregate MFE/MAE statistics.
 
     The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the summary on the per-event MFE/MAE count. Pre-flight reads the raw non-zero factor count as a loose upper bound.
@@ -81,19 +81,19 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae_summary
+        >>> from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae
         >>> panel = compute_forward_return(
         ...     fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0),
         ...     forward_periods=5,
         ... )
         >>> per_event = compute_mfe_mae(panel, window=20)
-        >>> result = mfe_mae_summary(per_event)
+        >>> result = mfe_mae(per_event)
         >>> result.name == ""
         True
     """
     if mfe_mae_df.is_empty():
         return _short_circuit_output(
-            "mfe_mae_summary",
+            "mfe_mae",
             "no_price_data",
             mfe_mae_ratio=float("nan"),
             n_events=0,
@@ -104,8 +104,8 @@ def mfe_mae_summary(mfe_mae_df: pl.DataFrame) -> MetricResult:
 
     n_events = min(len(mfe), len(mae))
     sc = _enforce_min_floor(
-        mfe_mae_summary,
-        "mfe_mae_summary",
+        mfe_mae,
+        "mfe_mae",
         n_events,
         "insufficient_events",
         axis="events",

@@ -69,7 +69,7 @@ Per-cell extensions activate additional standalone metrics when present and shor
 | Column | Activates | Cell |
 |---|---|---|
 | `market_cap` (or any name passed as `weight_col=`) | `quantile_spread_vw` value-weighting | Individual × Continuous |
-| `price` | `event_around_return`, `mfe_mae_summary`, event-window diagnostics | Individual × Sparse |
+| `price` | `event_around_return`, `mfe_mae`, event-window diagnostics | Individual × Sparse |
 
 ---
 

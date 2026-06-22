@@ -6,7 +6,7 @@ title: factrix.metrics.mfe_mae
     options:
       show_root_members_full_path: true
       members:
-        - mfe_mae_summary
+        - mfe_mae
 
 <hr>
 
@@ -48,15 +48,15 @@ title: factrix.metrics.mfe_mae
 | Goal                                                                | Function           |
 |---------------------------------------------------------------------|--------------------|
 | Per-event MFE / MAE / bars-to-peak table for downstream cuts        | `compute_mfe_mae`  |
-| Aggregate distribution summary (quantiles, ratio, z-scored siblings) | `mfe_mae_summary` |
+| Aggregate distribution summary (quantiles, ratio, z-scored siblings) | `mfe_mae` |
 
 ## Worked example — per-event excursion then summary
 
-!!! example "compute_mfe_mae → mfe_mae_summary on a synthetic event panel"
+!!! example "compute_mfe_mae → mfe_mae on a synthetic event panel"
 
     ```python
     import factrix as fx
-    from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae_summary
+    from factrix.metrics.mfe_mae import compute_mfe_mae, mfe_mae
 
     panel = fx.datasets.make_event_panel(
         n_assets=200, n_dates=500, event_rate=0.02,
@@ -72,7 +72,7 @@ title: factrix.metrics.mfe_mae
     # │  ...       ┆ ...      ┆  ...   ┆  ...    ┆  ...   ┆  ...   │
     # └────────────┴──────────┴────────┴─────────┴────────┴────────┘
 
-    out = mfe_mae_summary(per_event)
+    out = mfe_mae(per_event)
     print(out.value,
           out.metadata["mfe_p50"], out.metadata["mae_p75"],
           out.metadata.get("mfe_mae_ratio_z"))

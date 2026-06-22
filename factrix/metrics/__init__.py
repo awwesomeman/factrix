@@ -21,7 +21,7 @@ Individual × Sparse (the ``Common × Sparse`` cell has its own
 broadcast-dummy procedure but reuses these helper metrics — there is
 no separate Common-sparse module set):
     compute_caar, caar, bmp_z, event_hit_rate, event_ic,
-    compute_mfe_mae, mfe_mae_summary, profit_factor, event_skewness,
+    compute_mfe_mae, mfe_mae, profit_factor, event_skewness,
     compute_event_returns, event_around_return,
     signal_density, clustering_hhi, corrado_rank
 
@@ -67,7 +67,7 @@ from factrix.metrics.ic import (
 )
 from factrix.metrics.k_spread import k_spread
 from factrix.metrics.mfe_mae import (
-    mfe_mae_summary,
+    mfe_mae,
 )
 from factrix.metrics.monotonicity import monotonicity
 from factrix.metrics.oos_decay import oos_decay
@@ -111,7 +111,7 @@ __all__ = [
     "ic_trend",
     "k_spread",
     "mean_r_squared",
-    "mfe_mae_summary",
+    "mfe_mae",
     "monotonicity",
     "oos_decay",
     "net_spread",
