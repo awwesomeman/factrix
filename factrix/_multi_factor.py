@@ -81,10 +81,23 @@ def _validate_metric_list(value: Any, *, func_name: str, field: str) -> list[str
 def _require_non_empty_results(
     results: Sequence[EvaluationResult], *, func_name: str
 ) -> None:
-    """Shared empty-input guard: every public function raises rather than
+    """Shared results-input guard: every public function raises rather than
     returning an empty container — FDR over an empty candidate set has
-    no meaning and ranking an empty leaderboard is undefined.
+    no meaning and ranking an empty leaderboard is undefined. Also catches
+    the natural ``evaluate`` follow-up mistake of forwarding its ``dict``
+    return directly, pointing at ``list(results.values())``.
     """
+    if isinstance(results, Mapping):
+        raise UserInputError(
+            func_name=func_name,
+            field="results",
+            value=type(results).__name__,
+            expected=(
+                "list[EvaluationResult], not the dict returned by evaluate() — "
+                "pass list(results.values())"
+            ),
+            docs_path=f"api/{func_name}#results",
+        )
     if not results:
         raise UserInputError(
             func_name=func_name,
