@@ -1,7 +1,7 @@
-"""Cross-slice statistical-test functions.
+"""Cross-slice statistical-test functions (cross-sectional / date-aligned).
 
 ``slice_pairwise_test`` reports K(K-1)/2 cross-slice contrasts as a
-long-form DataFrame of pairwise ``(stat, p_raw, p_adj)``;
+long-form DataFrame of pairwise ``(mean_diff, stat, p_raw, p_adj)``;
 ``slice_joint_test`` reports the single omnibus Wald χ² that all K
 slice means are equal.
 
@@ -12,248 +12,249 @@ and from ``compare`` which renders existing stats without
 recomputing. Convention aligns with scipy (``ttest_ind`` /
 ``kruskal``) and R (``t.test`` / ``chisq.test``).
 
-Both consume a metric callable whose module declares
-``per_date_series`` (see
-:mod:`factrix.metrics._metric_capabilities`); the slice partition
-reuses ``_slice_by_label`` so dispatch logic is not duplicated. The
-default estimator is :class:`~factrix.stats.WaldNWCluster` (Newey-West
-(NW) heteroskedasticity-and-autocorrelation-consistent (HAC) Bartlett
-kernel + 1-way cluster on the slice grouping), which uses
-the joint per-date K-vector panel — cross-slice covariance enters
-through the joint HAC, so paired-diff degeneracies do not arise on
-this path.
+Both are **data-first**: they take a raw panel + metric **instance** +
+``by`` + ``factor_col``, matching :func:`factrix.by_slice` /
+:func:`factrix.evaluate`. Per slice they run the metric's producer
+(declared via ``requires``) to build the per-date series, inner-join on
+date, and run the analytic estimator
+:class:`~factrix.stats.WaldNWCluster` (Newey-West (NW)
+heteroskedasticity-and-autocorrelation-consistent (HAC) Bartlett kernel
++ 1-way cluster on the slice grouping) on the joint per-date K-vector
+panel — cross-slice covariance enters through the joint HAC.
 
-Matrix-row: slice_pairwise_test, slice_joint_test | (*, *, *, *) | inference function | per-pair Wald χ² + Holm/RW/Bonferroni / joint Wald χ² | _build_per_date_panel, _resolve_estimator, _joint_block_bootstrap_pairwise_distribution
+These tests are **cross-sectional only**: the inner-join on ``date``
+requires the slices to share dates (sector, size bucket, liquidity
+tier). date-disjoint partitions (market regime, calendar period) have
+no common dates and are a different statistical path (two-sample HAC
+mean difference) handled separately.
+
+Matrix-row: slice_pairwise_test, slice_joint_test | (*, *, *, *) | inference function | per-pair Wald χ² + Holm / joint Wald χ² | _build_per_date_panel, _slice_by, resolve_per_date_series
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from itertools import combinations
-from typing import Literal
 
 import numpy as np
 import polars as pl
 
-from factrix._stats.bootstrap import _joint_block_bootstrap_pairwise_distribution
-from factrix._stats.multiple_testing import bonferroni, holm_step_down, romano_wolf
+from factrix._errors import UserInputError
+from factrix._stats.multiple_testing import holm_step_down
 from factrix._stats.wald import _wald_nw_cluster_means
+from factrix.metrics._base import MetricBase
 from factrix.metrics._metric_capabilities import resolve_per_date_series
-from factrix.slicing._primitive import _slice_by_label
-from factrix.stats import BlockBootstrap, WaldNWCluster
+from factrix.slicing._primitive import _slice_by
 
-MultipleTestingMethod = Literal["holm", "bonferroni", "romano_wolf"]
+_DOCS_SLICE = "api/slice-test"
 
 
-def _resolve_estimator(
-    estimator: WaldNWCluster | BlockBootstrap | None, func_name: str
-) -> WaldNWCluster | BlockBootstrap:
-    if estimator is None:
-        return WaldNWCluster()
-    if not isinstance(estimator, WaldNWCluster | BlockBootstrap):
-        raise NotImplementedError(
-            f"{func_name}: estimator {type(estimator).__name__!r} not yet "
-            f"wired; this function currently supports WaldNWCluster and "
-            f"BlockBootstrap."
+def _validate_metric_instance(metric: object, func_name: str) -> None:
+    """Reject bare classes / non-metrics, matching ``evaluate`` / ``by_slice``."""
+    if isinstance(metric, type) and issubclass(metric, MetricBase):
+        raise UserInputError(
+            func_name=func_name,
+            field="metric",
+            value=f"{metric.__name__} (the class)",
+            expected=f"a metric instance, not the class — call it: {metric.__name__}()",
+            docs_path=_DOCS_SLICE,
         )
-    return estimator
+    if not isinstance(metric, MetricBase):
+        raise UserInputError(
+            func_name=func_name,
+            field="metric",
+            value=type(metric).__name__,
+            expected=(
+                "a metric instance imported from factrix.metrics, e.g. ic() / fm_beta()"
+            ),
+            docs_path=_DOCS_SLICE,
+        )
+
+
+def _resolve_producer(metric: MetricBase, func_name: str) -> Callable:
+    """Return the metric's single upstream producer from ``requires``.
+
+    Slice tests build each slice's per-date series by running the
+    producer (e.g. ``compute_ic``) on the raw panel slice. A metric with
+    no producer cannot be driven from a raw panel here.
+    """
+    requires = type(metric).requires
+    if not requires:
+        raise TypeError(
+            f"{func_name}: metric {type(metric).__name__!r} is not "
+            f"slice-test-eligible: it declares no producer (`requires`) to "
+            f"build a per-date series from a raw panel."
+        )
+    return next(iter(requires.values()))
 
 
 def _build_per_date_panel(
-    df: pl.DataFrame,
-    metric: Callable,
+    data: pl.DataFrame,
+    metric: MetricBase,
     by: str,
     *,
+    factor_col: str,
     func_name: str,
 ) -> tuple[list[str], np.ndarray, int]:
-    """Partition ``df`` by ``by``, extract per-date series per slice,
-    inner-join on date, return ``(labels, panel[T, K], n_obs)``.
+    """Partition ``data`` by ``by``, build each slice's per-date series via
+    the metric's producer, inner-join on date, return
+    ``(labels, panel[T, K], n_obs)``.
 
     Raises ``ValueError`` on <2 slice values or <2 aligned dates;
-    ``TypeError`` (via resolver) if ``metric`` is not slice-test-
-    eligible.
+    ``TypeError`` (via resolver) if ``metric`` is not slice-test-eligible.
     """
-    per_date_fn = resolve_per_date_series(metric)
-    slices = _slice_by_label(df, by)
+    if factor_col not in data.columns:
+        raise UserInputError(
+            func_name=func_name,
+            field="factor_col",
+            value=factor_col,
+            expected=f"a column present in data; got columns {data.columns}",
+            docs_path=_DOCS_SLICE,
+        )
+    per_date_fn = resolve_per_date_series(type(metric))
+    producer = _resolve_producer(metric, func_name)
+    slices = _slice_by(data, by)
     if len(slices) < 2:
         raise ValueError(
             f"{func_name}: need ≥2 slice values on {by!r}; got {len(slices)}."
         )
     labels = list(slices.keys())
-    aligned = per_date_fn(slices[labels[0]]).rename({"value": "v_0"})
+
+    def series_for(sub: pl.DataFrame) -> pl.DataFrame:
+        produced = producer(sub, factor_cols=[factor_col])
+        return per_date_fn(produced[factor_col])
+
+    aligned = series_for(slices[labels[0]]).rename({"value": "v_0"})
     for i, lbl in enumerate(labels[1:], start=1):
         aligned = aligned.join(
-            per_date_fn(slices[lbl]).rename({"value": f"v_{i}"}),
+            series_for(slices[lbl]).rename({"value": f"v_{i}"}),
             on="date",
             how="inner",
         )
     if aligned.height < 2:
         raise ValueError(
             f"{func_name}: <2 aligned dates across slices ({aligned.height}); "
-            f"joint HAC inference requires aligned rows. Check that "
-            f"slices share at least 2 common dates."
+            f"joint HAC inference requires aligned rows. These tests are "
+            f"cross-sectional — slices must share ≥2 common dates. A "
+            f"date-disjoint partition (e.g. calendar regime) shares no dates "
+            f"and is not supported here."
         )
     panel = aligned.drop("date").to_numpy()
     return labels, panel, aligned.height
 
 
+def _hac_lags(metric: MetricBase, n_obs: int) -> int:
+    """Newey-West Bartlett bandwidth for the slice HAC.
+
+    Defaults to ``floor(T^(1/3))`` but floors at ``forward_periods - 1``:
+    overlapping ``h``-period forward returns make the per-date series
+    autocorrelated up to lag ``h - 1`` (MA(h-1) overlap structure), so
+    the kernel must cover it or the variance is under-estimated and the
+    test over-rejects. Mirrors ``fm_beta``'s own NW-lag floor.
+    """
+    default = int(np.floor(n_obs ** (1.0 / 3.0)))
+    forward_periods = getattr(metric, "forward_periods", None)
+    overlap_floor = forward_periods - 1 if forward_periods else 0
+    return max(default, overlap_floor)
+
+
 def slice_pairwise_test(
-    df: pl.DataFrame,
-    metric: Callable,
+    data: pl.DataFrame,
+    metric: MetricBase,
     *,
     by: str,
-    estimator: WaldNWCluster | BlockBootstrap | None = None,
-    multiple_testing: MultipleTestingMethod | None = None,
+    factor_col: str,
 ) -> pl.DataFrame:
     """Cross-slice pairwise Wald contrasts on a per-date metric panel.
 
+    Data-first counterpart of :func:`factrix.by_slice`: partitions a raw
+    panel on ``by``, builds each slice's per-date metric series via the
+    metric's producer, aligns on date, and runs the analytic Newey-West
+    HAC + slice-cluster Wald on every slice pair. Cross-sectional only
+    (slices must share dates).
+
     Args:
-        df: Input frame for the metric, containing ``by`` (data-first,
-            matching the polars / pandas convention).
-        metric: Metric callable whose module declares ``per_date_series``.
+        data: Raw long-format panel — same input contract as
+            :func:`factrix.evaluate` (``date, asset_id, <factor_col>,
+            forward_return``). Must contain ``by``; compose it upstream
+            if needed.
+        metric: A metric **instance** whose module declares
+            ``per_date_series`` (``ic()`` / ``fm_beta()`` / ``hit_rate()``).
+            The bare class is rejected.
         by: Column whose values define the slice partition.
-        estimator: Inference estimator. ``None`` resolves to
-            :class:`WaldNWCluster` (analytic Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) + 1-way cluster on
-            slice). :class:`BlockBootstrap` triggers the joint
-            block-bootstrap path and changes the default
-            ``multiple_testing`` to ``"romano_wolf"``.
-        multiple_testing: P-value adjustment family. ``None`` follows
-            the estimator default — ``"holm"`` for ``WaldNWCluster``,
-            ``"romano_wolf"`` for ``BlockBootstrap``. ``"romano_wolf"``
-            with an analytic estimator raises ``ValueError`` (RW
-            requires a bootstrap distribution).
+        factor_col: The single factor column to score per slice.
 
     Returns:
         Long-form ``pl.DataFrame`` with columns
-        ``(slice_a, slice_b, n_obs, stat, p_raw, p_adj)``; one row per
-        ordered slice pair ``(a, b)`` with ``a`` before ``b`` in the
-        partition's iteration order. ``stat`` carries the Wald χ² under
-        ``WaldNWCluster`` and the signed mean diff under
-        ``BlockBootstrap`` — bootstrap p-values are based on
-        ``|mean diff|``.
+        ``(slice_a, slice_b, n_obs, mean_diff, stat, p_raw, p_adj)``; one
+        row per ordered slice pair ``(a, b)`` with ``a`` before ``b`` in
+        the partition's iteration order. ``mean_diff`` is the signed
+        ``μ_a − μ_b`` (direction / effect size), ``stat`` the Wald χ²,
+        and ``p_adj`` the Holm step-down family-wise correction across
+        the K(K-1)/2 pairs.
 
     Raises:
-        ValueError: Fewer than two slice values, fewer than two dates
-            aligned across all slices, or an estimator / multiple-
-            testing combination that has no calibrated p-value path.
+        UserInputError: ``metric`` is not a metric instance, or
+            ``factor_col`` is absent.
+        ValueError: Fewer than two slice values, or fewer than two dates
+            aligned across all slices (e.g. a date-disjoint partition).
         TypeError: Metric is not slice-test-eligible (no
-            ``per_date_series`` capability).
-        NotImplementedError: Estimator outside ``WaldNWCluster`` /
-            ``BlockBootstrap``.
-
-    Notes:
-        BlockBootstrap reproducibility — pass an explicit ``rng_seed``
-        on the :class:`BlockBootstrap` instance to fix the bootstrap
-        draw. Bootstrap metadata (resolved block length, scheme, seed)
-        is not attached to the returned DataFrame in this release;
-        callers wanting it can either reconstruct from the estimator
-        config or use :func:`factrix._stats.bootstrap._block_bootstrap_diff_p`
-        directly per pair.
+            ``per_date_series`` capability / no producer).
 
     Examples:
-        Pairwise information coefficient (IC) contrasts across two sub-universes. The canonical
-        pattern is to compute the per-date metric series per slice
-        upstream and concatenate with a label column — slices must
-        share dates, so date-disjoint labels (e.g. calendar year)
-        do not apply:
+        Pairwise information coefficient (IC) contrasts across two
+        sectors on a synthetic cross-sectional panel — partition on a
+        sector column, score ``ic`` per sector, contrast the per-date
+        series:
 
         >>> import polars as pl
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics import ic, compute_ic
-        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
+        >>> from factrix.metrics import ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> assets = panel["asset_id"].unique().sort().to_list()
-        >>> half = len(assets) // 2
-        >>> sector_map = {a: ("tech" if i < half else "fin")
-        ...               for i, a in enumerate(assets)}
-        >>> panel_sec = panel.with_columns(
-        ...     pl.col("asset_id").replace_strict(sector_map).alias("sector")
+        >>> sector = {a: ("tech" if i % 2 else "fin")
+        ...           for i, a in enumerate(assets)}
+        >>> panel = panel.with_columns(
+        ...     pl.col("asset_id").replace_strict(sector).alias("sector")
         ... )
-        >>> per_sector_ic = pl.concat([
-        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))["factor"]
-        ...        .with_columns(pl.lit(s).alias("sector"))
-        ...     for s in ("tech", "fin")
-        ... ])
-        >>> pairs = fx.slice_pairwise_test(per_sector_ic, ic, by="sector")
-
-        Block-bootstrap path (auto-switches to Romano-Wolf
-        multiple-testing):
-
-        >>> from factrix.stats import BlockBootstrap
-        >>> pairs_bb = fx.slice_pairwise_test(
-        ...     per_sector_ic, ic, by="sector",
-        ...     estimator=BlockBootstrap(rng_seed=0),
+        >>> pairs = fx.slice_pairwise_test(
+        ...     panel, ic(), by="sector", factor_col="factor"
         ... )
+        >>> pairs.columns
+        ['slice_a', 'slice_b', 'n_obs', 'mean_diff', 'stat', 'p_raw', 'p_adj']
     """
-    est = _resolve_estimator(estimator, "slice_pairwise_test")
+    _validate_metric_instance(metric, "slice_pairwise_test")
 
     labels, panel, n_obs = _build_per_date_panel(
-        df, metric, by, func_name="slice_pairwise_test"
+        data, metric, by, factor_col=factor_col, func_name="slice_pairwise_test"
     )
     k = panel.shape[1]
+    lags = _hac_lags(metric, n_obs)
     pairs = list(combinations(range(k), 2))
+    col_means = panel.mean(axis=0)
 
-    boot: np.ndarray | None
-    observed_abs: np.ndarray | None
-    if isinstance(est, BlockBootstrap):
-        observed_abs, boot, _meta = _joint_block_bootstrap_pairwise_distribution(
-            panel,
-            pairs=pairs,
-            block_length=est.block_length,
-            n_resamples=est.n_resamples,
-            scheme=est.scheme,
-            rng_seed=est.rng_seed,
-        )
-        col_means = panel.mean(axis=0)
-        stats = [float(col_means[i] - col_means[j]) for i, j in pairs]
-        b = boot.shape[0]
-        p_raw = [
-            (int(np.sum(boot[:, p_idx] >= observed_abs[p_idx])) + 1) / (b + 1)
-            for p_idx in range(len(pairs))
-        ]
-        if multiple_testing is None:
-            multiple_testing = "romano_wolf"
-    else:
-        stats = []
-        p_raw = []
-        for i, j in pairs:
-            restriction = np.zeros((1, k))
-            restriction[0, i] = 1.0
-            restriction[0, j] = -1.0
-            stat, p = _wald_nw_cluster_means(panel, R=restriction)
-            stats.append(stat)
-            p_raw.append(p)
-        boot = None
-        observed_abs = None
-        if multiple_testing is None:
-            multiple_testing = "holm"
+    stats: list[float] = []
+    p_raw: list[float] = []
+    mean_diffs: list[float] = []
+    for i, j in pairs:
+        restriction = np.zeros((1, k))
+        restriction[0, i] = 1.0
+        restriction[0, j] = -1.0
+        stat, p = _wald_nw_cluster_means(panel, R=restriction, lags=lags)
+        stats.append(stat)
+        p_raw.append(p)
+        mean_diffs.append(float(col_means[i] - col_means[j]))
 
-    if multiple_testing == "holm":
-        p_adj = holm_step_down(p_raw)
-    elif multiple_testing == "bonferroni":
-        p_adj = bonferroni(p_raw)
-    elif multiple_testing == "romano_wolf":
-        if boot is None or observed_abs is None:
-            raise ValueError(
-                "slice_pairwise_test: multiple_testing='romano_wolf' "
-                "requires a bootstrap distribution; pair it with "
-                "estimator=BlockBootstrap(). Analytic estimators "
-                "(WaldNWCluster) do not produce one."
-            )
-        p_adj = romano_wolf(observed_abs.tolist(), boot)
-    else:
-        raise ValueError(
-            f"slice_pairwise_test: multiple_testing="
-            f"{multiple_testing!r} not recognized; expected 'holm' / "
-            f"'bonferroni' / 'romano_wolf' / None."
-        )
+    p_adj = holm_step_down(p_raw)
 
     return pl.DataFrame(
         {
             "slice_a": [labels[i] for i, _ in pairs],
             "slice_b": [labels[j] for _, j in pairs],
             "n_obs": [n_obs] * len(pairs),
+            "mean_diff": mean_diffs,
             "stat": stats,
             "p_raw": p_raw,
             "p_adj": list(p_adj),
@@ -262,80 +263,72 @@ def slice_pairwise_test(
 
 
 def slice_joint_test(
-    df: pl.DataFrame,
-    metric: Callable,
+    data: pl.DataFrame,
+    metric: MetricBase,
     *,
     by: str,
-    estimator: WaldNWCluster | BlockBootstrap | None = None,
+    factor_col: str,
 ) -> pl.DataFrame:
     """Omnibus Wald χ² that all K slice means are equal.
 
     The joint restriction is ``β_0 = β_1 = … = β_{K-1}``, encoded as
     ``K-1`` contrasts against the first slice; the Wald statistic
-    follows χ²_{K-1} under H₀.
+    follows χ²_{K-1} under H₀. Same data-first contract and
+    cross-sectional (shared-date) limitation as
+    :func:`slice_pairwise_test`.
 
     Args:
-        df: Input frame for the metric, containing ``by`` (data-first,
-            matching the polars / pandas convention).
-        metric: Metric callable whose module declares ``per_date_series``.
+        data: Raw long-format panel (see :func:`slice_pairwise_test`).
+        metric: A metric **instance** whose module declares
+            ``per_date_series``. The bare class is rejected.
         by: Column whose values define the slice partition.
-        estimator: Inference estimator. ``None`` resolves to
-            :class:`WaldNWCluster`. Other estimators raise
-            ``NotImplementedError`` pending follow-up batches.
+        factor_col: The single factor column to score per slice.
 
     Returns:
         Single-row ``pl.DataFrame`` with columns
-        ``(n_obs, k_slices, df, stat, p_value)``. ``df`` is the restriction
-        rank (``K-1``); ``stat`` is the joint Wald χ²; ``p_value`` is the
-        chi-squared survival function. No ``multiple_testing`` kwarg —
-        a single omnibus has no family-internal correction to apply.
+        ``(n_obs, k_slices, df, stat, p_value)``. ``df`` is the
+        restriction rank (``K-1``); ``stat`` is the joint Wald χ²;
+        ``p_value`` is the chi-squared survival function. No
+        ``multiple_testing`` — a single omnibus has no family-internal
+        correction to apply.
 
     Raises:
+        UserInputError: ``metric`` is not a metric instance, or
+            ``factor_col`` is absent.
         ValueError: Fewer than two slice values, or fewer than two
             dates aligned across all slices.
-        TypeError: Metric is not slice-test-eligible (no
-            ``per_date_series`` capability).
-        NotImplementedError: Non-``WaldNWCluster`` estimator passed
-            before the block-bootstrap batch lands.
+        TypeError: Metric is not slice-test-eligible.
 
     Examples:
-        Joint omnibus test that mean information coefficient (IC) is identical across two
-        sub-universes (see :func:`slice_pairwise_test` for the
-        per-sector ic panel construction):
+        Joint omnibus test that mean information coefficient (IC) is
+        identical across two sectors (see :func:`slice_pairwise_test`
+        for the panel construction):
 
         >>> import polars as pl
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
-        >>> from factrix.metrics import ic, compute_ic
-        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=500)
+        >>> from factrix.metrics import ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=100, n_dates=250)
         >>> panel = compute_forward_return(raw, forward_periods=5)
         >>> assets = panel["asset_id"].unique().sort().to_list()
-        >>> half = len(assets) // 2
-        >>> sector_map = {a: ("tech" if i < half else "fin")
-        ...               for i, a in enumerate(assets)}
-        >>> panel_sec = panel.with_columns(
-        ...     pl.col("asset_id").replace_strict(sector_map).alias("sector")
+        >>> sector = {a: ("tech" if i % 2 else "fin")
+        ...           for i, a in enumerate(assets)}
+        >>> panel = panel.with_columns(
+        ...     pl.col("asset_id").replace_strict(sector).alias("sector")
         ... )
-        >>> per_sector_ic = pl.concat([
-        ...     compute_ic(panel_sec.filter(pl.col("sector") == s))["factor"]
-        ...        .with_columns(pl.lit(s).alias("sector"))
-        ...     for s in ("tech", "fin")
-        ... ])
-        >>> joint = fx.slice_joint_test(per_sector_ic, ic, by="sector")
+        >>> joint = fx.slice_joint_test(
+        ...     panel, ic(), by="sector", factor_col="factor"
+        ... )
+        >>> joint["df"][0]
+        1
     """
-    est = _resolve_estimator(estimator, "slice_joint_test")
-    if isinstance(est, BlockBootstrap):
-        raise NotImplementedError(
-            "slice_joint_test: BlockBootstrap on the omnibus χ² is not "
-            "implemented; the joint Wald χ² has no canonical bootstrap "
-            "analogue here. Use WaldNWCluster (default) for the omnibus, "
-            "or slice_pairwise_test + BlockBootstrap for pairwise contrasts."
-        )
+    _validate_metric_instance(metric, "slice_joint_test")
 
     _, panel, n_obs = _build_per_date_panel(
-        df, metric, by, func_name="slice_joint_test"
+        data, metric, by, factor_col=factor_col, func_name="slice_joint_test"
     )
     k = panel.shape[1]
+    lags = _hac_lags(metric, n_obs)
 
     # K-1 contrasts against slice 0: rows are [1, -1, 0, …], [1, 0, -1, …], …
     restriction = np.zeros((k - 1, k))
@@ -343,7 +336,7 @@ def slice_joint_test(
     for r in range(k - 1):
         restriction[r, r + 1] = -1.0
 
-    stat, p = _wald_nw_cluster_means(panel, R=restriction)
+    stat, p = _wald_nw_cluster_means(panel, R=restriction, lags=lags)
 
     return pl.DataFrame(
         {

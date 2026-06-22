@@ -11,14 +11,14 @@ from factrix._codes import WarningCode
 from factrix._results import EvaluationResult
 from factrix.metrics import caar, ic
 from factrix.preprocess import compute_forward_return
-from factrix.slicing._primitive import _slice_by_label
+from factrix.slicing._primitive import _slice_by
 from factrix.slicing.dispatcher import _warn_date_axis_truncation
 
 
 def _label_series(
     n: int = 40, label_col: str = "regime", seed: int = 42
 ) -> pl.DataFrame:
-    """Date-keyed frame with a label column — for _slice_by_label tests."""
+    """Date-keyed frame with a label column — for _slice_by tests."""
     rng = np.random.default_rng(seed)
     dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)]
     half = n // 2
@@ -50,26 +50,26 @@ def _sector_panel(
 class TestSliceByLabel:
     def test_partitions_on_existing_column(self):
         df = _label_series(20)
-        out = _slice_by_label(df, "regime")
+        out = _slice_by(df, "regime")
         assert set(out) == {"bull", "bear"}
         assert all(isinstance(v, pl.DataFrame) for v in out.values())
         assert sum(len(v) for v in out.values()) == 20
 
     def test_drops_label_column_from_partitions(self):
         df = _label_series(20)
-        out = _slice_by_label(df, "regime")
+        out = _slice_by(df, "regime")
         for sub in out.values():
             assert "regime" not in sub.columns
 
     def test_missing_label_raises(self):
         df = _label_series(10)
         with pytest.raises(ValueError, match="not found in df"):
-            _slice_by_label(df, "sector")
+            _slice_by(df, "sector")
 
     def test_empty_df_raises(self):
         df = _label_series(0)
         with pytest.raises(ValueError, match="empty"):
-            _slice_by_label(df, "regime")
+            _slice_by(df, "regime")
 
     def test_null_label_values_raise(self):
         df = _label_series(10).with_columns(
@@ -79,18 +79,18 @@ class TestSliceByLabel:
             .alias("regime")
         )
         with pytest.raises(ValueError, match="contains nulls"):
-            _slice_by_label(df, "regime")
+            _slice_by(df, "regime")
 
     def test_numeric_label_stringified(self):
         df = _label_series(20).with_columns(
             pl.Series("decile", [1, 2] * 10, dtype=pl.Int64)
         )
-        out = _slice_by_label(df, "decile")
+        out = _slice_by(df, "decile")
         assert set(out) == {"1", "2"}
 
     def test_non_dataframe_raises(self):
         with pytest.raises(TypeError, match="polars DataFrame"):
-            _slice_by_label([1, 2, 3], "regime")  # type: ignore[arg-type]
+            _slice_by([1, 2, 3], "regime")  # type: ignore[arg-type]
 
 
 class TestBySlice:

@@ -7,7 +7,7 @@ slice — the cross-slice counterpart of ``evaluate``. It returns the same
 value rather than factor). Universe-overlap composition is user-side; see
 ``docs/api/by-slice.md`` for reference patterns.
 
-Matrix-row: by_slice | (*, *, *, *) | dispatcher | none (no cross-slice test) | _slice_by_label
+Matrix-row: by_slice | (*, *, *, *) | dispatcher | none (no cross-slice test) | _slice_by
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import polars as pl
 
 from factrix._axis import Aggregation
 from factrix._codes import WarningCode
-from factrix.slicing._primitive import _slice_by_label
+from factrix.slicing._primitive import _slice_by
 
 if TYPE_CHECKING:
     from factrix._results import EvaluationResult
@@ -146,7 +146,7 @@ def by_slice(
     """
     import factrix  # local import: evaluate lives at top level (import cycle)
 
-    sliced = _slice_by_label(data, by)
+    sliced = _slice_by(data, by)
     _warn_date_axis_truncation(data, metric, by)
 
     results: dict[str, EvaluationResult] = {}
