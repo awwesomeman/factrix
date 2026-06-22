@@ -32,17 +32,15 @@ class WaldNWCluster:
     panel. ``COMMON`` cells produce one number per date by definition
     of the scope and have no within-cell cross-section to slice over.
 
-    Pass an instance to a slice-test function to make the inference
-    choice explicit::
-
-        fx.slice_pairwise_test(panel, ic, by="sector",
-                                estimator=WaldNWCluster())
+    This is the sole analytic estimator the slice tests run; it is
+    applied internally (the slice-test functions take no estimator
+    argument). The class names that inference path for documentation
+    and introspection.
 
     Constructor takes no arguments in this release; the Bartlett-kernel
-    bandwidth is resolved automatically by ``_wald_nw_cluster_means``
-    (``floor(T^(1/3))`` default). Explicit-lag knob is a future
-    enhancement and would arrive as a keyword-only ``__init__``
-    parameter without changing callers using the default.
+    bandwidth is resolved by ``_wald_nw_cluster_means``
+    (``floor(T^(1/3))`` default, floored at ``forward_periods - 1`` by
+    the slice tests to cover overlapping-return autocorrelation).
     """
 
     @property

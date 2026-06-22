@@ -41,27 +41,27 @@ __all__ = [
     "hit_rate",
 ]
 
-# Slice-test contract (#153 §5): hit_rate operates on a
-# pre-aggregated per-date series (no cross-section bucket pass), so
-# slice tests skip the `n_groups` downscale step. Per-date minimum
-# (if any) is the responsibility of the upstream metric that produced
-# the series.
+# Slice-test contract: hit_rate operates on a pre-aggregated per-date
+# series (no cross-section bucket pass), so slice tests skip the
+# `n_groups` downscale step. Per-date minimum (if any) is the
+# responsibility of the upstream metric that produced the series.
 min_assets_per_group: int | None = None
 
 
 def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     """Return ``(date, value)`` per-date hit indicator series.
 
-    Casts ``value > 0`` to ``Float64`` per date. Caller is expected to
-    rename a non-default value column upstream; the slice-test
-    capability contract takes no kwargs. Consumed by
-    ``slice_pairwise_test`` / ``slice_joint_test`` (#176) via
+    Casts the producer's per-date ``ic`` to a ``> 0`` indicator
+    (``Float64``) per date. Input is the ``compute_ic`` per-factor frame
+    (``date, ic, …``), matching this metric's ``requires`` producer, so
+    the slice-test producer flow feeds it directly. Consumed by
+    ``slice_pairwise_test`` / ``slice_joint_test`` via
     ``factrix.metrics._metric_capabilities.resolve_per_date_series``.
     """
     return series.select(
         [
             pl.col("date"),
-            (pl.col("value") > 0).cast(pl.Float64).alias("value"),
+            (pl.col("ic") > 0).cast(pl.Float64).alias("value"),
         ]
     ).drop_nulls()
 

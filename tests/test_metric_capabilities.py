@@ -32,7 +32,7 @@ def test_resolve_per_date_series_fama_macbeth_shape() -> None:
 
 
 def test_resolve_per_date_series_hit_rate_binary_cast() -> None:
-    series = pl.DataFrame({"date": _dates(4), "value": [0.5, -0.1, 0.0, 1.2]})
+    series = pl.DataFrame({"date": _dates(4), "ic": [0.5, -0.1, 0.0, 1.2]})
     out = resolve_per_date_series(hit_rate)(series)
     assert out.columns == ["date", "value"]
     assert out["value"].to_list() == [1.0, 0.0, 0.0, 1.0]
