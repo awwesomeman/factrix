@@ -62,7 +62,7 @@ contrasts, not a sidecar to a primary value.
 | [`quantile_spread_vw`][factrix.metrics.quantile.quantile_spread_vw] | NW HAC `t` on vw spread | `p_value` | mean(vw spread) |
 | [`top_concentration`][factrix.metrics.concentration.top_concentration] | one-sided `t` on diversity ratio | `p_value` | mean(eff_n / n_top) |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | none — descriptive | — | event-date Herfindahl-Hirschman index (HHI) |
-| [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
+| [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | none — descriptive | — | MFE_p50 / \|MAE_p75\| |
 | [`oos_decay`][factrix.metrics.oos_decay.oos_decay] | none — descriptive | — | median(survival) |
 | [`spanning_alpha`][factrix.metrics.spanning.spanning_alpha] | OLS `t` on α | `p_value` | spanning α |
 | [`greedy_forward_selection`][factrix.metrics.spanning.greedy_forward_selection] | none — selection meta | — | (NaN; results in metadata) |
@@ -329,7 +329,7 @@ Descriptive; period-axis concentration of event dates.
 
 ### `mfe_mae` (`factrix.metrics.mfe_mae`)
 
-#### `mfe_mae_summary`
+#### `mfe_mae` (emits `MetricResult.name = "mfe_mae"`)
 
 Descriptive; no test.
 
@@ -338,7 +338,6 @@ Descriptive; no test.
 - *descriptive* (conditional, when σ-normalised inputs available):
   `mfe_z_p50`, `mae_z_p75`, `mfe_mae_ratio_z`, `n_events_z`.
 - *descriptive*: `p_value` (sentinel).
-
 ### `oos` (`factrix.metrics.oos_decay`)
 
 #### `oos_decay` (emits `MetricResult.name = "oos_decay"`)

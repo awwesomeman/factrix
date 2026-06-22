@@ -249,12 +249,12 @@ class TestDeclaredEventFloorsVisible:
             event_skewness,
             profit_factor,
         )
-        from factrix.metrics.mfe_mae import mfe_mae_summary
+        from factrix.metrics.mfe_mae import mfe_mae
 
         for m in (
             corrado_rank,
             clustering_hhi,
-            mfe_mae_summary,
+            mfe_mae,
             bmp_z,
             event_hit_rate,
             event_ic,

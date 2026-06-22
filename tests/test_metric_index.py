@@ -247,10 +247,7 @@ class TestRequires:
 
     def test_mfe_mae_consumer_requires_compute_mfe_mae(self) -> None:
         specs = spec_by_name()
-        assert (
-            specs["mfe_mae_summary"].requires["mfe_mae_df"].__name__
-            == "compute_mfe_mae"
-        )
+        assert specs["mfe_mae"].requires["mfe_mae_df"].__name__ == "compute_mfe_mae"
 
     def test_requires_values_are_callables(self) -> None:
         for _, spec in _all_specs():

@@ -86,7 +86,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 | [`event_skewness`][factrix.metrics.event_quality.event_skewness] | `K` | `K ≥ MIN_EVENTS_HARD` |
 | [`signal_density`][factrix.metrics.event_quality.signal_density] | `K` | `K ≥ 2` |
 | [`event_around_return`][factrix.metrics.event_horizon.event_around_return] | per-offset `K` | `K ≥ MIN_EVENTS_HARD` |
-| [`mfe_mae_summary`][factrix.metrics.mfe_mae.mfe_mae_summary] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
+| [`mfe_mae`][factrix.metrics.mfe_mae.mfe_mae] | `K` | `K ≥ MIN_EVENTS_HARD`; `price` column required |
 | [`clustering_hhi`][factrix.metrics.clustering_hhi.clustering_hhi] | `K`, `N` | `N ≥ 2`; `K ≥ MIN_EVENTS_HARD` |
 | [`corrado_rank`][factrix.metrics.corrado_rank.corrado_rank] | `K` × estimation window | `K ≥ MIN_EVENTS_HARD`; per-asset `T ≥ 30` |
 
@@ -128,7 +128,7 @@ below.
 | Constant | Value | Axis | Tier | Source module | Used by |
 |---|---|---|---|---|---|
 | `MIN_IC_ASSETS` | 10 | per-date `N` | hard | `factrix/_types.py` | `compute_ic` (drops dates with `N < 10`) → consumed by `ic`, `ic_ir`, `hit_rate` |
-| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae_summary`, `clustering_hhi`, `corrado_rank` |
+| `MIN_EVENTS_HARD` | 4 | `K` (event count) | hard | `factrix/_types.py` | `caar`, `bmp_z`, `event_hit_rate`, `event_ic`, `profit_factor`, `event_skewness`, `event_around_return`, `mfe_mae`, `clustering_hhi`, `corrado_rank` |
 | `MIN_EVENTS_WARN` | 30 | `K` | warn | `factrix/_types.py` | `caar` only (Brown-Warner literature floor; descriptive event-quality metrics use HARD only) |
 | `MIN_OOS_PERIODS` | 5 | `T` (per split) | hard | `factrix/_types.py` | `oos_decay` (effective floor `T ≥ 2 × MIN_OOS_PERIODS = 10`) |
 | `MIN_PORTFOLIO_PERIODS_HARD` | 3 | `T/h` | hard | `factrix/_types.py` | `quantile_spread`, `quantile_spread_vw`, `top_concentration`, `ts_quantile_spread`, `ts_asymmetry` |
@@ -177,7 +177,7 @@ Inferential metrics enforce two separate floors:
 
 **Descriptive metrics** (`clustering_hhi`, `corrado_rank`,
 `event_around_return`, `event_hit_rate`,
-`event_ic`, `profit_factor`, `event_skewness`, `mfe_mae_summary`,
+`event_ic`, `profit_factor`, `event_skewness`, `mfe_mae`,
 `quantile_spread`, `ts_quantile_spread`, `ts_asymmetry`, `bmp_z`)
 enforce **`_HARD` only** — they have no formal H₀ under which power
 can be characterised, so the literature `_WARN` tier is undefined

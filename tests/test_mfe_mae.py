@@ -12,7 +12,7 @@ from factrix.metrics.event_quality import (
 )
 from factrix.metrics.mfe_mae import (
     compute_mfe_mae,
-    mfe_mae_summary,
+    mfe_mae,
 )
 
 # ---------------------------------------------------------------------------
@@ -184,14 +184,14 @@ class TestComputeMfeMae:
 
 
 # ---------------------------------------------------------------------------
-# mfe_mae_summary
+# mfe_mae
 # ---------------------------------------------------------------------------
 
 
-class TestMfeMaeSummary:
+class TestMfeMae:
     def test_returns_metric_output(self, event_data):
         mfe_df = compute_mfe_mae(event_data, window=10)
-        result = mfe_mae_summary(mfe_df)
+        result = mfe_mae(mfe_df)
         assert result is not None
         assert "mfe_p50" in result.metadata
         assert "mae_p75" in result.metadata
@@ -207,7 +207,7 @@ class TestMfeMaeSummary:
                 "bars_to_mae": pl.Int32,
             },
         )
-        result = mfe_mae_summary(empty)
+        result = mfe_mae(empty)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "no_price_data"
         assert result.metadata["n_events"] == 0
