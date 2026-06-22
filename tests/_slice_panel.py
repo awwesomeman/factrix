@@ -56,6 +56,50 @@ def build_labelled_raw_panel(
     return pl.concat(frames)
 
 
+def build_disjoint_period_panel(
+    *,
+    seed: int,
+    spans: dict[str, tuple[int, float]],
+    label_col: str,
+    n_assets: int = 40,
+    noise: float = 0.3,
+) -> pl.DataFrame:
+    """Raw panel whose labels occupy **disjoint** calendar spans.
+
+    ``spans`` maps ``label -> (n_dates, signal)``: each label gets its own
+    contiguous block of dates laid back-to-back (no shared dates across
+    labels), with ``forward_return = signal * factor + noise``. This is
+    the date-disjoint partition (market regime, calendar period) that the
+    cross-sectional slice tests reject with ``<2 aligned dates`` and the
+    ``slice_period_*`` pair handles. Spans may differ in length, exercising
+    the per-slice ``n_periods_*`` reporting.
+    """
+    rng = np.random.default_rng(seed)
+    cursor = dt.date(2024, 1, 1)
+    frames = []
+    for lbl, (n_dates, s) in spans.items():
+        dates = [cursor + dt.timedelta(days=i) for i in range(n_dates)]
+        cursor = dates[-1] + dt.timedelta(days=1)
+        date_series = pl.Series("date", dates, dtype=pl.Date)
+        idx = np.repeat(np.arange(n_dates), n_assets)
+        factor = rng.normal(size=n_dates * n_assets)
+        fwd = s * factor + rng.normal(scale=noise, size=n_dates * n_assets)
+        frames.append(
+            pl.DataFrame(
+                {
+                    "date": date_series.gather(idx),
+                    "asset_id": np.tile(
+                        [f"{lbl}_{a:03d}" for a in range(n_assets)], n_dates
+                    ),
+                    "factor": factor,
+                    "forward_return": fwd,
+                    label_col: [lbl] * (n_dates * n_assets),
+                }
+            )
+        )
+    return pl.concat(frames)
+
+
 def build_autocorrelated_ic_panel(
     *,
     n_dates: int,

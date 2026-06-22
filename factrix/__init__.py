@@ -93,6 +93,8 @@ from factrix.slicing import (
     by_slice,
     slice_joint_test,
     slice_pairwise_test,
+    slice_period_joint_test,
+    slice_period_pairwise_test,
 )
 
 
@@ -721,6 +723,8 @@ __all__ = [
     "by_slice",
     "slice_joint_test",
     "slice_pairwise_test",
+    "slice_period_joint_test",
+    "slice_period_pairwise_test",
     # Multi-factor namespace
     "multi_factor",
     # Synthetic panels

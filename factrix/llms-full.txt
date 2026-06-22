@@ -189,10 +189,11 @@ Typed pre-flight introspection that combines axis detection with a per-metric us
 
 ---
 
-### `by_slice` / `slice_pairwise_test` / `slice_joint_test`
+### `by_slice` / `slice_pairwise_test` / `slice_joint_test` / `slice_period_pairwise_test` / `slice_period_joint_test`
 
 - `by_slice(data, metric, *, by, factor_col)` partitions a raw panel by a grouping column and runs `evaluate` per slice, returning `dict[str, EvaluationResult]` (same shape as `evaluate`, keyed by slice). `metric` is an instance (e.g. `ic()`); DAG-consumer metrics work with no pre-computation.
-- `slice_pairwise_test` / `slice_joint_test` perform cross-slice Wald tests (Holm/Romano-Wolf adjusted) on the means.
+- `slice_pairwise_test` / `slice_joint_test` perform **cross-sectional** (date-aligned) cross-slice Wald tests (joint Newey-West HAC + slice cluster, Holm-adjusted) on the per-date means — for slices that share dates (sector, size bucket, liquidity tier).
+- `slice_period_pairwise_test` / `slice_period_joint_test` are the **date-disjoint** counterparts (market regime, calendar period, in/out-of-sample) — each slice is an independent sample with block-diagonal covariance. A `method` flag selects the estimator: `"bootstrap"` (default; independent stationary block bootstrap + Romano-Wolf, right for short regimes) or `"analytic"` (per-slice Newey-West HAC + Welch contrast + Holm, for long spans T ≳ 100). Pairwise output carries per-slice `n_periods_a` / `n_periods_b`.
 
 ---
 
