@@ -439,7 +439,7 @@ def make_multi_factor_event_panel(
         >>> raw = fx.datasets.make_multi_factor_event_panel(n_factors=3, n_assets=10, n_dates=60)
         >>> raw.columns[:4]
         ['date', 'asset_id', 'price', 'factor_0000']
-        >>> raw.height == 3 * 10 * 60
+        >>> raw.height == 10 * 60
         True
     """
     if n_factors < 1:
