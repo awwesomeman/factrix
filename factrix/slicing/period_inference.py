@@ -68,6 +68,7 @@ from scipy import stats as sp_stats
 
 from factrix._data_input import _read_forward_periods_stamp
 from factrix._errors import UserInputError
+from factrix._metric_index import SampleThreshold
 from factrix._stats.bootstrap import (
     Scheme,
     _politis_white_block_length,
@@ -102,6 +103,65 @@ def _validate_method(method: str, func_name: str) -> None:
             expected='one of "bootstrap" (default) or "analytic"',
             docs_path=_DOCS_SLICE,
         )
+
+
+def _resolve_sample_threshold(metric: MetricBase) -> SampleThreshold:
+    """Resolve the metric instance's ``SampleThreshold``, honouring config.
+
+    Mirrors :meth:`MetricBase.spec` but evaluates the dynamic
+    ``sample_threshold_for`` hook against the **actual instance** (not a
+    default-built one), so a metric configured with a non-default
+    ``forward_periods`` (e.g. ``caar``) reports the floor for its own
+    horizon rather than the default-config floor.
+    """
+    cls = type(metric)
+    hook = cls.sample_threshold_for
+    return hook(metric) if hook is not None else cls.sample_threshold
+
+
+def _require_slice_floor(
+    metric: MetricBase,
+    labels: list[str],
+    series_list: list[np.ndarray],
+    *,
+    func_name: str,
+) -> None:
+    """Raise when any slice's per-date series is below the metric's own floor.
+
+    ``by_slice`` short-circuits a thin metric to NaN via the metric body; the
+    date-disjoint slice tests build each slice's per-date series directly and
+    would otherwise return a calibrated-looking p-value on a sub-floor regime.
+    Reuse the metric's own :class:`SampleThreshold` — the single source of
+    truth both paths read — so they agree on what counts as a thin sample, and
+    refuse (rather than emit) the contrast at that size: the inferential path
+    must be at least as protective as the descriptive one. The per-date series
+    length is the slice's time-axis sample, so only the time-series floors
+    (``min_periods`` / ``min_events``) bind — the cross-section floors
+    (``min_assets`` / ``min_pairs``) describe within-date width, which the
+    series has already collapsed.
+    """
+    threshold = _resolve_sample_threshold(metric)
+    floor = max(
+        (f for f in (threshold.min_periods, threshold.min_events) if f is not None),
+        default=None,
+    )
+    if floor is None:
+        return
+    thin = [
+        (lbl, int(s.shape[0]))
+        for lbl, s in zip(labels, series_list, strict=True)
+        if s.shape[0] < floor
+    ]
+    if not thin:
+        return
+    detail = ", ".join(f"{lbl!r} (n_periods={n})" for lbl, n in thin)
+    raise ValueError(
+        f"{func_name}: slice(s) {detail} fall below {type(metric).__name__!r}'s "
+        f"minimum sample floor ({floor}); by_slice short-circuits this metric "
+        f"to NaN at that size, so the date-disjoint tests refuse to return a "
+        f"contrast that is not calibrated. Use coarser regimes (each ≥{floor} "
+        f"periods) or a metric with a lower sample floor."
+    )
 
 
 def _build_per_slice_series(
@@ -151,6 +211,7 @@ def _build_per_slice_series(
                 f"within-slice variance estimate."
             )
         series_list.append(np.asarray(s, dtype=float))
+    _require_slice_floor(metric, labels, series_list, func_name=func_name)
     return labels, series_list
 
 
@@ -232,8 +293,10 @@ def slice_period_pairwise_test(
     Raises:
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
             is absent, or ``method`` is invalid.
-        ValueError: Fewer than two slice values, or any slice with fewer
-            than two dates.
+        ValueError: Fewer than two slice values, any slice with fewer than
+            two dates, or any slice whose per-date series is below the
+            metric's own ``SampleThreshold`` floor (the size at which
+            :func:`factrix.by_slice` short-circuits the metric to NaN).
         TypeError: Metric is not slice-test-eligible (no ``per_date_series``
             capability / no producer).
     """
@@ -423,8 +486,10 @@ def slice_period_joint_test(
     Raises:
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
             is absent, or ``method`` is invalid.
-        ValueError: Fewer than two slice values, or any slice with fewer
-            than two dates.
+        ValueError: Fewer than two slice values, any slice with fewer than
+            two dates, or any slice whose per-date series is below the
+            metric's own ``SampleThreshold`` floor (the size at which
+            :func:`factrix.by_slice` short-circuits the metric to NaN).
         TypeError: Metric is not slice-test-eligible.
     """
     _validate_metric_instance(metric, "slice_period_joint_test")

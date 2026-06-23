@@ -83,7 +83,7 @@ def test_bootstrap_joint_is_bootstrap_native_for_two_slices() -> None:
     from factrix import slice_period_pairwise_test
 
     df = build_disjoint_period_panel(
-        seed=11, spans={"a": (40, 0.15), "b": (40, 0.0)}, label_col="regime"
+        seed=11, spans={"a": (60, 0.15), "b": (60, 0.0)}, label_col="regime"
     )
     pw = slice_period_pairwise_test(
         df, ic(), by="regime", factor_col="factor", rng_seed=5
@@ -148,3 +148,13 @@ def test_raises_when_slice_too_short() -> None:
     )
     with pytest.raises(ValueError, match="<2 dates"):
         slice_period_joint_test(df, ic(), by="regime", factor_col="factor")
+
+
+def test_raises_when_slice_below_metric_floor() -> None:
+    """Below ic's min_periods floor (50) the omnibus refuses rather than emit
+    an uncalibrated contrast — the same sub-floor size by_slice NaNs."""
+    df = build_disjoint_period_panel(
+        seed=11, spans={"a": (30, 0.1), "b": (30, 0.1)}, label_col="regime"
+    )
+    with pytest.raises(ValueError, match="sample floor"):
+        slice_period_joint_test(df, ic(), by="regime", factor_col="factor", rng_seed=11)
