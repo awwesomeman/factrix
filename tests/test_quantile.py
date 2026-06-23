@@ -167,3 +167,50 @@ class TestQuantileSpreadVW:
         assert math.isnan(result.value)
         assert result.metadata.get("reason") == "no_weight_column"
         assert result.metadata.get("missing_column") == "market_cap"
+
+
+class TestQuantileSpreadInference:
+    """The ``inference=`` knob mirrors k_spread: default bit-for-bit, HAC opt-in."""
+
+    @staticmethod
+    def _ample_panel():
+        import factrix as fx
+
+        raw = fx.datasets.make_cs_panel(n_assets=80, n_dates=400, seed=5)
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    def test_explicit_non_overlapping_is_bit_for_bit_default(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        default = quantile_spread(panel, forward_periods=5, n_groups=5)["factor"]
+        explicit = quantile_spread(
+            panel, forward_periods=5, n_groups=5, inference=fx.inference.NON_OVERLAPPING
+        )["factor"]
+        assert explicit.value == default.value
+        assert explicit.p_value == default.p_value
+        assert explicit.stat == default.stat
+        assert explicit.metadata["method"] == "non-overlapping t-test"
+
+    def test_newey_west_runs_hac_on_full_series(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        nw = quantile_spread(
+            panel, forward_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
+        )["factor"]
+        assert nw.metadata["method"] == "Newey-West HAC t-test"
+        assert "nw_lags" in nw.metadata
+        assert nw.metadata["n_periods_full"] > nw.metadata["n_periods"]
+
+    def test_small_cross_section_bootstrap_overrides_requested_hac(self):
+        import factrix as fx
+
+        raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=400, seed=6)
+        panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        nw = quantile_spread(
+            panel, forward_periods=5, n_groups=5, inference=fx.inference.NEWEY_WEST
+        )["factor"]
+        assert nw.metadata["method"] == "block-bootstrap CI"
+        assert nw.metadata["inference_overridden"] is True
+        assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"

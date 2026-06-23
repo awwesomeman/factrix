@@ -217,6 +217,50 @@ class TestQuantileSpreadSharesPolicy:
         assert out.metadata["method"] == "non-overlapping t-test"
 
 
+class TestInference:
+    """The ``inference=`` knob: bit-for-bit default, HAC opt-in, bootstrap guard."""
+
+    @staticmethod
+    def _ample_panel():
+        import factrix as fx
+
+        raw = fx.datasets.make_cs_panel(n_assets=60, n_dates=400, seed=3)
+        return fx.preprocess.compute_forward_return(raw, forward_periods=5)
+
+    def test_explicit_non_overlapping_is_bit_for_bit_default(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        default = k_spread(panel, forward_periods=5, k=5)
+        explicit = k_spread(
+            panel, forward_periods=5, k=5, inference=fx.inference.NON_OVERLAPPING
+        )
+        assert explicit.value == default.value
+        assert explicit.p_value == default.p_value
+        assert explicit.stat == default.stat
+        assert explicit.metadata["method"] == "non-overlapping t-test"
+
+    def test_newey_west_runs_hac_on_full_series(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        nw = k_spread(panel, forward_periods=5, k=5, inference=fx.inference.NEWEY_WEST)
+        assert nw.metadata["method"] == "Newey-West HAC t-test"
+        assert "nw_lags" in nw.metadata
+        # HAC keeps every date; the full series is longer than the strided one.
+        assert nw.metadata["n_periods_full"] > nw.metadata["n_periods"]
+
+    def test_small_cross_section_bootstrap_overrides_requested_hac(self):
+        import factrix as fx
+
+        raw = fx.datasets.make_cs_panel(n_assets=15, n_dates=400, seed=4)
+        panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        nw = k_spread(panel, forward_periods=5, k=3, inference=fx.inference.NEWEY_WEST)
+        assert nw.metadata["method"] == "block-bootstrap CI"
+        assert nw.metadata["inference_overridden"] is True
+        assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
+
+
 class TestDispatch:
     def test_runs_via_evaluate(self):
         import factrix as fx

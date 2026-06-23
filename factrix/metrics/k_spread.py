@@ -37,18 +37,60 @@ from factrix._axis import (
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
+from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _sample_non_overlapping,
     _short_circuit_output,
-    _spread_significance,
+    _spread_significance_with_inference,
     _surface_null_drop,
 )
 
 __all__ = [
     "k_spread",
 ]
+
+
+def _build_k_spread_series(
+    panel: pl.DataFrame, k: int, factor_col: str, return_col: str
+) -> tuple[pl.DataFrame | None, pl.DataFrame]:
+    """Per-date Top-K/Bottom-K spread series from a (possibly sampled) panel.
+
+    Returns ``(series, clean)``: ``series`` has ``date, top_return,
+    bottom_return, xs_dispersion, spread`` (``None`` when no date clears the
+    ``2*k`` floor), and ``clean`` is the null-filtered panel for the
+    short-circuit diagnostics / ``n_assets`` count. Shared by the
+    non-overlap path (sampled panel) and the HAC path (full panel).
+    """
+    clean = panel.filter(
+        pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
+    )
+    ranked = clean.with_columns(
+        pl.col(factor_col)
+        .rank(method="ordinal", descending=True)
+        .over("date")
+        .alias("_rank"),
+        pl.len().over("date").alias("_n_date"),
+    ).filter(pl.col("_n_date") >= 2 * k)
+
+    if ranked.height == 0:
+        return None, clean
+
+    series = (
+        ranked.group_by("date")
+        .agg(
+            pl.col(return_col).filter(pl.col("_rank") <= k).mean().alias("top_return"),
+            pl.col(return_col)
+            .filter(pl.col("_rank") > pl.col("_n_date") - k)
+            .mean()
+            .alias("bottom_return"),
+            pl.col(return_col).std(ddof=DDOF).alias("xs_dispersion"),
+        )
+        .with_columns((pl.col("top_return") - pl.col("bottom_return")).alias("spread"))
+        .sort("date")
+    )
+    return series, clean
 
 
 @metric(
@@ -65,6 +107,7 @@ def k_spread(
     factor_col: str = "factor",
     return_col: str = "forward_return",
     rng_seed: int = 0,
+    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
 ) -> MetricResult:
     r"""Fixed-K Top-K vs Bottom-K long-short spread.
 
@@ -85,6 +128,12 @@ def k_spread(
         return_col: Realised-return column (default ``"forward_return"``).
         rng_seed: Seed for the small-N block-bootstrap branch
             (reproducible by default).
+        inference: Headline significance method. ``fx.inference.NON_OVERLAPPING``
+            (default) runs the OLS t-test on the non-overlap stride;
+            ``fx.inference.NEWEY_WEST`` keeps every date and HAC-corrects the
+            MA(h-1) SE. The small-cross-section block bootstrap still takes
+            precedence over either when it fires (HAC corrects autocorrelation,
+            not heavy tails); the override is flagged in ``metadata``.
 
     Returns:
         MetricResult with value = mean spread, ``stat`` = ``t`` on the
@@ -134,24 +183,15 @@ def k_spread(
             missing_column=return_col,
         )
 
-    sampled = _sample_non_overlapping(df, forward_periods)
     # Drop rows with no factor or no realised return BEFORE ranking: ``rank``
     # skips nulls but ``pl.len`` would still count them, so ``_n_date`` would
     # overcount and the bottom-leg cutoff (``_rank > _n_date - k``) would point
     # past the last real rank — silently shrinking or emptying the short leg.
     # forward_return is null on the last ``forward_periods`` rows per asset.
-    clean = sampled.filter(
-        pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
-    )
-    ranked = clean.with_columns(
-        pl.col(factor_col)
-        .rank(method="ordinal", descending=True)
-        .over("date")
-        .alias("_rank"),
-        pl.len().over("date").alias("_n_date"),
-    ).filter(pl.col("_n_date") >= 2 * k)
+    sampled = _sample_non_overlapping(df, forward_periods)
+    series, clean = _build_k_spread_series(sampled, k, factor_col, return_col)
 
-    if ranked.height == 0:
+    if series is None:
         per_date_counts = clean.group_by("date").len()["len"].to_numpy()
         max_per_date = int(np.max(per_date_counts)) if per_date_counts.size else 0
         return _short_circuit_output(
@@ -163,20 +203,6 @@ def k_spread(
             max_assets_per_date=max_per_date,
         )
 
-    series = (
-        ranked.group_by("date")
-        .agg(
-            pl.col(return_col).filter(pl.col("_rank") <= k).mean().alias("top_return"),
-            pl.col(return_col)
-            .filter(pl.col("_rank") > pl.col("_n_date") - k)
-            .mean()
-            .alias("bottom_return"),
-            pl.col(return_col).std(ddof=DDOF).alias("xs_dispersion"),
-        )
-        .with_columns((pl.col("top_return") - pl.col("bottom_return")).alias("spread"))
-        .sort("date")
-    )
-
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
     sc = _enforce_min_floor(
@@ -186,10 +212,21 @@ def k_spread(
         return sc
 
     arr = spread_vals.to_numpy()
-    mean_spread = float(np.mean(arr))
     n_assets = clean["asset_id"].n_unique()
-    t, p, sig_method, sig_extra, sig_codes = _spread_significance(
-        arr, n_assets, rng_seed=rng_seed
+    # The HAC path needs the full overlapping spread series (every date);
+    # build it once on the unsampled panel.
+    full_series: pl.DataFrame | None = None
+    if isinstance(inference, NeweyWest):
+        full_series, _ = _build_k_spread_series(df, k, factor_col, return_col)
+    mean_spread, t, p, sig_method, sig_extra, sig_codes = (
+        _spread_significance_with_inference(
+            inference,
+            strided_spread=arr,
+            full_spread=full_series,
+            forward_periods=forward_periods,
+            n_assets=n_assets,
+            rng_seed=rng_seed,
+        )
     )
 
     mean_dispersion = float(np.mean(series["xs_dispersion"].drop_nulls().to_numpy()))

@@ -32,6 +32,7 @@ from factrix._types import (
     DDOF,
     MIN_PORTFOLIO_PERIODS_HARD,
 )
+from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
@@ -40,7 +41,7 @@ from factrix.metrics._helpers import (
     _lag_within_asset,
     _sample_non_overlapping,
     _short_circuit_output,
-    _spread_significance,
+    _spread_significance_with_inference,
     _surface_null_drop,
     _warn_high_tie_ratio,
 )
@@ -73,30 +74,42 @@ def quantile_spread(
     n_groups: int = 5,
     factor_cols: Sequence[str] = ("factor",),
     tie_policy: str = "ordinal",
+    inference: NonOverlapping | NeweyWest = NON_OVERLAPPING,
     *,
     _precomputed_series: dict[str, pl.DataFrame] | None = None,
 ) -> dict[str, MetricResult]:
     """long-short spread (per-period mean).
 
     Args:
+        inference: Headline significance method on the per-date spread.
+            ``fx.inference.NON_OVERLAPPING`` (default) runs the OLS t-test
+            on the non-overlap stride subsample; ``fx.inference.NEWEY_WEST``
+            keeps every date and absorbs the MA(h-1) overlap in a HAC SE.
+            On a small cross-section (``n_assets < 30``) the heavy-tail
+            block bootstrap takes precedence over either (see Notes).
         _precomputed_series: If provided, skip recomputing ``compute_spread_series``.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
             When ``_precomputed_series`` is passed, this only affects the
             ``tie_ratio`` diagnostic — the series itself was already built.
 
     Returns:
-        MetricResult with per-period mean spread, t-stat from non-overlapping periods.
+        MetricResult with per-period mean spread, t-stat from the chosen
+        ``inference``.
 
     Notes:
         ``t = mean(spread) / (std(spread) / sqrt(n))`` on the non-overlap
-        spread series. H0: ``E[spread] = 0``. Long/short alpha decomposition
-        runs the same t-test on ``top_return - universe_return`` and
-        ``universe_return - bottom_return`` so callers can attribute the
-        spread to long-side vs short-side excess.
+        spread series. H0: ``E[spread] = 0``. The Newey-West (NW)
+        heteroskedasticity-and-autocorrelation-consistent (HAC) route is
+        the sibling that keeps the full overlapping series instead of
+        striding — select it via ``inference=fx.inference.NEWEY_WEST``.
+        Because HAC corrects autocorrelation rather than heavy tails, the
+        small-cross-section block bootstrap still wins when it fires and the
+        requested HAC is flagged ``inference_overridden`` in metadata.
 
-        factrix performs the t-test on the non-overlap series rather than
-        applying Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) on an overlapping series; the two approaches are
-        sibling routes — the HAC variant is ``ic(inference=fx.inference.NEWEY_WEST)``.
+        Long/short alpha decomposition stays a descriptive OLS t-test on
+        ``top_return - universe_return`` and ``universe_return -
+        bottom_return`` regardless of ``inference`` — it attributes the
+        spread to long-side vs short-side excess, it is not the headline H0.
 
     References:
         [Hansen-Hodrick 1980][hansen-hodrick-1980]: overlapping-return
@@ -138,12 +151,30 @@ def quantile_spread(
             forward_periods=forward_periods,
         )
     )
+    # The HAC path needs the full overlapping spread series (every date);
+    # ``forward_periods=1`` is the no-stride build of the same primitive.
+    full_series_by_factor: dict[str, pl.DataFrame] | None = (
+        compute_spread_series(
+            df,
+            n_groups=n_groups,
+            factor_cols=cols,
+            tie_policy=tie_policy,
+            forward_periods=1,
+        )
+        if isinstance(inference, NeweyWest)
+        else None
+    )
     return {
         f: _quantile_spread_from_series(
             series=series_by_factor[f],
             sampled=sampled,
             factor_col=f,
             tie_policy=tie_policy,
+            inference=inference,
+            forward_periods=forward_periods,
+            full_series=(
+                full_series_by_factor[f] if full_series_by_factor is not None else None
+            ),
         )
         for f in cols
     }
@@ -155,6 +186,9 @@ def _quantile_spread_from_series(
     sampled: pl.DataFrame,
     factor_col: str,
     tie_policy: str,
+    inference: NonOverlapping | NeweyWest,
+    forward_periods: int,
+    full_series: pl.DataFrame | None,
 ) -> MetricResult:
     """Per-factor t-test pipeline shared by single and batch paths.
 
@@ -179,12 +213,20 @@ def _quantile_spread_from_series(
         return sc
 
     arr = spread_vals.to_numpy()
-    mean_spread = float(np.mean(arr))
-    # Headline test: small cross-sections (n_assets < MIN_ASSETS_WARN) switch
-    # from the non-overlapping t to a block-bootstrap CI (shared policy with
-    # k_spread); larger cross-sections keep the t-test.
+    # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC;
+    # small cross-sections (n_assets < MIN_ASSETS_WARN) switch either to a
+    # block-bootstrap CI (shared policy with k_spread). ``mean_spread`` is the
+    # full-sample mean under HAC, the non-overlap mean otherwise.
     n_assets = sampled["asset_id"].n_unique()
-    t, p, sig_method, sig_extra, sig_codes = _spread_significance(arr, n_assets)
+    mean_spread, t, p, sig_method, sig_extra, sig_codes = (
+        _spread_significance_with_inference(
+            inference,
+            strided_spread=arr,
+            full_spread=full_series,
+            forward_periods=forward_periods,
+            n_assets=n_assets,
+        )
+    )
 
     # Long/short decomposition (spread = long_alpha + short_alpha)
     long_excess = (series["top_return"] - series["universe_return"]).drop_nulls()
