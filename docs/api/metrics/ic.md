@@ -85,7 +85,7 @@ output without the evaluation framing.
     # └────────────┴───────────┴───────────┘
 
     out = ic(ic_df, forward_periods=5, inference=fx.inference.NEWEY_WEST)
-    print(out.value, out.stat, out.metadata["p_value"])
+    print(out.value, out.stat, out.p_value)
     # 0.0722  14.60  2.13e-40
     ```
 

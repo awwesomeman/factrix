@@ -62,7 +62,7 @@ title: factrix.metrics.corrado_rank
     panel = compute_forward_return(raw, forward_periods=5)
 
     rank_out = corrado_rank(panel)
-    print(rank_out.value, rank_out.stat, rank_out.metadata["p_value"])
+    print(rank_out.value, rank_out.stat, rank_out.p_value)
     # 0.041  5.18  2.2e-07   (approximate)
 
     # Compare to parametric CAAR — divergence flags outlier-driven CAAR:

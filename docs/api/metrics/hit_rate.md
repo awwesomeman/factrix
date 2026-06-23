@@ -71,7 +71,7 @@ title: factrix.metrics.hit_rate
     # the compute_ic output is named ``ic``.
     ic_df = compute_ic(panel)["factor"]
     out   = hit_rate(ic_df, value_col="ic", forward_periods=5)
-    print(out.value, out.stat, out.metadata["p_value"], out.metadata["method"])
+    print(out.value, out.stat, out.p_value, out.metadata["method"])
     # 0.62  19  0.011   exact-binomial   (approximate)
     ```
 

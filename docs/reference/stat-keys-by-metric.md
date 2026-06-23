@@ -483,8 +483,10 @@ sample, no events, degenerate signal, …). The fallback shape is:
 - `metadata["reason"]: str` names the short-circuit branch (e.g.
   `"insufficient_periods"`, `"no_events"`,
   `"not_applicable_discrete_signal"`, `"insufficient_clusters"`).
-- `metadata["p_value"] = 1.0` — conservative default so Benjamini-Hochberg-Yekutieli (BHY) treats
-  short-circuited metrics as rejected rather than crashing.
+- `MetricResult.p_value = 1.0` — conservative scalar default for callers
+  reading the field directly (descriptive short-circuits use `None`).
+  `multi_factor.bhy` drops `insufficient_*` placeholders from the test
+  family rather than carrying them as rejected.
 - Optional diagnostic keys naming what was missing or under-spec:
   `min_required`, `min_required_per_asset`, `min_required_per_regime`,
   `missing_column`, `std_u`, `hint`, `n_distinct`. Each is

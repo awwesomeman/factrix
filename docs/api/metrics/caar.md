@@ -99,7 +99,7 @@ title: factrix.metrics.caar
     # └────────────┴───────────┘
 
     out = caar(caar_df, forward_periods=5)
-    print(out.value, out.stat, out.metadata["p_value"])
+    print(out.value, out.stat, out.p_value)
     # 0.0039  6.42  1.4e-09   (approximate)
 
     # Variance-robust alternative when same-date clustering is high:

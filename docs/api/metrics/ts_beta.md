@@ -112,7 +112,7 @@ title: factrix.metrics.ts_beta
 
     out = ts_beta(betas_df)
     r2  = mean_r_squared(betas_df)
-    print(out.value, out.stat, out.metadata["p_value"], r2.value)
+    print(out.value, out.stat, out.p_value, r2.value)
     # 0.078  6.84  4.1e-09  0.021   (approximate)
     ```
 

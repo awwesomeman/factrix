@@ -60,7 +60,7 @@ title: factrix.metrics.monotonicity
 
     out = monotonicity(panel, forward_periods=5, n_groups=10)
     print(out.value, out.stat,
-          out.metadata["mean_signed"], out.metadata["p_value"])
+          out.metadata["mean_signed"], out.p_value)
     # 0.41  5.62  0.39  2.1e-08   (approximate)
     # value ≈ mean|Spearman|; mean_signed ≈ direction; stat t on signed series
     ```
