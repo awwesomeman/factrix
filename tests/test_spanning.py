@@ -8,7 +8,6 @@ import polars as pl
 import pytest
 from factrix._results import MetricResult
 from factrix.metrics.spanning import (
-    ForwardSelectionResult,
     SpanningResult,
     _ols_alpha,
     greedy_forward_selection,
@@ -102,7 +101,7 @@ class TestGreedyForwardSelection:
             {"A": a, "B": b},
             suppress_snooping_warning=True,
         )
-        selected_names = [s.factor_name for s in result.selected_factors]
+        selected_names = [s.factor_name for s in result.metadata["selected_factors"]]
         assert "A" in selected_names
 
     def test_base_factors_not_selected(self):
@@ -123,7 +122,7 @@ class TestGreedyForwardSelection:
             base_spreads={"base": base},
             suppress_snooping_warning=True,
         )
-        selected_names = [s.factor_name for s in result.selected_factors]
+        selected_names = [s.factor_name for s in result.metadata["selected_factors"]]
         assert "spanned" not in selected_names
 
     def test_backward_elimination(self):
@@ -147,7 +146,7 @@ class TestGreedyForwardSelection:
             {"A": a, "B": b},
             suppress_snooping_warning=True,
         )
-        selected_names = [s.factor_name for s in result.selected_factors]
+        selected_names = [s.factor_name for s in result.metadata["selected_factors"]]
         # At most one should survive — they're nearly identical
         assert len(selected_names) <= 2
 
@@ -156,7 +155,7 @@ class TestGreedyForwardSelection:
             {},
             suppress_snooping_warning=True,
         )
-        assert result.selected_factors == []
+        assert result.metadata["selected_factors"] == []
 
     def test_insufficient_dates(self):
         short = _make_spread_series(5, 0.01, 0.005, 42)
@@ -164,7 +163,7 @@ class TestGreedyForwardSelection:
             {"short": short},
             suppress_snooping_warning=True,
         )
-        assert result.selected_factors == []
+        assert result.metadata["selected_factors"] == []
 
     def test_max_factors_limit(self):
         factors = {}
@@ -175,14 +174,14 @@ class TestGreedyForwardSelection:
             max_factors=2,
             suppress_snooping_warning=True,
         )
-        assert len(result.selected_factors) <= 2
+        assert len(result.metadata["selected_factors"]) <= 2
 
     def test_snooping_warning_fires_by_default(self):
         a = _make_spread_series(100, 0.02, 0.005, 42)
         b = _make_spread_series(100, 0.0, 0.01, 99)
         with pytest.warns(UserWarning, match="stepwise selection inflates"):
             result = greedy_forward_selection({"A": a, "B": b})
-        assert result.t_stats_inference_invalid is True
+        assert result.metadata["t_stats_inference_invalid"] is True
 
     def test_snooping_warning_suppressible(self):
         a = _make_spread_series(100, 0.02, 0.005, 42)
@@ -193,13 +192,13 @@ class TestGreedyForwardSelection:
                 suppress_snooping_warning=True,
             )
         # Contract: flag stays truthy even when the warning is silenced.
-        assert result.t_stats_inference_invalid is True
+        assert result.metadata["t_stats_inference_invalid"] is True
 
     def test_result_structure(self):
         a = _make_spread_series(100, 0.02, 0.005, 42)
         result = greedy_forward_selection({"A": a})
-        assert isinstance(result, ForwardSelectionResult)
-        for sr in result.selected_factors:
+        assert isinstance(result, MetricResult)
+        for sr in result.metadata["selected_factors"]:
             assert isinstance(sr, SpanningResult)
             assert sr.selected is True
 
@@ -264,7 +263,7 @@ class TestGreedyForwardSelection:
             "spy never saw candidate_arrays/remaining in any caller frame; "
             "the invariant check would have vacuously passed"
         )
-        assert len(result.selected_factors) >= 1
+        assert len(result.metadata["selected_factors"]) >= 1
 
 
 class TestSpanningEvaluate:
@@ -289,7 +288,9 @@ class TestSpanningEvaluate:
         assert "gfs" in er2.metrics
         result1 = er1.metrics["gfs"]
         result2 = er2.metrics["gfs"]
-        assert isinstance(result1, ForwardSelectionResult)
-        assert isinstance(result2, ForwardSelectionResult)
-        # Verify both factors return the same selection result structure
-        assert result1 is result2
+        assert isinstance(result1, MetricResult)
+        assert isinstance(result2, MetricResult)
+        # Batchable: the selection runs once across the whole factor batch,
+        # so the shared payload (metadata dict) is the same object for every
+        # factor — only the per-label name stamp on the MetricResult differs.
+        assert result1.metadata is result2.metadata

@@ -72,6 +72,15 @@ class WarningCode(StrEnum):
     # is recoverable without re-walking the dependency graph.
     UPSTREAM_UNAVAILABLE = "upstream_unavailable"
 
+    # Fired by the DAG executor when a metric short-circuited on its OWN
+    # precondition (not an upstream producer): a missing input column /
+    # config, or an insufficient sample at its own floor. The NaN
+    # MetricResult carries metadata["reason"] (e.g. "no_weight_column",
+    # "insufficient_periods") with the specific cause; the warning message
+    # mirrors it. Distinct from UPSTREAM_UNAVAILABLE so a root failure is
+    # not mislabelled as a dependency failure.
+    METRIC_UNAVAILABLE = "metric_unavailable"
+
     # Fired by inspect_data when factor columns carry inconsistent axes.
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
@@ -167,6 +176,10 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
         "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
+        WarningCode.METRIC_UNAVAILABLE: "Metric short-circuited on its own precondition (missing "
+        "input column / config, or insufficient sample at its own floor); "
+        "the NaN MetricResult's metadata['reason'] carries the specific cause. "
+        "Distinct from UPSTREAM_UNAVAILABLE, which flags a dependency failure.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
         WarningCode.SINGLE_ASSET_EVENT_DATA: "Single-asset event-shaped data (TIMESERIES + SPARSE, n_assets=1): "

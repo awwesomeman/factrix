@@ -47,7 +47,6 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "spanning_alpha",
     "greedy_forward_selection",
     "SpanningResult",
-    "ForwardSelectionResult",
 ]
 
 _SPANNING_CELL = cell(
@@ -70,23 +69,50 @@ class SpanningResult:
 
 
 @dataclass
-class ForwardSelectionResult:
-    """Output of greedy forward selection.
+class _ForwardSelection:
+    """Internal mutable accumulator for greedy forward selection.
 
-    ``t_stats_inference_invalid``: a fixed ``True`` — stepwise selection
-    searches over the candidate pool and picks by |alpha|, so the
-    t-statistics on ``selected_factors`` and ``eliminated_factors`` are
-    conditioned on having been chosen. They do not have a valid
-    t-distribution null and must not be used for inference
-    ([White (2000)][white-2000]; [Harvey-Liu-Zhu (2016)][harvey-liu-zhu-2016]).
-    For post-selection significance, re-evaluate
-    survivors on a held-out sample or with a bootstrap.
+    Holds the ordered factor lists while the algorithm runs;
+    :func:`_selection_to_result` folds it into the public ``MetricResult``
+    (lists land in ``metadata``). Not a public type — the metric returns a
+    standard ``MetricResult`` like every other ``factrix.metrics.*``
+    primitive, so ``EvaluationResult.metrics`` stays uniformly
+    ``label -> MetricResult``.
     """
 
     selected_factors: list[SpanningResult] = field(default_factory=list)
     eliminated_factors: list[SpanningResult] = field(default_factory=list)
     all_candidates: list[SpanningResult] = field(default_factory=list)
-    t_stats_inference_invalid: bool = field(default=True, init=False)
+
+
+def _selection_to_result(acc: _ForwardSelection, n_obs: int) -> MetricResult:
+    """Fold a :class:`_ForwardSelection` accumulator into a ``MetricResult``.
+
+    ``value`` is the count of surviving (selected) factors; the metric is
+    descriptive (``p_value=None``) — no single hypothesis test is emitted.
+    The ordered factor lists ride in ``metadata`` alongside
+    ``t_stats_inference_invalid=True``: stepwise selection searches over the
+    candidate pool and picks by |alpha|, so the t-statistics on
+    ``selected_factors`` / ``eliminated_factors`` are conditioned on having
+    been chosen. They do not have a valid t-distribution null and must not
+    be used for inference ([White (2000)][white-2000];
+    [Harvey-Liu-Zhu (2016)][harvey-liu-zhu-2016]). For post-selection
+    significance, re-evaluate survivors on a held-out sample or with a
+    bootstrap.
+    """
+    return MetricResult(
+        value=float(len(acc.selected_factors)),
+        p_value=None,
+        n_obs=n_obs,
+        stat=None,
+        metadata={
+            "method": "greedy forward selection",
+            "selected_factors": acc.selected_factors,
+            "eliminated_factors": acc.eliminated_factors,
+            "all_candidates": acc.all_candidates,
+            "t_stats_inference_invalid": True,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -262,16 +288,16 @@ def greedy_forward_selection(
     significance_threshold: float = 2.0,
     max_factors: int = 20,
     suppress_snooping_warning: bool = False,
-) -> ForwardSelectionResult:
+) -> MetricResult:
     """Greedy forward selection with backward elimination.
 
-    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because it returns a ForwardSelectionResult structure and does not short-circuit like standard MetricResult metrics.
+    No static panel-shape thresholds are declared (sample_threshold=SampleThreshold()) because the descriptive result carries no single hypothesis test and does not short-circuit like value/p_value metrics.
 
     WARNING — data snooping / selection bias:
         Stepwise selection over a candidate pool of K factors inflates
         the per-selected-factor t-stat by an order-statistic factor
         (typical estimates 2-4× on K=10-100 pools). The t-stats on
-        ``selected_factors`` are NOT valid for hypothesis testing —
+        ``metadata["selected_factors"]`` are NOT valid for hypothesis testing —
         they are conditional on survival, not draws from the t-null.
         Use this function as a **model-construction helper**, not as
         an inference tool. For post-selection significance, re-evaluate
@@ -301,7 +327,12 @@ def greedy_forward_selection(
             inference.
 
     Returns:
-        ForwardSelectionResult with selected factors in order.
+        A descriptive :class:`~factrix._results.MetricResult`: ``value`` is
+        the count of surviving (selected) factors and ``p_value`` is
+        ``None``. The ordered factor lists ride in ``metadata`` —
+        ``selected_factors`` / ``eliminated_factors`` / ``all_candidates``
+        (each a list of :class:`SpanningResult`) plus
+        ``t_stats_inference_invalid=True``.
 
     Notes:
         Iteratively run ``spanning_alpha(candidate, base ∪ selected)``;
@@ -329,8 +360,8 @@ def greedy_forward_selection(
     Examples:
         Greedy step-wise selection across two candidate spread series.
         ``suppress_snooping_warning=True`` acknowledges the inflated-t
-        contract documented on
-        :class:`ForwardSelectionResult`:
+        contract carried by the ``t_stats_inference_invalid`` metadata
+        flag:
 
         >>> import factrix as fx
         >>> from factrix.preprocess import compute_forward_return
@@ -351,7 +382,7 @@ def greedy_forward_selection(
         ...     spreads,
         ...     suppress_snooping_warning=True,
         ... )
-        >>> result.t_stats_inference_invalid
+        >>> result.metadata["t_stats_inference_invalid"]
         True
     """
     if not suppress_snooping_warning:
@@ -383,14 +414,14 @@ def greedy_forward_selection(
     common_dates, all_arrays = _align_spread_series(all_series)
 
     if not all_arrays:
-        return ForwardSelectionResult()
+        return _selection_to_result(_ForwardSelection(), n_obs=0)
 
     base_arrays = {n: all_arrays[n] for n in base_spreads if n in all_arrays}
     candidate_arrays = {n: all_arrays[n] for n in factor_spreads if n in all_arrays}
 
     selected_names: list[str] = []
     selected_arrays: dict[str, np.ndarray] = {}
-    result = ForwardSelectionResult()
+    result = _ForwardSelection()
     remaining = set(candidate_arrays.keys())
 
     for _step in range(max_factors):
@@ -453,7 +484,7 @@ def greedy_forward_selection(
             result,
         )
 
-    return result
+    return _selection_to_result(result, n_obs=len(common_dates))
 
 
 def _backward_eliminate(
@@ -461,7 +492,7 @@ def _backward_eliminate(
     selected_arrays: dict[str, np.ndarray],
     base_arrays: dict[str, np.ndarray],
     threshold: float,
-    result: ForwardSelectionResult,
+    result: _ForwardSelection,
 ) -> None:
     """Remove selected factors whose alpha becomes insignificant."""
     changed = True

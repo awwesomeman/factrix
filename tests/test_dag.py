@@ -373,6 +373,34 @@ class TestShortCircuitPropagation:
         warning_codes = [w.code.value for w in out["x"].warnings]
         assert "upstream_unavailable" in warning_codes
 
+    def test_self_short_circuit_is_metric_unavailable(self):
+        # A root metric that short-circuits on its OWN precondition (missing
+        # column / config / sample) is a root failure, not a dependency
+        # failure: it must surface METRIC_UNAVAILABLE, not UPSTREAM_UNAVAILABLE.
+        def standalone(panel):
+            return MetricResult(
+                value=float("nan"),
+                metadata={"reason": "no_weight_column"},
+            )
+
+        spec = _make_spec("standalone")
+        axes = {
+            "scope": FactorScope.INDIVIDUAL,
+            "density": FactorDensity.DENSE,
+            "forward_periods": 1,
+        }
+        panel = _build_panel(factor_cols=("x",))
+        ex = DagExecutor(
+            _nodes(spec), fn_resolver={"standalone": standalone}.__getitem__
+        )
+        out = ex.execute(panel, ["x"], **axes)
+        warnings = [(w.code, w.source, w.message) for w in out["x"].warnings]
+        assert (WarningCode.METRIC_UNAVAILABLE, "standalone", "no_weight_column") in (
+            warnings
+        )
+        codes = [w.code for w in out["x"].warnings]
+        assert WarningCode.UPSTREAM_UNAVAILABLE not in codes
+
 
 class TestPlanString:
     def test_plan_lists_role_and_requires(self):

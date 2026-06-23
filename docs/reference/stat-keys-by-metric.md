@@ -365,9 +365,10 @@ hypothesis test.
 
 #### `greedy_forward_selection`
 
-Stepwise selection meta-metric; `MetricResult.value` is `NaN` and
-`MetricResult.stat = None`. Per-candidate `t`-stats are *not* valid
-for inference (selection bias).
+Stepwise selection meta-metric; descriptive `MetricResult` with
+`value` = count of surviving (selected) factors, `p_value = None`, and
+`stat = None`. Per-candidate `t`-stats are *not* valid for inference
+(selection bias).
 
 - *descriptive*: `selected_factors` (list of `SpanningResult`),
   `eliminated_factors`, `all_candidates`,

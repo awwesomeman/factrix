@@ -105,6 +105,9 @@ class EvaluationResult:
             ``1`` is legal for TIMESERIES).
         metrics: Read-only ``label -> MetricResult`` mapping carrying
             per-metric outputs, keyed by the caller-supplied label.
+            Structural metrics (e.g. ``greedy_forward_selection``) carry
+            their non-scalar payload in ``MetricResult.metadata`` — the
+            value is still a :class:`MetricResult`.
         context: Caller-supplied free-form labels (e.g.
             ``{"region": "US"}``). Read by
             ``bhy(expand_over=...)`` / ``partial_conjunction`` /
@@ -225,12 +228,8 @@ class EvaluationResult:
 
         metric_rows = []
         for name, out in sorted(self.metrics.items()):
-            if isinstance(out, MetricResult):
-                val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
-                p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
-            else:
-                val_repr = "object"
-                p_repr = ""
+            val_repr = "null" if math.isnan(out.value) else f"{out.value:.4g}"
+            p_repr = f"{out.p_value:.4g}" if isinstance(out.p_value, float) else ""
             metric_rows.append(
                 f"<tr><td>{html.escape(name)}</td>"
                 f"<td style='text-align:right'>{val_repr}</td>"
@@ -287,18 +286,9 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
 
 def _output_row(
     key: str,
-    out: Any,
+    out: MetricResult,
     warnings_by_metric: Mapping[str, list[str]],
 ) -> dict[str, Any]:
-    if not isinstance(out, MetricResult):
-        return {
-            "metric_name": key,
-            "value": None,
-            "p_value": None,
-            "stat": None,
-            "n_obs": None,
-            "warning_codes": list(warnings_by_metric.get(key, [])),
-        }
     label = out.name or key
     return {
         "metric_name": label,
@@ -320,23 +310,7 @@ def _float_or_none(x: object) -> float | None:
     return None
 
 
-def _metric_output_to_record(out: Any) -> dict[str, Any]:
-    if not isinstance(out, MetricResult):
-        if hasattr(out, "__dict__"):
-            return {
-                "value": None,
-                "p_value": None,
-                "stat": None,
-                "n_obs": None,
-                "metadata": {"result": repr(out)},
-            }
-        return {
-            "value": None,
-            "p_value": None,
-            "stat": None,
-            "n_obs": None,
-            "metadata": {},
-        }
+def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
     return {
         "value": _float_or_none(out.value),
         "p_value": _float_or_none(out.p_value),
