@@ -328,7 +328,7 @@ def _validate_metrics_arg(metrics: object) -> None:
                 value=f"{key!r} -> {type(val).__name__}",
                 expected=(
                     "every value to be a metric instance imported from "
-                    "factrix.metrics, e.g. ic() / quantile_spread(n_quantiles=5)"
+                    "factrix.metrics, e.g. ic() / quantile_spread(n_groups=5)"
                 ),
                 docs_path=_DOCS_METRICS,
             )
@@ -497,7 +497,8 @@ def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
             value=f"{len(failed)} metric(s) inapplicable to this panel",
             expected=(
                 f"all metrics applicable to the panel. Inapplicable — {detail}. "
-                f"Pass strict=False to keep them as NaN with warnings, or "
+                f"For sensitivity grids, pass strict=False and stack "
+                f"EvaluationResult.to_frame() to inspect is_applicable/reason. Or "
                 f"pre-filter with [m.name for m in factrix.inspect_data(data).usable]."
             ),
             docs_path=_DOCS_METRICS,

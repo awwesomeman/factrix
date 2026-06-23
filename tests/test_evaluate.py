@@ -190,10 +190,14 @@ class TestForwardPeriodsContract:
 class TestStrict:
     def test_strict_true_raises_on_inapplicable(self):
         thin = _panel(n_dates=12)
-        with pytest.raises(UserInputError, match="inapplicable"):
+        with pytest.raises(UserInputError) as exc:
             fx.evaluate(
                 thin, metrics={"ic": ic()}, factor_cols=["factor"], forward_periods=5
             )
+        msg = str(exc.value)
+        assert "inapplicable" in msg
+        assert "strict=False" in msg
+        assert "is_applicable/reason" in msg
 
     def test_strict_false_keeps_nan(self):
         thin = _panel(n_dates=12)
@@ -205,6 +209,9 @@ class TestStrict:
             strict=False,
         )["factor"]
         assert er.metrics["ic"].value != er.metrics["ic"].value  # NaN
+        status = er.to_frame().row(0, named=True)
+        assert status["is_applicable"] is False
+        assert status["reason"] == "insufficient_ic_periods"
 
 
 class TestStrictStructureSoftening:

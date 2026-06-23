@@ -83,12 +83,14 @@ class TestEvaluationResultToFrame:
             "stat",
             "n_obs",
             "is_applicable",
+            "reason",
             "warning_codes",
         ]
         assert df.schema["value"] == pl.Float64
         assert df.schema["p_value"] == pl.Float64
         assert df.schema["n_obs"] == pl.Int64
         assert df.schema["is_applicable"] == pl.Boolean
+        assert df.schema["reason"] == pl.Utf8
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)
         assert df.height == 2
 
@@ -119,8 +121,11 @@ class TestEvaluationResultToFrame:
         row = r.to_frame().row(0, named=True)
 
         assert bad.is_applicable is False
+        assert bad.reason == "insufficient_ic_periods"
         assert row["is_applicable"] is False
+        assert row["reason"] == "insufficient_ic_periods"
         assert r.to_dict()["metrics"]["ic"]["is_applicable"] is False
+        assert r.to_dict()["metrics"]["ic"]["reason"] == "insufficient_ic_periods"
 
     def test_warning_codes_filter_by_source(self):
         warnings = [
@@ -164,6 +169,7 @@ class TestEvaluationResultToDict:
         assert "metrics_partition" not in back
         assert back["metrics"]["ic"]["p_value"] == 0.012
         assert back["metrics"]["ic"]["is_applicable"] is True
+        assert back["metrics"]["ic"]["reason"] is None
         assert back["warnings"][0]["code"] == WarningCode.FEW_ASSETS.value
         assert back["plan"] == "1. ic [per-factor]"
 
