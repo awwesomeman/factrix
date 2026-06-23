@@ -22,7 +22,6 @@ import polars as pl
 
 from factrix._axis import (
     Aggregation,
-    DataStructure,
     FactorDensity,
 )
 from factrix._metric_index import SampleThreshold, cell
@@ -35,7 +34,10 @@ __all__ = [
     "event_around_return",
 ]
 
-_EH_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
+# structure=None (event-axis): event-window returns aggregate over events, so a
+# single name with enough events is valid. Density stays SPARSE; the event floor
+# guards thin samples.
+_EH_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 
 @metric(

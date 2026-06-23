@@ -427,15 +427,20 @@ class TestDataLevelWarnings:
         assert "few_assets" in codes
 
     def test_single_asset_event_data_emits_guidance(self):
-        # n_assets=1 event panel ⇒ TIMESERIES + SPARSE: every event metric is
-        # blocked. Surface the regime instead of a silent all-unusable verdict.
+        # n_assets=1 event panel ⇒ TIMESERIES + SPARSE: event-axis metrics are
+        # usable, but the cross-sectional clustering_hhi stays blocked. The
+        # data-level warning names it so its absence from `usable` is explained.
         info = inspect_data(
-            fx.datasets.make_event_panel(n_assets=1, n_dates=120, seed=0)
+            fx.datasets.make_event_panel(n_assets=1, n_dates=400, seed=0)
         )
-        codes = [w.code.value for w in info.warnings]
-        assert "single_asset_event_data" in codes
-        assert all(w.source is None for w in info.warnings)
-        assert len(info.usable) == 0  # the regime the warning flags
+        warn = [w for w in info.warnings if w.code.value == "single_asset_event_data"]
+        assert len(warn) == 1
+        assert warn[0].source is None
+        assert "clustering_hhi" in warn[0].message
+        # event-axis metrics run on a single name; the cross-sectional one does not
+        assert len(info.usable) > 0
+        usable_names = {m.name for m in info.usable}
+        assert "clustering_hhi" not in usable_names
 
     def test_multi_asset_event_panel_no_single_asset_warning(self):
         info = inspect_data(
@@ -449,6 +454,38 @@ class TestDataLevelWarnings:
         info = inspect_data(_single_asset_data(n_dates=120))
         codes = [w.code.value for w in info.warnings]
         assert "single_asset_event_data" not in codes
+
+
+class TestEventAxisSingleAsset:
+    """Event metrics whose inference unit is the event cross-section run on
+    single-asset (TIMESERIES) data; the cross-sectional clustering_hhi does not.
+    """
+
+    @staticmethod
+    def _panel() -> pl.DataFrame:
+        return fx.datasets.make_event_panel(n_assets=1, n_dates=400, seed=0)
+
+    def test_event_axis_metrics_usable_on_single_asset(self):
+        info = inspect_data(self._panel())
+        usable = {m.name for m in info.usable}
+        # representative event-axis metrics, event-count floor permitting
+        assert {"bmp_z", "corrado_rank", "mfe_mae", "event_hit_rate"} <= usable
+
+    def test_clustering_hhi_stays_cross_sectional(self):
+        info = inspect_data(self._panel())
+        hhi = _by_name(info, "clustering_hhi")
+        assert hhi.usable is False
+        assert any("cell mismatch" in b for b in hhi.blockers)
+
+    def test_event_axis_metric_computes_finite_value(self):
+        # applicability is not enough — the primitive must produce a real value
+        # on single-asset data, not a structure short-circuit.
+        panel = fx.preprocess.compute_forward_return(self._panel(), forward_periods=5)
+        res = fx.evaluate(
+            panel, metrics={"bmp_z": fx.metrics.bmp_z()}, factor_cols=["factor"]
+        )
+        value = res["factor"].metrics["bmp_z"].value
+        assert value is not None and not math.isnan(value)
 
 
 class TestWarningSourceConvention:

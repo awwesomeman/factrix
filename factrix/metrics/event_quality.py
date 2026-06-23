@@ -26,7 +26,6 @@ import polars as pl
 
 from factrix._axis import (
     Aggregation,
-    DataStructure,
     FactorDensity,
 )
 from factrix._metric_index import SampleThreshold, cell
@@ -53,7 +52,10 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "signal_density",
 ]
 
-_EQ_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
+# structure=None (event-axis): event_hit_rate / event_ic / profit_factor aggregate
+# over events, so a single name with enough events is valid. Density stays SPARSE;
+# the event floor guards thin samples.
+_EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 
 @metric(

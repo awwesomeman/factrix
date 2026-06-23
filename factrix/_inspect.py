@@ -614,12 +614,52 @@ def inspect_data(data: Any, factor_cols: Sequence[str] | None = None) -> DataIns
         _evaluate_applicability(spec, properties, signal_discrete)
         for _, spec in public_specs()
     ]
+    data_warnings.extend(_single_asset_event_warning(properties, metrics))
 
     return DataInspection(
         properties=properties,
         metrics=metrics,
         warnings=data_warnings,
     )
+
+
+def _single_asset_event_warning(
+    properties: DataProperties, metrics: list[MetricApplicability]
+) -> list[Warning]:
+    """Explain why a cross-sectional event metric is missing from `usable` on
+    single-asset event data.
+
+    On TIMESERIES + SPARSE data (n_assets=1) the event-axis metrics run over the
+    event cross-section and are usable; only a metric that still needs the asset
+    cross-section (``cell.structure=PANEL``, e.g. ``clustering_hhi``, whose
+    same-date event clustering is degenerate when a single name has at most one
+    event per date) stays blocked. Name those so their absence is explained
+    rather than silent. Fires only when such a metric is actually present and
+    unusable — dynamic on the verdicts, not on shape alone.
+    """
+    if not (
+        properties.structure is DataStructure.TIMESERIES
+        and properties.density is FactorDensity.SPARSE
+    ):
+        return []
+    cross_sectional = sorted(
+        m.name
+        for m in metrics
+        if m.spec.cell.density is FactorDensity.SPARSE
+        and m.spec.cell.structure is DataStructure.PANEL
+        and not m.usable
+    )
+    if not cross_sectional:
+        return []
+    names = ", ".join(cross_sectional)
+    message = (
+        f"Single-asset event data (n_assets=1): event-axis metrics run over the "
+        f"event cross-section and are usable. Metrics that need the asset "
+        f"cross-section ({names}) need n_assets>=2 and are unavailable here."
+    )
+    return [
+        Warning(code=WarningCode.SINGLE_ASSET_EVENT_DATA, source=None, message=message)
+    ]
 
 
 def _evaluate_applicability(
@@ -707,16 +747,6 @@ def _data_level_warnings(properties: DataProperties) -> list[Warning]:
         and MIN_PERIODS_HARD <= properties.n_periods < MIN_PERIODS_WARN
     ):
         code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS
-        warnings.append(Warning(code=code, source=None, message=code.description))
-    # Single-asset event-shaped data (n_assets=1 ⇒ TIMESERIES, plus SPARSE):
-    # every event metric is cell.structure=PANEL and therefore unusable. Surface
-    # the regime as a data-level signal rather than leaving the user with a
-    # silent all-unusable verdict — the block is a known gap, not a broken panel.
-    if (
-        properties.structure is DataStructure.TIMESERIES
-        and properties.density is FactorDensity.SPARSE
-    ):
-        code = WarningCode.SINGLE_ASSET_EVENT_DATA
         warnings.append(Warning(code=code, source=None, message=code.description))
     if properties.structure is DataStructure.PANEL:
         tier = cross_section_tier(properties.n_assets)
