@@ -61,6 +61,16 @@ class MetricResult:
             parts.append(f"stat={self.stat:.2f}")
         return f"MetricResult({', '.join(parts)})"
 
+    @property
+    def is_applicable(self) -> bool:
+        """Whether the metric produced a usable result for this input.
+
+        ``strict=False`` short-circuits unsupported metrics into placeholder
+        outputs with ``metadata["reason"]``. This flag lets reporting and
+        grid-search code filter those rows without relying on metadata shape.
+        """
+        return "reason" not in self.metadata
+
 
 @dataclass(frozen=True, slots=True)
 class Warning:
@@ -144,6 +154,7 @@ class EvaluationResult:
         | ``p_value`` | f64 \| null | ``MetricResult.p_value`` |
         | ``stat`` | f64 \| null | ``MetricResult.stat`` |
         | ``n_obs`` | i64 \| null | ``MetricResult.n_obs`` — estimator effective sample size |
+        | ``is_applicable`` | bool | false for ``strict=False`` short-circuits |
         | ``warning_codes`` | list[str] | per-metric warning codes |
 
         Designed for stacking across factors:
@@ -171,7 +182,8 @@ class EvaluationResult:
 
         - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
           ``n_pairs`` / ``n_assets`` / ``context``
-        - ``metrics``: ``label -> {value, p_value, stat, n_obs, metadata}``
+        - ``metrics``: ``label -> {value, p_value, stat, n_obs,
+          is_applicable, metadata}``
         - ``warnings``: list of ``{code, source, message}``
         - ``plan``
 
@@ -280,6 +292,7 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "p_value": pl.Float64,
     "stat": pl.Float64,
     "n_obs": pl.Int64,
+    "is_applicable": pl.Boolean,
     "warning_codes": pl.List(pl.Utf8),
 }
 
@@ -296,6 +309,7 @@ def _output_row(
         "p_value": _float_or_none(out.p_value),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
+        "is_applicable": out.is_applicable,
         "warning_codes": list(warnings_by_metric.get(label, [])),
     }
 
@@ -316,6 +330,7 @@ def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
         "p_value": _float_or_none(out.p_value),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
+        "is_applicable": out.is_applicable,
         "metadata": {k: _scrub_nonfinite(v) for k, v in out.metadata.items()},
     }
 

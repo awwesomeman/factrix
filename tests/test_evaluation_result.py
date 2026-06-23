@@ -82,11 +82,13 @@ class TestEvaluationResultToFrame:
             "p_value",
             "stat",
             "n_obs",
+            "is_applicable",
             "warning_codes",
         ]
         assert df.schema["value"] == pl.Float64
         assert df.schema["p_value"] == pl.Float64
         assert df.schema["n_obs"] == pl.Int64
+        assert df.schema["is_applicable"] == pl.Boolean
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)
         assert df.height == 2
 
@@ -105,6 +107,20 @@ class TestEvaluationResultToFrame:
         row = df.row(0, named=True)
         assert row["value"] is None
         assert row["p_value"] is None
+
+    def test_short_circuit_marks_metric_inapplicable(self):
+        bad = MetricResult(
+            value=float("nan"),
+            metadata={"reason": "insufficient_ic_periods"},
+            name="ic",
+        )
+        g = MappingProxyType({"ic": bad})
+        r = _sample_result(g)
+        row = r.to_frame().row(0, named=True)
+
+        assert bad.is_applicable is False
+        assert row["is_applicable"] is False
+        assert r.to_dict()["metrics"]["ic"]["is_applicable"] is False
 
     def test_warning_codes_filter_by_source(self):
         warnings = [
@@ -147,6 +163,7 @@ class TestEvaluationResultToDict:
         assert "n_obs" not in back
         assert "metrics_partition" not in back
         assert back["metrics"]["ic"]["p_value"] == 0.012
+        assert back["metrics"]["ic"]["is_applicable"] is True
         assert back["warnings"][0]["code"] == WarningCode.FEW_ASSETS.value
         assert back["plan"] == "1. ic [per-factor]"
 

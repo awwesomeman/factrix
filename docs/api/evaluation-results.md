@@ -21,6 +21,7 @@ Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This
 - `p_value` (`f64` | `null`): The p-value, if applicable.
 - `stat` (`f64` | `null`): The underlying test statistic, if applicable.
 - `n_obs` (`i64` | `null`): Sample size seen by the metric.
+- `is_applicable` (`bool`): `false` when `strict=False` returned a short-circuit placeholder for an unsupported metric/input combination.
 - `warning_codes` (`list[str]`): List of warnings attached to the metric.
 
 ### `to_dict()`
@@ -50,6 +51,7 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
     > In v0.14.0, the `p` attribute was renamed to `p_value` to unify p-value naming conventions. There is no transitional alias.
 - **`stat`** (`float` | `None`): The test statistic (e.g. t-statistic, z-statistic).
 - **`n_obs`** (`int` | `None`): The number of observations used in this specific metric calculation.
+- **`is_applicable`** (`bool`): `False` for `strict=False` short-circuit placeholders, so reporting code can filter them without inspecting `metadata["reason"]`.
 - **`metadata`** (`dict`): Underlying dictionary of metric-specific metadata.
 - **`warning_codes`** (`tuple[str, ...]`): Advisory warnings attached to the metric.
 - **`name`** (`str`): The name of the metric, automatically populated during dispatch.
