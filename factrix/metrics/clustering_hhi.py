@@ -36,6 +36,11 @@ __all__ = [
 
 
 @metric(
+    # structure=PANEL (kept, unlike the other event metrics): HHI measures
+    # same-date event clustering, which needs a cross-section of assets so that
+    # multiple events can share a date. A single name has at most one event per
+    # date, so HHI degenerates to 1/n_events (uninformative) — hence this stays
+    # multi-asset rather than relaxing to structure=None like caar / bmp_z / etc.
     cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
     aggregation=Aggregation.CS_SNAPSHOT,
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),

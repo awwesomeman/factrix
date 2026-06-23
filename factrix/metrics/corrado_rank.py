@@ -12,7 +12,6 @@ import polars as pl
 
 from factrix._axis import (
     Aggregation,
-    DataStructure,
     FactorDensity,
 )
 from factrix._metric_index import SampleThreshold, cell
@@ -28,7 +27,10 @@ __all__ = [
 
 
 @metric(
-    cell=cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL),
+    # structure=None (event-axis): the rank test runs across events, so a single
+    # name with enough events is a valid sample. Density stays SPARSE; the event
+    # floor guards thin samples.
+    cell=cell(None, FactorDensity.SPARSE, structure=None),
     aggregation=Aggregation.EVENT_TIME,
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
