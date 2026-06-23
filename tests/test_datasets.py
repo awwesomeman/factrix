@@ -83,11 +83,14 @@ class TestMakeEventPanelSchema:
             n_dates=252,
             event_rate=0.08,
             event_magnitude_jitter=0.5,
-            post_event_drift_bps=50.0,
+            post_event_drift_bps=250.0,
             seed=0,
         )
         panel = compute_forward_return(raw, forward_periods=5)
         result = event_ic(panel)
+        # jitter gives |factor| variation (not just sign), and drift scales
+        # with magnitude, so event_ic resolves to a detectable positive IC
+        # instead of short-circuiting on a degenerate ternary signal.
         assert result.metadata.get("reason") is None
         assert result.value > 0
 

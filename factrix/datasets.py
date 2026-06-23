@@ -279,9 +279,7 @@ def make_event_panel(
     event_idx = np.argwhere(has_event)
     for t, i in event_idx:
         end = min(t + 2 + signal_horizon, n_dates)
-        daily_ret[t + 2 : end, i] += (
-            signs[t, i] * drift_per_bar * magnitude_scale[t, i]
-        )
+        daily_ret[t + 2 : end, i] += signs[t, i] * drift_per_bar * magnitude_scale[t, i]
 
     prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
 
