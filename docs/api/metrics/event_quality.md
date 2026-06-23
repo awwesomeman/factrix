@@ -95,7 +95,7 @@ title: factrix.metrics.event_quality
     panel = compute_forward_return(raw, forward_periods=5)
 
     hit = event_hit_rate(panel)
-    print(hit.value, hit.stat, hit.metadata["p_value"])
+    print(hit.value, hit.stat, hit.p_value)
     # 0.564  3.81  1.4e-04   (approximate)
 
     sk = event_skewness(panel)

@@ -107,7 +107,7 @@ title: factrix.metrics.spanning
         factor_spread = spreads["candidate"],
         base_spreads  = {k: spreads[k] for k in ("size", "value", "momentum")},
     )
-    print(out.value, out.stat, out.metadata["p_value"], out.metadata["r_squared"])
+    print(out.value, out.stat, out.p_value, out.metadata["r_squared"])
     # 0.0011  1.83  0.068  0.21   (approximate)
 
     # Multi-factor: greedy build a parsimonious set

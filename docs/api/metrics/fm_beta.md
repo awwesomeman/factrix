@@ -91,7 +91,7 @@ title: factrix.metrics.fm_beta
     # └────────────┴───────────┘
 
     out = fm_beta(beta_df, forward_periods=5)
-    print(out.value, out.stat, out.metadata["p_value"])
+    print(out.value, out.stat, out.p_value)
     # 0.0084  6.10  1.3e-09   (approximate)
     ```
 

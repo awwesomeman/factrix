@@ -72,7 +72,7 @@ title: factrix.metrics.directional_hit_rate
     panel = compute_forward_return(raw, forward_periods=5)
 
     out = directional_hit_rate(panel, forward_periods=5)
-    print(out.value, out.stat, out.metadata["p_value"], out.metadata["method"])
+    print(out.value, out.stat, out.p_value, out.metadata["method"])
     # 0.57  2.74  0.0031  Pesaran-Timmermann (1992)   (approximate)
     ```
 

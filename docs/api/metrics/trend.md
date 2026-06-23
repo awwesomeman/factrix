@@ -76,7 +76,7 @@ title: factrix.metrics.trend
     # the compute_ic output is named ``ic``.
     ic_df = compute_ic(panel)["factor"]
     out   = ic_trend(ic_df, value_col="ic")
-    print(out.value, out.stat, out.metadata["p_value"])
+    print(out.value, out.stat, out.p_value)
     # -3.2e-05  -0.91  0.36   (approximate; flat slope)
     print(out.metadata["ci_low"], out.metadata["ci_high"],
           out.metadata["ci_excludes_zero"])

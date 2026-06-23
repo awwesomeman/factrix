@@ -75,7 +75,7 @@ title: factrix.metrics.ts_asymmetry
     panel  = compute_forward_return(panel, forward_periods=5)
 
     out = ts_asymmetry(panel, forward_periods=5)
-    print(out.value, out.stat, out.metadata["p_value"])
+    print(out.value, out.stat, out.p_value)
     # 0.00021  1.83  0.067   (approximate; method A magnitude)
     print(out.metadata["beta_long"], out.metadata["beta_short"],
           out.metadata["abs_short_over_long"])
