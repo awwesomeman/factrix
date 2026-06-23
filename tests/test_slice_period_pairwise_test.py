@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import numpy as np
 import factrix as fx
+import numpy as np
 import polars as pl
 import pytest
 from factrix import slice_period_pairwise_test
