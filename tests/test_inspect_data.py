@@ -426,6 +426,30 @@ class TestDataLevelWarnings:
         codes = [w.code.value for w in info.warnings]
         assert "few_assets" in codes
 
+    def test_single_asset_event_data_emits_guidance(self):
+        # n_assets=1 event panel ⇒ TIMESERIES + SPARSE: every event metric is
+        # blocked. Surface the regime instead of a silent all-unusable verdict.
+        info = inspect_data(
+            fx.datasets.make_event_panel(n_assets=1, n_dates=120, seed=0)
+        )
+        codes = [w.code.value for w in info.warnings]
+        assert "single_asset_event_data" in codes
+        assert all(w.source is None for w in info.warnings)
+        assert len(info.usable) == 0  # the regime the warning flags
+
+    def test_multi_asset_event_panel_no_single_asset_warning(self):
+        info = inspect_data(
+            fx.datasets.make_event_panel(n_assets=50, n_dates=400, seed=0)
+        )
+        codes = [w.code.value for w in info.warnings]
+        assert "single_asset_event_data" not in codes
+
+    def test_dense_single_asset_no_event_warning(self):
+        # A dense single-asset timeseries is not event-shaped; must not fire.
+        info = inspect_data(_single_asset_data(n_dates=120))
+        codes = [w.code.value for w in info.warnings]
+        assert "single_asset_event_data" not in codes
+
 
 class TestWarningSourceConvention:
     """Guard the `Warning.source` convention across every emission point:

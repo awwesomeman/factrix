@@ -76,6 +76,16 @@ class WarningCode(StrEnum):
     CROSS_FACTOR_DENSITY_MISMATCH = "cross_factor_density_mismatch"
     CROSS_FACTOR_SCOPE_MISMATCH = "cross_factor_scope_mismatch"
 
+    # Fired by inspect_data on single-asset event-shaped data (TIMESERIES +
+    # SPARSE, i.e. n_assets=1). Every event metric expresses the event
+    # cross-section across the asset axis (cell.structure=PANEL), so all are
+    # unusable here — a data-level signal that the silence is a known gap, not
+    # a broken panel. The inference unit for an event study is the event
+    # cross-section (n_events), not assets; native single-asset support is
+    # tracked separately. Deliberately does NOT advise adding assets — pooling
+    # unrelated names mixes return-generating processes.
+    SINGLE_ASSET_EVENT_DATA = "single_asset_event_data"
+
     # Fired by evaluate(strict=False) when a metric's declared
     # cell.structure disagrees with the data's structure (e.g. a PANEL
     # metric requested on TIMESERIES data). The metric is not executed —
@@ -159,6 +169,13 @@ _WARNING_DESCRIPTIONS.update(
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",
         WarningCode.CROSS_FACTOR_DENSITY_MISMATCH: "Factor columns carry inconsistent FactorDensity (dense and sparse mixed).",
         WarningCode.CROSS_FACTOR_SCOPE_MISMATCH: "Factor columns carry inconsistent FactorScope (individual and common mixed).",
+        WarningCode.SINGLE_ASSET_EVENT_DATA: "Single-asset event-shaped data (TIMESERIES + SPARSE, n_assets=1): "
+        "every event metric expresses the event cross-section across the asset "
+        "axis, so all are unusable here. The inference unit for an event study "
+        "is the event cross-section (n_events), not assets — one name with many "
+        "non-overlapping events is a valid study, but native single-asset "
+        "support is not yet wired. Do not pool unrelated assets to clear this; "
+        "that mixes return-generating processes.",
         WarningCode.STRUCTURE_MISMATCH: "Metric's declared cell.structure disagrees with the data "
         "structure (e.g. a PANEL metric on TIMESERIES data); under "
         "strict=False the metric short-circuits to NaN instead of executing. "

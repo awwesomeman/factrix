@@ -708,6 +708,16 @@ def _data_level_warnings(properties: DataProperties) -> list[Warning]:
     ):
         code = WarningCode.UNRELIABLE_SE_SHORT_PERIODS
         warnings.append(Warning(code=code, source=None, message=code.description))
+    # Single-asset event-shaped data (n_assets=1 ⇒ TIMESERIES, plus SPARSE):
+    # every event metric is cell.structure=PANEL and therefore unusable. Surface
+    # the regime as a data-level signal rather than leaving the user with a
+    # silent all-unusable verdict — the block is a known gap, not a broken panel.
+    if (
+        properties.structure is DataStructure.TIMESERIES
+        and properties.density is FactorDensity.SPARSE
+    ):
+        code = WarningCode.SINGLE_ASSET_EVENT_DATA
+        warnings.append(Warning(code=code, source=None, message=code.description))
     if properties.structure is DataStructure.PANEL:
         tier = cross_section_tier(properties.n_assets)
         if tier is not None:
