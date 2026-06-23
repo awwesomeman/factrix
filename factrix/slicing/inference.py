@@ -89,6 +89,21 @@ def _resolve_producer(metric: MetricBase, func_name: str) -> Callable:
     return next(iter(requires.values()))
 
 
+def _run_producer_for_factor(
+    producer: Callable,
+    data: pl.DataFrame,
+    factor_col: str,
+) -> pl.DataFrame:
+    """Run either a batch producer or a single-factor producer for one factor."""
+    param_names = set(getattr(producer, "_param_names", ()))
+    if "factor_cols" in param_names:
+        produced = producer(data, factor_cols=[factor_col])
+        return produced[factor_col]
+    if "factor_col" in param_names:
+        return producer(data, factor_col=factor_col)
+    return producer(data)
+
+
 def _build_per_date_panel(
     data: pl.DataFrame,
     metric: MetricBase,
@@ -122,8 +137,8 @@ def _build_per_date_panel(
     labels = list(slices.keys())
 
     def series_for(sub: pl.DataFrame) -> pl.DataFrame:
-        produced = producer(sub, factor_cols=[factor_col])
-        return per_date_fn(produced[factor_col])
+        produced = _run_producer_for_factor(producer, sub, factor_col)
+        return per_date_fn(produced)
 
     aligned = series_for(slices[labels[0]]).rename({"value": "v_0"})
     for i, lbl in enumerate(labels[1:], start=1):

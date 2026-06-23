@@ -54,9 +54,11 @@ from factrix.metrics._helpers import (
     _scaled_min_periods,
     _short_circuit_output,
 )
+from factrix.metrics._metric_capabilities import per_date_series_rename
 from factrix.metrics._primitives import compute_caar
 
 __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
+    "compute_caar",
     "caar",
     "bmp_z",
 ]
@@ -74,6 +76,7 @@ _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 # lives in the procedure short-circuit and is parallel to (not
 # exposed via) this attribute.
 min_assets_per_group: int | None = None
+per_date_series = per_date_series_rename("caar")
 
 
 def _caar_sample_threshold(self: Any) -> SampleThreshold:
@@ -220,8 +223,7 @@ def caar(
     # Normal input arrives from compute_caar carrying date_ordinal (the
     # full-calendar position). A hand-built caar_df that bypasses
     # compute_caar lacks it; fall back to the dense rank of the event dates
-    # themselves — degrades to event-index spacing, the legacy behaviour, but
-    # never raises.
+    # themselves — event-index spacing is less calendar-aware, but never raises.
     if "date_ordinal" not in caar_df.columns:
         caar_df = caar_df.with_columns(
             (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")

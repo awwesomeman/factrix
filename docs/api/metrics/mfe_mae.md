@@ -60,7 +60,7 @@ title: factrix.metrics.mfe_mae
 
     panel = fx.datasets.make_event_panel(
         n_assets=200, n_dates=500, event_rate=0.02,
-        post_event_drift=0.004, with_price=True, seed=2024,
+        post_event_drift_bps=40.0, seed=2024,
     )
 
     per_event = compute_mfe_mae(panel, window=20, estimation_window=60)

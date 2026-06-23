@@ -80,7 +80,7 @@ title: factrix.metrics.event_horizon
 
     panel = fx.datasets.make_event_panel(
         n_assets=200, n_dates=500, event_rate=0.02,
-        post_event_drift=0.004, with_price=True, seed=2024,
+        post_event_drift_bps=40.0, seed=2024,
     )
 
     rets = compute_event_returns(panel, offsets=[-6, -3, -1, 1, 6, 12, 24])

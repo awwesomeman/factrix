@@ -6,6 +6,7 @@ title: factrix.metrics.caar
     options:
       show_root_members_full_path: true
       members:
+        - compute_caar
         - caar
         - bmp_z
 
@@ -75,12 +76,15 @@ title: factrix.metrics.caar
 
     ```python
     import factrix as fx
+    import polars as pl
     from factrix.metrics.caar import compute_caar, caar, bmp_z
     from factrix.preprocess import compute_forward_return
 
+    pl.Config.set_tbl_formatting("ASCII_MARKDOWN")
+
     raw   = fx.datasets.make_event_panel(
         n_assets=200, n_dates=500, event_rate=0.02,
-        post_event_drift=0.004, seed=2024,
+        post_event_drift_bps=40.0, seed=2024,
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
