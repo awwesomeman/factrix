@@ -118,7 +118,7 @@ print('p_value =', round(ic_res.p_value, 4))
 **Multi-factor BHY screening**
 
 ```python
-fdr_results = fx.multi_factor.bhy(results, primary=["ic"], q=0.05)
+fdr_results = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)
 bhy_ic = fdr_results["ic"]
 print("survivors =", [r.factor for r in bhy_ic.survivors])
 ```

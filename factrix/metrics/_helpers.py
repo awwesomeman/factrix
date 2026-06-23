@@ -243,9 +243,10 @@ def _short_circuit_output(
     a silent short-circuit. NaN propagates through downstream aggregations
     and plots, making data shortages impossible to misread as valid zeros.
 
-    ``p_value=1.0`` is the conservative default so BHY treats short-circuited
-    metrics as rejected rather than crashing; the promoted ``p_value`` field
-    mirrors it.
+    ``p_value=1.0`` is the conservative scalar default for callers that read the
+    field directly; ``multi_factor.bhy`` drops ``insufficient_*`` placeholders
+    before forming the test family, so data-shortage rows do not inflate the
+    multiple-testing denominator.
     Pass ``descriptive=True`` for metrics that emit no hypothesis test
     (`oos_decay`, `clustering_hhi`, ...) so callers cannot mis-route the
     short-circuit into BHY / gate logic expecting a probability.

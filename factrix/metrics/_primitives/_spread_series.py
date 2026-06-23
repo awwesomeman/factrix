@@ -99,10 +99,16 @@ def compute_spread_series(
     median_n = _median_universe_size(sampled)
     per_group = median_n // n_groups if n_groups > 0 else 0
     if per_group < 5:
+        guidance = (
+            "Reduce n_groups, or treat this as a fragile small-cross-section "
+            "diagnostic."
+            if n_groups > 2
+            else "This is already the coarsest long-short split; treat the spread as a fragile small-cross-section diagnostic."
+        )
         warnings.warn(
             f"Median {per_group} assets per group (N={median_n}, "
             f"n_groups={n_groups}). Spread may be dominated by "
-            f"individual assets. Consider reducing n_groups.",
+            f"individual assets. {guidance}",
             UserWarning,
             stacklevel=2,
         )

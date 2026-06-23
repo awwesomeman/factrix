@@ -66,6 +66,12 @@ class TestComputeSpreadSeriesBatch:
                 tiny_panel, forward_periods=1, n_groups=5, factor_cols=[]
             )
 
+    def test_two_group_small_cross_section_warning_is_actionable(self, tiny_panel):
+        with pytest.warns(UserWarning, match="coarsest long-short split") as caught:
+            compute_spread_series(tiny_panel, forward_periods=1, n_groups=2)
+
+        assert "Consider reducing n_groups" not in str(caught[0].message)
+
 
 class TestQuantileSpread:
     def test_noisy_panel(self, noisy_panel):

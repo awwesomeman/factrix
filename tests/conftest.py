@@ -39,6 +39,7 @@ def make_result(
     p: float | None,
     metric: str,
     value: float = 0.05,
+    metadata: dict[str, Any] | None = None,
     forward_periods: int = 5,
     context: dict[str, Any] | None = None,
     extra_outputs: dict[str, MetricResult] | None = None,
@@ -48,9 +49,11 @@ def make_result(
     ``metric`` names the metric label included in outputs. ``p=None``
     simulates a metric with no p-value.
     """
-    metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
+    output_metadata: dict[str, Any] = {} if p is None else {"p_value": float(p)}
+    if metadata:
+        output_metadata.update(metadata)
     primary_out = MetricResult(
-        value=value, p_value=p, n_obs=100, name=metric, metadata=metadata
+        value=value, p_value=p, n_obs=100, name=metric, metadata=output_metadata
     )
     outputs = {metric: primary_out}
     if extra_outputs:
