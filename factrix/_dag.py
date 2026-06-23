@@ -255,10 +255,10 @@ class DagExecutor:
             for c in live:
                 out = result[c]
                 producer_outputs[(nid, c)] = out
+                # Only METRIC nodes return MetricResult; producer / pipeline
+                # nodes return DataFrames and stay out of metric_outputs.
                 if isinstance(out, MetricResult):
                     metric_outputs[(nid, c)] = dataclasses.replace(out, name=nid)
-                elif node.spec.role is SpecRole.METRIC:
-                    metric_outputs[(nid, c)] = out
 
         return self._assemble(
             cols,
@@ -366,20 +366,30 @@ class DagExecutor:
                     continue
                 out = metric_outputs[key]
                 outputs[label] = out
-                if isinstance(out, MetricResult):
-                    reason = out.metadata.get("reason")
-                    if isinstance(reason, str) and math.isnan(out.value):
-                        warnings.append(
-                            Warning(
-                                code=WarningCode.UPSTREAM_UNAVAILABLE,
-                                source=label,
-                                message=reason,
-                            )
+                reason = out.metadata.get("reason")
+                if isinstance(reason, str) and math.isnan(out.value):
+                    # A genuine upstream-propagated skip carries
+                    # reason=="upstream_unavailable" (set by
+                    # _check_upstream_short_circuit). Any other reason is
+                    # the metric short-circuiting on its OWN precondition
+                    # (missing column / config / insufficient sample) — a
+                    # root failure, not a dependency failure.
+                    short_circuit_code = (
+                        WarningCode.UPSTREAM_UNAVAILABLE
+                        if reason == "upstream_unavailable"
+                        else WarningCode.METRIC_UNAVAILABLE
+                    )
+                    warnings.append(
+                        Warning(
+                            code=short_circuit_code,
+                            source=label,
+                            message=reason,
                         )
-                    for code in out.warning_codes:
-                        warnings.append(
-                            Warning(code=WarningCode(code), source=label, message="")
-                        )
+                    )
+                for code in out.warning_codes:
+                    warnings.append(
+                        Warning(code=WarningCode(code), source=label, message="")
+                    )
             results[c] = EvaluationResult(
                 factor=c,
                 cell=(scope, density, structure),

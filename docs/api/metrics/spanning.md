@@ -9,7 +9,6 @@ title: factrix.metrics.spanning
         - spanning_alpha
         - greedy_forward_selection
         - SpanningResult
-        - ForwardSelectionResult
 
 <hr>
 
@@ -59,8 +58,8 @@ title: factrix.metrics.spanning
     by $|\alpha|$; the per-selected-factor $t$-stat is order-statistic
     inflated (typically 2-4x on pools of 10-100 candidates) and is
     *not* a draw from the $t$-null (White 2000; Harvey-Liu-Zhu 2016).
-    The returned `t_stats_inference_invalid=True` flag encodes this
-    contract. For post-selection significance, re-evaluate survivors
+    The returned `metadata["t_stats_inference_invalid"]=True` flag encodes
+    this contract. For post-selection significance, re-evaluate survivors
     on a held-out window, or use a Hansen (2005) SPA / White (2000)
     Reality Check on the pre-selection stage.
 
@@ -119,7 +118,7 @@ title: factrix.metrics.spanning
         max_factors             = 4,
         suppress_snooping_warning = True,  # acknowledged: construction-only
     )
-    for s in sel.selected_factors:
+    for s in sel.metadata["selected_factors"]:
         print(s.factor_name, s.alpha, s.t_stat)
     # momentum  0.0028  4.10
     # value     0.0019  2.51   (approximate; t_stats inflated, do not infer)
