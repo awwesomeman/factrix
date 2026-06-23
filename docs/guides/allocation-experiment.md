@@ -107,11 +107,19 @@ small-cross-section diagnostic rather than a portfolio claim.
 ## Multi-factor screens
 
 After evaluating many candidate factors, pass the `EvaluationResult` values to
-BHY false discovery rate control:
+BHY false discovery rate control. Build a panel with several factor columns —
+`make_multi_factor_panel` emits `factor_0000`, `factor_0001`, ...:
 
 ```python
+multi = compute_forward_return(
+    fx.datasets.make_multi_factor_panel(
+        n_assets=50, n_dates=252, n_factors=3, seed=2024
+    ),
+    forward_periods=5,
+)
+
 results = fx.evaluate(
-    panel,
+    multi,
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
     factor_cols=["factor_0000", "factor_0001", "factor_0002"],
     forward_periods=5,
