@@ -27,8 +27,7 @@ Batch + Benjamini-Hochberg-Yekutieli (BHY)::
         metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
         factor_cols=candidate_cols,
     )
-    ic_results = {col: er.metrics["ic"] for col, er in results.items()}
-    survivors = fx.multi_factor.bhy(ic_results, metrics=["ic"], q=0.05)
+    survivors = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)
 
 LLM agent reference: ``llms-full.txt`` covers concepts, public API, and
 typical usage patterns in a single fetch. Two access paths::

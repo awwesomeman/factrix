@@ -70,6 +70,22 @@ def test_no_surviving_results_returns_empty_record():
     assert len(out["ic"]) == 0
 
 
+def test_insufficient_short_circuits_are_dropped_from_family():
+    make_spec("ic")
+    valid = make_result(factor="valid", p=0.01, metric="ic")
+    insufficient = make_result(
+        factor="thin",
+        p=1.0,
+        metric="ic",
+        value=float("nan"),
+        metadata={"reason": "insufficient_ic_periods"},
+    )
+    out = bhy([valid, insufficient], metrics=["ic"], q=0.05)["ic"]
+
+    assert out.n_tests == {(): 1}
+    assert [r.factor for r in out.survivors] == ["valid"]
+
+
 def test_expand_over_forward_periods_partitions_by_horizon():
     make_spec("ic")
     results = [

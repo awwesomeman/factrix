@@ -389,25 +389,30 @@ def bhy(
     for idx, p_entry in enumerate(partition):
         buckets[p_entry.expand_over_values].append(idx)
 
-    singleton = sum(1 for ix in buckets.values() if len(ix) == 1)
-    if singleton and len(buckets) > 1:
-        warnings.warn(
-            f"bhy: {singleton} of {len(buckets)} expand_over buckets "
-            "contain a single result — BHY on n=1 is identical to a "
-            "raw threshold and provides no FDR correction.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-
-    n_tests: dict[tuple[Any, ...], int] = {
-        bucket_key: len(ix) for bucket_key, ix in buckets.items()
-    }
-
     out: dict[str, BhyResult] = {}
     for spec in metric_list:
         entries = _attach_p_values(partition, func_name="bhy", metric=spec)
+        active_buckets: dict[tuple[Any, ...], list[int]] = {
+            bucket_key: [
+                i
+                for i in ix
+                if not _is_insufficient_short_circuit(entries[i].result, spec)
+            ]
+            for bucket_key, ix in buckets.items()
+        }
+        active_buckets = {k: ix for k, ix in active_buckets.items() if ix}
+        n_tests = {bucket_key: len(ix) for bucket_key, ix in active_buckets.items()}
+        singleton = sum(1 for ix in active_buckets.values() if len(ix) == 1)
+        if singleton and len(active_buckets) > 1:
+            warnings.warn(
+                f"bhy: {singleton} of {len(active_buckets)} expand_over buckets "
+                "contain a single result — BHY on n=1 is identical to a "
+                "raw threshold and provides no FDR correction.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         adj_p_all = np.full(len(entries), np.nan, dtype=np.float64)
-        for ix in buckets.values():
+        for ix in active_buckets.values():
             p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
             adj_p_all[ix] = bhy_adjusted_p(p_array)
 
@@ -421,6 +426,12 @@ def bhy(
             n_tests=n_tests,
         )
     return out
+
+
+def _is_insufficient_short_circuit(result: EvaluationResult, metric: str) -> bool:
+    """Return True when a metric output is a data-shortage placeholder."""
+    reason = result.metrics[metric].metadata.get("reason")
+    return isinstance(reason, str) and reason.startswith("insufficient_")
 
 
 def partial_conjunction(
