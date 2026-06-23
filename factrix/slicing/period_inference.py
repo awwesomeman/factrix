@@ -83,6 +83,7 @@ from factrix.slicing.inference import (
     _DOCS_SLICE,
     _hac_lags,
     _resolve_producer,
+    _run_producer_for_factor,
     _validate_metric_instance,
 )
 
@@ -141,8 +142,8 @@ def _build_per_slice_series(
     labels = list(slices.keys())
     series_list: list[np.ndarray] = []
     for lbl in labels:
-        produced = producer(slices[lbl], factor_cols=[factor_col])
-        s = per_date_fn(produced[factor_col])["value"].to_numpy()
+        produced = _run_producer_for_factor(producer, slices[lbl], factor_col)
+        s = per_date_fn(produced)["value"].to_numpy()
         if s.shape[0] < 2:
             raise ValueError(
                 f"{func_name}: slice {lbl!r} has <2 dates ({s.shape[0]}); "

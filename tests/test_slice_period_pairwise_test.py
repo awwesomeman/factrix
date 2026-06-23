@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import numpy as np
+import factrix as fx
 import polars as pl
 import pytest
 from factrix import slice_period_pairwise_test
 from factrix._errors import UserInputError
-from factrix.metrics import fm_beta, ic, monotonicity
+from factrix.metrics import caar, fm_beta, ic, monotonicity
 
 from tests._slice_panel import build_disjoint_period_panel
 
@@ -131,6 +132,30 @@ def test_fama_macbeth_metric_accepted() -> None:
     )
     out = slice_period_pairwise_test(
         df, fm_beta(), by="regime", factor_col="factor", rng_seed=9
+    )
+    assert out.height == 1
+    assert out.columns == _PAIRWISE_COLS
+
+
+def test_caar_metric_accepted_for_event_regimes() -> None:
+    raw = fx.datasets.make_multi_factor_event_panel(
+        n_factors=1,
+        n_assets=30,
+        n_dates=180,
+        event_rate=0.18,
+        post_event_drift_bps=30.0,
+        seed=9,
+    )
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+    midpoint = panel["date"].median()
+    panel = panel.with_columns(
+        pl.when(pl.col("date") < midpoint)
+        .then(pl.lit("early"))
+        .otherwise(pl.lit("late"))
+        .alias("regime")
+    )
+    out = slice_period_pairwise_test(
+        panel, caar(), by="regime", factor_col="factor_0000", rng_seed=9
     )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS

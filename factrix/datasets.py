@@ -185,6 +185,7 @@ def make_event_panel(
     n_dates: int = 252,
     event_rate: float = 0.02,
     event_magnitude: float = 1.0,
+    event_magnitude_jitter: float = 0.0,
     post_event_drift_bps: float = 10.0,
     signal_horizon: int = 5,
     seed: int = 42,
@@ -213,6 +214,9 @@ def make_event_panel(
         event_rate: Per-cell event probability (≈ expected events per
             asset per date).
         event_magnitude: Magnitude of the event signal.
+        event_magnitude_jitter: Relative half-width for continuous event
+            magnitudes. ``0.0`` emits ternary ``{-R, 0, +R}``; positive
+            values make ``event_ic`` usable by giving ``|factor|`` variation.
         post_event_drift_bps: Total drift in basis points injected
             across the ``signal_horizon`` bars of the forward-return
             window (bars ``t+2 .. t+1+H``).
@@ -228,7 +232,8 @@ def make_event_panel(
 
     Returns:
         Long DataFrame with ``date, asset_id, price, factor``. Factor
-        is ``Float64`` with values in ``{-R, 0.0, +R}``. Attach
+        is ``Float64`` with values in ``{-R, 0.0, +R}`` when
+        ``event_magnitude_jitter=0``. Attach
         ``forward_return`` (e.g. via
         ``factrix.preprocess.compute_forward_return``) before
         passing to ``fx.evaluate``.
@@ -248,6 +253,10 @@ def make_event_panel(
         )
     if not 0.0 <= event_rate <= 1.0:
         raise ValueError(f"event_rate must be in [0, 1], got {event_rate}")
+    if event_magnitude_jitter < 0.0:
+        raise ValueError(
+            f"event_magnitude_jitter must be >= 0, got {event_magnitude_jitter}"
+        )
 
     rng = np.random.default_rng(seed)
     sigmas = rng.uniform(0.01, 0.03, size=n_assets)
@@ -255,7 +264,13 @@ def make_event_panel(
 
     has_event = rng.random((n_dates, n_assets)) < event_rate
     signs = rng.choice([-1.0, 1.0], size=(n_dates, n_assets))
-    factor = np.where(has_event, signs * event_magnitude, 0.0)
+    if event_magnitude_jitter:
+        low = max(0.0, 1.0 - event_magnitude_jitter)
+        high = 1.0 + event_magnitude_jitter
+        magnitude_scale = rng.uniform(low, high, size=(n_dates, n_assets))
+    else:
+        magnitude_scale = np.ones((n_dates, n_assets))
+    factor = np.where(has_event, signs * event_magnitude * magnitude_scale, 0.0)
 
     # compute_forward_return uses (p[t+1+H] / p[t+1] - 1)/H, whose realized
     # returns span bars t+2..t+1+H — NOT t+1..t+H. Drift has to be injected
@@ -264,7 +279,9 @@ def make_event_panel(
     event_idx = np.argwhere(has_event)
     for t, i in event_idx:
         end = min(t + 2 + signal_horizon, n_dates)
-        daily_ret[t + 2 : end, i] += signs[t, i] * drift_per_bar
+        daily_ret[t + 2 : end, i] += (
+            signs[t, i] * drift_per_bar * magnitude_scale[t, i]
+        )
 
     prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
 
@@ -400,6 +417,7 @@ def make_multi_factor_event_panel(
     n_dates: int = 400,
     event_rate: float = 0.04,
     event_magnitude: float = 1.0,
+    event_magnitude_jitter: float = 0.0,
     post_event_drift_bps: float = 10.0,
     signal_horizon: int = 5,
     seed: int = 42,
@@ -408,7 +426,8 @@ def make_multi_factor_event_panel(
     """Synthetic multi-factor event-density panel.
 
     Each of ``n_factors`` factor columns is independently sampled as a sparse
-    ternary matrix with values in ``{-R, 0, +R}`` where ``R = event_magnitude``.
+    matrix with values in ``{-R, 0, +R}`` where ``R = event_magnitude`` when
+    ``event_magnitude_jitter=0``; positive jitter emits continuous magnitudes.
     Post-event drift from all factors accumulates into the shared underlying
     asset returns.
 
@@ -420,6 +439,9 @@ def make_multi_factor_event_panel(
         n_dates: Number of calendar dates.
         event_rate: Per-cell event probability.
         event_magnitude: Magnitude of the event signal.
+        event_magnitude_jitter: Relative half-width for continuous event
+            magnitudes. ``0.0`` emits ternary event signals; positive values
+            make ``event_ic`` usable in synthetic screening experiments.
         post_event_drift_bps: Total drift in basis points injected per event
             across the ``signal_horizon`` bars of the forward-return
             window (bars ``t+2 .. t+1+H``).
@@ -453,6 +475,10 @@ def make_multi_factor_event_panel(
         )
     if not 0.0 <= event_rate <= 1.0:
         raise ValueError(f"event_rate must be in [0, 1], got {event_rate}")
+    if event_magnitude_jitter < 0.0:
+        raise ValueError(
+            f"event_magnitude_jitter must be >= 0, got {event_magnitude_jitter}"
+        )
 
     rng = np.random.default_rng(seed)
     sigmas = rng.uniform(0.01, 0.03, size=n_assets)
@@ -465,12 +491,20 @@ def make_multi_factor_event_panel(
     for k in range(n_factors):
         has_event = rng.random((n_dates, n_assets)) < event_rate
         signs = rng.choice([-1.0, 1.0], size=(n_dates, n_assets))
-        factor_k = np.where(has_event, signs * event_magnitude, 0.0)
+        if event_magnitude_jitter:
+            low = max(0.0, 1.0 - event_magnitude_jitter)
+            high = 1.0 + event_magnitude_jitter
+            magnitude_scale = rng.uniform(low, high, size=(n_dates, n_assets))
+        else:
+            magnitude_scale = np.ones((n_dates, n_assets))
+        factor_k = np.where(has_event, signs * event_magnitude * magnitude_scale, 0.0)
 
         event_idx = np.argwhere(has_event)
         for t, i in event_idx:
             end = min(t + 2 + signal_horizon, n_dates)
-            daily_ret[t + 2 : end, i] += signs[t, i] * drift_per_bar
+            daily_ret[t + 2 : end, i] += (
+                signs[t, i] * drift_per_bar * magnitude_scale[t, i]
+            )
 
         factor_columns[f"factor_{k:0{width}d}"] = factor_k
 

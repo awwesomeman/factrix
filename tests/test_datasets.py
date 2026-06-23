@@ -11,6 +11,8 @@ from __future__ import annotations
 import polars as pl
 import pytest
 from factrix import datasets
+from factrix.metrics.event_quality import event_ic
+from factrix.preprocess import compute_forward_return
 
 
 class TestMakeCsPanelSchema:
@@ -75,6 +77,20 @@ class TestMakeEventPanelSchema:
         )
         assert set(df["factor"].unique().to_list()) <= {-2.0, 0.0, 2.0}
 
+    def test_event_magnitude_jitter_makes_event_ic_usable(self):
+        raw = datasets.make_event_panel(
+            n_assets=30,
+            n_dates=252,
+            event_rate=0.08,
+            event_magnitude_jitter=0.5,
+            post_event_drift_bps=50.0,
+            seed=0,
+        )
+        panel = compute_forward_return(raw, forward_periods=5)
+        result = event_ic(panel)
+        assert result.metadata.get("reason") is None
+        assert result.value > 0
+
     def test_seed_is_deterministic(self):
         a = datasets.make_event_panel(n_assets=8, n_dates=30, seed=7)
         b = datasets.make_event_panel(n_assets=8, n_dates=30, seed=7)
@@ -111,6 +127,22 @@ class TestMakeMultiFactorEventPanelSchema:
         )
         for col in ["factor_0000", "factor_0001", "factor_0002"]:
             assert set(df[col].unique().to_list()) <= {-1.0, 0.0, 1.0}
+
+    def test_magnitude_jitter_adds_continuous_event_values(self):
+        df = datasets.make_multi_factor_event_panel(
+            n_factors=1,
+            n_assets=20,
+            n_dates=120,
+            event_rate=0.10,
+            event_magnitude_jitter=0.5,
+            seed=0,
+        )
+        events = df.filter(pl.col("factor_0000") != 0)["factor_0000"].abs()
+        assert events.n_unique() > 2
+
+    def test_rejects_negative_magnitude_jitter(self):
+        with pytest.raises(ValueError, match="event_magnitude_jitter"):
+            datasets.make_multi_factor_event_panel(event_magnitude_jitter=-0.1)
 
     def test_seed_is_deterministic(self):
         a = datasets.make_multi_factor_event_panel(

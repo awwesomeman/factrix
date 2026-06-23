@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import numpy as np
+import factrix as fx
 import polars as pl
 import pytest
 from factrix import slice_pairwise_test
 from factrix._data_input import _stamp_forward_periods
 from factrix._errors import UserInputError
-from factrix.metrics import fm_beta, ic, monotonicity
+from factrix.metrics import caar, fm_beta, ic, monotonicity
 
 from tests._slice_panel import (
     build_autocorrelated_ic_panel,
@@ -76,6 +77,26 @@ def test_fama_macbeth_metric_accepted() -> None:
         n_dates=60, seed=6, signal={"x": 0.1, "y": 0.1}, label_col="regime"
     )
     out = slice_pairwise_test(df, fm_beta(), by="regime", factor_col="factor")
+    assert out.height == 1
+    assert out.columns == _PAIRWISE_COLS
+
+
+def test_caar_metric_accepted_for_event_slices() -> None:
+    raw = fx.datasets.make_multi_factor_event_panel(
+        n_factors=1,
+        n_assets=40,
+        n_dates=160,
+        event_rate=0.20,
+        post_event_drift_bps=30.0,
+        seed=6,
+    )
+    panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+    assets = panel["asset_id"].unique().sort().to_list()
+    universe = {a: ("u1" if i % 2 else "u0") for i, a in enumerate(assets)}
+    panel = panel.with_columns(
+        pl.col("asset_id").replace_strict(universe).alias("universe")
+    )
+    out = slice_pairwise_test(panel, caar(), by="universe", factor_col="factor_0000")
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
 

@@ -90,7 +90,7 @@ title: factrix.metrics.event_quality
 
     raw   = fx.datasets.make_event_panel(
         n_assets=200, n_dates=500, event_rate=0.02,
-        post_event_drift=0.004, seed=2024,
+        event_magnitude_jitter=0.5, post_event_drift_bps=40.0, seed=2024,
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
