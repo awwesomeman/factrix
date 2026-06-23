@@ -184,19 +184,18 @@ def make_event_panel(
     n_assets: int = 50,
     n_dates: int = 252,
     event_rate: float = 0.02,
+    event_magnitude: float = 1.0,
     post_event_drift_bps: float = 10.0,
     signal_horizon: int = 5,
     seed: int = 42,
     start_date: str = _DEFAULT_START,
 ) -> pl.DataFrame:
-    """Synthetic event-density panel — sparse ``{0, R}`` schema, emitted
-    here as the canonical signed ternary ``factor ∈ {-1, 0, +1}``.
+    """Synthetic event-density panel — sparse ``{-R, 0, +R}`` schema.
 
     Construction:
         1. Baseline returns as in ``make_cs_panel``.
         2. Independent ``Bernoulli(event_rate)`` per ``(t, i)``; sign
-           ``±1`` with equal probability (this generator's chosen
-           magnitude under the broader ``{0, R}`` sparse schema).
+           ``±1`` with equal probability; magnitude ``R = event_magnitude``.
            Non-event cells get ``0``.
         3. Post-event drift: for each event with sign ``s``, add
            ``s · post_event_drift_bps / 1e4 / signal_horizon`` to the
@@ -213,6 +212,7 @@ def make_event_panel(
         n_dates: Number of calendar dates.
         event_rate: Per-cell event probability (≈ expected events per
             asset per date).
+        event_magnitude: Magnitude of the event signal.
         post_event_drift_bps: Total drift in basis points injected
             across the ``signal_horizon`` bars of the forward-return
             window (bars ``t+2 .. t+1+H``).
@@ -228,15 +228,15 @@ def make_event_panel(
 
     Returns:
         Long DataFrame with ``date, asset_id, price, factor``. Factor
-        is ``Float64`` with values in ``{-1.0, 0.0, +1.0}``. Attach
+        is ``Float64`` with values in ``{-R, 0.0, +R}``. Attach
         ``forward_return`` (e.g. via
         ``factrix.preprocess.compute_forward_return``) before
         passing to ``fx.evaluate``.
 
     Examples:
         >>> import factrix as fx
-        >>> raw = fx.datasets.make_event_panel(n_assets=20, n_dates=120, event_rate=0.05)
-        >>> set(raw["factor"].unique().to_list()) <= {-1.0, 0.0, 1.0}
+        >>> raw = fx.datasets.make_event_panel(n_assets=20, n_dates=120, event_rate=0.05, event_magnitude=2.0)
+        >>> set(raw["factor"].unique().to_list()) <= {-2.0, 0.0, 2.0}
         True
     """
     if n_assets < 1:
@@ -255,7 +255,7 @@ def make_event_panel(
 
     has_event = rng.random((n_dates, n_assets)) < event_rate
     signs = rng.choice([-1.0, 1.0], size=(n_dates, n_assets))
-    factor = np.where(has_event, signs, 0.0)
+    factor = np.where(has_event, signs * event_magnitude, 0.0)
 
     # compute_forward_return uses (p[t+1+H] / p[t+1] - 1)/H, whose realized
     # returns span bars t+2..t+1+H — NOT t+1..t+H. Drift has to be injected
@@ -264,7 +264,7 @@ def make_event_panel(
     event_idx = np.argwhere(has_event)
     for t, i in event_idx:
         end = min(t + 2 + signal_horizon, n_dates)
-        daily_ret[t + 2 : end, i] += factor[t, i] * drift_per_bar
+        daily_ret[t + 2 : end, i] += signs[t, i] * drift_per_bar
 
     prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
 
@@ -368,6 +368,113 @@ def make_multi_factor_panel(
         f_k = eta.copy()
         f_k[:last_valid] = rho * fr_z + sqrt_1_rho2 * _zscore_cs(eta[:last_valid])
         factor_columns[f"factor_{k:0{width}d}"] = f_k
+
+    dates = _daily_date_index(start_date, n_dates)
+    assets = _asset_ids(n_assets)
+    date_col = np.repeat(dates.to_numpy(), n_assets)
+    asset_col = np.tile(np.asarray(assets, dtype=object), n_dates)
+
+    base = pl.DataFrame(
+        {
+            "date": date_col,
+            "asset_id": asset_col,
+            "price": prices.flatten(),
+        },
+        schema={
+            "date": pl.Datetime("ms"),
+            "asset_id": pl.String,
+            "price": pl.Float64,
+        },
+    )
+    factor_series = [
+        pl.Series(name, arr.flatten(), dtype=pl.Float64)
+        for name, arr in factor_columns.items()
+    ]
+    return base.with_columns(factor_series)
+
+
+def make_multi_factor_event_panel(
+    *,
+    n_factors: int = 55,
+    n_assets: int = 25,
+    n_dates: int = 400,
+    event_rate: float = 0.04,
+    event_magnitude: float = 1.0,
+    post_event_drift_bps: float = 10.0,
+    signal_horizon: int = 5,
+    seed: int = 42,
+    start_date: str = _DEFAULT_START,
+) -> pl.DataFrame:
+    """Synthetic multi-factor event-density panel.
+
+    Each of ``n_factors`` factor columns is independently sampled as a sparse
+    ternary matrix with values in ``{-R, 0, +R}`` where ``R = event_magnitude``.
+    Post-event drift from all factors accumulates into the shared underlying
+    asset returns.
+
+    Suitable for evaluating sparse multi-factor screening workflows.
+
+    Args:
+        n_factors: Number of factor columns to emit.
+        n_assets: Cross-sectional width.
+        n_dates: Number of calendar dates.
+        event_rate: Per-cell event probability.
+        event_magnitude: Magnitude of the event signal.
+        post_event_drift_bps: Total drift in basis points injected per event
+            across the ``signal_horizon`` bars of the forward-return
+            window (bars ``t+2 .. t+1+H``).
+        signal_horizon: Horizon (in bars) over which post-event drift
+            is distributed.
+        seed: RNG seed.
+        start_date: ISO date for the first row.
+
+    Returns:
+        Long DataFrame with ``date, asset_id, price, factor_0000,
+        factor_0001, ...``. ``factor_*`` column count equals
+        ``n_factors`` and column width is zero-padded to a stable
+        sort order.
+
+    Examples:
+        >>> import factrix as fx
+        >>> raw = fx.datasets.make_multi_factor_event_panel(n_factors=3, n_assets=10, n_dates=60)
+        >>> raw.columns[:4]
+        ['date', 'asset_id', 'price', 'factor_0000']
+        >>> raw.height == 3 * 10 * 60
+        True
+    """
+    if n_factors < 1:
+        raise ValueError("n_factors must be >= 1")
+    if n_assets < 1:
+        raise ValueError("n_assets must be >= 1")
+    if n_dates < signal_horizon + 2:
+        raise ValueError(
+            f"n_dates must be >= signal_horizon + 2 (got n_dates={n_dates}, "
+            f"signal_horizon={signal_horizon})"
+        )
+    if not 0.0 <= event_rate <= 1.0:
+        raise ValueError(f"event_rate must be in [0, 1], got {event_rate}")
+
+    rng = np.random.default_rng(seed)
+    sigmas = rng.uniform(0.01, 0.03, size=n_assets)
+    daily_ret = rng.standard_normal((n_dates, n_assets)) * sigmas
+
+    drift_per_bar = post_event_drift_bps / 1e4 / signal_horizon
+    width = max(4, len(str(n_factors - 1)))
+    factor_columns: dict[str, np.ndarray] = {}
+
+    for k in range(n_factors):
+        has_event = rng.random((n_dates, n_assets)) < event_rate
+        signs = rng.choice([-1.0, 1.0], size=(n_dates, n_assets))
+        factor_k = np.where(has_event, signs * event_magnitude, 0.0)
+
+        event_idx = np.argwhere(has_event)
+        for t, i in event_idx:
+            end = min(t + 2 + signal_horizon, n_dates)
+            daily_ret[t + 2 : end, i] += signs[t, i] * drift_per_bar
+
+        factor_columns[f"factor_{k:0{width}d}"] = factor_k
+
+    prices = 100.0 * np.cumprod(1.0 + daily_ret, axis=0)
 
     dates = _daily_date_index(start_date, n_dates)
     assets = _asset_ids(n_assets)
