@@ -33,12 +33,15 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
 
 from factrix._codes import WarningCode, cross_section_tier
+
+if TYPE_CHECKING:
+    from factrix.inference import NeweyWest, NonOverlapping
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.constants import MIN_ASSETS_WARN
@@ -116,6 +119,80 @@ def _spread_significance(
     tier: WarningCode | None = cross_section_tier(n_assets)
     codes = (tier.value,) if tier is not None else ()
     return t, float(p_boot), "block-bootstrap CI", extra, codes
+
+
+def _spread_significance_with_inference(
+    inference: NonOverlapping | NeweyWest,
+    *,
+    strided_spread: np.ndarray,
+    full_spread: pl.DataFrame | None,
+    forward_periods: int,
+    n_assets: int,
+    rng_seed: int = _SPREAD_BOOTSTRAP_SEED,
+) -> tuple[float, float, float, str, dict[str, object], tuple[str, ...]]:
+    """Single headline-significance chokepoint shared by every spread metric.
+
+    Returns ``(value, stat, p_value, method, extra_metadata, warning_codes)``
+    where ``value`` is the mean-spread point estimate under the chosen
+    inference: the full-sample mean for the HAC path, the non-overlap mean
+    otherwise.
+
+    Two deliberate layers — both ``quantile_spread`` and ``k_spread`` route
+    here so the policy lives in one place:
+
+    1. **Small-cross-section fallback (automatic, data-driven).** When the
+       cross-section is thin (``n_assets < MIN_ASSETS_WARN``) the per-date
+       spread is heavy-tailed, so the distribution-free block-bootstrap CI
+       overrides whatever ``inference`` was requested — HAC / OLS-t correct
+       *autocorrelation*, not tail thickness. The switch emits the
+       ``FEW_ASSETS`` tier code (never silent); a requested-but-overridden
+       HAC is additionally flagged ``inference_overridden``.
+    2. **Inference family (user-selected).** With an adequate cross-section
+       the requested member runs: ``NonOverlapping`` reproduces the legacy
+       non-overlap t **bit-for-bit** (``_t_stat_from_array`` is the same
+       ``_calc_t_stat`` formula on the same strided values, so the default
+       stays byte-identical), while ``NeweyWest`` keeps the *full*
+       overlapping ``full_spread`` series and HAC-corrects the MA(h-1) SE.
+
+    The two series inputs are a perf split, not duplicated logic: the cheap
+    panel-stride feeds ``strided_spread`` for the common path; the full
+    series is built (h× more bucketing) only when the HAC path needs it.
+    ``full_spread`` is ``None`` off the HAC path; a missing one degrades to
+    the non-overlap path defensively. The block bootstrap is intentionally
+    *not* a family member — it is an automatic small-cross-section fallback,
+    not a blind-selectable method.
+    """
+    from factrix.inference import NeweyWest
+
+    strided_mean = float(np.mean(strided_spread))
+    use_hac = (
+        isinstance(inference, NeweyWest)
+        and n_assets >= MIN_ASSETS_WARN
+        and full_spread is not None
+    )
+    if not use_hac:
+        t, p, method, extra, codes = _spread_significance(
+            strided_spread, n_assets, rng_seed=rng_seed
+        )
+        if isinstance(inference, NeweyWest):
+            # Requested HAC but the small-cross-section bootstrap (or a
+            # missing full series) took precedence — surface the override.
+            extra = {
+                **extra,
+                "inference_requested": inference.summary,
+                "inference_overridden": True,
+            }
+        return strided_mean, t, p, method, extra, codes
+
+    assert full_spread is not None  # narrowed by use_hac
+    res = inference.compute(
+        full_spread, value_col="spread", forward_periods=forward_periods
+    )
+    full_vals = full_spread["spread"].drop_nulls()
+    full_mean = float(full_vals.mean())  # type: ignore[arg-type]
+    extra = {**res.metadata, "n_periods_full": len(full_vals)}
+    codes = tuple(code.value for code in res.warnings)
+    return full_mean, res.stat, res.p_value, inference.summary, extra, codes
 
 
 def _aggregate_to_per_date(
