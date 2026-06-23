@@ -29,7 +29,6 @@ import polars as pl
 
 from factrix._axis import (
     Aggregation,
-    DataStructure,
     FactorDensity,
     InputShape,
 )
@@ -62,7 +61,11 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
     "bmp_z",
 ]
 
-_CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=DataStructure.PANEL)
+# structure=None (event-axis): caar/bmp_z aggregate over the event cross-section
+# (event dates / events), not the asset cross-section, so they run on single-asset
+# multi-event data too. Density stays SPARSE — the event-shaped signal — and the
+# event-count floor guards thin samples.
+_CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
 # Slice-test contract (#153 §5): CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
