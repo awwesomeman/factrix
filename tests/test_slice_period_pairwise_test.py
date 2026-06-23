@@ -52,13 +52,13 @@ def test_three_slice_returns_three_rows() -> None:
 def test_per_slice_period_counts_reported() -> None:
     """Disjoint spans differ in length → n_periods_a / n_periods_b differ."""
     df = build_disjoint_period_panel(
-        seed=3, spans={"early": (40, 0.1), "late": (90, 0.1)}, label_col="regime"
+        seed=3, spans={"early": (50, 0.1), "late": (90, 0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
         df, ic(), by="regime", factor_col="factor", rng_seed=3
     )
     row = out.row(0, named=True)
-    assert row["n_periods_a"] == 40
+    assert row["n_periods_a"] == 50
     assert row["n_periods_b"] == 90
 
 
@@ -224,3 +224,27 @@ def test_raises_when_slice_too_short() -> None:
     )
     with pytest.raises(ValueError, match="<2 dates"):
         slice_period_pairwise_test(df, ic(), by="regime", factor_col="factor")
+
+
+def test_raises_when_slice_below_metric_floor() -> None:
+    """A slice shorter than ic's min_periods floor (50) is the size at which
+    by_slice short-circuits to NaN; the date-disjoint test must refuse rather
+    than emit a contrast that is not calibrated."""
+    df = build_disjoint_period_panel(
+        seed=18, spans={"a": (30, 0.1), "b": (30, 0.1)}, label_col="regime"
+    )
+    with pytest.raises(ValueError, match="sample floor"):
+        slice_period_pairwise_test(
+            df, ic(), by="regime", factor_col="factor", rng_seed=18
+        )
+
+
+def test_runs_at_metric_floor() -> None:
+    """The floor is strict (``<``): a slice exactly at ic's floor (50) runs."""
+    df = build_disjoint_period_panel(
+        seed=19, spans={"a": (50, 0.1), "b": (60, 0.1)}, label_col="regime"
+    )
+    out = slice_period_pairwise_test(
+        df, ic(), by="regime", factor_col="factor", rng_seed=19
+    )
+    assert out.height == 1

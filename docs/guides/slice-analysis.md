@@ -29,6 +29,15 @@ factrix splits this work into two roles because **slicing the panel** and **test
 
 **Use the inference functions when:** you want a calibrated cross-slice statistic with multiple-testing control and your metric exposes `per_date_series`.
 
+!!! warning "Don't compare per-slice p-values to claim slices differ"
+    Each `by_slice` p-value tests one slice against its *own* null
+    (e.g. CAAR = 0, hit rate = 0.5) — not against another slice. "Significant
+    in bull (p=0.03) but not in bear (p=0.20), therefore the regimes differ"
+    is the difference-of-significances fallacy — *a difference in
+    significance is not a significant difference* ([Gelman & Stern, 2006](https://doi.org/10.1198/000313006X152649)).
+    To test `value_a − value_b ≠ 0`, use the `slice_*_test` pair, which forms
+    the contrast directly with calibrated SE and multiple-testing control.
+
 ## Why no generic cross-slice test on `by_slice`
 
 A single dispatcher carrying a single built-in cross-slice test would silently over-claim. The appropriate test depends on the metric family:

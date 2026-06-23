@@ -203,6 +203,16 @@ _WARNING_DESCRIPTIONS.update(
         "factor variance); the cross-asset aggregate was computed on a shortened "
         "sample. Exact counts are in MetricResult.metadata (n_assets_in / "
         "n_assets_out / dropped_assets / drop_rate / drop_reason).",
+        WarningCode.SLICE_BOUNDARY_TRUNCATION: "by_slice partitioned a panel on "
+        "a date-axis column (one whose value varies within an asset over time, "
+        "e.g. calendar year or regime label) while the metric's aggregation "
+        "looks across dates (TS_ONLY / TS_THEN_CS / EVENT_TIME / "
+        "RETURN_SPANNING). Each slice is evaluated on its own rows, so a "
+        "rolling window / per-asset time-series regression / event window sees "
+        "truncated history at the slice boundary — the per-slice value differs "
+        "from the full-sample value decomposed by period. Per-date metrics "
+        "(CS_THEN_TS / CS_SNAPSHOT) and cross-sectional partitions (constant "
+        "within an asset, e.g. sector) are unaffected and do not trigger.",
     }
 )
 
