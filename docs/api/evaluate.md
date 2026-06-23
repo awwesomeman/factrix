@@ -66,7 +66,7 @@ title: factrix.evaluate
     # 2. Run evaluation
     results = fx.evaluate(
         data,
-        metrics={"ic": ic(), "spread": quantile_spread(n_quantiles=5)},
+        metrics={"ic": ic(), "spread": quantile_spread(n_groups=5)},
         factor_cols=["factor"],
         forward_periods=5,
     )
@@ -82,6 +82,28 @@ title: factrix.evaluate
     print(f"IC Value: {ic_res.value:.4f}")
     print(f"IC p-value: {ic_res.p_value:.4f}")
     ```
+
+## Sensitivity grids
+
+For exploratory grids across asset counts, horizons, or factor families, run
+with `strict=False` and stack each result's long-form table. The table carries
+`is_applicable` and `reason`, so the grid can keep running while still making
+failed metric/input combinations visible.
+
+```python
+import polars as pl
+
+results = fx.evaluate(
+    data,
+    metrics={"ic": ic(), "spread": quantile_spread(n_groups=2)},
+    factor_cols=["factor"],
+    forward_periods=5,
+    strict=False,
+)
+
+status = pl.concat([r.to_frame() for r in results.values()])
+failed = status.filter(~pl.col("is_applicable"))
+```
 
 ## Evaluating under different cell contexts
 

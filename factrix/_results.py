@@ -62,6 +62,12 @@ class MetricResult:
         return f"MetricResult({', '.join(parts)})"
 
     @property
+    def reason(self) -> str | None:
+        """Stable short-circuit reason, when the metric did not run cleanly."""
+        reason = self.metadata.get("reason")
+        return reason if isinstance(reason, str) else None
+
+    @property
     def is_applicable(self) -> bool:
         """Whether the metric produced a usable result for this input.
 
@@ -69,7 +75,7 @@ class MetricResult:
         outputs with ``metadata["reason"]``. This flag lets reporting and
         grid-search code filter those rows without relying on metadata shape.
         """
-        return "reason" not in self.metadata
+        return self.reason is None
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +161,7 @@ class EvaluationResult:
         | ``stat`` | f64 \| null | ``MetricResult.stat`` |
         | ``n_obs`` | i64 \| null | ``MetricResult.n_obs`` — estimator effective sample size |
         | ``is_applicable`` | bool | false for ``strict=False`` short-circuits |
+        | ``reason`` | str \| null | short-circuit reason when not applicable |
         | ``warning_codes`` | list[str] | per-metric warning codes |
 
         Designed for stacking across factors:
@@ -183,7 +190,7 @@ class EvaluationResult:
         - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
           ``n_pairs`` / ``n_assets`` / ``context``
         - ``metrics``: ``label -> {value, p_value, stat, n_obs,
-          is_applicable, metadata}``
+          is_applicable, reason, metadata}``
         - ``warnings``: list of ``{code, source, message}``
         - ``plan``
 
@@ -293,6 +300,7 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "stat": pl.Float64,
     "n_obs": pl.Int64,
     "is_applicable": pl.Boolean,
+    "reason": pl.Utf8,
     "warning_codes": pl.List(pl.Utf8),
 }
 
@@ -310,6 +318,7 @@ def _output_row(
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
         "is_applicable": out.is_applicable,
+        "reason": out.reason,
         "warning_codes": list(warnings_by_metric.get(label, [])),
     }
 
@@ -331,6 +340,7 @@ def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
         "is_applicable": out.is_applicable,
+        "reason": out.reason,
         "metadata": {k: _scrub_nonfinite(v) for k, v in out.metadata.items()},
     }
 
