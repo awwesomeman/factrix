@@ -654,19 +654,13 @@ def _raise_structure_mismatch(
 ) -> None:
     """Raise the ``strict=True`` structure-mismatch error (first offender)."""
     label, (cell_structure, data_structure, n_assets) = next(iter(mismatches.items()))
-    raise UserInputError(
-        func_name="evaluate",
-        field="metrics",
-        value=label,
-        expected=(
-            f"metric {label!r} declares "
-            f"cell.structure={cell_structure.value!r} but data has "
-            f"structure={data_structure.value!r} (n_assets={n_assets}); "
-            f"call fx.inspect_data(data) to see metrics applicable "
-            f"to this data shape, or pass strict=False to keep mismatched "
-            f"metrics as NaN with warnings"
-        ),
-        docs_path=_DOCS_METRICS,
+    raise IncompatibleAxisError(
+        f"evaluate(): metric {label!r} declares "
+        f"cell.structure={cell_structure.value!r} but data has "
+        f"structure={data_structure.value!r} (n_assets={n_assets}); "
+        f"call fx.inspect_data(data) to see metrics applicable "
+        f"to this data shape, or pass strict=False to keep mismatched "
+        f"metrics as NaN with warnings"
     )
 
 
