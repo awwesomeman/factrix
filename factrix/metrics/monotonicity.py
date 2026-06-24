@@ -26,7 +26,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._metric_index import SampleThreshold, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
@@ -36,8 +36,9 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups_batch,
-    _enforce_min_floor,
+    _enforce_scaled_floor,
     _sample_non_overlapping,
+    _scaled_periods_threshold,
     _warn_high_tie_ratio,
 )
 
@@ -63,7 +64,11 @@ min_assets_per_group: int | None = 50
     ),
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
-    sample_threshold=SampleThreshold(min_periods=MIN_MONOTONICITY_PERIODS),
+    # Periods floor scales with the non-overlap stride (see ``quantile``): the
+    # per-date Spearman series is sub-sampled at ``forward_periods``, so
+    # pre-flight and the in-body gate share ``MIN_MONOTONICITY_PERIODS`` +
+    # ``_scaled_min_periods``.
+    sample_threshold=_scaled_periods_threshold(MIN_MONOTONICITY_PERIODS),
 )
 def monotonicity(
     df: pl.DataFrame,
@@ -118,6 +123,10 @@ def monotonicity(
     cols = list(factor_cols)
     if not cols:
         raise ValueError("factor_cols must be non-empty")
+
+    # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
+    # calibrated against, shared across all factors.
+    n_raw_periods = df["date"].n_unique()
 
     # Sample non-overlapping once — shared across all factors on the
     # same panel (depends only on `date` + `forward_periods`).
@@ -179,10 +188,11 @@ def monotonicity(
                 )
             mono_arr = mono_arr[np.isfinite(mono_arr)]
 
-        sc = _enforce_min_floor(
-            monotonicity,
+        sc = _enforce_scaled_floor(
             "monotonicity",
-            len(mono_arr),
+            n_raw_periods,
+            MIN_MONOTONICITY_PERIODS,
+            forward_periods,
             "insufficient_monotonicity_periods",
             n_groups=n_groups,
             tie_ratio=tie_ratios[f],

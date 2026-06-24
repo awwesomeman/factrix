@@ -21,7 +21,7 @@ from factrix._axis import (
     FactorDensity,
     InputShape,
 )
-from factrix._metric_index import SampleThreshold, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import (
     _BINOMIAL_EXACT_CUTOFF,
@@ -31,8 +31,10 @@ from factrix._stats import (
 from factrix._types import MIN_IC_PERIODS
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
-    _enforce_min_floor,
+    _enforce_scaled_floor,
     _sample_non_overlapping,
+    _scaled_periods_threshold,
+    _short_circuit_output,
     _surface_null_drop,
 )
 from factrix.metrics.ic import compute_ic
@@ -71,7 +73,10 @@ def per_date_series(series: pl.DataFrame) -> pl.DataFrame:
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.SERIES,
     requires={"series": compute_ic},
-    sample_threshold=SampleThreshold(min_periods=MIN_IC_PERIODS),
+    # Periods floor scales with the non-overlap stride: the binomial runs on the
+    # ``raw_n / forward_periods`` sampled dates, so pre-flight and the in-body
+    # gate share ``MIN_IC_PERIODS`` + ``_scaled_min_periods``.
+    sample_threshold=_scaled_periods_threshold(MIN_IC_PERIODS),
 )
 def hit_rate(
     series: pl.DataFrame,
@@ -119,13 +124,32 @@ def hit_rate(
         >>> result.name == ""
         True
     """
-    sampled = _sample_non_overlapping(series, forward_periods)
-    vals = sampled[value_col].drop_nulls()
-
-    n = len(vals)
-    sc = _enforce_min_floor(hit_rate, "hit_rate", n, "insufficient_hit_rate_samples")
+    # Primary periods gate: raw date count vs the stride-scaled floor, matching
+    # inspect_data pre-flight (raw_n vs MIN_IC_PERIODS * forward_periods).
+    sc = _enforce_scaled_floor(
+        "hit_rate",
+        series["date"].n_unique(),
+        MIN_IC_PERIODS,
+        forward_periods,
+        "insufficient_hit_rate_samples",
+    )
     if sc is not None:
         return sc
+
+    sampled = _sample_non_overlapping(series, forward_periods)
+    vals = sampled[value_col].drop_nulls()
+    n = len(vals)
+    # Secondary degeneracy guard: null-drop can leave the sampled series below
+    # the effective floor even when the raw panel cleared it; the binomial
+    # divides by ``n``, so refuse rather than divide a near-empty sample.
+    if n < MIN_IC_PERIODS:
+        return _short_circuit_output(
+            "hit_rate",
+            "insufficient_hit_rate_samples",
+            n_obs=n,
+            n_obs_axis="periods",
+            min_required=MIN_IC_PERIODS,
+        )
 
     hits = int((vals > 0).sum())
     rate = hits / n

@@ -22,7 +22,6 @@ References:
 from __future__ import annotations
 
 import warnings
-from typing import Any
 
 import numpy as np
 import polars as pl
@@ -47,6 +46,7 @@ from factrix._types import (
     MIN_EVENTS_WARN,
     KPSource,
 )
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
@@ -79,7 +79,7 @@ min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("caar")
 
 
-def _caar_sample_threshold(self: Any) -> SampleThreshold:
+def _caar_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Dynamic event floor for ``caar``: the raw event-date count scales with
     ``forward_periods`` because the t-test runs on a non-overlap subsample
     (stride ``forward_periods``). Delegates to the same ``_scaled_min_periods``
@@ -96,7 +96,7 @@ def _caar_sample_threshold(self: Any) -> SampleThreshold:
     aggregation=Aggregation.EVENT_TIME,
     input_shape=InputShape.SERIES,
     requires={"caar_df": compute_caar},
-    sample_threshold_for=_caar_sample_threshold,
+    sample_threshold=_caar_sample_threshold,
 )
 def caar(
     caar_df: pl.DataFrame,
@@ -106,8 +106,8 @@ def caar(
     r"""CAAR significance: is mean CAAR significantly different from zero?
 
     The event floor is dynamic — the minimum event-date count scales with the
-    forward_periods parameter (non-overlapping stride) — so it is declared via
-    the sample_threshold_for hook rather than a static sample_threshold. Pre-flight
+    forward_periods parameter (non-overlapping stride) — so it is declared as a
+    resolver (a callable sample_threshold) rather than a constant. Pre-flight
     counts non-zero factor rows as a loose upper bound; this in-body short-circuit
     on event dates stays authoritative.
 

@@ -25,8 +25,6 @@ Notes:
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import polars as pl
 
@@ -40,6 +38,7 @@ from factrix._axis import (
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, EPSILON
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
@@ -74,7 +73,7 @@ def _turnover_min_dates(forward_periods: int) -> int:
     return 2 * forward_periods + 1
 
 
-def _turnover_sample_threshold(self: Any) -> SampleThreshold:
+def _turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Dynamic periods floor for ``turnover``, scaling with ``forward_periods``.
     Delegates to the same ``_turnover_min_dates`` the in-body short-circuit
     reads, so the pre-flight and run-time floors agree.
@@ -85,7 +84,7 @@ def _turnover_sample_threshold(self: Any) -> SampleThreshold:
 @metric(
     cell=_TR_CELL,
     aggregation=Aggregation.TS_ONLY,
-    sample_threshold_for=_turnover_sample_threshold,
+    sample_threshold=_turnover_sample_threshold,
 )
 def turnover(
     df: pl.DataFrame,
@@ -95,7 +94,7 @@ def turnover(
 ) -> MetricResult:
     r"""Factor rank-stability via non-overlapping rank autocorrelation.
 
-    The periods floor is dynamic — the minimum date count is ``2*forward_periods + 1`` — so it is declared via the sample_threshold_for hook rather than a static sample_threshold, letting inspect_data pre-flight it.
+    The periods floor is dynamic — the minimum date count is ``2*forward_periods + 1`` — so it is declared as a resolver (a callable sample_threshold) rather than a constant, letting inspect_data pre-flight it.
 
     $\text{turnover} = 1 - \mathrm{mean}(\bar\rho)$ where $\bar\rho$ is the mean rank autocorrelation
 

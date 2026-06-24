@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import math
 import warnings
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -42,6 +43,8 @@ from factrix._codes import WarningCode, cross_section_tier
 
 if TYPE_CHECKING:
     from factrix.inference import NeweyWest, NonOverlapping
+    from factrix.metrics._base import MetricBase
+from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.constants import MIN_ASSETS_WARN
@@ -306,11 +309,12 @@ def _enforce_min_floor(
     and any extra keyword metadata are forwarded to
     :func:`_short_circuit_output`.
 
-    Reads the metric's *static* ``sample_threshold`` only; it does not resolve a
-    dynamic ``sample_threshold_for`` hook (it holds the metric class, not a
-    configured instance, so it cannot know the run-time params the dynamic floor
-    depends on). A metric whose floor is dynamic enforces it in its own body —
-    delegating to the same source the hook reads — rather than through here.
+    Reads ``metric.sample_threshold`` — the default-config floor baked at class
+    creation. This gate holds the metric class, not a configured instance, so it
+    cannot know the run-time params a scaled floor depends on. A metric whose
+    floor scales with run-time params (e.g. ``forward_periods``) enforces it in
+    its own body, re-deriving the floor from the same source its resolver uses,
+    rather than through here.
     """
     floor = getattr(metric.sample_threshold, f"min_{axis}")
     if floor is not None and n < floor:
@@ -324,6 +328,66 @@ def _enforce_min_floor(
             **extra,
         )
     return None
+
+
+def _enforce_scaled_floor(
+    name: str,
+    n_raw: int,
+    base: int,
+    forward_periods: int,
+    reason: str,
+    **extra: object,
+) -> MetricResult | None:
+    """Short-circuit when the *raw* (pre-sampling) date count is below the
+    stride-scaled periods floor — the run-time twin of a dynamic
+    ``sample_threshold`` resolver.
+
+    A metric that sub-samples dates at stride ``forward_periods`` declares its
+    floor as
+    ``SampleThreshold(min_periods=_scaled_min_periods(base, forward_periods))``
+    so ``inspect_data`` pre-flights ``raw_n >= base * h`` against the full panel.
+    This gate re-derives that *same* floor from the *same* ``base`` and
+    :func:`_scaled_min_periods` against the body's actual ``forward_periods``, so
+    the pre-flight floor and the run-time floor are numerically identical (cf.
+    :func:`_enforce_min_floor`, which reads the default-config floor and so cannot
+    track a run-time-scaled one). Periods-axis only — the sample stride is a date
+    stride; ``n_raw`` is the full date count *before* sampling.
+    """
+    floor = _scaled_min_periods(base, forward_periods)
+    if n_raw < floor:
+        return _short_circuit_output(
+            name,
+            reason,
+            n_obs=n_raw,
+            n_obs_axis="periods",
+            min_required=floor,
+            descriptive=False,  # every stride-sampling metric runs a hypothesis test
+            **extra,
+        )
+    return None
+
+
+def _scaled_periods_threshold(
+    base: int, *, warn: int | None = None
+) -> Callable[[MetricBase], SampleThreshold]:
+    """Build a dynamic ``periods`` floor resolver scaled to the sample stride.
+
+    The returned ``Callable[[MetricBase], SampleThreshold]`` scales ``base`` (and
+    optional ``warn``) by the instance's ``forward_periods`` through
+    :func:`_scaled_min_periods` — the same source the in-body
+    :func:`_enforce_scaled_floor` gate reads — so a metric that sub-samples at
+    that stride pre-flights and gates against one numerically identical floor.
+    Pass the result to ``@metric(sample_threshold=...)``.
+    """
+
+    def _resolver(self: MetricBase) -> SampleThreshold:
+        fp = self.forward_periods
+        return SampleThreshold(
+            min_periods=_scaled_min_periods(base, fp),
+            warn_periods=None if warn is None else _scaled_min_periods(warn, fp),
+        )
+
+    return _resolver
 
 
 def _warn_below_floor(
@@ -344,12 +408,35 @@ def _warn_below_floor(
     returns ``code.value`` for the caller to fold into the result's
     ``warning_codes``. Returns ``None`` when the warn floor is clear or ungated.
 
-    Like :func:`_enforce_min_floor`, reads the static ``sample_threshold`` only;
-    a dynamic ``sample_threshold_for`` hook is not resolved here, so dynamic-floor
-    metrics warn in-body.
+    Like :func:`_enforce_min_floor`, reads the default-config ``sample_threshold``
+    only; a run-time-scaled floor is not re-derived here, so dynamic-floor metrics
+    warn in-body.
     """
     warn = getattr(metric.sample_threshold, f"warn_{axis}")
     if warn is not None and n < warn:
+        warnings.warn(message, UserWarning, stacklevel=3)
+        return code.value
+    return None
+
+
+def _warn_below_scaled_floor(
+    n_raw: int,
+    base_warn: int,
+    forward_periods: int,
+    message: str,
+    code: WarningCode,
+) -> str | None:
+    """Warn-tier twin of :func:`_enforce_scaled_floor`.
+
+    Flags the degraded tier when the raw (pre-sampling) count falls below the
+    stride-scaled warn floor, re-derived from ``base_warn`` and
+    :func:`_scaled_min_periods` against the body's actual ``forward_periods`` —
+    the same source the dynamic resolver's ``warn_periods`` uses — so the
+    pre-flight DEGRADED tier and the run-time warning fire on one identical
+    floor. Periods-axis only (the sample stride is a date stride).
+    """
+    warn = _scaled_min_periods(base_warn, forward_periods)
+    if n_raw < warn:
         warnings.warn(message, UserWarning, stacklevel=3)
         return code.value
     return None
