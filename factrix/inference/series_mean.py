@@ -148,6 +148,12 @@ class HansenHodrick:
     ([Andrews 1991][andrews-1991] §3): on short / mildly anti-correlated
     samples the estimate can come out negative; ``compute`` clamps the
     variance to 0 and surfaces ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``.
+
+    Exported for explicit / comparison use but **not** in any metric's
+    ``inference=`` union today: ``NeweyWest`` (Bartlett, PSD-guaranteed) is
+    the recommended HAC, and the spread-metric dispatch is ``NeweyWest``-
+    specific. See ``factrix.inference``'s module docstring for the full
+    rationale.
     """
 
     test: ClassVar[str] = "t"
