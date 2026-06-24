@@ -421,6 +421,8 @@ def notional_turnover(
     )
     return MetricResult(
         value=mean_turnover,
+        n_obs=int(per_date.height),
+        n_obs_axis="pairs",
         metadata={
             "n_rebalances": int(per_date.height),
             "n_groups": n_groups,
