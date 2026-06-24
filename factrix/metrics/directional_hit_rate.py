@@ -159,6 +159,13 @@ def directional_hit_rate(
     )
 
     n = paired.height
+    # Pairs floor is NOT stride-scaled (unlike the periods-axis samplers that
+    # route through _enforce_scaled_floor): n here is the PT test's effective
+    # sample size and feeds var_s directly, and sampled_pairs cannot be derived
+    # from a param-only resolver — Σ assets-per-sampled-date drifts unboundedly
+    # from n_pairs/forward_periods on unbalanced panels. The full-panel
+    # pre-flight stays deliberately loose; this post-sampling count is the
+    # authoritative gate.
     sc = _enforce_min_floor(
         directional_hit_rate,
         "directional_hit_rate",
