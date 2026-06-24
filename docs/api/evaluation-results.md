@@ -36,6 +36,8 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
 
 `EvaluationResult.metrics` is a read-only `Mapping[str, MetricResult]` (a `MappingProxyType`) keyed by the caller-supplied metric label, including short-circuit NaN outputs. Access it like any dict — `result.metrics["ic"]` returns the `MetricResult` for `"ic"`, and `keys()` / `values()` / `items()` / `get()` / `in` / `len()` / iteration all work as usual. The mapping is immutable; attempting to assign into it raises `TypeError`.
 
+`result.metric("ic")` is a convenience over `result.metrics["ic"]`: the same lookup, but a miss raises `KeyError` listing the available labels (`no metric 'sharpe' on this result; available: ic, ic_ir`) instead of a bare key — handy in interactive sessions where a typo would otherwise fail opaquely.
+
 
 ---
 
