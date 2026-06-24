@@ -12,19 +12,30 @@ with the partial conjunction test of
 [Benjamini & Heller (2008)](https://onlinelibrary.wiley.com/doi/10.1111/j.1541-0420.2008.00984.x).
 
 ```python
+import dataclasses
+
 import factrix as fx
+from factrix.metrics import ic
 
 # "Momentum is significant in BOTH large-cap AND small-cap universes"
+# evaluate() returns dict[str, EvaluationResult]; pull the single result
+# and stamp the universe label onto it with dataclasses.replace so
+# expand_over can split the family on context["universe_id"].
+def profile(panel, factor_col, **context):
+    res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
+    return dataclasses.replace(res, context=context)
+
 profiles = [
-    fx.evaluate(panel_large, cfg, factor_col="mom"),
-    fx.evaluate(panel_small, cfg, factor_col="mom"),
+    profile(panel_large, "mom", universe_id="large_cap"),
+    profile(panel_small, "mom", universe_id="small_cap"),
     # ... + value, quality, etc. one profile per (factor, universe) cell
 ]
 survivors = fx.multi_factor.partial_conjunction(
     profiles,
+    metrics=["ic"],
     min_pass=2,
     n_conditions=2,
-    expand_over=["universe_id"],
+    expand_over=("universe_id",),
     q=0.05,
 )
 ```

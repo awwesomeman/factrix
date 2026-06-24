@@ -2,6 +2,8 @@
 title: factrix
 ---
 
+<h3 align="center"><b>Tests one factor. Screens a thousand.</b></h3>
+
 **Does this factor possess predictive edge?**
 
 factrix is the first Polars-native Python toolkit that picks the right statistical test for each factor type. Cross-sectional, event, common factor — each gets the tests that fit its data-generating process.
