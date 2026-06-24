@@ -221,7 +221,7 @@ class TestStrictStructureSoftening:
         return panel.filter(pl.col("asset_id") == first)
 
     def test_strict_true_raises_on_structure_mismatch(self):
-        with pytest.raises(UserInputError, match="structure"):
+        with pytest.raises(fx.IncompatibleAxisError, match="structure"):
             fx.evaluate(
                 self._single_asset_panel(),
                 metrics={"ic": ic()},

@@ -119,11 +119,13 @@ Continuous common factors fall back to timeseries when `n_assets == 1`.
 
 ```python
 import factrix as fx
+import polars as pl
 from factrix.preprocess import compute_forward_return
 from factrix.metrics import ts_beta
 
-# 1. Generate single-asset timeseries data
-raw = fx.datasets.make_cs_panel(n_assets=1, n_dates=200, seed=2024)
+# 1. Generate single-asset timeseries data (make_cs_panel requires n_assets>=2; filter after)
+raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=200, seed=2024)
+raw = raw.filter(pl.col("asset_id") == raw["asset_id"].item(0))
 data = compute_forward_return(raw, forward_periods=5)
 
 # 2. Evaluate using timeseries beta metric
