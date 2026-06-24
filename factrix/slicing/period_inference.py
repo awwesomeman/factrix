@@ -106,17 +106,15 @@ def _validate_method(method: str, func_name: str) -> None:
 
 
 def _resolve_sample_threshold(metric: MetricBase) -> SampleThreshold:
-    """Resolve the metric instance's ``SampleThreshold``, honouring config.
+    """Resolve the metric instance's ``SampleThreshold`` for its actual config.
 
-    Mirrors :meth:`MetricBase.spec` but evaluates the dynamic
-    ``sample_threshold_for`` hook against the **actual instance** (not a
-    default-built one), so a metric configured with a non-default
-    ``forward_periods`` (e.g. ``caar``) reports the floor for its own
-    horizon rather than the default-config floor.
+    Calls the metric's normalized floor resolver against the **actual
+    instance** (not a default-built one), so a metric whose floor scales with a
+    non-default ``forward_periods`` (e.g. ``caar``) reports the floor for its own
+    horizon rather than the default-config floor baked into
+    ``cls.sample_threshold``.
     """
-    cls = type(metric)
-    hook = cls.sample_threshold_for
-    return hook(metric) if hook is not None else cls.sample_threshold
+    return type(metric)._resolve_sample_threshold(metric)
 
 
 def _require_slice_floor(

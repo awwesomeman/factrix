@@ -24,7 +24,7 @@ from factrix._axis import (
     FactorScope,
 )
 from factrix._codes import WarningCode
-from factrix._metric_index import SampleThreshold, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._types import (
@@ -37,10 +37,11 @@ from factrix._types import (
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _compute_tie_ratio,
-    _enforce_min_floor,
+    _enforce_scaled_floor,
     _sample_non_overlapping,
+    _scaled_periods_threshold,
     _short_circuit_output,
-    _warn_below_floor,
+    _warn_below_scaled_floor,
 )
 
 __all__ = [
@@ -53,9 +54,12 @@ __all__ = [
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=SampleThreshold(
-        min_periods=MIN_PORTFOLIO_PERIODS_HARD,
-        warn_periods=MIN_PORTFOLIO_PERIODS_WARN,
+    # Periods floor scales with the non-overlap stride (see ``quantile``): the
+    # per-date HHI series is sub-sampled at ``forward_periods``, so the HARD and
+    # WARN floors and their in-body gates share ``MIN_PORTFOLIO_PERIODS_*`` +
+    # ``_scaled_min_periods``.
+    sample_threshold=_scaled_periods_threshold(
+        MIN_PORTFOLIO_PERIODS_HARD, warn=MIN_PORTFOLIO_PERIODS_WARN
     ),
 )
 def top_concentration(
@@ -166,11 +170,14 @@ def top_concentration(
         .sort("date")
     )
 
-    n_periods_hhi = len(hhi_per_date)
-    sc = _enforce_min_floor(
-        top_concentration,
+    # Raw (pre-sampling) date count: the axis the stride-scaled periods floors
+    # are calibrated against.
+    n_raw_periods = df["date"].n_unique()
+    sc = _enforce_scaled_floor(
         "top_concentration",
-        n_periods_hhi,
+        n_raw_periods,
+        MIN_PORTFOLIO_PERIODS_HARD,
+        forward_periods,
         "insufficient_portfolio_periods",
         tie_ratio=tie_ratio,
     )
@@ -178,14 +185,16 @@ def top_concentration(
         return sc
 
     warning_codes: list[str] = []
-    warn_code = _warn_below_floor(
-        top_concentration,
-        n_periods_hhi,
-        f"top_concentration: n_periods={n_periods_hhi} below "
-        f"MIN_PORTFOLIO_PERIODS_WARN={MIN_PORTFOLIO_PERIODS_WARN}; "
-        f"the one-sided t-test on the per-date diversification ratio is "
-        f"returned but df=n-1 inflates t_crit relative to the asymptotic "
-        f"cutoff. Read borderline p-values cautiously.",
+    warn_code = _warn_below_scaled_floor(
+        n_raw_periods,
+        MIN_PORTFOLIO_PERIODS_WARN,
+        forward_periods,
+        f"top_concentration: {n_raw_periods} raw dates below "
+        f"MIN_PORTFOLIO_PERIODS_WARN*forward_periods="
+        f"{MIN_PORTFOLIO_PERIODS_WARN * forward_periods}; the one-sided t-test "
+        f"on the per-date diversification ratio is returned but df=n-1 inflates "
+        f"t_crit relative to the asymptotic cutoff. Read borderline p-values "
+        f"cautiously.",
         WarningCode.BORDERLINE_PORTFOLIO_PERIODS,
     )
     if warn_code is not None:

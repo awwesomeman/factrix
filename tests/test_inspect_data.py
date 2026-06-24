@@ -222,11 +222,14 @@ class TestDeclaredPeriodsFloorsVisible:
             MIN_PORTFOLIO_PERIODS_HARD,
             MIN_PORTFOLIO_PERIODS_WARN,
         )
+        from factrix.metrics._helpers import _scaled_min_periods
         from factrix.metrics.concentration import top_concentration
 
+        # Floor scales with the non-overlap stride; spec() resolves at the
+        # default config (forward_periods=5).
         st = top_concentration.spec().sample_threshold
-        assert st.min_periods == MIN_PORTFOLIO_PERIODS_HARD
-        assert st.warn_periods == MIN_PORTFOLIO_PERIODS_WARN
+        assert st.min_periods == _scaled_min_periods(MIN_PORTFOLIO_PERIODS_HARD, 5)
+        assert st.warn_periods == _scaled_min_periods(MIN_PORTFOLIO_PERIODS_WARN, 5)
 
     def test_pooled_beta_declares_periods_floors_alongside_pairs(self):
         from factrix._stats.constants import MIN_PERIODS_WARN

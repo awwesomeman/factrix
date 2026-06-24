@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import math
 import warnings as _warnings
-from typing import Any
 
 import polars as pl
 
@@ -35,6 +34,7 @@ from factrix._types import (
     MIN_IC_PERIODS,
 )
 from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
@@ -100,14 +100,17 @@ def _warn_if_high_ic_tie_ratio(ic_df: pl.DataFrame, metric_name: str) -> float:
     return med
 
 
-def _ic_sample_threshold(self: Any) -> SampleThreshold:
+def _ic_sample_threshold(self: MetricBase) -> SampleThreshold:
     """Dynamic periods floor for ``ic``: the inference method's minimum input
     length, which scales with ``forward_periods`` (non-overlapping stride) or
     is a fixed HAC bound. Delegates to the same ``min_input_periods`` the
     in-body short-circuit reads, so the pre-flight and run-time floors agree.
     """
+    # ``inference`` is an ``ic``-specific field; the resolver is only ever bound
+    # to ``ic``, but its declared param type is the ``MetricBase`` contract.
+    inference = self.inference  # type: ignore[attr-defined]
     return SampleThreshold(
-        min_periods=self.inference.min_input_periods(self.forward_periods)
+        min_periods=inference.min_input_periods(self.forward_periods)
     )
 
 
@@ -116,7 +119,7 @@ def _ic_sample_threshold(self: Any) -> SampleThreshold:
     aggregation=Aggregation.CS_THEN_TS,
     input_shape=InputShape.SERIES,
     requires={"ic_df": compute_ic},
-    sample_threshold_for=_ic_sample_threshold,
+    sample_threshold=_ic_sample_threshold,
 )
 def ic(
     ic_df: pl.DataFrame,
@@ -126,8 +129,8 @@ def ic(
     r"""Information coefficient (IC) mean significance: is mean IC significantly different from zero?
 
     The periods floor is dynamic — the minimum input length scales with the
-    forward_periods parameter and the inference method — so it is declared via
-    the sample_threshold_for hook rather than a static sample_threshold.
+    forward_periods parameter and the inference method — so it is declared as a
+    resolver (a callable sample_threshold) rather than a constant.
 
     Args:
         ic_df: Output of ``compute_ic()``.

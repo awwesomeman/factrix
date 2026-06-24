@@ -24,6 +24,30 @@ _F = TypeVar("_F", bound=Callable[..., Any])
 _INJECTED_PARAMS: frozenset[str] = frozenset({"forward_periods"})
 
 
+def _normalize_threshold(
+    declared: SampleThreshold | Callable[[MetricBase], SampleThreshold] | None,
+) -> tuple[Callable[[MetricBase], SampleThreshold], SampleThreshold | None]:
+    """Collapse a floor declaration into ``(resolver, const_or_None)``.
+
+    A :class:`SampleThreshold` (or ``None`` → empty floor) yields a resolver
+    returning it verbatim, plus the constant itself so the caller can bake the
+    default-config floor without building an instance (a constant floor may sit
+    on a metric with required params, which is not default-constructible). A
+    callable is returned unchanged with ``None`` — its default-config floor is
+    resolved against a default-built instance.
+    """
+    if declared is None or isinstance(declared, SampleThreshold):
+        const = declared or SampleThreshold()
+
+        def _const_resolver(
+            _self: MetricBase, _t: SampleThreshold = const
+        ) -> SampleThreshold:
+            return _t
+
+        return _const_resolver, const
+    return declared, None
+
+
 def metric(
     cell: Cell,
     aggregation: Aggregation,
@@ -33,8 +57,9 @@ def metric(
     role: SpecRole = SpecRole.METRIC,
     requires: dict[str, Any] | None = None,
     batchable: bool = False,
-    sample_threshold: SampleThreshold | None = None,
-    sample_threshold_for: Callable[[Any], SampleThreshold] | None = None,
+    sample_threshold: SampleThreshold
+    | Callable[[MetricBase], SampleThreshold]
+    | None = None,
     requires_continuous_magnitude: bool = False,
 ) -> Callable[[_F], _F]:
     """Decorator to define a Metric class from a function definition.
@@ -91,7 +116,15 @@ def metric(
             name for name, *_ in fields if name not in _INJECTED_PARAMS
         )
 
-        # 2. Build the class namespace with metadata ClassVars
+        # 2. Normalize the floor declaration into the single resolver type.
+        # A ``SampleThreshold`` constant (or ``None``) becomes a resolver that
+        # returns it verbatim; a callable is taken as-is. The ``SampleThreshold |
+        # Callable`` union lives only here at the decorator boundary and never
+        # reaches a consumer — every reader sees ``_resolve_sample_threshold``
+        # (a resolver) or ``sample_threshold`` (a resolved constant).
+        resolver, const_threshold = _normalize_threshold(sample_threshold)
+
+        # 3. Build the class namespace with metadata ClassVars
         cls_attrs = {
             "cell": cell,
             "aggregation": aggregation,
@@ -100,11 +133,7 @@ def metric(
             "role": role,
             "requires": requires or {},
             "batchable": batchable,
-            "sample_threshold": sample_threshold or SampleThreshold(),
-            # Plain function (not staticmethod) so it binds ``self`` — the hook
-            # reads the instance's configured param fields. ``None`` falls back
-            # to the inherited static ``sample_threshold``.
-            "sample_threshold_for": sample_threshold_for,
+            "_resolve_sample_threshold": staticmethod(resolver),
             "requires_continuous_magnitude": requires_continuous_magnitude,
             "_impl": fn,
             "_first_param_name": first_param_name,
@@ -114,7 +143,7 @@ def metric(
             "__doc__": fn.__doc__,
         }
 
-        # 3. Create the frozen dataclass dynamically
+        # 4. Create the frozen dataclass dynamically
         cls = dataclasses.make_dataclass(
             cls_name=fn.__name__,
             fields=fields,
@@ -125,7 +154,16 @@ def metric(
         )
         cls.__module__ = fn.__module__
 
-        # 4. Register the class
+        # 5. Bake the default-config floor: the constant verbatim, or the
+        # resolver applied to a default-built instance. Constructing a default
+        # instance is only required for a dynamic floor — those metrics are
+        # default-constructible by contract — so a constant floor on a metric
+        # with required params (no default instance) is never constructed here.
+        cls.sample_threshold = (  # type: ignore[attr-defined]
+            const_threshold if const_threshold is not None else resolver(cls())
+        )
+
+        # 6. Register the class
         register(cls)
 
         # Runtime object is the MetricBase subclass; typed as the wrapped

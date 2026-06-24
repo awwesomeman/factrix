@@ -118,17 +118,21 @@ class MetricBase(metaclass=MetricMeta):
     role: ClassVar[SpecRole]
     requires: ClassVar[dict[str, Any]]
     batchable: ClassVar[bool]
+    # Per-metric sample floor, resolved against a metric instance. The decorator
+    # normalizes both declaration forms — a static :class:`SampleThreshold`
+    # constant and a dynamic ``Callable[[MetricBase], SampleThreshold]`` (a floor
+    # that scales with run-time params such as ``forward_periods``) — into this
+    # single resolver, so no consumer ever sees the
+    # ``SampleThreshold | Callable`` union.
+    _resolve_sample_threshold: ClassVar[Callable[[MetricBase], SampleThreshold]]
+    # Floor at the metric's default configuration: the resolver applied to a
+    # default-built instance, baked once at class creation. ``spec()`` /
+    # ``inspect_data`` pre-flight and the static-floor run-time gate
+    # (:func:`_enforce_min_floor`) all read this one value. A metric whose floor
+    # depends on run-time params re-derives it in-body from the same source the
+    # resolver uses (e.g. ``_scaled_min_periods``), so the pre-flight floor and
+    # the run-time floor stay numerically identical.
     sample_threshold: ClassVar[SampleThreshold]
-    # Optional dynamic-threshold hook. When a metric's floor is a function of
-    # its own parameters (e.g. ``ic``'s floor scales with ``forward_periods``),
-    # the static ``sample_threshold`` cannot express it. Such a metric supplies
-    # ``sample_threshold_for`` instead — it reads the configured params off the
-    # instance and returns a concrete :class:`SampleThreshold`. ``spec()``
-    # resolves it against a default-constructed instance so ``inspect_data``
-    # sees a real floor; ``None`` means the static ``sample_threshold`` holds.
-    sample_threshold_for: ClassVar[Callable[[MetricBase], SampleThreshold] | None] = (
-        None
-    )
     # Declares that the metric needs a continuous-magnitude factor (``|factor|``
     # must vary across events). A discrete ±k indicator makes it undefined; the
     # metric short-circuits ``not_applicable_discrete_signal`` at run time and
@@ -136,6 +140,11 @@ class MetricBase(metaclass=MetricMeta):
     # accept any cardinality.
     requires_continuous_magnitude: ClassVar[bool] = False
 
+    # Canonical injected horizon. Declared here (not a real attribute on the
+    # base) so a floor resolver typed ``Callable[[MetricBase], SampleThreshold]``
+    # can read ``self.forward_periods`` — every metric that sub-samples carries it
+    # as a dataclass field; metrics without it never resolve a stride-scaled floor.
+    forward_periods: int
     _impl: ClassVar[Callable]
     _first_param_name: ClassVar[str | None]
     _param_names: ClassVar[tuple[str, ...]]
@@ -154,24 +163,15 @@ class MetricBase(metaclass=MetricMeta):
     def spec(cls) -> MetricSpec:
         """Dynamically build and return the MetricSpec for this metric.
 
-        When the metric declares a dynamic ``sample_threshold_for`` hook, the
-        floor is resolved here against a default-constructed instance (its
-        params take their declared defaults) so the spec carries a concrete
-        :class:`SampleThreshold` for ``inspect_data`` rather than the empty
-        static placeholder. Static metrics keep ``cls.sample_threshold``.
-
-        A metric declaring the hook must therefore be default-constructible —
-        every param other than the input frame needs a default. The resolved
-        floor reflects those defaults; ``inspect_data`` pre-flights the
-        default-config floor, while run-time enforcement uses the body's actual
-        params (the two share one computation, e.g. ``min_input_periods``).
+        The floor carried into the spec is ``cls.sample_threshold`` — the single
+        resolver applied to a default-built instance, baked at class creation
+        (see :attr:`sample_threshold`). There is no static-vs-dynamic branch: a
+        dynamic floor was already resolved at default config, and ``inspect_data``
+        pre-flights that value. A metric whose floor depends on run-time params
+        re-derives it in-body from the same source the resolver uses, so the
+        pre-flight and run-time floors stay numerically identical at a given
+        configuration.
         """
-        threshold = cls.sample_threshold
-        hook = cls.sample_threshold_for
-        if hook is not None:
-            # Call the unbound hook with a default-built instance as ``self``;
-            # its configured param fields take their declared defaults.
-            threshold = hook(cls())
         return MetricSpec(
             name=cls.__name__,
             cell=cls.cell,
@@ -181,7 +181,7 @@ class MetricBase(metaclass=MetricMeta):
             role=cls.role,
             requires=cls.requires,
             batchable=cls.batchable,
-            sample_threshold=threshold,
+            sample_threshold=cls.sample_threshold,
             requires_continuous_magnitude=cls.requires_continuous_magnitude,
         )
 

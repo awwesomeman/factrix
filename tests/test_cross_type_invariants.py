@@ -116,13 +116,9 @@ class TestSpecMirrorsClass:
         assert spec.role == cls.role
         assert spec.requires == cls.requires
         assert spec.batchable == cls.batchable
-        if cls.sample_threshold_for is None:
-            assert spec.sample_threshold == cls.sample_threshold
-        else:
-            # Dynamic floor: spec() resolves the hook against a default-built
-            # instance, so the spec carries a concrete threshold rather than
-            # the empty static placeholder.
-            assert spec.sample_threshold == cls().sample_threshold_for()
+        # ``cls.sample_threshold`` is the resolver baked at the default config;
+        # ``spec()`` carries that one value with no static-vs-dynamic branch.
+        assert spec.sample_threshold == cls.sample_threshold
 
     @pytest.mark.parametrize("cls", _REGISTRY_CLASSES, ids=_REGISTRY_IDS)
     def test_metric_role_implies_scalar_output(self, cls: type[MetricBase]) -> None:

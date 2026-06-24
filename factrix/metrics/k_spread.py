@@ -34,14 +34,15 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._metric_index import SampleThreshold, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
 from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
-    _enforce_min_floor,
+    _enforce_scaled_floor,
     _sample_non_overlapping,
+    _scaled_periods_threshold,
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
@@ -98,7 +99,10 @@ def _build_k_spread_series(
         FactorScope.INDIVIDUAL, FactorDensity.DENSE, structure=DataStructure.PANEL
     ),
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
+    # Periods floor scales with the non-overlap stride (see ``quantile``): the
+    # spread series is sub-sampled at ``forward_periods``, so pre-flight and the
+    # in-body gate share ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``.
+    sample_threshold=_scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD),
 )
 def k_spread(
     df: pl.DataFrame,
@@ -206,8 +210,13 @@ def k_spread(
 
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
-    sc = _enforce_min_floor(
-        k_spread, "k_spread", n, "insufficient_portfolio_periods", k=k
+    sc = _enforce_scaled_floor(
+        "k_spread",
+        df["date"].n_unique(),
+        MIN_PORTFOLIO_PERIODS_HARD,
+        forward_periods,
+        "insufficient_portfolio_periods",
+        k=k,
     )
     if sc is not None:
         return sc

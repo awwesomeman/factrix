@@ -25,7 +25,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._metric_index import SampleThreshold, cell
+from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -37,9 +37,10 @@ from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
     _compute_tie_ratio,
-    _enforce_min_floor,
+    _enforce_scaled_floor,
     _lag_within_asset,
     _sample_non_overlapping,
+    _scaled_periods_threshold,
     _short_circuit_output,
     _spread_significance_with_inference,
     _surface_null_drop,
@@ -62,11 +63,19 @@ _Q_CELL = cell(
 )
 
 
+# Periods floor scales with the non-overlap stride: the headline t-test runs on
+# ``raw_n / forward_periods`` sampled dates, so pre-flight needs ``raw_n >=
+# MIN_PORTFOLIO_PERIODS_HARD * forward_periods`` to land that many effective
+# periods. The resolver and the in-body :func:`_enforce_scaled_floor` gate share
+# ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``, so the floors agree.
+_PORTFOLIO_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
+
+
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
-    sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
+    sample_threshold=_PORTFOLIO_PERIODS_FLOOR,
 )
 def quantile_spread(
     df: pl.DataFrame,
@@ -164,10 +173,14 @@ def quantile_spread(
         if isinstance(inference, NeweyWest)
         else None
     )
+    # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
+    # calibrated against, shared across factors.
+    n_raw_periods = df["date"].n_unique()
     return {
         f: _quantile_spread_from_series(
             series=series_by_factor[f],
             sampled=sampled,
+            n_raw_periods=n_raw_periods,
             factor_col=f,
             tie_policy=tie_policy,
             inference=inference,
@@ -184,6 +197,7 @@ def _quantile_spread_from_series(
     *,
     series: pl.DataFrame,
     sampled: pl.DataFrame,
+    n_raw_periods: int,
     factor_col: str,
     tie_policy: str,
     inference: NonOverlapping | NeweyWest,
@@ -193,18 +207,19 @@ def _quantile_spread_from_series(
     """Per-factor t-test pipeline shared by single and batch paths.
 
     ``sampled`` is the (already non-overlap-sampled) panel; ``series``
-    is this factor's spread DataFrame. Splitting this out lets the
-    batch path share the sample step across every factor while the
-    single-factor path stays a one-liner.
+    is this factor's spread DataFrame; ``n_raw_periods`` is the full date count
+    before sampling. Splitting this out lets the batch path share the sample
+    step across every factor while the single-factor path stays a one-liner.
     """
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
     _warn_high_tie_ratio(tie_ratio, "quantile_spread", tie_policy)
     spread_vals = series["spread"].drop_nulls()
     n = len(spread_vals)
-    sc = _enforce_min_floor(
-        quantile_spread,
+    sc = _enforce_scaled_floor(
         "quantile_spread",
-        n,
+        n_raw_periods,
+        MIN_PORTFOLIO_PERIODS_HARD,
+        forward_periods,
         "insufficient_portfolio_periods",
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
@@ -284,7 +299,7 @@ def _quantile_spread_from_series(
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
+    sample_threshold=_PORTFOLIO_PERIODS_FLOOR,
 )
 def quantile_spread_vw(
     df: pl.DataFrame,
@@ -415,10 +430,11 @@ def quantile_spread_vw(
 
     spread_vals = vw_series["spread_vw"].drop_nulls()
     n = len(spread_vals)
-    sc = _enforce_min_floor(
-        quantile_spread_vw,
+    sc = _enforce_scaled_floor(
         "quantile_spread_vw",
-        n,
+        df["date"].n_unique(),
+        MIN_PORTFOLIO_PERIODS_HARD,
+        forward_periods,
         "insufficient_portfolio_periods",
         tie_ratio=tie_ratio,
         tie_policy=tie_policy,
