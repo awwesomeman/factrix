@@ -160,6 +160,8 @@ def hit_rate(
     return MetricResult(
         p_value=p,
         value=rate,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),

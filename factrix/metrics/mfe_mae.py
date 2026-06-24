@@ -146,5 +146,7 @@ def mfe_mae(mfe_mae_df: pl.DataFrame) -> MetricResult:
     return MetricResult(
         p_value=None,  # descriptive metric — no hypothesis test
         value=ratio,
+        n_obs=n_events,
+        n_obs_axis="events",
         metadata=metadata,
     )

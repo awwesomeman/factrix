@@ -104,6 +104,7 @@ def _selection_to_result(acc: _ForwardSelection, n_obs: int) -> MetricResult:
         value=float(len(acc.selected_factors)),
         p_value=None,
         n_obs=n_obs,
+        n_obs_axis="periods",
         stat=None,
         metadata={
             "method": "greedy forward selection",
@@ -227,6 +228,7 @@ def spanning_alpha(
                 "spanning_alpha",
                 "no_overlapping_dates_with_candidate",
                 n_obs=0,
+                n_obs_axis="periods",
             )
         candidate_arr = arrays.pop("_candidate_")
         base_arrays = arrays
@@ -256,6 +258,7 @@ def spanning_alpha(
         p_value=p,
         value=ols.alpha,
         n_obs=n_obs,
+        n_obs_axis="periods",
         stat=ols.alpha_t,
         metadata={
             "stat_type": "t",

@@ -139,6 +139,8 @@ def corrado_rank(
     return MetricResult(
         p_value=p,
         value=mean_u,
+        n_obs=n_events,
+        n_obs_axis="events",
         stat=z,
         metadata={
             "n_events": n_events,

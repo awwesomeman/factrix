@@ -175,6 +175,8 @@ def oos_decay(
     )
     return MetricResult(
         value=survival,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=None,
         metadata=metadata,
         warning_codes=tuple(warning_codes),

@@ -245,6 +245,8 @@ def turnover(
 
     return MetricResult(
         value=1.0 - mean_rc,
+        n_obs=rc_per_date.height,
+        n_obs_axis="pairs",
         metadata={
             "mean_rank_autocorrelation": mean_rc,
             "std_rank_autocorrelation": std_rc,

@@ -82,6 +82,7 @@ class TestEvaluationResultToFrame:
             "p_value",
             "stat",
             "n_obs",
+            "n_obs_axis",
             "is_applicable",
             "reason",
             "warning_codes",
@@ -89,6 +90,7 @@ class TestEvaluationResultToFrame:
         assert df.schema["value"] == pl.Float64
         assert df.schema["p_value"] == pl.Float64
         assert df.schema["n_obs"] == pl.Int64
+        assert df.schema["n_obs_axis"] == pl.Utf8
         assert df.schema["is_applicable"] == pl.Boolean
         assert df.schema["reason"] == pl.Utf8
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)

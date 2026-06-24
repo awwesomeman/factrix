@@ -296,6 +296,8 @@ def fm_beta(
     return MetricResult(
         p_value=p_final,
         value=mean_beta,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -371,6 +373,7 @@ def _pooled_beta_driscoll_kraay(
             "pooled_beta",
             "singular_pooled_design_matrix",
             n_obs=n_obs,
+            n_obs_axis="pairs",
         )
 
     n_periods = int(dk_meta["n_periods"])
@@ -379,6 +382,7 @@ def _pooled_beta_driscoll_kraay(
             p_value=1.0,
             value=slope,
             n_obs=n_obs,
+            n_obs_axis="pairs",
             stat=None,
             metadata={
                 "reason": "insufficient_periods",
@@ -416,6 +420,7 @@ def _pooled_beta_driscoll_kraay(
         p_value=p,
         value=slope,
         n_obs=n_obs,
+        n_obs_axis="pairs",
         stat=t_stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -589,6 +594,7 @@ def pooled_beta(
             "pooled_beta",
             "singular_pooled_design_matrix",
             n_obs=n_obs,
+            n_obs_axis="pairs",
         )
 
     slope = float(beta[1])
@@ -621,6 +627,7 @@ def pooled_beta(
                 p_value=1.0,
                 value=slope,
                 n_obs=n_obs,
+                n_obs_axis="pairs",
                 stat=None,
                 metadata={
                     "reason": "insufficient_clusters",
@@ -647,6 +654,7 @@ def pooled_beta(
                 p_value=1.0,
                 value=slope,
                 n_obs=n_obs,
+                n_obs_axis="pairs",
                 stat=None,
                 metadata={
                     "reason": "insufficient_clusters",
@@ -676,6 +684,8 @@ def pooled_beta(
     except np.linalg.LinAlgError:
         return MetricResult(
             value=slope,
+            n_obs=n_obs,
+            n_obs_axis="pairs",
             stat=0.0,
         )
 
@@ -711,6 +721,7 @@ def pooled_beta(
         p_value=p,
         value=slope,
         n_obs=n_obs,
+        n_obs_axis="pairs",
         stat=t_stat,
         metadata=metadata,
     )
@@ -794,6 +805,8 @@ def fm_beta_sign_consistency(
     _surface_drop_stats(beta_df, "fm_beta_sign_consistency", metadata, warning_codes)
     return MetricResult(
         value=consistent,
+        n_obs=n,
+        n_obs_axis="periods",
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

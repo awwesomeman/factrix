@@ -199,6 +199,8 @@ def monotonicity(
         results[f] = MetricResult(
             p_value=p,
             value=avg_mono,
+            n_obs=len(mono_arr),
+            n_obs_axis="periods",
             stat=t,
             metadata={
                 "stat_type": "t",

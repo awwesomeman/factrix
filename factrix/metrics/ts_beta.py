@@ -89,6 +89,8 @@ def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricRe
     return MetricResult(
         p_value=1.0,
         value=float(row["beta"]),
+        n_obs=1,
+        n_obs_axis="assets",
         stat=float(row["t_stat"]),
         metadata={
             "n_assets": 1,
@@ -169,6 +171,8 @@ def ts_beta(ts_betas_df: pl.DataFrame) -> MetricResult:
     return MetricResult(
         p_value=p,
         value=mean_b,
+        n_obs=n,
+        n_obs_axis="assets",
         stat=t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -251,6 +255,8 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     )
     return MetricResult(
         value=float(np.mean(r2_vals)),
+        n_obs=n,
+        n_obs_axis="assets",
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
@@ -445,6 +451,8 @@ def ts_beta_sign_consistency(ts_betas_df: pl.DataFrame) -> MetricResult:
     )
     return MetricResult(
         value=consistency,
+        n_obs=n,
+        n_obs_axis="assets",
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

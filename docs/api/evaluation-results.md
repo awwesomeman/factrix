@@ -20,7 +20,8 @@ Converts the metric results into a stable, long-form Polars `pl.DataFrame`. This
 - `value` (`f64` | `null`): The calculated metric value (NaN/Inf are normalized to `null`).
 - `p_value` (`f64` | `null`): The p-value, if applicable.
 - `stat` (`f64` | `null`): The underlying test statistic, if applicable.
-- `n_obs` (`i64` | `null`): Sample size seen by the metric.
+- `n_obs` (`i64` | `null`): Effective sample size the metric's estimator used. `null` only where a single integer count is not meaningful (e.g. a multi-window CAAR series).
+- `n_obs_axis` (`str` | `null`): The dimension `n_obs` counts along — `periods` / `events` / `pairs` / `assets`. A bare count is uninterpretable without it (a Fama-MacBeth `n_obs` is `periods`; a pooled-OLS one is `(date, asset)` `pairs`). `null` exactly when `n_obs` is.
 - `is_applicable` (`bool`): `false` when `strict=False` returned a short-circuit placeholder for an unsupported metric/input combination.
 - `reason` (`str` | `null`): Short-circuit reason when `is_applicable` is `false`.
 - `warning_codes` (`list[str]`): List of warnings attached to the metric.
@@ -51,7 +52,8 @@ Converts the result into a JSON-friendly nested dictionary. It normalizes floats
     > [!IMPORTANT]
     > `p_value` is the canonical field for metric p-values.
 - **`stat`** (`float` | `None`): The test statistic (e.g. t-statistic, z-statistic).
-- **`n_obs`** (`int` | `None`): The number of observations used in this specific metric calculation.
+- **`n_obs`** (`int` | `None`): Effective sample size the estimator used in this specific metric calculation.
+- **`n_obs_axis`** (`str` | `None`): Sample dimension `n_obs` counts along — one of `periods` / `events` / `pairs` / `assets`. Stamped by the producer alongside `n_obs`; `None` exactly when `n_obs` is.
 - **`is_applicable`** (`bool`): `False` for `strict=False` short-circuit placeholders, so reporting code can filter them without inspecting `metadata["reason"]`.
 - **`reason`** (`str` | `None`): Stable short-circuit reason, copied from `metadata["reason"]` when present.
 - **`metadata`** (`dict`): Underlying dictionary of metric-specific metadata.
