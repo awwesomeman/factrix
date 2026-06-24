@@ -1,17 +1,17 @@
 | Module | Cell scope | Aggregation order |
 |---|---|---|
-| [`metrics.caar`][factrix.metrics.caar] | `(*, SPARSE, PANEL)` | event_time |
+| [`metrics.caar`][factrix.metrics.caar] | `(*, SPARSE, *)` | event_time |
 | [`metrics.clustering_hhi`][factrix.metrics.clustering_hhi] | `(*, SPARSE, PANEL)` | cs_snapshot |
 | [`metrics.concentration`][factrix.metrics.concentration] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
-| [`metrics.corrado_rank`][factrix.metrics.corrado_rank] | `(*, SPARSE, PANEL)` | event_time |
+| [`metrics.corrado_rank`][factrix.metrics.corrado_rank] | `(*, SPARSE, *)` | event_time |
 | [`metrics.directional_hit_rate`][factrix.metrics.directional_hit_rate] | `(*, DENSE, *)` | ts_only |
-| [`metrics.event_horizon`][factrix.metrics.event_horizon] | `(*, SPARSE, PANEL)` | event_time |
-| [`metrics.event_quality`][factrix.metrics.event_quality] | `(*, SPARSE, PANEL)` | event_time |
+| [`metrics.event_horizon`][factrix.metrics.event_horizon] | `(*, SPARSE, *)` | event_time |
+| [`metrics.event_quality`][factrix.metrics.event_quality] | `(*, SPARSE, *)` | event_time |
 | [`metrics.fm_beta`][factrix.metrics.fm_beta] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.hit_rate`][factrix.metrics.hit_rate] | `(*, DENSE, TIMESERIES)` | ts_only |
 | [`metrics.ic`][factrix.metrics.ic] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.k_spread`][factrix.metrics.k_spread] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
-| [`metrics.mfe_mae`][factrix.metrics.mfe_mae] | `(*, SPARSE, PANEL)` | event_time |
+| [`metrics.mfe_mae`][factrix.metrics.mfe_mae] | `(*, SPARSE, *)` | event_time |
 | [`metrics.monotonicity`][factrix.metrics.monotonicity] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
 | [`metrics.oos_decay`][factrix.metrics.oos_decay] | `(*, DENSE, TIMESERIES)` | ts_only |
 | [`metrics.quantile`][factrix.metrics.quantile] | `(INDIVIDUAL, DENSE, PANEL)` | cs_then_ts |
