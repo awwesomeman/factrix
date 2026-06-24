@@ -104,6 +104,46 @@ def _run_producer_for_factor(
     return producer(data)
 
 
+def _too_few_aligned_dates_msg(
+    func_name: str,
+    slices: dict[str, pl.DataFrame],
+    aligned_height: int,
+) -> str:
+    """Branch the ``<2 aligned dates`` error on the raw shared-date count.
+
+    Two distinct failures collapse the joined panel to <2 rows:
+    (1) the slices are genuinely date-disjoint (e.g. calendar regime); or
+    (2) the slices share dates, but the per-slice metric dropped its per-date
+    values — typically too few assets per slice. The cause changes the fix,
+    so the message must too. The raw shared-date count (dates common to every
+    slice *before* the metric runs) tells the two apart, which
+    ``aligned_height`` alone cannot.
+    """
+    shared: set[object] | None = None
+    for sub in slices.values():
+        dates = set(sub.get_column("date").unique().to_list())
+        shared = dates if shared is None else (shared & dates)
+    raw_shared = len(shared) if shared is not None else 0
+    if raw_shared < 2:
+        return (
+            f"{func_name}: <2 aligned dates across slices ({aligned_height}); "
+            f"joint HAC inference requires aligned rows. These tests are "
+            f"cross-sectional — slices must share ≥2 common dates. A "
+            f"date-disjoint partition (e.g. calendar regime) shares no dates "
+            f"and is not supported here — use slice_period_pairwise_test / "
+            f"slice_period_joint_test for date-disjoint partitions."
+        )
+    return (
+        f"{func_name}: slices share {raw_shared} raw dates but only "
+        f"{aligned_height} aligned dates survived metric computation; joint "
+        f"HAC inference requires ≥2. The partition is date-aligned — the "
+        f"per-slice metric dropped most of its per-date values, typically "
+        f"because each slice has too few assets to compute the metric "
+        f"cross-sectionally. Widen each slice's universe (more assets per "
+        f"slice) or use a coarser partition."
+    )
+
+
 def _build_per_date_panel(
     data: pl.DataFrame,
     metric: MetricBase,
@@ -148,13 +188,7 @@ def _build_per_date_panel(
             how="inner",
         )
     if aligned.height < 2:
-        raise ValueError(
-            f"{func_name}: <2 aligned dates across slices ({aligned.height}); "
-            f"joint HAC inference requires aligned rows. These tests are "
-            f"cross-sectional — slices must share ≥2 common dates. A "
-            f"date-disjoint partition (e.g. calendar regime) shares no dates "
-            f"and is not supported here."
-        )
+        raise ValueError(_too_few_aligned_dates_msg(func_name, slices, aligned.height))
     panel = aligned.drop("date").to_numpy()
     return labels, panel, aligned.height
 

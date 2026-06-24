@@ -151,10 +151,31 @@ def test_raises_when_dates_dont_align() -> None:
     df_b = build_labelled_raw_panel(
         n_dates=30, seed=13, signal={"b": 0.1}, label_col="regime"
     ).with_columns(pl.col("date") + pl.duration(days=100))
-    with pytest.raises(ValueError, match="aligned dates"):
+    # Genuinely date-disjoint slices share no raw dates: the message points
+    # at the slice_period_* path, not at a small-sample cause.
+    with pytest.raises(ValueError, match="date-disjoint partition") as exc:
         slice_pairwise_test(
             pl.concat([df_a, df_b]), ic(), by="regime", factor_col="factor"
         )
+    assert "slice_period_pairwise_test" in str(exc.value)
+
+
+def test_aligned_slices_but_metric_dropped_reports_small_sample() -> None:
+    """Date-aligned slices whose tiny cross-sections (N < MIN_IC_ASSETS) make
+    every per-date IC drop must blame the thin universe, not call the
+    partition date-disjoint."""
+    df = build_labelled_raw_panel(
+        n_dates=40,
+        seed=14,
+        signal={"a": 0.1, "b": 0.1},
+        label_col="universe",
+        n_assets=5,
+    )
+    with pytest.raises(ValueError, match="too few assets") as exc:
+        slice_pairwise_test(df, ic(), by="universe", factor_col="factor")
+    msg = str(exc.value)
+    assert "date-aligned" in msg
+    assert "date-disjoint" not in msg
 
 
 def test_overlap_bandwidth_inflates_variance() -> None:
