@@ -106,7 +106,10 @@ def make_cs_panel(
     Args:
         n_assets: Cross-sectional width.
         n_dates: Number of calendar dates (daily index, includes
-            weekends — factrix doesn't prescribe a calendar).
+            weekends — factrix doesn't prescribe a calendar). Must satisfy
+            ``n_dates >= signal_horizon + 2`` — the floor that yields any
+            defined forward return. For a shorter test panel, lower
+            ``signal_horizon`` rather than working around the floor.
         ic_target: Target per-date Pearson CS correlation between
             factor and forward return at ``signal_horizon``. Realized
             realized per-date IC after ``fx.evaluate`` will fall near this
@@ -210,7 +213,10 @@ def make_event_panel(
 
     Args:
         n_assets: Cross-sectional width.
-        n_dates: Number of calendar dates.
+        n_dates: Number of calendar dates. Must satisfy
+            ``n_dates >= signal_horizon + 2`` — the floor that yields any
+            defined forward return. For a shorter test panel, lower
+            ``signal_horizon`` rather than working around the floor.
         event_rate: Per-cell event probability (≈ expected events per
             asset per date).
         event_magnitude: Magnitude of the event signal.
