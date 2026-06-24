@@ -386,21 +386,12 @@ to keep the regime unambiguous.
 
 ### Inference selection (`inference=`)
 
-A selectable `inference=` is offered **only** to the series-mean family —
-metrics that average an overlapping per-date series and test `mean != 0`
-(`ic`, `quantile_spread`, `k_spread`), where non-overlap sub-sampling vs a
-HAC SE genuinely changes the standard error. Every other metric carries a
-fixed estimator dictated by its statistical shape (event-study
-Brown-Warner / standardized-AR; `fm_beta` Fama-MacBeth / Driscoll-Kraay;
-fixed-distribution `directional_hit_rate` / `hit_rate`; descriptive
-diagnostics), so it takes no `inference` knob — the absence is by design.
-
-The parameter is a **closed union** of curated members, never an open
-`Protocol` the caller implements: an unvetted SE estimator would silently
-emit invalid p-values, so extension is gated per metric family. The full
-rationale, plus why `HANSEN_HODRICK` is exported yet absent from the metric
-unions (polymorphic `ic` dispatch vs the `NeweyWest`-specific spread
-dispatch), lives in the `factrix.inference` module docstring as the SSOT.
+Only the series-mean family (`ic`, `quantile_spread`, `k_spread`) takes a
+selectable `inference=`; every other metric carries a fixed estimator by
+its statistical shape, so the absence of the knob is by design. The
+`factrix.inference` module docstring is the SSOT for the full rule — the
+per-family rationale, the closed-union policy, and why `HANSEN_HODRICK` is
+exported yet absent from the metric unions.
 
 ### `individual_continuous(IC)` — cross-section first
 

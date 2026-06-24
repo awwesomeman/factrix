@@ -34,8 +34,8 @@ design, not an omission:
 - **Fixed-distribution tests** (``directional_hit_rate`` is
   Pesaran-Timmermann, ``hit_rate`` is a binomial) — no SE to choose.
 - **Descriptive diagnostics** (``oos_decay``, ``concentration``,
-  ``trend`` = Theil-Sen, ``ts_asymmetry``, ``spanning``) — no single
-  headline H0, or an estimator-specific CI.
+  ``trend`` = Theil-Sen, ``ts_asymmetry``) — no single headline H0, or an
+  estimator-specific CI.
 
 Closed-union policy
 -------------------
