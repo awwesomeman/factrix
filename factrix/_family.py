@@ -80,10 +80,12 @@ def _partition(
                 docs_path=f"api/{func_name}#expand_over",
             )
 
+    _check_context_keys(results, keys=keys, func_name=func_name)
+
     entries: list[_FamilyEntry] = []
     seen: dict[tuple[Any, ...], int] = {}
     for idx, result in enumerate(results):
-        values = _expand_over_values(result, keys=keys, func_name=func_name)
+        values = _expand_over_values(result, keys=keys)
         identifier = (result.factor, *values)
         if identifier in seen:
             raise UserInputError(
@@ -172,28 +174,68 @@ def _resolve_family(
     return _attach_p_values(partition, func_name=func_name, metric=metric)
 
 
+def _check_context_keys(
+    results: Sequence[EvaluationResult],
+    *,
+    keys: list[str],
+    func_name: str,
+) -> None:
+    """Raise once listing every ``(factor, missing_key)`` across the input.
+
+    Built-in slicing fields (``forward_periods``) are read off the result
+    and never missing; only ``context`` keys are checked. A single failed
+    result no longer short-circuits the whole screen — integrating results
+    from several sources surfaces all context gaps in one pass, matching
+    the aggregate-then-report idiom of ``evaluate``'s strict / column
+    guards. fail-loud is preserved: any gap still raises (silently
+    dropping a result would alter family composition and the FDR
+    denominator).
+    """
+    context_keys = [k for k in keys if k not in _BUILTIN_EXPAND_OVER_FIELDS]
+    if not context_keys:
+        return
+    missing = [
+        (result.factor, name)
+        for result in results
+        for name in context_keys
+        if name not in result.context
+    ]
+    if not missing:
+        return
+    missing_keys = sorted({k for _, k in missing})
+    available = sorted({k for result in results for k in result.context})
+    detail = "; ".join(f"factor={factor!r} missing {key!r}" for factor, key in missing)
+    raise UserInputError(
+        func_name=func_name,
+        field="expand_over",
+        value=missing_keys,
+        expected=(
+            f"expand_over key(s) {missing_keys!r} present in every result's "
+            f"context. Missing — {detail}. Stamp the key on every "
+            f"EvaluationResult.context, or drop it from expand_over. "
+            f"Context keys seen across the input: "
+            f"{available or ['<none>']!r}"
+        ),
+        docs_path=f"api/{func_name}#expand_over",
+    )
+
+
 def _expand_over_values(
     result: EvaluationResult,
     *,
     keys: list[str],
-    func_name: str,
 ) -> tuple[Any, ...]:
-    values: list[Any] = []
-    for name in keys:
-        if name in _BUILTIN_EXPAND_OVER_FIELDS:
-            values.append(getattr(result, name))
-            continue
-        if name not in result.context:
-            raise UserInputError(
-                func_name=func_name,
-                field="expand_over",
-                value=name,
-                candidates=sorted(result.context)
-                or ["<no context keys on this result>"],
-                docs_path=f"api/{func_name}#expand_over",
-            )
-        values.append(result.context[name])
-    return tuple(values)
+    """Read the ``expand_over`` value tuple off one result.
+
+    Presence of every context key is guaranteed by a prior
+    ``_check_context_keys`` sweep, so this reads without re-validating.
+    """
+    return tuple(
+        getattr(result, name)
+        if name in _BUILTIN_EXPAND_OVER_FIELDS
+        else result.context[name]
+        for name in keys
+    )
 
 
 def _resolve_p_value(

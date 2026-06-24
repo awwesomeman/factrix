@@ -234,6 +234,35 @@ def test_missing_context_key_raises():
         bhy(results, metrics=["ic"], expand_over=("universe",))
 
 
+def test_missing_context_key_aggregates_all_offenders():
+    make_spec("ic")
+    results = [
+        make_result(factor="f1", p=0.01, metric="ic", context={"region": "US"}),
+        make_result(factor="f2", p=0.01, metric="ic", context={}),
+        make_result(factor="f3", p=0.01, metric="ic", context={"region": "EU"}),
+    ]
+    with pytest.raises(UserInputError) as excinfo:
+        bhy(results, metrics=["ic"], expand_over=("region",))
+    msg = str(excinfo.value)
+    # Only the two gaps are reported; the result that carries the key is absent.
+    assert "factor='f2' missing 'region'" in msg
+    assert "factor='f1'" not in msg
+    assert "factor='f3'" not in msg
+
+
+def test_missing_context_key_aggregates_multiple_keys():
+    make_spec("ic")
+    results = [
+        make_result(factor="f1", p=0.01, metric="ic", context={"region": "US"}),
+        make_result(factor="f2", p=0.01, metric="ic", context={"sector": "tech"}),
+    ]
+    with pytest.raises(UserInputError) as excinfo:
+        bhy(results, metrics=["ic"], expand_over=("region", "sector"))
+    msg = str(excinfo.value)
+    assert "factor='f1' missing 'sector'" in msg
+    assert "factor='f2' missing 'region'" in msg
+
+
 def test_adj_p_monotonic_within_bucket():
     make_spec("ic")
     p_values = [0.001, 0.01, 0.02, 0.5, 0.9]

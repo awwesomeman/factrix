@@ -79,7 +79,7 @@ Every `UserInputError` carries structured attributes (see [Reading a `UserInputE
 | Message hint | Trigger | Fix |
 |---|---|---|
 | `unknown metrics='...'` | Typo or metric not applicable to the data | `inspect_data(data).usable` enumerates the metrics applicable to the data shape. See [`list_metrics`](metrics/index.md#factrix.list_metrics) for the full catalog. |
-| `unknown expand_over='...'` | Context key not present on every result in the family | All results in the family must carry the key in `.context`; check that the caller is populating it consistently. |
+| `invalid expand_over=[...]` | One or more `expand_over` context keys missing on some results | The message lists every `(factor, missing_key)` pair in one pass. All results in the family must carry the key in `.context`; populate it consistently, or drop the key from `expand_over`. |
 | `Expected: list[EvaluationResult], got ...` | Passing the wrong artifact type to a screening function | Screening (`bhy`, `partial_conjunction`, `bhy_hierarchical`) consumes `list[EvaluationResult]`. |
 
 ---
