@@ -11,21 +11,29 @@ group representatives + inner BHY within each passing group, per
 [Yekutieli (2008)](https://www.tandfonline.com/doi/abs/10.1198/jasa.2007.ap06035).
 
 ```python
+import dataclasses
+
 import factrix as fx
+from factrix.metrics import ic
 
 # "Which factor families have signal, and within those, which factors?"
+# evaluate() returns dict[str, EvaluationResult]; pull the single result
+# and stamp the family label onto it with dataclasses.replace so the
+# outer screen can group on context["family"].
+def profile(panel, factor_col, **context):
+    res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
+    return dataclasses.replace(res, context=context)
+
 profiles = [
-    fx.evaluate(panel_mom_1m, cfg, factor_col="mom_1m",
-                context={"family": "momentum"}),
-    fx.evaluate(panel_mom_12m, cfg, factor_col="mom_12m",
-                context={"family": "momentum"}),
-    fx.evaluate(panel_pb, cfg, factor_col="pb",
-                context={"family": "value"}),
-    fx.evaluate(panel_pe, cfg, factor_col="pe",
-                context={"family": "value"}),
+    profile(panel_mom_1m, "mom_1m", family="momentum"),
+    profile(panel_mom_12m, "mom_12m", family="momentum"),
+    profile(panel_pb, "pb", family="value"),
+    profile(panel_pe, "pe", family="value"),
     # ... + quality, low-vol, etc.
 ]
-survivors = fx.multi_factor.bhy_hierarchical(profiles, group="family", q=0.05)
+survivors = fx.multi_factor.bhy_hierarchical(
+    profiles, metrics=["ic"], group="family", q=0.05
+)
 ```
 
 ## Which function fits this question?

@@ -107,7 +107,7 @@ results = fx.evaluate(
 )
 
 # 3. Screen with Benjamini-Hochberg-Yekutieli step-up FDR
-screens = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)
+screens = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)
 ic_screen = screens["ic"]
 
 print("Survivors:", [p.factor for p in ic_screen.survivors])

@@ -42,7 +42,7 @@ See [Concepts](concepts.md) for what each axis means.
 
 ## Research question → metric mapping
 
-In `factrix` v0.14.0, rather than constructing a central config object, you pass metric instances imported from `factrix.metrics` directly to the `metrics` parameter of `fx.evaluate()`.
+In `factrix`, rather than constructing a central config object, you pass metric instances imported from `factrix.metrics` directly to the `metrics` parameter of `fx.evaluate()`.
 
 To learn how to choose the right metrics and configure them, see [Choosing a metric](../guides/choosing-metric.md) and [Concepts](concepts.md).
 
