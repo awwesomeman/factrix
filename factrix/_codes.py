@@ -57,6 +57,15 @@ class WarningCode(StrEnum):
     # ``df = n - 1 < 19`` inflates t_crit relative to the asymptotic
     # cutoff. Below the HARD floor the primitive short-circuits to NaN.
     BORDERLINE_PORTFOLIO_PERIODS = "borderline_portfolio_periods"
+    # Fired by ``directional_hit_rate`` when the pooled non-overlapping
+    # (date, asset) directional observations sit in
+    # ``[MIN_DIRECTIONAL_PAIRS_HARD, MIN_DIRECTIONAL_PAIRS_WARN)`` — the
+    # Pesaran-Timmermann (1992) hit rate is returned but the normal
+    # approximation to S_n is power-thin below ~30 pooled pairs. Below the
+    # HARD floor the metric short-circuits to NaN instead. Named on the
+    # ``pairs`` axis token — the count is pooled (date, asset) trials, not
+    # periods.
+    FEW_DIRECTIONAL_PAIRS = "few_directional_pairs"
     # Fired when a rectangular-kernel HAC primitive (Hansen-Hodrick 1980)
     # produces a negative variance-of-mean estimate on short / mildly
     # anti-correlated samples. Unlike the Bartlett kernel, the rectangular
@@ -170,6 +179,12 @@ _WARNING_DESCRIPTIONS.update(
         "≤ n_periods < MIN_PORTFOLIO_PERIODS_WARN (3..19); one-sided t-test "
         "on the per-date diversification ratio is returned but df=n-1 inflates "
         "t_crit relative to the asymptotic cutoff.",
+        WarningCode.FEW_DIRECTIONAL_PAIRS: "directional_hit_rate with MIN_DIRECTIONAL_PAIRS_HARD "
+        "≤ n_pairs < MIN_DIRECTIONAL_PAIRS_WARN (10..29); the Pesaran-Timmermann "
+        "hit rate is returned but n counts pooled non-overlapping (date, asset) "
+        "directional trials, and the normal approximation to S_n is power-thin "
+        "below ~30 pooled pairs — read borderline p-values cautiously. Below the "
+        "HARD floor the metric short-circuits to NaN.",
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
         "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
         "Fires only on short / mildly anti-correlated samples.",

@@ -8,10 +8,9 @@ from datetime import date, timedelta
 import numpy as np
 import polars as pl
 import pytest
-from factrix.metrics.directional_hit_rate import (
-    MIN_DIRECTIONAL_PERIODS,
-    directional_hit_rate,
-)
+from factrix._codes import WarningCode
+from factrix._types import MIN_DIRECTIONAL_PAIRS_HARD, MIN_DIRECTIONAL_PAIRS_WARN
+from factrix.metrics.directional_hit_rate import directional_hit_rate
 from factrix.metrics.hit_rate import hit_rate
 
 
@@ -112,12 +111,15 @@ class TestDivergenceFromHitRate:
 class TestShortCircuits:
     def test_insufficient_samples(self):
         rng = np.random.default_rng(5)
-        n = MIN_DIRECTIONAL_PERIODS - 1
+        n = MIN_DIRECTIONAL_PAIRS_HARD - 1
         x = rng.normal(size=n)
         y = rng.normal(size=n)
         result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "insufficient_directional_samples"
+        # Short-circuit is labelled on the pairs axis (pooled (date, asset)
+        # directional trials), not periods.
+        assert result.n_obs_axis == "pairs"
 
     def test_degenerate_one_signed_predictor(self):
         rng = np.random.default_rng(6)
@@ -126,6 +128,7 @@ class TestShortCircuits:
         result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
         assert math.isnan(result.value)
         assert result.metadata["reason"] == "degenerate_directional_variance"
+        assert result.n_obs_axis == "pairs"
 
     def test_missing_return_column(self):
         rng = np.random.default_rng(7)
@@ -141,7 +144,53 @@ class TestShortCircuits:
         y = np.array([1.0] * 30 + [1.0] * 30 + [-1.0] * 30)
         result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
         assert result.n_obs == 60  # the 30 zero-factor rows dropped
+        assert result.n_obs_axis == "pairs"
         assert result.value == pytest.approx(1.0)
+
+
+class TestPairsAxisWarnTier:
+    def test_thin_pooled_sample_warns_but_returns(self):
+        # HARD <= n_pairs < WARN: the PT hit rate is still returned, but the
+        # normal approximation is power-thin, so the result carries
+        # FEW_DIRECTIONAL_PAIRS and a UserWarning fires.
+        rng = np.random.default_rng(11)
+        n = MIN_DIRECTIONAL_PAIRS_WARN - 5
+        assert MIN_DIRECTIONAL_PAIRS_HARD <= n < MIN_DIRECTIONAL_PAIRS_WARN
+        x = rng.normal(size=n)
+        y = 0.6 * x + rng.normal(size=n)
+        with pytest.warns(UserWarning, match="MIN_DIRECTIONAL_PAIRS_WARN"):
+            result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        assert not math.isnan(result.value)
+        assert result.n_obs == n
+        assert result.n_obs_axis == "pairs"
+        assert WarningCode.FEW_DIRECTIONAL_PAIRS.value in result.warning_codes
+
+    def test_ample_pooled_sample_no_warn(self):
+        # n_pairs >= WARN: clean tier, no FEW_DIRECTIONAL_PAIRS code.
+        rng = np.random.default_rng(12)
+        x = rng.normal(size=200)
+        y = 0.5 * x + rng.normal(size=200)
+        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        assert WarningCode.FEW_DIRECTIONAL_PAIRS.value not in result.warning_codes
+
+    def test_wide_short_panel_clears_floor_on_pairs(self):
+        # n_periods (5) < HARD but pooled pairs (5 * 40 = 200) >> WARN: the
+        # metric computes a real result because the floor is on pairs, not
+        # periods.
+        rng = np.random.default_rng(13)
+        n_dates, n_assets = 5, 40
+        dates = [date(2020, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = {
+            "date": [d for d in dates for _ in range(n_assets)],
+            "asset_id": [f"A{a}" for _ in dates for a in range(n_assets)],
+            "factor": rng.normal(size=n_dates * n_assets),
+            "forward_return": rng.normal(size=n_dates * n_assets),
+        }
+        df = pl.DataFrame(rows)
+        result = directional_hit_rate(df, forward_periods=1)
+        assert not math.isnan(result.value)
+        assert result.n_obs == n_dates * n_assets
+        assert result.n_obs_axis == "pairs"
 
 
 class TestDispatch:

@@ -34,32 +34,31 @@ from factrix._axis import (
     FactorDensity,
     InputShape,
 )
+from factrix._codes import WarningCode
 from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
-from factrix._types import MIN_IC_PERIODS
+from factrix._types import MIN_DIRECTIONAL_PAIRS_HARD, MIN_DIRECTIONAL_PAIRS_WARN
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
     _sample_non_overlapping,
     _short_circuit_output,
+    _warn_below_floor,
 )
 
 __all__ = [
     "directional_hit_rate",
 ]
 
-# Minimum non-overlapping sign observations below which the PT normal
-# approximation is unreliable. Shares the IC series-length floor — both
-# gate a pooled-sign statistic on the same "≥10 independent draws" rule
-# of thumb (periods axis, not the per-date asset count).
-MIN_DIRECTIONAL_PERIODS: int = MIN_IC_PERIODS
-
 
 @metric(
     cell=cell(None, FactorDensity.DENSE, structure=None),
     aggregation=Aggregation.TS_ONLY,
     input_shape=InputShape.PANEL,
-    sample_threshold=SampleThreshold(min_periods=MIN_DIRECTIONAL_PERIODS),
+    sample_threshold=SampleThreshold(
+        min_pairs=MIN_DIRECTIONAL_PAIRS_HARD,
+        warn_pairs=MIN_DIRECTIONAL_PAIRS_WARN,
+    ),
 )
 def directional_hit_rate(
     df: pl.DataFrame,
@@ -117,6 +116,13 @@ def directional_hit_rate(
         all realisations one-signed, or a non-positive variance estimate)
         short-circuit: $P_*$ is then 1 and the statistic is undefined.
 
+        The sample floor is on the **pairs** axis — the $n$ pooled
+        ``(date, asset)`` directional trials, not the period count. Below
+        ``MIN_DIRECTIONAL_PAIRS_HARD`` the metric short-circuits; between
+        the HARD and ``MIN_DIRECTIONAL_PAIRS_WARN`` floors it returns the
+        hit rate but flags ``WarningCode.FEW_DIRECTIONAL_PAIRS`` because the
+        normal approximation to $S_n$ is power-thin on few pooled trials.
+
     References:
         Pesaran, M. H., & Timmermann, A. (1992). A simple nonparametric
         test of predictive performance. *Journal of Business & Economic
@@ -158,6 +164,7 @@ def directional_hit_rate(
         "directional_hit_rate",
         n,
         "insufficient_directional_samples",
+        axis="pairs",
     )
     if sc is not None:
         return sc
@@ -185,7 +192,7 @@ def directional_hit_rate(
             "directional_hit_rate",
             "degenerate_directional_variance",
             n_obs=n,
-            n_obs_axis="periods",
+            n_obs_axis="pairs",
             p_correct=p_correct,
             p_up_pred=p_x,
             p_up_real=p_y,
@@ -194,11 +201,27 @@ def directional_hit_rate(
     s_n = (p_correct - p_star) / np.sqrt(var_s)
     p = float(sp_stats.norm.sf(s_n))
 
+    warning_codes: list[str] = []
+    warn_code = _warn_below_floor(
+        directional_hit_rate,
+        n,
+        f"directional_hit_rate: n_pairs={n} below "
+        f"MIN_DIRECTIONAL_PAIRS_WARN={MIN_DIRECTIONAL_PAIRS_WARN}; the "
+        f"Pesaran-Timmermann hit rate is returned but n counts pooled "
+        f"non-overlapping (date, asset) directional trials, and the normal "
+        f"approximation to S_n is power-thin below ~30 pooled pairs. Read "
+        f"borderline p-values cautiously.",
+        WarningCode.FEW_DIRECTIONAL_PAIRS,
+        axis="pairs",
+    )
+    if warn_code is not None:
+        warning_codes.append(warn_code)
+
     return MetricResult(
         value=p_correct,
         p_value=p,
         n_obs=n,
-        n_obs_axis="periods",
+        n_obs_axis="pairs",
         stat=float(s_n),
         metadata={
             "stat_type": "z",
@@ -209,4 +232,5 @@ def directional_hit_rate(
             "p_up_pred": p_x,
             "p_up_real": p_y,
         },
+        warning_codes=tuple(warning_codes),
     )
