@@ -88,3 +88,16 @@ def test_primary_must_be_list_of_str():
             metrics="ic",  # type: ignore[arg-type]
             group="family",
         )
+
+
+def test_missing_group_key_aggregates_all_offenders():
+    make_spec("ic")
+    results = [
+        make_result(
+            factor="mom_1", p=0.01, metric="ic", context={"family": "momentum"}
+        ),
+        make_result(factor="mom_2", p=0.01, metric="ic", context={}),
+    ]
+    with pytest.raises(UserInputError) as excinfo:
+        bhy_hierarchical(results, metrics=["ic"], group="family")
+    assert "factor='mom_2' missing 'family'" in str(excinfo.value)

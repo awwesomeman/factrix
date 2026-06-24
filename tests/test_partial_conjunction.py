@@ -116,3 +116,16 @@ def test_pc_heterogeneous_m_warns_in_lenient_mode():
         partial_conjunction(
             results, metrics=["ic"], min_pass=2, expand_over=("region",), q=0.5
         )
+
+
+def test_missing_context_key_aggregates_all_offenders():
+    make_spec("ic")
+    results = [
+        make_result(factor="alpha", p=0.01, metric="ic", context={"region": "US"}),
+        make_result(factor="alpha", p=0.01, metric="ic", context={}),
+    ]
+    with pytest.raises(UserInputError) as excinfo:
+        partial_conjunction(
+            results, metrics=["ic"], min_pass=2, expand_over=("region",)
+        )
+    assert "factor='alpha' missing 'region'" in str(excinfo.value)
