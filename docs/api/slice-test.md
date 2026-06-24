@@ -59,6 +59,20 @@ time period) yield zero aligned rows and these functions raise
 `ValueError` (`<2 aligned dates`). Date-shared slices — universe,
 sector, market-cap tier — are their intended use case.
 
+A `<2 aligned dates` error has **two distinct causes**, and the message
+distinguishes them:
+
+- **Date-disjoint partition** — the slices share fewer than two raw dates
+  by construction (the case above). The message names the date-disjoint
+  partition and points at `slice_period_*`.
+- **Date-aligned but metric-dropped** — the slices *do* share dates, but
+  the per-slice metric dropped most of its per-date values, so the joined
+  panel still collapses below two rows. The usual cause is too few assets
+  per slice (e.g. `ic` drops any date below `MIN_IC_ASSETS`); a `sector`
+  cut with thin cross-sections triggers it. The message reports the raw
+  shared-date count and blames the thin universe — widen each slice's
+  asset universe or use a coarser partition.
+
 For genuinely time-disjoint slices, reach for
 `slice_period_pairwise_test` / `slice_period_joint_test`. They build the
 same per-slice per-date series but **do not** inner-join — each slice is
