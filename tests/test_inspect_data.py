@@ -194,14 +194,28 @@ class TestDeclaredPeriodsFloorsVisible:
     pre-flight verdict.
     """
 
-    def test_directional_hit_rate_declares_min_periods(self):
-        from factrix.metrics.directional_hit_rate import (
-            MIN_DIRECTIONAL_PERIODS,
-            directional_hit_rate,
+    def test_directional_hit_rate_declares_pairs_floors(self):
+        from factrix._types import (
+            MIN_DIRECTIONAL_PAIRS_HARD,
+            MIN_DIRECTIONAL_PAIRS_WARN,
         )
+        from factrix.metrics.directional_hit_rate import directional_hit_rate
 
+        # directional_hit_rate gates on pooled (date, asset) directional
+        # trials, so its floor lives on the pairs axis — not periods.
         st = directional_hit_rate.spec().sample_threshold
-        assert st.min_periods == MIN_DIRECTIONAL_PERIODS
+        assert st.min_periods is None
+        assert st.min_pairs == MIN_DIRECTIONAL_PAIRS_HARD
+        assert st.warn_pairs == MIN_DIRECTIONAL_PAIRS_WARN
+
+    def test_directional_hit_rate_usable_on_wide_short_panel(self):
+        # n_periods (7) < MIN_DIRECTIONAL_PAIRS_HARD but n_pairs (7 * 40 = 280)
+        # clears the WARN floor — the pairs-axis pre-flight must not flag it
+        # UNUSABLE the way the old periods-axis floor did.
+        info = inspect_data(fx.datasets.make_cs_panel(n_assets=40, n_dates=7))
+        da = _by_name(info, "directional_hit_rate")
+        assert da.usable is True
+        assert da.warnings == []
 
     def test_top_concentration_declares_periods_floors(self):
         from factrix._types import (

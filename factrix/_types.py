@@ -48,11 +48,24 @@ MIN_IC_ASSETS: int = 10
 
 # Minimum IC time-series length (periods axis) for a reliable mean / sign
 # test on the per-date IC series: the post-stride sample in ``ic()``, the
-# series-length floor in ``hit_rate`` / ``directional_hit_rate``, and the
-# raw-period base in the non-overlapping inference floor all key off this
-# "≥10 independent draws" rule. Distinct axis from
-# ``MIN_IC_ASSETS`` despite the shared value — do not collapse.
+# series-length floor in ``hit_rate``, and the raw-period base in the
+# non-overlapping inference floor all key off this "≥10 independent draws"
+# rule. Distinct axis from ``MIN_IC_ASSETS`` despite the shared value — do
+# not collapse.
 MIN_IC_PERIODS: int = 10
+
+# Two-tier guard for ``directional_hit_rate`` on its ``pairs`` axis — the
+# pooled non-overlapping (date, asset) directional trials the
+# Pesaran-Timmermann (1992) test treats as independent draws, NOT periods.
+# ``n < MIN_DIRECTIONAL_PAIRS_HARD`` short-circuits to NaN (below ~10 pooled
+# trials the PT variance estimate var_s = var(P̂) - var(P*) is numerically
+# fragile). ``HARD ≤ n < MIN_DIRECTIONAL_PAIRS_WARN`` returns the hit rate
+# with ``WarningCode.FEW_DIRECTIONAL_PAIRS`` — the normal approximation to
+# S_n is honest only near ~30 pooled trials (the same asymptotic-honesty
+# convention as ``MIN_EVENTS_WARN`` / ``MIN_ASSETS_WARN``). Pairs axis, own
+# literals — must not alias ``MIN_IC_PERIODS`` (periods axis).
+MIN_DIRECTIONAL_PAIRS_HARD: int = 10
+MIN_DIRECTIONAL_PAIRS_WARN: int = 30
 
 # Two-tier event-count guard for CAAR / Brown-Warner-family tests.
 # ``n < MIN_EVENTS_HARD`` short-circuits to NaN MetricResult (math floor —
