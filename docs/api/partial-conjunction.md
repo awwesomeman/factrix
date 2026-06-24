@@ -113,12 +113,16 @@ container as `bhy`, populated with PC-specific metadata:
 
 | Field | Meaning |
 |---|---|
-| `profiles` | One representative profile per surviving identity (the first profile of that identity in input order) |
-| `adj_p` | BHY-adjusted PC $p$-value; survivor iff `adj_p <= q` |
-| `pc_p` | Raw PC $p$-value (pre-BHY) |
+| `entries` | One representative profile per tested identity (first profile of that identity, input order) — every identity, not just survivors |
+| `adj_p_all` | BHY-adjusted PC $p$-value, aligned with `entries`; identity survives iff `adj_p_all <= q` |
+| `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
+| `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
 | `min_pass` | The $k$ you passed |
 | `n_tests` | Keyed by identity tuple `(factor_id, forward_periods)` → actual $m$ used |
-| `n_passed_uncorr` | Per-identity count of raw $p < q$. Descriptive — flags borderline (`n_passed_uncorr == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
+| `n_passed_uncorr_all` | Per-identity count of raw $p < q$, aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
+
+`to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested
+identity, eliminated ones included.
 
 ## Validation summary
 

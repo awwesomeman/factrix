@@ -200,6 +200,7 @@ def ic(
             "ic",
             "insufficient_ic_periods",
             n_obs=n,
+            n_obs_axis="periods",
             min_required=raw_min,
             forward_periods=forward_periods,
         )
@@ -214,6 +215,7 @@ def ic(
             "ic",
             "insufficient_sampled_ic_periods",
             n_obs=int(n_sampled),
+            n_obs_axis="periods",
             min_required=MIN_IC_PERIODS,
             forward_periods=forward_periods,
         )
@@ -238,6 +240,8 @@ def ic(
     return MetricResult(
         p_value=result.p_value,
         value=mean_ic,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=result.stat,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -339,6 +343,8 @@ def ic_ir(
     _surface_drop_stats(ic_df, "ic_ir", metadata, warning_codes)
     return MetricResult(
         value=ratio,
+        n_obs=n,
+        n_obs_axis="periods",
         warning_codes=tuple(warning_codes),
         metadata=metadata,
     )

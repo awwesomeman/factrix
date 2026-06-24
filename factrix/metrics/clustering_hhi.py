@@ -119,6 +119,8 @@ def clustering_hhi(
 
     return MetricResult(
         value=hhi,
+        n_obs=n_events,
+        n_obs_axis="events",
         metadata={
             "n_events": n_events,
             "n_event_periods": n_dates,

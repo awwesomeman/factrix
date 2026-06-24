@@ -200,6 +200,7 @@ def caar(
             "caar",
             "insufficient_event_periods",
             n_obs=n,
+            n_obs_axis="events",
             min_required=raw_min_hard,
             forward_periods=forward_periods,
         )
@@ -250,6 +251,8 @@ def caar(
     return MetricResult(
         p_value=p,
         value=mean_caar,
+        n_obs=n_sampled,
+        n_obs_axis="events",
         stat=t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -419,6 +422,7 @@ def bmp_z(
             "bmp_z",
             "no_events",
             n_obs=0,
+            n_obs_axis="events",
             min_required=1,
         )
 
@@ -482,6 +486,8 @@ def bmp_z(
     return MetricResult(
         p_value=p,
         value=mean_sar,
+        n_obs=n_valid,
+        n_obs_axis="events",
         stat=z,
         metadata=metadata,
     )

@@ -273,6 +273,8 @@ def _quantile_spread_from_series(
     return MetricResult(
         p_value=p,
         value=mean_spread,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),
@@ -450,6 +452,8 @@ def quantile_spread_vw(
     return MetricResult(
         p_value=p,
         value=mean_spread,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),

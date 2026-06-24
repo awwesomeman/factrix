@@ -126,6 +126,8 @@ def event_hit_rate(
     return MetricResult(
         p_value=p,
         value=rate,
+        n_obs=n,
+        n_obs_axis="events",
         stat=stat,
         metadata={
             "n_events": n,
@@ -227,6 +229,8 @@ def event_ic(
     return MetricResult(
         p_value=p,
         value=rho,
+        n_obs=n,
+        n_obs_axis="events",
         stat=z,
         metadata={
             "n_events": n,
@@ -302,6 +306,8 @@ def profit_factor(
 
     return MetricResult(
         value=pf,
+        n_obs=n,
+        n_obs_axis="events",
         metadata={
             "total_gains": gains,
             "total_losses": losses,
@@ -389,6 +395,8 @@ def event_skewness(
     return MetricResult(
         p_value=p,
         value=skew,
+        n_obs=n,
+        n_obs_axis="events",
         stat=z,
         metadata={
             "n_events": n,
@@ -463,6 +471,7 @@ def signal_density(
             "signal_density",
             "insufficient_events",
             n_obs=n_events,
+            n_obs_axis="events",
             min_required=2,
         )
 
@@ -482,6 +491,7 @@ def signal_density(
             "signal_density",
             "no_asset_has_min_two_events",
             n_obs=n_events,
+            n_obs_axis="events",
             min_required_per_asset=2,
         )
 
@@ -501,6 +511,8 @@ def signal_density(
 
     return MetricResult(
         value=mean_gap,
+        n_obs=n_events,
+        n_obs_axis="events",
         metadata={
             "n_events_total": n_events,
             "n_assets_with_events": len(per_asset),

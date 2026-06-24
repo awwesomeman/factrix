@@ -17,6 +17,7 @@ import polars as pl
 
 from factrix._axis import DataStructure, FactorDensity, FactorScope
 from factrix._codes import WarningCode
+from factrix._types import SampleAxis
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +33,12 @@ class MetricResult:
             events, number of bootstrap windows). ``None`` where a
             single integer count is not meaningful (e.g. multi-window
             CAAR series).
+        n_obs_axis: Sample dimension ``n_obs`` counts along — one of
+            ``"periods"`` / ``"events"`` / ``"pairs"`` / ``"assets"``.
+            A bare count is uninterpretable without its axis (a
+            Fama-MacBeth ``n_obs`` is periods; a pooled-OLS one is
+            ``(date, asset)`` pairs), so producers stamp the axis
+            alongside the count. ``None`` exactly when ``n_obs`` is.
         stat: Test statistic (t, z, W, chi2, ...), when applicable.
         metadata: Estimator-specific context beyond the top-level fields
             (``stat_type``, ``h0``, ``method`` are the standard keys).
@@ -45,6 +52,7 @@ class MetricResult:
     value: float
     p_value: float | None = None
     n_obs: int | None = None
+    n_obs_axis: SampleAxis | None = None
     stat: float | None = None
     metadata: dict[str, object] = field(default_factory=dict)
     warning_codes: tuple[str, ...] = ()
@@ -56,7 +64,8 @@ class MetricResult:
         if self.p_value is not None:
             parts.append(f"p_value={self.p_value:.4g}")
         if self.n_obs is not None:
-            parts.append(f"n_obs={self.n_obs}")
+            axis = f" {self.n_obs_axis}" if self.n_obs_axis else ""
+            parts.append(f"n_obs={self.n_obs}{axis}")
         if self.stat is not None:
             parts.append(f"stat={self.stat:.2f}")
         return f"MetricResult({', '.join(parts)})"
@@ -146,6 +155,21 @@ class EvaluationResult:
     context: Mapping[str, Any] = field(default_factory=dict)
     warnings: list[Warning] = field(default_factory=list)
 
+    def metric(self, label: str) -> MetricResult:
+        """Return the :class:`MetricResult` for ``label``.
+
+        Convenience over ``result.metrics[label]`` — the same lookup with a
+        message that lists the available labels on a miss, so a typo in an
+        interactive session fails loudly instead of with a bare ``KeyError``.
+        """
+        try:
+            return self.metrics[label]
+        except KeyError:
+            available = ", ".join(sorted(self.metrics)) or "(none)"
+            raise KeyError(
+                f"no metric {label!r} on this result; available: {available}"
+            ) from None
+
     def to_frame(self) -> pl.DataFrame:
         r"""One row per produced metric, prefixed with bundle identity.
 
@@ -160,6 +184,7 @@ class EvaluationResult:
         | ``p_value`` | f64 \| null | ``MetricResult.p_value`` |
         | ``stat`` | f64 \| null | ``MetricResult.stat`` |
         | ``n_obs`` | i64 \| null | ``MetricResult.n_obs`` — estimator effective sample size |
+        | ``n_obs_axis`` | str \| null | ``MetricResult.n_obs_axis`` — axis ``n_obs`` counts along (``periods`` / ``events`` / ``pairs`` / ``assets``) |
         | ``is_applicable`` | bool | false for ``strict=False`` short-circuits |
         | ``reason`` | str \| null | short-circuit reason when not applicable |
         | ``warning_codes`` | list[str] | per-metric warning codes |
@@ -190,7 +215,7 @@ class EvaluationResult:
         - ``factor`` / ``cell`` / ``forward_periods`` / ``n_periods`` /
           ``n_pairs`` / ``n_assets`` / ``context``
         - ``metrics``: ``label -> {value, p_value, stat, n_obs,
-          is_applicable, reason, metadata}``
+          n_obs_axis, is_applicable, reason, metadata}``
         - ``warnings``: list of ``{code, source, message}``
         - ``plan``
 
@@ -299,6 +324,7 @@ _TO_FRAME_SCHEMA: dict[str, pl.DataType | type[pl.DataType]] = {
     "p_value": pl.Float64,
     "stat": pl.Float64,
     "n_obs": pl.Int64,
+    "n_obs_axis": pl.Utf8,
     "is_applicable": pl.Boolean,
     "reason": pl.Utf8,
     "warning_codes": pl.List(pl.Utf8),
@@ -317,6 +343,7 @@ def _output_row(
         "p_value": _float_or_none(out.p_value),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
+        "n_obs_axis": out.n_obs_axis,
         "is_applicable": out.is_applicable,
         "reason": out.reason,
         "warning_codes": list(warnings_by_metric.get(label, [])),
@@ -339,6 +366,7 @@ def _metric_output_to_record(out: MetricResult) -> dict[str, Any]:
         "p_value": _float_or_none(out.p_value),
         "stat": _float_or_none(out.stat),
         "n_obs": out.n_obs,
+        "n_obs_axis": out.n_obs_axis,
         "is_applicable": out.is_applicable,
         "reason": out.reason,
         "metadata": {k: _scrub_nonfinite(v) for k, v in out.metadata.items()},

@@ -221,6 +221,8 @@ def top_concentration(
     return MetricResult(
         p_value=p,
         value=mean_eff_n,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),

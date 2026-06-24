@@ -101,3 +101,10 @@ ShankenVarSource = Literal["user_supplied", "betas_timeseries_proxy"]
 # Top-bucket concentration weight basis — pure factor magnitude vs.
 # realised contribution to the long-leg's α.
 ConcentrationWeight = Literal["abs_factor", "alpha_contribution"]
+
+# Canonical sample-dimension vocabulary — the axis a count is measured along.
+# Single source of truth for ``MetricResult.n_obs_axis`` and the ``axis`` params
+# in ``metrics._helpers`` (drop-stats / floor enforcement); mypy rejects any
+# token outside this set, so the grammar (also encoded in ``n_<axis>`` /
+# ``min_<axis>`` keys) cannot drift metric-by-metric.
+SampleAxis = Literal["periods", "events", "pairs", "assets"]

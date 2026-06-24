@@ -185,6 +185,7 @@ def directional_hit_rate(
             "directional_hit_rate",
             "degenerate_directional_variance",
             n_obs=n,
+            n_obs_axis="periods",
             p_correct=p_correct,
             p_up_pred=p_x,
             p_up_real=p_y,
@@ -197,6 +198,7 @@ def directional_hit_rate(
         value=p_correct,
         p_value=p,
         n_obs=n,
+        n_obs_axis="periods",
         stat=float(s_n),
         metadata={
             "stat_type": "z",

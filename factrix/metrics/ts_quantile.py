@@ -226,6 +226,8 @@ def ts_quantile_spread(
     return MetricResult(
         p_value=p_spread,
         value=spread_value,
+        n_obs=n_periods,
+        n_obs_axis="periods",
         stat=spread_t,
         metadata={
             "stat_type": "wald (NW HAC)",

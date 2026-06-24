@@ -70,6 +70,18 @@ class TestMetricsMapping:
             g["ic"] = MetricResult(value=0.0, name="ic")
 
 
+class TestMetricAccessor:
+    def test_metric_returns_result(self):
+        r = _sample_result(_sample_group())
+        assert r.metric("ic").value == 0.05
+        assert r.metric("ic") is r.metrics["ic"]
+
+    def test_metric_miss_lists_available_labels(self):
+        r = _sample_result(_sample_group())
+        with pytest.raises(KeyError, match=r"no metric 'sharpe'.*available: ic, ic_ir"):
+            r.metric("sharpe")
+
+
 class TestEvaluationResultToFrame:
     def test_schema_and_dtypes(self):
         r = _sample_result(_sample_group())
@@ -82,6 +94,7 @@ class TestEvaluationResultToFrame:
             "p_value",
             "stat",
             "n_obs",
+            "n_obs_axis",
             "is_applicable",
             "reason",
             "warning_codes",
@@ -89,6 +102,7 @@ class TestEvaluationResultToFrame:
         assert df.schema["value"] == pl.Float64
         assert df.schema["p_value"] == pl.Float64
         assert df.schema["n_obs"] == pl.Int64
+        assert df.schema["n_obs_axis"] == pl.Utf8
         assert df.schema["is_applicable"] == pl.Boolean
         assert df.schema["reason"] == pl.Utf8
         assert df.schema["warning_codes"] == pl.List(pl.Utf8)

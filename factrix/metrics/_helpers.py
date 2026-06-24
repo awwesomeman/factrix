@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.constants import MIN_ASSETS_WARN
-from factrix._types import DDOF, EPSILON
+from factrix._types import DDOF, EPSILON, SampleAxis
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -229,6 +229,7 @@ def _short_circuit_output(
     reason: str,
     *,
     n_obs: int | None = None,
+    n_obs_axis: SampleAxis | None = None,
     descriptive: bool = False,
     **extra_metadata: object,
 ) -> MetricResult:
@@ -271,6 +272,7 @@ def _short_circuit_output(
         value=float("nan"),
         p_value=p,
         n_obs=n_obs,
+        n_obs_axis=n_obs_axis,
         stat=None,
         metadata=metadata,
     )
@@ -282,7 +284,7 @@ def _enforce_min_floor(
     n: int,
     reason: str,
     *,
-    axis: str = "periods",
+    axis: SampleAxis = "periods",
     descriptive: bool = False,
     **extra: object,
 ) -> MetricResult | None:
@@ -316,6 +318,7 @@ def _enforce_min_floor(
             name,
             reason,
             n_obs=n,
+            n_obs_axis=axis,
             min_required=floor,
             descriptive=descriptive,
             **extra,

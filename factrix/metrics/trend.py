@@ -194,6 +194,8 @@ def ic_trend(
     return MetricResult(
         p_value=p,
         value=slope,
+        n_obs=n,
+        n_obs_axis="periods",
         stat=approx_t,
         metadata=metadata,
         warning_codes=tuple(warning_codes),

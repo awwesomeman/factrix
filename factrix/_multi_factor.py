@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import polars as pl
 
 from factrix._errors import UserInputError
 from factrix._family import _attach_p_values, _partition, _resolve_family
@@ -145,28 +146,69 @@ def _render_html(
 class _FdrResultBase:
     """Shared fields and render protocol for the FDR survivor result trio.
 
-    Carries the five fields common to :class:`BhyResult`,
+    Carries the fields common to :class:`BhyResult`,
     :class:`PartialConjunctionResult`, and :class:`HierarchicalBhyResult`
     plus the ``__len__`` / ``__repr__`` / ``_repr_html_`` machinery.
     Subclasses append their own fields and supply ``_header`` / ``_rows``.
 
+    The canonical store is the **full** tested family — ``entries`` with
+    ``adj_p_all`` aligned to it — so the eliminated factors' adjusted
+    p-values survive (a screen of N factors passing 2 still shows how far
+    the other N-2 sat from the threshold). :attr:`survivors` / :attr:`adj_p`
+    are the surviving subset, derived on access.
+
     Common attributes:
         metric_name: ``label`` of the metric driving the screen;
             also the key under which the record is returned.
-        survivors: Surviving :class:`EvaluationResult` records.
-        adj_p: BHY-adjusted p-value aligned with ``survivors``.
+        entries: Every tested :class:`EvaluationResult`, in input order.
+        adj_p_all: BHY-adjusted p-value aligned with ``entries``; ``NaN``
+            for an entry dropped before the family formed (data shortage).
         q: Nominal FDR target.
         n_tests: Per-bucket / per-identity family size keyed by tuple.
     """
 
     metric_name: str
-    survivors: list[EvaluationResult]
-    adj_p: np.ndarray
+    entries: list[EvaluationResult]
+    adj_p_all: np.ndarray
     q: float
     n_tests: Mapping[tuple[Any, ...], int]
 
+    @property
+    def _survived(self) -> np.ndarray:
+        """Boolean mask over ``entries`` — ``adj_p_all <= q``.
+
+        ``NaN <= q`` is ``False``, so a data-shortage entry (dropped before
+        the family formed) is correctly reported as not surviving.
+        """
+        return self.adj_p_all <= self.q
+
+    @property
+    def survivors(self) -> list[EvaluationResult]:
+        """The surviving :class:`EvaluationResult` records, input order."""
+        return [e for e, ok in zip(self.entries, self._survived, strict=True) if ok]
+
+    @property
+    def adj_p(self) -> np.ndarray:
+        """BHY-adjusted p-value for the survivors, aligned with :attr:`survivors`."""
+        return self.adj_p_all[self._survived]
+
+    def to_frame(self) -> pl.DataFrame:
+        """Every tested factor with its adjusted p-value and survive flag.
+
+        Columns ``factor`` / ``adj_p`` / ``survived``, one row per tested
+        factor (input order) — including the eliminated ones that
+        :attr:`survivors` and :attr:`adj_p` drop.
+        """
+        return pl.DataFrame(
+            {
+                "factor": [e.factor for e in self.entries],
+                "adj_p": self.adj_p_all,
+                "survived": self._survived,
+            }
+        )
+
     def __len__(self) -> int:
-        return len(self.survivors)
+        return int(self._survived.sum())
 
     def _header(self) -> str:
         raise NotImplementedError
@@ -190,9 +232,10 @@ class _FdrResultBase:
 class BhyResult(_FdrResultBase):
     """Result of one BHY step-up for one metric.
 
-    Shares ``metric_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
-    with :class:`_FdrResultBase`. ``adj_p`` is bucket-local; ``n_tests`` is
-    keyed by ``expand_over_values`` tuple (``()`` for single-bucket).
+    Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
+    ``n_tests`` with :class:`_FdrResultBase`. ``adj_p_all`` is bucket-local;
+    ``n_tests`` is keyed by ``expand_over_values`` tuple (``()`` for
+    single-bucket).
 
     Attributes:
         expand_over: Keys used to partition the input into independent
@@ -237,24 +280,25 @@ class BhyResult(_FdrResultBase):
 class PartialConjunctionResult(_FdrResultBase):
     """Per-identity partial-conjunction survivors for one metric.
 
-    Shares ``metric_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
-    with :class:`_FdrResultBase`. ``survivors`` is one representative
-    :class:`EvaluationResult` per surviving identity; ``adj_p`` is the
-    BHY-adjusted PC p-value; ``n_tests`` is the condition count per
-    surviving identifier.
+    Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
+    ``n_tests`` with :class:`_FdrResultBase`. ``entries`` is one
+    representative :class:`EvaluationResult` per identity; ``adj_p_all`` is
+    the BHY-adjusted PC p-value; ``n_tests`` is the condition count per
+    identifier.
 
     Attributes:
-        pc_p: Raw PC p-value aligned with ``survivors``.
+        pc_p_all: Raw PC p-value aligned with ``entries``.
         expand_over: Context keys defining the condition axis.
         min_pass: ``k`` in the ``k`` of ``m`` partial conjunction test.
-        n_passed_uncorr: Per-survivor count of raw p-values strictly
-            below ``q`` (descriptive — not used in inference).
+        n_passed_uncorr_all: Per-identity count of raw p-values strictly
+            below ``q`` (descriptive — not used in inference), aligned
+            with ``entries``.
     """
 
-    pc_p: np.ndarray
+    pc_p_all: np.ndarray
     expand_over: tuple[str, ...]
     min_pass: int
-    n_passed_uncorr: np.ndarray
+    n_passed_uncorr_all: np.ndarray
 
     def _header(self) -> str:
         return (
@@ -279,13 +323,15 @@ class PartialConjunctionResult(_FdrResultBase):
                 str(self.n_tests.get((r.factor,), 0)),
                 str(int(n)),
             )
-            for r, pc, adj, n in zip(
-                self.survivors,
-                self.pc_p,
-                self.adj_p,
-                self.n_passed_uncorr,
+            for r, pc, adj, n, ok in zip(
+                self.entries,
+                self.pc_p_all,
+                self.adj_p_all,
+                self.n_passed_uncorr_all,
+                self._survived,
                 strict=True,
             )
+            if ok
         ]
         return headers, rows
 
@@ -294,10 +340,10 @@ class PartialConjunctionResult(_FdrResultBase):
 class HierarchicalBhyResult(_FdrResultBase):
     """Two-stage hierarchical BHY survivors for one metric.
 
-    Shares ``metric_name`` / ``survivors`` / ``adj_p`` / ``q`` / ``n_tests``
-    with :class:`_FdrResultBase`. ``adj_p`` is
-    ``max(outer_adj_p[group], inner_adj_p[i])`` aligned with ``survivors``
-    so ``survivor[i] iff adj_p[i] <= q`` holds; ``q`` is shared by both
+    Shares ``metric_name`` / ``entries`` / ``adj_p_all`` / ``q`` /
+    ``n_tests`` with :class:`_FdrResultBase`. ``adj_p_all`` is
+    ``max(outer_adj_p[group], inner_adj_p[i])`` aligned with ``entries``
+    so ``entry[i] survives iff adj_p_all[i] <= q``; ``q`` is shared by both
     layers; ``n_tests`` is the per-group inner family size keyed by
     ``(group_value,)`` — covering *all* input groups, not just survivors.
 
@@ -416,11 +462,10 @@ def bhy(
             p_array = np.array([entries[i].p_value for i in ix], dtype=np.float64)
             adj_p_all[ix] = bhy_adjusted_p(p_array)
 
-        survivor_idxs = np.flatnonzero(adj_p_all <= q)
         out[spec] = BhyResult(
             metric_name=spec,
-            survivors=[entries[i].result for i in survivor_idxs],
-            adj_p=adj_p_all[survivor_idxs],
+            entries=[e.result for e in entries],
+            adj_p_all=adj_p_all,
             q=q,
             expand_over=expand_over_tuple,
             n_tests=n_tests,
@@ -633,18 +678,16 @@ def _partial_conjunction_one(
             )
 
     adj_p_all = bhy_adjusted_p(pc_p_arr)
-    survivor_idx = np.flatnonzero(adj_p_all <= q)
-    surviving_factors = [identifiers_ordered[i] for i in survivor_idx]
     return PartialConjunctionResult(
         metric_name=metric,
-        survivors=[rep_results[i] for i in survivor_idx],
-        adj_p=adj_p_all[survivor_idx],
-        pc_p=pc_p_arr[survivor_idx],
+        entries=rep_results,
+        adj_p_all=adj_p_all,
+        pc_p_all=pc_p_arr,
         q=q,
         expand_over=expand_over,
         min_pass=min_pass,
-        n_tests={(f,): n_tests_per_id[(f,)] for f in surviving_factors},
-        n_passed_uncorr=n_passed_arr[survivor_idx],
+        n_tests={(f,): n_tests_per_id[(f,)] for f in identifiers_ordered},
+        n_passed_uncorr_all=n_passed_arr,
     )
 
 
@@ -778,11 +821,10 @@ def _bhy_hierarchical_one(
         for j, idx in enumerate(buckets[gkey]):
             adj_p_all[idx] = max(outer_adj[g_idx], inner_adjs[g_idx][j])
 
-    survivor_idxs = np.flatnonzero(adj_p_all <= q)
     return HierarchicalBhyResult(
         metric_name=metric,
-        survivors=[entries[i].result for i in survivor_idxs],
-        adj_p=adj_p_all[survivor_idxs],
+        entries=[e.result for e in entries],
+        adj_p_all=adj_p_all,
         q=q,
         group=group,
         n_tests=n_tests,

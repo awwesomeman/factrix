@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+import polars as pl
 import pytest
 from factrix._errors import UserInputError
 from factrix._multi_factor import BhyResult, bhy
@@ -68,6 +69,26 @@ def test_no_surviving_results_returns_empty_record():
     results = [make_result(factor=f"f{i}", p=0.9, metric="ic") for i in range(5)]
     out = bhy(results, metrics=["ic"], q=0.05)
     assert len(out["ic"]) == 0
+
+
+def test_to_frame_keeps_eliminated_factors_adj_p():
+    make_spec("ic")
+    results = [make_result(factor=f"hit{i}", p=0.0001, metric="ic") for i in range(2)]
+    results += [make_result(factor=f"miss{i}", p=0.6, metric="ic") for i in range(3)]
+    out = bhy(results, metrics=["ic"], q=0.05)["ic"]
+
+    frame = out.to_frame()
+    # Every tested factor is present, not just survivors.
+    assert frame.height == 5
+    assert set(frame["factor"]) == {"hit0", "hit1", "miss0", "miss1", "miss2"}
+    # Eliminated factors keep a finite adjusted p-value (the whole point) and
+    # are flagged not-survived — they are no longer discarded.
+    missed = frame.filter(~pl.col("survived"))
+    assert missed.height == 3
+    assert missed["adj_p"].is_finite().all()
+    # The surviving-subset views remain the complement.
+    assert {r.factor for r in out.survivors} == {"hit0", "hit1"}
+    assert len(out.adj_p) == 2
 
 
 def test_insufficient_short_circuits_are_dropped_from_family():

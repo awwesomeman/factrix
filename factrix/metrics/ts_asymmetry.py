@@ -251,6 +251,8 @@ def ts_asymmetry(
     return MetricResult(
         p_value=p_a,
         value=asym_value,
+        n_obs=n_periods,
+        n_obs_axis="periods",
         stat=asym_t,
         metadata={
             "stat_type": "wald (NW HAC)",
