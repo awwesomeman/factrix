@@ -46,14 +46,20 @@ The returned dictionary maps each mainstream metric label to a `BhyResult` conta
 | Attribute | Type | Meaning |
 |---|---|---|
 | `metric_name` | `str` | Name of the metric driving the screen. |
-| `survivors` | `list[EvaluationResult]` | Input order, surviving subset. |
-| `adj_p` | `np.ndarray` | Bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `survivors`. |
+| `entries` | `list[EvaluationResult]` | Every tested factor, input order — survivors and eliminated alike. |
+| `adj_p_all` | `np.ndarray` | Bucket-local Benjamini-Hochberg-Yekutieli (BHY)-adjusted p-value, index-aligned with `entries`; `NaN` for an entry dropped before the family formed. |
+| `survivors` | `list[EvaluationResult]` | Surviving subset (derived: `adj_p_all <= q`). |
+| `adj_p` | `np.ndarray` | Adjusted p-value for the survivors, aligned with `survivors` (derived). |
 | `q` | `float` | The nominal target FDR you passed. |
 | `expand_over` | `tuple[str, ...]` | `()` for a single family; `("regime_id",)` etc. otherwise. |
 | `n_tests` | `Mapping[tuple, int]` | `{(): N}` or `{bucket_key: m_per_bucket}`. |
 
+Call `result.to_frame()` for a `factor | adj_p | survived` DataFrame over
+**all** tested factors — so a screen of N factors passing 2 still shows how
+far the eliminated N-2 sat from the threshold, rather than discarding them.
+
 Jupyter rendering surfaces a three-column text / HTML table of
-`factor | adj_p`, plus an `expand_over_values` column
+`factor | adj_p` for the survivors, plus an `expand_over_values` column
 when buckets are declared.
 
 ::: factrix.multi_factor.BhyResult
