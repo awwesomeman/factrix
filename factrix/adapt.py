@@ -14,7 +14,7 @@ factrix does not prescribe names for those.
 
 Usage::
 
-    from factrix import adapt
+    from factrix.adapt import adapt
 
     # Minimal: just price panel
     raw = adapt(df, date="date", asset_id="ticker", price="close_adj")
@@ -93,9 +93,12 @@ def adapt(
             ``generate_intraday_range``.
         volume: User's volume column name. Renamed to ``volume``.
             Required by ``generate_amihud`` / ``generate_volume_price_trend``.
-        fill_forward: If True, replace NaN with null then forward-fill
-            all numeric columns per asset.  Useful for raw OHLCV data
-            that may contain sporadic missing values.
+        fill_forward: If True, map every non-finite value (NaN and
+            ±inf) to null, then forward-fill all numeric columns per
+            asset. Useful for raw OHLCV data that may contain sporadic
+            missing or non-finite values. Mapping ±inf is deliberate:
+            inf is not null, so it would otherwise survive the tail
+            drop in ``compute_forward_return`` and leak into return math.
 
     Returns:
         Same polars type as input (``pl.DataFrame`` → ``pl.DataFrame``,
@@ -146,9 +149,15 @@ def adapt(
         df = df.with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     if fill_forward:
+        # Map every non-finite value (NaN and ±inf) to null in one pass, then
+        # forward-fill per asset. fill_nan alone leaves ±inf untouched, and inf
+        # survives the downstream is_not_null() drop in compute_forward_return,
+        # leaking into return math (e.g. a zero entry price yields inf return).
         df = (
             df.sort(["asset_id", "date"])
-            .with_columns(cs.numeric().fill_nan(None))
+            .with_columns(
+                pl.when(cs.numeric().is_finite()).then(cs.numeric()).otherwise(None)
+            )
             .with_columns(cs.numeric().forward_fill().over("asset_id"))
         )
 
