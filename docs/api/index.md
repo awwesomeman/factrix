@@ -10,19 +10,19 @@ Reference for every public symbol exported from `factrix`.
 flowchart LR
     P[data]
 
-    subgraph Compute
+    subgraph PerFactor["Inference · per factor"]
         EV[evaluate]
         EVH[evaluate_horizons]
     end
 
-    subgraph Screening["Screening (FDR)"]
+    subgraph Screening["Screening · FDR across factors"]
         BHY[bhy]
         PC[partial_conjunction]
         BHYH[bhy_hierarchical]
     end
 
-    subgraph Inference["Inference (no FDR)"]
-        ST["slice_pairwise_test<br/>slice_joint_test"]
+    subgraph Slices["Inference · across slices (no FDR)"]
+        ST["slice_pairwise_test / slice_joint_test<br/>slice_period_pairwise_test / slice_period_joint_test"]
     end
 
     subgraph View["Descriptive view"]
@@ -54,7 +54,7 @@ flowchart LR
     click EV "evaluate/" "evaluate API"
     click EVH "evaluate/#factrix.evaluate_horizons" "evaluate_horizons API"
     click BS "by-slice/" "by_slice API"
-    click ST "slice-test/" "slice_pairwise_test / slice_joint_test API"
+    click ST "slice-test/" "slice tests — cross-sectional + period-disjoint API"
     click BHY "multi-factor/" "bhy API"
     click PC "partial-conjunction/" "partial_conjunction API"
     click BHYH "bhy-hierarchical/" "bhy_hierarchical API"
@@ -72,6 +72,12 @@ Click any node to jump to its API page.
     - `bhy` / `partial_conjunction` / `bhy_hierarchical` consume `evaluate` outputs as `list[EvaluationResult]` (via `list(results.values())`).
 - **Dashed `-.->` — suggested workflow.** The source is data-derived, but the target's signature differs in shape.
 
+**Inference vs screening** (the two test-bearing stages above):
+
+- **Inference** produces the primary statistical test — a *p*-value — for a **single** hypothesis. `evaluate` / `evaluate_horizons` do this **per factor** ("tests one factor"); the `slice_*_test` family does it **across slices** of one factor (sector, size, market regime). Neither corrects for testing more than one thing.
+- **Screening** is what you add when you test **many** factors at once: `bhy` / `partial_conjunction` / `bhy_hierarchical` take a `list[EvaluationResult]` and control the false-discovery rate across the family ("screens a thousand"). Screening consumes inference output; it does not re-run the test.
+- `by_slice` / `compare` are **descriptive** — they arrange or rank results into a view, without adding a test of their own.
+
 ---
 
 ## Typical patterns
@@ -81,7 +87,8 @@ Click any node to jump to its API page.
 | Single-factor/multi-factor inference | `evaluate(data, metrics=...)` → `dict[str, EvaluationResult]` |
 | Multi-horizon sweep | `evaluate_horizons(data, metrics=..., forward_periods=[...])` → `list[EvaluationResult]` |
 | Slice exploration (single axis) | `by_slice(data, metric, by="...", factor_col="...")` → `dict[str, EvaluationResult]` |
-| Slice statistical test | `slice_pairwise_test(df, metric, by="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
+| Slice statistical test (date-aligned) | `slice_pairwise_test(df, metric, by="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
+| Slice statistical test (date-disjoint) | `slice_period_pairwise_test(...)` or `slice_period_joint_test(...)` → pairwise / omnibus across regimes / calendar periods |
 | Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
 | Per-panel applicability | `inspect_data(data)` → `.usable` / `.degraded` / `.unusable` |
 | Multi-factor screening with FDR | `evaluate(...)` → `multi_factor.bhy(list(results.values()), metrics=[...])` |
@@ -95,10 +102,10 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 
 | Page | Category | What it is | When to read |
 |---|---|---|---|
-| [`evaluate`](evaluate.md) | Compute | Single dispatch entry — runs the registered metrics on a panel and returns the evaluation results. | Running an analysis. |
-| [`evaluate_horizons`](evaluate.md#factrix.evaluate_horizons) | Compute | Sweep `evaluate` across several overlap horizons of one raw panel. | Multi-horizon analysis / sweeping. |
+| [`evaluate`](evaluate.md) | Inference (per factor) | Single dispatch entry — runs the registered metrics on a panel and returns the evaluation results. | Running an analysis. |
+| [`evaluate_horizons`](evaluate.md#factrix.evaluate_horizons) | Inference (per factor) | Sweep `evaluate` across several overlap horizons of one raw panel. | Multi-horizon analysis / sweeping. |
 | [`by_slice`](by-slice.md) | Descriptive view | Partition a panel on a column and run `evaluate` per slice; returns `dict[str, EvaluationResult]`. | Per-slice metric exploration. |
-| [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Inference (no FDR) | Statistical tests over slice families (pairwise / omnibus). | Testing whether slice means differ. |
+| [`slice_*_test` family](slice-test.md) | Inference (across slices) | `slice_pairwise_test` / `slice_joint_test` (date-aligned) and `slice_period_pairwise_test` / `slice_period_joint_test` (date-disjoint regimes): pairwise / omnibus tests over slice families. | Testing whether slice means differ. |
 | [`multi_factor`](multi-factor.md) | Screening (FDR) | Module-level overview of collection-level FDR functions. | Multi-factor FDR screening overview. |
 | [`bhy`](bhy.md) | Screening (FDR) | Benjamini-Hochberg-Yekutieli step-up FDR. | Screening candidate factors. |
 | [`partial_conjunction`](partial-conjunction.md) | Screening (FDR) | k-of-m partial conjunction screening. | "Factor passes in ≥ k of m contexts." |
