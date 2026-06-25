@@ -53,55 +53,6 @@ _TSB_CELL = cell(FactorScope.COMMON, FactorDensity.DENSE, structure=DataStructur
 @metric(
     cell=_TSB_CELL,
     aggregation=Aggregation.TS_THEN_CS,
-    role=SpecRole.PIPELINE,
-)
-def compute_ts_beta_single_asset_fallback(ts_betas_df: pl.DataFrame) -> MetricResult:
-    r"""$N=1$ fallback: report the single-asset regression's own $t$-stat.
-
-    The cross-sectional $t$-test in ``ts_beta`` needs $N \geq 2$ assets.
-    With a single asset, both ``MacroCommonProfile.from_artifacts`` and
-    ``MacroCommonFactor.ts_beta`` want the same degenerate-case output:
-    take the row's per-asset beta + t_stat, mark ``p_value=1.0`` so the
-    row is suppressed from Benjamini-Hochberg-Yekutieli (BHY), and label the method. Centralizing here
-    keeps Profile and Factor paths bit-identical.
-
-    Statistical caveat: the returned $t$-stat tests the **time-series**
-    hypothesis $H_0: \beta_i = 0$ for this asset, which is **not** the
-    ``ts_beta`` cross-sectional hypothesis
-    $H_0: \mathrm{mean}(\beta) = 0$ across assets. The two are not
-    exchangeable — a single-asset $t$-stat of 2.5 says that asset's
-    $\beta$ differs from zero over time, it does not say the common
-    factor is priced. ``p_value=1.0`` enforces this by keeping the row
-    out of BHY adjudication.
-
-    Notes:
-        N=1 path: ``value = beta_1``, ``stat = t_1`` from the single
-        asset's TS ordinary least squares (OLS), ``p_value = 1.0`` so BHY skips the row. No
-        cross-asset inference is attempted.
-
-        factrix centralises the degenerate-case output here so
-        Profile / Factor paths produce bit-identical metadata —
-        otherwise each entry point would coerce the single-asset row
-        differently and the downstream inference surface would
-        diverge.
-    """
-    row = ts_betas_df.row(0, named=True)
-    return MetricResult(
-        p_value=1.0,
-        value=float(row["beta"]),
-        n_obs=1,
-        n_obs_axis="assets",
-        stat=float(row["t_stat"]),
-        metadata={
-            "n_assets": 1,
-            "method": "single-asset TS regression (no cross-asset test)",
-        },
-    )
-
-
-@metric(
-    cell=_TSB_CELL,
-    aggregation=Aggregation.TS_THEN_CS,
     input_shape=InputShape.SERIES,
     requires={"ts_betas_df": compute_ts_betas},
     sample_threshold=SampleThreshold(min_assets=3),
