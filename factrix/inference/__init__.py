@@ -50,27 +50,37 @@ to constrain *member identity*, not to invite external implementations.
 The union grows only when a new member is validated **for that metric
 family** — extension is gated, not open.
 
-``HANSEN_HODRICK`` vs the metric unions
----------------------------------------
+Per-metric allowlist enforcement
+--------------------------------
+The closed union is a type annotation, not a runtime gate, so every
+``inference=``-bearing metric additionally declares a module-level
+``applicable_inference`` frozenset and validates against it on entry (via
+``_check_applicable_inference``). A method outside the set raises
+:class:`~factrix.IncompatibleInferenceError` listing the allowed members,
+rather than running an unintended test or silently falling back to the
+default. ``ic`` / ``quantile_spread`` / ``k_spread`` all allow
+``{NON_OVERLAPPING, NEWEY_WEST}``; ``resolve_applicable_inference`` reads
+the set back for discovery.
+
+``HANSEN_HODRICK`` vs the metric allowlists
+-------------------------------------------
 ``HansenHodrick`` is a complete series-mean member (same ``compute``
 contract as the other two) and is exported for explicit / comparison use,
-but it is **not** in any metric's ``inference=`` union today, for two
-different reasons per dispatch style:
+but it is **not** in any metric's ``applicable_inference`` today, for
+reasons that differ per dispatch style:
 
 - ``ic`` dispatches **polymorphically** (``inference.compute(...)`` /
-  ``inference.min_input_periods(...)``), so it could in principle accept
-  ``HANSEN_HODRICK`` — its union is narrower than its capability. The pair
-  is kept as the vetted default; ``NeweyWest`` (Bartlett kernel, PSD-
-  guaranteed) is the recommended HAC, while ``HansenHodrick``'s
-  rectangular kernel has no PSD guarantee (it can clamp a negative
-  variance — see ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``).
+  ``inference.min_input_periods(...)``), so it could in principle run
+  ``HANSEN_HODRICK`` — its allowlist is narrower than its capability. The
+  vetted pair is kept: ``NeweyWest`` (Bartlett kernel, PSD-guaranteed) is
+  the recommended HAC, while ``HansenHodrick``'s rectangular kernel has no
+  PSD guarantee (it can clamp a negative variance — see
+  ``WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE``).
 - ``quantile_spread`` / ``k_spread`` dispatch through
   ``_spread_significance_with_inference``, which hard-branches on
-  ``isinstance(inference, NeweyWest)`` for the HAC path. Any non-
-  ``NeweyWest`` member (including ``HansenHodrick``) would silently fall
-  into the non-overlap branch, so for these metrics the union is
-  **load-bearing**: it admits exactly what the dispatch handles. Widening
-  it requires making that dispatch polymorphic first.
+  ``isinstance(inference, NeweyWest)`` for the HAC path. The allowlist is
+  **load-bearing** there: it admits exactly the two members that dispatch
+  handles, so widening it requires making that dispatch polymorphic first.
 """
 
 from __future__ import annotations

@@ -37,9 +37,10 @@ from factrix._axis import (
 from factrix._metric_index import cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
-from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _check_applicable_inference,
     _enforce_scaled_floor,
     _sample_non_overlapping,
     _scaled_periods_threshold,
@@ -51,6 +52,14 @@ from factrix.metrics._helpers import (
 __all__ = [
     "k_spread",
 ]
+
+# Inference allowlist: like ``quantile_spread``, the spread dispatch handles
+# exactly the non-overlap t-test and the Newey-West HAC; anything else
+# (``HansenHodrick``, a non-``Inference`` object) is rejected rather than
+# silently reported as non-overlap.
+applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
+    {NON_OVERLAPPING, NEWEY_WEST}
+)
 
 
 def _build_k_spread_series(
@@ -180,6 +189,7 @@ def k_spread(
     """
     if k < 1:
         raise ValueError(f"k must be >= 1; got {k}")
+    _check_applicable_inference(inference, applicable_inference, func_name="k_spread")
     if return_col not in df.columns:
         return _short_circuit_output(
             "k_spread",

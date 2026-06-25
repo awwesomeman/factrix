@@ -109,6 +109,40 @@ class IncompatibleAxisError(FactrixError):
     """
 
 
+class IncompatibleInferenceError(FactrixError):
+    """``inference=`` is not in the metric's applicable-inference allowlist.
+
+    Each metric that exposes ``inference=`` declares an
+    ``applicable_inference`` frozenset of the methods it actually
+    dispatches. Passing anything outside it — a valid ``Inference`` the
+    metric does not vet (e.g. ``HansenHodrick`` to ``ic``) or a non-
+    ``Inference`` object — raises here instead of silently running an
+    unintended test or falling back to the default.
+
+    Structured attributes carry the diagnostic so callers do not parse
+    the rendered message:
+
+    - ``func_name``: the calling metric name (no parens)
+    - ``value``: the value the caller passed as ``inference``
+    - ``applicable``: tuple of allowed inference names for that metric
+    """
+
+    def __init__(
+        self,
+        *,
+        func_name: str,
+        value: object,
+        applicable: Iterable[str],
+    ) -> None:
+        self.func_name = func_name
+        self.value = value
+        self.applicable: tuple[str, ...] = tuple(applicable)
+        super().__init__(
+            f"{func_name}(): inference={_truncate_repr(value)} is not applicable; "
+            f"choose one of {list(self.applicable)!r}"
+        )
+
+
 class InsufficientSampleError(FactrixError):
     """``T < MIN_PERIODS_HARD`` for a TIMESERIES procedure.
 

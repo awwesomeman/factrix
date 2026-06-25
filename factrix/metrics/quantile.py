@@ -32,10 +32,11 @@ from factrix._types import (
     DDOF,
     MIN_PORTFOLIO_PERIODS_HARD,
 )
-from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _assign_quantile_groups,
+    _check_applicable_inference,
     _compute_tie_ratio,
     _enforce_scaled_floor,
     _lag_within_asset,
@@ -69,6 +70,14 @@ _Q_CELL = cell(
 # periods. The resolver and the in-body :func:`_enforce_scaled_floor` gate share
 # ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``, so the floors agree.
 _PORTFOLIO_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
+
+# Inference allowlist: the spread dispatch hard-branches on ``NeweyWest`` for the
+# HAC path and runs the non-overlap t-test otherwise, so the union is the exact
+# set it handles. Anything else (``HansenHodrick``, a non-``Inference`` object)
+# is rejected rather than silently reported as non-overlap.
+applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
+    {NON_OVERLAPPING, NEWEY_WEST}
+)
 
 
 @metric(
@@ -144,6 +153,9 @@ def quantile_spread(
             "_precomputed_series keys must match factor_cols "
             f"(got {sorted(_precomputed_series)} vs {sorted(cols)})"
         )
+    _check_applicable_inference(
+        inference, applicable_inference, func_name="quantile_spread"
+    )
 
     # Sample once across all factors; bucketing tie_ratio is computed
     # on the sampled subset (what bucketing actually sees) rather than

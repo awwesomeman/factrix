@@ -33,11 +33,12 @@ from factrix._types import (
     EPSILON,
     MIN_IC_PERIODS,
 )
-from factrix.inference import NON_OVERLAPPING, NeweyWest, NonOverlapping
+from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
+    _check_applicable_inference,
     _enforce_min_floor,
     _short_circuit_output,
     _surface_drop_stats,
@@ -66,6 +67,14 @@ _IC_CELL = cell(
 # via) this attribute.
 min_assets_per_group: int | None = None
 per_date_series = per_date_series_rename("ic")
+
+# Inference allowlist: ``ic`` dispatches an ``Inference.compute`` polymorphically,
+# so it *could* run any series-mean member, but the vetted pair is the
+# non-overlap t-test and the Bartlett-kernel Newey-West HAC. ``HansenHodrick``
+# (rectangular kernel, no PSD guarantee) is deliberately excluded.
+applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
+    {NON_OVERLAPPING, NEWEY_WEST}
+)
 
 
 def _median_tie_ratio(ic_df: pl.DataFrame) -> float:
@@ -192,6 +201,7 @@ def ic(
         >>> result.name == ""
         True
     """
+    _check_applicable_inference(inference, applicable_inference, func_name="ic")
     median_tie = _warn_if_high_ic_tie_ratio(ic_df, "ic")
     # Mean is order-invariant; the inference method owns date-ordering for
     # its stride / lag math.
