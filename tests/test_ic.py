@@ -42,6 +42,72 @@ class TestComputeIC:
         result = compute_ic(df)["factor"]
         assert len(result) == 0
 
+    def test_gate_counts_valid_pairs_not_rows(self):
+        """The cross-section floor gates on the per-date *valid-pair* count, not
+        the raw row count: a date with many names but a factor defined for only a
+        few must be dropped (its IC is estimated on those few), and the tie_ratio
+        is denominated by the valid count.
+        """
+        n = 30
+        factor = [float(i) if i < 6 else None for i in range(n)]  # 6 valid < 10
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * n,
+                "asset_id": [f"A{i}" for i in range(n)],
+                "factor": factor,
+                "forward_return": [float(i) * 0.01 for i in range(n)],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        # 6 valid pairs < MIN_IC_ASSETS=10 → the date is dropped even though 30 rows.
+        assert len(compute_ic(df)["factor"]) == 0
+
+    def test_tie_ratio_denominated_by_valid_pairs(self):
+        """tie_ratio uses the non-null factor count as denominator, so null
+        names neither inflate the denominator nor count as a tie category.
+        """
+        n = 16
+        # 12 valid names, 3 unique factor values → tie_ratio = 1 - 3/12 = 0.75.
+        valid_vals = [float(i % 3) for i in range(12)]
+        factor = valid_vals + [None] * 4
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * n,
+                "asset_id": [f"A{i}" for i in range(n)],
+                "factor": factor,
+                "forward_return": [float(i) * 0.01 for i in range(n)],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        result = compute_ic(df)["factor"]
+        assert result["tie_ratio"][0] == pytest.approx(0.75)
+
+    def test_null_return_does_not_distort_other_ranks(self):
+        """A null in one column must not shift the surviving assets' ranks in
+        the other: Spearman ρ is computed on the pairwise-complete set, so the
+        result matches scipy's spearmanr over the non-null pairs rather than
+        ranking the raw columns and dropping null pairs only afterward.
+        """
+        from scipy.stats import spearmanr
+
+        n = 12
+        factor = [float(i) for i in range(1, n + 1)]
+        ret = [0.5, -0.2, 0.9, 0.1, -0.4, None, 0.3, 0.95, -0.7, -1.2, -0.6, 0.04]
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * n,
+                "asset_id": [f"A{i}" for i in range(n)],
+                "factor": factor,
+                "forward_return": ret,
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        got = compute_ic(df)["factor"]["ic"][0]
+
+        f = np.array(factor)
+        r = np.array([np.nan if x is None else x for x in ret])
+        mask = ~np.isnan(r)
+        expected, _ = spearmanr(f[mask], r[mask])
+        assert got == pytest.approx(expected)
+
     def test_output_schema(self, noisy_panel):
         result = compute_ic(noisy_panel)["factor"]
         # ``_drop_stats`` is an internal diagnostic struct column appended by

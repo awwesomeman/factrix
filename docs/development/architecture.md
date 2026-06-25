@@ -230,6 +230,18 @@ Silent-drop diagnostics emit a fixed per-axis metadata schema
 `dropped_<axis>`, `drop_rate`, `drop_rate_threshold` — the count keys carry the
 axis token, the rate keys are axis-neutral.
 
+**Effective-sample single source.** The count a metric *gates* on
+(`min_<axis>`), *reports* (`n_obs` / `n_<axis>`), and records in *drop-stats*
+must be the one the statistic is actually *estimated* on — the complete
+observations after pairwise null-drop, not the raw row count. `forward_return`
+is null-clean before it reaches a metric, but factor nulls are not dropped
+upstream and are normal in real research, so a cross-sectional reduction counts
+the **valid `(factor, return)` cross-section per date**: `compute_fm_betas`
+(`MIN_FM_ASSETS`) and `compute_ic` (`MIN_IC_ASSETS`) both gate on that
+pairwise-complete count, dropping a date with many names but a factor defined
+for few rather than leaking a high-variance estimate. Counting null-padded rows
+would let the gate, the report, and the estimate silently disagree.
+
 ### Backing constants
 
 `factrix/_stats/constants.py`:
@@ -246,8 +258,10 @@ axis token, the rate keys are axis-neutral.
 `factrix/_types.py` and the metric primitives keep the older per-metric thresholds used
 internally by the primitives that procedures wrap:
 
-- `MIN_IC_ASSETS = 10` — `compute_ic` drops dates with fewer than 10 assets;
-  at `n_assets` < 10 the IC procedure short-circuits to NaN because every date is dropped.
+- `MIN_IC_ASSETS = 10` — `compute_ic` drops dates with fewer than 10 complete
+  `(factor, return)` pairs (the participating cross-section the per-date Spearman
+  ρ is estimated on, mirroring `MIN_FM_ASSETS`); at fewer than 10 every date is
+  dropped and the IC procedure short-circuits to NaN.
 - `MIN_EVENTS_HARD = 4`, `MIN_EVENTS_WARN = 30` — two-tier sparse-cell
   event-count floor. `n < HARD` short-circuits the CAAR / event-quality
   primitives; `HARD ≤ n < WARN` emits `WarningCode.FEW_EVENTS`.

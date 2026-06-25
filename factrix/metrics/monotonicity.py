@@ -229,16 +229,31 @@ def monotonicity(
 def _compute_tie_ratios_batch(
     df: pl.DataFrame, factor_cols: list[str]
 ) -> dict[str, float]:
-    """Tie ratio (``1 - n_unique / n``) for many factors in one scan.
+    """Median-across-dates tie ratio (``1 - n_unique / n``) for many factors.
 
     The single-factor :func:`_compute_tie_ratio` runs a separate polars
-    aggregation per factor; this batches them into one ``select`` so
-    the sampled panel is scanned once for any number of factors.
+    aggregation per factor; this batches them into one ``group_by("date")`` so
+    the sampled panel is scanned once for any number of factors. The tie ratio
+    is **per date** then median-reduced — the same statistic the single-factor
+    helper returns. Computing it globally (``n_unique`` / ``len`` over the whole
+    frame) would conflate cross-sectional ties with values merely repeating
+    across dates, inflating the ratio toward 1 and tripping spurious
+    high-tie-ratio warnings on a continuous factor.
     """
     if not factor_cols:
         return {}
-    exprs = [
-        (1.0 - pl.col(f).n_unique() / pl.len()).alias(f"_tr__{f}") for f in factor_cols
-    ]
-    row = df.select(exprs).row(0, named=True)
-    return {f: float(row[f"_tr__{f}"]) for f in factor_cols}
+    per_date = df.group_by("date").agg(
+        pl.len().alias("_n"),
+        *[pl.col(f).n_unique().alias(f"_u__{f}") for f in factor_cols],
+    )
+    # ``median`` over the (possibly empty) per-date ratio yields ``None`` on an
+    # empty frame, which maps to ``nan`` below — the same empty-panel contract as
+    # the single-factor :func:`_compute_tie_ratio`, no separate guard needed.
+    medians = per_date.select(
+        (1.0 - pl.col(f"_u__{f}") / pl.col("_n")).median().alias(f"_tr__{f}")
+        for f in factor_cols
+    ).row(0, named=True)
+    return {
+        f: float("nan") if medians[f"_tr__{f}"] is None else float(medians[f"_tr__{f}"])
+        for f in factor_cols
+    }
