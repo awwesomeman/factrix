@@ -115,6 +115,6 @@ Illustrative output:
     }
   },
   "warnings": [],
-  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=ic_df"
+  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=compute_ic"
 }
 ```

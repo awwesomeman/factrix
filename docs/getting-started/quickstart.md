@@ -84,7 +84,7 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
     }
   },
   "warnings": [],
-  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=ic_df"
+  "plan": "1. compute_ic [batchable]\n2. ic [per-factor] requires=compute_ic"
 }
 ```
 

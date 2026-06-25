@@ -59,8 +59,8 @@ print(results["factor"].plan)
 **Output:**
 ```text
 1. compute_ic [batchable]
-2. ic [per-factor] requires=ic_df
-3. ic_ir [per-factor] requires=ic_df
+2. ic [per-factor] requires=compute_ic
+3. ic_ir [per-factor] requires=compute_ic
 ```
 
 This output lets you verify that shared upstream producers (like `compute_ic`) are computed exactly once across all factors before downstream consumers run.
