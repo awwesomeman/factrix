@@ -9,6 +9,10 @@ title: factrix.evaluate
 
 <hr>
 
+::: factrix.evaluate_horizons
+
+<hr>
+
 ## Use cases
 
 <div class="grid cards" markdown>

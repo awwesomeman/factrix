@@ -250,6 +250,150 @@ def evaluate(
     }
 
 
+def evaluate_horizons(
+    data: DataInput,
+    *,
+    metrics: "dict[str, MetricBase]",
+    factor_cols: list[str],
+    forward_periods: list[int],
+    strict: bool = True,
+) -> list[EvaluationResult]:
+    """Sweep ``evaluate`` across several overlap horizons of one raw panel.
+
+    A thin composition over the existing primitives — for each horizon it
+    rebuilds the panel with
+    :func:`factrix.preprocess.compute_forward_return` and runs a single
+    :func:`evaluate`, then flattens the per-factor results into one list.
+    No new type is introduced and the single-horizon contract of
+    ``evaluate`` is untouched: every inner run still evaluates one panel at
+    one stamped horizon.
+
+    The horizon **must** be rebuilt from the raw panel for each value —
+    ``compute_forward_return`` is not idempotent (it drops the last
+    ``forward_periods + 1`` rows per asset and stamps the horizon), so a
+    horizon cannot be re-derived from an already-attached panel. This
+    wrapper exists to make that rebuild-per-horizon loop hard to get wrong.
+
+    Identity of a swept result is the composite ``(factor, forward_periods)``,
+    not a unique scalar factor key — so the return is a flat
+    ``list[EvaluationResult]`` (the native shape of the aggregation layer),
+    not the factor-keyed ``dict`` that ``evaluate`` returns at a fixed
+    horizon. ``factor`` and ``forward_periods`` are existing native
+    attributes of :class:`EvaluationResult`; the list feeds straight into
+    :func:`compare` and into
+    ``bhy(..., expand_over=('forward_periods',))``, which partitions each
+    horizon into its own step-up family.
+
+    Args:
+        data: A **raw** panel carrying ``date``, ``asset_id``, ``price`` and
+            the factor columns, **without** a ``forward_return`` column — it
+            is rebuilt per horizon. Passing an already-attached panel is
+            rejected by ``compute_forward_return``. Only forward-return is
+            computed; winsorize / abnormal-return are out of scope, build
+            those panels and call :func:`evaluate` per horizon by hand.
+        metrics: Same contract as :func:`evaluate` — a ``dict[str, Metric]``
+            of metric instances. Applied identically at every horizon.
+        factor_cols: Same contract as :func:`evaluate`. Every column is
+            evaluated at every horizon; the flat result has one entry per
+            ``(factor, horizon)``.
+        forward_periods: The horizons to sweep, as a non-empty ``list[int]``
+            of distinct positive row counts (e.g. ``[5, 20, 60]``).
+            Duplicates are rejected — they would yield a duplicate
+            ``(factor, forward_periods)`` identity that ``compare`` / ``bhy``
+            reject downstream.
+        strict: Forwarded unchanged to each inner :func:`evaluate`.
+
+    Returns:
+        Flat ``list[EvaluationResult]`` grouped by horizon (outer) then
+        ``factor_cols`` order (inner). Each entry carries its own stamped
+        ``forward_periods``.
+
+    Raises:
+        UserInputError: ``forward_periods`` is not a non-empty ``list[int]``
+            of distinct positive values; plus any error raised by the inner
+            :func:`evaluate` / ``compute_forward_return`` (e.g. ``data``
+            already carries ``forward_return``).
+
+    Notes:
+        Comparability across horizons is a *scale* alignment, not a free
+        lunch: ``compute_forward_return`` divides by ``N`` so rank-IC is
+        directly comparable across horizons, but signed-return-mean metrics
+        carry a compounding bias that grows with ``N`` (see
+        :func:`factrix.preprocess.compute_forward_return` Notes). Treat a
+        cross-horizon sweep of signed-mean metrics as descriptive.
+
+    Examples:
+        >>> import factrix as fx
+        >>> from factrix.metrics import ic
+        >>> raw = fx.datasets.make_cs_panel(n_assets=20, n_dates=300)
+        >>> results = fx.evaluate_horizons(
+        ...     raw,
+        ...     metrics={"ic": ic()},
+        ...     factor_cols=["factor"],
+        ...     forward_periods=[5, 10, 20],
+        ... )
+        >>> [r.forward_periods for r in results]
+        [5, 10, 20]
+        >>> board = fx.compare(results, metrics=["ic"])  # one row per horizon
+        >>> board.height
+        3
+    """
+    horizons = _validate_forward_periods_sweep(forward_periods)
+    raw = _coerce_data(data)
+    results: list[EvaluationResult] = []
+    for horizon in horizons:
+        panel = preprocess.compute_forward_return(raw, forward_periods=horizon)
+        per_factor = evaluate(
+            panel,
+            metrics=metrics,
+            factor_cols=factor_cols,
+            strict=strict,
+        )
+        results.extend(per_factor.values())
+    return results
+
+
+_DOCS_FORWARD_PERIODS_SWEEP = "api/multi-horizon"
+
+
+def _validate_forward_periods_sweep(forward_periods: object) -> list[int]:
+    """Validate the ``evaluate_horizons`` horizon list and return it.
+
+    Non-empty ``list[int]`` of distinct positive values. Duplicates fail
+    here rather than surfacing later as a duplicate
+    ``(factor, forward_periods)`` identity in ``compare`` / ``bhy``.
+    """
+    if not isinstance(forward_periods, list) or not forward_periods:
+        raise UserInputError(
+            func_name="evaluate_horizons",
+            field="forward_periods",
+            value=forward_periods,
+            expected="a non-empty list[int] of horizons, e.g. [5, 20, 60]",
+            docs_path=_DOCS_FORWARD_PERIODS_SWEEP,
+        )
+    for h in forward_periods:
+        if not isinstance(h, int) or h <= 0:
+            raise UserInputError(
+                func_name="evaluate_horizons",
+                field="forward_periods",
+                value=h,
+                expected="every horizon to be a positive int (row count)",
+                docs_path=_DOCS_FORWARD_PERIODS_SWEEP,
+            )
+    if len(set(forward_periods)) != len(forward_periods):
+        raise UserInputError(
+            func_name="evaluate_horizons",
+            field="forward_periods",
+            value=forward_periods,
+            expected=(
+                "distinct horizons — a repeated value yields a duplicate "
+                "(factor, forward_periods) identity that compare/bhy reject"
+            ),
+            docs_path=_DOCS_FORWARD_PERIODS_SWEEP,
+        )
+    return list(forward_periods)
+
+
 _DOCS_METRICS = "api/evaluate#metrics"
 _DOCS_FACTOR_COLS = "api/evaluate#factor_cols"
 _DOCS_DATA = "api/evaluate#data"
@@ -711,6 +855,7 @@ __all__ = [
     "Warning",
     "compare",
     "evaluate",
+    "evaluate_horizons",
     # Introspection
     "MetricApplicability",
     "MetricApplicabilityGroup",
