@@ -40,6 +40,35 @@ See [Concepts](concepts.md) for what each axis means.
 
 ---
 
+## Bringing your own data
+
+The smoke test uses synthetic data that already carries factrix's
+canonical column names (`date`, `asset_id`, `price`). Real-world panels
+rarely do, so `adapt` is the **first** step of the pipeline — it renames
+your columns to the canonical names (and optionally cleans non-finite
+values), *before* `compute_forward_return`:
+
+```python
+import factrix as fx
+from factrix.adapt import adapt
+from factrix.preprocess import compute_forward_return
+
+raw = adapt(
+    your_df,
+    date="trade_date", asset_id="ticker", price="close_adj",
+    fill_forward=True,   # map NaN/±inf → null, then forward-fill per asset
+)
+data = compute_forward_return(raw, forward_periods=5)
+results = fx.evaluate(data, metrics={"ic": fx.metrics.ic()}, factor_cols=["factor"])
+```
+
+So the full pipeline is **`adapt` → `compute_forward_return` →
+`evaluate`**. `fill_forward` is opt-in: leave it `False` (default) if
+your panel is already clean, or set it `True` for raw OHLCV that may
+contain sporadic missing or non-finite values.
+
+---
+
 ## Research question → metric mapping
 
 In `factrix`, rather than constructing a central config object, you pass metric instances imported from `factrix.metrics` directly to the `metrics` parameter of `fx.evaluate()`.

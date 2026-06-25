@@ -167,6 +167,31 @@ class TestTypePreservation:
         assert isinstance(out, pl.LazyFrame)
         assert out.collect().height == 2
 
+    def test_fill_forward_maps_nan_and_inf_to_null_then_ffills(self):
+        raw = pl.DataFrame(
+            {
+                "trade_date": [
+                    datetime(2024, 1, 1),
+                    datetime(2024, 1, 2),
+                    datetime(2024, 1, 3),
+                    datetime(2024, 1, 4),
+                ],
+                "ticker": ["A", "A", "A", "A"],
+                "close_adj": [100.0, float("nan"), float("inf"), 103.0],
+            }
+        )
+        out = adapt(
+            raw,
+            date="trade_date",
+            asset_id="ticker",
+            price="close_adj",
+            fill_forward=True,
+        )
+        # nan (row 1) and inf (row 2) both become null, then forward-fill from
+        # the last finite value (100.0) carries through both gaps.
+        assert out["price"].to_list() == [100.0, 100.0, 100.0, 103.0]
+        assert out["price"].null_count() == 0
+
     def test_pandas_input_returns_dataframe(self):
         pd = pytest.importorskip("pandas")
         pdf = pd.DataFrame(
