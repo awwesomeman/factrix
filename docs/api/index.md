@@ -12,6 +12,7 @@ flowchart LR
 
     subgraph Compute
         EV[evaluate]
+        EVH[evaluate_horizons]
     end
 
     subgraph Screening["Screening (FDR)"]
@@ -35,6 +36,7 @@ flowchart LR
     end
 
     P ==> EV
+    P ==> EVH
     P -.-> BS
     P -.-> ST
     P -.-> ID
@@ -42,12 +44,15 @@ flowchart LR
     EV ==>|results| PC
     EV ==>|results| BHYH
     EV ==>|results| CMP
+    EVH ==>|results| BHY
+    EVH ==>|results| CMP
     BHY ==>|survivors| CMP
     PC ==>|survivors| CMP
     BHYH ==>|survivors| CMP
     LM -.->|metric names| EV
 
     click EV "evaluate/" "evaluate API"
+    click EVH "evaluate/#factrix.evaluate_horizons" "evaluate_horizons API"
     click BS "by-slice/" "by_slice API"
     click ST "slice-test/" "slice_pairwise_test / slice_joint_test API"
     click BHY "multi-factor/" "bhy API"
@@ -74,6 +79,7 @@ Click any node to jump to its API page.
 | Goal | Pipeline |
 |---|---|
 | Single-factor/multi-factor inference | `evaluate(data, metrics=...)` → `dict[str, EvaluationResult]` |
+| Multi-horizon sweep | `evaluate_horizons(data, metrics=..., forward_periods=[...])` → `list[EvaluationResult]` |
 | Slice exploration (single axis) | `by_slice(data, metric, by="...", factor_col="...")` → `dict[str, EvaluationResult]` |
 | Slice statistical test | `slice_pairwise_test(df, metric, by="...")` or `slice_joint_test(...)` → pairwise / omnibus test result |
 | Metric catalog discovery | `list_metrics()` → family-grouped `dict` of specs |
@@ -90,6 +96,7 @@ See the [Slice analysis guide](../guides/slice-analysis.md) for the slice surfac
 | Page | Category | What it is | When to read |
 |---|---|---|---|
 | [`evaluate`](evaluate.md) | Compute | Single dispatch entry — runs the registered metrics on a panel and returns the evaluation results. | Running an analysis. |
+| [`evaluate_horizons`](evaluate.md#factrix.evaluate_horizons) | Compute | Sweep `evaluate` across several overlap horizons of one raw panel. | Multi-horizon analysis / sweeping. |
 | [`by_slice`](by-slice.md) | Descriptive view | Partition a panel on a column and run `evaluate` per slice; returns `dict[str, EvaluationResult]`. | Per-slice metric exploration. |
 | [`slice_pairwise_test` / `slice_joint_test`](slice-test.md) | Inference (no FDR) | Statistical tests over slice families (pairwise / omnibus). | Testing whether slice means differ. |
 | [`multi_factor`](multi-factor.md) | Screening (FDR) | Module-level overview of collection-level FDR functions. | Multi-factor FDR screening overview. |
