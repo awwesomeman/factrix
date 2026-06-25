@@ -847,7 +847,8 @@ def _warn_on_mixed_horizons(
             "the per-rank threshold and silently inflates FDR. Either "
             "split the call per horizon, or set "
             "expand_over=('forward_periods',) to declare per-bucket "
-            "families.",
+            "families — the latter is the intended companion to an "
+            "evaluate_horizons sweep.",
             RuntimeWarning,
             stacklevel=3,
         )

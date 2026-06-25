@@ -170,6 +170,28 @@ Returns `dict[str, EvaluationResult]` keyed by factor column name, insertion ord
 
 ---
 
+### `evaluate_horizons`
+
+```python
+def evaluate_horizons(
+    data: DataInput,
+    *,
+    metrics: dict[str, MetricBase],
+    factor_cols: list[str],
+    forward_periods: list[int],
+    strict: bool = True,
+) -> list[EvaluationResult]:
+```
+
+Thin sweep that runs `evaluate` across several overlap horizons of one **raw** panel (no `forward_return` attached — it is rebuilt per horizon via `compute_forward_return`, which is not idempotent). Pure composition over existing primitives; no new type, and the single-horizon contract of `evaluate` is untouched.
+
+- `data` is a raw price panel (`date`, `asset_id`, `price`, factor columns). Only forward-return is computed; winsorize / abnormal-return are out of scope.
+- `forward_periods` is a non-empty `list[int]` of distinct positive horizons (e.g. `[5, 20, 60]`); duplicates and non-positive values are rejected.
+- Returns a flat `list[EvaluationResult]` grouped by horizon then `factor_cols` order — one entry per `(factor, forward_periods)`. The list feeds straight into `compare(...)` and `bhy(..., expand_over=("forward_periods",))`, which partitions each horizon into its own step-up family.
+- Comparability across horizons is a scale alignment (the `÷N` in `compute_forward_return` makes rank-IC comparable); signed-return-mean metrics carry a compounding bias that grows with `N`, so treat those sweeps as descriptive.
+
+---
+
 ### `inspect_data`
 
 ```python
