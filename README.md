@@ -126,16 +126,18 @@ print("survivors =", [r.factor for r in bhy_ic.survivors])
 **Single-asset (timeseries) fallback**
 
 ```python
-from factrix.metrics import ts_beta
+from factrix.metrics import directional_hit_rate
 
-# Automatically resolves structure axis to DataStructure.TIMESERIES when N == 1
+# A single-asset panel auto-resolves the structure axis to
+# DataStructure.TIMESERIES (N == 1); a structure-agnostic metric such as
+# directional_hit_rate runs unchanged through the same entry point.
 results = fx.evaluate(
     single_asset_data,
-    metrics={"ts_beta": ts_beta()},
+    metrics={"dir_hit": directional_hit_rate()},
     factor_cols=["macro_factor"],
     forward_periods=5,
 )
-print(results["macro_factor"].metrics["ts_beta"].value)
+print(results["macro_factor"].metrics["dir_hit"].value)
 ```
 
 ## Documentation
