@@ -609,7 +609,7 @@ The project's style policy is split between two complementary but distinct conve
 
 NumPy-style underline sections (`Parameters\n----------`) and Sphinx field lists (`:param x:` / `:returns:`) are not parsed by the Google handler and render as plain prose under generic headings. Convert on sight.
 
-`Examples:` blocks are covered by `pytest --doctest-modules` (enabled in #314). Any sweep touching `Examples:` must keep them runnable; non-runnable illustrative code belongs in `.md` under the intent-layer policy below, not in docstrings.
+`Examples:` blocks are covered by `pytest --doctest-modules` in CI. Any sweep touching `Examples:` must keep them runnable; non-runnable illustrative code belongs in `.md` under the intent-layer policy below, not in docstrings.
 
 **Narrative subsection headings** (`Algorithm:`, `Formula:`, `Construction:`, `Aggregation:`, `Scale:`, `Steps:`, `Invariants:`, `Reported:`, etc.) are permitted as in-body prose subsection labels — they sit before the structured-section block, are griffe-rendered as generic colon-terminated headings rather than typed admonitions, and document the algorithm / math / pipeline structure that does not belong in `Notes:`. They are not part of the recognised structured-section set listed above and have no canonical ordering among themselves; place each where it best explains the docstring's flow. Reach for one only when the content is a self-contained explanatory block; otherwise keep it in body prose.
 
@@ -823,13 +823,13 @@ The slicing subsystem is the worked example of the rule:
 | metric-specific `regime_<metric>` curated wrapper | **legacy metric-specific wrapper** (when describing removed surface area); for the current path, name `by_slice` + the inference function directly |
 | `EvaluationResult.to_frame()` renderer layer | **renderer** — result-side method; no separate tier implied |
 
-The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Describe the specification by its content when a docstring needs to point at one, rather than `Layer-B (#176)` — the `Layer-B` tier label drifts, and an issue number does not belong in source either.
+The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Describe the specification by its content when a docstring needs to point at one, rather than `Layer-B (#NNN)` — the `Layer-B` tier label drifts, and an issue number does not belong in source either.
 
 #### Two-register convention: "verb" vs "function" / "entry point"
 
 User-facing surface uses **function** when referring to one specific callable, and **entry point** when referring to the set of public callables (the seven that appear in nav under "Entry points"). Design-issue bodies and RFC comments may keep **verb** as RFC vocabulary — that register is internal to design discussion and does not propagate to user docs. When sweeping prose from a design issue into a guide or docstring, translate `verb` → `function` (or rephrase to name the specific callable) as part of the move.
 
-User-facing surface covers `docs/**/*.md`, README, docstrings, CHANGELOG, **and the error contract** — the structured attributes on `UserInputError` (and any future user-facing exception) belong to the user-facing register. The failing-function slot is named `func_name`, not `verb`, on every error class users can catch and read. The 59 internal source-side raise sites may pass `verb=` as a kwarg until they are swept (tracked in #317); the rule is about what the user sees on the caught exception, not what internal source uses to populate it.
+User-facing surface covers `docs/**/*.md`, README, docstrings, CHANGELOG, **and the error contract** — the structured attributes on `UserInputError` (and any future user-facing exception) belong to the user-facing register. The failing-function slot is named `func_name`, not `verb`, on every error class users can catch and read. The 59 internal source-side raise sites may pass `verb=` as a kwarg until they are swept; the rule is about what the user sees on the caught exception, not what internal source uses to populate it.
 
 ---
 

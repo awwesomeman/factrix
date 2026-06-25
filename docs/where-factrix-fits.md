@@ -162,10 +162,9 @@ fires.
 Six peers occupy the *factor-evaluation / hypothesis-test* space.
 Each subsection follows the same shape: positioning, where the peer
 wins, where factrix wins, and the user profile that should pick the
-peer instead. Code side-by-side snippets are tracked separately as
-[#143](https://github.com/awwesomeman/factrix/issues/143) and will
-land here once the migration examples are validated against the same
-input panel both ways.
+peer instead. Code side-by-side snippets are not included here yet;
+they will land once the migration examples are validated against the
+same input panel both ways.
 
 ### 4.1 alphalens-reloaded
 

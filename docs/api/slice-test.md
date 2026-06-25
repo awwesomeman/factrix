@@ -32,8 +32,7 @@ The two functions answer **different statistical questions**:
 | `slice_pairwise_test` | "Which pairs differ?" — K(K−1)/2 contrasts with family-internal multiple-testing correction | One row per pair: `(slice_a, slice_b, n_obs, stat, p_raw, p_adj)` |
 | `slice_joint_test` | "Do any slices differ at all?" — single omnibus Wald χ² | One row: `(n_obs, k_slices, df, stat, p)` |
 
-Both functions sit in the **View** class (per [#148](https://github.com/awwesomeman/factrix/issues/148)
-function classification): their headline output is a comparison test
+Both functions sit in the **View** class: their headline output is a comparison test
 result. They do **not** participate in Benjamini-Hochberg-Yekutieli (BHY) family expansion — adjusted
 p is a within-slice-family closure, not a cell-level discovery
 commitment.

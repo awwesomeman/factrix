@@ -548,7 +548,7 @@ Multiple-testing functions (`bhy` today; `bhy_hierarchical` / `partial_conjuncti
 layer in `factrix/_family.py::_resolve_family`. Each function's procedure runs *after*
 the family-resolution invariants pass.
 
-### Two signature classes (#161)
+### Two signature classes
 
 The shared layer admits two function shapes — important to keep distinct so a
 resampling-based function cannot retroactively force a kwarg onto the closed-form
@@ -576,7 +576,7 @@ and `metric: str` (one resolved spec):
 4. Resolved `p_value` per entry: the p-value read from the specified `metric`.
 
 All three user-facing raises route through `factrix._errors.UserInputError`
-(#165) so fuzzy suggestions and docs links render uniformly.
+so fuzzy suggestions and docs links render uniformly.
 
 ### `expand_over` semantics
 
