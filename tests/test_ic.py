@@ -294,6 +294,79 @@ class TestICInferenceWarningPropagation:
         assert len(result.warning_codes) == len(set(result.warning_codes))
 
 
+class TestICInferenceAllowlist:
+    """``ic`` validates ``inference=`` against ``applicable_inference`` and
+    rejects anything outside it — ``HansenHodrick`` (which would otherwise
+    run a non-vetted HAC) and non-``Inference`` objects (which would hit an
+    ``AttributeError`` on dispatch).
+    """
+
+    @staticmethod
+    def _ic_series(n: int) -> pl.DataFrame:
+        return pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n)],
+                "ic": [0.05 + 0.01 * (i % 3) for i in range(n)],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+    def test_hansen_hodrick_raises_not_silently_runs(self):
+        import factrix as fx
+
+        with pytest.raises(fx.IncompatibleInferenceError) as exc:
+            ic(
+                self._ic_series(40),
+                forward_periods=1,
+                inference=fx.inference.HANSEN_HODRICK,
+            )
+        assert exc.value.func_name == "ic"
+        assert exc.value.applicable == ("NeweyWest", "NonOverlapping")
+        assert "HansenHodrick" in str(exc.value)
+
+    def test_non_inference_object_raises_cleanly(self):
+        import factrix as fx
+
+        with pytest.raises(fx.IncompatibleInferenceError):
+            ic(self._ic_series(40), forward_periods=1, inference="newey")
+
+    def test_allowlisted_members_pass(self):
+        import factrix as fx
+
+        for member in (fx.inference.NON_OVERLAPPING, fx.inference.NEWEY_WEST):
+            result = ic(self._ic_series(40), forward_periods=1, inference=member)
+            assert not math.isnan(result.value)
+
+
+class TestApplicableInferenceDiscovery:
+    """``resolve_applicable_inference`` surfaces a metric's allowlist, and
+    returns ``None`` for singleton-inference metrics — even when they share
+    a module with an ``inference=``-bearing sibling.
+    """
+
+    def test_inference_metrics_expose_allowlist(self):
+        from factrix.metrics._metric_capabilities import resolve_applicable_inference
+        from factrix.metrics.k_spread import k_spread
+        from factrix.metrics.quantile import quantile_spread
+
+        for m in (ic, quantile_spread, k_spread):
+            allow = resolve_applicable_inference(m)
+            assert allow is not None
+            assert sorted(type(x).__name__ for x in allow) == [
+                "NeweyWest",
+                "NonOverlapping",
+            ]
+
+    def test_singleton_inference_metric_returns_none(self):
+        from factrix.metrics._metric_capabilities import resolve_applicable_inference
+        from factrix.metrics.hit_rate import hit_rate
+        from factrix.metrics.quantile import quantile_spread_vw
+
+        # quantile_spread_vw shares its module with quantile_spread but has no
+        # inference= knob; hit_rate is in a module with no allowlist at all.
+        assert resolve_applicable_inference(quantile_spread_vw) is None
+        assert resolve_applicable_inference(hit_rate) is None
+
+
 class TestICDispatch:
     """``ic()`` delegates its significance test to ``NonOverlappingSample``.
 

@@ -70,6 +70,7 @@ from factrix._data_input import (
 from factrix._errors import (
     FactrixError,
     IncompatibleAxisError,
+    IncompatibleInferenceError,
     InsufficientSampleError,
     UserInputError,
 )
@@ -844,6 +845,7 @@ __all__ = [
     # Errors
     "FactrixError",
     "IncompatibleAxisError",
+    "IncompatibleInferenceError",
     "InsufficientSampleError",
     "UserInputError",
     # Result + dispatch

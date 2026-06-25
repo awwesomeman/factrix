@@ -40,6 +40,7 @@ import numpy as np
 import polars as pl
 
 from factrix._codes import WarningCode, cross_section_tier
+from factrix._errors import IncompatibleInferenceError
 
 if TYPE_CHECKING:
     from factrix.inference import NeweyWest, NonOverlapping
@@ -122,6 +123,30 @@ def _spread_significance(
     tier: WarningCode | None = cross_section_tier(n_assets)
     codes = (tier.value,) if tier is not None else ()
     return t, float(p_boot), "block-bootstrap CI", extra, codes
+
+
+def _check_applicable_inference(
+    inference: object,
+    applicable: frozenset[NonOverlapping | NeweyWest],
+    *,
+    func_name: str,
+) -> None:
+    """Reject an ``inference=`` outside the metric's allowlist.
+
+    Single chokepoint every ``inference=``-bearing metric calls before it
+    dispatches: membership is by value (the members are frozen
+    dataclasses), so it catches both a non-vetted ``Inference``
+    (``HansenHodrick``) and a non-``Inference`` object (a stray string)
+    without the metric body reaching an unintended ``compute`` or a silent
+    non-overlap fallback. Raises :class:`IncompatibleInferenceError`
+    listing the allowed methods.
+    """
+    if inference not in applicable:
+        raise IncompatibleInferenceError(
+            func_name=func_name,
+            value=inference,
+            applicable=sorted(type(member).__name__ for member in applicable),
+        )
 
 
 def _spread_significance_with_inference(

@@ -260,6 +260,24 @@ class TestInference:
         assert nw.metadata["inference_overridden"] is True
         assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
 
+    def test_unapplicable_inference_raises_not_silent_fallback(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        with pytest.raises(fx.IncompatibleInferenceError) as exc:
+            k_spread(
+                panel, forward_periods=5, k=5, inference=fx.inference.HANSEN_HODRICK
+            )
+        assert exc.value.func_name == "k_spread"
+        assert exc.value.applicable == ("NeweyWest", "NonOverlapping")
+
+    def test_non_inference_object_raises(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        with pytest.raises(fx.IncompatibleInferenceError):
+            k_spread(panel, forward_periods=5, k=5, inference="newey")
+
 
 class TestDispatch:
     def test_runs_via_evaluate(self):

@@ -18,9 +18,12 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import polars as pl
+
+if TYPE_CHECKING:
+    from factrix.inference import NeweyWest, NonOverlapping
 
 
 class PerDateSeries(Protocol):
@@ -81,3 +84,23 @@ def resolve_min_assets_per_group(metric: Callable) -> int | None:
     """
     mod = sys.modules[metric.__module__]
     return getattr(mod, "min_assets_per_group", None)
+
+
+def resolve_applicable_inference(
+    metric: Callable,
+) -> frozenset[NonOverlapping | NeweyWest] | None:
+    """Look up the inference allowlist for ``metric``.
+
+    Returns the frozenset of inference methods the metric accepts at
+    ``inference=``, or ``None`` when the metric exposes no ``inference=``
+    knob (a singleton-inference metric). The allowlist is declared once per
+    module (``applicable_inference``), but a module may host both an
+    ``inference=``-bearing metric and a singleton-inference sibling
+    (``quantile_spread`` / ``quantile_spread_vw``) — so the result is gated
+    on the callable actually carrying an ``inference`` parameter, not just
+    on the module attribute existing.
+    """
+    if "inference" not in getattr(metric, "_param_names", ()):
+        return None
+    mod = sys.modules[metric.__module__]
+    return getattr(mod, "applicable_inference", None)

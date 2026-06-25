@@ -220,3 +220,25 @@ class TestQuantileSpreadInference:
         assert nw.metadata["method"] == "block-bootstrap CI"
         assert nw.metadata["inference_overridden"] is True
         assert nw.metadata["inference_requested"] == "Newey-West HAC t-test"
+
+    def test_unapplicable_inference_raises_not_silent_fallback(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        # HansenHodrick used to be silently swallowed -> non-overlap t-test.
+        with pytest.raises(fx.IncompatibleInferenceError) as exc:
+            quantile_spread(
+                panel,
+                forward_periods=5,
+                n_groups=5,
+                inference=fx.inference.HANSEN_HODRICK,
+            )
+        assert exc.value.func_name == "quantile_spread"
+        assert exc.value.applicable == ("NeweyWest", "NonOverlapping")
+
+    def test_non_inference_object_raises(self):
+        import factrix as fx
+
+        panel = self._ample_panel()
+        with pytest.raises(fx.IncompatibleInferenceError):
+            quantile_spread(panel, forward_periods=5, n_groups=5, inference="newey")
