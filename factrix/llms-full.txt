@@ -115,29 +115,33 @@ print("Survivors:", [p.factor for p in ic_screen.survivors])
 
 ### 3. Single-asset timeseries evaluation
 
-Continuous common factors fall back to timeseries when `n_assets == 1`.
+A single-asset panel (`n_assets == 1`) resolves to `DataStructure.TIMESERIES`.
+`Common × Continuous` metrics (`ts_beta`, `ts_quantile_spread`, `ts_asymmetry`)
+are `PANEL` and need `N >= 2` — they raise `IncompatibleAxisError` at `N == 1`.
+Single-asset data is served by `(*, SPARSE, *)` metrics and the scope-agnostic
+TIMESERIES metrics (`hit_rate`, `oos_decay`, `ic_trend`, `directional_hit_rate`).
 
 ```python
 import factrix as fx
 import polars as pl
 from factrix.preprocess import compute_forward_return
-from factrix.metrics import ts_beta
+from factrix.metrics import directional_hit_rate
 
 # 1. Generate single-asset timeseries data (make_cs_panel requires n_assets>=2; filter after)
-raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=200, seed=2024)
+raw = fx.datasets.make_cs_panel(n_assets=2, n_dates=300, seed=2024)
 raw = raw.filter(pl.col("asset_id") == raw["asset_id"].item(0))
 data = compute_forward_return(raw, forward_periods=5)
 
-# 2. Evaluate using timeseries beta metric
+# 2. Evaluate with a structure-agnostic metric that runs at N == 1
 results = fx.evaluate(
     data,
-    metrics={"ts_beta": ts_beta()},
+    metrics={"dir_hit": directional_hit_rate()},
     factor_cols=["factor"],
     forward_periods=5,
 )
 res = results["factor"]
 
-print("Timeseries Beta:", res.metrics["ts_beta"].value)
+print("Directional hit rate:", res.metrics["dir_hit"].value)
 ```
 
 ---

@@ -11,9 +11,9 @@ title: factrix.metrics.ts_quantile
 <hr>
 
 !!! info "Timeseries-mode conventions"
-    `FACTOR_ADF_P` persistence diagnostic, plain stage-1 SE rationale,
-    and the `forward_periods` vs `signal_horizon` bias framing apply
-    here as for the rest of the TS-mode family. See
+    Plain stage-1 SE rationale and the `forward_periods` vs
+    `signal_horizon` bias framing apply here as for the rest of the
+    Common × Continuous family. See
     [Timeseries-mode conventions](../../reference/ts-mode-conventions.md).
 
 ## Use cases
@@ -131,8 +131,8 @@ title: factrix.metrics.ts_quantile
 
     ---
 
-    `FACTOR_ADF_P`, plain stage-1 SE rationale, `forward_periods` vs
-    `signal_horizon` bias framing.
+    Plain stage-1 SE rationale, `forward_periods` vs `signal_horizon`
+    bias framing.
 
     [reference/ts-mode-conventions →](../../reference/ts-mode-conventions.md)
 

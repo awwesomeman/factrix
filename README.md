@@ -123,7 +123,7 @@ bhy_ic = fdr_results["ic"]
 print("survivors =", [r.factor for r in bhy_ic.survivors])
 ```
 
-**Single-asset (timeseries) fallback**
+**Single-asset (timeseries) evaluation**
 
 ```python
 from factrix.metrics import directional_hit_rate

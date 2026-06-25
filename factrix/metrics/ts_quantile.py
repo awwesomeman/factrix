@@ -1,7 +1,7 @@
 """Time-series quantile bucketing + monotonicity test.
 
-Diagnostic for `(COMMON, DENSE, *)` and single-asset TIMESERIES
-cells: bucket factor history into quantiles and check the conditional
+Diagnostic for the `(COMMON, DENSE, PANEL)` cell (needs `N >= 2`
+assets; raises at `N == 1`): bucket factor history into quantiles and check the conditional
 mean forward return per bucket. Catches U-shape / inverted-U /
 extreme-only signals that ordinary least squares (OLS) β assumes away (linear) and reports
 pass / fail on as a single slope.
