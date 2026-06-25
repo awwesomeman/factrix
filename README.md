@@ -123,6 +123,26 @@ bhy_ic = fdr_results["ic"]
 print("survivors =", [r.factor for r in bhy_ic.survivors])
 ```
 
+**Multi-horizon sweep and BHY screening**
+
+```python
+results_sweep = fx.evaluate_horizons(
+    raw,  # raw panel — no forward_return attached
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+    factor_cols=["factor"],
+    forward_periods=[1, 5, 10],
+)
+
+fdr_results = fx.multi_factor.bhy(
+    results_sweep,
+    metrics=["ic"],
+    expand_over=("forward_periods",),
+    q=0.05,
+)
+bhy_ic = fdr_results["ic"]
+print("survivors =", [(r.factor, r.forward_periods) for r in bhy_ic.survivors])
+```
+
 **Single-asset (timeseries) evaluation**
 
 ```python
