@@ -21,7 +21,7 @@
 /* Stronger active-page highlight than Material's default (text-tint only is
  * easy to miss on a long nav list). Scoped to the primary sidebar so the
  * secondary TOC (right-side, in-page headings) keeps a lighter treatment —
- * the filled-block style swallows the TOC item's text node (#360).
+ * the filled-block style swallows the TOC item's text node.
  */
 .md-nav--primary .md-nav__item--active > .md-nav__link--active,
 .md-nav--primary .md-nav__link--active {
