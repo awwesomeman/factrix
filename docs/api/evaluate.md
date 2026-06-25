@@ -42,13 +42,17 @@ title: factrix.evaluate
     against broadcast macro factors. Return shape is identical across
     cells.
 
--   __TIMESERIES auto-routing__
+-   __TIMESERIES dispatch__
 
     ---
 
-    `Common × Continuous` with `N == 1` falls back to single-series
-    ordinary least squares (OLS) with Newey-West heteroskedasticity-and-autocorrelation-consistent (HAC) SE, so single-asset macro factors flow
-    through the same entry point without a parallel code path.
+    At `N == 1` there is no cross-section, so any `DENSE` metric whose
+    cell is `PANEL` — `Individual × Continuous` (`ic`, `fm`) **and**
+    `Common × Continuous` (`ts_beta`, `ts_quantile`, `ts_asymmetry`) —
+    raises `IncompatibleAxisError` (or NaN + `structure_mismatch` under
+    `strict=False`). Single-asset data runs through the same entry point
+    with `(*, SPARSE, *)` metrics and the scope-agnostic TIMESERIES
+    metrics (`hit_rate`, `oos_decay`, `ic_trend`, `directional_hit_rate`).
 
 </div>
 
@@ -182,8 +186,8 @@ derivation are automatically resolved at dispatch time.
 
     ---
 
-    The `N == 1` auto-routing rules and SE conventions for single-series
-    paths.
+    The `N == 1` dispatch rules and SE conventions for the per-asset
+    time-series stage.
 
     [reference/ts-mode-conventions →](../reference/ts-mode-conventions.md)
 

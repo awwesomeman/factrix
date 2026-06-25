@@ -27,8 +27,9 @@ data-generating process:
 - **Common factors** — a factor whose realisation is shared across
   the cross-section in a given period (Fama-French market / size /
   value, or a macro variable). factrix tests these as a panel
-  exposure, falling back to single-series β when only one asset is
-  available.
+  exposure across the asset cross-section ($N \ge 2$); a single asset
+  has no cross-section to aggregate over, so these metrics raise on
+  $N=1$ data.
 
 Each type also runs a multi-metric *diagnostic battery* — never
 collapsed into a single score. This is a deliberate design choice,

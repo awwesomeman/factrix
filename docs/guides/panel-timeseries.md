@@ -27,7 +27,7 @@ Time-series length `n_periods` and asset count `n_assets` are gated **independen
 |---|---|---|---|---|
 | `INDIVIDUAL` × `DENSE` (IC) | raises `UserInputError` or `IncompatibleAxisError` | all dates dropped (MIN_IC_ASSETS=10) → NaN | normal PANEL | normal PANEL |
 | `INDIVIDUAL` × `DENSE` (FM) | raises `UserInputError` or `IncompatibleAxisError` | per-date guard; low df | normal PANEL | normal PANEL |
-| `COMMON` × `DENSE` | TIMESERIES single-series β | emits `FEW_ASSETS` | emits `FEW_ASSETS` | normal PANEL |
+| `COMMON` × `DENSE` | raises `IncompatibleAxisError` (no cross-section) | emits `FEW_ASSETS` | emits `FEW_ASSETS` | normal PANEL |
 | `INDIVIDUAL` × `SPARSE` / `COMMON` × `SPARSE` | `_SCOPE_COLLAPSED` → TS dummy | normal PANEL CAAR | normal PANEL CAAR | normal PANEL CAAR |
 
 ## Sample-deficiency surfacing
@@ -40,4 +40,4 @@ The same insufficient-sample condition surfaces differently depending on `strict
 
 ## Aggregation order
 
-PANEL procedures split into **cross-section first** (`cs-first` — `individual` density metrics like IC / FM, sparse CAAR) and **time-series first** (`ts-first` — `common` density metrics). The order determines small-sample failure modes and the N=1 collapse behaviour: `common_continuous` at N=1 degenerates to a single-series β test (null: β=0, not E[β]=0), which is still well-defined; `individual_continuous` at N=1 has no cross-section to aggregate over, so it raises.
+PANEL procedures split into **cross-section first** (`cs-first` — `individual` density metrics like IC / FM, sparse CAAR) and **time-series first** (`ts-first` — `common` density metrics). The order determines small-sample failure modes. At N=1 both DENSE cells raise: `common_continuous` (`ts_beta`) has no asset cross-section to aggregate the per-asset βs over, and `individual_continuous` (IC / FM) has no cross-section to rank/regress within — both declare `cell.structure = PANEL`, so `evaluate` raises `IncompatibleAxisError`. Single-asset series are served instead by `(*, SPARSE, *)` metrics and the scope-agnostic TIMESERIES metrics.

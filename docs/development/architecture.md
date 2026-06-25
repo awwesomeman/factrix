@@ -469,11 +469,10 @@ Failure modes:
 
 - per-asset `n_periods < MIN_TS_OBS = 20` → asset dropped.
 - `n_assets < MIN_ASSETS_WARN = 30` → `WarningCode.FEW_ASSETS` (still runs; severity scales with `n_assets`).
-- `n_assets = 1` → degenerate cross-asset test → mode auto-routed to
-  TIMESERIES single-series β test (null: β = 0, **not** E[β] = 0). The
-  statistic lands in the same `MetricResult.stat` field across both
-  modes, so it carries different statistical meaning depending on
-  `profile.mode` (read `metadata["method"]` to tell them apart); see
+- `n_assets = 1` → no asset cross-section to aggregate the per-asset βs
+  over. The cell declares `cell.structure = PANEL`, so `evaluate` raises
+  `IncompatibleAxisError` under `strict=True` (NaN + `structure_mismatch`
+  under `strict=False`); there is no single-series β fallback. See
   §PANEL/TIMESERIES equivalence.
 
 ### `common_sparse` (PANEL) — time-series first
@@ -505,21 +504,17 @@ Failure modes:
   return correlation the standard t over-states significance — Petersen
   (2009) clustered SE deferred.
 
-### `common_continuous` (TIMESERIES, N=1) — time-series only
+### `common_continuous` at N=1 — not supported
 
-```
-single-asset OLS y_t = α + β·F_t + ε   (time-series step)
-                                     →  NW HAC t-test on β
-                                     +  ADF persistence diagnostic on F
-```
-
-The N=1 collapse of `common_continuous`. Null is `β = 0` for the single
-series, not `E[β] = 0` across assets — semantically distinct from the
-PANEL form.
-
-Failure modes:
-
-- ADF p > 0.10 → `WarningCode.PERSISTENT_REGRESSOR`.
+`common_continuous` metrics (`ts_beta`, `ts_quantile`, `ts_asymmetry`)
+test the **cross-asset** distribution of per-asset βs, so they require
+`N ≥ 2`. At `N = 1` the cell (`COMMON, DENSE, PANEL`) does not match the
+derived `TIMESERIES` structure, so `evaluate` raises
+`IncompatibleAxisError` (or NaN + `structure_mismatch` under
+`strict=False`). There is **no** single-series β collapse — for
+single-asset time-series inference use `ic(inference=fx.inference.NEWEY_WEST)`
+(Individual × Continuous) or the scope-agnostic TIMESERIES metrics
+(`hit_rate`, `oos_decay`, `ic_trend`, `directional_hit_rate`).
 
 ### `(*, SPARSE, *) × N=1` (TS dummy) — time-series only
 

@@ -60,4 +60,4 @@ An evaluation cell is defined by three orthogonal axes:
 | **FactorDensity** | `DENSE` / `SPARSE` | Is the signal a continuous numeric exposure, or a sparse event trigger (non-events are zero; event magnitude is a real number)? |
 | **DataStructure** | `PANEL` / `TIMESERIES` | Derived from the asset count at evaluate-time: `PANEL` for $N \ge 2$, and `TIMESERIES` for $N == 1$. |
 
-Any metric cell can run under either `DataStructure` — the dispatcher automatically routes to the correct statistical procedure. For example, evaluating a continuous macro factor on $N=1$ asset automatically falls back to a single-series time-series regression.
+A metric's cell declares which `DataStructure` it applies to. A `PANEL`-cell metric needs a cross-section, so on $N=1$ data — `Individual × Continuous` (`ic`, `fm`) or `Common × Continuous` (`ts_beta`) — `evaluate` raises `IncompatibleAxisError` (or returns NaN + `structure_mismatch` under `strict=False`). Single-asset data is served by `(*, SPARSE, *)` metrics and the scope-agnostic TIMESERIES metrics (`hit_rate`, `oos_decay`, `ic_trend`, `directional_hit_rate`), whose cells apply at `TIMESERIES`.

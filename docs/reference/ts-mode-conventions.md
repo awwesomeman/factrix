@@ -3,20 +3,22 @@ title: Timeseries-mode conventions
 ---
 
 !!! tip "Canonical reference"
-    For the `DataStructure.PANEL` vs `DataStructure.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, augmented Dickey-Fuller (ADF) / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page is the `DataStructure.TIMESERIES`-specific operational conventions table.
+    For the `DataStructure.PANEL` vs `DataStructure.TIMESERIES` dispatch concept and sample-guard contract, see [Panel vs timeseries](../guides/panel-timeseries.md). For the statistical disciplines (heteroskedasticity-and-autocorrelation-consistent (HAC) SE, augmented Dickey-Fuller (ADF) / Stambaugh, non-overlap default) that the rules below build on, see [Statistical methods](statistical-methods.md). This page documents the per-asset (stage-1) time-series conventions of the `Common × Continuous` metrics.
 
-`Common × Continuous` evaluations on a single time series (`ts_beta`,
-`ts_quantile`, `ts_asymmetry` and their variants) inherit four shared
-conventions that are not visible from the per-metric API page. Each
-metric page links here so the rationale is reachable without
-source-diving.
+`Common × Continuous` metrics (`ts_beta`, `ts_quantile`, `ts_asymmetry`
+and their variants) are **PANEL** metrics: they need `N ≥ 2` assets and
+raise `IncompatibleAxisError` at `N = 1` (there is no single-asset
+mode). This page documents the conventions that govern their **stage-1
+per-asset time-series regressions** — run inside `compute_ts_betas` —
+which are not visible from the per-metric API page. Each metric page
+links here so the rationale is reachable without source-diving.
 
 ## Plain SE in stage-1 per-asset ordinary least squares (OLS)
 
 `ts_beta` is a two-stage estimator: stage 1 is a per-asset OLS of
 `forward_return ~ factor`, stage 2 is the cross-asset distribution of
 the resulting β. **Stage 1 deliberately retains plain OLS SE rather
-than Newey-West (NW) / HAC** in TIMESERIES mode even when `forward_periods > 1`
+than Newey-West (NW) / HAC** even when `forward_periods > 1`
 introduces overlap.
 
 The rationale lives in
@@ -31,24 +33,14 @@ concern, prefer `ic(inference=fx.inference.NEWEY_WEST)` on the same series (Indi
 Continuous cell) where the HAC adjustment is the canonical
 inferential primitive.
 
-## `FACTOR_ADF_P` persistence diagnostic
+## No persistence diagnostic on this family
 
-Every TIMESERIES-mode procedure emits `FACTOR_ADF_P` on the input
-factor series (see `_procedures.py`). A failed unit-root rejection
-(`FACTOR_ADF_P > 0.05`) does not short-circuit the metric — the slope
-is still returned — but the diagnostic surfaces on the profile and
-slope significance should be read with that caveat.
-
-Full derivation, threshold rationale, and interpolation accuracy live
-in
-[Statistical methods § Persistence diagnostics](statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors).
-The `FACTOR_ADF_P` persistence diagnostic on `EvaluationResult`
-maps to that section directly. The
-`unit_root_suspected=True` flag is `ic_trend` metadata only — the
-TIMESERIES-mode cells expose the raw `FACTOR_ADF_P` *p*-value and
-leave the threshold call to the caller.
-
-The diagnostic is on the *input* factor, not the regression residual.
+The `ts_beta` family emits **no** unit-root / ADF persistence
+diagnostic — the only ADF diagnostic in factrix is on `ic_trend`
+(`metadata["adf_p"]` / `unit_root_suspected`, see
+[Statistical methods § Persistence diagnostics](statistical-methods.md#4-persistence-diagnostics-under-near-unit-root-predictors)).
+The persistence *caveat* below still matters for interpreting the
+stage-1 slopes, but it is not surfaced automatically on these metrics.
 
 ## `forward_periods` vs `signal_horizon`: bias under mismatch
 [](){ #non-overlap-convention }
@@ -56,16 +48,16 @@ The diagnostic is on the *input* factor, not the regression residual.
 The mainstream `Individual × Continuous` metrics (`ic`, `caar`)
 use non-overlapping resampling as the inferential default
 ([Statistical methods § non-overlap default](statistical-methods.md#non-overlap-default)).
-TIMESERIES mode inverts this: the per-asset stage-1 regression runs
-on the **full** overlapping series — TIMESERIES lacks the
-cross-section axis to "burn" `h` periods of samples, so
+The `ts_beta` family inverts this: the per-asset stage-1 regression
+runs on the **full** overlapping series — a single asset's series
+lacks a cross-section axis to "burn" `h` periods of samples, so
 non-overlapping resampling at stage 1 would leave inadequate `T` for
 the per-asset OLS at typical horizons.
 
 When the dataset's `signal_horizon` differs from the
 `forward_periods` passed to `evaluate()`
 ([`datasets.md`](../api/datasets.md) frames the *decay* side of this),
-the realised TIMESERIES-mode signal is also **biased**, not only
+the realised stage-1 signal is also **biased**, not only
 decayed. Two distinct sources compound:
 
 - **Overlap structure**: `h ≠ signal_horizon` produces an MA(h−1)
@@ -74,7 +66,7 @@ decayed. Two distinct sources compound:
   this for HAC-using metrics; the plain-SE stage-1 in `ts_beta` does
   not.
 - **Stambaugh-style coefficient bias**: when the predictor is
-  persistent (the typical regime flagged by `FACTOR_ADF_P`),
+  persistent (a near-unit-root regressor),
   `forward_periods ≠ signal_horizon` shifts the OLS coefficient
   itself, not only its SE.
 
@@ -83,14 +75,3 @@ TIMESERIES-mode inference is calibrated; other horizons are
 exploratory and the reported *p*-values should be discounted
 accordingly. This is a **bias** caveat distinct from the IC-decay
 framing on the synthetic datasets page.
-
-## Single-series null
-
-TIMESERIES dispatch routes `Common × Continuous` to a single-asset β
-whose null is `H₀: β = 0` for the one series — **not** the PANEL null
-`H₀: E[β] = 0` over the cross-section. The two tests answer different
-questions and their *p*-values are not comparable.
-`describe_analysis_modes(format="text")` annotates the routing
-distinction inline ("`single-series test (null differs from PANEL)`")
-when listing the TIMESERIES side of a `Common × Continuous` cell, so
-callers comparing PANEL and TIMESERIES outputs do not assume parity.

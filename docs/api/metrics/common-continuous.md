@@ -17,11 +17,13 @@ betas.
 `ts_beta` carries the cross-asset significance test; `ts_quantile` and
 `ts_asymmetry` are descriptive profile diagnostics.
 
-At `N == 1` the cross-asset $t$ degenerates; factrix auto-routes to a
-TIMESERIES single-series test (null: $\beta = 0$, **not**
-$\mathbb{E}[\beta] = 0$). The statistic lands in the same
-`MetricResult.stat` field in both modes, but the null differs —
-`metadata["method"]` records which test ran.
+These metrics test the **cross-asset** distribution of per-asset
+$\beta_i$, so they need $N \ge 2$ assets. At `N == 1` there is no
+cross-section: the cell is `PANEL`, so `evaluate` raises
+`IncompatibleAxisError` (or returns NaN + `structure_mismatch` under
+`strict=False`) rather than running. For single-asset time-series
+questions use the scope-agnostic TIMESERIES metrics (`hit_rate`,
+`oos_decay`, `ic_trend`, `directional_hit_rate`) or `ic` on the series.
 
 The `Common × Sparse` cell swaps this continuous regressor for a
 `{0, R}` broadcast event dummy (`R` unrestricted; `{0, 1}` for a pure
