@@ -823,7 +823,7 @@ The slicing subsystem is the worked example of the rule:
 | metric-specific `regime_<metric>` curated wrapper | **legacy metric-specific wrapper** (when describing removed surface area); for the current path, name `by_slice` + the inference function directly |
 | `EvaluationResult.to_frame()` renderer layer | **renderer** — result-side method; no separate tier implied |
 
-The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Mention an issue number (`#176`) when the docstring needs to point at a specification, instead of `Layer-B (#176)` which encodes a label that will not survive.
+The rule is functional, not lexical — `dispatcher`, `function`, and `wrapper` are fine on their own when they describe what the function does. It is the **pairing** as a tier label (`dispatcher` vs `curated wrapper` as the two levels of the slicing system) that drifts; the same word as a behavioural noun is stable. Describe the specification by its content when a docstring needs to point at one, rather than `Layer-B (#176)` — the `Layer-B` tier label drifts, and an issue number does not belong in source either.
 
 #### Two-register convention: "verb" vs "function" / "entry point"
 

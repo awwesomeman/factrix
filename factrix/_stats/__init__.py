@@ -25,9 +25,7 @@ private primitives those façades and the procedure layer call into.
 - ``diagnostics`` — Residual diagnostics (Ljung-Box portmanteau).
 
 BHY multiple-testing lives in ``factrix.stats.multiple_testing``; it
-operates on *p-values* (profile-era) rather than the legacy
-``bhy_threshold(t_stats)`` helper that was removed in the profile
-migration.
+operates on *p-values*.
 
 All names re-exported below are private (leading underscore); callers
 use ``from factrix._stats import X`` and the symbol resolves regardless

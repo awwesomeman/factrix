@@ -47,7 +47,7 @@ __all__ = [
 ]
 
 
-# Slice-test contract (#153 §5): monotonicity buckets the
+# Slice-test contract: monotonicity buckets the
 # cross-section into `n_groups` (default 10) and computes Spearman ρ
 # across per-bucket means. Patton & Timmermann (2010) "Monotonicity
 # in Asset Returns" recommend ≥ 50 assets per bucket so the per-date

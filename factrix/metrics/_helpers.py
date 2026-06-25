@@ -151,7 +151,7 @@ def _spread_significance_with_inference(
        ``FEW_ASSETS`` tier code (never silent); a requested-but-overridden
        HAC is additionally flagged ``inference_overridden``.
     2. **Inference family (user-selected).** With an adequate cross-section
-       the requested member runs: ``NonOverlapping`` reproduces the legacy
+       the requested member runs: ``NonOverlapping`` reproduces the
        non-overlap t **bit-for-bit** (``_t_stat_from_array`` is the same
        ``_calc_t_stat`` formula on the same strided values, so the default
        stays byte-identical), while ``NeweyWest`` keeps the *full*

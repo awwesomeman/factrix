@@ -67,7 +67,7 @@ _FM_CELL = cell(
     structure=DataStructure.PANEL,
 )
 
-# Slice-test contract (#153 §5): Fama-MacBeth runs a per-date
+# Slice-test contract: Fama-MacBeth runs a per-date
 # OLS regression on the cross-section, not a bucket sort, so slice
 # tests never need to downscale `n_groups`. Sample-size constraints
 # (T < HARD short-circuit, T < WARN warning) live in the procedure

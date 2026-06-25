@@ -57,7 +57,7 @@ _IC_CELL = cell(
     structure=DataStructure.PANEL,
 )
 
-# Slice-test contract (#153 §5): IC is per-date Spearman rank
+# Slice-test contract: IC is per-date Spearman rank
 # correlation, not a bucketed metric — slice tests never need to
 # downscale `n_groups`. The min-cross-section-per-date constraint
 # (Spearman ρ asymptotic distribution requires ≥ 30 obs per date,
