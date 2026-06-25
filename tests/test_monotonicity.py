@@ -90,3 +90,53 @@ class TestMonotonicityBatch:
     def test_empty_factor_list_rejected(self, noisy_panel):
         with pytest.raises(ValueError, match="non-empty"):
             monotonicity(noisy_panel, forward_periods=1, n_groups=5, factor_cols=[])
+
+
+class TestBatchTieRatio:
+    """``_compute_tie_ratios_batch`` reports the per-date-then-median tie ratio."""
+
+    def test_batch_matches_single_factor_per_date_median(self):
+        from datetime import datetime, timedelta
+
+        import polars as pl
+        from factrix.metrics._helpers import _compute_tie_ratio
+        from factrix.metrics.monotonicity import _compute_tie_ratios_batch
+
+        # f_cont: continuous, unique within each date but the same value set
+        # recurs across dates → per-date tie ratio 0. A global n_unique/len would
+        # report ~1 here (spurious). f_bucket: 3 buckets → genuine per-date ties.
+        n_assets, n_dates = 100, 40
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = [
+            {
+                "date": dt,
+                "asset_id": a,
+                "f_cont": float(a),
+                "f_bucket": float(a % 3),
+            }
+            for dt in dates
+            for a in range(n_assets)
+        ]
+        df = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        batch = _compute_tie_ratios_batch(df, ["f_cont", "f_bucket"])
+        assert batch["f_cont"] == pytest.approx(_compute_tie_ratio(df, "f_cont"))
+        assert batch["f_bucket"] == pytest.approx(_compute_tie_ratio(df, "f_bucket"))
+        # The continuous factor has no within-date ties — must not be flagged.
+        assert batch["f_cont"] == pytest.approx(0.0)
+
+    def test_empty_frame_returns_nan(self):
+        import math
+
+        import polars as pl
+        from factrix.metrics.monotonicity import _compute_tie_ratios_batch
+
+        empty = pl.DataFrame(
+            {"date": [], "asset_id": [], "factor": []},
+            schema={
+                "date": pl.Datetime("ms"),
+                "asset_id": pl.Int64,
+                "factor": pl.Float64,
+            },
+        )
+        assert math.isnan(_compute_tie_ratios_batch(empty, ["factor"])["factor"])

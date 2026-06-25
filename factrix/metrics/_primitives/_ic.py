@@ -59,32 +59,61 @@ def compute_ic(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    rank_exprs: list[pl.Expr] = [
-        pl.col(return_col).rank(method="average").over("date").alias("_rank_return"),
-        *[
-            pl.col(f).rank(method="average").over("date").alias(f"_rank__{f}")
-            for f in cols
-        ],
-    ]
-    agg_exprs: list[pl.Expr] = [pl.len().alias("n")]
+    # Spearman ρ must rank each factor and the return over the *pairwise-complete*
+    # (factor, return) set per date: a null in either column would otherwise shift
+    # the surviving assets' ranks in the other column (polars' ``pl.corr`` drops
+    # the null-paired rows only *after* ranking, so ranking the raw column first
+    # distorts the ρ). The return rank is therefore masked per factor — each
+    # factor has its own complete set — and collapses to the shared single rank
+    # when the panel is dense (the common DENSE case).
+    rank_exprs: list[pl.Expr] = []
     for f in cols:
-        agg_exprs.append(pl.corr(f"_rank__{f}", "_rank_return").alias(f"_ic__{f}"))
-        agg_exprs.append((1.0 - pl.col(f).n_unique() / pl.len()).alias(f"_tie__{f}"))
+        valid = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
+        rank_exprs.append(
+            pl.when(valid)
+            .then(pl.col(return_col))
+            .rank(method="average")
+            .over("date")
+            .alias(f"_rank_return__{f}")
+        )
+        rank_exprs.append(
+            pl.when(valid)
+            .then(pl.col(f))
+            .rank(method="average")
+            .over("date")
+            .alias(f"_rank__{f}")
+        )
+    # The effective cross-section is the per-date *valid-pair* count: the IC ρ is
+    # estimated on the complete (factor, return) names only, so that same count —
+    # not the raw row count — is what gates the date (``MIN_IC_ASSETS``) and
+    # denominates the tie ratio. Counting null-factor names would let a thin
+    # cross-section (e.g. a factor defined for 8 of 200 names) clear the floor and
+    # leak a high-variance IC into the series. The count is therefore per factor
+    # (each factor nulls out a different set); it collapses to the row count on a
+    # dense panel.
+    agg_exprs: list[pl.Expr] = []
+    for f in cols:
+        valid = pl.col(f).is_not_null() & pl.col(return_col).is_not_null()
+        agg_exprs.append(valid.sum().alias(f"_n__{f}"))
+        agg_exprs.append(
+            pl.corr(f"_rank__{f}", f"_rank_return__{f}").alias(f"_ic__{f}")
+        )
+        agg_exprs.append(
+            (1.0 - pl.col(f).filter(valid).n_unique() / valid.sum()).alias(f"_tie__{f}")
+        )
 
     # Collect the per-date frame *before* the cross-section filter so the
-    # pre-drop date count is observable; the filter is shared across factors
-    # (``n`` is per-date, not per-factor), so the drop stats are identical
-    # for every factor.
+    # pre-drop date count is observable. The floor is applied per factor on its
+    # own valid-pair count, so the drop stats are per factor, not shared.
     grouped = (
         df.lazy().with_columns(rank_exprs).group_by("date").agg(agg_exprs).sort("date")
     ).collect()
     n_periods_in = grouped.height
-    wide = grouped.filter(pl.col("n") >= MIN_IC_ASSETS)
     drop_reason = f"n_assets below MIN_IC_ASSETS ({MIN_IC_ASSETS})"
 
     return {
         f: _attach_drop_stats(
-            wide.select(
+            grouped.filter(pl.col(f"_n__{f}") >= MIN_IC_ASSETS).select(
                 pl.col("date"),
                 pl.col(f"_ic__{f}").alias("ic"),
                 pl.col(f"_tie__{f}").alias("tie_ratio"),

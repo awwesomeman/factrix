@@ -656,7 +656,11 @@ def _assign_quantile_groups(
     return (
         df.with_columns(
             rank_expr,
-            pl.len().over("date").alias("_n"),
+            # Denominator is the per-date *non-null* factor count, not the row
+            # count: a null factor gets a null rank (it never lands in a bucket),
+            # so counting it would shrink every quantile width and leave the top
+            # bucket unreachable (max rank / N < 1).
+            pl.col(factor_col).count().over("date").alias("_n"),
         )
         .with_columns(
             ((pl.col("_rank") - 1) * n_groups / pl.col("_n"))
@@ -688,10 +692,14 @@ def _assign_quantile_groups_batch(
         pl.col(f).rank(method=tie_policy).over("date").alias(f"_rank__{f}")  # type: ignore[arg-type]
         for f in factor_cols
     ]
-    n_per_date_expr = pl.len().over("date").alias("_n_per_date")
-    with_ranks = df.with_columns(*rank_exprs, n_per_date_expr)
+    # Per-date *non-null* count is per factor: each factor may null out a
+    # different set of assets, and a null-inclusive denominator would shrink the
+    # quantile widths and leave the top bucket unreachable (see
+    # :func:`_assign_quantile_groups`).
+    n_exprs = [pl.col(f).count().over("date").alias(f"_n__{f}") for f in factor_cols]
+    with_ranks = df.with_columns(*rank_exprs, *n_exprs)
     group_exprs = [
-        ((pl.col(f"_rank__{f}") - 1) * n_groups / pl.col("_n_per_date"))
+        ((pl.col(f"_rank__{f}") - 1) * n_groups / pl.col(f"_n__{f}"))
         .cast(pl.Int32)
         .clip(0, n_groups - 1)
         .alias(f"_group__{f}")

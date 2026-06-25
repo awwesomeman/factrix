@@ -8,6 +8,7 @@ import pytest
 from factrix.metrics._helpers import (
     TIE_RATIO_WARN_THRESHOLD,
     _assign_quantile_groups,
+    _assign_quantile_groups_batch,
     _compute_tie_ratio,
     _sample_event_spaced,
     _sample_non_overlapping,
@@ -151,6 +152,44 @@ class TestAssignQuantileGroups:
         assert len(groups) == 1, (
             f"average tie_policy should keep tied values in one bucket, got {groups}"
         )
+
+    def test_null_factor_does_not_dilute_top_bucket(self):
+        # 8 ranked assets + 2 null-factor assets. The denominator must be the
+        # per-date non-null count (8), not the row count (10); otherwise the max
+        # rank / N never reaches the top bucket and group n_groups-1 stays empty.
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2024, 1, 1)] * 10, dtype=pl.Datetime("ms")),
+                "asset_id": [f"a{i}" for i in range(10)],
+                "factor": [1.0, 2, 3, 4, 5, 6, 7, 8, None, None],
+            }
+        )
+        result = _assign_quantile_groups(df, n_groups=5)
+        non_null = result.drop_nulls("_group")
+        assert set(non_null["_group"].to_list()) == {0, 1, 2, 3, 4}
+        # null-factor rows fall in no bucket
+        assert result.filter(pl.col("factor").is_null())["_group"].null_count() == 2
+
+    def test_batch_null_factor_does_not_dilute_top_bucket(self):
+        # Batch path: each factor's denominator is its own non-null count, so a
+        # factor with nulls still reaches its top bucket independently.
+        df = pl.DataFrame(
+            {
+                "date": pl.Series([datetime(2024, 1, 1)] * 10, dtype=pl.Datetime("ms")),
+                "asset_id": [f"a{i}" for i in range(10)],
+                "f1": [1.0, 2, 3, 4, 5, 6, 7, 8, None, None],
+                "f2": [float(i) for i in range(10)],
+            }
+        )
+        result = _assign_quantile_groups_batch(df, ["f1", "f2"], n_groups=5)
+        assert set(result.drop_nulls("_group__f1")["_group__f1"].to_list()) == {
+            0,
+            1,
+            2,
+            3,
+            4,
+        }
+        assert set(result["_group__f2"].to_list()) == {0, 1, 2, 3, 4}
 
 
 class TestComputeTieRatio:
