@@ -69,7 +69,7 @@ __all__ = [  # noqa: RUF022 (teaching order, see SSOT note)
 # event-count floor guards thin samples.
 _CAAR_CELL = cell(None, FactorDensity.SPARSE, structure=None)
 
-# Slice-test contract (#153 §5): CAAR is event-driven; the
+# Slice-test contract: CAAR is event-driven; the
 # cross-section is the event sample, not a bucketed asset universe,
 # so slice tests skip the `n_groups` downscale step. Minimum event
 # count for the cross-event t-test (FEW_EVENTS threshold)
