@@ -164,13 +164,29 @@ print("survivors =", [(r.factor, r.forward_periods) for r in bhy_ic.survivors])
 **Single-asset (timeseries) evaluation**
 
 ```python
+import numpy as np
+import polars as pl
+from datetime import datetime, timedelta
 from factrix.metrics import directional_hit_rate
+
+# Build a one-asset panel by hand (the cross-section generators need N >= 2).
+rng    = np.random.default_rng(7)
+dates  = [datetime(2020, 1, 1) + timedelta(days=i) for i in range(250)]
+factor = rng.standard_normal(250)
+ret    = 0.05 * factor + rng.standard_normal(250)        # factor leads next return
+single_asset_data = pl.DataFrame({
+    "date": dates,
+    "asset_id": "SPX",
+    "price": 100 * np.exp(np.cumsum(ret) / 100),
+    "macro_factor": factor,
+})
+data = fx.preprocess.compute_forward_return(single_asset_data, forward_periods=5)
 
 # A single-asset panel auto-resolves the structure axis to
 # DataStructure.TIMESERIES (N == 1); a structure-agnostic metric such as
 # directional_hit_rate runs unchanged through the same entry point.
 results = fx.evaluate(
-    single_asset_data,
+    data,
     metrics={"dir_hit": directional_hit_rate()},
     factor_cols=["macro_factor"],
     forward_periods=5,

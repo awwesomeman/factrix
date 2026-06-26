@@ -15,7 +15,7 @@ Individual × Continuous:
     compute_group_returns, monotonicity, top_concentration,
     turnover, notional_turnover, breakeven_cost, net_spread,
     compute_fm_betas, fm_beta, pooled_beta, fm_beta_sign_consistency,
-    spanning_alpha, greedy_forward_selection
+    spanning_alpha, greedy_forward_selection, k_spread
 
 Individual × Sparse (the ``Common × Sparse`` cell has its own
 broadcast-dummy procedure but reuses these helper metrics — there is
@@ -32,6 +32,11 @@ Common × Continuous:
 
 Series diagnostics — axis-agnostic on ``(date, value)``:
     hit_rate, ic_trend, oos_decay
+
+Scope-agnostic (run in either scope; ``cell`` scope is ``None``):
+    directional_hit_rate — small-N robust, Pesaran-Timmermann directional
+    sibling of ``hit_rate`` (consumes a ``date, asset_id, factor,
+    forward_return`` panel rather than a pre-aggregated series)
 """
 
 from factrix._metric_index import metric_spec, register

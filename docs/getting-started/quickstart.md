@@ -100,15 +100,21 @@ Calling `.to_dict()` on the returned `EvaluationResult` returns a flat, JSON-fri
       "p_value": 2.129e-40,
       "stat": 14.60,
       "n_obs": 494,
+      "n_obs_axis": "periods",
+      "is_applicable": true,
+      "reason": null,
       "metadata": {
         "n_periods": 494,
-        "p_value": 2.129e-40,
+        "forward_periods": 5,
         "stat_type": "t",
         "h0": "mu=0",
-        "method": "Newey-West HAC t-test on overlapping IC series",
-        "newey_west_lags": 5,
-        "forward_periods": 5,
-        "tie_ratio": 0.0
+        "method": "Newey-West HAC t-test",
+        "tie_ratio": 0.0,
+        "n_periods_in": 494,
+        "n_periods_out": 494,
+        "dropped_periods": 0,
+        "drop_rate": 0.0,
+        "drop_reason": null
       }
     }
   },
