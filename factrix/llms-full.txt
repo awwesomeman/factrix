@@ -390,7 +390,6 @@ All exceptions inherit from `FactrixError`:
 - `IncompatibleAxisError`: Invalid combination of axes.
 - `IncompatibleInferenceError`: `inference=` is outside the metric's `applicable_inference` allowlist.
 - `InsufficientSampleError`: Sample size too small for statistical validity.
-- `UnknownEstimatorError`: Lookup miss for estimators.
 - `UserInputError`: Wrong schema, bad names, or mismatched shapes.
 
 ---

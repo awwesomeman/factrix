@@ -117,10 +117,13 @@ conservative under PRDS. factrix ships only the Bonferroni-style — it
 is uniformly valid without dependence assumptions; a Simes path may
 be added later if a use case demands it.
 
-## Survivors output
+## Result output
 
-`partial_conjunction` returns the same [`Survivors`](multi-factor.md)
-container as `bhy`, populated with PC-specific metadata:
+`partial_conjunction` returns a
+[`PartialConjunctionResult`][factrix.multi_factor.PartialConjunctionResult]
+per metric — the same `_FdrResultBase` shape as `bhy`'s
+[`BhyResult`][factrix.multi_factor.BhyResult] (`entries` / `survivors` /
+`adj_p` / `q` / `n_tests`), plus PC-specific fields:
 
 | Field | Meaning |
 |---|---|
@@ -129,11 +132,16 @@ container as `bhy`, populated with PC-specific metadata:
 | `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
 | `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
 | `min_pass` | The $k$ you passed |
-| `n_tests` | Keyed by identity tuple `(factor_id, forward_periods)` → actual $m$ used |
+| `n_tests` | Keyed by the single-element identity tuple `(factor,)` → condition count $m$ for that identity |
 | `n_passed_uncorr_all` | Per-identity count of raw $p < q$, aligned with `entries`. Descriptive — flags borderline (`n_passed_uncorr_all == min_pass`) and data-gap cases at a glance. **Cutoff is your `q`**, so the count moves with `q` — using it to override `adj_p` survivor selection is the anti-shopping failure mode this function exists to prevent. |
 
 `to_frame()` gives a `factor | adj_p | survived` DataFrame over every tested
 identity, eliminated ones included.
+
+::: factrix.multi_factor.PartialConjunctionResult
+    options:
+      show_root_toc_entry: false
+      heading_level: 3
 
 ## Validation summary
 

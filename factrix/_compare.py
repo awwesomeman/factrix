@@ -30,7 +30,7 @@ def compare(
     """Render a wide leaderboard ``pl.DataFrame`` for multiple metrics.
 
     One row per :class:`EvaluationResult`; two columns per metric —
-    ``<metric_name>`` (``MetricResult.value``) and ``<metric_name>_p``
+    ``<metric_name>`` (``MetricResult.value``) and ``<metric_name>_p_value``
     (``MetricResult.p_value`` when present, else ``null``).
 
     Args:
@@ -57,7 +57,7 @@ def compare(
     Returns:
         ``pl.DataFrame`` with column order ``factor``,
         ``forward_periods``, context keys (union across results,
-        first-seen order), then ``<m_name>`` / ``<m_name>_p`` pairs
+        first-seen order), then ``<m_name>`` / ``<m_name>_p_value`` pairs
         in ``metrics`` order, then ``rank`` when ``sort_by`` is set.
 
     Raises:

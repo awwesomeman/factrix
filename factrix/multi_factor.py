@@ -1,7 +1,8 @@
 """Public ``multi_factor`` namespace — collection-level FDR control.
 
-Three procedure-paired result dataclasses (one per function) replace
-the v0.13 unified ``Survivors``; each function returns
+One procedure-paired result dataclass per function
+(:class:`BhyResult`, :class:`PartialConjunctionResult`,
+:class:`HierarchicalBhyResult`); each function returns
 ``dict[metric_name, *Result]`` keyed by ``MetricSpec.name``.
 """
 

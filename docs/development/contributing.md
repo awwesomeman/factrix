@@ -770,7 +770,7 @@ plain prose; reach for a callout only when the elevation earns it.
 - `!!! info` — contract / convention block (e.g. event-study contracts, TS-mode conventions).
 - `!!! example` — minimal worked code that surrounding prose references.
 - `??? note "..."` (collapsible) — long content for a subset of readers (derivations, full enum tables).
-- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-data `(data, ...)` entry points (`docs/api/evaluate.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`EvaluationResult` / `Survivors` / `MetricResult`) and do not carry the callout.
+- `> **Input contract** — …` (blockquote, two lines) — appears only on raw-data `(data, ...)` entry points (`docs/api/evaluate.md`), placed between the frontmatter and the autodoc block. Format: one short sentence naming the four-column floor + a link to [Panel schema](../api/panel-schema.md). Other API pages consume pre-computed artefacts (`EvaluationResult` / `BhyResult` / `MetricResult`) and do not carry the callout.
 
 Apply opportunistically: when you touch a page for any other reason and a paragraph already qualifies, hoist it. Do not retrofit pages just to add admonitions.
 
@@ -789,7 +789,7 @@ mkdocstrings cross-references (`[X][factrix.<...>.X]`) and intra-doc anchor link
 
 Per-block `options:` should carry **only deviations** from the globals. Common deviations:
 
-- Secondary block on a page (e.g. `Survivors` on `bhy.md`, individual error classes on `errors.md`): `show_root_toc_entry: false`, `heading_level: 3` or `4`.
+- Secondary block on a page (e.g. `BhyResult` on `bhy.md`, individual error classes on `errors.md`): `show_root_toc_entry: false`, `heading_level: 3` or `4`.
 - Dataclass page where the class name is already in the frontmatter title: `show_root_heading: false`.
 - Module-level block with a curated function list: `members: [...]`, optionally `show_root_members_full_path: true`.
 

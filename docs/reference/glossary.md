@@ -222,10 +222,13 @@ survivors does not preserve FDR ≤ q. See
 [Cross-function reference § `expand_over`](../api/bhy.md)
 for the sample-restriction vs hypothesis-dimension split.
 
-### `Survivors`
+### Screening result (`BhyResult` / `PartialConjunctionResult` / `HierarchicalBhyResult`)
 
 Result type from the screening functions (`bhy`, `partial_conjunction`,
-`bhy_hierarchical`). Carries the post-correction adjusted q-value
-(`adj_q`) per identity plus a boolean `survivor[i]` ↔ `adj_q[i] ≤ q`
-duality so downstream functions (`compare(survivors)`) can render
-leaderboards without re-applying the threshold.
+`bhy_hierarchical`) — one procedure-paired dataclass each, returned keyed
+by metric name. Each carries the full tested family (`entries`) with the
+post-correction adjusted p-value (`adj_p_all`) aligned to it, exposes the
+surviving subset as `survivors` / `adj_p`, and preserves the
+`survivor[i] ↔ adj_p_all[i] ≤ q` duality so downstream functions
+(`compare(result.survivors)`) can render leaderboards without re-applying
+the threshold.

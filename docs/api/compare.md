@@ -17,7 +17,8 @@ results = fx.evaluate(
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST), "spread": quantile_spread()},
     factor_cols=candidates,
 )
-df = fx.compare(results, metrics=["ic", "spread"], sort_by="ic")
+# evaluate() returns a dict keyed by factor; compare() takes the list of results.
+df = fx.compare(list(results.values()), metrics=["ic", "spread"], sort_by="ic")
 ```
 
 ## Input parameters
