@@ -125,3 +125,42 @@ class TestDriscollKraayPath:
         t_stat = res.stat
         expected_p = float(2 * sp_stats.t.sf(abs(t_stat), dof))
         assert res.p_value == pytest.approx(expected_p)
+
+
+class TestPooledBetaNullPairs:
+    """Null factor/return rows must not poison the pooled OLS slope."""
+
+    def test_null_factor_does_not_nan_the_slope(self):
+        # Factor undefined for some names (common in real research). The slope
+        # must be estimated on the complete (factor, return) pairs, and n_obs
+        # must count those pairs — not the raw rows including nulls.
+        rng = np.random.default_rng(5)
+        rows = []
+        for d in range(120):
+            for a in range(20):
+                f = rng.normal()
+                r = 1.5 * f + 0.5 * rng.normal()
+                if rng.random() < 0.05:  # factor undefined here
+                    f = None
+                if rng.random() < 0.02:  # return unobserved here
+                    r = None
+                rows.append(
+                    {
+                        "date": d,
+                        "asset_id": a,
+                        "factor": None if f is None else float(f),
+                        "forward_return": None if r is None else float(r),
+                    }
+                )
+        df = pl.DataFrame(rows)
+
+        res = pooled_beta(df)
+        complete = df.drop_nulls(["factor", "forward_return"])
+        ref_slope = float(
+            np.polyfit(
+                complete["factor"].to_numpy(), complete["forward_return"].to_numpy(), 1
+            )[0]
+        )
+        assert np.isfinite(res.value)
+        assert res.value == pytest.approx(ref_slope, abs=1e-9)
+        assert res.n_obs == complete.height

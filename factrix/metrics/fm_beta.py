@@ -572,6 +572,12 @@ def pooled_beta(
         >>> result.name == ""
         True
     """
+    # Pooled OLS is estimated on the complete (factor, return) pairs: drop
+    # incomplete rows up front so a null factor or return cannot feed a NaN into
+    # ``lstsq`` (poisoning the slope) and so ``n_obs`` — the pairs-axis floor —
+    # counts what the regression actually uses. Dropping on ``df`` keeps the
+    # downstream cluster / Driscoll-Kraay arrays positionally aligned.
+    df = df.drop_nulls([return_col, factor_col])
     y = df[return_col].to_numpy().astype(np.float64)
     x = df[factor_col].to_numpy().astype(np.float64)
     n_obs = len(y)
