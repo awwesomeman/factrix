@@ -13,6 +13,54 @@ import polars as pl
 from factrix._errors import UserInputError
 
 _DOCS_FORWARD_RETURN = "api/preprocess#compute_forward_return"
+_DOCS_WINSORIZE_FORWARD_RETURN = "api/preprocess#winsorize_forward_return"
+
+
+def _validate_forward_periods(forward_periods: object) -> int:
+    if not isinstance(forward_periods, int) or isinstance(forward_periods, bool):
+        raise UserInputError(
+            func_name="compute_forward_return",
+            field="forward_periods",
+            value=forward_periods,
+            expected="a positive int row horizon, e.g. 5",
+            docs_path=_DOCS_FORWARD_RETURN,
+        )
+    if forward_periods <= 0:
+        raise UserInputError(
+            func_name="compute_forward_return",
+            field="forward_periods",
+            value=forward_periods,
+            expected="a positive int row horizon (> 0)",
+            docs_path=_DOCS_FORWARD_RETURN,
+        )
+    return forward_periods
+
+
+def _validate_winsorize_bounds(lower: object, upper: object) -> tuple[float, float]:
+    if (
+        isinstance(lower, bool)
+        or isinstance(upper, bool)
+        or not isinstance(lower, int | float)
+        or not isinstance(upper, int | float)
+    ):
+        raise UserInputError(
+            func_name="winsorize_forward_return",
+            field="bounds",
+            value={"lower": lower, "upper": upper},
+            expected="numeric quantile bounds satisfying 0 <= lower <= upper <= 1",
+            docs_path=_DOCS_WINSORIZE_FORWARD_RETURN,
+        )
+    lower_f = float(lower)
+    upper_f = float(upper)
+    if not 0.0 <= lower_f <= upper_f <= 1.0:
+        raise UserInputError(
+            func_name="winsorize_forward_return",
+            field="bounds",
+            value={"lower": lower, "upper": upper},
+            expected="0 <= lower <= upper <= 1",
+            docs_path=_DOCS_WINSORIZE_FORWARD_RETURN,
+        )
+    return lower_f, upper_f
 
 
 def compute_forward_return(
@@ -59,15 +107,18 @@ def compute_forward_return(
             place anyway, accepting the additional truncation.
 
     Raises:
-        UserInputError: ``df`` already has a ``forward_return`` column and
-            ``overwrite`` is ``False``.
+        UserInputError: ``forward_periods`` is not a positive ``int``;
+            ``df`` already has a ``forward_return`` column and
+            ``overwrite`` is ``False``; or the row horizon / price data
+            leaves no finite forward returns after filtering.
 
     Returns:
         Input DataFrame with ``forward_return`` column appended and the
         overlap horizon ``forward_periods`` stamped on as a reserved column —
         the single source of truth ``factrix.evaluate`` reads (it strips the
         column before dispatch, so it never reaches a metric or ``to_frame``).
-        Rows where forward return is null (end of series) are dropped.
+        Rows where forward return is not finite (tail nulls, NaN, +inf, -inf)
+        are dropped.
 
     Notes:
         The ``÷N`` per-period normalization is a *scale* choice with
@@ -132,6 +183,8 @@ def compute_forward_return(
         >>> isinstance(results, dict) and "factor" in results
         True
     """
+    forward_periods = _validate_forward_periods(forward_periods)
+
     if "forward_return" in df.columns:
         if not overwrite:
             raise UserInputError(
@@ -164,8 +217,20 @@ def compute_forward_return(
                 / forward_periods
             ).alias("forward_return")
         )
-        .filter(pl.col("forward_return").is_not_null())
+        .filter(pl.col("forward_return").is_finite())
     )
+    if out.is_empty():
+        raise UserInputError(
+            func_name="compute_forward_return",
+            field="df",
+            value=f"{df.height} rows",
+            expected=(
+                "at least one finite forward_return after applying the row "
+                f"horizon forward_periods={forward_periods}; the panel may be "
+                "too short, or price contains only non-finite returns"
+            ),
+            docs_path=_DOCS_FORWARD_RETURN,
+        )
     # Stamp the overlap horizon as the single source of truth for the data;
     # evaluate reads it instead of taking forward_periods at the metric / call
     # layer (the three could silently diverge — see compute_forward_return docs).
@@ -181,8 +246,14 @@ def winsorize_forward_return(
 
     Args:
         lower: Lower quantile bound (default 0.01 = 1st percentile).
+            Must satisfy ``0 <= lower <= upper <= 1``.
         upper: Upper quantile bound (default 0.99 = 99th percentile).
-            Set to (0.0, 1.0) to disable.
+            Must satisfy ``0 <= lower <= upper <= 1``. Set to
+            ``(0.0, 1.0)`` to disable.
+
+    Raises:
+        UserInputError: ``lower`` / ``upper`` are not numeric quantile
+            bounds satisfying ``0 <= lower <= upper <= 1``.
 
     Returns:
         DataFrame with ``forward_return`` clipped in-place.
@@ -201,6 +272,7 @@ def winsorize_forward_return(
         >>> clipped["forward_return"].max() <= panel["forward_return"].max()
         True
     """
+    lower, upper = _validate_winsorize_bounds(lower, upper)
     if lower <= 0.0 and upper >= 1.0:
         return df
 

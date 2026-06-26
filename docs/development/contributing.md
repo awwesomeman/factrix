@@ -94,6 +94,22 @@ uv add <pkg>         # add dep, sync pyproject + uv.lock
 uv lock --upgrade    # upgrade lock to the latest within current pyproject constraints
 ```
 
+### Windows test notes
+
+On Windows consoles, prefer UTF-8 mode for tests that read Markdown or
+render diagnostics with non-ASCII characters:
+
+```powershell
+$env:PYTHONUTF8="1"
+.\.venv\Scripts\python.exe -m pytest -q -p no:faulthandler
+```
+
+Timezone-aware Polars tests also need Python timezone data available
+for `ZoneInfo("UTC")` / UTC conversions. Run `uv sync --extra dev`
+from the repo lockfile before testing; if a local environment was
+manually altered and timezone tests fail with missing timezone data,
+resync the environment instead of patching tests.
+
 ### Git hooks (pre-push CHANGELOG check)
 
 `.githooks/` at the repo root holds version-controlled hook scripts.

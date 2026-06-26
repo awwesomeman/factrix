@@ -107,6 +107,21 @@ def _require_non_empty_results(
             expected="non-empty list[EvaluationResult]",
             docs_path=f"api/{func_name}#results",
         )
+    from factrix._results import EvaluationResult
+
+    for idx, result in enumerate(results):
+        if not isinstance(result, EvaluationResult):
+            raise UserInputError(
+                func_name=func_name,
+                field=f"results[{idx}]",
+                value=type(result).__name__,
+                expected=(
+                    "EvaluationResult objects. If this list came from "
+                    "evaluate(), pass list(results.values()); do not extend "
+                    "a list with the dict itself, because that appends keys"
+                ),
+                docs_path=f"api/{func_name}#results",
+            )
 
 
 def _render_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> str:
