@@ -274,6 +274,10 @@ consistency are read separately.
 - *secondary-test*: `short_alpha`, `short_stat`, `short_p_value`,
   `short_significance` — short-leg attribution.
 - *descriptive*: `n_periods`, `tie_ratio`, `tie_policy`, `method`.
+- *descriptive* (conditional, no-signal): `signal_status`
+  (`"no_signal_zero_variance_factor"`) when the factor has observations
+  but no cross-sectional variation. This is a valid `p_value = 1.0`
+  result, not a short-circuit `reason`.
 
 #### `quantile_spread_vw`
 
@@ -295,6 +299,10 @@ Fixed-K (top-K − bottom-K) long-short spread; the small-N sibling of
   (mean per-date cross-sectional return std), `top_return`,
   `bottom_return`, `n_periods`, `method`. The `k`-too-large
   short-circuit reports `max_assets_per_date`.
+- *descriptive* (conditional, no-signal): `signal_status`
+  (`"no_signal_zero_variance_factor"`) when the factor has observations
+  but no cross-sectional variation. This is a valid `p_value = 1.0`
+  result, not a short-circuit `reason`.
 
 #### Shared small-N significance keys
 

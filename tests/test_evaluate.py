@@ -94,6 +94,16 @@ class TestMetricsValidation:
         with pytest.raises(UserInputError, match="overview catalog"):
             _eval(fx.list_metrics())
 
+    def test_non_numeric_factor_column_rejected_at_entry(self):
+        panel = _panel().with_columns(pl.lit("buy").alias("factor_text"))
+        with pytest.raises(UserInputError, match="factor columns to be numeric"):
+            fx.evaluate(
+                panel,
+                metrics={"ic": ic()},
+                factor_cols=["factor_text"],
+                forward_periods=5,
+            )
+
 
 class TestByValueDedup:
     def test_same_config_alias_is_one_node_two_labels(self):

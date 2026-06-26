@@ -15,6 +15,7 @@ Notes:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 import polars as pl
@@ -25,7 +26,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t, _significance_marker
 from factrix._types import (
@@ -80,11 +81,20 @@ applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
 )
 
 
+def _quantile_spread_threshold(self) -> SampleThreshold:
+    periods = _PORTFOLIO_PERIODS_FLOOR(self)
+    return SampleThreshold(
+        min_periods=periods.min_periods,
+        warn_periods=periods.warn_periods,
+        min_assets=self.n_groups,
+    )
+
+
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
-    sample_threshold=_PORTFOLIO_PERIODS_FLOOR,
+    sample_threshold=_quantile_spread_threshold,
 )
 def quantile_spread(
     df: pl.DataFrame,
@@ -197,6 +207,7 @@ def quantile_spread(
             tie_policy=tie_policy,
             inference=inference,
             forward_periods=forward_periods,
+            n_groups=n_groups,
             full_series=(
                 full_series_by_factor[f] if full_series_by_factor is not None else None
             ),
@@ -214,6 +225,7 @@ def _quantile_spread_from_series(
     tie_policy: str,
     inference: NonOverlapping | NeweyWest,
     forward_periods: int,
+    n_groups: int,
     full_series: pl.DataFrame | None,
 ) -> MetricResult:
     """Per-factor t-test pipeline shared by single and batch paths.
@@ -238,6 +250,37 @@ def _quantile_spread_from_series(
     )
     if sc is not None:
         return sc
+    per_date_assets = series["_n_assets"]
+    if bool((per_date_assets < n_groups).all()):
+        max_assets_value = per_date_assets.max()
+        max_assets = 0 if max_assets_value is None else cast(int, max_assets_value)
+        return _short_circuit_output(
+            "quantile_spread",
+            "insufficient_assets_for_quantile_groups",
+            n_obs=max_assets,
+            n_obs_axis="assets",
+            n_groups=n_groups,
+            min_required=n_groups,
+            max_assets_per_date=max_assets,
+        )
+    if bool(series["_zero_variance_factor"].all()):
+        return MetricResult(
+            p_value=1.0,
+            value=0.0,
+            n_obs=series.height,
+            n_obs_axis="periods",
+            stat=0.0,
+            metadata={
+                "n_periods": series.height,
+                "stat_type": "t",
+                "h0": "mu=0",
+                "method": "no-signal zero-variance factor",
+                "signal_status": "no_signal_zero_variance_factor",
+                "tie_ratio": tie_ratio,
+                "tie_policy": tie_policy,
+                "n_groups": n_groups,
+            },
+        )
 
     arr = spread_vals.to_numpy()
     # Headline test: ``inference`` selects non-overlap t vs Newey-West HAC;

@@ -34,7 +34,7 @@ from factrix._axis import (
     FactorDensity,
     FactorScope,
 )
-from factrix._metric_index import cell
+from factrix._metric_index import SampleThreshold, cell
 from factrix._results import MetricResult
 from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
@@ -61,6 +61,17 @@ applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
     {NON_OVERLAPPING, NEWEY_WEST}
 )
 
+_K_SPREAD_PERIODS_FLOOR = _scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD)
+
+
+def _k_spread_threshold(self) -> SampleThreshold:
+    periods = _K_SPREAD_PERIODS_FLOOR(self)
+    return SampleThreshold(
+        min_periods=periods.min_periods,
+        warn_periods=periods.warn_periods,
+        min_assets=2 * self.k,
+    )
+
 
 def _build_k_spread_series(
     panel: pl.DataFrame, k: int, factor_col: str, return_col: str
@@ -76,6 +87,25 @@ def _build_k_spread_series(
     clean = panel.filter(
         pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
     )
+    if clean.is_empty():
+        return None, clean
+    if bool(
+        clean.group_by("date")
+        .agg(pl.col(factor_col).n_unique().alias("_n_unique"))
+        .select((pl.col("_n_unique") <= 1).all())
+        .item()
+    ):
+        series = (
+            clean.group_by("date")
+            .agg(
+                pl.col(return_col).mean().alias("top_return"),
+                pl.col(return_col).mean().alias("bottom_return"),
+                pl.col(return_col).std(ddof=DDOF).alias("xs_dispersion"),
+            )
+            .with_columns(pl.lit(0.0).alias("spread"))
+            .sort("date")
+        )
+        return series, clean
     ranked = clean.with_columns(
         pl.col(factor_col)
         .rank(method="ordinal", descending=True)
@@ -111,7 +141,7 @@ def _build_k_spread_series(
     # Periods floor scales with the non-overlap stride (see ``quantile``): the
     # spread series is sub-sampled at ``forward_periods``, so pre-flight and the
     # in-body gate share ``MIN_PORTFOLIO_PERIODS_HARD`` + ``_scaled_min_periods``.
-    sample_threshold=_scaled_periods_threshold(MIN_PORTFOLIO_PERIODS_HARD),
+    sample_threshold=_k_spread_threshold,
 )
 def k_spread(
     df: pl.DataFrame,
@@ -204,6 +234,17 @@ def k_spread(
     # forward_return is null on the last ``forward_periods`` rows per asset.
     sampled = _sample_non_overlapping(df, forward_periods)
     series, clean = _build_k_spread_series(sampled, k, factor_col, return_col)
+    n_assets = clean["asset_id"].n_unique()
+    if n_assets < 2 * k:
+        return _short_circuit_output(
+            "k_spread",
+            "insufficient_assets_for_k_legs",
+            n_obs=n_assets,
+            n_obs_axis="assets",
+            k=k,
+            min_required=2 * k,
+            max_assets_per_date=n_assets,
+        )
 
     if series is None:
         per_date_counts = clean.group_by("date").len()["len"].to_numpy()
@@ -230,9 +271,34 @@ def k_spread(
     )
     if sc is not None:
         return sc
+    if bool((series["spread"] == 0).all()) and bool(
+        clean.group_by("date")
+        .agg(pl.col(factor_col).n_unique().alias("_n_unique"))
+        .select((pl.col("_n_unique") <= 1).all())
+        .item()
+    ):
+        return MetricResult(
+            value=0.0,
+            p_value=1.0,
+            n_obs=n,
+            n_obs_axis="periods",
+            stat=0.0,
+            metadata={
+                "n_periods": n,
+                "k": k,
+                "stat_type": "t",
+                "h0": "mu=0",
+                "method": "no-signal zero-variance factor",
+                "signal_status": "no_signal_zero_variance_factor",
+                "cross_sectional_dispersion": float(
+                    np.mean(series["xs_dispersion"].drop_nulls().to_numpy())
+                ),
+                "top_return": float(np.mean(series["top_return"].to_numpy())),
+                "bottom_return": float(np.mean(series["bottom_return"].to_numpy())),
+            },
+        )
 
     arr = spread_vals.to_numpy()
-    n_assets = clean["asset_id"].n_unique()
     # The HAC path needs the full overlapping spread series (every date);
     # build it once on the unsampled panel.
     full_series: pl.DataFrame | None = None

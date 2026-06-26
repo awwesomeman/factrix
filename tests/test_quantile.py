@@ -117,6 +117,79 @@ class TestQuantileSpread:
             assert "short_stat" in result.metadata
             assert result.p_value is not None
 
+    def test_constant_factor_returns_explicit_no_signal(self):
+        rng = np.random.default_rng(12)
+        n_dates, n_assets = 8, 10
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = [
+            {
+                "date": d,
+                "asset_id": f"A{a}",
+                "factor": 1.0,
+                "forward_return": float(rng.normal()),
+            }
+            for d in dates
+            for a in range(n_assets)
+        ]
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        series = compute_spread_series(panel, forward_periods=1, n_groups=5)["factor"]
+        assert series["spread"].to_list() == [0.0] * n_dates
+
+        result = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        assert result.value == 0.0
+        assert result.stat == 0.0
+        assert result.p_value == 1.0
+        assert result.is_applicable is True
+        assert result.metadata["signal_status"] == "no_signal_zero_variance_factor"
+
+    def test_n_groups_asset_floor_short_circuits(self, tiny_panel):
+        result = quantile_spread(tiny_panel, forward_periods=1, n_groups=6)["factor"]
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.metadata["min_required"] == 6
+
+    def test_all_null_factor_is_not_no_signal(self):
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(8)]
+        rows = [
+            {
+                "date": d,
+                "asset_id": f"A{a}",
+                "factor": None,
+                "forward_return": 0.01 * a,
+            }
+            for d in dates
+            for a in range(10)
+        ]
+        panel = pl.DataFrame(rows).with_columns(
+            pl.col("date").cast(pl.Datetime("ms")),
+            pl.col("factor").cast(pl.Float64),
+        )
+
+        result = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.metadata["max_assets_per_date"] == 0
+
+    def test_per_date_factor_count_gates_n_groups(self):
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(8)]
+        rows = [
+            {
+                "date": d,
+                "asset_id": f"A{a}",
+                "factor": float(a) if a < 3 else None,
+                "forward_return": 0.01 * a,
+            }
+            for d in dates
+            for a in range(10)
+        ]
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = quantile_spread(panel, forward_periods=1, n_groups=5)["factor"]
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.metadata["max_assets_per_date"] == 3
+
 
 class TestQuantileSpreadVW:
     def _make_panel_with_cap(self, n_dates: int = 60, n_assets: int = 20):

@@ -39,7 +39,9 @@ def _clean_series(df: pl.DataFrame, value_col: str) -> pl.Series:
     time-coherent series regardless of caller row order. Sorting is mean-
     and OLS-invariant but load-bearing for the autocovariance terms.
     """
-    return df.sort("date").drop_nulls(value_col)[value_col]
+    if df["date"].is_sorted():
+        return df[value_col].drop_nulls()
+    return df.sort("date").get_column(value_col).drop_nulls()
 
 
 @dataclass(frozen=True, slots=True)

@@ -47,6 +47,20 @@ class TestHookResolution:
         assert st.min_periods is None
         assert REGISTRY["net_spread"].sample_threshold.min_periods is None
 
+    def test_spread_asset_floors_follow_metric_params(self):
+        from factrix.metrics.k_spread import k_spread
+        from factrix.metrics.quantile import quantile_spread
+
+        assert quantile_spread.spec().sample_threshold.min_assets == 5
+        assert k_spread.spec().sample_threshold.min_assets == 10
+        assert (
+            quantile_spread._resolve_sample_threshold(
+                quantile_spread(n_groups=7)
+            ).min_assets
+            == 7
+        )
+        assert k_spread._resolve_sample_threshold(k_spread(k=4)).min_assets == 8
+
 
 class TestInspectDataPreflight:
     def test_dynamic_floor_gates_short_panel(self):
