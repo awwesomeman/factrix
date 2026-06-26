@@ -20,6 +20,7 @@ class _OLSResult:
     alpha_t: float
     betas: list[float] = field(default_factory=list)
     r_squared: float = 0.0
+    df_resid: int = 0
 
 
 def ols_alpha(
@@ -29,7 +30,8 @@ def ols_alpha(
     """Ordinary least squares (OLS) regression: candidate = alpha + beta @ base + epsilon.
 
     Returns:
-        _OLSResult with alpha, t_stat, betas, and R².
+        _OLSResult with alpha, t_stat, betas, R², and residual degrees of
+        freedom ``df_resid = n_obs - (1 + n_base_factors)``.
     """
     n_obs = len(candidate)
     if n_obs < 3:
@@ -59,20 +61,27 @@ def ols_alpha(
 
     sigma2 = ss_res / dof
     if sigma2 < EPSILON:
-        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(
+            alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
+        )
 
     try:
         xtx_inv = np.linalg.inv(X.T @ X)
         se_alpha = float(np.sqrt(sigma2 * xtx_inv[0, 0]))
     except np.linalg.LinAlgError:
-        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(
+            alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
+        )
 
     if se_alpha < EPSILON:
-        return _OLSResult(alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared)
+        return _OLSResult(
+            alpha=alpha, alpha_t=0.0, betas=betas, r_squared=r_squared, df_resid=dof
+        )
 
     return _OLSResult(
         alpha=alpha,
         alpha_t=alpha / se_alpha,
         betas=betas,
         r_squared=r_squared,
+        df_resid=dof,
     )

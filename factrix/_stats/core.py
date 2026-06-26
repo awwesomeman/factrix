@@ -52,15 +52,21 @@ def _p_value_from_t(
     t_stat: float,
     n: int,
     alternative: str = "two-sided",
+    *,
+    dof: int | None = None,
 ) -> float:
     """P-value from t-statistic using t-distribution.
 
     Args:
         alternative: "two-sided" (default), "less" (left-tail), "greater" (right-tail).
+        dof: Residual degrees of freedom. Defaults to ``n - 1`` (single-sample
+            mean t-test). Pass an explicit value for a regression t-test where
+            ``k > 1`` parameters are estimated (``dof = n - k``). Returns 1.0
+            if the resolved ``dof`` is below 1.
     """
-    if n <= 1:
+    dof = n - 1 if dof is None else dof
+    if dof < 1:
         return 1.0
-    dof = n - 1
     if alternative == "less":
         return float(sp_stats.t.cdf(t_stat, dof))
     if alternative == "greater":

@@ -36,6 +36,20 @@ class TestLinearDgp:
         assert out.p_value < 0.05
         assert out.metadata["spearman_rho"] > 0.5
 
+    def test_pvalue_uses_finite_sample_f_reference(self):
+        # Single-restriction Wald p must use the finite-sample F_{1, T-k}
+        # reference (== two-sided t_{T-k} on the reported spread t-stat), not
+        # the over-rejecting asymptotic χ²_1.
+        from scipy import stats as sp_stats
+
+        rng = np.random.default_rng(3)
+        T, n_groups = 30, 5
+        f = rng.standard_normal(T)
+        r = 0.10 * f + rng.standard_normal(T) * 0.5
+        out = ts_quantile_spread(_series_panel(f, r), n_groups=n_groups)
+        expected = float(2 * sp_stats.t.sf(abs(out.stat), T - n_groups))
+        assert out.p_value == pytest.approx(expected)
+
     def test_top_bucket_mean_exceeds_bottom(self):
         rng = np.random.default_rng(7)
         T = 600

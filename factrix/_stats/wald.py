@@ -50,14 +50,18 @@ def _wald_p_linear(
     Wald statistic ``W`` and its p-value.
 
     With ``df_denom=None`` (default) the reference distribution is the
-    asymptotic ``W ~ χ²_r`` — correct when ``V`` is an analytic covariance
-    with effectively infinite degrees of freedom (the ts_quantile /
-    ts_asymmetry NW-HAC callers). When ``V`` is a **cluster-robust**
-    covariance estimated from a finite number of clusters ``G``, the χ²
-    reference over-rejects; pass ``df_denom = G - 1`` (one-way) or
-    ``min(G_a, G_b) - 1`` (two-way) to use the finite-sample
-    ``F = W / r ~ F_{r, df_denom}`` reference instead. ``W`` itself is
-    returned unchanged in both cases; only the p-value differs.
+    asymptotic ``W ~ χ²_r`` — correct only when ``V`` is an analytic
+    covariance with effectively infinite degrees of freedom. When ``V`` is
+    estimated from a finite sample the χ² reference over-rejects; pass an
+    explicit ``df_denom`` to use the finite-sample ``F = W / r ~ F_{r,
+    df_denom}`` reference instead:
+
+    - single-series NW-HAC regression (ts_quantile / ts_asymmetry):
+      ``df_denom = T - k`` (residual dof, ``k`` = regressors);
+    - one-way cluster-robust: ``df_denom = G - 1``;
+    - two-way cluster-robust: ``df_denom = min(G_a, G_b) - 1``.
+
+    ``W`` itself is returned unchanged in both cases; only the p-value differs.
 
     Returns ``(0.0, 1.0)`` if the middle matrix is singular (degenerate
     restriction) or ``df_denom`` is given but non-positive.

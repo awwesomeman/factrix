@@ -62,6 +62,21 @@ class TestSpanningTest:
         result = spanning_alpha(factor)
         assert isinstance(result, MetricResult)
 
+    def test_pvalue_uses_regression_dof(self):
+        # p-value must reference the regression residual dof (n - 1 - n_base),
+        # not the single-sample n - 1.
+        from scipy import stats as sp_stats
+
+        factor = _make_spread_series(40, 0.02, 0.01, 7)
+        base = {
+            "b1": _make_spread_series(40, 0.0, 0.01, 1),
+            "b2": _make_spread_series(40, 0.0, 0.01, 2),
+        }
+        result = spanning_alpha(factor, base_spreads=base)
+        n, n_base = 40, 2
+        expected = float(2 * sp_stats.t.sf(abs(result.stat), n - 1 - n_base))
+        assert result.p_value == pytest.approx(expected)
+
 
 class TestOLSAlpha:
     def test_alpha_with_empty_base(self):
@@ -89,6 +104,15 @@ class TestOLSAlpha:
     def test_insufficient_data(self):
         ols = _ols_alpha(np.array([0.01, 0.02]), np.empty((2, 0)))
         assert ols.alpha == 0.0 and ols.alpha_t == 0.0
+
+    def test_df_resid_excludes_base_regressors(self):
+        rng = np.random.default_rng(42)
+        n = 40
+        base = rng.normal(size=(n, 5))
+        candidate = rng.normal(0.01, 0.5, n)
+        ols = _ols_alpha(candidate, base)
+        # df = n - (intercept + 5 base factors)
+        assert ols.df_resid == n - 6
 
 
 class TestGreedyForwardSelection:

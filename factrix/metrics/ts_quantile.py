@@ -14,7 +14,7 @@ redirects to `event_quality` helpers.
 Notes:
     **Pipeline.** Per-date aggregation to a common ``(_f, _r)`` series
     (cross-section step), then quantile-bucketed Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) OLS on that
-    time series; Wald χ² on the top-bottom bucket spread.
+    time series; Wald (finite-sample F) on the top-bottom bucket spread.
 """
 
 from __future__ import annotations
@@ -206,7 +206,9 @@ def ts_quantile_spread(
     R[0, n_groups - 1] = 1.0
     R[0, 0] = -1.0
     spread_value = float(beta[n_groups - 1] - beta[0])
-    _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0)
+    # Finite-sample F_{r, T-k} reference (k = n_groups regressors), matching the
+    # cluster-Wald paths; the asymptotic χ² over-rejects on short T.
+    _, p_spread = _wald_p_linear(beta, V_hac, R, q=0.0, df_denom=n_periods - n_groups)
 
     spread_var = float((R @ V_hac @ R.T)[0, 0])
     spread_t = (
