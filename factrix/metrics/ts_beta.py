@@ -282,20 +282,44 @@ def compute_rolling_mean_beta(
             }
         )
 
+    # Partition by asset once into date-sorted numpy arrays, dropping rows with a
+    # null factor or return up front: an incomplete pair is unobserved, and
+    # leaving it in would feed a NaN into the per-asset OLS and poison that
+    # asset's slope (and the cross-asset mean). The trailing date window for each
+    # ``t`` is the closed interval ``[dates[i-window], dates[i-1]]`` — every
+    # asset row whose date lands in it, located by ``searchsorted`` on the
+    # asset's sorted dates — which replaces the per-date ``is_in`` filter and the
+    # per-asset ``asset_id ==`` filter the loop used to run.
+    valid = df.filter(
+        pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
+    )
+    asset_arrays: dict[object, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+    for key, a_data in (
+        valid.sort("date")
+        .partition_by("asset_id", as_dict=True, maintain_order=True)
+        .items()
+    ):
+        asset_arrays[key[0]] = (
+            a_data["date"].to_numpy(),
+            a_data[factor_col].to_numpy().astype(np.float64),
+            a_data[return_col].to_numpy().astype(np.float64),
+        )
+
+    date_vals = dates.to_numpy()
     rows: list[dict] = []
     for i in range(window, len(dates)):
-        window_dates = dates[i - window : i]
-        chunk = df.filter(pl.col("date").is_in(window_dates.implode()))
+        lo = date_vals[i - window]  # first date in the trailing window (inclusive)
+        hi = date_vals[i - 1]  # last date in the trailing window (inclusive)
 
         betas_per_asset: list[float] = []
-        for asset in chunk["asset_id"].unique():
-            a_data = chunk.filter(pl.col("asset_id") == asset)
-            y = a_data[return_col].to_numpy().astype(np.float64)
-            x = a_data[factor_col].to_numpy().astype(np.float64)
-            n = min(len(y), len(x))
+        for a_dates, x_all, y_all in asset_arrays.values():
+            left = int(np.searchsorted(a_dates, lo, side="left"))
+            right = int(np.searchsorted(a_dates, hi, side="right"))
+            n = right - left
             if n < 10:
                 continue
-            y, x = y[:n], x[:n]
+            x = x_all[left:right]
+            y = y_all[left:right]
             X = np.column_stack([np.ones(n), x])
             try:
                 b, _, _, _ = np.linalg.lstsq(X, y, rcond=None)

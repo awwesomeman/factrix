@@ -78,10 +78,18 @@ def compute_mfe_mae(
     if len(events) == 0:
         return pl.DataFrame(schema=empty_schema)
 
+    # One partition pass over the event-bearing assets instead of an
+    # ``asset_id == a`` filter per asset (which re-scanned the whole panel N
+    # times). Restrict to event assets first so non-event assets are not
+    # materialised.
     event_assets = set(events["asset_id"].unique().to_list())
     asset_groups: dict[str, tuple[dict, np.ndarray]] = {}
-    for asset_id in event_assets:
-        asset_data = sorted_df.filter(pl.col("asset_id") == asset_id)
+    for key, asset_data in (
+        sorted_df.filter(pl.col("asset_id").is_in(list(event_assets)))
+        .partition_by("asset_id", as_dict=True, maintain_order=True)
+        .items()
+    ):
+        asset_id = key[0]
         date_to_idx = {d: i for i, d in enumerate(asset_data["date"].to_list())}
         prices = asset_data[price_col].to_numpy()
         asset_groups[asset_id] = (date_to_idx, prices)
