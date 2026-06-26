@@ -201,6 +201,7 @@ def evaluate(
     data = _coerce_data(data)
     _validate_baseline_columns(data)
     _validate_factor_cols_on_data(data, cols)
+    _validate_factor_cols_numeric(data, cols)
 
     # The overlap horizon is a property of the data: read the stamp left by
     # compute_forward_return, then strip it so it never reaches a metric,
@@ -210,7 +211,13 @@ def evaluate(
     if _FORWARD_PERIODS_COL in data.columns:
         data = data.drop(_FORWARD_PERIODS_COL)
 
-    label_spec = {label: type(inst).spec() for label, inst in metrics.items()}
+    label_spec = {
+        label: dataclasses.replace(
+            type(inst).spec(),
+            sample_threshold=type(inst)._resolve_sample_threshold(inst),
+        )
+        for label, inst in metrics.items()
+    }
     label_params = {label: dict(inst._params()) for label, inst in metrics.items()}
 
     # Structure pre-flight: a metric whose declared cell.structure disagrees
@@ -749,6 +756,23 @@ def _validate_factor_cols_on_data(data: pl.DataFrame, cols: list[str]) -> None:
             ),
             docs_path=_DOCS_FACTOR_COLS,
         )
+
+
+def _validate_factor_cols_numeric(data: pl.DataFrame, cols: list[str]) -> None:
+    non_numeric = [(c, data.schema[c]) for c in cols if not data.schema[c].is_numeric()]
+    if not non_numeric:
+        return
+    col, dtype = non_numeric[0]
+    raise UserInputError(
+        func_name="evaluate",
+        field="factor_cols",
+        value=f"{col!r} has dtype {dtype}",
+        expected=(
+            "factor columns to be numeric. Encode categorical/string signals "
+            "before evaluate(), or pass a numeric exposure / event indicator."
+        ),
+        docs_path=_DOCS_FACTOR_COLS,
+    )
 
 
 def _validate_baseline_columns(data: pl.DataFrame) -> None:

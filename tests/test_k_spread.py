@@ -127,6 +127,18 @@ class TestShortCircuits:
         with pytest.raises(ValueError, match="k must be"):
             k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=0)
 
+    def test_constant_factor_returns_explicit_no_signal(self):
+        rng = np.random.default_rng(9)
+        factor = np.ones(8, dtype=float)
+        returns = rng.normal(0.0, 0.02, size=(6, 8))
+        result = k_spread(_panel_from_matrix(factor, returns), forward_periods=1, k=2)
+
+        assert result.value == 0.0
+        assert result.stat == 0.0
+        assert result.p_value == 1.0
+        assert result.is_applicable is True
+        assert result.metadata["signal_status"] == "no_signal_zero_variance_factor"
+
 
 class TestUnderfilledDatesDropped:
     def test_dates_with_fewer_than_2k_assets_excluded(self):

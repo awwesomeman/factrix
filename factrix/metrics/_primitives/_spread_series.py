@@ -124,6 +124,13 @@ def compute_spread_series(
     ]
     for f in cols:
         agg_exprs.append(
+            pl.col(f)
+            .filter(pl.col(f).is_not_null())
+            .n_unique()
+            .alias(f"_n_unique__{f}")
+        )
+        agg_exprs.append(pl.col(f).count().alias(f"_n_assets__{f}"))
+        agg_exprs.append(
             pl.col(return_col)
             .filter(pl.col(f"_group__{f}") == top_group)
             .mean()
@@ -141,10 +148,23 @@ def compute_spread_series(
     return {
         f: wide.select(
             pl.col("date"),
-            pl.col(f"_top__{f}").alias("top_return"),
-            pl.col(f"_bot__{f}").alias("bottom_return"),
+            pl.when((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1))
+            .then(pl.col("universe_return"))
+            .otherwise(pl.col(f"_top__{f}"))
+            .alias("top_return"),
+            pl.when((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1))
+            .then(pl.col("universe_return"))
+            .otherwise(pl.col(f"_bot__{f}"))
+            .alias("bottom_return"),
             pl.col("universe_return"),
-            (pl.col(f"_top__{f}") - pl.col(f"_bot__{f}")).alias("spread"),
+            pl.when((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1))
+            .then(pl.lit(0.0))
+            .otherwise(pl.col(f"_top__{f}") - pl.col(f"_bot__{f}"))
+            .alias("spread"),
+            ((pl.col(f"_n_assets__{f}") > 0) & (pl.col(f"_n_unique__{f}") <= 1)).alias(
+                "_zero_variance_factor"
+            ),
+            pl.col(f"_n_assets__{f}").alias("_n_assets"),
         )
         for f in cols
     }

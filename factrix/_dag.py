@@ -191,13 +191,23 @@ class DagExecutor:
         n_assets = data.select(pl.col("asset_id").n_unique()).item()
         structure = DataStructure.PANEL if n_assets > 1 else DataStructure.TIMESERIES
 
-        # per-factor panel structure stats (computed before dispatch)
-        factor_n_periods: dict[str, int] = {}
-        factor_n_pairs: dict[str, int] = {}
-        for c in cols:
-            mask = data[c].is_not_null()
-            factor_n_pairs[c] = int(mask.sum())
-            factor_n_periods[c] = int(data.filter(mask)["date"].n_unique())
+        stats_row = data.select(
+            *(
+                pl.col(c).is_not_null().sum().alias(f"__pairs_{i}")
+                for i, c in enumerate(cols)
+            ),
+            *(
+                pl.col("date")
+                .filter(pl.col(c).is_not_null())
+                .n_unique()
+                .alias(f"__periods_{i}")
+                for i, c in enumerate(cols)
+            ),
+        ).row(0, named=True)
+        factor_n_pairs = {c: int(stats_row[f"__pairs_{i}"]) for i, c in enumerate(cols)}
+        factor_n_periods = {
+            c: int(stats_row[f"__periods_{i}"]) for i, c in enumerate(cols)
+        }
 
         projections: dict[str, pl.DataFrame] = {}
 
