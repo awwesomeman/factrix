@@ -193,6 +193,61 @@ class TestPairsAxisWarnTier:
         assert result.n_obs_axis == "pairs"
 
 
+class TestCrossSectionalCorrection:
+    @staticmethod
+    def _panel(common_weight: float, seed: int) -> pl.DataFrame:
+        # n_assets per date; ``common_weight`` injects a shared daily shock so
+        # same-date hits are cross-sectionally correlated.
+        rng = np.random.default_rng(seed)
+        n_dates, n_assets = 60, 30
+        rows = []
+        for di in range(n_dates):
+            d = date(2020, 1, 1) + timedelta(days=di)
+            mkt = rng.normal()
+            for a in range(n_assets):
+                f = rng.normal()
+                r = 0.3 * f + common_weight * mkt + 0.3 * rng.normal()
+                rows.append(
+                    {"date": d, "asset_id": f"A{a}", "factor": f, "forward_return": r}
+                )
+        return pl.DataFrame(rows)
+
+    def test_single_asset_is_not_adjusted(self):
+        # One trial per date → no within-date cross-section → exact PT.
+        rng = np.random.default_rng(20)
+        x = rng.normal(size=200)
+        y = 0.5 * x + rng.normal(size=200)
+        result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
+        assert result.metadata["cross_sectional_adjusted"] is False
+        assert result.metadata["cross_sectional_r"] is None
+        assert "stat_uncorrected" not in result.metadata
+        _, ref_stat = _pt_reference(x, y)
+        assert result.stat == pytest.approx(ref_stat)
+
+    def test_within_date_correlation_deflates_statistic(self):
+        # A heavy shared daily shock correlates same-date hits; the K-P
+        # deflation must shrink |S_n| and raise the one-sided p-value.
+        result = self._panel(common_weight=0.9, seed=0)
+        result = directional_hit_rate(result, forward_periods=1)
+        m = result.metadata
+        assert m["cross_sectional_adjusted"] is True
+        assert m["cross_sectional_r"] > 0.0
+        assert abs(result.stat) < abs(m["stat_uncorrected"])
+        # Axis is unchanged: the estimand stays the pooled-pairs hit rate.
+        assert result.n_obs_axis == "pairs"
+        assert "Kolari-Pynnönen" in m["method"]
+
+    def test_applies_documented_kp_scale(self):
+        # The reported statistic is exactly the raw S_n times the
+        # Kolari-Pynnönen factor √((1-r)/(1+(n_eff-1)r)) from metadata.
+        result = directional_hit_rate(self._panel(common_weight=0.5, seed=3))
+        m = result.metadata
+        assert m["cross_sectional_adjusted"] is True
+        r, n_eff = m["cross_sectional_r"], m["cross_sectional_n_eff"]
+        scale = math.sqrt((1.0 - r) / (1.0 + (n_eff - 1.0) * r))
+        assert result.stat == pytest.approx(m["stat_uncorrected"] * scale)
+
+
 class TestDispatch:
     def test_runs_on_panel(self):
         import factrix as fx

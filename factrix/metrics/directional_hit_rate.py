@@ -41,6 +41,8 @@ from factrix._types import MIN_DIRECTIONAL_PAIRS_HARD, MIN_DIRECTIONAL_PAIRS_WAR
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _estimate_within_date_icc,
+    _kp_cluster_scale,
     _sample_non_overlapping,
     _short_circuit_output,
     _warn_below_floor,
@@ -85,7 +87,11 @@ def directional_hit_rate(
 
     Returns:
         MetricResult with value = directional hit rate ``P̂`` (0.0-1.0),
-        ``stat`` = PT statistic ``S_n``, one-sided p-value.
+        ``stat`` = the PT statistic ``S_n`` (deflated for within-date
+        cross-sectional correlation on a panel — see Notes), one-sided
+        p-value. ``metadata["cross_sectional_adjusted"]`` records whether
+        the deflation fired and ``stat_uncorrected`` carries the raw
+        ``S_n`` when it did.
 
     Notes:
         On the non-overlapping subsample, drop observations where either
@@ -108,6 +114,18 @@ def directional_hit_rate(
         \hat P_x (1 - \hat P_x) + \frac1n (2\hat P_x - 1)^2 \hat P_y
         (1 - \hat P_y) + \frac{4}{n^2} \hat P_x \hat P_y (1 - \hat P_x)
         (1 - \hat P_y)$.
+
+        **Cross-sectional correlation.** Pooling every ``(date, asset)``
+        trial as independent over-states the effective sample on a panel —
+        same-date returns share shocks, so the trials are correlated and
+        $\widehat{\operatorname{var}}(\hat P)$ understates the true
+        variance. $S_n$ is therefore deflated by the Kolari-Pynnönen (2010)
+        factor $\sqrt{(1 - \hat r)/(1 + (\bar m - 1)\hat r)}$, where
+        $\hat r$ is the within-date intraclass correlation of the sign-hit
+        indicator and $\bar m$ the mean assets-per-date — the same
+        correction :func:`~factrix.metrics.caar.bmp_z` applies to clustered
+        SARs. A single-asset series has one trial per date, so $\hat r$ is
+        undefined and $S_n$ is left exact (the canonical PT setting).
 
         The test is **one-sided**: a large positive $S_n$ signals genuine
         directional skill, so $p = \Pr(Z > S_n)$. A factor expected to be
@@ -149,6 +167,7 @@ def directional_hit_rate(
 
     sampled = _sample_non_overlapping(df, forward_periods)
     paired = sampled.select(
+        pl.col("date"),
         pl.col(factor_col).sign().alias("_x_sign"),
         pl.col(return_col).sign().alias("_y_sign"),
     ).filter(
@@ -206,7 +225,26 @@ def directional_hit_rate(
         )
 
     s_n = (p_correct - p_star) / np.sqrt(var_s)
-    p = float(sp_stats.norm.sf(s_n))
+
+    # Cross-sectional correlation: pooling every (date, asset) trial as
+    # independent over-states the effective sample because same-date returns
+    # share shocks. Deflate S_n by the Kolari-Pynnönen (2010) factor built from
+    # the within-date ICC of the sign-hit indicator — the same correction
+    # bmp_z applies to clustered SARs. A single-asset series has no within-date
+    # cross-section (one trial per date), so r̂ is undefined and S_n is left
+    # exact (the canonical PT setting).
+    hit_by_date = paired.select(
+        pl.col("date"),
+        (pl.col("_x_sign") == pl.col("_y_sign")).cast(pl.Float64).alias("_hit"),
+    )
+    r_hat, n_eff, _ = _estimate_within_date_icc(hit_by_date, "_hit")
+    if r_hat is not None and n_eff > 1.0:
+        s_stat = s_n * _kp_cluster_scale(r_hat, n_eff)
+        cross_sectional_adjusted = True
+    else:
+        s_stat = s_n
+        cross_sectional_adjusted = False
+    p = float(sp_stats.norm.sf(s_stat))
 
     warning_codes: list[str] = []
     warn_code = _warn_below_floor(
@@ -224,20 +262,31 @@ def directional_hit_rate(
     if warn_code is not None:
         warning_codes.append(warn_code)
 
+    metadata: dict = {
+        "stat_type": "z",
+        "h0": "independent_direction",
+        "method": "Pesaran-Timmermann (1992)",
+        "p_correct": p_correct,
+        "p_expected": p_star,
+        "p_up_pred": p_x,
+        "p_up_real": p_y,
+        "cross_sectional_r": r_hat,
+        "cross_sectional_n_eff": n_eff,
+        "cross_sectional_adjusted": cross_sectional_adjusted,
+    }
+    if cross_sectional_adjusted:
+        metadata["stat_uncorrected"] = float(s_n)
+        metadata["method"] = (
+            "Pesaran-Timmermann (1992) + Kolari-Pynnönen (2010) "
+            "cross-sectional-correlation adjustment"
+        )
+
     return MetricResult(
         value=p_correct,
         p_value=p,
         n_obs=n,
         n_obs_axis="pairs",
-        stat=float(s_n),
-        metadata={
-            "stat_type": "z",
-            "h0": "independent_direction",
-            "method": "Pesaran-Timmermann (1992)",
-            "p_correct": p_correct,
-            "p_expected": p_star,
-            "p_up_pred": p_x,
-            "p_up_real": p_y,
-        },
+        stat=float(s_stat),
+        metadata=metadata,
         warning_codes=tuple(warning_codes),
     )

@@ -44,12 +44,13 @@ from factrix._types import (
     EPSILON,
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
-    KPSource,
 )
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _estimate_within_date_icc,
+    _kp_cluster_scale,
     _sample_event_spaced,
     _scaled_min_periods,
     _short_circuit_output,
@@ -284,6 +285,12 @@ def bmp_z(
 
     Uses ``price`` column for estimation-window volatility if available;
     falls back to per-asset historical ``forward_return`` std otherwise.
+    The fallback std is lagged by ``forward_periods`` so the estimation
+    window ends before each event's own forward return (which spans
+    ``(t, t+h]``) rather than leaking the event AR into its own
+    standardiser; it remains a coarser, horizon-overlapping vol proxy
+    than a daily-price std and raises ``WarningCode.BMP_RETURN_VOL_FALLBACK``
+    (``metadata["vol_source"]`` records which path ran).
 
     Steps:
         1. For each event ($\text{factor} \neq 0$), look back
@@ -384,7 +391,8 @@ def bmp_z(
     """
     sorted_df = df.sort(["asset_id", "date"])
 
-    if "price" in sorted_df.columns:
+    uses_price = "price" in sorted_df.columns
+    if uses_price:
         sorted_df = sorted_df.with_columns(
             (pl.col("price") / pl.col("price").shift(1).over("asset_id") - 1).alias(
                 "_daily_ret"
@@ -393,9 +401,18 @@ def bmp_z(
         # WHY: forward_return = (price[t+1+N]/price[t+1] - 1) / N has
         # std ≈ σ_daily / sqrt(N). Scale estimation vol to match.
         vol_scale = 1.0 / np.sqrt(forward_periods)
+        # Price daily returns at [t-N+1, t] precede the event window (t, t+h],
+        # so no extra lag is needed.
+        vol_lag = 0
     else:
         sorted_df = sorted_df.with_columns(pl.col(return_col).alias("_daily_ret"))
         vol_scale = 1.0
+        # WHY: forward_return[t] realises over (t+1, t+1+h], so a rolling std
+        # ending at row t would standardise the event AR with a window that
+        # already contains that event's own (and adjacent) forward returns —
+        # the numerator leaks into its own denominator. Lag the fallback std by
+        # forward_periods so the estimation window ends before the event window.
+        vol_lag = forward_periods
 
     # Strict BMP (1991) denominator for mean-adjusted residuals: a
     # forecast SE is √(1 + 1/T) larger than the in-sample residual std.
@@ -404,16 +421,15 @@ def bmp_z(
     if include_prediction_error_variance:
         vol_scale *= float(np.sqrt(1.0 + 1.0 / estimation_window))
 
-    # WHY: no .shift(1) needed — forward_return already starts at t+1
-    # (compute_forward_return uses t+1 entry), so the estimation window
-    # at row t naturally covers [t-N+1, t] without event contamination.
+    # With price the window [t-N+1, t] already precedes the event window; the
+    # fallback adds a forward_periods lag (see above) so it too ends pre-event.
+    est_vol_expr = pl.col("_daily_ret").rolling_std(
+        window_size=estimation_window, min_samples=20
+    )
+    if vol_lag:
+        est_vol_expr = est_vol_expr.shift(vol_lag)
     sorted_df = sorted_df.with_columns(
-        (
-            pl.col("_daily_ret")
-            .rolling_std(window_size=estimation_window, min_samples=20)
-            .over("asset_id")
-            * vol_scale
-        ).alias("_est_vol")
+        (est_vol_expr.over("asset_id") * vol_scale).alias("_est_vol")
     )
 
     events = sorted_df.filter(pl.col(factor_col) != 0)
@@ -450,6 +466,7 @@ def bmp_z(
 
     z_bmp = _calc_t_stat(mean_sar, std_sar, n_valid)
 
+    warning_codes: list[str] = []
     metadata: dict = {
         "n_events": n_valid,
         "n_dropped": len(events) - n_valid,
@@ -459,10 +476,26 @@ def bmp_z(
         "h0": "mu_SAR=0",
         "method": "BMP standardized cross-sectional test",
         "include_prediction_error_variance": include_prediction_error_variance,
+        "vol_source": "price" if uses_price else "forward_return",
+        "vol_estimation_lag": vol_lag,
     }
+    if not uses_price:
+        warning_codes.append(WarningCode.BMP_RETURN_VOL_FALLBACK.value)
+        warnings.warn(
+            f"bmp_z: no 'price' column; estimation-window volatility falls back "
+            f"to the per-asset rolling std of '{return_col}', lagged by "
+            f"forward_periods={forward_periods} so the window ends before each "
+            f"event's forward return. This is a coarser, horizon-overlapping vol "
+            f"proxy than a daily-price std — supply 'price' for the clean BMP "
+            f"standardiser.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if kolari_pynnonen_adjust:
-        r_hat, n_eff, kp_source = _estimate_sar_icc(valid.select("date", "_sar"))
+        r_hat, n_eff, kp_source = _estimate_within_date_icc(
+            valid.select("date", "_sar"), "_sar"
+        )
         metadata["kolari_pynnonen_r"] = r_hat
         metadata["kolari_pynnonen_n_eff"] = n_eff
         metadata["kolari_pynnonen_r_source"] = kp_source
@@ -470,7 +503,7 @@ def bmp_z(
             metadata["kolari_pynnonen_applied"] = False
             z = z_bmp
         else:
-            scale = float(np.sqrt((1.0 - r_hat) / (1.0 + (n_eff - 1.0) * r_hat)))
+            scale = _kp_cluster_scale(r_hat, n_eff)
             z = z_bmp * scale
             metadata["kolari_pynnonen_scaling"] = scale
             metadata["kolari_pynnonen_applied"] = True
@@ -490,59 +523,5 @@ def bmp_z(
         n_obs_axis="events",
         stat=z,
         metadata=metadata,
+        warning_codes=tuple(warning_codes),
     )
-
-
-def _estimate_sar_icc(
-    sar_by_date: pl.DataFrame,
-) -> tuple[float | None, float, KPSource]:
-    r"""ICC-style within-date correlation $\hat r$ of SAR and average cluster size.
-
-    Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{\mathrm{SAR}}_d)$ (date-mean SAR)
-    and $\sigma^2_{\mathrm{within}}$ = the pooled within-date variance
-    (weighted by $n_k - 1$).
-    $\hat r = \sigma^2_{\mathrm{between}} / (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$
-    clipped to $[0, 1]$.
-
-    Args:
-        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
-            columns (one row per event, SAR already standardized).
-
-    Returns:
-        ``(r_hat, n_eff, source)`` where ``source`` is one of:
-
-        - ``"icc"``: standard between/within decomposition across event
-          dates with $n_k \geq 2$ events each.
-        - ``"no_multi_event_dates"``: not enough date-clusters to
-          estimate within-variance; $\hat r$ is ``None``.
-    """
-    per_date = sar_by_date.group_by("date").agg(
-        pl.col("_sar").mean().alias("m"),
-        pl.col("_sar").var(ddof=DDOF).alias("v"),
-        pl.len().alias("n"),
-    )
-    if per_date.height == 0:
-        return None, 0.0, "no_multi_event_dates"
-
-    multi = per_date.filter(pl.col("n") >= 2)
-    # n_eff must align with the subsample r̂ is estimated on: computing
-    # n_eff across singleton-heavy dates and scaling by r̂ from the
-    # multi-event subset conflates two different clustering regimes and
-    # biases the correction downward when singletons dominate. Using the
-    # multi-event mean keeps the two moments commensurate (conservative
-    # on singleton-heavy datasets, as recommended by the K-P literature).
-    if multi.height < 2:
-        fallback_n_eff = float(per_date["n"].sum() / per_date.height)
-        return None, fallback_n_eff, "no_multi_event_dates"
-    n_eff = float(multi["n"].mean())  # type: ignore[arg-type]
-
-    w_num = (multi["v"] * (multi["n"] - 1)).sum()
-    w_den = (multi["n"] - 1).sum()
-    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator]
-
-    date_means = multi["m"].to_numpy()
-    sigma2_between = float(np.var(date_means, ddof=DDOF))
-
-    total = sigma2_between + sigma2_within
-    r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
-    return r_hat, n_eff, "icc"

@@ -74,6 +74,15 @@ class WarningCode(StrEnum):
     # reject), the conservative direction.
     RECT_KERNEL_NEGATIVE_VARIANCE = "rect_kernel_negative_variance"
 
+    # Fired by ``bmp_z`` when no ``price`` column is present and the
+    # estimation-window volatility falls back to the per-asset rolling std of
+    # ``forward_return``. Because forward_return[t] looks ahead to [t+1, t+1+h],
+    # the fallback std is lagged by ``forward_periods`` so the estimation window
+    # ends before the event's own forward window — but it is still a coarser,
+    # horizon-overlapping volatility proxy than a daily-price std. The z-test is
+    # returned; supply ``price`` for the clean estimator.
+    BMP_RETURN_VOL_FALLBACK = "bmp_return_vol_fallback"
+
     # Fired by the DAG executor when an upstream producer short-circuited
     # (returned a NaN MetricResult with metadata["reason"]) and the
     # consumer is skipped. The downstream MetricResult carries
@@ -188,6 +197,11 @@ _WARNING_DESCRIPTIONS.update(
         WarningCode.RECT_KERNEL_NEGATIVE_VARIANCE: "Rectangular-kernel HAC variance-of-mean came out "
         "negative (no PSD guarantee, Andrews 1991); clamped to 0 → SE=0, t=0, p=1.0. "
         "Fires only on short / mildly anti-correlated samples.",
+        WarningCode.BMP_RETURN_VOL_FALLBACK: "bmp_z ran without a price column: the "
+        "estimation-window volatility falls back to the per-asset rolling std of "
+        "forward_return, lagged by forward_periods so it ends before the event's "
+        "forward window. This is a coarser, horizon-overlapping vol proxy than a "
+        "daily-price std — supply price for the clean BMP standardiser.",
         WarningCode.UPSTREAM_UNAVAILABLE: "DAG-executor consumer skipped because an upstream "
         "producer short-circuited. The downstream MetricResult carries "
         "metadata['upstream'] / ['upstream_reason'] for the original cause.",

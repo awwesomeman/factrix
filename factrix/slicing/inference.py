@@ -339,8 +339,10 @@ def slice_joint_test(
         Single-row ``pl.DataFrame`` with columns
         ``(n_obs, k_slices, df, stat, p_value)``. ``df`` is the
         restriction rank (``K-1``); ``stat`` is the joint Wald χ²;
-        ``p_value`` is the chi-squared survival function. No
-        ``multiple_testing`` — a single omnibus has no family-internal
+        ``p_value`` is the finite-sample ``F_{K-1, T-1}`` survival of
+        ``stat / (K-1)`` (the date-cluster count is ``T`` per-date
+        observations, so the asymptotic χ² reference would over-reject).
+        No ``multiple_testing`` — a single omnibus has no family-internal
         correction to apply.
 
     Raises:

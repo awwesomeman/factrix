@@ -446,6 +446,43 @@ class TestBmpTest:
         result = bmp_z(strong_signal)
         assert result.metadata.get("n_events", 0) > 0
 
+    def test_price_path_metadata_and_no_fallback_warning(self, strong_signal):
+        import warnings as _warnings
+
+        from factrix._codes import WarningCode
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error")  # any warning would fail
+            result = bmp_z(strong_signal)
+        assert result.metadata["vol_source"] == "price"
+        assert result.metadata["vol_estimation_lag"] == 0
+        assert WarningCode.BMP_RETURN_VOL_FALLBACK.value not in result.warning_codes
+
+    def test_forward_return_fallback_is_flagged_and_lagged(self, strong_signal):
+        from factrix._codes import WarningCode
+
+        no_price = strong_signal.drop("price")
+        with pytest.warns(UserWarning, match="no 'price' column"):
+            result = bmp_z(no_price, forward_periods=5)
+        assert result.metadata["vol_source"] == "forward_return"
+        # The fallback std is lagged by forward_periods so the estimation
+        # window ends before each event's own forward return.
+        assert result.metadata["vol_estimation_lag"] == 5
+        assert WarningCode.BMP_RETURN_VOL_FALLBACK.value in result.warning_codes
+        assert not math.isnan(result.stat)
+
+    def test_fallback_lag_scales_with_forward_periods(self, strong_signal):
+        # A larger horizon lags the estimation window further, nulling more
+        # early rows per asset → strictly fewer usable events. Confirms the
+        # lag is forward_periods-driven, not a fixed shift.
+        no_price = strong_signal.drop("price")
+        with pytest.warns(UserWarning, match="no 'price' column"):
+            small_h = bmp_z(no_price, forward_periods=1)
+            large_h = bmp_z(no_price, forward_periods=20)
+        assert small_h.metadata["vol_estimation_lag"] == 1
+        assert large_h.metadata["vol_estimation_lag"] == 20
+        assert large_h.metadata["n_events"] < small_h.metadata["n_events"]
+
     def test_kolari_pynnonen_shrinks_z_when_clustered(self, strong_signal):
         """K-P adjustment must not expand |z|; when ρ>0 it strictly shrinks."""
         raw = bmp_z(strong_signal, kolari_pynnonen_adjust=False)
