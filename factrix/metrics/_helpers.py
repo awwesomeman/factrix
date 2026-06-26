@@ -49,7 +49,7 @@ from factrix._metric_index import SampleThreshold
 from factrix._results import MetricResult
 from factrix._stats import _calc_t_stat, _p_value_from_t
 from factrix._stats.constants import MIN_ASSETS_WARN
-from factrix._types import DDOF, EPSILON, SampleAxis
+from factrix._types import DDOF, EPSILON, KPSource, SampleAxis
 
 # Median-across-dates tie_ratio above this triggers a UserWarning when
 # tie_policy="ordinal". 0.3 is the empirical cutoff for "crowded" factors
@@ -515,6 +515,80 @@ def _warn_below_scaled_floor(
         warnings.warn(message, UserWarning, stacklevel=3)
         return code.value
     return None
+
+
+def _estimate_within_date_icc(
+    df: pl.DataFrame, value_col: str
+) -> tuple[float | None, float, KPSource]:
+    r"""ICC-style within-date correlation $\hat r$ of ``value_col`` and mean cluster size.
+
+    Shared cross-sectional-correlation estimator for same-date pooled
+    observations (``bmp_z`` SAR, ``directional_hit_rate`` sign-hit indicator).
+    Decomposes the variance of ``value_col`` into
+    $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{v}_d)$ (date means)
+    and the $(n_k - 1)$-weighted pooled within-date variance
+    $\sigma^2_{\mathrm{within}}$, returning
+    $\hat r = \sigma^2_{\mathrm{between}} /
+    (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$ clipped to
+    $[0, 1]$ and the mean events-per-date.
+
+    Args:
+        df: One row per pooled observation with a ``date`` column and
+            ``value_col``.
+        value_col: The clustered value (already standardised / 0-1 coded).
+
+    Returns:
+        ``(r_hat, n_eff, source)``:
+
+        - ``"icc"``: between/within decomposition across dates with
+          $n_k \geq 2$ observations each.
+        - ``"no_multi_event_dates"``: too few multi-observation dates to
+          estimate the within-variance; $\hat r$ is ``None`` (a
+          single-asset series lands here, so the caller leaves the
+          statistic uncorrected).
+    """
+    per_date = df.group_by("date").agg(
+        pl.col(value_col).mean().alias("m"),
+        pl.col(value_col).var(ddof=DDOF).alias("v"),
+        pl.len().alias("n"),
+    )
+    if per_date.height == 0:
+        return None, 0.0, "no_multi_event_dates"
+
+    multi = per_date.filter(pl.col("n") >= 2)
+    # n_eff must align with the subsample r̂ is estimated on: computing
+    # n_eff across singleton-heavy dates and scaling by r̂ from the
+    # multi-observation subset conflates two clustering regimes and biases
+    # the correction downward when singletons dominate. Using the
+    # multi-observation mean keeps the two moments commensurate
+    # (conservative on singleton-heavy datasets, per the K-P literature).
+    if multi.height < 2:
+        fallback_n_eff = float(per_date["n"].sum() / per_date.height)
+        return None, fallback_n_eff, "no_multi_event_dates"
+    n_eff = float(multi["n"].mean())  # type: ignore[arg-type]
+
+    w_num = (multi["v"] * (multi["n"] - 1)).sum()
+    w_den = (multi["n"] - 1).sum()
+    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator]
+
+    date_means = multi["m"].to_numpy()
+    sigma2_between = float(np.var(date_means, ddof=DDOF))
+
+    total = sigma2_between + sigma2_within
+    r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
+    return r_hat, n_eff, "icc"
+
+
+def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
+    r"""Kolari-Pynnönen (2010) cross-sectional-correlation shrinkage factor.
+
+    $\sqrt{(1 - \hat r) / (1 + (N_{\mathrm{eff}} - 1)\,\hat r)} \le 1$: the
+    multiplier that deflates a pooled test statistic for within-date
+    correlation, given the ICC $\hat r$ and mean cluster size
+    $N_{\mathrm{eff}}$ from :func:`_estimate_within_date_icc`. At $\hat r = 0$
+    (no clustering) it is 1 — the statistic is unchanged.
+    """
+    return float(np.sqrt((1.0 - r_hat) / (1.0 + (n_eff - 1.0) * r_hat)))
 
 
 def _pick_event_return_col(df: pl.DataFrame) -> str:

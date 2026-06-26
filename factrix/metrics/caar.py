@@ -44,12 +44,13 @@ from factrix._types import (
     EPSILON,
     MIN_EVENTS_HARD,
     MIN_EVENTS_WARN,
-    KPSource,
 )
 from factrix.metrics._base import MetricBase
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
     _enforce_min_floor,
+    _estimate_within_date_icc,
+    _kp_cluster_scale,
     _sample_event_spaced,
     _scaled_min_periods,
     _short_circuit_output,
@@ -492,7 +493,9 @@ def bmp_z(
         )
 
     if kolari_pynnonen_adjust:
-        r_hat, n_eff, kp_source = _estimate_sar_icc(valid.select("date", "_sar"))
+        r_hat, n_eff, kp_source = _estimate_within_date_icc(
+            valid.select("date", "_sar"), "_sar"
+        )
         metadata["kolari_pynnonen_r"] = r_hat
         metadata["kolari_pynnonen_n_eff"] = n_eff
         metadata["kolari_pynnonen_r_source"] = kp_source
@@ -500,7 +503,7 @@ def bmp_z(
             metadata["kolari_pynnonen_applied"] = False
             z = z_bmp
         else:
-            scale = float(np.sqrt((1.0 - r_hat) / (1.0 + (n_eff - 1.0) * r_hat)))
+            scale = _kp_cluster_scale(r_hat, n_eff)
             z = z_bmp * scale
             metadata["kolari_pynnonen_scaling"] = scale
             metadata["kolari_pynnonen_applied"] = True
@@ -522,58 +525,3 @@ def bmp_z(
         metadata=metadata,
         warning_codes=tuple(warning_codes),
     )
-
-
-def _estimate_sar_icc(
-    sar_by_date: pl.DataFrame,
-) -> tuple[float | None, float, KPSource]:
-    r"""ICC-style within-date correlation $\hat r$ of SAR and average cluster size.
-
-    Uses $\sigma^2_{\mathrm{between}} = \mathrm{var}(\overline{\mathrm{SAR}}_d)$ (date-mean SAR)
-    and $\sigma^2_{\mathrm{within}}$ = the pooled within-date variance
-    (weighted by $n_k - 1$).
-    $\hat r = \sigma^2_{\mathrm{between}} / (\sigma^2_{\mathrm{between}} + \sigma^2_{\mathrm{within}})$
-    clipped to $[0, 1]$.
-
-    Args:
-        sar_by_date: Event-level DataFrame with ``date`` and ``_sar``
-            columns (one row per event, SAR already standardized).
-
-    Returns:
-        ``(r_hat, n_eff, source)`` where ``source`` is one of:
-
-        - ``"icc"``: standard between/within decomposition across event
-          dates with $n_k \geq 2$ events each.
-        - ``"no_multi_event_dates"``: not enough date-clusters to
-          estimate within-variance; $\hat r$ is ``None``.
-    """
-    per_date = sar_by_date.group_by("date").agg(
-        pl.col("_sar").mean().alias("m"),
-        pl.col("_sar").var(ddof=DDOF).alias("v"),
-        pl.len().alias("n"),
-    )
-    if per_date.height == 0:
-        return None, 0.0, "no_multi_event_dates"
-
-    multi = per_date.filter(pl.col("n") >= 2)
-    # n_eff must align with the subsample r̂ is estimated on: computing
-    # n_eff across singleton-heavy dates and scaling by r̂ from the
-    # multi-event subset conflates two different clustering regimes and
-    # biases the correction downward when singletons dominate. Using the
-    # multi-event mean keeps the two moments commensurate (conservative
-    # on singleton-heavy datasets, as recommended by the K-P literature).
-    if multi.height < 2:
-        fallback_n_eff = float(per_date["n"].sum() / per_date.height)
-        return None, fallback_n_eff, "no_multi_event_dates"
-    n_eff = float(multi["n"].mean())  # type: ignore[arg-type]
-
-    w_num = (multi["v"] * (multi["n"] - 1)).sum()
-    w_den = (multi["n"] - 1).sum()
-    sigma2_within = float(w_num / w_den) if w_den > 0 else 0.0  # type: ignore[operator]
-
-    date_means = multi["m"].to_numpy()
-    sigma2_between = float(np.var(date_means, ddof=DDOF))
-
-    total = sigma2_between + sigma2_within
-    r_hat = 0.0 if total < EPSILON else max(0.0, min(1.0, sigma2_between / total))
-    return r_hat, n_eff, "icc"

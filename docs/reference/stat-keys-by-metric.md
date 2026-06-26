@@ -154,7 +154,10 @@ Boehmer-Musumeci-Poulsen standardised-abnormal-return cross-sectional
 
 - *primary*: `p_value`.
 - *descriptive*: `n_events`, `n_dropped`, `std_sar`,
-  `estimation_window`, `include_prediction_error_variance`.
+  `estimation_window`, `include_prediction_error_variance`,
+  `vol_source` (`"price"` or `"forward_return"`), `vol_estimation_lag`
+  (rows the fallback std is lagged so its window ends before the event;
+  `0` on the price path).
 - *descriptive* (conditional, KP applied): `kolari_pynnonen_r`,
   `kolari_pynnonen_n_eff`, `kolari_pynnonen_r_source`,
   `kolari_pynnonen_applied`, `kolari_pynnonen_scaling`,
@@ -192,7 +195,12 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
   on the marginal up/down frequencies of prediction and realisation.
 - *descriptive*: `p_correct` (realised hit rate), `p_expected`
   (hit rate under directional independence), `p_up_pred` (fraction of
-  positive predictions), `p_up_real` (fraction of positive realisations).
+  positive predictions), `p_up_real` (fraction of positive realisations),
+  `cross_sectional_r` (within-date ICC of the sign-hit indicator, `None`
+  on a single-asset series), `cross_sectional_n_eff` (mean assets-per-date),
+  `cross_sectional_adjusted` (whether the Kolari-Pynnönen deflation fired).
+- *descriptive* (conditional, adjustment applied): `stat_uncorrected`
+  (the raw `S_n` before the cross-sectional-correlation deflation).
 
 ### `event_quality` (`factrix.metrics.event_quality`)
 
