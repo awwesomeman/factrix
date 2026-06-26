@@ -108,8 +108,8 @@ from factrix.metrics import fm_beta
 
 # Collides because both evaluate on the same "factor" name
 unstamped = []
-unstamped.extend(fx.evaluate(panel, metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)}, factor_cols=["factor"], forward_periods=5))
-unstamped.extend(fx.evaluate(panel, metrics={"fm": fm_beta()}, factor_cols=["factor"], forward_periods=5))
+unstamped.extend(fx.evaluate(panel, metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)}, factor_cols=["factor"], forward_periods=5).values())
+unstamped.extend(fx.evaluate(panel, metrics={"fm": fm_beta()}, factor_cols=["factor"], forward_periods=5).values())
 
 try:
     fx.multi_factor.bhy(unstamped, metrics=["ic"], q=0.05)

@@ -2,26 +2,25 @@
 title: Multi-horizon analysis
 ---
 
-The `multi_horizon_ic` and `multi_horizon_hit_rate` functions were
-deprecated in v0.11.0 and removed in v0.12.0. This page documents the
-two supported migration paths.
+Sweeping a metric across several forward-return horizons (e.g.
+`[1, 5, 10, 20]`) is a **dispatcher** concern, not a per-cell metric:
+[`evaluate_horizons`](evaluate.md) fans the same underlying metric across a
+horizon axis exactly the way [`by_slice`](by-slice.md) fans across a date or
+label axis. This page documents the two supported recipes.
 
-## Why they were removed
+## Why horizon sweep lives in the dispatcher
 
-Sweeping a metric across `[1, 5, 10, 20]` forward periods is a
-**dispatcher** concern, not a per-cell metric: it fans the same
-underlying metric across a horizon axis exactly the way
-[`by_slice`](by-slice.md) fans across a date or label axis. Burying the horizon loop inside a metric callable
-created three structural problems:
+Keeping the horizon loop out of the metric callable avoids three structural
+problems:
 
-1. **Cross-cuts the metric registry.** The horizon loop produced one
-   `MetricResult` aggregating `k` horizons, but the registry is keyed
-   per `(scope, density, metric)`.
-2. **Conflicted with the identity-as-family contract.**
+1. **Cross-cuts the metric registry.** A horizon loop inside a metric would
+   produce one `MetricResult` aggregating `k` horizons, but the registry is
+   keyed per `(scope, density, metric)`.
+2. **Conflicts with the identity-as-family contract.**
    `EvaluationResult` carries `forward_periods` precisely to make
-   horizon shopping explicit at the false discovery rate (FDR) layer; the in-metric horizon
-   loop collapsed `k` horizons into one identity entry, defeating that
-   defense.
+   horizon shopping explicit at the false discovery rate (FDR) layer; an
+   in-metric horizon loop would collapse `k` horizons into one identity
+   entry, defeating that defense.
 3. **Two Benjamini-Hochberg-Yekutieli (BHY) paths.** The family-function
    layer ([`multi_factor.bhy`][bhy] with `expand_over=("forward_periods",)`)
    is the single source of truth for FDR control across horizons.
@@ -30,7 +29,7 @@ The dispatcher framing also lets descriptive metrics (`mfe_mae`,
 `caar`, `oos`, `monotonicity`, ...) inherit horizon-sweep support
 automatically.
 
-## Migration recipes
+## Recipes
 
 [`evaluate_horizons`](evaluate.md) is the convenience entry for both
 recipes: it rebuilds the panel with

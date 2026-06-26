@@ -14,7 +14,7 @@ factrix output without parsing free-text strings.
 
 Each member's trigger / meaning is sourced from
 `factrix._codes.WarningCode.description` (single source of truth, also
-returned at runtime by `profile.diagnose()`). For the per-procedure
+surfaced at runtime on each result's `warnings`). For the per-procedure
 breakdown of which codes a given pipeline can emit, see
 [Architecture § Procedure pipelines](../development/architecture.md#procedure-pipelines).
 

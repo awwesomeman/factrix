@@ -20,25 +20,25 @@ from factrix.metrics import ic
 # evaluate() returns dict[str, EvaluationResult]; pull the single result
 # and stamp the family label onto it with dataclasses.replace so the
 # outer screen can group on context["family"].
-def profile(panel, factor_col, **context):
+def stamp(panel, factor_col, **context):
     res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
     return dataclasses.replace(res, context=context)
 
-profiles = [
-    profile(panel_mom_1m, "mom_1m", family="momentum"),
-    profile(panel_mom_12m, "mom_12m", family="momentum"),
-    profile(panel_pb, "pb", family="value"),
-    profile(panel_pe, "pe", family="value"),
+results = [
+    stamp(panel_mom_1m, "mom_1m", family="momentum"),
+    stamp(panel_mom_12m, "mom_12m", family="momentum"),
+    stamp(panel_pb, "pb", family="value"),
+    stamp(panel_pe, "pe", family="value"),
     # ... + quality, low-vol, etc.
 ]
 survivors = fx.multi_factor.bhy_hierarchical(
-    profiles, metrics=["ic"], group="family", q=0.05
+    results, metrics=["ic"], group="family", q=0.05
 )
 ```
 
 ## Which function fits this question?
 
-Same input shape (one profile per (factor, condition)), three different
+Same input shape (one result per (factor, condition)), three different
 claims:
 
 | Claim | Survivor unit | Function |
@@ -118,12 +118,12 @@ Per-survivor group label: `survivor.context[result.group]`.
 
 | Trigger | Outcome |
 |---|---|
-| `group` shadows an identity field (`factor_id` / `forward_periods`) | [`UserInputError`][factrix.UserInputError]. |
-| `group` key missing from a profile's `context` | [`UserInputError`][factrix.UserInputError]. |
+| `group` shadows an identity field (`factor` / `forward_periods`) | [`UserInputError`][factrix.UserInputError]. |
+| `group` key missing from a result's `context` | [`UserInputError`][factrix.UserInputError]. |
 | Only one distinct group value across input | [`UserInputError`][factrix.UserInputError] — points at [`bhy`](multi-factor.md). |
-| Every profile is its own group at $n \ge 3$ (group axis near-unique) | [`UserInputError`][factrix.UserInputError] — pick a coarser categorical. |
+| Every result is its own group at $n \ge 3$ (group axis near-unique) | [`UserInputError`][factrix.UserInputError] — pick a coarser categorical. |
 | Duplicate `(identity, group_value)` partition key | [`UserInputError`][factrix.UserInputError]. |
-| More than half of input groups contain a single profile | `RuntimeWarning` — inner BHY on $n=1$ is a raw cutoff. |
+| More than half of input groups contain a single result | `RuntimeWarning` — inner BHY on $n=1$ is a raw cutoff. |
 
 ## Caveats
 
@@ -136,7 +136,7 @@ Per-survivor group label: `survivor.context[result.group]`.
   momentum + reversal in one bucket), the within-group PRDS assumption
   can fail; split the group or pre-orthogonalize.
 - **Pre-filtered input**: `bhy_hierarchical` assumes the input *is* the
-  candidate family. If profiles came from upstream pre-filtering
+  candidate family. If results came from upstream pre-filtering
   (e.g. top-50 of 500 candidates), the FDR claim does not cover the
   full screening pipeline — track $K$ per the experiment-log discipline.
 - **Composed FDR is approximate at exact $q$**: Yekutieli 2008 bounds

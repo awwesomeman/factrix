@@ -94,7 +94,7 @@ Min sample*. `MIN_*` constants resolve to values in the
 
 | Metric | Sample axis | Min sample |
 |---|---|---|
-| [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `N` | as `ts_beta` |
+| [`mean_r_squared`][factrix.metrics.ts_beta.mean_r_squared] | `N` | `N ≥ 1` |
 | [`ts_beta_sign_consistency`][factrix.metrics.ts_beta.ts_beta_sign_consistency] | `N` | `N ≥ 2` |
 | [`ts_quantile_spread`][factrix.metrics.ts_quantile.ts_quantile_spread] | `T` | `T ≥ MIN_PORTFOLIO_PERIODS_HARD`; factor `n_unique ≥ n_groups × 2` |
 | [`ts_asymmetry`][factrix.metrics.ts_asymmetry.ts_asymmetry] | `T` | factor has both signs (Gate B); each side `n_unique ≥ 2` for method B (Gate C) |

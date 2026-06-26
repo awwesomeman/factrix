@@ -2,7 +2,7 @@
 title: Concepts
 ---
 
-This page introduces the core mental model and architecture of `factrix` v0.14.0.
+This page introduces the core mental model and architecture of `factrix`.
 
 ## Core workflow
 

@@ -81,7 +81,9 @@ title: factrix.metrics.quantile
     )
     panel = compute_forward_return(raw, forward_periods=5)
 
-    spread_df = compute_spread_series(panel, forward_periods=5, n_groups=5)
+    # compute_spread_series returns dict[str, DataFrame] keyed by factor column
+    spread_series = compute_spread_series(panel, forward_periods=5, n_groups=5)
+    spread_df = spread_series["factor"]
     print(spread_df.head())
     # ┌────────────┬──────────┬───────────────┬─────────────────┬──────────────────┐
     # │ date       ┆ spread   ┆ top_return    ┆ bottom_return   ┆ universe_return  │
@@ -91,7 +93,7 @@ title: factrix.metrics.quantile
     # └────────────┴──────────┴───────────────┴─────────────────┴──────────────────┘
 
     ew = quantile_spread(panel, forward_periods=5, n_groups=5,
-                         _precomputed_series=spread_df)
+                         _precomputed_series=spread_series)
     print(ew.value, ew.stat, ew.metadata["long_alpha"], ew.metadata["short_alpha"])
     # 0.0041  4.92  0.0019  0.0022   (approximate)
 

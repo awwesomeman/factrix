@@ -94,9 +94,8 @@ output without the evaluation framing.
     For per-slice IC summaries (regime / universe / sector / ...), use
     [`by_slice`](../by-slice.md) on an IC frame joined with slice labels.
     For inferential contrasts (pairwise Wald χ² + Holm / Romano-Wolf
-    adjusted p), use [`slice_pairwise_test`](../slice-test.md). The
-    metric-specific `regime_ic` callable and `by_regime` dispatcher were
-    removed in v0.12.0; see the
+    adjusted p), use [`slice_pairwise_test`](../slice-test.md). For a full
+    walk-through of regime-conditioned IC, see the
     [Slice analysis guide](../../guides/slice-analysis.md).
 
 ## See also
