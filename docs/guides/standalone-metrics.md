@@ -48,17 +48,23 @@ print(factor_spread.p_value)  # Non-overlapping t-test p-value
 Diagnostics like `hit_rate`, `ic_trend`, and `oos_decay` take a two-column time-series DataFrame of `(date, value)` (such as a series of per-date ICs generated upstream).
 
 ```python
+import numpy as np
 import polars as pl
+from datetime import date, timedelta
 from factrix.metrics import oos_decay
 
-# Given a time series of values (e.g. daily IC values)
+# oos_decay splits the series into in-sample / out-of-sample halves, so it
+# needs enough points to estimate both — a handful of rows returns nan.
+# Here: 24 monthly IC values that decay from ~0.10 to ~0.02.
+rng = np.random.default_rng(0)
+n = 24
 ic_series = pl.DataFrame({
-    "date": ["2026-01-01", "2026-01-02", "2026-01-03"],
-    "value": [0.05, -0.02, 0.08]
+    "date": [(date(2026, 1, 1) + timedelta(days=30 * i)).isoformat() for i in range(n)],
+    "value": np.linspace(0.10, 0.02, n) + rng.normal(0, 0.01, n),
 })
 
 decay_res = oos_decay(ic_series)
-print(decay_res.value)
+print(decay_res.value)  # OOS/IS retention ratio
 ```
 
 ---

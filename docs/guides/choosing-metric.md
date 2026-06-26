@@ -40,7 +40,7 @@ results = fx.evaluate(
 )
 
 # Compare metric values and p-values side by side
-board = fx.compare(results, metrics=["ic", "fm"], sort_by="ic")
+board = fx.compare(list(results.values()), metrics=["ic", "fm"], sort_by="ic")
 print(board)
 ```
 

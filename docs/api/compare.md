@@ -42,7 +42,7 @@ The returned `pl.DataFrame` contains the following columns:
 - Context keys: All context keys present across the evaluation results, ordered by first appearance.
 - `<metric_name>`: The metric value (e.g. `ic`).
 - `<metric_name>_p_value`: The metric p-value if applicable (e.g. `ic_p_value`).
-- `rank`: Rank column (only populated when `sort_by` is set).
+- `rank`: Rank column, present only when `sort_by` is set (the column is absent otherwise).
 
 ## Parameter details
 
