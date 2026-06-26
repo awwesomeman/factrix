@@ -247,6 +247,58 @@ class TestQuantileSpreadVW:
         assert result.metadata.get("reason") == "no_weight_column"
         assert result.metadata.get("missing_column") == "market_cap"
 
+    @pytest.mark.parametrize("tie_policy", ["ordinal", "average"])
+    def test_constant_factor_returns_explicit_no_signal(self, tie_policy):
+        # A constant factor must not produce a value-weighted spread: under
+        # ordinal ties row order would manufacture one, under average ties the
+        # top/bottom buckets are empty (0/0 = NaN). Both collapse to no-signal.
+        rng = np.random.default_rng(7)
+        n_dates, n_assets = 10, 12
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(n_dates)]
+        rows = [
+            {
+                "date": d,
+                "asset_id": f"s_{a}",
+                "factor": 1.0,
+                "forward_return": float(rng.normal()),
+                "market_cap": float(rng.lognormal(10, 1)),
+            }
+            for d in dates
+            for a in range(n_assets)
+        ]
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = quantile_spread_vw(
+            panel, forward_periods=1, n_groups=5, tie_policy=tie_policy
+        )
+        assert result.value == 0.0
+        assert result.stat == 0.0
+        assert result.p_value == 1.0
+        assert result.is_applicable is True
+        assert result.metadata["signal_status"] == "no_signal_zero_variance_factor"
+        assert result.metadata.get("reason") is None
+
+    def test_per_date_assets_below_n_groups_short_circuits(self):
+        # Three valid names per date cannot fill five quantile buckets.
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(8)]
+        rows = [
+            {
+                "date": d,
+                "asset_id": f"s_{a}",
+                "factor": float(a) if a < 3 else None,
+                "forward_return": 0.01 * a,
+                "market_cap": 1e6,
+            }
+            for d in dates
+            for a in range(10)
+        ]
+        panel = pl.DataFrame(rows).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = quantile_spread_vw(panel, forward_periods=1, n_groups=5)
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_assets_for_quantile_groups"
+        assert result.metadata["max_assets_per_date"] == 3
+
 
 class TestQuantileSpreadInference:
     """The ``inference=`` knob mirrors k_spread: default bit-for-bit, HAC opt-in."""

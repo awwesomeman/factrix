@@ -306,6 +306,56 @@ def _short_circuit_output(
     )
 
 
+def _all_dates_degenerate(panel: pl.DataFrame, factor_col: str) -> bool:
+    """True when no date has cross-sectional variation in ``factor_col``.
+
+    A zero-variance (constant) factor carries no ranking signal: under
+    ordinal tie-breaking it manufactures a spurious spread from row order,
+    and under average tie-breaking every name shares a bucket so the
+    top/bottom legs are empty. Spread metrics test this per date — all
+    dates degenerate — and short-circuit to an explicit no-signal result
+    (:func:`_no_signal_zero_variance`) instead of ranking. Nulls are
+    excluded so an all-null date counts as degenerate, not as variation.
+    """
+    return bool(
+        panel.group_by("date")
+        .agg(
+            pl.col(factor_col)
+            .filter(pl.col(factor_col).is_not_null())
+            .n_unique()
+            .alias("_n_unique")
+        )
+        .select((pl.col("_n_unique") <= 1).all())
+        .item()
+    )
+
+
+def _no_signal_zero_variance(n_periods: int, **extra: object) -> MetricResult:
+    """Explicit no-signal result for a zero cross-sectional variance factor.
+
+    A constant factor produces an identically zero long-short spread, so the
+    honest answer is ``value=0`` with ``t=0``, ``p=1`` — a real (if null)
+    finding, not a data shortage. Returned as a normal applicable
+    ``MetricResult`` (no short-circuit ``reason``) so callers do not mis-route
+    it as a shortage. ``extra`` carries metric-specific descriptive metadata.
+    """
+    return MetricResult(
+        value=0.0,
+        p_value=1.0,
+        n_obs=n_periods,
+        n_obs_axis="periods",
+        stat=0.0,
+        metadata={
+            "n_periods": n_periods,
+            "stat_type": "t",
+            "h0": "mu=0",
+            "method": "no-signal zero-variance factor",
+            "signal_status": "no_signal_zero_variance_factor",
+            **extra,
+        },
+    )
+
+
 def _enforce_min_floor(
     metric: Any,
     name: str,
