@@ -283,7 +283,9 @@ consistency are read separately.
 
 Value-weighted variant. Same metadata shape as `quantile_spread`
 plus a `weights_lagged` flag indicating whether the weighting input
-was lagged before the join (descriptive).
+was lagged before the join (descriptive). This includes the conditional
+no-signal `signal_status` (`"no_signal_zero_variance_factor"`, a valid
+`p_value = 1.0` result) when the factor has no cross-sectional variation.
 
 ### `k_spread` (`factrix.metrics.k_spread`)
 

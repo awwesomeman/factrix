@@ -36,11 +36,13 @@ from factrix._types import (
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _all_dates_degenerate,
     _assign_quantile_groups,
     _check_applicable_inference,
     _compute_tie_ratio,
     _enforce_scaled_floor,
     _lag_within_asset,
+    _no_signal_zero_variance,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -81,7 +83,13 @@ applicable_inference: frozenset[NonOverlapping | NeweyWest] = frozenset(
 )
 
 
-def _quantile_spread_threshold(self) -> SampleThreshold:
+def _quantile_groups_threshold(self) -> SampleThreshold:
+    """Periods floor plus a ``min_assets >= n_groups`` cross-sectional floor.
+
+    Shared by ``quantile_spread`` and ``quantile_spread_vw``: both bucket each
+    date into ``n_groups`` quantiles, so a date needs at least ``n_groups``
+    valid names to fill the top and bottom legs.
+    """
     periods = _PORTFOLIO_PERIODS_FLOOR(self)
     return SampleThreshold(
         min_periods=periods.min_periods,
@@ -94,7 +102,7 @@ def _quantile_spread_threshold(self) -> SampleThreshold:
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
     batchable=True,
-    sample_threshold=_quantile_spread_threshold,
+    sample_threshold=_quantile_groups_threshold,
 )
 def quantile_spread(
     df: pl.DataFrame,
@@ -264,22 +272,11 @@ def _quantile_spread_from_series(
             max_assets_per_date=max_assets,
         )
     if bool(series["_zero_variance_factor"].all()):
-        return MetricResult(
-            p_value=1.0,
-            value=0.0,
-            n_obs=series.height,
-            n_obs_axis="periods",
-            stat=0.0,
-            metadata={
-                "n_periods": series.height,
-                "stat_type": "t",
-                "h0": "mu=0",
-                "method": "no-signal zero-variance factor",
-                "signal_status": "no_signal_zero_variance_factor",
-                "tie_ratio": tie_ratio,
-                "tie_policy": tie_policy,
-                "n_groups": n_groups,
-            },
+        return _no_signal_zero_variance(
+            series.height,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
+            n_groups=n_groups,
         )
 
     arr = spread_vals.to_numpy()
@@ -354,7 +351,7 @@ def _quantile_spread_from_series(
 @metric(
     cell=_Q_CELL,
     aggregation=Aggregation.CS_THEN_TS,
-    sample_threshold=_PORTFOLIO_PERIODS_FLOOR,
+    sample_threshold=_quantile_groups_threshold,
 )
 def quantile_spread_vw(
     df: pl.DataFrame,
@@ -496,6 +493,33 @@ def quantile_spread_vw(
     )
     if sc is not None:
         return sc
+    # Mirror the EW path (see ``_quantile_spread_from_series``): gate the
+    # n_groups buckets on per-date valid factor counts, then treat a constant
+    # factor as no-signal — otherwise value weighting manufactures an
+    # ordering-artifact spread (ordinal ties) or empty-bucket NaN (average).
+    per_date_assets = sampled.group_by("date").agg(
+        pl.col(factor_col).count().alias("_n")
+    )["_n"]
+    if bool((per_date_assets < n_groups).all()):
+        max_assets_value = per_date_assets.max()
+        max_assets = 0 if max_assets_value is None else cast(int, max_assets_value)
+        return _short_circuit_output(
+            "quantile_spread_vw",
+            "insufficient_assets_for_quantile_groups",
+            n_obs=max_assets,
+            n_obs_axis="assets",
+            n_groups=n_groups,
+            min_required=n_groups,
+            max_assets_per_date=max_assets,
+        )
+    if _all_dates_degenerate(sampled, factor_col):
+        return _no_signal_zero_variance(
+            n,
+            tie_ratio=tie_ratio,
+            tie_policy=tie_policy,
+            n_groups=n_groups,
+            weights_lagged=lag_weights,
+        )
 
     arr = spread_vals.to_numpy()
     mean_spread = float(np.mean(arr))

@@ -25,6 +25,8 @@ Notes:
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 import polars as pl
 
@@ -40,8 +42,10 @@ from factrix._types import DDOF, MIN_PORTFOLIO_PERIODS_HARD
 from factrix.inference import NEWEY_WEST, NON_OVERLAPPING, NeweyWest, NonOverlapping
 from factrix.metrics._decorators import metric
 from factrix.metrics._helpers import (
+    _all_dates_degenerate,
     _check_applicable_inference,
     _enforce_scaled_floor,
+    _no_signal_zero_variance,
     _sample_non_overlapping,
     _scaled_periods_threshold,
     _short_circuit_output,
@@ -89,12 +93,9 @@ def _build_k_spread_series(
     )
     if clean.is_empty():
         return None, clean
-    if bool(
-        clean.group_by("date")
-        .agg(pl.col(factor_col).n_unique().alias("_n_unique"))
-        .select((pl.col("_n_unique") <= 1).all())
-        .item()
-    ):
+    # Constant factor: skip ranking (ordinal ties would manufacture a spurious
+    # top/bottom split) and emit a spread=0 series; the body returns no-signal.
+    if _all_dates_degenerate(clean, factor_col):
         series = (
             clean.group_by("date")
             .agg(
@@ -235,6 +236,12 @@ def k_spread(
     sampled = _sample_non_overlapping(df, forward_periods)
     series, clean = _build_k_spread_series(sampled, k, factor_col, return_col)
     n_assets = clean["asset_id"].n_unique()
+    # Real per-date asset count (not the universe-wide unique count): both
+    # insufficient-assets short-circuits report it under the same reason.
+    max_per_date_value = (
+        clean.group_by("date").len()["len"].max() if not clean.is_empty() else None
+    )
+    max_per_date = 0 if max_per_date_value is None else cast(int, max_per_date_value)
     if n_assets < 2 * k:
         return _short_circuit_output(
             "k_spread",
@@ -243,12 +250,10 @@ def k_spread(
             n_obs_axis="assets",
             k=k,
             min_required=2 * k,
-            max_assets_per_date=n_assets,
+            max_assets_per_date=max_per_date,
         )
 
     if series is None:
-        per_date_counts = clean.group_by("date").len()["len"].to_numpy()
-        max_per_date = int(np.max(per_date_counts)) if per_date_counts.size else 0
         return _short_circuit_output(
             "k_spread",
             "insufficient_assets_for_k_legs",
@@ -271,31 +276,17 @@ def k_spread(
     )
     if sc is not None:
         return sc
-    if bool((series["spread"] == 0).all()) and bool(
-        clean.group_by("date")
-        .agg(pl.col(factor_col).n_unique().alias("_n_unique"))
-        .select((pl.col("_n_unique") <= 1).all())
-        .item()
-    ):
-        return MetricResult(
-            value=0.0,
-            p_value=1.0,
-            n_obs=n,
-            n_obs_axis="periods",
-            stat=0.0,
-            metadata={
-                "n_periods": n,
-                "k": k,
-                "stat_type": "t",
-                "h0": "mu=0",
-                "method": "no-signal zero-variance factor",
-                "signal_status": "no_signal_zero_variance_factor",
-                "cross_sectional_dispersion": float(
-                    np.mean(series["xs_dispersion"].drop_nulls().to_numpy())
-                ),
-                "top_return": float(np.mean(series["top_return"].to_numpy())),
-                "bottom_return": float(np.mean(series["bottom_return"].to_numpy())),
-            },
+    # ``_build_k_spread_series`` forces spread=0 for a constant factor, so a
+    # degenerate panel is detected once here and returned as no-signal.
+    if _all_dates_degenerate(clean, factor_col):
+        return _no_signal_zero_variance(
+            n,
+            k=k,
+            cross_sectional_dispersion=float(
+                np.mean(series["xs_dispersion"].drop_nulls().to_numpy())
+            ),
+            top_return=float(np.mean(series["top_return"].to_numpy())),
+            bottom_return=float(np.mean(series["bottom_return"].to_numpy())),
         )
 
     arr = spread_vals.to_numpy()
