@@ -29,8 +29,8 @@ The two functions answer **different statistical questions**:
 
 | Function | Question | Output shape |
 |---|---|---|
-| `slice_pairwise_test` | "Which pairs differ?" — K(K−1)/2 contrasts with family-internal multiple-testing correction | One row per pair: `(slice_a, slice_b, n_obs, stat, p_raw, p_adj)` |
-| `slice_joint_test` | "Do any slices differ at all?" — single omnibus Wald χ² | One row: `(n_obs, k_slices, df, stat, p)` |
+| `slice_pairwise_test` | "Which pairs differ?" — K(K−1)/2 contrasts with family-internal multiple-testing correction | One row per pair: `(slice_a, slice_b, n_obs, mean_diff, stat, p_raw, p_adj, stat_type, reference_dist, df_num, df_denom, multiplicity)` |
+| `slice_joint_test` | "Do any slices differ at all?" — single omnibus Wald χ² | One row: `(n_obs, k_slices, stat, p_value, stat_type, reference_dist, df_num, df_denom, multiplicity)` |
 
 Both functions sit in the **View** class: their headline output is a comparison test
 result. They do **not** participate in Benjamini-Hochberg-Yekutieli (BHY) family expansion — adjusted
@@ -84,9 +84,11 @@ covariance. A two-valued `method` flag selects the estimator:
 | `"analytic"` | Per-slice Newey-West HAC, Welch-style pairwise contrast | Holm step-down | Long spans (T ≳ 100); fast, deterministic |
 
 Pairwise output is `(slice_a, slice_b, n_periods_a, n_periods_b,
-mean_diff, stat, p_raw, p_adj)` — per-slice `n_periods_*` because
-disjoint spans differ in length. The omnibus is a block-diagonal Wald χ²
-returning `(k_slices, df, stat, p_value)`.
+mean_diff, stat, p_raw, p_adj, stat_type, reference_dist, df_num,
+df_denom, multiplicity)` — per-slice `n_periods_*` because disjoint spans
+differ in length. The omnibus is a block-diagonal Wald χ² returning
+`(k_slices, stat, p_value, stat_type, reference_dist, df_num, df_denom,
+multiplicity)`.
 
 ## Estimator dispatch
 

@@ -9,7 +9,16 @@ from factrix.metrics import ic, monotonicity
 
 from tests._slice_panel import build_disjoint_period_panel
 
-_JOINT_COLS = ["k_slices", "df", "stat", "p_value"]
+_JOINT_COLS = [
+    "k_slices",
+    "stat",
+    "p_value",
+    "stat_type",
+    "reference_dist",
+    "df_num",
+    "df_denom",
+    "multiplicity",
+]
 
 
 @pytest.mark.parametrize("method", ["bootstrap", "analytic"])
@@ -25,7 +34,13 @@ def test_single_row_shape(method: str) -> None:
     assert out.height == 1
     assert out.columns == _JOINT_COLS
     assert out["k_slices"][0] == 3
-    assert out["df"][0] == 2
+    assert out["df_num"][0] == 2
+    assert out["stat_type"][0] == "wald"
+    assert out["reference_dist"][0] == (
+        "bootstrap_null" if method == "bootstrap" else "chi2"
+    )
+    assert out["df_denom"][0] is None
+    assert out["multiplicity"][0] is None
 
 
 @pytest.mark.parametrize("method", ["bootstrap", "analytic"])
@@ -36,7 +51,7 @@ def test_two_slice_df_is_one(method: str) -> None:
     out = slice_period_joint_test(
         df, ic(), by="regime", factor_col="factor", method=method, rng_seed=2
     )
-    assert out["df"][0] == 1
+    assert out["df_num"][0] == 1
 
 
 @pytest.mark.parametrize("method", ["bootstrap", "analytic"])

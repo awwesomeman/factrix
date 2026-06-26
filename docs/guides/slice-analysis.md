@@ -131,7 +131,9 @@ pl.concat([
 # Bootstrap (default) is the right call for short regimes; pass
 # method="analytic" for long calendar spans (T ≳ 100).
 pairs = slice_period_pairwise_test(panel_reg, ic(), by="regime", factor_col="value")
-print(pairs)  # slice_a, slice_b, n_periods_a, n_periods_b, mean_diff, stat, p_raw, p_adj
+print(pairs)  # slice_a, slice_b, n_periods_a, n_periods_b, mean_diff, stat,
+#              p_raw, p_adj + mechanism cols (stat_type, reference_dist,
+#              df_num, df_denom, multiplicity)
 ```
 
 ## Related

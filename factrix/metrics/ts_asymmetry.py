@@ -241,6 +241,8 @@ def ts_asymmetry(
         R_b = np.array([[0.0, 1.0, -1.0]])
         _, p_b = _wald_p_linear(beta_b, V_b, R_b, q=0.0)
         method_b.update(
+            method_b="method B: split-slope regression on signed factor",
+            stat_type_method_b="wald (NW HAC)",
             intercept=float(beta_b[0]),
             beta_pos=float(beta_b[1]),
             beta_neg=float(beta_b[2]),

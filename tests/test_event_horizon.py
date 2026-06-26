@@ -113,6 +113,14 @@ class TestEventAroundReturn:
         assert result is not None
         assert "per_offset" in result.metadata
 
+    def test_descriptive_no_p_value(self, event_data):
+        # Descriptive multi-horizon summary: no hypothesis test runs, so the
+        # contract is p_value=None — not a fabricated 1.0 placeholder.
+        assert event_around_return(event_data).p_value is None
+
+    def test_short_circuit_is_descriptive(self, no_price_data):
+        assert event_around_return(no_price_data).p_value is None
+
     def test_per_offset_has_stats(self, event_data):
         result = event_around_return(event_data, offsets=[-3, 1, 6])
         per_offset = result.metadata["per_offset"]

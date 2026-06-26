@@ -89,7 +89,7 @@ def directional_hit_rate(
         MetricResult with value = directional hit rate ``P̂`` (0.0-1.0),
         ``stat`` = the PT statistic ``S_n`` (deflated for within-date
         cross-sectional correlation on a panel — see Notes), one-sided
-        p-value. ``metadata["cross_sectional_adjusted"]`` records whether
+        p-value. ``metadata["kolari_pynnonen_applied"]`` records whether
         the deflation fired and ``stat_uncorrected`` carries the raw
         ``S_n`` when it did.
 
@@ -240,10 +240,10 @@ def directional_hit_rate(
     r_hat, n_eff, _ = _estimate_within_date_icc(hit_by_date, "_hit")
     if r_hat is not None and n_eff > 1.0:
         s_stat = s_n * _kp_cluster_scale(r_hat, n_eff)
-        cross_sectional_adjusted = True
+        kolari_pynnonen_applied = True
     else:
         s_stat = s_n
-        cross_sectional_adjusted = False
+        kolari_pynnonen_applied = False
     p = float(sp_stats.norm.sf(s_stat))
 
     warning_codes: list[str] = []
@@ -270,11 +270,11 @@ def directional_hit_rate(
         "p_expected": p_star,
         "p_up_pred": p_x,
         "p_up_real": p_y,
-        "cross_sectional_r": r_hat,
-        "cross_sectional_n_eff": n_eff,
-        "cross_sectional_adjusted": cross_sectional_adjusted,
+        "kolari_pynnonen_r": r_hat,
+        "kolari_pynnonen_n_eff": n_eff,
+        "kolari_pynnonen_applied": kolari_pynnonen_applied,
     }
-    if cross_sectional_adjusted:
+    if kolari_pynnonen_applied:
         metadata["stat_uncorrected"] = float(s_n)
         metadata["method"] = (
             "Pesaran-Timmermann (1992) + Kolari-Pynnönen (2010) "

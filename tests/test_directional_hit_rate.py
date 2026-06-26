@@ -218,8 +218,8 @@ class TestCrossSectionalCorrection:
         x = rng.normal(size=200)
         y = 0.5 * x + rng.normal(size=200)
         result = directional_hit_rate(_ts_panel(x, y), forward_periods=1)
-        assert result.metadata["cross_sectional_adjusted"] is False
-        assert result.metadata["cross_sectional_r"] is None
+        assert result.metadata["kolari_pynnonen_applied"] is False
+        assert result.metadata["kolari_pynnonen_r"] is None
         assert "stat_uncorrected" not in result.metadata
         _, ref_stat = _pt_reference(x, y)
         assert result.stat == pytest.approx(ref_stat)
@@ -230,8 +230,8 @@ class TestCrossSectionalCorrection:
         result = self._panel(common_weight=0.9, seed=0)
         result = directional_hit_rate(result, forward_periods=1)
         m = result.metadata
-        assert m["cross_sectional_adjusted"] is True
-        assert m["cross_sectional_r"] > 0.0
+        assert m["kolari_pynnonen_applied"] is True
+        assert m["kolari_pynnonen_r"] > 0.0
         assert abs(result.stat) < abs(m["stat_uncorrected"])
         # Axis is unchanged: the estimand stays the pooled-pairs hit rate.
         assert result.n_obs_axis == "pairs"
@@ -242,8 +242,8 @@ class TestCrossSectionalCorrection:
         # Kolari-Pynnönen factor √((1-r)/(1+(n_eff-1)r)) from metadata.
         result = directional_hit_rate(self._panel(common_weight=0.5, seed=3))
         m = result.metadata
-        assert m["cross_sectional_adjusted"] is True
-        r, n_eff = m["cross_sectional_r"], m["cross_sectional_n_eff"]
+        assert m["kolari_pynnonen_applied"] is True
+        r, n_eff = m["kolari_pynnonen_r"], m["kolari_pynnonen_n_eff"]
         scale = math.sqrt((1.0 - r) / (1.0 + (n_eff - 1.0) * r))
         assert result.stat == pytest.approx(m["stat_uncorrected"] * scale)
 

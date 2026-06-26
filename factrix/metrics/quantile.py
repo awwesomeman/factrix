@@ -529,6 +529,7 @@ def quantile_spread_vw(
     p = _p_value_from_t(t, n)
     metadata: dict[str, object] = {
         "n_periods": n,
+        "method": "non-overlapping t-test",
         "stat_type": "t",
         "h0": "mu=0",
         "tie_ratio": tie_ratio,

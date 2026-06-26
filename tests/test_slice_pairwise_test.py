@@ -16,7 +16,20 @@ from tests._slice_panel import (
     build_labelled_raw_panel,
 )
 
-_PAIRWISE_COLS = ["slice_a", "slice_b", "n_obs", "mean_diff", "stat", "p_raw", "p_adj"]
+_PAIRWISE_COLS = [
+    "slice_a",
+    "slice_b",
+    "n_obs",
+    "mean_diff",
+    "stat",
+    "p_raw",
+    "p_adj",
+    "stat_type",
+    "reference_dist",
+    "df_num",
+    "df_denom",
+    "multiplicity",
+]
 
 
 def test_two_slice_returns_one_row() -> None:
@@ -27,6 +40,11 @@ def test_two_slice_returns_one_row() -> None:
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
     assert out["n_obs"][0] == 120
+    assert out["stat_type"][0] == "wald"
+    assert out["reference_dist"][0] == "F"
+    assert out["df_num"][0] == 1
+    assert out["df_denom"][0] == 119
+    assert out["multiplicity"][0] == "holm"
 
 
 def test_three_slice_returns_three_rows() -> None:

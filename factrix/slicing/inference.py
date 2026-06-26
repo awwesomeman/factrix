@@ -236,13 +236,19 @@ def slice_pairwise_test(
         factor_col: The single factor column to score per slice.
 
     Returns:
-        Long-form ``pl.DataFrame`` with columns
-        ``(slice_a, slice_b, n_obs, mean_diff, stat, p_raw, p_adj)``; one
-        row per ordered slice pair ``(a, b)`` with ``a`` before ``b`` in
-        the partition's iteration order. ``mean_diff`` is the signed
-        ``μ_a − μ_b`` (direction / effect size), ``stat`` the Wald χ²,
-        and ``p_adj`` the Holm step-down family-wise correction across
-        the K(K-1)/2 pairs.
+        Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
+        n_obs, mean_diff, stat, p_raw, p_adj, stat_type, reference_dist,
+        df_num, df_denom, multiplicity)``; one row per ordered slice pair
+        ``(a, b)`` with ``a`` before ``b`` in the partition's iteration
+        order. ``mean_diff`` is the signed ``μ_a − μ_b`` (direction /
+        effect size), ``stat`` the Wald statistic, and ``p_adj`` the Holm
+        step-down family-wise correction across the K(K-1)/2 pairs. The
+        trailing five columns disclose the active mechanism (constant
+        across rows): ``stat_type="wald"``; ``reference_dist="F"`` with
+        ``df_num=1`` (single contrast) and ``df_denom=n_obs-1`` — the
+        date-cluster count is ``T=n_obs``, so the finite-sample
+        ``F_{1, T-1}`` reference is used in place of the over-rejecting
+        asymptotic χ²; ``multiplicity="holm"``.
 
     Raises:
         UserInputError: ``metric`` is not a metric instance, or
@@ -274,7 +280,7 @@ def slice_pairwise_test(
         ...     panel, ic(), by="sector", factor_col="factor"
         ... )
         >>> pairs.columns
-        ['slice_a', 'slice_b', 'n_obs', 'mean_diff', 'stat', 'p_raw', 'p_adj']
+        ['slice_a', 'slice_b', 'n_obs', 'mean_diff', 'stat', 'p_raw', 'p_adj', 'stat_type', 'reference_dist', 'df_num', 'df_denom', 'multiplicity']
     """
     _validate_metric_instance(metric, "slice_pairwise_test")
 
@@ -300,15 +306,21 @@ def slice_pairwise_test(
 
     p_adj = holm_step_down(p_raw)
 
+    n_pairs = len(pairs)
     return pl.DataFrame(
         {
             "slice_a": [labels[i] for i, _ in pairs],
             "slice_b": [labels[j] for _, j in pairs],
-            "n_obs": [n_obs] * len(pairs),
+            "n_obs": [n_obs] * n_pairs,
             "mean_diff": mean_diffs,
             "stat": stats,
             "p_raw": p_raw,
             "p_adj": list(p_adj),
+            "stat_type": ["wald"] * n_pairs,
+            "reference_dist": ["F"] * n_pairs,
+            "df_num": [1] * n_pairs,
+            "df_denom": [n_obs - 1] * n_pairs,
+            "multiplicity": ["holm"] * n_pairs,
         }
     )
 
@@ -336,14 +348,16 @@ def slice_joint_test(
         factor_col: The single factor column to score per slice.
 
     Returns:
-        Single-row ``pl.DataFrame`` with columns
-        ``(n_obs, k_slices, df, stat, p_value)``. ``df`` is the
-        restriction rank (``K-1``); ``stat`` is the joint Wald χ²;
-        ``p_value`` is the finite-sample ``F_{K-1, T-1}`` survival of
-        ``stat / (K-1)`` (the date-cluster count is ``T`` per-date
-        observations, so the asymptotic χ² reference would over-reject).
-        No ``multiple_testing`` — a single omnibus has no family-internal
-        correction to apply.
+        Single-row ``pl.DataFrame`` with columns ``(n_obs, k_slices, stat,
+        p_value, stat_type, reference_dist, df_num, df_denom,
+        multiplicity)``. ``stat`` is the joint Wald statistic. The
+        mechanism columns disclose the reference: ``stat_type="wald"``,
+        ``reference_dist="F"``, ``df_num=K-1`` (restriction rank) and
+        ``df_denom=n_obs-1`` — ``p_value`` is the finite-sample
+        ``F_{K-1, T-1}`` survival of ``stat / (K-1)`` (the date-cluster
+        count is ``T=n_obs``, so the asymptotic χ² reference would
+        over-reject). ``multiplicity`` is ``None`` — a single omnibus has
+        no family-internal correction to apply.
 
     Raises:
         UserInputError: ``metric`` is not a metric instance, or
@@ -372,7 +386,7 @@ def slice_joint_test(
         >>> joint = fx.slice_joint_test(
         ...     panel, ic(), by="sector", factor_col="factor"
         ... )
-        >>> joint["df"][0]
+        >>> joint["df_num"][0]
         1
     """
     _validate_metric_instance(metric, "slice_joint_test")
@@ -395,8 +409,12 @@ def slice_joint_test(
         {
             "n_obs": [n_obs],
             "k_slices": [k],
-            "df": [k - 1],
             "stat": [stat],
             "p_value": [p],
+            "stat_type": ["wald"],
+            "reference_dist": ["F"],
+            "df_num": [k - 1],
+            "df_denom": [n_obs - 1],
+            "multiplicity": [None],
         }
     )
