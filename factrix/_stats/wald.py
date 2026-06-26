@@ -41,14 +41,29 @@ def _wald_p_linear(
     V: np.ndarray,
     R: np.ndarray,
     q: np.ndarray | float = 0.0,
+    *,
+    df_denom: int | None = None,
 ) -> tuple[float, float]:
-    """Wald χ² test of the linear restriction ``Rβ = q``.
+    """Wald test of the linear restriction ``Rβ = q``.
 
-    ``R`` is ``(r, k)``; ``q`` is ``(r,)`` or scalar for r=1. Returns
-    ``(W, p)`` with ``W ~ χ²_r`` under H₀. Returns ``(0.0, 1.0)`` if
-    the middle matrix is singular (degenerate restriction).
+    ``R`` is ``(r, k)``; ``q`` is ``(r,)`` or scalar for r=1. Returns the
+    Wald statistic ``W`` and its p-value.
+
+    With ``df_denom=None`` (default) the reference distribution is the
+    asymptotic ``W ~ χ²_r`` — correct when ``V`` is an analytic covariance
+    with effectively infinite degrees of freedom (the ts_quantile /
+    ts_asymmetry NW-HAC callers). When ``V`` is a **cluster-robust**
+    covariance estimated from a finite number of clusters ``G``, the χ²
+    reference over-rejects; pass ``df_denom = G - 1`` (one-way) or
+    ``min(G_a, G_b) - 1`` (two-way) to use the finite-sample
+    ``F = W / r ~ F_{r, df_denom}`` reference instead. ``W`` itself is
+    returned unchanged in both cases; only the p-value differs.
+
+    Returns ``(0.0, 1.0)`` if the middle matrix is singular (degenerate
+    restriction) or ``df_denom`` is given but non-positive.
     """
     R = np.atleast_2d(R)
+    r = R.shape[0]
     diff = R @ beta - np.atleast_1d(q)
     middle = R @ V @ R.T
     try:
@@ -56,7 +71,12 @@ def _wald_p_linear(
     except np.linalg.LinAlgError:
         return 0.0, 1.0
     W = float(diff @ middle_inv @ diff)
-    p = float(sp_stats.chi2.sf(W, df=R.shape[0]))
+    if df_denom is None:
+        p = float(sp_stats.chi2.sf(W, df=r))
+    elif df_denom < 1:
+        return 0.0, 1.0
+    else:
+        p = float(sp_stats.f.sf(W / r, dfn=r, dfd=df_denom))
     return W, p
 
 
@@ -134,16 +154,20 @@ def _wald_nw_cluster_means(
         lags: Bartlett-kernel bandwidth; ``None`` → ``floor(T^(1/3))``.
 
     Returns:
-        ``(W, p)`` with ``W ~ χ²_r`` under H₀. Returns ``(0.0, 1.0)``
-        on degenerate input (T < 2 or singular middle matrix).
+        ``(W, p)`` with the Wald statistic ``W`` and a finite-sample
+        p-value. The covariance is a one-way (date) cluster estimate with
+        ``G = T`` clusters, so the reference is ``F = W / r ~ F_{r, T-1}``
+        rather than the over-rejecting asymptotic χ². Returns ``(0.0,
+        1.0)`` on degenerate input (T < 2 or singular middle matrix).
     """
     Y = np.asarray(per_date_metric, dtype=float)
     if Y.ndim != 2:
         raise ValueError(f"per_date_metric must be 2-D (T, K); got shape {Y.shape}.")
-    if Y.shape[0] < 2:
+    n_clusters = Y.shape[0]
+    if n_clusters < 2:
         return 0.0, 1.0
     mean, V = _nw_hac_vector_mean(Y, lags=lags)
-    return _wald_p_linear(mean, V, R, q)
+    return _wald_p_linear(mean, V, R, q, df_denom=n_clusters - 1)
 
 
 def _cluster_meat(
@@ -202,8 +226,12 @@ def _wald_two_way_cluster(
         asset_ids: ``(n,)`` asset label per observation.
 
     Returns:
-        ``(W, p)`` with ``W ~ χ²_r`` under H₀. Returns ``(0.0, 1.0)``
-        if ``X'X`` is singular or ``n < k + 1``.
+        ``(W, p)`` with the Wald statistic ``W`` and a finite-sample
+        p-value. With two-way clustering the effective cluster count is
+        ``min(G_date, G_asset)``, so the reference is ``F = W / r ~
+        F_{r, min(G_date, G_asset) - 1}`` rather than the over-rejecting
+        asymptotic χ². Returns ``(0.0, 1.0)`` if ``X'X`` is singular or
+        ``n < k + 1``.
     """
     y = np.asarray(y, dtype=float)
     X = np.asarray(X, dtype=float)
@@ -249,4 +277,8 @@ def _wald_two_way_cluster(
         return 0.0, 1.0
     if np.any(np.diag(V_dc) < -EPSILON):
         return 0.0, 1.0
-    return _wald_p_linear(beta, V_dc, R, q)
+    # Finite-sample F reference: the effective cluster count under two-way
+    # clustering is the smaller margin (Cameron-Miller 2015), so df_denom =
+    # min(G_date, G_asset) - 1.
+    n_clusters = min(len(np.unique(date_ids)), len(np.unique(asset_ids)))
+    return _wald_p_linear(beta, V_dc, R, q, df_denom=n_clusters - 1)

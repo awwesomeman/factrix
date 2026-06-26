@@ -7,8 +7,40 @@ import pytest
 from factrix._stats.wald import (
     _nw_hac_vector_mean,
     _wald_nw_cluster_means,
+    _wald_p_linear,
     _wald_two_way_cluster,
 )
+from scipy import stats as sp_stats
+
+
+class TestWaldFiniteSampleF:
+    def test_df_denom_matches_f_reference(self):
+        # With df_denom the p-value is the F survival of W/r, strictly
+        # larger (more conservative) than the asymptotic chi2 survival.
+        beta = np.array([2.0, 0.0])
+        V = np.eye(2)
+        R = np.array([[1.0, 0.0]])
+        W, p_f = _wald_p_linear(beta, V, R, df_denom=9)
+        _, p_chi2 = _wald_p_linear(beta, V, R)
+        assert p_f == pytest.approx(sp_stats.f.sf(W / 1, dfn=1, dfd=9))
+        assert p_f > p_chi2
+
+    def test_df_denom_non_positive_returns_unity(self):
+        beta = np.array([5.0])
+        V = np.array([[1.0]])
+        R = np.array([[1.0]])
+        assert _wald_p_linear(beta, V, R, df_denom=0) == (0.0, 1.0)
+
+    def test_cluster_means_small_T_more_conservative(self):
+        # Same per-date panel, the finite-sample F reference must not
+        # under-state p relative to the asymptotic chi2 the means imply.
+        rng = np.random.default_rng(seed=7)
+        T = 12
+        Y = np.column_stack([rng.standard_normal(T), rng.standard_normal(T) + 0.4])
+        R = np.array([[1.0, -1.0]])
+        W, p = _wald_nw_cluster_means(Y, R=R, q=0.0)
+        assert p == pytest.approx(sp_stats.f.sf(W / 1, dfn=1, dfd=T - 1))
+        assert p > sp_stats.chi2.sf(W, df=1)
 
 
 class TestNWHACVectorMean:
