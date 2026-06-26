@@ -327,6 +327,9 @@ class TestWarningCodeLift:
         assert (WarningCode.FEW_EVENTS, "flagged") in [
             (w.code, w.source) for w in er.warnings
         ]
+        assert (WarningCode.FEW_EVENTS, WarningCode.FEW_EVENTS.description) in [
+            (w.code, w.message) for w in er.warnings
+        ]
         row = (
             er.to_frame().filter(pl.col("metric_name") == "flagged").row(0, named=True)
         )

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 import polars as pl
 import pytest
+from factrix._errors import UserInputError
 from factrix.preprocess.returns import (
     compute_abnormal_return,
     compute_forward_return,
@@ -26,6 +27,11 @@ def _make_price_data():
 
 
 class TestComputeForwardReturn:
+    @pytest.mark.parametrize("forward_periods", [0, -1, True, 1.5])
+    def test_rejects_non_positive_or_non_int_horizon(self, forward_periods):
+        with pytest.raises(UserInputError, match="positive int"):
+            compute_forward_return(_make_price_data(), forward_periods=forward_periods)
+
     def test_basic(self):
         df = _make_price_data()
         result = compute_forward_return(df, forward_periods=1)
@@ -74,7 +80,14 @@ class TestComputeForwardReturn:
         assert twice.height < once.height
 
     def test_overwrite_changes_horizon(self):
-        raw = _make_price_data()
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(8)]
+        raw = pl.DataFrame(
+            {
+                "date": dates,
+                "asset_id": ["A"] * 8,
+                "price": [100.0, 101.0, 103.0, 106.0, 110.0, 115.0, 121.0, 128.0],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         once = compute_forward_return(raw, forward_periods=1)
         changed = compute_forward_return(once, forward_periods=2, overwrite=True)
         assert "forward_return" in changed.columns
@@ -103,8 +116,61 @@ class TestComputeForwardReturn:
         assert changed.height > 0
         assert _read_forward_periods_stamp(changed) == 2
 
+    def test_drops_nan_and_inf_forward_returns(self):
+        dates = [datetime(2024, 1, 1) + timedelta(days=i) for i in range(6)]
+        df = pl.DataFrame(
+            {
+                "date": dates * 2,
+                "asset_id": ["A"] * 6 + ["B"] * 6,
+                "price": [
+                    100.0,
+                    101.0,
+                    float("nan"),
+                    103.0,
+                    float("inf"),
+                    105.0,
+                    200.0,
+                    202.0,
+                    204.0,
+                    206.0,
+                    208.0,
+                    210.0,
+                ],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        result = compute_forward_return(df, forward_periods=1)
+
+        assert result.height > 0
+        assert result["forward_return"].is_finite().all()
+
+    def test_horizon_too_long_raises_clear_error(self):
+        with pytest.raises(UserInputError, match=r"too short|forward_periods=10"):
+            compute_forward_return(_make_price_data(), forward_periods=10)
+
 
 class TestWinsorizeForwardReturn:
+    @pytest.mark.parametrize(
+        ("lower", "upper"),
+        [
+            (-0.1, 0.9),
+            (0.9, 0.1),
+            (0.1, 1.1),
+            ("0.1", 0.9),
+            (False, 0.9),
+        ],
+    )
+    def test_rejects_invalid_bounds(self, lower, upper):
+        df = pl.DataFrame(
+            {
+                "date": [datetime(2024, 1, 1)] * 5,
+                "forward_return": [0.01, 0.02, 0.03, 0.04, 0.05],
+            }
+        ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
+
+        with pytest.raises(UserInputError, match=r"0 <= lower <= upper <= 1|numeric"):
+            winsorize_forward_return(df, lower=lower, upper=upper)
+
     def test_noop(self):
         df = pl.DataFrame(
             {

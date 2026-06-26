@@ -80,6 +80,22 @@ def test_empty_input_raises():
         bhy_hierarchical([], metrics=["ic"], group="family", q=0.05)
 
 
+def test_list_of_dict_keys_suggests_values():
+    make_spec("ic")
+    results = {
+        "mom_1": make_result(
+            factor="mom_1", p=0.01, metric="ic", context={"family": "momentum"}
+        )
+    }
+    mistaken: list[str] = []
+    mistaken.extend(results)
+
+    with pytest.raises(UserInputError, match=r"list\(results\.values\(\)\)"):
+        bhy_hierarchical(  # type: ignore[arg-type]
+            mistaken, metrics=["ic"], group="family", q=0.05
+        )
+
+
 def test_primary_must_be_list_of_str():
     make_spec("ic")
     with pytest.raises(UserInputError, match="always a list"):

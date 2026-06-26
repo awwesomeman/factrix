@@ -16,6 +16,21 @@ orthogonalization against base factors (`orthogonalize_factor`).
 
 ## Forward return
 
+`compute_forward_return` accepts `forward_periods` as a positive `int`
+row horizon. `0`, negative values, floats, strings, and `bool` values
+raise [`UserInputError`](errors.md). The function shifts by row count
+within each `asset_id`, computes the per-period normalized
+`forward_return`, then drops rows whose computed return is not finite
+(`null`, `NaN`, `+inf`, or `-inf`). If the horizon is too long for the
+panel, or price data leaves no finite forward returns after filtering,
+the function raises [`UserInputError`](errors.md) instead of returning
+an empty panel.
+
+`winsorize_forward_return` clips `forward_return` by per-date quantiles.
+Its bounds must satisfy `0 <= lower <= upper <= 1`; invalid ordering,
+out-of-range values, non-numeric values, and `bool` bounds raise
+[`UserInputError`](errors.md).
+
 ::: factrix.preprocess.compute_forward_return
 
 ::: factrix.preprocess.winsorize_forward_return

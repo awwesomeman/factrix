@@ -60,6 +60,22 @@ def test_pc_empty_results_raises():
         partial_conjunction([], metrics=["ic"], min_pass=2, expand_over=("region",))
 
 
+def test_pc_list_of_dict_keys_suggests_values():
+    make_spec("ic")
+    results = {
+        "alpha": make_result(
+            factor="alpha", p=0.01, metric="ic", context={"region": "US"}
+        )
+    }
+    mistaken: list[str] = []
+    mistaken.extend(results)
+
+    with pytest.raises(UserInputError, match=r"list\(results\.values\(\)\)"):
+        partial_conjunction(  # type: ignore[arg-type]
+            mistaken, metrics=["ic"], min_pass=2, expand_over=("region",)
+        )
+
+
 def test_pc_n_conditions_strict_mismatch_raises():
     make_spec("ic")
     results = _replicate("alpha_1", [0.01, 0.01], "ic", regions=("US", "EU"))

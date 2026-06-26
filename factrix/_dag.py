@@ -387,8 +387,13 @@ class DagExecutor:
                         )
                     )
                 for code in out.warning_codes:
+                    warning_code = WarningCode(code)
                     warnings.append(
-                        Warning(code=WarningCode(code), source=label, message="")
+                        Warning(
+                            code=warning_code,
+                            source=label,
+                            message=warning_code.description,
+                        )
                     )
             results[c] = EvaluationResult(
                 factor=c,
