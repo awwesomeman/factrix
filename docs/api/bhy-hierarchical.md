@@ -50,7 +50,7 @@ claims:
 `bhy_hierarchical` is the only one of the three that keeps the
 **family-level answer** first-class — readers learn both "5 of 8
 families showed signal" and "within those, factors A / B / C survived"
-from a single Survivors container.
+from a single `HierarchicalBhyResult`.
 
 ## How the math works
 
@@ -78,22 +78,32 @@ Per group $g$ with $m_g$ member p-values:
     p_i^{\text{adj}} = \max\bigl(p_{\text{outer},g(i)}^{\text{adj}},\; p_{\text{inner},i}^{\text{adj}}\bigr)
     $$
 
-   This preserves the universal Survivors duality
-   `survivor[i] iff adj_p[i] <= q` while encoding the two-layer logic:
+   This preserves the universal `survivor[i] iff adj_p[i] <= q`
+   duality while encoding the two-layer logic:
    a cell can fail because its group failed outer, because the cell
    itself failed inner, or both.
 
-## Survivors output
+## Result output
+
+`bhy_hierarchical` returns a
+[`HierarchicalBhyResult`][factrix.multi_factor.HierarchicalBhyResult] per
+metric — the `_FdrResultBase` shape (`entries` / `survivors` / `adj_p` /
+`q` / `n_tests`) plus a hierarchy-specific field:
 
 | Field | Meaning |
 |---|---|
-| `profiles` | Surviving profiles in input order |
-| `adj_p` | Max-of-layers $\text{adj}_p$; survivor iff `adj_p <= q` |
+| `survivors` | Surviving `EvaluationResult` records, input order (derived: `adj_p_all <= q`) |
+| `adj_p` | Max-of-layers $\text{adj}_p$ for the survivors; survivor iff `adj_p <= q` |
 | `q` | The `q` you passed (single target, both layers) |
-| `expand_over` | `(group,)` — single-element tuple |
+| `group` | Context key naming the group axis (a single `str`) |
 | `n_tests` | Mapping `(group_value,) -> m_group` for **every** input group (covers dead families too, so "N of M families survived" claims are computable directly). Counter to `partial_conjunction`, which keeps surviving identities only. |
 
-Per-survivor group label: `profile.context[group]`.
+Per-survivor group label: `survivor.context[result.group]`.
+
+::: factrix.multi_factor.HierarchicalBhyResult
+    options:
+      show_root_toc_entry: false
+      heading_level: 3
 
 ## When *not* to reach for `bhy_hierarchical`
 

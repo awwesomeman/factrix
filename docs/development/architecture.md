@@ -279,8 +279,8 @@ all functions.
 ```
 FactrixError                       # base — all factrix-raised errors
 ├── IncompatibleAxisError
+├── IncompatibleInferenceError     # inference= outside the metric's allowlist
 ├── InsufficientSampleError    # carries .actual_periods / .required_periods
-├── UnknownEstimatorError
 └── UserInputError                 # named-set typo / type mismatch
 ```
 
@@ -659,7 +659,7 @@ factrix/
 ├── _axis.py                 # FactorScope / FactorDensity / DataStructure / Tier + spec-metadata
 │                            #   enums (Aggregation / SpecRole / InputShape / OutputShape)
 ├── _codes.py                # WarningCode StrEnum
-├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, InsufficientSampleError, UnknownEstimatorError, UserInputError}
+├── _errors.py               # flat hierarchy: FactrixError → {IncompatibleAxisError, IncompatibleInferenceError, InsufficientSampleError, UserInputError}
 ├── _metric_index.py         # MetricSpec + @metric-registry SSOT (spec_by_name / list_metrics / public_specs / metric_spec)
 ├── _dag.py                  # DagExecutor — MetricSpec.requires / batchable dispatch (+ CycleError)
 ├── _results.py              # EvaluationResult / MetricResult / Warning dataclasses

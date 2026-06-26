@@ -40,17 +40,17 @@ All factrix-raised exceptions inherit from `FactrixError`, so a single
 ```
 FactrixError                       # base
 ├── IncompatibleAxisError          # (scope, density, metric) is not a legal cell
+├── IncompatibleInferenceError     # inference= outside the metric's applicable-inference allowlist
 ├── InsufficientSampleError        # T below SampleThreshold on a TIMESERIES/PANEL procedure
-├── UnknownEstimatorError          # lookup miss in functional estimator namespace
 └── UserInputError                 # named-set typo / type mismatch / dataset schema error
 ```
 
 | Exception | When you see it | What it carries |
 |---|---|---|
 | `IncompatibleAxisError` | `(scope, density, metric)` is not a legal cell | — |
+| `IncompatibleInferenceError` | `inference=` outside the metric's `applicable_inference` allowlist | `.func_name`, `.value`, `.applicable` |
 | `InsufficientSampleError` | `T` below the procedure floor | `.actual_periods`, `.required_periods` |
-| `UnknownEstimatorError` | `get_estimator` lookup miss | — |
-| `UserInputError` | Unknown metric / estimator, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
+| `UserInputError` | Unknown metric, column not in data, wrong type | structured `.field`, `.value`, `.candidates`, `.suggestions`, `.expected`, `.docs_url` |
 
 ---
 
@@ -153,6 +153,11 @@ Autodoc anchors for cross-references of the form `[`FactrixError`][factrix.Factr
 ### Structural and sample failures
 
 ::: factrix.IncompatibleAxisError
+    options:
+      show_root_toc_entry: false
+      heading_level: 4
+
+::: factrix.IncompatibleInferenceError
     options:
       show_root_toc_entry: false
       heading_level: 4
