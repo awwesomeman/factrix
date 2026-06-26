@@ -151,17 +151,22 @@ def evaluate(
             rejected. Stamped on every :class:`EvaluationResult` as
             ``forward_periods`` and injected into each metric (surfaced in
             ``result.metrics[label].metadata["forward_periods"]``).
-        strict: When ``True`` (default), raise if any metric is
-            inapplicable to the data — both apply-time short-circuits and
-            structure mismatches (a metric whose ``cell.structure``
-            disagrees with the data, e.g. a PANEL metric on TIMESERIES
-            data). When ``False``, keep those as NaN outputs with attached
-            warnings: a structure-mismatched metric is *not executed* and
-            surfaces a NaN ``MetricResult`` with
-            ``metadata["reason"]="structure_mismatch"`` plus a
-            ``WarningCode.STRUCTURE_MISMATCH`` warning, rather than
-            computing a numerically real but structurally invalid value.
-            Config-time / construct-time failures always raise.
+        strict: When ``True`` (default), raise if a metric that *fits* the
+            data could not produce a value — a data shortage
+            (``insufficient_*``), a missing input / config (``no_*``), or a
+            structure mismatch (a metric whose ``cell.structure`` disagrees
+            with the data, e.g. a PANEL metric on TIMESERIES data). A
+            ``not_applicable*`` type-routing verdict (the metric's *type* does
+            not fit this factor, e.g. a continuous-magnitude metric on a
+            discrete ±k signal) is **not** a strict failure even under
+            ``True``: it surfaces as a NaN ``MetricResult`` with
+            ``is_applicable=False`` and ``metadata["reason"]`` while the
+            applicable metrics in the same call still return — so a mixed
+            battery is not aborted by one inapplicable metric. When
+            ``strict=False``, *every* such case (including data shortages and
+            structure mismatches) is kept as a NaN output with attached
+            warnings instead of raising. Config-time / construct-time
+            failures always raise.
 
     Returns:
         ``dict[str, EvaluationResult]`` keyed by factor column name, in
@@ -630,17 +635,35 @@ def _build_nodes(
     return nodes, label_to_node, node_kwargs
 
 
+def _is_type_routing_reason(reason: object) -> bool:
+    """True for a ``not_applicable*`` short-circuit reason.
+
+    A ``not_applicable*`` outcome means the metric's *type* does not fit this
+    factor (e.g. a continuous-magnitude metric on a discrete ±k signal) — the
+    type-routing verdict, not a failure. ``strict=True`` does not hard-fail on
+    it: in a mixed battery an inapplicable metric is expected, and aborting
+    would discard the applicable results too. Data shortages (``insufficient_*``)
+    and missing input / config (``no_*``) remain strict failures — there the
+    metric *fits* but the data or call is deficient, which is worth failing loud.
+    """
+    return isinstance(reason, str) and reason.startswith("not_applicable")
+
+
 def _enforce_strict(label_outputs: "dict[str, MetricResult]") -> None:
-    """Raise when any requested metric could not produce a value (``strict=True``).
+    """Raise when a requested metric that *fits* the data could not produce a value.
 
     Apply-time short-circuits surface as a ``MetricResult`` with NaN ``value``
-    and a ``metadata['reason']`` (panel missing data / sample / upstream skip).
-    Config-time / construct-time failures already raise upstream of ``strict``.
+    and a ``metadata['reason']``. Data-shortage / missing-input reasons raise
+    under ``strict=True``; ``not_applicable*`` type-routing verdicts do not
+    (see :func:`_is_type_routing_reason`). Config-time / construct-time failures
+    already raise upstream of ``strict``.
     """
     failed = [
         (label, str(out.metadata.get("reason")))
         for label, out in label_outputs.items()
-        if math.isnan(out.value) and out.metadata.get("reason")
+        if math.isnan(out.value)
+        and out.metadata.get("reason")
+        and not _is_type_routing_reason(out.metadata.get("reason"))
     ]
     if failed:
         detail = "; ".join(f"{label}: {reason}" for label, reason in failed)

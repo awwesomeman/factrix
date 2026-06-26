@@ -223,6 +223,29 @@ class TestStrict:
         assert status["is_applicable"] is False
         assert status["reason"] == "insufficient_ic_periods"
 
+    def test_strict_true_keeps_not_applicable_without_aborting(self):
+        # A discrete ±k signal makes a continuous-magnitude metric
+        # not_applicable; under default strict=True the battery must still
+        # return the applicable metric rather than raising on the inapplicable
+        # one (type-routing verdict, not a failure).
+        from factrix.metrics import event_ic
+        from factrix.metrics.caar import caar
+
+        panel = _panel(n_assets=30, n_dates=120).with_columns(
+            (pl.col("factor") > 0.5).cast(pl.Float64).alias("factor")
+        )
+        with pytest.warns(UserWarning):  # caar's thin-sample advisory
+            er = fx.evaluate(
+                panel,
+                metrics={"caar": caar(), "event_ic": event_ic()},
+                factor_cols=["factor"],
+                forward_periods=5,
+            )["factor"]
+        assert er.metrics["caar"].is_applicable
+        assert not math.isnan(er.metrics["caar"].value)
+        assert er.metrics["event_ic"].is_applicable is False
+        assert er.metrics["event_ic"].reason == "not_applicable_discrete_signal"
+
 
 class TestStrictStructureSoftening:
     def _single_asset_panel(self):
