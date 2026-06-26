@@ -21,18 +21,34 @@ _PAIRWISE_COLS = [
     "stat",
     "p_raw",
     "p_adj",
+    "stat_type",
+    "reference_dist",
+    "df_num",
+    "df_denom",
+    "multiplicity",
 ]
 
 
-def test_two_slice_returns_one_row() -> None:
+@pytest.mark.parametrize(
+    ("method", "reference_dist", "multiplicity"),
+    [("bootstrap", "bootstrap_null", "romano_wolf"), ("analytic", "chi2", "holm")],
+)
+def test_two_slice_returns_one_row(
+    method: str, reference_dist: str, multiplicity: str
+) -> None:
     df = build_disjoint_period_panel(
         seed=1, spans={"bull": (60, 0.1), "bear": (60, 0.1)}, label_col="regime"
     )
     out = slice_period_pairwise_test(
-        df, ic(), by="regime", factor_col="factor", rng_seed=1
+        df, ic(), by="regime", factor_col="factor", method=method, rng_seed=1
     )
     assert out.height == 1
     assert out.columns == _PAIRWISE_COLS
+    assert out["stat_type"][0] == "wald"
+    assert out["reference_dist"][0] == reference_dist
+    assert out["df_num"][0] == 1
+    assert out["df_denom"][0] is None
+    assert out["multiplicity"][0] == multiplicity
 
 
 def test_three_slice_returns_three_rows() -> None:

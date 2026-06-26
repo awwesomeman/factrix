@@ -281,12 +281,18 @@ def slice_period_pairwise_test(
 
     Returns:
         Long-form ``pl.DataFrame`` with columns ``(slice_a, slice_b,
-        n_periods_a, n_periods_b, mean_diff, stat, p_raw, p_adj)``; one row
-        per ordered slice pair ``(a, b)``. ``n_periods_*`` are each slice's
-        own date counts (disjoint spans differ in length). ``mean_diff`` is
-        the signed ``μ_a − μ_b``; ``stat`` the studentized contrast on a
-        χ²₁ scale; ``p_adj`` the family-wise correction (Romano-Wolf for
-        ``"bootstrap"``, Holm for ``"analytic"``).
+        n_periods_a, n_periods_b, mean_diff, stat, p_raw, p_adj, stat_type,
+        reference_dist, df_num, df_denom, multiplicity)``; one row per
+        ordered slice pair ``(a, b)``. ``n_periods_*`` are each slice's own
+        date counts (disjoint spans differ in length). ``mean_diff`` is the
+        signed ``μ_a − μ_b``; ``stat`` the studentized contrast on a χ²₁
+        scale. The mechanism columns disclose the path (constant across
+        rows): ``stat_type="wald"``, ``df_num=1`` and ``df_denom=None``
+        (the disjoint-sample reference has no finite-cluster denominator);
+        ``reference_dist`` is ``"bootstrap_null"`` (``method="bootstrap"``)
+        or ``"chi2"`` (``method="analytic"``, asymptotic χ²₁); and
+        ``multiplicity`` the family-wise correction (``"romano_wolf"`` for
+        ``"bootstrap"``, ``"holm"`` for ``"analytic"``).
 
     Raises:
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
@@ -353,6 +359,9 @@ def slice_period_pairwise_test(
             p_raw.append(p)
         p_adj = holm_step_down(p_raw)
 
+    n_pairs = len(pairs)
+    reference_dist = "bootstrap_null" if method == "bootstrap" else "chi2"
+    multiplicity = "romano_wolf" if method == "bootstrap" else "holm"
     return pl.DataFrame(
         {
             "slice_a": [labels[i] for i, _ in pairs],
@@ -363,6 +372,11 @@ def slice_period_pairwise_test(
             "stat": stats,
             "p_raw": p_raw,
             "p_adj": list(p_adj),
+            "stat_type": ["wald"] * n_pairs,
+            "reference_dist": [reference_dist] * n_pairs,
+            "df_num": [1] * n_pairs,
+            "df_denom": [None] * n_pairs,
+            "multiplicity": [multiplicity] * n_pairs,
         }
     )
 
@@ -474,12 +488,17 @@ def slice_period_joint_test(
             (ignored by ``"analytic"``).
 
     Returns:
-        Single-row ``pl.DataFrame`` with columns
-        ``(k_slices, df, stat, p_value)``. ``df`` is the restriction rank
-        (``K-1``); ``stat`` the joint Wald χ²; ``p_value`` from the χ²_{K-1}
-        survival function (``"analytic"``) or the bootstrap null
-        (``"bootstrap"``). No ``multiple_testing`` — a single omnibus has
-        no family-internal correction.
+        Single-row ``pl.DataFrame`` with columns ``(k_slices, stat,
+        p_value, stat_type, reference_dist, df_num, df_denom,
+        multiplicity)``. ``stat`` is the joint Wald statistic. The mechanism
+        columns
+        disclose the reference: ``stat_type="wald"``, ``df_num=K-1``
+        (restriction rank) and ``df_denom=None`` (disjoint samples have no
+        finite-cluster denominator); ``reference_dist`` is ``"chi2"`` —
+        ``p_value`` from the χ²_{K-1} survival function — for
+        ``method="analytic"``, or ``"bootstrap_null"`` for
+        ``method="bootstrap"``. ``multiplicity`` is ``None`` — a single
+        omnibus has no family-internal correction.
 
     Raises:
         UserInputError: ``metric`` is not a metric instance, ``factor_col``
@@ -512,8 +531,12 @@ def slice_period_joint_test(
     return pl.DataFrame(
         {
             "k_slices": [k],
-            "df": [k - 1],
             "stat": [stat],
             "p_value": [p],
+            "stat_type": ["wald"],
+            "reference_dist": ["bootstrap_null" if method == "bootstrap" else "chi2"],
+            "df_num": [k - 1],
+            "df_denom": [None],
+            "multiplicity": [None],
         }
     )

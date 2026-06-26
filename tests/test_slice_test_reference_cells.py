@@ -75,5 +75,5 @@ def test_joint_sector_wald_nw_cluster() -> None:
 
     out = slice_joint_test(panel, ic(), by="sector", factor_col="factor")
     assert out.height == 1
-    assert out["df"][0] == 2
+    assert out["df_num"][0] == 2
     assert out["p_value"][0] < 0.05

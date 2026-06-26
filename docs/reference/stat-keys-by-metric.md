@@ -196,9 +196,9 @@ Pesaran-Timmermann `z` statistic (`stat_type="z"`), tested one-sided.
 - *descriptive*: `p_correct` (realised hit rate), `p_expected`
   (hit rate under directional independence), `p_up_pred` (fraction of
   positive predictions), `p_up_real` (fraction of positive realisations),
-  `cross_sectional_r` (within-date ICC of the sign-hit indicator, `None`
-  on a single-asset series), `cross_sectional_n_eff` (mean assets-per-date),
-  `cross_sectional_adjusted` (whether the Kolari-Pynnönen deflation fired).
+  `kolari_pynnonen_r` (within-date ICC of the sign-hit indicator, `None`
+  on a single-asset series), `kolari_pynnonen_n_eff` (mean assets-per-date),
+  `kolari_pynnonen_applied` (whether the Kolari-Pynnönen deflation fired).
 - *descriptive* (conditional, adjustment applied): `stat_uncorrected`
   (the raw `S_n` before the cross-sectional-correlation deflation).
 
@@ -253,8 +253,9 @@ Pre/post-event return profile; descriptive.
 
 - *descriptive*: `per_offset` (dict `offset → {mean, median, p25, p75,
   hit_rate, n}`), `interpretation`.
-- *descriptive*: `p_value` (sentinel; not a test result — kept for
-  uniform `MetricResult` shape).
+- `p_value` is `None` — no hypothesis test runs; the headline `value` is
+  the pre-event leakage score, and per-horizon `hit_rate` is a raw
+  fraction.
 
 ### `monotonicity` (`factrix.metrics.monotonicity`)
 
@@ -355,7 +356,7 @@ Descriptive; no test.
   `bars_to_mfe_mean`, `bars_to_mae_mean`, `n_events`.
 - *descriptive* (conditional, when σ-normalised inputs available):
   `mfe_z_p50`, `mae_z_p75`, `mfe_mae_ratio_z`, `n_events_z`.
-- *descriptive*: `p_value` (sentinel).
+- `p_value` is `None` — descriptive metric, no hypothesis test.
 ### `oos` (`factrix.metrics.oos_decay`)
 
 #### `oos_decay` (emits `MetricResult.name = "oos_decay"`)
@@ -439,7 +440,8 @@ Two complementary methods:
 
 - *primary*: `p_value` — Method A.
 - *secondary-test* (conditional, Method B ran):
-  `beta_pos`, `beta_neg`, `p_wald_slopes`.
+  `method_b`, `stat_type_method_b`, `beta_pos`, `beta_neg`,
+  `p_wald_slopes`.
 - *descriptive*: `beta_long`, `beta_short`, `abs_short_over_long`,
   `n_pos`, `n_neg`, `n_zero`, `n_periods`, `nw_lags_used`,
   `method_b_skipped` (conditional), `intercept` (conditional),

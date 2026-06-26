@@ -11,8 +11,9 @@ Metrics:
 
 Notes:
     **Pipeline.** Per-event return profile across `k` offsets
-    (per-event step); descriptive curve plus binomial test on
-    per-horizon hit rate.
+    (per-event step); a descriptive curve only — no hypothesis test, so
+    ``p_value`` is ``None`` and the per-horizon ``hit_rate`` in
+    ``per_offset`` is a raw fraction, not a tested statistic.
 """
 
 from __future__ import annotations
@@ -109,6 +110,7 @@ def event_around_return(
         return _short_circuit_output(
             "event_around_return",
             "no_price_data",
+            descriptive=True,
             per_offset={},
         )
 
@@ -140,7 +142,7 @@ def event_around_return(
     leakage = float(np.mean(pre_leakage_vals)) if pre_leakage_vals else 0.0
 
     return MetricResult(
-        p_value=1.0,
+        p_value=None,
         value=leakage,
         metadata={
             "per_offset": per_offset,

@@ -10,7 +10,17 @@ from factrix.metrics import ic, monotonicity
 
 from tests._slice_panel import build_labelled_raw_panel
 
-_JOINT_COLS = ["n_obs", "k_slices", "df", "stat", "p_value"]
+_JOINT_COLS = [
+    "n_obs",
+    "k_slices",
+    "stat",
+    "p_value",
+    "stat_type",
+    "reference_dist",
+    "df_num",
+    "df_denom",
+    "multiplicity",
+]
 
 
 def test_two_slice_returns_single_row() -> None:
@@ -22,7 +32,11 @@ def test_two_slice_returns_single_row() -> None:
     assert out.columns == _JOINT_COLS
     assert out["n_obs"][0] == 120
     assert out["k_slices"][0] == 2
-    assert out["df"][0] == 1
+    assert out["df_num"][0] == 1
+    assert out["stat_type"][0] == "wald"
+    assert out["reference_dist"][0] == "F"
+    assert out["df_denom"][0] == 119
+    assert out["multiplicity"][0] is None
 
 
 def test_three_slice_df_equals_k_minus_one() -> None:
@@ -34,7 +48,7 @@ def test_three_slice_df_equals_k_minus_one() -> None:
     )
     out = slice_joint_test(df, ic(), by="sector", factor_col="factor")
     assert out["k_slices"][0] == 3
-    assert out["df"][0] == 2
+    assert out["df_num"][0] == 2
 
 
 def test_detects_omnibus_signal() -> None:

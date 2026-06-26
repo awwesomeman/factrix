@@ -213,6 +213,7 @@ def monotonicity(
             n_obs_axis="periods",
             stat=t,
             metadata={
+                "method": "t-test on per-period signed monotonicity",
                 "stat_type": "t",
                 "h0": "mu=0",
                 "mean_signed": mean_mono,
