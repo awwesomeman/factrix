@@ -36,7 +36,7 @@ class PerDateSeries(Protocol):
     (IC), per-date Fama-MacBeth lambda, per-date hit indicator, etc.).
     """
 
-    def __call__(self, df: pl.DataFrame, /) -> pl.DataFrame: ...
+    def __call__(self, data: pl.DataFrame, /) -> pl.DataFrame: ...
 
 
 def per_date_series_rename(source_col: str) -> PerDateSeries:
@@ -49,8 +49,8 @@ def per_date_series_rename(source_col: str) -> PerDateSeries:
     etc.) define their own ``per_date_series`` instead.
     """
 
-    def _per_date(df: pl.DataFrame) -> pl.DataFrame:
-        return df.select(
+    def _per_date(data: pl.DataFrame) -> pl.DataFrame:
+        return data.select(
             [pl.col("date"), pl.col(source_col).alias("value")]
         ).drop_nulls()
 
@@ -70,7 +70,7 @@ def resolve_per_date_series(metric: Callable) -> PerDateSeries:
         raise TypeError(
             f"metric {metric.__name__!r} is not slice-test-eligible: "
             f"module {metric.__module__!r} does not declare a top-level "
-            f"`per_date_series(df) -> pl.DataFrame[(date, value)]` callable."
+            f"`per_date_series(data) -> pl.DataFrame[(date, value)]` callable."
         )
     return fn
 

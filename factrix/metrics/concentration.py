@@ -63,7 +63,7 @@ __all__ = [
     ),
 )
 def top_concentration(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     q_top: float = 0.2,
     factor_col: str = "factor",
@@ -77,7 +77,7 @@ def top_concentration(
     independent bets.
 
     Args:
-        df: Panel with ``date, asset_id, factor`` (and ``forward_return``
+        data: Panel with ``date, asset_id, factor`` (and ``forward_return``
             if ``weight_by="alpha_contribution"``).
         q_top: Fraction of top-ranked stocks to include (default 0.2 =
             top 20%).
@@ -129,7 +129,7 @@ def top_concentration(
         >>> result.name == ""
         True
     """
-    if weight_by == "alpha_contribution" and return_col not in df.columns:
+    if weight_by == "alpha_contribution" and return_col not in data.columns:
         return _short_circuit_output(
             "top_concentration",
             "no_return_column",
@@ -137,7 +137,7 @@ def top_concentration(
             weight_by=weight_by,
         )
 
-    filtered = _sample_non_overlapping(df, forward_periods)
+    filtered = _sample_non_overlapping(data, forward_periods)
     tie_ratio = _compute_tie_ratio(filtered, factor_col)
 
     q1 = filtered.with_columns(
@@ -172,7 +172,7 @@ def top_concentration(
 
     # Raw (pre-sampling) date count: the axis the stride-scaled periods floors
     # are calibrated against.
-    n_raw_periods = df["date"].n_unique()
+    n_raw_periods = data["date"].n_unique()
     sc = _enforce_scaled_floor(
         "top_concentration",
         n_raw_periods,

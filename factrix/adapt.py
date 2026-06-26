@@ -17,11 +17,11 @@ Usage::
     from factrix.adapt import adapt
 
     # Minimal: just price panel
-    raw = adapt(df, date="date", asset_id="ticker", price="close_adj")
+    raw = adapt(data, date="date", asset_id="ticker", price="close_adj")
 
     # Full OHLCV — unlocks technical / liquidity factor generators
     raw = adapt(
-        df,
+        data,
         date="date", asset_id="ticker", price="close_adj",
         open="open_adj", high="high_adj", low="low_adj", volume="volume",
     )
@@ -42,24 +42,24 @@ if TYPE_CHECKING:
 type AdaptInput = pl.DataFrame | pl.LazyFrame | pd.DataFrame
 
 
-def _to_polars(df: AdaptInput) -> pl.DataFrame | pl.LazyFrame:
+def _to_polars(data: AdaptInput) -> pl.DataFrame | pl.LazyFrame:
     """Coerce ``adapt`` input to polars, preserving ``LazyFrame``.
 
     ``pl.DataFrame`` / ``pl.LazyFrame`` pass through unchanged.
     ``pd.DataFrame`` is converted via ``pl.from_pandas`` (pandas has
     no lazy equivalent).
     """
-    if isinstance(df, pl.DataFrame | pl.LazyFrame):
-        return df
-    if _is_pandas_dataframe(df):
-        return pl.from_pandas(df)
+    if isinstance(data, pl.DataFrame | pl.LazyFrame):
+        return data
+    if _is_pandas_dataframe(data):
+        return pl.from_pandas(data)
     raise TypeError(
-        f"adapt: expected pl.DataFrame, pl.LazyFrame, or pd.DataFrame; got {type(df).__name__}"
+        f"adapt: expected pl.DataFrame, pl.LazyFrame, or pd.DataFrame; got {type(data).__name__}"
     )
 
 
 def adapt(
-    df: AdaptInput,
+    data: AdaptInput,
     *,
     date: str = "date",
     asset_id: str = "asset_id",
@@ -80,7 +80,7 @@ def adapt(
     columns pass through unchanged.
 
     Args:
-        df: Input frame — ``pl.DataFrame``, ``pl.LazyFrame``, or
+        data: Input frame — ``pl.DataFrame``, ``pl.LazyFrame``, or
             ``pd.DataFrame``.
         date: User's date column name.
         asset_id: User's asset identifier column name.
@@ -106,12 +106,12 @@ def adapt(
         names. ``pd.DataFrame`` input returns ``pl.DataFrame``.
 
     Raises:
-        TypeError: If *df* is none of ``pl.DataFrame``, ``pl.LazyFrame``,
+        TypeError: If *data* is none of ``pl.DataFrame``, ``pl.LazyFrame``,
             ``pd.DataFrame``.
         ValueError: If any specified source column does not exist.
     """
-    df = _to_polars(df)
-    schema = df.collect_schema()
+    data = _to_polars(data)
+    schema = data.collect_schema()
     columns = schema.names()
 
     renames: list[tuple[str, str | None]] = [
@@ -138,7 +138,7 @@ def adapt(
         mapping[source] = canonical
 
     if mapping:
-        df = df.rename(mapping)
+        data = data.rename(mapping)
 
     # Promote pl.Date → pl.Datetime("ms") losslessly so downstream joins
     # (regime_labels / spanning_base_spreads / user panels) can share a
@@ -146,19 +146,19 @@ def adapt(
     # Other Datetime variants (any time_unit, any TZ) pass through — the
     # library is TZ-agnostic and trusts the caller's precision choice.
     if schema.get(date) == pl.Date:
-        df = df.with_columns(pl.col("date").cast(pl.Datetime("ms")))
+        data = data.with_columns(pl.col("date").cast(pl.Datetime("ms")))
 
     if fill_forward:
         # Map every non-finite value (NaN and ±inf) to null in one pass, then
         # forward-fill per asset. fill_nan alone leaves ±inf untouched, and inf
         # survives the downstream is_not_null() drop in compute_forward_return,
         # leaking into return math (e.g. a zero entry price yields inf return).
-        df = (
-            df.sort(["asset_id", "date"])
+        data = (
+            data.sort(["asset_id", "date"])
             .with_columns(
                 pl.when(cs.numeric().is_finite()).then(cs.numeric()).otherwise(None)
             )
             .with_columns(cs.numeric().forward_fill().over("asset_id"))
         )
 
-    return df
+    return data

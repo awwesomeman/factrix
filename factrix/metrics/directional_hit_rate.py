@@ -63,7 +63,7 @@ __all__ = [
     ),
 )
 def directional_hit_rate(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -76,7 +76,7 @@ def directional_hit_rate(
     PT independence null.
 
     Args:
-        df: Panel with ``date, asset_id``, ``factor_col`` and
+        data: Panel with ``date, asset_id``, ``factor_col`` and
             ``return_col``. Pooled across all ``(date, asset)``
             observations on the non-overlapping subsample.
         forward_periods: Sampling stride for non-overlapping dates;
@@ -158,14 +158,14 @@ def directional_hit_rate(
         >>> result.name == ""
         True
     """
-    if return_col not in df.columns:
+    if return_col not in data.columns:
         return _short_circuit_output(
             "directional_hit_rate",
             "no_return_column",
             missing_column=return_col,
         )
 
-    sampled = _sample_non_overlapping(df, forward_periods)
+    sampled = _sample_non_overlapping(data, forward_periods)
     paired = sampled.select(
         pl.col("date"),
         pl.col(factor_col).sign().alias("_x_sign"),

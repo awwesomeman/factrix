@@ -145,7 +145,7 @@ def _build_k_spread_series(
     sample_threshold=_k_spread_threshold,
 )
 def k_spread(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     k: int = 5,
     factor_col: str = "factor",
@@ -161,7 +161,7 @@ def k_spread(
     tested across time.
 
     Args:
-        df: Panel with ``date, asset_id``, ``factor_col`` and
+        data: Panel with ``date, asset_id``, ``factor_col`` and
             ``return_col``.
         forward_periods: Sampling stride for non-overlapping dates;
             match the forward-return horizon.
@@ -221,7 +221,7 @@ def k_spread(
     if k < 1:
         raise ValueError(f"k must be >= 1; got {k}")
     _check_applicable_inference(inference, applicable_inference, func_name="k_spread")
-    if return_col not in df.columns:
+    if return_col not in data.columns:
         return _short_circuit_output(
             "k_spread",
             "no_return_column",
@@ -233,7 +233,7 @@ def k_spread(
     # overcount and the bottom-leg cutoff (``_rank > _n_date - k``) would point
     # past the last real rank — silently shrinking or emptying the short leg.
     # forward_return is null on the last ``forward_periods`` rows per asset.
-    sampled = _sample_non_overlapping(df, forward_periods)
+    sampled = _sample_non_overlapping(data, forward_periods)
     series, clean = _build_k_spread_series(sampled, k, factor_col, return_col)
     n_assets = clean["asset_id"].n_unique()
     # Real per-date asset count (not the universe-wide unique count): both
@@ -268,7 +268,7 @@ def k_spread(
     n = len(spread_vals)
     sc = _enforce_scaled_floor(
         "k_spread",
-        df["date"].n_unique(),
+        data["date"].n_unique(),
         MIN_PORTFOLIO_PERIODS_HARD,
         forward_periods,
         "insufficient_portfolio_periods",
@@ -294,7 +294,7 @@ def k_spread(
     # build it once on the unsampled panel.
     full_series: pl.DataFrame | None = None
     if isinstance(inference, NeweyWest):
-        full_series, _ = _build_k_spread_series(df, k, factor_col, return_col)
+        full_series, _ = _build_k_spread_series(data, k, factor_col, return_col)
     mean_spread, t, p, sig_method, sig_extra, sig_codes = (
         _spread_significance_with_inference(
             inference,

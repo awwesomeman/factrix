@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class OrthogonalizeResult:
     """Result of factor orthogonalization with attribution info."""
 
-    df: pl.DataFrame
+    data: pl.DataFrame
     mean_betas: dict[str, float] = field(default_factory=dict)
     mean_r_squared: float = 0.0
     n_dates: int = 0
@@ -53,7 +53,7 @@ def orthogonalize_factor(
             If None, uses all columns except ``date`` and ``asset_id``.
 
     Returns:
-        OrthogonalizeResult with: ``df`` (factor_df with ``factor_col``
+        OrthogonalizeResult with: ``data`` (factor_df with ``factor_col``
         replaced by the residual and ``factor_pre_ortho`` preserving the
         original value), ``mean_betas`` (average beta per base factor
         across dates), and ``mean_r_squared`` (average R² across dates).
@@ -73,7 +73,7 @@ def orthogonalize_factor(
         ...     pl.col("price").rank().over("date").alias("size")
         ... ).select("date", "asset_id", "size")
         >>> result = orthogonalize_factor(factor_df, base, base_cols=["size"])
-        >>> "factor_pre_ortho" in result.df.columns
+        >>> "factor_pre_ortho" in result.data.columns
         True
         >>> isinstance(result.mean_r_squared, float)
         True
@@ -85,7 +85,7 @@ def orthogonalize_factor(
         logger.warning(
             "orthogonalize_factor: no base_cols specified, returning unchanged"
         )
-        return OrthogonalizeResult(df=factor_df)
+        return OrthogonalizeResult(data=factor_df)
 
     # WHY: join enforces date × asset_id alignment.
     merged = factor_df.join(
@@ -141,7 +141,7 @@ def orthogonalize_factor(
 
     if not residuals_list:
         logger.warning("orthogonalize_factor: no valid dates after join")
-        return OrthogonalizeResult(df=factor_df)
+        return OrthogonalizeResult(data=factor_df)
 
     residuals_df = pl.concat(residuals_list)
 
@@ -186,7 +186,7 @@ def orthogonalize_factor(
         mean_r2 = float(np.mean(all_r2))
 
     return OrthogonalizeResult(
-        df=result,
+        data=result,
         mean_betas=mean_betas,
         mean_r_squared=mean_r2,
         n_dates=n_dates,

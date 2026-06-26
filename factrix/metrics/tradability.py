@@ -87,7 +87,7 @@ def _turnover_sample_threshold(self: MetricBase) -> SampleThreshold:
     sample_threshold=_turnover_sample_threshold,
 )
 def turnover(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
     forward_periods: int = 1,
     quantile: float | None = None,
@@ -118,7 +118,7 @@ def turnover(
     window with the forward-return horizon used elsewhere in the profile.
 
     Args:
-        df: Panel with ``date, asset_id, factor``.
+        data: Panel with ``date, asset_id, factor``.
         factor_col: Name of the factor column. Defaults to ``"factor"``.
         forward_periods: Sampling stride in periods — should match the
             forward-return horizon the factor is being evaluated against.
@@ -178,7 +178,7 @@ def turnover(
     if forward_periods < 1:
         raise ValueError(f"forward_periods must be ≥ 1, got {forward_periods!r}")
 
-    all_dates = df["date"].unique().sort()
+    all_dates = data["date"].unique().sort()
     # Need ≥ 2 non-overlapping pairs so std(ρ) is defined; that requires
     # ≥ 3 sampled dates (Hansen & Hodrick 1980), i.e. ≥ 2·h + 1 raw dates.
     min_required = _turnover_min_dates(forward_periods)
@@ -191,7 +191,7 @@ def turnover(
             forward_periods=forward_periods,
         )
 
-    sampled_df = _sample_non_overlapping(df, forward_periods)
+    sampled_df = _sample_non_overlapping(data, forward_periods)
 
     ranked = sampled_df.select(
         "date",
@@ -263,7 +263,7 @@ def turnover(
     sample_threshold=SampleThreshold(min_periods=2),
 )
 def notional_turnover(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
     *,
     n_groups: int = 10,
@@ -291,7 +291,7 @@ def notional_turnover(
     ``breakeven_cost = spread / (2 × turnover) × 1e4`` consistent.
 
     Args:
-        df: Panel with ``date, asset_id, factor``.
+        data: Panel with ``date, asset_id, factor``.
         factor_col: Name of the factor column.
         n_groups: Number of quantile groups (default ``10`` = deciles).
             Must be ≥ 3 so top and bottom are distinct buckets.
@@ -342,9 +342,9 @@ def notional_turnover(
         )
 
     if forward_periods > 1:
-        df = _sample_non_overlapping(df, forward_periods)
+        data = _sample_non_overlapping(data, forward_periods)
 
-    dates = df["date"].unique().sort()
+    dates = data["date"].unique().sort()
     sc = _enforce_min_floor(
         notional_turnover,
         "notional_turnover",
@@ -357,7 +357,7 @@ def notional_turnover(
 
     top_g = n_groups - 1
     bot_g = 0
-    grouped = _assign_quantile_groups(df, factor_col, n_groups).select(
+    grouped = _assign_quantile_groups(data, factor_col, n_groups).select(
         "date",
         "asset_id",
         (pl.col("_group") == top_g).alias("is_top"),

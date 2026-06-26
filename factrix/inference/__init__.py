@@ -8,7 +8,7 @@ metric accept?" is answered per-metric (e.g. ``ic`` accepts
 ``NON_OVERLAPPING`` / ``NEWEY_WEST``).
 
 This release scopes the namespace to the **series-mean** family
-(``compute(df, *, value_col, forward_periods)``). Slice / panel methods
+(``compute(data, *, value_col, forward_periods)``). Slice / panel methods
 keep their multivariate compute in ``factrix.slicing`` until they move
 onto the same ``metric(inference=...)`` path; they are deliberately not
 listed here to avoid re-creating a heterogeneous discovery surface.

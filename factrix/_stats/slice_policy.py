@@ -53,13 +53,13 @@ def _detect_strict_subsets(
     """
     key_cols = tuple(key_cols)
     key_sets: dict[str, frozenset[tuple]] = {}
-    for label, df in slices.items():
-        missing = [c for c in key_cols if c not in df.columns]
+    for label, data in slices.items():
+        missing = [c for c in key_cols if c not in data.columns]
         if missing:
             raise ValueError(
-                f"slice {label!r}: missing key columns {missing}; have {df.columns}."
+                f"slice {label!r}: missing key columns {missing}; have {data.columns}."
             )
-        keys = df.select(list(key_cols)).unique().rows()
+        keys = data.select(list(key_cols)).unique().rows()
         key_sets[label] = frozenset(keys)
 
     labels = list(slices.keys())

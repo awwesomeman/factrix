@@ -64,7 +64,7 @@ _EQ_CELL = cell(None, FactorDensity.SPARSE, structure=None)
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def event_hit_rate(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -74,7 +74,7 @@ def event_hit_rate(
     The static event floor (sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD)) gates the hit-rate binomial test on the count of non-zero (event) observations.
 
     Args:
-        df: Panel with event density and forward return.
+        data: Panel with event density and forward return.
 
     Returns:
         MetricResult with value=hit_rate, stat=z from binomial test.
@@ -101,7 +101,7 @@ def event_hit_rate(
         >>> result.name == ""
         True
     """
-    events = df.filter(pl.col(factor_col) != 0)
+    events = data.filter(pl.col(factor_col) != 0)
 
     n = len(events)
     sc = _enforce_min_floor(
@@ -146,7 +146,7 @@ def event_hit_rate(
     requires_continuous_magnitude=True,
 )
 def event_ic(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -166,7 +166,7 @@ def event_ic(
     (not all ±1). Profile auto-skips when variance is absent.
 
     Args:
-        df: Panel with event density and forward return.
+        data: Panel with event density and forward return.
 
     Returns:
         MetricResult with value=Spearman rho, stat=z from Fisher transform.
@@ -196,7 +196,7 @@ def event_ic(
     """
     from scipy import stats as sp_stats
 
-    events = df.filter(pl.col(factor_col) != 0)
+    events = data.filter(pl.col(factor_col) != 0)
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -205,7 +205,7 @@ def event_ic(
     if sc is not None:
         return sc
 
-    if _event_signal_is_discrete(df, factor_col):
+    if _event_signal_is_discrete(data, factor_col):
         # Signal is discrete {±1}: event_ic is not defined (no magnitude variance).
         # Flagged as "not_applicable" rather than "insufficient" — this is by
         # design, not a shortfall; profiles suppress the field (→ None).
@@ -247,7 +247,7 @@ def event_ic(
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def profit_factor(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -260,7 +260,7 @@ def profit_factor(
     means gross gains exceed gross losses across all events.
 
     Args:
-        df: Panel with event density and forward return.
+        data: Panel with event density and forward return.
 
     Returns:
         MetricResult with value=profit_factor.
@@ -288,7 +288,7 @@ def profit_factor(
         >>> result.name == ""
         True
     """
-    events = df.filter(pl.col(factor_col) != 0)
+    events = data.filter(pl.col(factor_col) != 0)
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -324,7 +324,7 @@ def profit_factor(
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def event_skewness(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -340,7 +340,7 @@ def event_skewness(
     Also tests H₀: skewness = 0 via D'Agostino's skew test.
 
     Args:
-        df: Panel with event density and forward return.
+        data: Panel with event density and forward return.
 
     Returns:
         MetricResult with value=skewness, stat=z from D'Agostino test.
@@ -371,7 +371,7 @@ def event_skewness(
     """
     from scipy import stats as sp_stats
 
-    events = df.filter(pl.col(factor_col) != 0)
+    events = data.filter(pl.col(factor_col) != 0)
     n = len(events)
 
     sc = _enforce_min_floor(
@@ -419,7 +419,7 @@ def event_skewness(
     sample_threshold=SampleThreshold(),
 )
 def signal_density(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
 ) -> MetricResult:
@@ -440,7 +440,7 @@ def signal_density(
     higher but independence may be weaker.
 
     Args:
-        df: Panel with ``date, asset_id, factor``.
+        data: Panel with ``date, asset_id, factor``.
 
     Returns:
         MetricResult with value = mean bars-per-event across assets.
@@ -463,7 +463,7 @@ def signal_density(
         >>> result.name == ""
         True
     """
-    events = df.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
+    events = data.filter(pl.col(factor_col) != 0).sort(["asset_id", "date"])
     n_events = len(events)
 
     if n_events < 2:
@@ -496,7 +496,7 @@ def signal_density(
         )
 
     # Total bars per asset (from full panel, not just events)
-    bars_per_asset = df.group_by("asset_id").agg(
+    bars_per_asset = data.group_by("asset_id").agg(
         pl.col("date").count().alias("total_bars")
     )
     per_asset = per_asset.join(bars_per_asset, on="asset_id", how="left")

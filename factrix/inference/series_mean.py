@@ -4,7 +4,7 @@ Each member is a frozen dataclass carrying its whole ``compute`` plus
 identity ClassVars (``test`` / ``se`` / ``summary``). The family shares
 one date-aware input contract::
 
-    compute(df: pl.DataFrame, *, value_col: str, forward_periods: int) -> InferenceResult
+    compute(data: pl.DataFrame, *, value_col: str, forward_periods: int) -> InferenceResult
 
 ``compute`` owns date-sort + null-drop (callers pass the raw per-date
 DataFrame). ``NonOverlapping`` strides the cleaned series at
@@ -32,16 +32,16 @@ if TYPE_CHECKING:
     import polars as pl
 
 
-def _clean_series(df: pl.DataFrame, value_col: str) -> pl.Series:
+def _clean_series(data: pl.DataFrame, value_col: str) -> pl.Series:
     """Date-sorted, null-dropped values of ``value_col``.
 
     Order is fixed (sort → drop-null) so the stride / HAC lag math sees a
     time-coherent series regardless of caller row order. Sorting is mean-
     and OLS-invariant but load-bearing for the autocovariance terms.
     """
-    if df["date"].is_sorted():
-        return df[value_col].drop_nulls()
-    return df.sort("date").get_column(value_col).drop_nulls()
+    if data["date"].is_sorted():
+        return data[value_col].drop_nulls()
+    return data.sort("date").get_column(value_col).drop_nulls()
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,11 +67,11 @@ class NonOverlapping:
         return MIN_IC_PERIODS * max(forward_periods, 1)
 
     def compute(
-        self, df: pl.DataFrame, *, value_col: str, forward_periods: int
+        self, data: pl.DataFrame, *, value_col: str, forward_periods: int
     ) -> InferenceResult:
         from factrix._stats import _p_value_from_t, _t_stat_from_array
 
-        vals = _clean_series(df, value_col).to_numpy()
+        vals = _clean_series(data, value_col).to_numpy()
         sampled = vals[::forward_periods]
         n_sampled = len(sampled)
 
@@ -117,12 +117,12 @@ class NeweyWest:
         return MIN_PERIODS_HARD
 
     def compute(
-        self, df: pl.DataFrame, *, value_col: str, forward_periods: int
+        self, data: pl.DataFrame, *, value_col: str, forward_periods: int
     ) -> InferenceResult:
         from factrix._stats import _newey_west_t_test, _resolve_nw_lags
         from factrix._stats.constants import auto_bartlett
 
-        vals = _clean_series(df, value_col).to_numpy()
+        vals = _clean_series(data, value_col).to_numpy()
         n = len(vals)
         nw_lags = (
             _resolve_nw_lags(n, auto_bartlett(n), forward_periods) if n >= 2 else 0
@@ -168,11 +168,11 @@ class HansenHodrick:
         return MIN_PERIODS_HARD
 
     def compute(
-        self, df: pl.DataFrame, *, value_col: str, forward_periods: int
+        self, data: pl.DataFrame, *, value_col: str, forward_periods: int
     ) -> InferenceResult:
         from factrix._stats import _hansen_hodrick_t_test
 
-        vals = _clean_series(df, value_col).to_numpy()
+        vals = _clean_series(data, value_col).to_numpy()
         t_stat, p_value, _, clamped = _hansen_hodrick_t_test(
             vals, forward_periods=forward_periods
         )

@@ -30,14 +30,14 @@ from factrix.metrics._helpers import _attach_drop_stats
     batchable=True,
 )
 def compute_ic(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
 ) -> dict[str, pl.DataFrame]:
     r"""Per-date Spearman Rank information coefficient (IC).
 
     Args:
-        df: Panel with ``date``, ``asset_id``, every name in
+        data: Panel with ``date``, ``asset_id``, every name in
             ``factor_cols``, and ``return_col``.
         factor_cols: Factor column names to score. All factors run in a
             single polars query (one ``with_columns`` + one
@@ -106,7 +106,11 @@ def compute_ic(
     # pre-drop date count is observable. The floor is applied per factor on its
     # own valid-pair count, so the drop stats are per factor, not shared.
     grouped = (
-        df.lazy().with_columns(rank_exprs).group_by("date").agg(agg_exprs).sort("date")
+        data.lazy()
+        .with_columns(rank_exprs)
+        .group_by("date")
+        .agg(agg_exprs)
+        .sort("date")
     ).collect()
     n_periods_in = grouped.height
     drop_reason = f"n_assets below MIN_IC_ASSETS ({MIN_IC_ASSETS})"

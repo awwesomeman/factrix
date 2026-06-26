@@ -336,7 +336,7 @@ _MIN_DK_PERIODS: int = 3
 
 
 def _pooled_beta_driscoll_kraay(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     X: np.ndarray,
     resid: np.ndarray,
     slope: float,
@@ -364,7 +364,7 @@ def _pooled_beta_driscoll_kraay(
 
     from factrix._stats.hac import _driscoll_kraay_cov as _dk_cov
 
-    period_ids = df[cluster_col].to_numpy()
+    period_ids = data[cluster_col].to_numpy()
     try:
         cov, n_periods, lags_used = _dk_cov(X, resid, period_ids, lags=lags)
         dk_meta = {"n_periods": n_periods, "driscoll_kraay_lags": lags_used}
@@ -437,7 +437,7 @@ def _pooled_beta_driscoll_kraay(
     ),
 )
 def pooled_beta(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -575,11 +575,11 @@ def pooled_beta(
     # Pooled OLS is estimated on the complete (factor, return) pairs: drop
     # incomplete rows up front so a null factor or return cannot feed a NaN into
     # ``lstsq`` (poisoning the slope) and so ``n_obs`` — the pairs-axis floor —
-    # counts what the regression actually uses. Dropping on ``df`` keeps the
+    # counts what the regression actually uses. Dropping on ``data`` keeps the
     # downstream cluster / Driscoll-Kraay arrays positionally aligned.
-    df = df.drop_nulls([return_col, factor_col])
-    y = df[return_col].to_numpy().astype(np.float64)
-    x = df[factor_col].to_numpy().astype(np.float64)
+    data = data.drop_nulls([return_col, factor_col])
+    y = data[return_col].to_numpy().astype(np.float64)
+    x = data[factor_col].to_numpy().astype(np.float64)
     n_obs = len(y)
 
     sc = _enforce_min_floor(
@@ -609,7 +609,7 @@ def pooled_beta(
 
     if driscoll_kraay:
         return _pooled_beta_driscoll_kraay(
-            df,
+            data,
             X,
             resid,
             slope,
@@ -619,7 +619,7 @@ def pooled_beta(
             lags=driscoll_kraay_lags,
         )
 
-    clusters_a = df[cluster_col].to_numpy()
+    clusters_a = data[cluster_col].to_numpy()
     meat_a, g_a = _cluster_meat(X, resid, clusters_a)
 
     # Finite-sample factor shared across all meat components (Stata /
@@ -646,7 +646,7 @@ def pooled_beta(
         method_desc = f"Pooled OLS + clustered SE ({cluster_col})"
         cluster_metadata: dict = {"n_clusters": g_a}
     else:
-        clusters_b = df[two_way_cluster_col].to_numpy()
+        clusters_b = data[two_way_cluster_col].to_numpy()
         meat_b, g_b = _cluster_meat(X, resid, clusters_b)
         # Composite key for intersection cells. Factor each side to
         # integer ids then combine — np.unique(axis=0) chokes on object

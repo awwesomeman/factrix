@@ -230,23 +230,23 @@ def test_metric_parameter_ordering_and_reflection():
             cell=_TEST_CELL,
             aggregation=Aggregation.TS_ONLY,
         )
-        def ordered_metric(df: pl.DataFrame, a: int = 10, *, b: int) -> str:
+        def ordered_metric(data: pl.DataFrame, a: int = 10, *, b: int) -> str:
             return f"a={a}, b={b}"
 
         assert issubclass(ordered_metric, MetricBase)
-        assert ordered_metric._first_param_name == "df"
+        assert ordered_metric._first_param_name == "data"
         # The fields should be sorted: non-default ("b") first, then default ("a")
         assert ordered_metric._param_names == ("b", "a")
 
         # Test instantiation & execution (ordering is checked and bound properly)
         inst = ordered_metric(b=42, a=5)
-        df = pl.DataFrame({"value": [1]})
-        res = inst(df)
+        data = pl.DataFrame({"value": [1]})
+        res = inst(data)
         assert res == "a=5, b=42"
 
         # Test default value preservation
         inst_default = ordered_metric(b=99)
-        res_default = inst_default(df)
+        res_default = inst_default(data)
         assert res_default == "a=10, b=99"
     finally:
         if "ordered_metric" in REGISTRY:

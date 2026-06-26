@@ -46,7 +46,7 @@ def _empty_mfe_mae_schema(date_dtype: pl.DataType) -> dict[str, pl.DataType]:
     role=SpecRole.PIPELINE,
 )
 def compute_mfe_mae(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     window: int = 20,
     estimation_window: int = 60,
@@ -66,13 +66,13 @@ def compute_mfe_mae(
             f"and at least 2 observations), got {min_estimation_periods}"
         )
 
-    date_dtype = df.schema["date"]
+    date_dtype = data.schema["date"]
     empty_schema = _empty_mfe_mae_schema(date_dtype)
 
-    if price_col not in df.columns:
+    if price_col not in data.columns:
         return pl.DataFrame(schema=empty_schema)
 
-    sorted_df = df.sort(["asset_id", "date"])
+    sorted_df = data.sort(["asset_id", "date"])
     events = sorted_df.filter(pl.col(factor_col) != 0)
 
     if len(events) == 0:

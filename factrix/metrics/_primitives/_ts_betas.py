@@ -43,7 +43,7 @@ _TS_BETA_DROP_REASON = (
     batchable=True,
 )
 def compute_ts_betas(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
 ) -> dict[str, pl.DataFrame]:
@@ -67,7 +67,7 @@ def compute_ts_betas(
     one ``collect`` across all factors — no per-asset Python loop.
 
     Args:
-        df: Panel with ``date``, ``asset_id``, every name in
+        data: Panel with ``date``, ``asset_id``, every name in
             ``factor_cols``, and ``return_col``.
         factor_cols: Factor column names to score. All factors run in a
             single query regardless of N.
@@ -87,15 +87,15 @@ def compute_ts_betas(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    return {f: _ts_betas_one(df, f, return_col) for f in cols}
+    return {f: _ts_betas_one(data, f, return_col) for f in cols}
 
 
-def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.DataFrame:
+def _ts_betas_one(data: pl.DataFrame, factor_col: str, return_col: str) -> pl.DataFrame:
     # In-line asset count vs the raw universe, captured before the valid-mask
     # filter so the carried drop rate reflects the silent reduction the
     # cross-asset consumers see — including assets dropped for having no
     # complete (factor, return) pairs at all.
-    n_assets_in = df["asset_id"].n_unique()
+    n_assets_in = data["asset_id"].n_unique()
 
     # Restrict every moment to the pairwise-complete (factor, return) set so
     # cov and var share one sample (polars cov pairwise-drops; bare var would
@@ -103,7 +103,7 @@ def _ts_betas_one(df: pl.DataFrame, factor_col: str, return_col: str) -> pl.Data
     valid_mask = pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
 
     moments = (
-        df.lazy()
+        data.lazy()
         .filter(valid_mask)
         .group_by("asset_id")
         .agg(

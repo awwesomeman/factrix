@@ -45,14 +45,14 @@ class TestOrthogonalizeFactor:
     def test_residual_mean_near_zero(self):
         factor_df, base_df = _make_ortho_data()
         ortho = orthogonalize_factor(factor_df, base_df)
-        for dt in ortho.df["date"].unique():
-            residuals = ortho.df.filter(pl.col("date") == dt)["factor"].to_numpy()
+        for dt in ortho.data["date"].unique():
+            residuals = ortho.data.filter(pl.col("date") == dt)["factor"].to_numpy()
             assert abs(np.mean(residuals)) < 1e-10
 
     def test_residual_uncorrelated_with_base(self):
         factor_df, base_df = _make_ortho_data()
         ortho = orthogonalize_factor(factor_df, base_df)
-        merged = ortho.df.join(base_df, on=["date", "asset_id"])
+        merged = ortho.data.join(base_df, on=["date", "asset_id"])
         for dt in merged["date"].unique():
             chunk = merged.filter(pl.col("date") == dt)
             residual = chunk["factor"].to_numpy()
@@ -64,9 +64,9 @@ class TestOrthogonalizeFactor:
     def test_preserves_original(self):
         factor_df, base_df = _make_ortho_data()
         ortho = orthogonalize_factor(factor_df, base_df)
-        assert "factor_pre_ortho" in ortho.df.columns
+        assert "factor_pre_ortho" in ortho.data.columns
         orig = factor_df.sort(["date", "asset_id"])["factor"].to_numpy()
-        pre_ortho = ortho.df.sort(["date", "asset_id"])["factor_pre_ortho"].to_numpy()
+        pre_ortho = ortho.data.sort(["date", "asset_id"])["factor_pre_ortho"].to_numpy()
         np.testing.assert_array_almost_equal(orig, pre_ortho)
 
     def test_no_base_cols_unchanged(self):
@@ -74,7 +74,7 @@ class TestOrthogonalizeFactor:
         empty_base = factor_df.select("date", "asset_id")
         ortho = orthogonalize_factor(factor_df, empty_base)
         orig = factor_df.sort(["date", "asset_id"])["factor"].to_list()
-        after = ortho.df.sort(["date", "asset_id"])["factor"].to_list()
+        after = ortho.data.sort(["date", "asset_id"])["factor"].to_list()
         assert orig == after
 
     def test_attribution_betas(self):

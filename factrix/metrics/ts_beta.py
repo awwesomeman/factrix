@@ -226,7 +226,7 @@ def mean_r_squared(ts_betas_df: pl.DataFrame) -> MetricResult:
     role=SpecRole.PIPELINE,
 )
 def compute_rolling_mean_beta(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     window: int = 60,
     factor_col: str = "factor",
@@ -273,7 +273,7 @@ def compute_rolling_mean_beta(
         >>> set(rolling.columns) >= {"date", "value"}
         True
     """
-    dates = df["date"].unique().sort()
+    dates = data["date"].unique().sort()
     if len(dates) < window:
         return pl.DataFrame(
             {
@@ -290,7 +290,7 @@ def compute_rolling_mean_beta(
     # asset row whose date lands in it, located by ``searchsorted`` on the
     # asset's sorted dates — which replaces the per-date ``is_in`` filter and the
     # per-asset ``asset_id ==`` filter the loop used to run.
-    valid = df.filter(
+    valid = data.filter(
         pl.col(factor_col).is_not_null() & pl.col(return_col).is_not_null()
     )
     asset_arrays: dict[object, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}

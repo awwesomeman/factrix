@@ -135,8 +135,8 @@ def _align_spread_series(
     # WHY: inner join on dates ensures only dates present in ALL series;
     # then filter out any date where any series has null spread
     all_dates = None
-    for df in series_dict.values():
-        valid = df.filter(pl.col("spread").is_not_null()).select("date").unique()
+    for data in series_dict.values():
+        valid = data.filter(pl.col("spread").is_not_null()).select("date").unique()
         if all_dates is None:
             all_dates = valid
         else:
@@ -147,9 +147,9 @@ def _align_spread_series(
 
     common_dates = all_dates.sort("date")
     arrays = {}
-    for name, df in series_dict.items():
+    for name, data in series_dict.items():
         arrays[name] = common_dates.join(
-            df.select("date", "spread"), on="date", how="inner"
+            data.select("date", "spread"), on="date", how="inner"
         )["spread"].to_numpy()
     return common_dates, arrays
 
