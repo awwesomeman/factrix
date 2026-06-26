@@ -7,7 +7,7 @@ factor" *or* "falls less on negative factor", and a strategy team
 needs to know which.
 
 Two methods, both fit by OLS with Newey-West (NW) heteroskedasticity-and-autocorrelation-consistent (HAC) covariance and
-tested by Wald χ² so cross-method p-values stay comparable and the
+tested by a finite-sample Wald F so cross-method p-values stay comparable and the
 overlapping-forward-return autocorrelation is handled the same way
 as `ts_beta_t_nw`. Welch t is intentionally avoided — its iid
 assumption breaks under `forward_periods > 1`.
@@ -30,8 +30,8 @@ Standalone metric — does not enter the registry.
 Notes:
     **Pipeline.** Per-date aggregation of factor and forward return to
     a common ``(_f, _r)`` series (cross-section step), then NW HAC OLS
-    with sign-asymmetric slopes on the resulting time series; Wald χ²
-    on the slope difference.
+    with sign-asymmetric slopes on the resulting time series; Wald
+    (finite-sample F) on the slope difference.
 """
 
 from __future__ import annotations
@@ -216,7 +216,9 @@ def ts_asymmetry(
     asym_var = float((R_a @ V_a @ R_a.T)[0, 0])
     asym_se = float(np.sqrt(asym_var)) if asym_var > 0 else 0.0
     asym_t = asym_value / asym_se if asym_se > 0 else 0.0
-    _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0)
+    # Finite-sample F_{r, T-k} reference (k = X_a regressors), matching the
+    # cluster-Wald paths; the asymptotic χ² over-rejects on short T.
+    _, p_a = _wald_p_linear(beta_a, V_a, R_a, q=0.0, df_denom=n_periods - X_a.shape[1])
 
     e_long = float(beta_a[0])
     e_short = float(beta_a[1])
@@ -239,7 +241,9 @@ def ts_asymmetry(
         X_b = np.column_stack([np.ones(n_periods), f_pos, f_neg])
         beta_b, V_b, _ = _ols_nw_multivariate(r, X_b, lags=lags)
         R_b = np.array([[0.0, 1.0, -1.0]])
-        _, p_b = _wald_p_linear(beta_b, V_b, R_b, q=0.0)
+        _, p_b = _wald_p_linear(
+            beta_b, V_b, R_b, q=0.0, df_denom=n_periods - X_b.shape[1]
+        )
         method_b.update(
             method_b="method B: split-slope regression on signed factor",
             stat_type_method_b="wald (NW HAC)",
