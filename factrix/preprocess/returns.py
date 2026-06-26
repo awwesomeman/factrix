@@ -64,7 +64,7 @@ def _validate_winsorize_bounds(lower: object, upper: object) -> tuple[float, flo
 
 
 def compute_forward_return(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     *,
     overwrite: bool = False,
@@ -90,14 +90,14 @@ def compute_forward_return(
     (see Notes for the scope boundary).
 
     Args:
-        df: Must contain ``date``, ``asset_id``, ``price``. Must already
+        data: Must contain ``date``, ``asset_id``, ``price``. Must already
             be sorted with **regular spacing per asset** on the time axis;
             this function shifts by row count and does not inspect ``date``.
         forward_periods: Holding horizon in **rows** of the time axis,
             not calendar time (default 5). On a daily panel this is 5
             trading days; on a weekly panel, 5 weeks; on 1-min bars,
             5 minutes. Frequency is the caller's responsibility.
-        overwrite: Allow recomputation when ``df`` already carries a
+        overwrite: Allow recomputation when ``data`` already carries a
             ``forward_return`` column. ``False`` (default) raises rather
             than silently overwrite — the function is **not idempotent**:
             the previous call already dropped the last ``forward_periods + 1``
@@ -108,7 +108,7 @@ def compute_forward_return(
 
     Raises:
         UserInputError: ``forward_periods`` is not a positive ``int``;
-            ``df`` already has a ``forward_return`` column and
+            ``data`` already has a ``forward_return`` column and
             ``overwrite`` is ``False``; or the row horizon / price data
             leaves no finite forward returns after filtering.
 
@@ -185,12 +185,12 @@ def compute_forward_return(
     """
     forward_periods = _validate_forward_periods(forward_periods)
 
-    if "forward_return" in df.columns:
+    if "forward_return" in data.columns:
         if not overwrite:
             raise UserInputError(
                 func_name="compute_forward_return",
-                field="df",
-                value=list(df.columns),
+                field="data",
+                value=list(data.columns),
                 expected=(
                     "a panel without 'forward_return'. This function is not "
                     "idempotent — a prior call already dropped the last "
@@ -201,12 +201,12 @@ def compute_forward_return(
                 ),
                 docs_path=_DOCS_FORWARD_RETURN,
             )
-        df = df.drop("forward_return")
+        data = data.drop("forward_return")
 
     from factrix._data_input import _stamp_forward_periods
 
     out = (
-        df.sort(["asset_id", "date"])
+        data.sort(["asset_id", "date"])
         .with_columns(
             (
                 (
@@ -222,8 +222,8 @@ def compute_forward_return(
     if out.is_empty():
         raise UserInputError(
             func_name="compute_forward_return",
-            field="df",
-            value=f"{df.height} rows",
+            field="data",
+            value=f"{data.height} rows",
             expected=(
                 "at least one finite forward_return after applying the row "
                 f"horizon forward_periods={forward_periods}; the panel may be "
@@ -238,7 +238,7 @@ def compute_forward_return(
 
 
 def winsorize_forward_return(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     lower: float = 0.01,
     upper: float = 0.99,
 ) -> pl.DataFrame:
@@ -274,17 +274,17 @@ def winsorize_forward_return(
     """
     lower, upper = _validate_winsorize_bounds(lower, upper)
     if lower <= 0.0 and upper >= 1.0:
-        return df
+        return data
 
     lb = pl.col("forward_return").quantile(lower).over("date")
     ub = pl.col("forward_return").quantile(upper).over("date")
 
-    return df.with_columns(
+    return data.with_columns(
         pl.col("forward_return").clip(lb, ub).alias("forward_return")
     )
 
 
-def compute_abnormal_return(df: pl.DataFrame) -> pl.DataFrame:
+def compute_abnormal_return(data: pl.DataFrame) -> pl.DataFrame:
     """Step 3: Cross-sectional abnormal return.
 
     ``abnormal_return = forward_return - mean(forward_return) per date``
@@ -304,7 +304,7 @@ def compute_abnormal_return(df: pl.DataFrame) -> pl.DataFrame:
         >>> "abnormal_return" in adjusted.columns
         True
     """
-    return df.with_columns(
+    return data.with_columns(
         (pl.col("forward_return") - pl.col("forward_return").mean().over("date")).alias(
             "abnormal_return"
         )

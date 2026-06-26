@@ -26,7 +26,7 @@ from factrix.metrics._decorators import metric
     role=SpecRole.PIPELINE,
 )
 def compute_event_returns(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     offsets: list[int] | None = None,
     factor_col: str = "factor",
@@ -36,7 +36,7 @@ def compute_event_returns(
     if offsets is None:
         offsets = [-6, -3, -1, 1, 6, 12, 24]
 
-    date_dtype = df.schema["date"]
+    date_dtype = data.schema["date"]
     empty_schema = {
         "offset": pl.Int32,
         "date": date_dtype,
@@ -44,10 +44,10 @@ def compute_event_returns(
         "signed_return": pl.Float64,
     }
 
-    if price_col not in df.columns:
+    if price_col not in data.columns:
         return pl.DataFrame(schema=empty_schema)  # type: ignore[arg-type]
 
-    sorted_df = df.sort(["asset_id", "date"])
+    sorted_df = data.sort(["asset_id", "date"])
     events = sorted_df.filter(pl.col(factor_col) != 0)
 
     if len(events) == 0:

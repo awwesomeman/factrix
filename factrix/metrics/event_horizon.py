@@ -47,7 +47,7 @@ _EH_CELL = cell(None, FactorDensity.SPARSE, structure=None)
     sample_threshold=SampleThreshold(),
 )
 def event_around_return(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     offsets: list[int] | None = None,
     factor_col: str = "factor",
@@ -64,7 +64,7 @@ def event_around_return(
     High leakage → density may be reactive, not predictive.
 
     Args:
-        df: Panel with ``date, asset_id, factor, price``.
+        data: Panel with ``date, asset_id, factor, price``.
         offsets: Defaults to ``[-6, -3, -1, 1, 6, 12, 24]``.
 
     Returns:
@@ -100,7 +100,7 @@ def event_around_return(
         offsets = [-6, -3, -1, 1, 6, 12, 24]
 
     event_rets = compute_event_returns(
-        df,
+        data,
         offsets=offsets,
         factor_col=factor_col,
         price_col=price_col,

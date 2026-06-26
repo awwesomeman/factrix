@@ -105,7 +105,7 @@ def _quantile_groups_threshold(self) -> SampleThreshold:
     sample_threshold=_quantile_groups_threshold,
 )
 def quantile_spread(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
     factor_cols: Sequence[str] = ("factor",),
@@ -178,12 +178,12 @@ def quantile_spread(
     # Sample once across all factors; bucketing tie_ratio is computed
     # on the sampled subset (what bucketing actually sees) rather than
     # the full panel — ~N/forward_periods smaller scan.
-    sampled = _sample_non_overlapping(df, forward_periods)
+    sampled = _sample_non_overlapping(data, forward_periods)
     series_by_factor = (
         _precomputed_series
         if _precomputed_series is not None
         else compute_spread_series(
-            df,
+            data,
             n_groups=n_groups,
             factor_cols=cols,
             tie_policy=tie_policy,
@@ -194,7 +194,7 @@ def quantile_spread(
     # ``forward_periods=1`` is the no-stride build of the same primitive.
     full_series_by_factor: dict[str, pl.DataFrame] | None = (
         compute_spread_series(
-            df,
+            data,
             n_groups=n_groups,
             factor_cols=cols,
             tie_policy=tie_policy,
@@ -205,7 +205,7 @@ def quantile_spread(
     )
     # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
     # calibrated against, shared across factors.
-    n_raw_periods = df["date"].n_unique()
+    n_raw_periods = data["date"].n_unique()
     return {
         f: _quantile_spread_from_series(
             series=series_by_factor[f],
@@ -354,7 +354,7 @@ def _quantile_spread_from_series(
     sample_threshold=_quantile_groups_threshold,
 )
 def quantile_spread_vw(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
     factor_col: str = "factor",
@@ -391,7 +391,7 @@ def quantile_spread_vw(
     and may not survive capacity / liquidity constraints.
 
     Args:
-        df: Panel with ``date, asset_id, factor, forward_return,
+        data: Panel with ``date, asset_id, factor, forward_return,
             market_cap`` (or whatever ``weight_col`` names).
         weight_col: Column for value weighting (default ``market_cap``).
         lag_weights: When True (default), shift ``weight_col`` by 1
@@ -435,14 +435,14 @@ def quantile_spread_vw(
         >>> result.name == ""
         True
     """
-    if weight_col not in df.columns:
+    if weight_col not in data.columns:
         return _short_circuit_output(
             "quantile_spread_vw",
             "no_weight_column",
             missing_column=weight_col,
         )
 
-    sampled = _sample_non_overlapping(df, forward_periods)
+    sampled = _sample_non_overlapping(data, forward_periods)
     if lag_weights:
         sampled = _lag_within_asset(sampled, weight_col)
     tie_ratio = _compute_tie_ratio(sampled, factor_col)
@@ -484,7 +484,7 @@ def quantile_spread_vw(
     n = len(spread_vals)
     sc = _enforce_scaled_floor(
         "quantile_spread_vw",
-        df["date"].n_unique(),
+        data["date"].n_unique(),
         MIN_PORTFOLIO_PERIODS_HARD,
         forward_periods,
         "insufficient_portfolio_periods",

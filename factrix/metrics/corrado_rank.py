@@ -35,7 +35,7 @@ __all__ = [
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def corrado_rank(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -58,7 +58,7 @@ def corrado_rank(
         $z = \mathrm{mean}(U_{\text{event,signed}}) / (\mathrm{std}(U_{\text{all}}) / \sqrt{N_{\text{events}}})$.
 
     Args:
-        df: Full panel with ``date, asset_id, factor, forward_return``.
+        data: Full panel with ``date, asset_id, factor, forward_return``.
             Must include non-event rows for ranking.
 
     Returns:
@@ -103,7 +103,7 @@ def corrado_rank(
         >>> result.name == ""
         True
     """
-    ranked = df.with_columns(
+    ranked = data.with_columns(
         (
             pl.col(return_col).rank(method="average").over("asset_id")
             / (pl.col(return_col).count().over("asset_id") + 1)

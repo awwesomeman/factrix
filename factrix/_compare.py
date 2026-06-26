@@ -120,13 +120,13 @@ def compare(
             row[f"{spec}_p_value"] = _float_or_none(out.p_value)
         rows.append(row)
 
-    df = pl.DataFrame(rows)
+    data = pl.DataFrame(rows)
     if sort_by is not None:
-        df = df.sort(sort_by, descending=descending, nulls_last=True)
-        df = df.with_columns(
-            pl.int_range(1, df.height + 1, dtype=pl.Int64).alias("rank")
+        data = data.sort(sort_by, descending=descending, nulls_last=True)
+        data = data.with_columns(
+            pl.int_range(1, data.height + 1, dtype=pl.Int64).alias("rank")
         )
-    return df
+    return data
 
 
 def _ordered_keys(maps: Iterable[Mapping[str, Any]]) -> list[str]:

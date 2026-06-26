@@ -24,7 +24,7 @@ def _mad_expressions(factor_col: str) -> tuple[pl.Expr, pl.Expr]:
 
 
 def mad_winsorize(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
     n_mad: float = 3.0,
 ) -> pl.DataFrame:
@@ -51,12 +51,12 @@ def mad_winsorize(
         True
     """
     if n_mad <= 0:
-        return df
+        return data
 
     median_expr, mad_expr = _mad_expressions(factor_col)
     half_width = mad_expr * MAD_CONSISTENCY_CONSTANT * n_mad
 
-    return df.with_columns(
+    return data.with_columns(
         pl.col(factor_col)
         .clip(median_expr - half_width, median_expr + half_width)
         .alias(factor_col)
@@ -64,7 +64,7 @@ def mad_winsorize(
 
 
 def cross_sectional_zscore(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
 ) -> pl.DataFrame:
     """Step 5: MAD-robust z-score within each cross-section (date).
@@ -84,7 +84,7 @@ def cross_sectional_zscore(
     """
     median_expr, mad_expr = _mad_expressions(factor_col)
 
-    return df.with_columns(
+    return data.with_columns(
         ((pl.col(factor_col) - median_expr) / (mad_expr * MAD_CONSISTENCY_CONSTANT))
         .fill_nan(0.0)
         .fill_null(0.0)

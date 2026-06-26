@@ -71,7 +71,7 @@ __all__ = [
     sample_threshold=SampleThreshold(min_periods=MIN_PORTFOLIO_PERIODS_HARD),
 )
 def ts_asymmetry(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -92,7 +92,7 @@ def ts_asymmetry(
     reason.
 
     Args:
-        df: Long panel; aggregated to per-date ``(_f, _r)`` internally.
+        data: Long panel; aggregated to per-date ``(_f, _r)`` internally.
         factor_col: Column carrying the factor.
         return_col: Column carrying the forward return.
         forward_periods: Overlap horizon of the forward return; used
@@ -147,20 +147,20 @@ def ts_asymmetry(
         >>> result.name == ""
         True
     """
-    if "date" not in df.columns:
+    if "date" not in data.columns:
         return _short_circuit_output(
             "ts_asymmetry",
             "no_date_column",
         )
     for col in (factor_col, return_col):
-        if col not in df.columns:
+        if col not in data.columns:
             return _short_circuit_output(
                 "ts_asymmetry",
                 f"no_{col}_column",
             )
 
     per_date = _aggregate_to_per_date(
-        df,
+        data,
         factor_col=factor_col,
         return_col=return_col,
     )

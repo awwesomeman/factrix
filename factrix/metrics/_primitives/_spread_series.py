@@ -34,7 +34,7 @@ from factrix.metrics._helpers import (
     batchable=True,
 )
 def compute_spread_series(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
     factor_cols: Sequence[str] = ("factor",),
@@ -49,7 +49,7 @@ def compute_spread_series(
     ``n_groups=10`` the bottom is Q10, not Q5.
 
     Args:
-        df: Panel with ``date, asset_id, factor, forward_return``.
+        data: Panel with ``date, asset_id, factor, forward_return``.
         forward_periods: Number of periods forward.
         n_groups: Number of quantile groups.
         factor_cols: Factor column names to score. All factors run in a
@@ -94,7 +94,7 @@ def compute_spread_series(
     if not cols:
         raise ValueError("factor_cols must be non-empty")
 
-    sampled = _sample_non_overlapping(df, forward_periods)
+    sampled = _sample_non_overlapping(data, forward_periods)
 
     median_n = _median_universe_size(sampled)
     per_group = median_n // n_groups if n_groups > 0 else 0

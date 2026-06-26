@@ -27,7 +27,7 @@ from factrix.metrics._helpers import _is_sparse_magnitude_weighted
     role=SpecRole.PIPELINE,
 )
 def compute_caar(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -47,7 +47,7 @@ def compute_caar(
             transparency (a date built on 1 event vs 500 is otherwise
             indistinguishable), not used to weight or drop dates.
         date_ordinal: 0-based position of the date on the *full* input
-            calendar (dense rank over every date in ``df``, including
+            calendar (dense rank over every date in ``data``, including
             non-event dates). Consumers that sub-sample for non-overlap
             independence measure the gap between kept event dates in
             these calendar steps rather than in event-index steps —
@@ -57,7 +57,7 @@ def compute_caar(
             sparse or clustered events, so the ordinal is what makes the
             forward-return overlap window measurable downstream.
     """
-    if _is_sparse_magnitude_weighted(df, factor_col):
+    if _is_sparse_magnitude_weighted(data, factor_col):
         warnings.warn(
             "compute_caar: factor column is mixed-sign and not a clean ±1 "
             "ternary. The result is the Sefcik-Thompson (1986) "
@@ -68,7 +68,9 @@ def compute_caar(
             stacklevel=2,
         )
     return (
-        df.with_columns((pl.col("date").rank(method="dense") - 1).alias("date_ordinal"))
+        data.with_columns(
+            (pl.col("date").rank(method="dense") - 1).alias("date_ordinal")
+        )
         .filter(pl.col(factor_col) != 0)
         .with_columns((pl.col(return_col) * pl.col(factor_col)).alias("_signed_car"))
         .group_by("date")

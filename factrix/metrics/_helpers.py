@@ -224,7 +224,7 @@ def _spread_significance_with_inference(
 
 
 def _aggregate_to_per_date(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -240,7 +240,7 @@ def _aggregate_to_per_date(
     aggregation in their own docstrings.
     """
     return (
-        df.lazy()
+        data.lazy()
         .group_by("date")
         .agg(
             pl.col(factor_col).mean().alias(factor_alias),
@@ -518,7 +518,7 @@ def _warn_below_scaled_floor(
 
 
 def _estimate_within_date_icc(
-    df: pl.DataFrame, value_col: str
+    data: pl.DataFrame, value_col: str
 ) -> tuple[float | None, float, KPSource]:
     r"""ICC-style within-date correlation $\hat r$ of ``value_col`` and mean cluster size.
 
@@ -533,7 +533,7 @@ def _estimate_within_date_icc(
     $[0, 1]$ and the mean events-per-date.
 
     Args:
-        df: One row per pooled observation with a ``date`` column and
+        data: One row per pooled observation with a ``date`` column and
             ``value_col``.
         value_col: The clustered value (already standardised / 0-1 coded).
 
@@ -547,7 +547,7 @@ def _estimate_within_date_icc(
           single-asset series lands here, so the caller leaves the
           statistic uncorrected).
     """
-    per_date = df.group_by("date").agg(
+    per_date = data.group_by("date").agg(
         pl.col(value_col).mean().alias("m"),
         pl.col(value_col).var(ddof=DDOF).alias("v"),
         pl.len().alias("n"),
@@ -591,7 +591,7 @@ def _kp_cluster_scale(r_hat: float, n_eff: float) -> float:
     return float(np.sqrt((1.0 - r_hat) / (1.0 + (n_eff - 1.0) * r_hat)))
 
 
-def _pick_event_return_col(df: pl.DataFrame) -> str:
+def _pick_event_return_col(data: pl.DataFrame) -> str:
     """Return the preferred return column for event analysis.
 
     ``abnormal_return`` (cross-sectionally de-meaned return) is preferred
@@ -601,19 +601,19 @@ def _pick_event_return_col(df: pl.DataFrame) -> str:
     pipeline agree on the same choice — diverging would silently route
     the same Factor call through different series.
     """
-    return "abnormal_return" if "abnormal_return" in df.columns else "forward_return"
+    return "abnormal_return" if "abnormal_return" in data.columns else "forward_return"
 
 
 def _sample_non_overlapping(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int,
 ) -> pl.DataFrame:
     """Keep every N-th date to produce a non-overlapping series.
 
     Algorithm:
-        1. ``unique_dates = sort(df[date].unique())``
+        1. ``unique_dates = sort(data[date].unique())``
         2. ``sampled = unique_dates[::forward_periods]``  (every N-th)
-        3. Return ``df.filter(date ∈ sampled)``
+        3. Return ``data.filter(date ∈ sampled)``
 
     Why: with h-period forward returns, consecutive dates' forward
     returns share h−1 bars of future data — the series has an MA(h−1)
@@ -630,7 +630,7 @@ def _sample_non_overlapping(
     even if they don't short-circuit.
 
     Args:
-        df: DataFrame with a ``date`` column.
+        data: DataFrame with a ``date`` column.
         forward_periods: Sampling interval (typically equals the
             ``forward_periods`` of the forward-return column).
 
@@ -641,14 +641,14 @@ def _sample_non_overlapping(
     from factrix._logging import get_metrics_logger
     from factrix._types import MIN_IC_PERIODS
 
-    sampled_dates = df["date"].unique().sort().gather_every(forward_periods)
-    result = df.filter(pl.col("date").is_in(sampled_dates.implode()))
+    sampled_dates = data["date"].unique().sort().gather_every(forward_periods)
+    result = data.filter(pl.col("date").is_in(sampled_dates.implode()))
     n_after = len(sampled_dates)
     logger = get_metrics_logger()
     logger.debug(
         "non_overlap_sample: forward_periods=%d n_dates_before=%d n_after=%d",
         forward_periods,
-        df["date"].n_unique(),
+        data["date"].n_unique(),
         n_after,
     )
     # WARNING: post-sampling series shorter than 1.5x the usual minimum is
@@ -668,7 +668,7 @@ def _sample_non_overlapping(
 
 
 def _sample_event_spaced(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int,
     *,
     ordinal_col: str = "date_ordinal",
@@ -692,11 +692,11 @@ def _sample_event_spaced(
     non-overlap sampling, made calendar-aware for the event-date axis).
 
     ``forward_periods <= 1`` is a no-op (consecutive events already
-    independent); an empty frame returns unchanged. ``df`` must be sorted by
+    independent); an empty frame returns unchanged. ``data`` must be sorted by
     date and carry ``ordinal_col`` (``compute_caar`` emits ``date_ordinal``).
 
     Args:
-        df: Event-date series, sorted by date, with an ``ordinal_col``
+        data: Event-date series, sorted by date, with an ``ordinal_col``
             integer column giving each date's position on the full calendar.
         forward_periods: Minimum calendar gap (in those ordinal steps)
             required between consecutive kept events.
@@ -706,16 +706,16 @@ def _sample_event_spaced(
         Filtered DataFrame containing only the kept event rows; all
         columns untouched.
     """
-    if forward_periods <= 1 or df.height == 0:
-        return df
-    ordinals = df[ordinal_col].to_numpy()
-    keep = np.zeros(df.height, dtype=bool)
+    if forward_periods <= 1 or data.height == 0:
+        return data
+    ordinals = data[ordinal_col].to_numpy()
+    keep = np.zeros(data.height, dtype=bool)
     last_kept: int | None = None
     for i, ordinal in enumerate(ordinals):
         if last_kept is None or ordinal - last_kept >= forward_periods:
             keep[i] = True
             last_kept = int(ordinal)
-    return df.filter(pl.Series(keep))
+    return data.filter(pl.Series(keep))
 
 
 def _scaled_min_periods(base: int, forward_periods: int) -> int:
@@ -723,7 +723,7 @@ def _scaled_min_periods(base: int, forward_periods: int) -> int:
 
     ``MIN_*_PERIODS`` constants are calibrated for the *effective*
     sample size the downstream t-test operates on. When the metric
-    first runs ``_sample_non_overlapping(df, h)`` the effective n
+    first runs ``_sample_non_overlapping(data, h)`` the effective n
     shrinks to ``raw_n / h``, so the pre-sampling guard needs
     ``raw_n ≥ base · h`` to land with ≥ ``base`` independent
     observations after sampling. Clamps ``h ≥ 1`` so ``h = 1`` is a
@@ -733,7 +733,7 @@ def _scaled_min_periods(base: int, forward_periods: int) -> int:
 
 
 def _lag_within_asset(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     col: str,
     *,
     periods: int = 1,
@@ -749,14 +749,14 @@ def _lag_within_asset(
     asset, drop the first row per asset.
     """
     return (
-        df.sort([by, "date"])
+        data.sort([by, "date"])
         .with_columns(pl.col(col).shift(periods).over(by).alias(col))
         .drop_nulls([col])
     )
 
 
 def _assign_quantile_groups(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
     n_groups: int = 5,
     tie_policy: str = "ordinal",
@@ -778,7 +778,7 @@ def _assign_quantile_groups(
     """
     rank_expr = pl.col(factor_col).rank(method=tie_policy).over("date").alias("_rank")  # type: ignore[arg-type]
     return (
-        df.with_columns(
+        data.with_columns(
             rank_expr,
             # Denominator is the per-date *non-null* factor count, not the row
             # count: a null factor gets a null rank (it never lands in a bucket),
@@ -797,7 +797,7 @@ def _assign_quantile_groups(
 
 
 def _assign_quantile_groups_batch(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_cols: list[str],
     n_groups: int,
     tie_policy: str = "ordinal",
@@ -821,7 +821,7 @@ def _assign_quantile_groups_batch(
     # quantile widths and leave the top bucket unreachable (see
     # :func:`_assign_quantile_groups`).
     n_exprs = [pl.col(f).count().over("date").alias(f"_n__{f}") for f in factor_cols]
-    with_ranks = df.with_columns(*rank_exprs, *n_exprs)
+    with_ranks = data.with_columns(*rank_exprs, *n_exprs)
     group_exprs = [
         ((pl.col(f"_rank__{f}") - 1) * n_groups / pl.col(f"_n__{f}"))
         .cast(pl.Int32)
@@ -833,7 +833,7 @@ def _assign_quantile_groups_batch(
 
 
 def _compute_tie_ratio(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
 ) -> float:
     """Median-across-dates tie ratio ``1 - n_unique / n`` for ``factor_col``.
@@ -847,10 +847,10 @@ def _compute_tie_ratio(
     stash the value in ``MetricResult.metadata["tie_ratio"]`` for
     downstream inspection.
     """
-    if df.is_empty():
+    if data.is_empty():
         return float("nan")
     per_date = (
-        df.group_by("date")
+        data.group_by("date")
         .agg(
             pl.col(factor_col).n_unique().alias("_u"),
             pl.len().alias("_n"),
@@ -1092,7 +1092,7 @@ def _surface_null_drop(
 
 
 def _is_sparse_magnitude_weighted(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
 ) -> bool:
     """``True`` iff ``factor_col`` is mixed-sign and not a clean ±1 ternary.
@@ -1108,7 +1108,7 @@ def _is_sparse_magnitude_weighted(
     numerically); all-non-negative columns do not trigger (no flip
     ambiguity).
     """
-    nz = df.filter(pl.col(factor_col) != 0)[factor_col].unique().to_list()
+    nz = data.filter(pl.col(factor_col) != 0)[factor_col].unique().to_list()
     if not nz:
         return False
     has_neg = any(v < 0 for v in nz)
@@ -1124,7 +1124,7 @@ def _is_sparse_magnitude_weighted(
 
 
 def _event_signal_is_discrete(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
 ) -> bool:
     """``True`` iff ``|factor|`` over event rows has no magnitude variance.
@@ -1141,22 +1141,24 @@ def _event_signal_is_discrete(
     ("too few events"), handled by the event-count floor, not a discreteness
     blocker.
     """
-    events = df.filter(pl.col(factor_col) != 0)
+    events = data.filter(pl.col(factor_col) != 0)
     if events.is_empty():
         return False
     abs_signal = np.abs(events[factor_col].to_numpy())
     return bool(np.ptp(abs_signal) < EPSILON)
 
 
-def _median_universe_size(df: pl.DataFrame) -> int:
+def _median_universe_size(data: pl.DataFrame) -> int:
     """Median number of unique assets per date."""
     return int(
-        df.group_by("date").agg(pl.col("asset_id").n_unique().alias("n"))["n"].median()  # type: ignore[arg-type]
+        data.group_by("date")
+        .agg(pl.col("asset_id").n_unique().alias("n"))["n"]
+        .median()  # type: ignore[arg-type]
     )
 
 
 def _signed_car(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_col: str = "factor",
     return_col: str = "forward_return",
 ) -> np.ndarray:
@@ -1165,9 +1167,9 @@ def _signed_car(
     ``signed_car = return × sign(factor)``
 
     Args:
-        df: Event-filtered DataFrame (factor ≠ 0 rows only).
+        data: Event-filtered DataFrame (factor ≠ 0 rows only).
 
     Returns:
         1-D numpy array of signed abnormal returns.
     """
-    return df[return_col].to_numpy() * np.sign(df[factor_col].to_numpy())
+    return data[return_col].to_numpy() * np.sign(data[factor_col].to_numpy())

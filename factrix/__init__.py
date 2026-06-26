@@ -535,7 +535,7 @@ def _resolve_forward_periods(data: pl.DataFrame, declared: int | None) -> int:
         value=None,
         expected=(
             "the data's overlap horizon. Either build forward_return via "
-            "factrix.preprocess.compute_forward_return(df, forward_periods=N) "
+            "factrix.preprocess.compute_forward_return(data, forward_periods=N) "
             "(which stamps the horizon), or, for a self-attached forward_return "
             "column, declare it once with evaluate(..., forward_periods=N)."
         ),

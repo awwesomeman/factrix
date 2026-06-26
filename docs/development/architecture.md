@@ -281,6 +281,38 @@ runs; the warning surfaces the inflation so callers can read p ≈ 0.04 as
 
 ---
 
+## Naming: `data` (DataFrame) vs `df_*` (degrees of freedom)
+
+`df` is ambiguous — **degrees of freedom** in a statistics context, **DataFrame**
+in the polars/pandas idiom. The collision is killed by **position**, so every name
+resolves to one meaning on sight:
+
+- **`df_…` prefix → degrees of freedom.** `df_num` (numerator / restriction rank
+  `K-1`), `df_denom` (denominator), `df_resid` (residual). A DoF value never goes
+  unqualified.
+- **`…_df` suffix → DataFrame.** A *named* frame keeps the informative idiom
+  (`ic_df`, `caar_df`, `beta_df`, `ts_betas_df`) — the prefix is the content, the
+  `_df` says "frame". A *standalone* frame uses **`data`**, or a semantic noun where
+  one reads better (`panel`, `per_date`, `factor_panel`, `subset`, `residuals`).
+- **bare `df` / `_df` → banned.** The unqualified token is exactly the ambiguous
+  case (could be either register), so factrix never declares a parameter, local,
+  dataclass field, or dict / column key named `df` or `_df`.
+
+The one tolerated bare `df` is the **scipy distribution kwarg**
+(`sp_stats.chi2.sf(q, df=h)`, `t.sf(t, df=...)`): it is scipy's own parameter name
+at the call site, not a name factrix declares, and carries no DataFrame ambiguity
+inside a `dist.sf(...)` call. The positional split keeps DoF self-describing rather
+than loosening to a bare `df` — the same read-it-once principle as the
+[sample-axis naming grammar](#naming-grammar).
+
+**Enforcement.** `tests/test_naming_df.py` walks every `factrix/` module with `ast`
+and fails if any function parameter, assignment target, or dataclass field is named
+exactly `df` or `_df` — closing the abbreviation back-flow at CI rather than relying
+on review. (ruff has no built-in for an identifier-name ban; the AST guard mirrors
+`tests/test_docs_matrix.py`.)
+
+---
+
 ## Error UX contract
 
 User-facing raises follow a single canonical message format so callers

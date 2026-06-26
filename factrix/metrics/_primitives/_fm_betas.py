@@ -34,7 +34,7 @@ MIN_FM_ASSETS: int = 3
     batchable=True,
 )
 def compute_fm_betas(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     factor_cols: Sequence[str] = ("factor",),
     return_col: str = "forward_return",
 ) -> dict[str, pl.DataFrame]:
@@ -52,7 +52,7 @@ def compute_fm_betas(
     specialised.
 
     Args:
-        df: Panel with ``date``, ``asset_id``, every name in
+        data: Panel with ``date``, ``asset_id``, every name in
             ``factor_cols``, and ``return_col``.
         factor_cols: Factor column names to score. All factors run in a
             single query regardless of N.
@@ -93,7 +93,7 @@ def compute_fm_betas(
             .alias(f"_beta__{f}")
         )
 
-    wide = df.lazy().group_by("date").agg(agg_exprs).sort("date").collect()
+    wide = data.lazy().group_by("date").agg(agg_exprs).sort("date").collect()
     # ``wide`` holds every date before the per-factor thinness / degeneracy
     # filter; its height is the shared pre-drop date count. ``n_periods_out``
     # differs per factor (each factor has its own ``_cnt`` and null betas).

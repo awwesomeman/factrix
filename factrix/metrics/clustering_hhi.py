@@ -46,7 +46,7 @@ __all__ = [
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def clustering_hhi(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     cluster_window: int = 3,
@@ -63,7 +63,7 @@ def clustering_hhi(
     assumption violated → CAAR $t$-stat may be inflated.
 
     Args:
-        df: Panel with ``date, asset_id, factor``.
+        data: Panel with ``date, asset_id, factor``.
         cluster_window: Not used in HHI calculation but preserved for
             future block-bootstrap clustering adjustment.
 
@@ -93,7 +93,7 @@ def clustering_hhi(
         >>> result.name == ""
         True
     """
-    events = df.filter(pl.col(factor_col) != 0)
+    events = data.filter(pl.col(factor_col) != 0)
     n_events = len(events)
 
     sc = _enforce_min_floor(

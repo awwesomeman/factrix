@@ -71,7 +71,7 @@ min_assets_per_group: int | None = 50
     sample_threshold=_scaled_periods_threshold(MIN_MONOTONICITY_PERIODS),
 )
 def monotonicity(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 10,
     factor_cols: Sequence[str] = ("factor",),
@@ -87,7 +87,7 @@ def monotonicity(
     strong monotonicity but the direction flips across dates.
 
     Args:
-        df: Panel with ``date, asset_id, factor, forward_return``.
+        data: Panel with ``date, asset_id, factor, forward_return``.
         n_groups: Number of quantile groups (default 10 for Taiwan ~2000 stocks).
             Use 5 for N < 1000, 3 for N < 200.
         tie_policy: Bucketing tie-break policy, see ``_assign_quantile_groups``.
@@ -126,11 +126,11 @@ def monotonicity(
 
     # Raw (pre-sampling) date count: the axis the stride-scaled periods floor is
     # calibrated against, shared across all factors.
-    n_raw_periods = df["date"].n_unique()
+    n_raw_periods = data["date"].n_unique()
 
     # Sample non-overlapping once — shared across all factors on the
     # same panel (depends only on `date` + `forward_periods`).
-    filtered = _sample_non_overlapping(df, forward_periods)
+    filtered = _sample_non_overlapping(data, forward_periods)
     tie_ratios = _compute_tie_ratios_batch(filtered, cols)
     for f in cols:
         _warn_high_tie_ratio(tie_ratios[f], "monotonicity", tie_policy)
@@ -228,7 +228,7 @@ def monotonicity(
 
 
 def _compute_tie_ratios_batch(
-    df: pl.DataFrame, factor_cols: list[str]
+    data: pl.DataFrame, factor_cols: list[str]
 ) -> dict[str, float]:
     """Median-across-dates tie ratio (``1 - n_unique / n``) for many factors.
 
@@ -243,7 +243,7 @@ def _compute_tie_ratios_batch(
     """
     if not factor_cols:
         return {}
-    per_date = df.group_by("date").agg(
+    per_date = data.group_by("date").agg(
         pl.len().alias("_n"),
         *[pl.col(f).n_unique().alias(f"_u__{f}") for f in factor_cols],
     )

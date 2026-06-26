@@ -29,7 +29,7 @@ from factrix.metrics._helpers import (
     role=SpecRole.PIPELINE,
 )
 def compute_group_returns(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     forward_periods: int = 5,
     n_groups: int = 5,
     factor_col: str = "factor",
@@ -73,7 +73,7 @@ def compute_group_returns(
         >>> set(groups.columns) >= {"group", "mean_return"}
         True
     """
-    sampled = _sample_non_overlapping(df, forward_periods)
+    sampled = _sample_non_overlapping(data, forward_periods)
     grouped = _assign_quantile_groups(
         sampled,
         factor_col,

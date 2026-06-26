@@ -9,10 +9,10 @@ memory efficiency on large sources).
 ``pd.DataFrame`` is **not** accepted on these entry points by design.
 pandas users have two clean paths:
 
-- ``factrix.adapt(df, ...)`` — converts and renames columns in one
+- ``factrix.adapt(data, ...)`` — converts and renames columns in one
   step; the natural entry point when pandas column names are not
   already canonical.
-- ``pl.from_pandas(df)`` — when columns are already canonical and
+- ``pl.from_pandas(data)`` — when columns are already canonical and
   only the type conversion is needed.
 
 This keeps the type contract honest (factrix's internal pipeline is
@@ -45,18 +45,18 @@ _OPTIONAL_COLUMNS: tuple[str, ...] = ("price",)
 _FORWARD_PERIODS_COL: str = "_forward_periods"
 
 
-def _stamp_forward_periods(df: pl.DataFrame, forward_periods: int) -> pl.DataFrame:
+def _stamp_forward_periods(data: pl.DataFrame, forward_periods: int) -> pl.DataFrame:
     """Stamp the panel's single overlap horizon as a reserved constant column."""
-    return df.with_columns(
+    return data.with_columns(
         pl.lit(forward_periods, dtype=pl.Int32).alias(_FORWARD_PERIODS_COL)
     )
 
 
-def _read_forward_periods_stamp(df: pl.DataFrame) -> int | None:
+def _read_forward_periods_stamp(data: pl.DataFrame) -> int | None:
     """Read the stamped overlap horizon, or ``None`` when the panel carries none."""
-    if _FORWARD_PERIODS_COL not in df.columns or df.height == 0:
+    if _FORWARD_PERIODS_COL not in data.columns or data.height == 0:
         return None
-    return int(df[_FORWARD_PERIODS_COL][0])
+    return int(data[_FORWARD_PERIODS_COL][0])
 
 
 def _is_pandas_dataframe(obj: object) -> bool:
@@ -78,8 +78,8 @@ def _coerce_data(data: DataInput) -> pl.DataFrame:
     if _is_pandas_dataframe(data):
         raise TypeError(
             "data must be pl.DataFrame or pl.LazyFrame; got pandas DataFrame. "
-            "factrix is polars-native — convert with `pl.from_pandas(df)`, "
-            "or use `factrix.adapt(df, ...)` if column renaming is needed."
+            "factrix is polars-native — convert with `pl.from_pandas(data)`, "
+            "or use `factrix.adapt(data, ...)` if column renaming is needed."
         )
     raise TypeError(
         f"data must be pl.DataFrame or pl.LazyFrame; got {type(data).__name__}."

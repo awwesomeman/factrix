@@ -266,7 +266,7 @@ def caar(
     sample_threshold=SampleThreshold(min_events=MIN_EVENTS_HARD),
 )
 def bmp_z(
-    df: pl.DataFrame,
+    data: pl.DataFrame,
     *,
     factor_col: str = "factor",
     return_col: str = "forward_return",
@@ -301,7 +301,7 @@ def bmp_z(
         4. $z = \mathrm{mean}(\mathrm{SAR}) / (\mathrm{std}(\mathrm{SAR}) / \sqrt{N})$.
 
     Args:
-        df: Full panel (including non-event rows) with ``date, asset_id,
+        data: Full panel (including non-event rows) with ``date, asset_id,
             factor, forward_return``. Must include enough history for
             estimation window.
         estimation_window: Number of periods before each event for
@@ -389,7 +389,7 @@ def bmp_z(
         >>> result.name == ""
         True
     """
-    sorted_df = df.sort(["asset_id", "date"])
+    sorted_df = data.sort(["asset_id", "date"])
 
     uses_price = "price" in sorted_df.columns
     if uses_price:
