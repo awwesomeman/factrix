@@ -385,10 +385,10 @@ panel = compute_forward_return(panel, forward_periods=5)
 
 from factrix.metrics import ic
 results = fx.evaluate(panel, factor_cols=["factor"], metrics={"ic": ic()})
-primary_p = results["factor"].metrics["ic"].p_value
+ic_p = results["factor"].metrics["ic"].p_value
 ```
 
-factrix → Stage 2: surviving profiles after BHY feed a portfolio
+factrix → Stage 2: surviving factors after BHY feed a portfolio
 optimiser.
 
 ```python
@@ -396,16 +396,16 @@ import factrix as fx
 from factrix.metrics import ic
 
 # Each panel carries its factor under a distinct column name
-# ("momentum_12" / "value" / ...); evaluate auto-stamps factor_id
-# from factor_cols so identities stay unique without manual surgery.
+# ("momentum_12" / "value" / ...); evaluate stamps each result's
+# `factor` from factor_cols so identities stay unique without manual surgery.
 results = []
 for name, p in panels.items():
     res = fx.evaluate(p, factor_cols=[name], metrics={"ic": ic()})
     results.extend(res.values())
 
-survivors = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)
+bhy_ic = fx.multi_factor.bhy(results, metrics=["ic"], q=0.05)["ic"]
 
-# survivors is a list[EvaluationResult]; pass the underlying factor
+# bhy_ic.survivors is a list[EvaluationResult]; pass the underlying factor
 # panels to skfolio / PyPortfolioOpt / riskfolio-lib as Stage 2 input
 ```
 
@@ -469,7 +469,7 @@ self-defeating once they read the source.
 
 If this page resolved the fit question and you want to run factrix:
 
-- [Quickstart](getting-started/quickstart.md) — 30-second example from a raw panel to a `primary_p` readout.
+- [Quickstart](getting-started/quickstart.md) — 30-second example from a raw panel to a `p_value` readout.
 - [Concepts](getting-started/concepts.md) — the three-axis taxonomy and the metric dispatch underneath the routing examples above.
 - [Choosing a metric](guides/choosing-metric.md) — research-question to metric mapping for the five scenarios in §2.
 

@@ -120,8 +120,7 @@ class EvaluationResult:
 ```
 
 One unified `EvaluationResult` is returned by `evaluate` — no per-cell subclass.
-It replaces the pre-v0.14 `FactorProfile` (inferential) / `MetricsBundle`
-(descriptive) split. Dispatch runs through the DAG executor
+Dispatch runs through the DAG executor
 (`factrix._dag.DagExecutor`) on a closed `list[MetricSpec]`.
 
 - `cell` is the `(scope, density, structure)` tuple of the dispatched cell.
@@ -148,7 +147,7 @@ specs declare `cell.structure = PANEL`, so under `strict=True` evaluate raises
 
 `(*, SPARSE, *) × N=1` is well-defined and runs with **no scope-collapse step**.
 The sparse metrics' cells apply at `N=1`, so the DAG executor runs them directly
-on the single-asset series — scope-collapse no longer happens, and there is no
+on the single-asset series — there is no scope-collapse step, and no
 sentinel routing both sparse scopes to a shared TIMESERIES procedure. At `N=1`
 the `INDIVIDUAL` / `COMMON` distinction is moot (one asset → no
 scope axis), but that falls out of the derived structure rather than an explicit
@@ -570,23 +569,23 @@ ones:
 
 | Class | Functions | Signature shape |
 |-------|-------|-----------------|
-| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(profiles, *, metrics, expand_over, ...)` |
-| Resampling-based | `romano_wolf` (planned) | `(profiles, panel, *, metrics, expand_over, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
+| Closed-form (p-value only) | `bhy` / `bhy_hierarchical` / `partial_conjunction` / `bonferroni` / `holm` | `(results, *, metrics, expand_over, ...)` |
+| Resampling-based | `romano_wolf` (planned) | `(results, panel, *, metrics, expand_over, n_bootstrap, ...)` — needs raw return panel for bootstrap step-down |
 
 ### `_resolve_family` four invariants
 
-For input `profiles: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
+For input `results: Sequence[EvaluationResult]`, `expand_over: Sequence[str] | None`,
 and `metric: str` (one resolved spec):
 
-1. `expand_over` names must be present in every profile's `context` and must
-   not collide with identity dimensions (`factor_id` / `forward_periods`) —
+1. `expand_over` names must be present in every result's `context` and must
+   not collide with identity dimensions (`factor` / `forward_periods`) —
    identity names *the hypothesis*, context names *the slicing condition*;
-   confusing the two is the v0.5 anti-shopping defense at the family layer.
-2. partition key per profile = `identity + tuple(context[k] for k in expand_over)`
+   the family layer rejects confusing the two as an anti-shopping defense.
+2. partition key per result = `identity + tuple(context[k] for k in expand_over)`
    must be unique across the input. `EvaluationResult.__hash__ = None`, so dedup
    walks the tuple, not a hash.
 3. The specified `metric` must have a computed `p_value` that is non-NaN,
-   and must be populated on every profile.
+   and must be populated on every result.
 4. Resolved `p_value` per entry: the p-value read from the specified `metric`.
 
 All three user-facing raises route through `factrix._errors.UserInputError`
@@ -599,14 +598,13 @@ so fuzzy suggestions and docs links render uniformly.
 unique tuple of `context[k] for k in expand_over` is its own step-up batch —
 e.g. `expand_over=["regime_id"]` runs one BHY step-up per regime.
 
-### Caller responsibilities (#161 contract change)
+### Caller responsibilities
 
-`bhy` previously auto-partitioned by `(cell, forward_periods)`.
-#161 retired the auto-split in favour of explicit family declaration:
+`bhy` does not auto-partition; the caller declares the family explicitly:
 
-- Mixing cells without distinct `factor_id` now raises `UserInputError`
-  (duplicate identity) where v0.4 silently auto-split. Set `factor_id` per
-  candidate, or use `expand_over` if profiles legitimately share identity.
+- Mixing cells without a distinct `factor` raises `UserInputError`
+  (duplicate identity). Set `factor` per candidate, or use `expand_over`
+  if results legitimately share identity.
 - Mixing `forward_periods` without `expand_over` emits a `RuntimeWarning` —
   different horizons carry different null distributions, and pooling them
   dilutes the per-rank threshold `q × k / N`.
@@ -722,8 +720,7 @@ contract above is what that page links back to.
 
 ## Testing
 
-`tests/` covers the current public surface only — historical pre-v0.5 tests
-were removed in the §8.2 deletion sweep. Fixtures are fully synthetic
+`tests/` covers the current public surface only. Fixtures are fully synthetic
 (`tests/conftest.py` + `factrix.datasets`); no test reads real market data
 from disk.
 
@@ -731,7 +728,7 @@ Run: `uv run pytest`
 
 ### Docs SSOT strategy — docstring tags drive the matrix
 
-`docs/reference/metric-pipelines.md` no longer contains a hand-written
+`docs/reference/metric-pipelines.md` does not contain a hand-written
 matrix. The matrix is generated at build time from machine-readable
 `Matrix-row:` tags embedded in each `factrix/metrics/*.py` module docstring.
 

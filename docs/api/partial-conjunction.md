@@ -21,17 +21,17 @@ from factrix.metrics import ic
 # evaluate() returns dict[str, EvaluationResult]; pull the single result
 # and stamp the universe label onto it with dataclasses.replace so
 # expand_over can split the family on context["universe_id"].
-def profile(panel, factor_col, **context):
+def stamp(panel, factor_col, **context):
     res = fx.evaluate(panel, metrics={"ic": ic()}, factor_cols=[factor_col])[factor_col]
     return dataclasses.replace(res, context=context)
 
-profiles = [
-    profile(panel_large, "mom", universe_id="large_cap"),
-    profile(panel_small, "mom", universe_id="small_cap"),
-    # ... + value, quality, etc. one profile per (factor, universe) cell
+results = [
+    stamp(panel_large, "mom", universe_id="large_cap"),
+    stamp(panel_small, "mom", universe_id="small_cap"),
+    # ... + value, quality, etc. one result per (factor, universe) cell
 ]
 survivors = fx.multi_factor.partial_conjunction(
-    profiles,
+    results,
     metrics=["ic"],
     min_pass=2,
     n_conditions=2,
@@ -48,8 +48,8 @@ confusion; pick the row that matches your claim.
 
 | Function | Survivor unit | Question | Example claim |
 |---|---|---|---|
-| `bhy(profiles, expand_over=["universe_id"])` | `(factor, universe)` pair | "Where is this factor significant?" | "Momentum is significant in `large_cap`; value is significant in `small_cap`" |
-| `partial_conjunction(profiles, min_pass=2, expand_over=["universe_id"])` | `factor` identity | "Which factors are significant across all conditions?" | "Momentum is significant across both universes" |
+| `bhy(results, expand_over=("universe_id",))` | `(factor, universe)` pair | "Where is this factor significant?" | "Momentum is significant in `large_cap`; value is significant in `small_cap`" |
+| `partial_conjunction(results, min_pass=2, expand_over=("universe_id",))` | `factor` identity | "Which factors are significant across all conditions?" | "Momentum is significant across both universes" |
 
 In other words: `bhy` treats each universe as **its own hypothesis** and
 expands the family; `partial_conjunction` treats each universe as a
@@ -60,7 +60,7 @@ hypothesis per factor.
 
 | Real intent | Reach for | Why |
 |---|---|---|
-| "At least *any* condition is significant" | `bhy(profiles, expand_over=[...])` | `min_pass=1` is union semantics — FDR inflates to ~2q. `partial_conjunction` raises rather than implement this. |
+| "At least *any* condition is significant" | `bhy(results, expand_over=(...))` | `min_pass=1` is union semantics — FDR inflates to ~2q. `partial_conjunction` raises rather than implement this. |
 | Rank candidates (no FDR control) | [`compare`](compare.md) | `compare` is a view, not a filter. |
 | Sensitivity to estimator / sample choice | a dedicated robustness sweep | Conditions there are *methods*, not data slices. |
 | Cross-slice metric difference (descriptive) | [`by_slice`](by-slice.md) | Returns per-slice metric values; no inference. |
@@ -78,12 +78,12 @@ hypothesis per factor.
 ```python
 # Strict: 2 universes required for every factor; missing one raises.
 fx.multi_factor.partial_conjunction(
-    profiles, min_pass=2, n_conditions=2, expand_over=["universe_id"]
+    results, min_pass=2, n_conditions=2, expand_over=("universe_id",)
 )
 
 # Lenient: "at least 3 of however many horizons each factor has".
 fx.multi_factor.partial_conjunction(
-    profiles, min_pass=3, expand_over=["fwd_period"]
+    results, min_pass=3, expand_over=("fwd_period",)
 )
 ```
 
@@ -127,7 +127,7 @@ per metric — the same `_FdrResultBase` shape as `bhy`'s
 
 | Field | Meaning |
 |---|---|
-| `entries` | One representative profile per tested identity (first profile of that identity, input order) — every identity, not just survivors |
+| `entries` | One representative result per tested identity (first result of that identity, input order) — every identity, not just survivors |
 | `adj_p_all` | BHY-adjusted PC $p$-value, aligned with `entries`; identity survives iff `adj_p_all <= q` |
 | `pc_p_all` | Raw PC $p$-value (pre-BHY), aligned with `entries` |
 | `survivors` / `adj_p` | Surviving subset and its adjusted p-value (derived from `adj_p_all <= q`) |
@@ -149,7 +149,7 @@ identity, eliminated ones included.
 |---|---|
 | `min_pass < 2` | [`UserInputError`][factrix.UserInputError]. `min_pass == 1` additionally points at `bhy(expand_over=...)`. |
 | `expand_over` empty / `None` | [`UserInputError`][factrix.UserInputError] — the function is undefined without a condition axis. |
-| `expand_over` names an identity field (`factor_id` / `forward_periods`) | [`UserInputError`][factrix.UserInputError] (anti-shopping defense — same as `bhy`). |
+| `expand_over` names an identity field (`factor` / `forward_periods`) | [`UserInputError`][factrix.UserInputError] (anti-shopping defense — same as `bhy`). |
 | `n_conditions < min_pass` | [`UserInputError`][factrix.UserInputError] (unsatisfiable). |
 | Strict mode: identity's condition count $\neq$ `n_conditions` | [`UserInputError`][factrix.UserInputError] — surfaces missing-universe / missing-horizon data gaps. |
 | Identity with condition count $<$ `min_pass` (lenient) | [`UserInputError`][factrix.UserInputError]. |

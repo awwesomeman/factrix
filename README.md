@@ -118,6 +118,19 @@ print('p_value =', round(ic_res.p_value, 4))
 **Multi-factor BHY screening**
 
 ```python
+# A panel can carry many candidate factors — pass every column to factor_cols.
+raw_mf  = fx.datasets.make_multi_factor_panel(n_factors=3, n_assets=100, n_dates=500, seed=2024)
+data_mf = fx.preprocess.compute_forward_return(raw_mf, forward_periods=5)
+
+results = fx.evaluate(
+    data_mf,
+    metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
+    factor_cols=["factor_0000", "factor_0001", "factor_0002"],
+    forward_periods=5,
+)
+
+# evaluate returns dict[str, EvaluationResult] keyed by factor column;
+# bhy screens the list of results as one hypothesis family.
 fdr_results = fx.multi_factor.bhy(list(results.values()), metrics=["ic"], q=0.05)
 bhy_ic = fdr_results["ic"]
 print("survivors =", [r.factor for r in bhy_ic.survivors])
@@ -126,10 +139,15 @@ print("survivors =", [r.factor for r in bhy_ic.survivors])
 **Multi-horizon sweep and BHY screening**
 
 ```python
+# evaluate_horizons sweeps the factors across forward periods and returns a
+# flat list[EvaluationResult] — one per (factor, forward_periods) — so it feeds
+# bhy directly (no list(...values()) needed). expand_over=("forward_periods",)
+# runs an independent BHY step-up per horizon, the correct cross-horizon screen
+# (each horizon bucket is its own family of the swept factors).
 results_sweep = fx.evaluate_horizons(
-    raw,  # raw panel — no forward_return attached
+    raw_mf,  # raw multi-factor panel — no forward_return attached
     metrics={"ic": ic(inference=fx.inference.NEWEY_WEST)},
-    factor_cols=["factor"],
+    factor_cols=["factor_0000", "factor_0001", "factor_0002"],
     forward_periods=[1, 5, 10],
 )
 

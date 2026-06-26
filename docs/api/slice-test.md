@@ -139,6 +139,6 @@ reserved for the future `factor_decomposition` function.
 | Descriptive per-slice metric values (no test) | [`by_slice`](by-slice.md) |
 | Which slice pairs differ statistically | `slice_pairwise_test` |
 | Whether any slice differs (omnibus) | `slice_joint_test` |
-| FDR-adjusted survivor selection across factors | `bhy(profiles, ...)` |
+| FDR-adjusted survivor selection across factors | `bhy(results, ...)` |
 | Multi-factor leaderboard rendering | `compare(...)` |
 

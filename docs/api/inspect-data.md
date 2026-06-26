@@ -19,7 +19,7 @@ title: factrix.inspect_data
 ## Result structure
 
 `inspect_data` returns a `DataInspection` carrying the detected data
-properties (`detected`), the per-metric applicability verdicts
+properties (`properties`), the per-metric applicability verdicts
 (`metrics`, plus the `usable` / `degraded` / `unusable` partitions), and
 any data-level `warnings`. Each entry in the metrics group is a
 `MetricApplicability`.

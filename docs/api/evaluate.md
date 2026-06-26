@@ -29,7 +29,7 @@ title: factrix.evaluate
     ---
 
     Loop `evaluate` over candidate signal columns and feed the
-    resulting list of profiles to [`bhy`][factrix.multi_factor.bhy]
+    resulting `EvaluationResult` list to [`bhy`][factrix.multi_factor.bhy]
     for false-discovery-rate control. See
     [Multi-factor FDR](multi-factor.md).
 

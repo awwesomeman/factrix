@@ -74,17 +74,21 @@ Use `--extra` to add or drop modules per development needs:
 ```bash
 uv sync                              # core only (polars, numpy, pandera)
 uv sync --extra dev                  # +pytest, commitizen, etc. (required to write code)
-uv sync --extra charts               # +plotly for charts
-uv sync --all-extras                 # charts + mlflow + jupyter (feature extras)
+uv sync --extra jupyter              # +jupyter / jupyterlab / ipywidgets (notebooks)
+uv sync --extra docs                 # +mkdocs-material, mkdocstrings, mike (build the site)
 ```
 
-!!! note "`dev` extra is separate from `all`"
-    The `dev` extra is **not** part of `all` (toolchain and feature extras
-    are deliberately separated), so `--all-extras` does **not** install
-    pytest / commitizen. Developers should use:
+The declared extras are `jupyter`, `dev`, `docs`, and `all` (where
+`all == factrix[jupyter]`).
+
+!!! note "`dev` and `docs` are separate from `all`"
+    `all` only pulls in the `jupyter` extra — the toolchain (`dev`) and
+    docs-build (`docs`) extras are deliberately kept separate, so
+    `--all-extras` would still need to be paired with them explicitly when
+    you want everything in one shot:
 
     ```bash
-    uv sync --all-extras --extra dev   # feature extras + dev tools in one shot
+    uv sync --all-extras --extra dev   # all feature extras + dev tools
     ```
 
 ### Common environment commands
@@ -383,7 +387,7 @@ PR as the change.
 Page-level demo admonitions (`## Worked example`, `!!! example`
 blocks) are reserved for end-to-end demos that intentionally show
 something the docstring cannot — typically a longer
-synthetic-panel walk-through with `profile.diagnose()` output or a
+synthetic-panel walk-through with `EvaluationResult.warnings` output or a
 cross-cell config recipe table. They do not echo the docstring
 example.
 

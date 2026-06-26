@@ -52,7 +52,7 @@ title: factrix.metrics.fm_beta
     `pooled_beta` runs a single regression across the stacked panel with
     cluster-robust SE (one-way on `date`, or two-way with
     `two_way_cluster_col`). When pooled $\hat\beta$ and FM
-    $\hat\lambda$ disagree in sign, `profile.diagnose()` flags a
+    $\hat\lambda$ disagree in sign, the result's `warnings` flag a
     misspecification red flag.
 
 </div>
