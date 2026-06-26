@@ -945,7 +945,11 @@ def _make_drop_stats(
         f"n_{axis}_out": n_out,
         f"dropped_{axis}": dropped,
         "drop_rate": drop_rate,
-        "drop_reason": drop_reason,
+        # ``drop_reason`` names the criterion that *fired*; with nothing
+        # dropped there is no reason, so report null rather than the static
+        # predicate label (which otherwise reads as a contradiction at
+        # ``drop_rate == 0``).
+        "drop_reason": drop_reason if dropped > 0 else None,
     }
 
 

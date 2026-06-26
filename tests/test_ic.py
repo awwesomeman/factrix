@@ -264,6 +264,21 @@ class TestIC:
         ).with_columns(pl.col("date").cast(pl.Datetime("ms")))
         result = ic(df, forward_periods=1)
         assert math.isnan(result.value)
+        # Genuine date shortfall (no compute_ic carrier) → periods-axis reason.
+        assert result.metadata["reason"] == "insufficient_ic_periods"
+
+    def test_few_assets_reports_asset_axis_reason(self):
+        # 8 assets < MIN_IC_ASSETS=10 on every date, but plenty of dates: every
+        # cross-section is dropped, so the shortfall is asset-driven, not a date
+        # shortage. The reason must name the asset axis (dimension-token grammar).
+        import factrix as fx
+
+        raw = fx.datasets.make_cs_panel(n_assets=8, n_dates=120, seed=0)
+        panel = fx.preprocess.compute_forward_return(raw, forward_periods=5)
+        result = ic(compute_ic(panel)["factor"], forward_periods=5)
+        assert math.isnan(result.value)
+        assert result.metadata["reason"] == "insufficient_ic_assets"
+        assert result.metadata["min_assets_required"] == 10
 
 
 class TestICIR:

@@ -83,6 +83,14 @@ class TestSchema:
         assert stats is not None
         assert stats["dropped_periods"] == 0
         assert stats["drop_rate"] == 0.0
+        # Nothing dropped → reason is null, not the static criterion label.
+        assert stats["drop_reason"] is None
+
+    def test_partial_drop_reports_reason(self):
+        stats = _read_drop_stats(compute_ic(_thinned_panel())["factor"])
+        assert stats is not None
+        assert stats["dropped_periods"] > 0
+        assert "MIN_IC_ASSETS" in stats["drop_reason"]
 
     def test_hand_built_series_has_no_stats(self):
         # A series without the primitive's diagnostic column reads as None.
